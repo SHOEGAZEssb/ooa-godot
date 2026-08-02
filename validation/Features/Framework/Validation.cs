@@ -264,6 +264,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMakuTreeSouthExitReveal);
         RunIsolatedValidation(ValidateTerrain);
         RunIsolatedValidation(ValidateLinkTopDownMovement);
+        RunIsolatedValidation(ValidateLinkTopDownSwimming);
         RunIsolatedValidation(ValidateLinkTerrainEffects);
         RunIsolatedValidation(ValidateHealth);
         RunIsolatedValidation(ValidatePlayerDamageAndDeath);

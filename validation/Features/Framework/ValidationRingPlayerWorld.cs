@@ -31,6 +31,8 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public int SwordBeamCalls { get; private set; }
     public int LastSwordBeamDirection { get; private set; } = -1;
     public List<int> Sounds { get; } = new();
+    public List<(Vector2 Position, HazardType Hazard)> DrowningSplashes { get; } =
+        new();
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)
     {
@@ -102,6 +104,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     }
     public void SpawnDrowningSplash(Vector2 position, HazardType hazard)
     {
+        DrowningSplashes.Add((position, hazard));
     }
 
     public void DeactivateWarpAtPlayerPosition(Player player)

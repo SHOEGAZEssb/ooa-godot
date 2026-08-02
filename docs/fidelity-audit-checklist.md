@@ -69,7 +69,7 @@ that ledger instead of duplicating its 211-room inventory.
 
 | Priority | Open checklist item | Evidence and impact |
 | --- | --- | --- |
-| P1 | [ ] **CONFIRMED - implement top-down swimming and diving before treating water hazards as unconditional.** | The ROM dispatches non-side-view water through `link.s:linkUpdateSwimming`, including Flippers, Mermaid Suit, dive transitions, underwater state, and surfacing. Production has side-view swim state only. `Player.ApplyTerrainAtFeet` sends top-down water directly to drowning, so owning Flippers or the Mermaid Suit does not enable the original top-down behavior. |
+| P1 | [ ] **CONFIRMED - complete Mermaid Suit movement and underwater transitions.** | Production now imports and ports the Flippers branch of `link.s:linkUpdateSwimming` plus normal-water `linkUpdateDiving`: `$0a`-update entry lock, shared `func_5933` inertia, 8/13/12 A-button burst, B-toggle diving with the `$78` timer and Zora Ring exception, and exact swim/dive animation data. Mermaid Suit movement, SeaWater handling, and deep-water transitions remain unsupported, so SeaWater still takes the safe drowning path. |
 | P2 | [ ] **CONFIRMED - create and render side-view swim bubbles.** | On bubble-counter underflow, `link.s:linkUpdateSwimming_sidescroll` consumes RNG and creates `INTERAC_BUBBLE $91`. `Player.AdvanceSideScrollSwimming` deliberately consumes the same shared RNG call but has no bubble entity/spawn. RNG order is retained, but the visible interaction is absent. |
 
 ## Runtime foundation, ownership, and data boundaries
@@ -168,13 +168,14 @@ that ledger instead of duplicating its 211-room inventory.
   transitions, dungeon layout neighbors, destination preload/freeze, outgoing
   retention, HUD/screen-space separation, and one-frame Link scroll behavior
   are covered by the world/transition scenarios.
-- [x] Implemented hazards cover holes, top-down drowning, side-view pits/spikes,
-  pulling, damage/recovery, last-safe-position respawn, ledges, grass/puddle/
-  stair/vine speed selection, quicksand/bridge push, slippery side-view tiles,
-  and terrain-linked drops/effects.
+- [x] Implemented hazards cover holes, no-Flippers/SeaWater drowning, top-down
+  Flippers swimming and normal-water diving, side-view pits/spikes, pulling,
+  damage/recovery, last-safe-position respawn, ledges, grass/puddle/stair/vine
+  speed selection, quicksand/bridge push, slippery side-view tiles, and
+  terrain-linked drops/effects.
 - [ ] **P1 DECLARED - complete terrain-specific Link state dispatch.** Besides
-  the confirmed top-down swimming gap, later terrain states and underwater
-  transitions remain outside the current production state machine.
+  the confirmed Mermaid Suit movement/underwater-transition gap, later terrain
+  states remain outside the current production state machine.
 - [x] Room `$4:$09` now matches clean-ROM dictionary decompression, including
   `$a0` at `wRoomLayout+$79`; the dependent dungeon regression locks that byte.
 - [ ] **P1 DECLARED - implement world/event/door/controller families required
@@ -196,11 +197,11 @@ that ledger instead of duplicating its 211-room inventory.
   ordinary supported grabbables, thrown collisions, and strong-throw policy
   are source-traced and covered.
 - [x] Shovel timing and tile effects; level-1 Roc's Feather top-down and
-  side-view jump foundations; Harp song/submenu/time-portal foundations; Ember
-  and Mystery Satchel projectiles; seed submenu; Owl/Mystery behavior; chests,
-  ground treasures, drop producers, inventory-dependent drops, BCD rupee
-  countdown, water splashes, and Gasha/Seed Tree behavior have focused source
-  regressions.
+  side-view jump foundations; top-down Flippers swimming/normal diving; Harp
+  song/submenu/time-portal foundations; Ember and Mystery Satchel projectiles;
+  seed submenu; Owl/Mystery behavior; chests, ground treasures, drop producers,
+  inventory-dependent drops, BCD rupee countdown, water splashes, and
+  Gasha/Seed Tree behavior have focused source regressions.
 - [ ] **P1 DECLARED - implement the remaining usable Ages item parents:** Cane
   of Somaria `$04`, Boomerang `$06`, Switch Hook/helper/chain `$09-$0b`,
   Biggoron Sword `$0c`, Bombchus `$0d`, companion Flute `$0e`, and Seed Shooter
@@ -481,8 +482,10 @@ path.
    every boot/title/cinematic RNG call before changing enemy traces.
 3. [x] Route ordinary Link movement through retained 8.8 angle/speed state and
    add long cardinal/diagonal/collision path regressions.
-4. [ ] Implement top-down swimming/diving and direct side-view swim/Cape tests;
-   add the missing bubble interaction without adding an extra RNG call.
+4. [ ] Complete top-down Mermaid Suit movement/underwater transitions, add
+   direct side-view swim/Cape tests, and add the missing bubble interaction
+   without adding an extra RNG call. Top-down Flippers swimming and normal-
+   water diving are implemented and covered.
 5. [x] Fix `\slow()` and adjacent control-token parsing, then exhaustively scan
    every generated reachable message for unresolved commands.
 6. [x] Port the retail boot/attract loop and exact title Start audio/fade calls.

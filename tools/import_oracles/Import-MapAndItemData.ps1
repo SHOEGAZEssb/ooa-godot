@@ -1458,6 +1458,8 @@ $soundSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\music.s')
 $linkAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$linkOamSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
 
 # Export the bitwise tile types and fixed 8.8 Link physics used by
 # linkState01_sidescroll. These are not ordinary TerrainType values: a tile can
@@ -1748,6 +1750,261 @@ if ($topDownAirRows.Count -ne 11 -or
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\top_down_air_constants.tsv'),
     $topDownAirRows)
+
+# Export the shared Flippers constants consumed by non-side-view
+# linkUpdateSwimming together with Ages' exact LINK_ANIM_MODE_SWIM (`$0b) and
+# LINK_ANIM_MODE_DIVE (`$0c) graphics and OAM rows. Normal-water diving remains
+# distinct from the later Mermaid Suit and underwater-transition states.
+$topDownSwimEntryMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^overworldSwimmingState1:.*?ld l,SpecialObject\.counter1\s+ld \(hl\),\$(?<entry>[0-9a-f]{2})')
+$topDownSwimSpeedMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkSetSwimmingSpeed:.*?ld a,SPEED_e0\s+jr z,\+\s+ld a,SPEED_80.*?ld l,SpecialObject\.var35\s+ld \(hl\),\$00')
+$topDownSwimIntervalMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkSetSwimmingSpeed:.*?ld l,SpecialObject\.speed\s+ldi \(hl\),a\s+ldi \(hl\),a.*?inc l\s+ld a,\$(?<interval>[0-9a-f]{2})\s+ld \(hl\),a')
+$topDownSwimBurstMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkUpdateFlippersSpeed:.*?^@pressedA:.*?ld a,\$(?<turns>[0-9a-f]{2})\s+--.*?call func_5933.*?ld a,\$(?<accelerate>[0-9a-f]{2})\s+ld \(de\),a\s+ld a,SND_LINK_SWIM.*?^@flippersState1:\s+ldbc \$01,\$(?<step>[0-9a-f]{2}).*?^@flippersState2:.*?ldbc \$ff,-(?<negativeStep>[0-9]+).*?ld a,\$(?<decelerate>[0-9a-f]{2})\s+ld \(hl\),a')
+$topDownSwimAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19ee3:\s*\.db \$(?<duration0>[0-9a-f]{2}) \$(?<graphic0>[0-9a-f]{2}) \$[0-9a-f]{2}\s*\.db \$(?<duration1>[0-9a-f]{2}) \$(?<graphic1>[0-9a-f]{2}) \$[0-9a-f]{2}\s*m_AnimationLoop animationData19ee3')
+$topDownDiveBehaviorMatch = [regex]::Match(
+    $linkSource,
+    '(?ms)^linkUpdateDiving:.*?^@checkInput:.*?bit BTN_BIT_B,a.*?ld a,ZORA_RING.*?^@surface:\s+res 7,\(hl\)\s+ld a,LINK_ANIM_MODE_SWIM.*?^@dive:\s+set 7,\(hl\).*?ld a,\$(?<updates>[0-9a-f]{2}).*?call linkCreateSplash\s+ld a,LINK_ANIM_MODE_DIVE\s+jp specialObjectSetAnimation')
+$topDownDiveAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19eeb:\s*\.db \$(?<duration0>[0-9a-f]{2}) \$(?<graphic0>[0-9a-f]{2}) \$[0-9a-f]{2}\s*\.db \$(?<duration1>[0-9a-f]{2}) \$(?<graphic1>[0-9a-f]{2}) \$[0-9a-f]{2}\s*m_AnimationLoop animationData19eeb')
+if (-not $topDownSwimEntryMatch.Success -or
+    -not $topDownSwimSpeedMatch.Success -or
+    -not $topDownSwimIntervalMatch.Success -or
+    -not $topDownSwimBurstMatch.Success -or
+    -not $topDownSwimAnimationMatch.Success -or
+    -not $topDownDiveBehaviorMatch.Success -or
+    -not $topDownDiveAnimationMatch.Success -or
+    $linkSource -notmatch
+        '(?ms)^@flippersState0:.*?ld a,\(wGameKeysJustPressed\)\s+and BTN_A\s+jr nz,@pressedA') {
+    throw 'Could not verify top-down linkUpdateSwimming or linkUpdateDiving constants.'
+}
+
+$topDownSwimEntryUpdates = [Convert]::ToInt32(
+    $topDownSwimEntryMatch.Groups['entry'].Value, 16)
+$topDownSwimVelocityInterval = [Convert]::ToInt32(
+    $topDownSwimIntervalMatch.Groups['interval'].Value, 16)
+$topDownSwimTurnUpdates = [Convert]::ToInt32(
+    $topDownSwimBurstMatch.Groups['turns'].Value, 16)
+$topDownSwimAccelerateUpdates = [Convert]::ToInt32(
+    $topDownSwimBurstMatch.Groups['accelerate'].Value, 16)
+$topDownSwimDecelerateUpdates = [Convert]::ToInt32(
+    $topDownSwimBurstMatch.Groups['decelerate'].Value, 16)
+$topDownSwimSpeedStep = [Convert]::ToInt32(
+    $topDownSwimBurstMatch.Groups['step'].Value, 16)
+$topDownSwimNegativeStep = [Convert]::ToInt32(
+    $topDownSwimBurstMatch.Groups['negativeStep'].Value, 10)
+$topDownSwimDuration0 = [Convert]::ToInt32(
+    $topDownSwimAnimationMatch.Groups['duration0'].Value, 16)
+$topDownSwimDuration1 = [Convert]::ToInt32(
+    $topDownSwimAnimationMatch.Groups['duration1'].Value, 16)
+$topDownSwimGraphic0 = [Convert]::ToInt32(
+    $topDownSwimAnimationMatch.Groups['graphic0'].Value, 16)
+$topDownSwimGraphic1 = [Convert]::ToInt32(
+    $topDownSwimAnimationMatch.Groups['graphic1'].Value, 16)
+$topDownDiveUpdates = [Convert]::ToInt32(
+    $topDownDiveBehaviorMatch.Groups['updates'].Value, 16)
+$topDownDiveDuration0 = [Convert]::ToInt32(
+    $topDownDiveAnimationMatch.Groups['duration0'].Value, 16)
+$topDownDiveDuration1 = [Convert]::ToInt32(
+    $topDownDiveAnimationMatch.Groups['duration1'].Value, 16)
+$topDownDiveGraphic0 = [Convert]::ToInt32(
+    $topDownDiveAnimationMatch.Groups['graphic0'].Value, 16)
+$topDownDiveGraphic1 = [Convert]::ToInt32(
+    $topDownDiveAnimationMatch.Groups['graphic1'].Value, 16)
+$topDownSwimSound = Resolve-SideScrollSound 'SND_LINK_SWIM'
+
+if ($topDownSwimEntryUpdates -ne 0x0a -or
+    $topDownSwimVelocityInterval -ne 0x03 -or
+    $topDownSwimTurnUpdates -ne 0x08 -or
+    $topDownSwimAccelerateUpdates -ne 0x0d -or
+    $topDownSwimDecelerateUpdates -ne 0x0c -or
+    $topDownSwimSpeedStep -ne 5 -or
+    $topDownSwimNegativeStep -ne 5 -or
+    $topDownSwimDuration0 -ne 6 -or
+    $topDownSwimDuration1 -ne 6 -or
+    $topDownSwimGraphic0 -ne 0xd4 -or
+    $topDownSwimGraphic1 -ne 0xd8 -or
+    $topDownDiveUpdates -ne 0x78 -or
+    $topDownDiveDuration0 -ne 0x10 -or
+    $topDownDiveDuration1 -ne 0x10 -or
+    $topDownDiveGraphic0 -ne 0x0b -or
+    $topDownDiveGraphic1 -ne 0x0c -or
+    $topDownSwimSound -ne 0x88) {
+    throw 'Top-down Flippers/dive counters, speed step, animation, or sound changed.'
+}
+
+$topDownSwimConstantRows = @(
+    "# key`tvalue`tsource",
+    "base-speed`t$(Resolve-SideObjectSpeed 'SPEED_80')`tlink.s:linkSetSwimmingSpeed",
+    "fast-speed`t$(Resolve-SideObjectSpeed 'SPEED_e0')`tlink.s:linkSetSwimmingSpeed",
+    "entry-updates`t$topDownSwimEntryUpdates`tlink.s:overworldSwimmingState1",
+    "velocity-interval`t$topDownSwimVelocityInterval`tlink.s:linkSetSwimmingSpeed",
+    "burst-turn-updates`t$topDownSwimTurnUpdates`tlink.s:linkUpdateFlippersSpeed@pressedA",
+    "burst-accelerate-updates`t$topDownSwimAccelerateUpdates`tlink.s:linkUpdateFlippersSpeed@pressedA",
+    "burst-decelerate-updates`t$topDownSwimDecelerateUpdates`tlink.s:linkUpdateFlippersSpeed@nextState",
+    "burst-speed-step`t$topDownSwimSpeedStep`tlink.s:linkUpdateFlippersSpeed@accelerate",
+    "swim-sound`t$topDownSwimSound`tlink.s:linkUpdateFlippersSpeed@pressedA",
+    "animation-frame-0`t$topDownSwimDuration0`tspecialObjectAnimationData.s:animationData19ee3",
+    "animation-frame-1`t$topDownSwimDuration1`tspecialObjectAnimationData.s:animationData19ee3",
+    "dive-updates`t$topDownDiveUpdates`tlink.s:linkUpdateDiving@dive",
+    "dive-animation-frame-0`t$topDownDiveDuration0`tspecialObjectAnimationData.s:animationData19eeb",
+    "dive-animation-frame-1`t$topDownDiveDuration1`tspecialObjectAnimationData.s:animationData19eeb"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\top_down_swim_constants.tsv'),
+    $topDownSwimConstantRows)
+
+$linkGfxBlock = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^specialObject00GfxPointers:.*?(?=^specialObject00AnimationDataPointers:)')
+$linkGfxRows = @([regex]::Matches(
+    $linkGfxBlock.Value,
+    '(?m)^\s*m_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
+$linkOamPointerBlock = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^specialObject00OamDataPointers:.*?(?=^specialObject02GfxPointers:)')
+$linkOamLabels = @([regex]::Matches(
+    $linkOamPointerBlock.Value,
+    '(?m)^\s*\.dw\s+(?<label>oamData[0-9a-f]+)\s*$') |
+    ForEach-Object { $_.Groups['label'].Value })
+if (-not $linkGfxBlock.Success -or $linkGfxRows.Count -ne 260 -or
+    -not $linkOamPointerBlock.Success -or $linkOamLabels.Count -ne 48) {
+    throw 'Could not resolve Ages Link graphics or OAM pointer tables.'
+}
+
+$topDownSwimFrameRows = [Collections.Generic.List[string]]::new()
+$topDownSwimFrameRows.Add(
+    "# frame`tdirection`tduration`tsprite`tsource-offset`toam-index`toam`tsource")
+$topDownSwimExpectedOam = @{
+    0x10 = '12,0,0,0;12,8,2,0'
+    0x11 = '12,0,2,32;12,8,0,32'
+    0x12 = '12,0,0,0;12,8,0,32'
+}
+for ($frame = 0; $frame -lt 2; $frame++) {
+    $graphicBase = if ($frame -eq 0) {
+        $topDownSwimGraphic0
+    } else {
+        $topDownSwimGraphic1
+    }
+    $duration = if ($frame -eq 0) {
+        $topDownSwimDuration0
+    } else {
+        $topDownSwimDuration1
+    }
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        $graphic = $graphicBase + $direction
+        $gfx = $linkGfxRows[$graphic]
+        $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
+        $sourceOffset = [Convert]::ToInt32(
+            $gfx.Groups['offset'].Value, 16)
+        $size = [Convert]::ToInt32($gfx.Groups['size'].Value, 16)
+        if (-not $topDownSwimExpectedOam.ContainsKey($oamIndex) -or
+            $oamIndex -ge $linkOamLabels.Count) {
+            throw ('LINK_ANIM_MODE_SWIM graphic ${0:x2} references unsupported OAM ${1:x2}.' -f $graphic, $oamIndex)
+        }
+        $oamLabel = $linkOamLabels[$oamIndex]
+        $oamBlock = [regex]::Match(
+            $linkOamSource,
+            "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
+        $oamDirectives = @([regex]::Matches(
+            $oamBlock.Groups['body'].Value,
+            '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
+        $oamParts = [Collections.Generic.List[int]]::new()
+        foreach ($oamDirective in $oamDirectives) {
+            foreach ($field in @('y', 'x', 'tile', 'flags')) {
+                $oamParts.Add([Convert]::ToInt32(
+                    $oamDirective.Groups[$field].Value, 16))
+            }
+        }
+        if (-not $oamBlock.Success -or ($oamParts.Count % 4) -ne 0) {
+            throw "Could not parse special-object OAM label $oamLabel."
+        }
+        $encodedParts = [Collections.Generic.List[string]]::new()
+        for ($part = 0; $part -lt $oamParts.Count; $part += 4) {
+            $encodedParts.Add(
+                "$($oamParts[$part]),$($oamParts[$part + 1]),$($oamParts[$part + 2]),$($oamParts[$part + 3])")
+        }
+        $encodedOam = $encodedParts -join ';'
+        if ($encodedOam -ne $topDownSwimExpectedOam[$oamIndex] -or
+            $size -notin @(2, 4)) {
+            throw ('LINK_ANIM_MODE_SWIM graphic ${0:x2} OAM or source size changed.' -f $graphic)
+        }
+        $topDownSwimFrameRows.Add(
+            ("$frame`t$direction`t$duration`tspr_link`t$($sourceOffset.ToString('x4'))`t$($oamIndex.ToString('x2'))`t$encodedOam`tspecialObjectAnimationData.s:graphic-`${0:x2}+$oamLabel" -f $graphic))
+    }
+}
+if ($topDownSwimFrameRows.Count -ne 9) {
+    throw 'LINK_ANIM_MODE_SWIM lost an expected directional frame.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\top_down_swim_frames.tsv'),
+    $topDownSwimFrameRows)
+
+$topDownDiveFrameRows = [Collections.Generic.List[string]]::new()
+$topDownDiveFrameRows.Add(
+    "# frame`tduration`tsprite`tsource-offset`toam-index`toam`tsource")
+for ($frame = 0; $frame -lt 2; $frame++) {
+    $graphic = if ($frame -eq 0) {
+        $topDownDiveGraphic0
+    } else {
+        $topDownDiveGraphic1
+    }
+    $duration = if ($frame -eq 0) {
+        $topDownDiveDuration0
+    } else {
+        $topDownDiveDuration1
+    }
+    $gfx = $linkGfxRows[$graphic]
+    $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
+    $sourceOffset = [Convert]::ToInt32($gfx.Groups['offset'].Value, 16)
+    $size = [Convert]::ToInt32($gfx.Groups['size'].Value, 16)
+    if ($oamIndex -ne 0x12 -or $oamIndex -ge $linkOamLabels.Count) {
+        throw ('LINK_ANIM_MODE_DIVE graphic ${0:x2} references unsupported OAM ${1:x2}.' -f $graphic, $oamIndex)
+    }
+    $oamLabel = $linkOamLabels[$oamIndex]
+    $oamBlock = [regex]::Match(
+        $linkOamSource,
+        "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
+    $oamDirectives = @([regex]::Matches(
+        $oamBlock.Groups['body'].Value,
+        '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
+    $oamParts = [Collections.Generic.List[int]]::new()
+    foreach ($oamDirective in $oamDirectives) {
+        foreach ($field in @('y', 'x', 'tile', 'flags')) {
+            $oamParts.Add([Convert]::ToInt32(
+                $oamDirective.Groups[$field].Value, 16))
+        }
+    }
+    if (-not $oamBlock.Success -or ($oamParts.Count % 4) -ne 0) {
+        throw "Could not parse special-object OAM label $oamLabel."
+    }
+    $encodedParts = [Collections.Generic.List[string]]::new()
+    for ($part = 0; $part -lt $oamParts.Count; $part += 4) {
+        $encodedParts.Add(
+            "$($oamParts[$part]),$($oamParts[$part + 1]),$($oamParts[$part + 2]),$($oamParts[$part + 3])")
+    }
+    $encodedOam = $encodedParts -join ';'
+    if ($encodedOam -ne $topDownSwimExpectedOam[0x12] -or $size -ne 2) {
+        throw ('LINK_ANIM_MODE_DIVE graphic ${0:x2} OAM or source size changed.' -f $graphic)
+    }
+    $topDownDiveFrameRows.Add(
+        ("$frame`t$duration`tspr_link`t$($sourceOffset.ToString('x4'))`t$($oamIndex.ToString('x2'))`t$encodedOam`tspecialObjectAnimationData.s:graphic-`${0:x2}+$oamLabel" -f $graphic))
+}
+if ($topDownDiveFrameRows.Count -ne 3) {
+    throw 'LINK_ANIM_MODE_DIVE lost an expected frame.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\top_down_dive_frames.tsv'),
+    $topDownDiveFrameRows)
 
 $ledgeCollisionModes = @{
     overworld = 0

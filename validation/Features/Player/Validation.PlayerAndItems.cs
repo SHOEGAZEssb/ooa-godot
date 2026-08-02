@@ -627,6 +627,468 @@ public sealed partial class ValidationRoot
             0x00);
     }
 
+    private void ValidateLinkTopDownSwimming()
+    {
+        const double UpdateDelta = 1.0 / 60.0;
+        const float Speed80CardinalComponent = 0x80 / 256.0f;
+        const int WaterGroup = 0;
+        const int WaterRoom = 0x00;
+        const int WaterPackedPosition = 0x14;
+        Vector2 waterPosition = new(72, 24);
+        TerrainInfo waterTerrain = _world.LoadRoom(WaterGroup, WaterRoom)
+            .GetTerrainInfo(waterPosition);
+        FailIf(
+            waterTerrain.Tile != 0xfa ||
+            waterTerrain.Type != TerrainType.Water ||
+            waterTerrain.Hazard != HazardType.Water,
+            "Canonical room 0:00/$14 no longer exposes ordinary swimmable " +
+            "water; " +
+            $"tile=${waterTerrain.Tile:x2}, " +
+            $"type={waterTerrain.Type}, hazard={waterTerrain.Hazard}.");
+
+        TopDownSwimmingDatabase database = TopDownSwimmingDatabase.Shared;
+        TopDownSwimmingParameters parameters = database.Parameters;
+        TopDownSwimmingFrame rightFrame0 = database.Frame(0, 1);
+        TopDownSwimmingFrame downFrame1 = database.Frame(1, 2);
+        TopDownDivingFrame diveFrame0 = database.DiveFrame(0);
+        TopDownDivingFrame diveFrame1 = database.DiveFrame(1);
+        FailIf(
+            parameters.BaseSpeed != 0x14 ||
+            parameters.FastSpeed != 0x23 ||
+            parameters.EntryUpdates != 0x0a ||
+            parameters.VelocityInterval != 0x03 ||
+            parameters.BurstTurnUpdates != 0x08 ||
+            parameters.BurstAccelerateUpdates != 0x0d ||
+            parameters.BurstDecelerateUpdates != 0x0c ||
+            parameters.BurstSpeedStep != 0x05 ||
+            parameters.SwimSound != OracleSoundEngine.SndLinkSwim ||
+            !parameters.AnimationFrameDurations.AsSpan().SequenceEqual([6, 6]) ||
+            parameters.DiveUpdates != 0x78 ||
+            !parameters.DiveAnimationFrameDurations.AsSpan()
+                .SequenceEqual([0x10, 0x10]) ||
+            rightFrame0.SourceOffset != 0x0ec0 ||
+            rightFrame0.OamIndex != 0x11 ||
+            rightFrame0.Oam != "12,0,2,32;12,8,0,32" ||
+            downFrame1.SourceOffset != 0x0ea0 ||
+            downFrame1.OamIndex != 0x12 ||
+            downFrame1.Oam != "12,0,0,0;12,8,0,32" ||
+            diveFrame0.SourceOffset != 0x0f40 ||
+            diveFrame0.OamIndex != 0x12 ||
+            diveFrame0.Oam != "12,0,0,0;12,8,0,32" ||
+            diveFrame1.SourceOffset != 0x0f60 ||
+            diveFrame1.OamIndex != 0x12 ||
+            diveFrame1.Oam != "12,0,0,0;12,8,0,32",
+            "Imported linkUpdateSwimming/linkUpdateDiving constants, " +
+            "LINK_ANIM_MODE_SWIM graphics, or LINK_ANIM_MODE_DIVE graphics " +
+            "changed.");
+
+        ActiveTerrainInfo normal = new(
+            new TerrainInfo(
+                0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0x00);
+        ActiveTerrainInfo water = new(
+            waterTerrain,
+            waterPosition,
+            waterPosition,
+            WaterPackedPosition);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        save.WriteWramByte(0xc6cc, 1);
+        save.WriteWramByte(0xc6c6, (byte)RingId.Zora);
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
+        var world = new ValidationRingPlayerWorld { ActiveTerrain = normal };
+        var player = new Player
+        {
+            Name = "TopDownSwimmingValidationPlayer",
+            ZIndex = Player.NormalZIndex
+        };
+        AddChild(player);
+        player.Initialize(
+            world,
+            inventory,
+            new Vector2(40.25f, 80.75f),
+            new OracleRandom());
+
+        var idleBurstWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = water
+        };
+        var idleBurst = new Player
+        {
+            Name = "TopDownIdleBurstValidationPlayer",
+            ZIndex = Player.NormalZIndex
+        };
+        AddChild(idleBurst);
+        idleBurst.Initialize(
+            idleBurstWorld,
+            inventory,
+            new Vector2(120, 80),
+            new OracleRandom());
+
+        var noFlippersWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = water
+        };
+        var noFlippers = new Player
+        {
+            Name = "TopDownNoFlippersValidationPlayer"
+        };
+        AddChild(noFlippers);
+        noFlippers.Initialize(
+            noFlippersWorld,
+            new InventoryState(_treasures, OracleSaveData.CreateStandardGame()),
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        var seaWaterWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = new ActiveTerrainInfo(
+                new TerrainInfo(
+                    0xfc, 0x10, TerrainType.SeaWater, HazardType.Water),
+                Vector2.Zero,
+                Vector2.Zero,
+                0x00)
+        };
+        var seaWater = new Player
+        {
+            Name = "TopDownSeaWaterValidationPlayer"
+        };
+        AddChild(seaWater);
+        seaWater.Initialize(
+            seaWaterWorld,
+            inventory,
+            new Vector2(96, 80),
+            new OracleRandom());
+
+        try
+        {
+            Input.ActionPress("move_right");
+            player._PhysicsProcess(UpdateDelta);
+            Vector2 waterEntryPosition = player.PrecisePosition;
+            world.ActiveTerrain = water;
+            player._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !player.TopDownSwimming ||
+                player.TopDownSwimmingState != 2 ||
+                player.TopDownSwimmingEntryCounter != 0x0a ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimTargetSpeedRaw != 0x14 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.PrecisePosition != waterEntryPosition ||
+                player.IsDrowning || player.IsGroundedForFloorButton ||
+                player.CurrentTerrainEffect is not null ||
+                world.DrowningSplashes.Count != 1 ||
+                world.DrowningSplashes[0].Hazard != HazardType.Water ||
+                world.Sounds.Contains(OracleSoundEngine.SndDamageLink) ||
+                player.TopDownSwimAtlasPixelHash == 0,
+                "Flippers water entry did not select state 2, preserve the " +
+                "incoming `$08 trajectory for `$0a updates, create one " +
+                "splash, and suppress drowning/ground effects.");
+
+            for (int update = 0; update < 9; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            Vector2 expectedLockedPosition = waterEntryPosition +
+                new Vector2(9 * Speed80CardinalComponent, 0);
+            FailIf(
+                player.TopDownSwimmingState != 2 ||
+                player.TopDownSwimmingEntryCounter != 1 ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.PrecisePosition != expectedLockedPosition,
+                "overworldSwimmingState2 did not retain the entry angle and " +
+                "SPEED_80 displacement through its first nine updates.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            expectedLockedPosition.X += Speed80CardinalComponent;
+            FailIf(
+                player.TopDownSwimmingState != 3 ||
+                player.TopDownSwimmingEntryCounter != 0 ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 5 ||
+                player.PrecisePosition != expectedLockedPosition,
+                "The tenth locked swimming update did not fall through to " +
+                "state 3 and its first animation/inertia update.");
+
+            for (int update = 0; update < 4; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 1,
+                "LINK_ANIM_MODE_SWIM left its first six-update graphic early.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                attackJustPressed: true);
+            FailIf(
+                player.TopDownSwimAnimationFrame != 1 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.TopDownSwimBurstState != 1 ||
+                player.TopDownSwimBurstCounter != 0x0c ||
+                player.TopDownSwimTargetSpeedRaw != 0x19 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                world.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim) != 1,
+                "A-button swimming did not perform eight facing turns, " +
+                "decrement `$0d to `$0c, add five target-speed units, play " +
+                "SND_LINK_SWIM `$88, or advance the 6/6 animation.");
+
+            idleBurst.AdvanceTopDownSwimmingUpdateForValidation(
+                entryAngle: 0xff);
+            for (int update = 0; update < 10; update++)
+                idleBurst.AdvanceTopDownSwimmingUpdateForValidation();
+            Vector2 idleBurstStart = idleBurst.PrecisePosition;
+            FailIf(
+                idleBurst.TopDownSwimmingState != 3 ||
+                idleBurst.TopDownSwimAngle != 0xff ||
+                idleBurst.TopDownSwimSpeedRaw != 0x14 ||
+                idleBurst.FacingVector != Vector2I.Down ||
+                idleBurst.PrecisePosition != new Vector2(120, 80),
+                "A no-input Flippers setup did not retain stopped `$ff " +
+                "momentum and Link's stored DIR_DOWN facing.");
+            idleBurst.AdvanceTopDownSwimmingUpdateForValidation(
+                attackJustPressed: true);
+            FailIf(
+                idleBurst.TopDownSwimAngle != 0x10 ||
+                idleBurst.TopDownSwimSpeedRaw != 0x14 ||
+                idleBurst.TopDownSwimTargetSpeedRaw != 0x19 ||
+                idleBurst.TopDownSwimBurstState != 1 ||
+                idleBurst.TopDownSwimBurstCounter != 0x0c ||
+                idleBurst.PrecisePosition !=
+                    idleBurstStart + new Vector2(0, 0x80 / 256.0f) ||
+                idleBurstWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim) != 1,
+                "An idle A press did not run eight DIR_DOWN steering calls, " +
+                "start the 13/12 burst, and propel Link along his stored " +
+                "direction without D-pad input.");
+
+            for (int update = 0; update < 24; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                player.TopDownSwimBurstState != 0 ||
+                player.TopDownSwimBurstCounter != 0 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimTargetSpeedRaw != 0x14 ||
+                world.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim) != 1,
+                "The 13-update acceleration and 12-update deceleration " +
+                "phases did not return Flippers to SPEED_80 exactly once.");
+
+            int transitionState = player.TopDownSwimmingState;
+            int transitionAngle = player.TopDownSwimAngle;
+            int transitionSpeed = player.TopDownSwimSpeedRaw;
+            int transitionTargetSpeed = player.TopDownSwimTargetSpeedRaw;
+            int transitionBurstState = player.TopDownSwimBurstState;
+            int transitionBurstCounter = player.TopDownSwimBurstCounter;
+            int transitionAnimationFrame = player.TopDownSwimAnimationFrame;
+            int transitionAnimationCounter = player.TopDownSwimAnimationCounter;
+            int transitionSplashCount = world.DrowningSplashes.Count;
+            Vector2 transitionDestination =
+                player.PrecisePosition + new Vector2(160, 0);
+            player.BeginScrollingTransition(
+                player.PrecisePosition,
+                Vector2I.Right);
+            player.SetScrollingTransitionPosition(
+                transitionDestination,
+                new Vector2(80, 0));
+            player.FinishScrollingTransition(transitionDestination);
+            FailIf(
+                !player.TopDownSwimming || player.TopDownDiving ||
+                player.TopDownSwimmingState != transitionState ||
+                player.TopDownSwimAngle != transitionAngle ||
+                player.TopDownSwimSpeedRaw != transitionSpeed ||
+                player.TopDownSwimTargetSpeedRaw != transitionTargetSpeed ||
+                player.TopDownSwimBurstState != transitionBurstState ||
+                player.TopDownSwimBurstCounter != transitionBurstCounter ||
+                player.TopDownSwimAnimationFrame != transitionAnimationFrame ||
+                player.TopDownSwimAnimationCounter !=
+                    transitionAnimationCounter ||
+                player.PrecisePosition != transitionDestination ||
+                player.ZIndex != Player.NormalZIndex ||
+                world.DrowningSplashes.Count != transitionSplashCount,
+                "A scrolling screen transition cleared or restarted the " +
+                "active Flippers state, exposed standing Link, or replayed " +
+                "the water-entry splash.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.TopDownSwimmingState != 3 ||
+                player.TopDownSwimmingEntryCounter != 0 ||
+                world.DrowningSplashes.Count != transitionSplashCount,
+                "The first destination-room water update restarted state 2 " +
+                "or replayed the entry splash after scrolling.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x78 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 0x10 ||
+                player.ZIndex != Player.DivingZIndex ||
+                player.AcceptsRoomEntityContact ||
+                world.DrowningSplashes.Count != transitionSplashCount + 1 ||
+                player.TopDownDiveAtlasPixelHash == 0,
+                "B did not set swimming bit 7, counter2 `$78, collision-off/" +
+                "priority c3, LINK_ANIM_MODE_DIVE, and one dive splash.");
+
+            for (int update = 0; update < 15; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x69 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 1,
+                "Normal diving did not retain its first `$10-update graphic " +
+                "while decrementing counter2 once per update.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x68 ||
+                player.TopDownSwimAnimationFrame != 1 ||
+                player.TopDownSwimAnimationCounter != 0x10,
+                "LINK_ANIM_MODE_DIVE did not switch to its second graphic " +
+                "on the sixteenth update.");
+
+            for (int update = 0; update < 103; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving || player.TopDownDiveCounter != 1,
+                "Normal diving surfaced before counter2 reached zero.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.TopDownDiving || player.TopDownDiveCounter != 0 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.ZIndex != Player.NormalZIndex ||
+                !player.AcceptsRoomEntityContact ||
+                world.DrowningSplashes.Count != transitionSplashCount + 1,
+                "The `$78 normal-dive timeout did not surface into " +
+                "LINK_ANIM_MODE_SWIM without another splash.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                !inventory.EquipRingAt(0) ||
+                inventory.ActiveRing != (int)RingId.Zora,
+                "Could not equip ZORA_RING `$3c for normal-dive validation.");
+            for (int update = 0; update < 0x79; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x78 ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "ZORA_RING `$3c did not suppress the normal dive timer.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                player.TopDownDiving || player.TopDownDiveCounter != 0 ||
+                player.ZIndex != Player.NormalZIndex ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "B did not surface immediately from a Zora Ring dive " +
+                "without creating another splash.");
+            FailIf(
+                !inventory.EquipRingAt(0) || inventory.ActiveRing != 0xff,
+                "Could not unequip ZORA_RING `$3c after dive validation.");
+
+            Vector2 exitStart = player.PrecisePosition;
+            world.ActiveTerrain = normal;
+            player._PhysicsProcess(UpdateDelta);
+            FailIf(
+                player.TopDownSwimming || !player.IsGroundedForFloorButton ||
+                player.PrecisePosition != exitStart + Vector2.Right ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "Leaving water did not clear swimming and resume ordinary " +
+                "SPEED_100 top-down movement without another splash.");
+
+            world.ActiveTerrain = new ActiveTerrainInfo(
+                new TerrainInfo(
+                    0xe3, 0x00, TerrainType.RightCurrent, HazardType.Water),
+                Vector2.Zero,
+                Vector2.Zero,
+                0x00);
+            Vector2 currentStart = player.PrecisePosition;
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                entryAngle: 0x08);
+            FailIf(
+                player.TopDownSwimmingState != 2 ||
+                player.PrecisePosition != currentStart +
+                    new Vector2(0xc0 / 256.0f, 0) ||
+                world.DrowningSplashes.Count != transitionSplashCount + 3,
+                "TILETYPE_RIGHTCURRENT `$e3 did not apply its independent " +
+                "SPEED_c0 displacement on the Flippers entry update.");
+            currentStart = player.PrecisePosition;
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.PrecisePosition != currentStart +
+                    new Vector2((0xc0 + 0x80) / 256.0f, 0),
+                "Swimming in TILETYPE_RIGHTCURRENT `$e3 did not compose " +
+                "SPEED_c0 current and SPEED_80 entry-lock momentum.");
+
+            noFlippers._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !noFlippers.IsDrowning || noFlippers.TopDownSwimming ||
+                noFlippersWorld.DrowningSplashes.Count != 1 ||
+                noFlippersWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndDamageLink) != 1,
+                "Ordinary water did not retain source drowning for Link " +
+                "without TREASURE_FLIPPERS `$2e.");
+
+            seaWater._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !seaWater.IsDrowning || seaWater.TopDownSwimming ||
+                seaWaterWorld.DrowningSplashes.Count != 1 ||
+                seaWaterWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndDamageLink) != 1,
+                "Ages TILETYPE_SEAWATER `$fc incorrectly entered the " +
+                "normal-water Flippers path.");
+        }
+        finally
+        {
+            Input.ActionRelease("move_right");
+            player.Free();
+            idleBurst.Free();
+            noFlippers.Free();
+            seaWater.Free();
+        }
+
+        GD.Print(
+            "Validated top-down TREASURE_FLIPPERS `$2e swimming/diving: " +
+            "canonical water entry/splash, `$0a trajectory lock, exact " +
+            "func_5933 inertia, 6/6 directional animation, A-button " +
+            "8/13/12 directional and idle-facing bursts with " +
+            "SND_LINK_SWIM `$88, scrolling-state retention, B-toggle `$78 " +
+            "normal diving, 16/16 dive animation, ZORA_RING timer " +
+            "suppression, current composition, water exit, and " +
+            "no-Flippers/SeaWater drowning boundaries.");
+    }
+
     private void ValidateLinkTerrainEffects()
     {
         Vector2 grassPosition = new(56, 120);

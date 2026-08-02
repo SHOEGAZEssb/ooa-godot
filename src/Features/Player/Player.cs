@@ -6,6 +6,7 @@ namespace oracleofages;
 public partial class Player : Node2D
 {
     internal const int NormalZIndex = 10;
+    internal const int DivingZIndex = 8;
     internal const int AlternateTextboxPaletteZIndex = 13;
     private const int NormalTopDownSpeed = 0x28;
     private const int GrassTopDownSpeed = 0x1e;
@@ -68,6 +69,10 @@ public partial class Player : Node2D
     private Texture2D _damageShovelLinkTexture = null!;
     private Texture2D _drownTexture = null!;
     private Texture2D _damageDrownTexture = null!;
+    private Texture2D _topDownSwimTexture = null!;
+    private Texture2D _damageTopDownSwimTexture = null!;
+    private Texture2D _topDownDiveTexture = null!;
+    private Texture2D _damageTopDownDiveTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Texture2D _damageFallInHoleTexture = null!;
     private Texture2D _ledgeJumpTexture = null!;
@@ -77,6 +82,7 @@ public partial class Player : Node2D
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
     private LinkItemDatabase _linkItems = null!;
+    private TopDownSwimmingDatabase _topDownSwimmingData = null!;
     private LinkTerrainEffectDatabase _terrainEffects = null!;
     private int _terrainWalkUpdates;
     private bool _terrainWalkSoundParameter;
@@ -159,6 +165,18 @@ public partial class Player : Node2D
     private int _topDownAirAnimationCounter;
     private bool _topDownAirborne;
     private bool _topDownJumpSoundPending;
+    private int _topDownSwimmingState;
+    private int _topDownSwimmingEntryCounter;
+    private int _topDownSwimAngle = 0xff;
+    private int _topDownSwimSpeedRaw;
+    private int _topDownSwimTargetSpeedRaw;
+    private int _topDownSwimVelocityCounter;
+    private int _topDownSwimBurstState;
+    private int _topDownSwimBurstCounter;
+    private int _topDownSwimAnimationFrame;
+    private int _topDownSwimAnimationCounter;
+    private bool _topDownDiving;
+    private int _topDownDiveCounter;
     private float _enemyInvincibilityFrames;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
@@ -349,10 +367,10 @@ public partial class Player : Node2D
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
         !_sideScrollAirborne && !_topDownAirborne &&
-        !_drowning && !_fallingInHole;
+        !TopDownSwimming && !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
         _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
-        !IsUsingHarp;
+        !TopDownDiving && !IsUsingHarp;
     internal int LedgeZ => _ledgeZFixed >> 8;
     internal int LedgeSpeedZ => _ledgeSpeedZ;
     internal int LedgeSpeedRaw => _ledgeSpeedRaw;
@@ -366,6 +384,22 @@ public partial class Player : Node2D
     internal int SideScrollSpeedRaw => _sideScrollSpeedRaw;
     internal int SideScrollAnimationPhase => _sideScrollAnimationPhase;
     internal bool SideScrollSwimming => _sideScrollSwimmingState != 0;
+    internal bool TopDownSwimming => _topDownSwimmingState != 0;
+    internal int TopDownSwimmingState => _topDownSwimmingState;
+    internal int TopDownSwimmingEntryCounter => _topDownSwimmingEntryCounter;
+    internal int TopDownSwimAngle => _topDownSwimAngle;
+    internal int TopDownSwimSpeedRaw => _topDownSwimSpeedRaw;
+    internal int TopDownSwimTargetSpeedRaw => _topDownSwimTargetSpeedRaw;
+    internal int TopDownSwimBurstState => _topDownSwimBurstState;
+    internal int TopDownSwimBurstCounter => _topDownSwimBurstCounter;
+    internal int TopDownSwimAnimationFrame => _topDownSwimAnimationFrame;
+    internal int TopDownSwimAnimationCounter => _topDownSwimAnimationCounter;
+    internal bool TopDownDiving => TopDownSwimming && _topDownDiving;
+    internal int TopDownDiveCounter => _topDownDiveCounter;
+    internal ulong TopDownSwimAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_topDownSwimTexture.GetImage());
+    internal ulong TopDownDiveAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_topDownDiveTexture.GetImage());
     internal bool SideScrollSquished =>
         _sideScrollSquishPending ||
         _sideScrollSquishAnimationCounter != 0 ||
@@ -379,7 +413,9 @@ public partial class Player : Node2D
     {
         int angle = _world.SideScrolling
             ? _sideScrollAngle
-            : AngleForVector(_lastMovementInput);
+            : TopDownSwimming
+                ? _topDownSwimAngle
+                : AngleForVector(_lastMovementInput);
         if (angle >= 0x80)
             return false;
         return direction == Vector2I.Up
@@ -533,6 +569,7 @@ public partial class Player : Node2D
         _inventory = inventory;
         _random = random;
         _linkItems = LinkItemDatabase.Shared;
+        _topDownSwimmingData = TopDownSwimmingDatabase.Shared;
         _texture = BuildLinkTexture(damagePalette: false);
         _damageTexture = BuildLinkTexture(damagePalette: true);
         _getItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: false);
@@ -571,6 +608,10 @@ public partial class Player : Node2D
         _damageShovelLinkTexture = BuildShovelLinkTexture(damagePalette: true);
         _drownTexture = BuildDrownTexture(damagePalette: false);
         _damageDrownTexture = BuildDrownTexture(damagePalette: true);
+        _topDownSwimTexture = BuildTopDownSwimTexture(damagePalette: false);
+        _damageTopDownSwimTexture = BuildTopDownSwimTexture(damagePalette: true);
+        _topDownDiveTexture = BuildTopDownDiveTexture(damagePalette: false);
+        _damageTopDownDiveTexture = BuildTopDownDiveTexture(damagePalette: true);
         _fallInHoleTexture = BuildFallInHoleTexture(damagePalette: false);
         _damageFallInHoleTexture = BuildFallInHoleTexture(damagePalette: true);
         _ledgeJumpTexture = BuildLedgeJumpTexture(damagePalette: false);
@@ -606,7 +647,9 @@ public partial class Player : Node2D
         // Y priority.
         ZIndex = active
             ? AlternateTextboxPaletteZIndex
-            : NormalZIndex;
+            : TopDownDiving
+                ? DivingZIndex
+                : NormalZIndex;
     }
 
     public void WarpTo(
@@ -614,7 +657,8 @@ public partial class Player : Node2D
         bool recordSafe = true,
         bool preserveSword = false,
         bool preserveShield = false,
-        bool preserveLedgeJump = false)
+        bool preserveLedgeJump = false,
+        bool preserveTopDownSwimming = false)
     {
         InterruptCarriedItems(discard: true);
         if (!preserveSword)
@@ -658,6 +702,8 @@ public partial class Player : Node2D
         _braceletLiftCollisionsDisabled = false;
         ClearSideScrollState(position);
         ClearTopDownAirState();
+        if (!preserveTopDownSwimming)
+            ClearTopDownSwimmingState();
         if (preserveShield)
             SuspendShield();
         else
@@ -926,12 +972,14 @@ public partial class Player : Node2D
     {
         bool resumeLedgeJump =
             _ledgeJumpState == LedgeJumpState.WaitingForScroll;
+        bool preserveTopDownSwimming = TopDownSwimming;
         WarpTo(
             position,
             recordSafe: !resumeLedgeJump,
             preserveSword: true,
             preserveShield: true,
-            preserveLedgeJump: resumeLedgeJump);
+            preserveLedgeJump: resumeLedgeJump,
+            preserveTopDownSwimming: preserveTopDownSwimming);
         if (resumeLedgeJump)
             _world.ResumeLedgeHopAfterScroll(this);
         _walking = false;
@@ -1424,6 +1472,7 @@ public partial class Player : Node2D
         if (_world.MovementDisabled &&
             !_minecartRideControlled && !_companionRideControlled)
             input = Vector2.Zero;
+        Vector2 previousMovementInput = _lastMovementInput;
         _lastMovementInput = input;
 
         if (_companionRideControlled)
@@ -1437,6 +1486,17 @@ public partial class Player : Node2D
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             _world.CheckRoomExit(this);
             QueueRedraw();
+            return;
+        }
+
+        if (!_world.SideScrolling &&
+            TryAdvanceTopDownSwimming(
+                input,
+                AngleForVector(previousMovementInput),
+                movementStart,
+                Input.IsActionJustPressed("attack"),
+                Input.IsActionJustPressed("item")))
+        {
             return;
         }
 
@@ -2543,6 +2603,23 @@ public partial class Player : Node2D
                 DamagePaletteActive ? _damageFallInHoleTexture : _fallInHoleTexture,
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, 0, 16, 16));
+        }
+        else if (TopDownSwimming)
+        {
+            DrawTextureRectRegion(
+                TopDownDiving
+                    ? DamagePaletteActive
+                        ? _damageTopDownDiveTexture
+                        : _topDownDiveTexture
+                    : DamagePaletteActive
+                        ? _damageTopDownSwimTexture
+                        : _topDownSwimTexture,
+                new Rect2(DrownSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(
+                    _topDownSwimAnimationFrame * 16,
+                    TopDownDiving ? 0 : (int)_facing * 16,
+                    16,
+                    16));
         }
         else if (SideScrollSquished)
         {
@@ -3689,6 +3766,330 @@ public partial class Player : Node2D
         _companionRideZFixed = 0;
     }
 
+    /// <summary>
+    /// Port of the non-side-view linkUpdateSwimming states used by Flippers.
+    /// This includes normal-water linkUpdateDiving; Mermaid Suit movement and
+    /// underwater transitions remain owned by a later implementation, so Ages
+    /// SeaWater retains its drowning behavior on this path.
+    /// </summary>
+    private bool TryAdvanceTopDownSwimming(
+        Vector2 input,
+        int entryAngle,
+        Vector2 movementStart,
+        bool attackJustPressed,
+        bool diveJustPressed)
+    {
+        if (_topDownAirborne || _world.RidingObject ||
+            _minecartRideControlled || _companionRideControlled)
+        {
+            ClearTopDownSwimmingState();
+            return false;
+        }
+
+        ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
+        if (activeTerrain.Terrain.Hazard != HazardType.Water)
+        {
+            ClearTopDownSwimmingState();
+            return false;
+        }
+
+        bool unsupportedSeaWater =
+            activeTerrain.Terrain.Type == TerrainType.SeaWater;
+        bool hasFlippers =
+            _inventory.HasTreasure(TreasureDatabase.TreasureFlippers);
+        if (unsupportedSeaWater || !hasFlippers)
+        {
+            ClearTopDownSwimmingState();
+            InterruptCarriedItems(discard: true);
+            ClearShieldParent();
+            StartDrowning(HazardType.Water);
+            return true;
+        }
+
+        ApplyTopDownSwimmingCurrent(activeTerrain.Terrain.Type);
+
+        if (_topDownSwimmingState == 0)
+        {
+            BeginTopDownSwimming(entryAngle);
+            FinalizeTopDownSwimmingUpdate(movementStart);
+            return true;
+        }
+
+        if (_topDownSwimmingState == 2)
+        {
+            _topDownSwimmingEntryCounter =
+                (_topDownSwimmingEntryCounter - 1) & 0xff;
+            if (_topDownSwimmingEntryCounter != 0)
+            {
+                ApplyTopDownSwimMomentum();
+                FinalizeTopDownSwimmingUpdate(movementStart);
+                return true;
+            }
+            _topDownSwimmingState = 3;
+        }
+
+        AdvanceTopDownSwimmingAnimation();
+        UpdateTopDownDiving(diveJustPressed);
+        int inputAngle = AngleForVector(input);
+        if (inputAngle < 0x80)
+            UpdateFacing(input);
+        UpdateTopDownFlippers(inputAngle, attackJustPressed);
+        ApplyTopDownSwimMomentum();
+        FinalizeTopDownSwimmingUpdate(movementStart);
+        return true;
+    }
+
+    private void BeginTopDownSwimming(int entryAngle)
+    {
+        TopDownSwimmingParameters parameters =
+            _topDownSwimmingData.Parameters;
+        int baseSpeed = RingEffects.UsesFastSwim(_inventory)
+            ? parameters.FastSpeed
+            : parameters.BaseSpeed;
+        InterruptCarriedItems(discard: true);
+        ClearShieldParent();
+        CancelSwordAttack();
+        CancelShovelAction();
+        _topDownSwimmingState = 2;
+        _topDownSwimmingEntryCounter = parameters.EntryUpdates;
+        _topDownSwimAngle = entryAngle;
+        _topDownSwimSpeedRaw = baseSpeed;
+        _topDownSwimTargetSpeedRaw = baseSpeed;
+        _topDownSwimVelocityCounter = 0;
+        _topDownSwimBurstState = 0;
+        _topDownSwimBurstCounter = 0;
+        _topDownSwimAnimationFrame = 0;
+        _topDownSwimAnimationCounter =
+            parameters.AnimationFrameDurations[0];
+        _topDownDiving = false;
+        _topDownDiveCounter = 0;
+        if (ZIndex == DivingZIndex)
+            ZIndex = NormalZIndex;
+        _walking = false;
+        _pushing = false;
+        ResetLinkWalkAnimation();
+        _world.SpawnDrowningSplash(Position, HazardType.Water);
+        QueueRedraw();
+    }
+
+    private void ApplyTopDownSwimmingCurrent(TerrainType terrain)
+    {
+        int angle = terrain switch
+        {
+            TerrainType.UpCurrent => 0x00,
+            TerrainType.RightCurrent => 0x08,
+            TerrainType.DownCurrent => 0x10,
+            TerrainType.LeftCurrent => 0x18,
+            _ => 0xff
+        };
+        if (angle >= 0x80)
+            return;
+
+        // linkApplyTileTypes@tileType_current applies SPEED_c0 before it
+        // enters the shared water branch. Swimming momentum is then applied
+        // independently by linkUpdateSwimming on the same update.
+        ApplyTopDownObjectSpeed(
+            GrassTopDownSpeed,
+            angle,
+            allowWallSlide: false,
+            allowLedgeHop: false);
+    }
+
+    private void UpdateTopDownFlippers(
+        int inputAngle,
+        bool attackJustPressed)
+    {
+        TopDownSwimmingParameters parameters =
+            _topDownSwimmingData.Parameters;
+        int baseSpeed = RingEffects.UsesFastSwim(_inventory)
+            ? parameters.FastSpeed
+            : parameters.BaseSpeed;
+        if (_topDownSwimBurstState == 0)
+        {
+            if (!attackJustPressed)
+            {
+                _topDownSwimTargetSpeedRaw = baseSpeed;
+                UpdateTopDownSwimVelocity(inputAngle, inAir: false);
+                return;
+            }
+
+            _topDownSwimBurstState = 1;
+            int facingAngle = ((int)_facing * 8) & 0x1f;
+            for (int update = 0;
+                update < parameters.BurstTurnUpdates;
+                update++)
+            {
+                UpdateTopDownSwimVelocity(facingAngle, inAir: false);
+            }
+            _topDownSwimBurstCounter = parameters.BurstAccelerateUpdates;
+            _world.PlaySound(parameters.SwimSound);
+        }
+
+        int speedStep = _topDownSwimBurstState == 1
+            ? parameters.BurstSpeedStep
+            : -parameters.BurstSpeedStep;
+        _topDownSwimBurstCounter =
+            (_topDownSwimBurstCounter - 1) & 0xff;
+        if (_topDownSwimBurstCounter == 0)
+        {
+            if (_topDownSwimBurstState == 1)
+            {
+                _topDownSwimBurstState = 2;
+                _topDownSwimBurstCounter =
+                    parameters.BurstDecelerateUpdates;
+            }
+            else
+            {
+                _topDownSwimBurstState = 0;
+                _topDownSwimSpeedRaw = baseSpeed;
+                _topDownSwimTargetSpeedRaw = baseSpeed;
+                UpdateTopDownSwimVelocity(
+                    inputAngle < 0x80
+                        ? inputAngle
+                        : ((int)_facing * 8) & 0x1f,
+                    inAir: false);
+                return;
+            }
+        }
+
+        if ((_topDownSwimBurstCounter & 0x03) == 0)
+        {
+            _topDownSwimTargetSpeedRaw = Math.Max(
+                0,
+                _topDownSwimTargetSpeedRaw + speedStep);
+        }
+
+        UpdateTopDownSwimVelocity(
+            inputAngle < 0x80
+                ? inputAngle
+                : ((int)_facing * 8) & 0x1f,
+            inAir: false);
+    }
+
+    private void AdvanceTopDownSwimmingAnimation()
+    {
+        if (--_topDownSwimAnimationCounter > 0)
+            return;
+        _topDownSwimAnimationFrame ^= 1;
+        int[] durations = TopDownDiving
+            ? _topDownSwimmingData.Parameters.DiveAnimationFrameDurations
+            : _topDownSwimmingData.Parameters.AnimationFrameDurations;
+        _topDownSwimAnimationCounter =
+            durations[_topDownSwimAnimationFrame];
+    }
+
+    private void UpdateTopDownDiving(bool diveJustPressed)
+    {
+        if (diveJustPressed)
+        {
+            if (TopDownDiving)
+                SurfaceFromTopDownDive();
+            else
+                BeginTopDownDive();
+            return;
+        }
+
+        if (!TopDownDiving || RingEffects.RemovesDiveTimer(_inventory))
+            return;
+
+        _topDownDiveCounter = (_topDownDiveCounter - 1) & 0xff;
+        if (_topDownDiveCounter == 0)
+            SurfaceFromTopDownDive();
+    }
+
+    private void BeginTopDownDive()
+    {
+        TopDownSwimmingParameters parameters =
+            _topDownSwimmingData.Parameters;
+        _topDownDiving = true;
+        _topDownDiveCounter = parameters.DiveUpdates;
+        _topDownSwimAnimationFrame = 0;
+        _topDownSwimAnimationCounter =
+            parameters.DiveAnimationFrameDurations[0];
+        ZIndex = DivingZIndex;
+        _world.SpawnDrowningSplash(Position, HazardType.Water);
+        QueueRedraw();
+    }
+
+    private void SurfaceFromTopDownDive()
+    {
+        _topDownDiving = false;
+        _topDownDiveCounter = 0;
+        _topDownSwimAnimationFrame = 0;
+        _topDownSwimAnimationCounter =
+            _topDownSwimmingData.Parameters.AnimationFrameDurations[0];
+        if (ZIndex == DivingZIndex)
+            ZIndex = NormalZIndex;
+        QueueRedraw();
+    }
+
+    private void ApplyTopDownSwimMomentum()
+    {
+        if (_topDownSwimAngle >= 0x80 || _topDownSwimSpeedRaw == 0)
+            return;
+        ApplyTopDownObjectSpeed(
+            _topDownSwimSpeedRaw,
+            _topDownSwimAngle,
+            allowWallSlide: true,
+            allowLedgeHop: false);
+    }
+
+    private void FinalizeTopDownSwimmingUpdate(Vector2 movementStart)
+    {
+        _walking = false;
+        _pushing = false;
+        UpdateHeartRingCounter(_precisePosition - movementStart);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        if (!_world.CheckTileWarp(this))
+            _world.CheckRoomExit(this);
+        AdvanceTransformationAnimation(walking: false);
+        AdvanceTerrainWalkAnimation(walking: false);
+        QueueRedraw();
+    }
+
+    private void ClearTopDownSwimmingState()
+    {
+        _topDownSwimmingState = 0;
+        _topDownSwimmingEntryCounter = 0;
+        _topDownSwimAngle = 0xff;
+        _topDownSwimSpeedRaw = 0;
+        _topDownSwimTargetSpeedRaw = 0;
+        _topDownSwimVelocityCounter = 0;
+        _topDownSwimBurstState = 0;
+        _topDownSwimBurstCounter = 0;
+        _topDownSwimAnimationFrame = 0;
+        _topDownSwimAnimationCounter = 0;
+        _topDownDiving = false;
+        _topDownDiveCounter = 0;
+        if (ZIndex == DivingZIndex)
+            ZIndex = NormalZIndex;
+    }
+
+    internal void AdvanceTopDownSwimmingUpdateForValidation(
+        Vector2 movementInput = default,
+        int entryAngle = 0xff,
+        bool attackJustPressed = false,
+        bool diveJustPressed = false)
+    {
+        if (_world.SideScrolling)
+        {
+            throw new InvalidOperationException(
+                "A top-down Link swimming update was requested in a side-scrolling room.");
+        }
+        Vector2 movementStart = _precisePosition;
+        _lastMovementInput = movementInput;
+        if (!TryAdvanceTopDownSwimming(
+                movementInput,
+                entryAngle,
+                movementStart,
+                attackJustPressed,
+                diveJustPressed))
+        {
+            throw new InvalidOperationException(
+                "The validation top-down swimming update was not handled as water.");
+        }
+    }
+
     private void BeginSideScrollAirborne(
         bool jumped,
         SideScrollPlayerParameters parameters,
@@ -4009,15 +4410,46 @@ public partial class Player : Node2D
     }
 
     /// <summary>
-    /// Exact func_5933 angle/speed convergence used by jumping, ice, and
-    /// side-view swimming. The byte counter intentionally executes when it is
+    /// Exact func_5933 angle/speed convergence used by jumping, ice, and both
+    /// swimming views. The byte counter intentionally executes when it is
     /// equal to the interval, not one update later.
     /// </summary>
     private void UpdateSideScrollVelocity(int inputAngle, bool inAir)
     {
-        if (_sideScrollAngle >= 0x80)
+        UpdateConvergingVelocity(
+            ref _sideScrollAngle,
+            ref _sideScrollSpeedRaw,
+            _sideScrollTargetSpeedRaw,
+            ref _sideScrollVelocityCounter,
+            _sideScrollVelocityInterval,
+            inputAngle,
+            inAir);
+    }
+
+    private void UpdateTopDownSwimVelocity(int inputAngle, bool inAir)
+    {
+        UpdateConvergingVelocity(
+            ref _topDownSwimAngle,
+            ref _topDownSwimSpeedRaw,
+            _topDownSwimTargetSpeedRaw,
+            ref _topDownSwimVelocityCounter,
+            _topDownSwimmingData.Parameters.VelocityInterval,
+            inputAngle,
+            inAir);
+    }
+
+    private static void UpdateConvergingVelocity(
+        ref int angle,
+        ref int speedRaw,
+        int targetSpeedRaw,
+        ref int velocityCounter,
+        int velocityInterval,
+        int inputAngle,
+        bool inAir)
+    {
+        if (angle >= 0x80)
         {
-            _sideScrollAngle = inputAngle;
+            angle = inputAngle;
             return;
         }
 
@@ -4029,14 +4461,14 @@ public partial class Player : Node2D
         }
         else
         {
-            int relative = (inputAngle - _sideScrollAngle + 4) & 0x1f;
+            int relative = (inputAngle - angle + 4) & 0x1f;
             if (relative < 9)
             {
                 speedStep = 5;
                 angleStep = -1;
                 if (relative >= 3 && relative < 6)
                 {
-                    _sideScrollAngle = inputAngle;
+                    angle = inputAngle;
                     angleStep = 0;
                 }
                 else if (relative >= 6)
@@ -4053,7 +4485,7 @@ public partial class Player : Node2D
                     angleStep = 1;
                     if (relative >= 3 && relative < 6)
                     {
-                        _sideScrollAngle = inputAngle ^ 0x10;
+                        angle = inputAngle ^ 0x10;
                         angleStep = 0;
                     }
                     else if (relative >= 6)
@@ -4069,22 +4501,20 @@ public partial class Player : Node2D
             }
         }
 
-        _sideScrollVelocityCounter =
-            (_sideScrollVelocityCounter + 1) & 0xff;
-        if (_sideScrollVelocityCounter < _sideScrollVelocityInterval)
+        velocityCounter = (velocityCounter + 1) & 0xff;
+        if (velocityCounter < velocityInterval)
             return;
-        _sideScrollVelocityCounter = 0;
-        _sideScrollAngle = (_sideScrollAngle + angleStep) & 0x1f;
+        velocityCounter = 0;
+        angle = (angle + angleStep) & 0x1f;
 
-        int speed = _sideScrollSpeedRaw + speedStep;
+        int speed = speedRaw + speedStep;
         if (speed <= 0)
         {
-            _sideScrollSpeedRaw = 0;
-            _sideScrollAngle = 0xff;
+            speedRaw = 0;
+            angle = 0xff;
             return;
         }
-        _sideScrollSpeedRaw =
-            Math.Min(_sideScrollTargetSpeedRaw, speed);
+        speedRaw = Math.Min(targetSpeedRaw, speed);
     }
 
     private bool ApplySideScrollVelocity(
@@ -4579,7 +5009,8 @@ public partial class Player : Node2D
         }
         ActiveTerrainInfo activeTerrain = _world.GetActiveTerrain(Position);
         TerrainInfo terrain = activeTerrain.Terrain;
-        if (terrain.Hazard != HazardType.None)
+        if (terrain.Hazard != HazardType.None &&
+            terrain.Hazard != HazardType.Water)
         {
             TriggerHazard(activeTerrain);
             return;
@@ -6016,6 +6447,63 @@ public partial class Player : Node2D
             WriteSymmetricLinkCell(
                 output, source, 16, facing * 16, 0x0f40, damagePalette); // $0b, OAM $12
 
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildTopDownSwimTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        for (int frame = 0; frame < 2; frame++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            TopDownSwimmingFrame record =
+                _topDownSwimmingData.Frame(frame, direction);
+            if (record.OamIndex == 0x12)
+            {
+                WriteSymmetricLinkCell(
+                    output,
+                    source,
+                    frame * 16,
+                    direction * 16,
+                    record.SourceOffset,
+                    damagePalette);
+            }
+            else
+            {
+                WriteLinkFrame(
+                    output,
+                    source,
+                    frame * 16,
+                    direction * 16,
+                    record.SourceOffset,
+                    mirroredOam: record.OamIndex == 0x11,
+                    damagePalette);
+            }
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildTopDownDiveTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 16, false, Image.Format.Rgba8);
+
+        for (int frame = 0; frame < 2; frame++)
+        {
+            TopDownDivingFrame record =
+                _topDownSwimmingData.DiveFrame(frame);
+            WriteSymmetricLinkCell(
+                output,
+                source,
+                frame * 16,
+                0,
+                record.SourceOffset,
+                damagePalette);
+        }
         return ImageTexture.CreateFromImage(output);
     }
 
