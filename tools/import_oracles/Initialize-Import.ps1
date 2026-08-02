@@ -424,17 +424,18 @@ function Read-AssemblyDwTables(
     return $tables
 }
 
-# Remove cutscene outputs from their former menu/object categories. They are
-# generated again below under cutscenes, which owns their runtime behavior.
-foreach ($legacyCutsceneAsset in @(
+# Remove outputs that moved to another owner or were replaced by a broader
+# generated table. Their obsolete paths must not survive a local re-import.
+foreach ($legacyGeneratedAsset in @(
     'menu\new_game_intro.tsv',
     'menu\new_game_intro_sprites.tsv',
     'objects\maku_tree_cutscene.tsv',
-    'objects\ralph_portal_event.tsv'
+    'objects\ralph_portal_event.tsv',
+    'objects\linked_game_ghini.tsv'
 )) {
-    $legacyCutscenePath = Join-Path $destination $legacyCutsceneAsset
-    if (Test-Path -LiteralPath $legacyCutscenePath) {
-        Remove-Item -LiteralPath $legacyCutscenePath -Force
+    $legacyGeneratedPath = Join-Path $destination $legacyGeneratedAsset
+    if (Test-Path -LiteralPath $legacyGeneratedPath) {
+        Remove-Item -LiteralPath $legacyGeneratedPath -Force
     }
 }
 

@@ -326,9 +326,9 @@ public sealed partial class ValidationRoot
         // These are raw storage-time substitutions, not commands accepted by
         // DialogueBox. Registered owner scenarios prove the live replacements.
         // map/texts.tsv also contains the unselected warp/final-battle bank
-        // records, linked_game_ghini.tsv is superseded by linked_game_npcs.tsv,
-        // Cheval's named owner resolves the TX_270b calls before display; the
-        // raw NPC row and source-text table retain those control markers.
+        // records. Cheval's named owner resolves the TX_270b calls before
+        // display; the raw NPC and linked-game rows retain storage-time control
+        // markers for their owning substitution paths.
         var expectedUnresolved = new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["cutscenes/rafton_text.tsv|\\jump(TX_2709)"] = 1,
@@ -339,7 +339,6 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
-            ["objects/linked_game_ghini.tsv|\\secret1"] = 1,
             ["objects/linked_game_npcs.tsv|\\secret1"] = 2,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
