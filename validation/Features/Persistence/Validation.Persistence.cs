@@ -160,14 +160,21 @@ public sealed partial class ValidationRoot
         FailIf(
             _inventoryMenu.SaveRequests != saveRequests + 1 ||
             _saveWriteRequests != saveWrites + 1 ||
-            _inventoryMenu.QuitRequests != 1 || _mainMenu is null || _mainMenuScreen is null ||
+            _inventoryMenu.QuitRequests != 1 ||
+            _frontendIntro is null ||
+            _frontendIntro.Stage != FrontendIntroStage.Title ||
+            _frontendIntroScreen is null || _frontendIntroScreen.Visible ||
+            _mainMenu is not null ||
+            _mainMenuScreen is null || !_mainMenuScreen.Visible ||
             _inventoryMenu.IsActive || !gameplayScene.IsQueuedForDeletion() ||
-            _sound.IsQueuedForDeletion() || _mainMenuScreen.GetParent() != this,
+            _sound.IsQueuedForDeletion() ||
+            _frontendIntroScreen.GetParent() != this ||
+            _mainMenuScreen.GetParent() != this,
             "Save and Quit did not save, free the gameplay scene as one lifecycle unit, " +
-            "preserve application audio, and return to title/file select after 30 updates.");
+            "preserve application audio, and return to the frontend title after 30 updates.");
         GD.Print("Validated retryable Save and Quit failure handling, successful persistence " +
             "request, one-root gameplay cleanup, persistent application audio, and return to " +
-            "title after 30 updates.");
+            "the frontend title after 30 updates.");
     }
 
     private void ValidateExplicitSavePersistence()

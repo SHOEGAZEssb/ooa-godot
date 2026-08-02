@@ -38,7 +38,8 @@ public sealed class MainMenuController
         Func<int, OracleSaveData?>? load = null,
         Func<int, OracleSaveData, SaveResult>? save = null,
         Action<int>? erase = null,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        bool startAtFileSelect = false)
     {
         _screen = screen;
         _startGame = startGame;
@@ -47,8 +48,16 @@ public sealed class MainMenuController
         _erase = erase ?? OracleSaveStore.EraseSlot;
         _playSound = playSound;
         ReloadSlots();
-        _screen.ShowTitle();
-        _playSound?.Invoke(OracleSoundEngine.MusTitlescreen);
+        if (startAtFileSelect)
+        {
+            _screen.ShowFileSelect();
+            _playSound?.Invoke(OracleSoundEngine.MusFileSelect);
+        }
+        else
+        {
+            _screen.ShowTitle();
+            _playSound?.Invoke(OracleSoundEngine.MusTitlescreen);
+        }
     }
 
     public void Update(double delta)
@@ -108,7 +117,12 @@ public sealed class MainMenuController
         _screen.ShowFileSelect();
     }
 
-    internal void BeginTitleStart() => BeginFade(FadeDestination.FileSelect);
+    internal void BeginTitleStart()
+    {
+        _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+        _playSound?.Invoke(OracleSoundEngine.SndCtrlFastFadeOut);
+        BeginFade(FadeDestination.FileSelect);
+    }
 
     internal void Move(Vector2I direction)
     {

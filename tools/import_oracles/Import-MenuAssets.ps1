@@ -47,6 +47,62 @@ foreach ($menuAsset in @(
     @{ Source = 'gfx_compressible\common\flg_name_entry_bottom.bin'; Destination = 'menu\flags_name_entry_bottom.bin' })) {
     Copy-GeneratedFile $menuAsset.Source $menuAsset.Destination
 }
+
+# GFXH_NINTENDO_CAPCOM_SCREEN and GFXH_INTRO_LINK_RIDING_HORSE through
+# GFXH_TITLESCREEN_TREE_SCROLL. Keep the split VRAM sources and maps intact;
+# FrontendIntroScreen reproduces the register-state scrolls and map swaps.
+foreach ($introAsset in @(
+    @{ Source = 'gfx_compressible\common\gfx_capcom_nintendo.png'; Destination = 'intro\gfx_capcom_nintendo.png' },
+    @{ Source = 'gfx_compressible\common\map_capcom_nintendo.bin'; Destination = 'intro\map_capcom_nintendo.bin' },
+    @{ Source = 'gfx_compressible\common\flg_capcom_nintendo.bin'; Destination = 'intro\flags_capcom_nintendo.bin' },
+    @{ Source = 'gfx_compressible\ages\spr_intro_link_on_horse_front.png'; Destination = 'intro\spr_link_on_horse_front.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_intro_link_on_horse_front_bg.png'; Destination = 'intro\gfx_link_on_horse_front_bg.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_intro_link_face_shot.png'; Destination = 'intro\gfx_link_face_shot.png' },
+    @{ Source = 'gfx_compressible\ages\spr_intro_link_on_horse_far.png'; Destination = 'intro\spr_link_on_horse_far.png' },
+    @{ Source = 'gfx_compressible\ages\spr_intro_link_face_shot_sparkle.png'; Destination = 'intro\spr_link_face_shot_sparkle.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_intro_link_on_horse_far_bg_1.png'; Destination = 'intro\gfx_link_on_horse_far_bg_1.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_intro_link_on_horse_far_bg_2.png'; Destination = 'intro\gfx_link_on_horse_far_bg_2.png' },
+    @{ Source = 'gfx_compressible\ages\map_intro_link_on_horse_far.bin'; Destination = 'intro\map_link_on_horse_far.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_link_on_horse_far.bin'; Destination = 'intro\flags_link_on_horse_far.bin' },
+    @{ Source = 'gfx_compressible\ages\map_intro_link_face_shot.bin'; Destination = 'intro\map_link_face_shot.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_link_face_shot.bin'; Destination = 'intro\flags_link_face_shot.bin' },
+    @{ Source = 'gfx_compressible\ages\map_intro_bar.bin'; Destination = 'intro\map_bar.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_bar.bin'; Destination = 'intro\flags_bar.bin' },
+    @{ Source = 'gfx_compressible\ages\map_intro_link_on_horse_front_ground.bin'; Destination = 'intro\map_link_on_horse_front_ground.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_link_on_horse_front_ground.bin'; Destination = 'intro\flags_link_on_horse_front_ground.bin' },
+    @{ Source = 'gfx_compressible\ages\map_intro_link_on_horse_front_bg.bin'; Destination = 'intro\map_link_on_horse_front_bg.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_link_on_horse_front_bg.bin'; Destination = 'intro\flags_link_on_horse_front_bg.bin' },
+    @{ Source = 'gfx_compressible\common\map_link_on_horse_closeup.bin'; Destination = 'intro\map_link_on_horse_closeup.bin' },
+    @{ Source = 'gfx_compressible\common\flg_link_on_horse_closeup.bin'; Destination = 'intro\flags_link_on_horse_closeup.bin' },
+    @{ Source = 'gfx_compressible\common\spr_link_on_horse_closeup.png'; Destination = 'intro\spr_link_on_horse_closeup.png' },
+    @{ Source = 'gfx_compressible\common\gfx_link_on_horse_closeup_1.png'; Destination = 'intro\gfx_link_on_horse_closeup_1.png' },
+    @{ Source = 'gfx_compressible\common\gfx_link_on_horse_closeup_2.png'; Destination = 'intro\gfx_link_on_horse_closeup_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_link_on_horse_closeup_3.png'; Destination = 'intro\gfx_link_on_horse_closeup_3.png' },
+    @{ Source = 'gfx_compressible\common\gfx_link_on_horse_closeup_4.png'; Destination = 'intro\gfx_link_on_horse_closeup_4.png' },
+    @{ Source = 'gfx_compressible\common\spr_intro_outside_castle_sprites.png'; Destination = 'intro\spr_outside_castle.png' },
+    @{ Source = 'gfx_compressible\common\gfx_intro_outside_castle_1.png'; Destination = 'intro\gfx_outside_castle_1.png' },
+    @{ Source = 'gfx_compressible\common\gfx_intro_outside_castle_2.png'; Destination = 'intro\gfx_outside_castle_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_intro_outside_castle_3.png'; Destination = 'intro\gfx_outside_castle_3.png' },
+    @{ Source = 'gfx_compressible\common\map_intro_outside_castle.bin'; Destination = 'intro\map_outside_castle.bin' },
+    @{ Source = 'gfx_compressible\common\flg_intro_outside_castle.bin'; Destination = 'intro\flags_outside_castle.bin' },
+    @{ Source = 'gfx_compressible\ages\gfx_tileset_dungeon_standard_1.png'; Destination = 'intro\gfx_temple_1.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_tileset_dungeon_standard_2.png'; Destination = 'intro\gfx_temple_2.png' },
+    @{ Source = 'gfx_compressible\ages\gfx_tileset_maku_path.png'; Destination = 'intro\gfx_temple_3.png' },
+    @{ Source = 'gfx_compressible\ages\map_intro_triforce_room.bin'; Destination = 'intro\map_triforce_room.bin' },
+    @{ Source = 'gfx_compressible\ages\flg_intro_triforce_room.bin'; Destination = 'intro\flags_triforce_room.bin' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_tree_1.png'; Destination = 'intro\gfx_titlescreen_tree_1.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_tree_2.png'; Destination = 'intro\gfx_titlescreen_tree_2.png' },
+    @{ Source = 'gfx_compressible\common\gfx_titlescreen_7.png'; Destination = 'intro\gfx_titlescreen_7.png' },
+    @{ Source = 'gfx_compressible\common\map_titlescreen_scroll_1.bin'; Destination = 'intro\map_titlescreen_scroll_1.bin' },
+    @{ Source = 'gfx_compressible\common\flg_titlescreen_scroll_1.bin'; Destination = 'intro\flags_titlescreen_scroll_1.bin' },
+    @{ Source = 'gfx_compressible\common\map_titlescreen_scroll_2.bin'; Destination = 'intro\map_titlescreen_scroll_2.bin' },
+    @{ Source = 'gfx_compressible\common\flg_titlescreen_scroll_2.bin'; Destination = 'intro\flags_titlescreen_scroll_2.bin' },
+    @{ Source = 'gfx_compressible\common\spr_obj_intro_tree.png'; Destination = 'intro\spr_tree_and_birds.png' },
+    @{ Source = 'gfx_compressible\common\spr_obj_intro_clouds.png'; Destination = 'intro\spr_clouds.png' },
+    @{ Source = 'gfx_compressible\ages\spr_triforce_sparkle_vineseed_bookofseals.png'; Destination = 'intro\spr_triforce.png' },
+    @{ Source = 'gfx_compressible\ages\spr_pedestal_flame_crystal.png'; Destination = 'intro\spr_triforce_glow.png' })) {
+    Copy-GeneratedFile $introAsset.Source $introAsset.Destination
+}
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_1.png" "inventory\gfx_inventory_hud_1.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_present_past_symbols.png" "inventory\spr_present_past_symbols.png"
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_2.png" "inventory\gfx_inventory_hud_2.png"
@@ -165,6 +221,89 @@ Export-PaletteBlock 'standardSpritePaletteData' 24 'inventory\palette_sprites.bi
 # retaining the same BG palette 0 and sprite palettes.
 Export-PaletteBlock 'paletteData4018' 32 'menu\palette_title_bg.bin'
 Export-PaletteBlock 'paletteData4058' 32 'menu\palette_title_sprites.bin'
+
+function New-FrontendPalette {
+    # PowerShell enumerates arrays returned through the pipeline. Preserve the
+    # byte[] identity so Set-FrontendPaletteSlots mutates the caller-owned
+    # palette instead of a parameter-conversion copy.
+    return ,([byte[]]::new(8 * 4 * 3))
+}
+
+function Set-FrontendPaletteSlots(
+    [byte[]]$palette,
+    [int]$firstSlot,
+    [string]$sourceLabel,
+    [int]$slotCount
+) {
+    $source = Read-PaletteBytes $sourceLabel ($slotCount * 4)
+    [Array]::Copy($source, 0, $palette, $firstSlot * 4 * 3, $source.Length)
+}
+
+function Write-FrontendPalette([string]$name, [byte[]]$palette) {
+    Write-GeneratedBytes(
+        (Join-Path $destination "intro\$name"),
+        $palette)
+}
+
+# Reconstruct the affected slots of PALH_01, PALH_90-$94, PALH_96, PALH_9b,
+# and the three PALH_a4-$a6 Link-lightening writes. Unspecified slots remain
+# zero exactly as they do after the intro's cleared palette work buffers.
+$capcomBg = New-FrontendPalette
+Set-FrontendPaletteSlots $capcomBg 0 'paletteData4008' 2
+Write-FrontendPalette 'palette_capcom_bg.bin' $capcomBg
+
+$horseBg = New-FrontendPalette
+Set-FrontendPaletteSlots $horseBg 1 'paletteData41e0' 7
+$horseFrontBg = [byte[]]$horseBg.Clone()
+Set-FrontendPaletteSlots $horseFrontBg 1 'paletteData4218' 7
+$horseSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $horseSprites 2 'paletteData4180' 6
+Write-FrontendPalette 'palette_horse_bg.bin' $horseBg
+Write-FrontendPalette 'palette_horse_front_bg.bin' $horseFrontBg
+Write-FrontendPalette 'palette_horse_sprites_0.bin' $horseSprites
+foreach ($lightening in 1..3) {
+    $lightened = [byte[]]$horseSprites.Clone()
+    Set-FrontendPaletteSlots `
+        $lightened 6 "paletteData41$(@('b0', 'c0', 'd0')[$lightening - 1])" 2
+    Write-FrontendPalette "palette_horse_sprites_$lightening.bin" $lightened
+}
+
+$faceBg = New-FrontendPalette
+Set-FrontendPaletteSlots $faceBg 0 'paletteData4250' 7
+$faceSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $faceSprites 0 'paletteData4288' 2
+Write-FrontendPalette 'palette_face_bg.bin' $faceBg
+Write-FrontendPalette 'palette_face_sprites.bin' $faceSprites
+
+$closeupBg = New-FrontendPalette
+Set-FrontendPaletteSlots $closeupBg 0 'paletteData4298' 8
+$closeupSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $closeupSprites 0 'paletteData4358' 8
+Write-FrontendPalette 'palette_closeup_bg.bin' $closeupBg
+Write-FrontendPalette 'palette_closeup_sprites.bin' $closeupSprites
+
+$castleBg = New-FrontendPalette
+Set-FrontendPaletteSlots $castleBg 0 'paletteData42d8' 8
+$castleSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $castleSprites 0 'paletteData4398' 8
+Write-FrontendPalette 'palette_castle_bg.bin' $castleBg
+Write-FrontendPalette 'palette_castle_sprites.bin' $castleSprites
+
+$templeBg = New-FrontendPalette
+Set-FrontendPaletteSlots $templeBg 0 'paletteData48e0' 1
+Set-FrontendPaletteSlots $templeBg 2 'paletteData43f8' 6
+$templeSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $templeSprites 0 'standardSpritePaletteData' 6
+Set-FrontendPaletteSlots $templeSprites 6 'paletteData43f0' 1
+Write-FrontendPalette 'palette_temple_bg.bin' $templeBg
+Write-FrontendPalette 'palette_temple_sprites.bin' $templeSprites
+
+$treeBg = New-FrontendPalette
+Set-FrontendPaletteSlots $treeBg 0 'paletteData4318' 8
+$treeSprites = New-FrontendPalette
+Set-FrontendPaletteSlots $treeSprites 2 'paletteData43d8' 3
+Write-FrontendPalette 'palette_tree_bg.bin' $treeBg
+Write-FrontendPalette 'palette_tree_sprites.bin' $treeSprites
 $fileMenuBgPalette = [byte[]]::new(8 * 4 * 3)
 $fileMenuBg0 = Read-PaletteBytes 'paletteData48e0' 4
 $fileMenuBg26 = Read-PaletteBytes 'paletteData5878' 20

@@ -41,6 +41,8 @@ public partial class GameRoot : Node2D
     internal DebugFlagMenuController _debugFlagMenu = null!;
     internal GameplayPauseController _gameplayPause = null!;
     internal OracleMenuLifecycle _menuLifecycle = null!;
+    internal FrontendIntroController? _frontendIntro;
+    internal FrontendIntroScreen? _frontendIntroScreen;
     internal MainMenuController? _mainMenu;
     internal MainMenuScreen? _mainMenuScreen;
     private NewGameIntroController? _newGameIntro;
@@ -125,13 +127,11 @@ public partial class GameRoot : Node2D
             throw new InvalidOperationException(
                 "The game scene is missing its required SoundEngine node.");
         _sound.ApplicationUpdateOwned = true;
+        _random = new OracleRandom();
 
         if (_launchOptions.ShowMainMenu)
         {
-            _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
-            AddChild(_mainMenuScreen);
-            _mainMenu = new MainMenuController(
-                _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
+            StartFrontend(startAtTitle: false);
             return;
         }
 
@@ -145,6 +145,7 @@ public partial class GameRoot : Node2D
     public override void _Input(InputEvent @event)
     {
         if (_transitions is null ||
+            _frontendIntro is not null ||
             _mainMenu is not null ||
             _newGameIntro is not null ||
             !DebugSavestateController.TryDecodeInput(@event, out var command))
@@ -233,6 +234,45 @@ public partial class GameRoot : Node2D
         InitializeGameplay(save);
     }
 
+    private void StartFrontend(bool startAtTitle)
+    {
+        _mainMenu = null;
+        _frontendIntroScreen = new FrontendIntroScreen
+        {
+            Name = "FrontendIntro",
+            ZIndex = 200
+        };
+        _mainMenuScreen = new MainMenuScreen
+        {
+            Name = "MainMenu",
+            ZIndex = 200,
+            Visible = false
+        };
+        AddChild(_frontendIntroScreen);
+        AddChild(_mainMenuScreen);
+        _frontendIntro = new FrontendIntroController(
+            _frontendIntroScreen,
+            _mainMenuScreen,
+            _random,
+            _sound.RestartSound,
+            _sound.PlaySound,
+            OpenFileSelectFromFrontend,
+            startAtTitle);
+    }
+
+    private void OpenFileSelectFromFrontend()
+    {
+        _frontendIntroScreen?.QueueFree();
+        _frontendIntroScreen = null;
+        _frontendIntro = null;
+        _mainMenu = new MainMenuController(
+            _mainMenuScreen ?? throw new InvalidOperationException(
+                "The frontend lost its shared main-menu screen."),
+            StartSelectedFile,
+            playSound: _sound.PlaySound,
+            startAtFileSelect: true);
+    }
+
     private void CompleteNewGameIntro(OracleSaveData save)
     {
         NewGameIntroRecord record =
@@ -275,7 +315,7 @@ public partial class GameRoot : Node2D
             _saveData.ResetHealthIfDepleted();
         else
             _animationTicks = debugSavestate.AnimationTicks;
-        _random = new OracleRandom();
+        _random ??= new OracleRandom();
         _runtimeState = new OracleRuntimeState();
         _treasures = new TreasureDatabase();
         bool useDebugSavestate = debugSavestate is not null;
@@ -408,6 +448,11 @@ public partial class GameRoot : Node2D
     private void AdvanceApplicationState()
     {
         const double delta = ApplicationFixedUpdateScheduler.UpdateDelta;
+        if (_frontendIntro is not null)
+        {
+            _frontendIntro.Update(delta);
+            return;
+        }
         if (_mainMenu is not null)
         {
             _mainMenu.Update(delta);
@@ -855,6 +900,7 @@ public partial class GameRoot : Node2D
         ArgumentNullException.ThrowIfNull(debugSavestate);
         ReleaseGameplayScene();
         _sound.RestartSound();
+        _random = new OracleRandom();
         InitializeGameplay(
             debugSavestate.CreateSaveData(),
             debugSavestate: debugSavestate);
@@ -904,11 +950,7 @@ public partial class GameRoot : Node2D
     private void ReturnToTitle()
     {
         ReleaseGameplayScene();
-
-        _mainMenuScreen = new MainMenuScreen { Name = "MainMenu", ZIndex = 200 };
-        AddChild(_mainMenuScreen);
-        _mainMenu = new MainMenuController(
-            _mainMenuScreen, StartSelectedFile, playSound: _sound.PlaySound);
+        StartFrontend(startAtTitle: true);
     }
 
     private void ReleaseGameplayScene(bool immediate = false)
@@ -949,7 +991,13 @@ public partial class GameRoot : Node2D
         }
 
         _mainMenu = null;
+        _frontendIntro = null;
         _newGameIntro = null;
+        if (_frontendIntroScreen is not null &&
+            GodotObject.IsInstanceValid(_frontendIntroScreen))
+        {
+            _frontendIntroScreen.Free();
+        }
         if (_mainMenuScreen is not null &&
             GodotObject.IsInstanceValid(_mainMenuScreen))
         {
@@ -961,6 +1009,7 @@ public partial class GameRoot : Node2D
             _newGameIntroScreen.Free();
         }
         _mainMenuScreen = null;
+        _frontendIntroScreen = null;
         _newGameIntroScreen = null;
 
         if (_scene is not null && GodotObject.IsInstanceValid(_scene))
@@ -1000,6 +1049,7 @@ public partial class GameRoot : Node2D
             _sound.PlaySound(OracleSoundEngine.SndCtrlEnable);
         _sound.SetMusicVolume(3);
 
+        _random = new OracleRandom();
         InitializeGameplay(OracleSaveData.CreateStandardGame());
     }
 

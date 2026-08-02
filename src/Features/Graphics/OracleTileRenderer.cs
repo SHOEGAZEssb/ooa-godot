@@ -204,7 +204,11 @@ internal static class OracleTileRenderer
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
         int columns = source.GetWidth() / 8;
-        int cell = (tile & 0xfe) / 2;
+        // The hardware OAM tile field is one byte, but callers may add an
+        // imported source-sheet offset before reaching this renderer. Clear
+        // only the 8x16 pairing bit so offsets such as spr_link+$1c00 retain
+        // their high tile-address bits.
+        int cell = (tile & ~1) / 2;
         Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
@@ -259,6 +263,22 @@ internal sealed class OracleVramTileMap
         int count = source.GetWidth() / 8 * (source.GetHeight() / 8);
         for (int tile = 0; tile < count; tile++)
             _tiles[bank, (firstTile + tile) & 0xff] = (source, tile);
+    }
+
+    internal void MapTile(
+        Image source,
+        int sourceTile,
+        int destinationTile,
+        int bank)
+    {
+        if ((uint)bank >= 2)
+            throw new ArgumentOutOfRangeException(nameof(bank));
+        int count = source.GetWidth() / 8 * (source.GetHeight() / 8);
+        if ((uint)sourceTile >= count)
+            throw new ArgumentOutOfRangeException(nameof(sourceTile));
+        if ((uint)destinationTile >= 256)
+            throw new ArgumentOutOfRangeException(nameof(destinationTile));
+        _tiles[bank, destinationTile] = (source, sourceTile);
     }
 
     internal bool TryResolve(

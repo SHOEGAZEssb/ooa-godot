@@ -12,6 +12,14 @@ public sealed partial class ValidationRoot
     {
         _sound.ClearPlayRequestAudit();
         OracleRoomData directionalRoom = _rooms.Load(4, 0x09);
+        FailIf(
+            directionalRoom.Layout.Length != 0xb0,
+            $"Clean US ROM room $4:$09 must contain $b0 layout bytes; " +
+            $"got ${directionalRoom.Layout.Length:x2}.");
+        FailIf(
+            directionalRoom.Layout[0x79] != 0xa0,
+            $"Clean US ROM room $4:$09 must contain $a0 at wRoomLayout+$79; " +
+            $"got ${directionalRoom.Layout[0x79]:x2}.");
         _roomView.SetRoom(directionalRoom.Texture);
         _entities.LoadRoom(4, directionalRoom);
 

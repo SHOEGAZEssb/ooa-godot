@@ -347,6 +347,487 @@ public sealed partial class ValidationRoot
             "copy, erase, and retryable save failures.");
     }
 
+    private void ValidateFrontendIntro()
+    {
+        var introScreen = new FrontendIntroScreen
+        {
+            Name = "FrontendIntroValidation"
+        };
+        var titleScreen = new MainMenuScreen
+        {
+            Name = "FrontendTitleValidation",
+            Visible = false
+        };
+        AddChild(introScreen);
+        AddChild(titleScreen);
+
+        var random = new OracleRandom();
+        var sounds = new List<int>();
+        int restartCount = 0;
+        bool openedFileSelect = false;
+        var intro = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            random,
+            () => restartCount++,
+            sounds.Add,
+            () => openedFileSelect = true);
+        FrontendIntroDatabase introData = FrontendIntroDatabase.Shared;
+        FrontendAnimation templeLinkWalk =
+            introData.Animation("temple-link-walk");
+        FrontendAnimation templeLinkRise =
+            introData.Animation("temple-link-rise");
+        FrontendAnimation templeLinkFall =
+            introData.Animation("temple-link-fall");
+        Image linkSprites = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Color[,] templeSpritePalette = OracleGraphicsData.LoadPalette(
+            "res://assets/oracle/intro/palette_temple_sprites.bin");
+        FrontendOamPart outerAuraPart = templeLinkRise.Frames[0].Parts[0];
+        FrontendOamPart innerAuraPart = templeLinkRise.Frames[2].Parts[0];
+        int outerAuraTile = templeLinkRise.Frames[0].SourceTileOffset +
+            outerAuraPart.Tile;
+        int innerAuraTile = templeLinkRise.Frames[2].SourceTileOffset +
+            innerAuraPart.Tile;
+        ulong outerAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                outerAuraTile,
+                (byte)outerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        ulong innerAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                innerAuraTile,
+                (byte)innerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        ulong truncatedAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                outerAuraTile & 0xff,
+                (byte)outerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        FailIf(
+            outerAuraCellHash != 0x2a840e67546a861eUL ||
+            innerAuraCellHash != 0x354f80fb050776aaUL ||
+            outerAuraCellHash == truncatedAuraCellHash,
+            "Temple Link's `$1c00 aura graphics did not retain source-sheet " +
+            "tile bits above the one-byte hardware OAM field " +
+            $"(outer={outerAuraCellHash:x16}, " +
+            $"inner={innerAuraCellHash:x16}, " +
+            $"truncated={truncatedAuraCellHash:x16}).");
+        FrontendAnimation horseFront = introData.Animation("horse-1");
+        FrontendOamPart horseFrontLeg = horseFront.Frames[0].Parts[14];
+        FrontendAnimation castleHorse = introData.Animation("horse-4");
+        FrontendSequenceValue[] castleAnimations =
+            introData.Sequence("castle-animation");
+        FrontendSequenceValue[] horseFaceRegisters =
+            introData.Sequence("horse-face-registers");
+        FrontendSequenceValue[] horseFaceBars =
+            introData.Sequence("horse-face-bars");
+        FrontendSequenceValue[] horseFaceMotion =
+            introData.Sequence("horse-face-motion");
+        FrontendSequenceValue[] horseFaceSparkle =
+            introData.Sequence("horse-face-sparkle");
+        FrontendSequenceValue templeBackgroundAnimation =
+            introData.Sequence("temple-background-animation")[0];
+        var backgroundAnimations = new OracleAnimationData();
+        int[] directLoadTick8 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 8);
+        int[] directLoadTick9 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 9);
+        int[] directLoadTick15 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 15);
+        int[] directLoadTick16 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 16);
+        int[] directLoadTick18 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 18);
+        int[] directLoadTick19 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 19);
+        ulong[] templeAnimationHashes =
+        [
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 16),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 31),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 46),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 61),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 76)
+        ];
+        byte[] horseFrontGroundFlags = Godot.FileAccess.GetFileAsBytes(
+            "res://assets/oracle/intro/flags_link_on_horse_front_ground.bin");
+        FailIf(
+            horseFront.Frames.Length != 5 ||
+            horseFront.Frames.Any(frame => frame.Parts.Length != 18) ||
+            horseFrontLeg.Y != 0x0e || horseFrontLeg.Tile != 0x6c ||
+            FrontendIntroScreen.ObjectPartRawY(0x4c, horseFrontLeg.Y) != 0x6a ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x40, 0xfe, 0xed) != 0xfe ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x41, 0xfe, 0xed) != 0xed ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x67, 0xfe, 0xed) != 0xed ||
+            horseFrontGroundFlags.Length != 160 ||
+            horseFrontGroundFlags.Any(flags => (flags & 0x80) == 0) ||
+            castleHorse.Frames.Length != 6 ||
+            castleHorse.LoopStart != 1 ||
+            castleHorse.Frames[5].Parameter != 0xff ||
+            !castleHorse.Frames.Select(frame => frame.Duration)
+                .SequenceEqual([10, 7, 7, 7, 6, 1]) ||
+            castleAnimations.Length != 2 ||
+            castleAnimations[0].A != 4 || castleAnimations[0].B != 5 ||
+            castleAnimations[1].A != 5 || castleAnimations[1].B != 0 ||
+            horseFaceRegisters.Length != 2 ||
+            horseFaceRegisters[0].A != 0 || horseFaceRegisters[0].B != 1 ||
+            horseFaceRegisters[1].A != 0x98 || horseFaceRegisters[1].B != 0 ||
+            horseFaceBars.Length != 2 ||
+            horseFaceBars[0].A != 0x48 || horseFaceBars[0].B != 0x48 ||
+            horseFaceBars[1].A != 0x2f || horseFaceBars[1].B != 0x60 ||
+            horseFaceMotion.Length != 2 ||
+            horseFaceMotion[0].A != 2 || horseFaceMotion[0].B != 8 ||
+            horseFaceMotion[1].A != 0x60 || horseFaceMotion[1].B != 0x120 ||
+            horseFaceSparkle.Length != 2 ||
+            horseFaceSparkle[0].A != 0x18 || horseFaceSparkle[0].B != 0x38 ||
+            horseFaceSparkle[1].A != 2 || horseFaceSparkle[1].B != 0 ||
+            templeBackgroundAnimation.A != 0x10 ||
+            templeBackgroundAnimation.B != 0 ||
+            directLoadTick8.Length != 0 ||
+            !directLoadTick9.SequenceEqual([64]) ||
+            !directLoadTick15.SequenceEqual([64]) ||
+            !directLoadTick16.SequenceEqual([64, 60]) ||
+            !directLoadTick18.SequenceEqual([64, 60, 68, 72]) ||
+            !directLoadTick19.SequenceEqual([64, 60, 68, 72, 65]) ||
+            !templeAnimationHashes.SequenceEqual(
+            [
+                0x0a7a1280e17d4d84UL,
+                0x2080fd7b93fd7518UL,
+                0x18b7eab68aaf75acUL,
+                0x8871149f66fbfd14UL,
+                0x0a7a1280e17d4d84UL
+            ]) ||
+            introData.Animation("bird-0").Frames.Any(frame =>
+                frame.SourceTileOffset != 0x1a ||
+                frame.SourceGrayscaleInverted) ||
+            introData.Animation("tree-branches").Frames.Any(frame =>
+                frame.SourceTileOffset != 0 ||
+                frame.SourceGrayscaleInverted) ||
+            introData.Animation("triforce-glow").Frames.Any(frame =>
+                frame.SourceTileOffset != 0x06 ||
+                !frame.SourceGrayscaleInverted) ||
+            templeLinkWalk.Frames.Length != 13 ||
+            templeLinkWalk.LoopStart != 1 ||
+            templeLinkWalk.Frames.Any(frame =>
+                frame.SourceTileOffset != 0 ||
+                !frame.SourceGrayscaleInverted ||
+                frame.Parts.Length != 2) ||
+            templeLinkRise.Frames.Length != 4 ||
+            templeLinkRise.LoopStart != 0 ||
+            templeLinkRise.Frames[0].SourceTileOffset != 0x1c0 ||
+            templeLinkRise.Frames[0].Parts.Length != 14 ||
+            templeLinkRise.Frames[1].SourceTileOffset != 0 ||
+            templeLinkRise.Frames[1].Parts.Length != 2 ||
+            templeLinkRise.Frames[2].SourceTileOffset != 0x1c0 ||
+            templeLinkRise.Frames[2].Parts.Length != 18 ||
+            templeLinkRise.Frames[3].SourceTileOffset != 0 ||
+            templeLinkRise.Frames[3].Parts.Length != 2 ||
+            templeLinkFall.Frames.Length != 4 ||
+            templeLinkFall.LoopStart != 3 ||
+            !templeLinkFall.Frames.Select(frame => frame.SourceTileOffset)
+                .SequenceEqual([0x10, 0x14, 0x16, 0x16]) ||
+            introData.Sequence("temple-wave-sine").Length != 32,
+            "Frontend horse object-Y bias, $40/$68 parallax, $19 face-pan " +
+            "register/window boundaries, dynamic-GFX source offsets, " +
+            "Link special-object OAM, temple animation group `$10` direct-load " +
+            "FIFO timing/pixels, " +
+            "sprite encoding, or the bank1.s " +
+            "32-coefficient temple wave were not retained exactly. temple-hashes=" +
+            string.Join(',', templeAnimationHashes.Select(hash => $"{hash:x16}")));
+
+        int AdvanceTo(FrontendIntroStage stage, int state, int limit)
+        {
+            for (int updates = 1; updates <= limit; updates++)
+            {
+                intro.AdvanceOneOriginalUpdate();
+                if (intro.Stage == stage && intro.State == state)
+                    return updates;
+            }
+            throw new InvalidOperationException(
+                $"Frontend did not reach {stage} state {state} within {limit} updates; " +
+                $"it is at {intro.Stage} state {intro.State}.");
+        }
+
+        void ExpectTransition(
+            FrontendIntroStage stage,
+            int state,
+            int expectedUpdates,
+            string sourceBoundary)
+        {
+            int actual = AdvanceTo(stage, state, expectedUpdates + 1);
+            FailIf(
+                actual != expectedUpdates,
+                $"Frontend {sourceBoundary} took {actual} updates; expected " +
+                $"{expectedUpdates}. Reached {stage} state {state}.");
+        }
+
+        ExpectTransition(FrontendIntroStage.Capcom, 0, 1, "US region skip");
+        ExpectTransition(FrontendIntroStage.Capcom, 1, 1, "Capcom initialization");
+        ExpectTransition(FrontendIntroStage.Capcom, 2, 208, "Capcom hold");
+        ExpectTransition(FrontendIntroStage.Horse, 0, 32, "Capcom fade-out");
+        FailIf(
+            !intro.InputsEnabled || random.Calls != 0,
+            "Start was not enabled at the Capcom completion boundary, or RNG advanced.");
+        ExpectTransition(FrontendIntroStage.Horse, 1, 1, "horse initialization");
+        FailIf(
+            !intro.InputsEnabled || sounds.Count != 1 ||
+            sounds[0] != OracleSoundEngine.MusIntro1,
+            "The horse scene did not enable skipping and request MUS_INTRO_1.");
+        ExpectTransition(FrontendIntroStage.Horse, 2, 350, "sunset");
+        ExpectTransition(FrontendIntroStage.Horse, 3, 432, "ground reveal");
+        ExpectTransition(FrontendIntroStage.Horse, 4, 126, "ground pause");
+        ExpectTransition(FrontendIntroStage.Horse, 5, 288, "front-facing ride");
+        FailIf(
+            intro.HorseSpritePalette != 3 ||
+            intro.HorseFaceTopBarLastY != 0x48 ||
+            intro.HorseFaceBottomBarY != 0x48 ||
+            intro.HorseFaceScrollX != 0 ||
+            intro.HorseFaceSparkleVisible ||
+            intro.BlackBarPixels != 0,
+            "The front-facing horse shot did not consume the three palette " +
+            "steps or initialize gfx state $19's closed face interval.");
+        for (int update = 0; update < 11; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.State != 5 ||
+            intro.HorseFaceTopBarLastY != 0x32 ||
+            intro.HorseFaceBottomBarY != 0x5e ||
+            intro.HorseFaceScrollX != 0x58 ||
+            intro.HorseFaceSparkleVisible,
+            "The face pan did not update LYC/WINY before the lower-layer SCX " +
+            "step for its first 11 updates.");
+        ExpectTransition(FrontendIntroStage.Horse, 6, 1, "final face-pan step");
+        FailIf(
+            intro.HorseFaceTopBarLastY != 0x30 ||
+            intro.HorseFaceBottomBarY != 0x60 ||
+            intro.HorseFaceScrollX != 0x60 ||
+            !intro.HorseFaceSparkleVisible ||
+            intro.HorseFaceSparkleClock != 0,
+            "The face pan did not stop on the reachable $30/$60 boundaries " +
+            "or create intro-sprite subid $04 after the twelfth SCX step.");
+        ExpectTransition(FrontendIntroStage.Horse, 7, 24, "face linger");
+        ExpectTransition(FrontendIntroStage.Horse, 8, 112, "closeup scroll");
+        ExpectTransition(FrontendIntroStage.Horse, 9, 204, "closeup linger");
+        FailIf(
+            intro.CastleActorY != 0x70 || intro.CastleActorX != 0x80 ||
+            intro.CastleHorseAnimation != 4 || intro.CastleStaticAnimation != 5 ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleHorseTerminalEventsRemaining != 5 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse/cliff interactions did not initialize from " +
+            "subids $01/$02 at source position $7080.");
+        for (int update = 0; update < 36; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.CastleHorseAnimationFrame != 4 ||
+            intro.CastleHorseTerminalEventsRemaining != 5 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse reached its first terminal frame before update 37.");
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.CastleHorseAnimationFrame != 5 ||
+            intro.CastleHorseTerminalEventsRemaining != 4 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse did not consume its first parameter-$ff event " +
+            "on update 37.");
+        for (int update = 37; update < 149; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            !intro.CastleHorseAnimationStopped ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleHorseTerminalEventsRemaining != 0 ||
+            intro.CastleActorX != 0x6d || intro.CastleScrollX != 3,
+            "The castle horse did not reset and freeze on animation-$04 frame " +
+            "zero after five parameter-$ff events at update 149.");
+        ExpectTransition(FrontendIntroStage.Horse, 10, 251, "castle hold remainder");
+        FailIf(
+            !intro.CastleHorseAnimationStopped ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleActorX != 0x69 || intro.CastleScrollX != 0,
+            "The stopped castle horse looped again or missed the source " +
+            "SPEED_20/$b4 movement boundary during the remaining hold.");
+        ExpectTransition(FrontendIntroStage.Temple, 0, 32, "castle fade-out");
+        ExpectTransition(FrontendIntroStage.Temple, 1, 1, "temple initialization");
+        FailIf(
+            intro.TempleLinkAnimation != 0 ||
+            intro.TempleLinkAnimationClock != 0 ||
+            intro.TempleBackgroundAnimationGroup != 0x10 ||
+            intro.TempleBackgroundAnimationTick != 1,
+            "Temple Link did not initialize SPECIALOBJECT_LINK_CUTSCENE " +
+            "animation $00 or the direct-loaded background animation group `$10` " +
+            "from their first source update.");
+        int stationaryTempleUpdates =
+            introData.Timing("temple-fade-input-block") +
+            introData.Sequence("temple-input")[0].A;
+        for (int update = 0; update < stationaryTempleUpdates; update++)
+        {
+            intro.AdvanceOneOriginalUpdate();
+            FailIf(
+                intro.TempleLinkY != 0xd0 ||
+                intro.TempleLinkAnimationClock != 0,
+                "Temple Link advanced SPECIALOBJECT_LINK_CUTSCENE animation $00 " +
+                $"during stopped intro update {update + 1}/{stationaryTempleUpdates}.");
+        }
+        ExpectTransition(
+            FrontendIntroStage.Temple,
+            2,
+            597 - stationaryTempleUpdates,
+            "remaining simulated input");
+        ExpectTransition(FrontendIntroStage.Temple, 3, 737, "Triforce sequence");
+        FailIf(
+            intro.TempleLinkAnimation != 4,
+            "Temple Link did not switch to source animation $04 for the rise.");
+        ExpectTransition(FrontendIntroStage.Temple, 4, 32, "temple fade-out");
+        FailIf(
+            !intro.TempleWaveActive || intro.TempleWaveClock != 1,
+            "The temple wave did not execute its state-3 fallthrough update.");
+        ExpectTransition(FrontendIntroStage.Temple, 5, 32, "temple fade-in");
+        ExpectTransition(FrontendIntroStage.Temple, 6, 120, "wave hold");
+        ExpectTransition(FrontendIntroStage.Temple, 7, 14, "screen flash remainder");
+        FailIf(
+            intro.TempleLinkAnimation != 5 ||
+            intro.TempleLinkAnimationClock != 0 ||
+            intro.TempleLinkBlinking,
+            "Temple Link did not load source animation $05 before the " +
+            "alternating-frame fall visibility began.");
+        ExpectTransition(FrontendIntroStage.Temple, 8, 64, "Link fall");
+        ExpectTransition(FrontendIntroStage.Temple, 9, 60, "first temple wait");
+        ExpectTransition(FrontendIntroStage.Temple, 10, 60, "second temple wait");
+        ExpectTransition(FrontendIntroStage.PreTitle, 0, 32, "temple fade-out");
+        ExpectTransition(FrontendIntroStage.PreTitle, 1, 1, "tree initialization");
+        ExpectTransition(FrontendIntroStage.PreTitle, 2, 696, "tree scroll");
+        FailIf(
+            intro.TreeMapPhase != 2 || intro.TreeBranchesVisible ||
+            !intro.CloudsVisible || intro.CloudOffsetY != 32,
+            "The pre-title tree did not preserve the $10/$b0 map-copy order, " +
+            "delete the branch interaction at SCY $00, or apply the exact " +
+            "SPEED_20 cloud displacement from SCY $e0 to $88.");
+        FailIf(
+            !intro.Birds.Select(bird => bird.Subid)
+                .SequenceEqual(Enumerable.Range(0, 8).Reverse()),
+            "Pre-title birds did not retain their source slot/update order 7..0.");
+        ExpectTransition(FrontendIntroStage.PreTitle, 3, 17, "title reveal");
+        ExpectTransition(FrontendIntroStage.Title, 1, 14, "pre-title flash/title init");
+
+        int[] expectedSounds =
+        [
+            OracleSoundEngine.MusIntro1,
+            OracleSoundEngine.SndDropEssence,
+            OracleSoundEngine.SndEnergyThing,
+            OracleSoundEngine.SndAquamentusHover,
+            OracleSoundEngine.SndFairyCutscene,
+            OracleSoundEngine.SndFadeOut,
+            OracleSoundEngine.MusIntro2,
+            OracleSoundEngine.SndSwordObtained,
+            OracleSoundEngine.MusTitlescreen
+        ];
+        FailIf(
+            !sounds.SequenceEqual(expectedSounds) || restartCount != 2 ||
+            random.Calls != 8 || introScreen.Visible || !titleScreen.Visible,
+            "The unskipped frontend changed its sound order, restart boundaries, " +
+            $"seven bird RNG calls plus title-init call, or screen ownership. " +
+            $"sounds={string.Join(',', sounds.Select(sound => $"{sound:x2}"))}, " +
+            $"restarts={restartCount}, rng={random.Calls}.");
+
+        int titleCalls = random.Calls;
+        intro.AdvanceOneOriginalUpdate();
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            random.Calls != titleCalls + 2,
+            "The title did not consume exactly one shared RNG call per original update.");
+
+        intro.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            sounds.Count < 2 ||
+            sounds[^2] != OracleSoundEngine.SndSelectItem ||
+            sounds[^1] != OracleSoundEngine.SndCtrlFastFadeOut,
+            "Title Start did not request SND_SELECTITEM then SNDCTRL_FAST_FADEOUT.");
+        for (int update = 0; update < 31; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(openedFileSelect, "Title Start ended its fade before 32 updates.");
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            !openedFileSelect || intro.IsActive || random.Calls != titleCalls + 35,
+            "Title Start did not finish after 32 fade updates while preserving one RNG " +
+            "call per title dispatch.");
+
+        var replayRandom = new OracleRandom();
+        var replaySounds = new List<int>();
+        var replay = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            replayRandom,
+            () => { },
+            replaySounds.Add,
+            () => { },
+            startAtTitle: true);
+        replay.AdvanceOneOriginalUpdate();
+        for (int update = 0; update < 2400; update++)
+            replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Title || replay.State != 2 ||
+            replaySounds[^1] != OracleSoundEngine.SndCtrlFastFadeOut,
+            "The title idle counter did not enter the retail replay fade at $0960.");
+        for (int update = 0; update < 32; update++)
+            replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Restart,
+            "The idle title replay fade did not complete in 32 updates.");
+        replay.AdvanceOneOriginalUpdate();
+        replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Capcom || replay.State != 0,
+            "Idle title replay did not pass through restart and the clean-US stage skip.");
+
+        var skipRandom = new OracleRandom();
+        var skip = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            skipRandom,
+            () => { },
+            _ => { },
+            () => { });
+        skip.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            skip.Stage != FrontendIntroStage.Capcom || skipRandom.Calls != 0,
+            "Start skipped the clean-US region/Capcom gate before inputs were enabled.");
+        while (!skip.InputsEnabled)
+            skip.AdvanceOneOriginalUpdate();
+        skip.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            skip.Stage != FrontendIntroStage.Title || skip.State != 1 ||
+            skipRandom.Calls != 1,
+            "Cinematic Start skip did not run title initialization and its RNG call in " +
+            "the same original update.");
+
+        ulong[] hashes = introScreen.AssetPixelHashesForValidation();
+        FailIf(
+            !hashes.SequenceEqual(
+            [
+                0x59572895153042ceUL, 0xc847bdc3213fdd31UL,
+                0x4d0d4521c468a92cUL, 0xfe7c20e191d9cfbfUL,
+                0x451e37b3458d1f96UL, 0x9ad508f8905ade75UL,
+                0x0a7a1280e17d4d84UL, 0x46e7c6981f2ff614UL,
+                0x2d7647f62b734cfeUL, 0x7cc8b60d573183feUL
+            ]),
+            "Imported frontend background assembly or palettes changed: " +
+            string.Join(',', hashes.Select(hash => $"{hash:x16}")));
+
+        introScreen.QueueFree();
+        titleScreen.QueueFree();
+        GD.Print("Validated the clean-US Capcom, horse/castle, temple, pre-title, " +
+            "title idle/replay/Start paths, exact counters and sounds, imported " +
+            "presentation assets, horse parallax/priority boundaries, finite " +
+            "castle-horse animation, object-to-OAM Y bias, and shared frontend " +
+            "RNG consumption.");
+    }
+
     private void ValidateDebugFlagMenu()
     {
         FailIf(!InputMap.HasAction("debug_flags"), "The F1 debug_flags input action was not registered.");

@@ -36,6 +36,47 @@ public sealed class OracleAnimationData
         return result.ToArray();
     }
 
+    public int[] GetActiveHeadersAfterDirectLoad(int group, long completedUpdates)
+    {
+        if (group == 0xff || !_groups.TryGetValue(group, out Frame[][]? tracks))
+            return Array.Empty<int>();
+
+        // introCinematic_inTemple_state0 calls loadAnimationData directly,
+        // bypassing initializeAnimations and its three eager data updates.
+        // The cinematic loop then drains at most one previously queued header
+        // before advancing all four counters. Model that shared FIFO exactly:
+        // a header whose counter expires now cannot reach VRAM until a later
+        // updateAnimationQueue call.
+        int[] frameIndices = new int[tracks.Length];
+        int[] counters = new int[tracks.Length];
+        for (int track = 0; track < tracks.Length; track++)
+            counters[track] = tracks[track][0].Duration;
+
+        var pending = new Queue<int>();
+        var applied = new List<int>();
+        long updates = Math.Max(0, completedUpdates);
+        for (long update = 0; update < updates; update++)
+        {
+            if (pending.Count != 0)
+                applied.Add(pending.Dequeue());
+
+            for (int track = 0; track < tracks.Length; track++)
+            {
+                counters[track]--;
+                if (counters[track] != 0)
+                    continue;
+
+                Frame[] frames = tracks[track];
+                int frameIndex = frameIndices[track];
+                pending.Enqueue(frames[frameIndex].HeaderIndex);
+                frameIndex = (frameIndex + 1) % frames.Length;
+                frameIndices[track] = frameIndex;
+                counters[track] = frames[frameIndex].Duration;
+            }
+        }
+        return applied.ToArray();
+    }
+
     public bool TryGetOverride(int[] activeHeaders, int destinationTile, out Image source, out int sourceTile)
     {
         // Later DMA writes take precedence where ranges overlap.

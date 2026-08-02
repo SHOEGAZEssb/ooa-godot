@@ -3,8 +3,10 @@
 ## Composition and scenes
 
 `scenes/main.tscn` owns the application root and persistent sound engine.
-`GameRoot` presents the title/file flow and creates `scenes/gameplay.tscn` for
-active play.
+`GameRoot` presents the boot/attract/title/file flow and creates
+`scenes/gameplay.tscn` for active play. Its single RNG owner spans that frontend
+and gameplay boundary; replaying or dwelling on the title must advance the same
+state later consumed by room objects.
 
 The gameplay scene contains stable nodes whose lifecycle and draw order should
 remain visible in the editor:

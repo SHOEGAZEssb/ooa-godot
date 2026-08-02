@@ -166,6 +166,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoomTileChanges);
         RunIsolatedValidation(ValidateExplicitSavePersistence);
         RunIsolatedValidation(ValidateMenuPresentationData);
+        RunIsolatedValidation(ValidateFrontendIntro);
         RunIsolatedValidation(ValidateMainMenu);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateSoundEngine);

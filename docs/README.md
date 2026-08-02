@@ -33,6 +33,7 @@ entry point.
 | Imported graphics, OAM, palettes, caching, sound, or audio RNG | [Graphics and audio](graphics-and-audio.md) |
 | A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
 | Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
+| Current source/ROM fidelity findings and open verification work | [Fidelity audit checklist](fidelity-audit-checklist.md) |
 
 ## What belongs in documentation
 

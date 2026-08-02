@@ -16,10 +16,11 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Application-owned 60 Hz scheduling, buffered input, global deterministic RNG,
   ordered room-object parsing, transition preload/freeze, and headless scenario
   isolation.
-- Title and file-select flow, three explicit-save slots with backup recovery,
-  new-game presentation, HUD, dialogue, map/dungeon map, inventory foundations,
-  ring appraisal/list screens, save/quit and game-over flows, plus development
-  navigation and state tools.
+- Clean-US boot/attract/title replay and skip flow, file select, three
+  explicit-save slots with backup recovery, new-game presentation, HUD,
+  dialogue, map/dungeon map, inventory foundations, ring appraisal/list
+  screens, save/quit and game-over flows, plus development navigation and
+  state tools.
 - Imported music/SFX sequencing with square, wave, and noise channels, channel
   priority, envelopes, fades, vibrato, and room music ownership.
 

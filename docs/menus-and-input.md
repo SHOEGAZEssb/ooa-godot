@@ -59,6 +59,19 @@ rules even when it is not a full-screen modal. Preserve original object update
 masks: some state-0 or explicitly enabled objects continue while ordinary
 actors stop.
 
+## Frontend ownership
+
+The application owns one frontend controller from the clean-US Capcom screen
+through the attract cinematic and title idle/replay states. It shares the same
+`OracleRandom` instance later used by gameplay: ordered bird respawns consume
+the first cinematic calls, and every title dispatch consumes one call before
+its state handler. Starting gameplay must not reseed that owner.
+
+Start remains gated until the Capcom stage finishes. During the cinematic it
+enters title initialization in the same original update; at the title it
+requests `SND_SELECTITEM $56` followed by `SNDCTRL_FAST_FADEOUT $fa`, completes
+the source fade, and only then transfers ownership to file select.
+
 ## Adding or changing a menu
 
 1. Trace the original screen state, input order, counters, fades, OAM/tilemap
