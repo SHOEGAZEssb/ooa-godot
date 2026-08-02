@@ -42,7 +42,6 @@ public sealed class RoomTransitionController
     private readonly Hud _hud;
     private readonly DialogueBox _dialogue;
     private readonly RoomEntityManager _entities;
-    private readonly Func<Vector2, bool> _collides;
     private readonly DeathRespawnPointController _deathRespawnPoints;
     private readonly OracleSoundEngine _sound;
     private readonly TimePortalDatabase _timePortals;
@@ -132,7 +131,6 @@ public sealed class RoomTransitionController
         Hud hud,
         DialogueBox dialogue,
         RoomEntityManager entities,
-        Func<Vector2, bool> collides,
         DeathRespawnPointController deathRespawnPoints,
         OracleSoundEngine sound,
         TimePortalDatabase timePortals)
@@ -147,7 +145,6 @@ public sealed class RoomTransitionController
         _hud = hud;
         _dialogue = dialogue;
         _entities = entities;
-        _collides = collides;
         _deathRespawnPoints = deathRespawnPoints;
         _sound = sound;
         _timePortals = timePortals;
@@ -1092,12 +1089,6 @@ public sealed class RoomTransitionController
                     _ => Vector2I.Left
                 });
             }
-            else if (ShouldStepOut(warp, destinationTile, tileX, tileY))
-            {
-                spawn.Y += OracleRoomData.MetatileSize;
-                ClearDeactivatedWarp();
-                _player.Face(Vector2I.Down);
-            }
             else
             {
                 _deactivatedWarpGroup = _rooms.ActiveGroup;
@@ -1411,17 +1402,6 @@ void fragment() {
             RoomLoadRevealBounds(loadedColumns);
         int pixel = Mathf.Clamp(x, 0, OracleRoomData.ViewportWidth - 1);
         return pixel < left || pixel >= right;
-    }
-
-    private bool ShouldStepOut(Warp warp, byte destinationTile, int tileX, int tileY)
-    {
-        if (warp.SourceTransition != 3 || _rooms.ActiveGroup is not (0 or 1) ||
-            destinationTile is not (0xdc or 0xdd or 0xde or 0xdf or 0xed or 0xee or 0xef))
-            return false;
-        Vector2 steppedOut = new(
-            tileX * OracleRoomData.MetatileSize + 8,
-            (tileY + 1) * OracleRoomData.MetatileSize + 8);
-        return steppedOut.Y < _rooms.CurrentRoom.Height && !_collides(steppedOut);
     }
 
     private static void FaceForDestinationTile(Player player, byte tile)

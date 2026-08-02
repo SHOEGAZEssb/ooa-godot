@@ -42,6 +42,10 @@ windows, not a generic full-metatile overlap. Screen edges use imported warp
 rows or dungeon-layout neighbors as appropriate. Preserve the source order of
 hazard, object, and boundary checks around a transition.
 
+Ordinary warp destinations place Link at the exact center encoded by the
+imported packed position. If that position is itself a warp tile, deactivate
+that tile until Link leaves it; do not move him to an adjacent metatile.
+
 ## Ordered room objects and RNG
 
 The importer produces one source-ordered object stream. Parse it in order and

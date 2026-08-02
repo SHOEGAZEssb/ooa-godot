@@ -676,7 +676,7 @@ public partial class GameRoot : Node2D
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,
-            _warpFade, _hud, _dialogue, _entities, _collision.Collides,
+            _warpFade, _hud, _dialogue, _entities,
             _deathRespawnPoints, _sound, timePortals);
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
         _transitions.ScrollingTransitionFinished += _ => ApplyDeferredIntroMusic();

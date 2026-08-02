@@ -356,8 +356,10 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         FailIf(
             IsTransitioning ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x62,
-            "Room 2:e6's transition-$0e exit did not step below exterior 0:53/$52.");
+            _player.Position != new Vector2(0x20, 0x58) ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x52 ||
+            CheckTileWarp(_player),
+            "Room 2:e6's transition-$0e exit did not land on deactivated exterior warp 0:53/$52 with its original X shift.");
 
         CutsceneCommandTraceEntry[] commandStarts = trace.Entries.Where(entry =>
             entry.Phase == CutsceneCommandTracePhase.Started &&

@@ -202,8 +202,10 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         FailIf(
             IsTransitioning ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x62,
-            "Room 3:fb's exit did not step below exterior 0:45/$52 after its fade.");
+            _player.Position != new Vector2(0x28, 0x58) ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x52 ||
+            CheckTileWarp(_player),
+            "Room 3:fb's exit did not land on deactivated exterior warp 0:45/$52 after its fade.");
 
         _saveData.SetRoomFlag(3, 0xfb, OracleSaveData.RoomFlag40, value: false);
         if (_saveData.WriteWramByte(0xc6bf, 0))
@@ -211,7 +213,7 @@ public sealed partial class ValidationRoot
 
         GD.Print("Validated rooms 0:45/3:fb: exact $3f:$01 progress gate, " +
             "$ca:$01 lifetime, first/repeat room-$40 dialogue, all 16 shared-RNG " +
-            "animal substitutions, and the bidirectional waterfall warp.");
+            "animal substitutions, and the exact-position bidirectional waterfall warp.");
     }
 
     private static Vector2 PackedPosition(int packed) => new(

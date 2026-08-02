@@ -173,8 +173,9 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x47 ||
-            _currentRoom.GetPackedPosition(_player.Position) != 0x35,
-            $"Expected house 2:ea bottom exit to step out below 0:47/$25, got " +
+            _player.Position != new Vector2(0x58, 0x28) ||
+            _currentRoom.GetPackedPosition(_player.Position) != 0x25,
+            $"Expected house 2:ea bottom exit to land on 0:47/$25, got " +
             $"{_activeGroup}:{_currentRoom.Id:x2}/${_currentRoom.GetPackedPosition(_player.Position):x2}.");
         FailIf(
             IsTransitioning ||
@@ -182,16 +183,16 @@ public sealed partial class ValidationRoot
             eraInfo.Position != new Vector2(0x30, 0x0a),
             "The era display did not advance on all 32 destination fade-in updates.");
         FailIf(
-            Collides(_player.Position + Vector2.Down),
-            "The exterior landing spot below 0:47/$25 is blocked.");
+            CheckTileWarp(_player),
+            "The destination warp tile 0:47/$25 immediately reactivated before Link left it.");
         FailIf(
             _saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x47 ||
-            _saveData.RespawnFacing != 2 || _saveData.RespawnY != 0x38 ||
+            _saveData.RespawnFacing != 2 || _saveData.RespawnY != 0x28 ||
             _saveData.RespawnX != 0x58 ||
             !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? exteriorSave) ||
             exteriorSave!.RespawnGroup != 0 || exteriorSave.RespawnRoom != 0x47 ||
-            exteriorSave.RespawnY != 0x38 || exteriorSave.RespawnX != 0x58,
-            "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47's stepped-out checkpoint.");
+            exteriorSave.RespawnY != 0x28 || exteriorSave.RespawnX != 0x58,
+            "TRANSITION_DEST_SET_RESPAWN did not persist exterior 0:47/$25's exact checkpoint.");
 
         for (int update = 0; update < 8; update++)
             _entities.Update(1.0 / 60.0, _player);
@@ -253,7 +254,8 @@ public sealed partial class ValidationRoot
 
         ValidateEraInfoDisplayPredicates(presentEraHash);
 
-        GD.Print("Validated original house entry/exit fades, destination checkpoint updates, " +
+        GD.Print("Validated original house entry/exit fades, exact destination-tile placement, " +
+            "destination warp deactivation, checkpoint updates, " +
             "save-image round trip, present/past era fly-in timing and predicates, " +
             "and non-checkpoint 2:eb -> 2:ea scrolling.");
     }
