@@ -180,6 +180,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     protected override RoomEventContext InputContext => _context;
     protected TActor? ScriptActor => _actor;
     protected bool PendingActorButton => _buttonPressed;
+    protected int ScriptActorSpeed => _runner.ActorSpeed(new(_actorName));
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;

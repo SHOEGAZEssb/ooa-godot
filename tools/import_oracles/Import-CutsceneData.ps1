@@ -6673,6 +6673,689 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\mask_salesman_event.tsv'),
     $maskSalesmanEventRows)
 
+# Room 2:0f Cheval. INTERAC_CHEVAL installs its script during source state 0,
+# then the script initializes asymmetric collision radii and chooses one of
+# two permanent A-button loops from Cheval Rope ownership. Both loops set the
+# talked-to-Cheval global flag only after their textbox command has completed.
+$chevalScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$chevalOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'setcollisionradii', 'jumpifitemobtained',
+    'checkabutton', 'showtextlowindex', 'asm15', 'scriptjump')) {
+    [void]$chevalOpcodes.Add($opcode)
+}
+$chevalCommands = @(Read-AssemblyCutsceneCommands `
+    $chevalScriptPath 'cheval_subid00Script' $chevalOpcodes 'script71a3')
+$chevalExpected = @(
+    @('initcollisions', ''),
+    @('setcollisionradii', '$0c, $06'),
+    @('jumpifitemobtained', 'TREASURE_CHEVAL_ROPE, @gotChevalRope'),
+    @('checkabutton', ''),
+    @('showtextlowindex', '<TX_270c'),
+    @('asm15', 'scriptHelp.cheval_setTalkedGlobalflag'),
+    @('scriptjump', '@dontHaveChevalRope'),
+    @('checkabutton', ''),
+    @('showtextlowindex', '<TX_270d'),
+    @('asm15', 'scriptHelp.cheval_setTalkedGlobalflag'),
+    @('scriptjump', '@gotChevalRope')
+)
+if ($chevalCommands.Count -ne $chevalExpected.Count) {
+    throw "cheval_subid00Script expected 11 commands, parsed $($chevalCommands.Count)."
+}
+for ($index = 0; $index -lt $chevalExpected.Count; $index++) {
+    $actualOperands = if ($null -eq $chevalCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$chevalCommands[$index].Operands).Trim()
+    }
+    if ($chevalCommands[$index].Opcode -ne $chevalExpected[$index][0] -or
+        $actualOperands -ne $chevalExpected[$index][1]) {
+        throw "cheval_subid00Script command $index changed from " +
+            "$($chevalExpected[$index][0]) '$($chevalExpected[$index][1])' to " +
+            "$($chevalCommands[$index].Opcode) '$actualOperands'."
+    }
+}
+
+$chevalTargets = @{}
+foreach ($command in $chevalCommands) {
+    if (-not $chevalTargets.ContainsKey($command.Label)) {
+        $chevalTargets[$command.Label] = $command.Index
+    }
+}
+foreach ($entry in @(
+    @('@dontHaveChevalRope', 3),
+    @('@gotChevalRope', 7))) {
+    if (-not $chevalTargets.ContainsKey($entry[0]) -or
+        $chevalTargets[$entry[0]] -ne $entry[1]) {
+        throw "cheval_subid00Script label $($entry[0]) moved from command $($entry[1])."
+    }
+}
+
+$chevalNativeSource = Read-ImportText (Join-Path $Disassembly `
+    'object_code\ages\interactions\cheval.s')
+$chevalHelperSource = Read-ImportText (Join-Path $Disassembly `
+    'scripts\ages\scriptHelper.s')
+$chevalInteractionDataSource = Read-ImportText (Join-Path $Disassembly `
+    'data\ages\interactionData.s')
+$chevalGlobalFlagSource = Read-ImportText (Join-Path $Disassembly `
+    'constants\common\globalFlags.s')
+$chevalTreasureSource = Read-ImportText (Join-Path $Disassembly `
+    'constants\common\treasure.s')
+if ($chevalNativeSource -notmatch
+        '(?ms)^@state0:.*?ld a,\$01\s+ld \(de\),a\s+call interactionInitGraphics\s+call objectSetVisiblec2\s+ld a,>TX_2700\s+call interactionSetHighTextIndex.*?^@state1:.*?^@runSubid00:\s+call interactionRunScript\s+jp interactionAnimateAsNpc' -or
+    $chevalNativeSource -notmatch
+        '(?ms)^@loadScript:.*?jp interactionSetScript.*?^@scriptTable:\s+\.dw mainScripts\.cheval_subid00Script' -or
+    $chevalInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$6a \*/ m_InteractionData \$59 \$1a \$00\s*$') {
+    throw 'INTERAC_CHEVAL native initialization, update order, or graphics data changed.'
+}
+if ($chevalHelperSource -notmatch
+        '(?ms)^cheval_setTalkedGlobalflag:\s+ld a,GLOBALFLAG_TALKED_TO_CHEVAL\s+jp setGlobalFlag' -or
+    $chevalGlobalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_TALKED_TO_CHEVAL\s+db ; \$43\s*$' -or
+    $chevalTreasureSource -notmatch
+        '(?m)^\s*TREASURE_CHEVAL_ROPE\s+db ; \$52\s*$') {
+    throw 'Cheval talked flag or Cheval Rope constant changed.'
+}
+if ($mainObjectSource -notmatch
+        '(?ms)^group2Map0fObjectData:\s+obj_Interaction \$6a \$00 \$40 \$50\s+obj_End') {
+    throw 'Room 2:0f Cheval object stream or coordinates changed.'
+}
+
+$chevalAnimation = Resolve-NpcAnimation 0x6a 0
+$chevalGraphic = $interactionGraphics['106:0']
+if ([string]::IsNullOrWhiteSpace($chevalAnimation) -or
+    $null -eq $chevalGraphic -or
+    -not $gfxNames.ContainsKey($chevalGraphic.Gfx) -or
+    $gfxNames[$chevalGraphic.Gfx] -ne 'spr_oldzora_cheval' -or
+    $chevalGraphic.TileBase -ne 0x1a -or
+    $chevalGraphic.Palette -ne 0 -or
+    $chevalGraphic.DefaultAnimation -ne 0) {
+    throw 'Could not resolve INTERAC_CHEVAL graphics or animation `$00.'
+}
+$chevalTextIds = @(0x270b, 0x270c, 0x270d)
+foreach ($textId in $chevalTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Cheval text TX_$($textId.ToString('x4'))."
+    }
+}
+foreach ($textId in @(0x270c, 0x270d)) {
+    if ($allTexts[$textId] -notmatch '^\\call\(TX_270b\)') {
+        throw "Cheval TX_$($textId.ToString('x4')) lost its call to TX_270b."
+    }
+}
+$chevalResolvedTexts = @{}
+foreach ($textId in @(0x270c, 0x270d)) {
+    $chevalResolvedTexts[$textId] = $allTexts[$textId].Replace(
+        '\call(TX_270b)', $allTexts[0x270b])
+}
+
+$chevalCommandRows = [Collections.Generic.List[string]]::new()
+$chevalCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+foreach ($command in $chevalCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'initcollisions' { $actor = 'Cheval' }
+        'setcollisionradii' {
+            if ($command.Operands -ne '$0c, $06') {
+                throw "Unexpected Cheval collision radii '$($command.Operands)'."
+            }
+            $actor = 'Cheval'; $arg0 = '0c'; $arg1 = '06'
+        }
+        'jumpifitemobtained' {
+            if ($command.Operands -notmatch
+                '^TREASURE_CHEVAL_ROPE,\s*(?<target>@[A-Za-z0-9_]+)$' -or
+                -not $chevalTargets.ContainsKey($Matches['target'])) {
+                throw "Malformed Cheval Rope branch at source line $($command.Line)."
+            }
+            $opcode = 'jumpifmemoryeq'
+            $arg0 = '01'
+            $arg1 = $chevalTargets[$Matches['target']].ToString()
+            $payload = 'HasChevalRope'
+        }
+        'checkabutton' { $actor = 'Cheval' }
+        'showtextlowindex' {
+            if ($command.Operands -notmatch '^<TX_(?<id>270[cd])$') {
+                throw "Unexpected Cheval text '$($command.Operands)'."
+            }
+            $textId = [Convert]::ToInt32($Matches['id'], 16)
+            $opcode = 'showtext'
+            $arg0 = $Matches['id']
+            $payload = $chevalResolvedTexts[$textId]
+        }
+        'asm15' {
+            if ($command.Operands -ne 'scriptHelp.cheval_setTalkedGlobalflag') {
+                throw "Unexpected Cheval native helper '$($command.Operands)'."
+            }
+            $opcode = 'setglobalflag'; $arg0 = '43'
+        }
+        'scriptjump' {
+            if (-not $chevalTargets.ContainsKey($command.Operands)) {
+                throw "Unknown Cheval branch target '$($command.Operands)'."
+            }
+            $arg0 = $chevalTargets[$command.Operands].ToString()
+        }
+    }
+    $chevalCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor "$arg0" "$arg1" $payload))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\cheval_commands.tsv'),
+    $chevalCommandRows)
+
+$chevalTextRows = [Collections.Generic.List[string]]::new()
+$chevalTextRows.Add("# id`ttext-base64")
+foreach ($textId in $chevalTextIds) {
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $chevalTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\cheval_text.tsv'),
+    $chevalTextRows)
+
+$chevalEventRows = @(
+    "# group`troom`tid`tsubid`tsprite`ttile-base`tpalette`tanimation0`tinitial-animation`tcollision-y`tcollision-x`tcheval-rope-treasure`ttalked-global-flag`tinitial-script-updates"
+    (@(
+        '2', '0f', '6a', '00', 'spr_oldzora_cheval', '1a', '00',
+        $chevalAnimation, '00', '0c', '06', '52', '43', '0'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\cheval_event.tsv'),
+    $chevalEventRows)
+
+# Rooms 2:1e and 2:1f Rafton sequence. The left-hand interaction chooses one
+# of five source behaviours from D2/rope/global/chart state and eventually
+# walks into the right room. The right-hand interaction owns the post-D3
+# Magic Oar trade and ROOMFLAG_ITEM reward persistence.
+$raftonMainScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$raftonHelperScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$raftonLeftOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'jumptable_objectbyte', 'settextid', 'checkabutton',
+    'asm15', 'showloadedtext', 'enableinput', 'setanimation', 'scriptjump',
+    'callscript', 'showtextlowindex', 'wait', 'jumpiftextoptioneq',
+    'setglobalflag', 'disableinput', 'writeobjectbyte', 'setspeed',
+    'moveright', 'scriptend', 'retscript')) {
+    [void]$raftonLeftOpcodes.Add($opcode)
+}
+$raftonLeftCommands = @(Read-AssemblyCutsceneCommands `
+    $raftonMainScriptPath 'rafton_subid00Script' $raftonLeftOpcodes `
+    'rafton_subid01Script')
+if ($raftonLeftCommands.Count -ne 53) {
+    throw "rafton_subid00Script expected 53 commands, parsed $($raftonLeftCommands.Count)."
+}
+
+$raftonRightOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'initcollisions', 'asm15', 'jumpifmemoryset', 'settextid',
+    'checkabutton', 'showloadedtext', 'wait', 'setanimation', 'scriptjump',
+    'disableinput', 'jumpifroomflagset', 'showtextlowindex',
+    'jumpiftradeitemeq', 'jumpiftextoptioneq', 'giveitem', 'enableinput')) {
+    [void]$raftonRightOpcodes.Add($opcode)
+}
+$raftonRightCommands = @(Read-AssemblyCutsceneCommands `
+    $raftonHelperScriptPath 'rafton_subid01Script' $raftonRightOpcodes `
+    'cheval_setTalkedGlobalflag')
+if ($raftonRightCommands.Count -ne 30) {
+    throw "rafton_subid01Script expected 30 commands, parsed $($raftonRightCommands.Count)."
+}
+
+$raftonLeftExpected = @(
+    @('initcollisions', ''),
+    @('jumptable_objectbyte', 'Interaction.var38'),
+    @('settextid', 'TX_2700'),
+    @('checkabutton', ''),
+    @('asm15', 'scriptHelp.turnToFaceLink'),
+    @('showloadedtext', ''),
+    @('enableinput', ''),
+    @('setanimation', 'DIR_DOWN'),
+    @('scriptjump', '@genericNpcLoop'),
+    @('checkabutton', ''),
+    @('callscript', '@faceLinkAndFreezeAnimation'),
+    @('showtextlowindex', '<TX_2700'),
+    @('wait', '20'),
+    @('settextid', 'TX_2701'),
+    @('scriptjump', '@showLoadedTextInGenericNpcLoop'),
+    @('checkabutton', ''),
+    @('callscript', '@faceLinkAndFreezeAnimation'),
+    @('wait', '20'),
+    @('asm15', 'scriptHelp.createExclamationMark, 60'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_2702'),
+    @('wait', '30'),
+    @('showtextlowindex', '<TX_2703'),
+    @('jumpiftextoptioneq', '$00, @giveRopeToRafton'),
+    @('wait', '20'),
+    @('showtextlowindex', '<TX_2704'),
+    @('enableinput', ''),
+    @('setanimation', 'DIR_DOWN'),
+    @('checkabutton', ''),
+    @('callscript', '@faceLinkAndFreezeAnimation'),
+    @('scriptjump', '@askToGiveRope'),
+    @('asm15', 'loseTreasure, TREASURE_CHEVAL_ROPE'),
+    @('wait', '20'),
+    @('showtextlowindex', '<TX_2705'),
+    @('wait', '20'),
+    @('setglobalflag', 'GLOBALFLAG_GAVE_ROPE_TO_RAFTON'),
+    @('enableinput', ''),
+    @('settextid', 'TX_2706'),
+    @('scriptjump', '@genericNpcLoop'),
+    @('disableinput', ''),
+    @('wait', '100'),
+    @('writeobjectbyte', 'Interaction.animCounter, $7f'),
+    @('showtextlowindex', '<TX_2707'),
+    @('wait', '30'),
+    @('setspeed', 'SPEED_100'),
+    @('moveright', '$40'),
+    @('setglobalflag', 'GLOBALFLAG_RAFTON_CHANGED_ROOMS'),
+    @('enableinput', ''),
+    @('scriptend', ''),
+    @('disableinput', ''),
+    @('asm15', 'scriptHelp.turnToFaceLink'),
+    @('writeobjectbyte', 'Interaction.animCounter, $7f'),
+    @('retscript', '')
+)
+$raftonRightExpected = @(
+    @('initcollisions', ''),
+    @('asm15', 'checkEssenceObtained, $02'),
+    @('jumpifmemoryset', 'wcddb, CPU_ZFLAG, @afterD3NpcLoop'),
+    @('settextid', 'TX_2708'),
+    @('checkabutton', ''),
+    @('asm15', 'turnToFaceLink'),
+    @('showloadedtext', ''),
+    @('wait', '10'),
+    @('setanimation', 'DIR_DOWN'),
+    @('settextid', 'TX_270a'),
+    @('scriptjump', '@beforeD3NpcLoop'),
+    @('checkabutton', ''),
+    @('disableinput', ''),
+    @('jumpifroomflagset', '$20, @alreadyTraded'),
+    @('showtextlowindex', '<TX_2710'),
+    @('wait', '30'),
+    @('jumpiftradeitemeq', 'TRADEITEM_MAGIC_OAR, @linkHasOar'),
+    @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_2711'),
+    @('wait', '30'),
+    @('jumpiftextoptioneq', '$00, @acceptedTrade'),
+    @('showtextlowindex', '<TX_2713'),
+    @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_2712'),
+    @('wait', '30'),
+    @('giveitem', 'TREASURE_TRADEITEM, $0a'),
+    @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_2714'),
+    @('enableinput', ''),
+    @('scriptjump', '@afterD3NpcLoop')
+)
+foreach ($stream in @(
+    [pscustomobject]@{
+        Name = 'rafton_subid00Script'
+        Parsed = $raftonLeftCommands
+        Expected = $raftonLeftExpected
+    },
+    [pscustomobject]@{
+        Name = 'rafton_subid01Script'
+        Parsed = $raftonRightCommands
+        Expected = $raftonRightExpected
+    })) {
+    $scriptName = $stream.Name
+    $parsed = @($stream.Parsed)
+    $expected = @($stream.Expected)
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        $actualOperands = if ($null -eq $parsed[$index].Operands) {
+            ''
+        } else {
+            ([string]$parsed[$index].Operands).Trim()
+        }
+        if ($parsed[$index].Opcode -ne $expected[$index][0] -or
+            $actualOperands -ne $expected[$index][1]) {
+            throw "$scriptName command $index changed from " +
+                "$($expected[$index][0]) '$($expected[$index][1])' to " +
+                "$($parsed[$index].Opcode) '$actualOperands'."
+        }
+    }
+}
+
+$newRaftonTargets = {
+    param([object[]]$commands)
+    $targets = @{}
+    foreach ($command in $commands) {
+        if (-not $targets.ContainsKey($command.Label)) {
+            $targets[$command.Label] = $command.Index
+        }
+    }
+    return $targets
+}
+$raftonLeftTargets = & $newRaftonTargets $raftonLeftCommands
+$raftonRightTargets = & $newRaftonTargets $raftonRightCommands
+$expectedRaftonLeftTargets = @{
+    '@behaviour_befored2' = 2
+    '@genericNpcLoop' = 3
+    '@showLoadedTextInGenericNpcLoop' = 5
+    '@behaviour_afterd2' = 9
+    '@behaviour_afterGotChevalRope' = 15
+    '@askToGiveRope' = 22
+    '@giveRopeToRafton' = 31
+    '@behaviour_afterGaveChevalRope' = 37
+    '@behaviour_afterGotIslandChart' = 39
+    '@faceLinkAndFreezeAnimation' = 49
+}
+$expectedRaftonRightTargets = @{
+    '@beforeD3NpcLoop' = 4
+    '@afterD3NpcLoop' = 11
+    '@linkHasOar' = 18
+    '@acceptedTrade' = 23
+    '@alreadyTraded' = 27
+    '@enableInput' = 28
+}
+foreach ($entry in $expectedRaftonLeftTargets.GetEnumerator()) {
+    if (-not $raftonLeftTargets.ContainsKey($entry.Key) -or
+        $raftonLeftTargets[$entry.Key] -ne $entry.Value) {
+        throw "rafton_subid00Script label $($entry.Key) moved from command $($entry.Value)."
+    }
+}
+foreach ($entry in $expectedRaftonRightTargets.GetEnumerator()) {
+    if (-not $raftonRightTargets.ContainsKey($entry.Key) -or
+        $raftonRightTargets[$entry.Key] -ne $entry.Value) {
+        throw "rafton_subid01Script label $($entry.Key) moved from command $($entry.Value)."
+    }
+}
+
+$raftonNativeSource = Read-ImportText (Join-Path $Disassembly `
+    'object_code\ages\interactions\rafton.s')
+$raftonMainScriptSource = Read-ImportText $raftonMainScriptPath
+$raftonHelperScriptSource = Read-ImportText $raftonHelperScriptPath
+$raftonInteractionDataSource = Read-ImportText (Join-Path $Disassembly `
+    'data\ages\interactionData.s')
+$raftonGlobalFlagSource = Read-ImportText (Join-Path $Disassembly `
+    'constants\common\globalFlags.s')
+$raftonTreasureSource = Read-ImportText (Join-Path $Disassembly `
+    'constants\common\treasure.s')
+$raftonStructSource = Read-ImportText (Join-Path $Disassembly 'include\structs.s')
+$raftonExclamationSource = Read-ImportText (Join-Path $Disassembly `
+    'object_code\common\interactions\exclamationMark.s')
+if ($raftonNativeSource -notmatch
+        '(?ms)^@state0:.*?bit 7,a.*?interactionInitGraphics.*?objectSetVisiblec2.*?>TX_2700.*?^@initSubid00:.*?GLOBALFLAG_RAFTON_CHANGED_ROOMS.*?TREASURE_ISLAND_CHART.*?GLOBALFLAG_GAVE_ROPE_TO_RAFTON.*?TREASURE_CHEVAL_ROPE.*?wEssencesObtained.*?bit 1,a.*?Interaction\.var38.*?^@initSubid01:.*?GLOBALFLAG_RAFTON_CHANGED_ROOMS.*?^@state1:' -or
+    $raftonNativeSource -notmatch
+        '(?ms)^@runSubid00:\s+call interactionRunScript\s+jp c,interactionDelete.*?Interaction\.var38.*?cp \$04\s+jp z,interactionAnimateBasedOnSpeed\s+jp interactionAnimateAsNpc\s+^@runSubid01:\s+call interactionAnimateAsNpc\s+jp interactionRunScript' -or
+    $raftonNativeSource -notmatch
+        '(?ms)^@scriptTable:\s+\.dw mainScripts\.rafton_subid00Script\s+\.dw mainScripts\.rafton_subid01Script' -or
+    $raftonMainScriptSource -notmatch
+        '(?ms)^rafton_subid01Script:\s+loadscript scriptHelp\.rafton_subid01Script' -or
+    $raftonInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$69 \*/ m_InteractionData \$5e \$10 \$12\s*$') {
+    throw 'INTERAC_RAFTON native initialization, visibility, update order, or script wrapper changed.'
+}
+if ($mainObjectSource -notmatch
+        '(?ms)^group2Map1eObjectData:\s+obj_Interaction \$69 \$00 \$48 \$68\s+obj_End' -or
+    $mainObjectSource -notmatch
+        '(?ms)^group2Map1fObjectData:\s+obj_Interaction \$69 \$01 \$48 \$28\s+obj_End') {
+    throw 'Rooms 2:1e/2:1f Rafton object streams or coordinates changed.'
+}
+if ($raftonGlobalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_GAVE_ROPE_TO_RAFTON\s+db ; \$15\s*$' -or
+    $raftonGlobalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_RAFTON_CHANGED_ROOMS\s+db ; \$26:' -or
+    $raftonTreasureSource -notmatch
+        '(?m)^\s*TREASURE_CHEVAL_ROPE\s+db ; \$52\s*$' -or
+    $raftonTreasureSource -notmatch
+        '(?m)^\s*TREASURE_ISLAND_CHART\s+db ; \$54\s*$' -or
+    $tradeItemSource -notmatch 'TRADEITEM_MAGIC_OAR\s+db ; \$09' -or
+    $tradeItemSource -notmatch 'TRADEITEM_SEA_UKELELE\s+db ; \$0a' -or
+    $roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20' -or
+    $speedSource -notmatch 'SPEED_100\s+dsb 5 ; 0x28' -or
+    $raftonStructSource -notmatch '(?m)^\s*animCounter\s+db ; \$20\s*$' -or
+    $raftonExclamationSource -notmatch
+        '(?ms)^@state0:.*?set 7,\(hl\).*?interactionInitGraphics.*?^@state1:.*?Interaction\.counter1.*?dec \(hl\).*?interactionDelete.*?^objectCreateExclamationMark_body:.*?INTERAC_EXCLAMATION_MARK.*?objectCopyPositionWithOffset.*?SND_CLINK') {
+    throw 'Rafton flags, treasure, trade, movement, animation-counter, or exclamation constants changed.'
+}
+
+$raftonAnimations = @{}
+foreach ($animation in 0..3) {
+    $raftonAnimations[$animation] = Resolve-NpcAnimation 0x69 $animation
+    if ([string]::IsNullOrWhiteSpace($raftonAnimations[$animation])) {
+        throw "Could not resolve INTERAC_RAFTON animation `$$($animation.ToString('x2'))."
+    }
+}
+$raftonGraphic = $interactionGraphics['105:0']
+$raftonExclamationGraphic = $interactionGraphics['159:0']
+$raftonExclamationAnimation = Resolve-NpcAnimation 0x9f 0
+if ($null -eq $raftonGraphic -or
+    -not $gfxNames.ContainsKey($raftonGraphic.Gfx) -or
+    $gfxNames[$raftonGraphic.Gfx] -ne 'spr_masksalesman_rafton' -or
+    $raftonGraphic.TileBase -ne 0x10 -or
+    $raftonGraphic.Palette -ne 1 -or
+    $raftonGraphic.DefaultAnimation -ne 2 -or
+    $null -eq $raftonExclamationGraphic -or
+    -not $gfxNames.ContainsKey($raftonExclamationGraphic.Gfx) -or
+    [string]::IsNullOrWhiteSpace($raftonExclamationAnimation)) {
+    throw 'Could not resolve Rafton or INTERAC_EXCLAMATION_MARK graphics.'
+}
+$raftonTextIds = @(
+    0x2700, 0x2701, 0x2702, 0x2703, 0x2704, 0x2705, 0x2706, 0x2707,
+    0x2708, 0x2709, 0x270a, 0x2710, 0x2711, 0x2712, 0x2713, 0x2714)
+foreach ($textId in $raftonTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Rafton text TX_$($textId.ToString('x4'))."
+    }
+}
+$raftonReward = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_0a']
+if ($null -eq $raftonReward -or
+    $raftonReward.Treasure -ne 0x41 -or
+    $raftonReward.SubId -ne 0x0a -or
+    $raftonReward.Parameter -ne 0x0a -or
+    $raftonReward.TextId -ne 0x0064 -or
+    $raftonReward.Graphic -ne 0x7a) {
+    throw 'TREASURE_OBJECT_TRADEITEM_0a no longer grants the Sea Ukulele.'
+}
+
+$raftonTextRows = [Collections.Generic.List[string]]::new()
+$raftonTextRows.Add("# id`ttext-base64")
+foreach ($textId in $raftonTextIds) {
+    $raftonTextRows.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))")
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\rafton_text.tsv'),
+    $raftonTextRows)
+
+$newRaftonCommandRows = {
+    param(
+        [object[]]$commands,
+        [hashtable]$targets,
+        [bool]$rightRoom)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+    foreach ($command in $commands) {
+        $opcode = $command.Opcode
+        $actor = ''
+        $arg0 = ''
+        $arg1 = ''
+        $payload = ''
+        switch ($command.Opcode) {
+            'initcollisions' { $actor = 'Rafton' }
+            'checkabutton' { $actor = 'Rafton' }
+            'jumptable_objectbyte' {
+                if ($rightRoom -or $command.Operands -ne 'Interaction.var38') {
+                    throw "Unexpected Rafton jump-table binding '$($command.Operands)'."
+                }
+                $opcode = 'jumptablememory'
+                $payload = "RaftonBehaviour|$($targets['@behaviour_befored2']),$($targets['@behaviour_afterd2']),$($targets['@behaviour_afterGotChevalRope']),$($targets['@behaviour_afterGaveChevalRope']),$($targets['@behaviour_afterGotIslandChart'])"
+            }
+            'settextid' {
+                if ($command.Operands -notmatch '^TX_(?<id>27(?:00|01|06|08|0a))$') {
+                    throw "Unexpected Rafton loaded text '$($command.Operands)'."
+                }
+                $opcode = 'writememory'
+                $arg0 = $Matches['id']
+                $payload = 'LoadedText'
+            }
+            'asm15' {
+                switch -Regex ($command.Operands) {
+                    '^(?:scriptHelp\.)?turnToFaceLink$' {
+                        $opcode = 'native'; $payload = 'TurnToFaceLink'; break
+                    }
+                    '^scriptHelp\.createExclamationMark,\s*60$' {
+                        $opcode = 'native'; $payload = 'CreateExclamationMark'; break
+                    }
+                    '^loseTreasure,\s*TREASURE_CHEVAL_ROPE$' {
+                        $opcode = 'native'; $payload = 'LoseChevalRope'; break
+                    }
+                    '^checkEssenceObtained,\s*\$02$' {
+                        $opcode = 'native'; $payload = 'CheckD3Essence'; break
+                    }
+                    default {
+                        throw "Unsupported Rafton asm15 '$($command.Operands)' at source line $($command.Line)."
+                    }
+                }
+            }
+            'showtextlowindex' {
+                if ($command.Operands -notmatch '^<TX_(?<id>27(?:0[0-7]|1[0-4]))$') {
+                    throw "Unexpected Rafton text '$($command.Operands)'."
+                }
+                $textId = [Convert]::ToInt32($Matches['id'], 16)
+                $opcode = 'showtext'
+                $arg0 = $Matches['id']
+                $payload = $allTexts[$textId]
+            }
+            'setanimation' {
+                if ($command.Operands -ne 'DIR_DOWN') {
+                    throw "Unexpected Rafton animation '$($command.Operands)'."
+                }
+                $actor = 'Rafton'; $arg0 = '02'; $payload = $raftonAnimations[2]
+            }
+            'scriptjump' {
+                if (-not $targets.ContainsKey($command.Operands)) {
+                    throw "Unknown Rafton branch target '$($command.Operands)'."
+                }
+                $arg0 = $targets[$command.Operands].ToString()
+            }
+            'callscript' {
+                if (-not $targets.ContainsKey($command.Operands)) {
+                    throw "Unknown Rafton subscript target '$($command.Operands)'."
+                }
+                $arg0 = $targets[$command.Operands].ToString()
+            }
+            'retscript' { $opcode = 'return' }
+            'wait' {
+                if ($command.Operands -notin @('10', '20', '30', '100')) {
+                    throw "Unexpected Rafton wait '$($command.Operands)'."
+                }
+                $arg0 = $command.Operands
+            }
+            'jumpiftextoptioneq' {
+                if ($command.Operands -notmatch
+                    '^\$00,\s*(?<target>@[A-Za-z0-9_]+)$' -or
+                    -not $targets.ContainsKey($Matches['target'])) {
+                    throw "Malformed Rafton choice branch at line $($command.Line)."
+                }
+                $arg0 = '00'; $arg1 = $targets[$Matches['target']].ToString()
+            }
+            'setglobalflag' {
+                $arg0 = switch ($command.Operands) {
+                    'GLOBALFLAG_GAVE_ROPE_TO_RAFTON' { '15' }
+                    'GLOBALFLAG_RAFTON_CHANGED_ROOMS' { '26' }
+                    default { throw "Unexpected Rafton global flag '$($command.Operands)'." }
+                }
+            }
+            'writeobjectbyte' {
+                if ($command.Operands -ne 'Interaction.animCounter, $7f') {
+                    throw "Unexpected Rafton object write '$($command.Operands)'."
+                }
+                $actor = 'Rafton'; $arg0 = '20'; $arg1 = '7f'
+            }
+            'setspeed' {
+                if ($command.Operands -ne 'SPEED_100') {
+                    throw "Unexpected Rafton speed '$($command.Operands)'."
+                }
+                $actor = 'Rafton'; $arg0 = '28'
+            }
+            'moveright' {
+                if ($command.Operands -ne '$40') {
+                    throw "Unexpected Rafton movement '$($command.Operands)'."
+                }
+                $opcode = 'move'; $actor = 'Rafton'; $arg0 = '08'; $arg1 = '40'
+                $payload = $raftonAnimations[1]
+            }
+            'jumpifmemoryset' {
+                if (-not $rightRoom -or $command.Operands -notmatch
+                    '^wcddb,\s*CPU_ZFLAG,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                    throw "Malformed Rafton essence branch at line $($command.Line)."
+                }
+                $opcode = 'jumpifmemoryeqyieldonmiss'
+                $arg0 = '01'; $arg1 = $targets[$Matches['target']].ToString()
+                $payload = 'D3EssenceObtained'
+            }
+            'jumpifroomflagset' {
+                if (-not $rightRoom -or $command.Operands -notmatch
+                    '^\$20,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                    throw "Malformed Rafton room-flag branch at line $($command.Line)."
+                }
+                $arg0 = '20'; $arg1 = $targets[$Matches['target']].ToString()
+            }
+            'jumpiftradeitemeq' {
+                if (-not $rightRoom -or $command.Operands -notmatch
+                    '^TRADEITEM_MAGIC_OAR,\s*(?<target>@[A-Za-z0-9_]+)$') {
+                    throw "Malformed Rafton trade branch at line $($command.Line)."
+                }
+                $arg0 = '09'; $arg1 = $targets[$Matches['target']].ToString()
+            }
+            'giveitem' {
+                if (-not $rightRoom -or
+                    $command.Operands -ne 'TREASURE_TRADEITEM, $0a') {
+                    throw "Unexpected Rafton reward '$($command.Operands)'."
+                }
+                $arg0 = '41'; $arg1 = '0a'
+            }
+        }
+        $rows.Add((New-CutsceneCommandRow `
+            $command.Script $command.Index $command.Label $command.Line `
+            $opcode $actor "$arg0" "$arg1" $payload))
+    }
+    return $rows
+}
+$raftonLeftCommandRows = & $newRaftonCommandRows `
+    $raftonLeftCommands $raftonLeftTargets $false
+$raftonRightCommandRows = & $newRaftonCommandRows `
+    $raftonRightCommands $raftonRightTargets $true
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\rafton_left_commands.tsv'),
+    $raftonLeftCommandRows)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\rafton_right_commands.tsv'),
+    $raftonRightCommandRows)
+
+$raftonEventRows = @(
+    "# group`tleft-room`tright-room`tid`tleft-subid`tright-subid`tanimation0`tanimation1`tanimation2`tanimation3`tinitial-animation`tcollision-y`tcollision-x`troom-flag`tgave-rope-flag`tchanged-rooms-flag`tcheval-rope-treasure`tisland-chart-treasure`td2-essence-mask`td3-essence-mask`trequired-trade`treward-treasure`treward-parameter`treward-object`tspeed`tright-angle`tmove-counter`tanim-counter-address`tfreeze-counter`teffect-id`teffect-subid`teffect-sprite`teffect-tile-base`teffect-palette`teffect-animation`teffect-y`teffect-x`teffect-frames`tclink-sound`tinitial-script-updates"
+    (@(
+        '2', '1e', '1f', '69', '00', '01',
+        $raftonAnimations[0], $raftonAnimations[1],
+        $raftonAnimations[2], $raftonAnimations[3],
+        '02', '06', '06', '20', '15', '26', '52', '54', '02', '04',
+        '09', '41', '0a', 'TREASURE_OBJECT_TRADEITEM_0a',
+        '28', '08', '40', '20', '7f', '9f', '00',
+        $gfxNames[$raftonExclamationGraphic.Gfx],
+        $raftonExclamationGraphic.TileBase.ToString(),
+        $raftonExclamationGraphic.Palette.ToString(),
+        $raftonExclamationAnimation,
+        '-13', '0', '60', '50', '0'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\rafton_event.tsv'),
+    $raftonEventRows)
+
 # Fairies' Woods hide-and-seek. INTERAC_FAIRY_HIDING_MINIGAME ($6c) owns
 # three interaction scripts, while INTERAC_FOREST_FAIRY ($49) implements the
 # exact table-driven flight used by both the introduction and each reveal.

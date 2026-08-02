@@ -62,6 +62,8 @@ internal sealed class RoomEntityFactory(
     private readonly ShootingGalleryEventDatabase _shootingGallery = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
+    private readonly ChevalEventDatabase _cheval = new();
+    private readonly RaftonEventDatabase _rafton = new();
     private readonly DepressedBoyEventDatabase _depressedBoy = new();
     private readonly ToiletHandEventDatabase _toiletHand = new();
     private readonly PoeEventDatabase _poe = new();
@@ -1767,6 +1769,26 @@ internal sealed class RoomEntityFactory(
             };
             salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
             return new MaskSalesmanRoomEntity(salesman);
+        }
+        if (_cheval.Matches(record))
+        {
+            var cheval = new ChevalCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            cheval.InitializeCheval(record, _cheval.Record);
+            return new ChevalRoomEntity(cheval, _cheval.Record);
+        }
+        if (_rafton.Matches(record))
+        {
+            var rafton = new RaftonCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            rafton.InitializeRafton(record, _rafton.Record);
+            return new RaftonRoomEntity(rafton);
         }
         if (record.Group == _depressedBoy.Record.Group &&
             record.Room == _depressedBoy.Record.Room &&

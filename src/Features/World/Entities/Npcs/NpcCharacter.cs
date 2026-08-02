@@ -644,6 +644,22 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             return;
         int duration = animation[_animationFrame].Duration;
         int remaining = (duration + adjustment) & 0xff;
+        SetAnimationCounter(remaining);
+    }
+
+    /// <summary>
+    /// Writes the current frame's Interaction.animCounter byte. Scripted
+    /// interactions use this to freeze or phase an animation without owning a
+    /// second presentation counter.
+    /// </summary>
+    internal void SetAnimationCounter(int remaining)
+    {
+        if (remaining is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(remaining));
+        List<NpcCharacterAnimationFrame> animation = CurrentAnimation;
+        if (animation.Count == 0)
+            return;
+        int duration = animation[_animationFrame].Duration;
         _animationTicks = duration - remaining;
     }
 

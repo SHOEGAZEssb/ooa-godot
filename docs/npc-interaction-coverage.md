@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 88 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 91 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 264 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 261 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,10 +63,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 58 specialized,
-14 event-owned, and 262 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 61 specialized,
+14 event-owned, and 259 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 460
-classified records and 130 specialized rows.
+classified records and 133 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -79,6 +79,12 @@ classified records and 130 specialized rows.
 - Room `2:f3` implements the complete depressed-boy Funny Joke trade:
   light room darkening, Link's source dance modes and counters, the Touching
   Book reward, room bit `$20`, music restoration, and completed re-entry text.
+- Rooms `2:1e` and `2:1f` implement Rafton's complete source sequence: the
+  five D2/Cheval Rope/global-flag/Island Chart behaviors, delayed move between
+  rooms, Magic Oar choice, Sea Ukulele reward, and room/global persistence.
+- Room `2:0f` implements Cheval's complete native loop: asymmetric `$0c/$06`
+  collision, Cheval Rope-dependent `TX_270c`/`TX_270d`, source `TX_270b` call
+  expansion, and the post-dialogue `GLOBALFLAG_TALKED_TO_CHEVAL` side effect.
 - Placed Forest Fairy `$49:$05-$10` phases are **D** and safely suppressed.
   The implemented Fairies' Woods hide-and-seek uses event-created `$49:$00`
   actors instead.
@@ -94,7 +100,7 @@ classified records and 130 specialized rows.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
 - Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Tingle
-  `$c8`, Bomb Upgrade Fairy `$83`, Rafton/Cheval `$69/$6a`, Syrup `$5f`, and
+  `$c8`, Bomb Upgrade Fairy `$83`, Syrup `$5f`, and
   the remaining shopkeeper variants `$46`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
@@ -214,9 +220,9 @@ well as record selection.
 | `1:da` | [D] `$48:$08/v$00` tokay |
 | `1:dd` | [D] `$48:$18/v$00` tokay |
 | `2:0e` | [I] `$3c:$0d/v$00` boy<br>[I] `$3d:$00/v$00` oldLady |
-| `2:0f` | [D] `$6a:$00/v$00` cheval |
-| `2:1e` | [D] `$69:$00/v$00` rafton |
-| `2:1f` | [D] `$69:$01/v$00` rafton |
+| `2:0f` | [I] `$6a:$00/v$00` cheval |
+| `2:1e` | [I] `$69:$00/v$00` rafton |
+| `2:1f` | [I] `$69:$01/v$00` rafton |
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |

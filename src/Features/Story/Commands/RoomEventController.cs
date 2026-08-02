@@ -17,6 +17,8 @@ public sealed class RoomEventController
     private readonly ShootingGalleryEvent _shootingGallery;
     private readonly ComedianEvent _comedian;
     private readonly MaskSalesmanEvent _maskSalesman;
+    private readonly ChevalEvent _cheval;
+    private readonly RaftonEvent _rafton;
     private readonly DepressedBoyEvent _depressedBoy;
     private readonly ToiletHandEvent _toiletHand;
     private readonly PoeEvent _poe;
@@ -86,6 +88,8 @@ public sealed class RoomEventController
         _shootingGallery = new ShootingGalleryEvent(_context);
         _comedian = new ComedianEvent(_context);
         _maskSalesman = new MaskSalesmanEvent(_context);
+        _cheval = new ChevalEvent(_context);
+        _rafton = new RaftonEvent(_context);
         _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);
@@ -135,6 +139,8 @@ public sealed class RoomEventController
             _shootingGallery,
             _comedian,
             _maskSalesman,
+            _cheval,
+            _rafton,
             _depressedBoy,
             _toiletHand,
             _poe,
@@ -180,6 +186,12 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "maskSalesman.s:maskSalesmanScript",
                 (target, _) => _maskSalesman.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "cheval.s:interactionCode6a",
+                (target, _) => _cheval.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "rafton.s:interactionCode69",
+                (target, _) => _rafton.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "boy.s:boySubid07Script",
                 (target, _) => _depressedBoy.TryInteractNpc(target.Npc)),
@@ -235,6 +247,8 @@ public sealed class RoomEventController
     internal ShootingGalleryEvent ShootingGallery => _shootingGallery;
     internal ComedianEvent Comedian => _comedian;
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
+    internal ChevalEvent Cheval => _cheval;
+    internal RaftonEvent Rafton => _rafton;
     internal DepressedBoyEvent DepressedBoy => _depressedBoy;
     internal ToiletHandEvent ToiletHand => _toiletHand;
     internal PoeEvent Poe => _poe;

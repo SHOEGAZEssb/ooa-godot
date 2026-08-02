@@ -42,6 +42,7 @@ public sealed class OracleSaveData
     public const int GlobalFlagReturnedDog = 0x3b;
     public const int GlobalFlagRalphEnteredPortal = 0x40;
     public const int GlobalFlagEnterPastCutsceneDone = 0x41;
+    public const int GlobalFlagTalkedToCheval = 0x43;
     public const int GlobalFlagMapleMetInPast = 0x44;
     public const int GlobalFlagRalphEnteredBlackTower = 0x45;
 

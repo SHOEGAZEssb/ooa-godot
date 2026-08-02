@@ -327,10 +327,12 @@ public sealed partial class ValidationRoot
         // DialogueBox. Registered owner scenarios prove the live replacements.
         // map/texts.tsv also contains the unselected warp/final-battle bank
         // records, linked_game_ghini.tsv is superseded by linked_game_npcs.tsv,
-        // and NPC TX_270c is deliberately unsupported; a future path that
-        // exposes any of them will hit the textbox's default-deny boundary.
+        // Cheval's named owner resolves the TX_270b calls before display; the
+        // raw NPC row and source-text table retain those control markers.
         var expectedUnresolved = new Dictionary<string, int>(StringComparer.Ordinal)
         {
+            ["cutscenes/rafton_text.tsv|\\jump(TX_2709)"] = 1,
+            ["cutscenes/cheval_text.tsv|\\call(TX_270b)"] = 2,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
             ["map/texts.tsv|\\jump(TX_0560)"] = 1,
@@ -440,9 +442,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
-                [NpcImplementationClassification.SpecializedNative] = 130,
+                [NpcImplementationClassification.SpecializedNative] = 133,
                 [NpcImplementationClassification.EventOwned] = 14,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 262
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 259
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -455,7 +457,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 130 specialized, 14 event-owned, and 262 " +
+            "54 ordinary, 133 specialized, 14 event-owned, and 259 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -700,6 +702,8 @@ public sealed partial class ValidationRoot
             "makuSprout.s:interactionCode88",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
+            "cheval.s:interactionCode6a",
+            "rafton.s:interactionCode69",
             "boy.s:boySubid07Script",
             "toiletHand.s:toiletHandScript",
             "poe.s:poeScript",

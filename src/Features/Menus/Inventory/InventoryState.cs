@@ -477,21 +477,35 @@ public sealed class InventoryState
             return;
         }
 
-        int treasure = treasureObject.TreasureId;
-        ClearTreasureFlag(treasure);
-        if (treasure is >= 0x60 and < 0x68)
-            _upgradesObtained &= (byte)~(1 << (treasure & 7));
+        _ = LoseTreasure(treasureObject.TreasureId);
+    }
 
-        // Mirrors loseTreasure_helper: only ordinary inventory items are
-        // removed from the first matching A/B or storage slot. Related
-        // variables such as wTradeItem and wSwordLevel remain unchanged.
-        if (treasure is >= 0 and < NumInventoryItems)
+    /// <summary>
+    /// Mirrors scriptHelp.loseTreasure and loseTreasure_helper. Related
+    /// variables such as wTradeItem and wSwordLevel intentionally remain
+    /// unchanged after the obtained bit and first matching inventory slot are
+    /// cleared.
+    /// </summary>
+    internal bool LoseTreasure(int treasure)
+    {
+        if (!HasTreasure(treasure))
+            return false;
+
+        using (_saveData?.BeginMutation())
         {
-            int slot = FindInventoryItem(treasure);
-            if (slot >= 0)
-                SetInventorySlot(slot, ItemNone);
+            ClearTreasureFlag(treasure);
+            if (treasure is >= 0x60 and < 0x68)
+                _upgradesObtained &= (byte)~(1 << (treasure & 7));
+
+            if (treasure is >= 0 and < NumInventoryItems)
+            {
+                int slot = FindInventoryItem(treasure);
+                if (slot >= 0)
+                    SetInventorySlot(slot, ItemNone);
+            }
+            NotifyChanged();
         }
-        NotifyChanged();
+        return true;
     }
 
     /// <summary>
