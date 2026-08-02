@@ -97,8 +97,9 @@ internal sealed class Room5bfDatabase
                     "pull-speed", "lever-radius-y", "lever-radius-x",
                     "link-y-offset", "block-radius", "distance-mask",
                     "distance-shift", "squish-y", "squish-x", "squish-range",
-                    "connection-step", "post-grant-wait", "pickup-radius",
-                    "move-sound", "full-sound", "source"
+                    "connection-step", "post-grant-wait",
+                    "collision-radius-y", "collision-radius-x",
+                    "pickup-distance", "move-sound", "full-sound", "source"
                 ],
                 ["group", "room"],
                 headerRequired: true)).SingleRow();
@@ -125,7 +126,9 @@ internal sealed class Room5bfDatabase
             constants.HexByte(19),
             constants.HexByte(20),
             constants.HexByte(21),
-            constants.RequiredString(22));
+            constants.HexByte(22),
+            constants.HexByte(23),
+            constants.RequiredString(24));
         if (Constants is not
             {
                 Group: 5,
@@ -147,7 +150,9 @@ internal sealed class Room5bfDatabase
                 SquishRange: 0x08,
                 ConnectionStep: 0x10,
                 PostGrantWait: 30,
-                PickupRadius: 0x02,
+                CollisionRadiusY: 0x02,
+                CollisionRadiusX: 0x02,
+                PickupDistance: 0x0e,
                 MoveSound: OracleSoundEngine.SndMoveBlock,
                 FullSound: OracleSoundEngine.SndOpenChest
             })
@@ -284,7 +289,9 @@ internal readonly record struct Room5bfConstants(
     int SquishRange,
     int ConnectionStep,
     int PostGrantWait,
-    int PickupRadius,
+    int CollisionRadiusY,
+    int CollisionRadiusX,
+    int PickupDistance,
     int MoveSound,
     int FullSound,
     string Source);

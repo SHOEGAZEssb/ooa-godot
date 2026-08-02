@@ -3451,6 +3451,60 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\ground_treasures.tsv'),
     $groundTreasureRows)
 
+# Room 5:b6 contains the Cheval Rope form of INTERAC_MISCELLANEOUS_1
+# $6b:$0a-$0c. Its shared script loads radii $02,$02 but collects through
+# objectCheckLinkWithinDistance's strict Manhattan c=$0e gate, grants the
+# source treasure, clears the live remembered-companion ID after the held-item
+# command returns, then retains its input lease for 30 updates.
+$room5b6ObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group5Mapb6ObjectData:\s+obj_Interaction \$6b \$0b \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s+obj_Pointer group5Mapb6EnemyObjectData\s+obj_End')
+$room5b6MiscSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$room5b6ScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$room5b6ScriptHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$room5b6Graphic = $interactionGraphics['107:11']
+$room5b6Animation = Resolve-NpcAnimation 0x6b 0x02
+$room5b6TreasureObject =
+    $treasureObjectRecords['TREASURE_OBJECT_CHEVAL_ROPE_00']
+if (-not $room5b6ObjectBlock.Success -or
+    $room5b6ObjectBlock.Groups['y'].Value -ne '48' -or
+    $room5b6ObjectBlock.Groups['x'].Value -ne '28') {
+    throw 'Room 5:b6 no longer has its original $6b:$0b Cheval Rope object.'
+}
+if ($room5b6MiscSource -notmatch
+        '(?ms)^interaction6b_subid0a:\s+interaction6b_subid0b:\s+interaction6b_subid0c:.*?ROOMFLAG_BIT_ITEM.*?sub \$0a.*?interaction6b_initGraphicsAndLoadScript.*?wDisabledObjects.*?wMenuDisabled.*?interactionAnimateAsNpc' -or
+    $room5b6ScriptSource -notmatch
+        '(?ms)^interaction6b_subid0aScript:\s+setcollisionradii \$02, \$02.*?disableinput.*?objectSetInvisible.*?writeobjectbyte Interaction\.substate, \$01.*?jumptable_objectbyte Interaction\.var03.*?\.dw @chevalRope.*?^@chevalRope:\s+giveitem TREASURE_CHEVAL_ROPE, \$00\s+writememory wRememberedCompanionId, \$00\s+wait 30\s+scriptend' -or
+    $room5b6ScriptHelperSource -notmatch
+        '(?ms)^interaction6b_checkLinkCanCollect:\s+ld hl,w1Link\.zh\s+ld a,\(hl\)\s+or a\s+ret nz\s+ld a,\(wLinkGrabState\)\s+or a\s+ret nz\s+ld c,\$0e\s+call objectCheckLinkWithinDistance.*?Interaction\.var38') {
+    throw 'Room 5:b6 Cheval Rope pickup, input lease, or collection check changed.'
+}
+if ($null -eq $room5b6TreasureObject -or
+    $room5b6TreasureObject.Treasure -ne 0x52 -or
+    $room5b6TreasureObject.Subid -ne 0x00 -or
+    $room5b6TreasureObject.Parameter -ne 0x00 -or
+    $room5b6TreasureObject.Graphic -ne 0x3c -or
+    $null -eq $room5b6Graphic -or
+    $room5b6Graphic.Gfx -ne 0x81 -or
+    $room5b6Graphic.TileBase -ne 0x10 -or
+    $room5b6Graphic.Palette -ne 0x03 -or
+    $room5b6Graphic.DefaultAnimation -ne 0x02 -or
+    $gfxNames[0x81] -ne 'spr_quest_items_2' -or
+    -not $room5b6Animation) {
+    throw 'Could not resolve room 5:b6 Cheval Rope $52:$00 or its $6b:$0b visual.'
+}
+[void]$npcSpriteNames.Add('spr_quest_items_2')
+$room5b6Rows = @(
+    '# group`troom`torder`tid`tsubid`ty`tx`tvar03`titem-room-flag`ttreasure-object`ttreasure-id`ttreasure-subid`ttreasure-parameter`tpost-grant-wait`tcollision-radius-y`tcollision-radius-x`tpickup-distance`tremembered-id-value`tsprite`ttile-base`tpalette`tanimation-index`tanimation`tsource',
+    "5`tb6`t0`t6b`t0b`t48`t28`t01`t20`tTREASURE_OBJECT_CHEVAL_ROPE_00`t52`t00`t00`t30`t02`t02`t0e`t00`tspr_quest_items_2`t10`t03`t02`t$room5b6Animation`tmainData.s:group5Mapb6ObjectData"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\room5b6_interactions.tsv'),
+    $room5b6Rows)
+
 # Room 5:bf's ordered object stream is one flippers pickup, two blocks which
 # consume wLever1PullDistance before the lever updates it, then INTERAC_LEVER.
 # The lever creates its graphical connection child during state 0; export that
@@ -3544,8 +3598,8 @@ $room5bfRows = @(
     "4`tlever-connection`t61`t80`t10`t78`t00`tspr_dungeon_sprites`t0a`t03`t02`t$($room5bfConnectionAnimations -join '^')`tlever.s:interactionCode61/@updateLeverConnectionObject"
 )
 $room5bfConstantRows = @(
-    '# group`troom`titem-room-flag`ttreasure-id`ttreasure-subid`ttreasure-parameter`tlever-length`tpull-speed`tlever-radius-y`tlever-radius-x`tlink-y-offset`tblock-radius`tdistance-mask`tdistance-shift`tsquish-y`tsquish-x`tsquish-range`tconnection-step`tpost-grant-wait`tpickup-radius`tmove-sound`tfull-sound`tsource',
-    "5`tbf`t20`t2e`t00`t00`t40`t0a`t05`t01`t0c`t06`t7c`t02`t38`tb8`t08`t10`t30`t02`t71`t6c`tmiscellaneous1.s:interaction6b_subid0a/0d;lever.s:interactionCode61"
+    '# group`troom`titem-room-flag`ttreasure-id`ttreasure-subid`ttreasure-parameter`tlever-length`tpull-speed`tlever-radius-y`tlever-radius-x`tlink-y-offset`tblock-radius`tdistance-mask`tdistance-shift`tsquish-y`tsquish-x`tsquish-range`tconnection-step`tpost-grant-wait`tcollision-radius-y`tcollision-radius-x`tpickup-distance`tmove-sound`tfull-sound`tsource',
+    "5`tbf`t20`t2e`t00`t00`t40`t0a`t05`t01`t0c`t06`t7c`t02`t38`tb8`t08`t10`t30`t02`t02`t0e`t71`t6c`tmiscellaneous1.s:interaction6b_subid0a/0d;lever.s:interactionCode61"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'objects\room5bf_interactions.tsv'),

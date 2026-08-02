@@ -90,6 +90,13 @@ internal static class CompanionRuntimeState
         state.SetWramByte(RememberedX, (byte)Mathf.FloorToInt(position.X));
     }
 
+    /// <summary>
+    /// Clears wRememberedCompanionId without disturbing the remembered room
+    /// and position bytes, matching scripts which write only $cc24.
+    /// </summary>
+    internal static void ForgetRemembered(OracleRuntimeState state) =>
+        state.SetWramByte(RememberedId, 0);
+
     internal static bool TryGetRemembered(
         OracleRuntimeState state,
         int id,

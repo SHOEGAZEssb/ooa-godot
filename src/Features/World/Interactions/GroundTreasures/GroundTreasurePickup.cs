@@ -123,7 +123,17 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         }
     }
 
-    internal bool TryCollect(Player player)
+    internal bool TryCollect(Player player) =>
+        TryCollectCore(player, checkDefaultDistance: true);
+
+    /// <summary>
+    /// Used by source interactions which perform their own collection check
+    /// before entering the shared INTERAC_TREASURE held-item path.
+    /// </summary>
+    internal bool TryCollectAfterSourceCheck(Player player) =>
+        TryCollectCore(player, checkDefaultDistance: false);
+
+    private bool TryCollectCore(Player player, bool checkDefaultDistance)
     {
         bool collectible = _state == PickupState.Waiting ||
             (_state == PickupState.Spawning && _spawnSubstate == 2 &&
@@ -135,8 +145,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
             return false;
         }
         Vector2 delta = player.Position - Position;
-        if (Mathf.Abs(delta.X) >= CombinedCollisionRadius ||
-            Mathf.Abs(delta.Y) >= CombinedCollisionRadius)
+        if (checkDefaultDistance &&
+            (Mathf.Abs(delta.X) >= CombinedCollisionRadius ||
+             Mathf.Abs(delta.Y) >= CombinedCollisionRadius))
         {
             return false;
         }

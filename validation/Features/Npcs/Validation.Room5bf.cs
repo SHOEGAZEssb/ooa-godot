@@ -28,7 +28,9 @@ public sealed partial class ValidationRoot
             database.Constants.LeverLength != 0x40 ||
             database.Constants.PullSpeed != 0x0a ||
             database.Constants.PostGrantWait != 30 ||
-            database.Constants.PickupRadius != 0x02 ||
+            database.Constants.CollisionRadiusY != 0x02 ||
+            database.Constants.CollisionRadiusX != 0x02 ||
+            database.Constants.PickupDistance != 0x0e ||
             database.BlockPalette.Length != 4,
             "Room 5:bf lost its imported flippers/block/block/lever order, " +
             "lever constants, or PALH_a3 palette.");
@@ -88,14 +90,14 @@ public sealed partial class ValidationRoot
             group, roomId, OracleSaveData.RoomFlagItem, value: false);
         LoadValidationRoom(group, roomId);
         pickup = _entities.Entities<GroundTreasurePickup>().Single();
-        _player.WarpTo(new Vector2(0xc0, 0x1c), recordSafe: false);
+        _player.WarpTo(new Vector2(0xbf, 0x23), recordSafe: false);
         _entities.Update(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
             _inventory.HasTreasure(TreasureDatabase.TreasureFlippers),
-            "Room 5:bf's $6b:$0c collected at the excluded combined-radius " +
-            "$08 boundary instead of retaining its script collision radii $02,$02.");
-        _player.WarpTo(new Vector2(0xbf, 0x1c), recordSafe: false);
+            "Room 5:bf's $6b:$0c collected at objectCheckLinkWithinDistance's " +
+            "excluded Manhattan-distance $0e boundary.");
+        _player.WarpTo(new Vector2(0xbf, 0x22), recordSafe: false);
         _entities.Update(frame, _player);
         FailIf(
             pickup.State != PickupState.Collected ||

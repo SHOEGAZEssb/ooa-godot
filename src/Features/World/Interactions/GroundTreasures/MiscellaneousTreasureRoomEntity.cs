@@ -5,16 +5,17 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_MISCELLANEOUS_1 $6b:$0c and its source script. Unlike an ordinary
-/// $60 treasure, it can be touched on its first update and releases input 30
-/// updates after the get-item dialogue closes.
+/// INTERAC_MISCELLANEOUS_1 $6b:$0a-$0c and its shared source script. Unlike
+/// an ordinary $60 treasure, it can be touched on its first update and keeps
+/// input disabled for a source-defined wait after the get-item command ends.
 /// </summary>
-internal sealed class Room5bfFlippersRoomEntity(
+internal sealed class MiscellaneousTreasureRoomEntity(
     GroundTreasurePickup pickup,
     Func<bool> collectionAllowed,
     Action<GroundTreasurePickup, Player> collected,
     int postGrantWait,
-    int pickupRadius)
+    int pickupDistance,
+    Action? postGrantCompleted = null)
     : RoomEntityAdapter<GroundTreasurePickup>(
         pickup, pickup.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime,
@@ -22,6 +23,7 @@ internal sealed class Room5bfFlippersRoomEntity(
 {
     private bool _initialized;
     private bool _collectionStarted;
+    private bool _postGrantHandled;
     private int _postGrantCounter;
 
     public bool Finished { get; private set; }
@@ -52,6 +54,13 @@ internal sealed class Room5bfFlippersRoomEntity(
 
         if (!_collectionStarted || !Entity.Finished)
             return;
+        if (!_postGrantHandled)
+        {
+            // giveitem blocks until its held-item presentation finishes. Any
+            // following script command executes before the wait counter.
+            postGrantCompleted?.Invoke();
+            _postGrantHandled = true;
+        }
         _postGrantCounter++;
         if (_postGrantCounter >= postGrantWait)
             Finished = true;
@@ -59,11 +68,17 @@ internal sealed class Room5bfFlippersRoomEntity(
 
     public void HandleLinkContact(Player player)
     {
-        Vector2 delta = player.Position - Entity.Position;
-        float combinedRadius = pickupRadius + NpcCharacter.LinkCollisionRadius;
-        if (Mathf.Abs(delta.X) >= combinedRadius ||
-            Mathf.Abs(delta.Y) >= combinedRadius ||
-            !collectionAllowed() || !Entity.TryCollect(player))
+        // objectCheckLinkWithinDistance subtracts the absolute Y difference
+        // from c before comparing X, using the objects' high-byte positions.
+        int deltaX = Math.Abs(
+            Mathf.FloorToInt(player.PrecisePosition.X) -
+            Mathf.FloorToInt(Entity.Position.X));
+        int deltaY = Math.Abs(
+            Mathf.FloorToInt(player.PrecisePosition.Y) -
+            Mathf.FloorToInt(Entity.Position.Y));
+        if (deltaX + deltaY >= pickupDistance ||
+            !collectionAllowed() ||
+            !Entity.TryCollectAfterSourceCheck(player))
         {
             return;
         }

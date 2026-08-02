@@ -53,6 +53,7 @@ internal sealed class RoomEntityFactory(
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
     private readonly Room20eNpcDatabase _room20e = new();
+    private readonly Room5b6Database _room5b6 = new();
     private readonly Room5bfDatabase _room5bf = new();
     private readonly StoneRabbitDatabase _stoneRabbit = new();
     private readonly BusinessScrubDatabase _businessScrub = new();
@@ -196,6 +197,13 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        if (group == _room5b6.Record.Group &&
+            room.Id == _room5b6.Record.Room)
+        {
+            IRoomEntity? interaction = CreateRoom5b6Interaction();
+            if (interaction is not null)
+                yield return interaction;
+        }
         if (group == _room5bf.Constants.Group &&
             room.Id == _room5bf.Constants.Room)
         {
@@ -2937,6 +2945,53 @@ internal sealed class RoomEntityFactory(
             groundTreasureCollected);
     }
 
+    private IRoomEntity? CreateRoom5b6Interaction()
+    {
+        Room5b6InteractionRecord record = _room5b6.Record;
+        if (saveData?.HasRoomFlag(
+                record.Group,
+                record.Room,
+                checked((byte)record.ItemRoomFlag)) == true)
+        {
+            return null;
+        }
+
+        var request = new GroundTreasureGrantRequest(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            record.TreasureObject,
+            record.Source)
+        {
+            VisualOverride = new GroundTreasureVisualOverride(
+                record.Sprite,
+                record.TileBase,
+                record.Palette,
+                record.Animation),
+            ExpectedTreasureId = record.TreasureId,
+            ExpectedSubId = record.TreasureSubId,
+            ExpectedObjectParameter = record.TreasureParameter
+        };
+        var pickup = new GroundTreasurePickup
+        {
+            Name = "Room5b6ChevalRope",
+            ZIndex = 12
+        };
+        pickup.Initialize(
+            request.Resolve(treasures),
+            soundRequested,
+            worldToScreen);
+        return new MiscellaneousTreasureRoomEntity(
+            pickup,
+            groundTreasureCollectionAllowed,
+            groundTreasureCollected,
+            record.PostGrantWait,
+            record.PickupDistance,
+            () => CompanionRuntimeState.ForgetRemembered(runtimeState));
+    }
+
     private IEnumerable<IRoomEntity> CreateRoom5bfInteractions()
     {
         var state = new Room5bfLeverState();
@@ -2981,12 +3036,12 @@ internal sealed class RoomEntityFactory(
                         request.Resolve(treasures),
                         soundRequested,
                         worldToScreen);
-                    yield return new Room5bfFlippersRoomEntity(
+                    yield return new MiscellaneousTreasureRoomEntity(
                         pickup,
                         groundTreasureCollectionAllowed,
                         groundTreasureCollected,
                         _room5bf.Constants.PostGrantWait,
-                        _room5bf.Constants.PickupRadius);
+                        _room5bf.Constants.PickupDistance);
                     break;
 
                 case Room5bfInteractionKind.SlidingBlock:
