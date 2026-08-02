@@ -186,7 +186,21 @@ $gashaTextRows = [Collections.Generic.List[string]]::new()
 $gashaTextRows.Add("# text-id`tmessage-base64")
 foreach ($textId in @(0x0049,0x3500,0x3501,0x3503,0x3504,0x3505,0x3506,0x3507,0x3508,0x3509)) {
     if (-not $allTexts.ContainsKey($textId)) { throw "Missing Gasha text TX_$($textId.ToString('x4'))." }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $message = [string]$allTexts[$textId]
+    if ($textId -ge 0x3504 -and $textId -le 0x3508) {
+        if (-not $allTexts.ContainsKey(0x3502) -or
+            $message -notmatch '\\jump\(TX_3502\)$') {
+            throw "Gasha reward TX_$($textId.ToString('x4')) no longer jumps to TX_3502."
+        }
+        # The text engine transfers directly into TX_3502 rather than printing
+        # a command. Flatten that source edge while both records are available
+        # so DialogueBox receives one complete, runtime-ready message.
+        $message = [regex]::Replace(
+            $message,
+            '\\jump\(TX_3502\)$',
+            [string]$allTexts[0x3502])
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
     $gashaTextRows.Add("$($textId.ToString('x4'))`t$encoded")
 }
 

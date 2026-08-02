@@ -48,6 +48,8 @@ public sealed partial class ValidationRoot
             "The imported common sign/chest fallback records or source " +
             "identities changed.");
 
+        ValidateGeneratedDialogueControlCoverage();
+
         LoadSignValidationRoom();
         FailIf(
             _dialogue.MessageSpeed != _saveData.TextSpeed,
@@ -227,6 +229,49 @@ public sealed partial class ValidationRoot
             _dialogue.GlyphCodeForValidation(0, 1, 5) != 0xba ||
             _dialogue.GlyphCodeForValidation(0, 1, 6) != 0xbb,
             "Textbox color commands or main/symbol-font glyph selection were not preserved.");
+
+        _dialogue.MessageSpeed = 0;
+        _dialogue.ShowMessage(
+            "\\slow()" + new string('A', 64), _player.Position.Y);
+        FailIf(
+            _dialogue.TextSlowdownTimerForValidation != 0x78 ||
+            _dialogue.CurrentMessage.Contains("\\slow", StringComparison.Ordinal),
+            "\\slow() did not install and hide the source $78 slowdown counter.");
+        for (int update = 1; update < 0x78; update++)
+        {
+            bool faceInputBlocked =
+                _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+            FailIf(
+                !faceInputBlocked ||
+                _dialogue.TextSlowdownTimerForValidation != 0x78 - update,
+                $"\\slow() did not block A/B on original update {update}.");
+        }
+        bool blockedAtZero =
+            _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        FailIf(
+            blockedAtZero ||
+            _dialogue.TextSlowdownTimerForValidation != 0 ||
+            _dialogue.IsPageComplete,
+            "\\slow() did not permit A/B on its source decrement-to-zero update.");
+        _dialogue.AdvanceOrClose();
+        FailIf(
+            !_dialogue.IsPageComplete,
+            "Dialogue could not fast-forward after the \\slow() counter expired.");
+
+        _dialogue.ShowMessage(
+            "\\heartpromised\\heart! A\\x20B", _player.Position.Y);
+        FailIf(
+            _dialogue.CurrentMessage != "♥promised♥! A B" ||
+            _dialogue.GlyphCodeForValidation(0, 0, 0) != 0x14 ||
+            _dialogue.GlyphCodeForValidation(0, 0, 9) != 0x14 ||
+            _dialogue.GlyphCodeForValidation(0, 0, 13) != 0x20,
+            "Adjacent heart text or the generated \\x20 byte escape was tokenized incorrectly.");
+        _dialogue.ShowMessage("\\clubsY", _player.Position.Y);
+        FailIf(
+            _dialogue.GlyphCodeForValidation(0, 0, 0) != 0x11 ||
+            _dialogue.GlyphCodeForValidation(0, 0, 1) != 's' ||
+            _dialogue.GlyphCodeForValidation(0, 0, 2) != 'Y',
+            "An adjacent linked-secret symbol command consumed following letters.");
         _dialogue.MessageSpeed = selectedSpeed;
 
         _dialogue.ShowMessage("First.\nSecond.\nThird.\nFourth.", _player.Position.Y);
@@ -268,11 +313,123 @@ public sealed partial class ValidationRoot
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(_dialogue.IsOpen, "The final textbox press immediately restarted the interaction.");
 
-        GD.Print("Validated save-selected 7/5/4/3/2-update dialogue speed, white default " +
+        GD.Print("Validated generated dialogue command coverage, source $78 slowdown, " +
+            "adjacent heart/byte controls, save-selected 7/5/4/3/2-update dialogue speed, white default " +
             "text, four-update SND_TEXT/inline voice cues, SND_TEXT_2 continuation, " +
             "choice sounds, colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
             "marker, one-line tile-row scrolling, continuation-only 32-update blink, " +
             "imported TX_510e/TX_0901 sign fallbacks, and final-message input consumption.");
+    }
+
+    private static void ValidateGeneratedDialogueControlCoverage()
+    {
+        // These are raw storage-time substitutions, not commands accepted by
+        // DialogueBox. Registered owner scenarios prove the live replacements.
+        // map/texts.tsv also contains the unselected warp/final-battle bank
+        // records, linked_game_ghini.tsv is superseded by linked_game_npcs.tsv,
+        // and NPC TX_270c is deliberately unsupported; a future path that
+        // exposes any of them will hit the textbox's default-deny boundary.
+        var expectedUnresolved = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
+            ["map/texts.tsv|\\call(0xfd)"] = 1,
+            ["map/texts.tsv|\\jump(TX_0560)"] = 1,
+            ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
+            ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
+            ["objects/business_scrub_texts.tsv|\\num1"] = 1,
+            ["objects/linked_game_ghini.tsv|\\secret1"] = 1,
+            ["objects/linked_game_npcs.tsv|\\secret1"] = 2,
+            ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
+            ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
+            ["objects/troy_house.tsv|\\call(0xff)"] = 16,
+            ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
+        };
+        var actualUnresolved = new Dictionary<string, int>(StringComparer.Ordinal);
+        var strictUtf8 = new System.Text.UTF8Encoding(false, true);
+        string generatedRoot = ProjectSettings.GlobalizePath(
+            "res://assets/oracle");
+        int slowControls = 0;
+        int adjacentHeartControls = 0;
+        int byteEscapes = 0;
+
+        foreach (string path in Directory.EnumerateFiles(
+                     generatedRoot, "*.tsv", SearchOption.AllDirectories))
+        {
+            string relative = Path.GetRelativePath(generatedRoot, path)
+                .Replace('\\', '/');
+            foreach (string row in File.ReadLines(path))
+            {
+                if (row.StartsWith('#') || row.Length == 0)
+                    continue;
+                foreach (string cell in row.Split('\t'))
+                {
+                    string message;
+                    try
+                    {
+                        message = strictUtf8.GetString(
+                            Convert.FromBase64String(cell));
+                    }
+                    catch (FormatException)
+                    {
+                        continue;
+                    }
+                    catch (System.Text.DecoderFallbackException)
+                    {
+                        continue;
+                    }
+                    if (!message.Contains('\\'))
+                        continue;
+
+                    slowControls += CountOccurrences(message, "\\slow()");
+                    adjacentHeartControls +=
+                        CountOccurrences(message, "\\heartpromised");
+                    byteEscapes += CountOccurrences(message, "\\x20");
+                    FailIf(
+                        message.Contains("\\slow()", StringComparison.Ordinal) &&
+                        !message.StartsWith("\\slow()", StringComparison.Ordinal),
+                        $"Generated text in {relative} moved \\slow() away from " +
+                        "the source-supported leading position.");
+
+                    foreach (string command in
+                             DialogueBox.UnresolvedCommandsForValidation(message))
+                    {
+                        string key = $"{relative}|{command}";
+                        actualUnresolved[key] =
+                            actualUnresolved.TryGetValue(key, out int count)
+                                ? count + 1
+                                : 1;
+                    }
+                }
+            }
+        }
+
+        FailIf(
+            slowControls != 2 || adjacentHeartControls != 2 || byteEscapes != 2,
+            "The generated dialogue inventory no longer contains the expected " +
+            "two \\slow(), two adjacent-heart, and two \\x20 source controls.");
+        FailIf(
+            actualUnresolved.Count != expectedUnresolved.Count ||
+            expectedUnresolved.Any(expected =>
+                !actualUnresolved.TryGetValue(expected.Key, out int count) ||
+                count != expected.Value),
+            "Generated dialogue contains an unclassified command or an owning " +
+            "substitution path changed: " +
+            string.Join(", ", actualUnresolved
+                .OrderBy(pair => pair.Key)
+                .Select(pair => $"{pair.Key}={pair.Value}")));
+    }
+
+    private static int CountOccurrences(string value, string needle)
+    {
+        int count = 0;
+        for (int index = 0;
+             (index = value.IndexOf(
+                 needle, index, StringComparison.Ordinal)) >= 0;
+             index += needle.Length)
+        {
+            count++;
+        }
+        return count;
     }
 
     private static void ValidateNpcImplementationManifest()

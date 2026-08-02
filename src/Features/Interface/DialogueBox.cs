@@ -15,11 +15,21 @@ public partial class DialogueBox : Node2D
     private const int PanelHeight = 5 * 8;
     private const int TextAreaHeight = LinesPerPage * LineSpacing;
     private const int TextSoundCooldownFrames = 4;
+    private const int TextSlowdownFrames = 0x78;
     private static readonly Rect2 ContinueMarkerRect = new(144, 32, 8, 8);
 
     // getCharacterDisplayLength reads byte 2 of each eight-byte row in
     // textbox.s:textSpeedData for wTextSpeed values $00-$04.
     private static readonly int[] CharacterDisplayFrames = { 7, 5, 4, 3, 2 };
+
+    // Argumentless controls can be adjoined directly to printable text. Keep
+    // longest names first so heartpiece is never split as heart + "piece".
+    private static readonly string[] AdjacentTextCommandNames =
+    {
+        "heartpiece", "rectangle", "triangle", "diamond", "circle",
+        "spade", "heart", "times", "right", "left", "down", "club",
+        "abtn", "bbtn", "up"
+    };
 
     // textbox.s:@textColorData selects either the common background palette 0
     // (paletteData48e0) or PALH_0e's background palette 1 (paletteData4920).
@@ -47,6 +57,7 @@ public partial class DialogueBox : Node2D
     private double _arrowFrameCounter;
     private double _characterFrameAccumulator;
     private int _characterDisplayTimer;
+    private int _textSlowdownTimer;
     private int _textSoundCooldownCounter;
     private double _textScrollTickAccumulator;
     private float _textScrollOffset;
@@ -101,6 +112,7 @@ public partial class DialogueBox : Node2D
     internal int VisibleLinesPerPage => LinesPerPage;
     internal int TextLineSpacing => LineSpacing;
     internal int CharacterDisplayFrameLength => CharacterDisplayFrames[_messageSpeed];
+    internal int TextSlowdownTimerForValidation => _textSlowdownTimer;
     internal int VisibleGlyphCount => _visibleGlyphs;
     internal bool IsScrollingText => _scrollingText;
     internal float TextScrollOffset => _textScrollOffset;
@@ -214,8 +226,16 @@ public partial class DialogueBox : Node2D
         int textboxFlags)
     {
         ArgumentNullException.ThrowIfNull(message);
+        IReadOnlyList<string> unresolved = UnresolvedCommandsForValidation(message);
+        if (unresolved.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Dialogue reached the textbox with unresolved command(s) " +
+                $"{string.Join(", ", unresolved)} in " +
+                $"'{message.Replace('\n', ' ')}'.");
+        }
         _segments.Clear();
-        _segments.AddRange(ParseMessage(message));
+        _segments.AddRange(ParseMessage(message, out bool slowdownRequested));
         if (ContainsTradeItemGlyph())
             _tradeItemTexture = BuildTradeItemTexture();
         _currentMessage = PlainText(message);
@@ -242,6 +262,7 @@ public partial class DialogueBox : Node2D
         _arrowFrameCounter = 0.0;
         _characterFrameAccumulator = 0.0;
         _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        _textSlowdownTimer = slowdownRequested ? TextSlowdownFrames : 0;
         _textSoundCooldownCounter = 0;
         _textScrollTickAccumulator = 0.0;
         _textScrollOffset = 0.0f;
@@ -368,6 +389,7 @@ public partial class DialogueBox : Node2D
             return;
         }
 
+        bool faceInputBlocked = false;
         if (IsPageComplete)
         {
             if (HasContinuation)
@@ -375,7 +397,7 @@ public partial class DialogueBox : Node2D
         }
         else
         {
-            UpdateCharacterDisplay(delta);
+            faceInputBlocked = UpdateCharacterDisplay(delta);
         }
 
         QueueRedraw();
@@ -386,6 +408,13 @@ public partial class DialogueBox : Node2D
              !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&
              !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))
             return;
+
+        if (faceInputBlocked &&
+            (Input.IsActionJustPressed("attack") ||
+             Input.IsActionJustPressed("item")))
+        {
+            return;
+        }
 
         if (_choiceActive && IsPageComplete && !HasContinuation)
         {
@@ -518,9 +547,9 @@ public partial class DialogueBox : Node2D
             _arrowFrameCounter += delta * 60.0;
     }
 
-    internal void AdvanceCharacterClockForValidation(double delta)
+    internal bool AdvanceCharacterClockForValidation(double delta)
     {
-        UpdateCharacterDisplay(delta);
+        return UpdateCharacterDisplay(delta);
     }
 
     internal void RevealCurrentPageForValidation()
@@ -616,12 +645,22 @@ public partial class DialogueBox : Node2D
         text = text.Replace("\\up", "↑", StringComparison.Ordinal);
         text = text.Replace("\\down", "↓", StringComparison.Ordinal);
         text = Regex.Replace(text, @"\\heart(?![A-Za-z])", "♥");
+        text = Regex.Replace(
+            text, @"\\heart(?=promised)", "\u2665", RegexOptions.IgnoreCase);
         text = Regex.Replace(text, @"\\heartpiece", string.Empty,
             RegexOptions.IgnoreCase);
+        text = Regex.Replace(
+            text,
+            @"\\x(?<hex>[0-9a-f]{2})",
+            match => ((char)Convert.ToInt32(
+                match.Groups["hex"].Value, 16)).ToString(),
+            RegexOptions.IgnoreCase);
+        text = text.Replace("\\n", "\n", StringComparison.Ordinal);
         return Regex.Replace(
             text,
             @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
-            @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\))",
+            @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\)|" +
+            @"slow\([^)]*\)|speed\([^)]*\)|wait\([^)]*\))",
             string.Empty,
             RegexOptions.IgnoreCase);
     }
@@ -672,11 +711,12 @@ public partial class DialogueBox : Node2D
         }
     }
 
-    private void UpdateCharacterDisplay(double delta)
+    private bool UpdateCharacterDisplay(double delta)
     {
         if (!_open || _scrollingText || IsPageComplete)
-            return;
+            return false;
 
+        bool faceInputBlocked = false;
         _characterFrameAccumulator += delta * 60.0;
         while (_visibleGlyphs < CurrentWindowGlyphCount &&
                _characterFrameAccumulator >= 1.0)
@@ -684,6 +724,14 @@ public partial class DialogueBox : Node2D
             _characterFrameAccumulator -= 1.0;
             if (_textSoundCooldownCounter > 0)
                 _textSoundCooldownCounter--;
+            if (_textSlowdownTimer > 0)
+            {
+                _textSlowdownTimer--;
+                // textbox.s decrements w7TextSlowdownTimer first. A/B is
+                // tested on the same update that changes $01 to $00.
+                if (_textSlowdownTimer > 0)
+                    faceInputBlocked = true;
+            }
             if (--_characterDisplayTimer > 0)
                 continue;
 
@@ -696,6 +744,7 @@ public partial class DialogueBox : Node2D
             _arrowFrameCounter = 0.0;
         }
         QueueRedraw();
+        return faceInputBlocked;
     }
 
     private void RevealCurrentLine()
@@ -975,7 +1024,30 @@ public partial class DialogueBox : Node2D
     internal Color ResolvedTextColorForValidation(int colorIndex) =>
         ColorFor(colorIndex);
 
-    private static List<TextSegment> ParseMessage(string message)
+    internal static IReadOnlyList<string> UnresolvedCommandsForValidation(
+        string message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        var unresolved = new List<string>();
+        for (int index = 0; index < message.Length;)
+        {
+            if (message[index] != '\\' ||
+                !TryReadTextCommand(
+                    message, index, out string name, out _, out int end))
+            {
+                index++;
+                continue;
+            }
+            if (!IsSupportedTextCommand(name))
+                unresolved.Add(message[index..end]);
+            index = end;
+        }
+        return unresolved;
+    }
+
+    private static List<TextSegment> ParseMessage(
+        string message,
+        out bool slowdownRequested)
     {
         var segments = new List<TextSegment>();
         var lines = new List<TextLine>();
@@ -986,6 +1058,7 @@ public partial class DialogueBox : Node2D
         int characterSound = OracleSoundEngine.SndText;
         int pendingSoundEffect = 0;
         bool skipNextNewline = false;
+        slowdownRequested = false;
 
         void AddGlyph(int code, FontSource source = FontSource.Main)
         {
@@ -1049,26 +1122,17 @@ public partial class DialogueBox : Node2D
                 continue;
             }
 
-            int tokenStart = index++;
-            int nameStart = index;
-            while (index < source.Length && char.IsLetter(source[index]))
-                index++;
-            if (index == nameStart)
+            int tokenStart = index;
+            if (!TryReadTextCommand(
+                    source,
+                    tokenStart,
+                    out string name,
+                    out string argument,
+                    out index))
             {
                 AddCharacter('\\');
+                index++;
                 continue;
-            }
-
-            string name = source[nameStart..index].ToLowerInvariant();
-            string argument = string.Empty;
-            if (index < source.Length && source[index] == '(')
-            {
-                int argumentStart = ++index;
-                while (index < source.Length && source[index] != ')')
-                    index++;
-                argument = source[argumentStart..index];
-                if (index < source.Length)
-                    index++;
             }
 
             switch (name)
@@ -1134,16 +1198,20 @@ public partial class DialogueBox : Node2D
                         characterSound = requestedCharacterSound & 0xff;
                     break;
                 case "pos":
-                case "slow":
                 case "speed":
                 case "wait":
                     break;
-                default:
-                    // Unsupported substitutions remain readable instead of
-                    // silently deleting information from partially ported text.
-                    for (int tokenIndex = tokenStart; tokenIndex < index; tokenIndex++)
-                        AddCharacter(source[tokenIndex]);
+                case "slow":
+                    slowdownRequested = true;
                     break;
+                default:
+                    if (TryParseHexByteEscape(name, out int byteValue))
+                    {
+                        AddCharacter((char)byteValue);
+                        break;
+                    }
+                    throw new InvalidOperationException(
+                        $"Unsupported dialogue command '{source[tokenStart..index]}'.");
             }
         }
 
@@ -1153,6 +1221,106 @@ public partial class DialogueBox : Node2D
             FinishSegment();
         }
         return segments;
+    }
+
+    private static bool TryReadTextCommand(
+        string source,
+        int tokenStart,
+        out string name,
+        out string argument,
+        out int end)
+    {
+        name = string.Empty;
+        argument = string.Empty;
+        end = tokenStart;
+        if (tokenStart < 0 || tokenStart >= source.Length ||
+            source[tokenStart] != '\\')
+        {
+            return false;
+        }
+
+        int nameStart = tokenStart + 1;
+        int index = nameStart;
+        while (index < source.Length && char.IsLetterOrDigit(source[index]))
+            index++;
+        if (index == nameStart)
+            return false;
+
+        string candidate = source[nameStart..index];
+        // TX_0544 adjoins "promised" to $14, linked secrets adjoin arbitrary
+        // alphabet symbols, and byte literals can directly precede text. The
+        // source command vocabulary, not a greedy identifier, owns boundaries.
+        if (candidate.Length >= 3 &&
+            candidate[0] is 'x' or 'X' &&
+            int.TryParse(
+                candidate.AsSpan(1, 2),
+                System.Globalization.NumberStyles.HexNumber,
+                null,
+                out _))
+        {
+            name = candidate[..3].ToLowerInvariant();
+            index = nameStart + 3;
+        }
+        else if (TryMatchAdjacentTextCommand(candidate, out string adjacent))
+        {
+            name = adjacent;
+            index = nameStart + adjacent.Length;
+        }
+        else
+        {
+            name = candidate.ToLowerInvariant();
+        }
+
+        if (index < source.Length && source[index] == '(')
+        {
+            int argumentStart = ++index;
+            while (index < source.Length && source[index] != ')')
+                index++;
+            argument = source[argumentStart..index];
+            if (index < source.Length)
+                index++;
+        }
+        end = index;
+        return true;
+    }
+
+    private static bool TryMatchAdjacentTextCommand(
+        string candidate,
+        out string name)
+    {
+        foreach (string command in AdjacentTextCommandNames)
+        {
+            if (!candidate.StartsWith(
+                    command, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            name = command;
+            return true;
+        }
+        name = string.Empty;
+        return false;
+    }
+
+    private static bool IsSupportedTextCommand(string name) => name switch
+    {
+        "col" or "stop" or "sym" or "item" or "circle" or "club" or
+        "diamond" or "spade" or "heart" or "heartpiece" or "up" or
+        "down" or "left" or "right" or "times" or "triangle" or
+        "rectangle" or "abtn" or "bbtn" or "n" or "opt" or "sfx" or
+        "charsfx" or "pos" or "slow" or "speed" or "wait" => true,
+        _ => TryParseHexByteEscape(name, out _)
+    };
+
+    private static bool TryParseHexByteEscape(string name, out int value)
+    {
+        value = 0;
+        return name.Length == 3 && name[0] == 'x' &&
+            int.TryParse(
+                name[1..],
+                System.Globalization.NumberStyles.HexNumber,
+                null,
+                out value);
     }
 
     private static bool TryParseCommandNumber(string value, out int result)

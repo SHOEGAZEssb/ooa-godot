@@ -71,8 +71,6 @@ that ledger instead of duplicating its 211-room inventory.
 | --- | --- | --- |
 | P1 | [ ] **CONFIRMED - implement top-down swimming and diving before treating water hazards as unconditional.** | The ROM dispatches non-side-view water through `link.s:linkUpdateSwimming`, including Flippers, Mermaid Suit, dive transitions, underwater state, and surfacing. Production has side-view swim state only. `Player.ApplyTerrainAtFeet` sends top-down water directly to drowning, so owning Flippers or the Mermaid Suit does not enable the original top-down behavior. |
 | P2 | [ ] **CONFIRMED - create and render side-view swim bubbles.** | On bubble-counter underflow, `link.s:linkUpdateSwimming_sidescroll` consumes RNG and creates `INTERAC_BUBBLE $91`. `Player.AdvanceSideScrollSwimming` deliberately consumes the same shared RNG call but has no bubble entity/spawn. RNG order is retained, but the visible interaction is absent. |
-| P2 | [ ] **CONFIRMED - implement text control `\slow()`.** | `textbox.s:textControlCodeC_7` installs `w7TextSlowdownTimer=$78`; while nonzero, A/B cannot fast-forward the text. [DialogueBox](../src/Features/Interface/DialogueBox.cs) parses `slow` and discards it. Both implemented Essence messages in `spirits_grave_text.tsv` and `wing_dungeon_text.tsv` use the command, so their first 120-update no-skip interval is missing. |
-| P2 | [ ] **CONFIRMED - tokenize the adjacent heart control in TX_0544 correctly.** | Source TX_0544 is `\heart` + `promised` + `\heart`. The dumped representation is `\heartpromised\heart`. `DialogueBox.ParseSegments` greedily reads the first sequence as the unknown command `heartpromised`, and the supported saved-Maku event passes it through unchanged. The retail `♥promised♥` span is therefore rendered incorrectly. |
 
 ## Runtime foundation, ownership, and data boundaries
 
@@ -114,14 +112,14 @@ that ledger instead of duplicating its 211-room inventory.
 - [x] Dialogue implements two 8x16 rows, source text colors, fixed/automatic
   textbox positions, scroll/continue states, message speeds 7/5/4/3/2,
   choices, character and one-shot sounds, trade-item glyphs, `\stop`,
-  `\heartpiece`, symbol/button controls, and background-palette ownership.
-- [ ] **P2 DECLARED - implement a general text substitution/control resolver or
-  strictly prove owner expansion for every reachable message.** `\call`,
-  `\jump`, `\Child`, `\secret1`, and `\num1` are currently expanded by selected
-  importers or event owners, not by `DialogueBox`; unknown tokens are rendered
-  literally. Current supported Vasu, Troy, family, linked-NPC, shop, gallery,
-  and ring paths have focused expansion checks, but this boundary is unsafe for
-  newly enabled dialogue until made exhaustive.
+  `\heartpiece`, `\slow()`, adjacent `\heart` and `\xHH` byte controls,
+  symbol/button controls, and background-palette ownership.
+- [x] `ValidateSigns` scans every base64-decodable generated TSV cell for text
+  controls and locks the exact remaining owner-expanded `\call`, `\Child`,
+  `\secret1`, and `\num1` inventory. Gasha's reachable `\jump(TX_3502)` is
+  flattened by its importer; raw map-bank and deliberately unsupported NPC
+  records remain classified, and `DialogueBox` now rejects any unresolved
+  command that leaks through an owning runtime path instead of rendering it.
 - [x] Inventory open/close, item and seed submenus, map and dungeon-map
   presentation, ring appraisal/list/box/equip, save/quit, game-over Continue,
   and explicit persistence boundaries are covered by the menu and persistence
@@ -482,7 +480,7 @@ path.
    add long cardinal/diagonal/collision path regressions.
 4. [ ] Implement top-down swimming/diving and direct side-view swim/Cape tests;
    add the missing bubble interaction without adding an extra RNG call.
-5. [ ] Fix `\slow()` and adjacent control-token parsing, then exhaustively scan
+5. [x] Fix `\slow()` and adjacent control-token parsing, then exhaustively scan
    every generated reachable message for unresolved commands.
 6. [x] Port the retail boot/attract loop and exact title Start audio/fade calls.
 7. [ ] Add an emulator differential tool that can load a checksum-valid retail
