@@ -86,6 +86,52 @@ contacts, and owns their lifetime. Shared combat, terrain, and interaction
 controllers operate through explicit capabilities. Species or native-object
 state stays with the entity that owns it in the original.
 
+The live `w1Companion` slot has one runtime owner shared by rideable animal
+companions and the minecart. A mounted owner, rather than Link, supplies the
+screen-transition position and transfers from the outgoing entity set after
+scrolling. Dismount writes the separate live remembered-companion fields;
+their disk-backed copy changes only when the death-respawn checkpoint is
+recorded, matching the original save boundary.
+
+Mounted-animal Link presentation is not an independent Link animation. The
+`SPECIALOBJECT_LINK_RIDING_ANIMAL` owner copies the low six bits of
+`w1Companion.animParameter` every update and uses the companion direction for
+both facing and the source Y offset (`-$0e` vertically, `-$10` horizontally).
+Runtime companion animation order therefore remains authoritative for both
+sprites, and the mounted companion owns A/B before Link's ordinary equipped
+items can create a conflicting pose. A cutscene response pose is not
+necessarily the mounted handoff direction: Moosh's first rescue meeting enters
+the left-facing ride pose even when the preceding angle-to-Link response faced
+another direction. Dismount copies the companion position,
+then launches Link at `SPEED_80` along `direction*8` with the ordinary jump and
+landing sounds before reopening the distance-gated mounting state. Bit 7 of
+`wLinkInAir` still permits that arc through walls; if its fixed endpoint is
+embedded, the runtime retains the furthest collision-free point on the same
+arc so Link cannot become immobile.
+
+Charge flashing applies OBJ palette 2 to both companion and riding-Link frames
+in global-frame-counter bit-2 bands after the source 40-update threshold.
+An airborne Moosh checks the original `y+$05` hazard probe before horizontal
+movement. Water freezes his position and vertical speed for `$3c` updates,
+creates the copied-position exclamation `$20` pixels above him with SND_CLINK,
+then resumes gravity on the exact zero update. Grounded companion hazards use
+the same probe. Hole/lava entry drags both mounted sprites toward the metatile
+center before the falling animation; grounded water starts its drowning
+animation immediately. Completion moves the mounted pair to the local safe
+position (falling back to the last mount point if necessary) and applies the
+companion hazard damage/invincibility state.
+
+Room-event destination preload must consult both active and outgoing entity
+sets before creating a waiting companion. The retained outgoing companion is
+the authoritative live owner and transfers into the destination set when the
+scroll completes; a room event must never create a second owner meanwhile.
+
+Invisible companion-tutorial interactions retain their original two-update
+initialization. They show text only when the required companion owns Link's
+mounted state, then watch the imported directional boundary and set the
+persistent `wCompanionTutorialTextShown` bit. Equality does not count when the
+source comparison is strict, and a set bit deletes the controller on re-entry.
+
 An actor may have separate logical and presentation state. Collision, room
 flags, terrain queries, and AI read logical state; OAM/camera/transition code
 derives presentation without writing it back. Same-update spawns and removals

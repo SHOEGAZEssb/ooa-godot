@@ -50,6 +50,10 @@ public partial class Player : Node2D
     private Texture2D _damageMinecartLinkTexture = null!;
     private Texture2D _minecartAttackTexture = null!;
     private Texture2D _damageMinecartAttackTexture = null!;
+    private Texture2D? _companionRideTexture;
+    private Texture2D? _damageCompanionRideTexture;
+    private Vector2 _companionRideTextureOffset;
+    private int _companionRideZFixed;
     private Texture2D[,] _braceletActionTextures = null!;
     private Texture2D[,] _damageBraceletActionTextures = null!;
     private Texture2D _shieldLinkTexture = null!;
@@ -101,7 +105,11 @@ public partial class Player : Node2D
     private double _topDownAirUpdateAccumulator;
     private bool _minecartJumpControlled;
     private bool _minecartRideControlled;
+    private bool _companionJumpControlled;
+    private Vector2 _companionJumpStartPosition;
+    private bool _companionRideControlled;
     private int _minecartJumpAngle = 0xff;
+    private int _companionJumpAngle = 0xff;
     private int _ledgeGroundYFixed;
     private int _ledgeGroundXFixed;
     private int _ledgeZFixed;
@@ -386,6 +394,29 @@ public partial class Player : Node2D
     internal int TopDownAirAnimationPhase => _topDownAirAnimationPhase;
     internal bool MinecartJumpActive => _minecartJumpControlled;
     internal bool MinecartRideActive => _minecartRideControlled;
+    internal bool CompanionJumpActive => _companionJumpControlled;
+    internal bool CompanionRideActive => _companionRideControlled;
+    internal Vector2 CompanionRideTextureOffset =>
+        _companionRideTextureOffset;
+    internal int CompanionRideZFixed => _companionRideZFixed;
+    internal Vector2 CompanionRideDrawOffset =>
+        _companionRideTextureOffset +
+        new Vector2(0, _companionRideZFixed >> 8);
+    internal Vector2I CompanionRideTextureSize =>
+        _companionRideTexture is null
+            ? Vector2I.Zero
+            : new Vector2I(
+                _companionRideTexture.GetWidth(),
+                _companionRideTexture.GetHeight());
+    internal ulong CompanionRideTexturePixelHash =>
+        _companionRideTexture is null
+            ? 0
+            : OracleGraphicsCache.PixelHash(
+                _companionRideTexture.GetImage());
+    internal bool CompanionJumpReadyToRide =>
+        _companionJumpControlled &&
+        _topDownAirSpeedZ >= 0 &&
+        TopDownAirZ >= -4;
     internal Vector2 MinecartMainObjectPosition =>
         _minecartRideControlled ? _minecartMainObjectPosition : _precisePosition;
     internal int MinecartJumpAngle => _minecartJumpAngle;
@@ -1361,6 +1392,11 @@ public partial class Player : Node2D
             AdvanceMinecartJumpUpdate();
             return;
         }
+        if (_companionJumpControlled)
+        {
+            AdvanceCompanionJumpUpdate();
+            return;
+        }
 
         if (_world.IsTransitioning)
             return;
@@ -1382,9 +1418,24 @@ public partial class Player : Node2D
         Vector2 movementStart = _precisePosition;
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
-        if (_world.MovementDisabled && !_minecartRideControlled)
+        if (_world.MovementDisabled &&
+            !_minecartRideControlled && !_companionRideControlled)
             input = Vector2.Zero;
         _lastMovementInput = input;
+
+        if (_companionRideControlled)
+        {
+            // SPECIALOBJECT_LINK_RIDING_ANIMAL owns Link's update while
+            // wLinkObjectIndex points at the companion. The companion reads
+            // A/B itself; ordinary equipped parent items must not turn those
+            // presses into Link sword, feather, shield, or other item poses.
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            _world.CheckRoomExit(this);
+            QueueRedraw();
+            return;
+        }
 
         bool primaryPressed = Input.IsActionPressed("attack");
         bool secondaryPressed = Input.IsActionPressed("item");
@@ -1543,7 +1594,6 @@ public partial class Player : Node2D
             QueueRedraw();
             return;
         }
-
         bool movementAllowed = !IsUsingItem || SwordAllowsMovement;
         if (_world.SideScrolling)
         {
@@ -2462,6 +2512,19 @@ public partial class Player : Node2D
         {
             DrawScriptedLinkAnimation(_scriptedLinkAnimationMode.Value);
         }
+        else if (_companionRideControlled &&
+            _companionRideTexture is not null &&
+            _damageCompanionRideTexture is not null)
+        {
+            // SPECIALOBJECT_LINK_RIDING_ANIMAL selects graphics solely from
+            // the companion's animParameter. No ordinary Link item or
+            // airborne pose can supersede this frame while mounted.
+            DrawTexture(
+                DamagePaletteActive
+                    ? _damageCompanionRideTexture
+                    : _companionRideTexture,
+                CompanionRideDrawOffset);
+        }
         else if (_drowning && !_drownRespawning)
         {
             int frame = GetDrownAnimationFrame();
@@ -2687,7 +2750,7 @@ public partial class Player : Node2D
         // screen-scroll state, and negative Z. Ground effects otherwise remain
         // present while standing, using an item, or riding an ordinary moving
         // platform; they are not gated by the walk animation.
-        if (!Visible || _minecartRideControlled ||
+        if (!Visible || _minecartRideControlled || _companionRideControlled ||
             _world.ScreenScrolling || _world.SideScrolling ||
             !IsGroundedForFloorButton)
         {
@@ -3272,6 +3335,203 @@ public partial class Player : Node2D
         _world.PlaySound(TopDownAirDatabase.Shared.Parameters.LandSound);
     }
 
+    /// <summary>
+    /// companionTryToMount sets Link's vertical speed to -$01c0 while the
+    /// companion nudges each high coordinate toward its own center.
+    /// </summary>
+    internal void BeginCompanionMount(Vector2 position)
+    {
+        BeginCompanionJump(position, initialZ: 0, angle: 0xff);
+    }
+
+    internal void NudgeCompanionMountToward(Vector2 target)
+    {
+        if (!_companionJumpControlled)
+            return;
+        int x = Mathf.FloorToInt(_precisePosition.X);
+        int y = Mathf.FloorToInt(_precisePosition.Y);
+        int targetX = Mathf.FloorToInt(target.X);
+        int targetY = Mathf.FloorToInt(target.Y);
+        if (x != targetX)
+            x += x < targetX ? 1 : -1;
+        if (y != targetY)
+            y += y < targetY ? 1 : -1;
+        _precisePosition = new Vector2(x, y);
+        Position = _precisePosition;
+        QueueRedraw();
+    }
+
+    internal void FinishCompanionMount(
+        Vector2 companionPosition,
+        int direction,
+        int zFixed,
+        Texture2D linkTexture,
+        Texture2D damageLinkTexture,
+        Vector2 textureOffset)
+    {
+        ClearTopDownAirState();
+        SetCompanionRidePosition(
+            companionPosition, direction, zFixed, linkTexture,
+            damageLinkTexture, textureOffset, Vector2.Zero);
+    }
+
+    internal void SetCompanionRidePosition(
+        Vector2 companionPosition,
+        int direction,
+        int zFixed,
+        Texture2D linkTexture,
+        Texture2D damageLinkTexture,
+        Vector2 textureOffset,
+        Vector2 screenOffset)
+    {
+        if (direction is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(direction));
+        Vector2 linkOffset = (direction & 1) == 0
+            ? new Vector2(0, -14)
+            : new Vector2(0, -16);
+        _precisePosition = companionPosition + screenOffset + linkOffset;
+        _companionRideTexture = linkTexture;
+        _damageCompanionRideTexture = damageLinkTexture;
+        _companionRideTextureOffset = textureOffset;
+        // func_410d uses objectCopyPositionWithOffset, which copies the
+        // companion's Z as well as its offset Y/X into riding Link.
+        _companionRideZFixed = zFixed;
+        _companionRideControlled = true;
+        _facing = (Facing)direction;
+        _walking = false;
+        _pushing = false;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void BeginCompanionDismount(
+        Vector2 companionPosition,
+        int companionDirection)
+    {
+        if (companionDirection is < 0 or > 3)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(companionDirection));
+        }
+        _companionRideControlled = false;
+        BeginCompanionJump(
+            companionPosition,
+            initialZ: -8,
+            angle: companionDirection * 8);
+    }
+
+    internal void ApplyCompanionHazardDamage(HazardType hazard)
+    {
+        ApplyDamage(
+            1,
+            hazard == HazardType.Hole
+                ? RingDamageSource.Hole
+                : RingDamageSource.TerrainHazard);
+        // companionRespawn writes $40 after damageToApply=-2 when Link is
+        // still mounted.
+        _enemyInvincibilityFrames = 0x40;
+    }
+
+    private void BeginCompanionJump(
+        Vector2 position,
+        int initialZ,
+        int angle)
+    {
+        if (angle != 0xff &&
+            angle is < 0 or >= OracleObjectSpeedTable.AngleCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(angle));
+        }
+
+        InterruptCarriedItems(discard: true);
+        CancelSwordAttack();
+        CancelShovelAction();
+        ClearShieldParent();
+        ClearTopDownAirState();
+        _enemyKnockbackFrames = 0.0f;
+        _pendingSwordKnockbackFrames = 0;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        _topDownAirZFixed = initialZ << 8;
+        _topDownAirSpeedZ = -0x01c0;
+        _topDownAirAnimationPhase = 0;
+        _topDownAirAnimationCounter = parameters.AnimationPhaseDurations[0];
+        _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
+        _topDownAirborne = true;
+        // setLinkMountingSpeed writes wLinkInAir=$81 for mounting and
+        // dismounting. Bit 0 requests SND_JUMP on the first in-air update.
+        _topDownJumpSoundPending = true;
+        _companionJumpAngle = angle;
+        _companionJumpStartPosition = position;
+        _companionJumpControlled = true;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    private void AdvanceCompanionJumpUpdate()
+    {
+        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        if (_topDownJumpSoundPending)
+        {
+            _topDownJumpSoundPending = false;
+            _world.PlaySound(parameters.JumpSound);
+        }
+
+        // Mounting uses angle $ff while the companion nudges Link toward its
+        // center. companionDismount instead stores direction*8 in wLinkAngle
+        // and applies SPEED_80 until Link lands.
+        if (_companionJumpAngle != 0xff)
+        {
+            _precisePosition += OracleObjectMovement.Shared.Delta(
+                0x14,
+                _companionJumpAngle);
+        }
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref _topDownAirZFixed,
+            ref _topDownAirSpeedZ,
+            parameters.Gravity);
+        if (landed)
+        {
+            if (_companionJumpAngle != 0xff &&
+                _world.Collides(_precisePosition))
+            {
+                _precisePosition = ResolveCompanionDismountLanding();
+            }
+            ClearTopDownAirState();
+            _world.PlaySound(parameters.LandSound);
+        }
+        else
+        {
+            if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
+                _topDownAirSpeedZ = parameters.MaximumFallSpeed;
+            AdvanceTopDownAirAnimation(parameters);
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    private Vector2 ResolveCompanionDismountLanding()
+    {
+        // wLinkInAir bit 7 deliberately permits the dismount arc to cross
+        // walls. If that fixed arc ends inside one, walk its endpoint back
+        // toward the companion position copied at dismount at quarter-pixel
+        // precision and retain the furthest collision-free landing.
+        float distance = _precisePosition.DistanceTo(
+            _companionJumpStartPosition);
+        int steps = Math.Max(1, Mathf.CeilToInt(distance * 4.0f));
+        for (int step = 1; step <= steps; step++)
+        {
+            Vector2 candidate = _precisePosition.Lerp(
+                _companionJumpStartPosition,
+                step / (float)steps);
+            if (!_world.Collides(candidate))
+                return candidate;
+        }
+        return _companionJumpStartPosition;
+    }
+
     internal void SetMinecartRidePosition(
         Vector2 cartPosition,
         int cartDirection,
@@ -3384,6 +3644,14 @@ public partial class Player : Node2D
         _minecartJumpControlled = false;
         _minecartRideControlled = false;
         _minecartJumpAngle = 0xff;
+        _companionJumpControlled = false;
+        _companionJumpAngle = 0xff;
+        _companionJumpStartPosition = Vector2.Zero;
+        _companionRideControlled = false;
+        _companionRideTexture = null;
+        _damageCompanionRideTexture = null;
+        _companionRideTextureOffset = Vector2.Zero;
+        _companionRideZFixed = 0;
     }
 
     private void BeginSideScrollAirborne(

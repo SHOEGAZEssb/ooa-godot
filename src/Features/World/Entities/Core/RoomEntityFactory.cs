@@ -38,7 +38,7 @@ internal sealed class RoomEntityFactory(
     Action disableLinkCollisionsAndMenu,
     Action enableLinkCollisionsAndMenu,
     Action<int, int> roomMusicRequested,
-    Action<int, string, Vector2> nativeBossDialogueRequested,
+    Action<int, string, Vector2> roomEntityDialogueRequested,
     Action<int, string, Player> mapleDialogueRequested,
     Action<int, string, Vector2> seedTreeMessageRequested,
     Action<int, string, Vector2> owlStatueMessageRequested,
@@ -86,6 +86,8 @@ internal sealed class RoomEntityFactory(
     private readonly MapleEventDatabase _maple = new();
     private readonly SeedTreeDatabase _seedTrees = new();
     private readonly OwlStatueDatabase _owlStatues = new();
+    private readonly MooshRescueEventDatabase _moosh = new();
+    private readonly CompanionTutorialDatabase _companionTutorials = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
@@ -134,6 +136,45 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext)
     {
         int activeGroup = group;
+        if (CompanionRuntimeState.IsActive(
+                runtimeState, CompanionRuntimeState.MooshId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
+            if (active.Room == room.Id)
+            {
+                yield return CreateMoosh(new MooshCompanionSpawn(
+                    active.Position,
+                    active.Direction,
+                    activeGroup,
+                    room.Id,
+                    Riding: true), room);
+            }
+        }
+        else if (CompanionRuntimeState.TryGetRemembered(
+                runtimeState,
+                CompanionRuntimeState.MooshId,
+                activeGroup,
+                room.Id,
+                out Vector2 rememberedMoosh))
+        {
+            yield return CreateMoosh(new MooshCompanionSpawn(
+                rememberedMoosh,
+                2,
+                activeGroup,
+                room.Id), room);
+        }
+        if (saveData is not null)
+        {
+            foreach (CompanionTutorialRecord tutorial in
+                _companionTutorials.GetRoomRecords(activeGroup, room.Id))
+            {
+                yield return new CompanionTutorialRoomEntity(
+                    tutorial,
+                    runtimeState,
+                    saveData,
+                    roomEntityDialogueRequested);
+            }
+        }
         bool spawnMaple =
             saveData is not null &&
             inventory is not null &&
@@ -887,7 +928,7 @@ internal sealed class RoomEntityFactory(
                     disableLinkCollisionsAndMenu,
                     enableLinkCollisionsAndMenu,
                     () => roomMusicRequested(record.Group, record.Room),
-                    nativeBossDialogueRequested,
+                    roomEntityDialogueRequested,
                     dialogueOpen,
                     animationTick,
                     _wingDungeon.SwoopMessage);
@@ -1517,6 +1558,7 @@ internal sealed class RoomEntityFactory(
     {
         OctorokRockSpawn rock => CreateRock(rock, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
+        GhiniSpawn ghini => CreateGhini(ghini, room),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
@@ -1570,8 +1612,70 @@ internal sealed class RoomEntityFactory(
             shutter.ClosedTile,
             oneShotOpener: true,
             room),
+        MooshCompanionSpawn moosh => CreateMoosh(moosh, room),
+        MooshHoverExclamationSpawn exclamation =>
+            CreateMooshHoverExclamation(exclamation),
+        MooshStompAttackSpawn stomp => CreateMooshStomp(stomp, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private MooshCompanionRoomEntity CreateMoosh(
+        MooshCompanionSpawn spawn,
+        OracleRoomData room) => new(
+            spawn,
+            room,
+            _moosh,
+            runtimeState,
+            soundRequested,
+            roomEntityDialogueRequested,
+            dialogueOpen,
+            screenShakeRequested);
+
+    private MooshHoverExclamationRoomEntity CreateMooshHoverExclamation(
+        MooshHoverExclamationSpawn spawn)
+    {
+        MooshCompanionVisualRecord visual = _moosh.Visual;
+        Vector2 position = spawn.Position + new Vector2(
+            0,
+            (spawn.ZFixed >> 8) + visual.WaterExclamationZOffset);
+        NpcRecord record = _moosh.CreateExclamationRecord(
+            Mathf.RoundToInt(position.Y),
+            Mathf.RoundToInt(position.X));
+        var npc = new NpcCharacter
+        {
+            Name = "MooshHoverExclamation",
+            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+        };
+        npc.Initialize(record);
+        soundRequested(visual.WaterExclamationSound);
+        return new MooshHoverExclamationRoomEntity(
+            npc, visual.WaterHoverFrames);
+    }
+
+    private MooshStompAttackRoomEntity CreateMooshStomp(
+        MooshStompAttackSpawn spawn,
+        OracleRoomData room)
+    {
+        int? LinkedNeighbor(Vector2I direction)
+        {
+            if (rooms is not null && rooms.TryGetNeighbor(
+                    spawn.Group, spawn.Room, direction, out int neighbor))
+            {
+                return neighbor;
+            }
+            return null;
+        }
+
+        return new MooshStompAttackRoomEntity(
+            spawn,
+            room,
+            _breakables,
+            saveData,
+            LinkedNeighbor,
+            applyThrownObjectHit,
+            roomTileChanged,
+            animationTick);
+    }
 
     private IRoomEntity CreateSeedOnTree(
         SeedTreeController controller,
@@ -2395,6 +2499,24 @@ internal sealed class RoomEntityFactory(
                 killableEnemyIndex: 0,
                 source:
                     "scripts/ages/scriptHelper.s:moblin_spawnEnemyHere"),
+            soundRequested);
+    }
+
+    private IRoomEntity CreateGhini(GhiniSpawn spawn, OracleRoomData room)
+    {
+        ImportedEnemyDefinition record = enemies.ImportedEnemy(0x17, 0x00);
+        var ghini = new GhiniCharacter { Name = spawn.Name, ZIndex = 10 };
+        ghini.Initialize(record, room, spawn.Position, random);
+        const string source =
+            "scripts/ages/scripts.s:ghiniHarassingMoosh_*:spawnenemyhere";
+        EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
+            record.Id, record.SubId, source);
+        return new GhiniRoomEntity(
+            ghini,
+            handler.CombatSource(
+                objectFlags: 0,
+                killableEnemyIndex: 0,
+                source),
             soundRequested);
     }
 
@@ -3230,6 +3352,9 @@ internal sealed record EraInfoSpawn(EraInfoDatabaseRecord Record)
 
 internal sealed record MaskedMoblinSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record GhiniSpawn(Vector2 Position, string Name)
+    : RoomEntitySpawn;
 
 internal sealed record LightableTorchSpawn(
     DarkRoomState State,

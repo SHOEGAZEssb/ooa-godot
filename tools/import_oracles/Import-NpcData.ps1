@@ -719,6 +719,9 @@ $eventOwnedNpcImplementationKeys =
 foreach ($key in @(
     '0:38:87:00:00',
     '0:39:37:0d:00',
+    '0:6c:73:00:00',
+    '0:6c:73:01:00',
+    '0:6c:73:02:00',
     '0:6a:31:00:00',
     '0:7b:3c:03:00',
     '0:7b:3c:04:00',
@@ -739,7 +742,7 @@ foreach ($key in @(
 
 if ($ordinaryNpcImplementationKeys.Count -ne 53 -or
     $specializedNpcImplementationKeys.Count -ne 60 -or
-    $eventOwnedNpcImplementationKeys.Count -ne 14) {
+    $eventOwnedNpcImplementationKeys.Count -ne 17) {
     throw 'NPC implementation registry key counts changed.'
 }
 
@@ -858,6 +861,31 @@ $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
 $mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
 $mainObjectSource = $mainObjectLines -join "`n"
+$companionTutorialSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\companionTutorial.s')
+$companionTutorialWramSource = Read-ImportText (
+    Join-Path $Disassembly 'include\wram.s')
+$specialObjectConstantsSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\specialObjects.s')
+$room05bCompanionTutorial = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group0Map5bObjectData:\s+obj_Interaction \$d0 \$04 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s+obj_End')
+if (-not $room05bCompanionTutorial.Success -or
+    $companionTutorialSource -notmatch '(?ms)^@state0:.*?ld a,\$01.*?^@state1:.*?ld a,\$02.*?w1Companion\.enabled.*?srl a.*?SPECIALOBJECT_FIRST_COMPANION.*?SPECIALOBJECT_MOOSH.*?w1Companion\.id.*?@flagNumbers.*?wCompanionTutorialTextShown.*?checkFlag.*?wLinkObjectIndex.*?bit 0,a.*?call nz,showText' -or
+    $companionTutorialSource -notmatch '(?ms)^@state2:.*?\.dw @setFlagAndDeleteWhenCompanionIsLeft.*?^@setFlagAndDeleteWhenCompanionIsLeft:.*?Interaction\.xh.*?w1Companion\.xh.*?cp \(hl\).*?ret nc.*?@setFlagAndDelete' -or
+    $companionTutorialSource -notmatch '(?ms)^@tutorialTextToShow:\s+\.dw TX_2008\s+\.dw TX_2009\s+\.dw TX_0000\s+\.dw TX_2108\s+\.dw TX_2207\s+\.dw TX_2206' -or
+    $companionTutorialSource -notmatch '(?ms)^@flagNumbers:\s+\.db \$00 \$01 \$00 \$03 \$04 \$00' -or
+    $companionTutorialWramSource -notmatch '(?m)^wCompanionTutorialTextShown: ; \$c649\s*$' -or
+    $specialObjectConstantsSource -notmatch '(?m)^\s*SPECIALOBJECT_MOOSH\s+db ; \$0d\s*$' -or
+    -not $allTexts.ContainsKey(0x2207)) {
+    throw 'Room 0:5b INTERAC_COMPANION_TUTORIAL `$d0:$04 contract changed.'
+}
+$companionTutorialMessage = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x2207]))
+$companionTutorialRows = @(
+    "# group`troom`torder`tid`tsubid`ty`tx`trequired-companion`ttext-id`tflag-address`tflag-bit`tcompletion`tutf8-base64`tsource"
+    "0`t5b`t0`td0`t04`t$($room05bCompanionTutorial.Groups['y'].Value)`t$($room05bCompanionTutorial.Groups['x'].Value)`t0d`t2207`tc649`t4`tcompanion-right`t$companionTutorialMessage`tmainData.s:group0Map5bObjectData;companionTutorial.s:interactionCoded0"
+)
 $enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly "objects\ages\enemyData.s")
 if ($mainObjectSource -notmatch '(?ms)^group1Map45ObjectData:\s+obj_Interaction \$43 \$01 \$68 \$18\s+obj_End') {
@@ -1642,8 +1670,8 @@ foreach ($line in $mainObjectLines) {
     $row = New-NpcDataRow $currentGroup $currentRoom $id $subid $y $x $var03
     if ($row) { $npcRows.Add($row) }
 }
-if ($npcRows.Count -ne 380) {
-    throw "Expected 379 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 383) {
+    throw "Expected 382 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $linkedGhiniRow = @($npcRows | Where-Object { $_ -match '^0\t5d\tcb\t00\t68\t88\t' })
 if ($linkedGhiniRow.Count -ne 1 -or
@@ -2923,8 +2951,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 389) {
-    throw "Expected 379 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 392) {
+    throw "Expected 382 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -2934,7 +2962,7 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
     $npcImplementationCounts['specialized-native'] -ne 62 -or
-    $npcImplementationCounts['event-owned'] -ne 14 -or
+    $npcImplementationCounts['event-owned'] -ne 17 -or
     $npcImplementationCounts['deliberately-unsupported'] -ne 258 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
@@ -4511,6 +4539,10 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 Write-GeneratedTable($npcPath, $npcRows)
+$companionTutorialPath = Join-Path $destination "objects\companion_tutorials.tsv"
+Write-GeneratedTable(
+    $companionTutorialPath,
+    $companionTutorialRows)
 $vasuShopTextPath = Join-Path $destination "objects\vasu_shop_texts.tsv"
 Write-GeneratedTable(
     $vasuShopTextPath,

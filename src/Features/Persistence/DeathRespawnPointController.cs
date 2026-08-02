@@ -13,12 +13,17 @@ public sealed class DeathRespawnPointController
     private const byte TilesetFlagUnderwater = 0x40;
     private readonly RoomSession _rooms;
     private readonly Player _player;
+    private readonly OracleRuntimeState? _runtimeState;
     private readonly HashSet<(int Group, int Room)> _continuousRooms = new();
 
-    public DeathRespawnPointController(RoomSession rooms, Player player)
+    public DeathRespawnPointController(
+        RoomSession rooms,
+        Player player,
+        OracleRuntimeState? runtimeState = null)
     {
         _rooms = rooms;
         _player = player;
+        _runtimeState = runtimeState;
 
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/metadata/continuous_death_respawn_rooms.tsv",
@@ -66,13 +71,29 @@ public sealed class DeathRespawnPointController
         }
 
         Vector2 position = _player.Position;
+        int y = Mathf.Clamp(Mathf.FloorToInt(position.Y), 0, 0xff);
+        int x = Mathf.Clamp(Mathf.FloorToInt(position.X), 0, 0xff);
+        if (_runtimeState is null)
+        {
+            _rooms.SaveData.SetDeathRespawnPoint(
+                _rooms.ActiveGroup,
+                _rooms.CurrentRoom.Id,
+                stateModifier,
+                FacingIndex(_player.FacingVector),
+                y,
+                x);
+            return;
+        }
+
         _rooms.SaveData.SetDeathRespawnPoint(
             _rooms.ActiveGroup,
             _rooms.CurrentRoom.Id,
             stateModifier,
             FacingIndex(_player.FacingVector),
-            Mathf.Clamp(Mathf.FloorToInt(position.Y), 0, 0xff),
-            Mathf.Clamp(Mathf.FloorToInt(position.X), 0, 0xff));
+            y,
+            x,
+            CompanionRuntimeState.ReadRemembered(_runtimeState),
+            CompanionRuntimeState.AnyActive(_runtimeState) ? 0xd1 : 0xd0);
     }
 
     private static int FacingIndex(Vector2I facing) => facing == Vector2I.Up ? 0

@@ -16,19 +16,12 @@ internal static class MinecartRuntimeState
     private const int StaticInteraction = 3;
     private const int MinecartInteractionId = 0x16;
 
-    // The active cart occupies the clone's otherwise-unused w1Companion
-    // window, matching the original owner.
-    private const int Active = 0xd100;
-    private const int ActiveRoom = 0xd102;
-    private const int ActiveDirection = 0xd103;
-    private const int ActiveY = 0xd104;
-    private const int ActiveX = 0xd105;
-
     internal static void EnsureInitialized(
         OracleRuntimeState state,
         IReadOnlyList<MinecartStaticRecord> records)
     {
-        if (IsActive(state))
+        if (CompanionRuntimeState.IsActive(
+                state, CompanionRuntimeState.MinecartId))
             return;
         for (int slot = 0; slot < StaticSlotCount; slot++)
         {
@@ -80,15 +73,17 @@ internal static class MinecartRuntimeState
         int room,
         out ActiveMinecart cart)
     {
-        if (IsActive(state) &&
-            state.ReadWramByte(ActiveRoom) == room)
+        if (CompanionRuntimeState.IsActive(
+                state, CompanionRuntimeState.MinecartId) &&
+            CompanionRuntimeState.Read(state) is ActiveCompanion active &&
+            active.Room == room)
         {
             cart = new ActiveMinecart(
                 Slot: -1,
                 room,
-                state.ReadWramByte(ActiveY),
-                state.ReadWramByte(ActiveX),
-                state.ReadWramByte(ActiveDirection),
+                active.Y,
+                active.X,
+                active.Direction,
                 Riding: true);
             return true;
         }
@@ -104,8 +99,9 @@ internal static class MinecartRuntimeState
         int direction)
     {
         ClearStaticSlot(state, slot);
-        state.SetWramByte(Active, 1);
-        UpdateRide(state, room, position, direction);
+        CompanionRuntimeState.Begin(
+            state, CompanionRuntimeState.MinecartId,
+            room, position, direction);
     }
 
     internal static void UpdateRide(
@@ -114,10 +110,9 @@ internal static class MinecartRuntimeState
         Vector2 position,
         int direction)
     {
-        state.SetWramByte(ActiveRoom, (byte)room);
-        state.SetWramByte(ActiveDirection, (byte)direction);
-        state.SetWramByte(ActiveY, (byte)Mathf.FloorToInt(position.Y));
-        state.SetWramByte(ActiveX, (byte)Mathf.FloorToInt(position.X));
+        CompanionRuntimeState.Update(
+            state, CompanionRuntimeState.MinecartId,
+            room, position, direction);
     }
 
     internal static int FinishRide(
@@ -141,12 +136,8 @@ internal static class MinecartRuntimeState
 
     internal static void ClearActive(OracleRuntimeState state)
     {
-        for (int address = Active; address <= ActiveX; address++)
-            state.SetWramByte(address, 0);
+        CompanionRuntimeState.Clear(state, CompanionRuntimeState.MinecartId);
     }
-
-    private static bool IsActive(OracleRuntimeState state) =>
-        state.ReadWramByte(Active) != 0;
 
     private static int FindFreeStaticSlot(OracleRuntimeState state)
     {

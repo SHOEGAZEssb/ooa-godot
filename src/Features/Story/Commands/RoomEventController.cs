@@ -30,6 +30,7 @@ public sealed class RoomEventController
     private readonly EnterPastEvent _enterPast;
     private readonly GraveyardGateEvent _graveyardGate;
     private readonly GraveyardGhostKidsEvent _graveyardGhostKids;
+    private readonly MooshRescueEvent _mooshRescue;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
     private readonly MakuSproutRescueEvent _makuSproutRescue;
@@ -102,6 +103,7 @@ public sealed class RoomEventController
         _enterPast = new EnterPastEvent(_context);
         _graveyardGate = new GraveyardGateEvent(_context);
         _graveyardGhostKids = new GraveyardGhostKidsEvent(_context);
+        _mooshRescue = new MooshRescueEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
         _makuSproutRescue = new MakuSproutRescueEvent(_context);
@@ -132,6 +134,7 @@ public sealed class RoomEventController
             _wingDungeonCollapse,
             _nayru,
             _graveyardGate,
+            _mooshRescue,
             _makuSproutRescue,
             _dekuForestSoldier,
             _dekuForestPalace,
@@ -183,6 +186,9 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "makuSprout.s:interactionCode88",
                 (target, _) => _makuSproutRescue.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "companionScripts.s:companionScript_subid00Script",
+                (target, _) => _mooshRescue.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "makuTree.s:interactionCode87Subid02",
                 (target, _) => _makuTreeSaved.TryInteractNpc(target.Npc)),
@@ -263,6 +269,7 @@ public sealed class RoomEventController
     internal EnterPastEvent EnterPast => _enterPast;
     internal GraveyardGateEvent GraveyardGate => _graveyardGate;
     internal GraveyardGhostKidsEvent GraveyardGhostKids => _graveyardGhostKids;
+    internal MooshRescueEvent MooshRescue => _mooshRescue;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
     internal MakuSproutRescueEvent MakuSproutRescue => _makuSproutRescue;
@@ -305,7 +312,8 @@ public sealed class RoomEventController
         _graveyardGate.Trigger(group, room);
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled ||
-        _fairiesWoods.ScreenTransitionsDisabled;
+        _fairiesWoods.ScreenTransitionsDisabled ||
+        _mooshRescue.ScreenTransitionsDisabled;
     internal bool MenusDisabled =>
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||

@@ -8537,6 +8537,418 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\shooting_gallery_rings.tsv'),
     $shootingGalleryRingRows)
 
+# Room $0:$6c is one source-ordered event assembled from three placed
+# INTERAC_GHINI_HARASSING_MOOSH lanes, the placed companion controller, and
+# the positionless companion spawner. Import the independently advancing
+# scripts and the special-object Moosh visual instead of inventing one master
+# dialogue sequence in runtime code.
+$mooshObjectPath = Join-Path $Disassembly 'objects\ages\mainData.s'
+$mooshObjectSource = Read-ImportText $mooshObjectPath
+$mooshPlacement = [regex]::Match(
+    $mooshObjectSource,
+    '(?ms)^group0Map6cObjectData:\s*' +
+    'obj_Interaction \$73 \$00 \$(?<g0y>[0-9a-f]{2}) \$(?<g0x>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$73 \$01 \$(?<g1y>[0-9a-f]{2}) \$(?<g1x>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$73 \$02 \$(?<g2y>[0-9a-f]{2}) \$(?<g2x>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$71 \$00 \$(?<controllery>[0-9a-f]{2}) \$(?<controllerx>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$71 \$02 \$(?<restricty>[0-9a-f]{2}) \$(?<restrictx>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$67 \$00\s*obj_End')
+if (-not $mooshPlacement.Success -or
+    $mooshPlacement.Groups['g0y'].Value -ne '18' -or
+    $mooshPlacement.Groups['g0x'].Value -ne '68' -or
+    $mooshPlacement.Groups['g1y'].Value -ne '18' -or
+    $mooshPlacement.Groups['g1x'].Value -ne '48' -or
+    $mooshPlacement.Groups['g2y'].Value -ne '38' -or
+    $mooshPlacement.Groups['g2x'].Value -ne '58' -or
+    $mooshPlacement.Groups['controllery'].Value -ne '28' -or
+    $mooshPlacement.Groups['controllerx'].Value -ne '58' -or
+    $mooshPlacement.Groups['restricty'].Value -ne '6d' -or
+    $mooshPlacement.Groups['restrictx'].Value -ne '38') {
+    throw 'Room 0:6c Ghini, companion-controller, or spawner order/placement changed.'
+}
+
+$mooshScriptsPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$mooshScriptsSource = Read-ImportText $mooshScriptsPath
+$ghiniNativeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\ghiniHarassingMoosh.s')
+$companionNativeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\companionScripts.s')
+$companionSpawnerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\companionSpawner.s')
+$mooshSpecialSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\specialObjects\moosh.s')
+$mooshExclamationSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\exclamationMark.s')
+$mooshHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$mooshSpeedSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$mooshDirectionSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\directions.s')
+$mooshWramSource = Read-ImportText (
+    Join-Path $Disassembly 'include\wram.s')
+$mooshEnemyConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\enemies.s')
+$mooshTreasureConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\treasure.s')
+$mooshSpecialConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\specialObjects.s')
+$mooshMusicConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\music.s')
+$mooshWaterHover = [regex]::Match(
+    $mooshSpecialSource,
+    '(?ms)^mooshState8Substate1:.*?objectCheckIsOverHazard\s*cp \$(?<hazard>[0-9a-f]{2}).*?' +
+    'objectSetSpeedZ.*?SpecialObject\.substate\s*ld \(hl\),\$(?<substate>[0-9a-f]{2}).*?' +
+    'INTERAC_EXCLAMATION_MARK.*?objectCreateInteractionWithSubid00.*?dec l\s*ld a,\(hl\)\s*sub \$(?<zOffset>[0-9a-f]{2}).*?' +
+    'ld a,\$(?<frames>[0-9a-f]{2})\s*ld \(hl\),a ; \[Interaction\.counter1\] = \$3c\s*ld \(de\),a ; \[Moosh\.counter1\] = \$3c.*?' +
+    '^mooshState8Substate5:.*?companionDecCounter1IfNonzero.*?specialObjectAnimate.*?objectUpdateSpeedZ_paramC')
+if (-not $mooshWaterHover.Success -or
+    $mooshWaterHover.Groups['hazard'].Value -ne '01' -or
+    $mooshWaterHover.Groups['substate'].Value -ne '05' -or
+    $mooshWaterHover.Groups['zOffset'].Value -ne '20' -or
+    $mooshWaterHover.Groups['frames'].Value -ne '3c' -or
+    $mooshExclamationSource -notmatch
+        '(?ms)^objectCreateExclamationMark_body:.*?SND_CLINK.*?playSound') {
+    throw 'Moosh water-hover exclamation/fall state changed.'
+}
+$mooshWaterHazard = [Convert]::ToInt32(
+    $mooshWaterHover.Groups['hazard'].Value, 16)
+$mooshWaterHoverFrames = [Convert]::ToInt32(
+    $mooshWaterHover.Groups['frames'].Value, 16)
+$mooshWaterExclamationZOffset = -[Convert]::ToInt32(
+    $mooshWaterHover.Groups['zOffset'].Value, 16)
+if ($ghiniNativeSource -notmatch '(?ms)^interactionCode73:.*?wEssencesObtained.*?bit 1.*?wPastRoomFlags\+\$79.*?bit 6.*?wMooshState.*?and \$60.*?interactionSetAlwaysUpdateBit.*?Interaction\.zh.*?-2.*?objectApplySpeed.*?dec a.*?and \$1f.*?cp \$18' -or
+    $companionNativeSource -notmatch '(?ms)^companionScript_subid00:.*?wEssencesObtained.*?bit 1.*?wPastRoomFlags\+\$79.*?bit 6.*?wMooshState.*?and \$60.*?wDisableScreenTransitions.*?wDiggingUpEnemiesForbidden' -or
+    $companionNativeSource -notmatch '(?ms)^companionScript_subid00_state1:.*?Interaction\.var3a.*?dec a.*?and \$03.*?w1Companion\.xh.*?xor \$02' -or
+    $companionSpawnerSource -notmatch '(?ms)^@subid00:.*?wMooshState.*?wEssencesObtained.*?bit 1.*?wPastRoomFlags\+\$79.*?bit 6.*?TREASURE_CHEVAL_ROPE.*?@loadCompanionPresetIfHasntLeft:.*?and \$40' -or
+    $companionSpawnerSource -notmatch '(?m)^\s*\.db SPECIALOBJECT_MOOSH,\s+\$28, \$58, \$00 ; \$00 == \[subid\]' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshState0:.*?wMooshState.*?ld a,\$20.*?and \(hl\).*?@gotoCutsceneStateA:.*?ld a,\$0a' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshState1:.*?objectCheckLinkWithinDistance.*?companionTryToMount.*?^mooshState3:.*?companionCheckMountingComplete.*?companionFinalizeMounting.*?^mooshState5:.*?wGameKeysJustPressed.*?BTN_BIT_A.*?mooshPressedAButton.*?BTN_BIT_B.*?companionGotoDismountState.*?SPEED_100.*?companionUpdateMovement' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshState8:.*?^mooshState8Substate0:.*?-\$140.*?SPEED_100.*?^mooshState8Substate1:.*?SND_JUMP.*?^mooshState8Substate2:.*?SND_CHARGE_SWORD.*?^mooshState8Substate3:.*?SNDCTRL_STOPSFX.*?SND_SCENT_SEED.*?ITEM_28' -or
+    $mooshHelperSource -notmatch '(?ms)^ghiniHarassingMoosh_beginCircularMovement:.*?SPEED_140.*?ANGLE_LEFT' -or
+    $mooshHelperSource -notmatch '(?ms)^companionScript_makeExclamationMark:.*?ld bc,\$f000.*?ld a,30.*?objectCreateExclamationMark' -or
+    $mooshScriptsSource -notmatch '(?ms)^ghiniHarassingMoosh_subid00Script:.*?TX_1204.*?w1Companion\.var3e, \$01.*?ENEMY_GHINI, \$00.*?^ghiniHarassingMoosh_subid01Script:.*?TX_1205.*?w1Companion\.var3e, \$02.*?TX_1207.*?MUS_MINIBOSS.*?w1Companion\.var3e, \$10.*?^ghiniHarassingMoosh_subid02Script:.*?TX_1206.*?w1Companion\.var3e, \$08' -or
+    $mooshScriptsSource -notmatch '(?ms)^companionScript_subid00Script:.*?TX_2200.*?w1Companion\.var3e, \$04.*?wNumEnemies, \$00.*?SND_DING.*?companionScript_restoreMusic.*?w1Companion\.var03, \$02.*?w1Companion\.var3d, \$01.*?TX_2201.*?companionScript_makeExclamationMark.*?wait 60.*?TX_2204.*?TX_2203.*?wMooshState, \$20.*?wLinkObjectIndex.*?TX_2205' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_140\s+dsb 5 ; 0x32\s*$' -or
+    $mooshDirectionSource -notmatch '(?m)^\.define ANGLE_LEFT\s+\$18\s*$' -or
+    $mooshWramSource -notmatch '(?m)^wMooshState: ; \$c648/\$c645\s*$' -or
+    $mooshWramSource -notmatch '(?m)^wEssencesObtained: ; \$c6bf/\$c6bb\s*$' -or
+    $mooshEnemyConstants -notmatch '(?m)^\.define ENEMY_GHINI \$17\s*$' -or
+    $mooshTreasureConstants -notmatch '(?m)^\s*TREASURE_CHEVAL_ROPE\s+db ; \$52\s*$' -or
+    $mooshSpecialConstants -notmatch '(?m)^\s*SPECIALOBJECT_MOOSH\s+db ; \$0d\s*$' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*MUS_MINIBOSS\s+db ; \$2d\s*$' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_DING\s+db ; \$c8' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_CLINK\s+db ; \$50' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_JUMP\s+db ; \$53' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_CHARGE_SWORD\s+db ; \$4f' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_SCENT_SEED\s+db ; \$85') {
+    throw 'Room 0:6c Ghini/Moosh predicates, lanes, or companion handoff changed.'
+}
+
+$ghiniGraphic = $interactionGraphics['115:0']
+$ghiniAnimation = Resolve-NpcAnimation 0x73 0
+$exclamationGraphic = $interactionGraphics['159:0']
+$exclamationAnimation = Resolve-NpcAnimation 0x9f 0
+if ($null -eq $ghiniGraphic -or $ghiniGraphic.Gfx -ne 0x90 -or
+    $ghiniGraphic.TileBase -ne 0x16 -or $ghiniGraphic.Palette -ne 2 -or
+    [string]::IsNullOrWhiteSpace($ghiniAnimation) -or
+    $null -eq $exclamationGraphic -or
+    [string]::IsNullOrWhiteSpace($exclamationAnimation)) {
+    throw 'Room 0:6c Ghini or exclamation visual data changed.'
+}
+
+# Resolve Moosh's complete special-object animation set. Graphics rows replace
+# the first N tiles in the object's virtual OBJ window; null rows retain the
+# preceding frame's tile contents. This is the same hardware contract used by
+# Maple and is required by Moosh's walking, hovering, and charged-stomp frames.
+$specialAnimationPath = Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s'
+$specialAnimationSource = Read-ImportText $specialAnimationPath
+$specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
+$specialOamNodes = @(Read-AssemblyNodes $specialOamPath)
+$specialOamTables = Read-AssemblyDwTables `
+    $specialAnimationPath 'specialObject(?:09|0d|11)OamDataPointers' 'oamData[0-9a-f]+'
+$mooshOamPointers = $specialOamTables['specialObject0dOamDataPointers']
+if ($null -eq $mooshOamPointers) {
+    $mooshOamPointers = $specialOamTables['specialObject11OamDataPointers']
+}
+if ($null -eq $mooshOamPointers -or $mooshOamPointers.Count -ne 0x3f -or
+    $specialAnimationSource -notmatch '(?ms)^specialObject0dGfxPointers:.*?m_SpecialObjectGfxPointer \$00 spr_moosh \$0000 \$0e.*?m_SpecialObjectGfxPointer \$3d \$0000.*?^specialObject0dAnimationDataPointers:.*?\.dw animationData1ab51' -or
+    $specialAnimationSource -notmatch '(?ms)^animationData1ab51:\s*\.db \$0a \$00 \$00\s*\.db \$0a \$00 \$00\s*\.db \$14 \$00 \$00\s*\.db \$0a \$3d \$00\s*\.db \$0a \$3d \$00\s*\.db \$14 \$3d \$00\s*m_AnimationLoop animationData1ab51') {
+    throw 'Moosh special-object animation $00 changed.'
+}
+function Resolve-MooshOam([string]$label) {
+    $rows = @($specialOamNodes | Where-Object {
+        $_.EnclosingGlobalLabel -eq $label -and
+        $_.Kind -eq 'Data' -and $_.Name -ieq '.db'
+    })
+    if ($rows.Count -lt 2) { throw "Moosh OAM block $label is incomplete." }
+    $count = Convert-AssemblyInteger $rows[0].Operands[0]
+    if ($rows.Count -ne $count + 1) {
+        throw "Moosh OAM block $label declares $count cells but has $($rows.Count - 1)."
+    }
+    return @($rows | Select-Object -Skip 1 | ForEach-Object {
+        if ($_.Operands.Count -ne 4) {
+            throw "Moosh OAM block $label has a malformed cell at line $($_.Line)."
+        }
+        ($_.Operands | ForEach-Object { Convert-AssemblyInteger $_ }) -join ','
+    }) -join ';'
+}
+$mooshGfxStart = $specialAnimationSource.IndexOf(
+    'specialObject0dGfxPointers:', [StringComparison]::Ordinal)
+$mooshAnimationsStart = $specialAnimationSource.IndexOf(
+    'specialObject0dAnimationDataPointers:', [StringComparison]::Ordinal)
+$mooshOamStart = $specialAnimationSource.IndexOf(
+    'specialObject0dOamDataPointers:', [StringComparison]::Ordinal)
+if ($mooshGfxStart -lt 0 -or $mooshAnimationsStart -le $mooshGfxStart -or
+    $mooshOamStart -le $mooshAnimationsStart) {
+    throw 'Could not isolate Moosh special-object visual tables.'
+}
+$mooshGfxOffsets = @{}
+$mooshGfxCounts = @{}
+foreach ($line in ($specialAnimationSource.Substring(
+    $mooshGfxStart, $mooshAnimationsStart - $mooshGfxStart) -split '\r?\n')) {
+    if ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<index>[0-9a-f]{2})\s+spr_moosh\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})') {
+        $index = [Convert]::ToInt32($Matches['index'], 16)
+        $mooshGfxOffsets[$index] =
+            [Convert]::ToInt32($Matches['offset'], 16) / 16
+        $mooshGfxCounts[$index] =
+            [Convert]::ToInt32($Matches['size'], 16)
+    } elseif ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<index>[0-9a-f]{2})\s+\$0000') {
+        $index = [Convert]::ToInt32($Matches['index'], 16)
+        $mooshGfxOffsets[$index] = 0
+        $mooshGfxCounts[$index] = 0
+    }
+}
+$mooshAnimationLabels = @(
+    [regex]::Matches(
+        $specialAnimationSource.Substring(
+            $mooshAnimationsStart, $mooshOamStart - $mooshAnimationsStart),
+        '(?m)^\s*\.dw\s+(?<label>animationData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+if ($mooshGfxOffsets.Count -ne 0x3f -or
+    $mooshAnimationLabels.Count -ne 27) {
+    throw "Expected 63 Moosh graphics rows and 27 animations; got $($mooshGfxOffsets.Count)/$($mooshAnimationLabels.Count)."
+}
+function Resolve-MooshOamTiles(
+    [string]$encoded,
+    [int[]]$vramTiles,
+    [string]$animationLabel,
+    [int]$gfxIndex) {
+    if ([string]::IsNullOrEmpty($encoded)) { return '' }
+    return (@($encoded -split ';' | ForEach-Object {
+        $fields = $_ -split ','
+        if ($fields.Count -ne 4) { throw "Malformed Moosh OAM block: $_" }
+        $tile = [int]$fields[2]
+        if ($tile -lt 0 -or $tile -ge 0xff -or
+            $vramTiles[$tile] -lt 0 -or
+            $vramTiles[$tile + 1] -ne $vramTiles[$tile] + 1) {
+            throw "$animationLabel graphic `$$($gfxIndex.ToString('x2')) references unresolved Moosh VRAM tile `$$($tile.ToString('x2'))."
+        }
+        "$($fields[0]),$($fields[1]),$($vramTiles[$tile]),$($fields[3])"
+    }) -join ';')
+}
+function Resolve-MooshSpecialAnimation([string]$label) {
+    $body = Get-AssemblyLabelBody $specialAnimationSource $label
+    $frames = [Collections.Generic.List[string]]::new()
+    $vramTiles = [int[]]::new(0x100)
+    for ($tile = 0; $tile -lt $vramTiles.Length; $tile++) {
+        $vramTiles[$tile] = -1
+    }
+    foreach ($frame in [regex]::Matches(
+        $body,
+        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
+        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+        $gfx = [Convert]::ToInt32($frame.Groups['gfx'].Value, 16)
+        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+        if (-not $mooshGfxOffsets.ContainsKey($gfx) -or
+            $gfx -ge $mooshOamPointers.Count) {
+            throw "$label references missing Moosh graphic/OAM index `$$($gfx.ToString('x2'))."
+        }
+        $loadedOffset = [int]$mooshGfxOffsets[$gfx]
+        $loadedCount = [int]$mooshGfxCounts[$gfx]
+        for ($tile = 0; $tile -lt $loadedCount; $tile++) {
+            $vramTiles[$tile] = $loadedOffset + $tile
+        }
+        $rawOam = Resolve-MooshOam $mooshOamPointers[$gfx]
+        $oam = Resolve-MooshOamTiles $rawOam $vramTiles $label $gfx
+        $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
+        $frames.Add("$metadata@$oam")
+    }
+    if ($frames.Count -eq 0) { throw "Moosh animation $label has no frames." }
+    return $frames -join '|'
+}
+$mooshAnimations = @($mooshAnimationLabels | ForEach-Object {
+    Resolve-MooshSpecialAnimation $_
+})
+$mooshAnimation = $mooshAnimations[0]
+
+# Link's w1Link graphics index is copied from Moosh's animation parameter.
+# Import every parameter Moosh can emit ($00-$2e) from SPECIALOBJECT_LINK's
+# riding table. Keep the graphics source byte offset separate from the raw
+# 8-bit OAM tile: folding spr_link+$2100 into tile $210 would wrap to tile $10
+# in the compositor and incorrectly select Link's fall-in-hole graphic.
+$linkGfxStart = $specialAnimationSource.IndexOf(
+    'specialObject09GfxPointers:', [StringComparison]::Ordinal)
+$linkGfxEnd = $specialAnimationSource.IndexOf(
+    'specialObject0eGfxPointers:', $linkGfxStart,
+    [StringComparison]::Ordinal)
+$linkGfxRows = @([regex]::Matches(
+    $specialAnimationSource.Substring($linkGfxStart, $linkGfxEnd - $linkGfxStart),
+    '(?m)^\s*m_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
+$linkOamPointers = $specialOamTables['specialObject09OamDataPointers']
+if ($linkGfxRows.Count -lt 0x2f -or $null -eq $linkOamPointers -or
+    $linkOamPointers.Count -ne 0x30) {
+    throw 'Link riding graphics/OAM tables no longer cover Moosh parameters $00-$2e.'
+}
+$mooshLinkFrames = [Collections.Generic.List[string]]::new()
+$mooshLinkSourceOffsets = [Collections.Generic.List[string]]::new()
+for ($index = 0; $index -le 0x2e; $index++) {
+    $row = $linkGfxRows[$index]
+    $oamIndex = [Convert]::ToInt32($row.Groups['oam'].Value, 16)
+    $sourceOffset = [Convert]::ToInt32($row.Groups['offset'].Value, 16)
+    $tileCount = [Convert]::ToInt32($row.Groups['size'].Value, 16)
+    $rawOam = Resolve-MooshOam $linkOamPointers[$oamIndex]
+    @($rawOam -split ';' | ForEach-Object {
+        $fields = $_ -split ','
+        if ($fields.Count -ne 4) {
+            throw "Link riding graphic `$$($index.ToString('x2')) has malformed OAM data."
+        }
+        $tile = [int]$fields[2]
+        if ($tile -lt 0 -or $tile + 1 -ge $tileCount) {
+            throw "Link riding graphic `$$($index.ToString('x2')) has unresolved OAM tile `$$($tile.ToString('x2'))."
+        }
+    }) | Out-Null
+    $mooshLinkFrames.Add("127@$rawOam")
+    $mooshLinkSourceOffsets.Add($sourceOffset.ToString('x4'))
+}
+$mooshVisualRows = @(
+    "# sprite`ttile-base`tpalette`tanimations-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`twater-hazard`twater-hover-frames`twater-exclamation-z-offset`twater-exclamation-sound`tsource",
+    "spr_moosh`t0`t1`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshAnimations -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`t$mooshWaterHazard`t$mooshWaterHoverFrames`t$mooshWaterExclamationZOffset`t50`tspecialObjectAnimationData.s:specialObject0d,specialObject09;moosh.s:mooshState8Substate1/mooshState8Substate5;exclamationMark.s:objectCreateExclamationMark_body"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\moosh_companion_visual.tsv'),
+    $mooshVisualRows)
+Copy-GeneratedFile 'gfx\common\spr_moosh.png' 'gfx\spr_moosh.png'
+
+foreach ($textId in @(0x1204,0x1205,0x1206,0x1207,0x2200,0x2201,0x2202,0x2203,0x2204,0x2205,0x2209)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Missing room 0:6c text TX_$($textId.ToString('x4'))."
+    }
+}
+$mooshEventRows = @(
+    "# group`troom`tghini-id`tghini0-y`tghini0-x`tghini1-y`tghini1-x`tghini2-y`tghini2-x`tcontroller-y`tcontroller-x`trestrict-y`trestrict-x`tessence-address`tessence-mask`tflag-group`tflag-room`tflag-mask`tmoosh-state-address`tactive-mask`trescued-mask`tcheval-rope-treasure`tmoosh-id`tmoosh-y`tmoosh-x`tmoosh-sprite`tmoosh-tile-base`tmoosh-palette`tmoosh-animation`tghini-speed`tghini-angle`tghini-frames`tshake-frames`tenemy-id`tenemy-subid`texclamation-id`texclamation-subid`texclamation-sprite`texclamation-tile-base`texclamation-palette`texclamation-animation`texclamation-y-offset`texclamation-x-offset`texclamation-frames`tding-sound`texclamation-sound`tjump-sound`tcharge-sound`tstomp-sound`tminiboss-music`trestrict-text-base64`tsource",
+    (@(
+        '0','6c','73',
+        $mooshPlacement.Groups['g0y'].Value,$mooshPlacement.Groups['g0x'].Value,
+        $mooshPlacement.Groups['g1y'].Value,$mooshPlacement.Groups['g1x'].Value,
+        $mooshPlacement.Groups['g2y'].Value,$mooshPlacement.Groups['g2x'].Value,
+        $mooshPlacement.Groups['controllery'].Value,$mooshPlacement.Groups['controllerx'].Value,
+        $mooshPlacement.Groups['restricty'].Value,$mooshPlacement.Groups['restrictx'].Value,
+        'c6bf','02','1','79','40','c648','60','20','52','0d','28','58',
+        'spr_moosh','0','1',$mooshAnimation,'32','18','32','60','17','00',
+        '9f','00',$gfxNames[$exclamationGraphic.Gfx],
+        $exclamationGraphic.TileBase.ToString(),$exclamationGraphic.Palette.ToString(),
+        $exclamationAnimation,'-16','0','30','c8','50','53','4f','85','2d',
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x2209])),
+        'mainData.s:group0Map6cObjectData;ghiniHarassingMoosh.s;companionScripts.s;companionSpawner.s;moosh.s;scripts.s;scriptHelper.s'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\moosh_rescue_event.tsv'),
+    $mooshEventRows)
+
+function Write-MooshRescueCommands {
+    param([string]$file, [string]$script, [object[]]$specs)
+    $line = Get-AssemblySourceLine `
+        $mooshScriptsSource "(?m)^$([regex]::Escape($script))\s*:" $script
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add($cutsceneCommandHeader)
+    for ($index = 0; $index -lt $specs.Count; $index++) {
+        $spec = $specs[$index]
+        $rows.Add((New-CutsceneCommandRow `
+            $script $index $script $line `
+            $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
+    }
+    Write-CutsceneGeneratedTable(
+        (Join-Path $destination "cutscenes\$file"), $rows)
+}
+function Moosh-Text([int]$id) {
+    $text = $allTexts[$id]
+    if ($id -in @(0x2203, 0x2204)) {
+        if (-not $text.Contains('\call(TX_2202)')) {
+            throw "TX_$($id.ToString('x4')) lost its source call to TX_2202."
+        }
+        $text = $text.Replace('\call(TX_2202)', $allTexts[0x2202])
+    }
+    return $text
+}
+
+Write-MooshRescueCommands 'moosh_rescue_ghini0.tsv' `
+    'ghiniHarassingMoosh_subid00Script' @(
+        @('setdisabledobjects','','11','',''),
+        @('nativeblock','Ghini0','32','','CircleGhini'),
+        @('showtext','','1204','',(Moosh-Text 0x1204)),
+        @('writememory','','01','','SignalOr'),
+        @('checkmemoryeq','','01','','SignalBit10'),
+        @('setdisabledobjects','','00','',''),
+        @('native','','','','SpawnEnemyGhini0'),
+        @('scriptend','','','',''))
+Write-MooshRescueCommands 'moosh_rescue_ghini1.tsv' `
+    'ghiniHarassingMoosh_subid01Script' @(
+        @('checkmemoryeq','','01','','SignalBit01'),
+        @('nativeblock','Ghini1','32','','CircleGhini'),
+        @('showtext','','1205','',(Moosh-Text 0x1205)),
+        @('writememory','','02','','SignalOr'),
+        @('checkmemoryeq','','01','','SignalBit08'),
+        @('nativeblock','Ghini1','32','','CircleGhini'),
+        @('showtext','','1207','',(Moosh-Text 0x1207)),
+        @('playsound','','c8','',''),
+        @('setmusic','','2d','',''),
+        @('writememory','','10','','SignalOr'),
+        @('native','','','','SpawnEnemyGhini1'),
+        @('scriptend','','','',''))
+Write-MooshRescueCommands 'moosh_rescue_ghini2.tsv' `
+    'ghiniHarassingMoosh_subid02Script' @(
+        @('checkmemoryeq','','01','','SignalBit04'),
+        @('nativeblock','Ghini2','32','','CircleGhini'),
+        @('showtext','','1206','',(Moosh-Text 0x1206)),
+        @('writememory','','08','','SignalOr'),
+        @('checkmemoryeq','','01','','SignalBit10'),
+        @('native','','','','SpawnEnemyGhini2'),
+        @('scriptend','','','',''))
+Write-MooshRescueCommands 'moosh_rescue_companion.tsv' `
+    'companionScript_subid00Script' @(
+        @('checkmemoryeq','','01','','SignalBit02'),
+        @('nativeblock','Moosh','60','','ShakeMoosh'),
+        @('showtext','','2200','',(Moosh-Text 0x2200)),
+        @('writememory','','04','','SignalOr'),
+        @('checkmemoryeq','','01','','SignalBit10'),
+        @('checkmemoryeq','','00','','RoomEnemyCount'),
+        @('playsound','','c8','',''), @('wait','','20','',''),
+        @('playsound','','c8','',''), @('wait','','20','',''),
+        @('playsound','','c8','',''),
+        @('native','','','','RestoreRoomMusic'),
+        @('native','','','','SetMooshTalkable'),
+        @('checkmemoryeq','','01','','MooshTalked'),
+        @('nativeblock','Moosh','60','','ShakeMoosh'),
+        @('showtext','','2201','',(Moosh-Text 0x2201)),
+        @('native','','','','SetMooshAwaitingLink'),
+        @('native','','','','SpawnExclamation'),
+        @('setdisabledobjects','','11','',''),
+        @('native','','','','FaceMooshTowardLink'),
+        @('wait','','60','',''),
+        @('jumpifmemoryeq','','01','24','AlreadyMooshCompanion'),
+        @('showtext','','2203','',(Moosh-Text 0x2203)),
+        @('scriptjump','','25','',''),
+        @('showtext','','2204','',(Moosh-Text 0x2204)),
+        @('writememory','','20','','MooshStateOr'),
+        @('setdisabledobjects','','00','',''),
+        @('native','','','','BeginMooshMount'),
+        @('checkmemoryeq','','01','','MooshMounted'),
+        @('showtext','','2205','',(Moosh-Text 0x2205)),
+        @('native','','','','CompleteMooshRescue'),
+        @('scriptend','','','',''))
+
 # Every normalized command row emitted above must conform to the same schema
 # that runtime startup consumes.
 Test-GeneratedCutsceneCommandStreams `

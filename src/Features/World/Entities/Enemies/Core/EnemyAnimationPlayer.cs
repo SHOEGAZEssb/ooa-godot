@@ -239,6 +239,13 @@ internal sealed class EnemyAnimationPlayer
         _frameCounter = animation[_frameIndex].Duration;
         _entity.QueueRedraw();
     }
+
+    public void SetFrameCounter(int remaining)
+    {
+        if (remaining is < 0 or > 0xff)
+            throw new ArgumentOutOfRangeException(nameof(remaining));
+        _frameCounter = remaining;
+    }
 }
 
 internal sealed record EnemyAnimationPlayerAnimationFrame(

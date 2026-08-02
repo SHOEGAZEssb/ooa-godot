@@ -141,8 +141,8 @@ public sealed class InteractionController
         _entities.GashaInteractionRequested += OnGashaInteractionRequested;
         _entities.GashaNutCaught += OnGashaNutCaught;
         _entities.MapleDialogueRequested += OnMapleDialogueRequested;
-        _entities.NativeBossDialogueRequested +=
-            OnNativeBossDialogueRequested;
+        _entities.RoomEntityDialogueRequested +=
+            OnRoomEntityDialogueRequested;
         _entities.MapleItemCollected += OnMapleItemCollected;
         _entities.SeedTreeMessageRequested += OnSeedTreeMessageRequested;
         _entities.OwlStatueMessageRequested += OnOwlStatueMessageRequested;
@@ -593,7 +593,7 @@ public sealed class InteractionController
             message, _worldToScreen(player.Position).Y);
     }
 
-    private void OnNativeBossDialogueRequested(
+    private void OnRoomEntityDialogueRequested(
         int textId,
         string message,
         Vector2 position)

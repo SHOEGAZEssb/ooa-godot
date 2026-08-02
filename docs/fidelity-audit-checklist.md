@@ -319,11 +319,11 @@ implemented, and covered.
 
 ## NPCs, shops, minigames, and room interactions
 
-- [x] The typed NPC database classifies all 388 positioned/state-derived rows:
-  92 implemented, 36 partial, and 260 deliberately unsupported. The manifest
-  contains 54 ordinary, 62 specialized, 14 event-owned, and 258 deliberately
+- [x] The typed NPC database classifies all 391 positioned/state-derived rows:
+  95 implemented, 36 partial, and 260 deliberately unsupported. The manifest
+  contains 54 ordinary, 62 specialized, 17 event-owned, and 258 deliberately
   unsupported rows. The 72 conditional Bipin/Blossom family variants bring the
-  typed total to 460.
+  typed total to 463.
 - [x] Implemented ordinary NPC routing, source positions/facing/collision/OAM,
   dialogue predicates, visibility predicates, room retention, and unsupported
   suppression are covered by the NPC manifest and room scenarios.
@@ -428,11 +428,12 @@ coverage.
   `ValidateLynnaShopInteractions`, `ValidateVasuShopInteractions`,
   `ValidateRoom083Interactions`, `ValidateRoom180OwlStatue`,
   `ValidateGashaSpots`, and `ValidateSeedTrees`.
-- [x] **Story/cutscenes (20):** `ValidateDekuForestSoldierCutscene`,
+- [x] **Story/cutscenes (21):** `ValidateDekuForestSoldierCutscene`,
   `ValidateDekuForestPalaceCutscene`,
   `ValidateGraveyardGhostKidsCutscene`, `ValidateImpaIntroEncounter`,
   `ValidateMakuTreeDisappearanceCutscene`,
-  `ValidateMakuSproutRescueCutscene`, `ValidateMakuTreeSavedCutscene`,
+  `ValidateMakuSproutRescueCutscene`, `ValidateRoom06cMooshRescue`,
+  `ValidateMakuTreeSavedCutscene`,
   `ValidateRoom056Comedian`, `ValidateRoom07cPoe`,
   `ValidateRoom22ePoe`, `ValidateRoom2e6MaskSalesman`,
   `ValidateNayruIntroCutscene`, `ValidateRalphPortalDepartureEvent`,

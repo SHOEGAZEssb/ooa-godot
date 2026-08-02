@@ -1,0 +1,980 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+namespace oracleofages;
+
+/// <summary>
+/// SPECIALOBJECT_MOOSH $0d states $01/$03/$05/$06/$08. This is the live
+/// w1Companion owner after the room $0:$6c rescue handoff.
+/// </summary>
+internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
+    IRoomEntity, IFixedRoomEntity, IPlayerRestriction,
+    IPlayerForcedMovement, IPlayerRideableRoomEntity,
+    IPlayerScreenTransitionRoomEntity
+{
+    private static readonly Vector2[] CollisionSamples =
+    [
+        new(-3, -5), new(4, -5), new(-3, 8), new(4, 8),
+        new(-5, -3), new(-5, 6), new(6, -3), new(6, 6)
+    ];
+
+    private readonly MooshRescueEventRecord _record;
+    private readonly MooshCompanionVisualRecord _visual;
+    private readonly OracleRuntimeState _runtime;
+    private readonly Action<int> _playSound;
+    private readonly Action<int, string, Vector2> _dialogueRequested;
+    private readonly Func<bool> _dialogueOpen;
+    private readonly Action<int> _screenShakeRequested;
+    private readonly EnemyAnimationPlayer _animation;
+    private readonly Texture2D[] _linkTextures;
+    private readonly Texture2D[] _chargeLinkTextures;
+    private readonly Texture2D[] _damageLinkTextures;
+    private readonly Vector2[] _linkTextureOffsets;
+    private OracleRoomData _room;
+    private OracleRoomData? _transitionDestination;
+    private Vector2 _precisePosition;
+    private int _group;
+    private int _roomId;
+    private int _direction;
+    private int _angle = 0xff;
+    private int _zFixed;
+    private int _speedZ;
+    private int _gravityDelay;
+    private int _flapCount;
+    private int _chargeCounter;
+    private int _waterHoverCounter;
+    private HazardType _hazard;
+    private Vector2 _hazardCenter;
+    private Vector2 _lastMountPosition;
+    private int _lastMountRoomId;
+    private bool _airborneInitialized;
+    private bool _mountStarted;
+    private bool _barrierTextLatched;
+    private bool _attackWasPressed;
+    private bool _itemWasPressed;
+    private bool _attackPressed;
+    private bool _itemPressed;
+    private bool _attackJustPressed;
+    private bool _itemJustPressed;
+    private bool _chargePaletteActive;
+    private bool _hazardAnimationStarted;
+    private MooshCompanionPhase _phase;
+
+    public Node2D Node => this;
+    public bool DisablesSword => LinkRiding || _phase == MooshCompanionPhase.Mounting;
+    public bool DisablesItems => DisablesSword;
+    public bool DisablesMovement => DisablesSword ||
+        _phase == MooshCompanionPhase.Dismounting;
+    public bool DisablesMenus => false;
+    public bool DisablesScreenTransitions => _phase is
+        MooshCompanionPhase.Mounting or
+        MooshCompanionPhase.Airborne or
+        MooshCompanionPhase.HoveringOverWater or
+        MooshCompanionPhase.Charging or
+        MooshCompanionPhase.Falling or
+        MooshCompanionPhase.StompRecovery or
+        MooshCompanionPhase.HazardFalling or
+        MooshCompanionPhase.Dismounting;
+    public bool LinkRiding => _phase is
+        MooshCompanionPhase.Riding or
+        MooshCompanionPhase.Airborne or
+        MooshCompanionPhase.HoveringOverWater or
+        MooshCompanionPhase.Charging or
+        MooshCompanionPhase.Falling or
+        MooshCompanionPhase.StompRecovery or
+        MooshCompanionPhase.HazardFalling;
+    public bool ControlsPlayerScreenTransition => LinkRiding;
+    public Vector2 ScreenTransitionPosition => _precisePosition;
+
+    internal bool Mounted => _phase == MooshCompanionPhase.Riding;
+    internal MooshCompanionPhase Phase => _phase;
+    internal int Direction => _direction;
+    internal int Angle => _angle;
+    internal int ZFixed => _zFixed;
+    internal int SpeedZ => _speedZ;
+    internal int ChargeCounter => _chargeCounter;
+    internal int WaterHoverCounter => _waterHoverCounter;
+    internal int FlapCount => _flapCount;
+    internal int AnimationIndex => _animation.AnimationIndex;
+    internal int AnimationParameter => _animation.CurrentParameter;
+    internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
+    internal bool ChargePaletteActive => _chargePaletteActive;
+    internal HazardType Hazard => _hazard;
+    internal ulong MooshTexturePixelHash => OracleGraphicsCache.PixelHash(
+        CurrentMooshTexture.GetImage());
+    internal ulong NormalMooshTexturePixelHash => OracleGraphicsCache.PixelHash(
+        _animation.CurrentTexture.GetImage());
+    internal ulong LinkTexturePixelHash => OracleGraphicsCache.PixelHash(
+        CurrentLinkTexture(LinkAnimationParameter).GetImage());
+    internal ulong NormalLinkTexturePixelHash => OracleGraphicsCache.PixelHash(
+        _linkTextures[LinkAnimationParameter].GetImage());
+    internal Vector2 LinkTextureOffset =>
+        _linkTextureOffsets[LinkAnimationParameter];
+
+    internal MooshCompanionRoomEntity(
+        MooshCompanionSpawn spawn,
+        OracleRoomData room,
+        MooshRescueEventDatabase database,
+        OracleRuntimeState runtime,
+        Action<int> playSound,
+        Action<int, string, Vector2> dialogueRequested,
+        Func<bool> dialogueOpen,
+        Action<int> screenShakeRequested)
+    {
+        _record = database.Record;
+        _visual = database.Visual;
+        _runtime = runtime;
+        _playSound = playSound;
+        _dialogueRequested = dialogueRequested;
+        _dialogueOpen = dialogueOpen;
+        _screenShakeRequested = screenShakeRequested;
+        _room = room;
+        _group = spawn.Group;
+        _roomId = spawn.Room;
+        _precisePosition = spawn.Position;
+        _lastMountPosition = spawn.Position;
+        _lastMountRoomId = spawn.Room;
+        Position = spawn.Position;
+        _direction = spawn.Direction;
+        _phase = spawn.ForceMount
+            ? MooshCompanionPhase.Mounting
+            : spawn.Riding
+                ? MooshCompanionPhase.Riding
+                : MooshCompanionPhase.Waiting;
+
+        MooshCompanionVisualRecord visual = _visual;
+        _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
+        _animation.Load(
+            OracleGraphicsCache.LoadImage(
+                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
+            visual.Animations,
+            visual.TileBase,
+            visual.Palette,
+            positionedOam: true,
+            paletteVariants: [2]);
+        (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
+            _linkTextureOffsets) =
+            LoadLinkFrames(visual);
+        SetAnimation(_phase == MooshCompanionPhase.Riding
+            ? 0x13 + _direction
+            : 0x01 + _direction);
+        Name = $"Moosh_{_group:x1}_{_roomId:x2}";
+        ZIndex = _phase == MooshCompanionPhase.Riding
+            ? NpcCharacter.BehindLinkZIndex
+            : Player.NormalZIndex;
+        Visible = true;
+    }
+
+    public void UpdatePlayerForcedMovement(Player player)
+    {
+        if (_phase == MooshCompanionPhase.Mounting && _mountStarted)
+            player.NudgeCompanionMountToward(_precisePosition);
+        else if (LinkRiding)
+            SynchronizePlayer(player, Vector2.Zero);
+    }
+
+    public void UpdateFrame(
+        RoomEntityFrame frame,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        _attackPressed = Input.IsActionPressed("attack");
+        _itemPressed = Input.IsActionPressed("item");
+        _attackJustPressed = _attackPressed && !_attackWasPressed;
+        _itemJustPressed = _itemPressed && !_itemWasPressed;
+        _attackWasPressed = _attackPressed;
+        _itemWasPressed = _itemPressed;
+        _chargePaletteActive = false;
+
+        switch (_phase)
+        {
+            case MooshCompanionPhase.Waiting:
+                UpdateWaiting(frame.Player);
+                break;
+            case MooshCompanionPhase.Mounting:
+                UpdateMounting(frame.Player);
+                break;
+            case MooshCompanionPhase.Riding:
+                UpdateRiding(frame.Player);
+                break;
+            case MooshCompanionPhase.Airborne:
+                UpdateAirborne(frame.Player, spawns);
+                break;
+            case MooshCompanionPhase.HoveringOverWater:
+                UpdateHoveringOverWater(frame.Player);
+                break;
+            case MooshCompanionPhase.Charging:
+                UpdateCharging(frame.Player, frame.Counter);
+                break;
+            case MooshCompanionPhase.Falling:
+                UpdateFalling(frame.Player, spawns);
+                break;
+            case MooshCompanionPhase.StompRecovery:
+                UpdateStompRecovery();
+                break;
+            case MooshCompanionPhase.HazardFalling:
+                UpdateHazardFalling(frame.Player);
+                break;
+            case MooshCompanionPhase.Dismounting:
+                UpdateDismounting(frame.Player);
+                break;
+            case MooshCompanionPhase.AwaitingDistance:
+                UpdateAwaitingDistance(frame.Player);
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported Moosh phase {_phase}.");
+        }
+
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        if (LinkRiding)
+        {
+            CompanionRuntimeState.Update(
+                _runtime, CompanionRuntimeState.MooshId,
+                _roomId, _precisePosition, _direction);
+            SynchronizePlayer(frame.Player, Vector2.Zero);
+        }
+        UpdateDrawPriority(frame.Player);
+        QueueRedraw();
+    }
+
+    void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
+        SetTransitionDrawOffset(offset);
+
+    public override void _Draw()
+    {
+        DrawTexture(
+            CurrentMooshTexture,
+            _animation.CurrentOffset +
+            new Vector2(0, _zFixed >> 8) +
+            SourceOamDrawOffset);
+    }
+
+    private void UpdateWaiting(Player player)
+    {
+        if (player.TopDownAirborne || player.IsDying ||
+            player.IsDrowning || player.IsFallingInHole ||
+            !LinkWithinMountDistance(player))
+        {
+            return;
+        }
+        _phase = MooshCompanionPhase.Mounting;
+        _mountStarted = false;
+    }
+
+    private void UpdateMounting(Player player)
+    {
+        if (!_mountStarted)
+        {
+            player.BeginCompanionMount(player.PrecisePosition);
+            _mountStarted = true;
+            return;
+        }
+        player.NudgeCompanionMountToward(_precisePosition);
+        if (!player.CompanionJumpReadyToRide)
+            return;
+
+        _phase = MooshCompanionPhase.Riding;
+        _angle = 0xff;
+        _zFixed = 0;
+        _speedZ = 0;
+        ZIndex = NpcCharacter.BehindLinkZIndex;
+        _lastMountPosition = _precisePosition;
+        _lastMountRoomId = _roomId;
+        SetAnimation(0x13 + _direction);
+        CompanionRuntimeState.Begin(
+            _runtime, CompanionRuntimeState.MooshId,
+            _roomId, _precisePosition, _direction);
+        SynchronizePlayer(player, Vector2.Zero, finishMount: true);
+    }
+
+    private void UpdateRiding(Player player)
+    {
+        if (TryBeginHazard())
+            return;
+        if (_attackJustPressed)
+        {
+            _phase = MooshCompanionPhase.Airborne;
+            _airborneInitialized = false;
+            _playSound(_record.JumpSound);
+            return;
+        }
+        if (_itemJustPressed)
+        {
+            TryBeginDismount(player);
+            return;
+        }
+        UpdateRidingMovement(allowBarrier: true);
+        TryBeginHazard();
+    }
+
+    private void UpdateAirborne(
+        Player player,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        _ = player;
+        if (!_airborneInitialized)
+        {
+            // mooshPressedAButton only selects state $08/substate $00. The
+            // following update initializes speedZ, counters, and animation
+            // before yielding without vertical movement.
+            _airborneInitialized = true;
+            _zFixed = 0;
+            _speedZ = -0x0140;
+            _gravityDelay = 4;
+            _flapCount = 0;
+            _chargeCounter = 0;
+            SetAnimation(0x09 + _direction);
+            return;
+        }
+        if (TryBeginWaterHover(spawns))
+            return;
+        UpdateAirborneMovement(allowBarrier: true);
+        bool movingUp = _speedZ < 0;
+        if (!movingUp)
+        {
+            _chargeCounter = _attackPressed
+                ? _chargeCounter + 1
+                : 0;
+            if (_chargeCounter >= 10)
+            {
+                _phase = MooshCompanionPhase.Charging;
+                return;
+            }
+
+            if (_attackJustPressed && _flapCount < 0x10)
+            {
+                _flapCount++;
+                _gravityDelay += 8;
+                _playSound(_record.JumpSound);
+                _animation.SetFrameCounter(1);
+                _animation.Advance();
+            }
+        }
+
+        if (movingUp)
+        {
+            UpdateDirectionAndAnimation(0x09);
+        }
+        else if (_gravityDelay > 0)
+        {
+            _gravityDelay--;
+            // State $08 substate $01 writes $0f before calling
+            // companionUpdateDirectionAndAnimate, freezing the flutter frame
+            // while var39 delays gravity unless the direction changes.
+            _animation.SetFrameCounter(0x0f);
+            UpdateDirectionAndAnimation(0x09);
+            return;
+        }
+
+        if (OracleObjectMath.UpdateSpeedZ(
+                ref _zFixed, ref _speedZ, 0x10))
+        {
+            LandNormally();
+            return;
+        }
+    }
+
+    private bool TryBeginWaterHover(ICollection<RoomEntitySpawn> spawns)
+    {
+        HazardType hazard = _room.GetTerrainInfo(
+            _precisePosition + new Vector2(0, 5)).Hazard;
+        if ((int)hazard != _visual.WaterHazard)
+            return false;
+
+        _phase = MooshCompanionPhase.HoveringOverWater;
+        _speedZ = 0;
+        _waterHoverCounter = _visual.WaterHoverFrames;
+        spawns.Add(new MooshHoverExclamationSpawn(
+            _precisePosition,
+            _zFixed));
+        return true;
+    }
+
+    private void UpdateHoveringOverWater(Player player)
+    {
+        _ = player;
+        if (_waterHoverCounter > 0)
+        {
+            _waterHoverCounter--;
+            if (_waterHoverCounter > 0)
+            {
+                _animation.Advance();
+                return;
+            }
+        }
+
+        if (OracleObjectMath.UpdateSpeedZ(
+                ref _zFixed, ref _speedZ, 0x10))
+        {
+            _waterHoverCounter = 0;
+            LandNormally();
+        }
+    }
+
+    private void UpdateCharging(Player player, int frameCounter)
+    {
+        _ = player;
+        _animation.Advance();
+        if (_attackPressed && _chargeCounter < 120)
+        {
+            if (_chargeCounter >= 40)
+                _chargePaletteActive = (frameCounter & 0x04) == 0;
+            _chargeCounter++;
+            if (_chargeCounter == 40)
+                _playSound(_record.ChargeSound);
+            if (_chargeCounter < 120)
+                return;
+        }
+        _chargePaletteActive = false;
+        _phase = MooshCompanionPhase.Falling;
+        if (_chargeCounter >= 40)
+            SetAnimation(0x17 + _direction);
+    }
+
+    private void UpdateFalling(
+        Player player,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!OracleObjectMath.UpdateSpeedZ(
+                ref _zFixed, ref _speedZ, 0x80))
+        {
+            return;
+        }
+        if (_chargeCounter < 40)
+        {
+            LandNormally();
+            return;
+        }
+        if (TryBeginHazard())
+            return;
+
+        _phase = MooshCompanionPhase.StompRecovery;
+        _screenShakeRequested(0x0f);
+        _playSound(OracleSoundEngine.SndCtrlStopSfx);
+        _playSound(_record.StompSound);
+        spawns.Add(new MooshStompAttackSpawn(
+            player.Position + new Vector2(0, 16),
+            _group,
+            _roomId));
+    }
+
+    private void UpdateStompRecovery()
+    {
+        _animation.Advance();
+        if ((_animation.CurrentParameter & 0x80) != 0)
+            LandNormally(checkHazards: false);
+    }
+
+    internal bool TryBeginDismount(Player player)
+    {
+        if (_phase != MooshCompanionPhase.Riding)
+            return false;
+        CompanionRuntimeState.Remember(
+            _runtime, CompanionRuntimeState.MooshId,
+            _group, _roomId, _precisePosition);
+        CompanionRuntimeState.Clear(
+            _runtime, CompanionRuntimeState.MooshId);
+        _phase = MooshCompanionPhase.Dismounting;
+        _zFixed = 0;
+        _speedZ = 0;
+        SetAnimation(0x01 + _direction);
+        player.BeginCompanionDismount(_precisePosition, _direction);
+        return true;
+    }
+
+    private void UpdateDismounting(Player player)
+    {
+        if (!player.CompanionJumpActive)
+            _phase = MooshCompanionPhase.AwaitingDistance;
+    }
+
+    private void UpdateAwaitingDistance(Player player)
+    {
+        if (!LinkWithinMountDistance(player))
+            _phase = MooshCompanionPhase.Waiting;
+    }
+
+    private bool LinkWithinMountDistance(Player player)
+    {
+        // objectCheckLinkWithinDistance subtracts the absolute Y difference
+        // from c before comparing X, so c=$09 is a strict Manhattan radius
+        // over the objects' high-byte coordinates.
+        int deltaX = Math.Abs(
+            Mathf.FloorToInt(player.PrecisePosition.X) -
+            Mathf.FloorToInt(_precisePosition.X));
+        int deltaY = Math.Abs(
+            Mathf.FloorToInt(player.PrecisePosition.Y) -
+            Mathf.FloorToInt(_precisePosition.Y));
+        return deltaX + deltaY < 9;
+    }
+
+    private void LandNormally(bool checkHazards = true)
+    {
+        _phase = MooshCompanionPhase.Riding;
+        _zFixed = 0;
+        _speedZ = 0;
+        _chargeCounter = 0;
+        _airborneInitialized = false;
+        SetAnimation(0x13 + _direction);
+        if (checkHazards)
+            TryBeginHazard();
+    }
+
+    private bool TryBeginHazard()
+    {
+        HazardType hazard = _room.GetTerrainInfo(
+            _precisePosition + new Vector2(0, 5)).Hazard;
+        if (hazard == HazardType.None)
+            return false;
+
+        int packedPosition = _room.GetPackedPosition(
+            _precisePosition + new Vector2(0, 5));
+        _hazard = hazard;
+        _hazardCenter = new Vector2(
+            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+        _hazardAnimationStarted = false;
+        _phase = MooshCompanionPhase.HazardFalling;
+        _zFixed = 0;
+        _speedZ = 0;
+        _playSound(OracleSoundEngine.SndSplash);
+        return true;
+    }
+
+    private void UpdateHazardFalling(Player player)
+    {
+        bool water = _hazard == HazardType.Water;
+        if (!water && !DragToHazardCenter())
+            return;
+
+        if (!_hazardAnimationStarted)
+        {
+            _hazardAnimationStarted = true;
+            SetAnimation(water ? 0x0d : 0x0e);
+            if (!water)
+            {
+                _playSound(OracleSoundEngine.SndLinkFall);
+                return;
+            }
+        }
+
+        _animation.Advance();
+        if ((_animation.CurrentParameter & 0x80) == 0)
+            return;
+
+        HazardType completedHazard = _hazard;
+        Vector2 respawn = ResolveHazardRespawn(player);
+        _precisePosition = respawn;
+        _hazard = HazardType.None;
+        _hazardAnimationStarted = false;
+        _phase = MooshCompanionPhase.Riding;
+        _angle = 0xff;
+        _chargeCounter = 0;
+        _airborneInitialized = false;
+        player.ApplyCompanionHazardDamage(completedHazard);
+        SetAnimation(0x13 + _direction);
+    }
+
+    private bool DragToHazardCenter()
+    {
+        bool centered = true;
+        if (Mathf.FloorToInt(_precisePosition.X) !=
+            Mathf.FloorToInt(_hazardCenter.X))
+        {
+            _precisePosition.X += _precisePosition.X < _hazardCenter.X
+                ? 0.25f
+                : -0.25f;
+            centered = false;
+        }
+        if (Mathf.FloorToInt(_precisePosition.Y) !=
+            Mathf.FloorToInt(_hazardCenter.Y))
+        {
+            _precisePosition.Y += _precisePosition.Y < _hazardCenter.Y
+                ? 0.25f
+                : -0.25f;
+            centered = false;
+        }
+        return centered;
+    }
+
+    private Vector2 ResolveHazardRespawn(Player player)
+    {
+        Vector2 localRespawn = player.LocalRespawnPosition;
+        if (CanRespawnAt(localRespawn))
+            return localRespawn;
+        if (_lastMountRoomId == _roomId && CanRespawnAt(_lastMountPosition))
+        {
+            player.SetLocalRespawnPosition(_lastMountPosition);
+            return _lastMountPosition;
+        }
+        throw new InvalidOperationException(
+            $"Moosh has no valid hazard respawn in room {_group:x1}:{_roomId:x2}.");
+    }
+
+    private bool CanRespawnAt(Vector2 position) =>
+        CanOccupy(position) &&
+        _room.GetTerrainInfo(position + new Vector2(0, 5)).Hazard ==
+            HazardType.None;
+
+    private void UpdateRidingMovement(bool allowBarrier)
+    {
+        ApplyRoomRestriction(allowBarrier);
+        Vector2 input = Input.GetVector(
+            "move_left", "move_right", "move_up", "move_down");
+        int angle = AngleForInput(input);
+        if (angle == 0xff)
+        {
+            _barrierTextLatched = false;
+            return;
+        }
+
+        bool angleChanged = angle != _angle;
+        _angle = angle;
+        if (angleChanged)
+        {
+            // mooshState5 yields after companionUpdateDirectionAndAnimate on
+            // every exact wLinkAngle change. No SPEED_100 movement occurs on
+            // that update.
+            UpdateDirectionAndAnimation(0x13);
+            return;
+        }
+
+        ApplyMovement(allowBarrier);
+        UpdateDirectionAndAnimation(0x13);
+    }
+
+    private void UpdateAirborneMovement(bool allowBarrier)
+    {
+        ApplyRoomRestriction(allowBarrier);
+        Vector2 input = Input.GetVector(
+            "move_left", "move_right", "move_up", "move_down");
+        int angle = AngleForInput(input);
+        if (angle == 0xff)
+        {
+            _barrierTextLatched = false;
+            return;
+        }
+        _angle = angle;
+        ApplyMovement(allowBarrier);
+    }
+
+    private void ApplyMovement(bool allowBarrier)
+    {
+        Vector2 candidate = _precisePosition;
+        OracleObjectMovement.Shared.ApplySpeed(ref candidate, 0x28, _angle);
+        Vector2 movement = candidate - _precisePosition;
+        Vector2 resolved = ResolveMovement(movement);
+        _precisePosition += resolved;
+
+        ApplyRoomRestriction(allowBarrier);
+    }
+
+    private void ApplyRoomRestriction(bool allowBarrier)
+    {
+        if (allowBarrier && _group == _record.Group &&
+            _roomId == _record.Room && _precisePosition.Y > _record.RestrictY)
+        {
+            _precisePosition.Y = _record.RestrictY;
+            if (!_barrierTextLatched && !_dialogueOpen())
+            {
+                _barrierTextLatched = true;
+                _dialogueRequested(0x2209, _record.RestrictText, _precisePosition);
+            }
+        }
+        else
+        {
+            _barrierTextLatched = false;
+        }
+    }
+
+    private void UpdateDirectionAndAnimation(int animationBase)
+    {
+        int direction = DirectionForAngle(_angle, _direction);
+        if (direction == _direction)
+        {
+            _animation.Advance();
+            return;
+        }
+
+        _direction = direction;
+        SetAnimation(animationBase + _direction);
+    }
+
+    private Vector2 ResolveMovement(Vector2 movement)
+    {
+        if (movement == Vector2.Zero)
+            return movement;
+        if (CanOccupy(_precisePosition + movement))
+            return movement;
+        Vector2 x = new(movement.X, 0);
+        if (x.X != 0 && CanOccupy(_precisePosition + x))
+            return x;
+        Vector2 y = new(0, movement.Y);
+        if (y.Y != 0 && CanOccupy(_precisePosition + y))
+            return y;
+        return Vector2.Zero;
+    }
+
+    private bool CanOccupy(Vector2 position)
+    {
+        foreach (Vector2 sampleOffset in CollisionSamples)
+        {
+            Vector2 sample = position + sampleOffset;
+            if (sample.X < 0 || sample.X >= _room.Width ||
+                sample.Y < 0 || sample.Y >= _room.Height)
+            {
+                continue;
+            }
+            if (_room.IsSolid(sample))
+                return false;
+        }
+        return true;
+    }
+
+    private void SynchronizePlayer(
+        Player player,
+        Vector2 screenOffset,
+        bool finishMount = false)
+    {
+        // SPECIALOBJECT_LINK_RIDING_ANIMAL copies animParameter & $3f to
+        // w1Link.var31. Charged-stomp terminal parameters use bit 7 as their
+        // completion signal while retaining Link frame $2b-$2e.
+        int parameter = _animation.CurrentParameter & 0x3f;
+        if (parameter < 0 || parameter >= _linkTextures.Length)
+        {
+            throw new InvalidOperationException(
+                $"Moosh animation ${_animation.AnimationIndex:x2} emitted " +
+                $"unsupported Link graphics parameter ${parameter:x2}.");
+        }
+        Texture2D linkTexture = CurrentLinkTexture(parameter);
+        if (finishMount)
+        {
+            player.FinishCompanionMount(
+                _precisePosition,
+                _direction,
+                _zFixed,
+                linkTexture,
+                _damageLinkTextures[parameter],
+                _linkTextureOffsets[parameter]);
+        }
+        else
+        {
+            player.SetCompanionRidePosition(
+                _precisePosition,
+                _direction,
+                _zFixed,
+                linkTexture,
+                _damageLinkTextures[parameter],
+                _linkTextureOffsets[parameter],
+                screenOffset);
+        }
+    }
+
+    private void SetAnimation(int index)
+    {
+        _animation.SetAnimation(index);
+        QueueRedraw();
+    }
+
+    private void UpdateDrawPriority(Player player)
+    {
+        if (LinkRiding)
+        {
+            ZIndex = NpcCharacter.BehindLinkZIndex;
+            return;
+        }
+        ZIndex = Position.Y > player.Position.Y + NpcCharacter.LinkPriorityYOffset
+            ? NpcCharacter.InFrontOfLinkZIndex
+            : NpcCharacter.BehindLinkZIndex;
+    }
+
+    public void SetScreenTransitionBoundaryCoordinate(
+        bool horizontal,
+        int coordinate,
+        Player player)
+    {
+        if (!ControlsPlayerScreenTransition)
+            throw new InvalidOperationException(
+                "An unmounted Moosh cannot own a screen boundary.");
+        if (horizontal)
+        {
+            float fraction = _precisePosition.X - Mathf.Floor(_precisePosition.X);
+            _precisePosition.X = coordinate + fraction;
+        }
+        else
+        {
+            float fraction = _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+            _precisePosition.Y = coordinate + fraction;
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        CompanionRuntimeState.Update(
+            _runtime, CompanionRuntimeState.MooshId,
+            _roomId, _precisePosition, _direction);
+        SynchronizePlayer(player, Vector2.Zero);
+    }
+
+    public void BeginScreenTransition(OracleRoomData destination)
+    {
+        if (!ControlsPlayerScreenTransition || _transitionDestination is not null)
+            throw new InvalidOperationException(
+                "Moosh received an invalid scrolling handoff.");
+        _transitionDestination = destination;
+    }
+
+    public void SetScreenTransitionPosition(
+        Vector2 position,
+        Vector2 screenOffset,
+        Player player)
+    {
+        if (_transitionDestination is null)
+            throw new InvalidOperationException(
+                "Moosh moved without a transition destination.");
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        SynchronizePlayer(player, screenOffset);
+    }
+
+    public void FinishScreenTransition(Vector2 position, Player player)
+    {
+        OracleRoomData destination = _transitionDestination ??
+            throw new InvalidOperationException(
+                "Moosh finished scrolling without a destination.");
+        _transitionDestination = null;
+        _room = destination;
+        _roomId = destination.Id;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        _lastMountPosition = position;
+        _lastMountRoomId = destination.Id;
+        CompanionRuntimeState.Update(
+            _runtime, CompanionRuntimeState.MooshId,
+            _roomId, position, _direction);
+        SynchronizePlayer(player, Vector2.Zero);
+    }
+
+    private static int AngleForInput(Vector2 input)
+    {
+        int x = Math.Sign(input.X);
+        int y = Math.Sign(input.Y);
+        return (x, y) switch
+        {
+            (0, -1) => 0x00,
+            (1, -1) => 0x04,
+            (1, 0) => 0x08,
+            (1, 1) => 0x0c,
+            (0, 1) => 0x10,
+            (-1, 1) => 0x14,
+            (-1, 0) => 0x18,
+            (-1, -1) => 0x1c,
+            _ => 0xff
+        };
+    }
+
+    private static int DirectionForAngle(int angle, int currentDirection)
+    {
+        if (angle == 0xff)
+            return currentDirection;
+        int firstDirection = (angle >> 3) & 0x03;
+        if ((angle & 0x04) == 0)
+            return firstDirection;
+        int secondDirection = (firstDirection + 1) & 0x03;
+        return currentDirection == firstDirection ||
+            currentDirection == secondDirection
+                ? currentDirection
+                : firstDirection;
+    }
+
+    private Texture2D CurrentMooshTexture => _chargePaletteActive
+        ? _animation.CurrentTextureForPalette(2)
+        : _animation.CurrentTexture;
+
+    private Texture2D CurrentLinkTexture(int parameter) =>
+        _chargePaletteActive
+            ? _chargeLinkTextures[parameter]
+            : _linkTextures[parameter];
+
+    private static (
+        Texture2D[] Textures,
+        Texture2D[] ChargeTextures,
+        Texture2D[] DamageTextures,
+        Vector2[] Offsets) LoadLinkFrames(MooshCompanionVisualRecord visual)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{visual.LinkSprite}.png");
+        var textures = new Texture2D[visual.LinkFrames.Length];
+        var chargeTextures = new Texture2D[visual.LinkFrames.Length];
+        var damageTextures = new Texture2D[visual.LinkFrames.Length];
+        var offsets = new Vector2[visual.LinkFrames.Length];
+        for (int index = 0; index < visual.LinkFrames.Length; index++)
+        {
+            AnimationFrameDefinition frame =
+                OracleGraphicsCache.GetAnimationDefinition(
+                    visual.LinkFrames[index]).Frames[0];
+            (textures[index], offsets[index]) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    source,
+                    frame.EncodedOam,
+                    0,
+                    visual.LinkPalette,
+                    paletteOverride: null,
+                    sourceGrayscaleInverted: true,
+                    sourceOffset: visual.LinkSourceOffsets[index]);
+            (damageTextures[index], Vector2 damageOffset) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    source,
+                    frame.EncodedOam,
+                    0,
+                    visual.LinkPalette,
+                    NpcCharacter.GetStandardSpritePalette(5),
+                    sourceGrayscaleInverted: true,
+                    sourceOffset: visual.LinkSourceOffsets[index]);
+            (chargeTextures[index], Vector2 chargeOffset) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    source,
+                    frame.EncodedOam,
+                    0,
+                    visual.LinkPalette,
+                    NpcCharacter.GetStandardSpritePalette(2),
+                    sourceGrayscaleInverted: true,
+                    sourceOffset: visual.LinkSourceOffsets[index]);
+            if (damageOffset != offsets[index] ||
+                chargeOffset != offsets[index])
+                throw new InvalidOperationException(
+                    "Moosh Link palette variant changed the OAM origin.");
+        }
+        return (textures, chargeTextures, damageTextures, offsets);
+    }
+}
+
+internal enum MooshCompanionPhase
+{
+    Waiting,
+    Mounting,
+    Riding,
+    Airborne,
+    HoveringOverWater,
+    Charging,
+    Falling,
+    StompRecovery,
+    HazardFalling,
+    Dismounting,
+    AwaitingDistance
+}
+
+internal sealed record MooshCompanionSpawn(
+    Vector2 Position,
+    int Direction,
+    int Group,
+    int Room,
+    bool ForceMount = false,
+    bool Riding = false) : RoomEntitySpawn;
+
+internal sealed record MooshStompAttackSpawn(
+    Vector2 Position,
+    int Group,
+    int Room) : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record MooshHoverExclamationSpawn(
+    Vector2 Position,
+    int ZFixed) : RoomEntitySpawn;

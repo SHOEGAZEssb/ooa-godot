@@ -443,7 +443,7 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
                 [NpcImplementationClassification.SpecializedNative] = 134,
-                [NpcImplementationClassification.EventOwned] = 14,
+                [NpcImplementationClassification.EventOwned] = 17,
                 [NpcImplementationClassification.DeliberatelyUnsupported] = 258
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
@@ -451,13 +451,13 @@ public sealed partial class ValidationRoot
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 460 ||
+            records.Count != 463 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 134 specialized, 14 event-owned, and 258 " +
+            "54 ordinary, 134 specialized, 17 event-owned, and 258 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -525,7 +525,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 460 generated NPC records have exactly one " +
+            "Validated all 463 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -700,6 +700,7 @@ public sealed partial class ValidationRoot
             "miscCutscenes.s:CUTSCENE_NAYRU_SINGING",
             "hardhatWorker.s:blackTowerEntrance",
             "makuSprout.s:interactionCode88",
+            "companionScripts.s:companionScript_subid00Script",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "cheval.s:interactionCode6a",

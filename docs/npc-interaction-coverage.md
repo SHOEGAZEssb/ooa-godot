@@ -12,8 +12,8 @@ boundaries, and date in the same change.
 
 The inventory covers:
 
-- all 388 positioned or state-derived rows in
-  `assets/oracle/objects/npcs.tsv`, spanning 211 rooms;
+- all 391 positioned or state-derived rows in
+  `assets/oracle/objects/npcs.tsv`, spanning 212 rooms;
 - all 72 conditional Bipin/Blossom family rows in
   `assets/oracle/objects/bipin_blossom_family.tsv`; and
 - the explicit implementation classification selected for every record:
@@ -51,10 +51,10 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 92 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 95 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
 | **D** | 260 | Original native/script ownership is not implemented, so no actor is instantiated. |
-| **Total** | **388** | **211 rooms and 294 unique ID/subid keys.** |
+| **Total** | **391** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
 `2:ea` and `2:eb`. Their selection, running Bipin, child naming, representative
@@ -64,8 +64,8 @@ behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
 The implementation manifest therefore contains 54 ordinary, 62 specialized,
-14 event-owned, and 258 deliberately unsupported positioned/state-derived
-rows. Including the family table, the typed runtime database contains 460
+17 event-owned, and 258 deliberately unsupported positioned/state-derived
+rows. Including the family table, the typed runtime database contains 463
 classified records and 134 specialized rows.
 
 ### Important partial and deferred boundaries
@@ -73,6 +73,11 @@ classified records and 134 specialized rows.
 - Room `0:38` implements the Maku Tree disappearance and
   `wMakuTreeState=$02` Seed Satchel path. Later adult-tree states are not
   classified here and keep the record at **P**.
+- Room `0:5b` implements invisible `INTERAC_COMPANION_TUTORIAL $d0:$04`:
+  mounted Moosh shows `TX_2207` on the source state-1 update, and crossing
+  strictly right of X=`$60` sets `wCompanionTutorialTextShown` bit `$04` and
+  suppresses repeat text. This controller is not one of the 391 visible
+  `NpcRecord` rows, so the snapshot counts are unchanged.
 - Room `2:ee` implements Vasu, the snakes, help books, ring appraisal/list
   flows, and the original no-cable failure. Real Game Link transfer and linked
   secret input remain unavailable, so all five records remain **P**.
@@ -89,6 +94,20 @@ classified records and 134 specialized rows.
   and warp-destination `$17` predicate, Link-facing helper, three source speeds,
   substate-$01 flickering dust, `TX_2a20`, music/input restoration, and persistent
   room flag `$40` suppression.
+- Room `0:6c` implements the three source-ordered `$73` Ghini lanes, exact
+  circular motion and taunts, `$17:$00` combat replacement, Moosh's shake,
+  input-locked post-fight A-button fear sequence, source-directed response
+  facing, SND_CLINK exclamation, `wMooshState` bit `$20`, the first-meeting
+  left-facing special-object force-mount, final `TX_2205`, and `$71:$02`
+  lower-Y restriction. The shared live-companion
+  owner retains one Moosh while mounted or dismounted, including destination
+  preload during ordinary screen scrolling, exact companion-owned ride
+  graphics and A/B input, SPEED_100 movement, hover/charge-flash/ITEM_28 stomp
+  states, SND_JUMP/SPEED_80 collision-safe directional dismount separation,
+  remembered position, the `$3c`-update SND_CLINK warning hover over water,
+  and hole/water hazard fall and respawn. Moosh's terrain-specific cliff states
+  remain part of the broader companion-system backlog, not a boundary of the
+  three imported `$73` records.
 - Placed Forest Fairy `$49:$05-$10` phases are **D** and safely suppressed.
   The implemented Fairies' Woods hide-and-seek uses event-created `$49:$00`
   actors instead.
@@ -145,6 +164,7 @@ well as record selection.
 | `0:58` | [I] `$41:$04/v$00` miscMan |
 | `0:5a` | [I] `$39:$02/v$00` monkey<br>[I] `$39:$03/v$00` monkey |
 | `0:5d` | [I] `$cb:$00/v$00` linkedGameGhini |
+| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
 | `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
 | `0:67` | [D] `$41:$03/v$00` miscMan |

@@ -182,6 +182,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _transitions.ApplyDungeonHoleWarp(player, packedPosition);
     public void DeactivateWarpAtPlayerPosition(Player player) =>
         _transitions.DeactivateWarpAtPlayerPosition(player);
-    public bool CheckTileWarp(Player player) => _transitions.CheckTileWarp(player);
+    public bool CheckTileWarp(Player player) =>
+        !RidingObject && _transitions.CheckTileWarp(player);
     public void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
 }

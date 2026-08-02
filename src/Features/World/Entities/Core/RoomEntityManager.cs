@@ -24,7 +24,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<Vector2, HazardType>? ItemDropEnteredHazard;
     internal event Action<ObjectFellInHoleKind>? ObjectFellInHole;
     internal event Action<DungeonEssence, Player>? DungeonEssenceTriggered;
-    internal event Action<int, string, Vector2>? NativeBossDialogueRequested;
+    internal event Action<int, string, Vector2>? RoomEntityDialogueRequested;
     internal event Action<int, string, Player>? MapleDialogueRequested;
     internal event Action<MapleItemRecord, Player>? MapleItemCollected;
     internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
@@ -274,7 +274,7 @@ public sealed class RoomEntityManager : IDisposable
             DisableLinkCollisionsAndMenu,
             EnableLinkCollisionsAndMenu,
             OnRoomMusicRequested,
-            OnNativeBossDialogueRequested,
+            OnRoomEntityDialogueRequested,
             OnMapleDialogueRequested,
             OnSeedTreeMessageRequested,
             OnOwlStatueMessageRequested,
@@ -1524,11 +1524,11 @@ public sealed class RoomEntityManager : IDisposable
         DungeonEssence essence,
         Player player) => DungeonEssenceTriggered?.Invoke(essence, player);
 
-    private void OnNativeBossDialogueRequested(
+    private void OnRoomEntityDialogueRequested(
         int textId,
         string message,
         Vector2 position) =>
-        NativeBossDialogueRequested?.Invoke(textId, message, position);
+        RoomEntityDialogueRequested?.Invoke(textId, message, position);
 
     private void OnMapleDialogueRequested(
         int textId,

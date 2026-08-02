@@ -321,6 +321,11 @@ public partial class GameRoot : Node2D
         bool useDebugSavestate = debugSavestate is not null;
         bool useSavedSpawn = !useDebugSavestate && (forceDeathRespawn ||
             (!_launchOptions.HasWorldOverride && _persistSaveData));
+        if (useSavedSpawn)
+        {
+            CompanionRuntimeState.RestoreRememberedFromDeathRespawn(
+                _runtimeState, _saveData);
+        }
         int startingGroup = useDebugSavestate
             ? debugSavestate!.Group
             : useSavedSpawn
@@ -672,7 +677,8 @@ public partial class GameRoot : Node2D
         _scene.WorldRoot.AddChild(_keyholes);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
-        _deathRespawnPoints = new DeathRespawnPointController(_rooms, _player);
+        _deathRespawnPoints = new DeathRespawnPointController(
+            _rooms, _player, _runtimeState);
         _transitions = new RoomTransitionController(
             _rooms, new WarpDatabase(), _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,

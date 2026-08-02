@@ -39,12 +39,17 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
+- Moosh's rescue and mountable-companion core: exact ride visuals, movement,
+  hover/charged stomp and charge flash, collision-safe dismount/remount memory,
+  source-timed warning hover and water/hole hazard respawn, and single-owner
+  scrolling retention, including room `0:5b`'s one-time flutter tutorial.
 
 ## Major incomplete areas
 
 - The full story and world progression beyond the ported slices.
 - Remaining dungeons, bosses, enemy species/subids, NPC scripts, room-event
-  families, door/controller variants, and companion systems.
+  families, door/controller variants, companion systems, and Moosh's
+  terrain-specific cliff states.
 - Several active items and upgrades, including complete swimming/diving and
   terrain-specific Link states, Roc's Cape continuation, active Scent/Pegasus/
   Gale Seed behavior, and remaining grabbable-object species.

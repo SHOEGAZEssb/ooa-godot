@@ -53,6 +53,13 @@ public sealed class OracleSaveData
     public const int ChildFlagsAddress = 0xc6e2;
     public const int ChildPersonalityAddress = 0xc6e4;
 
+    internal const int RespawnRememberedCompanionIdAddress = 0xc631;
+    internal const int RespawnRememberedCompanionGroupAddress = 0xc632;
+    internal const int RespawnRememberedCompanionRoomAddress = 0xc633;
+    internal const int RespawnLinkObjectIndexAddress = 0xc634;
+    internal const int RespawnRememberedCompanionYAddress = 0xc636;
+    internal const int RespawnRememberedCompanionXAddress = 0xc637;
+
     private const int WramBase = 0xc5b0;
     private const int ChecksumOffset = 0x000;
     private const int VerificationOffset = 0x002;
@@ -376,6 +383,37 @@ public sealed class OracleSaveData
     public void SetDeathRespawnPoint(
         int group, int room, int stateModifier, int facing, int y, int x)
     {
+        SetDeathRespawnPointCore(
+            group, room, stateModifier, facing, y, x,
+            rememberedCompanion: null);
+    }
+
+    internal void SetDeathRespawnPoint(
+        int group,
+        int room,
+        int stateModifier,
+        int facing,
+        int y,
+        int x,
+        RememberedCompanion rememberedCompanion,
+        int linkObjectIndex)
+    {
+        if (linkObjectIndex is not (0xd0 or 0xd1))
+            throw new ArgumentOutOfRangeException(nameof(linkObjectIndex));
+        SetDeathRespawnPointCore(
+            group, room, stateModifier, facing, y, x,
+            (rememberedCompanion, linkObjectIndex));
+    }
+
+    private void SetDeathRespawnPointCore(
+        int group,
+        int room,
+        int stateModifier,
+        int facing,
+        int y,
+        int x,
+        (RememberedCompanion Companion, int LinkObjectIndex)? rememberedCompanion)
+    {
         ValidateRoom(group, room);
         if (stateModifier is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(stateModifier));
@@ -392,6 +430,27 @@ public sealed class OracleSaveData
         changed |= WriteWramByte(0xc62e, (byte)facing);
         changed |= WriteWramByte(0xc62f, (byte)y);
         changed |= WriteWramByte(0xc630, (byte)x);
+        if (rememberedCompanion is { } state)
+        {
+            changed |= WriteWramByte(
+                RespawnRememberedCompanionIdAddress,
+                checked((byte)state.Companion.Id));
+            changed |= WriteWramByte(
+                RespawnRememberedCompanionGroupAddress,
+                checked((byte)state.Companion.Group));
+            changed |= WriteWramByte(
+                RespawnRememberedCompanionRoomAddress,
+                checked((byte)state.Companion.Room));
+            changed |= WriteWramByte(
+                RespawnLinkObjectIndexAddress,
+                checked((byte)state.LinkObjectIndex));
+            changed |= WriteWramByte(
+                RespawnRememberedCompanionYAddress,
+                checked((byte)state.Companion.Y));
+            changed |= WriteWramByte(
+                RespawnRememberedCompanionXAddress,
+                checked((byte)state.Companion.X));
+        }
         if (changed)
             PublishChange();
     }
