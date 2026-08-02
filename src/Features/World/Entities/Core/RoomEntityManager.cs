@@ -563,10 +563,24 @@ public sealed class RoomEntityManager : IDisposable
 
     internal bool TryUseBracelet(
         Player player,
-        Vector2I releaseDirection)
+        Vector2I releaseDirection) =>
+        TryUseBracelet(player, releaseDirection, out _);
+
+    internal bool TryUseBracelet(
+        Player player,
+        Vector2I releaseDirection,
+        out IBraceletPullInteractableRoomEntity? pullInteraction)
     {
+        pullInteraction = null;
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            if (releaseDirection == Vector2I.Zero &&
+                entity is IBraceletPullInteractableRoomEntity pull &&
+                pull.TryBeginBraceletPull(player))
+            {
+                pullInteraction = pull;
+                return true;
+            }
             if (entity is IBraceletInteractableRoomEntity bracelet &&
                 bracelet.TryUseBracelet(player, releaseDirection))
             {

@@ -38,6 +38,7 @@ public sealed class BraceletController
     private byte _targetTile;
     private BreakableTileRecord _targetRecord;
     private BraceletLiftedObject? _object;
+    private IBraceletPullInteractableRoomEntity? _pullInteraction;
     private int _breakEffect;
 
     internal BraceletState State => _state;
@@ -82,8 +83,18 @@ public sealed class BraceletController
             return false;
 
         bool wasCarrying = player.IsCarryingObject;
-        if (_entities.TryUseBracelet(player, Vector2I.Zero))
+        if (_entities.TryUseBracelet(
+                player,
+                Vector2I.Zero,
+                out IBraceletPullInteractableRoomEntity? pullInteraction))
         {
+            if (pullInteraction is not null)
+            {
+                _primaryButton = primaryButton;
+                _pullInteraction = pullInteraction;
+                _state = BraceletState.PullingInteraction;
+                return true;
+            }
             if (!wasCarrying && player.IsCarryingObject)
                 BeginEntityLift(player, primaryButton);
             return true;
@@ -148,6 +159,17 @@ public sealed class BraceletController
                 return UpdateWallGrab(
                     player, movementInput, assignedButtonHeld);
 
+            case BraceletState.PullingInteraction:
+                if (_pullInteraction is not null &&
+                    _pullInteraction.UpdateBraceletPull(
+                        player, movementInput, assignedButtonHeld))
+                {
+                    return true;
+                }
+                _pullInteraction = null;
+                ResetParent(player);
+                return false;
+
             case BraceletState.Lifting:
                 UpdateLift(player);
                 return _state == BraceletState.Lifting;
@@ -192,6 +214,14 @@ public sealed class BraceletController
     {
         if (_state == BraceletState.Idle)
             return;
+
+        if (_pullInteraction is not null)
+        {
+            _pullInteraction.CancelBraceletPull(player);
+            _pullInteraction = null;
+            ResetParent(player);
+            return;
+        }
 
         player.SetBraceletLiftCollisionsDisabled(false);
         player.ClearBraceletActionPose();
@@ -562,6 +592,7 @@ public sealed class BraceletController
         _targetPackedPosition = -1;
         _targetTile = 0;
         _targetRecord = default;
+        _pullInteraction = null;
         _state = BraceletState.Idle;
     }
 
@@ -625,6 +656,7 @@ internal enum BraceletState
     Idle,
     SeekingWall,
     GrabbingWall,
+    PullingInteraction,
     Lifting,
     LiftingEntity,
     Holding,

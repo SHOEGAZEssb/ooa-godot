@@ -3451,6 +3451,110 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\ground_treasures.tsv'),
     $groundTreasureRows)
 
+# Room 5:bf's ordered object stream is one flippers pickup, two blocks which
+# consume wLever1PullDistance before the lever updates it, then INTERAC_LEVER.
+# The lever creates its graphical connection child during state 0; export that
+# child immediately after its parent so the runtime retains the same update
+# order without depending on a clone-side room exception.
+$room5bfObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group5MapbfObjectData:\s+obj_Interaction \$6b \$0c \$(?<flippersY>[0-9a-f]{2}) \$(?<flippersX>[0-9a-f]{2})\s+obj_Interaction \$6b \$0d \$(?<leftY>[0-9a-f]{2}) \$(?<leftX>[0-9a-f]{2})\s+obj_Interaction \$6b \$0d \$(?<rightY>[0-9a-f]{2}) \$(?<rightX>[0-9a-f]{2})\s+obj_Interaction \$61 \$(?<leverSubid>[0-9a-f]{2}) \$(?<leverY>[0-9a-f]{2}) \$(?<leverX>[0-9a-f]{2})\s+obj_End')
+$room5bfMiscSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$room5bfLeverSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\lever.s')
+$room5bfScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$room5bfFlippersGraphic = $interactionGraphics['107:12']
+$room5bfBlockGraphic = $interactionGraphics['107:13']
+$room5bfLeverGraphic = $interactionGraphics['97:0']
+$room5bfFlippersAnimation = Resolve-NpcAnimation 0x6b 0x02
+$room5bfBlockAnimation = Resolve-NpcAnimation 0x6b 0x03
+$room5bfLeverAnimation = Resolve-NpcAnimation 0x61 0x00
+$room5bfConnectionAnimations = @(2..6 | ForEach-Object {
+    Resolve-NpcAnimation 0x61 $_
+})
+$room5bfFlippersObject = $treasureObjectRecords['TREASURE_OBJECT_FLIPPERS_00']
+if (-not $room5bfObjectBlock.Success -or
+    $room5bfObjectBlock.Groups['flippersY'].Value -ne '1c' -or
+    $room5bfObjectBlock.Groups['flippersX'].Value -ne 'b8' -or
+    $room5bfObjectBlock.Groups['leftY'].Value -ne '38' -or
+    $room5bfObjectBlock.Groups['leftX'].Value -ne 'b0' -or
+    $room5bfObjectBlock.Groups['rightY'].Value -ne '38' -or
+    $room5bfObjectBlock.Groups['rightX'].Value -ne 'c0' -or
+    $room5bfObjectBlock.Groups['leverSubid'].Value -ne '30' -or
+    $room5bfObjectBlock.Groups['leverY'].Value -ne '10' -or
+    $room5bfObjectBlock.Groups['leverX'].Value -ne '78') {
+    throw 'Room 5:bf no longer has its original flippers, block, block, lever object order.'
+}
+if ($room5bfMiscSource -notmatch
+        '(?ms)^interaction6b_subid0a:.*?^interaction6b_subid0c:.*?ROOMFLAG_BIT_ITEM.*?sub \$0a.*?interaction6b_initGraphicsAndLoadScript.*?wDisabledObjects.*?wMenuDisabled.*?interactionAnimateAsNpc' -or
+    $room5bfMiscSource -notmatch
+        '(?ms)^interaction6b_subid0d:.*?PALH_a3.*?ld a,\$06\s+call objectSetCollideRadius.*?cp \$c0.*?Interaction\.var03.*?Interaction\.var3d.*?wLever1PullDistance.*?and \$7c\s+rrca\s+rrca.*?cp \$fe\s+call nc,@checkLinkSquished.*?ld a,\$08\s+ld bc,\$38b8.*?LINK_STATE_SQUISHED.*?interactionAnimateAsNpc' -or
+    $room5bfLeverSource -notmatch
+        '(?ms)^interactionCode61:.*?getFreeInteractionSlot.*?ld \(hl\),\$80.*?wLever1PullDistance.*?ld a,\$0c.*?@leverLengths:\s+\.db \$08 \$10 \$20 \$40.*?ld b,SPEED_40.*?SND_MOVEBLOCK.*?^@state3:.*?objectApplySpeed.*?SND_OPENCHEST.*?or \$80' -or
+    $room5bfLeverSource -notmatch
+        '(?ms)^@updateLeverConnectionObject:.*?add a\s+add a\s+add \(hl\).*?swap a\s+and \$07.*?add \$02\s+jp interactionSetAnimation.*?@animationYOffsets:\s+\.db \$00 \$08 \$10 \$18 \$20' -or
+    $room5bfScriptSource -notmatch
+        '(?ms)^interaction6b_subid0aScript:.*?setcollisionradii \$02, \$02.*?disableinput.*?writeobjectbyte Interaction\.substate, \$01.*?@flippers:\s+giveitem TREASURE_FLIPPERS, \$00\s+wait 30\s+scriptend' -or
+    $paletteHeaderSource -notmatch
+        '(?ms)PALH_a3.*?m_PaletteHeaderSpr\s+6,\s*1,\s*paletteData5958') {
+    throw 'Room 5:bf flippers, sliding-block, lever, connection, or PALH_a3 behavior changed.'
+}
+if ($null -eq $room5bfFlippersObject -or
+    $room5bfFlippersObject.Treasure -ne 0x2e -or
+    $room5bfFlippersObject.Subid -ne 0x00 -or
+    $room5bfFlippersObject.Parameter -ne 0x00 -or
+    $room5bfFlippersObject.Graphic -ne 0x31 -or
+    $null -eq $room5bfFlippersGraphic -or
+    $room5bfFlippersGraphic.Gfx -ne 0x79 -or
+    $room5bfFlippersGraphic.TileBase -ne 0x04 -or
+    $room5bfFlippersGraphic.Palette -ne 0x05 -or
+    $room5bfFlippersGraphic.DefaultAnimation -ne 0x02 -or
+    $null -eq $room5bfBlockGraphic -or
+    $room5bfBlockGraphic.Gfx -ne 0x00 -or
+    $room5bfBlockGraphic.TileBase -ne 0x36 -or
+    $room5bfBlockGraphic.Palette -ne 0x06 -or
+    $room5bfBlockGraphic.DefaultAnimation -ne 0x03 -or
+    $null -eq $room5bfLeverGraphic -or
+    $room5bfLeverGraphic.Gfx -ne 0x72 -or
+    $room5bfLeverGraphic.TileBase -ne 0x0a -or
+    $room5bfLeverGraphic.Palette -ne 0x03 -or
+    $room5bfLeverGraphic.DefaultAnimation -ne 0x00 -or
+    $gfxNames[0x79] -ne 'spr_quest_items_5' -or
+    $gfxNames[0x72] -ne 'spr_dungeon_sprites' -or
+    -not $room5bfFlippersAnimation -or
+    -not $room5bfBlockAnimation -or
+    -not $room5bfLeverAnimation -or
+    @($room5bfConnectionAnimations | Where-Object { -not $_ }).Count -ne 0 -or
+    $soundIds['SND_MOVEBLOCK'] -ne 0x71 -or
+    $soundIds['SND_OPENCHEST'] -ne 0x6c) {
+    throw 'Could not resolve room 5:bf visuals, flippers treasure $2e:$00, or lever sounds.'
+}
+[void]$npcSpriteNames.Add('spr_quest_items_5')
+[void]$npcSpriteNames.Add('spr_dungeon_sprites')
+[void]$npcSpriteNames.Add('spr_common_sprites')
+$room5bfSource = 'mainData.s:group5MapbfObjectData'
+$room5bfRows = @(
+    '# order`tkind`tid`tsubid`ty`tx`tvar03`tsprite`ttile-base`tpalette`tanimation-index`tanimation`tsource',
+    "0`tflippers`t6b`t0c`t1c`tb8`t02`tspr_quest_items_5`t04`t05`t02`t$room5bfFlippersAnimation`t$room5bfSource",
+    "1`tsliding-block`t6b`t0d`t38`tb0`t00`tspr_common_sprites`t36`t06`t03`t$room5bfBlockAnimation`t$room5bfSource",
+    "2`tsliding-block`t6b`t0d`t38`tc0`t01`tspr_common_sprites`t36`t06`t03`t$room5bfBlockAnimation`t$room5bfSource",
+    "3`tlever`t61`t30`t10`t78`t00`tspr_dungeon_sprites`t0a`t03`t00`t$room5bfLeverAnimation`t$room5bfSource",
+    "4`tlever-connection`t61`t80`t10`t78`t00`tspr_dungeon_sprites`t0a`t03`t02`t$($room5bfConnectionAnimations -join '^')`tlever.s:interactionCode61/@updateLeverConnectionObject"
+)
+$room5bfConstantRows = @(
+    '# group`troom`titem-room-flag`ttreasure-id`ttreasure-subid`ttreasure-parameter`tlever-length`tpull-speed`tlever-radius-y`tlever-radius-x`tlink-y-offset`tblock-radius`tdistance-mask`tdistance-shift`tsquish-y`tsquish-x`tsquish-range`tconnection-step`tpost-grant-wait`tpickup-radius`tmove-sound`tfull-sound`tsource',
+    "5`tbf`t20`t2e`t00`t00`t40`t0a`t05`t01`t0c`t06`t7c`t02`t38`tb8`t08`t10`t30`t02`t71`t6c`tmiscellaneous1.s:interaction6b_subid0a/0d;lever.s:interactionCode61"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\room5bf_interactions.tsv'),
+    $room5bfRows)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\room5bf_constants.tsv'),
+    $room5bfConstantRows)
+Export-PaletteBlock 'paletteData5958' 4 'objects\room5bf_block_palette.bin'
+
 # PART_DARK_ROOM_HANDLER $08 scans the complete 16-byte-stride large-room
 # layout and creates a permanent PART_LIGHTABLE_TORCH $06 for every unlit
 # torch metatile. INTERAC_MISCELLANEOUS_2 $dc:$00 in room 5:ed precedes that

@@ -53,6 +53,7 @@ internal sealed class RoomEntityFactory(
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
     private readonly Room20eNpcDatabase _room20e = new();
+    private readonly Room5bfDatabase _room5bf = new();
     private readonly StoneRabbitDatabase _stoneRabbit = new();
     private readonly BusinessScrubDatabase _businessScrub = new();
     private readonly NayruHouseDatabase _nayruHouse = new();
@@ -195,6 +196,12 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        if (group == _room5bf.Constants.Group &&
+            room.Id == _room5bf.Constants.Room)
+        {
+            foreach (IRoomEntity interaction in CreateRoom5bfInteractions())
+                yield return interaction;
+        }
         foreach (IRoomEntity controller in
             CreateMinecartShutterControllers(room))
         {
@@ -2928,6 +2935,94 @@ internal sealed class RoomEntityFactory(
         return new GroundTreasureRoomEntity(
             treasure, groundTreasureCollectionAllowed,
             groundTreasureCollected);
+    }
+
+    private IEnumerable<IRoomEntity> CreateRoom5bfInteractions()
+    {
+        var state = new Room5bfLeverState();
+        Room5bfLever? lever = null;
+        foreach (Room5bfInteractionRecord record in _room5bf.Records)
+        {
+            switch (record.Kind)
+            {
+                case Room5bfInteractionKind.Flippers:
+                    if (saveData?.HasRoomFlag(
+                            _room5bf.Constants.Group,
+                            _room5bf.Constants.Room,
+                            checked((byte)_room5bf.Constants.ItemRoomFlag)) == true)
+                    {
+                        continue;
+                    }
+                    var request = new GroundTreasureGrantRequest(
+                        _room5bf.Constants.Group,
+                        _room5bf.Constants.Room,
+                        record.Order,
+                        record.Y,
+                        record.X,
+                        "TREASURE_OBJECT_FLIPPERS_00",
+                        record.Source)
+                    {
+                        VisualOverride = new GroundTreasureVisualOverride(
+                            record.Sprite,
+                            record.TileBase,
+                            record.Palette,
+                            record.Animations[0]),
+                        ExpectedTreasureId = _room5bf.Constants.TreasureId,
+                        ExpectedSubId = _room5bf.Constants.TreasureSubId,
+                        ExpectedObjectParameter =
+                            _room5bf.Constants.TreasureParameter
+                    };
+                    var pickup = new GroundTreasurePickup
+                    {
+                        Name = "Room5bfFlippers",
+                        ZIndex = 12
+                    };
+                    pickup.Initialize(
+                        request.Resolve(treasures),
+                        soundRequested,
+                        worldToScreen);
+                    yield return new Room5bfFlippersRoomEntity(
+                        pickup,
+                        groundTreasureCollectionAllowed,
+                        groundTreasureCollected,
+                        _room5bf.Constants.PostGrantWait,
+                        _room5bf.Constants.PickupRadius);
+                    break;
+
+                case Room5bfInteractionKind.SlidingBlock:
+                    yield return new Room5bfSlidingBlock(
+                        record,
+                        state,
+                        _room5bf.Constants,
+                        _room5bf.BlockPalette);
+                    break;
+
+                case Room5bfInteractionKind.Lever:
+                    lever = new Room5bfLever(
+                        record,
+                        state,
+                        _room5bf.Constants,
+                        soundRequested);
+                    yield return lever;
+                    break;
+
+                case Room5bfInteractionKind.LeverConnection:
+                    if (lever is null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Room 5:bf lever connection from {record.Source} " +
+                            "precedes its parent lever.");
+                    }
+                    yield return new Room5bfLeverConnection(
+                        record, lever, _room5bf.Constants);
+                    break;
+
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported room 5:bf interaction kind " +
+                        $"{record.Kind} from {record.Source}.");
+            }
+        }
     }
 
     private IRoomEntity CreateMapleDroppedItem(
