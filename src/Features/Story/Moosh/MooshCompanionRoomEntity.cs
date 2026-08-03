@@ -5,13 +5,14 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// SPECIALOBJECT_MOOSH $0d states $01/$03/$05/$06/$08. This is the live
-/// w1Companion owner after the room $0:$6c rescue handoff.
+/// SPECIALOBJECT_MOOSH $0d states $01/$03/$05/$06/$08 and the room $0:$6b
+/// state-$0a farewell. This is the live w1Companion owner after the room
+/// $0:$6c rescue handoff.
 /// </summary>
 internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction,
     IPlayerForcedMovement, IPlayerRideableRoomEntity,
-    IPlayerScreenTransitionRoomEntity
+    IPlayerScreenTransitionRoomEntity, IRoomEntityLifetime
 {
     private static readonly Vector2[] CollisionSamples =
     [
@@ -21,6 +22,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private readonly MooshRescueEventRecord _record;
     private readonly MooshCompanionVisualRecord _visual;
+    private readonly MooshGoodbyeEventRecord? _goodbye;
+    private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly Action<int, string, Vector2> _dialogueRequested;
@@ -59,14 +62,17 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _itemJustPressed;
     private bool _chargePaletteActive;
     private bool _hazardAnimationStarted;
+    private bool _goodbyeDialogueStarted;
+    private bool _finished;
     private MooshCompanionPhase _phase;
 
     public Node2D Node => this;
-    public bool DisablesSword => LinkRiding || _phase == MooshCompanionPhase.Mounting;
+    public bool DisablesSword => GoodbyeRestrictsPlayer ||
+        LinkRiding || _phase == MooshCompanionPhase.Mounting;
     public bool DisablesItems => DisablesSword;
     public bool DisablesMovement => DisablesSword ||
         _phase == MooshCompanionPhase.Dismounting;
-    public bool DisablesMenus => false;
+    public bool DisablesMenus => GoodbyeRestrictsPlayer;
     public bool DisablesScreenTransitions => _phase is
         MooshCompanionPhase.Mounting or
         MooshCompanionPhase.Airborne or
@@ -76,6 +82,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         MooshCompanionPhase.StompRecovery or
         MooshCompanionPhase.HazardFalling or
         MooshCompanionPhase.Dismounting;
+    public bool Finished => _finished;
     public bool LinkRiding => _phase is
         MooshCompanionPhase.Riding or
         MooshCompanionPhase.Airborne or
@@ -101,6 +108,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
     internal bool ChargePaletteActive => _chargePaletteActive;
     internal HazardType Hazard => _hazard;
+    internal bool GoodbyeActive => _goodbye is not null && !_finished;
     internal ulong MooshTexturePixelHash => OracleGraphicsCache.PixelHash(
         CurrentMooshTexture.GetImage());
     internal ulong NormalMooshTexturePixelHash => OracleGraphicsCache.PixelHash(
@@ -116,6 +124,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         MooshCompanionSpawn spawn,
         OracleRoomData room,
         MooshRescueEventDatabase database,
+        OracleSaveData? saveData,
         OracleRuntimeState runtime,
         Action<int> playSound,
         Action<int, string, Vector2> dialogueRequested,
@@ -124,6 +133,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         _record = database.Record;
         _visual = database.Visual;
+        _goodbye = spawn.Goodbye;
+        _saveData = saveData;
         _runtime = runtime;
         _playSound = playSound;
         _dialogueRequested = dialogueRequested;
@@ -137,11 +148,18 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _lastMountRoomId = spawn.Room;
         Position = spawn.Position;
         _direction = spawn.Direction;
-        _phase = spawn.ForceMount
+        _phase = spawn.Goodbye is not null
+            ? MooshCompanionPhase.GoodbyeInitializing
+            : spawn.ForceMount
             ? MooshCompanionPhase.Mounting
             : spawn.Riding
                 ? MooshCompanionPhase.Riding
                 : MooshCompanionPhase.Waiting;
+        if (_goodbye is not null && _saveData is null)
+        {
+            throw new InvalidOperationException(
+                "Room 0:6b $67:$01 Moosh goodbye requires live save state.");
+        }
 
         MooshCompanionVisualRecord visual = _visual;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
@@ -156,9 +174,10 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
             LoadLinkFrames(visual);
-        SetAnimation(_phase == MooshCompanionPhase.Riding
-            ? 0x13 + _direction
-            : 0x01 + _direction);
+        SetAnimation(_goodbye?.InitialAnimation ??
+            (_phase == MooshCompanionPhase.Riding
+                ? 0x13 + _direction
+                : 0x01 + _direction));
         Name = $"Moosh_{_group:x1}_{_roomId:x2}";
         ZIndex = _phase == MooshCompanionPhase.Riding
             ? NpcCharacter.BehindLinkZIndex
@@ -220,6 +239,17 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
                 break;
             case MooshCompanionPhase.AwaitingDistance:
                 UpdateAwaitingDistance(frame.Player);
+                break;
+            case MooshCompanionPhase.GoodbyeInitializing:
+                InitializeGoodbye();
+                break;
+            case MooshCompanionPhase.GoodbyeDialogue:
+                UpdateGoodbyeDialogue();
+                break;
+            case MooshCompanionPhase.GoodbyeFlight:
+                UpdateGoodbyeFlight();
+                break;
+            case MooshCompanionPhase.GoodbyeFinished:
                 break;
             default:
                 throw new InvalidOperationException(
@@ -493,6 +523,85 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if (!LinkWithinMountDistance(player))
             _phase = MooshCompanionPhase.Waiting;
+    }
+
+    private bool GoodbyeRestrictsPlayer => _phase is
+        MooshCompanionPhase.GoodbyeDialogue or
+        MooshCompanionPhase.GoodbyeFlight;
+
+    private void InitializeGoodbye()
+    {
+        MooshGoodbyeEventRecord goodbye = _goodbye ??
+            throw new InvalidOperationException(
+                "Moosh entered the room 0:6b initializer without source data.");
+        _direction = goodbye.FlightAngle >> 3;
+        _angle = goodbye.FlightAngle;
+        SetAnimation(goodbye.InitialAnimation);
+        _phase = MooshCompanionPhase.GoodbyeDialogue;
+    }
+
+    private void UpdateGoodbyeDialogue()
+    {
+        MooshGoodbyeEventRecord goodbye = _goodbye ??
+            throw new InvalidOperationException(
+                "Moosh entered the room 0:6b dialogue without source data.");
+        if (!_goodbyeDialogueStarted)
+        {
+            _goodbyeDialogueStarted = true;
+            _dialogueRequested(goodbye.TextId, goodbye.Text, _precisePosition);
+            return;
+        }
+        if (_dialogueOpen())
+            return;
+
+        _speedZ = goodbye.InitialSpeedZ;
+        _angle = goodbye.FlightAngle;
+        SetAnimation(goodbye.FlightAnimation);
+        _phase = MooshCompanionPhase.GoodbyeFlight;
+    }
+
+    private void UpdateGoodbyeFlight()
+    {
+        MooshGoodbyeEventRecord goodbye = _goodbye ??
+            throw new InvalidOperationException(
+                "Moosh entered the room 0:6b flight without source data.");
+        _animation.Advance();
+
+        // mooshStateASubstate6 tests only the high byte of speedZ. Once it
+        // reaches zero, Z remains at the top of the arc while SPEED_100 moves
+        // Moosh downward until his wrapping high-byte Y reaches $f0.
+        if ((unchecked((ushort)_speedZ) & 0xff00) != 0)
+        {
+            OracleObjectMath.UpdateSpeedZ(
+                ref _zFixed, ref _speedZ, goodbye.FlightGravity);
+            return;
+        }
+
+        OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition,
+            goodbye.FlightSpeed,
+            goodbye.FlightAngle);
+        int y = unchecked((byte)Mathf.FloorToInt(_precisePosition.Y));
+        if (y < goodbye.ExitY)
+            return;
+
+        CompleteGoodbye(goodbye);
+    }
+
+    private void CompleteGoodbye(MooshGoodbyeEventRecord goodbye)
+    {
+        OracleSaveData save = _saveData ??
+            throw new InvalidOperationException(
+                "Room 0:6b Moosh goodbye lost its save-state owner.");
+        save.WriteWramByte(
+            goodbye.MooshStateAddress,
+            (byte)(save.ReadWramByte(goodbye.MooshStateAddress) |
+                goodbye.LeftMask));
+        CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.MooshId);
+        CompanionRuntimeState.ForgetRemembered(_runtime);
+        _phase = MooshCompanionPhase.GoodbyeFinished;
+        _finished = true;
+        Visible = false;
     }
 
     private bool LinkWithinMountDistance(Player player)
@@ -959,7 +1068,11 @@ internal enum MooshCompanionPhase
     StompRecovery,
     HazardFalling,
     Dismounting,
-    AwaitingDistance
+    AwaitingDistance,
+    GoodbyeInitializing,
+    GoodbyeDialogue,
+    GoodbyeFlight,
+    GoodbyeFinished
 }
 
 internal sealed record MooshCompanionSpawn(
@@ -968,7 +1081,8 @@ internal sealed record MooshCompanionSpawn(
     int Group,
     int Room,
     bool ForceMount = false,
-    bool Riding = false) : RoomEntitySpawn;
+    bool Riding = false,
+    MooshGoodbyeEventRecord? Goodbye = null) : RoomEntitySpawn;
 
 internal sealed record MooshStompAttackSpawn(
     Vector2 Position,

@@ -89,6 +89,7 @@ internal sealed class RoomEntityFactory(
     private readonly SeedTreeDatabase _seedTrees = new();
     private readonly OwlStatueDatabase _owlStatues = new();
     private readonly MooshRescueEventDatabase _moosh = new();
+    private readonly MooshGoodbyeEventDatabase _mooshGoodbye = new();
     private readonly CompanionTutorialDatabase _companionTutorials = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
@@ -138,6 +139,7 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext)
     {
         int activeGroup = group;
+        bool companionSlotActive = CompanionRuntimeState.AnyActive(runtimeState);
         if (CompanionRuntimeState.IsActive(
                 runtimeState, CompanionRuntimeState.MooshId))
         {
@@ -152,7 +154,7 @@ internal sealed class RoomEntityFactory(
                     Riding: true), room);
             }
         }
-        else if (CompanionRuntimeState.TryGetRemembered(
+        else if (!companionSlotActive && CompanionRuntimeState.TryGetRemembered(
                 runtimeState,
                 CompanionRuntimeState.MooshId,
                 activeGroup,
@@ -164,6 +166,23 @@ internal sealed class RoomEntityFactory(
                 2,
                 activeGroup,
                 room.Id), room);
+        }
+        else if (!companionSlotActive &&
+            saveData is not null &&
+            inventory is not null &&
+            _mooshGoodbye.ShouldSpawn(
+                activeGroup, room.Id, saveData, inventory))
+        {
+            // INTERAC_COMPANION_SPAWNER $67:$01 writes only
+            // wRememberedCompanionId after installing the fixed Moosh preset.
+            CompanionRuntimeState.ForgetRemembered(runtimeState);
+            MooshGoodbyeEventRecord goodbye = _mooshGoodbye.Record;
+            yield return CreateMoosh(new MooshCompanionSpawn(
+                new Vector2(goodbye.MooshX, goodbye.MooshY),
+                goodbye.FlightAngle >> 3,
+                activeGroup,
+                room.Id,
+                Goodbye: goodbye), room);
         }
         if (saveData is not null)
         {
@@ -1640,6 +1659,7 @@ internal sealed class RoomEntityFactory(
             spawn,
             room,
             _moosh,
+            saveData,
             runtimeState,
             soundRequested,
             roomEntityDialogueRequested,

@@ -8566,6 +8566,16 @@ if (-not $mooshPlacement.Success -or
     $mooshPlacement.Groups['restrictx'].Value -ne '38') {
     throw 'Room 0:6c Ghini, companion-controller, or spawner order/placement changed.'
 }
+$mooshGoodbyePlacement = [regex]::Match(
+    $mooshObjectSource,
+    '(?ms)^group0Map6bObjectData:\s*' +
+    'obj_Interaction \$71 \$01 \$(?<controllery>[0-9a-f]{2}) \$(?<controllerx>[0-9a-f]{2})\s*' +
+    'obj_Interaction \$67 \$01\s*obj_End')
+if (-not $mooshGoodbyePlacement.Success -or
+    $mooshGoodbyePlacement.Groups['controllery'].Value -ne '38' -or
+    $mooshGoodbyePlacement.Groups['controllerx'].Value -ne '08') {
+    throw 'Room 0:6b companion-controller/spawner order or placement changed.'
+}
 
 $mooshScriptsPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $mooshScriptsSource = Read-ImportText $mooshScriptsPath
@@ -8643,6 +8653,17 @@ if ($ghiniNativeSource -notmatch '(?ms)^interactionCode73:.*?wEssencesObtained.*
     $mooshMusicConstants -notmatch '(?m)^\s*SND_CHARGE_SWORD\s+db ; \$4f' -or
     $mooshMusicConstants -notmatch '(?m)^\s*SND_SCENT_SEED\s+db ; \$85') {
     throw 'Room 0:6c Ghini/Moosh predicates, lanes, or companion handoff changed.'
+}
+if ($companionSpawnerSource -notmatch '(?ms)^; Moosh saying goodbye after getting cheval rope\s*@subid01:\s*ld hl,wMooshState\s*ld a,\$40\s*and \(hl\)\s*jr nz,@deleteSelf\s*ld a,TREASURE_CHEVAL_ROPE\s*call checkTreasureObtained\s*jr c,@loadCompanionPresetIfHasntLeft' -or
+    $companionSpawnerSource -notmatch '(?m)^\s*\.db SPECIALOBJECT_MOOSH,\s+\$48, \$38, \$00 ; \$01\s*$' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshState0:.*?ld a,\$20\s*and \(hl\).*?ld a,\$40\s*and \(hl\)\s*jr nz,@gotoCutsceneStateA.*?TREASURE_CHEVAL_ROPE.*?wActiveRoom\).*?cp \$6b\s*jr nz,@setAnimation' -or
+    $mooshSpecialSource -notmatch '(?ms)^@label_05_456:\s*ld a,\$01\s*ld \(wMenuDisabled\),a\s*ld \(wDisabledObjects\),a\s*ld a,\$04\s*ld \(de\),a.*?specialObjectSetAnimation.*?objectSetVisiblec3' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshStateASubstate4:.*?call mooshIncVar03.*?ld bc,TX_2208.*?jp showText.*?^mooshStateASubstate5:.*?call retIfTextIsActive.*?ld bc,-\$140.*?call objectSetSpeedZ.*?ld l,SpecialObject\.angle.*?ld \(hl\),\$10.*?ld l,SpecialObject\.speed.*?ld \(hl\),SPEED_100.*?ld a,\$0b.*?call specialObjectSetAnimation.*?jp mooshIncVar03.*?^mooshStateASubstate6:.*?call specialObjectAnimate.*?ld e,SpecialObject\.speedZ\+1.*?ld a,\(de\).*?or a.*?ld c,\$10.*?jp nz,objectUpdateSpeedZ_paramC.*?call objectApplySpeed.*?ld e,SpecialObject\.yh.*?ld a,\(de\).*?cp \$f0.*?ret c.*?xor a.*?ld \(wDisabledObjects\),a.*?ld \(wMenuDisabled\),a.*?ld \(wRememberedCompanionId\),a.*?ld hl,wMooshState.*?set 6,\(hl\).*?jp itemDelete' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_100\s+dsb 5 ; 0x28\s*$' -or
+    $mooshDirectionSource -notmatch '(?m)^\.define ANGLE_DOWN\s+\$10\s*$' -or
+    $mooshWramSource -notmatch '(?m)^wRememberedCompanionId: ; \$cc24/\$cc40\s*$' -or
+    -not $allTexts.ContainsKey(0x2208)) {
+    throw 'Room 0:6b Moosh goodbye predicate, flight, persistence, or text changed.'
 }
 
 $ghiniGraphic = $interactionGraphics['115:0']
@@ -8829,6 +8850,22 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\moosh_companion_visual.tsv'),
     $mooshVisualRows)
 Copy-GeneratedFile 'gfx\common\spr_moosh.png' 'gfx\spr_moosh.png'
+
+$mooshGoodbyeRows = @(
+    "# group`troom`tcontroller-id`tcontroller-subid`tcontroller-y`tcontroller-x`tspawner-id`tspawner-subid`tmoosh-id`tmoosh-y`tmoosh-x`ttreasure-id`tmoosh-state-address`trescued-mask`tleft-mask`tdisabled-objects`tmenu-disabled`tinitial-animation`tflight-animation`tinitial-speed-z`tflight-gravity`tflight-speed`tflight-angle`texit-y`ttext-id`ttext-base64`tsource",
+    (@(
+        '0','6b','71','01',
+        $mooshGoodbyePlacement.Groups['controllery'].Value,
+        $mooshGoodbyePlacement.Groups['controllerx'].Value,
+        '67','01','0d','48','38','52','c648','20','40','01','01','01','0b',
+        '-320','10','28','10','f0','2208',
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x2208])),
+        'mainData.s:group0Map6bObjectData;companionSpawner.s:@subid01;moosh.s:mooshState0/mooshStateA'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\moosh_goodbye_event.tsv'),
+    $mooshGoodbyeRows)
 
 foreach ($textId in @(0x1204,0x1205,0x1206,0x1207,0x2200,0x2201,0x2202,0x2203,0x2204,0x2205,0x2209)) {
     if (-not $allTexts.ContainsKey($textId)) {

@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 2, 2026. It is an implementation inventory, not a
+interactions as of August 3, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -78,6 +78,12 @@ classified records and 134 specialized rows.
   strictly right of X=`$60` sets `wCompanionTutorialTextShown` bit `$04` and
   suppresses repeat text. This controller is not one of the 391 visible
   `NpcRecord` rows, so the snapshot counts are unchanged.
+- Room `0:6b` implements `INTERAC_COMPANION_SPAWNER $67:$01` and Moosh's
+  complete post-Cheval-Rope farewell: the fixed `$48,$38` preset, input/menu
+  lock, `TX_2208`, source `-$0140` launch, SPEED_100 flight through Y=`$f0`,
+  ID-only remembered-companion clear, `wMooshState` bit `$40`, deletion, and
+  re-entry suppression. The source creates a special object rather than a
+  visible `NpcRecord`, so the snapshot counts are unchanged.
 - Room `2:ee` implements Vasu, the snakes, help books, ring appraisal/list
   flows, and the original no-cable failure. Real Game Link transfer and linked
   secret input remain unavailable, so all five records remain **P**.
