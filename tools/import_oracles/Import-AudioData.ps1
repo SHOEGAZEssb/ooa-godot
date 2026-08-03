@@ -25,6 +25,35 @@ for ($group = 0; $group -lt 6; $group++) {
 }
 Write-GeneratedBytes((Join-Path $soundDestination 'room_music.bin'), $roomMusic)
 
+# Room 1:97 runs roomSpecificCode7 after loadScreenMusic has selected the
+# ordinary past-overworld assignment. While Ralph's post-Rafton event is
+# pending, it replaces wActiveMusic2 with MUS_RALPH before checkPlayRoomMusic.
+$roomSpecificCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
+$musicConstantSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\music.s')
+$ralphMusicMatch = [regex]::Match(
+    $musicConstantSource,
+    '(?m)^\s*MUS_RALPH\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+if (-not $globalFlagValues.ContainsKey('GLOBALFLAG_GAVE_ROPE_TO_RAFTON') -or
+    $globalFlagValues['GLOBALFLAG_GAVE_ROPE_TO_RAFTON'] -ne 0x15 -or
+    -not $ralphMusicMatch.Success -or
+    [Convert]::ToInt32($ralphMusicMatch.Groups['value'].Value, 16) -ne 0x35 -or
+    $roomSpecificCodeSource -notmatch
+        '(?ms)^roomSpecificCodeGroup1Table:\s+\.db \$81 \$03\s+\.db \$38 \$06\s+\.db \$97 \$07\s+\.db \$0e \$0a\s+\.db \$00' -or
+    $roomSpecificCodeSource -notmatch
+        '(?ms)^roomSpecificCode7:\s+ld a,GLOBALFLAG_GAVE_ROPE_TO_RAFTON\s+call checkGlobalFlag\s+ret z\s+call getThisRoomFlags\s+bit 6,a\s+ret nz\s+ld a,MUS_RALPH\s+ld \(wActiveMusic2\),a\s+ret') {
+    throw 'Room 1:97 roomSpecificCode7 Ralph-music override changed.'
+}
+$conditionalRoomMusicRows = [Collections.Generic.List[string]]::new()
+$conditionalRoomMusicRows.Add(
+    '# group`troom`tmusic`trequired-global-flag`tclear-room-flag-mask`tsource')
+$conditionalRoomMusicRows.Add(
+    "1`t97`t35`t15`t40`tcode/ages/roomSpecificCode.s:roomSpecificCode7")
+Write-GeneratedTable(
+    (Join-Path $soundDestination 'conditional_room_music.tsv'),
+    $conditionalRoomMusicRows)
+
 # Expand the source waveform table by its explicit indices. The table's source
 # order is intentionally unrelated to the waveform IDs used by duty commands.
 $waveformSource = Read-ImportText (Join-Path $Disassembly 'audio\common\waveforms.s')

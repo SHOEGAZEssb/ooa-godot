@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 95 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 96 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 260 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 259 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **391** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,10 +63,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 62 specialized,
-17 event-owned, and 258 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 63 specialized,
+17 event-owned, and 257 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 463
-classified records and 134 specialized rows.
+classified records and 135 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -91,8 +91,9 @@ classified records and 134 specialized rows.
   light room darkening, Link's source dance modes and counters, the Touching
   Book reward, room bit `$20`, music restoration, and completed re-entry text.
 - Rooms `2:1e` and `2:1f` implement Rafton's complete source sequence: the
-  five D2/Cheval Rope/global-flag/Island Chart behaviors, delayed move between
-  rooms, Magic Oar choice, Sea Ukulele reward, and room/global persistence.
+  five D2/Cheval Rope/global-flag/Island Chart behaviors, `TX_2705`'s
+  unterminated fallthrough into `TX_2706`, delayed move between rooms, Magic
+  Oar choice, Sea Ukulele reward, and room/global persistence.
 - Room `2:0f` implements Cheval's complete native loop: asymmetric `$0c/$06`
   collision, Cheval Rope-dependent `TX_270c`/`TX_270d`, source `TX_270b` call
   expansion, and the post-dialogue `GLOBALFLAG_TALKED_TO_CHEVAL` side effect.
@@ -100,6 +101,13 @@ classified records and 134 specialized rows.
   and warp-destination `$17` predicate, Link-facing helper, three source speeds,
   substate-$01 flickering dust, `TX_2a20`, music/input restoration, and persistent
   room flag `$40` suppression.
+- Room `1:97` implements Ralph's complete post-Rafton event: flag `$15` and
+  room-flag `$40` predicate, exact native counters, alternating look,
+  -`$01c0` jump, `TX_2a0a`, SPEED_100 approach and all three Link-X alignment
+  branches, the `roomSpecificCode7` `MUS_RALPH` entry override, the full
+  `ralphSubid03Script` dialogue/departure, fast music fade, input/menu
+  restoration, past-overworld music, and persistent room flag `$40`
+  suppression.
 - Room `0:6c` implements the three source-ordered `$73` Ghini lanes, exact
   circular motion and taunts, `$17:$00` combat replacement, Moosh's shake,
   input-locked post-fight A-button fear sequence, source-directed response
@@ -237,7 +245,7 @@ well as record selection.
 | `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
 | `1:96` | [D] `$3b:$06/v$00` femaleVillager |
-| `1:97` | [D] `$37:$03/v$00` ralph |
+| `1:97` | [I] `$37:$03/v$00` ralph |
 | `1:aa` | [D] `$48:$00/v$00` tokay<br>[D] `$48:$01/v$00` tokay<br>[D] `$48:$02/v$00` tokay<br>[D] `$48:$03/v$00` tokay<br>[D] `$48:$04/v$00` tokay<br>[D] `$48:$1f/v$00` tokay |
 | `1:ac` | [D] `$48:$11/v$00` tokay |
 | `1:ad` | [D] `$48:$15/v$00` tokay<br>[D] `$48:$15/v$00` tokay |

@@ -66,6 +66,7 @@ internal sealed class RoomEntityFactory(
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
     private readonly ChevalEventDatabase _cheval = new();
     private readonly RalphAfterChevalEventDatabase _ralphAfterCheval = new();
+    private readonly RalphAfterRaftonEventDatabase _ralphAfterRafton = new();
     private readonly RaftonEventDatabase _rafton = new();
     private readonly DepressedBoyEventDatabase _depressedBoy = new();
     private readonly ToiletHandEventDatabase _toiletHand = new();
@@ -1929,6 +1930,16 @@ internal sealed class RoomEntityFactory(
             };
             ralph.InitializeRalph(record, _ralphAfterCheval.Record);
             return new RalphAfterChevalRoomEntity(ralph);
+        }
+        if (_ralphAfterRafton.Matches(record))
+        {
+            var ralph = new RalphAfterRaftonCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            ralph.InitializeRalph(record, _ralphAfterRafton.Record);
+            return new RalphAfterRaftonRoomEntity(ralph);
         }
         if (_rafton.Matches(record))
         {

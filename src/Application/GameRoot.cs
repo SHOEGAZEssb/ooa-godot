@@ -1069,7 +1069,7 @@ public partial class GameRoot : Node2D
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
         if (!playableIntro)
         {
-            _sound.PlayRoomMusic(group, room.Id);
+            _sound.PlayRoomMusic(group, room.Id, _saveData);
             return;
         }
 

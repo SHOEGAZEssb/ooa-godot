@@ -269,6 +269,13 @@ public sealed partial class ValidationRoot
             "loseTreasure did not clear Cheval Rope before the following wait 20.");
         StepRoomEventFrames(20);
         ExpectDialogue(0x2705, "accepted rope response");
+        FailIf(
+            _dialogue.CurrentMessage.Contains("\\n", StringComparison.Ordinal) ||
+            !_dialogue.CurrentMessage.Contains(
+                "invitation to\ndisaster.\nI'll have the",
+                StringComparison.Ordinal),
+            "Rafton TX_2705 did not fall through into TX_2706 in the same " +
+            "accepted-rope textbox.");
         _dialogue.Close();
         StepRoomEventFrames(20);
         FailIf(_saveData.HasGlobalFlag(record.GaveRopeFlag),
@@ -281,7 +288,7 @@ public sealed partial class ValidationRoot
             raftonEvent.CurrentCommandIndex != 3,
             "Accepted rope path did not set flag $15, restore input, and enter " +
             "behaviour-3 TX_2706 loop.");
-        Talk(0x68, 1, 0x2706, "post-rope greeting");
+        Talk(0x68, 1, 0x2706, "post-rope repeat greeting");
         _dialogue.Close();
         StepRoomEventFrames(1);
 

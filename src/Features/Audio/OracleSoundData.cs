@@ -24,6 +24,8 @@ public sealed class OracleSoundData
         "res://assets/oracle/audio/sound_data.bin", BankCount * BankSize);
     private readonly byte[] _roomMusic = LoadExact(
         "res://assets/oracle/audio/room_music.bin", 6 * 256);
+    private readonly ConditionalRoomMusicRule[] _conditionalRoomMusic =
+        LoadConditionalRoomMusic();
     private readonly byte[] _waveforms = LoadExact(
         "res://assets/oracle/audio/waveforms.bin", WaveformCount * 16);
     private readonly byte[] _noise = LoadExact(
@@ -65,6 +67,22 @@ public sealed class OracleSoundData
             throw new ArgumentOutOfRangeException(
                 $"Music assignment group/room is outside $00-$05:$00-$ff: {group:x2}:{room:x2}.");
         return _roomMusic[group * 256 + room];
+    }
+
+    public int RoomMusic(int group, int room, OracleSaveData save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+        int assignedMusic = RoomMusic(group, room);
+        foreach (ConditionalRoomMusicRule rule in _conditionalRoomMusic)
+        {
+            if (rule.Group == group && rule.Room == room &&
+                save.HasGlobalFlag(rule.RequiredGlobalFlag) &&
+                !save.HasRoomFlag(group, room, rule.ClearRoomFlagMask))
+            {
+                return rule.Music;
+            }
+        }
+        return assignedMusic;
     }
 
     public int ReadByte(int offset)
@@ -148,6 +166,54 @@ public sealed class OracleSoundData
                 $"Generated sound asset {path} has {data.Length} bytes; expected {expectedLength}.");
         return data;
     }
+
+    private static ConditionalRoomMusicRule[] LoadConditionalRoomMusic()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/audio/conditional_room_music.tsv",
+            new GeneratedTableSchema(
+                "conditional room music",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "group", "room", "music", "required-global-flag",
+                    "clear-room-flag-mask", "source"
+                ],
+                ["group", "room"],
+                headerRequired: true));
+        var rules = new List<ConditionalRoomMusicRule>(table.Rows.Count);
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            rules.Add(new ConditionalRoomMusicRule(
+                row.Decimal(0, 0, 7),
+                row.HexByte(1),
+                row.HexByte(2),
+                row.HexByte(3),
+                (byte)row.HexByte(4),
+                row.RequiredString(5)));
+        }
+        if (rules.Count != 1 || rules[0] is not
+            {
+                Group: 1,
+                Room: 0x97,
+                Music: 0x35,
+                RequiredGlobalFlag: 0x15,
+                ClearRoomFlagMask: OracleSaveData.RoomFlag40,
+                Source: "code/ages/roomSpecificCode.s:roomSpecificCode7"
+            })
+        {
+            throw new InvalidOperationException(
+                "Imported roomSpecificCode7 music contract diverged from room 1:97.");
+        }
+        return rules.ToArray();
+    }
+
+    private readonly record struct ConditionalRoomMusicRule(
+        int Group,
+        int Room,
+        int Music,
+        int RequiredGlobalFlag,
+        byte ClearRoomFlagMask,
+        string Source);
 }
 
 public readonly record struct NoiseRecord(byte Note, byte Envelope, byte Frequency);

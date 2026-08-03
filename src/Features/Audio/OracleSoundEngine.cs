@@ -34,6 +34,7 @@ public partial class OracleSoundEngine : Node
     public const int MusBoss = 0x2e;
     public const int MusLadxSideview = 0x2f;
     public const int MusCrazyDance = 0x31;
+    public const int MusRalph = 0x35;
     public const int MusIntro1 = 0x3f;
     public const int MusIntro2 = 0x40;
     public const int MusBlackTowerEntrance = 0x46;
@@ -216,6 +217,12 @@ public partial class OracleSoundEngine : Node
     public void PlayRoomMusic(int group, int room)
     {
         int music = _data.RoomMusic(group, room);
+        PlayMusicIfChanged(music);
+    }
+
+    public void PlayRoomMusic(int group, int room, OracleSaveData save)
+    {
+        int music = _data.RoomMusic(group, room, save);
         PlayMusicIfChanged(music);
     }
 

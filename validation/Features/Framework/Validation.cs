@@ -222,6 +222,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom22ePoe);
         RunIsolatedValidation(ValidateRoom20fCheval);
         RunIsolatedValidation(ValidateRoom179RalphAfterCheval);
+        RunIsolatedValidation(ValidateRoom197RalphAfterRafton);
         RunIsolatedValidation(ValidateRooms21eAnd21fRafton);
         RunIsolatedValidation(ValidateRoom2e6MaskSalesman);
         RunIsolatedValidation(ValidateRoom2f3DepressedBoy);

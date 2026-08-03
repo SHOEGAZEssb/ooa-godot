@@ -50,8 +50,10 @@ foreach ($match in $allTextMatches) {
 # intentionally share one body.
 foreach ($match in [regex]::Matches(
     $textYaml,
-    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)    index:\r?\n(?:    - 0x[0-9a-f]{2}\r?\n)+    text: \|(?:\d+)?-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
-)) {
+    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)' +
+    '    index:\r?\n(?:    - 0x[0-9a-f]{2}\r?\n)+    text: ' +
+    '\|(?:\d+)?-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)' )
+) {
     $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
         if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
     }
@@ -67,6 +69,54 @@ foreach ($match in [regex]::Matches(
         $allTexts[$textId] = $message
         if ($positionMatch.Success) { $allTextPositions[$textId] = [int]$positionMatch.Groups['position'].Value }
     }
+}
+
+# Preserve physical text adjacency for source records that deliberately omit
+# their $00 terminator. Consumers still decide whether execution actually
+# reaches the next record; commands such as \jump can redirect first.
+$textEntryHeaders = [Collections.Generic.List[object]]::new()
+foreach ($match in [regex]::Matches(
+    $textYaml,
+    '(?m)^  - name: TX_(?<id>[0-9a-f]{4})$')) {
+    $textEntryHeaders.Add([pscustomobject]@{
+        Position = $match.Index
+        Id = [Convert]::ToInt32($match.Groups['id'].Value, 16)
+    })
+}
+foreach ($match in [regex]::Matches(
+    $textYaml,
+    '(?ms)^  - name:\r?\n(?<names>(?:    - TX_[0-9a-f]{4}\r?\n)+)')) {
+    $firstName = [regex]::Match(
+        $match.Groups['names'].Value,
+        'TX_(?<id>[0-9a-f]{4})')
+    $textEntryHeaders.Add([pscustomobject]@{
+        Position = $match.Index
+        Id = [Convert]::ToInt32($firstName.Groups['id'].Value, 16)
+    })
+}
+$orderedTextEntryHeaders = @($textEntryHeaders | Sort-Object Position)
+$allTextFallthroughIds = @{}
+for ($index = 0; $index -lt $orderedTextEntryHeaders.Count; $index++) {
+    $entry = $orderedTextEntryHeaders[$index]
+    $entryEnd = if ($index + 1 -lt $orderedTextEntryHeaders.Count) {
+        $orderedTextEntryHeaders[$index + 1].Position
+    } else {
+        $textYaml.Length
+    }
+    $entrySource = $textYaml.Substring(
+        $entry.Position,
+        $entryEnd - $entry.Position)
+    if ($entrySource -notmatch '(?m)^    null_terminator: False\s*$') {
+        continue
+    }
+    if ($index + 1 -ge $orderedTextEntryHeaders.Count) {
+        throw "Unterminated final text TX_$($entry.Id.ToString('x4')) has no successor."
+    }
+    $successor = $orderedTextEntryHeaders[$index + 1]
+    if (($entry.Id -shr 8) -ne ($successor.Id -shr 8)) {
+        throw "Unterminated TX_$($entry.Id.ToString('x4')) crosses its text group boundary."
+    }
+    $allTextFallthroughIds.Add($entry.Id, $successor.Id)
 }
 
 # CROSSITEMS appends symbolic TX_09_* rows with `index: auto`. Resolve those

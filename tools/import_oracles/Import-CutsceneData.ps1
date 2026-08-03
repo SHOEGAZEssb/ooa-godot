@@ -7087,6 +7087,186 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_after_cheval_event.tsv'),
     $ralphAfterChevalEventRows)
 
+# Past room 1:97 Ralph event after giving Rafton the Cheval Rope.
+# INTERAC_RALPH $37:$03 owns an eight-substate native entrance sequence before
+# installing ralphSubid03Script. State 0 does not jump into the state-1 handler,
+# so the first $78 counter decrement occurs on the following object update.
+$ralphAfterRaftonScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$ralphAfterRaftonOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'wait', 'setanimation', 'showtext', 'setspeed', 'moveup',
+    'playsound', 'orroomflag', 'enableinput', 'scriptend')) {
+    [void]$ralphAfterRaftonOpcodes.Add($opcode)
+}
+$ralphAfterRaftonCommands = @(Read-AssemblyCutsceneCommands `
+    $ralphAfterRaftonScriptPath 'ralphSubid03Script' `
+    $ralphAfterRaftonOpcodes 'ralphSubid0bScript')
+$ralphAfterRaftonExpected = @(
+    @('wait', '6'),
+    @('setanimation', '$02'),
+    @('wait', '10'),
+    @('showtext', 'TX_2a0b'),
+    @('wait', '20'),
+    @('setanimation', '$00'),
+    @('wait', '20'),
+    @('showtext', 'TX_2a06'),
+    @('wait', '10'),
+    @('setspeed', 'SPEED_200'),
+    @('moveup', '$44'),
+    @('playsound', 'SNDCTRL_FAST_FADEOUT'),
+    @('wait', '30'),
+    @('orroomflag', '$40'),
+    @('enableinput', ''),
+    @('scriptend', '')
+)
+if ($ralphAfterRaftonCommands.Count -ne $ralphAfterRaftonExpected.Count) {
+    throw "ralphSubid03Script expected 16 commands, parsed $($ralphAfterRaftonCommands.Count)."
+}
+for ($index = 0; $index -lt $ralphAfterRaftonExpected.Count; $index++) {
+    $actualOperands = if ($null -eq $ralphAfterRaftonCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$ralphAfterRaftonCommands[$index].Operands).Trim()
+    }
+    if ($ralphAfterRaftonCommands[$index].Opcode -ne
+            $ralphAfterRaftonExpected[$index][0] -or
+        $actualOperands -ne $ralphAfterRaftonExpected[$index][1]) {
+        throw "ralphSubid03Script command $index changed from " +
+            "$($ralphAfterRaftonExpected[$index][0]) " +
+            "'$($ralphAfterRaftonExpected[$index][1])' to " +
+            "$($ralphAfterRaftonCommands[$index].Opcode) '$actualOperands'."
+    }
+}
+
+$ralphAfterRaftonNativeSource = Read-ImportText (Join-Path $Disassembly `
+    'object_code\ages\interactions\ralph.s')
+$ralphAfterRaftonInteractionDataSource = Read-ImportText (Join-Path $Disassembly `
+    'data\ages\interactionData.s')
+$ralphAfterRaftonGlobalFlagSource = Read-ImportText (Join-Path $Disassembly `
+    'constants\common\globalFlags.s')
+if ($ralphAfterRaftonNativeSource -notmatch
+        '(?ms)^@initSubid03:\s+ld a,GLOBALFLAG_GAVE_ROPE_TO_RAFTON\s+call checkGlobalFlag\s+jp z,interactionDelete\s+call getThisRoomFlags\s+bit 6,a\s+jp nz,interactionDelete.*?ld a,\$01\s+ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a\s+ld a,\$03\s+call interactionSetAnimation.*?Interaction\.counter1\s+ld \(hl\),\$78\s+ld l,Interaction\.direction\s+ld \(hl\),\$01\s+jp objectSetVisiblec2' -or
+    $ralphAfterRaftonNativeSource -notmatch
+        '(?ms)^ralphSubid03:.*?\.dw @substate0.*?\.dw @substate8.*?^@substate0:\s+call interactionDecCounter1\s+jr nz,\+\+\s+ld \(hl\),\$1e\s+ld a,\$02\s+call interactionSetAnimation\s+jp interactionIncSubstate.*?wFrameCounter.*?and \$0f.*?Interaction\.direction.*?xor \$02.*?interactionSetAnimation.*?^@substate1:\s+call interactionDecCounter1\s+ret nz\s+call interactionIncSubstate\s+jp startJump.*?^@substate2:\s+call interactionAnimate\s+ld c,\$20\s+call objectUpdateSpeedZ_paramC\s+ret nz\s+call interactionIncSubstate\s+ld l,Interaction\.counter1\s+ld \(hl\),\$0a' -or
+    $ralphAfterRaftonNativeSource -notmatch
+        '(?ms)^@substate3:\s+call interactionDecCounter1\s+ret nz\s+ld \(hl\),\$1e\s+call interactionIncSubstate\s+ld bc,TX_2a0a\s+jp showText.*?^@substate4:\s+call interactionDecCounter1IfTextNotActive\s+ret nz\s+ld \(hl\),\$30\s+call interactionIncSubstate.*?Interaction\.angle\s+ld \(hl\),\$10.*?Interaction\.speed\s+ld \(hl\),SPEED_100\s+ld a,\$02\s+jp interactionSetAnimation.*?^@substate5:\s+call interactionAnimate2Times\s+call interactionDecCounter1\s+jp nz,objectApplySpeed\s+ld \(hl\),\$06\s+jp interactionIncSubstate' -or
+    $ralphAfterRaftonNativeSource -notmatch
+        '(?ms)^@substate6:\s+call interactionDecCounter1\s+ret nz\s+ld \(hl\),\$0a.*?w1Link\.xh.*?Interaction\.xh\s+sub \(hl\)\s+jr z,@startScript\s+jr c,@@moveLeft.*?ld b,\$08\s+ld c,DIR_RIGHT.*?cpl\s+inc a\s+ld b,\$18\s+ld c,DIR_LEFT.*?Interaction\.counter1\s+ld \(hl\),a.*?Interaction\.angle\s+ld \(hl\),b\s+ld a,c\s+jp interactionSetAnimation.*?^@substate7:\s+call interactionAnimate2Times\s+call interactionDecCounter1\s+jp nz,objectApplySpeed\s*^@startScript:\s+call interactionIncSubstate\s+ld hl,mainScripts\.ralphSubid03Script\s+jp interactionSetScript.*?^@substate8:\s+call ralphAnimateBasedOnSpeedAndRunScript\s+ret nc\s+ld a,MUS_OVERWORLD_PAST\s+ld \(wActiveMusic2\),a\s+ld \(wActiveMusic\),a\s+call playSound\s+jp interactionDelete' -or
+    $ralphAfterRaftonNativeSource -notmatch
+        '(?ms)^startJump:\s+ld bc,-\$1c0\s+call objectSetSpeedZ\s+ld a,SND_JUMP\s+jp playSound' -or
+    $ralphAfterRaftonInteractionDataSource -notmatch
+        '(?m)^\s*/\* \$37 \*/ m_InteractionData \$24 \$00 \$12\s*$' -or
+    $ralphAfterRaftonGlobalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_GAVE_ROPE_TO_RAFTON\s+db ; \$15\s*$' -or
+    $musicConstantSource -notmatch
+        '(?m)^\.define SNDCTRL_FAST_FADEOUT\s+\$fa\s*$' -or
+    $mainObjectSource -notmatch
+        '(?ms)^group1Map97ObjectData:\s+obj_Interaction \$37 \$03 \$38 \$38\s+obj_End') {
+    throw 'Room 1:97 INTERAC_RALPH $37:$03 predicate, native substates, placement, or graphics data changed.'
+}
+
+$ralphAfterRaftonAnimations = @(0..3 | ForEach-Object {
+    Resolve-NpcAnimation 0x37 $_
+})
+$ralphAfterRaftonGraphic = $interactionGraphics['55:16']
+if ($null -eq $ralphAfterRaftonGraphic) {
+    $ralphAfterRaftonGraphic = $interactionGraphics['55:0']
+}
+if (($ralphAfterRaftonAnimations | Where-Object {
+            [string]::IsNullOrWhiteSpace($_)
+        }).Count -ne 0 -or
+    $null -eq $ralphAfterRaftonGraphic -or
+    -not $gfxNames.ContainsKey($ralphAfterRaftonGraphic.Gfx) -or
+    $gfxNames[$ralphAfterRaftonGraphic.Gfx] -ne 'spr_ralph_1' -or
+    $ralphAfterRaftonGraphic.TileBase -ne 0 -or
+    $ralphAfterRaftonGraphic.Palette -ne 1 -or
+    $ralphAfterRaftonGraphic.DefaultAnimation -ne 2) {
+    throw 'Could not resolve INTERAC_RALPH $37:$03 graphics or animations $00-$03.'
+}
+foreach ($textId in @(0x2a0a, 0x2a0b, 0x2a06)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Ralph-after-Rafton text TX_$($textId.ToString('x4'))."
+    }
+}
+$ralphAfterRaftonSpeed100 = Resolve-ObjectSpeed '100'
+$ralphAfterRaftonSpeed200 = Resolve-ObjectSpeed '200'
+$ralphAfterRaftonJumpSound = Resolve-SoundConstant 'SND_JUMP'
+$ralphAfterRaftonFadeSound = 0xfa
+$ralphAfterRaftonCompletionMusic = Resolve-SoundConstant 'MUS_OVERWORLD_PAST'
+if ($ralphAfterRaftonSpeed100 -ne 0x28 -or
+    $ralphAfterRaftonSpeed200 -ne 0x50 -or
+    $ralphAfterRaftonJumpSound -ne 0x53 -or
+    $ralphAfterRaftonFadeSound -ne 0xfa -or
+    $ralphAfterRaftonCompletionMusic -ne 0x04) {
+    throw 'Ralph-after-Rafton speed, jump, fade, or completion-music constants changed.'
+}
+
+$ralphAfterRaftonCommandRows = [Collections.Generic.List[string]]::new()
+$ralphAfterRaftonCommandRows.Add($cutsceneCommandHeader)
+foreach ($command in $ralphAfterRaftonCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'wait' { $arg0 = $command.Operands }
+        'setanimation' {
+            if ($command.Operands -notmatch '^\$(?<animation>00|02)$') {
+                throw "Unexpected Ralph-after-Rafton animation '$($command.Operands)'."
+            }
+            $actor = 'Ralph'
+            $arg0 = $Matches['animation']
+            $payload = $ralphAfterRaftonAnimations[
+                [Convert]::ToInt32($Matches['animation'], 16)]
+        }
+        'showtext' {
+            if ($command.Operands -notmatch '^TX_(?<text>[0-9a-f]{4})$') {
+                throw "Malformed Ralph-after-Rafton text '$($command.Operands)'."
+            }
+            $textId = [Convert]::ToInt32($Matches['text'], 16)
+            $arg0 = $Matches['text']
+            $payload = $allTexts[$textId]
+        }
+        'setspeed' {
+            $actor = 'Ralph'
+            $arg0 = $ralphAfterRaftonSpeed200.ToString('x2')
+        }
+        'moveup' {
+            if ($command.Operands -notmatch '^\$(?<counter>[0-9a-f]{2})$') {
+                throw "Malformed Ralph-after-Rafton movement '$($command.Operands)'."
+            }
+            $opcode = 'move'; $actor = 'Ralph'; $arg0 = '00'
+            $arg1 = $Matches['counter']; $payload = $ralphAfterRaftonAnimations[0]
+        }
+        'playsound' { $arg0 = $ralphAfterRaftonFadeSound.ToString('x2') }
+        'orroomflag' { $arg0 = '40' }
+    }
+    $ralphAfterRaftonCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor $arg0 $arg1 $payload))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ralph_after_rafton_commands.tsv'),
+    $ralphAfterRaftonCommandRows)
+
+$ralphAfterRaftonEventRows = @(
+    "# group`troom`tid`tsubid`tsprite`ttile-base`tpalette`tanimation0`tanimation1`tanimation2`tanimation3`tdefault-animation`tinitial-animation`tinitial-direction`troom-flag`trequired-global-flag`tdisabled-objects`tmenu-disabled`tlook-counter`tlook-frame-mask`tlook-direction-xor`tpost-look-wait`tjump-speed-z`tjump-gravity`tjump-sound`tlanding-wait`tnative-text-id`tnative-text-base64`tpost-text-wait`tapproach-counter`tspeed-100`tdown-angle`talign-wait`tspeed-200`texit-counter`tfade-sound`tcompletion-music`tinitial-native-updates"
+    (@(
+        '1', '97', '37', '03', 'spr_ralph_1', '00', '01',
+        $ralphAfterRaftonAnimations[0], $ralphAfterRaftonAnimations[1],
+        $ralphAfterRaftonAnimations[2], $ralphAfterRaftonAnimations[3],
+        '02', '03', '01', '40', '15', '01', '01', '78', '0f', '02',
+        '1e', '-448', '20', '53', '0a', '2a0a',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x2a0a]),
+        '1e', '30', '28', '10', '06', '50', '44', 'fa', '04', '0'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ralph_after_rafton_event.tsv'),
+    $ralphAfterRaftonEventRows)
+
 # Rooms 2:1e and 2:1f Rafton sequence. The left-hand interaction chooses one
 # of five source behaviours from D2/rope/global/chart state and eventually
 # walks into the right room. The right-hand interaction owns the post-D3
@@ -7365,6 +7545,21 @@ foreach ($textId in $raftonTextIds) {
         throw "Could not resolve Rafton text TX_$($textId.ToString('x4'))."
     }
 }
+if (-not $allTextFallthroughIds.ContainsKey(0x2705) -or
+    $allTextFallthroughIds[0x2705] -ne 0x2706 -or
+    -not $allTexts[0x2705].EndsWith('\n', [StringComparison]::Ordinal)) {
+    throw 'Rafton TX_2705 no longer falls through its trailing newline into TX_2706.'
+}
+$raftonTexts = @{}
+foreach ($textId in $raftonTextIds) {
+    $raftonTexts[$textId] = $allTexts[$textId]
+}
+# TX_2705 has no $00 terminator. Resolve its final newline command before
+# adjoining TX_2706 so the dialogue parser cannot read "\nI" as one command.
+$raftonText2705 = $allTexts[0x2705]
+$raftonTexts[0x2705] =
+    $raftonText2705.Substring(0, $raftonText2705.Length - 2) +
+    "`n" + $allTexts[0x2706]
 $raftonReward = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_0a']
 if ($null -eq $raftonReward -or
     $raftonReward.Treasure -ne 0x41 -or
@@ -7379,7 +7574,7 @@ $raftonTextRows = [Collections.Generic.List[string]]::new()
 $raftonTextRows.Add("# id`ttext-base64")
 foreach ($textId in $raftonTextIds) {
     $raftonTextRows.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))")
+        [Text.Encoding]::UTF8.GetBytes($raftonTexts[$textId])))")
 }
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\rafton_text.tsv'),
@@ -7442,7 +7637,7 @@ $newRaftonCommandRows = {
                 $textId = [Convert]::ToInt32($Matches['id'], 16)
                 $opcode = 'showtext'
                 $arg0 = $Matches['id']
-                $payload = $allTexts[$textId]
+                $payload = $raftonTexts[$textId]
             }
             'setanimation' {
                 if ($command.Operands -ne 'DIR_DOWN') {

@@ -19,6 +19,7 @@ public sealed class RoomEventController
     private readonly MaskSalesmanEvent _maskSalesman;
     private readonly ChevalEvent _cheval;
     private readonly RalphAfterChevalEvent _ralphAfterCheval;
+    private readonly RalphAfterRaftonEvent _ralphAfterRafton;
     private readonly RaftonEvent _rafton;
     private readonly DepressedBoyEvent _depressedBoy;
     private readonly ToiletHandEvent _toiletHand;
@@ -92,6 +93,7 @@ public sealed class RoomEventController
         _maskSalesman = new MaskSalesmanEvent(_context);
         _cheval = new ChevalEvent(_context);
         _ralphAfterCheval = new RalphAfterChevalEvent(_context);
+        _ralphAfterRafton = new RalphAfterRaftonEvent(_context);
         _rafton = new RaftonEvent(_context);
         _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
@@ -146,6 +148,7 @@ public sealed class RoomEventController
             _maskSalesman,
             _cheval,
             _ralphAfterCheval,
+            _ralphAfterRafton,
             _rafton,
             _depressedBoy,
             _toiletHand,
@@ -258,6 +261,7 @@ public sealed class RoomEventController
     internal MaskSalesmanEvent MaskSalesman => _maskSalesman;
     internal ChevalEvent Cheval => _cheval;
     internal RalphAfterChevalEvent RalphAfterCheval => _ralphAfterCheval;
+    internal RalphAfterRaftonEvent RalphAfterRafton => _ralphAfterRafton;
     internal RaftonEvent Rafton => _rafton;
     internal DepressedBoyEvent DepressedBoy => _depressedBoy;
     internal ToiletHandEvent ToiletHand => _toiletHand;
@@ -317,6 +321,7 @@ public sealed class RoomEventController
     internal bool MenusDisabled =>
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||
+        _ralphAfterRafton.MenusDisabled ||
         _dekuForestSoldier.MenusDisabled ||
         _dekuForestPalace.MenusDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink

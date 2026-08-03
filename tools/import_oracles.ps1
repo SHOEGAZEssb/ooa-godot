@@ -76,7 +76,7 @@ $stageContracts = @(
         -inputs @('textYaml') `
         -outputs @(
             'npcInteractionIds', 'allTexts', 'allTextPositions', 'allTextIdsByName',
-            'objectGfxHeaderSource') `
+            'allTextFallthroughIds', 'objectGfxHeaderSource') `
         -functionInputs @('Normalize-DialogueText')
     New-ImportStageContract 'map-and-items' 'Import-MapAndItemData.ps1' `
         -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts') `
@@ -105,7 +105,8 @@ $stageContracts = @(
             'npcAnimationDefinitions', 'npcAnimationTables', 'npcOamBlocks')
     New-ImportStageContract 'cutscenes' 'Import-CutsceneData.ps1' `
         -inputs @(
-            'allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues',
+            'allTextFallthroughIds', 'allTextPositions', 'allTexts', 'gfxNames',
+            'globalFlagValues',
             'interactionAnimationSource', 'interactionGraphics',
             'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
             'nayruScriptSource', 'npcAnimationTables', 'npcRows',
@@ -147,7 +148,8 @@ $stageContracts = @(
     New-ImportStageContract 'wing-dungeon' 'Import-WingDungeon.ps1' `
         -inputs @('allTexts', 'mainObjectSource')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1'
-    New-ImportStageContract 'audio' 'Import-AudioData.ps1'
+    New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
+        -inputs @('globalFlagValues')
     New-ImportStageContract 'manifest' 'Write-GeneratedTableManifest.ps1'
 )
 

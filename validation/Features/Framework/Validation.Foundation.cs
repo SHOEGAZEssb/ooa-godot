@@ -832,6 +832,12 @@ public sealed partial class ValidationRoot
     private void ValidateSoundEngine()
     {
         var data = new OracleSoundData();
+        OracleSaveData roomMusicSave = OracleSaveData.CreateStandardGame();
+        roomMusicSave.SetGlobalFlag(0x15);
+        roomMusicSave.SetRoomFlag(1, 0x97, OracleSaveData.RoomFlag40, value: false);
+        int pendingRalphMusic = data.RoomMusic(1, 0x97, roomMusicSave);
+        roomMusicSave.SetRoomFlag(1, 0x97, OracleSaveData.RoomFlag40);
+        int completedRalphMusic = data.RoomMusic(1, 0x97, roomMusicSave);
         ChannelStart[] title = data.ChannelsFor(
             OracleSoundEngine.MusTitlescreen).ToArray();
         ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
@@ -871,10 +877,13 @@ public sealed partial class ValidationRoot
             data.RoomMusic(0, 0x38) != 0x1e ||
             data.RoomMusic(0, 0x49) != OracleSoundEngine.MusOverworld ||
             data.RoomMusic(1, 0x11) != 0x04 ||
+            pendingRalphMusic != OracleSoundEngine.MusRalph ||
+            completedRalphMusic != data.RoomMusic(1, 0x97) ||
             !data.TryGetNoise(0x24, out NoiseRecord noise) ||
             noise.Envelope != 0x01 || noise.Frequency != 0x47 ||
             data.WaveSample(0x0e, 0) >= data.WaveSample(0x0e, 16),
-            "Imported sound pointers, frequencies, room assignments, waveforms, or noise table diverged.");
+            "Imported sound pointers, frequencies, conditional room assignments, " +
+            "waveforms, or noise table diverged.");
 
         float pulseFrequency = OracleSoundEngine.ToneFrequencyForValidation(0, 0x05ce);
         float waveFrequency = OracleSoundEngine.ToneFrequencyForValidation(4, 0x05ce);
