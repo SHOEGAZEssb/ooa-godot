@@ -27,8 +27,8 @@ public partial class DialogueBox : Node2D
     private static readonly string[] AdjacentTextCommandNames =
     {
         "heartpiece", "rectangle", "triangle", "diamond", "circle",
-        "spade", "heart", "times", "right", "left", "down", "club",
-        "abtn", "bbtn", "up"
+        "spade", "heart", "times", "right", "left", "down", "link",
+        "club", "abtn", "bbtn", "up"
     };
 
     // textbox.s:@textColorData selects either the common background palette 0
@@ -81,6 +81,7 @@ public partial class DialogueBox : Node2D
     private Action<int> _playSound = static _ => { };
     private Action<bool> _alternatePalettePriorityChanged = static _ => { };
     private Func<int> _heartPieceCount = static () => 0;
+    private Func<string> _linkName = static () => "Link";
     private Func<int, int, Color> _backgroundPaletteColor =
         static (_, shade) =>
         {
@@ -159,6 +160,12 @@ public partial class DialogueBox : Node2D
         _heartPieceCount = heartPieceCount;
     }
 
+    internal void SetLinkNameProvider(Func<string> linkName)
+    {
+        ArgumentNullException.ThrowIfNull(linkName);
+        _linkName = linkName;
+    }
+
     internal void SetBackgroundPaletteProvider(
         Func<int, int, Color> backgroundPaletteColor)
     {
@@ -234,6 +241,14 @@ public partial class DialogueBox : Node2D
                 $"{string.Join(", ", unresolved)} in " +
                 $"'{message.Replace('\n', ' ')}'.");
         }
+        // Text control $0a:$00 reads wLinkName when the original textbox
+        // reaches it. Resolve from the provider for each newly opened message
+        // so OracleSaveData remains the sole owner of the entered name.
+        message = Regex.Replace(
+            message,
+            @"\\link",
+            _ => _linkName(),
+            RegexOptions.IgnoreCase);
         _segments.Clear();
         _segments.AddRange(ParseMessage(message, out bool slowdownRequested));
         if (ContainsTradeItemGlyph())
@@ -635,9 +650,19 @@ public partial class DialogueBox : Node2D
         return count;
     }
 
-    internal static string PlainText(string message)
+    internal static string PlainText(string message) =>
+        PlainText(message, "Link");
+
+    internal static string PlainText(string message, string linkName)
     {
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(linkName);
         string text = message.Replace("\r", string.Empty);
+        text = Regex.Replace(
+            text,
+            @"\\link",
+            _ => linkName,
+            RegexOptions.IgnoreCase);
         text = text.Replace("\\sym(0x1c)", "♪", StringComparison.OrdinalIgnoreCase);
         text = text.Replace("\\sym(0x57)", "▲", StringComparison.OrdinalIgnoreCase);
         text = text.Replace("\\left", "←", StringComparison.Ordinal);
@@ -1308,7 +1333,7 @@ public partial class DialogueBox : Node2D
         "diamond" or "spade" or "heart" or "heartpiece" or "up" or
         "down" or "left" or "right" or "times" or "triangle" or
         "rectangle" or "abtn" or "bbtn" or "n" or "opt" or "sfx" or
-        "charsfx" or "pos" or "slow" or "speed" or "wait" => true,
+        "charsfx" or "pos" or "slow" or "speed" or "wait" or "link" => true,
         _ => TryParseHexByteEscape(name, out _)
     };
 

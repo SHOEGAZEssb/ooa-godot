@@ -328,6 +328,8 @@ Write-GeneratedBytes(
 # Preserve visible symbols as UTF-8 while retaining commands whose behavior is
 # owned by DialogueBox. In particular, \col and \stop must survive import so
 # the runtime can apply their original inline palette and page-break behavior.
+# \Link is control $0a:$00 and likewise remains symbolic so the textbox reads
+# the live wLinkName value when it opens.
 function Normalize-DialogueText([string]$text) {
     $text = $text.Replace('\left', [string][char]0x2190)
     $text = $text.Replace('\right', [string][char]0x2192)
@@ -335,7 +337,6 @@ function Normalize-DialogueText([string]$text) {
     $text = $text.Replace('\down', [string][char]0x2193)
     $text = $text.Replace('\sym(0x1c)', [string][char]0x266a)
     $text = $text.Replace('\sym(0x57)', [string][char]0x25b2)
-    $text = $text.Replace('\Link', 'Link')
     return [regex]::Replace($text, '\\pos\([^)]*\)', '')
 }
 

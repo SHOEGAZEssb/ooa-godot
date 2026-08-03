@@ -224,6 +224,8 @@ public partial class GameRoot : Node2D
             AddChild(_newGameIntroScreen);
             _newGameIntroScreen.Dialogue.ApplicationUpdateOwned = true;
             _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
+            _newGameIntroScreen.Dialogue.SetLinkNameProvider(
+                () => save.LinkName);
             _newGameIntro = new NewGameIntroController(
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
@@ -354,6 +356,7 @@ public partial class GameRoot : Node2D
         _dialogue.ApplicationUpdateOwned = true;
         _player.ApplicationUpdateOwned = true;
         _dialogue.SetSoundPlayer(_sound.PlaySound);
+        _dialogue.SetLinkNameProvider(() => _saveData.LinkName);
         _dialogue.SetBackgroundPaletteState(_rooms.World.BackgroundPalettes);
         _dialogue.SetAlternatePalettePriorityHandler(
             _player.SetAlternateTextboxPalettePriority);
@@ -1056,7 +1059,12 @@ public partial class GameRoot : Node2D
         _sound.SetMusicVolume(3);
 
         _random = new OracleRandom();
-        InitializeGameplay(OracleSaveData.CreateStandardGame());
+        OracleSaveData validationSave = OracleSaveData.CreateStandardGame();
+        // Retail gameplay is reached only after file naming. Keep isolated
+        // scenarios in that valid state while individual name tests may
+        // replace this value with another one-to-five-character name.
+        validationSave.SetLinkName("Link");
+        InitializeGameplay(validationSave);
     }
 
     private void ApplyRoomMusic(int group, OracleRoomData room)

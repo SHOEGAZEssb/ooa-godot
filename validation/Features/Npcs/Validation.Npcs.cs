@@ -65,6 +65,23 @@ public sealed partial class ValidationRoot
         FailIf(
             _dialogue.VisibleLinesPerPage != 2 || _dialogue.TextLineSpacing != 16,
             "The textbox does not use the original two 8x16 text rows.");
+
+        _saveData.SetLinkName("Rin");
+        string namedDialogue = new NayruIntroEventDatabase()
+            .Text(0x2a00).Message;
+        FailIf(
+            !namedDialogue.Contains("\\Link", StringComparison.Ordinal),
+            "Imported TX_2a00 replaced text control $0a:$00 with a literal name.");
+        _dialogue.ShowMessage(namedDialogue, _player.Position.Y);
+        FailIf(
+            !_dialogue.CurrentMessage.Contains(
+                "Impa and Rin,\nright?", StringComparison.Ordinal) ||
+            _dialogue.CurrentMessage.Contains(
+                "Impa and Link,", StringComparison.Ordinal),
+            "Text control $0a:$00 did not read OracleSaveData.LinkName when " +
+            "TX_2a00 opened.");
+        _dialogue.Close();
+
         FailIf(
             _currentRoom.GetMetatile(new Vector2(88, 58)) != 0xf2,
             "Expected sign metatile $f2 in room 2a at $35.");
@@ -313,7 +330,8 @@ public sealed partial class ValidationRoot
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(_dialogue.IsOpen, "The final textbox press immediately restarted the interaction.");
 
-        GD.Print("Validated generated dialogue command coverage, source $78 slowdown, " +
+        GD.Print("Validated generated dialogue command coverage, live wLinkName substitution, " +
+            "source $78 slowdown, " +
             "adjacent heart/byte controls, save-selected 7/5/4/3/2-update dialogue speed, white default " +
             "text, four-update SND_TEXT/inline voice cues, SND_TEXT_2 continuation, " +
             "choice sounds, colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
