@@ -26,7 +26,11 @@ internal sealed class TopDownAirDatabase
             Constant("animation-phase-0"),
             Constant("animation-phase-1"),
             Constant("animation-phase-2")
-        ]);
+        ],
+        CompanionJumpSpeedRaw: Constant("companion-jump-speed-raw"),
+        CompanionJumpSpeedZ: Constant("companion-jump-speed-z"),
+        CompanionDismountZ: Constant("companion-dismount-z"),
+        CompanionDismountAngle: Constant("companion-dismount-angle"));
 
     private TopDownAirDatabase()
     {
@@ -42,7 +46,7 @@ internal sealed class TopDownAirDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         TopDownAirParameters parameters = Parameters;
-        if (_constants.Count != 10 ||
+        if (_constants.Count != 14 ||
             parameters.Gravity != 0x20 ||
             parameters.ReducedGravity != 0x0a ||
             parameters.MaximumFallSpeed != 0x0300 ||
@@ -50,6 +54,10 @@ internal sealed class TopDownAirDatabase
             parameters.HoleStandingCounter != 4 ||
             parameters.JumpSound != OracleSoundEngine.SndJump ||
             parameters.LandSound != OracleSoundEngine.SndLand ||
+            parameters.CompanionJumpSpeedRaw != 0x14 ||
+            parameters.CompanionJumpSpeedZ != -0x01c0 ||
+            parameters.CompanionDismountZ != -8 ||
+            parameters.CompanionDismountAngle != 0xff ||
             !parameters.AnimationPhaseDurations.AsSpan().SequenceEqual(
                 [9, 9, 6]))
         {
@@ -73,4 +81,8 @@ internal readonly record struct TopDownAirParameters(
     int HoleStandingCounter,
     int JumpSound,
     int LandSound,
-    int[] AnimationPhaseDurations);
+    int[] AnimationPhaseDurations,
+    int CompanionJumpSpeedRaw,
+    int CompanionJumpSpeedZ,
+    int CompanionDismountZ,
+    int CompanionDismountAngle);

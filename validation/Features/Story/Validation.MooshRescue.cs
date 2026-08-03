@@ -103,76 +103,6 @@ public sealed partial class ValidationRoot
                     !data.IsSolid(sample);
             });
 
-        int DismountTravelUpdates()
-        {
-            TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
-            int zFixed = -8 << 8;
-            int speedZ = -0x01c0;
-            for (int update = 1; update < 120; update++)
-            {
-                if (OracleObjectMath.UpdateSpeedZ(
-                        ref zFixed, ref speedZ, parameters.Gravity))
-                {
-                    return update;
-                }
-                if (speedZ > parameters.MaximumFallSpeed)
-                    speedZ = parameters.MaximumFallSpeed;
-            }
-            throw new InvalidOperationException(
-                "The companion dismount arc did not land within 120 updates.");
-        }
-
-        bool TryFindWallDismount(
-            out int wallGroup,
-            out int wallRoom,
-            out Vector2 start,
-            out int direction,
-            out Vector2 rawLanding)
-        {
-            int travelUpdates = DismountTravelUpdates();
-            for (int candidateRoom = 0; candidateRoom <= 0xff; candidateRoom++)
-            {
-                if (candidateRoom == room ||
-                    !_world.HasRoom(group, candidateRoom))
-                {
-                    continue;
-                }
-                OracleRoomData data = _world.LoadRoom(group, candidateRoom);
-                for (int y = 9; y < data.Height - 9; y++)
-                for (int x = 7; x < data.Width - 7; x++)
-                {
-                    var candidate = new Vector2(x, y);
-                    if (!MooshCanOccupy(data, candidate))
-                        continue;
-                    for (int candidateDirection = 0;
-                        candidateDirection < 4;
-                        candidateDirection++)
-                    {
-                        Vector2 endpoint = candidate +
-                            OracleObjectMovement.Shared.Delta(
-                                0x14, candidateDirection * 8) * travelUpdates;
-                        if (endpoint.X < 8 || endpoint.X >= data.Width - 8 ||
-                            endpoint.Y < 8 || endpoint.Y >= data.Height - 8 ||
-                            !RoomCollides(data, endpoint))
-                        {
-                            continue;
-                        }
-                        wallGroup = group;
-                        wallRoom = candidateRoom;
-                        start = candidate;
-                        direction = candidateDirection;
-                        rawLanding = endpoint;
-                        return true;
-                    }
-                }
-            }
-            wallGroup = -1;
-            wallRoom = -1;
-            start = Vector2.Zero;
-            direction = -1;
-            rawLanding = Vector2.Zero;
-            return false;
-        }
 
         bool TryFindMooshHole(
             out int holeGroup,
@@ -476,13 +406,46 @@ public sealed partial class ValidationRoot
             $"hash={companion.LinkTexturePixelHash:x16}, " +
             $"offset={companion.LinkTextureOffset}).");
 
-        _dialogue.Close();
         int equippedA = _inventory.EquippedA;
         _inventory.EquipA(InventoryState.ItemFeather);
-        Input.ActionPress("attack");
-        _player._PhysicsProcess(1.0 / 60.0);
-        StepRoomEventFrames(1);
-        Input.ActionRelease("attack");
+        int tutorialJumpSounds = _sound.PlayRequestsFor(record.JumpSound);
+        int textAdvanceGuard = 0;
+        while (_dialogue.HasNextMessage && textAdvanceGuard++ < 16)
+        {
+            _dialogue.RevealCurrentPageForValidation();
+            _dialogue.AdvanceOrClose();
+            _dialogue.AdvanceTextScrollForValidation(3.0 / 60.0);
+        }
+        _dialogue.RevealCurrentPageForValidation();
+
+        // The close edge belongs to the textbox update. The following held
+        // update has no wGameKeysJustPressed edge and must not become either
+        // Moosh's jump or Link's equipped Roc's Feather action.
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: ["attack"],
+            closeDialogue: true);
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: []);
+        FailIf(
+            _dialogue.IsOpen || !_dialogue.BlocksPlayerInput ||
+            companion.Phase != MooshCompanionPhase.Riding ||
+            _player.TopDownAirborne ||
+            _sound.PlayRequestsFor(record.JumpSound) != tutorialJumpSounds,
+            "The A press which closed TX_2205 leaked through the textbox " +
+            "input lease into Moosh's wGameKeysJustPressed jump or Link's " +
+            "equipped Roc's Feather action.");
+        StepMooshApplicationInput(pressed: [], justPressed: []);
+        FailIf(
+            _dialogue.BlocksPlayerInput ||
+            companion.Phase != MooshCompanionPhase.Riding,
+            "TX_2205 did not release its closing-input lease after A was released.");
+
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: ["attack"]);
+        StepMooshApplicationInput(pressed: [], justPressed: []);
         _inventory.EquipA(equippedA);
         FailIf(
             companion.Phase != MooshCompanionPhase.Airborne ||
@@ -492,8 +455,8 @@ public sealed partial class ValidationRoot
                 companion.LinkTexturePixelHash ||
             !rescue.CompanionMounted || rescue.HasState ||
             rescue.ScreenTransitionsDisabled,
-            "Closing TX_2205 while pressing A with Roc's Feather equipped " +
-            "did not keep SPECIALOBJECT_LINK_RIDING_ANIMAL's imported frame " +
+            "A fresh post-TX_2205 A edge with Roc's Feather equipped did not " +
+            "keep SPECIALOBJECT_LINK_RIDING_ANIMAL's imported frame " +
             "authoritative through Moosh's airborne state, or did not clear " +
             "the rescue script and wDisableScreenTransitions.");
         for (int frame = 0; frame < 90 &&
@@ -569,16 +532,16 @@ public sealed partial class ValidationRoot
         Input.ActionRelease("move_right");
 
         int jumpSounds = _sound.PlayRequestsFor(record.JumpSound);
-        Input.ActionPress("attack");
-        StepRoomEventFrames(1);
-        Input.ActionRelease("attack");
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: ["attack"]);
         FailIf(
             companion.Phase != MooshCompanionPhase.Airborne ||
             companion.SpeedZ != 0 || companion.AnimationIndex != 0x14 ||
             _sound.PlayRequestsFor(record.JumpSound) != jumpSounds + 1,
             "Moosh's A press did not enter state `$08/substate `$00 with " +
             "SND_JUMP while retaining the riding frame for that update.");
-        StepRoomEventFrames(1);
+        StepMooshApplicationInput(pressed: [], justPressed: []);
         FailIf(
             companion.SpeedZ != -0x140 || companion.AnimationIndex != 0x0a ||
             companion.LinkAnimationParameter != 0x24,
@@ -618,6 +581,9 @@ public sealed partial class ValidationRoot
             $"flaps={companion.FlapCount}).");
 
         Vector2 dismountStart = companion.Position;
+        RememberedCompanion rememberedBeforeDismount =
+            CompanionRuntimeState.ReadRemembered(_runtimeState);
+        Vector2 localRespawnBeforeDismount = _player.LocalRespawnPosition;
         int dismountJumpSounds =
             _sound.PlayRequestsFor(record.JumpSound);
         int dismountLandSounds =
@@ -627,7 +593,31 @@ public sealed partial class ValidationRoot
             "Mounted Moosh rejected the B-button dismount action.");
         FailIf(
             companion.Phase != MooshCompanionPhase.Dismounting ||
+            _player.CompanionJumpActive ||
+            !_player.CompanionRideActive ||
+            !CompanionRuntimeState.IsActive(
+                _runtimeState, CompanionRuntimeState.MooshId) ||
+            CompanionRuntimeState.ReadRemembered(_runtimeState) !=
+                rememberedBeforeDismount ||
+            _player.LocalRespawnPosition != localRespawnBeforeDismount,
+            "The mounted B-button update did not exclusively enter Moosh " +
+            "state $06/substate $00.");
+
+        StepRoomEventFrames(1);
+        Vector2I expectedRespawnFacing = companion.Direction switch
+        {
+            0 => Vector2I.Up,
+            1 => Vector2I.Right,
+            2 => Vector2I.Down,
+            _ => Vector2I.Left
+        };
+        FailIf(
+            companion.Phase != MooshCompanionPhase.Dismounting ||
             !_player.CompanionJumpActive ||
+            _player.CompanionRideActive ||
+            _player.PrecisePosition != dismountStart ||
+            _player.TopDownAirZ != -8 ||
+            _player.TopDownAirSpeedZ != -0x01c0 ||
             CompanionRuntimeState.IsActive(
                 _runtimeState, CompanionRuntimeState.MooshId) ||
             !CompanionRuntimeState.TryGetRemembered(
@@ -636,37 +626,69 @@ public sealed partial class ValidationRoot
                 group,
                 room,
                 out Vector2 remembered) ||
-            remembered != companion.Position,
-            "B did not dismount Moosh and write the live remembered-companion " +
-            "ID/group/room/Y/X fields.");
+            remembered != companion.Position ||
+            _player.LocalRespawnPosition != dismountStart ||
+            _player.LocalRespawnFacingVector != expectedRespawnFacing ||
+            _sound.PlayRequestsFor(record.JumpSound) != dismountJumpSounds,
+            "Moosh state $06/substate $00 did not copy position, set zh=$f8/" +
+            "speedZ=-$01c0, save both local anchors, or defer SND_JUMP.");
+
         _player._PhysicsProcess(1.0 / 60.0);
-        StepRoomEventFrames(1);
-        Vector2 expectedFirstDismountPosition = dismountStart +
-            OracleObjectMovement.Shared.Delta(0x14, companion.Direction * 8);
         FailIf(
-            _player.PrecisePosition != expectedFirstDismountPosition ||
+            _player.PrecisePosition != dismountStart ||
+            _player.TopDownAirZ != -10 ||
+            _player.TopDownAirSpeedZ != -0x01a0 ||
             _sound.PlayRequestsFor(record.JumpSound) !=
                 dismountJumpSounds + 1,
-            "companionDismount did not play SND_JUMP and apply its first " +
-            "directional SPEED_80 update from Moosh's copied position.");
+            "Link's first post-dismount air update did not remain at Moosh's " +
+            "copied Y/X while applying gravity and SND_JUMP.");
+        StepRoomEventFrames(1);
         for (int frame = 0; frame < 90 && _player.CompanionJumpActive; frame++)
         {
             _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
         FailIf(
-            companion.Phase != MooshCompanionPhase.AwaitingDistance ||
-            LinkMooshManhattanDistance(companion) < 9 ||
+            companion.Phase != MooshCompanionPhase.Dismounting ||
+            _player.PrecisePosition != dismountStart ||
+            LinkMooshManhattanDistance(companion) != 0 ||
             _sound.PlayRequestsFor(
                 TopDownAirDatabase.Shared.Parameters.LandSound) !=
                     dismountLandSounds + 1,
-            "Moosh allowed immediate remounting before Link completed the " +
-            "directional dismount jump, landed, and moved nine pixels away.");
+            "companionDismount did not land vertically in place while Moosh " +
+            "state $06/substate $01 retained its source-order landing delay.");
+
+        _player._PhysicsProcess(1.0 / 60.0);
         StepRoomEventFrames(1);
         FailIf(
-            companion.Phase != MooshCompanionPhase.Waiting,
-            "Moosh's dismount distance gate trapped Link inside the companion " +
-            "instead of reopening the ordinary mounting state.");
+            companion.Phase != MooshCompanionPhase.AwaitingDistance,
+            "Moosh state $06/substate $01 did not advance exactly one update " +
+            "after Link cleared wLinkInAir.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        StepRoomEventFrames(1);
+        FailIf(
+            companion.Phase != MooshCompanionPhase.AwaitingDistance,
+            "Moosh skipped the state $06/substate $02 in-range hazard pass.");
+
+        Input.ActionPress("move_left");
+        for (int update = 0; update < 9; update++)
+        {
+            _player._PhysicsProcess(1.0 / 60.0);
+            StepRoomEventFrames(1);
+        }
+        FailIf(
+            companion.Phase != MooshCompanionPhase.AwaitingDistance ||
+            LinkMooshManhattanDistance(companion) != 9,
+            "Moosh observed Link crossing c=$09 after Link's object pass " +
+            "instead of on the following companion-first update.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        StepRoomEventFrames(1);
+        Input.ActionRelease("move_left");
+        FailIf(
+            companion.Phase != MooshCompanionPhase.Waiting ||
+            LinkMooshManhattanDistance(companion) != 10,
+            "Moosh state $06/substate $02 did not reopen state $01 on the " +
+            "first source-order update outside the strict c=$09 radius.");
 
         _deathRespawnPoints.RecordCurrentPoint();
         var restoredCompanionRuntime = new OracleRuntimeState();
@@ -699,14 +721,14 @@ public sealed partial class ValidationRoot
             "ID/group/room/Y/X state with wLinkObjectIndex=$d0 after dismount.");
 
         Vector2 remountApproachStart = _player.PrecisePosition;
-        Input.ActionPress("move_left");
+        Input.ActionPress("move_right");
         for (int frame = 0; frame < 60 &&
              companion.Phase == MooshCompanionPhase.Waiting; frame++)
         {
             _player._PhysicsProcess(1.0 / 60.0);
             StepRoomEventFrames(1);
         }
-        Input.ActionRelease("move_left");
+        Input.ActionRelease("move_right");
         FailIf(
             companion.Phase != MooshCompanionPhase.Mounting ||
             _player.PrecisePosition == remountApproachStart ||
@@ -726,11 +748,15 @@ public sealed partial class ValidationRoot
 
         int chargeSounds = _sound.PlayRequestsFor(record.ChargeSound);
         int stompSounds = _sound.PlayRequestsFor(record.StompSound);
-        Input.ActionPress("attack");
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: ["attack"]);
         for (int frame = 0; frame < 100 &&
              companion.Phase != MooshCompanionPhase.Charging; frame++)
         {
-            StepRoomEventFrames(1);
+            StepMooshApplicationInput(
+                pressed: ["attack"],
+                justPressed: []);
         }
         FailIf(
             companion.Phase != MooshCompanionPhase.Charging ||
@@ -738,7 +764,11 @@ public sealed partial class ValidationRoot
             "Holding A on descent did not enter Moosh's charge substate on " +
             "the exact ten-update threshold.");
         for (int frame = 0; frame < 40 && companion.ChargeCounter < 40; frame++)
-            StepRoomEventFrames(1);
+        {
+            StepMooshApplicationInput(
+                pressed: ["attack"],
+                justPressed: []);
+        }
         FailIf(
             companion.ChargeCounter != 40 ||
             companion.ChargePaletteActive ||
@@ -753,7 +783,9 @@ public sealed partial class ValidationRoot
         bool sawRestoredPalette = false;
         for (int update = 0; update < 8; update++)
         {
-            StepRoomEventFrames(1);
+            StepMooshApplicationInput(
+                pressed: ["attack"],
+                justPressed: []);
             bool expectedChargePalette = (_entities.FrameCounter & 0x04) == 0;
             sawChargePalette |= expectedChargePalette;
             sawRestoredPalette |= !expectedChargePalette;
@@ -773,8 +805,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !sawChargePalette || !sawRestoredPalette,
             "The eight-update Moosh charge sample did not cover both palette bands.");
-        Input.ActionRelease("attack");
-        StepRoomEventFrames(1);
+        StepMooshApplicationInput(pressed: [], justPressed: []);
         FailIf(
             companion.ChargePaletteActive ||
             companion.MooshTexturePixelHash !=
@@ -896,52 +927,6 @@ public sealed partial class ValidationRoot
             $"rope={_inventory.HasTreasure(record.ChevalRopeTreasure)}).");
 
         FailIf(
-            !TryFindWallDismount(
-                out int wallGroup,
-                out int wallRoom,
-                out Vector2 wallDismountStart,
-                out int wallDismountDirection,
-                out Vector2 rawWallLanding),
-            "Could not find a source room with a safe Moosh position whose " +
-            "fixed dismount arc ends in an internal wall.");
-        CompanionRuntimeState.Clear(
-            _runtimeState, CompanionRuntimeState.MooshId);
-        CompanionRuntimeState.Remember(
-            _runtimeState, 0, 0, 0, Vector2.Zero);
-        LoadValidationRoom(wallGroup, wallRoom);
-        _player.WarpTo(wallDismountStart);
-        var wallCompanion = _entities.Spawn<MooshCompanionRoomEntity>(
-            new MooshCompanionSpawn(
-                wallDismountStart,
-                wallDismountDirection,
-                wallGroup,
-                wallRoom,
-                Riding: true));
-        CompanionRuntimeState.Begin(
-            _runtimeState,
-            CompanionRuntimeState.MooshId,
-            wallRoom,
-            wallDismountStart,
-            wallDismountDirection);
-        StepRoomEventFrames(1);
-        FailIf(
-            !wallCompanion.TryBeginDismount(_player),
-            "The wall-adjacent Moosh rejected the dismount regression setup.");
-        for (int frame = 0; frame < 120 && _player.CompanionJumpActive; frame++)
-        {
-            _player._PhysicsProcess(1.0 / 60.0);
-            StepRoomEventFrames(1);
-        }
-        FailIf(
-            _player.CompanionJumpActive ||
-            _player.PrecisePosition == rawWallLanding ||
-            RoomCollides(_rooms.CurrentRoom, _player.PrecisePosition),
-            $"A fixed Moosh dismount arc ending in a wall did not backtrack " +
-            $"to a safe landing (room={wallGroup:x1}:{wallRoom:x2}, " +
-            $"start={wallDismountStart}, raw={rawWallLanding}, " +
-            $"landed={_player.PrecisePosition}).");
-
-        FailIf(
             !TryFindMooshHole(
                 out int holeGroup,
                 out int holeRoom,
@@ -1033,10 +1018,13 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         int waterClinks =
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
-        Input.ActionPress("attack");
-        StepRoomEventFrames(1);
-        Input.ActionRelease("attack");
+        StepMooshApplicationInput(
+            pressed: ["attack"],
+            justPressed: ["attack"]);
         Input.ActionPress(waterMovementAction);
+        StepMooshApplicationInput(
+            pressed: [waterMovementAction],
+            justPressed: []);
         for (int frame = 0; frame < 60 &&
             waterCompanion.Phase !=
                 MooshCompanionPhase.HoveringOverWater; frame++)
@@ -1103,15 +1091,49 @@ public sealed partial class ValidationRoot
             "direction+1 rescue sprite, first-meeting left forced mount, " +
             "exact Link riding-frame " +
             "hashes, live XYZ jump attachment, sticky diagonal facing, " +
-            "mounted item-pose suppression, " +
+            "TX_2205 close-edge consumption, mounted item-pose suppression, " +
             "SPEED_100 movement, four-update hover cadence/landing, charged " +
-            "ITEM_28 stomp, SND_JUMP/SPEED_80 dismount separation, " +
-            "death-buffer-backed dismount memory, physical strict-Manhattan " +
-            "walk-back remount, collision-safe wall dismount, charge palette " +
+            "ITEM_28 stomp, delayed vertical $ff-angle dismount, local/" +
+            "death-buffer-backed dismount memory, source-ordered strict-" +
+            "Manhattan walk-away/remount gate, charge palette " +
             "flash, source-probed hole fall/respawn, `$3c water-hover " +
             "exclamation/descent, locked post-fight fear shake, retained-set " +
             "scroll deduplication, " +
             "TX_2209 restriction, scrolling retention, and mounted completed " +
             "re-entry.");
+    }
+
+    private void StepMooshApplicationInput(
+        IReadOnlyList<string> pressed,
+        IReadOnlyList<string> justPressed,
+        bool closeDialogue = false)
+    {
+        Vector2 movement = new(
+            (pressed.Contains("move_right") ? 1.0f : 0.0f) -
+                (pressed.Contains("move_left") ? 1.0f : 0.0f),
+            (pressed.Contains("move_down") ? 1.0f : 0.0f) -
+                (pressed.Contains("move_up") ? 1.0f : 0.0f));
+        if (movement.LengthSquared() > 1.0f)
+            movement = movement.Normalized();
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed,
+            justPressed,
+            movement));
+        try
+        {
+            _player.AdvanceApplicationUpdate();
+            _entities.Update(1.0 / 60.0, _player);
+            _roomEvents.Update(1.0 / 60.0);
+            _interactions.Update(1.0 / 60.0, _player);
+            if (closeDialogue)
+                _dialogue.AdvanceOrClose();
+            else
+                _dialogue.AdvanceApplicationUpdate();
+            _sound.Tick();
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
     }
 }

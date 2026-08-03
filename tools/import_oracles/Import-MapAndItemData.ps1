@@ -1696,8 +1696,31 @@ $topDownPhysicsBlock = [regex]::Match(
 $topDownJumpMatch = [regex]::Match(
     $featherParentSource,
     '(?ms)^\s*; Jump higher in sidescrolling rooms\s+ld bc,\$(?<speed>[0-9a-f]{4})\s+ld a,\(wActiveGroup\)')
+$companionJumpMatch = [regex]::Match(
+    $sideCommonSource,
+    '(?ms)^setLinkMountingSpeed:\s*' +
+    'ld \(wLinkAngle\),a\s*' +
+    'ld a,\$(?<airState>[0-9a-f]{2})\s*' +
+    'ld \(wLinkInAir\),a.*?' +
+    'ld l,<w1Link\.speed\s*' +
+    'ld \(hl\),(?<speed>SPEED_[A-Za-z0-9]+)\s*' +
+    'ld l,<w1Link\.speedZ\s*' +
+    'ld \(hl\),\$(?<speedLow>[0-9a-f]{2})\s*' +
+    'inc l\s*' +
+    'ld \(hl\),\$(?<speedHigh>[0-9a-f]{2})')
+$companionDismountMatch = [regex]::Match(
+    $sideCommonSource,
+    '(?ms)^companionDismount:.*?' +
+    'call setLinkMountingSpeed\s*' +
+    'ld hl,w1Link\.angle\s*' +
+    'ld \(hl\),\$(?<angle>[0-9a-f]{2})\s*' +
+    'call objectCopyPosition.*?' +
+    'dec l\s*' +
+    'ld \(hl\),\$(?<z>[0-9a-f]{2})')
 if (-not $topDownPhysicsBlock.Success -or
     -not $topDownJumpMatch.Success -or
+    -not $companionJumpMatch.Success -or
+    -not $companionDismountMatch.Success -or
     $topDownPhysicsBlock.Groups[0].Value -notmatch
         '(?ms)bit 5,\(hl\)\s+ld c,\$(?<gravity>[0-9a-f]{2})\s+jr z,\+\s+ld c,\$(?<reduced>[0-9a-f]{2})' -or
     $topDownPhysicsBlock.Groups[0].Value -notmatch
@@ -1727,6 +1750,23 @@ $topDownJumpSpeed = if ($topDownJumpUnsigned -ge 0x8000) {
 } else {
     $topDownJumpUnsigned
 }
+$companionJumpSpeedUnsigned =
+    [Convert]::ToInt32($companionJumpMatch.Groups['speedHigh'].Value, 16) * 0x100 +
+    [Convert]::ToInt32($companionJumpMatch.Groups['speedLow'].Value, 16)
+$companionJumpSpeed = if ($companionJumpSpeedUnsigned -ge 0x8000) {
+    $companionJumpSpeedUnsigned - 0x10000
+} else {
+    $companionJumpSpeedUnsigned
+}
+$companionDismountZUnsigned =
+    [Convert]::ToInt32($companionDismountMatch.Groups['z'].Value, 16)
+$companionDismountZ = if ($companionDismountZUnsigned -ge 0x80) {
+    $companionDismountZUnsigned - 0x100
+} else {
+    $companionDismountZUnsigned
+}
+$companionDismountAngle =
+    [Convert]::ToInt32($companionDismountMatch.Groups['angle'].Value, 16)
 $topDownAirRows = @(
     "# key`tvalue`tsource",
     "gravity`t$topDownGravity`tlink.s:linkUpdateInAir",
@@ -1738,13 +1778,23 @@ $topDownAirRows = @(
     "land-sound`t$(Resolve-SideScrollSound 'SND_LAND')`tlink.s:linkUpdateInAir",
     "animation-phase-0`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d0'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
     "animation-phase-1`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d1'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
-    "animation-phase-2`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d2'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78"
+    "animation-phase-2`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d2'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
+    "companion-jump-speed-raw`t$($objectSpeeds[$companionJumpMatch.Groups['speed'].Value])`tcommonCode.s:setLinkMountingSpeed",
+    "companion-jump-speed-z`t$companionJumpSpeed`tcommonCode.s:setLinkMountingSpeed",
+    "companion-dismount-z`t$companionDismountZ`tcommonCode.s:companionDismount",
+    "companion-dismount-angle`t$companionDismountAngle`tcommonCode.s:companionDismount"
 )
-if ($topDownAirRows.Count -ne 11 -or
+if ($topDownAirRows.Count -ne 15 -or
     $topDownJumpSpeed -ne -0x1e0 -or
     $topDownGravity -ne 0x20 -or
     $topDownReducedGravity -ne 0x0a -or
-    $topDownMaximumSpeed -ne 0x0300) {
+    $topDownMaximumSpeed -ne 0x0300 -or
+    [Convert]::ToInt32($companionJumpMatch.Groups['airState'].Value, 16) -ne 0x81 -or
+    -not $objectSpeeds.ContainsKey($companionJumpMatch.Groups['speed'].Value) -or
+    $objectSpeeds[$companionJumpMatch.Groups['speed'].Value] -ne 0x14 -or
+    $companionJumpSpeed -ne -0x01c0 -or
+    $companionDismountZ -ne -8 -or
+    $companionDismountAngle -ne 0xff) {
     throw 'Top-down Link air constants lost an expected value.'
 }
 Write-GeneratedTable(

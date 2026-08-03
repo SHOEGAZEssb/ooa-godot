@@ -8634,6 +8634,7 @@ if ($ghiniNativeSource -notmatch '(?ms)^interactionCode73:.*?wEssencesObtained.*
     $companionSpawnerSource -notmatch '(?m)^\s*\.db SPECIALOBJECT_MOOSH,\s+\$28, \$58, \$00 ; \$00 == \[subid\]' -or
     $mooshSpecialSource -notmatch '(?ms)^mooshState0:.*?wMooshState.*?ld a,\$20.*?and \(hl\).*?@gotoCutsceneStateA:.*?ld a,\$0a' -or
     $mooshSpecialSource -notmatch '(?ms)^mooshState1:.*?objectCheckLinkWithinDistance.*?companionTryToMount.*?^mooshState3:.*?companionCheckMountingComplete.*?companionFinalizeMounting.*?^mooshState5:.*?wGameKeysJustPressed.*?BTN_BIT_A.*?mooshPressedAButton.*?BTN_BIT_B.*?companionGotoDismountState.*?SPEED_100.*?companionUpdateMovement' -or
+    $mooshSpecialSource -notmatch '(?ms)^mooshState6:.*?^@substate0:.*?ld a,\$01.*?companionDismountAndSavePosition.*?ld c,\$01.*?companionSetAnimation.*?^@substate1:.*?wLinkInAir.*?itemIncSubstate.*?^@substate2:.*?ld c,\$09.*?objectCheckLinkWithinDistance.*?mooshCheckHazards.*?ld a,\$01.*?\[state\] = \$01' -or
     $mooshSpecialSource -notmatch '(?ms)^mooshState8:.*?^mooshState8Substate0:.*?-\$140.*?SPEED_100.*?^mooshState8Substate1:.*?SND_JUMP.*?^mooshState8Substate2:.*?SND_CHARGE_SWORD.*?^mooshState8Substate3:.*?SNDCTRL_STOPSFX.*?SND_SCENT_SEED.*?ITEM_28' -or
     $mooshHelperSource -notmatch '(?ms)^ghiniHarassingMoosh_beginCircularMovement:.*?SPEED_140.*?ANGLE_LEFT' -or
     $mooshHelperSource -notmatch '(?ms)^companionScript_makeExclamationMark:.*?ld bc,\$f000.*?ld a,30.*?objectCreateExclamationMark' -or

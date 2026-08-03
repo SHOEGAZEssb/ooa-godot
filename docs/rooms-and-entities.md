@@ -102,12 +102,13 @@ sprites, and the mounted companion owns A/B before Link's ordinary equipped
 items can create a conflicting pose. A cutscene response pose is not
 necessarily the mounted handoff direction: Moosh's first rescue meeting enters
 the left-facing ride pose even when the preceding angle-to-Link response faced
-another direction. Dismount copies the companion position,
-then launches Link at `SPEED_80` along `direction*8` with the ordinary jump and
-landing sounds before reopening the distance-gated mounting state. Bit 7 of
-`wLinkInAir` still permits that arc through walls; if its fixed endpoint is
-embedded, the runtime retains the furthest collision-free point on the same
-arc so Link cannot become immobile.
+another direction. A B press only enters companion state `$06`; its next
+update copies the companion position, records that Y/X and direction as Link's
+local hazard respawn, and starts the ordinary jump/landing sequence. Although
+`setLinkMountingSpeed` writes `SPEED_80` and `direction*8`,
+`companionDismount` immediately overwrites Link's object angle with `$ff`, so
+the dismount itself is vertical. After landing, Link must walk outside the
+strict `c=$09` Manhattan radius before state `$01` permits another mount.
 
 Charge flashing applies OBJ palette 2 to both companion and riding-Link frames
 in global-frame-counter bit-2 bands after the source 40-update threshold.

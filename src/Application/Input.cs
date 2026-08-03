@@ -15,6 +15,7 @@ internal static class Input
 
     internal static ulong TimingFrame =>
         _current is null ? Engine.GetProcessFrames() : _originalUpdate;
+    internal static bool OriginalUpdateActive => _current is not null;
 
     internal static void BeginOriginalUpdate(ApplicationInputSnapshot snapshot)
     {

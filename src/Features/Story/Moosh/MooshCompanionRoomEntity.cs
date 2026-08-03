@@ -54,14 +54,17 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _airborneInitialized;
     private bool _mountStarted;
     private bool _barrierTextLatched;
-    private bool _attackWasPressed;
-    private bool _itemWasPressed;
     private bool _attackPressed;
     private bool _itemPressed;
     private bool _attackJustPressed;
     private bool _itemJustPressed;
+    private bool _attackEdgeObserved;
+    private bool _itemEdgeObserved;
     private bool _chargePaletteActive;
     private bool _hazardAnimationStarted;
+    private bool _dismountInitialized;
+    private bool _dismountLandingObserved;
+    private Vector2 _dismountPreviousLinkPosition;
     private bool _goodbyeDialogueStarted;
     private bool _finished;
     private MooshCompanionPhase _phase;
@@ -70,8 +73,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     public bool DisablesSword => GoodbyeRestrictsPlayer ||
         LinkRiding || _phase == MooshCompanionPhase.Mounting;
     public bool DisablesItems => DisablesSword;
-    public bool DisablesMovement => DisablesSword ||
-        _phase == MooshCompanionPhase.Dismounting;
+    public bool DisablesMovement => DisablesSword;
     public bool DisablesMenus => GoodbyeRestrictsPlayer;
     public bool DisablesScreenTransitions => _phase is
         MooshCompanionPhase.Mounting or
@@ -80,8 +82,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         MooshCompanionPhase.Charging or
         MooshCompanionPhase.Falling or
         MooshCompanionPhase.StompRecovery or
-        MooshCompanionPhase.HazardFalling or
-        MooshCompanionPhase.Dismounting;
+        MooshCompanionPhase.HazardFalling;
     public bool Finished => _finished;
     public bool LinkRiding => _phase is
         MooshCompanionPhase.Riding or
@@ -90,7 +91,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         MooshCompanionPhase.Charging or
         MooshCompanionPhase.Falling or
         MooshCompanionPhase.StompRecovery or
-        MooshCompanionPhase.HazardFalling;
+        MooshCompanionPhase.HazardFalling ||
+        (_phase == MooshCompanionPhase.Dismounting &&
+            !_dismountInitialized);
     public bool ControlsPlayerScreenTransition => LinkRiding;
     public Vector2 ScreenTransitionPosition => _precisePosition;
 
@@ -199,10 +202,28 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         _attackPressed = Input.IsActionPressed("attack");
         _itemPressed = Input.IsActionPressed("item");
-        _attackJustPressed = _attackPressed && !_attackWasPressed;
-        _itemJustPressed = _itemPressed && !_itemWasPressed;
-        _attackWasPressed = _attackPressed;
-        _itemWasPressed = _itemPressed;
+        // mooshState5/state8 read wGameKeysJustPressed. Do not reconstruct
+        // that edge from Moosh's last entity update: ordinary entities pause
+        // while a textbox owns input, so doing so turns the held button which
+        // dismissed the text into a fresh companion action after the pause.
+        bool attackEdge = Input.IsActionJustPressed("attack");
+        bool itemEdge = Input.IsActionJustPressed("item");
+        if (Input.OriginalUpdateActive)
+        {
+            _attackJustPressed = attackEdge;
+            _itemJustPressed = itemEdge;
+            _attackEdgeObserved = false;
+            _itemEdgeObserved = false;
+        }
+        else
+        {
+            // Direct component callers can perform several synchronous
+            // updates during one host frame. Consume its Godot edge once.
+            _attackJustPressed = attackEdge && !_attackEdgeObserved;
+            _itemJustPressed = itemEdge && !_itemEdgeObserved;
+            _attackEdgeObserved = attackEdge;
+            _itemEdgeObserved = itemEdge;
+        }
         _chargePaletteActive = false;
 
         switch (_phase)
@@ -500,29 +521,58 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if (_phase != MooshCompanionPhase.Riding)
             return false;
-        CompanionRuntimeState.Remember(
-            _runtime, CompanionRuntimeState.MooshId,
-            _group, _roomId, _precisePosition);
-        CompanionRuntimeState.Clear(
-            _runtime, CompanionRuntimeState.MooshId);
         _phase = MooshCompanionPhase.Dismounting;
-        _zFixed = 0;
-        _speedZ = 0;
-        SetAnimation(0x01 + _direction);
-        player.BeginCompanionDismount(_precisePosition, _direction);
+        _dismountInitialized = false;
+        _dismountLandingObserved = false;
         return true;
     }
 
     private void UpdateDismounting(Player player)
     {
-        if (!player.CompanionJumpActive)
-            _phase = MooshCompanionPhase.AwaitingDistance;
+        if (!_dismountInitialized)
+        {
+            // The B-button update only changes Moosh to state $06. On the
+            // following companion pass, substate 0 performs the dismount,
+            // saves both respawn anchors, and selects animation $01+direction.
+            _dismountInitialized = true;
+            CompanionRuntimeState.Remember(
+                _runtime, CompanionRuntimeState.MooshId,
+                _group, _roomId, _precisePosition);
+            CompanionRuntimeState.Clear(
+                _runtime, CompanionRuntimeState.MooshId);
+            player.BeginCompanionDismount(_precisePosition, _direction);
+            SetAnimation(0x01 + _direction);
+            return;
+        }
+        if (player.CompanionJumpActive)
+            return;
+
+        // updateSpecialObjects visits w1Companion before w1Link. The port's
+        // application schedule visits Link first, so retain state-$06
+        // substate 1 for the landing update and advance it one pass later.
+        if (!_dismountLandingObserved)
+        {
+            _dismountLandingObserved = true;
+            return;
+        }
+
+        _dismountPreviousLinkPosition = player.PrecisePosition;
+        _phase = MooshCompanionPhase.AwaitingDistance;
     }
 
     private void UpdateAwaitingDistance(Player player)
     {
-        if (!LinkWithinMountDistance(player))
-            _phase = MooshCompanionPhase.Waiting;
+        // Source state-$06 substate 2 runs before Link. Use the position from
+        // the preceding update so crossing the strict c=$09 Manhattan radius
+        // is observed on the same original object pass.
+        Vector2 sourceOrderLinkPosition = _dismountPreviousLinkPosition;
+        _dismountPreviousLinkPosition = player.PrecisePosition;
+        if (LinkWithinMountDistance(sourceOrderLinkPosition))
+        {
+            TryBeginHazard();
+            return;
+        }
+        _phase = MooshCompanionPhase.Waiting;
     }
 
     private bool GoodbyeRestrictsPlayer => _phase is
@@ -604,16 +654,19 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Visible = false;
     }
 
-    private bool LinkWithinMountDistance(Player player)
+    private bool LinkWithinMountDistance(Player player) =>
+        LinkWithinMountDistance(player.PrecisePosition);
+
+    private bool LinkWithinMountDistance(Vector2 linkPosition)
     {
         // objectCheckLinkWithinDistance subtracts the absolute Y difference
         // from c before comparing X, so c=$09 is a strict Manhattan radius
         // over the objects' high-byte coordinates.
         int deltaX = Math.Abs(
-            Mathf.FloorToInt(player.PrecisePosition.X) -
+            Mathf.FloorToInt(linkPosition.X) -
             Mathf.FloorToInt(_precisePosition.X));
         int deltaY = Math.Abs(
-            Mathf.FloorToInt(player.PrecisePosition.Y) -
+            Mathf.FloorToInt(linkPosition.Y) -
             Mathf.FloorToInt(_precisePosition.Y));
         return deltaX + deltaY < 9;
     }

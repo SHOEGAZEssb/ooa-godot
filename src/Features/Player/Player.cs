@@ -93,6 +93,7 @@ public partial class Player : Node2D
     private Vector2 _lastSafePosition;
     private HazardType _drowningHazard;
     private Facing _facing = Facing.Down;
+    private Facing _localRespawnFacing = Facing.Down;
     private int _linkWalkAnimationFrame;
     private int _linkWalkAnimationCounter = 2;
     private AirborneLinkAnimationMode _airborneLinkAnimationMode;
@@ -112,7 +113,8 @@ public partial class Player : Node2D
     private bool _minecartJumpControlled;
     private bool _minecartRideControlled;
     private bool _companionJumpControlled;
-    private Vector2 _companionJumpStartPosition;
+    private bool _companionDismountJump;
+    private bool _companionJumpAnimationDeferred;
     private bool _companionRideControlled;
     private int _minecartJumpAngle = 0xff;
     private int _companionJumpAngle = 0xff;
@@ -476,9 +478,14 @@ public partial class Player : Node2D
         _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0;
     internal int FloorDoorRespawnCounter => _floorDoorRespawnCounter;
     internal Vector2 LocalRespawnPosition => _lastSafePosition;
+    internal Vector2I LocalRespawnFacingVector =>
+        FacingVectorFor(_localRespawnFacing);
 
-    internal void SetLocalRespawnPosition(Vector2 position) =>
+    internal void SetLocalRespawnPosition(Vector2 position)
+    {
         _lastSafePosition = position;
+        _localRespawnFacing = _facing;
+    }
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool HarpPoseActive => _harpPoseActive;
@@ -630,6 +637,7 @@ public partial class Player : Node2D
         EndRoomWarpFall();
         _precisePosition = spawn;
         _lastSafePosition = spawn;
+        _localRespawnFacing = _facing;
         ResetLinkWalkAnimation();
         Position = OracleObjectMath.ToPixelPosition(spawn);
         // Room entities/events are already initialized before Link. Select a
@@ -710,7 +718,7 @@ public partial class Player : Node2D
             ClearShieldParent();
         _precisePosition = position;
         if (recordSafe)
-            _lastSafePosition = position;
+            SetLocalRespawnPosition(position);
         Position = OracleObjectMath.ToPixelPosition(position);
         Visible = true;
         QueueRedraw();
@@ -1445,8 +1453,8 @@ public partial class Player : Node2D
         }
         if (_companionJumpControlled)
         {
-            AdvanceCompanionJumpUpdate();
-            return;
+            if (!AdvanceCompanionJumpUpdate())
+                return;
         }
 
         if (_world.IsTransitioning)
@@ -3451,7 +3459,11 @@ public partial class Player : Node2D
     /// </summary>
     internal void BeginCompanionMount(Vector2 position)
     {
-        BeginCompanionJump(position, initialZ: 0, angle: 0xff);
+        BeginCompanionJump(
+            position,
+            initialZ: 0,
+            angle: 0xff,
+            dismount: false);
     }
 
     internal void NudgeCompanionMountToward(Vector2 target)
@@ -3523,11 +3535,16 @@ public partial class Player : Node2D
             throw new ArgumentOutOfRangeException(
                 nameof(companionDirection));
         }
+        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        _facing = (Facing)companionDirection;
+        _lastSafePosition = OracleObjectMath.ToPixelPosition(companionPosition);
+        _localRespawnFacing = _facing;
         _companionRideControlled = false;
         BeginCompanionJump(
             companionPosition,
-            initialZ: -8,
-            angle: companionDirection * 8);
+            initialZ: parameters.CompanionDismountZ,
+            angle: parameters.CompanionDismountAngle,
+            dismount: true);
     }
 
     internal void ApplyCompanionHazardDamage(HazardType hazard)
@@ -3545,7 +3562,8 @@ public partial class Player : Node2D
     private void BeginCompanionJump(
         Vector2 position,
         int initialZ,
-        int angle)
+        int angle,
+        bool dismount)
     {
         if (angle != 0xff &&
             angle is < 0 or >= OracleObjectSpeedTable.AngleCount)
@@ -3564,38 +3582,52 @@ public partial class Player : Node2D
         Position = OracleObjectMath.ToPixelPosition(position);
         TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
         _topDownAirZFixed = initialZ << 8;
-        _topDownAirSpeedZ = -0x01c0;
+        _topDownAirSpeedZ = parameters.CompanionJumpSpeedZ;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = parameters.AnimationPhaseDurations[0];
-        _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
+        // companionDismount changes Link back to SPECIALOBJECT_LINK state 0.
+        // Its same-pass state-0 update is standing; @startedJump selects the
+        // jump animation on the following update. Mounting does not reset the
+        // Link object and therefore selects its jump pose immediately.
+        _airborneLinkAnimationMode = dismount
+            ? AirborneLinkAnimationMode.None
+            : AirborneLinkAnimationMode.Jump;
         _topDownAirborne = true;
         // setLinkMountingSpeed writes wLinkInAir=$81 for mounting and
         // dismounting. Bit 0 requests SND_JUMP on the first in-air update.
         _topDownJumpSoundPending = true;
         _companionJumpAngle = angle;
-        _companionJumpStartPosition = position;
         _companionJumpControlled = true;
+        _companionDismountJump = dismount;
+        _companionJumpAnimationDeferred = dismount;
         _walking = false;
         _pushing = false;
         QueueRedraw();
     }
 
-    private void AdvanceCompanionJumpUpdate()
+    private bool AdvanceCompanionJumpUpdate()
     {
         TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        if (_companionJumpAnimationDeferred)
+        {
+            _companionJumpAnimationDeferred = false;
+            _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
+        }
         if (_topDownJumpSoundPending)
         {
             _topDownJumpSoundPending = false;
             _world.PlaySound(parameters.JumpSound);
         }
 
-        // Mounting uses angle $ff while the companion nudges Link toward its
-        // center. companionDismount instead stores direction*8 in wLinkAngle
-        // and applies SPEED_80 until Link lands.
+        // setLinkMountingSpeed initially writes direction*8 to wLinkAngle,
+        // but companionDismount then writes $ff to w1Link.angle. The airborne
+        // movement path consumes the object angle, so an ordinary animal
+        // dismount has no lateral motion. Mounting also uses $ff while the
+        // companion nudges Link toward its center.
         if (_companionJumpAngle != 0xff)
         {
             _precisePosition += OracleObjectMovement.Shared.Delta(
-                0x14,
+                parameters.CompanionJumpSpeedRaw,
                 _companionJumpAngle);
         }
         bool landed = OracleObjectMath.UpdateSpeedZ(
@@ -3604,42 +3636,19 @@ public partial class Player : Node2D
             parameters.Gravity);
         if (landed)
         {
-            if (_companionJumpAngle != 0xff &&
-                _world.Collides(_precisePosition))
-            {
-                _precisePosition = ResolveCompanionDismountLanding();
-            }
+            bool resumeOrdinaryMovement = _companionDismountJump;
             ClearTopDownAirState();
             _world.PlaySound(parameters.LandSound);
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return resumeOrdinaryMovement;
         }
-        else
-        {
-            if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
-                _topDownAirSpeedZ = parameters.MaximumFallSpeed;
-            AdvanceTopDownAirAnimation(parameters);
-        }
+        if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
+            _topDownAirSpeedZ = parameters.MaximumFallSpeed;
+        AdvanceTopDownAirAnimation(parameters);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
-    }
-
-    private Vector2 ResolveCompanionDismountLanding()
-    {
-        // wLinkInAir bit 7 deliberately permits the dismount arc to cross
-        // walls. If that fixed arc ends inside one, walk its endpoint back
-        // toward the companion position copied at dismount at quarter-pixel
-        // precision and retain the furthest collision-free landing.
-        float distance = _precisePosition.DistanceTo(
-            _companionJumpStartPosition);
-        int steps = Math.Max(1, Mathf.CeilToInt(distance * 4.0f));
-        for (int step = 1; step <= steps; step++)
-        {
-            Vector2 candidate = _precisePosition.Lerp(
-                _companionJumpStartPosition,
-                step / (float)steps);
-            if (!_world.Collides(candidate))
-                return candidate;
-        }
-        return _companionJumpStartPosition;
+        return false;
     }
 
     internal void SetMinecartRidePosition(
@@ -3758,7 +3767,8 @@ public partial class Player : Node2D
         _minecartJumpAngle = 0xff;
         _companionJumpControlled = false;
         _companionJumpAngle = 0xff;
-        _companionJumpStartPosition = Vector2.Zero;
+        _companionDismountJump = false;
+        _companionJumpAnimationDeferred = false;
         _companionRideControlled = false;
         _companionRideTexture = null;
         _damageCompanionRideTexture = null;
@@ -4625,6 +4635,7 @@ public partial class Player : Node2D
         CancelSwordAttack();
         CancelShovelAction();
         _precisePosition = _lastSafePosition;
+        _facing = _localRespawnFacing;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         ClearSideScrollState(_precisePosition);
         _sideScrollInstantRespawnCounter = 2;
@@ -5257,6 +5268,7 @@ public partial class Player : Node2D
         // two-update invisible wait. The following wEnteredWarpPosition write
         // suppresses any warp tile under the saved local anchor.
         _precisePosition = _lastSafePosition;
+        _facing = _localRespawnFacing;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _world.DeactivateWarpAtPlayerPosition(this);
     }
@@ -5315,7 +5327,10 @@ public partial class Player : Node2D
         }
 
         if (_ledgeCrossedScreen)
+        {
             _lastSafePosition = _precisePosition;
+            _localRespawnFacing = _facing;
+        }
         _world.ApplyLandedTileHit(_precisePosition);
         int landSound = _ledgeLandSound;
         ClearLedgeHop();
