@@ -71,23 +71,35 @@ public sealed partial class ValidationRoot
             tingleEntity.BalloonSpeedZ != 0x10,
             "PART_TINGLE_BALLOON did not reverse speedZ on update $38.");
 
-        var hitSpawns = new List<RoomEntitySpawn>();
-        bool balloonHit = tingleEntity.ApplySwordHit(
-            new Rect2(
-                tingleEntity.Npc.Position - new Vector2(4, 4),
-                new Vector2(8, 8)),
+        Rect2 balloonHitbox = new(
+            tingleEntity.Npc.Position - new Vector2(4, 4),
+            new Vector2(8, 8));
+        bool groundedBalloonHit = _entities.ApplySwordHit(
+            balloonHitbox,
             tingleEntity.Npc.Position,
             damage: 1,
             EnemyKnockbackStrength.Normal,
-            hitSpawns);
-        PuzzlePuffSpawn? explosion = hitSpawns.OfType<PuzzlePuffSpawn>().SingleOrDefault();
+            itemZ: -2);
+        FailIf(
+            groundedBalloonHit || tingleEntity.State != 1 ||
+            !tingleEntity.BalloonActive ||
+            tingleEntity.CollisionZ != tingleEntity.ZFixed >> 8,
+            "A grounded Link sword reached PART_TINGLE_BALLOON despite the " +
+            "source Object.zh collision window.");
+
+        int explosionCount = _entities.Entities<PuzzlePuffEffect>().Count;
+        bool balloonHit = _entities.ApplySwordHit(
+            balloonHitbox,
+            tingleEntity.Npc.Position,
+            damage: 1,
+            EnemyKnockbackStrength.Normal,
+            itemZ: tingleEntity.CollisionZ);
         FailIf(
             !balloonHit || tingleEntity.State != 2 ||
-            tingleEntity.BalloonActive || explosion is null ||
-            explosion.Position != tingleEntity.Npc.Position + new Vector2(0, -16) ||
-            explosion.Sound != OracleSoundEngine.SndExplosion,
-            "Popping PART_TINGLE_BALLOON did not increment Tingle to state 2 " +
-            "and create the source-positioned explosion.");
+            tingleEntity.BalloonActive ||
+            _entities.Entities<PuzzlePuffEffect>().Count != explosionCount + 1,
+            "An airborne Link sword at the balloon's live Z did not increment " +
+            "Tingle to state 2 and create the source-positioned explosion.");
 
         StepRoomEventFrames(1);
         FailIf(

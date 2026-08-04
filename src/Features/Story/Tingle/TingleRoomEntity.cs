@@ -18,7 +18,8 @@ internal sealed partial class TingleRoomEntity : Node2D,
     IRoomBlocker,
     ITalkTarget,
     IOrdinaryNpcEntity,
-    ISwordHittableRoomEntity
+    ISwordHittableRoomEntity,
+    IObjectCollisionHeightRoomEntity
 {
     private readonly TingleDatabase _database;
     private readonly TingleRecord _record;
@@ -42,6 +43,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
     internal int BalloonSpeedZ => _speedZ;
     internal bool KoolooActive => _koolooActive;
     internal bool KoolooComplete { get; private set; }
+    public int CollisionZ => _zFixed >> 8;
 
     internal bool HasEnoughSeedTypes { get; }
 

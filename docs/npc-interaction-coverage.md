@@ -143,8 +143,10 @@ classified records and 136 specialized rows.
   three imported `$73` records.
 - Room `0:79` implements specialized `INTERAC_TINGLE $c8:$00` with linked
   `PART_TINGLE_BALLOON $44`: imported OAM/animation data, the `$38`-update
-  vertical oscillation, sword pop/explosion, 15-update wait and `$10`-gravity
-  fall, A-button collision, first/repeat friendship choices, Island Chart
+  vertical oscillation, source `Object.zh` collision window requiring Link's
+  sword to reach the balloon during a Roc's Feather jump, pop/explosion,
+  15-update wait and `$10`-gravity fall, A-button collision,
+  first/repeat friendship choices, Island Chart
   reward, seed-type gate, Seed Satchel upgrade path, kooloo-limpah animation,
   and the post-chart 60-update Ricky departure. Postgame Tingle-secret entry
   and return-secret generation still depend on the unavailable shared secret
