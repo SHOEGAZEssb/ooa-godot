@@ -601,6 +601,15 @@ public sealed class RoomEntityManager : IDisposable
         return hit;
     }
 
+    internal void NotifyTileDug(int packedPosition)
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is IDugTileRoomEntity dugTile)
+                dugTile.NotifyTileDug(packedPosition);
+        }
+    }
+
     public bool ApplySwordHit(
         Rect2 hitbox,
         Vector2? sourcePosition = null,
@@ -1205,6 +1214,25 @@ public sealed class RoomEntityManager : IDisposable
         if (entity.Node is TransitionOffsetNode2D drawable)
             drawable.SetWorldToScreen(position => WorldToScreen(position));
         _activeEntities.Add(entity);
+        if (entity is ICompanionBarrierTarget target)
+        {
+            foreach (IRoomEntity active in _activeEntities)
+            {
+                if (active is CompanionBarrierRoomEntity barrier)
+                    barrier.BindTarget(target);
+            }
+        }
+        else if (entity is CompanionBarrierRoomEntity barrier)
+        {
+            foreach (IRoomEntity active in _activeEntities)
+            {
+                if (active is ICompanionBarrierTarget activeTarget)
+                {
+                    barrier.BindTarget(activeTarget);
+                    break;
+                }
+            }
+        }
         _worldRoot.AddChild(entity.Node);
         if (entity is IFixedRoomEntity)
         {

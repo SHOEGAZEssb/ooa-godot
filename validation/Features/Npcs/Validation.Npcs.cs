@@ -360,6 +360,7 @@ public sealed partial class ValidationRoot
             ["objects/linked_game_npcs.tsv|\\secret1"] = 2,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
+            ["objects/tingle_texts.tsv|\\secret1"] = 1,
             ["objects/troy_house.tsv|\\call(0xff)"] = 16,
             ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
         };
@@ -459,9 +460,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
-                [NpcImplementationClassification.SpecializedNative] = 135,
+                [NpcImplementationClassification.SpecializedNative] = 136,
                 [NpcImplementationClassification.EventOwned] = 17,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 257
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 256
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -474,7 +475,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 135 specialized, 17 event-owned, and 257 " +
+            "54 ordinary, 136 specialized, 17 event-owned, and 256 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -718,6 +719,8 @@ public sealed partial class ValidationRoot
             "hardhatWorker.s:blackTowerEntrance",
             "makuSprout.s:interactionCode88",
             "companionScripts.s:companionScript_subid00Script",
+            "companionScripts.s:companionScript_subid03Script",
+            "tingle.s:interactionCodec8; scripts.s:tingleScript",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "cheval.s:interactionCode6a",
@@ -739,7 +742,8 @@ public sealed partial class ValidationRoot
                 expectedSources),
             "The registered NPC interaction priority no longer preserves " +
             "family, event, typed-script, ordinary-dialogue, and shop-player " +
-            "source order.");
+            "source order. Actual: " +
+            string.Join(" | ", _interactions.NpcInteractionHandlerSources));
 
         var calls = new List<string>();
         var router = new NpcInteractionRouter(

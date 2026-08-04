@@ -30,12 +30,7 @@ internal sealed partial class CompanionTutorialRoomEntity : Node2D,
         OracleSaveData save,
         Action<int, string, Vector2> showText)
     {
-        if (record is not
-            {
-                Id: 0xd0,
-                SubId: 0x04,
-                Completion: CompanionTutorialCompletion.CompanionRight
-            })
+        if (record.Id != 0xd0 || record.SubId is < 0 or > 5)
         {
             throw new ArgumentOutOfRangeException(nameof(record));
         }
@@ -74,10 +69,10 @@ internal sealed partial class CompanionTutorialRoomEntity : Node2D,
                 return;
             case 1:
                 _state = 2;
-                InitializeTutorial();
+                InitializeTutorial(frame.Player);
                 return;
             case 2:
-                UpdateCompletion();
+                UpdateCompletion(frame.Player);
                 return;
             default:
                 throw new InvalidOperationException(
@@ -86,12 +81,16 @@ internal sealed partial class CompanionTutorialRoomEntity : Node2D,
         }
     }
 
-    private void InitializeTutorial()
+    private void InitializeTutorial(Player player)
     {
         // interactionCoded0 state 1 advances before checking w1Companion.
-        // Subid $04 remains in state 2 when no companion is enabled.
+        // Only the one-shot dismount variants $02/$05 delete without one.
         if (!CompanionRuntimeState.AnyActive(_runtime))
+        {
+            if (_record.SubId is 0x02 or 0x05)
+                Finished = true;
             return;
+        }
 
         ActiveCompanion companion = CompanionRuntimeState.Read(_runtime);
         if (companion.Id != _record.RequiredCompanion)
@@ -105,21 +104,37 @@ internal sealed partial class CompanionTutorialRoomEntity : Node2D,
             return;
         }
 
-        // In the current live-companion owner, an active animal is precisely
-        // the source wLinkObjectIndex bit-0 mounted state.
-        TextShown = true;
-        _showText(_record.TextId, _record.Message, Position);
+        // wLinkObjectIndex bit 0 is independent of w1Companion.enabled: the
+        // remembered on-screen animal can remain active after Link dismounts.
+        if (player.CompanionRideActive)
+        {
+            TextShown = true;
+            _showText(_record.TextId, _record.Message, Position);
+        }
+
+        if (_record.SubId is 0x02 or 0x05)
+            Finished = true;
     }
 
-    private void UpdateCompletion()
+    private void UpdateCompletion(Player player)
     {
         if (!CompanionRuntimeState.AnyActive(_runtime))
             return;
         ActiveCompanion companion = CompanionRuntimeState.Read(_runtime);
+        int companionX = Mathf.FloorToInt(companion.X);
+        int companionY = Mathf.FloorToInt(companion.Y);
+        int linkX = Mathf.FloorToInt(player.Position.X);
         bool complete = _record.Completion switch
         {
             CompanionTutorialCompletion.CompanionRight =>
-                companion.X > _record.X,
+                companionX > _record.X,
+            CompanionTutorialCompletion.CompanionAbove =>
+                companionY <= _record.Y,
+            CompanionTutorialCompletion.CompanionBelowOrLeft =>
+                companionY > _record.Y || companionX <= _record.X,
+            CompanionTutorialCompletion.CompanionAboveWithLinkXRange =>
+                linkX >= _record.LinkXMin && linkX < _record.LinkXMax &&
+                companionY <= _record.Y,
             _ => throw new InvalidOperationException(
                 $"Unsupported companion tutorial completion in {_record.Source}.")
         };

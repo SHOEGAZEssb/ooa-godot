@@ -486,6 +486,14 @@ public partial class Player : Node2D
         _lastSafePosition = position;
         _localRespawnFacing = _facing;
     }
+
+    /// <summary>
+    /// Writes wLinkLocalRespawnY/X without changing wLinkLocalRespawnDir.
+    /// companionRespawn uses this narrower write when its first position is
+    /// invalid and it falls back to wLastAnimalMountPointY/X.
+    /// </summary>
+    internal void SetLocalRespawnCoordinates(Vector2 position) =>
+        _lastSafePosition = position;
     internal int NewGameSlowFallFrame => _newGameFallFrame;
     internal int NewGameSlowFallZ => _newGameFallZFixed >> 8;
     internal bool HarpPoseActive => _harpPoseActive;
@@ -3485,6 +3493,7 @@ public partial class Player : Node2D
 
     internal void FinishCompanionMount(
         Vector2 companionPosition,
+        Vector2 linkOffset,
         int direction,
         int zFixed,
         Texture2D linkTexture,
@@ -3493,12 +3502,13 @@ public partial class Player : Node2D
     {
         ClearTopDownAirState();
         SetCompanionRidePosition(
-            companionPosition, direction, zFixed, linkTexture,
+            companionPosition, linkOffset, direction, zFixed, linkTexture,
             damageLinkTexture, textureOffset, Vector2.Zero);
     }
 
     internal void SetCompanionRidePosition(
         Vector2 companionPosition,
+        Vector2 linkOffset,
         int direction,
         int zFixed,
         Texture2D linkTexture,
@@ -3508,9 +3518,6 @@ public partial class Player : Node2D
     {
         if (direction is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(direction));
-        Vector2 linkOffset = (direction & 1) == 0
-            ? new Vector2(0, -14)
-            : new Vector2(0, -16);
         _precisePosition = companionPosition + screenOffset + linkOffset;
         _companionRideTexture = linkTexture;
         _damageCompanionRideTexture = damageLinkTexture;

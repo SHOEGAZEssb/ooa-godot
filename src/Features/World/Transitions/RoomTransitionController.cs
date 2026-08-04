@@ -334,10 +334,14 @@ public sealed class RoomTransitionController
             _entities.PlayerScreenTransitionOwner;
         Vector2 position =
             transitionOwner?.ScreenTransitionPosition ?? player.Position;
-        Vector2I direction = position.Y <= 5 ? Vector2I.Up
-            : position.Y > room.Height - 7 ? Vector2I.Down
-            : position.X <= 5 ? Vector2I.Left
-            : position.X > room.Width - 6 ? Vector2I.Right
+        // screenTransitionState2 compares w1Link.yh/xh. The fractional byte is
+        // retained when the high byte is clamped to the boundary, but it must
+        // not by itself retrigger the edge check while Ricky's hop is landing.
+        Vector2 pixelPosition = OracleObjectMath.ToPixelPosition(position);
+        Vector2I direction = pixelPosition.Y <= 5 ? Vector2I.Up
+            : pixelPosition.Y > room.Height - 7 ? Vector2I.Down
+            : pixelPosition.X <= 5 ? Vector2I.Left
+            : pixelPosition.X > room.Width - 6 ? Vector2I.Right
             : Vector2I.Zero;
         if (direction == Vector2I.Zero)
             return;
@@ -346,7 +350,7 @@ public sealed class RoomTransitionController
         // transitions bypass the ordinary delay, input, knockback, hazard, and
         // wDisableScreenTransitions checks in screenTransitionState2.
         if (_warps.TryGetEdgeWarp(
-            _rooms.ActiveGroup, room.Id, direction, position,
+            _rooms.ActiveGroup, room.Id, direction, pixelPosition,
             new Vector2(room.Width, room.Height), out Warp warp))
         {
             _screenTransitionDelay = 0;
@@ -382,7 +386,13 @@ public sealed class RoomTransitionController
         // SPECIALOBJECT_MINECART is checked immediately after the delay in
         // screenTransitionState2. It bypasses Link's angle, knockback, and
         // terrain-hazard gates because wLinkObjectIndex points at the cart.
-        if (transitionOwner is null &&
+        // screenTransitionState2 checks SPECIALOBJECT_MINECART before Link's
+        // angle gate. Animal companions own Link's position but are not the
+        // minecart, so releasing or reversing the input during a locked hop
+        // must not start a scroll as soon as the landing clears
+        // wDisableScreenTransitions.
+        if ((transitionOwner is null ||
+                !transitionOwner.BypassesScreenTransitionInputGate) &&
             (player.RejectsOrdinaryScreenTransition ||
                 !player.IsMovingTowardScreenEdge(direction)))
         {

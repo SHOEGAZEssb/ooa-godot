@@ -11,7 +11,7 @@ internal sealed class GroundTreasureRoomEntity(
     : RoomEntityAdapter<GroundTreasurePickup>(
         treasure, treasure.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime,
-        IUpdatesDuringDialogueRoomEntity
+        IUpdatesDuringDialogueRoomEntity, IDugTileRoomEntity
 {
     public bool Finished => Entity.Finished;
     bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue =>
@@ -25,5 +25,8 @@ internal sealed class GroundTreasureRoomEntity(
         if (collectionAllowed() && Entity.TryCollect(player))
             collected(Entity, player);
     }
+
+    public void NotifyTileDug(int packedPosition) =>
+        Entity.NotifyTileDug(packedPosition);
 
 }

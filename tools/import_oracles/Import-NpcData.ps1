@@ -348,6 +348,79 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     return $encoded
 }
 
+# PART_TINGLE_BALLOON uses the same object-gfx sheet as Tingle, but its
+# animation and OAM pointer domains are the part tables. Resolve that domain
+# with the same source-order rules as positioned interaction animations.
+$partAnimationPath =
+    Join-Path $Disassembly "data\ages\partAnimations.s"
+$partAnimationTables = Read-AssemblyDwTables `
+    $partAnimationPath 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
+$partOamPointerTables = Read-AssemblyDwTables `
+    $partAnimationPath 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
+$partAnimationDefinitions = Read-AssemblyAnimationDefinitions `
+    $partAnimationPath 'partAnimation[0-9a-f]+(?:Loop)?'
+$partOamBlocks = @{}
+$partOamPath = Join-Path $Disassembly "data\ages\partOamData.s"
+$partOamNodes = @(Read-AssemblyNodes $partOamPath)
+$partOamDataByLabel = @{}
+foreach ($node in $partOamNodes) {
+    $label = $node.EnclosingGlobalLabel
+    if ($node.Kind -ne 'Data' -or $node.Name -ine '.db' -or
+        $label -notmatch '^partOamData[0-9a-f]+$') { continue }
+    if (-not $partOamDataByLabel.ContainsKey($label)) {
+        $partOamDataByLabel[$label] = [Collections.Generic.List[object]]::new()
+    }
+    $partOamDataByLabel[$label].Add($node)
+}
+foreach ($label in $partOamDataByLabel.Keys) {
+    $dataLines = $partOamDataByLabel[$label]
+    if ($dataLines.Count -eq 0) { continue }
+    $count = Convert-AssemblyInteger $dataLines[0].Operands[0]
+    $blocks = [Collections.Generic.List[string]]::new()
+    for ($index = 1; $index -le $count -and $index -lt $dataLines.Count; $index++) {
+        if ($dataLines[$index].Operands.Count -lt 4) { continue }
+        $blocks.Add(($dataLines[$index].Operands |
+            Select-Object -First 4 | ForEach-Object {
+            Convert-AssemblyInteger $_
+        }) -join ',')
+    }
+    $partOamBlocks[$label] = $blocks -join ';'
+}
+
+function Resolve-PartAnimation([int]$partId, [int]$animationIndex) {
+    $hex = $partId.ToString('x2')
+    $animationKey = "part${hex}Animations"
+    $pointerKey = "part${hex}OamDataPointers"
+    if (-not $partAnimationTables.ContainsKey($animationKey) -or
+        -not $partOamPointerTables.ContainsKey($pointerKey)) { return '' }
+    $animations = $partAnimationTables[$animationKey]
+    if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
+    $animationLabel = $animations[$animationIndex]
+    if (-not $partAnimationDefinitions.ContainsKey($animationLabel)) { return '' }
+    $definition = $partAnimationDefinitions[$animationLabel]
+    $pointers = $partOamPointerTables[$pointerKey]
+    $resolvedFrames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in $definition.Frames) {
+        $pointerIndex = [int]($frame.PointerOffset / 2)
+        if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { continue }
+        $oamLabel = $pointers[$pointerIndex]
+        $oam = if ($partOamBlocks.ContainsKey($oamLabel)) {
+            $partOamBlocks[$oamLabel]
+        } else { '' }
+        $metadata = if ([int]$frame.Parameter -eq 0) {
+            "$($frame.Duration)"
+        } else {
+            "$($frame.Duration),$($frame.Parameter)"
+        }
+        $resolvedFrames.Add("$metadata@$oam")
+    }
+    $encoded = $resolvedFrames -join '|'
+    if ($definition.LoopStart -gt 0) {
+        $encoded += "~$($definition.LoopStart)"
+    }
+    return $encoded
+}
+
 # The shared INTERAC_TREASURE OAM pointer base intentionally indexes through
 # the following labeled pointer tables for several common animation frames.
 # Preserve that contiguous ROM layout instead of truncating at the next label.
@@ -650,6 +723,7 @@ $specializedNpcImplementationKeys =
 foreach ($key in @(
     '0:56:65:00:00',
     '0:5d:cb:00:00',
+    '0:79:c8:00:00',
     '0:83:d5:00:00',
     '0:7c:59:00:00',
     '0:7c:59:00:02',
@@ -742,7 +816,7 @@ foreach ($key in @(
 }
 
 if ($ordinaryNpcImplementationKeys.Count -ne 53 -or
-    $specializedNpcImplementationKeys.Count -ne 61 -or
+    $specializedNpcImplementationKeys.Count -ne 62 -or
     $eventOwnedNpcImplementationKeys.Count -ne 17) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -868,24 +942,177 @@ $companionTutorialWramSource = Read-ImportText (
     Join-Path $Disassembly 'include\wram.s')
 $specialObjectConstantsSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\specialObjects.s')
-$room05bCompanionTutorial = [regex]::Match(
+$companionTutorialPlacements = @(
+    @{ Room = 0x27; Order = 2; Subid = 0x03; Required = 0x0c; Text = 0x2108; Flag = 3; Completion = 'above-link-range'; LinkMin = 0x40; LinkMax = 0x80 },
+    @{ Room = 0x36; Order = 0; Subid = 0x03; Required = 0x0c; Text = 0x2108; Flag = 3; Completion = 'above-link-range'; LinkMin = 0x40; LinkMax = 0x70 },
+    @{ Room = 0x37; Order = 2; Subid = 0x03; Required = 0x0c; Text = 0x2108; Flag = 3; Completion = 'above-link-range'; LinkMin = 0x10; LinkMax = 0x30 },
+    @{ Room = 0x5b; Order = 0; Subid = 0x04; Required = 0x0d; Text = 0x2207; Flag = 4; Completion = 'companion-right'; LinkMin = 0; LinkMax = 0 },
+    @{ Room = 0x79; Order = 0; Subid = 0x01; Required = 0x0b; Text = 0x2009; Flag = 1; Completion = 'companion-above'; LinkMin = 0; LinkMax = 0 },
+    @{ Room = 0x89; Order = 0; Subid = 0x00; Required = 0x0b; Text = 0x2008; Flag = 0; Completion = 'companion-below-or-left'; LinkMin = 0; LinkMax = 0 }
+)
+$allPlacedCompanionTutorials = [regex]::Matches(
     $mainObjectSource,
-    '(?ms)^group0Map5bObjectData:\s+obj_Interaction \$d0 \$04 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s+obj_End')
-if (-not $room05bCompanionTutorial.Success -or
+    '(?m)^\s*obj_Interaction \$d0 \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2}\s*$')
+if ($allPlacedCompanionTutorials.Count -ne $companionTutorialPlacements.Count -or
     $companionTutorialSource -notmatch '(?ms)^@state0:.*?ld a,\$01.*?^@state1:.*?ld a,\$02.*?w1Companion\.enabled.*?srl a.*?SPECIALOBJECT_FIRST_COMPANION.*?SPECIALOBJECT_MOOSH.*?w1Companion\.id.*?@flagNumbers.*?wCompanionTutorialTextShown.*?checkFlag.*?wLinkObjectIndex.*?bit 0,a.*?call nz,showText' -or
-    $companionTutorialSource -notmatch '(?ms)^@state2:.*?\.dw @setFlagAndDeleteWhenCompanionIsLeft.*?^@setFlagAndDeleteWhenCompanionIsLeft:.*?Interaction\.xh.*?w1Companion\.xh.*?cp \(hl\).*?ret nc.*?@setFlagAndDelete' -or
+    $companionTutorialSource -notmatch '(?ms)^@state2:.*?\.dw @setFlagAndDeleteWhenCompanionIsBelowOrRight.*?\.dw @setFlagAndDeleteWhenCompanionIsAbove.*?\.dw @setFlagAndDeleteWhenCompanionIsAboveAndLinkInXRange.*?\.dw @setFlagAndDeleteWhenCompanionIsLeft' -or
+    $companionTutorialSource -notmatch '(?ms)^@setFlagAndDeleteWhenCompanionIsBelowOrRight:.*?@cpYToCompanion.*?jr c,@setFlagAndDelete.*?Interaction\.xh.*?w1Companion\.xh.*?cp \(hl\).*?ret c.*?@setFlagAndDelete' -or
+    $companionTutorialSource -notmatch '(?ms)^@setFlagAndDeleteWhenCompanionIsAboveAndLinkInXRange:.*?@checkLinkInXRange.*?ret nz.*?@setFlagAndDeleteWhenCompanionIsAbove' -or
+    $companionTutorialSource -notmatch '(?ms)^@rooms:\s+\.db <ROOM_AGES_036\s+\.db <ROOM_AGES_037\s+\.db <ROOM_AGES_027.*?^@xRanges:\s+\.db \$40 \$70\s+\.db \$10 \$30\s+\.db \$40 \$80' -or
     $companionTutorialSource -notmatch '(?ms)^@tutorialTextToShow:\s+\.dw TX_2008\s+\.dw TX_2009\s+\.dw TX_0000\s+\.dw TX_2108\s+\.dw TX_2207\s+\.dw TX_2206' -or
     $companionTutorialSource -notmatch '(?ms)^@flagNumbers:\s+\.db \$00 \$01 \$00 \$03 \$04 \$00' -or
     $companionTutorialWramSource -notmatch '(?m)^wCompanionTutorialTextShown: ; \$c649\s*$' -or
-    $specialObjectConstantsSource -notmatch '(?m)^\s*SPECIALOBJECT_MOOSH\s+db ; \$0d\s*$' -or
-    -not $allTexts.ContainsKey(0x2207)) {
-    throw 'Room 0:5b INTERAC_COMPANION_TUTORIAL `$d0:$04 contract changed.'
+    $specialObjectConstantsSource -notmatch '(?m)^\s*SPECIALOBJECT_RICKY\s+db ; \$0b\s*$' -or
+    $specialObjectConstantsSource -notmatch '(?m)^\s*SPECIALOBJECT_DIMITRI\s+db ; \$0c\s*$' -or
+    $specialObjectConstantsSource -notmatch '(?m)^\s*SPECIALOBJECT_MOOSH\s+db ; \$0d\s*$') {
+    throw 'Ages INTERAC_COMPANION_TUTORIAL `$d0 source contract changed.'
 }
-$companionTutorialMessage = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes($allTexts[0x2207]))
-$companionTutorialRows = @(
-    "# group`troom`torder`tid`tsubid`ty`tx`trequired-companion`ttext-id`tflag-address`tflag-bit`tcompletion`tutf8-base64`tsource"
-    "0`t5b`t0`td0`t04`t$($room05bCompanionTutorial.Groups['y'].Value)`t$($room05bCompanionTutorial.Groups['x'].Value)`t0d`t2207`tc649`t4`tcompanion-right`t$companionTutorialMessage`tmainData.s:group0Map5bObjectData;companionTutorial.s:interactionCoded0"
+$companionTutorialRows = [Collections.Generic.List[string]]::new()
+$companionTutorialRows.Add(
+    "# group`troom`torder`tid`tsubid`ty`tx`trequired-companion`ttext-id`tflag-address`tflag-bit`tcompletion`tlink-x-min`tlink-x-max`tutf8-base64`tsource")
+foreach ($tutorial in $companionTutorialPlacements) {
+    $roomHex = ([int]$tutorial.Room).ToString('x2')
+    $subidHex = ([int]$tutorial.Subid).ToString('x2')
+    $placement = [regex]::Match(
+        $mainObjectSource,
+        "(?ms)^group0Map$($roomHex)ObjectData:.*?^\s*obj_Interaction \`$d0 \`$$subidHex \`$(?<y>[0-9a-f]{2}) \`$(?<x>[0-9a-f]{2})\s*`$")
+    if (-not $placement.Success -or -not $allTexts.ContainsKey([int]$tutorial.Text)) {
+        throw "Room 0:$roomHex INTERAC_COMPANION_TUTORIAL `$$subidHex changed."
+    }
+    $message = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($allTexts[[int]$tutorial.Text]))
+    $companionTutorialRows.Add(
+        "0`t$roomHex`t$($tutorial.Order)`td0`t$subidHex`t$($placement.Groups['y'].Value)`t$($placement.Groups['x'].Value)`t$(([int]$tutorial.Required).ToString('x2'))`t$(([int]$tutorial.Text).ToString('x4'))`tc649`t$($tutorial.Flag)`t$($tutorial.Completion)`t$(([int]$tutorial.LinkMin).ToString('x2'))`t$(([int]$tutorial.LinkMax).ToString('x2'))`t$message`tmainData.s:group0Map$($roomHex)ObjectData;companionTutorial.s:interactionCoded0")
+}
+
+$companionBarrierSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\companionScripts.s')
+$allLowerYBarriers = [regex]::Matches(
+    $mainObjectSource,
+    '(?m)^\s*obj_Interaction \$71 \$02 \$[0-9a-f]{2} \$[0-9a-f]{2}\s*$')
+$companionBarrierPlacements = @()
+foreach ($expected in @(
+    @{ Group = 0; Room = 0x6c; Order = 4 },
+    @{ Group = 0; Room = 0x89; Order = 1 }
+)) {
+    $roomHex = ([int]$expected.Room).ToString('x2')
+    $roomBlock = [regex]::Match(
+        $mainObjectSource,
+        "(?ms)^group$($expected.Group)Map$($roomHex)ObjectData:(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)")
+    $placement = if ($roomBlock.Success) {
+        [regex]::Match(
+            $roomBlock.Groups['body'].Value,
+            '(?m)^\s*obj_Interaction \$71 \$02 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*$')
+    } else { $null }
+    if ($null -eq $placement -or -not $placement.Success) {
+        throw "Room $($expected.Group):$roomHex lost INTERAC_COMPANION_SCRIPTS `$71:`$02."
+    }
+    $companionBarrierPlacements += [pscustomobject]@{
+        Group = [int]$expected.Group
+        Room = $roomHex
+        Order = [int]$expected.Order
+        Y = $placement.Groups['y'].Value
+        X = $placement.Groups['x'].Value
+    }
+}
+if ($allLowerYBarriers.Count -ne 2 -or $companionBarrierPlacements.Count -ne 2 -or
+    $companionBarrierSource -notmatch '(?ms)^companionScript_genericState0:.*?wFileIsCompleted.*?wLinkObjectIndex.*?rrca.*?w1Companion\.id.*?SPECIALOBJECT_RICKY.*?wRickyState.*?bit 7,\(hl\).*?companionScript_deleteSelf' -or
+    $companionBarrierSource -notmatch '(?ms)^companionScript_restrictLowerY:.*?companionScript_cpYToCompanion.*?ret nc.*?ld c,a.*?wLinkObjectIndex.*?rrca.*?ld \(hl\),a.*?SpecialObject\.speed.*?SPEED_0.*?companionScript_companionBarrierText.*?showText.*?^companionScript_cpYToCompanion:.*?Interaction\.yh.*?w1Companion\.yh.*?cp \(hl\).*?^companionScript_companionBarrierText:\s+\.dw TX_2007.*?\.dw TX_2105.*?\.dw TX_2209') {
+    throw 'Ages INTERAC_COMPANION_SCRIPTS `$71:$02 lower-Y barrier contract changed.'
+}
+$barrierTextIds = @(0x2007, 0x2105, 0x2209)
+foreach ($textId in $barrierTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve companion barrier TX_$($textId.ToString('x4'))."
+    }
+}
+$companionBarrierRows = [Collections.Generic.List[string]]::new()
+$companionBarrierRows.Add(
+    "# group`troom`torder`tid`tsubid`ty`tx`tricky-state-address`tdimitri-state-address`tmoosh-state-address`tricky-text-id`tdimitri-text-id`tmoosh-text-id`tricky-utf8-base64`tdimitri-utf8-base64`tmoosh-utf8-base64`tsource")
+foreach ($placement in $companionBarrierPlacements) {
+    $group = $placement.Group
+    $room = $placement.Room
+    $messages = @($barrierTextIds | ForEach-Object {
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$_]))
+    })
+    $companionBarrierRows.Add(
+        "$group`t$room`t$($placement.Order)`t71`t02`t$($placement.Y)`t$($placement.X)`tc646`tc647`tc648`t2007`t2105`t2209`t$($messages[0])`t$($messages[1])`t$($messages[2])`tmainData.s:group$($group)Map$($room)ObjectData;companionScripts.s:companionScript_restrictLowerY")
+}
+
+$tingleSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\tingle.s')
+$tingleBalloonSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\tingleBalloon.s')
+$tingleScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$tingleInteractionDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\interactionData.s')
+$tinglePartDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\partData.s')
+$tingleGlobalFlagSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction \$d0 \$01 \$38 \$78\s+obj_Interaction \$c8 \$00 \$32 \$38\s+obj_End' -or
+    $tingleInteractionDataSource -notmatch '(?m)^\s*/\* \$c8 \*/ m_InteractionData \$55 \$04 \$00\s*$' -or
+    $tinglePartDataSource -notmatch '(?m)^\s*\.db \$55 \$82 \$44 \$00 \$01 \$18 \$02 \$00 ; \$44\s*$' -or
+    $tingleSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?interactionSetAlwaysUpdateBit.*?objectSetVisiblec0.*?objectSetCollideRadius.*?TREASURE_EMBER_SEEDS.*?TREASURE_MYSTERY_SEEDS\+1.*?cp \$03.*?PART_TINGLE_BALLOON' -or
+    $tingleSource -notmatch '(?ms)^@state3:.*?counter1.*?interactionDecCounter1.*?ld c,\$10.*?objectUpdateSpeedZ_paramC.*?objectAddToAButtonSensitiveObjectList.*?tingleScript.*?ld a,\$01' -or
+    $tingleSource -notmatch '(?ms)^@state4:.*?TREASURE_SEED_SATCHEL.*?Interaction\.var3d.*?interactionRunScript.*?interactionAnimateAsNpc.*?animParameter.*?ld bc,-\$200.*?objectCreateSparkle.*?ld c,\$20.*?objectUpdateSpeedZ_paramC' -or
+    $tingleBalloonSource -notmatch '(?ms)^@state0:.*?Part\.counter1.*?\$38.*?inc l.*?\$ff.*?Part\.zh.*?\$f1.*?ld bc,-\$10.*?partSetAnimation.*?objectSetVisible81' -or
+    $tingleBalloonSource -notmatch '(?ms)^@state1:.*?partCommon_decCounter1IfNonzero.*?\$38.*?speedZ.*?cpl.*?inc a.*?cpl.*?objectUpdateSpeedZ_paramC.*?w1Companion|(?ms)^@state1:.*?objectUpdateSpeedZ_paramC.*?objectGetRelatedObject1Var.*?Part\.zh' -or
+    $tingleBalloonSource -notmatch '(?ms)^@beenHit:.*?Object\.state.*?inc \(hl\).*?INTERAC_EXPLOSION.*?\$f000.*?partDelete' -or
+    $tingleScriptSource -notmatch '(?ms)^tingleScript:.*?checkabutton.*?TREASURE_ISLAND_CHART.*?GLOBALFLAG_MET_TINGLE.*?TX_1e00.*?TX_1e01.*?TX_1e02.*?TREASURE_OBJECT_ISLAND_CHART_00.*?TX_1e04.*?wait 60.*?w1Companion\.var03, \$02.*?w1Companion\.state, \$0a' -or
+    $tingleScriptSource -notmatch '(?ms)^@haveLevel1Satchel:.*?GLOBALFLAG_GOT_SATCHEL_UPGRADE.*?TX_1e06.*?TX_1e07.*?TREASURE_OBJECT_SEED_SATCHEL_UPGRADE.*?refillSeedSatchel' -or
+    $tingleScriptSource -notmatch '(?ms)^@postgame:.*?TX_1e09.*?askforsecret TINGLE_SECRET.*?TX_1e0d.*?TX_1e0e.*?GLOBALFLAG_BEGAN_TINGLE_SECRET.*?@showReturnSecret:.*?TINGLE_RETURN_SECRET.*?GLOBALFLAG_DONE_TINGLE_SECRET.*?TX_1e0f' -or
+    $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_MET_TINGLE\s+db ; \$1b' -or
+    $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_GOT_SATCHEL_UPGRADE\s+db ; \$46' -or
+    $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_BEGAN_TINGLE_SECRET\s+db ; \$6b' -or
+    $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_DONE_TINGLE_SECRET\s+db ; \$75') {
+    throw 'Room 0:79 INTERAC_TINGLE `$c8:$00 source contract changed.'
+}
+$tingleAnimationRows = [Collections.Generic.List[string]]::new()
+$tingleAnimationRows.Add("# owner`tanimation`tencoded`tsource")
+for ($animation = 0; $animation -lt 4; $animation++) {
+    $encoded = Resolve-NpcAnimation 0xc8 $animation
+    if (-not $encoded) {
+        throw "Could not resolve INTERAC_TINGLE animation `$$($animation.ToString('x2'))."
+    }
+    $tingleAnimationRows.Add(
+        "tingle`t$animation`t$encoded`tinteractionAnimations.s:interactionc8Animations")
+}
+$tingleBalloonAnimation = Resolve-PartAnimation 0x44 0
+if (-not $tingleBalloonAnimation) {
+    throw 'Could not resolve PART_TINGLE_BALLOON animation $00.'
+}
+$tingleAnimationRows.Add(
+    "balloon`t0`t$tingleBalloonAnimation`tpartAnimations.s:part44Animations")
+
+$tingleTextRows = [Collections.Generic.List[string]]::new()
+$tingleTextRows.Add("# text-id`tutf8-base64`tsource")
+foreach ($textId in (@(0x2006) + @(0x1e00..0x1e0f))) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Tingle TX_$($textId.ToString('x4'))."
+    }
+    $text = $allTexts[$textId]
+    if ($textId -eq 0x1e05) {
+        if ($text -notmatch '^\\call\(TX_1e0c\)\\stop') {
+            throw 'Tingle TX_1e05 lost its leading TX_1e0c call/stop chain.'
+        }
+        $text = $text.Replace('\call(TX_1e0c)', $allTexts[0x1e0c])
+    }
+    elseif ($textId -eq 0x1e0d) {
+        if ($text -notmatch '\\jump\(TX_1e0b\)$') {
+            throw 'Tingle TX_1e0d lost its terminal TX_1e0b jump.'
+        }
+        $text = $text.Replace('\jump(TX_1e0b)', $allTexts[0x1e0b])
+    }
+    $message = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($text))
+    $tingleTextRows.Add(
+        "$($textId.ToString('x4'))`t$message`ttext/ages:TX_$($textId.ToString('x4'))")
+}
+$tingleRows = @(
+    "# group`troom`tid`tsubid`tballoon-part`tinitial-z`tballoon-counter`tballoon-speed-z`tfall-wait`tfall-gravity`tkooloo-speed-z`tkooloo-gravity`tpost-chart-wait`tupgrade-glow-wait`tseed-threshold`tmet-flag`tupgrade-flag`tbegan-secret-flag`tdone-secret-flag`tisland-chart-treasure`tisland-chart-object`tsatchel-treasure`tsatchel-upgrade-object`tballoon-tile-base`tballoon-palette`tsource",
+    "0`t79`tc8`t00`t44`t-15`t56`t-16`t15`t16`t-512`t32`t60`t120`t3`t1b`t46`t6b`t75`t54`tTREASURE_OBJECT_ISLAND_CHART_00`t19`tTREASURE_OBJECT_SEED_SATCHEL_UPGRADE`t24`t2`tobject_code/ages/interactions/tingle.s:interactionCodec8;tingleBalloon.s:partCode44;scripts.s:tingleScript"
 )
 $enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly "objects\ages\enemyData.s")
@@ -2962,9 +3189,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
-    $npcImplementationCounts['specialized-native'] -ne 63 -or
+    $npcImplementationCounts['specialized-native'] -ne 64 -or
     $npcImplementationCounts['event-owned'] -ne 17 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 257 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 256 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -3427,7 +3654,7 @@ $heartPieceSprite = $gfxNames[$heartPieceGraphic.Gfx]
 [void]$npcSpriteNames.Add($heartPieceSprite)
 $groundTreasureRows = [Collections.Generic.List[string]]::new()
 $groundTreasureRows.Add(
-    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`tsource")
+    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`trequire-room-item-clear`tset-room-item`tstate-address`tstate-mask`tstate-value`trequire-treasure-clear`tspawn-mode`tgrab-mode`tinitial-speed-z`tgravity`tmove-speed`tsource")
 $currentGroup = -1
 $currentRoom = -1
 $objectOrder = 0
@@ -3441,12 +3668,62 @@ foreach ($line in $mainObjectLines) {
     if ($currentGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
     if ($line -match 'obj_Interaction\s+\$dc\s+\$07\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
         $groundTreasureRows.Add(
-            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`tmiscellaneous2.s:interactiondc_subid07")
+            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`t1`t1`t0000`t00`t00`t00`t0`t2`t0`t0`t0`tmiscellaneous2.s:interactiondc_subid07")
     }
     $objectOrder++
 }
 if ($groundTreasureRows.Count -ne 9) {
     throw "Expected eight static Heart Piece spawners, got $($groundTreasureRows.Count - 1)."
+}
+
+# INTERAC_RICKYS_GLOVE_SPAWNER $74:$00 creates the ordinary Ricky's Gloves
+# treasure only after Link has heard Ricky's explanation, before the gloves
+# have been returned, and while treasure $48 is absent. TREASURE_OBJECT_
+# RICKY_GLOVES_00 uses spawn mode $05: breaking its remembered dirt tile
+# launches it at SPEED_080 with speedZ=-$100 and gravity $10 until its bounces
+# stop, after which grab mode $01 holds it above Link with one hand.
+$rickyGloveSpawnerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\rickysGloveSpawner.s')
+$rickyWramSource = Read-ImportText (
+    Join-Path $Disassembly 'include\wram.s')
+$rickyGloveObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group0Map98ObjectData:\s+obj_Interaction \$74 \$00 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s+obj_Interaction \$71 \$06\s+obj_End')
+$rickyGloveObject =
+    $treasureObjectRecords['TREASURE_OBJECT_RICKY_GLOVES_00']
+if (-not $rickyGloveObjectBlock.Success -or
+    $rickyGloveObjectBlock.Groups['y'].Value -ne '28' -or
+    $rickyGloveObjectBlock.Groups['x'].Value -ne '48' -or
+    $rickyGloveSpawnerSource -notmatch
+        '(?ms)^interactionCode74:\s+.*?wRickyState.*?bit 5,a.*?and \$01.*?TREASURE_RICKY_GLOVES.*?checkTreasureObtained.*?ldbc INTERAC_TREASURE, TREASURE_RICKY_GLOVES.*?objectCreateInteraction.*?interactionDelete' -or
+    $rickyWramSource -notmatch '(?m)^wRickyState: ; \$c646/\$c643\s*$' -or
+    $treasureObjectSource -notmatch
+        '(?m)^\s*/\* \$48 \*/ m_TreasureSubid\s+\$51, \$01, \$67, \$55, TREASURE_OBJECT_RICKY_GLOVES_00\s*$' -or
+    $null -eq $rickyGloveObject -or
+    $rickyGloveObject.Treasure -ne 0x48 -or
+    $rickyGloveObject.Subid -ne 0 -or
+    $rickyGloveObject.Parameter -ne 1 -or
+    $rickyGloveObject.TextId -ne 0x67 -or
+    $rickyGloveObject.Graphic -ne 0x55) {
+    throw "Room 0:98 Ricky's Gloves spawner or treasure object changed."
+}
+$rickyGloveGraphic = $interactionGraphics['96:85']
+if ($null -eq $rickyGloveGraphic -or
+    -not $gfxNames.ContainsKey($rickyGloveGraphic.Gfx)) {
+    throw "Could not resolve room 0:98 Ricky's Gloves visual or TX_0067."
+}
+$rickyGloveAnimation = Resolve-TreasureAnimation (
+    [int]$rickyGloveGraphic.DefaultAnimation)
+if ([string]::IsNullOrWhiteSpace($rickyGloveAnimation) -or
+    [string]::IsNullOrWhiteSpace($rickyGloveObject.Message)) {
+    throw "Could not resolve room 0:98 Ricky's Gloves visual or TX_0067."
+}
+$rickyGloveSprite = $gfxNames[$rickyGloveGraphic.Gfx]
+[void]$npcSpriteNames.Add($rickyGloveSprite)
+$groundTreasureRows.Add(
+    "0`t98`t0`t28`t48`tTREASURE_OBJECT_RICKY_GLOVES_00`t$rickyGloveSprite`t$($rickyGloveGraphic.TileBase)`t$($rickyGloveGraphic.Palette)`t$rickyGloveAnimation`t0000`t`t0`t0`tc646`t21`t01`t48`t5`t1`t-256`t16`t14`trickysGloveSpawner.s:interactionCode74;treasure.s:@spawnMode5")
+if ($groundTreasureRows.Count -ne 10) {
+    throw "Expected eight Heart Pieces and room 0:98 Ricky's Gloves, got $($groundTreasureRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\ground_treasures.tsv'),
@@ -4702,6 +4979,16 @@ $companionTutorialPath = Join-Path $destination "objects\companion_tutorials.tsv
 Write-GeneratedTable(
     $companionTutorialPath,
     $companionTutorialRows)
+$companionBarrierPath = Join-Path $destination "objects\companion_barriers.tsv"
+Write-GeneratedTable(
+    $companionBarrierPath,
+    $companionBarrierRows)
+$tinglePath = Join-Path $destination "objects\tingle.tsv"
+Write-GeneratedTable($tinglePath, $tingleRows)
+$tingleAnimationPath = Join-Path $destination "objects\tingle_animations.tsv"
+Write-GeneratedTable($tingleAnimationPath, $tingleAnimationRows)
+$tingleTextPath = Join-Path $destination "objects\tingle_texts.tsv"
+Write-GeneratedTable($tingleTextPath, $tingleTextRows)
 $vasuShopTextPath = Join-Path $destination "objects\vasu_shop_texts.tsv"
 Write-GeneratedTable(
     $vasuShopTextPath,

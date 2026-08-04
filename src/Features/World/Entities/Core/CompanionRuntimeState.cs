@@ -11,6 +11,7 @@ namespace oracleofages;
 internal static class CompanionRuntimeState
 {
     internal const int MinecartId = 0x0a;
+    internal const int RickyId = 0x0b;
     internal const int MooshId = 0x0d;
 
     private const int Active = 0xd100;
@@ -25,6 +26,12 @@ internal static class CompanionRuntimeState
     private const int RememberedRoom = 0xcc26;
     private const int RememberedY = 0xcc27;
     private const int RememberedX = 0xcc28;
+
+    // wLastAnimalMountPointY/X are live WRAM state, shared by every animal
+    // companion. companionFinalizeMounting and finishScrollingTransition
+    // overwrite them; companionRespawn reads them without a room-id guard.
+    private const int LastAnimalMountY = 0xc638;
+    private const int LastAnimalMountX = 0xc639;
 
     internal static bool IsActive(OracleRuntimeState state, int id) =>
         state.ReadWramByte(Active) != 0 &&
@@ -50,6 +57,8 @@ internal static class CompanionRuntimeState
         state.SetWramByte(Active, 1);
         state.SetWramByte(Id, checked((byte)id));
         Update(state, id, room, position, direction);
+        if (id is RickyId or MooshId)
+            SetLastAnimalMountPosition(state, position);
     }
 
     internal static void Update(
@@ -74,6 +83,23 @@ internal static class CompanionRuntimeState
             return;
         for (int address = Active; address <= X; address++)
             state.SetWramByte(address, 0);
+    }
+
+    internal static Vector2 ReadLastAnimalMountPosition(
+        OracleRuntimeState state) => new(
+            state.ReadWramByte(LastAnimalMountX),
+            state.ReadWramByte(LastAnimalMountY));
+
+    internal static void SetLastAnimalMountPosition(
+        OracleRuntimeState state,
+        Vector2 position)
+    {
+        state.SetWramByte(
+            LastAnimalMountY,
+            (byte)Mathf.FloorToInt(position.Y));
+        state.SetWramByte(
+            LastAnimalMountX,
+            (byte)Mathf.FloorToInt(position.X));
     }
 
     internal static void Remember(

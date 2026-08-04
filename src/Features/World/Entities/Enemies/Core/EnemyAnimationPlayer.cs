@@ -50,23 +50,42 @@ internal sealed class EnemyAnimationPlayer
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
         bool sourceGrayscaleInverted = true,
         bool positionedOam = false,
-        IReadOnlyList<int>? paletteVariants = null)
+        IReadOnlyList<int>? paletteVariants = null,
+        IReadOnlyList<int[]>? animationSourceOffsets = null)
     {
         if (encodedAnimations.Count != _animations.Length)
         {
             throw new InvalidOperationException(
                 $"Expected {_animations.Length} enemy animations, got {encodedAnimations.Count}.");
         }
+        if (animationSourceOffsets is not null &&
+            animationSourceOffsets.Count != encodedAnimations.Count)
+        {
+            throw new InvalidOperationException(
+                $"Expected {encodedAnimations.Count} animation source-offset " +
+                $"rows, got {animationSourceOffsets.Count}.");
+        }
         _basePalette = palette;
         for (int index = 0; index < encodedAnimations.Count; index++)
         {
             AnimationDefinition definition =
                 OracleGraphicsCache.GetAnimationDefinition(encodedAnimations[index]);
+            int[]? frameSourceOffsets = animationSourceOffsets?[index];
+            if (frameSourceOffsets is not null &&
+                frameSourceOffsets.Length != definition.Frames.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Animation {index} has {definition.Frames.Length} frames " +
+                    $"but {frameSourceOffsets.Length} graphics source offsets.");
+            }
             _loopStarts[index] = Mathf.Clamp(
                 definition.LoopStart, 0, Math.Max(0, definition.Frames.Length - 1));
-            foreach (AnimationFrameDefinition frame in
-                definition.Frames)
+            for (int frameIndex = 0;
+                frameIndex < definition.Frames.Length;
+                frameIndex++)
             {
+                AnimationFrameDefinition frame = definition.Frames[frameIndex];
+                int sourceOffset = frameSourceOffsets?[frameIndex] ?? 0;
                 Texture2D texture;
                 Texture2D? damageTexture = null;
                 Dictionary<int, Texture2D>? variantTextures = null;
@@ -80,14 +99,16 @@ internal sealed class EnemyAnimationPlayer
                             tileBase,
                             palette,
                             paletteOverride: null,
-                            sourceGrayscaleInverted)
+                            sourceGrayscaleInverted,
+                            sourceOffset)
                         : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
                             source,
                             frame.EncodedOam,
                             tileBase,
                             palette,
                             paletteOverrides,
-                            sourceGrayscaleInverted);
+                            sourceGrayscaleInverted,
+                            sourceOffset);
                     if (damagePalette.HasValue)
                     {
                         Vector2 damageOffset;
@@ -99,7 +120,8 @@ internal sealed class EnemyAnimationPlayer
                                 palette,
                                 NpcCharacter.GetStandardSpritePalette(
                                     damagePalette.Value),
-                                sourceGrayscaleInverted);
+                                sourceGrayscaleInverted,
+                                sourceOffset);
                         if (damageOffset != offset)
                         {
                             throw new InvalidOperationException(
@@ -150,14 +172,16 @@ internal sealed class EnemyAnimationPlayer
                                         tileBase,
                                         variantPalette,
                                         paletteOverride: null,
-                                        sourceGrayscaleInverted)
+                                        sourceGrayscaleInverted,
+                                        sourceOffset)
                                     : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
                                         source,
                                         frame.EncodedOam,
                                         tileBase,
                                         variantPalette,
                                         paletteOverrides,
-                                        sourceGrayscaleInverted);
+                                        sourceGrayscaleInverted,
+                                        sourceOffset);
                             if (variantOffset != offset)
                             {
                                 throw new InvalidOperationException(

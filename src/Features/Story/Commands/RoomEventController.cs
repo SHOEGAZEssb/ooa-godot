@@ -31,6 +31,8 @@ public sealed class RoomEventController
     private readonly EnterPastEvent _enterPast;
     private readonly GraveyardGateEvent _graveyardGate;
     private readonly GraveyardGhostKidsEvent _graveyardGhostKids;
+    private readonly RickyGlovesEvent _rickyGloves;
+    private readonly TingleEvent _tingle;
     private readonly MooshRescueEvent _mooshRescue;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
@@ -105,6 +107,8 @@ public sealed class RoomEventController
         _enterPast = new EnterPastEvent(_context);
         _graveyardGate = new GraveyardGateEvent(_context);
         _graveyardGhostKids = new GraveyardGhostKidsEvent(_context);
+        _rickyGloves = new RickyGlovesEvent(_context);
+        _tingle = new TingleEvent(_context);
         _mooshRescue = new MooshRescueEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
@@ -136,6 +140,8 @@ public sealed class RoomEventController
             _wingDungeonCollapse,
             _nayru,
             _graveyardGate,
+            _rickyGloves,
+            _tingle,
             _mooshRescue,
             _makuSproutRescue,
             _dekuForestSoldier,
@@ -192,6 +198,12 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForNpc(
                 "companionScripts.s:companionScript_subid00Script",
                 (target, _) => _mooshRescue.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "companionScripts.s:companionScript_subid03Script",
+                (target, _) => _rickyGloves.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
+                "tingle.s:interactionCodec8; scripts.s:tingleScript",
+                (target, _) => _tingle.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "makuTree.s:interactionCode87Subid02",
                 (target, _) => _makuTreeSaved.TryInteractNpc(target.Npc)),
@@ -273,6 +285,8 @@ public sealed class RoomEventController
     internal EnterPastEvent EnterPast => _enterPast;
     internal GraveyardGateEvent GraveyardGate => _graveyardGate;
     internal GraveyardGhostKidsEvent GraveyardGhostKids => _graveyardGhostKids;
+    internal RickyGlovesEvent RickyGloves => _rickyGloves;
+    internal TingleEvent Tingle => _tingle;
     internal MooshRescueEvent MooshRescue => _mooshRescue;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
@@ -323,7 +337,8 @@ public sealed class RoomEventController
         _ralphAfterCheval.MenusDisabled ||
         _ralphAfterRafton.MenusDisabled ||
         _dekuForestSoldier.MenusDisabled ||
-        _dekuForestPalace.MenusDisabled;
+        _dekuForestPalace.MenusDisabled ||
+        _rickyGloves.MenusDisabled;
     internal ICutsceneCommandTraceSink? CommandTraceSink
     {
         set => _context.CommandTraceSink = value;
@@ -381,10 +396,15 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        _tingle.OnRoomLoaded(group, room);
         _wingDungeonCollapse.RestoreCollapsedEntrance(group, room);
         _fairiesWoods.OnRoomLoaded(group, room);
         _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);
+        // The placed $31:$00 Impa object shares room $0:$6a with Ricky's
+        // later $71:$03 controller. Apply Impa's completed-room suppression
+        // before a higher-priority room event can claim the entry update.
+        _impa.SuppressPlacedActorIfCompleted(group, room);
         if (_fairiesWoods.HasState &&
             _context.Entities.ScreenTransitionActive)
         {

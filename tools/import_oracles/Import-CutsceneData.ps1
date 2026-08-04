@@ -8880,10 +8880,13 @@ if ($null -eq $ghiniGraphic -or $ghiniGraphic.Gfx -ne 0x90 -or
 # Maple and is required by Moosh's walking, hovering, and charged-stomp frames.
 $specialAnimationPath = Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s'
 $specialAnimationSource = Read-ImportText $specialAnimationPath
+$specialAnimationNodes = @(Read-AssemblyNodes $specialAnimationPath)
+$specialObjectCommonSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
 $specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
 $specialOamNodes = @(Read-AssemblyNodes $specialOamPath)
 $specialOamTables = Read-AssemblyDwTables `
-    $specialAnimationPath 'specialObject(?:09|0d|11)OamDataPointers' 'oamData[0-9a-f]+'
+    $specialAnimationPath 'specialObject(?:09|0b|0d|0f|11)OamDataPointers' 'oamData[0-9a-f]+'
 $mooshOamPointers = $specialOamTables['specialObject0dOamDataPointers']
 if ($null -eq $mooshOamPointers) {
     $mooshOamPointers = $specialOamTables['specialObject11OamDataPointers']
@@ -9000,8 +9003,8 @@ $mooshAnimations = @($mooshAnimationLabels | ForEach-Object {
 $mooshAnimation = $mooshAnimations[0]
 
 # Link's w1Link graphics index is copied from Moosh's animation parameter.
-# Import every parameter Moosh can emit ($00-$2e) from SPECIALOBJECT_LINK's
-# riding table. Keep the graphics source byte offset separate from the raw
+# Import every parameter Ricky or Moosh can emit ($00-$32) from
+# SPECIALOBJECT_LINK's riding table. Keep the graphics source byte offset separate from the raw
 # 8-bit OAM tile: folding spr_link+$2100 into tile $210 would wrap to tile $10
 # in the compositor and incorrectly select Link's fall-in-hole graphic.
 $linkGfxStart = $specialAnimationSource.IndexOf(
@@ -9012,16 +9015,27 @@ $linkGfxEnd = $specialAnimationSource.IndexOf(
 $linkGfxRows = @([regex]::Matches(
     $specialAnimationSource.Substring($linkGfxStart, $linkGfxEnd - $linkGfxStart),
     '(?m)^\s*m_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
+$linkRetainedGfxRow = [regex]::Match(
+    $specialAnimationSource.Substring($linkGfxStart, $linkGfxEnd - $linkGfxStart),
+    '(?m)^\s*m_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+\$0000\s*$')
 $linkOamPointers = $specialOamTables['specialObject09OamDataPointers']
-if ($linkGfxRows.Count -lt 0x2f -or $null -eq $linkOamPointers -or
+if ($linkGfxRows.Count -ne 0x32 -or -not $linkRetainedGfxRow.Success -or
+    $null -eq $linkOamPointers -or
     $linkOamPointers.Count -ne 0x30) {
-    throw 'Link riding graphics/OAM tables no longer cover Moosh parameters $00-$2e.'
+    throw 'Link riding graphics/OAM tables no longer cover companion parameters $00-$32.'
 }
 $mooshLinkFrames = [Collections.Generic.List[string]]::new()
 $mooshLinkSourceOffsets = [Collections.Generic.List[string]]::new()
-for ($index = 0; $index -le 0x2e; $index++) {
-    $row = $linkGfxRows[$index]
-    $oamIndex = [Convert]::ToInt32($row.Groups['oam'].Value, 16)
+for ($index = 0; $index -le 0x32; $index++) {
+    # Parameter $32's null graphics row follows $2f in Ricky's down-facing
+    # animation. The hardware retains those loaded tiles while switching to
+    # OAM $15, so preserve that physical source row explicitly.
+    $row = if ($index -eq 0x32) { $linkGfxRows[0x2f] } else { $linkGfxRows[$index] }
+    $oamIndex = if ($index -eq 0x32) {
+        [Convert]::ToInt32($linkRetainedGfxRow.Groups['oam'].Value, 16)
+    } else {
+        [Convert]::ToInt32($row.Groups['oam'].Value, 16)
+    }
     $sourceOffset = [Convert]::ToInt32($row.Groups['offset'].Value, 16)
     $tileCount = [Convert]::ToInt32($row.Groups['size'].Value, 16)
     $rawOam = Resolve-MooshOam $linkOamPointers[$oamIndex]
@@ -9062,6 +9076,446 @@ $mooshGoodbyeRows = @(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\moosh_goodbye_event.tsv'),
     $mooshGoodbyeRows)
+
+# Present room 0:6a Ricky glove interaction. The placed companion spawner
+# installs SPECIALOBJECT_RICKY at a fixed preset before INTERAC_COMPANION_SCRIPTS
+# runs its interactionRunScript stream. Import the complete script graph and
+# Ricky's special-object visuals so production never reads the disassembly.
+$rickyPlacement = [regex]::Match(
+    $mooshObjectSource,
+    '(?ms)^group0Map6aObjectData:\s*' +
+    'obj_Interaction \$31 \$00 \$38 \$48\s*' +
+    'obj_Interaction \$dc \$08 \$48 \$02\s*' +
+    'obj_Interaction \$71 \$04 \$08 \$58\s*' +
+    'obj_Interaction \$71 \$05 \$40 \$98\s*' +
+    'obj_Interaction \$67 \$02\s*' +
+    'obj_Interaction \$71 \$03\s*obj_End')
+if (-not $rickyPlacement.Success) {
+    throw 'Room 0:6a Ricky spawner/controller order changed.'
+}
+$rickySpecialSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\specialObjects\ricky.s')
+$rickyAttackItemSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\rickyMooshAttack.s')
+$rickyTornadoItemSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\items\rickyTornado.s')
+$rickyItemConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\items.s')
+$rickyBreakSourceConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\breakableTileSources.s')
+$rickyTileIndexConstants = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+$rickyItemDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\itemData.s')
+$rickyItemAttributesSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\itemAttributes.s')
+$rickyItemAnimationsSource = Read-ImportText (
+    Join-Path $Disassembly 'data\itemAnimations.s')
+$rickyItemOamSource = Read-ImportText (
+    Join-Path $Disassembly 'data\itemOamData.s')
+$rickyGlobalFlagSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+if ($companionSpawnerSource -notmatch '(?ms)^; Ricky looking for gloves\s*@subid02:.*?GLOBALFLAG_GAVE_ROPE_TO_RAFTON.*?wRickyState.*?@loadCompanionPresetIfHasntLeft:.*?and \$40' -or
+    $companionSpawnerSource -notmatch '(?m)^\s*\.db SPECIALOBJECT_RICKY,\s+\$40, \$50, \$00 ; \$02\s*$' -or
+    $companionNativeSource -notmatch '(?ms)^companionScript_subid03:.*?wRickyState.*?and \$20.*?mainScripts\.companionScript_subid03Script' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyState0:.*?wRickyState.*?bit 7.*?bit 6.*?and \$20.*?ld \(hl\),\$0a.*?objectAddToAButtonSensitiveObjectList' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyStateASubstate1:.*?objectRemoveFromAButtonSensitiveObjectList.*?companionForceMount' -or
+    $mooshHelperSource -notmatch '(?ms)^companionScript_loseRickyGloves:\s*ld a,TREASURE_RICKY_GLOVES\s+jp loseTreasure' -or
+    $mooshWramSource -notmatch '(?m)^wAnimalCompanion: ; \$c610\s*$' -or
+    $mooshWramSource -notmatch '(?m)^wRickyState: ; \$c646/\$c643\s*$' -or
+    $rickyGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_GAVE_ROPE_TO_RAFTON\s+db ; \$15\s*$' -or
+    $mooshTreasureConstants -notmatch '(?m)^\s*TREASURE_RICKY_GLOVES\s+db ; \$48\s*$' -or
+    $mooshSpecialConstants -notmatch '(?m)^\s*SPECIALOBJECT_RICKY\s+db ; \$0b\s*$' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_RICKY\s+db ; \$c3') {
+    throw 'Room 0:6a Ricky predicate, preset, script owner, or constants changed.'
+}
+
+$rickyOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'checkmemoryeq', 'disableinput', 'jumpifmemoryset', 'ormemory',
+    'jumpifmemoryeq', 'showtext', 'scriptjump', 'jumpifitemobtained',
+    'writememory', 'enableinput', 'asm15', 'enableallobjects',
+    'enablemenu', 'scriptend')) {
+    [void]$rickyOpcodes.Add($opcode)
+}
+$rickyCommands = @(Read-AssemblyCutsceneCommands `
+    (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') `
+    'companionScript_subid03Script_body' $rickyOpcodes)
+$rickyExpected = @(
+    @('checkmemoryeq', 'w1Companion.var3d, $01'),
+    @('disableinput', ''),
+    @('jumpifmemoryset', 'wRickyState, $01, @alreadyExplainedSituation'),
+    @('ormemory', 'wRickyState, $01'),
+    @('jumpifmemoryeq', 'wAnimalCompanion, SPECIALOBJECT_RICKY, @notFirstMeeting'),
+    @('showtext', 'TX_2000'),
+    @('scriptjump', '@alreadyExplainedSituation'),
+    @('showtext', 'TX_2001'),
+    @('jumpifitemobtained', 'TREASURE_RICKY_GLOVES, @retrievedGloves'),
+    @('showtext', 'TX_2003'),
+    @('writememory', 'w1Companion.var3d, $00'),
+    @('enableinput', ''),
+    @('scriptjump', 'mainScripts.companionScript_subid03Script'),
+    @('showtext', 'TX_2004'),
+    @('asm15', 'companionScript_loseRickyGloves'),
+    @('writememory', 'w1Companion.var03, $01'),
+    @('enableallobjects', ''),
+    @('checkmemoryeq', 'wLinkObjectIndex, >w1Companion'),
+    @('showtext', 'TX_2005'),
+    @('ormemory', 'wRickyState, $20'),
+    @('enablemenu', ''),
+    @('scriptend', '')
+)
+if ($rickyCommands.Count -ne $rickyExpected.Count) {
+    throw "companionScript_subid03Script_body expected 22 commands, parsed $($rickyCommands.Count)."
+}
+for ($index = 0; $index -lt $rickyExpected.Count; $index++) {
+    $actualOperands = if ($null -eq $rickyCommands[$index].Operands) {
+        ''
+    } else {
+        ([string]$rickyCommands[$index].Operands).Trim()
+    }
+    if ($rickyCommands[$index].Opcode -ne $rickyExpected[$index][0] -or
+        $actualOperands -ne $rickyExpected[$index][1]) {
+        throw "Ricky glove script command $index changed from " +
+            "$($rickyExpected[$index][0]) '$($rickyExpected[$index][1])' to " +
+            "$($rickyCommands[$index].Opcode) '$actualOperands'."
+    }
+}
+$rickyTargets = @{}
+foreach ($command in $rickyCommands) {
+    if (-not $rickyTargets.ContainsKey($command.Label)) {
+        $rickyTargets[$command.Label] = $command.Index
+    }
+}
+foreach ($entry in @(
+    @('@notFirstMeeting', 7),
+    @('@alreadyExplainedSituation', 8),
+    @('@retrievedGloves', 13))) {
+    if (-not $rickyTargets.ContainsKey($entry[0]) -or
+        $rickyTargets[$entry[0]] -ne $entry[1]) {
+        throw "Ricky glove script label $($entry[0]) moved from command $($entry[1])."
+    }
+}
+foreach ($textId in @(0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005)) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Missing Ricky glove text TX_$($textId.ToString('x4'))."
+    }
+}
+$rickyIntroText = $allTexts[0x2000].Replace(
+    '\jump(TX_2002)', $allTexts[0x2002])
+$rickyCommandRows = [Collections.Generic.List[string]]::new()
+$rickyCommandRows.Add(
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+foreach ($command in $rickyCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Index) {
+        0 { $opcode = 'checkabutton'; $actor = 'Ricky' }
+        1 { }
+        2 { $opcode = 'jumpifmemoryeq'; $arg0 = '01'; $arg1 = '8'; $payload = 'RickyTalked' }
+        3 { $opcode = 'writememory'; $arg0 = '01'; $payload = 'RickyStateOr' }
+        4 { $opcode = 'jumpifmemoryeq'; $arg0 = '0b'; $arg1 = '7'; $payload = 'AnimalCompanion' }
+        5 { $payload = $rickyIntroText; $arg0 = '2000' }
+        6 { $arg0 = '8' }
+        7 { $payload = $allTexts[0x2001]; $arg0 = '2001' }
+        8 { $opcode = 'jumpifmemoryeq'; $arg0 = '01'; $arg1 = '13'; $payload = 'HasRickyGloves' }
+        9 { $payload = $allTexts[0x2003]; $arg0 = '2003' }
+        10 { $opcode = 'native'; $payload = 'ResetRickyButton' }
+        11 { }
+        12 { $arg0 = '0' }
+        13 { $payload = $allTexts[0x2004]; $arg0 = '2004' }
+        14 { $opcode = 'native'; $payload = 'LoseRickyGloves' }
+        15 { $opcode = 'native'; $payload = 'BeginRickyMount' }
+        16 { $opcode = 'native'; $payload = 'EnableObjectsForRickyMount' }
+        17 { $opcode = 'checkmemoryeq'; $arg0 = '01'; $payload = 'RickyMounted' }
+        18 { $payload = $allTexts[0x2005]; $arg0 = '2005' }
+        19 { $opcode = 'writememory'; $arg0 = '20'; $payload = 'RickyStateOr' }
+        20 { $opcode = 'native'; $payload = 'EnableRickyMenu' }
+        21 { }
+        default { throw "Unexpected Ricky command index $($command.Index)." }
+    }
+    $rickyCommandRows.Add((New-CutsceneCommandRow `
+        $command.Script $command.Index $command.Label $command.Line `
+        $opcode $actor "$arg0" "$arg1" $payload))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ricky_gloves_commands.tsv'),
+    $rickyCommandRows)
+
+$rickyOamPointers = $specialOamTables['specialObject0bOamDataPointers']
+if ($null -eq $rickyOamPointers) {
+    $rickyOamPointers = $specialOamTables['specialObject0fOamDataPointers']
+}
+$rickyGfxStart = $specialAnimationSource.IndexOf(
+    'specialObject0bGfxPointers:', [StringComparison]::Ordinal)
+$rickyAnimationsStart = $specialAnimationSource.IndexOf(
+    'specialObject0bAnimationDataPointers:', [StringComparison]::Ordinal)
+$rickyOamStart = $specialAnimationSource.IndexOf(
+    'specialObject0bOamDataPointers:', [StringComparison]::Ordinal)
+if ($null -eq $rickyOamPointers -or $rickyOamPointers.Count -ne 0x34 -or
+    $rickyGfxStart -lt 0 -or $rickyAnimationsStart -le $rickyGfxStart -or
+    $rickyOamStart -le $rickyAnimationsStart) {
+    throw 'Could not isolate Ricky special-object visual tables.'
+}
+$rickyOamVariables = [regex]::Match(
+    $specialObjectCommonSource,
+    '(?m)^\s*\.db\s+\$(?<tilebase>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})\s*;\s*0x0b')
+if (-not $rickyOamVariables.Success -or
+    $rickyOamVariables.Groups['tilebase'].Value -ne '60' -or
+    $rickyOamVariables.Groups['flags'].Value -ne '0b') {
+    throw 'SPECIALOBJECT_RICKY $0b OAM tile-base/palette initialization changed.'
+}
+$rickyPalette =
+    [Convert]::ToInt32($rickyOamVariables.Groups['flags'].Value, 16) -band 0x07
+$rickyGfxOffsets = @{}
+$rickyGfxCounts = @{}
+$rickyOamIndices = @{}
+$rickyGfxIndex = 0
+foreach ($line in ($specialAnimationSource.Substring(
+    $rickyGfxStart, $rickyAnimationsStart - $rickyGfxStart) -split '\r?\n')) {
+    if ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_ricky\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})') {
+        $rickyOamIndices[$rickyGfxIndex] =
+            [Convert]::ToInt32($Matches['oam'], 16)
+        $rickyGfxOffsets[$rickyGfxIndex] =
+            [Convert]::ToInt32($Matches['offset'], 16) / 16
+        $rickyGfxCounts[$rickyGfxIndex] =
+            [Convert]::ToInt32($Matches['size'], 16)
+        $rickyGfxIndex++
+    } elseif ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+\$0000') {
+        $rickyOamIndices[$rickyGfxIndex] =
+            [Convert]::ToInt32($Matches['oam'], 16)
+        $rickyGfxOffsets[$rickyGfxIndex] = 0
+        $rickyGfxCounts[$rickyGfxIndex] = 0
+        $rickyGfxIndex++
+    }
+}
+$rickyAnimationLabels = @(
+    [regex]::Matches(
+        $specialAnimationSource.Substring(
+            $rickyAnimationsStart, $rickyOamStart - $rickyAnimationsStart),
+        '(?m)^\s*\.dw\s+(?<label>animationData[0-9a-f]+)') |
+        ForEach-Object { $_.Groups['label'].Value })
+if ($rickyGfxOffsets.Count -ne 0x34 -or
+    $rickyOamIndices.Count -ne 0x34 -or
+    $rickyAnimationLabels.Count -ne 37) {
+    throw "Expected 52 Ricky graphics/OAM rows and 37 animations; got $($rickyGfxOffsets.Count)/$($rickyOamIndices.Count)/$($rickyAnimationLabels.Count)."
+}
+function Resolve-RickySpecialAnimation([string]$label) {
+    $startLabel = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'Label' -and $_.Name -eq $label
+    })
+    if ($startLabel.Count -ne 1) {
+        throw "Could not resolve Ricky animation label $label."
+    }
+    $nextAnimation = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'Label' -and
+        $_.Offset -gt $startLabel[0].Offset -and
+        $_.Name -match '^animationData[0-9a-f]+$'
+    } | Select-Object -First 1)
+    $endOffset = if ($nextAnimation.Count -eq 1) {
+        $nextAnimation[0].Offset
+    } else {
+        $rickyOamStart
+    }
+    $frameNodes = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
+        $_.Offset -gt $startLabel[0].Offset -and
+        $_.Offset -lt $endOffset -and $_.Operands.Count -ge 3
+    })
+    $loopNodes = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and
+        $_.Name -eq 'm_AnimationLoop' -and
+        $_.Offset -gt $startLabel[0].Offset -and
+        $_.Offset -lt $endOffset
+    })
+    if ($loopNodes.Count -gt 1) {
+        throw "Ricky animation $label has multiple loop terminators."
+    }
+    $loopStart = 0
+    if ($loopNodes.Count -eq 1) {
+        $target = $loopNodes[0].Operands[0]
+        $targetLabel = @($specialAnimationNodes | Where-Object {
+            $_.Kind -eq 'Label' -and $_.Name -eq $target
+        })
+        if ($targetLabel.Count -ne 1 -or
+            $targetLabel[0].Offset -lt $startLabel[0].Offset -or
+            $targetLabel[0].Offset -gt $loopNodes[0].Offset) {
+            throw "Ricky animation $label loops to invalid label $target."
+        }
+        $loopStart = @($frameNodes | Where-Object {
+            $_.Offset -lt $targetLabel[0].Offset
+        }).Count
+    }
+    $frames = [Collections.Generic.List[string]]::new()
+    $sourceOffsets = [Collections.Generic.List[string]]::new()
+    $vramTiles = [int[]]::new(0x100)
+    for ($tile = 0; $tile -lt $vramTiles.Length; $tile++) { $vramTiles[$tile] = -1 }
+    foreach ($frame in $frameNodes) {
+        $duration = Convert-AssemblyInteger $frame.Operands[0]
+        $gfx = Convert-AssemblyInteger $frame.Operands[1]
+        $parameter = Convert-AssemblyInteger $frame.Operands[2]
+        if (-not $rickyGfxOffsets.ContainsKey($gfx) -or
+            -not $rickyOamIndices.ContainsKey($gfx)) {
+            throw "$label references missing Ricky graphics row `$$($gfx.ToString('x2'))."
+        }
+        $oamIndex = [int]$rickyOamIndices[$gfx]
+        if ($oamIndex -ge $rickyOamPointers.Count) {
+            throw "$label graphics row `$$($gfx.ToString('x2')) references missing Ricky OAM index `$$($oamIndex.ToString('x2'))."
+        }
+        $loadedOffset = [int]$rickyGfxOffsets[$gfx]
+        $loadedCount = [int]$rickyGfxCounts[$gfx]
+        for ($tile = 0; $tile -lt $loadedCount; $tile++) {
+            $vramTiles[$tile] = $loadedOffset + $tile
+        }
+        # The animation byte selects a physical graphics row. The first byte
+        # emitted by m_SpecialObjectGfxPointer then selects the OAM layout;
+        # those indexes intentionally diverge for several Ricky poses.
+        $rawOam = Resolve-MooshOam $rickyOamPointers[$oamIndex]
+        # Resolve each hardware OAM tile through the live VRAM map. Several
+        # Ricky rows load only the first two 8x16 cells and retain the remaining
+        # cells from the preceding row. Rebase that mixed set from its lowest
+        # absolute source tile, rather than assuming every cell belongs to the
+        # latest load. The separate byte offset also keeps hardware-relative
+        # tile values in range for source rows above $0fff.
+        $resolvedOam = Resolve-MooshOamTiles $rawOam $vramTiles $label $gfx
+        $resolvedBlocks = @($resolvedOam -split ';' | ForEach-Object {
+            $fields = $_ -split ','
+            [pscustomobject]@{
+                Fields = $fields
+                Tile = [int]$fields[2]
+            }
+        })
+        $sourceTileBase = [int](
+            $resolvedBlocks | Measure-Object -Property Tile -Minimum).Minimum
+        if (($sourceTileBase -band 1) -ne 0) {
+            throw "$label graphic `$$($gfx.ToString('x2')) resolved to odd Ricky source tile `$$($sourceTileBase.ToString('x2'))."
+        }
+        $oam = (@($resolvedBlocks | ForEach-Object {
+            $relativeTile = $_.Tile - $sourceTileBase
+            if ($relativeTile -lt 0 -or $relativeTile -gt 0xfe) {
+                throw "$label graphic `$$($gfx.ToString('x2')) spans more than one Ricky OAM tile byte."
+            }
+            $_.Fields[2] = $relativeTile.ToString()
+            $_.Fields -join ','
+        }) -join ';')
+        $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
+        $frames.Add("$metadata@$oam")
+        $sourceOffsets.Add(($sourceTileBase * 16).ToString('x'))
+    }
+    if ($frames.Count -eq 0) { throw "Ricky animation $label has no frames." }
+    $encoded = $frames -join '|'
+    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
+    return [pscustomobject]@{
+        Encoded = $encoded
+        SourceOffsets = $sourceOffsets.ToArray()
+    }
+}
+$rickyResolvedAnimations = @($rickyAnimationLabels | ForEach-Object {
+    Resolve-RickySpecialAnimation $_
+})
+$rickyAnimations = @($rickyResolvedAnimations | ForEach-Object { $_.Encoded })
+$rickyAnimationSourceOffsets = @($rickyResolvedAnimations | ForEach-Object {
+    $_.SourceOffsets -join ','
+})
+$rickyVisualRows = @(
+    "# sprite`ttile-base`tpalette`tanimations-base64`tanimation-source-offsets-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`tsource",
+    "spr_ricky`t0`t$rickyPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyAnimations -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyAnimationSourceOffsets -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`tspecialObjectAnimationData.s:specialObject0b,specialObject09;commonCode.s:specialObjectSetOamVariables"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ricky_companion_visual.tsv'),
+    $rickyVisualRows)
+Copy-GeneratedFile 'gfx\common\spr_ricky.png' 'gfx\spr_ricky.png'
+
+# SPECIALOBJECT_RICKY's mounted state owns A/B, movement hopping, ITEM_28's
+# direction-dependent punch, and ITEM_RICKY_TORNADO. Keep the gameplay
+# constants and tornado composition typed instead of reconstructing them from
+# the room-specific glove handoff at runtime.
+$rickyPunchAttributes = [regex]::Match(
+    $rickyItemAttributesSource,
+    '(?m)^\s*\.db \$99 \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$00 ; \$28: ITEM_28\s*$')
+$rickyTornadoData = [regex]::Match(
+    $rickyItemDataSource,
+    '(?m)^\s*\.db \$00 \$(?<tile>[0-9a-f]{2}) \$(?<palette>[0-9a-f]{2}) ; \$2a: ITEM_RICKY_TORNADO\s*$')
+$rickyTornadoAttributes = [regex]::Match(
+    $rickyItemAttributesSource,
+    '(?m)^\s*\.db \$99 \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$00 ; \$2a: ITEM_RICKY_TORNADO\s*$')
+$rickyTornadoAnimation = [regex]::Match(
+    $rickyItemAnimationsSource,
+    '(?ms)^itemAnimation1e84b:\s*\.db \$(?<d0>[0-9a-f]{2}) \$00 \$00\s*\.db \$(?<d1>[0-9a-f]{2}) \$02 \$00\s*m_AnimationLoop itemAnimation1e84b')
+if (-not $rickyPunchAttributes.Success -or
+    -not $rickyTornadoData.Success -or
+    -not $rickyTornadoAttributes.Success -or
+    -not $rickyTornadoAnimation.Success -or
+    $rickySpecialSource -notmatch '(?ms)^rickyState5Substate0:.*?bit BTN_BIT_A.*?rickyStartPunch.*?bit BTN_BIT_B.*?companionGotoDismountState.*?ld a,\$10.*?SPEED_c0.*?ld bc,-\$180.*?SpecialObject\.counter1.*?\$08.*?SPEED_200.*?ld c,\$19.*?getRandomNumber.*?and \$0f.*?SND_JUMP.*?SND_RICKY' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyState8:.*?^@substate0:.*?ld c,\$40.*?ld a,SND_UNKNOWN5.*?^@startTornadoCharge:.*?wGameKeysPressed.*?BTN_A.*?ld c,\$13.*?^@substate1:.*?cp \$1e.*?SND_CHARGE_SWORD.*?ITEM_RICKY_TORNADO.*?SNDCTRL_STOPSFX.*?SND_SWORDSPIN.*?^rickyStartPunch:.*?ITEM_28.*?ld c,\$09.*?SND_SWORDSLASH' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyState2:.*?companionDecCounter1.*?SND_RICKY.*?objectUpdateSpeedZ_paramC.*?objectApplySpeed.*?companionCalculateAdjacentWallsBitset.*?and \$0f.*?rickyStopUntilLandedOnGround' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyCheckHopUpCliff:.*?and \$c0.*?cp \$c0.*?wLinkAngle.*?cp \$00.*?@cliffOffset_oneUp_right:\s*\.db \$f8 \$06.*?@cliffOffset_oneUp_left:\s*\.db \$f8 \$fa.*?@cliffOffset_twoUp_right:\s*\.db \$e8 \$06.*?@cliffOffset_twoUp_left:\s*\.db \$e8 \$fa' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyBreakTilesOnLanding:.*?BREAKABLETILESOURCE_RICKY_LANDED.*?@offsets:\s*\.db \$04 \$00.*?\.db \$04 \$06.*?\.db \$fe \$00.*?\.db \$04 \$fa' -or
+    $rickySpecialSource -notmatch '(?ms)^rickySetJumpSpeed:.*?-\$300.*?\$08.*?SPEED_140.*?\$0f.*?^rickyHoleCheckOffsets:\s*\.db \$f8 \$00.*?\.db \$05 \$08.*?\.db \$08 \$00.*?\.db \$05 \$f8' -or
+    $specialObjectCommonSource -notmatch '(?ms)^companionCheckHopDownCliff:.*?and \$e7.*?cp \$03.*?cp \$0c.*?cp \$30.*?TILEINDEX_VINE_TOP.*?cliffTilesTable.*?ld bc,-\$2c0.*?SPEED_200.*?ld a,\$14.*?^@directionOffsets:\s*\.db \$fa \$00.*?\.db \$00 \$04.*?\.db \$08 \$00.*?\.db \$00 \$fb' -or
+    $specialObjectCommonSource -notmatch '(?ms)^companionCalculateAdjacentWallsBitset:.*?^@offsets:\s*\.db \$fb \$fd.*?\.db \$00 \$07.*?\.db \$0d \$f9.*?\.db \$00 \$07.*?\.db \$f5 \$f7.*?\.db \$09 \$00.*?\.db \$f7 \$0b.*?\.db \$09 \$00' -or
+    $rickyAttackItemSource -notmatch '(?ms)^itemCode28:.*?Item\.counter1.*?\$14.*?^@rickyData:\s*\.db \$10 \$0c \$f4 \$00.*?\.db \$0c \$12 \$fe \$08.*?\.db \$10 \$0c \$08 \$00.*?\.db \$0c \$12 \$fe \$f8.*?BREAKABLETILESOURCE_RICKY_PUNCH' -or
+    $rickyTornadoItemSource -notmatch '(?ms)^@state0:.*?SPEED_300.*?^@offsets:\s*\.db \$f0 \$00.*?\.db \$00 \$0c.*?\.db \$08 \$00.*?\.db \$00 \$f4.*?^@state1:.*?objectApplySpeed.*?BREAKABLETILESOURCE_SWORD_L1.*?and \$0f.*?cp \$0f' -or
+    $rickyItemConstants -notmatch '(?m)^\s*ITEM_28\s+db ; 0x28\s*$' -or
+    $rickyItemConstants -notmatch '(?m)^\s*ITEM_RICKY_TORNADO\s+db ; 0x2a\s*$' -or
+    $rickyBreakSourceConstants -notmatch '(?m)^\s*BREAKABLETILESOURCE_RICKY_PUNCH:\s*db ; 0x0f\s*$' -or
+    $rickyBreakSourceConstants -notmatch '(?m)^\s*BREAKABLETILESOURCE_RICKY_LANDED:\s*db ; 0x10\s*$' -or
+    $rickyTileIndexConstants -notmatch '(?ms)^\.ifdef ROM_AGES.*?TILEINDEX_VINE_TOP\s+\$d4.*?TILEINDEX_VINE_MIDDLE\s+\$d5.*?TILEINDEX_VINE_BOTTOM\s+\$d6' -or
+    $rickyTileIndexConstants -notmatch '(?m)^\.define TILEINDEX_HOLE\s+\$f3\s*$' -or
+    $rickyTileIndexConstants -notmatch '(?m)^\.define TILEINDEX_FD\s+\$fd' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_c0\s+dsb 5 ; 0x1e\s*$' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_140\s+dsb 5 ; 0x32\s*$' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_200\s+dsb 5 ; 0x50\s*$' -or
+    $mooshSpeedSource -notmatch '(?m)^\s*SPEED_300\s+dsb 5 ; 0x78\s*$' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_CHARGE_SWORD\s+db ; \$4f' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_JUMP\s+db ; \$53' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_SWORDSPIN\s+db ; \$6b' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_SWORDSLASH\s+db ; \$74' -or
+    $mooshMusicConstants -notmatch '(?m)^\s*SND_UNKNOWN5\s+db ; \$75') {
+    throw 'Ricky mounted movement, punch, charge, or tornado data changed.'
+}
+$rickyPunchDamageByte = [Convert]::ToInt32(
+    $rickyPunchAttributes.Groups['damage'].Value, 16)
+$rickyTornadoDamageByte = [Convert]::ToInt32(
+    $rickyTornadoAttributes.Groups['damage'].Value, 16)
+$rickyPunchDamage = 0x100 - $rickyPunchDamageByte
+$rickyTornadoDamage = 0x100 - $rickyTornadoDamageByte
+$rickyTornadoRadius = [Convert]::ToInt32(
+    $rickyTornadoAttributes.Groups['radius'].Value, 16)
+$rickyTornadoTile = [Convert]::ToInt32(
+    $rickyTornadoData.Groups['tile'].Value, 16)
+$rickyTornadoPalette = [Convert]::ToInt32(
+    $rickyTornadoData.Groups['palette'].Value, 16) -band 7
+$rickyTornadoAnimationEncoded = @(
+    "$([Convert]::ToInt32($rickyTornadoAnimation.Groups['d0'].Value, 16))@8,0,0,0;8,8,2,0",
+    "$([Convert]::ToInt32($rickyTornadoAnimation.Groups['d1'].Value, 16))@8,0,2,32;8,8,0,32"
+) -join '|'
+if ($rickyPunchDamage -ne 4 -or $rickyTornadoDamage -ne 4 -or
+    $rickyTornadoRadius -ne 0x66 -or $rickyTornadoTile -ne 0x28 -or
+    $rickyTornadoPalette -ne 1 -or
+    $rickyItemOamSource -notmatch '(?ms)^itemOamData4cfab:\s*\.db \$02\s*\.db \$08 \$00 \$00 \$00\s*\.db \$08 \$08 \$02 \$00' -or
+    $rickyItemOamSource -notmatch '(?ms)^itemOamData4cfb4:\s*\.db \$02\s*\.db \$08 \$00 \$02 \$20\s*\.db \$08 \$08 \$00 \$20') {
+    throw 'Ricky ITEM_28/ITEM_RICKY_TORNADO attributes or OAM changed.'
+}
+$rickyBehaviorRows = @(
+    "# idle-animation`tcancel-animation`tpunch-animation`tcharge-animation`thop-animation`tground-speed`thop-delay`thop-speed-z`thop-gravity`thop-speed`tlanding-delay`tpunch-lifetime`tpunch-damage`tpunch-boxes`tcharge-updates`ttornado-speed`ttornado-radius-y`ttornado-radius-x`ttornado-damage`ttornado-offsets`ttornado-sprite`ttornado-tile-base`ttornado-palette`ttornado-animation-base64`tjump-sound`tcharge-sound`tsword-spin-sound`tsword-slash-sound`tpunch-cue-sound`tlong-jump-animation`tlong-jump-speed-z`tlong-jump-delay`tlong-jump-speed`tcliff-down-delay`tcliff-down-speed-z`tvine-top-tile`thole-tiles`thole-offsets`tcliff-up-probes`tlanding-probes`twater-animation`thole-animation`tsource",
+    "20`t05`t09`t13`t19`t1e`t16`t-384`t40`t50`t8`t20`t$rickyPunchDamage`t16,12,-12,0;12,18,-2,8;16,12,8,0;12,18,-2,-8`t30`t78`t$((($rickyTornadoRadius -shr 4) -band 0x0f))`t$($rickyTornadoRadius -band 0x0f)`t$rickyTornadoDamage`t-16,0;0,12;8,0;0,-12`tspr_common_items`t$($rickyTornadoTile.ToString('x2'))`t$rickyTornadoPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyTornadoAnimationEncoded)))`t53`t4f`t6b`t74`t75`t0f`t-768`t8`t32`t20`t-704`td4`tf3,fd`t-8,0;5,8;8,0;5,-8`t-8,6;-8,-6;-24,6;-24,-6`t4,0;4,6;-2,0;4,-6`t0e`t0d`tricky.s:rickyState2/rickyState5/rickyState7/rickyState8;rickyMooshAttack.s:itemCode28;rickyTornado.s:itemCode2a"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ricky_companion_behavior.tsv'),
+    $rickyBehaviorRows)
+
+$rickyEventRows = @(
+    "# group`troom`tcontroller-id`tcontroller-subid`tspawner-id`tspawner-subid`tricky-id`tricky-y`tricky-x`tprerequisite-global-flag`tricky-state-address`ttalked-mask`tcomplete-mask`tleft-mask`tgloves-treasure`tanimal-companion-id`tinitial-animation`tjump-speed-z`tjump-gravity`tricky-sound`tinitial-special-object-updates`tinitial-script-updates`tsource",
+    "0`t6a`t71`t03`t67`t02`t0b`t40`t50`t15`tc646`t01`t20`t40`t48`t0b`t00`t-256`t40`tc3`t2`t0`tmainData.s:group0Map6aObjectData;companionSpawner.s:@subid02;companionScripts.s:companionScript_subid03;ricky.s:rickyState0/rickyStateASubstate1"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\ricky_gloves_event.tsv'),
+    $rickyEventRows)
 
 foreach ($textId in @(0x1204,0x1205,0x1206,0x1207,0x2200,0x2201,0x2202,0x2203,0x2204,0x2205,0x2209)) {
     if (-not $allTexts.ContainsKey($textId)) {

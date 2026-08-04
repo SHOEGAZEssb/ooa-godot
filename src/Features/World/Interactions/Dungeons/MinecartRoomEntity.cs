@@ -38,6 +38,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     public bool DisablesMenus => false;
     public bool LinkRiding => _phase == MinecartPhase.Riding;
     public bool ControlsPlayerScreenTransition => LinkRiding;
+    public bool BypassesScreenTransitionInputGate => true;
     public Vector2 ScreenTransitionPosition => _precisePosition;
     internal bool Riding => LinkRiding;
     internal bool Mounting => _phase == MinecartPhase.Mounting;

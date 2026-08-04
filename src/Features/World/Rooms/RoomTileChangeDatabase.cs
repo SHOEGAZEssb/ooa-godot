@@ -84,6 +84,7 @@ public sealed class RoomTileChangeDatabase
                     (save.GetRoomFlags(condition.A, condition.B) & condition.C) != 0,
                 ConditionKind.EssenceSet =>
                     (save.ReadWramByte(0xc6bf) & (1 << condition.A)) != 0,
+                ConditionKind.TreasureSet => save.HasTreasure(condition.A),
                 ConditionKind.WramMaskEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,
                 _ => false
@@ -220,6 +221,8 @@ public sealed class RoomTileChangeDatabase
                         ConditionKind.RoomSet, int.Parse(fields[1]), Hex(fields[2]), Hex(fields[3])),
                 "essence_set" when fields.Length == 2 =>
                     new Condition(ConditionKind.EssenceSet, int.Parse(fields[1]), 0, 0),
+                "treasure_set" when fields.Length == 2 =>
+                    new Condition(ConditionKind.TreasureSet, Hex(fields[1]), 0, 0),
                 "wram_mask_eq" when fields.Length == 4 =>
                     new Condition(
                         ConditionKind.WramMaskEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
@@ -327,6 +330,7 @@ internal enum ConditionKind
     CurrentRoomClear,
     RoomSet,
     EssenceSet,
+    TreasureSet,
     WramMaskEquals
 }
 

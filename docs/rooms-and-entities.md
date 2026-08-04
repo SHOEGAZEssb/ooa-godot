@@ -96,7 +96,10 @@ recorded, matching the original save boundary.
 Mounted-animal Link presentation is not an independent Link animation. The
 `SPECIALOBJECT_LINK_RIDING_ANIMAL` owner copies the low six bits of
 `w1Companion.animParameter` every update and uses the companion direction for
-both facing and the source Y offset (`-$0e` vertically, `-$10` horizontally).
+facing. `func_410d` supplies a companion-specific object offset: Ricky uses
+`$0000`, so Link and Ricky share exact XYZ coordinates and their OAM layouts
+compose the visible pair; Moosh uses `-$0e` vertically and `-$10`
+horizontally.
 Runtime companion animation order therefore remains authoritative for both
 sprites, and the mounted companion owns A/B before Link's ordinary equipped
 items can create a conflicting pose. A cutscene response pose is not
@@ -111,7 +114,17 @@ the dismount itself is vertical. After landing, Link must walk outside the
 strict `c=$09` Manhattan radius before state `$01` permits another mount.
 
 Charge flashing applies OBJ palette 2 to both companion and riding-Link frames
-in global-frame-counter bit-2 bands after the source 40-update threshold.
+in global-frame-counter bit-2 bands after the companion's source threshold
+(`$1e` for Ricky and 40 updates for Moosh).
+Ricky's special-object animation importer replays the live VRAM tile map from
+`specialObject0bGfxPointers`. Each OAM cell resolves to its absolute source
+tile, so partial graphics loads retain untouched cells from the preceding row
+and source offsets beyond `$0fff` cannot wrap to unrelated graphics.
+His state `$02/$05/$07` traversal keeps the original separate counters and
+wall-crossing masks: paired `$03`/vine-top probes select upward cliffs,
+`cliffTilesTable` selects downward cliffs, and
+`rickyStopUntilLandedOnGround` clears the screen-transition lock before the
+remaining airborne landing phase.
 An airborne Moosh checks the original `y+$05` hazard probe before horizontal
 movement. Water freezes his position and vertical speed for `$3c` updates,
 creates the copied-position exclamation `$20` pixels above him with SND_CLINK,
@@ -121,6 +134,10 @@ center before the falling animation; grounded water starts its drowning
 animation immediately. Completion moves the mounted pair to the local safe
 position (falling back to the last mount point if necessary) and applies the
 companion hazard damage/invincibility state.
+The scrolling finisher stores the mounted companion's destination high-byte
+coordinates as both Link's local respawn and the shared last-animal mount
+point. If the local point later fails the companion collision/hazard checks,
+`companionRespawn` copies that shared point without a second validity check.
 
 Room-event destination preload must consult both active and outgoing entity
 sets before creating a waiting companion. The retained outgoing companion is
@@ -132,6 +149,10 @@ initialization. They show text only when the required companion owns Link's
 mounted state, then watch the imported directional boundary and set the
 persistent `wCompanionTutorialTextShown` bit. Equality does not count when the
 source comparison is strict, and a set bit deletes the controller on re-entry.
+Placed companion barriers remain separate fixed entities at their source
+object-stream position. They wait in state zero until Link is mounted, select
+the companion state byte and warning text by live companion ID, then clamp the
+shared companion owner at the imported strict boundary.
 
 An actor may have separate logical and presentation state. Collision, room
 flags, terrain queries, and AI read logical state; OAM/camera/transition code

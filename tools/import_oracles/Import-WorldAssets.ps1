@@ -255,6 +255,22 @@ Add-RoomTileChangeRule 'tileReplacement_group1Map27' 'room_set:1:37:80' `
 Add-RoomTileChangeRule 'tileReplacement_group0Mapa5' 'room_set:1:a5:80' `
     'set:22:ee,23:ef'
 
+# Room 0:98 retains its diggable dirt only while Ricky has explained the
+# missing gloves, they have not been returned, and treasure $48 is absent.
+# The source branches to the same $24/$3a write for each failed predicate.
+$rickyGloveTileBlock = [regex]::Match(
+    $roomTileChangeSource,
+    '(?ms)^tileReplacement_group0Map98:\s+ld a,\(wRickyState\)\s+bit 5,a\s+jr nz,@removeDirt\s+and \$01\s+jr z,@removeDirt\s+ld a,TREASURE_RICKY_GLOVES\s+call checkTreasureObtained\s+ret nc\s+^@removeDirt:\s+ld a,\$3a\s+ld \(wRoomLayout\+\$24\),a\s+ret')
+if (-not $rickyGloveTileBlock.Success) {
+    throw "Room 0:98 Ricky's Gloves dirt replacement changed."
+}
+Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
+    'wram_mask_eq:c646:20:20' 'set:24:3a'
+Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
+    'wram_mask_eq:c646:01:00' 'set:24:3a'
+Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
+    'treasure_set:48' 'set:24:3a'
+
 # Essence-backed changes.
 Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'essence_set:4' `
     'set:06:b0,07:b0,08:b0,09:b0,16:ef,19:ef,26:ef,29:ef,36:b4,37:b2,38:b2,39:b2'
@@ -285,8 +301,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was neither imported nor deferred."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 35) {
-    throw "Expected 34 flag-backed and 35 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 36) {
+    throw "Expected 34 flag-backed and 36 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'

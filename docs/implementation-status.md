@@ -44,6 +44,12 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   hover/charged stomp and charge flash, collision-safe dismount/remount memory,
   source-timed warning hover and water/hole hazard respawn, and single-owner
   scrolling retention, including room `0:5b`'s one-time flutter tutorial.
+- Ricky's room `0:6a` glove handoff and mountable-companion core: source-loaded
+  ride graphics, normal/hole/cliff jumps, punch/tornado charge, landing tile
+  breaks, hazards, dismount/remount memory, and single-owner scrolling.
+- Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
+  sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
+  departure. Postgame secret entry and return-secret generation remain partial.
 
 ## Major incomplete areas
 

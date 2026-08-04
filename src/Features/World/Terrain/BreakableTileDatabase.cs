@@ -14,6 +14,8 @@ public sealed class BreakableTileDatabase
     public const int SourceLanded = 0x05;
     public const int SourceShovel = 0x06;
     public const int SourceEmberSeed = 0x0c;
+    public const int SourceRickyPunch = 0x0f;
+    public const int SourceRickyLanded = 0x10;
     public const int SourceMooshButtstomp = 0x11;
     public const int SourceCompanionMovement = 0x13;
 

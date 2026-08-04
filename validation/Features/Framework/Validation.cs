@@ -214,6 +214,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMakuTreeDisappearanceCutscene);
         RunIsolatedValidation(ValidateMakuSproutRescueCutscene);
         RunIsolatedValidation(ValidateRoom05bCompanionTutorial);
+        RunIsolatedValidation(ValidateRooms079And089Interactions);
+        RunIsolatedValidation(ValidateRoom06aRickyGloves);
+        RunIsolatedValidation(ValidateRickyRiding);
+        RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);
         RunIsolatedValidation(ValidateMakuTreeSavedCutscene);

@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 3, 2026. It is an implementation inventory, not a
+interactions as of August 4, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -52,8 +52,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Status | Records | Interpretation |
 | --- | ---: | --- |
 | **I** | 96 | Traced and covered by the current named NPC/event scenarios. |
-| **P** | 36 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 259 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **P** | 37 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
+| **D** | 258 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **391** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,10 +63,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 63 specialized,
-17 event-owned, and 257 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 64 specialized,
+17 event-owned, and 256 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 463
-classified records and 135 specialized rows.
+classified records and 136 specialized rows.
 
 ### Important partial and deferred boundaries
 
@@ -78,6 +78,25 @@ classified records and 135 specialized rows.
   strictly right of X=`$60` sets `wCompanionTutorialTextShown` bit `$04` and
   suppresses repeat text. This controller is not one of the 391 visible
   `NpcRecord` rows, so the snapshot counts are unchanged.
+- Room `0:6a` implements `INTERAC_COMPANION_SPAWNER $67:$02` and
+  `INTERAC_COMPANION_SCRIPTS $71:$03`: the flag/state/occupied-slot predicate,
+  fixed Ricky `$40,$50` preset, visible but frozen destination-scroll preload,
+  and two-update direct-load special-object initialization,
+  first/repeat/returning-companion text branches, TX_2000-to-TX_2002 expansion,
+  Ricky Gloves `$48` removal, force mount, `TX_2005`, menu release,
+  `wRickyState` bit `$20`, and re-entry suppression.
+  The shared companion owner supports the resulting mount, exact grounded
+  movement cadence, source tile-edge sliding, stationary-pose reset, and
+  automatic normal hop,
+  direction-dependent ITEM_28 punch and tile probes with ordinary break
+  debris, held-A charge/palette flash, ITEM_RICKY_TORNADO release,
+  source-addressed special-object OAM loads, zero-offset mounted-Link
+  composition, hole jumps, one/two-metatile upward cliff jumps, downward cliff
+  jumps, wall-crossing completion, landing tile-break probes, water/hole hazard
+  handling, dismount/remount, remembered position, and horizontal/vertical
+  screen scrolling with the source's explicit transition-lock writes and
+  grounded edge delay. The source creates a special object rather than a
+  visible `NpcRecord`, so the snapshot counts are unchanged.
 - Room `0:6b` implements `INTERAC_COMPANION_SPAWNER $67:$01` and Moosh's
   complete post-Cheval-Rope farewell: the fixed `$48,$38` preset, input/menu
   lock, `TX_2208`, source `-$0140` launch, SPEED_100 flight through Y=`$f0`,
@@ -122,6 +141,21 @@ classified records and 135 specialized rows.
   and hole/water hazard fall and respawn. Moosh's terrain-specific cliff states
   remain part of the broader companion-system backlog, not a boundary of the
   three imported `$73` records.
+- Room `0:79` implements specialized `INTERAC_TINGLE $c8:$00` with linked
+  `PART_TINGLE_BALLOON $44`: imported OAM/animation data, the `$38`-update
+  vertical oscillation, sword pop/explosion, 15-update wait and `$10`-gravity
+  fall, A-button collision, first/repeat friendship choices, Island Chart
+  reward, seed-type gate, Seed Satchel upgrade path, kooloo-limpah animation,
+  and the post-chart 60-update Ricky departure. Postgame Tingle-secret entry
+  and return-secret generation still depend on the unavailable shared secret
+  input/output subsystem, so the visible Tingle row remains **P**.
+- Rooms `0:79` and `0:89` implement invisible
+  `INTERAC_COMPANION_TUTORIAL $d0:$01/$00`, including mounted-only
+  `TX_2009/TX_2008`, exact position predicates, and persistent tutorial bits
+  `$01/$00`. Room `0:89` also implements the source-ordered
+  `INTERAC_COMPANION_SCRIPTS $71:$02` mounted lower-Y clamp and companion-
+  specific warning text. These invisible controllers do not change the 391
+  visible-row snapshot counts.
 - Placed Forest Fairy `$49:$05-$10` phases are **D** and safely suppressed.
   The implemented Fairies' Woods hide-and-seek uses event-created `$49:$00`
   actors instead.
@@ -136,8 +170,8 @@ classified records and 135 specialized rows.
 - Zora `$ab`, King Zora `$9c`, Old Zora `$5a`, and Jabu-Jabu child `$ba`.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
-- Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Tingle
-  `$c8`, Bomb Upgrade Fairy `$83`, Syrup `$5f`, and
+- Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
+  Fairy `$83`, Syrup `$5f`, and
   the remaining shopkeeper variants `$46`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
@@ -189,7 +223,7 @@ well as record selection.
 | `0:72` | [D] `$49:$0c/v$00` forestFairy |
 | `0:77` | [D] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
-| `0:79` | [D] `$c8:$00/v$00` tingle |
+| `0:79` | [P] `$c8:$00/v$00` tingle |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [D] `$49:$06/v$00` forestFairy |

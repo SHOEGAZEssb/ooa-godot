@@ -256,6 +256,18 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
 
     protected void AdvanceInfiniteScript() => _runner.AdvanceFrame();
 
+    /// <summary>
+    /// Registers the actor when native state-0 code installs A-button
+    /// sensitivity before entering the imported script stream.
+    /// </summary>
+    protected void SetInitialActorButtonSensitive()
+    {
+        TActor actor = _actor ?? throw new InvalidOperationException(
+            $"{_actorName} has no actor for native A-button registration.");
+        actor.SetScriptButtonSensitive(true);
+        _buttonSensitive = true;
+    }
+
     protected void ClearPendingActorButton() => _buttonPressed = false;
 
     protected TActor RequireScriptActor(string actor)

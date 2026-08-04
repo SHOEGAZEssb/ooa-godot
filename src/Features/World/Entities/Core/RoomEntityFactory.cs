@@ -83,15 +83,19 @@ internal sealed class RoomEntityFactory(
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
     private readonly RoomTileChangeWatcherDatabase _tileChangeWatchers = new();
     private readonly BreakableTileDatabase _breakables = new();
+    private readonly LedgeJumpDatabase _ledgeJumps = new();
     private readonly SwordBeamDatabase _swordBeam = new();
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
     private readonly MapleEventDatabase _maple = new();
     private readonly SeedTreeDatabase _seedTrees = new();
     private readonly OwlStatueDatabase _owlStatues = new();
+    private readonly RickyGlovesEventDatabase _ricky = new();
     private readonly MooshRescueEventDatabase _moosh = new();
     private readonly MooshGoodbyeEventDatabase _mooshGoodbye = new();
     private readonly CompanionTutorialDatabase _companionTutorials = new();
+    private readonly CompanionBarrierDatabase _companionBarriers = new();
+    private readonly TingleDatabase _tingle = new();
     private readonly DungeonMapDatabase _dungeonMaps =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
@@ -141,32 +145,74 @@ internal sealed class RoomEntityFactory(
     {
         int activeGroup = group;
         bool companionSlotActive = CompanionRuntimeState.AnyActive(runtimeState);
+        bool rickySpawnerActive = !companionSlotActive &&
+            saveData is not null &&
+            _ricky.ShouldSpawn(activeGroup, room.Id, saveData);
+        IRoomEntity? companionEntity = null;
+        ICompanionBarrierTarget? companionBarrierTarget = null;
         if (CompanionRuntimeState.IsActive(
-                runtimeState, CompanionRuntimeState.MooshId))
+                runtimeState, CompanionRuntimeState.RickyId))
         {
             ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
             if (active.Room == room.Id)
             {
-                yield return CreateMoosh(new MooshCompanionSpawn(
+                RickyCompanionRoomEntity ricky = CreateRicky(new RickyCompanionSpawn(
                     active.Position,
                     active.Direction,
                     activeGroup,
                     room.Id,
                     Riding: true), room);
+                companionEntity = ricky;
+                companionBarrierTarget = ricky;
             }
         }
-        else if (!companionSlotActive && CompanionRuntimeState.TryGetRemembered(
+        else if (CompanionRuntimeState.IsActive(
+                runtimeState, CompanionRuntimeState.MooshId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
+            if (active.Room == room.Id)
+            {
+                MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
+                    active.Position,
+                    active.Direction,
+                    activeGroup,
+                    room.Id,
+                    Riding: true), room);
+                companionEntity = moosh;
+                companionBarrierTarget = moosh;
+            }
+        }
+        else if (!companionSlotActive && !rickySpawnerActive &&
+            CompanionRuntimeState.TryGetRemembered(
+                runtimeState,
+                CompanionRuntimeState.RickyId,
+                activeGroup,
+                room.Id,
+                out Vector2 rememberedRicky))
+        {
+            RickyCompanionRoomEntity ricky = CreateRicky(new RickyCompanionSpawn(
+                rememberedRicky,
+                2,
+                activeGroup,
+                room.Id), room);
+            companionEntity = ricky;
+            companionBarrierTarget = ricky;
+        }
+        else if (!companionSlotActive && !rickySpawnerActive &&
+            CompanionRuntimeState.TryGetRemembered(
                 runtimeState,
                 CompanionRuntimeState.MooshId,
                 activeGroup,
                 room.Id,
                 out Vector2 rememberedMoosh))
         {
-            yield return CreateMoosh(new MooshCompanionSpawn(
+            MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
                 rememberedMoosh,
                 2,
                 activeGroup,
                 room.Id), room);
+            companionEntity = moosh;
+            companionBarrierTarget = moosh;
         }
         else if (!companionSlotActive &&
             saveData is not null &&
@@ -178,13 +224,17 @@ internal sealed class RoomEntityFactory(
             // wRememberedCompanionId after installing the fixed Moosh preset.
             CompanionRuntimeState.ForgetRemembered(runtimeState);
             MooshGoodbyeEventRecord goodbye = _mooshGoodbye.Record;
-            yield return CreateMoosh(new MooshCompanionSpawn(
+            MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
                 new Vector2(goodbye.MooshX, goodbye.MooshY),
                 goodbye.FlightAngle >> 3,
                 activeGroup,
                 room.Id,
                 Goodbye: goodbye), room);
+            companionEntity = moosh;
+            companionBarrierTarget = moosh;
         }
+        if (companionEntity is not null)
+            yield return companionEntity;
         if (saveData is not null)
         {
             foreach (CompanionTutorialRecord tutorial in
@@ -193,6 +243,17 @@ internal sealed class RoomEntityFactory(
                 yield return new CompanionTutorialRoomEntity(
                     tutorial,
                     runtimeState,
+                    saveData,
+                    roomEntityDialogueRequested);
+            }
+            if (_companionBarriers.TryGet(
+                    activeGroup,
+                    room.Id,
+                    out CompanionBarrierRecord barrier))
+            {
+                yield return new CompanionBarrierRoomEntity(
+                    barrier,
+                    companionBarrierTarget,
                     saveData,
                     roomEntityDialogueRequested);
             }
@@ -498,17 +559,15 @@ internal sealed class RoomEntityFactory(
         foreach (GroundTreasureDatabaseRecord record in
             _groundTreasures.GetRoomRecords(group, room.Id))
         {
-            if (saveData?.HasRoomFlag(
-                group, room.Id, OracleSaveData.RoomFlagItem) == true)
-            {
+            if (!GroundTreasureDatabase.ShouldSpawn(
+                    record, saveData, inventory))
                 continue;
-            }
             var treasure = new GroundTreasurePickup
             {
                 Name = $"GroundTreasure_{record.Order}",
                 ZIndex = 12
             };
-            treasure.Initialize(record, soundRequested, worldToScreen);
+            treasure.Initialize(record, soundRequested, worldToScreen, room);
             yield return new GroundTreasureRoomEntity(
                 treasure, groundTreasureCollectionAllowed,
                 groundTreasureCollected);
@@ -1647,12 +1706,79 @@ internal sealed class RoomEntityFactory(
             shutter.ClosedTile,
             oneShotOpener: true,
             room),
+        RickyCompanionSpawn ricky => CreateRicky(ricky, room),
+        RickyPunchAttackSpawn punch => CreateRickyPunch(punch, room),
+        RickyTornadoSpawn tornado => CreateRickyTornado(tornado, room),
+        RickyTileBreakSpawn tileBreak => CreateRickyTileBreak(tileBreak, room),
         MooshCompanionSpawn moosh => CreateMoosh(moosh, room),
         MooshHoverExclamationSpawn exclamation =>
             CreateMooshHoverExclamation(exclamation),
         MooshStompAttackSpawn stomp => CreateMooshStomp(stomp, room),
         _ => throw new ArgumentOutOfRangeException(nameof(spawn), spawn, "Unknown room-entity spawn request.")
     };
+
+    private RickyCompanionRoomEntity CreateRicky(
+        RickyCompanionSpawn spawn,
+        OracleRoomData room) => new(
+            spawn,
+            room,
+            _ricky,
+            saveData,
+            runtimeState,
+            random,
+            _ledgeJumps,
+            soundRequested,
+            roomEntityDialogueRequested,
+            dialogueOpen);
+
+    private RickyPunchAttackRoomEntity CreateRickyPunch(
+        RickyPunchAttackSpawn spawn,
+        OracleRoomData room) => new(
+            spawn,
+            _ricky.Behavior,
+            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+
+    private RickyTornadoRoomEntity CreateRickyTornado(
+        RickyTornadoSpawn spawn,
+        OracleRoomData room) => new(
+            spawn,
+            _ricky.Behavior,
+            room,
+            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+
+    private RickyTileBreakRoomEntity CreateRickyTileBreak(
+        RickyTileBreakSpawn spawn,
+        OracleRoomData room) => new(
+            spawn,
+            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+
+    private RickyAttackTileBreaker CreateRickyTileBreaker(
+        int group,
+        int roomId,
+        OracleRoomData room)
+    {
+        int? LinkedNeighbor(Vector2I direction)
+        {
+            if (rooms is not null && rooms.TryGetNeighbor(
+                    group, roomId, direction, out int neighbor))
+            {
+                return neighbor;
+            }
+            return null;
+        }
+
+        return new RickyAttackTileBreaker(
+            group,
+            room,
+            _breakables,
+            saveData,
+            LinkedNeighbor,
+            roomTileChanged,
+            animationTick,
+            soundRequested,
+            drop => itemDrops.DecideBreakableDrop(
+                drop, random, inventory, saveData));
+    }
 
     private MooshCompanionRoomEntity CreateMoosh(
         MooshCompanionSpawn spawn,
@@ -1871,6 +1997,13 @@ internal sealed class RoomEntityFactory(
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (_tingle.Matches(record))
+        {
+            if (inventory is null)
+                throw new InvalidOperationException("Tingle requires live inventory state.");
+            return new TingleRoomEntity(record, _tingle, inventory);
+        }
 
         if (record.Group == _shootingGallery.Record.Group &&
             record.Room == _shootingGallery.Record.Room &&

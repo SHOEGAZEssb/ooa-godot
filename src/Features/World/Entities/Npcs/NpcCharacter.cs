@@ -30,6 +30,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private bool _scriptAnimationActive;
     private int _scriptAnimationLoopStart;
     private string _scriptAnimationSource = string.Empty;
+    private int[]? _scriptAnimationSourceOffsets;
     private float _animationRate = 1.0f;
     private Color[]? _paletteOverride;
     private bool _sourceGrayscaleInverted = true;
@@ -489,15 +490,24 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    internal void SetScriptAnimation(string encodedAnimation)
+    internal void SetScriptAnimation(string encodedAnimation) =>
+        SetScriptAnimation(encodedAnimation, frameSourceOffsets: null);
+
+    internal void SetScriptAnimation(
+        string encodedAnimation,
+        int[]? frameSourceOffsets)
     {
         _scriptAnimationSource = encodedAnimation;
+        _scriptAnimationSourceOffsets = frameSourceOffsets is null
+            ? null
+            : (int[])frameSourceOffsets.Clone();
         _scriptAnimation.Clear();
         _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage, encodedAnimation, Record.TileBase, Record.Palette,
             _graphicsSourceOffset,
-            _paletteOverride, _sourceGrayscaleInverted));
+            _paletteOverride, _sourceGrayscaleInverted,
+            _scriptAnimationSourceOffsets));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
         _animationFrame = 0;
         _animationTicks = 0.0;
@@ -507,6 +517,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     internal void SetFacingDirection(Vector2I direction)
     {
         _scriptAnimationSource = string.Empty;
+        _scriptAnimationSourceOffsets = null;
         _scriptAnimationActive = false;
         SetFacing(direction == Vector2I.Up ? NpcCharacterFacing.Up
             : direction == Vector2I.Right ? NpcCharacterFacing.Right
@@ -531,6 +542,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         RebuildFacingAnimations();
         _scriptAnimation.Clear();
         _scriptAnimationSource = string.Empty;
+        _scriptAnimationSourceOffsets = null;
         _scriptAnimationActive = false;
         _scriptAnimationLoopStart = 0;
         _animationFrame = 0;
@@ -573,7 +585,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 Record.Palette,
                 _graphicsSourceOffset,
                 _paletteOverride,
-                _sourceGrayscaleInverted));
+                _sourceGrayscaleInverted,
+                _scriptAnimationSourceOffsets));
             _scriptAnimationActive = _scriptAnimation.Count > 0;
         }
         _animationFrame = CurrentAnimation.Count == 0
@@ -915,15 +928,26 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         int basePalette,
         int sourceOffset,
         Color[]? paletteOverride,
-        bool sourceGrayscaleInverted)
+        bool sourceGrayscaleInverted,
+        int[]? frameSourceOffsets = null)
     {
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
-        foreach (AnimationFrameDefinition frame in definition.Frames)
+        if (frameSourceOffsets is not null &&
+            frameSourceOffsets.Length != definition.Frames.Length)
         {
+            throw new InvalidOperationException(
+                $"Positioned NPC animation has {definition.Frames.Length} " +
+                $"frames but {frameSourceOffsets.Length} source offsets.");
+        }
+        for (int index = 0; index < definition.Frames.Length; index++)
+        {
+            AnimationFrameDefinition frame = definition.Frames[index];
+            int frameSourceOffset = sourceOffset +
+                (frameSourceOffsets?[index] ?? 0);
             (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
                 source, frame.EncodedOam, tileBase, basePalette,
-                paletteOverride, sourceGrayscaleInverted, sourceOffset);
+                paletteOverride, sourceGrayscaleInverted, frameSourceOffset);
             yield return new NpcCharacterAnimationFrame(
                 texture, frame.Duration, frame.Parameter, offset);
         }

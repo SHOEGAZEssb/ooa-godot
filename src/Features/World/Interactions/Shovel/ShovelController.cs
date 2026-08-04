@@ -76,6 +76,7 @@ public sealed class ShovelController
 
         record.ApplyPersistentEffects(
             _saveData, _rooms.ActiveGroup, room.Id);
+        _entities.NotifyTileDug(packedPosition);
 
         if ((record.Effect & 0x40) != 0)
             _playSound(OracleSoundEngine.SndSolvePuzzle);

@@ -24,7 +24,8 @@ internal sealed class CompanionTutorialDatabase
                 [
                     "group", "room", "order", "id", "subid", "y", "x",
                     "required-companion", "text-id", "flag-address", "flag-bit",
-                    "completion", "utf8-base64", "source"
+                    "completion", "link-x-min", "link-x-max", "utf8-base64",
+                    "source"
                 ],
                 ["group", "room"],
                 headerRequired: true));
@@ -35,7 +36,15 @@ internal sealed class CompanionTutorialDatabase
             CompanionTutorialCompletion completion = row.RequiredString(11) switch
             {
                 "companion-right" => CompanionTutorialCompletion.CompanionRight,
-                _ => throw row.Invalid(11, "companion-right")
+                "companion-above" => CompanionTutorialCompletion.CompanionAbove,
+                "companion-below-or-left" =>
+                    CompanionTutorialCompletion.CompanionBelowOrLeft,
+                "above-link-range" =>
+                    CompanionTutorialCompletion.CompanionAboveWithLinkXRange,
+                _ => throw row.Invalid(
+                    11,
+                    "companion-right, companion-above, companion-below-or-left, " +
+                    "or above-link-range")
             };
             CompanionTutorialRecord record = new(
                 row.Decimal(0, 0, 7),
@@ -50,8 +59,10 @@ internal sealed class CompanionTutorialDatabase
                 row.HexWord(9),
                 row.Decimal(10, 0, 7),
                 completion,
-                row.Base64Utf8(12),
-                row.RequiredString(13));
+                row.HexByte(12),
+                row.HexByte(13),
+                row.Base64Utf8(14),
+                row.RequiredString(15));
             List<CompanionTutorialRecord> records =
                 _recordsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
             if (records.Count > 0 && records[^1].Order >= record.Order)
@@ -66,7 +77,9 @@ internal sealed class CompanionTutorialDatabase
         Count = count;
 
         IReadOnlyList<CompanionTutorialRecord> room05b = GetRoomRecords(0, 0x5b);
-        if (Count != 1 || room05b.Count != 1 || room05b[0] is not
+        IReadOnlyList<CompanionTutorialRecord> room079 = GetRoomRecords(0, 0x79);
+        IReadOnlyList<CompanionTutorialRecord> room089 = GetRoomRecords(0, 0x89);
+        if (Count != 6 || room05b.Count != 1 || room05b[0] is not
             {
                 Order: 0,
                 Id: 0xd0,
@@ -78,13 +91,36 @@ internal sealed class CompanionTutorialDatabase
                 FlagAddress: 0xc649,
                 FlagBit: 4,
                 Completion: CompanionTutorialCompletion.CompanionRight
+            } || room079.Count != 1 || room079[0] is not
+            {
+                Order: 0,
+                Id: 0xd0,
+                SubId: 0x01,
+                Y: 0x38,
+                X: 0x78,
+                RequiredCompanion: CompanionRuntimeState.RickyId,
+                TextId: 0x2009,
+                FlagAddress: 0xc649,
+                FlagBit: 1,
+                Completion: CompanionTutorialCompletion.CompanionAbove
+            } || room089.Count != 1 || room089[0] is not
+            {
+                Order: 0,
+                Id: 0xd0,
+                SubId: 0x00,
+                Y: 0x38,
+                X: 0x30,
+                RequiredCompanion: CompanionRuntimeState.RickyId,
+                TextId: 0x2008,
+                FlagAddress: 0xc649,
+                FlagBit: 0,
+                Completion: CompanionTutorialCompletion.CompanionBelowOrLeft
             } || string.IsNullOrWhiteSpace(room05b[0].Message) ||
-            room05b[0].Source !=
-                "mainData.s:group0Map5bObjectData;companionTutorial.s:interactionCoded0")
+            string.IsNullOrWhiteSpace(room079[0].Message) ||
+            string.IsNullOrWhiteSpace(room089[0].Message))
         {
             throw new InvalidOperationException(
-                "Imported room 0:5b INTERAC_COMPANION_TUTORIAL `$d0:$04 " +
-                "contract is incomplete.");
+                "Imported Ages INTERAC_COMPANION_TUTORIAL `$d0 contract is incomplete.");
         }
     }
 
@@ -109,10 +145,15 @@ internal readonly record struct CompanionTutorialRecord(
     int FlagAddress,
     int FlagBit,
     CompanionTutorialCompletion Completion,
+    int LinkXMin,
+    int LinkXMax,
     string Message,
     string Source);
 
 internal enum CompanionTutorialCompletion
 {
-    CompanionRight
+    CompanionRight,
+    CompanionAbove,
+    CompanionBelowOrLeft,
+    CompanionAboveWithLinkXRange
 }

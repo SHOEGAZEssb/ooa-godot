@@ -178,8 +178,8 @@ internal sealed class MooshRescueEventDatabase
             {
                 Sprite: "spr_moosh", TileBase: 0, Palette: 1,
                 Animations.Length: 27, LinkSprite: "spr_link",
-                LinkPalette: 0, LinkFrames.Length: 47,
-                LinkSourceOffsets.Length: 47,
+                LinkPalette: 0, LinkFrames.Length: 51,
+                LinkSourceOffsets.Length: 51,
                 WaterHazard: 1, WaterHoverFrames: 60,
                 WaterExclamationZOffset: -32,
                 WaterExclamationSound: OracleSoundEngine.SndClink

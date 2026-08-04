@@ -4,12 +4,13 @@ namespace oracleofages;
 
 /// <summary>
 /// Owns the position tested and moved by screenTransitionState2/5 while Link's
-/// main object is not w1Link. The minecart's SPECIALOBJECT_MINECART companion
-/// is the supported source owner.
+/// main object is not w1Link. SPECIALOBJECT_MINECART bypasses the source input
+/// angle gate; ridden animal companions still pass through it.
 /// </summary>
 internal interface IPlayerScreenTransitionRoomEntity
 {
     bool ControlsPlayerScreenTransition { get; }
+    bool BypassesScreenTransitionInputGate { get; }
     Vector2 ScreenTransitionPosition { get; }
 
     void SetScreenTransitionBoundaryCoordinate(

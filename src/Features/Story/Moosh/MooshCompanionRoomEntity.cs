@@ -12,7 +12,8 @@ namespace oracleofages;
 internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction,
     IPlayerForcedMovement, IPlayerRideableRoomEntity,
-    IPlayerScreenTransitionRoomEntity, IRoomEntityLifetime
+    IPlayerScreenTransitionRoomEntity, IRoomEntityLifetime,
+    ICompanionBarrierTarget
 {
     private static readonly Vector2[] CollisionSamples =
     [
@@ -49,11 +50,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private int _waterHoverCounter;
     private HazardType _hazard;
     private Vector2 _hazardCenter;
-    private Vector2 _lastMountPosition;
-    private int _lastMountRoomId;
     private bool _airborneInitialized;
     private bool _mountStarted;
-    private bool _barrierTextLatched;
     private bool _attackPressed;
     private bool _itemPressed;
     private bool _attackJustPressed;
@@ -95,7 +93,11 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         (_phase == MooshCompanionPhase.Dismounting &&
             !_dismountInitialized);
     public bool ControlsPlayerScreenTransition => LinkRiding;
+    public bool BypassesScreenTransitionInputGate => false;
     public Vector2 ScreenTransitionPosition => _precisePosition;
+    int ICompanionBarrierTarget.CompanionId => CompanionRuntimeState.MooshId;
+    bool ICompanionBarrierTarget.BarrierMounted => LinkRiding;
+    Vector2 ICompanionBarrierTarget.BarrierPosition => _precisePosition;
 
     internal bool Mounted => _phase == MooshCompanionPhase.Riding;
     internal MooshCompanionPhase Phase => _phase;
@@ -122,6 +124,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _linkTextures[LinkAnimationParameter].GetImage());
     internal Vector2 LinkTextureOffset =>
         _linkTextureOffsets[LinkAnimationParameter];
+    private Vector2 RidingLinkOffset => (_direction & 1) == 0
+        ? new Vector2(0, -14)
+        : new Vector2(0, -16);
 
     internal MooshCompanionRoomEntity(
         MooshCompanionSpawn spawn,
@@ -147,8 +152,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _group = spawn.Group;
         _roomId = spawn.Room;
         _precisePosition = spawn.Position;
-        _lastMountPosition = spawn.Position;
-        _lastMountRoomId = spawn.Room;
         Position = spawn.Position;
         _direction = spawn.Direction;
         _phase = spawn.Goodbye is not null
@@ -330,8 +333,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _zFixed = 0;
         _speedZ = 0;
         ZIndex = NpcCharacter.BehindLinkZIndex;
-        _lastMountPosition = _precisePosition;
-        _lastMountRoomId = _roomId;
         SetAnimation(0x13 + _direction);
         CompanionRuntimeState.Begin(
             _runtime, CompanionRuntimeState.MooshId,
@@ -355,7 +356,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             TryBeginDismount(player);
             return;
         }
-        UpdateRidingMovement(allowBarrier: true);
+        UpdateRidingMovement();
         TryBeginHazard();
     }
 
@@ -380,7 +381,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         if (TryBeginWaterHover(spawns))
             return;
-        UpdateAirborneMovement(allowBarrier: true);
+        UpdateAirborneMovement();
         bool movingUp = _speedZ < 0;
         if (!movingUp)
         {
@@ -765,13 +766,11 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Vector2 localRespawn = player.LocalRespawnPosition;
         if (CanRespawnAt(localRespawn))
             return localRespawn;
-        if (_lastMountRoomId == _roomId && CanRespawnAt(_lastMountPosition))
-        {
-            player.SetLocalRespawnPosition(_lastMountPosition);
-            return _lastMountPosition;
-        }
-        throw new InvalidOperationException(
-            $"Moosh has no valid hazard respawn in room {_group:x1}:{_roomId:x2}.");
+
+        Vector2 lastMount =
+            CompanionRuntimeState.ReadLastAnimalMountPosition(_runtime);
+        player.SetLocalRespawnCoordinates(lastMount);
+        return lastMount;
     }
 
     private bool CanRespawnAt(Vector2 position) =>
@@ -779,15 +778,13 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _room.GetTerrainInfo(position + new Vector2(0, 5)).Hazard ==
             HazardType.None;
 
-    private void UpdateRidingMovement(bool allowBarrier)
+    private void UpdateRidingMovement()
     {
-        ApplyRoomRestriction(allowBarrier);
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
         int angle = AngleForInput(input);
         if (angle == 0xff)
         {
-            _barrierTextLatched = false;
             return;
         }
 
@@ -802,26 +799,24 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        ApplyMovement(allowBarrier);
+        ApplyMovement();
         UpdateDirectionAndAnimation(0x13);
     }
 
-    private void UpdateAirborneMovement(bool allowBarrier)
+    private void UpdateAirborneMovement()
     {
-        ApplyRoomRestriction(allowBarrier);
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
         int angle = AngleForInput(input);
         if (angle == 0xff)
         {
-            _barrierTextLatched = false;
             return;
         }
         _angle = angle;
-        ApplyMovement(allowBarrier);
+        ApplyMovement();
     }
 
-    private void ApplyMovement(bool allowBarrier)
+    private void ApplyMovement()
     {
         Vector2 candidate = _precisePosition;
         OracleObjectMovement.Shared.ApplySpeed(ref candidate, 0x28, _angle);
@@ -829,25 +824,14 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Vector2 resolved = ResolveMovement(movement);
         _precisePosition += resolved;
 
-        ApplyRoomRestriction(allowBarrier);
     }
 
-    private void ApplyRoomRestriction(bool allowBarrier)
+    void ICompanionBarrierTarget.ClampToLowerY(int y)
     {
-        if (allowBarrier && _group == _record.Group &&
-            _roomId == _record.Room && _precisePosition.Y > _record.RestrictY)
-        {
-            _precisePosition.Y = _record.RestrictY;
-            if (!_barrierTextLatched && !_dialogueOpen())
-            {
-                _barrierTextLatched = true;
-                _dialogueRequested(0x2209, _record.RestrictText, _precisePosition);
-            }
-        }
-        else
-        {
-            _barrierTextLatched = false;
-        }
+        if (y is < 0 or > byte.MaxValue || _precisePosition.Y <= y)
+            return;
+        _precisePosition.Y = y;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
     private void UpdateDirectionAndAnimation(int animationBase)
@@ -914,6 +898,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         {
             player.FinishCompanionMount(
                 _precisePosition,
+                RidingLinkOffset,
                 _direction,
                 _zFixed,
                 linkTexture,
@@ -924,6 +909,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         {
             player.SetCompanionRidePosition(
                 _precisePosition,
+                RidingLinkOffset,
                 _direction,
                 _zFixed,
                 linkTexture,
@@ -1007,8 +993,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _roomId = destination.Id;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        _lastMountPosition = position;
-        _lastMountRoomId = destination.Id;
+        Vector2 respawn = OracleObjectMath.ToPixelPosition(position);
+        player.SetLocalRespawnPosition(respawn);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, respawn);
         CompanionRuntimeState.Update(
             _runtime, CompanionRuntimeState.MooshId,
             _roomId, position, _direction);
