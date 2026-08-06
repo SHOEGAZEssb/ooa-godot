@@ -443,6 +443,7 @@ public partial class Player : Node2D
     internal bool CompanionJumpActive => _companionJumpControlled;
     internal bool CompanionRideActive => _companionRideControlled;
     internal bool RaftRideActive => _raftRideControlled;
+    internal IntroSpriteFrame? CutsceneSpriteFrame => _cutsceneSpriteFrame;
     internal int RaftKnockbackAngle =>
         _raftRideControlled && _enemyKnockbackFrames > 0.0f
             ? AngleForVector(_enemyKnockbackDirection)
@@ -725,7 +726,11 @@ public partial class Player : Node2D
         _getItemTwoHandPose = false;
         _scriptedLinkAnimationMode = null;
         _cutsceneDrawZFixed = 0;
-        _cutsceneSpriteFrame = null;
+        // Destination room events are initialized while the room's objects
+        // are parsed, before the transition places Link. Preserve a frame
+        // already selected by that new cutscene owner through WarpTo.
+        if (!_cutsceneControlled)
+            _cutsceneSpriteFrame = null;
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;

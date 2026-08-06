@@ -322,7 +322,14 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
             if (row.Counter == 0)
             {
                 if (helper.SubId == 5)
+                {
                     _state = 3;
+                    // The zero-counter $64:$05 row is the terminal strike.
+                    // Retire the still-blocked $ff applyspeed command before
+                    // the 20-update fade handoff can carry Link past the bolt.
+                    _runner.Clear();
+                    _scriptEnded = true;
+                }
                 _helpers.RemoveAt(i);
                 i--;
             }

@@ -198,6 +198,7 @@ public sealed partial class ValidationRoot
         var flashSamples = new Dictionary<int, List<float>>();
         var flashStarts = new List<int>();
         var lightningSounds = new List<int>();
+        var lightningPositions = new List<Vector2>();
         int lightningShakes = 0;
         int previousShake = _entities.ScreenShakeCounter;
         int frames = 33;
@@ -211,6 +212,7 @@ public sealed partial class ValidationRoot
                 priorLightning)
             {
                 lightningSounds.Add(frames);
+                lightningPositions.Add(raftwreck.PrecisePosition);
             }
             if (raftwreck.FlashPhase is 1 or 3 &&
                 raftwreck.FlashFrame == 0)
@@ -256,7 +258,8 @@ public sealed partial class ValidationRoot
             !flashStarts.SequenceEqual([322, 357]) ||
             !lightningSounds.SequenceEqual([322, 357, 958, 999, 1090]) ||
             frames - lightningSounds[^1] != 19 ||
-            !raftwreck.PrecisePosition.IsEqualApprox(new Vector2(95.5f, 63.5f)) ||
+            !lightningPositions[^1].IsEqualApprox(new Vector2(85, 63.5f)) ||
+            !raftwreck.PrecisePosition.IsEqualApprox(new Vector2(85, 63.5f)) ||
             lightningShakes != 3,
             "Room 1:a8 raftwreck did not complete its two screen flashes, " +
             "three helper lightning parts and six debris interactions, room " +
@@ -271,6 +274,7 @@ public sealed partial class ValidationRoot
             $"{_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - debrisSoundsBefore}, " +
             $"flash-starts={string.Join(',', flashStarts)}, " +
             $"lightning-frames={string.Join(',', lightningSounds)}, " +
+            $"lightning-positions={string.Join(';', lightningPositions)}, " +
             $"shakes={lightningShakes}, position={raftwreck.PrecisePosition}).");
 
         for (int update = 0; update < RoomTransitionController.WarpFadeFrames - 1; update++)
@@ -288,12 +292,14 @@ public sealed partial class ValidationRoot
         }
         UpdateRoomWarpTransition(1.0 / 60.0);
         TokayTheftEvent tokayTheft = _roomEvents.TokayTheft;
+        IntroSpriteFrame arrivalFrame = tokayTheft.Database.LinkFrames[0];
         FailIf(_rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xaa ||
             !tokayTheft.HasState || tokayTheft.ActiveThiefCount != 5 ||
             tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait ||
+            _player.CutsceneSpriteFrame != arrivalFrame ||
             !_player.CutsceneControlled,
-            "Cutscene $03 did not load and initialize the five room 1:aa " +
-            "Tokay thieves on white-fade update 32.");
+            "Cutscene $03 did not initialize linkCutscene7 graphic $04 and " +
+            "the five room 1:aa Tokay thieves on white-fade update 32.");
         StepRoomEventFrames(5);
         FailIf(tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait,
             "Room 1:aa Tokay scripts advanced during the destination fade.");
@@ -343,8 +349,10 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0xaa);
         FailIf(!tokay.HasState || tokay.ActiveThiefCount != 5 ||
             tokay.ScriptCounter != 0xf0 || !_player.CutsceneControlled ||
+            _player.CutsceneSpriteFrame != tokay.Database.LinkFrames[0] ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != stopMusic + 1,
-            "Room 1:aa did not initialize linkCutscene7 and five Tokay thieves.");
+            "Room 1:aa did not initialize linkCutscene7 graphic $04 and five " +
+            "Tokay thieves before its first rendered frame.");
 
         StepRoomEventFrames(1);
         FailIf(tokay.ScriptCounter != 0xf0 || tokay.StolenCount != 0 ||
@@ -381,9 +389,16 @@ public sealed partial class ValidationRoot
             "The 240-update Tokay wait did not start Link's jump and common movement.");
         StepRoomEventFrames(230);
         FailIf(tokay.AccessoryCount != 5 || tokay.ActiveThiefCount != 5 ||
+            tokay.AccessoryTextureSizes is not
+                [
+                    { X: 8, Y: 16 }, { X: 8, Y: 16 },
+                    { X: 16, Y: 16 }, { X: 16, Y: 16 },
+                    { X: 8, Y: 16 }
+                ] ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != itemSounds + 1,
             "Tokay common scripts did not preserve 15/31/60/31/60 movement " +
-            "and raise all five source accessories after 471 updates.");
+            "and raise the five source accessories with full-width harp and " +
+            "flippers after 471 updates.");
 
         int exitFrames = 0;
         while (tokay.HasState && exitFrames++ < 1000)

@@ -282,8 +282,24 @@ $interactionAnimationPath =
     Join-Path $Disassembly "data\ages\interactionAnimations.s"
 $interactionAnimationSource = Read-ImportText $interactionAnimationPath
 $npcAnimationTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
-$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
 $interactionAnimationNodes = @(Read-AssemblyNodes $interactionAnimationPath)
+$npcOamPointerStarts = @{}
+$npcOamPointers = [Collections.Generic.List[string]]::new()
+foreach ($node in $interactionAnimationNodes) {
+    if ($node.Kind -eq 'Label' -and
+        $node.Name -match '^interaction[0-9a-f]{2}OamDataPointers$') {
+        # These labels are views into one contiguous pointer stream. An
+        # animation may index past the next label; INTERAC_ACCESSORY animation
+        # $03 does this to reach its two-cell held-item OAM composition.
+        $npcOamPointerStarts[$node.Name] = $npcOamPointers.Count
+        continue
+    }
+    if ($node.Kind -eq 'Data' -and $node.Name -ieq '.dw' -and
+        $node.Operands.Count -eq 1 -and
+        $node.Operands[0] -match '^interactionOamData[0-9a-f]+$') {
+        $npcOamPointers.Add($node.Operands[0])
+    }
+}
 $npcAnimationDefinitions = Read-AssemblyAnimationDefinitions `
     $interactionAnimationPath 'interactionAnimation[0-9a-f]+(?:Loop)?'
 
@@ -320,18 +336,21 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     $hex = $interactionId.ToString('x2')
     $animationKey = "interaction${hex}Animations"
     $pointerKey = "interaction${hex}OamDataPointers"
-    if (-not $npcAnimationTables.ContainsKey($animationKey) -or -not $npcOamPointerTables.ContainsKey($pointerKey)) { return '' }
+    if (-not $npcAnimationTables.ContainsKey($animationKey) -or
+        -not $npcOamPointerStarts.ContainsKey($pointerKey)) { return '' }
     $animations = $npcAnimationTables[$animationKey]
     if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
     $animationLabel = $animations[$animationIndex]
     if (-not $npcAnimationDefinitions.ContainsKey($animationLabel)) { return '' }
     $definition = $npcAnimationDefinitions[$animationLabel]
-    $pointers = $npcOamPointerTables[$pointerKey]
+    $pointerStart = $npcOamPointerStarts[$pointerKey]
     $resolvedFrames = [Collections.Generic.List[string]]::new()
     foreach ($frame in $definition.Frames) {
         $pointerIndex = [int]($frame.PointerOffset / 2)
-        if ($pointerIndex -lt 0 -or $pointerIndex -ge $pointers.Count) { continue }
-        $oamLabel = $pointers[$pointerIndex]
+        $absolutePointerIndex = $pointerStart + $pointerIndex
+        if ($pointerIndex -lt 0 -or
+            $absolutePointerIndex -ge $npcOamPointers.Count) { continue }
+        $oamLabel = $npcOamPointers[$absolutePointerIndex]
         $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
         $metadata = if ([int]$frame.Parameter -eq 0) {
             "$($frame.Duration)"

@@ -8139,7 +8139,10 @@ $tokayAccessorySubids = @(0x10, 0x1b, 0x68, 0x31, 0x20)
 for ($index = 0; $index -lt $tokayAccessorySubids.Count; $index++) {
     $subid = $tokayAccessorySubids[$index]
     $graphic = $interactionGraphics["99:$subid"]
-    $animation = Resolve-NpcAnimation 0x63 0
+    # interactionInitGraphics selects the animation encoded in the low nibble
+    # of this subid's interaction-data flags. Some held items (including the
+    # harp and flippers) use animation $03's two-cell OAM composition.
+    $animation = Resolve-NpcAnimation 0x63 $graphic.DefaultAnimation
     if ($null -eq $graphic -or [string]::IsNullOrWhiteSpace($animation) -or
         ($graphic.Gfx -ne 0 -and -not $gfxNames.ContainsKey($graphic.Gfx))) {
         throw "Could not resolve Tokay accessory `$$($subid.ToString('x2'))."

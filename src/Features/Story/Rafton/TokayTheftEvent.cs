@@ -37,6 +37,19 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
     internal int StolenCount => _stolenCount;
     internal int ActiveThiefCount => _thieves.FindAll(thief => thief.Actor.Active).Count;
     internal int AccessoryCount => _thieves.FindAll(thief => thief.Accessory?.Active == true).Count;
+    internal Vector2I[] AccessoryTextureSizes
+    {
+        get
+        {
+            var sizes = new List<Vector2I>();
+            foreach (ThiefState thief in _thieves)
+            {
+                if (thief.Accessory?.Active == true)
+                    sizes.Add(thief.Accessory.CurrentAnimationTextureSize);
+            }
+            return [.. sizes];
+        }
+    }
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _database.Record.Group && room.Id == _database.Record.Room;
@@ -75,6 +88,9 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _scriptStage = ScriptStage.InitialWait;
         _scriptCounter = record.LinkWait;
         _stealCounter = record.StealFirstWait;
+        _linkFrame = 0;
+        _linkFrameCounter = _database.LinkFrames[0].Duration;
+        _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
     }
 
@@ -83,9 +99,6 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         if (_initializing)
         {
             _initializing = false;
-            _linkFrame = 0;
-            _linkFrameCounter = _database.LinkFrames[0].Duration;
-            _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
             return;
         }
 
