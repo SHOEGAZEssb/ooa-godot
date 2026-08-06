@@ -10,11 +10,11 @@ public sealed partial class ValidationRoot
 {
     private void ValidateGameOverRestart()
     {
-        const int respawnGroup = 0;
-        const int respawnRoom = 0x11;
+        const int respawnGroup = 1;
+        const int respawnRoom = 0xa7;
         const int respawnFacing = 3;
-        const int respawnY = 0x48;
-        const int respawnX = 0x38;
+        const int respawnY = 0x28;
+        const int respawnX = 0x48;
 
         _saveData.SetDeathRespawnPoint(
             respawnGroup,
@@ -77,11 +77,27 @@ public sealed partial class ValidationRoot
 
         ValidateDisposedRoomEntitySaveSubscription();
 
+        FailIf(
+            CheckTileWarp(_player),
+            "Saved checkpoint reload on Rafton's exterior doorway " +
+            "1:a7/$24 immediately re-entered room 2:1e.");
+        _player.WarpTo(new Vector2(0x48, 0x48), recordSafe: false);
+        FailIf(
+            CheckTileWarp(_player),
+            "Leaving Rafton's exterior doorway 1:a7/$24 unexpectedly " +
+            "activated another warp.");
+        _player.WarpTo(new Vector2(respawnX, respawnY), recordSafe: false);
+        FailIf(
+            !CheckTileWarp(_player) ||
+            _rooms.ActiveGroup != 2 || _rooms.CurrentRoom.Id != 0x1e,
+            "Rafton's exterior doorway 1:a7/$24 did not reactivate after " +
+            "Link left and returned to it.");
+
         GD.Print(
             "Validated collapsed-Link root handoff, MUS_GAMEOVER and BCD death " +
             "count, unsaved Continue, one-root scene replacement, full-health " +
-            "initialization, maintained-checkpoint respawn, and disposed entity " +
-            "subscription cleanup.");
+            "initialization, maintained-checkpoint respawn, saved doorway warp " +
+            "deactivation, and disposed entity subscription cleanup.");
     }
 
     private void ValidateDisposedRoomEntitySaveSubscription()

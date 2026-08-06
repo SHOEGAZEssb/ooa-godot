@@ -390,6 +390,13 @@ public partial class GameRoot : Node2D
         if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
+        if (useSavedSpawn)
+        {
+            // loadingRoom/func_5c18 call setEnteredWarpPosition before
+            // initializeRoom so a saved death checkpoint on a doorway or
+            // stair cannot immediately activate that warp again.
+            _transitions.DeactivateWarpAtPlayerPosition(_player);
+        }
         _player.GameOverRequested += BeginGameOver;
         if (useDebugSavestate)
         {
