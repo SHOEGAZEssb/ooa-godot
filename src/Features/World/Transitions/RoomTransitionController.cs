@@ -9,6 +9,10 @@ public sealed class RoomTransitionController
     public event Action<Vector2I>? ScrollingTransitionFinished;
 
     public const float WarpFadeFrames = 32.0f;
+    // fadeoutToWhite advances wPaletteThread_fadeOffset from $00 through $1f.
+    // The 32nd handler update only stops the thread; the visible palette is
+    // already completely white on update 31.
+    public const float WarpFadeMaximumOffset = 31.0f;
     // applyWarpTransition2 bit 7 calls fadeoutToWhiteWithDelay(4). The palette
     // offset advances on updates 1,5,...121 and stops when it reaches $20 on 125.
     public const float DelayedWarpFadeFrames = 125.0f;
@@ -602,6 +606,16 @@ public sealed class RoomTransitionController
         BeginWarp(player, warp, false);
     }
 
+    /// <summary>
+    /// Starts cutscene $03's ordinary white fade even when the source warp
+    /// byte is $00. Some scripted interactions install the warp and select
+    /// the cutscene independently instead of encoding a fade in that byte.
+    /// </summary>
+    public void ApplyWarpWithFadeOut(Player player, Warp warp)
+    {
+        BeginWarp(player, warp, false, forceFadeOut: true);
+    }
+
     public void ApplyWarpWithDelayedFadeOut(Player player, Warp warp)
     {
         BeginWarp(player, warp, true);
@@ -719,7 +733,11 @@ public sealed class RoomTransitionController
         SetFade(0.0f);
     }
 
-    private void BeginWarp(Player player, Warp warp, bool delayedFadeOut)
+    private void BeginWarp(
+        Player player,
+        Warp warp,
+        bool delayedFadeOut,
+        bool forceFadeOut = false)
     {
         if (_warpActive || !_rooms.World.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
             return;
@@ -736,7 +754,7 @@ public sealed class RoomTransitionController
         _destinationWalk = false;
         _destinationFall = false;
         player.BeginRoomWarpTransition();
-        if (delayedFadeOut)
+        if (delayedFadeOut || forceFadeOut)
         {
             _warpPhase = WarpPhase.FadeOut;
             SetFade(0.0f);
@@ -786,7 +804,9 @@ public sealed class RoomTransitionController
         switch (_warpPhase)
         {
             case WarpPhase.FadeOut:
-                SetFade(_warpFrame / _warpFadeOutFrames);
+                SetFade(_warpFadeOutFrames == WarpFadeFrames
+                    ? _warpFrame / WarpFadeMaximumOffset
+                    : _warpFrame / _warpFadeOutFrames);
                 if (_warpFrame >= _warpFadeOutFrames)
                 {
                     SetFade(1.0f);
@@ -812,7 +832,11 @@ public sealed class RoomTransitionController
                     _player.SetRoomWarpWalkPosition(
                         _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames), delta);
                 }
-                SetFade(1.0f - _warpFrame / WarpFadeFrames);
+                // fadeinFromWhite starts at offset $20, displays $1f through
+                // $00, then consumes one final update to stop the thread.
+                SetFade(1.0f -
+                    Math.Min(_warpFrame, WarpFadeMaximumOffset) /
+                    WarpFadeMaximumOffset);
                 if (_warpFrame >= WarpFadeFrames && destinationReady)
                     FinishWarp();
                 break;

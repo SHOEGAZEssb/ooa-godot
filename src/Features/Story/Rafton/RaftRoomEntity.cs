@@ -42,6 +42,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     private int _stateCounter;
     private int _forcedWalkCounter;
     private RaftPhase _phase;
+    private bool _cutsceneControlled;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -140,6 +141,8 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                 _phase = RaftPhase.Waiting;
                 SetDirectionAnimation();
                 break;
+            case RaftPhase.Wrecked:
+                break;
             default:
                 throw new InvalidOperationException(
                     $"Unsupported raft phase {_phase}.");
@@ -177,6 +180,12 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateRiding(Player player)
     {
+        if (_cutsceneControlled)
+        {
+            SynchronizeRide(player);
+            return;
+        }
+
         int angle = AngleForInput(Input.GetVector(
             "move_left", "move_right", "move_up", "move_down"));
         _angle = angle;
@@ -286,6 +295,42 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         player.SetRaftRidePosition(
             _precisePosition, _direction,
             _mountedAnimation.CurrentParameter, Vector2.Zero);
+    }
+
+    internal void BeginRaftwreckControl(Player player, Vector2 position)
+    {
+        if (!LinkRiding)
+            throw new InvalidOperationException("Raftwreck requires Link to be riding the raft.");
+        _cutsceneControlled = true;
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        SynchronizeRide(player);
+    }
+
+    internal void SetRaftwreckPosition(Player player, Vector2 position, int direction)
+    {
+        if (!_cutsceneControlled)
+            throw new InvalidOperationException("Raftwreck does not own this raft.");
+        _precisePosition = position;
+        _direction = direction;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        SynchronizeRide(player);
+    }
+
+    internal void FinishRaftwreck(Player player)
+    {
+        _cutsceneControlled = false;
+        CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
+        player.EndRaftRide(_precisePosition, _direction);
+        _phase = RaftPhase.Wrecked;
+    }
+
+    internal void CancelRaftwreckControl(Player player)
+    {
+        if (!_cutsceneControlled)
+            return;
+        _cutsceneControlled = false;
+        SynchronizeRide(player);
     }
 
     private void SavePosition(Player player)
@@ -462,7 +507,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     };
 }
 
-internal enum RaftPhase { Waiting, Riding, Dismounting, RecreateInteraction }
+internal enum RaftPhase { Waiting, Riding, Dismounting, RecreateInteraction, Wrecked }
 
 internal sealed record RaftSpawn(
     Vector2 Position, int Direction, int Group, int Room, bool Riding = false)

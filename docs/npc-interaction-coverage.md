@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 96 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 101 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 37 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 258 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 253 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **391** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -64,7 +64,7 @@ behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
 The implementation manifest therefore contains 54 ordinary, 64 specialized,
-17 event-owned, and 256 deliberately unsupported positioned/state-derived
+22 event-owned, and 251 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 463
 classified records and 136 specialized rows.
 
@@ -120,6 +120,13 @@ classified records and 136 specialized rows.
   vehicle spawned in rooms `1:a7`/`1:a9` and from remembered companion state.
   This is a shared special-object/interaction path rather than an imported
   `NpcRecord`, so the NPC snapshot counts are unchanged.
+- Room `1:aa` implements the five `INTERAC_TOKAY $48:$00-$04` thieves reached
+  by the raftwreck warp: destination-fade freezing, Link's 240-update washed-up
+  state and jump, the ordered nine-item theft with Seed Satchel side effects,
+  parallel 15/31/60/31/60 movement cadence, five held accessories, staggered
+  two-jump exits, final room bit `$40`, music/input restoration, death-respawn
+  update, and completed-room suppression. The ordinary `$48:$1f` cliff Tokay
+  in the same room remains deliberately unsupported.
 - Room `2:0f` implements Cheval's complete native loop: asymmetric `$0c/$06`
   collision, Cheval Rope-dependent `TX_270c`/`TX_270d`, source `TX_270b` call
   expansion, and the post-dialogue `GLOBALFLAG_TALKED_TO_CHEVAL` side effect.
@@ -300,7 +307,7 @@ well as record selection.
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
 | `1:96` | [D] `$3b:$06/v$00` femaleVillager |
 | `1:97` | [I] `$37:$03/v$00` ralph |
-| `1:aa` | [D] `$48:$00/v$00` tokay<br>[D] `$48:$01/v$00` tokay<br>[D] `$48:$02/v$00` tokay<br>[D] `$48:$03/v$00` tokay<br>[D] `$48:$04/v$00` tokay<br>[D] `$48:$1f/v$00` tokay |
+| `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[D] `$48:$1f/v$00` tokay |
 | `1:ac` | [D] `$48:$11/v$00` tokay |
 | `1:ad` | [D] `$48:$15/v$00` tokay<br>[D] `$48:$15/v$00` tokay |
 | `1:ba` | [D] `$c4:$04/v$00` pirate |

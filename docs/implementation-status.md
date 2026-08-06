@@ -50,7 +50,12 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Rafton's completed raft: source placements in rooms `1:a7`/`1:a9`, airborne
   boarding, exact water-only collision and SPEED_e0 steering, blocked-direction
   dismount timing, Link/item restrictions, directional animation, local respawn
-  and remembered-position persistence, and single-owner room scrolling.
+  and remembered-position persistence, and single-owner room scrolling. The
+  room `1:a8` raft-wreck sequence includes its source command timing, storm
+  effects, completion flag, raft retirement, and hardcoded `1:aa` warp. Its
+  destination continues into the first Tokay theft cutscene with the imported
+  washed-up Link animation, exact item-loss cadence, thief movement and exits,
+  completion flag, respawn update, music restoration, and input release.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

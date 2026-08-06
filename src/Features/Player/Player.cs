@@ -239,10 +239,13 @@ public partial class Player : Node2D
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
     private int? _scriptedLinkAnimationMode;
+    private int _cutsceneDrawZFixed;
     private bool _carriedObjectPose;
     private BraceletActionPose? _braceletActionPose;
     private bool _braceletLiftCollisionsDisabled;
     private CutsceneSpriteRenderer? _newGameFallRenderer;
+    private CutsceneSpriteRenderer? _cutsceneSpriteRenderer;
+    private IntroSpriteFrame? _cutsceneSpriteFrame;
     private IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
     private int _newGameFallFrameTicks;
@@ -508,6 +511,7 @@ public partial class Player : Node2D
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
     internal int? ScriptedLinkAnimationMode => _scriptedLinkAnimationMode;
+    internal int CutsceneDrawZFixed => _cutsceneDrawZFixed;
     internal ulong ScriptedLinkAnimationPixelHash =>
         _scriptedLinkAnimationMode is int mode
             ? OracleGraphicsCache.PixelHash(
@@ -720,6 +724,8 @@ public partial class Player : Node2D
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _scriptedLinkAnimationMode = null;
+        _cutsceneDrawZFixed = 0;
+        _cutsceneSpriteFrame = null;
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
@@ -1973,6 +1979,25 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Applies a source fixed-point SpecialObject.z offset without moving
+    /// Link's room-space collision position.
+    /// </summary>
+    internal void SetCutsceneDrawZFixed(int zFixed)
+    {
+        if (_cutsceneDrawZFixed == zFixed)
+            return;
+        _cutsceneDrawZFixed = zFixed;
+        QueueRedraw();
+    }
+
+    internal void SetCutsceneSpriteFrame(IntroSpriteFrame? frame)
+    {
+        _cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer();
+        _cutsceneSpriteFrame = frame;
+        QueueRedraw();
+    }
+
     internal void BeginCarriedObjectPose()
     {
         _carriedObjectPose = true;
@@ -2570,7 +2595,9 @@ public partial class Player : Node2D
             switch (pass)
             {
                 case PlayerGroundDrawPass.Body:
+                    DrawSetTransform(new Vector2(0, _cutsceneDrawZFixed / 256.0f));
                     DrawBody();
+                    DrawSetTransform(Vector2.Zero);
                     break;
                 case PlayerGroundDrawPass.TerrainEffect:
                     DrawTerrainEffect();
@@ -2614,6 +2641,12 @@ public partial class Player : Node2D
                 this,
                 _newGameFallFrames[_newGameFallFrame],
                 _newGameFallZFixed >> 8);
+        }
+        else if (_cutsceneSpriteFrame is IntroSpriteFrame cutsceneFrame &&
+            _cutsceneSpriteRenderer is not null)
+        {
+            _cutsceneSpriteRenderer.DrawRelativeFrame(
+                this, cutsceneFrame, z: 0);
         }
         else if (_harpPoseActive &&
             _harpRenderer is not null && _harpFrames is not null)
@@ -3752,6 +3785,16 @@ public partial class Player : Node2D
         _raftRideControlled = false;
         _precisePosition = position;
         _facing = (Facing)direction;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        QueueRedraw();
+    }
+
+    internal void SetRaftwreckCutscenePosition(Vector2 position, int direction)
+    {
+        _precisePosition = position;
+        _facing = (Facing)direction;
+        _walking = false;
+        _pushing = false;
         Position = OracleObjectMath.ToPixelPosition(position);
         QueueRedraw();
     }

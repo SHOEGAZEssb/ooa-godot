@@ -21,6 +21,8 @@ public sealed class RoomEventController
     private readonly RalphAfterChevalEvent _ralphAfterCheval;
     private readonly RalphAfterRaftonEvent _ralphAfterRafton;
     private readonly RaftonEvent _rafton;
+    private readonly RaftwreckEvent _raftwreck;
+    private readonly TokayTheftEvent _tokayTheft;
     private readonly DepressedBoyEvent _depressedBoy;
     private readonly ToiletHandEvent _toiletHand;
     private readonly PoeEvent _poe;
@@ -97,6 +99,8 @@ public sealed class RoomEventController
         _ralphAfterCheval = new RalphAfterChevalEvent(_context);
         _ralphAfterRafton = new RalphAfterRaftonEvent(_context);
         _rafton = new RaftonEvent(_context);
+        _raftwreck = new RaftwreckEvent(_context);
+        _tokayTheft = new TokayTheftEvent(_context);
         _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);
@@ -155,6 +159,8 @@ public sealed class RoomEventController
             _cheval,
             _ralphAfterCheval,
             _ralphAfterRafton,
+            _raftwreck,
+            _tokayTheft,
             _rafton,
             _depressedBoy,
             _toiletHand,
@@ -275,6 +281,8 @@ public sealed class RoomEventController
     internal RalphAfterChevalEvent RalphAfterCheval => _ralphAfterCheval;
     internal RalphAfterRaftonEvent RalphAfterRafton => _ralphAfterRafton;
     internal RaftonEvent Rafton => _rafton;
+    internal RaftwreckEvent Raftwreck => _raftwreck;
+    internal TokayTheftEvent TokayTheft => _tokayTheft;
     internal DepressedBoyEvent DepressedBoy => _depressedBoy;
     internal ToiletHandEvent ToiletHand => _toiletHand;
     internal PoeEvent Poe => _poe;
@@ -336,6 +344,8 @@ public sealed class RoomEventController
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||
         _ralphAfterRafton.MenusDisabled ||
+        _raftwreck.MenusDisabled ||
+        _tokayTheft.MenusDisabled ||
         _dekuForestSoldier.MenusDisabled ||
         _dekuForestPalace.MenusDisabled ||
         _rickyGloves.MenusDisabled;

@@ -7851,6 +7851,306 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\raft.tsv'), $raftRows)
 Copy-GeneratedFile 'gfx\common\spr_raft.png' 'gfx\spr_raft.png'
 
+# Past ocean room $1:$a8 contains INTERAC_RAFTWRECK_CUTSCENE $9b:$00.
+# The script moves wLinkObjectIndex (the mounted SPECIALOBJECT_RAFT), while
+# native substates own the two lightning-flash waits and the final warp.
+$raftwreckSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\raftwreckCutscene.s')
+$raftwreckHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\raftwreckCutsceneHelper.s')
+$raftwreckScriptPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$raftwreckFlashSource = Read-ImportText (
+    Join-Path $Disassembly 'code\bank3Cutscenes.s')
+$raftwreckPresetSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\twinrova.s')
+$raftwreckLightningSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\lighting.s')
+$raftwreckDebrisSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\breakTileDebris.s')
+$raftwreckPartAnimationSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\partAnimations.s')
+if ($raftObjectSource -notmatch
+        '(?ms)^group1Mapa8ObjectData:\s+obj_Interaction \$9b \$00\s+obj_End' -or
+    $raftwreckSource -notmatch
+        '(?ms)^interactionCode9b:.*?ROOMFLAG_BIT_40.*?wDisabledObjects.*?wMenuDisabled.*?ld b,\$76.*?SPEED_80.*?sub \$50.*?add a.*?raftwreckCutsceneScript' -or
+    $raftwreckSource -notmatch
+        '(?ms)^@substate2:.*?genericCutscene\.state.*?^@substate3:.*?flashScreen.*?interactionIncSubstate\s+ldi a,\(hl\)\s+cp \$03\s+ld a,\$5a\s+jr z,\+\s+ld a,\$78.*?^@substate6:.*?genericCutscene\.state\),a.*?^@substate8:.*?SNDCTRL_FAST_FADEOUT.*?ROOMFLAG_BIT_40.*?res 1,\(hl\).*?ROOM_AGES_1aa, \$00, \$42, \$03' -or
+    $raftwreckSource -notmatch
+        '(?ms)^@yOscillation:\s*\.db \$ff \$fe \$ff \$00 \$01 \$02 \$01 \$00' -or
+    $raftwreckHelperSource -notmatch
+        '(?ms)^@subid3Objects:.*?\.db \$20 \$a8 \$00 \$00.*?^@subid4Objects:.*?\.db \$00 \$a8 \$00 \$00.*?^@subid5Objects:\s*\.db \$28 \$28 \$01 \$28\s*\.db \$58 \$38 \$01 \$5a\s*\.db \$40 \$50 \$01 \$00' -or
+    $raftwreckFlashSource -notmatch
+        '(?ms)@data1:\s*\.db \$02 \$04 \$06 \$08 \$0a \$0c \$ff' -or
+    $raftwreckPresetSource -notmatch
+        '(?ms)@data3: ; INTERAC_RAFTWRECK_CUTSCENE_HELPER\s*\.db \$15 \$0c\s*\.db \$16 \$0c\s*\.db \$17 \$12\s*\.db \$18 \$14\s*\.db \$19 \$14\s*\.db \$1a \$20\s*\.db \$00 \$00' -or
+    $raftwreckLightningSource -notmatch
+        '(?ms)^partCode27:.*?getRandomNumber_noPreserveVars.*?and \$06.*?ld \(hl\),\$c0.*?SND_LIGHTNING.*?^@func_55a6:.*?Part\.animParameter.*?call nz,@func_55e7.*?ld e,\$e1\s+ld a,\(de\)\s+bit 0,a\s+ret z\s+dec a\s+ld \(de\),a\s+ld a,\$06\s+jp setScreenShakeCounter.*?^@table_55e2:\s*\.db \$c0 \$d0\s*\.db \$e0 \$f0\s*\.db \$00.*?^@table_5603:\s*\.db \$02 \$06\s*\.db \$00 \$fb\s*\.db \$ff \$07\s*\.db \$fd \$fc\s*\.db \$00 \$05' -or
+    $raftwreckDebrisSource -notmatch
+        '(?ms)^interactionCode08:.*?SPEED_80.*?^@soundAndPriorityTable:.*?SND_KILLENEMY\s+\$00\s*; 0x08') {
+    throw 'Room 1:a8 raftwreck controller, helper, flash, or movement source changed.'
+}
+
+$raftwreckOpcodes = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @(
+    'wait', 'playsound', 'asm15', 'setangle', 'applyspeed',
+    'writememory', 'checkpalettefadedone', 'checkmemoryeq',
+    'writeobjectbyte', 'setspeed', 'scriptend')) {
+    [void]$raftwreckOpcodes.Add($opcode)
+}
+$raftwreckCommands = @(Read-AssemblyCutsceneCommands `
+    $raftwreckScriptPath 'raftwreckCutsceneScript_body' `
+    $raftwreckOpcodes 'raftwreckCutscene_spawnHelperSubid')
+if ($raftwreckCommands.Count -ne 44) {
+    throw "raftwreckCutsceneScript_body expected 44 commands, parsed $($raftwreckCommands.Count)."
+}
+$raftwreckCommandRows = [Collections.Generic.List[string]]::new()
+$raftwreckCommandRows.Add($cutsceneCommandHeader)
+foreach ($command in $raftwreckCommands) {
+    $opcode = $command.Opcode
+    $actor = ''
+    $arg0 = ''
+    $arg1 = ''
+    $payload = ''
+    switch ($command.Opcode) {
+        'wait' { $arg0 = $command.Operands }
+        'playsound' {
+            $sound = if ($command.Operands -eq 'SNDCTRL_FAST_FADEOUT') {
+                0xfa
+            } else {
+                Resolve-SoundConstant $command.Operands
+            }
+            $arg0 = $sound.ToString('x2')
+        }
+        'asm15' {
+            $opcode = 'native'
+            $payload = switch ($command.Operands) {
+                'setLinkDirection, DIR_UP' { 'SetLinkUp'; break }
+                'darkenRoom' { 'DarkenRoom'; break }
+                'setLinkDirection, DIR_RIGHT' { 'SetLinkRight'; break }
+                'raftwreckCutscene_spawnHelperSubid, $03' { 'SpawnHelper03'; break }
+                'raftwreckCutscene_spawnHelperSubid, $04' { 'SpawnHelper04'; break }
+                'raftwreckCutscene_spawnHelperSubid, $05' { 'SpawnHelper05'; break }
+                default { throw "Unsupported raftwreck asm15 '$($command.Operands)'." }
+            }
+        }
+        'setangle' {
+            $actor = 'Raftwreck'
+            $arg0 = switch ($command.Operands) {
+                'ANGLE_UP' { '00'; break }
+                'ANGLE_RIGHT' { '08'; break }
+                'ANGLE_LEFT' { '18'; break }
+                default { throw "Unsupported raftwreck angle '$($command.Operands)'." }
+            }
+        }
+        'applyspeed' {
+            if ($command.Operands -notmatch '^\$(?<value>[0-9a-f]{2})$') {
+                throw "Malformed raftwreck applyspeed at line $($command.Line)."
+            }
+            $actor = 'Raftwreck'
+            $arg0 = $Matches['value']
+        }
+        'setspeed' {
+            if ($command.Operands -notmatch '^SPEED_(?<speed>080|0c0|140)$') {
+                throw "Unsupported raftwreck speed '$($command.Operands)'."
+            }
+            $speedName = switch ($Matches['speed']) {
+                '080' { '80'; break }
+                '0c0' { 'c0'; break }
+                default { $Matches['speed'] }
+            }
+            $actor = 'Raftwreck'
+            $arg0 = (Resolve-ObjectSpeed $speedName).ToString('x2')
+        }
+        'writememory' {
+            if ($command.Operands -notmatch
+                '^(?<binding>[^,]+),\s*\$(?<value>[0-9a-f]{2})$') {
+                throw "Malformed raftwreck memory write at line $($command.Line)."
+            }
+            $arg0 = $Matches['value']
+            $payload = $Matches['binding']
+        }
+        'checkpalettefadedone' {
+            $opcode = 'gate'
+            $payload = 'PaletteFade'
+        }
+        'checkmemoryeq' {
+            if ($command.Operands -notmatch
+                '^(?<binding>[^,]+),\s*\$(?<value>[0-9a-f]{2})$') {
+                throw "Malformed raftwreck memory gate at line $($command.Line)."
+            }
+            $arg0 = $Matches['value']
+            $payload = $Matches['binding']
+        }
+        'writeobjectbyte' {
+            if ($command.Operands -notmatch
+                '^Interaction\.var(?<address>[0-9a-f]{2}),\s*\$(?<value>[0-9a-f]{2})$') {
+                throw "Malformed raftwreck object write at line $($command.Line)."
+            }
+            $actor = 'Raftwreck'
+            $arg0 = $Matches['address']
+            $arg1 = $Matches['value']
+        }
+    }
+    $raftwreckCommandRows.Add((New-CutsceneCommandRow `
+        'raftwreckCutsceneScript_body' $command.Index $command.Label `
+        $command.Line $opcode $actor $arg0 $arg1 $payload))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\raftwreck_commands.tsv'),
+    $raftwreckCommandRows)
+
+function Read-RaftwreckObjectTable([string]$label) {
+    $match = [regex]::Match(
+        $raftwreckHelperSource,
+        "(?ms)^${label}:\s*(?<body>(?:\s*\.db \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2}(?:\s*;[^\r\n]*)?\r?\n)+)")
+    if (-not $match.Success) { throw "Could not parse raftwreck $label." }
+    return @([regex]::Matches(
+        $match.Groups['body'].Value,
+        '\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) \$(?<counter>[0-9a-f]{2})'))
+}
+$raftwreckWindRows = [Collections.Generic.List[string]]::new()
+$raftwreckWindRows.Add("# helper-subid`tindex`ty`tx`teffect-subid`tcounter")
+foreach ($helper in @(3, 4, 5)) {
+    $records = Read-RaftwreckObjectTable "@subid${helper}Objects"
+    for ($index = 0; $index -lt $records.Count; $index++) {
+        $record = $records[$index]
+        $raftwreckWindRows.Add("$helper`t$index`t$($record.Groups['y'].Value)`t$($record.Groups['x'].Value)`t$($record.Groups['subid'].Value)`t$($record.Groups['counter'].Value)")
+    }
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\raftwreck_helpers.tsv'),
+    $raftwreckWindRows)
+
+$raftwreckEffectRows = [Collections.Generic.List[string]]::new()
+$raftwreckEffectRows.Add("# subid`tsprite`ttile-base`tpalette`tanimation`tduration")
+foreach ($subid in 0..2) {
+    $graphic = $interactionGraphics["100:$subid"]
+    $animationIndex = if ($subid -eq 2) { 1 } else { 0 }
+    $animation = Resolve-NpcAnimation 0x64 $animationIndex
+    if ($null -eq $graphic -or [string]::IsNullOrWhiteSpace($animation) -or
+        -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw ('Could not resolve INTERAC_RAFTWRECK_CUTSCENE_HELPER $64:$' +
+            $subid.ToString('x2') + '.')
+    }
+    $sprite = if ($graphic.Gfx -eq 0) { 'spr_common_sprites' } else { $gfxNames[$graphic.Gfx] }
+    $raftwreckEffectRows.Add("$subid`t$sprite`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation`t0")
+}
+$debrisGraphic = $interactionGraphics['8:0']
+$debrisAnimation = Resolve-NpcAnimation 0x08 0
+if ($null -eq $debrisGraphic -or [string]::IsNullOrWhiteSpace($debrisAnimation)) {
+    throw 'Could not resolve INTERAC_GRASSDEBRIS $08:$00 for raftwreck lightning.'
+}
+$debrisSprite = if ($debrisGraphic.Gfx -eq 0) {
+    'spr_common_sprites'
+} else {
+    $gfxNames[$debrisGraphic.Gfx]
+}
+$raftwreckEffectRows.Add("8`t$debrisSprite`t$($debrisGraphic.TileBase)`t$($debrisGraphic.Palette)`t$debrisAnimation`t20")
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\raftwreck_effects.tsv'),
+    $raftwreckEffectRows)
+Copy-GeneratedFile 'gfx_compressible\ages\spr_bear_monkey.png' 'gfx\spr_bear_monkey.png'
+
+$lightningAnimationMatch = [regex]::Match(
+    $raftwreckPartAnimationSource,
+    '(?ms)^partAnimation5b9a7:\s*(?<body>(?:\s*\.db \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2}\s*)+)')
+if (-not $lightningAnimationMatch.Success) {
+    throw 'Could not parse PART_LIGHTNING animation parameters.'
+}
+$lightningFrames = @([regex]::Matches(
+    $lightningAnimationMatch.Groups['body'].Value,
+    '\.db \$(?<duration>[0-9a-f]{2}) \$[0-9a-f]{2} \$(?<parameter>[0-9a-f]{2})') |
+    ForEach-Object { "$($_.Groups['duration'].Value):$($_.Groups['parameter'].Value)" }) -join ','
+
+# Both completed flash substates select $78 in the executed code. The call to
+# interactionIncSubstate changes $03->$04 and $05->$06 before `ldi a,(hl)`;
+# neither post-increment value satisfies `cp $03`, so the literal $5a lane is
+# unreachable here.
+$raftwreckEventRows = @(
+    "# group`troom`tinteraction-id`tsubid`troom-flag`tinitial-y`tcenter-x`tinitial-speed`tfirst-flash-wait`tsecond-flash-wait`tfinish-wait`tdestination-room`tdestination-position`tdestination-parameter`tdestination-transition`ty-oscillation`tangle-preset`tlightning-z`tlightning-frames`tlightning-shake`tdebris-offsets`tsource",
+    (@('1','a8','9b','00','40','76','50',
+        (Resolve-ObjectSpeed '80').ToString('x2'),'78','78','14','aa','42','00','03',
+        'ff,fe,ff,00,01,02,01,00','15:0c,16:0c,17:12,18:14,19:14,1a:20',
+        'c0,d0,e0,f0,00',$lightningFrames,'06','02:06,00:fb,ff:07,fd:fc,00:05',
+        'mainData.s:group1Mapa8ObjectData;raftwreckCutscene.s:interactionCode9b;raftwreckCutsceneHelper.s:interactionCode64') -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\raftwreck_event.tsv'),
+    $raftwreckEventRows)
+
+# Room $1:$aa's five INTERAC_TOKAY thieves are the direct destination of the
+# raftwreck hardcoded warp. Their scripts run in parallel while subid $02
+# removes Link's inventory and owns SPECIALOBJECT_LINK_CUTSCENE $08's
+# linkCutscene7 state.
+$tokaySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\tokay.s')
+$tokayScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$tokayScriptHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$tokayLinkSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
+$tokayBank0Source = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
+if ($raftObjectSource -notmatch
+        '(?ms)^group1MapaaObjectData:\s*obj_Interaction \$48 \$00 \$48 \$18\s*obj_Interaction \$48 \$01 \$58 \$38\s*obj_Interaction \$48 \$02 \$58 \$28\s*obj_Interaction \$48 \$03 \$58 \$18\s*obj_Interaction \$48 \$04 \$48 \$38' -or
+    $tokayScriptSource -notmatch
+        '(?ms)^tokayThiefScript:\s*wait 240\s*setanimation \$00.*?^tokayThiefCommon:\s*setangle \$10\s*setspeed SPEED_200\s*applyspeed \$10\s*wait 30\s*setangle \$08\s*setspeed SPEED_080\s*applyspeed \$20.*?wait 60.*?applyspeed \$20.*?wait 60\s*scriptend' -or
+    $tokayScriptSource -notmatch
+        '(?ms)^tokayMainThiefScript:\s*disablemenu\s*wait 240\s*asm15 scriptHelp\.tokayMakeLinkJump\s*setanimation \$00\s*playsound SND_STRIKE\s*writememory wTmpcfc0\.genericCutscene\.cfd1, \$01\s*scriptjump tokayThiefCommon' -or
+    $tokaySource -notmatch
+        '(?ms)^@initSubid02:.*?SPECIALOBJECT_LINK_CUTSCENE.*?ld \(hl\),\$07.*?ld a,\$46.*?SNDCTRL_STOPMUSIC' -or
+    $tokaySource -notmatch
+        '(?ms)^tokayThief_countdownToStealNextItem:.*?ld \(hl\),\$0a.*?cp \$09.*?tokayIslandStolenItems.*?TREASURE_SEED_SATCHEL.*?TREASURE_EMBER_SEEDS.*?TREASURE_MYSTERY_SEEDS.*?SND_UNKNOWN5' -or
+    $tokaySource -notmatch
+        '(?ms)^tokayThiefSubstate0:.*?ld \(hl\),\$5a.*?^tokayThiefSubstate1:.*?swap a\s*add \$14.*?^tokayThiefSubstate2:.*?interactionAnimate3Times.*?ld \(hl\),\$06.*?SPEED_280.*?ld bc,-\$1c0.*?SND_JUMP.*?^tokayThiefSubstate3:.*?ld c,\$20.*?ld \(hl\),\$06.*?^tokayThiefSubstate4:.*?tokayThief_jump.*?^tokayThiefSubstate5:.*?objectCheckWithinScreenBoundary.*?cp \$03.*?ld \(hl\),\$3c.*?^tokayThiefSubstate6:.*?wDisabledObjects.*?wUseSimulatedInput.*?wMenuDisabled.*?set 6,\(hl\).*?setDeathRespawnPoint' -or
+    $tokayLinkSource -notmatch
+        '(?ms)^linkCutscene7:.*?ld \(hl\),\$f0.*?ld a,\$14.*?^@state1:.*?itemDecCounter1.*?SPECIALOBJECT_LINK.*?ld \(hl\),\$02.*?wUseSimulatedInput.*?wMenuDisabled' -or
+    $tokayScriptHelperSource -notmatch
+        '(?ms)^tokayMakeLinkJump:\s*ld a,\$81.*?wLinkInAir.*?w1Link\.speedZ.*?ld \(hl\),\$00.*?ld \(hl\),\$fe.*?SND_JUMP' -or
+    $tokayBank0Source -notmatch
+        '(?ms)^tokayIslandStolenItems:\s*\.db TREASURE_SWORD\s*\.db TREASURE_SHOVEL\s*\.db TREASURE_HARP\s*\.db TREASURE_FLIPPERS\s*\.db TREASURE_SEED_SATCHEL\s*\.db TREASURE_SHIELD\s*\.db TREASURE_BOMBS\s*\.db TREASURE_BRACELET\s*\.db TREASURE_FEATHER') {
+    throw 'Room 1:aa Tokay theft cutscene source contract changed.'
+}
+$tokayAnimations = @(@(0, 1, 3, 5) | ForEach-Object {
+    Resolve-NpcAnimation 0x48 $_
+})
+if (@($tokayAnimations | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -ne 0) {
+    throw 'Could not resolve INTERAC_TOKAY theft animations.'
+}
+$tokayEventRows = @(
+    "# group`troom`tinteraction-id`troom-flag`tmain-subid`tlink-wait`tsteal-first-wait`tsteal-repeat-wait`titem-wait`tfinal-wait`tdown-speed`tright-speed`tjump-speed`tjump-angle`tjump-z-fixed`tjump-gravity-fixed`tinitial-animations`tanimation0`tanimation1`tanimation3`tanimation5`tstolen-items`taccessory-subids`tsource",
+    (@('1','aa','48','40','02','f0','46','0a','5a','3c',
+        (Resolve-ObjectSpeed '200').ToString('x2'),
+        (Resolve-ObjectSpeed '80').ToString('x2'),
+        (Resolve-ObjectSpeed '280').ToString('x2'),'06','fe40','0020',
+        '01,03,00,01,03',$tokayAnimations[0],$tokayAnimations[1],
+        $tokayAnimations[2],$tokayAnimations[3],
+        '05,15,11,2e,19,01,03,16,17','10,1b,68,31,20',
+        'mainData.s:group1MapaaObjectData;tokay.s:interactionCode48;linkInCutscene.s:linkCutscene7') -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\tokay_theft_event.tsv'),
+    $tokayEventRows)
+
+$tokayAccessoryRows = [Collections.Generic.List[string]]::new()
+$tokayAccessoryRows.Add('# item-index`tsubid`tsprite`ttile-base`tpalette`tanimation')
+$tokayAccessorySubids = @(0x10, 0x1b, 0x68, 0x31, 0x20)
+for ($index = 0; $index -lt $tokayAccessorySubids.Count; $index++) {
+    $subid = $tokayAccessorySubids[$index]
+    $graphic = $interactionGraphics["99:$subid"]
+    $animation = Resolve-NpcAnimation 0x63 0
+    if ($null -eq $graphic -or [string]::IsNullOrWhiteSpace($animation) -or
+        ($graphic.Gfx -ne 0 -and -not $gfxNames.ContainsKey($graphic.Gfx))) {
+        throw "Could not resolve Tokay accessory `$$($subid.ToString('x2'))."
+    }
+    $sprite = if ($graphic.Gfx -eq 0) { 'spr_common_sprites' } else { $gfxNames[$graphic.Gfx] }
+    $tokayAccessoryRows.Add("$index`t$($subid.ToString('x2'))`t$sprite`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation")
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\tokay_theft_accessories.tsv'),
+    $tokayAccessoryRows)
+
 # Fairies' Woods hide-and-seek. INTERAC_FAIRY_HIDING_MINIGAME ($6c) owns
 # three interaction scripts, while INTERAC_FOREST_FAIRY ($49) implements the
 # exact table-driven flight used by both the introduction and each reveal.
@@ -8971,7 +9271,7 @@ $specialObjectCommonSource = Read-ImportText (
 $specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
 $specialOamNodes = @(Read-AssemblyNodes $specialOamPath)
 $specialOamTables = Read-AssemblyDwTables `
-    $specialAnimationPath 'specialObject(?:09|0b|0d|0f|11)OamDataPointers' 'oamData[0-9a-f]+'
+    $specialAnimationPath 'specialObject(?:08|09|0b|0d|0f|11)OamDataPointers' 'oamData[0-9a-f]+'
 $mooshOamPointers = $specialOamTables['specialObject0dOamDataPointers']
 if ($null -eq $mooshOamPointers) {
     $mooshOamPointers = $specialOamTables['specialObject11OamDataPointers']
@@ -9109,6 +9409,59 @@ if ($linkGfxRows.Count -ne 0x32 -or -not $linkRetainedGfxRow.Success -or
     $linkOamPointers.Count -ne 0x30) {
     throw 'Link riding graphics/OAM tables no longer cover companion parameters $00-$32.'
 }
+
+# SPECIALOBJECT_LINK_CUTSCENE $08 uses the full Link graphics table.
+# linkCutscene7 selects animation $14: Link lies face-down for 180 updates,
+# then switches to graphic $56 and holds that passed-out pose.
+$linkCutsceneGfxEnd = $specialAnimationSource.IndexOf(
+    'specialObject02GfxPointers:', [StringComparison]::Ordinal)
+$linkCutsceneGfxRows = @([regex]::Matches(
+    $specialAnimationSource.Substring(0, $linkCutsceneGfxEnd),
+    '(?m)^\s*m_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_link\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})'))
+$linkCutsceneAnimation = [regex]::Match(
+    $specialAnimationSource,
+    '(?ms)^specialObject08AnimationDataPointers:.*?^(?:\s*\.dw animationData[0-9a-f]+\s*){20}\s*\.dw animationData19e38.*?^animationData19e38:\s*\.db \$b4 \$04 \$00\s*animationLoop19e3b:\s*\.db \$7f \$56 \$00\s*m_AnimationLoop animationLoop19e3b')
+$linkCutsceneOamPointers =
+    $specialOamTables['specialObject08OamDataPointers']
+if ($linkCutsceneGfxRows.Count -ne 0x104 -or
+    -not $linkCutsceneAnimation.Success -or
+    $null -eq $linkCutsceneOamPointers -or
+    $linkCutsceneOamPointers.Count -ne 0x30) {
+    throw 'SPECIALOBJECT_LINK_CUTSCENE animation $14 graphics contract changed.'
+}
+$tokayLinkFrameBytes = @(
+    @(0xb4, 0x04, 0x00),
+    @(0x7f, 0x56, 0x00))
+$tokayLinkRows = [Collections.Generic.List[string]]::new()
+$tokayLinkRows.Add("# index`tduration`tgfx-index`tanim-parameter`tsource-offset`tbase-palette`toam-parts`tloop-start`tsource")
+for ($index = 0; $index -lt $tokayLinkFrameBytes.Count; $index++) {
+    $frame = $tokayLinkFrameBytes[$index]
+    $gfxIndex = $frame[1]
+    $gfx = $linkCutsceneGfxRows[$gfxIndex]
+    $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
+    $sourceOffset = [Convert]::ToInt32($gfx.Groups['offset'].Value, 16)
+    $tileCount = [Convert]::ToInt32($gfx.Groups['size'].Value, 16)
+    if ($oamIndex -ge $linkCutsceneOamPointers.Count) {
+        throw "Link cutscene graphic `$$($gfxIndex.ToString('x2')) has missing OAM `$$($oamIndex.ToString('x2'))."
+    }
+    $rawOam = Resolve-MooshOam $linkCutsceneOamPointers[$oamIndex]
+    $encodedOam = @(($rawOam -split ';') | ForEach-Object {
+        $fields = $_ -split ','
+        $tile = [int]$fields[2]
+        if ($fields.Count -ne 4 -or $tile -lt 0 -or $tile + 1 -ge $tileCount) {
+            throw "Link cutscene graphic `$$($gfxIndex.ToString('x2')) has unresolved OAM tile `$$($tile.ToString('x2'))."
+        }
+        return @($fields | ForEach-Object { ([int]$_).ToString('x2') }) -join ','
+    }) -join ';'
+    $tokayLinkRows.Add((@(
+        $index.ToString(), $frame[0].ToString(), $gfxIndex.ToString('x2'),
+        $frame[2].ToString('x2'), $sourceOffset.ToString('x4'), '0', $encodedOam,
+        '1', 'linkInCutscene.s:linkCutscene7;specialObjectAnimationData.s:animationData19e38/specialObject08GfxPointers') -join "`t"))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\tokay_theft_link_visual.tsv'),
+    $tokayLinkRows)
+
 $mooshLinkFrames = [Collections.Generic.List[string]]::new()
 $mooshLinkSourceOffsets = [Collections.Generic.List[string]]::new()
 for ($index = 0; $index -le 0x32; $index++) {

@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -131,6 +132,278 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<RaftRoomEntity>().Count != 1,
             "Room 1:a9 did not spawn subid $00 with wDimitriState bit 6.");
+    }
+
+    private void ValidateRaftwreckCutscene()
+    {
+        RaftwreckEvent raftwreck = _roomEvents.Raftwreck;
+        RaftwreckEventRecord record = raftwreck.Database.Record;
+        FailIf(
+            record is not
+            {
+                Group: 1, Room: 0xa8, InteractionId: 0x9b, SubId: 0,
+                RoomFlag: 0x40, InitialY: 0x76, CenterX: 0x50,
+                FirstFlashWait: 0x78, SecondFlashWait: 0x78,
+                DestinationRoom: 0xaa, DestinationPosition: 0x42,
+                DestinationTransition: 3
+            } || raftwreck.Database.Commands.Count != 44 ||
+            !Mathf.IsEqualApprox(
+                OracleSoundEngine.OutputBufferLengthSeconds, 0.02f) ||
+            raftwreck.Database.Helper(3).Count != 5 ||
+            raftwreck.Database.Helper(4).Count != 16 ||
+            raftwreck.Database.Helper(5).Count != 3,
+            "Room 1:a8 raftwreck controller or ordered helper streams changed.");
+
+        _saveData.SetRoomFlag(1, 0xa8, record.RoomFlag, value: false);
+        CompanionRuntimeState.Clear(
+            _entities.RuntimeState, CompanionRuntimeState.RaftId);
+        CompanionRuntimeState.ForgetRemembered(_entities.RuntimeState);
+        CompanionRuntimeState.Begin(
+            _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
+            new Vector2(0x60, record.InitialY), direction: 3);
+        LoadValidationRoom(1, 0xa8);
+        RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
+        int mountedAnimation = raft.AnimationIndex;
+        FailIf(
+            !raft.LinkRiding || !raftwreck.HasState ||
+            !_player.CutsceneControlled ||
+            raft.PrecisePosition != new Vector2(0x60, record.InitialY),
+            "Room 1:a8 state 0 did not disable input and bind the current " +
+            "wLinkObjectIndex without moving it.");
+
+        StepRoomEventFrames(1);
+        FailIf(
+            raftwreck.CenterCounter != 0x20 || raftwreck.Direction != 3 ||
+            raftwreck.PrecisePosition != new Vector2(0x60, record.InitialY) ||
+            raft.AnimationIndex != mountedAnimation,
+            "Raftwreck substate 0 did not choose DIR_LEFT at x=$60, install " +
+            "abs(x-$50)*2=$20, and preserve the mounted raft animation.");
+        StepRoomEventFrames(31);
+        FailIf(
+            raftwreck.CenterCounter != 1 ||
+            !raftwreck.PrecisePosition.IsEqualApprox(
+                new Vector2(0x50 + 0.5f, record.InitialY)),
+            "Raftwreck native centering ended before its 32 SPEED_80 updates.");
+        StepRoomEventFrames(1);
+        FailIf(
+            raftwreck.CenterCounter != 0 ||
+            raftwreck.PrecisePosition != new Vector2(0x50, record.InitialY) ||
+            raft.AnimationIndex != mountedAnimation,
+            "Raftwreck native centering omitted its zero-counter movement or " +
+            "changed the disabled raft animation.");
+
+        int lightningBefore = _sound.PlayRequestsFor(OracleSoundEngine.SndLightning);
+        int debrisSoundsBefore = _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+        int randomCallsBefore = _random.Calls;
+        var flashSamples = new Dictionary<int, List<float>>();
+        var flashStarts = new List<int>();
+        var lightningSounds = new List<int>();
+        int lightningShakes = 0;
+        int previousShake = _entities.ScreenShakeCounter;
+        int frames = 33;
+        while (raftwreck.HasState && frames < 3000)
+        {
+            int priorLightning =
+                _sound.PlayRequestsFor(OracleSoundEngine.SndLightning);
+            StepRoomEventFrames(1);
+            frames++;
+            if (_sound.PlayRequestsFor(OracleSoundEngine.SndLightning) >
+                priorLightning)
+            {
+                lightningSounds.Add(frames);
+            }
+            if (raftwreck.FlashPhase is 1 or 3 &&
+                raftwreck.FlashFrame == 0)
+            {
+                flashStarts.Add(frames);
+            }
+            if (_entities.ScreenShakeCounter == record.LightningShake &&
+                previousShake != record.LightningShake)
+            {
+                lightningShakes++;
+            }
+            previousShake = _entities.ScreenShakeCounter;
+            if (raftwreck.FlashPhase is 1 or 3 &&
+                raftwreck.FlashFrame is >= 1 and <= 12)
+            {
+                if (!flashSamples.TryGetValue(
+                    raftwreck.FlashFrame, out List<float>? samples))
+                {
+                    samples = [];
+                    flashSamples.Add(raftwreck.FlashFrame, samples);
+                }
+                samples.Add(_scene.WarpFade.Color.A);
+            }
+        }
+        int[] whiteFlashUpdates = [1, 2, 5, 6, 9, 10];
+        bool flashMismatch = Enumerable.Range(1, 12).Any(update =>
+            !flashSamples.TryGetValue(update, out List<float>? samples) ||
+            samples.Count != 2 || samples.Any(alpha =>
+                !Mathf.IsEqualApprox(alpha,
+                    whiteFlashUpdates.Contains(update) ? 1.0f : 0.0f)));
+        FailIf(
+            frames != 1109 ||
+            !_saveData.HasRoomFlag(1, 0xa8, record.RoomFlag) ||
+            CompanionRuntimeState.IsActive(
+                _entities.RuntimeState, CompanionRuntimeState.RaftId) ||
+            _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xa8 ||
+            !_transitions.IsTransitioning || flashMismatch ||
+            _random.Calls != randomCallsBefore + 39 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) !=
+                lightningBefore + 5 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                debrisSoundsBefore + 6 ||
+            !flashStarts.SequenceEqual([322, 357]) ||
+            !lightningSounds.SequenceEqual([322, 357, 958, 999, 1090]) ||
+            frames - lightningSounds[^1] != 19 ||
+            !raftwreck.PrecisePosition.IsEqualApprox(new Vector2(95.5f, 63.5f)) ||
+            lightningShakes != 3,
+            "Room 1:a8 raftwreck did not complete its two screen flashes, " +
+            "three helper lightning parts and six debris interactions, room " +
+            "bit $40, raft retirement, and cutscene-$03 white fade start " +
+            $"(frames={frames}, flag=" +
+            $"{_saveData.HasRoomFlag(1, 0xa8, record.RoomFlag)}, companion=" +
+            $"{CompanionRuntimeState.IsActive(_entities.RuntimeState, CompanionRuntimeState.RaftId)}, " +
+            $"room={_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}, transition=" +
+            $"{_transitions.IsTransitioning}, rng=" +
+            $"{_random.Calls - randomCallsBefore}, lightning=" +
+            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndLightning) - lightningBefore}, debris=" +
+            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - debrisSoundsBefore}, " +
+            $"flash-starts={string.Join(',', flashStarts)}, " +
+            $"lightning-frames={string.Join(',', lightningSounds)}, " +
+            $"shakes={lightningShakes}, position={raftwreck.PrecisePosition}).");
+
+        for (int update = 0; update < RoomTransitionController.WarpFadeFrames - 1; update++)
+        {
+            UpdateRoomWarpTransition(1.0 / 60.0);
+            FailIf(_rooms.CurrentRoom.Id != 0xa8,
+                "Cutscene $03 loaded room 1:aa before 32 white-fade updates.");
+            float expectedAlpha = Math.Min(
+                update + 1,
+                RoomTransitionController.WarpFadeMaximumOffset) /
+                RoomTransitionController.WarpFadeMaximumOffset;
+            FailIf(!Mathf.IsEqualApprox(_scene.WarpFade.Color.A, expectedAlpha),
+                "Cutscene $03 did not follow fadeoutToWhite's $01-$1f " +
+                $"visible palette offsets on update {update + 1}.");
+        }
+        UpdateRoomWarpTransition(1.0 / 60.0);
+        TokayTheftEvent tokayTheft = _roomEvents.TokayTheft;
+        FailIf(_rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xaa ||
+            !tokayTheft.HasState || tokayTheft.ActiveThiefCount != 5 ||
+            tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait ||
+            !_player.CutsceneControlled,
+            "Cutscene $03 did not load and initialize the five room 1:aa " +
+            "Tokay thieves on white-fade update 32.");
+        StepRoomEventFrames(5);
+        FailIf(tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait,
+            "Room 1:aa Tokay scripts advanced during the destination fade.");
+        int transitionFrames = 32;
+        while (_transitions.IsTransitioning && transitionFrames++ < 120)
+            UpdateRoomWarpTransition(1.0 / 60.0);
+        FailIf(_transitions.IsTransitioning,
+            "Room 1:aa destination transition did not complete.");
+
+        LoadValidationRoom(1, 0xa8);
+        FailIf(raftwreck.HasState,
+            "Room bit $40 did not suppress INTERAC_RAFTWRECK_CUTSCENE on re-entry.");
+
+        GD.Print("Validated room 1:a8 INTERAC_RAFTWRECK_CUTSCENE $9b:$00: " +
+            "44 imported commands, centered mounted raft, palette darkening, " +
+            "two flash sequences, ordered $64 wind/lightning helpers, shared " +
+            "RNG consumption, source sound requests, final-strike preemption, " +
+            "exact final wait, room bit $40, " +
+            "raft retirement, and hardcoded warp to room 1:aa position $42.");
+    }
+
+    private void ValidateTokayTheftCutscene()
+    {
+        TokayTheftEvent tokay = _roomEvents.TokayTheft;
+        TokayTheftEventRecord record = tokay.Database.Record;
+        FailIf(record is not
+            {
+                Group: 1, Room: 0xaa, InteractionId: 0x48,
+                RoomFlag: 0x40, MainSubId: 2, LinkWait: 0xf0,
+                StealFirstWait: 0x46, StealRepeatWait: 0x0a,
+                ItemWait: 0x5a, FinalWait: 0x3c,
+                DownSpeed: 0x50, RightSpeed: 0x14,
+                JumpSpeed: 0x64, JumpAngle: 0x06,
+                JumpZFixed: -0x1c0, JumpGravityFixed: 0x20
+            }, "Room 1:aa Tokay theft constants changed.");
+
+        _saveData.SetRoomFlag(1, 0xaa, record.RoomFlag, value: false);
+        foreach (int treasure in record.StolenItems)
+            _inventory.GiveTreasure(treasure, treasure == 0x03 ? 0x10 : 1);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 4, 0x20);
+
+        int theftSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5);
+        int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
+        int strikeSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndStrike);
+        int itemSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem);
+        int stopMusic = _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic);
+        LoadValidationRoom(1, 0xaa);
+        FailIf(!tokay.HasState || tokay.ActiveThiefCount != 5 ||
+            tokay.ScriptCounter != 0xf0 || !_player.CutsceneControlled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != stopMusic + 1,
+            "Room 1:aa did not initialize linkCutscene7 and five Tokay thieves.");
+
+        StepRoomEventFrames(1);
+        FailIf(tokay.ScriptCounter != 0xf0 || tokay.StolenCount != 0 ||
+            tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 180,
+            "Tokay interaction state 0 consumed a script or theft counter update.");
+        StepRoomEventFrames(69);
+        FailIf(tokay.StolenCount != 0,
+            "Tokay subid $02 stole the sword before var38's 70th update.");
+        StepRoomEventFrames(1);
+        FailIf(tokay.StolenCount != 1 ||
+            _inventory.HasTreasure(TreasureDatabase.TreasureSword),
+            "Tokay subid $02 did not steal the sword on var38 update 70.");
+        StepRoomEventFrames(80);
+        FailIf(tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 30,
+            "linkCutscene7 changed the 180-update passed-out frame early.");
+        bool retainedTreasure = record.StolenItems.Any(_inventory.HasTreasure);
+        FailIf(tokay.StolenCount != 9 || retainedTreasure ||
+            _inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds) ||
+            _inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds + 4) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) != theftSounds + 9,
+            "Tokay subid $02 did not steal the ordered nine-item table at " +
+            "70/10-update boundaries, including Ember and Mystery Seeds.");
+
+        StepRoomEventFrames(29);
+        FailIf(tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 1,
+            "linkCutscene7 did not preserve graphic $04 for 180 updates.");
+        StepRoomEventFrames(1);
+        FailIf(tokay.LinkFrame != 1 || tokay.LinkFrameCounter != 127,
+            "linkCutscene7 did not switch to looping passed-out graphic $56.");
+        StepRoomEventFrames(60);
+        FailIf(tokay.ScriptCounter != 0x10 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndStrike) != strikeSounds + 1,
+            "The 240-update Tokay wait did not start Link's jump and common movement.");
+        StepRoomEventFrames(230);
+        FailIf(tokay.AccessoryCount != 5 || tokay.ActiveThiefCount != 5 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != itemSounds + 1,
+            "Tokay common scripts did not preserve 15/31/60/31/60 movement " +
+            "and raise all five source accessories after 471 updates.");
+
+        int exitFrames = 0;
+        while (tokay.HasState && exitFrames++ < 1000)
+            StepRoomEventFrames(1);
+        FailIf(tokay.HasState || exitFrames >= 1000 ||
+            !_saveData.HasRoomFlag(1, 0xaa, record.RoomFlag) ||
+            tokay.ActiveThiefCount != 0 || tokay.AccessoryCount != 0 ||
+            _player.CutsceneControlled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 11,
+            "The five Tokays did not perform staggered two-jump exits, leave " +
+            "subid $03's 60-update tail, set room bit $40, and restore input.");
+
+        LoadValidationRoom(1, 0xaa);
+        FailIf(tokay.HasState || tokay.ActiveThiefCount != 0,
+            "Room bit $40 did not suppress all five theft Tokays on re-entry.");
+
+        GD.Print("Validated room 1:aa INTERAC_TOKAY $48:$00-$04 theft: " +
+            "fade-frozen initialization, linkCutscene7 wait, exact inventory " +
+            "loss cadence, parallel movement, held accessories, staggered " +
+            $"two-jump exits, final room bit and control restoration ({exitFrames} exit updates).");
     }
 
     private void ValidateRooms21eAnd21fRafton()

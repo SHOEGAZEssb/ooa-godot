@@ -11,6 +11,11 @@ public partial class OracleSoundEngine : Node
 {
     public const int UpdatesPerSecond = 60;
     public const int SampleRate = 44100;
+    // Keep less than two original updates queued. A longer generator buffer
+    // delays a newly requested SFX behind already-rendered music even though
+    // the source driver writes the sound registers in the same update as the
+    // visual event (particularly visible for PART_LIGHTNING).
+    internal const float OutputBufferLengthSeconds = 0.02f;
     private const double ApuClock = 4194304.0;
 
     public const int MusTitlescreen = 0x01;
@@ -171,7 +176,7 @@ public partial class OracleSoundEngine : Node
         var stream = new AudioStreamGenerator
         {
             MixRate = SampleRate,
-            BufferLength = 0.1f
+            BufferLength = OutputBufferLengthSeconds
         };
         _player = new AudioStreamPlayer { Name = "OracleApu", Stream = stream };
         AddChild(_player);
