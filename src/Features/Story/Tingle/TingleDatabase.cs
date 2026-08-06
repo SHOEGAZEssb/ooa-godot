@@ -1,3 +1,4 @@
+using Godot;
 using System;
 using System.Collections.Generic;
 
@@ -21,7 +22,12 @@ internal sealed class TingleDatabase
                     "group", "room", "id", "subid", "balloon-part",
                     "initial-z", "balloon-counter", "balloon-speed-z",
                     "fall-wait", "fall-gravity", "kooloo-speed-z",
-                    "kooloo-gravity", "post-chart-wait", "upgrade-glow-wait",
+                    "kooloo-gravity", "kooloo-sparkle-interaction",
+                    "kooloo-sparkle-subid", "kooloo-sparkle-angle",
+                    "kooloo-sparkle-offsets", "kooloo-sparkle-sprite",
+                    "kooloo-sparkle-tile-base", "kooloo-sparkle-palette",
+                    "kooloo-sparkle-animation", "post-chart-wait",
+                    "upgrade-glow-wait",
                     "seed-threshold", "met-flag", "upgrade-flag",
                     "began-secret-flag", "done-secret-flag",
                     "island-chart-treasure", "island-chart-object",
@@ -39,15 +45,19 @@ internal sealed class TingleDatabase
             row.UnsignedDecimal(6), row.Decimal(7, short.MinValue, -1),
             row.UnsignedDecimal(8), row.UnsignedDecimal(9),
             row.Decimal(10, short.MinValue, -1), row.UnsignedDecimal(11),
-            row.UnsignedDecimal(12), row.UnsignedDecimal(13),
-            row.UnsignedDecimal(14), row.HexByte(15), row.HexByte(16),
-            row.HexByte(17), row.HexByte(18), row.HexByte(19),
-            row.RequiredString(20), row.HexByte(21), row.RequiredString(22),
-            row.UnsignedDecimal(23), row.UnsignedDecimal(24),
-            row.RequiredString(25), row.UnsignedDecimal(26),
-            row.UnsignedDecimal(27), row.Decimal(28, -128, 127),
-            row.Decimal(29, -128, 127), row.RequiredString(30),
-            row.RequiredString(31));
+            row.HexByte(12), row.HexByte(13), row.HexByte(14),
+            ParseOffsets(row, 15), row.RequiredString(16),
+            row.UnsignedDecimal(17), row.UnsignedDecimal(18),
+            row.UnsignedDecimal(19),
+            row.UnsignedDecimal(20), row.UnsignedDecimal(21),
+            row.UnsignedDecimal(22), row.HexByte(23), row.HexByte(24),
+            row.HexByte(25), row.HexByte(26), row.HexByte(27),
+            row.RequiredString(28), row.HexByte(29), row.RequiredString(30),
+            row.UnsignedDecimal(31), row.UnsignedDecimal(32),
+            row.RequiredString(33), row.UnsignedDecimal(34),
+            row.UnsignedDecimal(35), row.Decimal(36, -128, 127),
+            row.Decimal(37, -128, 127), row.RequiredString(38),
+            row.RequiredString(39));
 
         GeneratedTable animations = GeneratedTable.Load(
             "res://assets/oracle/objects/tingle_animations.tsv",
@@ -88,6 +98,12 @@ internal sealed class TingleDatabase
                 BalloonPart: 0x44, InitialZ: -15, BalloonCounter: 56,
                 BalloonSpeedZ: -16, FallWait: 15, FallGravity: 16,
                 KoolooSpeedZ: -512, KoolooGravity: 32,
+                KoolooSparkleInteraction: 0x84, KoolooSparkleSubId: 0x00,
+                KoolooSparkleAngle: 0x10,
+                KoolooSparkleSprite:
+                    "spr_triforce_sparkle_vineseed_bookofseals",
+                KoolooSparkleTileBase: 0x0a, KoolooSparklePalette: 0,
+                KoolooSparkleAnimation: 1,
                 PostChartWait: 60, UpgradeGlowWait: 120,
                 SeedThreshold: 3, MetFlag: 0x1b, UpgradeFlag: 0x46,
                 BeganSecretFlag: 0x6b, DoneSecretFlag: 0x75,
@@ -97,7 +113,12 @@ internal sealed class TingleDatabase
                 ExplosionTileBase: 0x0c, ExplosionPalette: 2,
                 ExplosionYOffset: -16, ExplosionXOffset: 0,
                 BalloonActiveCollisions: "00001111111101100001100100000000"
-            } || _animations.Count != 6 || _texts.Count != 17)
+            } || Record.KoolooSparkleOffsets is not
+            [
+                { X: 0, Y: -24 },
+                { X: 8, Y: -16 },
+                { X: -8, Y: -16 }
+            ] || _animations.Count != 7 || _texts.Count != 17)
         {
             throw new InvalidOperationException(
                 "Imported room 0:79 INTERAC_TINGLE `$c8:$00 contract is incomplete.");
@@ -126,6 +147,36 @@ internal sealed class TingleDatabase
         Record.ExplosionTileBase,
         Record.ExplosionPalette,
         Animation("explosion", 0));
+
+    internal TingleKoolooSparkleVisual KoolooSparkleVisual => new(
+        Record.KoolooSparkleSprite,
+        Record.KoolooSparkleTileBase,
+        Record.KoolooSparklePalette,
+        Animation("sparkle", Record.KoolooSparkleAnimation));
+
+    private static Vector2[] ParseOffsets(GeneratedTableRow row, int column)
+    {
+        string[] values = row.RequiredString(column).Split(
+            ';',
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        var offsets = new Vector2[values.Length];
+        for (int index = 0; index < values.Length; index++)
+        {
+            string[] pair = values[index].Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries);
+            if (pair.Length != 2 ||
+                !int.TryParse(pair[0], out int x) ||
+                !int.TryParse(pair[1], out int y))
+            {
+                throw row.Invalid(column, "semicolon-separated x,y pairs");
+            }
+            offsets[index] = new Vector2(x, y);
+        }
+        return offsets;
+    }
 }
 
 internal readonly record struct TingleBalloonExplosionVisual(
@@ -147,6 +198,14 @@ internal readonly record struct TingleRecord(
     int FallGravity,
     int KoolooSpeedZ,
     int KoolooGravity,
+    int KoolooSparkleInteraction,
+    int KoolooSparkleSubId,
+    int KoolooSparkleAngle,
+    Vector2[] KoolooSparkleOffsets,
+    string KoolooSparkleSprite,
+    int KoolooSparkleTileBase,
+    int KoolooSparklePalette,
+    int KoolooSparkleAnimation,
     int PostChartWait,
     int UpgradeGlowWait,
     int SeedThreshold,

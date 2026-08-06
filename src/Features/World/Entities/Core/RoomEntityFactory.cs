@@ -1670,6 +1670,8 @@ internal sealed class RoomEntityFactory(
         BombSpawn bomb => CreateBomb(bomb, room),
         OwlStatueSparkleSpawn sparkle => CreateOwlStatueSparkle(sparkle),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
+        TingleKoolooSparkleSpawn sparkle =>
+            CreateTingleKoolooSparkle(sparkle),
         TingleBalloonExplosionSpawn explosion =>
             CreateTingleBalloonExplosion(explosion),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
@@ -2951,6 +2953,22 @@ internal sealed class RoomEntityFactory(
             soundRequested);
         return new FixedEffectRoomEntityAdapter<
             TingleBalloonExplosionEffect>(explosion);
+    }
+
+    private static IRoomEntity CreateTingleKoolooSparkle(
+        TingleKoolooSparkleSpawn spawn)
+    {
+        var sparkle = new TingleKoolooSparkleEffect
+        {
+            Name = "TingleKoolooSparkle",
+            // sparkle.s selects objectSetVisible81 for any nonzero angle.
+            ZIndex = spawn.SourceAngle == 0
+                ? NpcCharacter.BehindLinkZIndex
+                : NpcCharacter.InFrontOfLinkZIndex
+        };
+        sparkle.Initialize(spawn.Position, spawn.SourceAngle, spawn.Visual);
+        return new DialogueFixedEffectRoomEntityAdapter<
+            TingleKoolooSparkleEffect>(sparkle);
     }
 
     private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)

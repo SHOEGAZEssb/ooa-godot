@@ -200,6 +200,65 @@ public sealed partial class ValidationRoot
             "Tingle's first grounded interactionAnimateAsNpc update did not " +
             "replace fixed airborne priority with Link-relative ordering.");
 
+        tingleEntity.StartKooloo();
+        for (int update = 0; update < 59; update++)
+        {
+            StepRoomEventFrames(1);
+            FailIf(
+                _entities.Entities<TingleKoolooSparkleEffect>().Count != 0,
+                "INTERAC_TINGLE $c8:$00 created a kooloo-limpah sparkle " +
+                "before animation $03's 60-update parameter-$01 boundary.");
+        }
+        StepRoomEventFrames(1);
+        TingleKoolooSparkleEffect[] koolooSparkles =
+            _entities.Entities<TingleKoolooSparkleEffect>().ToArray();
+        Vector2[] expectedKoolooSparklePositions =
+            tingleRecord.KoolooSparkleOffsets
+                .Select(offset => tingleEntity.Npc.Position + offset)
+                .ToArray();
+        FailIf(
+            tingleRecord.KoolooSparkleInteraction != 0x84 ||
+            tingleRecord.KoolooSparkleSubId != 0x00 ||
+            tingleRecord.KoolooSparkleAngle != 0x10 ||
+            koolooSparkles.Length != 3 ||
+            !koolooSparkles.Select(sparkle => sparkle.Position)
+                .SequenceEqual(expectedKoolooSparklePositions) ||
+            koolooSparkles.Any(sparkle =>
+                sparkle.SourceAngle != 0x10 ||
+                sparkle.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+                sparkle.ElapsedUpdates != 1 || !sparkle.Visible ||
+                sparkle.Finished || sparkle.AnimationFrame != 0 ||
+                sparkle.AnimationParameter != 0 ||
+                sparkle.RenderedTextureOrigin !=
+                    sparkle.Position - new Vector2(16, 16) ||
+                sparkle.TextureSize != new Vector2(32, 32) ||
+                sparkle.TexturePixelHash != 0x9fab991cab9cedd0UL) ||
+            tingleEntity.ZFixed != tingleRecord.KoolooSpeedZ,
+            "Tingle's animation-$03 cue did not create the three visible " +
+            "INTERAC_SPARKLE $84:$00 children at $e800/$f008/$f0f8, " +
+            "force source angle $10/foreground priority, and then apply " +
+            $"-$0200 Z motion (positions=" +
+            $"{string.Join(';', koolooSparkles.Select(s => s.Position))}, " +
+            $"hashes={string.Join(';', koolooSparkles.Select(s =>
+                s.TexturePixelHash.ToString("x16")))}, z={tingleEntity.ZFixed}).");
+        int koolooCleanupUpdates = 0;
+        while ((tingleEntity.KoolooActive ||
+            _entities.Entities<TingleKoolooSparkleEffect>().Count != 0) &&
+            koolooCleanupUpdates < 100)
+        {
+            StepRoomEventFrames(1);
+            koolooCleanupUpdates++;
+        }
+        FailIf(
+            tingleEntity.KoolooActive || !tingleEntity.KoolooComplete ||
+            _entities.Entities<TingleKoolooSparkleEffect>().Count != 0 ||
+            koolooCleanupUpdates != 36 ||
+            tingleEntity.Npc.CurrentScriptAnimationSource !=
+                tingleDatabase.Animation("tingle", 1),
+            "Tingle or the three always-update INTERAC_SPARKLE $84:$00 " +
+            "children did not retire on their source animation parameters " +
+            $"after 36 updates (actual={koolooCleanupUpdates}).");
+
         TingleEvent tingleEvent = _roomEvents.Tingle;
         FailIf(
             !ReferenceEquals(tingleEvent.Actor, tingleEntity) ||
@@ -528,7 +587,8 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated rooms 0:79/0:89 Tingle `$c8:$00 + balloon `$44, " +
-            "friend/chart/Satchel/kooloo/Ricky-departure script paths, companion " +
+            "three `$84:$00 kooloo sparkles, friend/chart/Satchel/kooloo/" +
+            "Ricky-departure script paths, companion " +
             "tutorials `$d0:$01/$00, and source-ordered `$71:$02 lower-Y barrier.");
     }
 }

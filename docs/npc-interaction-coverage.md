@@ -154,6 +154,8 @@ classified records and 136 specialized rows.
   15-update wait and `$10`-gravity fall, A-button collision,
   first/repeat friendship choices, Island Chart
   reward, seed-type gate, Seed Satchel upgrade path, kooloo-limpah animation,
+  three source-positioned `INTERAC_SPARKLE $84:$00` effects with `$10`
+  foreground priority and terminal-parameter lifetime,
   and the post-chart 60-update handoff into Ricky's source state-$0a
   down-left cliff hops using retained airborne companion collision bits, the
   source `$18`/`$10` wall probes and straight-down cliff jump, farewell punch,

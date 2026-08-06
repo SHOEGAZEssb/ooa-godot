@@ -284,7 +284,6 @@ internal sealed partial class TingleRoomEntity : Node2D,
 
     private void AdvanceKooloo(ICollection<RoomEntitySpawn>? spawns)
     {
-        _ = spawns;
         if (!_koolooActive)
             return;
         int parameter = _tingle.CurrentAnimationParameter;
@@ -292,6 +291,19 @@ internal sealed partial class TingleRoomEntity : Node2D,
         {
             _koolooJumpStarted = true;
             _speedZ = _record.KoolooSpeedZ;
+            if (spawns is null)
+            {
+                throw new InvalidOperationException(
+                    "INTERAC_TINGLE $c8:$00 cannot create its three " +
+                    "INTERAC_SPARKLE $84:$00 children during a transition.");
+            }
+            foreach (Vector2 offset in _record.KoolooSparkleOffsets)
+            {
+                spawns.Add(new TingleKoolooSparkleSpawn(
+                    _tingle.Position + offset,
+                    _record.KoolooSparkleAngle,
+                    _database.KoolooSparkleVisual));
+            }
         }
 
         bool landed = OracleObjectMath.UpdateSpeedZ(

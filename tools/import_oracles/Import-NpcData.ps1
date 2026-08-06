@@ -1041,6 +1041,10 @@ foreach ($placement in $companionBarrierPlacements) {
 
 $tingleSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\tingle.s')
+$tingleSparkleSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\sparkle.s')
+$tingleSparkleHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'code\bank0.s')
 $tingleBalloonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\tingleBalloon.s')
 $tingleScriptSource = Read-ImportText (
@@ -1080,6 +1084,25 @@ $tingleExplosionYOffset = ($tingleExplosionOffset -shr 8) -band 0xff
 $tingleExplosionXOffset = $tingleExplosionOffset -band 0xff
 if ($tingleExplosionYOffset -ge 0x80) { $tingleExplosionYOffset -= 0x100 }
 if ($tingleExplosionXOffset -ge 0x80) { $tingleExplosionXOffset -= 0x100 }
+$tingleState4Match = [regex]::Match(
+    $tingleSource,
+    '(?ms)^@state4:(?<body>.*?)(?=^@label_0b_330:)')
+$tingleKoolooSparkleMatches = if ($tingleState4Match.Success) {
+    @([regex]::Matches(
+        $tingleState4Match.Groups['body'].Value,
+        '(?ms)ld bc,\$(?<offset>[0-9a-f]{4})\s+call objectCreateSparkle\s+ld l,Interaction\.angle\s+ld \(hl\),\$(?<angle>[0-9a-f]{2})'))
+} else { @() }
+$tingleKoolooSparkleOffsets = @($tingleKoolooSparkleMatches | ForEach-Object {
+    $offset = [Convert]::ToInt32($_.Groups['offset'].Value, 16)
+    $y = ($offset -shr 8) -band 0xff
+    $x = $offset -band 0xff
+    if ($y -ge 0x80) { $y -= 0x100 }
+    if ($x -ge 0x80) { $x -= 0x100 }
+    "$x,$y"
+}) -join ';'
+$tingleKoolooSparkleAngles = @($tingleKoolooSparkleMatches | ForEach-Object {
+    [Convert]::ToInt32($_.Groups['angle'].Value, 16)
+})
 if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction \$d0 \$01 \$38 \$78\s+obj_Interaction \$c8 \$00 \$32 \$38\s+obj_End' -or
     $tingleInteractionDataSource -notmatch '(?m)^\s*/\* \$c8 \*/ m_InteractionData \$55 \$04 \$00\s*$' -or
     $tinglePartDataSource -notmatch '(?m)^\s*\.db \$55 \$82 \$44 \$00 \$01 \$18 \$02 \$00 ; \$44\s*$' -or
@@ -1094,6 +1117,11 @@ if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction 
     $tingleSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?interactionSetAlwaysUpdateBit.*?objectSetVisiblec0.*?objectSetCollideRadius.*?TREASURE_EMBER_SEEDS.*?TREASURE_MYSTERY_SEEDS\+1.*?cp \$03.*?PART_TINGLE_BALLOON' -or
     $tingleSource -notmatch '(?ms)^@state3:.*?counter1.*?interactionDecCounter1.*?ld c,\$10.*?objectUpdateSpeedZ_paramC.*?objectAddToAButtonSensitiveObjectList.*?tingleScript.*?ld a,\$01' -or
     $tingleSource -notmatch '(?ms)^@state4:.*?TREASURE_SEED_SATCHEL.*?Interaction\.var3d.*?interactionRunScript.*?interactionAnimateAsNpc.*?animParameter.*?ld bc,-\$200.*?objectCreateSparkle.*?ld c,\$20.*?objectUpdateSpeedZ_paramC' -or
+    $tingleKoolooSparkleMatches.Count -ne 3 -or
+    $tingleKoolooSparkleOffsets -ne '0,-24;8,-16;-8,-16' -or
+    @($tingleKoolooSparkleAngles | Where-Object { $_ -ne 0x10 }).Count -ne 0 -or
+    $tingleSparkleHelperSource -notmatch '(?ms)^objectCreateSparkle:\s+call getFreeInteractionSlot\s+ret nz\s+ld \(hl\),INTERAC_SPARKLE\s+inc l\s+ld \(hl\),\$00\s+jp objectCopyPositionWithOffset' -or
+    $tingleSparkleSource -notmatch '(?ms)^@initSubid00:.*?inc e\s+ld a,\(de\)\s+or a\s+jp nz,objectSetVisible81.*?^@runSubid00:.*?Interaction\.animParameter\s+ld a,\(de\)\s+cp \$ff\s+jp z,interactionDelete\s+jp interactionAnimate' -or
     $tingleBalloonSource -notmatch '(?ms)^@state0:.*?Part\.counter1.*?\$38.*?inc l.*?\$ff.*?Part\.zh.*?\$f1.*?ld bc,-\$10.*?partSetAnimation.*?objectSetVisible81' -or
     $tingleBalloonSource -notmatch '(?ms)^@state1:.*?partCommon_decCounter1IfNonzero.*?\$38.*?speedZ.*?cpl.*?inc a.*?cpl.*?objectUpdateSpeedZ_paramC.*?w1Companion|(?ms)^@state1:.*?objectUpdateSpeedZ_paramC.*?objectGetRelatedObject1Var.*?Part\.zh' -or
     $tingleBalloonSource -notmatch '(?ms)^@beenHit:.*?Object\.state.*?inc \(hl\).*?INTERAC_EXPLOSION.*?\$f000.*?partDelete' -or
@@ -1105,6 +1133,26 @@ if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction 
     $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_BEGAN_TINGLE_SECRET\s+db ; \$6b' -or
     $tingleGlobalFlagSource -notmatch '(?m)^\s*GLOBALFLAG_DONE_TINGLE_SECRET\s+db ; \$75') {
     throw 'Room 0:79 INTERAC_TINGLE `$c8:$00 source contract changed.'
+}
+$tingleSparkleGraphic = $interactionGraphics['132:0']
+$tingleSparkleAnimationIndex = if ($tingleSparkleGraphic) {
+    $tingleSparkleGraphic.DefaultAnimation
+} else { -1 }
+$tingleSparkleAnimation = if ($tingleSparkleAnimationIndex -ge 0) {
+    Resolve-NpcAnimation 0x84 $tingleSparkleAnimationIndex
+} else { '' }
+$tingleSparkleSprite = if ($tingleSparkleGraphic -and
+    $gfxNames.ContainsKey($tingleSparkleGraphic.Gfx)) {
+    $gfxNames[$tingleSparkleGraphic.Gfx]
+} else { '' }
+if (-not $tingleSparkleGraphic -or
+    $tingleSparkleGraphic.Gfx -ne 0x6b -or
+    $tingleSparkleGraphic.TileBase -ne 0x0a -or
+    $tingleSparkleGraphic.Palette -ne 0 -or
+    $tingleSparkleAnimationIndex -ne 1 -or
+    [string]::IsNullOrWhiteSpace($tingleSparkleAnimation) -or
+    [string]::IsNullOrWhiteSpace($tingleSparkleSprite)) {
+    throw 'Could not resolve Tingle INTERAC_SPARKLE $84:$00 graphics/animation.'
 }
 $tingleAnimationRows = [Collections.Generic.List[string]]::new()
 $tingleAnimationRows.Add("# owner`tanimation`tencoded`tsource")
@@ -1135,6 +1183,8 @@ if (-not $tingleExplosionGraphic -or
 }
 $tingleAnimationRows.Add(
     "explosion`t0`t$tingleExplosionAnimation`tinteractionAnimations.s:interaction56Animations")
+$tingleAnimationRows.Add(
+    "sparkle`t$tingleSparkleAnimationIndex`t$tingleSparkleAnimation`tinteractionAnimations.s:interaction84Animations")
 
 $tingleTextRows = [Collections.Generic.List[string]]::new()
 $tingleTextRows.Add("# text-id`tutf8-base64`tsource")
@@ -1161,8 +1211,8 @@ foreach ($textId in (@(0x2006) + @(0x1e00..0x1e0f))) {
         "$($textId.ToString('x4'))`t$message`ttext/ages:TX_$($textId.ToString('x4'))")
 }
 $tingleRows = @(
-    "# group`troom`tid`tsubid`tballoon-part`tinitial-z`tballoon-counter`tballoon-speed-z`tfall-wait`tfall-gravity`tkooloo-speed-z`tkooloo-gravity`tpost-chart-wait`tupgrade-glow-wait`tseed-threshold`tmet-flag`tupgrade-flag`tbegan-secret-flag`tdone-secret-flag`tisland-chart-treasure`tisland-chart-object`tsatchel-treasure`tsatchel-upgrade-object`tballoon-tile-base`tballoon-palette`texplosion-sprite`texplosion-tile-base`texplosion-palette`texplosion-y-offset`texplosion-x-offset`tballoon-active-collisions`tsource",
-    "0`t79`tc8`t00`t44`t-15`t56`t-16`t15`t16`t-512`t32`t60`t120`t3`t1b`t46`t6b`t75`t54`tTREASURE_OBJECT_ISLAND_CHART_00`t19`tTREASURE_OBJECT_SEED_SATCHEL_UPGRADE`t24`t2`tspr_common_sprites`t$($tingleExplosionGraphic.TileBase)`t$($tingleExplosionGraphic.Palette)`t$tingleExplosionYOffset`t$tingleExplosionXOffset`t$tingleActiveCollisions`tobject_code/ages/interactions/tingle.s:interactionCodec8;tingleBalloon.s:partCode44;explosion.s:interactionCode56;interactionData.s:INTERAC_EXPLOSION;interactionAnimations.s:interaction56Animations;gfxHeaders.s:GFXH_COMMON_SPRITES;partActiveCollisions.s:0x44;itemCollisionTypes.s:ITEMCOLLISION_SWORD_BEAM;itemAttributes.s:ITEM_SWORD_BEAM/ITEM_28/ITEM_RICKY_TORNADO;scripts.s:tingleScript"
+    "# group`troom`tid`tsubid`tballoon-part`tinitial-z`tballoon-counter`tballoon-speed-z`tfall-wait`tfall-gravity`tkooloo-speed-z`tkooloo-gravity`tkooloo-sparkle-interaction`tkooloo-sparkle-subid`tkooloo-sparkle-angle`tkooloo-sparkle-offsets`tkooloo-sparkle-sprite`tkooloo-sparkle-tile-base`tkooloo-sparkle-palette`tkooloo-sparkle-animation`tpost-chart-wait`tupgrade-glow-wait`tseed-threshold`tmet-flag`tupgrade-flag`tbegan-secret-flag`tdone-secret-flag`tisland-chart-treasure`tisland-chart-object`tsatchel-treasure`tsatchel-upgrade-object`tballoon-tile-base`tballoon-palette`texplosion-sprite`texplosion-tile-base`texplosion-palette`texplosion-y-offset`texplosion-x-offset`tballoon-active-collisions`tsource",
+    "0`t79`tc8`t00`t44`t-15`t56`t-16`t15`t16`t-512`t32`t84`t00`t10`t$tingleKoolooSparkleOffsets`t$tingleSparkleSprite`t$($tingleSparkleGraphic.TileBase)`t$($tingleSparkleGraphic.Palette)`t$tingleSparkleAnimationIndex`t60`t120`t3`t1b`t46`t6b`t75`t54`tTREASURE_OBJECT_ISLAND_CHART_00`t19`tTREASURE_OBJECT_SEED_SATCHEL_UPGRADE`t24`t2`tspr_common_sprites`t$($tingleExplosionGraphic.TileBase)`t$($tingleExplosionGraphic.Palette)`t$tingleExplosionYOffset`t$tingleExplosionXOffset`t$tingleActiveCollisions`tobject_code/ages/interactions/tingle.s:interactionCodec8+objectCreateSparkle;object_code/ages/interactions/sparkle.s:interactionCode84;code/bank0.s:objectCreateSparkle;tingleBalloon.s:partCode44;explosion.s:interactionCode56;interactionData.s:INTERAC_SPARKLE/INTERAC_EXPLOSION;interactionAnimations.s:interaction84Animations/interaction56Animations;gfxHeaders.s:GFXH_COMMON_SPRITES;partActiveCollisions.s:0x44;itemCollisionTypes.s:ITEMCOLLISION_SWORD_BEAM;itemAttributes.s:ITEM_SWORD_BEAM/ITEM_28/ITEM_RICKY_TORNADO;scripts.s:tingleScript"
 )
 $enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly "objects\ages\enemyData.s")
@@ -1849,6 +1899,7 @@ $dungeonMechanicConstantRows = @(
 $currentGroup = -1
 $currentRoom = -1
 $npcSpriteNames = [Collections.Generic.HashSet[string]]::new()
+[void]$npcSpriteNames.Add($tingleSparkleSprite)
 
 $overworldKeyholeRows = [Collections.Generic.List[string]]::new()
 $overworldKeyholeRows.Add(
