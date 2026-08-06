@@ -47,6 +47,10 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Ricky's room `0:6a` glove handoff and mountable-companion core: source-loaded
   ride graphics, normal/hole/cliff jumps, punch/tornado charge, landing tile
   breaks, hazards, dismount/remount memory, and single-owner scrolling.
+- Rafton's completed raft: source placements in rooms `1:a7`/`1:a9`, airborne
+  boarding, exact water-only collision and SPEED_e0 steering, blocked-direction
+  dismount timing, Link/item restrictions, directional animation, local respawn
+  and remembered-position persistence, and single-owner room scrolling.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

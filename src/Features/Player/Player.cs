@@ -116,6 +116,8 @@ public partial class Player : Node2D
     private bool _companionDismountJump;
     private bool _companionJumpAnimationDeferred;
     private bool _companionRideControlled;
+    private bool _raftRideControlled;
+    private bool _forcedRoomEntryMovement;
     private int _minecartJumpAngle = 0xff;
     private int _companionJumpAngle = 0xff;
     private int _ledgeGroundYFixed;
@@ -437,6 +439,11 @@ public partial class Player : Node2D
     internal bool MinecartRideActive => _minecartRideControlled;
     internal bool CompanionJumpActive => _companionJumpControlled;
     internal bool CompanionRideActive => _companionRideControlled;
+    internal bool RaftRideActive => _raftRideControlled;
+    internal int RaftKnockbackAngle =>
+        _raftRideControlled && _enemyKnockbackFrames > 0.0f
+            ? AngleForVector(_enemyKnockbackDirection)
+            : 0xff;
     internal Vector2 CompanionRideTextureOffset =>
         _companionRideTextureOffset;
     internal int CompanionRideZFixed => _companionRideZFixed;
@@ -716,6 +723,7 @@ public partial class Player : Node2D
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
+        _forcedRoomEntryMovement = false;
         ClearSideScrollState(position);
         ClearTopDownAirState();
         if (!preserveTopDownSwimming)
@@ -1358,6 +1366,17 @@ public partial class Player : Node2D
         }
         if (_cutsceneControlled)
             return;
+        // LINK_STATE_FORCE_MOVEMENT owns Link's update. The object that
+        // requested it advances Link later in updateAllObjects, so ordinary
+        // input, swimming, and terrain hazards must not run first.
+        if (_forcedRoomEntryMovement)
+        {
+            _walking = true;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
         if (_drowning)
         {
             UpdateDrowning((float)delta);
@@ -1486,7 +1505,8 @@ public partial class Player : Node2D
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
         if (_world.MovementDisabled &&
-            !_minecartRideControlled && !_companionRideControlled)
+            !_minecartRideControlled && !_companionRideControlled &&
+            !_raftRideControlled)
             input = Vector2.Zero;
         Vector2 previousMovementInput = _lastMovementInput;
         _lastMovementInput = input;
@@ -1529,7 +1549,7 @@ public partial class Player : Node2D
             QueueRedraw();
             return;
         }
-        if (_world.UpdateBracelet(
+        if (!_raftRideControlled && _world.UpdateBracelet(
                 this,
                 input,
                 primaryPressed,
@@ -1552,7 +1572,8 @@ public partial class Player : Node2D
                 // objects and interactWithTileBeforeLink before checkUseItems.
                 // A chest/sign/keyhole therefore wins over an equipped
                 // Bracelet when both probes accept the same press.
-                if (!_minecartRideControlled && _world.TryInteract(this))
+                if (!_minecartRideControlled && !_raftRideControlled &&
+                    _world.TryInteract(this))
                     return;
                 if (!_world.ItemUsageDisabled &&
                     !_minecartRideControlled &&
@@ -1560,12 +1581,12 @@ public partial class Player : Node2D
                     _world.TryUseBomb(this))
                     return;
                 if (!_world.ItemUsageDisabled &&
-                    !_minecartRideControlled &&
+                    !_minecartRideControlled && !_raftRideControlled &&
                     _inventory.EquippedA == InventoryState.ItemBracelet &&
                     _world.TryUseBracelet(this, primaryButton: true))
                     return;
                 if (!_world.ItemUsageDisabled &&
-                    !_minecartRideControlled &&
+                    !_minecartRideControlled && !_raftRideControlled &&
                     RingEffects.CanPunch(
                     _inventory,
                     _inventory.EquippedA == InventoryState.ItemNone &&
@@ -1582,22 +1603,23 @@ public partial class Player : Node2D
             }
             else if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemFeather)
                 TryStartFeatherJump("attack");
-            else if (_inventory.EquippedA == InventoryState.ItemSeedSatchel)
+            else if (!_raftRideControlled &&
+                _inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemHarp)
                 StartHarpAction();
         }
         else if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
-            if (!_minecartRideControlled &&
+            if (!_minecartRideControlled && !_raftRideControlled &&
                 !IsUsingItem &&
                 _world.TrySecondaryInteract(this))
             {
@@ -1615,7 +1637,7 @@ public partial class Player : Node2D
                     return;
             }
             else if (!IsUsingItem &&
-                !_minecartRideControlled &&
+                !_minecartRideControlled && !_raftRideControlled &&
                 RingEffects.CanPunch(
                 _inventory,
                 _inventory.EquippedA == InventoryState.ItemNone &&
@@ -1624,7 +1646,7 @@ public partial class Player : Node2D
                 StartPunchAction(input);
             }
             else if (!IsUsingItem &&
-                !_minecartRideControlled &&
+                !_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemBracelet)
             {
                 if (_world.TryUseBracelet(this, primaryButton: false))
@@ -1634,21 +1656,22 @@ public partial class Player : Node2D
             {
                 StartSwordAttack("item", input);
             }
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemShovel)
             {
                 StartShovelAction(input);
             }
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemFeather)
             {
                 TryStartFeatherJump("item");
             }
-            else if (_inventory.EquippedB == InventoryState.ItemSeedSatchel)
+            else if (!_raftRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemSeedSatchel)
             {
                 StartSeedSatchelAction(input);
             }
-            else if (!_minecartRideControlled &&
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemHarp)
             {
                 StartHarpAction();
@@ -1666,6 +1689,17 @@ public partial class Player : Node2D
             // copies its position over Link later in the update, so input
             // changes Link's facing without moving him independently.
             UpdateMinecartRideDirection(input);
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            _world.CheckRoomExit(this);
+            QueueRedraw();
+            return;
+        }
+        if (_raftRideControlled)
+        {
+            if (input.LengthSquared() > 0.01f)
+                UpdateFacing(input);
             _walking = false;
             _pushing = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -2054,6 +2088,7 @@ public partial class Player : Node2D
         CancelShovelAction();
         _pushing = false;
         _walking = true;
+        _forcedRoomEntryMovement = true;
         Face(direction);
         QueueRedraw();
     }
@@ -2072,6 +2107,7 @@ public partial class Player : Node2D
 
     internal void EndForcedRoomEntryMovement()
     {
+        _forcedRoomEntryMovement = false;
         _walking = false;
         QueueRedraw();
     }
@@ -3685,6 +3721,41 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void BeginRaftRide(Vector2 position, int direction)
+    {
+        InterruptCarriedItems(discard: true);
+        CancelShovelAction();
+        ClearTopDownAirState();
+        _raftRideControlled = true;
+        SetRaftRidePosition(position, direction, animationParameter: 0,
+            Vector2.Zero);
+    }
+
+    internal void SetRaftRidePosition(
+        Vector2 position,
+        int direction,
+        int animationParameter,
+        Vector2 screenOffset)
+    {
+        _precisePosition = position + screenOffset +
+            new Vector2(0, animationParameter == 0 ? -5 : -6);
+        _facing = (Facing)direction;
+        _raftRideControlled = true;
+        _walking = false;
+        _pushing = false;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void EndRaftRide(Vector2 position, int direction)
+    {
+        _raftRideControlled = false;
+        _precisePosition = position;
+        _facing = (Facing)direction;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        QueueRedraw();
+    }
+
     internal void UpdateMinecartRideDirection(Vector2 input)
     {
         if (!_minecartRideControlled)
@@ -3777,6 +3848,7 @@ public partial class Player : Node2D
         _companionDismountJump = false;
         _companionJumpAnimationDeferred = false;
         _companionRideControlled = false;
+        _raftRideControlled = false;
         _companionRideTexture = null;
         _damageCompanionRideTexture = null;
         _companionRideTextureOffset = Vector2.Zero;

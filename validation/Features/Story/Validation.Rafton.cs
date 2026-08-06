@@ -7,6 +7,132 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRaft()
+    {
+        var database = new RaftDatabase();
+        RaftBehavior behavior = database.Behavior;
+        FailIf(
+            database.GetPlacements(1, 0xa7).Single() is not
+                { SubId: 1, Y: 0x58, X: 0x78 } ||
+            database.GetPlacements(1, 0xa9).Single() is not
+                { SubId: 0, Y: 0x38, X: 0x78 } ||
+            behavior.DismountCollision != 0x18 ||
+            behavior.ValidTiles is not [0xfc, 0xe0, 0xe1, 0xe2, 0xe3, 0xfa, 0xe9],
+            "INTERAC_RAFT placement or valid-water order changed.");
+
+        OracleRoomData oceanRoom = _world.LoadRoom(1, 0xa8);
+        Vector2 deepWater = default;
+        bool foundDeepWater = false;
+        for (int y = 0; y < oceanRoom.HeightInTiles && !foundDeepWater; y++)
+        for (int x = 0; x < oceanRoom.WidthInTiles; x++)
+        {
+            Vector2 candidate = new(x * 16 + 8, y * 16 + 8);
+            if (oceanRoom.GetTerrainInfo(candidate).Collision != 0x10 ||
+                oceanRoom.IsSolid(candidate))
+                continue;
+            deepWater = candidate;
+            foundDeepWater = true;
+            break;
+        }
+        FailIf(!foundDeepWater,
+            "Room 1:a8 no longer exposes a non-solid collision-$10 ocean tile.");
+        var oceanRaft = new RaftRoomEntity(
+            new RaftSpawn(deepWater, 0, 1, 0xa8, Riding: true),
+            oceanRoom, behavior, _entities.RuntimeState);
+        FailIf(
+            oceanRaft.CanDismountAt(deepWater),
+            "SPECIALOBJECT_RAFT allowed a dismount onto collision-$10 ocean water.");
+        oceanRaft.QueueFree();
+
+        CompanionRuntimeState.Clear(
+            _entities.RuntimeState, CompanionRuntimeState.RaftId);
+        CompanionRuntimeState.ForgetRemembered(_entities.RuntimeState);
+        LoadValidationRoom(1, 0xa8);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Count != 0,
+            "Room 1:a8 unexpectedly contained a raft during forced-walk validation.");
+        _player.WarpTo(deepWater, recordSafe: false);
+        _player.BeginForcedRoomEntryMovement(Vector2I.Up);
+        _player.AdvanceApplicationUpdate();
+        FailIf(
+            _player.IsDrowning,
+            "LINK_STATE_FORCE_MOVEMENT entered normal ocean drowning before " +
+            "the raft could advance Link onto land.");
+        _player.EndForcedRoomEntryMovement();
+
+        _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag, value: false);
+        LoadValidationRoom(1, 0xa7);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Count != 0,
+            "Room 1:a7 spawned subid $01 before Rafton changed rooms.");
+
+        _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag);
+        LoadValidationRoom(1, 0xa7);
+        RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
+        FailIf(
+            raft.AnimationIndex != 0,
+            "INTERAC_RAFT did not initialize direction&1 animation $00.");
+
+        _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            !raft.LinkRiding || !_player.RaftRideActive ||
+            !CompanionRuntimeState.IsActive(
+                _entities.RuntimeState, CompanionRuntimeState.RaftId),
+            "INTERAC_RAFT did not promote to SPECIALOBJECT_RAFT $13.");
+        RememberedCompanion remembered =
+            CompanionRuntimeState.ReadRemembered(_entities.RuntimeState);
+        FailIf(
+            remembered is not { Id: 0x13, Group: 1, Room: 0xa7, Y: 0x58, X: 0x78 },
+            "SPECIALOBJECT_RAFT did not save its initial local respawn and " +
+            "remembered companion position.");
+
+        Vector2 expected = raft.PrecisePosition;
+        OracleObjectMovement.Shared.ApplySpeed(
+            ref expected, behavior.Speed, 0x18);
+        Input.ActionPress("move_left");
+        _entities.Update(1.0 / 60.0, _player);
+        Input.ActionRelease("move_left");
+        FailIf(
+            !raft.PrecisePosition.IsEqualApprox(expected) ||
+            raft.Direction != 3 || raft.AnimationIndex != 1,
+            "SPECIALOBJECT_RAFT did not apply SPEED_e0 left movement and " +
+            "select direction&1 animation $01.");
+
+        // Destination object parsing occurs while the outgoing mounted raft
+        // still owns w1Companion. Its active room byte therefore differs from
+        // the destination, but both placed $e6 subids must still delete.
+        CompanionRuntimeState.Update(
+            _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
+            raft.PrecisePosition, raft.Direction);
+        _entities.Clear();
+        _player.EndRaftRide(_player.PrecisePosition, 0);
+        LoadValidationRoom(1, 0xa7);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Count != 0,
+            "Room 1:a7 recreated its placed raft while an outgoing " +
+            "SPECIALOBJECT_RAFT still owned w1Companion.");
+
+        CompanionRuntimeState.Clear(
+            _entities.RuntimeState, CompanionRuntimeState.RaftId);
+        LoadValidationRoom(1, 0xa7);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Single().LinkRiding,
+            "Remembered raft incorrectly reloaded as an active mounted object.");
+
+        _saveData.WriteWramByte(behavior.DimitriStateAddress, 0);
+        LoadValidationRoom(1, 0xa9);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Count != 0,
+            "Room 1:a9 spawned subid $00 without wDimitriState bit 6.");
+        _saveData.WriteWramByte(
+            behavior.DimitriStateAddress, (byte)behavior.DimitriMask);
+        LoadValidationRoom(1, 0xa9);
+        FailIf(
+            _entities.Entities<RaftRoomEntity>().Count != 1,
+            "Room 1:a9 did not spawn subid $00 with wDimitriState bit 6.");
+    }
+
     private void ValidateRooms21eAnd21fRafton()
     {
         const int group = 2;
@@ -19,6 +145,12 @@ public sealed partial class ValidationRoot
         RaftonEvent raftonEvent = _roomEvents.Rafton;
         RaftonEventDatabase database = raftonEvent.Database;
         RaftonEventRecord record = database.Record;
+        const string firstRightRoomDialogue =
+            "Shove off from\nover there.\nThe raft awaits!\n" +
+            "Climb on top and\npress \\col(0x84)\\item(0x00)\\col(0) to\nmove!";
+        FailIf(
+            database.DialogueText(0x2708) != firstRightRoomDialogue,
+            "Rafton TX_2708 did not preserve its source fallthrough into TX_2709.");
         byte originalLeftFlags = _saveData.GetRoomFlags(group, leftRoom);
         byte originalRightFlags = _saveData.GetRoomFlags(group, rightRoom);
         bool originalGaveRope = _saveData.HasGlobalFlag(record.GaveRopeFlag);
@@ -329,8 +461,11 @@ public sealed partial class ValidationRoot
         FailIf(
             left.Position != new Vector2(0x69, 0x48) ||
             raftonEvent.Counter != 0x3f ||
-            left.FacingVector != Vector2I.Right,
-            "Rafton's first SPEED_100 update did not move one pixel and animate twice.");
+            left.FacingVector != Vector2I.Right ||
+            left.Record.RightAnimation != record.Animation1 ||
+            left.Record.RightAnimation == left.Record.DownAnimation,
+            "Rafton's first SPEED_100 update did not move one pixel and select " +
+            "the imported right-facing animation $01.");
         StepRoomEventFrames(62);
         FailIf(
             left.Position != new Vector2(0xa7, 0x48) ||

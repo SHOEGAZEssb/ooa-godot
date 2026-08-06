@@ -12,6 +12,11 @@ internal sealed partial class RaftonCharacter : NpcCharacter
         RaftonEventRecord rafton)
     {
         Initialize(record);
+        SetDirectionalAnimations(
+            rafton.Animation0,
+            rafton.Animation1,
+            rafton.Animation2,
+            rafton.Animation3);
         SetFacingDirection(Vector2I.Down);
         SetAnimationRate(0.0f);
         if (record.DefaultAnimation != rafton.InitialAnimation)

@@ -112,8 +112,14 @@ classified records and 136 specialized rows.
   Book reward, room bit `$20`, music restoration, and completed re-entry text.
 - Rooms `2:1e` and `2:1f` implement Rafton's complete source sequence: the
   five D2/Cheval Rope/global-flag/Island Chart behaviors, `TX_2705`'s
-  unterminated fallthrough into `TX_2706`, delayed move between rooms, Magic
-  Oar choice, Sea Ukulele reward, and room/global persistence.
+  unterminated fallthrough into `TX_2706`, `TX_2708`'s unterminated fallthrough
+  into the raft-control instructions in `TX_2709`, all four imported
+  directional animations including the right-facing `$01` move between rooms,
+  Magic Oar choice, Sea Ukulele reward, and room/global persistence.
+- `INTERAC_RAFT $e6` and `SPECIALOBJECT_RAFT $13` now implement the source
+  vehicle spawned in rooms `1:a7`/`1:a9` and from remembered companion state.
+  This is a shared special-object/interaction path rather than an imported
+  `NpcRecord`, so the NPC snapshot counts are unchanged.
 - Room `2:0f` implements Cheval's complete native loop: asymmetric `$0c/$06`
   collision, Cheval Rope-dependent `TX_270c`/`TX_270d`, source `TX_270b` call
   expansion, and the post-dialogue `GLOBALFLAG_TALKED_TO_CHEVAL` side effect.

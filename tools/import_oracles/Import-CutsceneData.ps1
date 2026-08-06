@@ -7545,21 +7545,32 @@ foreach ($textId in $raftonTextIds) {
         throw "Could not resolve Rafton text TX_$($textId.ToString('x4'))."
     }
 }
-if (-not $allTextFallthroughIds.ContainsKey(0x2705) -or
-    $allTextFallthroughIds[0x2705] -ne 0x2706 -or
-    -not $allTexts[0x2705].EndsWith('\n', [StringComparison]::Ordinal)) {
-    throw 'Rafton TX_2705 no longer falls through its trailing newline into TX_2706.'
-}
 $raftonTexts = @{}
 foreach ($textId in $raftonTextIds) {
     $raftonTexts[$textId] = $allTexts[$textId]
 }
-# TX_2705 has no $00 terminator. Resolve its final newline command before
-# adjoining TX_2706 so the dialogue parser cannot read "\nI" as one command.
-$raftonText2705 = $allTexts[0x2705]
-$raftonTexts[0x2705] =
-    $raftonText2705.Substring(0, $raftonText2705.Length - 2) +
-    "`n" + $allTexts[0x2706]
+$raftonFallthroughs = @(
+    [PSCustomObject]@{ Source = 0x2705; Destination = 0x2706 }
+    [PSCustomObject]@{ Source = 0x2708; Destination = 0x2709 }
+)
+foreach ($fallthrough in $raftonFallthroughs) {
+    if (-not $allTextFallthroughIds.ContainsKey($fallthrough.Source) -or
+        $allTextFallthroughIds[$fallthrough.Source] -ne $fallthrough.Destination -or
+        -not $allTexts[$fallthrough.Source].EndsWith(
+            '\n', [StringComparison]::Ordinal)) {
+        throw "Rafton TX_$($fallthrough.Source.ToString('x4')) no longer falls " +
+            "through its trailing newline into " +
+            "TX_$($fallthrough.Destination.ToString('x4'))."
+    }
+
+    # The source has no $00 terminator. Resolve its final newline command
+    # before adjoining the next text so the dialogue parser cannot read the
+    # newline escape and the destination's first character as one command.
+    $sourceText = $allTexts[$fallthrough.Source]
+    $raftonTexts[$fallthrough.Source] =
+        $sourceText.Substring(0, $sourceText.Length - 2) +
+        "`n" + $allTexts[$fallthrough.Destination]
+}
 $raftonReward = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_0a']
 if ($null -eq $raftonReward -or
     $raftonReward.Treasure -ne 0x41 -or
@@ -7765,6 +7776,80 @@ $raftonEventRows = @(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\rafton_event.tsv'),
     $raftonEventRows)
+
+# INTERAC_RAFT $e6 and SPECIALOBJECT_RAFT $13. The placed interactions live
+# in rooms $1:$a7/$a9; a third subid is created from remembered companion
+# state by roomInitialization.loadRememberedCompanion.
+$raftInteractionSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\raft.s')
+$raftSpecialSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\specialObjects\raft.s')
+$raftRoomInitSource = Read-ImportText (
+    Join-Path $Disassembly 'code\roomInitialization.s')
+$raftObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+$raftSpecialAnimations = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
+$raftSpecialOam = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
+$raftSpecialCommonSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
+$raftSpecialCollisionSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\specialCollisionValues.s')
+$raftOamVariables = [regex]::Match(
+    $raftSpecialCommonSource,
+    '(?m)^\s*\.db\s+\$(?<tilebase>[0-9a-f]{2})\s+\$(?<flags>[0-9a-f]{2})\s*;\s*0x13\s*$')
+if ($raftInteractionSource -notmatch '(?ms)^interactionCodee6:.*?@subid0:.*?wDimitriState.*?bit 6.*?@subid1:.*?GLOBALFLAG_RAFTON_CHANGED_ROOMS.*?SPECIALOBJECT_RAFT.*?@subid2:.*?UNCMP_GFXH_AGES_3b.*?@state1:.*?ld a,\$09.*?wLinkInAir.*?cp \$fd.*?w1Companion.enabled.*?SPECIALOBJECT_RAFT' -or
+    $raftSpecialSource -notmatch '(?ms)^specialObjectCode_raft:.*?@state0:.*?counter1.*?\$0c.*?@state1:.*?SPEED_e0.*?@positionUnchanged:.*?var3f' -or
+    $raftSpecialSource -notmatch '(?ms)^@dismountTileOffsets:\s*\.db \$f7 \$00.*?\.db \$fd \$08.*?\.db \$08 \$00.*?\.db \$fd \$f7' -or
+    $raftSpecialSource -notmatch '(?ms)LINK_STATE_FORCE_MOVEMENT.*?ld a,14.*?^@state2:.*?itemDecCounter1.*?updateLinkLocalRespawnPosition.*?^@state3:.*?INTERAC_RAFT, \$02' -or
+    $raftSpecialSource -notmatch '(?ms)@@wallPositionOffsets:\s*\.db \$fa \$fb\s*\.db \$fa \$04\s*\.db \$05 \$fb\s*\.db \$05 \$04\s*\.db \$fb \$fa\s*\.db \$04 \$fa\s*\.db \$fb \$05\s*\.db \$04 \$05.*?@@validTiles:.*?TILEINDEX_DEEP_WATER.*?TILEINDEX_CURRENT_UP.*?TILEINDEX_CURRENT_DOWN.*?TILEINDEX_CURRENT_LEFT.*?TILEINDEX_CURRENT_RIGHT.*?TILEINDEX_WATER.*?TILEINDEX_WHIRLPOOL.*?\.db \$00' -or
+    $raftRoomInitSource -notmatch '(?ms)^loadRememberedCompanion:.*?cp SPECIALOBJECT_RAFT.*?@raft:.*?TILESETFLAG_PAST.*?INTERAC_RAFT.*?ld \(hl\),\$02' -or
+    $raftObjectSource -notmatch '(?ms)^group1Mapa7ObjectData:.*?obj_Interaction \$e6 \$01 \$58 \$78' -or
+    $raftObjectSource -notmatch '(?ms)^group1Mapa9ObjectData:.*?obj_Interaction \$e6 \$00 \$38 \$78' -or
+    $raftSpecialAnimations -notmatch '(?ms)^specialObject13GfxPointers:\s*m_SpecialObjectGfxPointer \$00 spr_raft \$0000 \$04\s*m_SpecialObjectGfxPointer \$00 spr_raft \$0020 \$04\s*m_SpecialObjectGfxPointer \$00 spr_raft \$0040 \$04\s*m_SpecialObjectGfxPointer \$00 spr_raft \$0060 \$04.*?^specialObject13AnimationDataPointers:\s*\.dw animationData1a1ef\s*\.dw animationData1a1f7\s*\.dw animationData1a1ef\s*\.dw animationData1a1f7' -or
+    $raftSpecialOam -notmatch '(?ms)^oamData4c024:\s*\.db \$02\s*\.db \$08 \$00 \$00 \$00\s*\.db \$08 \$08 \$00 \$20' -or
+    $raftSpecialCollisionSource -notmatch '(?m)^\s*SPECIALCOLLISION_STAIRS\s+db\s*;\s*\$18:' -or
+    -not $raftOamVariables.Success -or
+    $raftOamVariables.Groups['tilebase'].Value -ne '60' -or
+    $raftOamVariables.Groups['flags'].Value -ne '0b') {
+    throw 'INTERAC_RAFT or SPECIALOBJECT_RAFT source contract changed.'
+}
+$raftGraphic = $interactionGraphics['230:0']
+$raftWaitingAnimations = @(0..1 | ForEach-Object {
+    Resolve-NpcAnimation 0xe6 $_
+})
+if ($null -eq $raftGraphic -or
+    $raftGraphic.TileBase -ne 0x60 -or
+    $raftGraphic.Palette -ne 3 -or
+    @($raftWaitingAnimations | Where-Object {
+        [string]::IsNullOrWhiteSpace($_)
+    }).Count -ne 0) {
+    throw 'Could not resolve INTERAC_RAFT graphics.'
+}
+$raftOam = '8,0,0,0;8,8,0,32'
+$raftMountedVertical = "12@$raftOam|12,4@$raftOam"
+$raftMountedHorizontal = "12@$raftOam|12,4@$raftOam"
+$raftMountedPalette =
+    [Convert]::ToInt32($raftOamVariables.Groups['flags'].Value, 16) -band 0x07
+$raftRows = @(
+    "# group`troom`tsubid`ty`tx`tinteraction-id`tspecial-id`tchanged-rooms-flag`tdimitri-state-address`tdimitri-mask`tpast-mask`tradius`tspeed`tknockback-speed`tdismount-collision`tdismount-delay`tdismount-walk`tsprite`twaiting-tile-base`twaiting-palette`twaiting-vertical`twaiting-horizontal`tmounted-palette`tmounted-vertical`tmounted-horizontal`tmounted-vertical-offsets`tmounted-horizontal-offsets`tvalid-tiles`tsource",
+    (@('1','a7','01','58','78','e6','13','26','c647','40','80','09','23','28','18','04','0e',
+        'spr_raft','0',$raftGraphic.Palette,
+        $raftWaitingAnimations[0],$raftWaitingAnimations[1],$raftMountedPalette,
+        $raftMountedVertical,$raftMountedHorizontal,'0,20','40,60',
+        'fc,e0,e1,e2,e3,fa,e9',
+        'mainData.s:group1MapA7ObjectData;interactionCodee6;specialObjectCode_raft') -join "`t"),
+    (@('1','a9','00','38','78','e6','13','26','c647','40','80','09','23','28','18','04','0e',
+        'spr_raft','0',$raftGraphic.Palette,
+        $raftWaitingAnimations[0],$raftWaitingAnimations[1],$raftMountedPalette,
+        $raftMountedVertical,$raftMountedHorizontal,'0,20','40,60',
+        'fc,e0,e1,e2,e3,fa,e9',
+        'mainData.s:group1MapA9ObjectData;interactionCodee6;specialObjectCode_raft') -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\raft.tsv'), $raftRows)
+Copy-GeneratedFile 'gfx\common\spr_raft.png' 'gfx\spr_raft.png'
 
 # Fairies' Woods hide-and-seek. INTERAC_FAIRY_HIDING_MINIGAME ($6c) owns
 # three interaction scripts, while INTERAC_FOREST_FAIRY ($49) implements the

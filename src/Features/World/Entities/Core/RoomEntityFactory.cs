@@ -68,6 +68,7 @@ internal sealed class RoomEntityFactory(
     private readonly RalphAfterChevalEventDatabase _ralphAfterCheval = new();
     private readonly RalphAfterRaftonEventDatabase _ralphAfterRafton = new();
     private readonly RaftonEventDatabase _rafton = new();
+    private readonly RaftDatabase _raft = new();
     private readonly DepressedBoyEventDatabase _depressedBoy = new();
     private readonly ToiletHandEventDatabase _toiletHand = new();
     private readonly PoeEventDatabase _poe = new();
@@ -151,6 +152,18 @@ internal sealed class RoomEntityFactory(
         IRoomEntity? companionEntity = null;
         ICompanionBarrierTarget? companionBarrierTarget = null;
         if (CompanionRuntimeState.IsActive(
+                runtimeState, CompanionRuntimeState.RaftId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
+            if (active.Room == room.Id && saveData is not null)
+            {
+                companionEntity = new RaftRoomEntity(
+                    new RaftSpawn(active.Position, active.Direction,
+                        activeGroup, room.Id, Riding: true),
+                    room, _raft.Behavior, runtimeState);
+            }
+        }
+        else if (CompanionRuntimeState.IsActive(
                 runtimeState, CompanionRuntimeState.RickyId))
         {
             ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
@@ -235,6 +248,48 @@ internal sealed class RoomEntityFactory(
         }
         if (companionEntity is not null)
             yield return companionEntity;
+        bool raftCreated = companionEntity is RaftRoomEntity;
+        if (!raftCreated && !companionSlotActive && saveData is not null &&
+            (room.TilesetFlags & _raft.Behavior.PastTilesetMask) != 0 &&
+            CompanionRuntimeState.TryGetRemembered(
+                runtimeState, CompanionRuntimeState.RaftId,
+                activeGroup, room.Id, out Vector2 rememberedRaft))
+        {
+            yield return new RaftRoomEntity(
+                new RaftSpawn(rememberedRaft, 0, activeGroup, room.Id),
+                room, _raft.Behavior, runtimeState);
+            raftCreated = true;
+        }
+        // Both placed subids pass through @subid1, which deletes the
+        // interaction whenever w1Companion.id is SPECIALOBJECT_RAFT. During
+        // scrolling that live owner still names the outgoing room, so this
+        // guard must precede destination-room placement creation.
+        if (!raftCreated && !companionSlotActive && saveData is not null)
+        {
+            foreach (RaftPlacement placement in
+                _raft.GetPlacements(activeGroup, room.Id))
+            {
+                bool enabled = placement.SubId switch
+                {
+                    0 => (saveData.ReadWramByte(
+                            _raft.Behavior.DimitriStateAddress) &
+                            _raft.Behavior.DimitriMask) != 0,
+                    1 => saveData.HasGlobalFlag(
+                        _raft.Behavior.ChangedRoomsFlag),
+                    _ => throw new InvalidOperationException(
+                        $"Placed INTERAC_RAFT has unsupported subid " +
+                        $"${placement.SubId:x2} in {placement.Source}.")
+                };
+                if (!enabled)
+                    continue;
+                yield return new RaftRoomEntity(
+                    new RaftSpawn(new Vector2(placement.X, placement.Y), 0,
+                        activeGroup, room.Id),
+                    room, _raft.Behavior, runtimeState);
+                raftCreated = true;
+                break;
+            }
+        }
         if (saveData is not null)
         {
             foreach (CompanionTutorialRecord tutorial in

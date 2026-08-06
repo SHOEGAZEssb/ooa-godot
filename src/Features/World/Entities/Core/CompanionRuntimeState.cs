@@ -13,6 +13,7 @@ internal static class CompanionRuntimeState
     internal const int MinecartId = 0x0a;
     internal const int RickyId = 0x0b;
     internal const int MooshId = 0x0d;
+    internal const int RaftId = 0x13;
 
     private const int Active = 0xd100;
     private const int Id = 0xd101;
