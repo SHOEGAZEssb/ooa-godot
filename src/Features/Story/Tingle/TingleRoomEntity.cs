@@ -19,6 +19,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
     ITalkTarget,
     IOrdinaryNpcEntity,
     ISwordHittableRoomEntity,
+    IItemCollisionHittableRoomEntity,
     IObjectCollisionHeightRoomEntity
 {
     private readonly TingleDatabase _database;
@@ -78,7 +79,10 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _tingle = new NpcCharacter
         {
             Name = "Tingle",
-            ZIndex = NpcCharacter.BehindLinkZIndex
+            // objectSetVisiblec0 fixes airborne Tingle at source priority $00.
+            // His first grounded interactionAnimateAsNpc update replaces this
+            // with Link-relative priority.
+            ZIndex = NpcCharacter.InFrontOfLinkZIndex
         };
         _tingle.Initialize(record);
         _tingle.SetScriptAnimation(database.Animation("tingle", 0));
@@ -170,10 +174,29 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloonActive = false;
         _balloon.SetScriptVisible(false);
         _state = 2;
-        spawns.Add(new PuzzlePuffSpawn(
-            _tingle.Position + new Vector2(0, -16),
-            OracleSoundEngine.SndExplosion));
+        spawns.Add(new TingleBalloonExplosionSpawn(
+            _balloon.Position + new Vector2(
+                _record.ExplosionXOffset,
+                _record.ExplosionYOffset),
+            _zFixed >> 8));
         return true;
+    }
+
+    public bool ApplyItemCollision(
+        RoomEntityItemCollision collision,
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_record.BalloonAcceptsItemCollision((int)collision))
+            return false;
+        return ApplySwordHit(
+            hitbox,
+            sourcePosition,
+            damage,
+            EnemyKnockbackStrength.Normal,
+            spawns);
     }
 
     internal void SetInteractionEnabled(bool enabled) =>

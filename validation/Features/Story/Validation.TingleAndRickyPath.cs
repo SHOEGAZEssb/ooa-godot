@@ -27,7 +27,9 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.RickyId,
             0,
             0x79,
-            new Vector2(0x88, 0x68));
+            // Exercise state $0a from the valid upper-left ledge beside
+            // Tingle; the source reads Ricky's live dismount position.
+            new Vector2(0x28, 0x38));
         LoadValidationRoom(0, 0x79);
         _player.WarpTo(new Vector2(0x18, 0x70), recordSafe: false);
 
@@ -49,6 +51,7 @@ public sealed partial class ValidationRoot
             tingleEntity.ZFixed != tingleRecord.InitialZ << 8 ||
             tingleEntity.BalloonCounter != tingleRecord.BalloonCounter ||
             tingleEntity.BalloonSpeedZ != tingleRecord.BalloonSpeedZ ||
+            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
             tingleEntity.Grounded || tingleEntity.HasEnoughSeedTypes ||
             tutorial079.Record != room079Tutorial ||
             room079Ricky.Phase != RickyCompanionPhase.Waiting,
@@ -58,8 +61,10 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             tingleEntity.State != 1 || tutorial079.State != 1 ||
-            _dialogue.IsOpen,
-            "Room 0:79 state-0 objects did not consume exactly one initial update.");
+            _dialogue.IsOpen ||
+            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+            "Room 0:79 state-0 objects did not consume exactly one initial " +
+            "update while retaining Tingle's source priority $00 above Link.");
         StepRoomEventFrames(55);
         FailIf(
             tingleEntity.BalloonCounter != 1 ||
@@ -74,6 +79,20 @@ public sealed partial class ValidationRoot
         Rect2 balloonHitbox = new(
             tingleEntity.Npc.Position - new Vector2(4, 4),
             new Vector2(8, 8));
+        var projectileHitSpawns = new List<RoomEntitySpawn>();
+        bool projectileBalloonHit = tingleEntity.ApplyItemCollision(
+            RoomEntityItemCollision.SwordBeam,
+            balloonHitbox,
+            tingleEntity.Npc.Position,
+            damage: 4,
+            projectileHitSpawns);
+        FailIf(
+            tingleRecord.BalloonAcceptsItemCollision(0x19) ||
+            projectileBalloonHit || projectileHitSpawns.Count != 0 ||
+            tingleEntity.State != 1 || !tingleEntity.BalloonActive,
+            "ITEMCOLLISION_SWORD_BEAM $19 used by ITEM_SWORD_BEAM $27 and " +
+            "ITEM_RICKY_TORNADO $2a popped PART_TINGLE_BALLOON $44 despite " +
+            "its zero source active-collision bit.");
         bool groundedBalloonHit = _entities.ApplySwordHit(
             balloonHitbox,
             tingleEntity.Npc.Position,
@@ -87,7 +106,11 @@ public sealed partial class ValidationRoot
             "A grounded Link sword reached PART_TINGLE_BALLOON despite the " +
             "source Object.zh collision window.");
 
-        int explosionCount = _entities.Entities<PuzzlePuffEffect>().Count;
+        int explosionCount =
+            _entities.Entities<TingleBalloonExplosionEffect>().Count;
+        int explosionSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion);
+        int balloonZAtHit = tingleEntity.CollisionZ;
         bool balloonHit = _entities.ApplySwordHit(
             balloonHitbox,
             tingleEntity.Npc.Position,
@@ -97,11 +120,48 @@ public sealed partial class ValidationRoot
         FailIf(
             !balloonHit || tingleEntity.State != 2 ||
             tingleEntity.BalloonActive ||
-            _entities.Entities<PuzzlePuffEffect>().Count != explosionCount + 1,
+            _entities.Entities<TingleBalloonExplosionEffect>().Count !=
+                explosionCount + 1,
             "An airborne Link sword at the balloon's live Z did not increment " +
             "Tingle to state 2 and create the source-positioned explosion.");
 
+        TingleBalloonExplosionEffect balloonExplosion =
+            _entities.Entities<TingleBalloonExplosionEffect>().Single();
+        FailIf(
+            balloonExplosion.Position !=
+                tingleEntity.Npc.Position + new Vector2(
+                    tingleRecord.ExplosionXOffset,
+                    tingleRecord.ExplosionYOffset) ||
+            balloonExplosion.ZOffset != balloonZAtHit ||
+            balloonExplosion.ObjectScreenPosition !=
+                tingleEntity.Npc.Position + new Vector2(
+                    tingleRecord.ExplosionXOffset,
+                    tingleRecord.ExplosionYOffset + balloonZAtHit) ||
+            balloonExplosion.RenderedTextureOrigin !=
+                balloonExplosion.ObjectScreenPosition +
+                    new Vector2(-16, -16) ||
+            balloonExplosion.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            !balloonExplosion.Visible ||
+            balloonExplosion.ElapsedUpdates != 0 ||
+            balloonExplosion.AnimationFrame != 0 ||
+            balloonExplosion.TextureSize != new Vector2(32, 32) ||
+            balloonExplosion.TexturePixelHash != 0x510f3c7716debcb4UL ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) !=
+                explosionSounds,
+            "PART_TINGLE_BALLOON did not allocate visible INTERAC_EXPLOSION " +
+            "$56 at offset `$f000, copied Object.z, var03 `$01 priority, " +
+            "and source frame " +
+            $"0 (texture={balloonExplosion.TexturePixelHash:x16}).");
+
         StepRoomEventFrames(1);
+        FailIf(
+            balloonExplosion.ElapsedUpdates != 1 ||
+            balloonExplosion.AnimationFrame != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) !=
+                explosionSounds + 1,
+            "INTERAC_EXPLOSION $56 did not initialize visibly and request " +
+            "SND_EXPLOSION on its state-0 update.");
+
         FailIf(
             tingleEntity.State != 3 ||
             tingleEntity.BalloonCounter != tingleRecord.FallWait ||
@@ -112,6 +172,12 @@ public sealed partial class ValidationRoot
         FailIf(
             tingleEntity.Grounded || tingleEntity.BalloonCounter != 0,
             "Tingle began falling before all 15 source wait updates elapsed.");
+        FailIf(
+            balloonExplosion.ElapsedUpdates != 16 ||
+            balloonExplosion.AnimationFrame != 3 ||
+            balloonExplosion.AnimationParameter != 0,
+            "INTERAC_EXPLOSION $56 did not follow its imported 4/4/3/7 " +
+            "animation counters during Tingle's 15-update fall wait.");
         int fallUpdates = 0;
         while (!tingleEntity.Grounded && fallUpdates < 100)
         {
@@ -121,9 +187,18 @@ public sealed partial class ValidationRoot
         FailIf(
             fallUpdates != 25 || !tingleEntity.Grounded ||
             tingleEntity.ZFixed != 0 ||
+            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            _entities.Entities<TingleBalloonExplosionEffect>().Count != 0 ||
             tingleEntity.Npc.CurrentScriptAnimationSource !=
                 tingleDatabase.Animation("tingle", 1),
-            $"Tingle's $10-gravity fall landed after {fallUpdates} updates instead of 25.");
+            $"Tingle's $10-gravity fall landed after {fallUpdates} updates " +
+            "instead of 25 or changed priority before state 4 ran.");
+
+        StepRoomEventFrames(1);
+        FailIf(
+            tingleEntity.Npc.ZIndex != NpcCharacter.BehindLinkZIndex,
+            "Tingle's first grounded interactionAnimateAsNpc update did not " +
+            "replace fixed airborne priority with Link-relative ordering.");
 
         TingleEvent tingleEvent = _roomEvents.Tingle;
         FailIf(
@@ -234,18 +309,72 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
         int departureUpdates = 0;
+        int observedDepartureStage = room079Ricky.TingleDepartureStage;
+        var departureTransitions = new List<(
+            int Stage,
+            int Updates,
+            Vector2 Position,
+            int Z,
+            int Counter,
+            int Animation,
+            int Angle)>
+        {
+            (observedDepartureStage, 0, room079Ricky.PrecisePosition,
+                room079Ricky.ZFixed, room079Ricky.TingleDepartureCounter,
+                room079Ricky.AnimationIndex,
+                room079Ricky.TingleDepartureAngle)
+        };
         while (!room079Ricky.Finished && departureUpdates < 300)
         {
             StepRoomEventFrames(1);
             departureUpdates++;
+            if (room079Ricky.TingleDepartureStage != observedDepartureStage)
+            {
+                observedDepartureStage = room079Ricky.TingleDepartureStage;
+                departureTransitions.Add((observedDepartureStage,
+                    departureUpdates, room079Ricky.PrecisePosition,
+                    room079Ricky.ZFixed,
+                    room079Ricky.TingleDepartureCounter,
+                    room079Ricky.AnimationIndex,
+                    room079Ricky.TingleDepartureAngle));
+            }
         }
+        Vector2 cliffStart = new(20.203125f, 64.484375f);
+        Vector2 cliffLanding = new(20.203125f, 95.734375f);
         FailIf(
             !room079Ricky.Finished ||
+            departureUpdates != 187 ||
+            departureTransitions.Count != 4 ||
+            departureTransitions[0] is not
+                { Stage: 4, Updates: 0, Position: var departureStart,
+                    Z: 0, Counter: 8, Animation: 0x07, Angle: 0x14 } ||
+            departureStart != new Vector2(0x28, 0x38) ||
+            departureTransitions[1] is not
+                { Stage: 5, Updates: 40, Position: var observedCliffStart,
+                    Z: 0, Counter: 8, Animation: 0x11, Angle: 0x10 } ||
+            observedCliffStart != cliffStart ||
+            departureTransitions[2] is not
+                { Stage: 6, Updates: 65, Position: var landed,
+                    Z: 0, Counter: 8, Animation: 0x18, Angle: 0x10 } ||
+            landed != cliffLanding ||
+            departureTransitions[3] is not
+                { Stage: 7, Updates: 147, Position: var exitStart,
+                    Z: 0, Counter: 8, Animation: 0x07, Angle: 0x10 } ||
+            exitStart != cliffLanding ||
+            room079Ricky.PrecisePosition !=
+                new Vector2(20.203125f, 143.734375f) ||
             (_saveData.ReadWramByte(0xc646) & 0x40) == 0 ||
             CompanionRuntimeState.AnyActive(_runtimeState) ||
             CompanionRuntimeState.ReadRemembered(_runtimeState).Id != 0,
-            "Ricky's room 0:79 departure did not set wRickyState bit $40 and " +
-            "clear live/remembered companion ownership.");
+            "Ricky's room 0:79 departure diverged from state-$0a's " +
+            "$14 cliff path, $18 farewell punch, $10 exit hops, or " +
+            "wRickyState/live-companion cleanup. Trace: " +
+            string.Join(" | ", departureTransitions.Select(transition =>
+                $"${transition.Stage:x2}@{transition.Updates}:" +
+                $"{transition.Position}/z={transition.Z}/" +
+                $"c={transition.Counter}/a=${transition.Animation:x2}/" +
+                $"angle=${transition.Angle:x2}")) +
+            $" | finish@{departureUpdates}:{room079Ricky.PrecisePosition}");
 
         _dialogue.Close();
         using (_saveData.BeginMutation())

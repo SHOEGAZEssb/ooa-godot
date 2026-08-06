@@ -70,6 +70,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _finished;
     private int _tingleDepartureStage;
     private int _tingleDepartureCounter;
+    private int _tingleDepartureWalls;
     private string _tingleDepartureMessage = string.Empty;
     private HazardType _hazard;
     private Vector2 _hazardCenter;
@@ -118,6 +119,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     internal int HopCounter => _hopCounter;
     internal int AirborneDelay => _airborneDelay;
     internal int ChargeCounter => _chargeCounter;
+    internal int TingleDepartureStage => _tingleDepartureStage;
+    internal int TingleDepartureCounter => _tingleDepartureCounter;
+    internal int TingleDepartureAngle => _angle;
     internal bool ChargePaletteActive => _chargePaletteActive;
     internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
     internal ulong RickyTexturePixelHash => OracleGraphicsCache.PixelHash(
@@ -885,7 +889,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
 
         _tingleDepartureMessage = message;
-        _tingleDepartureStage = 0;
+        // tingleScript writes state $0a while preserving var03=$02.
+        _tingleDepartureStage = 2;
         _tingleDepartureCounter = 0;
         _phase = RickyCompanionPhase.TingleDeparture;
     }
@@ -894,67 +899,165 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         switch (_tingleDepartureStage)
         {
-            case 0:
+            // rickyStateASubstate2: finish the current idle hop, show TX_2006,
+            // select animation $03, and begin the first cutscene hop while
+            // the text is still open.
+            case 2:
                 if (!OracleObjectMath.UpdateSpeedZ(
                         ref _zFixed, ref _speedZ, _record.JumpGravity))
                 {
-                    _animation.Advance();
                     return;
                 }
                 _zFixed = 0;
-                _direction = _precisePosition.Y < player.Position.Y ? 2 : 0;
-                SetAnimation(_behavior.HopAnimation + _direction);
+                // The source compares Object.yh bytes, not subpixel words.
+                _direction = Mathf.FloorToInt(_precisePosition.Y) <
+                    Mathf.FloorToInt(player.Position.Y)
+                    ? 2
+                    : 0;
+                SetAnimation(_behavior.DepartureAirAnimation);
                 _dialogueRequested(0x2006, _tingleDepartureMessage, _precisePosition);
-                _tingleDepartureStage = 1;
+                StartTingleDepartureHop();
+                _tingleDepartureStage = 3;
                 return;
-            case 1:
+            // rickyStateASubstate3: text freezes the hop exactly where
+            // substate $02 initialized it. Movement begins after dismissal.
+            case 3:
                 if (_dialogueOpen())
                     return;
                 _direction = 2;
-                _angle = 0x14;
-                _speedZ = _behavior.HopSpeedZ;
-                _tingleDepartureCounter = 24;
-                SetAnimation(_behavior.HopAnimation + _direction);
-                _tingleDepartureStage = 2;
+                _angle = _behavior.DepartureDiagonalAngle;
+                SetAnimation(
+                    _behavior.DepartureGroundAnimationBase + _direction);
+                _tingleDepartureStage = 4;
                 return;
-            case 2:
-                _animation.Advance();
-                if (_tingleDepartureCounter > 0)
+            // rickyStateASubstate4/$07 share the same hop/landing loop. The
+            // source tests both walls only after the eight-update grounded
+            // delay, rather than using a fixed diagonal travel duration.
+            case 4:
+            case 7:
+                if (_animation.AnimationIndex !=
+                    _behavior.DepartureAirAnimation)
                 {
-                    _tingleDepartureCounter--;
-                    if (_tingleDepartureCounter == 0)
-                        _angle = 0x10;
+                    SetAnimation(_behavior.DepartureAirAnimation);
                 }
-                ApplyRawMovement(_behavior.HopSpeed);
-                if (OracleObjectMath.UpdateSpeedZ(
+                if (!OracleObjectMath.UpdateSpeedZ(
                         ref _zFixed, ref _speedZ, _behavior.HopGravity))
                 {
-                    _zFixed = 0;
-                    _speedZ = _behavior.HopSpeedZ;
-                    _playSound(_behavior.JumpSound);
+                    // companionUpdateMovement writes adjacentWallsBitset before
+                    // applying movement. rickyWaitUntilJumpDone leaves that
+                    // byte untouched during the grounded counter, so the wall
+                    // probes below must use the last airborne value.
+                    _tingleDepartureWalls = CalculateAdjacentWallsBitset();
+                    ApplyCompanionMovement(
+                        _behavior.HopSpeed,
+                        _tingleDepartureWalls);
+                    return;
                 }
-                if (_precisePosition.Y < _room.Height + 16)
+                _zFixed = 0;
+                SetAnimation(
+                    _behavior.DepartureGroundAnimationBase + _direction);
+                if (_tingleDepartureCounter > 0)
+                    _tingleDepartureCounter--;
+                if (_tingleDepartureCounter > 0)
                     return;
 
-                CompanionRuntimeState.Clear(
-                    _runtime, CompanionRuntimeState.RickyId);
-                CompanionRuntimeState.ForgetRemembered(_runtime);
-                if (_saveData is not null)
+                // The source writes each probe into SpecialObject.angle. When
+                // both probes hit, rickySetJumpSpeed therefore retains $10 and
+                // the cliff jump travels straight down, not down-left.
+                _angle = _behavior.DepartureWallProbeAngle;
+                if (FacingWallMask(_angle, _tingleDepartureWalls) != 0)
                 {
-                    using (_saveData.BeginMutation())
+                    _angle = _behavior.DepartureExitAngle;
+                    if (FacingWallMask(_angle, _tingleDepartureWalls) != 0)
                     {
-                        _saveData.WriteWramByte(
-                            0xc646,
-                            (byte)(_saveData.ReadWramByte(0xc646) | 0x40));
+                        _speedZ = _behavior.LongJumpSpeedZ;
+                        _tingleDepartureCounter = _behavior.LongJumpDelay;
+                        SetAnimation(_behavior.LongJumpAnimation + _direction);
+                        _playSound(_behavior.JumpSound);
+                        _tingleDepartureStage++;
+                        return;
                     }
                 }
-                _finished = true;
-                Visible = false;
+                if (!IsWithinSourceScreenBoundary())
+                {
+                    FinishTingleDeparture();
+                    return;
+                }
+
+                _angle = _tingleDepartureStage == 7
+                    ? _behavior.DepartureExitAngle
+                    : _behavior.DepartureDiagonalAngle;
+                StartTingleDepartureHop();
+                return;
+            // rickyStateASubstate5: the cliff jump uses rickySetJumpSpeed's
+            // SPEED_140 and -$0300 without its ordinary long-jump delay.
+            case 5:
+                _animation.Advance();
+                ApplyRawMovement(_behavior.LongJumpSpeed);
+                if (!OracleObjectMath.UpdateSpeedZ(
+                        ref _zFixed, ref _speedZ, _behavior.HopGravity))
+                {
+                    return;
+                }
+                _zFixed = 0;
+                SetAnimation(_behavior.DeparturePunchAnimation);
+                _tingleDepartureStage = 6;
+                return;
+            // rickyStateASubstate6: animation $18 emits zero for the Ricky
+            // cry and bit 7 when the straight-down exit hops may begin.
+            case 6:
+                _animation.Advance();
+                int parameter = _animation.CurrentParameter;
+                if (parameter == 0)
+                {
+                    _playSound(_record.RickySound);
+                    return;
+                }
+                if ((parameter & 0x80) == 0)
+                    return;
+                StartTingleDepartureHop();
+                _angle = _behavior.DepartureExitAngle;
+                SetAnimation(
+                    _behavior.DepartureGroundAnimationBase + _direction);
+                _tingleDepartureStage = 7;
                 return;
             default:
                 throw new InvalidOperationException(
                     $"Ricky's Tingle departure entered substate ${_tingleDepartureStage:x2}.");
         }
+    }
+
+    private void StartTingleDepartureHop()
+    {
+        _speedZ = _behavior.HopSpeedZ;
+        _tingleDepartureCounter = _behavior.DepartureHopDelay;
+    }
+
+    private bool IsWithinSourceScreenBoundary()
+    {
+        int y = Mathf.FloorToInt(_precisePosition.Y);
+        int x = Mathf.FloorToInt(_precisePosition.X);
+        return unchecked((byte)(y + 7)) < 0x8f &&
+            unchecked((byte)(x + 7)) < 0xaf;
+    }
+
+    private void FinishTingleDeparture()
+    {
+        CompanionRuntimeState.Clear(
+            _runtime, CompanionRuntimeState.RickyId);
+        CompanionRuntimeState.ForgetRemembered(_runtime);
+        if (_saveData is not null)
+        {
+            using (_saveData.BeginMutation())
+            {
+                _saveData.WriteWramByte(
+                    _record.RickyStateAddress,
+                    (byte)(_saveData.ReadWramByte(_record.RickyStateAddress) |
+                        _record.LeftMask));
+            }
+        }
+        _finished = true;
+        Visible = false;
     }
 
     void ICompanionBarrierTarget.ClampToLowerY(int y)
@@ -1001,6 +1104,13 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         if (_angle == 0xff)
             return;
         int walls = CalculateAdjacentWallsBitset();
+        ApplyCompanionMovement(speed, walls);
+    }
+
+    private void ApplyCompanionMovement(int speed, int walls)
+    {
+        if (_angle == 0xff)
+            return;
         int movementAngle = AdjustAngleForTileEdge(_angle, walls) ?? _angle;
         int[] bitsToCheck =
         [
@@ -1048,11 +1158,25 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         {
             return true;
         }
-        if (IsHoleAt(point))
-            return false;
-        if (_room.GetTerrainInfo(point).Hazard == HazardType.Hole)
-            return false;
-        return _room.IsSolid(point);
+        // TILEINDEX_VINE_TOP branches to checkGivenCollision_allowHoles with
+        // A=$03. All other Ricky probes use the companion-specific
+        // checkCollisionPosition_disallowSmallBridges path.
+        byte collision = tile == _behavior.VineTopTile
+            ? (byte)0x03
+            : _room.GetTerrainInfo(point).Collision;
+        int inTileX = Mathf.FloorToInt(point.X) & 0x0f;
+        int inTileY = Mathf.FloorToInt(point.Y) & 0x0f;
+        if (collision < 0x10)
+        {
+            int quadrantBit = (inTileY < 8 ? 2 : 0) +
+                (inTileX < 8 ? 1 : 0);
+            return (collision & (1 << quadrantBit)) != 0;
+        }
+
+        int collisionKind = collision & 0x0f;
+        int axisPosition = collisionKind < 8 ? inTileX : inTileY;
+        return (_behavior.CompanionCollisionMasks[collisionKind] &
+            (1 << (axisPosition >> 1))) != 0;
     }
 
     private static int FacingWallMask(int angle, int walls)

@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 4, 2026. It is an implementation inventory, not a
+interactions as of August 6, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -89,7 +89,8 @@ classified records and 136 specialized rows.
   movement cadence, source tile-edge sliding, stationary-pose reset, and
   automatic normal hop,
   direction-dependent ITEM_28 punch and tile probes with ordinary break
-  debris, held-A charge/palette flash, ITEM_RICKY_TORNADO release,
+  debris, held-A charge/palette flash, visible fixed-common-sprite
+  ITEM_RICKY_TORNADO release,
   source-addressed special-object OAM loads, zero-offset mounted-Link
   composition, hole jumps, one/two-metatile upward cliff jumps, downward cliff
   jumps, wall-crossing completion, landing tile-break probes, water/hole hazard
@@ -144,11 +145,20 @@ classified records and 136 specialized rows.
 - Room `0:79` implements specialized `INTERAC_TINGLE $c8:$00` with linked
   `PART_TINGLE_BALLOON $44`: imported OAM/animation data, the `$38`-update
   vertical oscillation, source `Object.zh` collision window requiring Link's
-  sword to reach the balloon during a Roc's Feather jump, pop/explosion,
+  sword to reach the balloon during a Roc's Feather jump, source active-
+  collision row `$44` rejection of shared item collision `$19` (Link's sword
+  beam and Ricky's punch/tornado), source `INTERAC_EXPLOSION $56` graphics,
+  `$f000` Y/X placement with copied balloon Z, sound, animation, and
+  foreground priority,
+  fixed source priority `$00` above Link until the first grounded update,
   15-update wait and `$10`-gravity fall, A-button collision,
   first/repeat friendship choices, Island Chart
   reward, seed-type gate, Seed Satchel upgrade path, kooloo-limpah animation,
-  and the post-chart 60-update Ricky departure. Postgame Tingle-secret entry
+  and the post-chart 60-update handoff into Ricky's source state-$0a
+  down-left cliff hops using retained airborne companion collision bits, the
+  source `$18`/`$10` wall probes and straight-down cliff jump, farewell punch,
+  and straight-down exit.
+  Postgame Tingle-secret entry
   and return-secret generation still depend on the unavailable shared secret
   input/output subsystem, so the visible Tingle row remains **P**.
 - Rooms `0:79` and `0:89` implement invisible

@@ -19,7 +19,7 @@ internal interface IItemCollisionHittableRoomEntity
 
 internal enum RoomEntityItemCollision
 {
-    ThrownObject,
-    Bomb,
-    SwordBeam
+    ThrownObject = 0x16,
+    Bomb = 0x18,
+    SwordBeam = 0x19
 }

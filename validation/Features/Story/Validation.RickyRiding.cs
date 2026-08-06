@@ -209,9 +209,12 @@ public sealed partial class ValidationRoot
             companion.Phase != RickyCompanionPhase.Punching ||
             _entities.Entities<RickyPunchAttackRoomEntity>().Count < 1 ||
             tornado.Damage != behavior.TornadoDamage ||
+            tornado.TexturePixelHash != 0xae516fff87db07f9UL ||
             _sound.PlayRequestsFor(behavior.SwordSpinSound) != spinSounds + 1,
             "Releasing a fully charged Ricky attack did not create " +
-            "ITEM_RICKY_TORNADO, restart ITEM_28, and play SND_SWORDSPIN.");
+            "visible ITEM_RICKY_TORNADO fixed-common graphics, restart " +
+            "ITEM_28, and play SND_SWORDSPIN (texture=" +
+            $"{tornado.TexturePixelHash:x16}).");
         StepRickyApplicationInput(pressed: [], justPressed: []);
         FailIf(
             !Mathf.IsEqualApprox(
@@ -386,10 +389,16 @@ public sealed partial class ValidationRoot
             _currentRoom.GetTerrainInfo(downCliffLeft).Collision;
         byte downRightCollision =
             _currentRoom.GetTerrainInfo(downCliffRight).Collision;
+        byte sourceDownCliffCollision = _currentRoom.GetCollision(0x05);
+        FailIf(
+            sourceDownCliffCollision != 0x03,
+            "Overworld cliff tile $05 lost its source collision $03.");
         _currentRoom.SetPositionTileAndCollision(
-            downCliffLeft, 0x05, 0xff, (long)_animationTicks);
+            downCliffLeft, 0x05, sourceDownCliffCollision,
+            (long)_animationTicks);
         _currentRoom.SetPositionTileAndCollision(
-            downCliffRight, 0x05, 0xff, (long)_animationTicks);
+            downCliffRight, 0x05, sourceDownCliffCollision,
+            (long)_animationTicks);
 
         int downJumpSounds = _sound.PlayRequestsFor(behavior.JumpSound);
         StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);

@@ -91,9 +91,15 @@ internal sealed class RickyGlovesEventDatabase
                     "punch-cue-sound", "long-jump-animation",
                     "long-jump-speed-z", "long-jump-delay",
                     "long-jump-speed", "cliff-down-delay",
-                    "cliff-down-speed-z", "vine-top-tile", "hole-tiles",
+                    "cliff-down-speed-z", "vine-top-tile",
+                    "companion-collision-masks", "hole-tiles",
                     "hole-offsets", "cliff-up-probes", "landing-probes",
-                    "water-animation", "hole-animation", "source"
+                    "water-animation", "hole-animation",
+                    "departure-air-animation",
+                    "departure-ground-animation-base",
+                    "departure-punch-animation", "departure-diagonal-angle",
+                    "departure-wall-probe-angle", "departure-exit-angle",
+                    "departure-hop-delay", "source"
                 ],
                 headerRequired: true)).SingleRow();
         Behavior = new RickyCompanionBehaviorRecord(
@@ -117,11 +123,15 @@ internal sealed class RickyGlovesEventDatabase
             behavior.UnsignedDecimal(33),
             behavior.Decimal(34, -0x8000, 0x7fff), behavior.HexByte(35),
             ParseHexOffsets(behavior.RequiredString(36)),
-            ParseOffsets(behavior.RequiredString(37)),
+            ParseHexOffsets(behavior.RequiredString(37)),
             ParseOffsets(behavior.RequiredString(38)),
             ParseOffsets(behavior.RequiredString(39)),
-            behavior.HexByte(40), behavior.HexByte(41),
-            behavior.RequiredString(42));
+            ParseOffsets(behavior.RequiredString(40)),
+            behavior.HexByte(41), behavior.HexByte(42),
+            behavior.HexByte(43), behavior.HexByte(44),
+            behavior.HexByte(45), behavior.HexByte(46),
+            behavior.HexByte(47), behavior.HexByte(48),
+            behavior.UnsignedDecimal(49), behavior.RequiredString(50));
 
         Commands = CutsceneCommandCatalog.Load(
             Root + "ricky_gloves_commands.tsv");
@@ -222,7 +232,7 @@ internal sealed class RickyGlovesEventDatabase
                 HopSpeed: 0x50, LandingDelay: 8, PunchLifetime: 20,
                 PunchDamage: 4, ChargeUpdates: 30, TornadoSpeed: 0x78,
                 TornadoRadiusY: 6, TornadoRadiusX: 6, TornadoDamage: 4,
-                TornadoSprite: "spr_common_items", TornadoTileBase: 0x28,
+                TornadoSprite: "spr_common_sprites", TornadoTileBase: 0x28,
                 TornadoPalette: 1, JumpSound: OracleSoundEngine.SndJump,
                 ChargeSound: OracleSoundEngine.SndChargeSword,
                 SwordSpinSound: OracleSoundEngine.SndSwordSpin,
@@ -232,9 +242,18 @@ internal sealed class RickyGlovesEventDatabase
                 LongJumpDelay: 8, LongJumpSpeed: 0x32,
                 CliffDownDelay: 20, CliffDownSpeedZ: -0x02c0,
                 VineTopTile: 0xd4, WaterAnimation: 0x0e,
-                HoleAnimation: 0x0d
+                HoleAnimation: 0x0d, DepartureAirAnimation: 0x03,
+                DepartureGroundAnimationBase: 0x05,
+                DeparturePunchAnimation: 0x18,
+                DepartureDiagonalAngle: 0x14,
+                DepartureWallProbeAngle: 0x18,
+                DepartureExitAngle: 0x10,
+                DepartureHopDelay: 8
             } ||
             Behavior.TornadoOffsets.Length != 4 ||
+            !Behavior.CompanionCollisionMasks.AsSpan().SequenceEqual(
+                [0x00, 0xff, 0x03, 0xc0, 0xc3, 0xc3, 0xc3, 0x00,
+                    0x00, 0xff, 0x03, 0xc0, 0xc1, 0xc1, 0xff, 0x00]) ||
             !Behavior.HoleTiles.AsSpan().SequenceEqual([0xf3, 0xfd]) ||
             !Behavior.HoleOffsets.AsSpan().SequenceEqual(
                 [new Godot.Vector2(0, -8), new Godot.Vector2(8, 5),
@@ -393,12 +412,20 @@ internal readonly record struct RickyCompanionBehaviorRecord(
     int CliffDownDelay,
     int CliffDownSpeedZ,
     int VineTopTile,
+    int[] CompanionCollisionMasks,
     int[] HoleTiles,
     Godot.Vector2[] HoleOffsets,
     Godot.Vector2[] CliffUpProbes,
     Godot.Vector2[] LandingProbes,
     int WaterAnimation,
     int HoleAnimation,
+    int DepartureAirAnimation,
+    int DepartureGroundAnimationBase,
+    int DeparturePunchAnimation,
+    int DepartureDiagonalAngle,
+    int DepartureWallProbeAngle,
+    int DepartureExitAngle,
+    int DepartureHopDelay,
     string Source);
 
 internal readonly record struct RickyPunchBox(

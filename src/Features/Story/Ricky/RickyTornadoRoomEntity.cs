@@ -5,7 +5,7 @@ namespace oracleofages;
 
 /// <summary>
 /// ITEM_RICKY_TORNADO $2a: a SPEED_300 projectile using sword-level-1 tile
-/// breaking and the source two-frame common-item animation.
+/// breaking and the source two-frame fixed common-sprite animation.
 /// </summary>
 internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IPlayerProjectileRoomEntity,
@@ -24,6 +24,8 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
     public bool Finished { get; private set; }
     public bool CollisionEnabled => _initialized && !Finished;
     public int Damage => _behavior.TornadoDamage;
+    internal ulong TexturePixelHash => OracleGraphicsCache.PixelHash(
+        _animation.CurrentTexture.GetImage());
     public Rect2 CollisionBounds => new(
         Position - new Vector2(
             _behavior.TornadoRadiusX,

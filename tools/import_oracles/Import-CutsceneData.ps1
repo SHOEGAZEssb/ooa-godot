@@ -9095,6 +9095,8 @@ if (-not $rickyPlacement.Success) {
 }
 $rickySpecialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\ricky.s')
+$rickyCollisionSource = Read-ImportText (
+    Join-Path $Disassembly 'code\bank0.s')
 $rickyAttackItemSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\rickyMooshAttack.s')
 $rickyTornadoItemSource = Read-ImportText (
@@ -9113,6 +9115,8 @@ $rickyItemAnimationsSource = Read-ImportText (
     Join-Path $Disassembly 'data\itemAnimations.s')
 $rickyItemOamSource = Read-ImportText (
     Join-Path $Disassembly 'data\itemOamData.s')
+$rickyFixedGfxHeaderSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
 $rickyGlobalFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
 if ($companionSpawnerSource -notmatch '(?ms)^; Ricky looking for gloves\s*@subid02:.*?GLOBALFLAG_GAVE_ROPE_TO_RAFTON.*?wRickyState.*?@loadCompanionPresetIfHasntLeft:.*?and \$40' -or
@@ -9450,14 +9454,21 @@ if (-not $rickyPunchAttributes.Success -or
     -not $rickyTornadoData.Success -or
     -not $rickyTornadoAttributes.Success -or
     -not $rickyTornadoAnimation.Success -or
+    $rickyFixedGfxHeaderSource -notmatch '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s*m_GfxHeader spr_common_sprites, \$8001\s*m_GfxHeaderEnd' -or
     $rickySpecialSource -notmatch '(?ms)^rickyState5Substate0:.*?bit BTN_BIT_A.*?rickyStartPunch.*?bit BTN_BIT_B.*?companionGotoDismountState.*?ld a,\$10.*?SPEED_c0.*?ld bc,-\$180.*?SpecialObject\.counter1.*?\$08.*?SPEED_200.*?ld c,\$19.*?getRandomNumber.*?and \$0f.*?SND_JUMP.*?SND_RICKY' -or
     $rickySpecialSource -notmatch '(?ms)^rickyState8:.*?^@substate0:.*?ld c,\$40.*?ld a,SND_UNKNOWN5.*?^@startTornadoCharge:.*?wGameKeysPressed.*?BTN_A.*?ld c,\$13.*?^@substate1:.*?cp \$1e.*?SND_CHARGE_SWORD.*?ITEM_RICKY_TORNADO.*?SNDCTRL_STOPSFX.*?SND_SWORDSPIN.*?^rickyStartPunch:.*?ITEM_28.*?ld c,\$09.*?SND_SWORDSLASH' -or
     $rickySpecialSource -notmatch '(?ms)^rickyState2:.*?companionDecCounter1.*?SND_RICKY.*?objectUpdateSpeedZ_paramC.*?objectApplySpeed.*?companionCalculateAdjacentWallsBitset.*?and \$0f.*?rickyStopUntilLandedOnGround' -or
     $rickySpecialSource -notmatch '(?ms)^rickyCheckHopUpCliff:.*?and \$c0.*?cp \$c0.*?wLinkAngle.*?cp \$00.*?@cliffOffset_oneUp_right:\s*\.db \$f8 \$06.*?@cliffOffset_oneUp_left:\s*\.db \$f8 \$fa.*?@cliffOffset_twoUp_right:\s*\.db \$e8 \$06.*?@cliffOffset_twoUp_left:\s*\.db \$e8 \$fa' -or
     $rickySpecialSource -notmatch '(?ms)^rickyBreakTilesOnLanding:.*?BREAKABLETILESOURCE_RICKY_LANDED.*?@offsets:\s*\.db \$04 \$00.*?\.db \$04 \$06.*?\.db \$fe \$00.*?\.db \$04 \$fa' -or
     $rickySpecialSource -notmatch '(?ms)^rickySetJumpSpeed:.*?-\$300.*?\$08.*?SPEED_140.*?\$0f.*?^rickyHoleCheckOffsets:\s*\.db \$f8 \$00.*?\.db \$05 \$08.*?\.db \$08 \$00.*?\.db \$05 \$f8' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyStateASubstate2:.*?objectUpdateSpeedZ_paramC.*?TX_2006.*?w1Link\.yh.*?SpecialObject\.direction.*?ld a,\$03.*?SpecialObject\.var3f.*?specialObjectSetAnimation.*?rickyIncVar03.*?rickySetJumpSpeedForCutscene.*?ld bc,-\$180.*?SpecialObject\.speed.*?SPEED_200.*?SpecialObject\.counter1.*?\$08' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyStateASubstate6:.*?specialObjectAnimate.*?SpecialObject\.animParameter.*?SND_RICKY.*?rlca.*?rickySetJumpSpeedForCutsceneAndSetAngle.*?ld a,\$10.*?ld c,\$05.*?companionSetAnimation.*?rickyIncVar03' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyStateASubstate3:.*?retIfTextIsActive.*?ld a,\$14.*?SpecialObject\.angle.*?dec e\s+ld a,\$02\s+ld \(de\),a.*?ld c,\$05.*?companionSetAnimation.*?rickyIncVar03' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyStateASubstate5:.*?specialObjectAnimate.*?objectApplySpeed.*?ld c,\$40.*?objectUpdateSpeedZ_paramC.*?ld a,\$18.*?specialObjectSetAnimation.*?rickyIncVar03.*?^rickyStateASubstate4:\s*rickyStateASubstate7:.*?companionSetAnimationToVar3f.*?rickyWaitUntilJumpDone.*?ld a,\$18.*?specialObjectCheckMovingTowardWall.*?ld a,\$10.*?specialObjectCheckMovingTowardWall.*?rickySetJumpSpeed.*?SND_JUMP.*?rickyIncVar03.*?objectCheckWithinScreenBoundary.*?cp \$07.*?ld a,\$10.*?ld a,\$14.*?rickySetJumpSpeedForCutscene.*?^@leftScreen:.*?wDisabledObjects.*?wMenuDisabled.*?wDeathRespawnBuffer\.rememberedCompanionId.*?itemDelete.*?wRickyState.*?set 6.*?saveLinkLocalRespawnAndCompanionPosition' -or
+    $rickySpecialSource -notmatch '(?ms)^rickyWaitUntilJumpDone:\s*ld c,\$40\s*call objectUpdateSpeedZ_paramC\s*jr z,@onGround\s*call companionUpdateMovement\s*or d\s*ret\s*@onGround:\s*ld c,\$05\s*call companionSetAnimation\s*jp companionDecCounter1IfNonzero' -or
     $specialObjectCommonSource -notmatch '(?ms)^companionCheckHopDownCliff:.*?and \$e7.*?cp \$03.*?cp \$0c.*?cp \$30.*?TILEINDEX_VINE_TOP.*?cliffTilesTable.*?ld bc,-\$2c0.*?SPEED_200.*?ld a,\$14.*?^@directionOffsets:\s*\.db \$fa \$00.*?\.db \$00 \$04.*?\.db \$08 \$00.*?\.db \$00 \$fb' -or
     $specialObjectCommonSource -notmatch '(?ms)^companionCalculateAdjacentWallsBitset:.*?^@offsets:\s*\.db \$fb \$fd.*?\.db \$00 \$07.*?\.db \$0d \$f9.*?\.db \$00 \$07.*?\.db \$f5 \$f7.*?\.db \$09 \$00.*?\.db \$f7 \$0b.*?\.db \$09 \$00' -or
+    $rickyCollisionSource -notmatch '(?ms)^checkCollisionPosition_disallowSmallBridges:.*?^@specialCollisions:\s*\.db %00000000 %11111111 %00000011 %11000000 %11000011 %11000011 %11000011 %00000000\s*\.db %00000000 %11111111 %00000011 %11000000 %11000001 %11000001 %11111111 %00000000' -or
     $rickyAttackItemSource -notmatch '(?ms)^itemCode28:.*?Item\.counter1.*?\$14.*?^@rickyData:\s*\.db \$10 \$0c \$f4 \$00.*?\.db \$0c \$12 \$fe \$08.*?\.db \$10 \$0c \$08 \$00.*?\.db \$0c \$12 \$fe \$f8.*?BREAKABLETILESOURCE_RICKY_PUNCH' -or
     $rickyTornadoItemSource -notmatch '(?ms)^@state0:.*?SPEED_300.*?^@offsets:\s*\.db \$f0 \$00.*?\.db \$00 \$0c.*?\.db \$08 \$00.*?\.db \$00 \$f4.*?^@state1:.*?objectApplySpeed.*?BREAKABLETILESOURCE_SWORD_L1.*?and \$0f.*?cp \$0f' -or
     $rickyItemConstants -notmatch '(?m)^\s*ITEM_28\s+db ; 0x28\s*$' -or
@@ -9502,8 +9513,8 @@ if ($rickyPunchDamage -ne 4 -or $rickyTornadoDamage -ne 4 -or
     throw 'Ricky ITEM_28/ITEM_RICKY_TORNADO attributes or OAM changed.'
 }
 $rickyBehaviorRows = @(
-    "# idle-animation`tcancel-animation`tpunch-animation`tcharge-animation`thop-animation`tground-speed`thop-delay`thop-speed-z`thop-gravity`thop-speed`tlanding-delay`tpunch-lifetime`tpunch-damage`tpunch-boxes`tcharge-updates`ttornado-speed`ttornado-radius-y`ttornado-radius-x`ttornado-damage`ttornado-offsets`ttornado-sprite`ttornado-tile-base`ttornado-palette`ttornado-animation-base64`tjump-sound`tcharge-sound`tsword-spin-sound`tsword-slash-sound`tpunch-cue-sound`tlong-jump-animation`tlong-jump-speed-z`tlong-jump-delay`tlong-jump-speed`tcliff-down-delay`tcliff-down-speed-z`tvine-top-tile`thole-tiles`thole-offsets`tcliff-up-probes`tlanding-probes`twater-animation`thole-animation`tsource",
-    "20`t05`t09`t13`t19`t1e`t16`t-384`t40`t50`t8`t20`t$rickyPunchDamage`t16,12,-12,0;12,18,-2,8;16,12,8,0;12,18,-2,-8`t30`t78`t$((($rickyTornadoRadius -shr 4) -band 0x0f))`t$($rickyTornadoRadius -band 0x0f)`t$rickyTornadoDamage`t-16,0;0,12;8,0;0,-12`tspr_common_items`t$($rickyTornadoTile.ToString('x2'))`t$rickyTornadoPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyTornadoAnimationEncoded)))`t53`t4f`t6b`t74`t75`t0f`t-768`t8`t32`t20`t-704`td4`tf3,fd`t-8,0;5,8;8,0;5,-8`t-8,6;-8,-6;-24,6;-24,-6`t4,0;4,6;-2,0;4,-6`t0e`t0d`tricky.s:rickyState2/rickyState5/rickyState7/rickyState8;rickyMooshAttack.s:itemCode28;rickyTornado.s:itemCode2a"
+    "# idle-animation`tcancel-animation`tpunch-animation`tcharge-animation`thop-animation`tground-speed`thop-delay`thop-speed-z`thop-gravity`thop-speed`tlanding-delay`tpunch-lifetime`tpunch-damage`tpunch-boxes`tcharge-updates`ttornado-speed`ttornado-radius-y`ttornado-radius-x`ttornado-damage`ttornado-offsets`ttornado-sprite`ttornado-tile-base`ttornado-palette`ttornado-animation-base64`tjump-sound`tcharge-sound`tsword-spin-sound`tsword-slash-sound`tpunch-cue-sound`tlong-jump-animation`tlong-jump-speed-z`tlong-jump-delay`tlong-jump-speed`tcliff-down-delay`tcliff-down-speed-z`tvine-top-tile`tcompanion-collision-masks`thole-tiles`thole-offsets`tcliff-up-probes`tlanding-probes`twater-animation`thole-animation`tdeparture-air-animation`tdeparture-ground-animation-base`tdeparture-punch-animation`tdeparture-diagonal-angle`tdeparture-wall-probe-angle`tdeparture-exit-angle`tdeparture-hop-delay`tsource",
+    "20`t05`t09`t13`t19`t1e`t16`t-384`t40`t50`t8`t20`t$rickyPunchDamage`t16,12,-12,0;12,18,-2,8;16,12,8,0;12,18,-2,-8`t30`t78`t$((($rickyTornadoRadius -shr 4) -band 0x0f))`t$($rickyTornadoRadius -band 0x0f)`t$rickyTornadoDamage`t-16,0;0,12;8,0;0,-12`tspr_common_sprites`t$($rickyTornadoTile.ToString('x2'))`t$rickyTornadoPalette`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rickyTornadoAnimationEncoded)))`t53`t4f`t6b`t74`t75`t0f`t-768`t8`t32`t20`t-704`td4`t00,ff,03,c0,c3,c3,c3,00,00,ff,03,c0,c1,c1,ff,00`tf3,fd`t-8,0;5,8;8,0;5,-8`t-8,6;-8,-6;-24,6;-24,-6`t4,0;4,6;-2,0;4,-6`t0e`t0d`t03`t05`t18`t14`t18`t10`t8`tricky.s:rickyState2/rickyState5/rickyState7/rickyState8/rickyStateA;rickyMooshAttack.s:itemCode28;rickyTornado.s:itemCode2a;bank0.s:checkCollisionPosition_disallowSmallBridges;gfxHeaders.s:GFXH_COMMON_SPRITES"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ricky_companion_behavior.tsv'),

@@ -1049,11 +1049,48 @@ $tingleInteractionDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\interactionData.s')
 $tinglePartDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
+$tinglePartActiveCollisionsSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\partActiveCollisions.s')
+$tingleItemCollisionTypesSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\itemCollisionTypes.s')
+$tingleItemAttributesSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\itemAttributes.s')
+$tingleCollisionEffectsSource = Read-ImportText (
+    Join-Path $Disassembly 'code\collisionEffects.s')
+$tingleFixedGfxHeaderSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\gfxHeaders.s')
 $tingleGlobalFlagSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\globalFlags.s')
+$tingleActiveCollisionMatch = [regex]::Match(
+    $tinglePartActiveCollisionsSource,
+    '(?m)^\s*dbrev %(?<a>[01]{8}) %(?<b>[01]{8}) %(?<c>[01]{8}) %(?<d>[01]{8}) ; 0x44\s*$')
+$tingleActiveCollisions = if ($tingleActiveCollisionMatch.Success) {
+    $tingleActiveCollisionMatch.Groups['a'].Value +
+        $tingleActiveCollisionMatch.Groups['b'].Value +
+        $tingleActiveCollisionMatch.Groups['c'].Value +
+        $tingleActiveCollisionMatch.Groups['d'].Value
+} else { '' }
+$tingleExplosionOffsetMatch = [regex]::Match(
+    $tingleBalloonSource,
+    '(?ms)^@beenHit:.*?ld bc,\$(?<offset>[0-9a-f]{4})\s+call objectCopyPositionWithOffset')
+$tingleExplosionOffset = if ($tingleExplosionOffsetMatch.Success) {
+    [Convert]::ToInt32($tingleExplosionOffsetMatch.Groups['offset'].Value, 16)
+} else { 0 }
+$tingleExplosionYOffset = ($tingleExplosionOffset -shr 8) -band 0xff
+$tingleExplosionXOffset = $tingleExplosionOffset -band 0xff
+if ($tingleExplosionYOffset -ge 0x80) { $tingleExplosionYOffset -= 0x100 }
+if ($tingleExplosionXOffset -ge 0x80) { $tingleExplosionXOffset -= 0x100 }
 if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction \$d0 \$01 \$38 \$78\s+obj_Interaction \$c8 \$00 \$32 \$38\s+obj_End' -or
     $tingleInteractionDataSource -notmatch '(?m)^\s*/\* \$c8 \*/ m_InteractionData \$55 \$04 \$00\s*$' -or
     $tinglePartDataSource -notmatch '(?m)^\s*\.db \$55 \$82 \$44 \$00 \$01 \$18 \$02 \$00 ; \$44\s*$' -or
+    $tingleActiveCollisions -ne '00001111111101100001100100000000' -or
+    -not $tingleExplosionOffsetMatch.Success -or
+    $tingleExplosionYOffset -ne -16 -or $tingleExplosionXOffset -ne 0 -or
+    $tingleItemCollisionTypesSource -notmatch '(?m)^\s*ITEMCOLLISION_SWORD_BEAM\s+db ; \$19: Sword beam, Ricky punch/tornado, Moosh stomp\s*$' -or
+    $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$22 \$fe \$00 ; \$27: ITEM_SWORD_BEAM\s*$' -or
+    $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$aa \$fc \$00 ; \$28: ITEM_28\s*$' -or
+    $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$66 \$fc \$00 ; \$2a: ITEM_RICKY_TORNADO\s*$' -or
+    $tingleCollisionEffectsSource -notmatch '(?ms)^partCheckCollisions:\s+ld e,Part\.collisionType\s+ld a,\(de\)\s+ld hl,partActiveCollisions' -or
     $tingleSource -notmatch '(?ms)^@state0:.*?interactionInitGraphics.*?interactionSetAlwaysUpdateBit.*?objectSetVisiblec0.*?objectSetCollideRadius.*?TREASURE_EMBER_SEEDS.*?TREASURE_MYSTERY_SEEDS\+1.*?cp \$03.*?PART_TINGLE_BALLOON' -or
     $tingleSource -notmatch '(?ms)^@state3:.*?counter1.*?interactionDecCounter1.*?ld c,\$10.*?objectUpdateSpeedZ_paramC.*?objectAddToAButtonSensitiveObjectList.*?tingleScript.*?ld a,\$01' -or
     $tingleSource -notmatch '(?ms)^@state4:.*?TREASURE_SEED_SATCHEL.*?Interaction\.var3d.*?interactionRunScript.*?interactionAnimateAsNpc.*?animParameter.*?ld bc,-\$200.*?objectCreateSparkle.*?ld c,\$20.*?objectUpdateSpeedZ_paramC' -or
@@ -1085,6 +1122,19 @@ if (-not $tingleBalloonAnimation) {
 }
 $tingleAnimationRows.Add(
     "balloon`t0`t$tingleBalloonAnimation`tpartAnimations.s:part44Animations")
+$tingleExplosionGraphic = $interactionGraphics['86:0']
+$tingleExplosionAnimation = Resolve-NpcAnimation 0x56 0
+if (-not $tingleExplosionGraphic -or
+    $tingleExplosionGraphic.Gfx -ne 0 -or
+    $tingleExplosionGraphic.TileBase -ne 0x0c -or
+    $tingleExplosionGraphic.Palette -ne 2 -or
+    $tingleExplosionGraphic.DefaultAnimation -ne 0 -or
+    $tingleFixedGfxHeaderSource -notmatch '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+m_GfxHeader spr_common_sprites, \$8001\s+m_GfxHeaderEnd' -or
+    [string]::IsNullOrWhiteSpace($tingleExplosionAnimation)) {
+    throw 'Could not resolve Tingle balloon INTERAC_EXPLOSION $56 graphics/animation.'
+}
+$tingleAnimationRows.Add(
+    "explosion`t0`t$tingleExplosionAnimation`tinteractionAnimations.s:interaction56Animations")
 
 $tingleTextRows = [Collections.Generic.List[string]]::new()
 $tingleTextRows.Add("# text-id`tutf8-base64`tsource")
@@ -1111,8 +1161,8 @@ foreach ($textId in (@(0x2006) + @(0x1e00..0x1e0f))) {
         "$($textId.ToString('x4'))`t$message`ttext/ages:TX_$($textId.ToString('x4'))")
 }
 $tingleRows = @(
-    "# group`troom`tid`tsubid`tballoon-part`tinitial-z`tballoon-counter`tballoon-speed-z`tfall-wait`tfall-gravity`tkooloo-speed-z`tkooloo-gravity`tpost-chart-wait`tupgrade-glow-wait`tseed-threshold`tmet-flag`tupgrade-flag`tbegan-secret-flag`tdone-secret-flag`tisland-chart-treasure`tisland-chart-object`tsatchel-treasure`tsatchel-upgrade-object`tballoon-tile-base`tballoon-palette`tsource",
-    "0`t79`tc8`t00`t44`t-15`t56`t-16`t15`t16`t-512`t32`t60`t120`t3`t1b`t46`t6b`t75`t54`tTREASURE_OBJECT_ISLAND_CHART_00`t19`tTREASURE_OBJECT_SEED_SATCHEL_UPGRADE`t24`t2`tobject_code/ages/interactions/tingle.s:interactionCodec8;tingleBalloon.s:partCode44;scripts.s:tingleScript"
+    "# group`troom`tid`tsubid`tballoon-part`tinitial-z`tballoon-counter`tballoon-speed-z`tfall-wait`tfall-gravity`tkooloo-speed-z`tkooloo-gravity`tpost-chart-wait`tupgrade-glow-wait`tseed-threshold`tmet-flag`tupgrade-flag`tbegan-secret-flag`tdone-secret-flag`tisland-chart-treasure`tisland-chart-object`tsatchel-treasure`tsatchel-upgrade-object`tballoon-tile-base`tballoon-palette`texplosion-sprite`texplosion-tile-base`texplosion-palette`texplosion-y-offset`texplosion-x-offset`tballoon-active-collisions`tsource",
+    "0`t79`tc8`t00`t44`t-15`t56`t-16`t15`t16`t-512`t32`t60`t120`t3`t1b`t46`t6b`t75`t54`tTREASURE_OBJECT_ISLAND_CHART_00`t19`tTREASURE_OBJECT_SEED_SATCHEL_UPGRADE`t24`t2`tspr_common_sprites`t$($tingleExplosionGraphic.TileBase)`t$($tingleExplosionGraphic.Palette)`t$tingleExplosionYOffset`t$tingleExplosionXOffset`t$tingleActiveCollisions`tobject_code/ages/interactions/tingle.s:interactionCodec8;tingleBalloon.s:partCode44;explosion.s:interactionCode56;interactionData.s:INTERAC_EXPLOSION;interactionAnimations.s:interaction56Animations;gfxHeaders.s:GFXH_COMMON_SPRITES;partActiveCollisions.s:0x44;itemCollisionTypes.s:ITEMCOLLISION_SWORD_BEAM;itemAttributes.s:ITEM_SWORD_BEAM/ITEM_28/ITEM_RICKY_TORNADO;scripts.s:tingleScript"
 )
 $enemyObjectSource = Read-ImportText (
     Join-Path $Disassembly "objects\ages\enemyData.s")

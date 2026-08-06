@@ -1670,6 +1670,8 @@ internal sealed class RoomEntityFactory(
         BombSpawn bomb => CreateBomb(bomb, room),
         OwlStatueSparkleSpawn sparkle => CreateOwlStatueSparkle(sparkle),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
+        TingleBalloonExplosionSpawn explosion =>
+            CreateTingleBalloonExplosion(explosion),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
@@ -2931,6 +2933,24 @@ internal sealed class RoomEntityFactory(
             soundRequested);
         return new DialogueFixedEffectRoomEntityAdapter<PuzzlePuffEffect>(
             puff);
+    }
+
+    private IRoomEntity CreateTingleBalloonExplosion(
+        TingleBalloonExplosionSpawn spawn)
+    {
+        var explosion = new TingleBalloonExplosionEffect
+        {
+            Name = "TingleBalloonExplosion",
+            // Balloon sets var03=$01, selecting objectSetVisible81.
+            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+        };
+        explosion.Initialize(
+            spawn.Position,
+            spawn.ZOffset,
+            _tingle.ExplosionVisual,
+            soundRequested);
+        return new FixedEffectRoomEntityAdapter<
+            TingleBalloonExplosionEffect>(explosion);
     }
 
     private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)

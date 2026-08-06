@@ -26,7 +26,11 @@ internal sealed class TingleDatabase
                     "began-secret-flag", "done-secret-flag",
                     "island-chart-treasure", "island-chart-object",
                     "satchel-treasure", "satchel-upgrade-object",
-                    "balloon-tile-base", "balloon-palette", "source"
+                    "balloon-tile-base", "balloon-palette",
+                    "explosion-sprite", "explosion-tile-base",
+                    "explosion-palette", "explosion-y-offset",
+                    "explosion-x-offset",
+                    "balloon-active-collisions", "source"
                 ],
                 headerRequired: true)).SingleRow();
         Record = new TingleRecord(
@@ -40,7 +44,10 @@ internal sealed class TingleDatabase
             row.HexByte(17), row.HexByte(18), row.HexByte(19),
             row.RequiredString(20), row.HexByte(21), row.RequiredString(22),
             row.UnsignedDecimal(23), row.UnsignedDecimal(24),
-            row.RequiredString(25));
+            row.RequiredString(25), row.UnsignedDecimal(26),
+            row.UnsignedDecimal(27), row.Decimal(28, -128, 127),
+            row.Decimal(29, -128, 127), row.RequiredString(30),
+            row.RequiredString(31));
 
         GeneratedTable animations = GeneratedTable.Load(
             "res://assets/oracle/objects/tingle_animations.tsv",
@@ -85,8 +92,12 @@ internal sealed class TingleDatabase
                 SeedThreshold: 3, MetFlag: 0x1b, UpgradeFlag: 0x46,
                 BeganSecretFlag: 0x6b, DoneSecretFlag: 0x75,
                 IslandChartTreasure: 0x54, SatchelTreasure: 0x19,
-                BalloonTileBase: 24, BalloonPalette: 2
-            } || _animations.Count != 5 || _texts.Count != 17)
+                BalloonTileBase: 24, BalloonPalette: 2,
+                ExplosionSprite: "spr_common_sprites",
+                ExplosionTileBase: 0x0c, ExplosionPalette: 2,
+                ExplosionYOffset: -16, ExplosionXOffset: 0,
+                BalloonActiveCollisions: "00001111111101100001100100000000"
+            } || _animations.Count != 6 || _texts.Count != 17)
         {
             throw new InvalidOperationException(
                 "Imported room 0:79 INTERAC_TINGLE `$c8:$00 contract is incomplete.");
@@ -109,7 +120,19 @@ internal sealed class TingleDatabase
             ? text
             : throw new InvalidOperationException(
                 $"Missing Tingle TX_{textId:x4}.");
+
+    internal TingleBalloonExplosionVisual ExplosionVisual => new(
+        Record.ExplosionSprite,
+        Record.ExplosionTileBase,
+        Record.ExplosionPalette,
+        Animation("explosion", 0));
 }
+
+internal readonly record struct TingleBalloonExplosionVisual(
+    string Sprite,
+    int TileBase,
+    int Palette,
+    string Animation);
 
 internal readonly record struct TingleRecord(
     int Group,
@@ -137,4 +160,31 @@ internal readonly record struct TingleRecord(
     string SatchelUpgradeObject,
     int BalloonTileBase,
     int BalloonPalette,
-    string Source);
+    string ExplosionSprite,
+    int ExplosionTileBase,
+    int ExplosionPalette,
+    int ExplosionYOffset,
+    int ExplosionXOffset,
+    string BalloonActiveCollisions,
+    string Source)
+{
+    internal bool BalloonAcceptsItemCollision(int sourceCollision)
+    {
+        if ((uint)sourceCollision >= BalloonActiveCollisions.Length ||
+            BalloonActiveCollisions.Length != 0x20)
+        {
+            throw new InvalidOperationException(
+                $"PART_TINGLE_BALLOON $44 cannot resolve item collision " +
+                $"${sourceCollision:x2} from imported active-collision bits.");
+        }
+        char active = BalloonActiveCollisions[sourceCollision];
+        return active switch
+        {
+            '0' => false,
+            '1' => true,
+            _ => throw new InvalidOperationException(
+                "PART_TINGLE_BALLOON $44 imported a non-binary " +
+                "active-collision bit.")
+        };
+    }
+}
