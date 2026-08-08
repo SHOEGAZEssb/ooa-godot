@@ -8,6 +8,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class DungeonKeyBlockDatabase
 {
+    private readonly ActiveCollisionModeSet _activeCollisionModes;
+
     internal DungeonKeyBlockDatabaseRecord Record { get; }
 
     internal DungeonKeyBlockDatabase()
@@ -21,7 +23,7 @@ internal sealed class DungeonKeyBlockDatabase
                     "closed-tile", "key-graphic", "open-tile", "room-flag",
                     "push-counter", "open-sound", "key-sound",
                     "no-key-text-id", "no-key-utf8-base64", "puff-sound",
-                    "source"
+                    "active-collisions", "source"
                 ],
                 ["closed-tile"],
                 headerRequired: true));
@@ -43,7 +45,8 @@ internal sealed class DungeonKeyBlockDatabase
             row.HexWord(7),
             row.Base64Utf8(8),
             row.UnsignedDecimal(9),
-            row.RequiredString(10));
+            row.RequiredString(11));
+        _activeCollisionModes = ActiveCollisionModeSet.Parse(row, 10);
         if (Record.ClosedTile != 0x1e || Record.KeyGraphic != 0x42 ||
             Record.OpenTile != 0xa0 || Record.RoomFlag != 0x80 ||
             Record.PushCounter != 20 ||
@@ -52,6 +55,12 @@ internal sealed class DungeonKeyBlockDatabase
             Record.NoKeyTextId != 0x5102 ||
             string.IsNullOrWhiteSpace(Record.NoKeyMessage) ||
             Record.PuffSound != OracleSoundEngine.SndPoof ||
+            !_activeCollisionModes.Contains(1) ||
+            !_activeCollisionModes.Contains(2) ||
+            !_activeCollisionModes.Contains(5) ||
+            _activeCollisionModes.Contains(0) ||
+            _activeCollisionModes.Contains(3) ||
+            _activeCollisionModes.Contains(4) ||
             !Record.Source.Contains(
                 "nextToKeyBlock", StringComparison.Ordinal))
         {
@@ -59,6 +68,9 @@ internal sealed class DungeonKeyBlockDatabase
                 "Imported dungeon key-block $1e contract is incomplete.");
         }
     }
+
+    internal bool SupportsActiveCollisions(int activeCollisions) =>
+        _activeCollisionModes.Contains(activeCollisions);
 }
 
 internal readonly record struct DungeonKeyBlockDatabaseRecord(

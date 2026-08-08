@@ -1,6 +1,8 @@
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
-# screen corners described by m_StandardWarp's first parameter.
+# screen corners described by m_StandardWarp's first parameter. Pointed warp
+# lists retain whether m_WarpListEndWithDefault marks their final positioned
+# row as the fallback for any unmatched warp tile in the room.
 $warpDestinationLines = Read-ImportLines (Join-Path $Disassembly "data\ages\warpDestinations.s")
 $warpDestinations = @{}
 $currentWarpGroup = -1
@@ -36,18 +38,62 @@ foreach ($line in $warpSourceLines) {
     }
 }
 
+$pointerWarpDefaultPositions = @{}
+$currentPointerLabel = ''
+$lastPointerPosition = ''
+foreach ($line in $warpSourceLines) {
+    if ($line -match '^group[0-7]WarpSources:') {
+        $currentPointerLabel = ''
+        $lastPointerPosition = ''
+        continue
+    }
+    if ($line -match '^(?<label>warpSource[0-9a-f]+):') {
+        $currentPointerLabel = $Matches['label']
+        $lastPointerPosition = ''
+        continue
+    }
+    if ($currentPointerLabel -eq '' -or
+        -not $pointerWarpOwners.ContainsKey($currentPointerLabel)) {
+        continue
+    }
+    if ($line -match 'm_PositionWarp\s+\$(?<position>[0-9a-f]{2})') {
+        $lastPointerPosition = $Matches['position']
+        continue
+    }
+    if ($line -match 'm_WarpListEndWithDefault') {
+        if ($lastPointerPosition -eq '') {
+            throw "Pointed warp list $currentPointerLabel has a default marker but no positioned rows."
+        }
+        $pointerWarpDefaultPositions[$currentPointerLabel] =
+            $lastPointerPosition
+        $currentPointerLabel = ''
+        $lastPointerPosition = ''
+        continue
+    }
+    if ($line -match 'm_WarpListEndNoDefault|m_WarpListFallThrough') {
+        $currentPointerLabel = ''
+        $lastPointerPosition = ''
+    }
+}
+if ($pointerWarpDefaultPositions.Count -ne 42 -or
+    -not $pointerWarpDefaultPositions.ContainsKey('warpSource786a') -or
+    $pointerWarpDefaultPositions['warpSource786a'] -ne '21') {
+    throw 'Expected 42 pointed warp-list defaults including warpSource786a position $21.'
+}
+
 $warpRows = [Collections.Generic.List[string]]::new()
-$warpRows.Add("# source-group`tsource-room`tsource-position`tedge-mask`tsource-transition`tdest-group`tdest-room`tdest-position`tdest-parameter`tdest-transition")
+$warpRows.Add("# source-group`tsource-room`tsource-position`tedge-mask`tsource-transition`tdest-group`tdest-room`tdest-position`tdest-parameter`tdest-transition`tsource-fallback")
 function Add-ResolvedWarp(
     [int]$sourceGroup, [int]$sourceRoom, [string]$sourcePosition,
-    [int]$edgeMask, [int]$sourceTransition, [int]$destGroup, [int]$destIndex) {
+    [int]$edgeMask, [int]$sourceTransition, [int]$destGroup, [int]$destIndex,
+    [int]$sourceFallback) {
     if (-not $script:warpDestinations.ContainsKey($destGroup) -or
         $destIndex -ge $script:warpDestinations[$destGroup].Count) {
         throw "Warp destination $destGroup/$($destIndex.ToString('x2')) is not defined."
     }
     $dest = $script:warpDestinations[$destGroup][$destIndex]
     $script:warpRows.Add(
-        "$sourceGroup`t$($sourceRoom.ToString('x2'))`t$sourcePosition`t$edgeMask`t$sourceTransition`t$destGroup`t$($dest.Room.ToString('x2'))`t$($dest.Position.ToString('x2'))`t$($dest.Parameter)`t$($dest.Type)")
+        "$sourceGroup`t$($sourceRoom.ToString('x2'))`t$sourcePosition`t$edgeMask`t$sourceTransition`t$destGroup`t$($dest.Room.ToString('x2'))`t$($dest.Position.ToString('x2'))`t$($dest.Parameter)`t$($dest.Type)`t$sourceFallback")
 }
 
 $currentWarpGroup = -1
@@ -64,17 +110,27 @@ foreach ($line in $warpSourceLines) {
     }
     if ($currentWarpGroup -ge 0 -and $currentPointerLabel -eq '' -and
         $line -match 'm_StandardWarp\s+\$(?<edge>[0-9a-f])\s+\$(?<room>[0-9a-f]{2})\s+\$(?<dest>[0-9a-f]{2})\s+\$(?<group>[0-9a-f])\s+\$(?<transition>[0-9a-f])') {
-        Add-ResolvedWarp $currentWarpGroup ([Convert]::ToInt32($Matches['room'], 16)) '*' ([Convert]::ToInt32($Matches['edge'], 16)) ([Convert]::ToInt32($Matches['transition'], 16)) ([Convert]::ToInt32($Matches['group'], 16)) ([Convert]::ToInt32($Matches['dest'], 16))
+        $edgeMask = [Convert]::ToInt32($Matches['edge'], 16)
+        $sourceFallback = if ($edgeMask -eq 0) { 1 } else { 0 }
+        Add-ResolvedWarp $currentWarpGroup ([Convert]::ToInt32($Matches['room'], 16)) '*' $edgeMask ([Convert]::ToInt32($Matches['transition'], 16)) ([Convert]::ToInt32($Matches['group'], 16)) ([Convert]::ToInt32($Matches['dest'], 16)) $sourceFallback
         continue
     }
     if ($currentPointerLabel -ne '' -and $pointerWarpOwners.ContainsKey($currentPointerLabel) -and
         $line -match 'm_PositionWarp\s+\$(?<position>[0-9a-f]{2})\s+\$(?<dest>[0-9a-f]{2})\s+\$(?<group>[0-9a-f])\s+\$(?<transition>[0-9a-f])') {
         $owner = $pointerWarpOwners[$currentPointerLabel]
-        Add-ResolvedWarp $owner.Group $owner.Room $Matches['position'] 0 ([Convert]::ToInt32($Matches['transition'], 16)) ([Convert]::ToInt32($Matches['group'], 16)) ([Convert]::ToInt32($Matches['dest'], 16))
+        $sourceFallback = if (
+            $pointerWarpDefaultPositions.ContainsKey($currentPointerLabel) -and
+            $pointerWarpDefaultPositions[$currentPointerLabel] -eq
+                $Matches['position']) { 1 } else { 0 }
+        Add-ResolvedWarp $owner.Group $owner.Room $Matches['position'] 0 ([Convert]::ToInt32($Matches['transition'], 16)) ([Convert]::ToInt32($Matches['group'], 16)) ([Convert]::ToInt32($Matches['dest'], 16)) $sourceFallback
     }
 }
 if ($warpRows.Count -ne 530) {
     throw "Expected 529 resolved warp records, parsed $($warpRows.Count - 1)."
+}
+if (-not ($warpRows -contains
+    "1`tcd`t21`t0`t4`t2`tce`t11`t0`t1`t1")) {
+    throw 'Room 1:cd did not retain warpSource786a position $21 as its pointed-list fallback.'
 }
 $warpPath = Join-Path $destination "objects\warps.tsv"
 Write-GeneratedTable($warpPath, $warpRows)

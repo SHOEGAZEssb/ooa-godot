@@ -118,8 +118,6 @@ public sealed class RoomSession
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
-        _keyDoors.ApplyOpenedDoorState(
-            loaded, roomFlags, _animationTick());
         _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
         _gashaSpots.ApplyRoomState(
             group, loaded, _saveData, _animationTick());

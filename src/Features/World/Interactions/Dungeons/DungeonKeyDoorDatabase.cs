@@ -11,8 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class DungeonKeyDoorDatabase
 {
-
     private readonly Dictionary<byte, DungeonKeyDoorDatabaseRecord> _records = new();
+    private readonly ActiveCollisionModeSet _activeCollisionModes;
 
     internal int Count => _records.Count;
 
@@ -27,12 +27,21 @@ internal sealed class DungeonKeyDoorDatabase
                     "closed-tile", "direction", "key-kind", "key-graphic",
                     "open-tile", "room-flag",
                     "opposite-room-flag", "push-counter", "door-frame-wait",
-                    "door-sound", "key-sound", "no-key-text-id", "no-key-utf8-base64"
+                    "door-sound", "key-sound", "no-key-text-id", "no-key-utf8-base64",
+                    "active-collisions"
                 ],
                 ["closed-tile"],
                 headerRequired: true));
+        ActiveCollisionModeSet? activeCollisionModes = null;
         foreach (GeneratedTableRow row in table.Rows)
         {
+            ActiveCollisionModeSet rowCollisionModes =
+                ActiveCollisionModeSet.Parse(row, 13);
+            if (activeCollisionModes is null)
+                activeCollisionModes = rowCollisionModes;
+            else if (activeCollisionModes != rowCollisionModes)
+                throw row.Invalid(13, "the shared dungeon-key active-collision modes");
+
             DungeonKeyDoorDatabaseRecord record = new DungeonKeyDoorDatabaseRecord(
                 (byte)row.HexByte(0),
                 row.RequiredString(1) switch
@@ -63,6 +72,9 @@ internal sealed class DungeonKeyDoorDatabase
                 throw new InvalidOperationException(
                     $"Duplicate dungeon-key door tile ${record.ClosedTile:x2}.");
         }
+        _activeCollisionModes = activeCollisionModes ??
+            throw new InvalidOperationException(
+                "The imported dungeon-key door table is empty.");
 
         if (_records.Count != 8 ||
             !_records.TryGetValue(0x70, out DungeonKeyDoorDatabaseRecord up) ||
@@ -87,6 +99,12 @@ internal sealed class DungeonKeyDoorDatabase
             !bossDown.UsesBossKey || bossDown.Direction != Vector2I.Down ||
             !bossLeft.UsesBossKey || bossLeft.Direction != Vector2I.Left ||
             bossRight.KeyGraphic != 0x43 || bossRight.NoKeyTextId != 0x5101 ||
+            !_activeCollisionModes.Contains(1) ||
+            !_activeCollisionModes.Contains(2) ||
+            !_activeCollisionModes.Contains(5) ||
+            _activeCollisionModes.Contains(0) ||
+            _activeCollisionModes.Contains(3) ||
+            _activeCollisionModes.Contains(4) ||
             string.IsNullOrWhiteSpace(left.NoKeyMessage))
         {
             throw new InvalidOperationException(
@@ -94,23 +112,18 @@ internal sealed class DungeonKeyDoorDatabase
         }
     }
 
-    internal bool TryGet(byte tile, out DungeonKeyDoorDatabaseRecord record) =>
-        _records.TryGetValue(tile, out record);
-
-    internal void ApplyOpenedDoorState(
-        OracleRoomData room,
-        byte roomFlags,
-        long animationTick)
+    internal bool TryGet(
+        int activeCollisions,
+        byte tile,
+        out DungeonKeyDoorDatabaseRecord record)
     {
-        var substitutions = new Dictionary<byte, byte>();
-        foreach (DungeonKeyDoorDatabaseRecord record in _records.Values)
+        if (!_activeCollisionModes.Contains(activeCollisions))
         {
-            if ((roomFlags & record.RoomFlag) != 0)
-                substitutions.Add(record.ClosedTile, record.OpenTile);
+            record = default;
+            return false;
         }
-        room.ApplyMetatileSubstitutions(substitutions, animationTick);
+        return _records.TryGetValue(tile, out record);
     }
-
 }
 
 internal readonly record struct DungeonKeyDoorDatabaseRecord(byte ClosedTile, Vector2I Direction, bool UsesBossKey, int KeyGraphic, byte OpenTile, byte RoomFlag, byte OppositeRoomFlag, int PushCounter, int DoorFrameWait, int DoorSound, int KeySound, int NoKeyTextId, string NoKeyMessage);

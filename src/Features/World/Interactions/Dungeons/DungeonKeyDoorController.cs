@@ -63,15 +63,6 @@ public partial class DungeonKeyDoorController : Node
         if (_opening)
             return;
 
-        // interactableTilesTable selects a dedicated side-scrolling row
-        // containing only tile $da. Side-view layouts are free to reuse the
-        // top-down key indices $1e/$70-$77 as ordinary scenery.
-        if ((_rooms.CurrentRoom.TilesetFlags & 0x20) != 0)
-        {
-            ResetPushCounter();
-            return;
-        }
-
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
             direction != facing ||
@@ -85,7 +76,9 @@ public partial class DungeonKeyDoorController : Node
         }
 
         DungeonKeyBlockDatabaseRecord keyBlock = _keyBlocks.Record;
-        if (tile == keyBlock.ClosedTile)
+        int activeCollisions = _rooms.CurrentRoom.ActiveCollisions;
+        if (tile == keyBlock.ClosedTile &&
+            _keyBlocks.SupportsActiveCollisions(activeCollisions))
         {
             if (_candidatePosition != position ||
                 _candidateDirection != direction)
@@ -101,7 +94,9 @@ public partial class DungeonKeyDoorController : Node
             return;
         }
 
-        if (!_rooms.KeyDoors.TryGet(tile, out DungeonKeyDoorDatabaseRecord door) ||
+        if (!_rooms.KeyDoors.TryGet(
+                activeCollisions, tile,
+                out DungeonKeyDoorDatabaseRecord door) ||
             door.Direction != direction)
         {
             ResetPushCounter();

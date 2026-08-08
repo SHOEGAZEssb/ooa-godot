@@ -287,14 +287,19 @@ public sealed partial class ValidationRoot
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         var database = new DungeonKeyDoorDatabase();
         bool hasLeftDoor = database.TryGet(
-            0x73, out DungeonKeyDoorDatabaseRecord leftDoor);
+            2, 0x73, out DungeonKeyDoorDatabaseRecord leftDoor);
         bool hasBossRight = database.TryGet(
-            0x75, out DungeonKeyDoorDatabaseRecord bossRight);
-        DungeonKeyBlockDatabaseRecord keyBlock =
-            new DungeonKeyBlockDatabase().Record;
+            2, 0x75, out DungeonKeyDoorDatabaseRecord bossRight);
+        var keyBlockDatabase = new DungeonKeyBlockDatabase();
+        DungeonKeyBlockDatabaseRecord keyBlock = keyBlockDatabase.Record;
         FailIf(
             database.Count != 8 ||
             !hasLeftDoor || !hasBossRight ||
+            !database.TryGet(1, 0x73, out _) ||
+            !database.TryGet(5, 0x73, out _) ||
+            database.TryGet(0, 0x73, out _) ||
+            database.TryGet(3, 0x73, out _) ||
+            database.TryGet(4, 0x73, out _) ||
             leftDoor.Direction != Vector2I.Left || leftDoor.OpenTile != 0xa0 ||
             leftDoor.PushCounter != 20 || leftDoor.DoorFrameWait != 6 ||
             leftDoor.NoKeyTextId != 0x5100 || leftDoor.UsesBossKey ||
@@ -310,8 +315,89 @@ public sealed partial class ValidationRoot
             keyBlock.NoKeyTextId != 0x5102 ||
             keyBlock.NoKeyMessage != "Huh? This block\nhas a keyhole." ||
             keyBlock.PuffSound != OracleSoundEngine.SndPoof ||
+            !keyBlockDatabase.SupportsActiveCollisions(1) ||
+            !keyBlockDatabase.SupportsActiveCollisions(2) ||
+            !keyBlockDatabase.SupportsActiveCollisions(5) ||
+            keyBlockDatabase.SupportsActiveCollisions(0) ||
+            keyBlockDatabase.SupportsActiveCollisions(3) ||
+            keyBlockDatabase.SupportsActiveCollisions(4) ||
             !keyBlock.Source.Contains("nextToKeyBlock", StringComparison.Ordinal),
             "The imported dungeon key-block $1e contract is incomplete.");
+
+        // Past overworld room $dc reuses dungeon door index $73 as ordinary
+        // scenery at $46. interactableTilesTable dispatches active-collision
+        // mode 0 through @overworld, where $73 has no key-door behavior. Its
+        // room-flag bit $08 is likewise an overworld flag, not a door flag.
+        {
+            const int overworldGroup = 1;
+            const int overworldRoomId = 0xdc;
+            const byte overworldFlag08 = 0x08;
+            OracleSaveData overworldSave = OracleSaveData.CreateStandardGame();
+            overworldSave.SetRoomFlag(
+                overworldGroup, overworldRoomId, overworldFlag08);
+            var overworldRooms = new RoomSession(
+                overworldGroup, overworldRoomId,
+                () => 0, () => { }, overworldSave);
+            var overworldTreasures = new TreasureDatabase();
+            var overworldInventory = new InventoryState(
+                overworldTreasures,
+                overworldSave,
+                () => overworldRooms.CurrentDungeonIndex);
+            using var overworldFixture = RoomEntityValidationFixture.Attach(
+                this,
+                "OverworldDungeonKeyTileValidation",
+                new()
+                {
+                    SaveData = overworldSave,
+                    Inventory = overworldInventory,
+                    Treasures = overworldTreasures,
+                    Rooms = overworldRooms
+                });
+            RoomEntityManager overworldEntities = overworldFixture.Manager;
+            overworldEntities.LoadRoom(
+                overworldGroup, overworldRooms.CurrentRoom);
+            var overworldSounds = new List<int>();
+            overworldEntities.SoundRequested += overworldSounds.Add;
+            var overworldController = new DungeonKeyDoorController(
+                overworldRooms,
+                overworldInventory,
+                overworldEntities,
+                overworldTreasures,
+                () => 0,
+                overworldSounds.Add);
+            string overworldMessage = string.Empty;
+            overworldController.MessageRequested +=
+                message => overworldMessage = message;
+
+            OracleRoomData overworldRoom = overworldRooms.CurrentRoom;
+            Vector2 sceneryCenter = new(0x68, 0x48);
+            Vector2 linkRightOfScenery =
+                sceneryCenter + Vector2.Right * 10;
+            FailIf(
+                overworldRoom.ActiveCollisions != 0 ||
+                overworldRooms.CurrentDungeonIndex != -1 ||
+                overworldRoom.GetPackedPosition(sceneryCenter) != 0x46 ||
+                overworldRoom.GetMetatile(sceneryCenter) != 0x73,
+                "Past overworld room 1:dc did not retain scenery $73 at $46 " +
+                "when its overworld room-flag bit $08 was set.");
+
+            for (int frame = 0; frame < leftDoor.PushCounter / 2; frame++)
+            {
+                overworldController.UpdatePushAttempt(
+                    linkRightOfScenery, Vector2I.Left, Vector2.Left);
+            }
+            FailIf(
+                overworldMessage.Length != 0 ||
+                overworldController.Opening ||
+                overworldController.RemainingPushFrames != keyBlock.PushCounter ||
+                overworldRoom.GetMetatile(sceneryCenter) != 0x73 ||
+                overworldEntities.Entities<DungeonKeyUseEffect>().Count != 0 ||
+                overworldEntities.Entities<PuzzlePuffEffect>().Count != 0 ||
+                overworldSounds.Count != 0,
+                "Room 1:dc/$46 scenery $73 entered the dungeon key-door path " +
+                "despite active-collision mode 0.");
+            overworldController.Free();
+        }
 
         byte originalRoomFlags = _saveData.GetRoomFlags(group, roomId);
         byte originalNeighborFlags = _saveData.GetRoomFlags(group, neighborRoomId);
@@ -651,13 +737,14 @@ public sealed partial class ValidationRoot
         RemoveChild(bossRoot);
         bossRoot.QueueFree();
 
-        GD.Print("Validated imported dungeon key blocks, small-key and boss-key " +
+        GD.Print("Validated imported collision-scoped dungeon key blocks, small-key and boss-key " +
             "doors, TX_5100/TX_5101/TX_5102 no-key handling, retained Boss Key ownership, " +
             "20/10-update push activation, per-dungeon key consumption and HUD " +
             "key/rupee coexistence, " +
             "key-block and paired dungeon-layout flags, key-block puff/sounds, " +
             "INTERAC_DUNGEON_KEY_SPRITE 8+20 timing, six-update interleaved " +
-            "door opening, and re-entry substitution.");
+            "door opening, re-entry substitution, and room 1:dc/$46 overworld " +
+            "scenery isolation.");
     }
 
     private void ValidateSpiritsGraveEntranceInteractions()

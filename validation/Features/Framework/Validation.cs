@@ -270,6 +270,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemDrops);
         RunIsolatedValidation(ValidateTimePortals);
         RunIsolatedValidation(ValidateEnterPastEvent);
+        RunIsolatedValidation(ValidateCrescentIslandPastStairs);
         RunIsolatedValidation(ValidateHouseWarp);
         RunIsolatedValidation(ValidateCaveWarps);
         RunIsolatedValidation(ValidateMakuTreeSouthExitReveal);

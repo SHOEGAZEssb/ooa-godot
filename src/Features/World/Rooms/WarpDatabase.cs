@@ -19,7 +19,7 @@ public sealed class WarpDatabase
                 [
                     "source-group", "source-room", "source-position", "edge-mask",
                     "source-transition", "dest-group", "dest-room", "dest-position",
-                    "dest-parameter", "dest-transition"
+                    "dest-parameter", "dest-transition", "source-fallback"
                 ],
                 ["source-group", "source-room"],
                 headerRequired: true));
@@ -31,7 +31,8 @@ public sealed class WarpDatabase
                 row.HexByteOrSentinel(2, "*", -1),
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4),
                 row.Decimal(5, 0, 7), row.HexByte(6), row.HexByte(7),
-                row.UnsignedDecimal(8), row.UnsignedDecimal(9));
+                row.UnsignedDecimal(8), row.UnsignedDecimal(9),
+                row.Boolean01(10));
             _warps.Add((warp.SourceGroup, warp.SourceRoom), warp);
             count++;
         }
@@ -58,7 +59,7 @@ public sealed class WarpDatabase
         }
         foreach (Warp candidate in warps)
         {
-            if (candidate.EdgeMask == 0 && candidate.SourcePosition < 0)
+            if (candidate.EdgeMask == 0 && candidate.SourceFallback)
             {
                 warp = candidate;
                 return true;
@@ -117,4 +118,15 @@ public sealed class WarpDatabase
     }
 }
 
-public readonly record struct Warp(int SourceGroup, int SourceRoom, int SourcePosition, int EdgeMask, int SourceTransition, int DestinationGroup, int DestinationRoom, int DestinationPosition, int DestinationParameter, int DestinationTransition);
+public readonly record struct Warp(
+    int SourceGroup,
+    int SourceRoom,
+    int SourcePosition,
+    int EdgeMask,
+    int SourceTransition,
+    int DestinationGroup,
+    int DestinationRoom,
+    int DestinationPosition,
+    int DestinationParameter,
+    int DestinationTransition,
+    bool SourceFallback = false);

@@ -54,6 +54,64 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
     }
 
+    private void ValidateCrescentIslandPastStairs()
+    {
+        const int group = 1;
+        const int room = 0xcd;
+        const int stairPosition = 0x11;
+        const int pointedDefaultPosition = 0x21;
+        const int cavePosition = 0x34;
+        LoadValidationRoom(group, room);
+
+        var warps = new WarpDatabase();
+        Vector2 stairCenter = new(0x18, 0x18);
+        Vector2 caveCenter = new(0x48, 0x38);
+        byte stairTile = _currentRoom.GetMetatile(stairCenter);
+        byte caveTile = _currentRoom.GetMetatile(caveCenter);
+        bool hasStairWarp = warps.TryGetTileWarp(
+            group, room, stairPosition, stairTile, out Warp stairWarp);
+        bool hasCaveWarp = warps.TryGetTileWarp(
+            group, room, cavePosition, caveTile, out Warp caveWarp);
+        FailIf(
+            stairTile != 0xdc || caveTile != 0xee ||
+            !hasStairWarp || !hasCaveWarp ||
+            stairWarp.SourcePosition != pointedDefaultPosition ||
+            !stairWarp.SourceFallback ||
+            stairWarp.DestinationGroup != 2 ||
+            stairWarp.DestinationRoom != 0xce ||
+            stairWarp.DestinationPosition != 0x11 ||
+            stairWarp.DestinationTransition != 1 ||
+            caveWarp.SourcePosition != cavePosition ||
+            caveWarp.SourceFallback ||
+            caveWarp.DestinationGroup != 2 ||
+            caveWarp.DestinationRoom != 0xe3,
+            "Room 1:cd did not resolve stair $11 through " +
+            "warpSource786a's $21 default while preserving exact cave $34.");
+
+        _player.WarpTo(stairCenter, recordSafe: false);
+        bool stairStarted = CheckTileWarp(_player);
+        FailIf(
+            !stairStarted ||
+            !IsTransitioning ||
+            _activeGroup != 2 ||
+            _currentRoom.Id != 0xce ||
+            _transitions.ActiveWarpDestinationPosition != 0x11,
+            "Room 1:cd/$11 down-stair tile $dc did not start its imported " +
+            "warpSource786a default transition to 2:ce/$11 " +
+            $"(started={stairStarted}, transitioning={IsTransitioning}, " +
+            $"active={_activeGroup:x1}:{_currentRoom.Id:x2}, destination=" +
+            $"${_transitions.ActiveWarpDestinationPosition:x2}).");
+
+        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(
+            (WarpFadeFrames - WarpEnterFrames) / 60.0);
+        FailIf(IsTransitioning,
+            "Room 1:cd/$11 stair transition did not finish its destination entry.");
+
+        GD.Print("Validated room 1:cd/$11 stairs through " +
+            "warpSource786a's final-position default and preserved exact $34 cave routing.");
+    }
+
     private void ValidateHouseWarp()
     {
         LoadHouseValidationRoom();
