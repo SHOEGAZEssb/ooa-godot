@@ -270,6 +270,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
 
     private void AdvanceNativeExits()
     {
+        bool completed = false;
         foreach (ThiefState thief in _thieves)
         {
             switch (thief.Stage)
@@ -308,9 +309,20 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
                     break;
                 case NativeStage.FinalWait:
                     if (--thief.Counter == 0)
+                    {
                         Complete();
+                        completed = true;
+                    }
                     break;
             }
+        }
+        if (completed)
+        {
+            // Every placed thief and related accessory has been retired by
+            // this boundary. Release their room-owned nodes before
+            // RoomEntityManager frees them so a later room 1:aa Start cannot
+            // touch disposed actors.
+            _thieves.Clear();
         }
     }
 

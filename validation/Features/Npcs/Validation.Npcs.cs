@@ -361,6 +361,7 @@ public sealed partial class ValidationRoot
             ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
+            ["objects/tokay_island_texts.tsv|\\secret1"] = 1,
             ["objects/troy_house.tsv|\\call(0xff)"] = 16,
             ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
         };
@@ -459,23 +460,23 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 54,
-                [NpcImplementationClassification.SpecializedNative] = 136,
+                [NpcImplementationClassification.OrdinaryGeneric] = 61,
+                [NpcImplementationClassification.SpecializedNative] = 156,
                 [NpcImplementationClassification.EventOwned] = 22,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 251
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 216
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 463 ||
+            records.Count != 455 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 136 specialized, 22 event-owned, and 251 " +
+            "61 ordinary, 156 specialized, 22 event-owned, and 216 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -543,7 +544,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 463 generated NPC records have exactly one " +
+            "Validated all 455 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -721,6 +722,7 @@ public sealed partial class ValidationRoot
             "companionScripts.s:companionScript_subid00Script",
             "companionScripts.s:companionScript_subid03Script",
             "tingle.s:interactionCodec8; scripts.s:tingleScript",
+            "tokay.s:tokayScriptTable; rosa.s:interactionCode68",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "cheval.s:interactionCode6a",
@@ -735,7 +737,8 @@ public sealed partial class ValidationRoot
             "hardhatWorkerSubid00Script",
             "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
-            "shopkeeper.s:lynnaShop:player"
+            "shopkeeper.s:lynnaShop:player",
+            "tokayShopItem.s:interactionCode81"
         ];
         FailIf(
             !_interactions.NpcInteractionHandlerSources.SequenceEqual(

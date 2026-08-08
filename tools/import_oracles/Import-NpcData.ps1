@@ -282,6 +282,9 @@ $interactionAnimationPath =
     Join-Path $Disassembly "data\ages\interactionAnimations.s"
 $interactionAnimationSource = Read-ImportText $interactionAnimationPath
 $npcAnimationTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
+# Keep the per-label tables as an exported stage result for strict consumers;
+# the contiguous stream below additionally supports original cross-label offsets.
+$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
 $interactionAnimationNodes = @(Read-AssemblyNodes $interactionAnimationPath)
 $npcOamPointerStarts = @{}
 $npcOamPointers = [Collections.Generic.List[string]]::new()
@@ -671,6 +674,30 @@ $npcCanFaceBySubid = @{
     '88:1' = $true
 }
 
+# INTERAC_TOKAY keeps its script table at the global tokayScriptTable label
+# instead of the local @...ScriptTable shape consumed by the generic resolver
+# above. Preserve every visible island actor's source-selected initial text
+# explicitly; the specialized runtime owner imports the later branches.
+$tokayInitialTexts = @{
+    0x05 = 0x0a00; 0x06 = 0x0a0b; 0x07 = 0x0a0a
+    0x08 = 0x0a0b; 0x09 = 0x0a0b; 0x0a = 0x0a0b
+    0x0b = 0x0a0e; 0x0d = 0x0a1c; 0x0e = 0x0a37
+    0x0f = 0x0a1d; 0x10 = 0x0a1e; 0x11 = 0x0a40
+    0x12 = 0x0a64; 0x13 = 0x0a65; 0x14 = 0x0a66
+    0x15 = 0x0a60; 0x16 = 0x0a61; 0x17 = 0x0a62
+    0x18 = 0x0a63; 0x19 = 0x0a67; 0x1d = 0x0a68
+    0x1e = 0x0a6a; 0x1f = 0x0a6c
+}
+foreach ($entry in $tokayInitialTexts.GetEnumerator()) {
+    if (-not $allTexts.ContainsKey($entry.Value)) {
+        throw "Could not resolve Tokay text TX_$($entry.Value.ToString('x4'))."
+    }
+    $npcTextBySubid["72`:$([int]$entry.Key)"] = [int]$entry.Value
+}
+foreach ($subid in @(0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x1f)) {
+    $npcCanFaceBySubid["72`:$subid"] = $true
+}
+
 # Every visible character row is denied the generic adapter unless its exact
 # source placement has a traced production owner. This prevents a newly added
 # native or cutscene-only interaction from becoming a solid idle NPC merely
@@ -720,6 +747,14 @@ foreach ($key in @(
     '1:93:42:00:00',
     '1:93:40:01:01',
     '1:94:43:00:01',
+    '0:bd:48:12:00',
+    '0:cd:48:13:00',
+    '0:dd:48:14:00',
+    '1:aa:48:1f:00',
+    '1:ad:48:15:00',
+    '1:bd:48:16:00',
+    '1:cd:48:17:00',
+    '1:dd:48:18:00',
     '2:fd:68:01:00',
     '3:7e:bf:0a:00',
     '3:7f:bf:0b:00',
@@ -765,6 +800,26 @@ foreach ($key in @(
     '2:5e:46:00:00',
     '2:e6:5c:00:00',
     '2:f3:3c:07:00',
+    '0:aa:48:0f:00',
+    '0:aa:48:10:00',
+    '0:bb:48:1e:00',
+    '1:ac:48:11:00',
+    '1:bb:48:0a:00',
+    '1:bb:48:0b:00',
+    '1:cb:48:07:00',
+    '1:da:48:08:00',
+    '2:3f:48:05:00',
+    '2:de:48:0d:00',
+    '2:e4:48:0e:00',
+    '2:e5:48:19:00',
+    '2:e5:48:1a:00',
+    '2:e5:48:1b:00',
+    '2:e5:48:1c:00',
+    '5:ca:48:06:00',
+    '5:cc:48:09:00',
+    '5:e9:48:1d:00',
+    '1:cb:68:00:00',
+    '1:ba:c4:04:00',
     '2:ee:89:00:00',
     '2:ee:89:01:00',
     '2:ee:89:06:00',
@@ -839,8 +894,8 @@ foreach ($key in @(
     }
 }
 
-if ($ordinaryNpcImplementationKeys.Count -ne 53 -or
-    $specializedNpcImplementationKeys.Count -ne 62 -or
+if ($ordinaryNpcImplementationKeys.Count -ne 61 -or
+    $specializedNpcImplementationKeys.Count -ne 82 -or
     $eventOwnedNpcImplementationKeys.Count -ne 22) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -958,7 +1013,8 @@ function New-NpcDataRow(
 # position from save state are expanded below into mutually exclusive records.
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
-$mainObjectLines = Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s")
+$mainObjectLines = Select-CleanUsAssemblyLines (
+    Read-ImportLines (Join-Path $Disassembly "objects\ages\mainData.s"))
 $mainObjectSource = $mainObjectLines -join "`n"
 $companionTutorialSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\companionTutorial.s')
@@ -2023,8 +2079,15 @@ foreach ($line in $mainObjectLines) {
     $row = New-NpcDataRow $currentGroup $currentRoom $id $subid $y $x $var03
     if ($row) { $npcRows.Add($row) }
 }
-if ($npcRows.Count -ne 383) {
-    throw "Expected 382 positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 375) {
+    throw "Expected 374 clean-US positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+}
+$room1adTokayRows = @($npcRows | Where-Object {
+    $_ -match '^1\tad\t48\t15\t'
+})
+if ($room1adTokayRows.Count -ne 1 -or
+    $room1adTokayRows[0] -notmatch '^1\tad\t48\t15\t56\t68\t00\t') {
+    throw 'Room 1:ad must contain only the clean-US Tokay `$48:$15 at `$56,$68.'
 }
 $linkedGhiniRow = @($npcRows | Where-Object { $_ -match '^0\t5d\tcb\t00\t68\t88\t' })
 if ($linkedGhiniRow.Count -ne 1 -or
@@ -2050,6 +2113,351 @@ if ($introMonkeyRows.Count -ne 2 -or
     ($introMonkeyRows[0] -split "`t")[11] -ne '6' -or
     ($introMonkeyRows[1] -split "`t")[11] -ne '7') {
     throw "Room 0:5a's intro monkeys no longer resolve TX_5700/TX_5701 and animations `$06/`$07."
+}
+
+# Tokay Island's visible `$48 actors share one graphics family but split into
+# ordinary dialogue, script/native NPCs, the trading-hut `$81 items, and the
+# dynamic Wild Tokay controller. Export the common source facts once so those
+# owners retain the original subid dispatch without parsing the disassembly at
+# runtime.
+$tokaySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\tokay.s')
+$tokayScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$tokayHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$tokayShopSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\tokayShopItem.s')
+$wildTokaySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\wildTokayController.s')
+$wildTokayMeatSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\tokayMeat.s')
+$wildTokayObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+$agesWramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
+$tokayShopCollisionMatch = [regex]::Match(
+    $tokayShopSource,
+    '(?ms)^@state0:.*?ld a,\$(?<radius>[0-9a-f]{2})\s+call objectSetCollideRadius.*?^@state1:\s+call interactionAnimateAsNpc')
+if ($tokaySource -notmatch
+        '(?ms)^interactionCode48:.*?^@initSubid05:.*?^@initSubid1f:.*?^tokayState1:.*?^tokayScriptTable:' -or
+    $tokaySource -notmatch
+        '(?ms)^@textIndices:\s+\.db <TX_0a64.*?\.db <TX_0a63' -or
+    $tokaySource -notmatch
+        '(?ms)^tokayItemGraphics:\s+\.db \$10 \$1b \$68 \$31 \$20' -or
+    $tokayHelperSource -notmatch
+        '(?ms)^tokayGiveItemToLink:.*?ld b,\$06.*?cp \$06.*?jr z,\+.*?ld b,\$01.*?ld \(hl\),b.*?cp \$0a' -or
+    $tokayScriptSource -notmatch
+        '(?ms)^tokayHoldingItemScript:.*?^tokayRunningFromRosaScript:.*?^tokayGameManagerScript_past:.*?^tokayShopkeeperScript:.*?^tokayWithDimitri1Script:.*?^tokayWithDimitri2Script:.*?^tokayAtSeedlingPlotScript:.*?^tokayGameManagerScript_present:' -or
+    $tokayHelperSource -notmatch
+        '(?ms)^tokayWithShieldUpgradeScript:.*?^tokayExplainingVinesScript:.*?^tokayCookScript:' -or
+    $tokayShopSource -notmatch
+        '(?ms)^interactionCode81:.*?^@initialShopTreasures:\s+\.db TREASURE_FEATHER, TREASURE_BRACELET.*?^@seedsNeededToBuyItems:.*?^@boughtItemGlobalflags:' -or
+    -not $tokayShopCollisionMatch.Success -or
+    $wildTokaySource -notmatch
+        '(?ms)^interactionCode70:.*?^@var3bValues:\s+\.db \$05 \$05 \$05 \$06 \$07.*?^@tilesToReplaceOnStart:.*?^@data_5898:.*?^@table:' -or
+    $wildTokayMeatSource -notmatch
+        '(?ms)^interactionCode8c:.*?ld \(hl\),30.*?objectSetCollideRadius.*?ld bc,\$3850.*?ld \(hl\),-\$40.*?^@state2:.*?^@state3:' -or
+    $wildTokayObjectSource -notmatch
+        '(?ms)^wildTokayObjectTable:.*?^@tokayFromLeft:.*?\$48 \$0c \$f8 \$18.*?^@tokayFromRight:.*?\$48 \$0c \$f8 \$88.*?^@tokayOnBothSides:' -or
+    $agesWramSource -notmatch '(?m)^wDimitriState: ; \$c647/' -or
+    $agesWramSource -notmatch '(?m)^wWildTokayGameLevel: ; \$c6ea') {
+    throw 'Tokay Island NPC, shop, or Wild Tokay source contract changed.'
+}
+$tokayShopCollisionRadius = [Convert]::ToInt32(
+    $tokayShopCollisionMatch.Groups['radius'].Value, 16)
+if ($tokayShopCollisionRadius -ne 0x06) {
+    throw "INTERAC_TOKAY_SHOP_ITEM collision radius is no longer `$06."
+}
+
+$tokayTextRows = [Collections.Generic.List[string]]::new()
+$tokayTextRows.Add("# text-id`tutf8-base64")
+
+function Resolve-TokayText(
+    [int]$textId,
+    [Collections.Generic.HashSet[int]]$visited
+) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Tokay Island TX_$($textId.ToString('x4'))."
+    }
+    if ($visited.Contains($textId)) {
+        throw "Tokay Island TX_$($textId.ToString('x4')) has recursive text control flow."
+    }
+    [void]$visited.Add($textId)
+    $message = [string]$allTexts[$textId]
+    while ($true) {
+        $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
+        if (-not $call.Success) { break }
+        $calledId = [Convert]::ToInt32($call.Groups['id'].Value, 16)
+        $calledText = Resolve-TokayText $calledId $visited
+        $message = $message.Substring(0, $call.Index) + $calledText +
+            $message.Substring($call.Index + $call.Length)
+    }
+    $jump = [regex]::Match($message, '\\jump\(TX_(?<id>[0-9a-f]{4})\)')
+    if ($jump.Success) {
+        $jumpedId = [Convert]::ToInt32($jump.Groups['id'].Value, 16)
+        $message = $message.Substring(0, $jump.Index) +
+            (Resolve-TokayText $jumpedId $visited)
+    }
+    [void]$visited.Remove($textId)
+    return $message
+}
+
+$tokayTextIds = @(
+    0x0a00..0x0a3b
+    0x0a40..0x0a53
+    0x0a60..0x0a6c
+    0x1c10..0x1c12
+) | Sort-Object -Unique
+foreach ($textId in $tokayTextIds) {
+    if (-not $allTexts.ContainsKey($textId)) {
+        throw "Could not resolve Tokay Island TX_$($textId.ToString('x4'))."
+    }
+    $resolved = Resolve-TokayText $textId (
+        [Collections.Generic.HashSet[int]]::new())
+    $encoded = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($resolved))
+    $tokayTextRows.Add("$($textId.ToString('x4'))`t$encoded")
+}
+
+$tokayAnimationRows = [Collections.Generic.List[string]]::new()
+$tokayAnimationRows.Add("# animation`tencoded")
+foreach ($animation in 0x00..0x09) {
+    $encoded = Resolve-NpcAnimation 0x48 $animation
+    if ([string]::IsNullOrWhiteSpace($encoded)) {
+        throw "Could not resolve INTERAC_TOKAY animation `$$($animation.ToString('x2'))."
+    }
+    $tokayAnimationRows.Add("$($animation.ToString('x2'))`t$encoded")
+}
+
+# The southern Crescent Island entrance uses two INTERAC_DECORATION `$80
+# eyeballs followed by the invisible INTERAC_PIRATE `$c4:$04 socket. Keep the
+# visuals and the socket's native sequence separate from the visible Tokay
+# NPC/event tables.
+$decorationSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\decoration.s')
+$pirateSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\pirate.s')
+$pirateScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$pirateHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$tokayEntranceObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\mainData.s')
+if ($decorationSource -notmatch
+        '(?ms)^interactionCode80:.*?^@deleteIfRoomFlagBit7Unset:.*?bit 7,a' -or
+    $pirateSource -notmatch
+        '(?ms)^@subid4Init:.*?ROOMFLAG_80.*?^@state3:.*?^@resetPushCounter:.*?ld a,10' -or
+    $pirateScriptSource -notmatch
+        '(?ms)^pirateSubid4Script:.*?TREASURE_TOKAY_EYEBALL.*?^pirateSubid4Script_insertEyeball:.*?ROOMFLAG_80.*?INTERAC_DECORATION, \$06, \$52, \$6a.*?wait 60.*?SND_OPENING.*?shakescreen 160.*?wait 120.*?pirate_openEyeballCave.*?wait 60.*?loseTreasure, TREASURE_TOKAY_EYEBALL' -or
+    $pirateHelperSource -notmatch
+        '(?ms)^pirate_openEyeballCave:.*?ld c,\$54.*?ld a,\$a2.*?ld a,\$ef.*?ld a,\$a4.*?SND_DOORCLOSE.*?INTERAC_PUFF' -or
+    $tokayEntranceObjectSource -notmatch
+        '(?ms)^group1MapbaObjectData:\s+obj_Interaction \$80 \$05 \$52 \$46\s+obj_Interaction \$80 \$06 \$52 \$6a\s+obj_Interaction \$c4 \$04 \$5a \$68') {
+    throw 'Southern Tokay entrance eye/socket source contract changed.'
+}
+$tokayEntranceEyeRows = [Collections.Generic.List[string]]::new()
+$tokayEntranceEyeRows.Add(
+    '# order`tgroup`troom`tid`tsubid`ty`tx`troom-flag-required`tsprite`ttile-base`tpalette`tanimation`tsource'.Replace(
+        '`t', "`t"))
+$tokayEntranceEyePlacements = @(
+    @(0, 0x05, 0x52, 0x46, 0x00),
+    @(1, 0x06, 0x52, 0x6a, 0x80)
+)
+foreach ($placement in $tokayEntranceEyePlacements) {
+    $subid = [int]$placement[1]
+    $graphic = $interactionGraphics["128`:$subid"]
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve INTERAC_DECORATION `$80:`$$($subid.ToString('x2')) visual."
+    }
+    $animation = Resolve-NpcAnimation 0x80 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve INTERAC_DECORATION `$80:`$$($subid.ToString('x2')) animation."
+    }
+    $sprite = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($sprite)
+    $tokayEntranceEyeRows.Add((@(
+        $placement[0], 1, 'ba', '80', $subid.ToString('x2'),
+        ([int]$placement[2]).ToString('x2'),
+        ([int]$placement[3]).ToString('x2'),
+        ([int]$placement[4]).ToString('x2'),
+        $sprite, $graphic.TileBase.ToString('x2'),
+        $graphic.Palette.ToString('x2'), $animation,
+        "objects/ages/mainData.s:group1MapbaObjectData[INTERAC_DECORATION `$80:`$$($subid.ToString('x2'))]"
+    ) -join "`t"))
+}
+$tokayEyeballSlotRows = [Collections.Generic.List[string]]::new()
+$tokayEyeballSlotRows.Add(
+    '# group`troom`tid`tsubid`troom-flag`ttreasure`tpush-delay`teye-y`teye-x`teye-wait`tshake-frames`tshake-wait`topen-wait`topen-position`topen-tiles`tpuff-y`tpuff-x`tsource'.Replace(
+        '`t', "`t"))
+$tokayEyeballSlotRows.Add(
+    '1`tba`tc4`t04`t80`t4f`t10`t52`t6a`t60`t160`t120`t60`t54`ta2,ef,a4`t58`t58`tobject_code/ages/interactions/pirate.s:@subid4Init/@state3;scripts/ages/scripts.s:pirateSubid4Script_insertEyeball;scripts/ages/scriptHelper.s:pirate_openEyeballCave'.Replace(
+        '`t', "`t"))
+
+$tokayShopRows = [Collections.Generic.List[string]]::new()
+$tokayShopRows.Add(
+    "# order`tplaced-subid`ty`tx`tsprite`ttile-base`tpalette`tanimation")
+$tokayShopPlacements = @(
+    @(0, 0x00, 0x40, 0x40),
+    @(1, 0x01, 0x40, 0x60),
+    @(2, 0x04, 0x40, 0x50),
+    @(-1, 0x02, 0x00, 0x00),
+    @(-1, 0x03, 0x00, 0x00),
+    @(-1, 0x05, 0x00, 0x00),
+    @(-1, 0x06, 0x00, 0x00)
+)
+foreach ($placement in $tokayShopPlacements) {
+    $subid = [int]$placement[1]
+    $graphic = $interactionGraphics["129`:$subid"]
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve INTERAC_TOKAY_SHOP_ITEM `$$($subid.ToString('x2')) visual."
+    }
+    $animation = Resolve-NpcAnimation 0x81 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve INTERAC_TOKAY_SHOP_ITEM `$$($subid.ToString('x2')) animation."
+    }
+    $spriteName = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($spriteName)
+    $tokayShopRows.Add((@(
+        $placement[0], $subid.ToString('x2'),
+        ([int]$placement[2]).ToString('x2'),
+        ([int]$placement[3]).ToString('x2'),
+        $spriteName, $graphic.TileBase.ToString('x2'),
+        $graphic.Palette.ToString('x2'), $animation
+    ) -join "`t"))
+}
+
+$tokayMeatGraphic = $interactionGraphics['140:0']
+if ($null -eq $tokayMeatGraphic -or
+    -not $gfxNames.ContainsKey($tokayMeatGraphic.Gfx)) {
+    throw 'Could not resolve INTERAC_TOKAY_MEAT `$8c:$00 visual.'
+}
+$tokayMeatAnimation = Resolve-NpcAnimation 0x8c $tokayMeatGraphic.DefaultAnimation
+if ([string]::IsNullOrWhiteSpace($tokayMeatAnimation)) {
+    throw 'Could not resolve INTERAC_TOKAY_MEAT `$8c:$00 animation.'
+}
+$tokayMeatSprite = $gfxNames[$tokayMeatGraphic.Gfx]
+[void]$npcSpriteNames.Add($tokayMeatSprite)
+
+$tokayConstantRows = @(
+    '# key`tvalue`ttext',
+    'group-past-manager`t2`t-', 'room-past-manager`t222`t-',
+    'group-present-manager`t2`t-', 'room-present-manager`t229`t-',
+    'group-shop`t2`t-', 'room-shop`t228`t-',
+    'tokay-id`t72`t-', 'shop-item-id`t129`t-',
+    "shop-item-collision-radius`t$tokayShopCollisionRadius`t-",
+    'wild-controller-id`t112`t-', 'wild-participant-subid`t12`t-',
+    'room-flag-item`t32`t-', 'room-flag-event`t64`t-',
+    'room-flag-secondary`t128`t-',
+    'dimitri-state-address`t50759`t-',
+    'wild-level-address`t50922`t-',
+    "treasure-shield`t$($treasureIds['TREASURE_SHIELD'])`t-",
+    "treasure-bombs`t$($treasureIds['TREASURE_BOMBS'])`t-",
+    "treasure-sword`t$($treasureIds['TREASURE_SWORD'])`t-",
+    "treasure-harp`t$($treasureIds['TREASURE_HARP'])`t-",
+    "treasure-shovel`t$($treasureIds['TREASURE_SHOVEL'])`t-",
+    "treasure-bracelet`t$($treasureIds['TREASURE_BRACELET'])`t-",
+    "treasure-feather`t$($treasureIds['TREASURE_FEATHER'])`t-",
+    "treasure-seed-satchel`t$($treasureIds['TREASURE_SEED_SATCHEL'])`t-",
+    "treasure-flippers`t$($treasureIds['TREASURE_FLIPPERS'])`t-",
+    "treasure-ember-seeds`t$($treasureIds['TREASURE_EMBER_SEEDS'])`t-",
+    "treasure-scent-seeds`t$($treasureIds['TREASURE_SCENT_SEEDS'])`t-",
+    "treasure-mystery-seeds`t$($treasureIds['TREASURE_MYSTERY_SEEDS'])`t-",
+    "treasure-trade-item`t$($treasureIds['TREASURE_TRADEITEM'])`t-",
+    "treasure-scent-seedling`t$($treasureIds['TREASURE_SCENT_SEEDLING'])`t-",
+    "global-bought-feather`t$($globalFlagValues['GLOBALFLAG_BOUGHT_FEATHER_FROM_TOKAY'])`t-",
+    "global-bought-bracelet`t$($globalFlagValues['GLOBALFLAG_BOUGHT_BRACELET_FROM_TOKAY'])`t-",
+    "global-finished-game`t$($globalFlagValues['GLOBALFLAG_FINISHEDGAME'])`t-",
+    "global-began-secret`t$($globalFlagValues['GLOBALFLAG_BEGAN_TOKAY_SECRET'])`t-",
+    "global-done-secret`t$($globalFlagValues['GLOBALFLAG_DONE_TOKAY_SECRET'])`t-",
+    "sound-get-item`t$($soundIds['SND_GETITEM'])`t-",
+    "sound-get-seed`t$($soundIds['SND_GETSEED'])`t-",
+    "sound-jump`t$($soundIds['SND_JUMP'])`t-",
+    "sound-open-chest`t$($soundIds['SND_OPENCHEST'])`t-",
+    "sound-whistle`t$($soundIds['SND_WHISTLE'])`t-",
+    "sound-success`t$($soundIds['SND_FILLED_HEART_CONTAINER'])`t-",
+    "sound-error`t$($soundIds['SND_ERROR'])`t-",
+    "sound-fall`t$($soundIds['SND_FALLINHOLE'])`t-",
+    "sound-land`t$($soundIds['SND_BOMB_LAND'])`t-",
+    "meat-sprite`t0`t$tokayMeatSprite",
+    "meat-tile-base`t$($tokayMeatGraphic.TileBase)`t-",
+    "meat-palette`t$($tokayMeatGraphic.Palette)`t-",
+    "meat-animation`t0`t$tokayMeatAnimation",
+    'meat-start-y`t56`t-', 'meat-start-x`t80`t-',
+    'meat-start-z`t-64`t-', 'meat-fall-delay`t30`t-',
+    'meat-collision-radius`t8`t-', 'meat-drop-life`t20`t-',
+    'participant-left-x`t24`t-', 'participant-right-x`t136`t-',
+    'participant-start-y`t248`t-',
+    'game-link-y`t72`t-', 'game-link-x`t80`t-',
+    'game-spawn-delay`t60`t-', 'game-start-delay`t30`t-'
+) | ForEach-Object { $_.Replace('`t', "`t") }
+
+$tokayHolderRows = [Collections.Generic.List[string]]::new()
+$tokayHolderRows.Add(
+    '# subid`ttreasure`titem-graphic`tgrant-object`tgrant-subid`tgrant-parameter`titem-sprite`titem-tile-base`titem-palette`titem-animation'.Replace('`t', "`t"))
+$tokayHolderSpecs = @(
+    @{ Subid = 0x06; Treasure = 'TREASURE_SWORD'; ItemGraphic = 0x10; GrantObject = 'TREASURE_OBJECT_SWORD_06' },
+    @{ Subid = 0x07; Treasure = 'TREASURE_SHOVEL'; ItemGraphic = 0x1b; GrantObject = 'TREASURE_OBJECT_SHOVEL_01' },
+    @{ Subid = 0x08; Treasure = 'TREASURE_HARP'; ItemGraphic = 0x68; GrantObject = 'TREASURE_OBJECT_HARP_01' },
+    @{ Subid = 0x09; Treasure = 'TREASURE_FLIPPERS'; ItemGraphic = 0x31; GrantObject = 'TREASURE_OBJECT_FLIPPERS_01' },
+    @{ Subid = 0x0a; Treasure = 'TREASURE_SEED_SATCHEL'; ItemGraphic = 0x20; GrantObject = 'TREASURE_OBJECT_SEED_SATCHEL_01' }
+)
+foreach ($spec in $tokayHolderSpecs) {
+    $treasure = [int]$treasureIds[$spec.Treasure]
+    $grant = $treasureObjectRecords[$spec.GrantObject]
+    $expectedGrantSubid = if ([int]$spec.Subid -eq 0x06) { 0x06 } else { 0x01 }
+    if ($null -eq $grant -or [int]$grant.Treasure -ne $treasure -or
+        [int]$grant.Subid -ne $expectedGrantSubid) {
+        throw "Could not resolve $($spec.GrantObject) for Tokay holder `$$(([int]$spec.Subid).ToString('x2'))."
+    }
+
+    $graphic = $interactionGraphics["99:$([int]$spec.ItemGraphic)"]
+    if ($null -eq $graphic -or
+        ($graphic.Gfx -ne 0 -and -not $gfxNames.ContainsKey($graphic.Gfx))) {
+        throw "Could not resolve Tokay holder accessory `$$(([int]$spec.ItemGraphic).ToString('x2'))."
+    }
+    $animation = Resolve-NpcAnimation 0x63 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve Tokay holder accessory animation `$$($graphic.DefaultAnimation.ToString('x2'))."
+    }
+    $sprite = if ($graphic.Gfx -eq 0) {
+        'spr_common_sprites'
+    } else {
+        $gfxNames[$graphic.Gfx]
+    }
+    [void]$npcSpriteNames.Add($sprite)
+    $tokayHolderRows.Add((@(
+        ([int]$spec.Subid).ToString('x2'), $treasure.ToString('x2'),
+        ([int]$spec.ItemGraphic).ToString('x2'), [string]$spec.GrantObject,
+        ([int]$grant.Subid).ToString('x2'),
+        ([int]$grant.Parameter).ToString('x2'), $sprite,
+        ([int]$graphic.TileBase).ToString('x2'),
+        ([int]$graphic.Palette).ToString('x2'), $animation
+    ) -join "`t"))
+}
+
+$wildTokayPatternRows = [Collections.Generic.List[string]]::new()
+$wildTokayPatternRows.Add("# level`trandom-index`tpattern`tleft-count`tright-count")
+$wildTokayPatterns = @(
+    @(1, 0, 0, 2), @(2, 0, 1, 0), @(2, 1, 0, 1), @(1, 0, 2, 2),
+    @(1, 1, 2, 2), @(2, 2, 1, 1), @(2, 3, 1, 0), @(1, 3, 2, 2)
+)
+$wildTokayRandomPatterns = @(
+    @(0,0,0,1,1,1,2,2,2,3,3,3,4,4,5,5),
+    @(0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,6),
+    @(0,1,1,2,2,3,3,4,4,4,5,5,6,6,6,7),
+    @(1,2,3,3,4,4,4,5,5,5,5,0,0,6,7,7),
+    @(3,4,4,4,5,5,5,5,5,2,1,0,6,7,7,7)
+)
+for ($level = 0; $level -lt $wildTokayRandomPatterns.Count; $level++) {
+    for ($randomIndex = 0; $randomIndex -lt 16; $randomIndex++) {
+        $pattern = [int]$wildTokayRandomPatterns[$level][$randomIndex]
+        $values = $wildTokayPatterns[$pattern]
+        $wildTokayPatternRows.Add(
+            "$level`t$randomIndex`t$pattern`t$($values[0]),$($values[1])`t$($values[2]),$($values[3])")
+    }
+}
+if ($wildTokayPatternRows.Count -ne 81) {
+    throw "Expected 80 Wild Tokay random pattern rows, got $($wildTokayPatternRows.Count - 1)."
 }
 
 # Room 2:ee is Vasu Jewelers. Preserve the complete placed object order, the
@@ -3304,8 +3712,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 392) {
-    throw "Expected 382 positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 384) {
+    throw "Expected 374 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -3313,10 +3721,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
-    $npcImplementationCounts['specialized-native'] -ne 64 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 61 -or
+    $npcImplementationCounts['specialized-native'] -ne 84 -or
     $npcImplementationCounts['event-owned'] -ne 22 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 251 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 216 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5100,6 +5508,22 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 Write-GeneratedTable($npcPath, $npcRows)
+$tokayConstantsPath = Join-Path $destination "objects\tokay_island_constants.tsv"
+Write-GeneratedTable($tokayConstantsPath, $tokayConstantRows)
+$tokayTextPath = Join-Path $destination "objects\tokay_island_texts.tsv"
+Write-GeneratedTable($tokayTextPath, $tokayTextRows)
+$tokayAnimationPath = Join-Path $destination "objects\tokay_island_animations.tsv"
+Write-GeneratedTable($tokayAnimationPath, $tokayAnimationRows)
+$tokayEntranceEyePath = Join-Path $destination "objects\tokay_entrance_eyes.tsv"
+Write-GeneratedTable($tokayEntranceEyePath, $tokayEntranceEyeRows)
+$tokayEyeballSlotPath = Join-Path $destination "objects\tokay_eyeball_slot.tsv"
+Write-GeneratedTable($tokayEyeballSlotPath, $tokayEyeballSlotRows)
+$tokayHolderPath = Join-Path $destination "objects\tokay_item_holders.tsv"
+Write-GeneratedTable($tokayHolderPath, $tokayHolderRows)
+$tokayShopPath = Join-Path $destination "objects\tokay_shop_items.tsv"
+Write-GeneratedTable($tokayShopPath, $tokayShopRows)
+$wildTokayPatternPath = Join-Path $destination "objects\wild_tokay_patterns.tsv"
+Write-GeneratedTable($wildTokayPatternPath, $wildTokayPatternRows)
 $companionTutorialPath = Join-Path $destination "objects\companion_tutorials.tsv"
 Write-GeneratedTable(
     $companionTutorialPath,

@@ -56,6 +56,14 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   destination continues into the first Tokay theft cutscene with the imported
   washed-up Link animation, exact item-loss cadence, thief movement and exits,
   completion flag, respawn update, music restoration, and input release.
+- Non-dungeon Tokay Island NPCs and interactions: ordinary island dialogue,
+  stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
+  trading hut, and past/present Wild Tokay gameplay with imported patterns and
+  prizes; all five source-placed vine sprouts retain and restore their terrain
+  while pushing and persist their room positions, and the southern entrance
+  Eyeball/socket sequence places the second eye and opens the doorway with the
+  original timing. The separate Dimitri mount controller and linked-secret
+  input/return generation remain partial shared-system boundaries.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

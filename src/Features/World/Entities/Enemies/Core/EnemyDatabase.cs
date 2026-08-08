@@ -25,6 +25,7 @@ public sealed class EnemyDatabase
     internal IReadOnlyDictionary<int, Color[]> ColorChangingGelPalettes =>
         _colorChangingGelPalettes;
     internal EnemyHandlerRegistry EnemyHandlers { get; }
+    internal VineSproutDatabase VineSprouts { get; } = new();
 
     public EnemyDatabase()
     {
@@ -750,6 +751,8 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.Crow =>
             descriptor.Id == 0x41 &&
             _crowDefinitions.ContainsKey(descriptor.SubId),
+        EnemyHandlerKind.VineSprout =>
+            descriptor.Id == 0x62 && VineSprouts.HasSubId(descriptor.SubId),
         EnemyHandlerKind.Gel =>
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>
@@ -847,8 +850,11 @@ public readonly record struct RoomObjectRecord(
     int ConditionMask)
 {
     public string Source =>
-        $"objects/ages/enemyData.s:" +
-        $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]";
+        Id == 0x62
+            ? $"objects/ages/mainData.s:" +
+                $"group{Group:x1}Map{Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
+            : $"objects/ages/enemyData.s:" +
+                $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]";
 }
 
 public enum RoomObjectKind

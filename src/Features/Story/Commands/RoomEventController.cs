@@ -23,6 +23,16 @@ public sealed class RoomEventController
     private readonly RaftonEvent _rafton;
     private readonly RaftwreckEvent _raftwreck;
     private readonly TokayTheftEvent _tokayTheft;
+    private readonly TokayCookEvent _tokayCook;
+    private readonly TokayHoldingItemEvent _tokayHoldingItem;
+    private readonly TokayRunningFromRosaEvent _tokayRunningFromRosa;
+    private readonly TokayDimitriEvent _tokayDimitri;
+    private readonly TokaySeedlingPlotEvent _tokaySeedlingPlot;
+    private readonly TokayShieldUpgradeEvent _tokayShieldUpgrade;
+    private readonly TokayVineExplanationEvent _tokayVineExplanation;
+    private readonly RosaShovelEvent _rosaShovel;
+    private readonly TokayTradingEvent _tokayTrading;
+    private readonly WildTokayGameEvent _wildTokayGame;
     private readonly DepressedBoyEvent _depressedBoy;
     private readonly ToiletHandEvent _toiletHand;
     private readonly PoeEvent _poe;
@@ -101,6 +111,21 @@ public sealed class RoomEventController
         _rafton = new RaftonEvent(_context);
         _raftwreck = new RaftwreckEvent(_context);
         _tokayTheft = new TokayTheftEvent(_context);
+        var tokayIslandDatabase = new TokayIslandDatabase();
+        _tokayCook = new TokayCookEvent(_context, tokayIslandDatabase);
+        _tokayHoldingItem = new TokayHoldingItemEvent(_context, tokayIslandDatabase);
+        _tokayRunningFromRosa = new TokayRunningFromRosaEvent(
+            _context, tokayIslandDatabase);
+        _tokayDimitri = new TokayDimitriEvent(_context, tokayIslandDatabase);
+        _tokaySeedlingPlot = new TokaySeedlingPlotEvent(
+            _context, tokayIslandDatabase);
+        _tokayShieldUpgrade = new TokayShieldUpgradeEvent(
+            _context, tokayIslandDatabase);
+        _tokayVineExplanation = new TokayVineExplanationEvent(
+            _context, tokayIslandDatabase);
+        _rosaShovel = new RosaShovelEvent(_context, tokayIslandDatabase);
+        _tokayTrading = new TokayTradingEvent(_context, tokayIslandDatabase);
+        _wildTokayGame = new WildTokayGameEvent(_context, tokayIslandDatabase);
         _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);
@@ -161,6 +186,16 @@ public sealed class RoomEventController
             _ralphAfterRafton,
             _raftwreck,
             _tokayTheft,
+            _tokayCook,
+            _tokayHoldingItem,
+            _tokayRunningFromRosa,
+            _tokayDimitri,
+            _tokaySeedlingPlot,
+            _tokayShieldUpgrade,
+            _tokayVineExplanation,
+            _rosaShovel,
+            _tokayTrading,
+            _wildTokayGame,
             _rafton,
             _depressedBoy,
             _toiletHand,
@@ -211,6 +246,17 @@ public sealed class RoomEventController
                 "tingle.s:interactionCodec8; scripts.s:tingleScript",
                 (target, _) => _tingle.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
+                "tokay.s:tokayScriptTable; rosa.s:interactionCode68",
+                (target, _) => _tokayCook.TryInteractNpc(target.Npc) ||
+                    _tokayHoldingItem.TryInteractNpc(target.Npc) ||
+                    _wildTokayGame.TryInteractNpc(target.Npc) ||
+                    _tokayTrading.TryInteractNpc(target.Npc) ||
+                    _tokayDimitri.TryInteractNpc(target.Npc) ||
+                    _tokaySeedlingPlot.TryInteractNpc(target.Npc) ||
+                    _tokayShieldUpgrade.TryInteractNpc(target.Npc) ||
+                    _tokayVineExplanation.TryInteractNpc(target.Npc) ||
+                    _rosaShovel.TryInteractNpc(target.Npc)),
+            NpcInteractionHandler.ForNpc(
                 "makuTree.s:interactionCode87Subid02",
                 (target, _) => _makuTreeSaved.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
@@ -239,7 +285,10 @@ public sealed class RoomEventController
                 (target, _) => _dekuForestPalace.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForPlayer(
                 "shopkeeper.s:lynnaShop:player",
-                _lynnaShop.TryInteractPlayer)
+                _lynnaShop.TryInteractPlayer),
+            NpcInteractionHandler.ForPlayer(
+                "tokayShopItem.s:interactionCode81",
+                _tokayTrading.TryInteractPlayer)
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
         entities.ObjectFellInHole += NotifyObjectFellInHole;
@@ -283,6 +332,18 @@ public sealed class RoomEventController
     internal RaftonEvent Rafton => _rafton;
     internal RaftwreckEvent Raftwreck => _raftwreck;
     internal TokayTheftEvent TokayTheft => _tokayTheft;
+    internal TokayCookEvent TokayCook => _tokayCook;
+    internal TokayHoldingItemEvent TokayHoldingItem => _tokayHoldingItem;
+    internal TokayRunningFromRosaEvent TokayRunningFromRosa =>
+        _tokayRunningFromRosa;
+    internal TokayDimitriEvent TokayDimitri => _tokayDimitri;
+    internal TokaySeedlingPlotEvent TokaySeedlingPlot => _tokaySeedlingPlot;
+    internal TokayShieldUpgradeEvent TokayShieldUpgrade => _tokayShieldUpgrade;
+    internal TokayVineExplanationEvent TokayVineExplanation =>
+        _tokayVineExplanation;
+    internal RosaShovelEvent RosaShovel => _rosaShovel;
+    internal TokayTradingEvent TokayTrading => _tokayTrading;
+    internal WildTokayGameEvent WildTokayGame => _wildTokayGame;
     internal DepressedBoyEvent DepressedBoy => _depressedBoy;
     internal ToiletHandEvent ToiletHand => _toiletHand;
     internal PoeEvent Poe => _poe;
@@ -346,6 +407,16 @@ public sealed class RoomEventController
         _ralphAfterRafton.MenusDisabled ||
         _raftwreck.MenusDisabled ||
         _tokayTheft.MenusDisabled ||
+        _tokayCook.HasState ||
+        _tokayHoldingItem.HasState ||
+        _tokayRunningFromRosa.HasState ||
+        _tokayDimitri.HasState ||
+        _tokaySeedlingPlot.HasState ||
+        _tokayShieldUpgrade.HasState ||
+        _tokayVineExplanation.HasState ||
+        _rosaShovel.HasState ||
+        _tokayTrading.HasState ||
+        _wildTokayGame.HasState ||
         _dekuForestSoldier.MenusDisabled ||
         _dekuForestPalace.MenusDisabled ||
         _rickyGloves.MenusDisabled;
@@ -455,6 +526,8 @@ public sealed class RoomEventController
         }
         if (HasEventState)
             CancelAll();
+
+        _wildTokayGame.OnRoomLoaded(group, room);
 
         foreach (IRoomEvent roomEvent in _eventsByPriority)
         {

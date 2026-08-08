@@ -156,6 +156,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _pushBlocks.UpdatePushAttempt(
             position, facing, resolvedInput,
             _inventory.BraceletLevel);
+        _entities.UpdatePushableEntities(position, facing, resolvedInput);
         _keyDoors.UpdatePushAttempt(position, facing, resolvedInput);
         _keyholes.UpdatePushAttempt(position, facing, resolvedInput);
     }

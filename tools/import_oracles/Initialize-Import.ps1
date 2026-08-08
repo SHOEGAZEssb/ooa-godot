@@ -115,6 +115,61 @@ function Read-ImportLines([string]$path) {
     return $lines
 }
 
+# The supported ROM is the non-Japanese US build. Assembly source still keeps
+# both REGION_JP branches, so consumers which parse object rows directly must
+# select the same branch rgbasm does before interpreting those rows.
+function Select-CleanUsAssemblyLines([string[]]$lines) {
+    $selected = [Collections.Generic.List[string]]::new()
+    $conditionals = [Collections.Generic.List[object]]::new()
+    $includeLine = $true
+
+    foreach ($line in $lines) {
+        if ($line -match '^\s*\.(?<directive>ifdef|ifndef)\s+(?<symbol>[A-Za-z0-9_]+)\s*$') {
+            if ($Matches['symbol'] -ne 'REGION_JP') {
+                throw "Unsupported clean-US assembly conditional: $line"
+            }
+            $conditionTrue = $Matches['directive'] -eq 'ifndef'
+            $conditionals.Add([pscustomobject]@{
+                ParentIncluded = $includeLine
+                ConditionTrue = $conditionTrue
+                SawElse = $false
+            })
+            $includeLine = $includeLine -and $conditionTrue
+            continue
+        }
+        if ($line -match '^\s*\.else\s*$') {
+            if ($conditionals.Count -eq 0) {
+                throw "Unexpected clean-US assembly .else: $line"
+            }
+            $conditional = $conditionals[$conditionals.Count - 1]
+            if ($conditional.SawElse) {
+                throw "Duplicate clean-US assembly .else: $line"
+            }
+            $conditional.SawElse = $true
+            $includeLine = $conditional.ParentIncluded -and
+                -not $conditional.ConditionTrue
+            continue
+        }
+        if ($line -match '^\s*\.endif\s*$') {
+            if ($conditionals.Count -eq 0) {
+                throw "Unexpected clean-US assembly .endif: $line"
+            }
+            $conditional = $conditionals[$conditionals.Count - 1]
+            $conditionals.RemoveAt($conditionals.Count - 1)
+            $includeLine = $conditional.ParentIncluded
+            continue
+        }
+        if ($includeLine) {
+            $selected.Add($line)
+        }
+    }
+
+    if ($conditionals.Count -ne 0) {
+        throw 'Clean-US assembly conditional was not closed.'
+    }
+    return $selected.ToArray()
+}
+
 function Read-AssemblyLabelBlock([string]$path, [string]$label) {
     $fullPath = Resolve-ImportReadPath $path
     if ([IO.Path]::GetExtension($fullPath) -ine '.s') {

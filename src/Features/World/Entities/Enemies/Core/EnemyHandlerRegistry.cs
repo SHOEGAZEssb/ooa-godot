@@ -174,6 +174,7 @@ internal sealed class EnemyHandlerRegistry
         "crow" => EnemyHandlerKind.Crow,
         "gel" => EnemyHandlerKind.Gel,
         "hardhat-beetle" => EnemyHandlerKind.HardhatBeetle,
+        "vine-sprout" => EnemyHandlerKind.VineSprout,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
         _ => throw row.Invalid(column, "a registered enemy handler")
@@ -216,6 +217,10 @@ internal sealed record EnemyHandlerDescriptor(
     internal bool SupportsOrderedConstruction =>
         Classification == EnemyHandlerClassification.OrderedImplemented;
 
+    internal bool SupportsCombatSource =>
+        Classification != EnemyHandlerClassification.DeliberatelyUnsupported &&
+        Handler != EnemyHandlerKind.VineSprout;
+
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
 
     internal EnemyCombatSourceDescriptor CombatSource(
@@ -237,11 +242,10 @@ internal sealed record EnemyHandlerDescriptor(
         int killableEnemyIndex,
         string source)
     {
-        if (Classification ==
-            EnemyHandlerClassification.DeliberatelyUnsupported)
+        if (!SupportsCombatSource)
         {
             throw new InvalidOperationException(
-                $"{source} cannot construct deliberately unsupported " +
+                $"{source} cannot construct non-combat or unsupported " +
                 $"{EnemyName} ${Id:x2}:${SubId:x2} combat.");
         }
         if (objectFlags is < 0 or > 0xff)
@@ -301,6 +305,7 @@ internal enum EnemyHandlerKind
     Crow,
     Gel,
     HardhatBeetle,
+    VineSprout,
     MakuSproutMaskedMoblin
 }
 

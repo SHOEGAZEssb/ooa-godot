@@ -521,6 +521,18 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
+    internal void UpdatePushableEntities(
+        Vector2 linkPosition,
+        Vector2I facing,
+        Vector2 movementInput)
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is IRoomPushableEntity pushable)
+                pushable.UpdatePushAttempt(linkPosition, facing, movementInput);
+        }
+    }
+
     public NpcCharacter? FindTalkTarget(Player player) =>
         FindNpcInteractionTarget(player)?.Npc;
 

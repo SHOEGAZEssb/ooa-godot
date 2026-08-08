@@ -100,6 +100,11 @@ An event owns:
 - transition-safe behavior explicitly allowed by source masks;
 - completion writes and cancellation cleanup.
 
+Event boundaries follow the original interaction/script, not a map area. Only
+actors coordinated by one source sequence share an event owner; independent
+dialogues, trades, room-entry scripts, and minigames remain separate even when
+they reuse one imported database or live in adjacent rooms.
+
 Ordinary destination events remain frozen during scrolling. Clear runners,
 release input, detach registrations, and remove transient actors on cancellation
 or room invalidation. Persistent completion is derived from authoritative save

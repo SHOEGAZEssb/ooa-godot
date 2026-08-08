@@ -231,6 +231,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRaft);
         RunIsolatedValidation(ValidateRaftwreckCutscene);
         RunIsolatedValidation(ValidateTokayTheftCutscene);
+        RunIsolatedValidation(ValidateTokayIslandInteractions);
+        RunIsolatedValidation(ValidateTokayIslandWorldObjects);
         RunIsolatedValidation(ValidateRoom2e6MaskSalesman);
         RunIsolatedValidation(ValidateRoom2f3DepressedBoy);
         RunIsolatedValidation(ValidateNayruIntroCutscene);

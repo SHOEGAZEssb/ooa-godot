@@ -347,7 +347,11 @@ public sealed partial class ValidationRoot
         int itemSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem);
         int stopMusic = _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic);
         LoadValidationRoom(1, 0xaa);
+        NpcCharacter[] firstEntryThieves = _npcNodes.Where(npc =>
+            npc.Record.Id == record.InteractionId &&
+            npc.Record.SubId is >= 0 and < 5).ToArray();
         FailIf(!tokay.HasState || tokay.ActiveThiefCount != 5 ||
+            firstEntryThieves.Length != 5 ||
             tokay.ScriptCounter != 0xf0 || !_player.CutsceneControlled ||
             _player.CutsceneSpriteFrame != tokay.Database.LinkFrames[0] ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != stopMusic + 1,
@@ -411,14 +415,28 @@ public sealed partial class ValidationRoot
             "The five Tokays did not perform staggered two-jump exits, leave " +
             "subid $03's 60-update tail, set room bit $40, and restore input.");
 
+        // Leave the room and force the queued outgoing actors through their
+        // actual Godot disposal boundary before re-entering. This catches an
+        // event owner retaining retired room nodes after HasState becomes false.
+        LoadValidationRoom(0, 0x11);
+        foreach (NpcCharacter thief in firstEntryThieves)
+            if (GodotObject.IsInstanceValid(thief))
+                thief.Free();
         LoadValidationRoom(1, 0xaa);
-        FailIf(tokay.HasState || tokay.ActiveThiefCount != 0,
-            "Room bit $40 did not suppress all five theft Tokays on re-entry.");
+        NpcCharacter[] reentryThieves = _npcNodes.Where(npc =>
+            npc.Record.Id == record.InteractionId &&
+            npc.Record.SubId is >= 0 and < 5).ToArray();
+        FailIf(tokay.HasState || tokay.ActiveThiefCount != 0 ||
+            reentryThieves.Length != 5 ||
+            reentryThieves.Any(thief => thief.Active || thief.Visible),
+            "Room bit $40 did not suppress all five fresh theft Tokays after " +
+            "the completed event's prior actors were disposed.");
 
         GD.Print("Validated room 1:aa INTERAC_TOKAY $48:$00-$04 theft: " +
             "fade-frozen initialization, linkCutscene7 wait, exact inventory " +
             "loss cadence, parallel movement, held accessories, staggered " +
-            $"two-jump exits, final room bit and control restoration ({exitFrames} exit updates).");
+            $"two-jump exits, final room bit, disposed-actor re-entry, and " +
+            $"control restoration ({exitFrames} exit updates).");
     }
 
     private void ValidateRooms21eAnd21fRafton()

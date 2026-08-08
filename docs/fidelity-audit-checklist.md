@@ -320,11 +320,11 @@ implemented, and covered.
 
 ## NPCs, shops, minigames, and room interactions
 
-- [x] The typed NPC database classifies all 391 positioned/state-derived rows:
-  96 implemented, 36 partial, and 259 deliberately unsupported. The manifest
-  contains 54 ordinary, 63 specialized, 17 event-owned, and 257 deliberately
+- [x] The typed NPC database classifies all 383 positioned/state-derived rows:
+  137 implemented, 30 partial, and 216 deliberately unsupported. The manifest
+  contains 61 ordinary, 84 specialized, 22 event-owned, and 216 deliberately
   unsupported rows. The 72 conditional Bipin/Blossom family variants bring the
-  typed total to 463.
+  typed total to 455.
 - [x] Implemented ordinary NPC routing, source positions/facing/collision/OAM,
   dialogue predicates, visibility predicates, room retention, and unsupported
   suppression are covered by the NPC manifest and room scenarios.

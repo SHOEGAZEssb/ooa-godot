@@ -404,6 +404,58 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\common_enemies.tsv'),
     $commonEnemyRows)
 
+# ENEMY_VINE_SPROUT (`$62) is a globally dispatched enemy even though its
+# five placements live directly in mainData.s rather than enemyData.s. Its
+# source coordinates are zero because state 0 loads the live packed position
+# from wVinePositions; preserve that six-byte position table and the shared
+# enemy visual as one typed contract.
+$vineDefinition = Get-EnemyDefinition 0x62 0
+$vineSprite = $gfxNames[$vineDefinition.Gfx]
+$vineSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\vineSprout.s')
+$vineDefaultSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\defaultVinePositions.s')
+$vineDefaults = @([regex]::Matches(
+    $vineDefaultSource,
+    '\$(?<position>[0-9a-f]{2})') | ForEach-Object {
+        $_.Groups['position'].Value
+    })
+if ($vineDefinition.Gfx -ne 0x6b -or
+    $vineDefinition.Collision -ne 0x90 -or
+    $vineDefinition.GraphicFlags -ne 0x09 -or
+    $vineDefinition.TileBase -ne 0x12 -or
+    $vineDefinition.Palette -ne 0 -or
+    $vineDefinition.Animations.Count -lt 1 -or
+    $vineDefaults.Count -ne 6 -or
+    ($vineDefaults -join ' ') -ne '41 22 16 35 18 53' -or
+    $vineSource -notmatch
+        '(?ms)^vineSprout_state0:.*?ld \(hl\),20.*?ld \(hl\),SPEED_c0.*?vineSprout_getPosition' -or
+    $vineSource -notmatch
+        '(?ms)^vineSprout_state1:.*?All the above must hold for 20 frames.*?ld \(hl\),\$16.*?SND_MOVEBLOCK' -or
+    $vineSource -notmatch
+        '(?ms)^vineSprout_updateTileAtPosition:.*?ld \(hl\),\$0f.*?ld \(hl\),TILEINDEX_00.*?wVinePositions') {
+    throw 'ENEMY_VINE_SPROUT source contract changed.'
+}
+Copy-EnemySprite $vineSprite
+$vineSourceGrayscaleInverted = if (
+    Get-EnemySpriteSourceGrayscaleInverted $vineSprite) { 1 } else { 0 }
+$vineAnimation = $vineDefinition.Animations[0]
+$vineRows = [Collections.Generic.List[string]]::new()
+$vineRows.Add(
+    '# subid`tdefault-position`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tspeed-raw`tpush-delay`tmove-frames`tsource'.Replace(
+        '`t', "`t"))
+for ($subid = 0; $subid -lt $vineDefaults.Count; $subid++) {
+    $vineRows.Add(
+        "$($subid.ToString('x2'))`t$($vineDefaults[$subid])`t$vineSprite`t" +
+        "$($vineDefinition.TileBase)`t$($vineDefinition.Palette)`t" +
+        "$vineSourceGrayscaleInverted`t$vineAnimation`t" +
+        "1e`t20`t22`tobject_code/ages/enemies/vineSprout.s:" +
+        "ENEMY_VINE_SPROUT+$($subid.ToString('x2'))")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\vine_sprouts.tsv'),
+    $vineRows)
+
 $wingEnemySources = @{
     spark = Read-ImportText (
         Join-Path $Disassembly 'object_code\common\enemies\spark.s')
@@ -1138,8 +1190,72 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
 if ($orderedRegionConditional -ne '') {
     throw "Ordered object conditional $orderedRegionConditional was not closed."
 }
-if ($orderedObjectRows.Count -ne 1141) {
-    throw "Expected 1140 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
+
+# mainData.s parses the direct vine enemy before any following enemy pointer.
+# Prepend those five records to the same authoritative ordered stream and
+# shift pointer-owned orders in the two rooms which contain both forms.
+$directVines = @{}
+$mainObjectGroup = -1
+$mainObjectRoom = -1
+foreach ($line in Read-ImportLines (
+    Join-Path $Disassembly 'objects\ages\mainData.s')) {
+    if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $mainObjectGroup = [int]$Matches['group']
+        $mainObjectRoom = [Convert]::ToInt32($Matches['room'], 16)
+        continue
+    }
+    if ($mainObjectGroup -lt 0) { continue }
+    if ($line -match
+        '^\s*obj_SpecificEnemyA\s+\$00\s+\$62\s+\$(?<subid>[0-9a-f]{2})\s+\$00\s+\$00\s*$') {
+        $key = "$mainObjectGroup`:$($mainObjectRoom.ToString('x2'))"
+        if ($directVines.ContainsKey($key)) {
+            throw "Room $key contains more than one direct ENEMY_VINE_SPROUT."
+        }
+        $directVines[$key] = $Matches['subid']
+        continue
+    }
+    if ($line -match '^\s*obj_End\s*$' -or
+        $line -match '^[A-Za-z0-9_@]+:') {
+        $mainObjectGroup = -1
+        $mainObjectRoom = -1
+    }
+}
+if ($directVines.Count -ne 5 -or
+    $directVines['1:2c'] -ne '00' -or
+    $directVines['1:61'] -ne '01' -or
+    $directVines['1:ba'] -ne '02' -or
+    $directVines['1:cc'] -ne '03' -or
+    $directVines['1:da'] -ne '04') {
+    throw 'Expected the five direct ENEMY_VINE_SPROUT placements from mainData.s.'
+}
+$mergedOrderedRows = [Collections.Generic.List[string]]::new()
+$mergedOrderedRows.Add($orderedObjectRows[0])
+$insertedDirectVines = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal)
+foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
+    $columns = $row -split "`t"
+    $key = "$($columns[0]):$($columns[1])"
+    if ($directVines.ContainsKey($key)) {
+        if ($insertedDirectVines.Add($key)) {
+            $mergedOrderedRows.Add(
+                "$($columns[0])`t$($columns[1])`t0`tF`t62`t" +
+                "$($directVines[$key])`t00`t1`t00`t00`t00`tff")
+        }
+        $columns[2] = ([int]$columns[2] + 1).ToString()
+    }
+    $mergedOrderedRows.Add($columns -join "`t")
+}
+foreach ($key in $directVines.Keys | Sort-Object) {
+    if ($insertedDirectVines.Contains($key)) { continue }
+    $group, $room = $key -split ':'
+    $mergedOrderedRows.Add(
+        "$group`t$room`t0`tF`t62`t$($directVines[$key])`t00`t1`t00`t00`t00`tff")
+    [void]$insertedDirectVines.Add($key)
+}
+$orderedObjectRows = $mergedOrderedRows
+
+if ($orderedObjectRows.Count -ne 1146) {
+    throw "Expected 1145 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
 }
 if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t00\t1\t68\t38\t63\tff$' }) -or
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t1\tF\t34\t00\t00\t1\t78\t58\t75\tff$' }) -or
@@ -1264,9 +1380,14 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '49:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
+    '62:00' = 'vine-sprout'
+    '62:01' = 'vine-sprout'
+    '62:02' = 'vine-sprout'
+    '62:03' = 'vine-sprout'
+    '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 28 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 33 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1335,9 +1456,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
     $enemyClassificationCounts[$classification]++
 }
 
-if ($enemyHandlerKeys.Count -ne 118 -or
+if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 377 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 382 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
     $enemyClassificationCounts['deliberately-unsupported'] -ne 439) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
@@ -1400,7 +1521,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$(([int]$enemyCollisionModes[[int]$record.Id]).ToString('x2'))`t" +
         "$classification`t$handler`t$($definition.Name)`t$source")
 }
-if ($enemyHandlerRows.Count -ne 119 -or
+if ($enemyHandlerRows.Count -ne 124 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK')) -or

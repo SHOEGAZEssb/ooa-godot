@@ -162,7 +162,7 @@ $commonStageFunctionInputs = @(
     'Read-AssemblyLabelNodes', 'Read-AssemblyLabels',
     'Read-AssemblyMacroInvocations', 'Read-AssemblyNodes',
     'Read-AssemblyInstructions', 'Read-AssemblyLiteralValues',
-    'Read-ImportLines', 'Read-ImportText',
+    'Read-ImportLines', 'Read-ImportText', 'Select-CleanUsAssemblyLines',
     'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes',
     'Write-GeneratedTable')
 $automaticStageVariables = @(

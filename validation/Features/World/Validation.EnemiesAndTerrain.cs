@@ -798,7 +798,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<RoomObjectRecord> room006 =
             database.GetRoomObjects(0, 0x06);
         FailIf(
-            database.RoomObjectRecordCount != 1140 ||
+            database.RoomObjectRecordCount != 1145 ||
             room5b0.Count != 3 ||
             room5b0[0] is not { Order: 0, Kind: RoomObjectKind.FixedEnemy,
                 Id: 0x1b, PackedPosition: 0x63 } ||
@@ -887,7 +887,8 @@ public sealed partial class ValidationRoot
                     classifiedKeys.Add(
                         (handler.Id, handler.SubId, handler.Classification));
                     if (handler.Classification ==
-                        EnemyHandlerClassification.OrderedImplemented)
+                            EnemyHandlerClassification.OrderedImplemented &&
+                        handler.SupportsCombatSource)
                     {
                         int testKillableIndex = source.Order % 7 + 1;
                         EnemyCombatSourceDescriptor combat =
@@ -953,24 +954,24 @@ public sealed partial class ValidationRoot
         dynamicCombat.ValidateSwordResponse(
             EnemySwordResponse.Knockback);
         FailIf(
-            ordinaryEnemyPlacements != 816 ||
+            ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 377 ||
+                EnemyHandlerClassification.OrderedImplemented) != 382 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DeliberatelyUnsupported) != 439 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 578 ||
+                EnemyHandlerClassification.OrderedImplemented) != 583 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DeliberatelyUnsupported) != 578 ||
-            classifiedKeys.Count != 118 ||
+            classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 28 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 33 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
@@ -1029,7 +1030,7 @@ public sealed partial class ValidationRoot
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
-            "The enemy handler registry lost its 816-row implementation " +
+            "The enemy handler registry lost its 821-row implementation " +
             "classification, 377-row/83-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
@@ -1108,8 +1109,8 @@ public sealed partial class ValidationRoot
 
         RemoveChild(validationRoot);
         validationRoot.Free();
-        GD.Print("Validated 1,140 clean-US ordered room placement records, mid-stream aliases, " +
-            "all 816 fixed/random enemy handler classifications, 12 parameter slots, " +
+        GD.Print("Validated 1,145 clean-US ordered room placement records, mid-stream aliases, " +
+            "all 821 fixed/random enemy handler classifications, 12 parameter slots, " +
             "377 typed combat descriptors across 28 handlers / 83 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +

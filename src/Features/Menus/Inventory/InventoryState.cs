@@ -558,6 +558,72 @@ public sealed class InventoryState
     }
 
     /// <summary>
+    /// Mirrors the Tokay trading hut's direct BCD subtraction from a seed
+    /// count. The obtained bit remains set when the count reaches zero.
+    /// </summary>
+    internal bool TryConsumeSeedsFromScript(int treasure, int amount)
+    {
+        if (amount < 0)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        int current = treasure switch
+        {
+            TreasureDatabase.TreasureEmberSeeds => EmberSeeds,
+            0x21 => ScentSeeds,
+            0x24 => MysterySeeds,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(treasure), $"Treasure ${treasure:x2} is not a seed count.")
+        };
+        int count = FromBcd(current);
+        if (count < amount)
+            return false;
+        int next = ToBcd(count - amount);
+        if (treasure == TreasureDatabase.TreasureEmberSeeds)
+            EmberSeeds = next;
+        else if (treasure == 0x21)
+            ScentSeeds = next;
+        else
+            MysterySeeds = next;
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Mirrors the extra work in scriptHelp.tokayGiveItemToLink before the
+    /// stolen Seed Satchel treasure is created: Mystery Seeds are restored,
+    /// every currently obtained seed type is refilled, and the level is
+    /// decremented so the subsequent satchel pickup's Increment behavior
+    /// leaves the original level unchanged.
+    /// </summary>
+    internal void PrepareReturnedTokaySeedSatchel()
+    {
+        using (_saveData?.BeginMutation())
+        {
+            GiveTreasureCore(0x24, 0x99);
+            for (int treasure = TreasureDatabase.TreasureEmberSeeds;
+                 treasure <= 0x24;
+                 treasure++)
+            {
+                if (HasTreasure(treasure))
+                    GiveTreasureCore(treasure, 0x99);
+            }
+            SeedSatchelLevel = Math.Max(0, SeedSatchelLevel - 1);
+            NotifyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Mirrors scriptHelp.tokayGiveBombUpgrade's adjacent wMaxBombs/wNumBombs
+    /// writes. The source adds packed-BCD $20 and fully refills the result.
+    /// </summary>
+    internal void ApplyTokayBombCapacityUpgrade()
+    {
+        int upgraded = (MaxBombs + 0x20) & 0xff;
+        MaxBombs = upgraded;
+        Bombs = upgraded;
+        NotifyChanged();
+    }
+
+    /// <summary>
     /// Mirrors mapleCheckLinkCanDropItem, including its original mistaken
     /// treasure-index checks and the one-rupee-to-five-rupee output bug.
     /// Values stored in WRAM remain packed BCD where the source uses DAA.
