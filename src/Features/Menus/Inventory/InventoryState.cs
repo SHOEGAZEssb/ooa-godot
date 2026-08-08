@@ -993,6 +993,16 @@ public sealed class InventoryState
         }
     }
 
+    /// <summary>Mirrors scriptHelp.interaction6b_refillBombs.</summary>
+    internal void RefillBombs()
+    {
+        using (_saveData?.BeginMutation())
+        {
+            Bombs = MaxBombs;
+            NotifyChanged();
+        }
+    }
+
     private void GiveTreasureCore(int treasure, int parameter)
     {
         int maturity = _treasures.GetGashaMaturityGain(treasure, parameter);

@@ -423,6 +423,17 @@ public sealed partial class ValidationRoot
                 ],
                 [20, 48, 63, 8]) ||
             !ProfileMatches(
+                tables.BabyCucco.Sources,
+                [
+                    tables.BabyCucco.SpeedRaw,
+                    tables.BabyCucco.ProximityDistance,
+                    tables.BabyCucco.RandomHopMask,
+                    tables.BabyCucco.HopSpeedZ,
+                    tables.BabyCucco.HopGravity,
+                    tables.BabyCucco.AnimationAngleThreshold
+                ],
+                [10, 16, 63, -192, 18, 16]) ||
+            !ProfileMatches(
                 tables.Crow.Sources,
                 [
                     tables.Crow.ApproachRadiusY,
@@ -672,11 +683,11 @@ public sealed partial class ValidationRoot
             !tables.Wallmaster.Sources[0].Source.Contains(
                 "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 250 imported enemy behavior rows lost a source value, " +
+            "The 256 imported enemy behavior rows lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 250 imported enemy behavior rows: source lookup " +
+            "Validated 256 imported enemy behavior rows: source lookup " +
             "streams plus typed collision, recoil, hazard, bounce, speed, " +
             "counter, gravity, bounds, and projectile profiles.");
     }
@@ -957,27 +968,27 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 382 ||
+                EnemyHandlerClassification.OrderedImplemented) != 385 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 439 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 436 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 583 ||
+                EnemyHandlerClassification.OrderedImplemented) != 586 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 578 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 575 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 33 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 34 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 90 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 89 ||
             combatSourceRows != 377 ||
             combatSourceFlags.Count != 83 ||
             expectedCombat.Count != 28 ||

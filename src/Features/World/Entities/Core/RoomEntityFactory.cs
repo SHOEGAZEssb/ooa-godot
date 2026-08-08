@@ -53,6 +53,7 @@ internal sealed class RoomEntityFactory(
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
     private readonly Room20eNpcDatabase _room20e = new();
+    private readonly Room2e3Database _room2e3 = new();
     private readonly Room5b6Database _room5b6 = new();
     private readonly Room5bfDatabase _room5bf = new();
     private readonly StoneRabbitDatabase _stoneRabbit = new();
@@ -88,6 +89,8 @@ internal sealed class RoomEntityFactory(
     private readonly BreakableTileDatabase _breakables = new();
     private readonly LedgeJumpDatabase _ledgeJumps = new();
     private readonly SwordBeamDatabase _swordBeam = new();
+    private readonly BraceletDatabase _bracelet = new();
+    private readonly BombDatabase _bomb = new();
     private readonly GashaSpotDatabase _gashaSpots = new();
     private readonly DarkRoomDatabase _darkRooms = new();
     private readonly MapleEventDatabase _maple = new();
@@ -335,6 +338,13 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        if (group == _room2e3.Record.Group &&
+            room.Id == _room2e3.Record.Room)
+        {
+            IRoomEntity? interaction = CreateRoom2e3Interaction();
+            if (interaction is not null)
+                yield return interaction;
+        }
         if (group == _room5b6.Record.Group &&
             room.Id == _room5b6.Record.Room)
         {
@@ -1392,6 +1402,29 @@ internal sealed class RoomEntityFactory(
                 soundRequested,
                 roomTileChanged,
                 animationTick);
+        }
+        if (handler.Handler == EnemyHandlerKind.BabyCucco)
+        {
+            if (!enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition babyCuccoRecord))
+            {
+                throw MissingEnemyDefinition(handler, source);
+            }
+            var babyCucco = new BabyCuccoCharacter
+            {
+                Name = $"BabyCucco_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            babyCucco.Initialize(
+                babyCuccoRecord,
+                room,
+                position,
+                random,
+                _bracelet.Data,
+                _bomb.Data,
+                soundRequested,
+                applyThrownObjectHit);
+            return new BabyCuccoRoomEntity(babyCucco);
         }
 
         EnemyCombatSourceDescriptor combatSource =
@@ -3486,6 +3519,56 @@ internal sealed class RoomEntityFactory(
             record.PostGrantWait,
             record.PickupDistance,
             () => CompanionRuntimeState.ForgetRemembered(runtimeState));
+    }
+
+    private IRoomEntity? CreateRoom2e3Interaction()
+    {
+        Room2e3InteractionRecord record = _room2e3.Record;
+        if (saveData?.HasRoomFlag(
+                record.Group,
+                record.Room,
+                checked((byte)record.ItemRoomFlag)) == true)
+        {
+            return null;
+        }
+
+        var request = new GroundTreasureGrantRequest(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.Y,
+            record.X,
+            record.TreasureObject,
+            record.Source)
+        {
+            VisualOverride = new GroundTreasureVisualOverride(
+                record.Sprite,
+                record.TileBase,
+                record.Palette,
+                record.Animation),
+            ExpectedTreasureId = record.TreasureId,
+            ExpectedSubId = record.TreasureSubId,
+            ExpectedObjectParameter = record.TreasureParameter
+        };
+        var pickup = new GroundTreasurePickup
+        {
+            Name = "Room2e3Bombs",
+            ZIndex = 12
+        };
+        pickup.Initialize(
+            request.Resolve(treasures),
+            soundRequested,
+            worldToScreen);
+        return new MiscellaneousTreasureRoomEntity(
+            pickup,
+            groundTreasureCollectionAllowed,
+            groundTreasureCollected,
+            record.PostGrantWait,
+            record.PickupDistance,
+            preGrant: () =>
+                (inventory ?? throw new InvalidOperationException(
+                    $"{record.Source} cannot refill Bombs without live inventory."))
+                .RefillBombs());
     }
 
     private IEnumerable<IRoomEntity> CreateRoom5bfInteractions()

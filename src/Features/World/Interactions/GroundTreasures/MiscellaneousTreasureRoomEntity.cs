@@ -15,7 +15,8 @@ internal sealed class MiscellaneousTreasureRoomEntity(
     Action<GroundTreasurePickup, Player> collected,
     int postGrantWait,
     int pickupDistance,
-    Action? postGrantCompleted = null)
+    Action? postGrantCompleted = null,
+    Action? preGrant = null)
     : RoomEntityAdapter<GroundTreasurePickup>(
         pickup, pickup.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime,
@@ -83,6 +84,7 @@ internal sealed class MiscellaneousTreasureRoomEntity(
             return;
         }
         _collectionStarted = true;
+        preGrant?.Invoke();
         collected(Entity, player);
         Entity.UpdateFrame(player);
     }

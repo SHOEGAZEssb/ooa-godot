@@ -4263,6 +4263,61 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\ground_treasures.tsv'),
     $groundTreasureRows)
 
+# Room 2:e3 contains the Bombs form of INTERAC_MISCELLANEOUS_1 $6b:$0a.
+# Its shared script refills wNumBombs from wMaxBombs before giveitem runs,
+# then preserves the same strict collection gate and 30-update input lease as
+# the later Cheval Rope and Flippers forms.
+$room2e3ObjectBlock = [regex]::Match(
+    $mainObjectSource,
+    '(?ms)^group2Mape3ObjectData:\s+obj_Interaction \$6b \$0a \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s+obj_Pointer group2Mape3EnemyObjectData\s+obj_End')
+$room2e3MiscSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$room2e3ScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+$room2e3ScriptHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$room2e3Graphic = $interactionGraphics['107:10']
+$room2e3Animation = Resolve-NpcAnimation 0x6b 0x01
+$room2e3TreasureObject =
+    $treasureObjectRecords['TREASURE_OBJECT_BOMBS_04']
+if (-not $room2e3ObjectBlock.Success -or
+    $room2e3ObjectBlock.Groups['y'].Value -ne '28' -or
+    $room2e3ObjectBlock.Groups['x'].Value -ne '28') {
+    throw 'Room 2:e3 no longer has its original $6b:$0a Bombs object.'
+}
+if ($room2e3MiscSource -notmatch
+        '(?ms)^interaction6b_subid0a:\s+interaction6b_subid0b:\s+interaction6b_subid0c:.*?ROOMFLAG_BIT_ITEM.*?sub \$0a.*?interaction6b_initGraphicsAndLoadScript.*?wDisabledObjects.*?wMenuDisabled.*?interactionAnimateAsNpc' -or
+    $room2e3ScriptSource -notmatch
+        '(?ms)^interaction6b_subid0aScript:\s+setcollisionradii \$02, \$02.*?disableinput.*?objectSetInvisible.*?writeobjectbyte Interaction\.substate, \$01.*?jumptable_objectbyte Interaction\.var03.*?\.dw @bombs.*?^@bombs:\s+asm15 scriptHelp\.interaction6b_refillBombs\s+giveitem TREASURE_BOMBS, \$04\s+wait 30\s+scriptend' -or
+    $room2e3ScriptHelperSource -notmatch
+        '(?ms)^interaction6b_checkLinkCanCollect:\s+ld hl,w1Link\.zh\s+ld a,\(hl\)\s+or a\s+ret nz\s+ld a,\(wLinkGrabState\)\s+or a\s+ret nz\s+ld c,\$0e\s+call objectCheckLinkWithinDistance.*?Interaction\.var38' -or
+    $room2e3ScriptHelperSource -notmatch
+        '(?ms)^interaction6b_refillBombs:\s+ld hl,wMaxBombs\s+ldd a,\(hl\)\s+ld \(hl\),a\s+ret') {
+    throw 'Room 2:e3 Bombs pickup, refill, input lease, or collection check changed.'
+}
+if ($null -eq $room2e3TreasureObject -or
+    $room2e3TreasureObject.Treasure -ne 0x03 -or
+    $room2e3TreasureObject.Subid -ne 0x04 -or
+    $room2e3TreasureObject.Parameter -ne 0x00 -or
+    $room2e3TreasureObject.Graphic -ne 0x05 -or
+    $null -eq $room2e3Graphic -or
+    $room2e3Graphic.Gfx -ne 0x78 -or
+    $room2e3Graphic.TileBase -ne 0x10 -or
+    $room2e3Graphic.Palette -ne 0x04 -or
+    $room2e3Graphic.DefaultAnimation -ne 0x01 -or
+    $gfxNames[0x78] -ne 'spr_common_items' -or
+    -not $room2e3Animation) {
+    throw 'Could not resolve room 2:e3 Bombs $03:$04 or its $6b:$0a visual.'
+}
+[void]$npcSpriteNames.Add('spr_common_items')
+$room2e3Rows = @(
+    '# group`troom`torder`tid`tsubid`ty`tx`tvar03`titem-room-flag`ttreasure-object`ttreasure-id`ttreasure-subid`ttreasure-parameter`tpost-grant-wait`tcollision-radius-y`tcollision-radius-x`tpickup-distance`tsprite`ttile-base`tpalette`tanimation-index`tanimation`tsource',
+    "2`te3`t0`t6b`t0a`t28`t28`t00`t20`tTREASURE_OBJECT_BOMBS_04`t03`t04`t00`t30`t02`t02`t0e`tspr_common_items`t10`t04`t01`t$room2e3Animation`tmainData.s:group2Mape3ObjectData"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\room2e3_interactions.tsv'),
+    $room2e3Rows)
+
 # Room 5:b6 contains the Cheval Rope form of INTERAC_MISCELLANEOUS_1
 # $6b:$0a-$0c. Its shared script loads radii $02,$02 but collects through
 # objectCheckLinkWithinDistance's strict Manhattan c=$0e gate, grants the

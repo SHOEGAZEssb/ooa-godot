@@ -335,7 +335,7 @@ $commonEnemySprites = @{
 $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0c, 0x00), @(0x10, 0x00), @(0x13, 0x00),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
-    @(0x22, 0x00), @(0x28, 0x00),
+    @(0x22, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x4a, 0x01), @(0x4d, 0x00)
 )
@@ -366,7 +366,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 17 -or
+if ($commonEnemyRows.Count -ne 18 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -387,6 +387,9 @@ if ($commonEnemyRows.Count -ne 17 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^33\t00\tspr_chickens_dog_forestfairy_other\t14\t3\t1\t6\t6\t128\t127\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^2f\t00\tspr_thwomps\t0\t4\t0\t15\t12\t4\t127\t'
@@ -1371,6 +1374,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '31:00' = 'stalfos'
     '32:00' = 'keese'
     '32:01' = 'keese'
+    '33:00' = 'baby-cucco'
     '34:00' = 'zol'
     '34:01' = 'zol'
     '3e:00' = 'peahat'
@@ -1387,7 +1391,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 33 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 34 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1458,9 +1462,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 382 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 385 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 439) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 436) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3131,6 +3135,24 @@ Add-EnemyBehaviorProfile 'arrow-moblin' 'state-profile' `
     @(0x14, 0x30, 0x3f, 0x08) `
     'object_code/common/enemies/arrowDarknut.s:state-entry-operands'
 
+$babyCuccoCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\babyCucco.s')
+if ($babyCuccoCodeSource -notmatch
+        '(?ms)^babyCucco_state_uninitialized:\s+ld a,SPEED_40\s+jp ecom_setSpeedAndState8AndVisible' -or
+    $babyCuccoCodeSource -notmatch
+        '(?ms)^babyCucco_state8:\s+call objectAddToGrabbableObjectBuffer\s+call objectSetPriorityRelativeToLink_withTerrainEffects\s+call ecom_updateAngleTowardTarget\s+call babyCucco_updateAnimationFromAngle\s+ld c,\$10\s+call objectCheckLinkWithinDistance\s+jr nc,@moveCloserToLink.*?call getRandomNumber_noPreserveVars\s+and \$3f\s+ret nz.*?ld a,<\(\$ff40\).*?^@moveCloserToLink:\s+call ecom_applyVelocityForSideviewEnemyNoHoles.*?enemyAnimate' -or
+    $babyCuccoCodeSource -notmatch
+        '(?ms)^babyCucco_state9:\s+ld c,\$12\s+call objectUpdateSpeedZ_paramC\s+jr nz,babyCucco_animate.*?dec \(hl\)\s+ret' -or
+    $babyCuccoCodeSource -notmatch
+        '(?ms)^babyCucco_updateAnimationFromAngle:\s+ld e,Enemy\.angle\s+ld a,\(de\)\s+cp \$10\s+ld a,\$01.*?xor a.*?jp enemySetAnimation' -or
+    $babyCuccoCodeSource -notmatch
+        '(?ms)^babyCucco_state_grabbed:.*?^@justGrabbed:.*?res 7,\(hl\).*?wLinkGrabState2.*?objectSetVisiblec1.*?^@beingHeld:.*?enemySetAnimation.*?^@released:.*?SMALL_ROOM_HEIGHT<<4.*?SMALL_ROOM_WIDTH<<4.*?^@landed:.*?ld \(hl\),\$08.*?set 7,\(hl\).*?objectSetVisiblec2') {
+    throw 'Baby Cucco movement, shared RNG, hopping, or bracelet state path changed.'
+}
+Add-EnemyBehaviorProfile 'baby-cucco' 'state-profile' `
+    @(0x0a, 0x10, 0x3f, -0xc0, 0x12, 0x10) `
+    'object_code/common/enemies/babyCucco.s:state-entry-operands'
+
 $crowCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\crows.s')
 if ($crowCodeSource -notmatch
@@ -3497,8 +3519,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 251) {
-    throw "Expected 250 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 257) {
+    throw "Expected 256 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

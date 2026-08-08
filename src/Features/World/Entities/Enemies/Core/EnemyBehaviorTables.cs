@@ -42,6 +42,7 @@ internal sealed class EnemyBehaviorTables
     internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
     internal KeeseStateBehaviorProfile KeeseState { get; }
     internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
+    internal BabyCuccoBehaviorProfile BabyCucco { get; }
     internal CrowBehaviorProfile Crow { get; }
     internal GelBehaviorProfile Gel { get; }
     internal ZolBehaviorProfile Zol { get; }
@@ -191,6 +192,16 @@ internal sealed class EnemyBehaviorTables
             values[1].Value,
             values[2].Value,
             values[3].Value,
+            values);
+
+        values = TakeValues(groups, "baby-cucco", "state-profile", 6);
+        BabyCucco = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
             values);
 
         values = TakeValues(groups, "crow", "state-profile", 6);
@@ -393,10 +404,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 250 || groups.Count != 0)
+        if (table.Rows.Count != 256 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 250 rows and no " +
+                $"Enemy behavior table contract expected 256 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -502,6 +513,15 @@ internal readonly record struct ArrowMoblinBehaviorProfile(
     int MoveCounterBase,
     int MoveCounterMask,
     int TurnWait,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct BabyCuccoBehaviorProfile(
+    int SpeedRaw,
+    int ProximityDistance,
+    int RandomHopMask,
+    int HopSpeedZ,
+    int HopGravity,
+    int AnimationAngleThreshold,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct CrowBehaviorProfile(
