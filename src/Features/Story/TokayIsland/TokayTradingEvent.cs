@@ -7,13 +7,15 @@ namespace oracleofages;
 /// Owns the Tokay trading-hut conversation, selected stock item, and exchange
 /// reward lifecycle. The physical stock remains owned by room entities.
 /// </summary>
-internal sealed class TokayTradingEvent : IRoomEvent
+internal sealed class TokayTradingEvent :
+    IRoomEvent, IUpdatesDuringDialogueRoomEvent
 {
     private readonly RoomEventContext _context;
     private readonly TokayIslandDatabase _database;
     private TokayTradingStage _stage;
     private TokayShopItem? _shopItem;
     private GroundTreasurePickup? _reward;
+    private bool _refreshShopItemsNextUpdate;
     private bool _inputLocked;
 
     internal TokayTradingEvent(
@@ -70,12 +72,12 @@ internal sealed class TokayTradingEvent : IRoomEvent
     {
         if (_stage == TokayTradingStage.Inactive)
             return;
+        RefreshShopItemsIfPending();
         if (_stage == TokayTradingStage.ShopReward)
         {
             if (_reward is { Finished: true })
             {
                 _reward = null;
-                RefreshShopItem();
                 FinishInteraction();
             }
             return;
@@ -98,10 +100,13 @@ internal sealed class TokayTradingEvent : IRoomEvent
         }
     }
 
+    public void UpdateDuringDialogueFrame() => RefreshShopItemsIfPending();
+
     public void Cancel()
     {
         _reward?.Finish(_context.Player);
         _reward = null;
+        _refreshShopItemsNextUpdate = false;
         UnlockInput();
         _shopItem = null;
         _stage = TokayTradingStage.Inactive;
@@ -272,6 +277,7 @@ internal sealed class TokayTradingEvent : IRoomEvent
             objectName,
             "scripts/ages:tokayShopItemScript",
             objectParameter: objectParameter);
+        _refreshShopItemsNextUpdate = true;
         _stage = TokayTradingStage.ShopReward;
     }
 
@@ -288,10 +294,27 @@ internal sealed class TokayTradingEvent : IRoomEvent
             $"${treasure:x2}:${subId:x2}.")
     };
 
-    private void RefreshShopItem()
+    private void RefreshShopItemsIfPending()
     {
-        TokayShopItem? item = _shopItem;
-        if (item is null || item.Removed)
+        if (!_refreshShopItemsNextUpdate)
+            return;
+
+        // Every tokayShopItem.s:@state1 object checks @checkTransformItem
+        // before interactionRunScript. An accepted exchange therefore changes
+        // inventory in the selected object's script pass, then every surviving
+        // stock object transforms on the following update while reward text is
+        // still active.
+        _refreshShopItemsNextUpdate = false;
+        foreach (TokayShopItem item in
+            _context.Entities.Entities<TokayShopItem>())
+        {
+            RefreshShopItem(item);
+        }
+    }
+
+    private void RefreshShopItem(TokayShopItem item)
+    {
+        if (item.Removed)
             return;
 
         int subId;

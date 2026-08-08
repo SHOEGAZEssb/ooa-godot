@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 7, 2026. It is an implementation inventory, not a
+interactions as of August 8, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -130,12 +130,15 @@ classified records and 156 specialized rows.
 - The remaining 27 non-dungeon Tokay Island rows implement the source-ordered
   ordinary dialogue variants, stolen-item holders and returned-item state,
   Stink Bag/Tasty Meat trade, trading-hut feather/Bracelet/Shovel/shield stock,
-  linked Rosa swap and escape, scent-seedling planting, shield upgrade, vine
+  including every surviving stock object's next-update transformation after
+  an exchange, linked Rosa swap and escape, scent-seedling planting, shield
+  upgrade, vine
   explanation, past and present Wild Tokay managers, present statues, native
   runner/meat gameplay, ordered RNG pattern tables, prizes, and persistent
-  flags. Tokays `$48:$0f/$10` are **P** because the separate dynamic Dimitri
-  special object and `$71:$07` mount controller remain outside the visible NPC
-  path; present manager `$48:$19` is **P** because linked-secret text entry
+  flags. Snapshot counts are unchanged. Tokays `$48:$0f/$10` are **P** because
+  the separate dynamic Dimitri special object and `$71:$07` mount controller
+  remain outside the visible NPC path; present manager `$48:$19` is **P**
+  because linked-secret text entry
   still depends on the unavailable shared secret-input subsystem. Its
   preconfigured play, win/loss, and Bomb Upgrade branches are implemented.
 - Room `1:ba`'s invisible `$c4:$04` entrance socket is a separate specialized

@@ -363,6 +363,77 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1);
 
+        // Returning an equipped Bracelet through the left Feather offer must
+        // update the separate right-hand shovel stock. Every source `$81`
+        // object rechecks the shared inventory on the next object update.
+        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+        _inventory.EquipB(InventoryState.ItemBracelet);
+        LoadValidationRoom(2, 0xe4);
+        stock = _entities.Entities<TokayShopItem>();
+        TokayShopItem featherStock = stock.Single(item =>
+            item.OriginalSubId == 0);
+        TokayShopItem braceletStock = stock.Single(item =>
+            item.OriginalSubId == 1);
+        FailIf(
+            featherStock.SubId != 0 || braceletStock.SubId != 3 ||
+            braceletStock.Treasure != TreasureDatabase.TreasureShovel ||
+            _inventory.EquippedB != InventoryState.ItemBracelet,
+            "Room 2:e4 did not reproduce the equipped-Bracelet state with " +
+            "left Feather `$81:$00` and right shovel `$81:$03` stock.");
+        _player.WarpTo(
+            featherStock.Position + Vector2.Down * 10, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        selectedStock = trading.TryInteractPlayer(_player);
+        FailIf(
+            !selectedStock || trading.Stage != TokayTradingStage.ShopPrompt ||
+            _dialogue.CurrentMessage !=
+                DialogueBox.PlainText(database.Text(0x0a27)),
+            "The left Feather stock did not offer the equipped Bracelet's " +
+            "source return branch.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        FailIf(
+            trading.Stage != TokayTradingStage.ShopReward ||
+            !_inventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            _inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
+            _inventory.EquippedB != InventoryState.ItemShovel ||
+            featherStock.SubId != 0 || braceletStock.SubId != 3,
+            "tokayShopItem_giveShovelAndLoseBracelet did not preserve its " +
+            "same-update equipped inventory and pre-transform stock boundary.");
+        StepRoomEventFrames(1);
+        TokayShopPlacementRecord braceletVisual = database.ShopVisual(1);
+        FailIf(
+            featherStock.SubId != 0 ||
+            featherStock.Treasure != TreasureDatabase.TreasureFeather ||
+            braceletStock.SubId != 1 ||
+            braceletStock.Treasure != TreasureDatabase.TreasureBracelet ||
+            braceletStock.Placement.TileBase != braceletVisual.TileBase ||
+            braceletStock.Placement.Palette != braceletVisual.Palette ||
+            !_dialogue.IsOpen,
+            "The update after returning the equipped Bracelet through the " +
+            "left Feather offer did not restore the separate right stock to " +
+            "Bracelet `$81:$01` while shovel reward text remained active " +
+            $"(subid=${braceletStock.SubId:x2}, treasure=" +
+            $"${braceletStock.Treasure:x2}, tile=" +
+            $"${braceletStock.Placement.TileBase:x2}/" +
+            $"${braceletVisual.TileBase:x2}, palette=" +
+            $"${braceletStock.Placement.Palette:x2}/" +
+            $"${braceletVisual.Palette:x2}, text={_dialogue.IsOpen}).");
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+        StepRoomEventFrames(1);
+        FailIf(
+            trading.Stage != TokayTradingStage.Inactive ||
+            _player.CutsceneControlled || _player.IsHoldingItemTwoHands,
+            "The equipped Bracelet-for-shovel exchange did not finish and " +
+            "release Link.");
+
+        _inventory.LoseTreasure(TreasureDatabase.TreasureShovel);
+        LoadValidationRoom(2, 0xe4);
+        stock = _entities.Entities<TokayShopItem>();
+        _player.WarpTo(
+            stock[0].Position + Vector2.Down * 10, recordSafe: false);
+        _player.Face(Vector2I.Up);
         _inventory.SetMysterySeedsFromScript(0x10);
         selectedStock = trading.TryInteractPlayer(_player);
         FailIf(
@@ -476,7 +547,8 @@ public sealed partial class ValidationRoot
             "Validated all 27 non-dungeon Tokay Island NPC records, clean-US " +
             "room 1:ad placement, held accessories, " +
             "source-addressed item grants, holder/re-entry state, trading-hut " +
-            "stock collision, decline, and accepted Feather grant, linked " +
+            "stock collision, decline, accepted Feather grant, and live " +
+            "cross-stock Bracelet-for-shovel refresh, linked " +
             "Rosa visibility, imported Wild Tokay tables, forced Bracelet/meat " +
             "start, and equip restoration.");
     }
