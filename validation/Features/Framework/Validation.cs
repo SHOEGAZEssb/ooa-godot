@@ -277,6 +277,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTerrain);
         RunIsolatedValidation(ValidateLinkTopDownMovement);
         RunIsolatedValidation(ValidateLinkTopDownSwimming);
+        RunIsolatedValidation(ValidateLinkSideScrollSwimming);
         RunIsolatedValidation(ValidateLinkTerrainEffects);
         RunIsolatedValidation(ValidateHealth);
         RunIsolatedValidation(ValidatePlayerDamageAndDeath);

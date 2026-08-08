@@ -528,6 +528,9 @@ internal sealed class LinkItemDatabase
         for (int phase = 0; phase < 3; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("attack", 0, phase, direction));
+        for (int phase = 0; phase < 3; phase++)
+        for (int direction = 0; direction < 4; direction++)
+            result.Add(("underwater-attack", 0, phase, direction));
         for (int phase = 0; phase < 4; phase++)
         for (int direction = 0; direction < 4; direction++)
             result.Add(("minecart-attack", 0, phase, direction));

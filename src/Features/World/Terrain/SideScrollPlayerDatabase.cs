@@ -6,12 +6,16 @@ namespace oracleofages;
 /// <summary>
 /// Typed runtime view of tileTypesTable@sidescrolling,
 /// sidescrollUpdateActiveTile, linkUpdateInAir_sidescroll, and the
-/// side-view branch of ITEM_FEATHER.
+/// side-view branches of ITEM_FEATHER and linkUpdateSwimming.
 /// </summary>
 internal sealed class SideScrollPlayerDatabase
 {
     private readonly Dictionary<byte, SideScrollTileType> _tiles = new();
     private readonly Dictionary<string, int> _constants = new();
+    private readonly Dictionary<(bool MermaidSuit, int Frame, int Direction),
+        SideScrollSwimmingFrame> _swimmingFrames = new();
+
+    internal static SideScrollPlayerDatabase Shared { get; } = new();
 
     internal SideScrollPlayerParameters Parameters => new(
         Gravity: Constant("gravity"),
@@ -71,6 +75,42 @@ internal sealed class SideScrollPlayerDatabase
         foreach (GeneratedTableRow row in constantTable.Rows)
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
+        GeneratedTable swimmingFrameTable = GeneratedTable.Load(
+            "res://assets/oracle/metadata/side_scroll_swim_frames.tsv",
+            new GeneratedTableSchema(
+                "side-view Link swimming frames",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "mode", "frame", "direction", "duration", "sprite",
+                    "source-offset", "oam-index", "oam", "source"
+                ],
+                ["mode", "frame", "direction"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in swimmingFrameTable.Rows)
+        {
+            string mode = row.RequiredString(0);
+            bool mermaidSuit = mode switch
+            {
+                "flippers" => false,
+                "mermaid" => true,
+                _ => throw new InvalidOperationException(
+                    $"Unknown side-view swimming animation mode '{mode}'.")
+            };
+            int frame = row.Decimal(1, 0, 1);
+            int direction = row.Decimal(2, 0, 3);
+            _swimmingFrames.Add(
+                (mermaidSuit, frame, direction),
+                new SideScrollSwimmingFrame(
+                    MermaidSuit: mermaidSuit,
+                    Frame: frame,
+                    Direction: direction,
+                    Duration: row.Decimal(3, 1, 255),
+                    Sprite: row.RequiredString(4),
+                    SourceOffset: row.HexWord(5),
+                    OamIndex: row.HexByte(6),
+                    Oam: row.RequiredString(7)));
+        }
+
         Validate();
     }
 
@@ -78,6 +118,18 @@ internal sealed class SideScrollPlayerDatabase
         _tiles.TryGetValue(tile, out SideScrollTileType type)
             ? type
             : SideScrollTileType.None;
+
+    internal SideScrollSwimmingFrame SwimmingFrame(
+        bool mermaidSuit,
+        int frame,
+        int direction) =>
+        _swimmingFrames.TryGetValue(
+            (mermaidSuit, frame, direction),
+            out SideScrollSwimmingFrame value)
+                ? value
+                : throw new KeyNotFoundException(
+                    $"Side-view Link swim frame {frame}, direction " +
+                    $"{direction}, mermaid={mermaidSuit} was not imported.");
 
     private int Constant(string key) =>
         _constants.TryGetValue(key, out int value)
@@ -88,7 +140,7 @@ internal sealed class SideScrollPlayerDatabase
     private void Validate()
     {
         SideScrollPlayerParameters parameters = Parameters;
-        if (_tiles.Count != 16 ||
+        if (_tiles.Count != 16 || _swimmingFrames.Count != 16 ||
             TileType(0x16) != SideScrollTileType.Ladder ||
             TileType(0x18) != SideScrollTileType.Ladder ||
             TileType(0x17) !=
@@ -130,8 +182,61 @@ internal sealed class SideScrollPlayerDatabase
             throw new InvalidOperationException(
                 "Imported Ages side-scrolling player data is incomplete or inconsistent.");
         }
+
+        int[,,] offsets =
+        {
+            {
+                { 0x0f80, 0x0f80, 0x0f80, 0x0f80 },
+                { 0x0fc0, 0x0fc0, 0x0fc0, 0x0fc0 }
+            },
+            {
+                { 0x1640, 0x1680, 0x1600, 0x1680 },
+                { 0x1640, 0x16c0, 0x1600, 0x16c0 }
+            }
+        };
+        int[,,] oamIndices =
+        {
+            {
+                { 0x00, 0x01, 0x00, 0x00 },
+                { 0x00, 0x01, 0x00, 0x00 }
+            },
+            {
+                { 0x00, 0x01, 0x00, 0x00 },
+                { 0x01, 0x01, 0x01, 0x00 }
+            }
+        };
+        string[] oam =
+        [
+            "8,0,0,0;8,8,2,0",
+            "8,0,2,32;8,8,0,32"
+        ];
+        for (int mermaid = 0; mermaid < 2; mermaid++)
+        for (int frame = 0; frame < 2; frame++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            SideScrollSwimmingFrame record = SwimmingFrame(
+                mermaid != 0, frame, direction);
+            if (record.Duration != 9 || record.Sprite != "spr_link" ||
+                record.SourceOffset != offsets[mermaid, frame, direction] ||
+                record.OamIndex != oamIndices[mermaid, frame, direction] ||
+                record.Oam != oam[record.OamIndex])
+            {
+                throw new InvalidOperationException(
+                    "Imported Ages side-view Link swimming graphics are inconsistent.");
+            }
+        }
     }
 }
+
+internal readonly record struct SideScrollSwimmingFrame(
+    bool MermaidSuit,
+    int Frame,
+    int Direction,
+    int Duration,
+    string Sprite,
+    int SourceOffset,
+    int OamIndex,
+    string Oam);
 
 [Flags]
 public enum SideScrollTileType : byte

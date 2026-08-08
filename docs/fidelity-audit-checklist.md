@@ -69,7 +69,7 @@ that ledger instead of duplicating its 211-room inventory.
 
 | Priority | Open checklist item | Evidence and impact |
 | --- | --- | --- |
-| P1 | [ ] **CONFIRMED - complete Mermaid Suit movement and underwater transitions.** | Production now imports and ports the Flippers branch of `link.s:linkUpdateSwimming` plus normal-water `linkUpdateDiving`: `$0a`-update entry lock, shared `func_5933` inertia, 8/13/12 A-button burst, B-toggle diving with the `$78` timer and Zora Ring exception, and exact swim/dive animation data. Mermaid Suit movement, SeaWater handling, and deep-water transitions remain unsupported, so SeaWater still takes the safe drowning path. |
+| P1 | [ ] **CONFIRMED - complete top-down Mermaid Suit movement and underwater transitions.** | Production imports and ports the Flippers branch of `link.s:linkUpdateSwimming` plus normal-water `linkUpdateDiving`, and the side-view Flippers gate/movement/burst with exact `LINK_ANIM_MODE_SWIM_2D` graphics. Top-down Mermaid Suit movement, SeaWater handling, and deep-water transitions remain unsupported, so SeaWater still takes the safe drowning path. |
 | P2 | [ ] **CONFIRMED - create and render side-view swim bubbles.** | On bubble-counter underflow, `link.s:linkUpdateSwimming_sidescroll` consumes RNG and creates `INTERAC_BUBBLE $91`. `Player.AdvanceSideScrollSwimming` deliberately consumes the same shared RNG call but has no bubble entity/spawn. RNG order is retained, but the visible interaction is absent. |
 
 ## Runtime foundation, ownership, and data boundaries
@@ -169,10 +169,10 @@ that ledger instead of duplicating its 211-room inventory.
   retention, HUD/screen-space separation, and one-frame Link scroll behavior
   are covered by the world/transition scenarios.
 - [x] Implemented hazards cover holes, no-Flippers/SeaWater drowning, top-down
-  Flippers swimming and normal-water diving, side-view pits/spikes, pulling,
-  damage/recovery, last-safe-position respawn, ledges, grass/puddle/stair/vine
-  speed selection, quicksand/bridge push, slippery side-view tiles, and
-  terrain-linked drops/effects.
+  Flippers swimming and normal-water diving, side-view Flippers swimming,
+  pits/spikes, pulling, damage/recovery, last-safe-position respawn, ledges,
+  grass/puddle/stair/vine speed selection, quicksand/bridge push, slippery
+  side-view tiles, and terrain-linked drops/effects.
 - [ ] **P1 DECLARED - complete terrain-specific Link state dispatch.** Besides
   the confirmed Mermaid Suit movement/underwater-transition gap, later terrain
   states remain outside the current production state machine.
@@ -197,7 +197,8 @@ that ledger instead of duplicating its 211-room inventory.
   ordinary supported grabbables, thrown collisions, and strong-throw policy
   are source-traced and covered.
 - [x] Shovel timing and tile effects; level-1 Roc's Feather top-down and
-  side-view jump foundations; top-down Flippers swimming/normal diving; Harp
+  side-view jump foundations; top-down Flippers swimming/normal diving;
+  side-view Flippers entry, movement, burst, exit, and 9/9 animation; Harp
   song/submenu/time-portal foundations; Ember and Mystery Satchel projectiles;
   seed submenu; Owl/Mystery behavior; chests, ground treasures, drop producers,
   inventory-dependent drops, BCD rupee countdown, water splashes, and
@@ -214,12 +215,14 @@ that ledger instead of duplicating its 211-room inventory.
 - [ ] **P1 DECLARED - complete level-2 Roc's Feather/Roc's Cape and all remaining
   liftable/grabbable species.** Current side-view Cape code is a bounded
   foundation, not full game coverage.
-- [ ] **P2 VERIFY - add direct side-view Flippers, Mermaid Suit, swim-burst,
-  Roc's Cape, ice, squish, and boundary regressions.** The source constants and
-  state code were manually compared with `linkUpdateSwimming_sidescroll`,
-  `linkState01_sidescroll`, `linkUpdateInAir_sidescroll`, and
-  `parentItemCode_feather`, but the registered suite does not directly name or
-  exercise the complete swim/Cape state paths.
+- [ ] **P2 VERIFY - add direct side-view Mermaid Suit movement, Roc's Cape,
+  ice, squish, and remaining boundary regressions.**
+  `ValidateLinkSideScrollSwimming` now covers room `7:07`, Flippers entry and
+  no-Flippers drowning, movement/facing, the shared 8/13/12 burst, water exit,
+  exact 9/9 Flippers graphics, underwater sword composition and A-button
+  immobilization, water-to-water scroll retention, and Mermaid animation
+  selection. Direct Mermaid impulse/movement and complete Cape coverage remain
+  open.
 
 ## Rings
 
@@ -484,10 +487,10 @@ path.
    every boot/title/cinematic RNG call before changing enemy traces.
 3. [x] Route ordinary Link movement through retained 8.8 angle/speed state and
    add long cardinal/diagonal/collision path regressions.
-4. [ ] Complete top-down Mermaid Suit movement/underwater transitions, add
-   direct side-view swim/Cape tests, and add the missing bubble interaction
-   without adding an extra RNG call. Top-down Flippers swimming and normal-
-   water diving are implemented and covered.
+4. [ ] Complete top-down Mermaid Suit movement/underwater transitions, direct
+   side-view Mermaid/Cape tests, and the missing bubble interaction without
+   adding an extra RNG call. Top-down and side-view Flippers swimming are
+   implemented and covered.
 5. [x] Fix `\slow()` and adjacent control-token parsing, then exhaustively scan
    every generated reachable message for unresolved commands.
 6. [x] Port the retail boot/attract loop and exact title Start audio/fade calls.

@@ -795,7 +795,9 @@ $linkItemSourceValid =
     $specialObjectAnimationsSource -match
         '(?ms)^animationData1a025:\s*\.db \$0c \$c8 \$00\s*\.db \$04 \$cc \$02\s*\.db \$04 \$cc \$04\s*\.db \$04 \$d0 \$06\s*\.db \$08 \$d0 \$08\s*\.db \$7f \$d0 \$88' -and
     $specialObjectAnimationsSource -match
-        '(?ms)^animationData19ffe:\s*\.db \$0c \$ac \$40\s*\.db \$04 \$b0 \$42\s*\.db \$04 \$b0 \$44\s*\.db \$04 \$b8 \$46\s*\.db \$08 \$b8 \$48\s*\.db \$7f \$b8 \$88'
+        '(?ms)^animationData19ffe:\s*\.db \$0c \$ac \$40\s*\.db \$04 \$b0 \$42\s*\.db \$04 \$b0 \$44\s*\.db \$04 \$b8 \$46\s*\.db \$08 \$b8 \$48\s*\.db \$7f \$b8 \$88' -and
+    $specialObjectAnimationsSource -match
+        '(?ms)^animationData1a05a:\s*\.db \$03 \$bc \$00\s*^animationData1a05d:\s*\.db \$03 \$c0 \$02\s*\.db \$08 \$c4 \$64'
 if (-not $linkItemSourceValid) {
     throw 'Sword/shovel Link timing, animation, or sound tables changed in the disassembly.'
 }
@@ -817,6 +819,16 @@ for ($phase = 0; $phase -lt 3; $phase++) {
     for ($direction = 0; $direction -lt 4; $direction++) {
         Add-LinkGraphicRow $linkGraphicRows 'attack' 0 $phase $direction (
             $phaseBase + $direction)
+    }
+}
+for ($phase = 0; $phase -lt 3; $phase++) {
+    # parentItemLoadAnimationAndIncState changes LINK_ANIM_MODE_22 to $2d
+    # when w1Link.var2f bit 7 marks an underwater tileset. Modes $2d-$2e
+    # continue through the $bc, $c0, and $c4 sword-swing phases.
+    $phaseBase = @(0xbc, 0xc0, 0xc4)[$phase]
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $linkGraphicRows 'underwater-attack' 0 $phase (
+            $direction) ($phaseBase + $direction)
     }
 }
 for ($phase = 0; $phase -lt 4; $phase++) {
@@ -1826,6 +1838,12 @@ $topDownDiveBehaviorMatch = [regex]::Match(
 $topDownDiveAnimationMatch = [regex]::Match(
     $linkAnimationSource,
     '(?ms)^animationData19eeb:\s*\.db \$(?<duration0>[0-9a-f]{2}) \$(?<graphic0>[0-9a-f]{2}) \$[0-9a-f]{2}\s*\.db \$(?<duration1>[0-9a-f]{2}) \$(?<graphic1>[0-9a-f]{2}) \$[0-9a-f]{2}\s*m_AnimationLoop animationData19eeb')
+$sideScrollFlippersAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19f70:\s*\.db \$(?<duration0>[0-9a-f]{2}) \$(?<graphic0>[0-9a-f]{2}) \$[0-9a-f]{2}\s*\.db \$(?<duration1>[0-9a-f]{2}) \$(?<graphic1>[0-9a-f]{2}) \$[0-9a-f]{2}\s*m_AnimationLoop animationData19f70')
+$sideScrollMermaidAnimationMatch = [regex]::Match(
+    $linkAnimationSource,
+    '(?ms)^animationData19f34:\s*\.db \$(?<duration0>[0-9a-f]{2}) \$(?<graphic0>[0-9a-f]{2}) \$[0-9a-f]{2}\s*\.db \$(?<duration1>[0-9a-f]{2}) \$(?<graphic1>[0-9a-f]{2}) \$[0-9a-f]{2}\s*m_AnimationLoop animationData19f34')
 if (-not $topDownSwimEntryMatch.Success -or
     -not $topDownSwimSpeedMatch.Success -or
     -not $topDownSwimIntervalMatch.Success -or
@@ -1833,9 +1851,11 @@ if (-not $topDownSwimEntryMatch.Success -or
     -not $topDownSwimAnimationMatch.Success -or
     -not $topDownDiveBehaviorMatch.Success -or
     -not $topDownDiveAnimationMatch.Success -or
+    -not $sideScrollFlippersAnimationMatch.Success -or
+    -not $sideScrollMermaidAnimationMatch.Success -or
     $linkSource -notmatch
         '(?ms)^@flippersState0:.*?ld a,\(wGameKeysJustPressed\)\s+and BTN_A\s+jr nz,@pressedA') {
-    throw 'Could not verify top-down linkUpdateSwimming or linkUpdateDiving constants.'
+    throw 'Could not verify Link swimming or diving constants and animations.'
 }
 
 $topDownSwimEntryUpdates = [Convert]::ToInt32(
@@ -1870,6 +1890,22 @@ $topDownDiveGraphic0 = [Convert]::ToInt32(
     $topDownDiveAnimationMatch.Groups['graphic0'].Value, 16)
 $topDownDiveGraphic1 = [Convert]::ToInt32(
     $topDownDiveAnimationMatch.Groups['graphic1'].Value, 16)
+$sideScrollFlippersDuration0 = [Convert]::ToInt32(
+    $sideScrollFlippersAnimationMatch.Groups['duration0'].Value, 16)
+$sideScrollFlippersDuration1 = [Convert]::ToInt32(
+    $sideScrollFlippersAnimationMatch.Groups['duration1'].Value, 16)
+$sideScrollFlippersGraphic0 = [Convert]::ToInt32(
+    $sideScrollFlippersAnimationMatch.Groups['graphic0'].Value, 16)
+$sideScrollFlippersGraphic1 = [Convert]::ToInt32(
+    $sideScrollFlippersAnimationMatch.Groups['graphic1'].Value, 16)
+$sideScrollMermaidDuration0 = [Convert]::ToInt32(
+    $sideScrollMermaidAnimationMatch.Groups['duration0'].Value, 16)
+$sideScrollMermaidDuration1 = [Convert]::ToInt32(
+    $sideScrollMermaidAnimationMatch.Groups['duration1'].Value, 16)
+$sideScrollMermaidGraphic0 = [Convert]::ToInt32(
+    $sideScrollMermaidAnimationMatch.Groups['graphic0'].Value, 16)
+$sideScrollMermaidGraphic1 = [Convert]::ToInt32(
+    $sideScrollMermaidAnimationMatch.Groups['graphic1'].Value, 16)
 $topDownSwimSound = Resolve-SideScrollSound 'SND_LINK_SWIM'
 
 if ($topDownSwimEntryUpdates -ne 0x0a -or
@@ -1888,8 +1924,16 @@ if ($topDownSwimEntryUpdates -ne 0x0a -or
     $topDownDiveDuration1 -ne 0x10 -or
     $topDownDiveGraphic0 -ne 0x0b -or
     $topDownDiveGraphic1 -ne 0x0c -or
+    $sideScrollFlippersDuration0 -ne 0x09 -or
+    $sideScrollFlippersDuration1 -ne 0x09 -or
+    $sideScrollFlippersGraphic0 -ne 0xf0 -or
+    $sideScrollFlippersGraphic1 -ne 0xf4 -or
+    $sideScrollMermaidDuration0 -ne 0x09 -or
+    $sideScrollMermaidDuration1 -ne 0x09 -or
+    $sideScrollMermaidGraphic0 -ne 0x7c -or
+    $sideScrollMermaidGraphic1 -ne 0xa8 -or
     $topDownSwimSound -ne 0x88) {
-    throw 'Top-down Flippers/dive counters, speed step, animation, or sound changed.'
+    throw 'Link swimming counters, speed step, animation, or sound changed.'
 }
 
 $topDownSwimConstantRows = @(
@@ -2055,6 +2099,74 @@ if ($topDownDiveFrameRows.Count -ne 3) {
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\top_down_dive_frames.tsv'),
     $topDownDiveFrameRows)
+
+# linkUpdateSwimming_sidescroll selects LINK_ANIM_MODE_SWIM_2D (`$17) for
+# Flippers and LINK_ANIM_MODE_MERMAID (`$11) for the Mermaid Suit. Preserve
+# all four directional graphics even though state 2 forces Link's displayed
+# direction to left or right after the first update.
+$sideScrollSwimFrameRows = [Collections.Generic.List[string]]::new()
+$sideScrollSwimFrameRows.Add(
+    "# mode`tframe`tdirection`tduration`tsprite`tsource-offset`toam-index`toam`tsource")
+$sideScrollSwimModes = @(
+    @{
+        Name = 'flippers'
+        Durations = @($sideScrollFlippersDuration0, $sideScrollFlippersDuration1)
+        Graphics = @($sideScrollFlippersGraphic0, $sideScrollFlippersGraphic1)
+        Source = 'animationData19f70'
+    },
+    @{
+        Name = 'mermaid'
+        Durations = @($sideScrollMermaidDuration0, $sideScrollMermaidDuration1)
+        Graphics = @($sideScrollMermaidGraphic0, $sideScrollMermaidGraphic1)
+        Source = 'animationData19f34'
+    }
+)
+$sideScrollSwimExpectedOam = @{
+    0x00 = '8,0,0,0;8,8,2,0'
+    0x01 = '8,0,2,32;8,8,0,32'
+}
+foreach ($mode in $sideScrollSwimModes) {
+    for ($frame = 0; $frame -lt 2; $frame++) {
+        for ($direction = 0; $direction -lt 4; $direction++) {
+            $graphic = $mode.Graphics[$frame] + $direction
+            $gfx = $linkGfxRows[$graphic]
+            $oamIndex = [Convert]::ToInt32($gfx.Groups['oam'].Value, 16)
+            $sourceOffset = [Convert]::ToInt32(
+                $gfx.Groups['offset'].Value, 16)
+            $size = [Convert]::ToInt32($gfx.Groups['size'].Value, 16)
+            if (-not $sideScrollSwimExpectedOam.ContainsKey($oamIndex) -or
+                $oamIndex -ge $linkOamLabels.Count) {
+                throw ('LINK_ANIM_MODE_{0} graphic ${1:x2} references unsupported OAM ${2:x2}.' -f $mode.Name.ToUpperInvariant(), $graphic, $oamIndex)
+            }
+            $oamLabel = $linkOamLabels[$oamIndex]
+            $oamBlock = [regex]::Match(
+                $linkOamSource,
+                "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
+            $oamDirectives = @([regex]::Matches(
+                $oamBlock.Groups['body'].Value,
+                '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
+            $encodedParts = [Collections.Generic.List[string]]::new()
+            foreach ($oamDirective in $oamDirectives) {
+                $encodedParts.Add(
+                    "$([Convert]::ToInt32($oamDirective.Groups['y'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['x'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['tile'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['flags'].Value, 16))")
+            }
+            $encodedOam = $encodedParts -join ';'
+            if (-not $oamBlock.Success -or
+                $encodedOam -ne $sideScrollSwimExpectedOam[$oamIndex] -or
+                $size -ne 4) {
+                throw ('LINK_ANIM_MODE_{0} graphic ${1:x2} OAM or source size changed.' -f $mode.Name.ToUpperInvariant(), $graphic)
+            }
+            $sideScrollSwimFrameRows.Add(
+                ("$($mode.Name)`t$frame`t$direction`t$($mode.Durations[$frame])`tspr_link`t$($sourceOffset.ToString('x4'))`t$($oamIndex.ToString('x2'))`t$encodedOam`tspecialObjectAnimationData.s:$($mode.Source)/graphic-`${0:x2}+$oamLabel" -f $graphic))
+        }
+    }
+}
+if ($sideScrollSwimFrameRows.Count -ne 17) {
+    throw 'Side-view Link swimming lost an expected directional frame.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\side_scroll_swim_frames.tsv'),
+    $sideScrollSwimFrameRows)
 
 $ledgeCollisionModes = @{
     overworld = 0

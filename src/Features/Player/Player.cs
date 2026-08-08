@@ -63,6 +63,8 @@ public partial class Player : Node2D
     private Texture2D _damagePushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _damageAttackTexture = null!;
+    private Texture2D _underwaterAttackTexture = null!;
+    private Texture2D _damageUnderwaterAttackTexture = null!;
     private Texture2D _swordTexture = null!;
     private Texture2D _chargedSwordTexture = null!;
     private Texture2D _shovelLinkTexture = null!;
@@ -73,6 +75,10 @@ public partial class Player : Node2D
     private Texture2D _damageTopDownSwimTexture = null!;
     private Texture2D _topDownDiveTexture = null!;
     private Texture2D _damageTopDownDiveTexture = null!;
+    private Texture2D _sideScrollSwimTexture = null!;
+    private Texture2D _damageSideScrollSwimTexture = null!;
+    private Texture2D _sideScrollMermaidTexture = null!;
+    private Texture2D _damageSideScrollMermaidTexture = null!;
     private Texture2D _fallInHoleTexture = null!;
     private Texture2D _damageFallInHoleTexture = null!;
     private Texture2D _ledgeJumpTexture = null!;
@@ -82,6 +88,7 @@ public partial class Player : Node2D
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
     private LinkItemDatabase _linkItems = null!;
+    private SideScrollPlayerDatabase _sideScrollPlayerData = null!;
     private TopDownSwimmingDatabase _topDownSwimmingData = null!;
     private LinkTerrainEffectDatabase _terrainEffects = null!;
     private int _terrainWalkUpdates;
@@ -146,6 +153,9 @@ public partial class Player : Node2D
     private int _sideScrollSwimmingState;
     private int _sideScrollSwimBurstState;
     private int _sideScrollSwimBurstCounter;
+    private int _sideScrollSwimAnimationFrame;
+    private int _sideScrollSwimAnimationCounter;
+    private bool _sideScrollSwimMermaidAnimation;
     private int _sideScrollMermaidImpulseCounter;
     private int _sideScrollBubbleCounter;
     private SideScrollTileType _sideScrollPreviousActiveType;
@@ -316,6 +326,8 @@ public partial class Player : Node2D
     internal int MeleeItemZ => (_topDownAirborne ? TopDownAirZ : 0) - 2;
     internal bool UsesAirborneSwordPose =>
         IsAttacking && (_sideScrollAirborne || _topDownAirborne);
+    internal bool UsesSideScrollSwimmingSwordPose =>
+        IsAttacking && SideScrollSwimming;
     internal bool AirborneLinkUsesJumpAnimation =>
         _airborneLinkAnimationMode == AirborneLinkAnimationMode.Jump;
     internal int AirborneLinkBodyFrame => _airborneLinkAnimationMode switch
@@ -391,6 +403,15 @@ public partial class Player : Node2D
     internal int SideScrollSpeedRaw => _sideScrollSpeedRaw;
     internal int SideScrollAnimationPhase => _sideScrollAnimationPhase;
     internal bool SideScrollSwimming => _sideScrollSwimmingState != 0;
+    internal int SideScrollSwimmingState => _sideScrollSwimmingState;
+    internal int SideScrollSwimBurstState => _sideScrollSwimBurstState;
+    internal int SideScrollSwimBurstCounter => _sideScrollSwimBurstCounter;
+    internal int SideScrollSwimAnimationFrame =>
+        _sideScrollSwimAnimationFrame;
+    internal int SideScrollSwimAnimationCounter =>
+        _sideScrollSwimAnimationCounter;
+    internal bool SideScrollSwimMermaidAnimation =>
+        _sideScrollSwimMermaidAnimation;
     internal bool TopDownSwimming => _topDownSwimmingState != 0;
     internal int TopDownSwimmingState => _topDownSwimmingState;
     internal int TopDownSwimmingEntryCounter => _topDownSwimmingEntryCounter;
@@ -407,6 +428,10 @@ public partial class Player : Node2D
         OracleGraphicsCache.PixelHash(_topDownSwimTexture.GetImage());
     internal ulong TopDownDiveAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_topDownDiveTexture.GetImage());
+    internal ulong SideScrollSwimAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_sideScrollSwimTexture.GetImage());
+    internal ulong SideScrollMermaidAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_sideScrollMermaidTexture.GetImage());
     internal bool SideScrollSquished =>
         _sideScrollSquishPending ||
         _sideScrollSquishAnimationCounter != 0 ||
@@ -565,6 +590,8 @@ public partial class Player : Node2D
         OracleGraphicsCache.PixelHash(_shieldLinkTexture.GetImage());
     internal ulong AttackAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_attackTexture.GetImage());
+    internal ulong UnderwaterAttackAtlasPixelHash =>
+        OracleGraphicsCache.PixelHash(_underwaterAttackTexture.GetImage());
     internal ulong ShovelAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_shovelLinkTexture.GetImage());
     internal ulong MinecartLinkAtlasPixelHash =>
@@ -596,6 +623,7 @@ public partial class Player : Node2D
         _inventory = inventory;
         _random = random;
         _linkItems = LinkItemDatabase.Shared;
+        _sideScrollPlayerData = SideScrollPlayerDatabase.Shared;
         _topDownSwimmingData = TopDownSwimmingDatabase.Shared;
         _texture = BuildLinkTexture(damagePalette: false);
         _damageTexture = BuildLinkTexture(damagePalette: true);
@@ -629,6 +657,10 @@ public partial class Player : Node2D
         _damagePushTexture = BuildPushLinkTexture(damagePalette: true);
         _attackTexture = BuildAttackLinkTexture(damagePalette: false);
         _damageAttackTexture = BuildAttackLinkTexture(damagePalette: true);
+        _underwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
+            damagePalette: false);
+        _damageUnderwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
+            damagePalette: true);
         _swordTexture = BuildSwordTexture(chargedPalette: false);
         _chargedSwordTexture = BuildSwordTexture(chargedPalette: true);
         _shovelLinkTexture = BuildShovelLinkTexture(damagePalette: false);
@@ -639,6 +671,14 @@ public partial class Player : Node2D
         _damageTopDownSwimTexture = BuildTopDownSwimTexture(damagePalette: true);
         _topDownDiveTexture = BuildTopDownDiveTexture(damagePalette: false);
         _damageTopDownDiveTexture = BuildTopDownDiveTexture(damagePalette: true);
+        _sideScrollSwimTexture = BuildSideScrollSwimTexture(
+            mermaidSuit: false, damagePalette: false);
+        _damageSideScrollSwimTexture = BuildSideScrollSwimTexture(
+            mermaidSuit: false, damagePalette: true);
+        _sideScrollMermaidTexture = BuildSideScrollSwimTexture(
+            mermaidSuit: true, damagePalette: false);
+        _damageSideScrollMermaidTexture = BuildSideScrollSwimTexture(
+            mermaidSuit: true, damagePalette: true);
         _fallInHoleTexture = BuildFallInHoleTexture(damagePalette: false);
         _damageFallInHoleTexture = BuildFallInHoleTexture(damagePalette: true);
         _ledgeJumpTexture = BuildLedgeJumpTexture(damagePalette: false);
@@ -686,7 +726,8 @@ public partial class Player : Node2D
         bool preserveSword = false,
         bool preserveShield = false,
         bool preserveLedgeJump = false,
-        bool preserveTopDownSwimming = false)
+        bool preserveTopDownSwimming = false,
+        bool preserveSideScrollSwimming = false)
     {
         InterruptCarriedItems(discard: true);
         if (!preserveSword)
@@ -735,7 +776,18 @@ public partial class Player : Node2D
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
         _forcedRoomEntryMovement = false;
-        ClearSideScrollState(position);
+        if (preserveSideScrollSwimming)
+        {
+            // finishScrollingTransition adjusts Link's coordinate bytes but
+            // leaves wLinkSwimmingState and the side-view swim state intact.
+            // Keep the retained 8.8 Y coordinate synchronized with the new
+            // room position before its first terrain update.
+            _sideScrollYFixed = Mathf.FloorToInt(position.Y * 256.0f);
+        }
+        else
+        {
+            ClearSideScrollState(position);
+        }
         ClearTopDownAirState();
         if (!preserveTopDownSwimming)
             ClearTopDownSwimmingState();
@@ -1008,13 +1060,15 @@ public partial class Player : Node2D
         bool resumeLedgeJump =
             _ledgeJumpState == LedgeJumpState.WaitingForScroll;
         bool preserveTopDownSwimming = TopDownSwimming;
+        bool preserveSideScrollSwimming = SideScrollSwimming;
         WarpTo(
             position,
             recordSafe: !resumeLedgeJump,
             preserveSword: true,
             preserveShield: true,
             preserveLedgeJump: resumeLedgeJump,
-            preserveTopDownSwimming: preserveTopDownSwimming);
+            preserveTopDownSwimming: preserveTopDownSwimming,
+            preserveSideScrollSwimming: preserveSideScrollSwimming);
         if (resumeLedgeJump)
             _world.ResumeLedgeHopAfterScroll(this);
         _walking = false;
@@ -2711,6 +2765,14 @@ public partial class Player : Node2D
                     16,
                     16));
         }
+        else if (UsesSideScrollSwimmingSwordPose)
+        {
+            DrawSwordPose();
+        }
+        else if (SideScrollSwimming)
+        {
+            DrawSideScrollSwimmingBody(Vector2.Zero);
+        }
         else if (SideScrollSquished)
         {
             DrawTexture(
@@ -2991,13 +3053,22 @@ public partial class Player : Node2D
         while (_sideScrollUpdateAccumulator + 0.000001 >= 1.0)
         {
             _sideScrollUpdateAccumulator -= 1.0;
-            AdvanceSideScrollUpdate(input, movementAllowed);
+            AdvanceSideScrollUpdate(
+                input,
+                movementAllowed,
+                Input.IsActionJustPressed("attack"),
+                Input.IsActionJustPressed("move_up") ||
+                Input.IsActionJustPressed("move_right") ||
+                Input.IsActionJustPressed("move_down") ||
+                Input.IsActionJustPressed("move_left"));
         }
     }
 
     internal void AdvanceSideScrollUpdateForValidation(
         Vector2 input,
-        bool startJump = false)
+        bool startJump = false,
+        bool attackJustPressed = false,
+        bool directionJustPressed = false)
     {
         if (!_world.SideScrolling)
         {
@@ -3013,12 +3084,20 @@ public partial class Player : Node2D
                 jumped: true,
                 _world.SideScrollParameters);
         }
-        AdvanceSideScrollUpdate(input, movementAllowed: true);
+        AdvanceSideScrollUpdate(
+            input,
+            movementAllowed: true,
+            attackJustPressed,
+            directionJustPressed);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
 
-    private void AdvanceSideScrollUpdate(Vector2 input, bool movementAllowed)
+    private void AdvanceSideScrollUpdate(
+        Vector2 input,
+        bool movementAllowed,
+        bool attackJustPressed,
+        bool directionJustPressed)
     {
         SideScrollPlayerParameters parameters = _world.SideScrollParameters;
         SideScrollTerrainState terrain = _world.GetSideScrollTerrain(
@@ -3031,7 +3110,12 @@ public partial class Player : Node2D
                 _sideScrollSwimmingState = 1;
                 _world.SpawnDrowningSplash(Position, HazardType.Water);
             }
-            AdvanceSideScrollSwimming(input, movementAllowed, parameters);
+            AdvanceSideScrollSwimming(
+                input,
+                movementAllowed,
+                attackJustPressed,
+                directionJustPressed,
+                parameters);
             _sideScrollPreviousActiveType = terrain.ActiveType;
             return;
         }
@@ -3044,6 +3128,9 @@ public partial class Player : Node2D
             _sideScrollSwimmingState = 0;
             _sideScrollSwimBurstState = 0;
             _sideScrollSwimBurstCounter = 0;
+            _sideScrollSwimAnimationFrame = 0;
+            _sideScrollSwimAnimationCounter = 0;
+            _sideScrollSwimMermaidAnimation = false;
             if (!surfacedFromWaterLadder)
             {
                 BeginSideScrollAirborne(
@@ -4332,6 +4419,8 @@ public partial class Player : Node2D
     private void AdvanceSideScrollSwimming(
         Vector2 input,
         bool movementAllowed,
+        bool attackJustPressed,
+        bool directionJustPressed,
         SideScrollPlayerParameters parameters)
     {
         _sideScrollAirborne = false;
@@ -4351,9 +4440,12 @@ public partial class Player : Node2D
             int swimSpeed = RingEffects.UsesFastSwim(_inventory)
                 ? parameters.FastSwimSpeed
                 : parameters.SwimSpeed;
+            TopDownSwimmingParameters sharedSwimmingParameters =
+                _topDownSwimmingData.Parameters;
             _sideScrollSpeedRaw = swimSpeed;
             _sideScrollTargetSpeedRaw = swimSpeed;
-            _sideScrollVelocityCounter = 3;
+            _sideScrollVelocityCounter =
+                sharedSwimmingParameters.VelocityInterval;
             _sideScrollVelocityInterval = 0;
             _sideScrollTerrainMode = -1;
             if (!_inventory.HasTreasure(TreasureDatabase.TreasureFlippers))
@@ -4361,38 +4453,59 @@ public partial class Player : Node2D
                 _sideScrollSwimmingState = 3;
                 StartSideScrollDrowningWithoutEntryEffects();
             }
+            else
+            {
+                _sideScrollSwimMermaidAnimation = _inventory.HasTreasure(
+                    TreasureDatabase.TreasureMermaidSuit);
+                _sideScrollSwimAnimationFrame = 0;
+                _sideScrollSwimAnimationCounter =
+                    _sideScrollPlayerData.SwimmingFrame(
+                        _sideScrollSwimMermaidAnimation,
+                        frame: 0,
+                        direction: (int)_facing).Duration;
+            }
             return;
         }
 
         if (_sideScrollSwimmingState == 3)
             return;
 
-        int inputAngle = movementAllowed
-            ? AngleForVector(input)
-            : 0xff;
-        bool mermaidSuit =
-            _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit);
-        if (mermaidSuit)
+        if (movementAllowed)
         {
-            UpdateSideScrollMermaidSuit(
-                inputAngle, movementAllowed, parameters);
-        }
-        else
-        {
-            UpdateSideScrollFlippers(inputAngle, parameters);
-        }
+            int inputAngle = AngleForVector(input);
+            bool mermaidSuit = _inventory.HasTreasure(
+                TreasureDatabase.TreasureMermaidSuit);
+            if (mermaidSuit)
+            {
+                UpdateSideScrollMermaidSuit(
+                    inputAngle,
+                    movementAllowed,
+                    directionJustPressed,
+                    parameters);
+            }
+            else
+            {
+                UpdateSideScrollFlippers(
+                    inputAngle, attackJustPressed, parameters);
+            }
 
-        if (_sideScrollAngle < 0x80 && _sideScrollSpeedRaw != 0)
-        {
-            ApplySideScrollVelocity(
-                _sideScrollSpeedRaw,
-                _sideScrollAngle,
-                allowWallSlide: true);
-            UpdateFacingFromSideScrollAngle(_sideScrollAngle);
-            _walking = inputAngle < 0x80;
+            if (_sideScrollAngle < 0x80 && _sideScrollSpeedRaw != 0)
+            {
+                ApplySideScrollVelocity(
+                    _sideScrollSpeedRaw,
+                    _sideScrollAngle,
+                    allowWallSlide: true);
+                UpdateFacingFromSideScrollAngle(_sideScrollAngle);
+                _walking = inputAngle < 0x80;
+            }
+            // linkUpdateSwimming_sidescroll sets direction bit 0 after
+            // applying the movement angle. Idle/direct-vertical swimmers
+            // therefore retain their current half but still display either
+            // DIR_RIGHT or DIR_LEFT.
+            _facing = (Facing)((int)_facing | 1);
+            _sideScrollYFixed =
+                Mathf.FloorToInt(_precisePosition.Y * 256.0f);
         }
-        _sideScrollYFixed =
-            Mathf.FloorToInt(_precisePosition.Y * 256.0f);
 
         _sideScrollBubbleCounter =
             (_sideScrollBubbleCounter - 1) & 0xff;
@@ -4404,18 +4517,22 @@ public partial class Player : Node2D
             _sideScrollBubbleCounter =
                 (_random.Next().Value & 0x1f) + 50;
         }
+        AdvanceSideScrollSwimAnimation();
     }
 
     private void UpdateSideScrollFlippers(
         int inputAngle,
+        bool attackJustPressed,
         SideScrollPlayerParameters parameters)
     {
+        TopDownSwimmingParameters swimmingParameters =
+            _topDownSwimmingData.Parameters;
         int baseSpeed = RingEffects.UsesFastSwim(_inventory)
             ? parameters.FastSwimSpeed
             : parameters.SwimSpeed;
         if (_sideScrollSwimBurstState == 0)
         {
-            if (!Input.IsActionJustPressed("attack"))
+            if (!attackJustPressed)
             {
                 _sideScrollTargetSpeedRaw = baseSpeed;
                 UpdateSideScrollVelocity(inputAngle, inAir: false);
@@ -4423,14 +4540,17 @@ public partial class Player : Node2D
             }
 
             _sideScrollSwimBurstState = 1;
-            for (int update = 0; update < 8; update++)
+            for (int update = 0;
+                 update < swimmingParameters.BurstTurnUpdates;
+                 update++)
             {
                 UpdateSideScrollVelocity(
                     ((int)_facing * 8) & 0x1f,
                     inAir: false);
             }
-            _sideScrollSwimBurstCounter = 0x0d;
-            _world.PlaySound(OracleSoundEngine.SndLinkSwim);
+            _sideScrollSwimBurstCounter =
+                swimmingParameters.BurstAccelerateUpdates;
+            _world.PlaySound(swimmingParameters.SwimSound);
         }
 
         _sideScrollSwimBurstCounter =
@@ -4440,14 +4560,16 @@ public partial class Player : Node2D
             if (_sideScrollSwimBurstState == 1)
             {
                 _sideScrollSwimBurstState = 2;
-                _sideScrollSwimBurstCounter = 0x0c;
+                _sideScrollSwimBurstCounter =
+                    swimmingParameters.BurstDecelerateUpdates;
             }
             else
             {
                 _sideScrollSwimBurstState = 0;
                 _sideScrollSpeedRaw = baseSpeed;
                 _sideScrollTargetSpeedRaw = baseSpeed;
-                _sideScrollVelocityCounter = 3;
+                _sideScrollVelocityCounter =
+                    swimmingParameters.VelocityInterval;
                 UpdateSideScrollVelocity(
                     inputAngle < 0x80
                         ? inputAngle
@@ -4459,7 +4581,9 @@ public partial class Player : Node2D
 
         if ((_sideScrollSwimBurstCounter & 0x03) == 0)
         {
-            int amount = _sideScrollSwimBurstState == 1 ? 5 : -5;
+            int amount = _sideScrollSwimBurstState == 1
+                ? swimmingParameters.BurstSpeedStep
+                : -swimmingParameters.BurstSpeedStep;
             _sideScrollTargetSpeedRaw =
                 Math.Max(0, _sideScrollTargetSpeedRaw + amount);
         }
@@ -4474,6 +4598,7 @@ public partial class Player : Node2D
     private void UpdateSideScrollMermaidSuit(
         int inputAngle,
         bool movementAllowed,
+        bool directionJustPressed,
         SideScrollPlayerParameters parameters)
     {
         SetSideScrollTerrainSpeed(
@@ -4485,13 +4610,7 @@ public partial class Player : Node2D
                 : parameters.MermaidTargetSpeed,
             writeSpeedDirectly: false);
 
-        bool directionJustPressed =
-            movementAllowed &&
-            (Input.IsActionJustPressed("move_up") ||
-             Input.IsActionJustPressed("move_right") ||
-             Input.IsActionJustPressed("move_down") ||
-             Input.IsActionJustPressed("move_left"));
-        if (directionJustPressed)
+        if (movementAllowed && directionJustPressed)
         {
             _world.PlaySound(OracleSoundEngine.SndSplash);
             _sideScrollMermaidImpulseCounter = 4;
@@ -4510,6 +4629,18 @@ public partial class Player : Node2D
 
         _sideScrollVelocityCounter = 0x14;
         UpdateSideScrollVelocity(inputAngle, inAir: false);
+    }
+
+    private void AdvanceSideScrollSwimAnimation()
+    {
+        if (--_sideScrollSwimAnimationCounter > 0)
+            return;
+        _sideScrollSwimAnimationFrame ^= 1;
+        _sideScrollSwimAnimationCounter =
+            _sideScrollPlayerData.SwimmingFrame(
+                _sideScrollSwimMermaidAnimation,
+                _sideScrollSwimAnimationFrame,
+                (int)_facing).Duration;
     }
 
     private void StartSideScrollDrowningWithoutEntryEffects()
@@ -4828,6 +4959,9 @@ public partial class Player : Node2D
         _sideScrollSwimmingState = 0;
         _sideScrollSwimBurstState = 0;
         _sideScrollSwimBurstCounter = 0;
+        _sideScrollSwimAnimationFrame = 0;
+        _sideScrollSwimAnimationCounter = 0;
+        _sideScrollSwimMermaidAnimation = false;
         _sideScrollMermaidImpulseCounter = 0;
         _sideScrollBubbleCounter = 0;
         _sideScrollSquishVertical = false;
@@ -6110,7 +6244,9 @@ public partial class Player : Node2D
             // exposes Link's independently advancing animation: WALK when the
             // sword already owned turning at takeoff, or JUMP when the Feather
             // initialized first.
-            if (_sideScrollAirborne || _topDownAirborne)
+            if (SideScrollSwimming)
+                DrawSideScrollSwimmingBody(drawOffset);
+            else if (_sideScrollAirborne || _topDownAirborne)
                 DrawAirborneLinkBody(drawOffset);
             else
                 DrawWalkLinkBody(GetWalkAnimationFrame(), drawOffset);
@@ -6123,8 +6259,16 @@ public partial class Player : Node2D
                 _swordState == SwordActionState.Spin || phase == 3
                     ? 1
                     : phase;
+            bool underwaterSwing =
+                SideScrollSwimming && _swordState == SwordActionState.Swing;
             DrawTextureRectRegion(
-                DamagePaletteActive ? _damageAttackTexture : _attackTexture,
+                underwaterSwing
+                    ? DamagePaletteActive
+                        ? _damageUnderwaterAttackTexture
+                        : _underwaterAttackTexture
+                    : DamagePaletteActive
+                        ? _damageAttackTexture
+                        : _attackTexture,
                 new Rect2(
                     AttackSpriteOrigin + drawOffset,
                     new Vector2(16, 16)),
@@ -6134,6 +6278,27 @@ public partial class Player : Node2D
                     16,
                     16));
         }
+    }
+
+    private void DrawSideScrollSwimmingBody(Vector2 drawOffset)
+    {
+        Texture2D swimTexture = _sideScrollSwimMermaidAnimation
+            ? DamagePaletteActive
+                ? _damageSideScrollMermaidTexture
+                : _sideScrollMermaidTexture
+            : DamagePaletteActive
+                ? _damageSideScrollSwimTexture
+                : _sideScrollSwimTexture;
+        DrawTextureRectRegion(
+            swimTexture,
+            new Rect2(
+                NormalSpriteOrigin + drawOffset,
+                new Vector2(16, 16)),
+            new Rect2(
+                _sideScrollSwimAnimationFrame * 16,
+                (int)_facing * 16,
+                16,
+                16));
     }
 
     private void DrawAirborneLinkBody(Vector2 drawOffset)
@@ -6526,6 +6691,23 @@ public partial class Player : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
+    private Texture2D BuildUnderwaterAttackLinkTexture(bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
+        for (int facing = 0; facing < 4; facing++)
+        for (int phase = 0; phase < 3; phase++)
+        {
+            LinkGraphicRecord record = _linkItems.Graphic(
+                "underwater-attack", 0, phase, facing);
+            WriteLinkFrame(
+                output, source, phase * 16, facing * 16,
+                record.ByteOffset, record.MirrorX, damagePalette);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
     private Texture2D BuildShovelLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
@@ -6644,6 +6826,32 @@ public partial class Player : Node2D
                 frame * 16,
                 0,
                 record.SourceOffset,
+                damagePalette);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildSideScrollSwimTexture(
+        bool mermaidSuit,
+        bool damagePalette)
+    {
+        Image source = OracleGraphicsCache.LoadImage(
+            "res://assets/oracle/gfx/spr_link.png");
+        Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
+
+        for (int frame = 0; frame < 2; frame++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            SideScrollSwimmingFrame record =
+                _sideScrollPlayerData.SwimmingFrame(
+                    mermaidSuit, frame, direction);
+            WriteLinkFrame(
+                output,
+                source,
+                frame * 16,
+                direction * 16,
+                record.SourceOffset,
+                mirroredOam: record.OamIndex == 0x01,
                 damagePalette);
         }
         return ImageTexture.CreateFromImage(output);

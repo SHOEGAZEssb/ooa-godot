@@ -1089,6 +1089,342 @@ public sealed partial class ValidationRoot
             "no-Flippers/SeaWater drowning boundaries.");
     }
 
+    private void ValidateLinkSideScrollSwimming()
+    {
+        const double UpdateDelta = 1.0 / 60.0;
+        const int WaterGroup = 7;
+        const int WaterRoom = 0x07;
+        Vector2 roomWaterPosition = new(0x08, 0x78);
+        SideScrollPlayerDatabase database = SideScrollPlayerDatabase.Shared;
+        OracleRoomData room = _world.LoadRoom(WaterGroup, WaterRoom);
+        byte waterTile = room.GetMetatile(roomWaterPosition);
+        FailIf(
+            room.TilesetId != 0x5c ||
+            (room.TilesetFlags & 0x30) != 0x30 ||
+            room.WidthInTiles != OracleRoomData.LargeRoomWidthInTiles ||
+            room.HeightInTiles != OracleRoomData.LargeRoomHeightInTiles ||
+            waterTile != 0x1b ||
+            database.TileType(waterTile) != SideScrollTileType.Water,
+            "Room 7:07 did not retain underwater side-view tileset `$5c, " +
+            "flags `$30, or TILETYPE_SS_WATER `$1b at `$70.");
+
+        SideScrollSwimmingFrame flippersRight = database.SwimmingFrame(
+            mermaidSuit: false, frame: 0, direction: (int)Facing.Right);
+        SideScrollSwimmingFrame flippersLeft = database.SwimmingFrame(
+            mermaidSuit: false, frame: 1, direction: (int)Facing.Left);
+        SideScrollSwimmingFrame mermaidRight = database.SwimmingFrame(
+            mermaidSuit: true, frame: 0, direction: (int)Facing.Right);
+        SideScrollSwimmingFrame mermaidLeft = database.SwimmingFrame(
+            mermaidSuit: true, frame: 1, direction: (int)Facing.Left);
+        FailIf(
+            flippersRight.Duration != 9 ||
+            flippersRight.SourceOffset != 0x0f80 ||
+            flippersRight.OamIndex != 0x01 ||
+            flippersLeft.Duration != 9 ||
+            flippersLeft.SourceOffset != 0x0fc0 ||
+            flippersLeft.OamIndex != 0x00 ||
+            mermaidRight.Duration != 9 ||
+            mermaidRight.SourceOffset != 0x1680 ||
+            mermaidRight.OamIndex != 0x01 ||
+            mermaidLeft.Duration != 9 ||
+            mermaidLeft.SourceOffset != 0x16c0 ||
+            mermaidLeft.OamIndex != 0x00,
+            "LINK_ANIM_MODE_SWIM_2D `$17 or LINK_ANIM_MODE_MERMAID `$11 " +
+            "lost its exact 9/9 directional graphics.");
+
+        LinkItemDatabase linkItems = LinkItemDatabase.Shared;
+        LinkGraphicRecord underwaterPhase0 = linkItems.Graphic(
+            "underwater-attack", 0, 0, (int)Facing.Right);
+        LinkGraphicRecord underwaterPhase1 = linkItems.Graphic(
+            "underwater-attack", 0, 1, (int)Facing.Left);
+        LinkGraphicRecord underwaterPhase2 = linkItems.Graphic(
+            "underwater-attack", 0, 2, (int)Facing.Down);
+        FailIf(
+            underwaterPhase0.GraphicsIndex != 0xbd ||
+            underwaterPhase0.OamIndex != 0x01 ||
+            underwaterPhase0.ByteOffset != 0x1880 ||
+            underwaterPhase1.GraphicsIndex != 0xc3 ||
+            underwaterPhase1.OamIndex != 0x00 ||
+            underwaterPhase1.ByteOffset != 0x1840 ||
+            underwaterPhase2.GraphicsIndex != 0xc6 ||
+            underwaterPhase2.OamIndex != 0x0a ||
+            underwaterPhase2.ByteOffset != 0x17c0,
+            "Underwater ITEM_SWORD LINK_ANIM_MODE_2d lost its exact " +
+            "`$bc/`$c0/`$c4 directional Link graphics.");
+
+        SideScrollTerrainState water = new(
+            ActiveTile: 0x1b,
+            BelowTile: 0x1b,
+            ActiveType: SideScrollTileType.Water,
+            BelowType: SideScrollTileType.Water);
+        var flippersInventory = new InventoryState(
+            _treasures, OracleSaveData.CreateStandardGame());
+        flippersInventory.GiveTreasure(
+            TreasureDatabase.TreasureFlippers, 0);
+        flippersInventory.GiveTreasure(
+            TreasureDatabase.TreasureSword, 0);
+        var flippersWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var flippersPlayer = new Player
+        {
+            Name = "SideScrollFlippersValidationPlayer"
+        };
+        AddChild(flippersPlayer);
+        flippersPlayer.Initialize(
+            flippersWorld,
+            flippersInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        var noFlippersWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var noFlippersPlayer = new Player
+        {
+            Name = "SideScrollNoFlippersValidationPlayer"
+        };
+        AddChild(noFlippersPlayer);
+        noFlippersPlayer.Initialize(
+            noFlippersWorld,
+            new InventoryState(
+                _treasures, OracleSaveData.CreateStandardGame()),
+            new Vector2(96, 80),
+            new OracleRandom());
+
+        var mermaidInventory = new InventoryState(
+            _treasures, OracleSaveData.CreateStandardGame());
+        mermaidInventory.GiveTreasure(
+            TreasureDatabase.TreasureFlippers, 0);
+        mermaidInventory.GiveTreasure(
+            TreasureDatabase.TreasureMermaidSuit, 0);
+        var mermaidWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var mermaidPlayer = new Player
+        {
+            Name = "SideScrollMermaidValidationPlayer"
+        };
+        AddChild(mermaidPlayer);
+        mermaidPlayer.Initialize(
+            mermaidWorld,
+            mermaidInventory,
+            new Vector2(112, 80),
+            new OracleRandom());
+
+        try
+        {
+            Vector2 entryPosition = flippersPlayer.PrecisePosition;
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                flippersPlayer.SideScrollSwimmingState != 2 ||
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.SideScrollSpeedRaw != 0x14 ||
+                flippersPlayer.SideScrollSwimAnimationFrame != 0 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 9 ||
+                flippersPlayer.SideScrollSwimMermaidAnimation ||
+                flippersPlayer.PrecisePosition != entryPosition ||
+                flippersWorld.DrowningSplashes.Count != 1 ||
+                flippersPlayer.SideScrollSwimAtlasPixelHash == 0 ||
+                flippersPlayer.SideScrollMermaidAtlasPixelHash == 0,
+                "Room 7:07-style water entry with TREASURE_FLIPPERS `$2e " +
+                "did not select swimming state 2, SPEED_80, one splash, " +
+                "and LINK_ANIM_MODE_SWIM_2D instead of drowning.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.FacingVector != Vector2I.Left ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 8 ||
+                flippersPlayer.PrecisePosition != entryPosition,
+                "An idle DIR_DOWN side-view swimmer was not forced to " +
+                "DIR_LEFT by linkUpdateSwimming_sidescroll state 2.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.FacingVector != Vector2I.Right ||
+                flippersPlayer.SideScrollAngle != 0x08 ||
+                flippersPlayer.PrecisePosition.X <= entryPosition.X ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 7,
+                "Flippers did not allow horizontal side-view swimming in " +
+                "room 7:07-style water.");
+
+            for (int update = 0; update < 6; update++)
+            {
+                flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                flippersPlayer.SideScrollSwimAnimationFrame != 0 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 1,
+                "LINK_ANIM_MODE_SWIM_2D left its first nine-update " +
+                "graphic early.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Right,
+                attackJustPressed: true);
+            FailIf(
+                flippersPlayer.SideScrollSwimAnimationFrame != 1 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 9 ||
+                flippersPlayer.SideScrollSwimBurstState != 1 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0x0c ||
+                flippersWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim) != 1,
+                "A-button side-view swimming did not advance the 9/9 " +
+                "animation or begin the shared 8/13/12 Flippers burst.");
+
+            for (int update = 0; update < 24; update++)
+            {
+                flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                flippersPlayer.SideScrollSwimBurstState != 0 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0 ||
+                flippersPlayer.SideScrollSpeedRaw != 0x14,
+                "The side-view Flippers burst did not return to SPEED_80 " +
+                "after its exact acceleration/deceleration counters.");
+
+            flippersInventory.EquipA(InventoryState.ItemSword);
+            int swordSwimSoundCount = flippersWorld.Sounds.Count(
+                sound => sound == OracleSoundEngine.SndLinkSwim);
+            Vector2 swordStart = flippersPlayer.PrecisePosition;
+            Input.ActionRelease("attack");
+            Input.ActionPress("attack");
+            flippersPlayer._PhysicsProcess(UpdateDelta);
+            Input.ActionRelease("attack");
+            FailIf(
+                flippersInventory.EquippedA != InventoryState.ItemSword ||
+                !flippersPlayer.SideScrollSwimming ||
+                !flippersPlayer.UsesSideScrollSwimmingSwordPose ||
+                flippersPlayer.SwordState != SwordActionState.Swing ||
+                flippersPlayer.SwordStateFrame != 0 ||
+                flippersPlayer.GetSwordHitbox().Size == Vector2.Zero ||
+                flippersPlayer.SwordAtlasPixelHash == 0 ||
+                flippersPlayer.UnderwaterAttackAtlasPixelHash == 0 ||
+                flippersPlayer.SideScrollSwimBurstState != 0 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0 ||
+                flippersPlayer.PrecisePosition != swordStart ||
+                flippersWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim) !=
+                    swordSwimSoundCount,
+                "An A-button ITEM_SWORD press while side-view swimming " +
+                "started Flippers momentum/SND_LINK_SWIM, moved Link, or " +
+                "failed to retain the sword child and underwater draw path.");
+
+            flippersPlayer.AdvanceSwordForValidation(
+                17,
+                buttonHeld: true);
+            FailIf(
+                flippersPlayer.SwordState != SwordActionState.Held ||
+                !flippersPlayer.UsesSideScrollSwimmingSwordPose,
+                "A held side-view swimming sword stopped composing with " +
+                "Link's independently advancing swim body.");
+            flippersPlayer.AdvanceSwordForValidation(
+                1,
+                buttonHeld: false);
+
+            int transitionState = flippersPlayer.SideScrollSwimmingState;
+            int transitionAngle = flippersPlayer.SideScrollAngle;
+            int transitionSpeed = flippersPlayer.SideScrollSpeedRaw;
+            int transitionBurstState =
+                flippersPlayer.SideScrollSwimBurstState;
+            int transitionBurstCounter =
+                flippersPlayer.SideScrollSwimBurstCounter;
+            int transitionAnimationFrame =
+                flippersPlayer.SideScrollSwimAnimationFrame;
+            int transitionAnimationCounter =
+                flippersPlayer.SideScrollSwimAnimationCounter;
+            int transitionSplashCount = flippersWorld.DrowningSplashes.Count;
+            Vector2 transitionDestination =
+                flippersPlayer.PrecisePosition + new Vector2(160, 0);
+            flippersPlayer.BeginScrollingTransition(
+                flippersPlayer.PrecisePosition,
+                Vector2I.Right);
+            flippersPlayer.SetScrollingTransitionPosition(
+                transitionDestination,
+                new Vector2(80, 0));
+            flippersPlayer.FinishScrollingTransition(transitionDestination);
+            FailIf(
+                !flippersPlayer.SideScrollSwimming ||
+                flippersPlayer.SideScrollSwimmingState != transitionState ||
+                flippersPlayer.SideScrollAngle != transitionAngle ||
+                flippersPlayer.SideScrollSpeedRaw != transitionSpeed ||
+                flippersPlayer.SideScrollSwimBurstState !=
+                    transitionBurstState ||
+                flippersPlayer.SideScrollSwimBurstCounter !=
+                    transitionBurstCounter ||
+                flippersPlayer.SideScrollSwimAnimationFrame !=
+                    transitionAnimationFrame ||
+                flippersPlayer.SideScrollSwimAnimationCounter !=
+                    transitionAnimationCounter ||
+                flippersPlayer.SideScrollYFixed !=
+                    Mathf.FloorToInt(transitionDestination.Y * 256.0f) ||
+                flippersPlayer.PrecisePosition != transitionDestination ||
+                flippersWorld.DrowningSplashes.Count != transitionSplashCount,
+                "A water-to-water side-view scroll cleared or restarted " +
+                "the live swim state, exposed standing Link for one frame, " +
+                "or replayed the entry splash.");
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                !flippersPlayer.SideScrollSwimming ||
+                flippersWorld.DrowningSplashes.Count != transitionSplashCount,
+                "The first destination-water update restarted side-view " +
+                "swimming after a screen transition.");
+
+            noFlippersPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Zero);
+            FailIf(
+                !noFlippersPlayer.IsDrowning ||
+                noFlippersPlayer.SideScrollSwimmingState != 3 ||
+                noFlippersWorld.DrowningSplashes.Count != 1,
+                "Side-view water no longer retained source drowning for " +
+                "Link without TREASURE_FLIPPERS `$2e.");
+
+            mermaidPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                mermaidPlayer.IsDrowning ||
+                mermaidPlayer.SideScrollSwimmingState != 2 ||
+                !mermaidPlayer.SideScrollSwimMermaidAnimation ||
+                mermaidPlayer.SideScrollSwimAnimationCounter != 9,
+                "TREASURE_MERMAID_SUIT `$4a did not select the source " +
+                "side-view Mermaid animation after the Flippers gate.");
+
+            flippersWorld.SideScrollTerrain = default;
+            int splashCount = flippersWorld.DrowningSplashes.Count;
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                flippersPlayer.SideScrollSwimming ||
+                !flippersPlayer.SideScrollAirborne ||
+                flippersPlayer.SideScrollSpeedZ >= 0 ||
+                flippersWorld.DrowningSplashes.Count != splashCount + 1,
+                "Leaving side-view water did not clear swimming, create " +
+                "one splash, and begin the source -`$01a0 hop-out arc.");
+        }
+        finally
+        {
+            Input.ActionRelease("attack");
+            flippersPlayer.Free();
+            noFlippersPlayer.Free();
+            mermaidPlayer.Free();
+        }
+
+        GD.Print(
+            "Validated room 7:07 side-view swimming: tileset `$5c/flags " +
+            "`$30 and water `$1b, TREASURE_FLIPPERS `$2e entry/movement, " +
+            "forced horizontal facing, exact 9/9 Flippers and Mermaid " +
+            "graphics, underwater sword composition with immobilized " +
+            "A-button burst suppression, shared free-A burst, water-to-water " +
+            "scroll retention, water exit, and no-Flippers drowning.");
+    }
+
     private void ValidateLinkTerrainEffects()
     {
         Vector2 grassPosition = new(56, 120);
