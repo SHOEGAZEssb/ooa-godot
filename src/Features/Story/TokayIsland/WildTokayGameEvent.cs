@@ -13,6 +13,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
     private readonly TokayIslandDatabase _database;
+    private readonly WildTokaySpawnSchedule _wildSchedule;
     private readonly GashaSpotDatabase _ringDatabase = new();
     private readonly List<WildParticipantState> _participants = new();
     private readonly List<WildTokayMeat> _meats = new();
@@ -28,9 +29,6 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private int _savedEquippedA;
     private int _savedEquippedB;
     private int _wildLevel;
-    private int _wildCycles;
-    private int _wildColumn;
-    private int _wildRandomIndex;
     private int _wildSpawnCounter;
     private bool _present;
     private bool _won;
@@ -50,6 +48,8 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     {
         _context = context;
         _database = database;
+        _wildSchedule = new WildTokaySpawnSchedule(
+            database, () => context.Entities.NextRandomValue());
     }
 
     public bool HasState => _stage != WildTokayGameStage.Inactive;
@@ -139,7 +139,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         UnlockInput();
         _actor = null;
         _counter = 0;
-        _wildCycles = 0;
+        _wildSchedule.Clear();
         _prizePrepared = false;
         _ringPrize = false;
         _stage = WildTokayGameStage.Inactive;
@@ -381,9 +381,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: true, coordinate: _database.GameLinkX);
         ApplyGameTiles();
-        _wildCycles = _wildLevel < 3 ? 5 : _wildLevel == 3 ? 6 : 7;
-        _wildColumn = 0;
-        SelectPattern();
+        _wildSchedule.Begin(_wildLevel);
         _participants.Clear();
         _meats.Clear();
         foreach (NpcCharacter statue in _context.Entities.Entities<NpcCharacter>())
@@ -539,34 +537,15 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         if (--_wildSpawnCounter > 0)
             return;
         _wildSpawnCounter = _database.GameSpawnDelay;
-        if (_wildCycles == 0)
-            return;
-
-        WildTokayPatternRecord pattern =
-            _database.WildPattern(_wildLevel, _wildRandomIndex);
-        int code = _wildColumn switch
-        {
-            0 => pattern.LeftBlue,
-            1 => pattern.LeftRed,
-            2 => pattern.RightBlue,
-            _ => pattern.RightRed
-        };
-        bool finalParticipant =
-            _wildCycles == 1 && IsLastOccupiedColumn(pattern, _wildColumn);
-        SpawnParticipants(code, finalParticipant);
-        _wildColumn++;
-        if (_wildColumn < 4)
-            return;
-        _wildColumn = 0;
-        _wildCycles--;
-        if (_wildCycles > 0)
-            SelectPattern();
+        WildTokaySpawnInstruction instruction = _wildSchedule.Advance();
+        if (instruction.Code != 0)
+            SpawnParticipants(instruction.Code, instruction.Final);
     }
 
     private void SpawnParticipants(int code, bool final)
     {
         if (code is 1 or 3)
-            SpawnParticipant(fromRight: false, red: final && code == 1);
+            SpawnParticipant(fromRight: false, red: final);
         if (code is 2 or 3)
             SpawnParticipant(fromRight: true, red: final);
     }
@@ -777,11 +756,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         ClearGameEntities();
         RequireActor().SetActive(true);
         RestoreGameTiles();
-        // The same-room hardcoded warp places Link at packed position `$57
-        // and transition `$03 faces him up. Do this while the screen is fully
-        // white, after the destination manager has been recreated.
-        _context.Player.WarpTo(PackedPositionCenter(
-            _database.GameReturnPosition));
+        // The hardcoded warp initially decodes packed `$57, but during room
+        // initialization the recreated `$48:$0d/`$19 manager sees ROOMFLAG_40
+        // and overwrites Link's high coordinates with `$48,$50. Reproduce the
+        // final observable position while the screen is fully white.
+        _context.Player.WarpTo(new Vector2(
+            _database.GameLinkX, _database.GameLinkY));
         _context.Player.Face(Vector2I.Up);
         _context.Rooms.SaveData.SetRoomFlag(
             _context.Rooms.ActiveGroup,
@@ -894,35 +874,13 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         _prizePrepared = true;
     }
 
-    private void SelectPattern() =>
-        _wildRandomIndex = _context.Entities.NextRandomValue() & 0x0f;
-
     private void RestoreInventory()
     {
         if (!_inventoryOverridden)
             return;
         _context.Inventory.SetScriptedEquippedItems(_savedEquippedB, _savedEquippedA);
         _inventoryOverridden = false;
-        _wildCycles = 0;
-    }
-
-    private static bool IsLastOccupiedColumn(
-        WildTokayPatternRecord pattern,
-        int column)
-    {
-        int[] codes =
-        [
-            pattern.LeftBlue,
-            pattern.LeftRed,
-            pattern.RightBlue,
-            pattern.RightRed
-        ];
-        if (codes[column] == 0)
-            return false;
-        for (int next = column + 1; next < codes.Length; next++)
-            if (codes[next] != 0)
-                return false;
-        return true;
+        _wildSchedule.Clear();
     }
 
     private void BeginWait(int frames, WildTokayGameStage next)

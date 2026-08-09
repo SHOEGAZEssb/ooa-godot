@@ -49,6 +49,8 @@ internal sealed class TokayIslandDatabase
     internal int GameLinkY => Constant("game-link-y");
     internal int GameLinkX => Constant("game-link-x");
     internal int GameReturnPosition => Constant("game-return-position");
+    internal int WildCycleCount(int level) =>
+        Constant($"wild-cycle-count-level-{level}");
     internal int GameSpawnDelay => Constant("game-spawn-delay");
     internal int GameStartDelay => Constant("game-start-delay");
     internal int GameFadeInDelay => Constant("game-fade-in-delay");
@@ -334,6 +336,9 @@ internal sealed class TokayIslandDatabase
             ShopGroup != 2 || ShopRoom != 0xe4 ||
             ShopItemCollisionRadius != 0x06 ||
             ParticipantAnimation != 0x02 || GameReturnPosition != 0x57 ||
+            WildCycleCount(0) != 5 || WildCycleCount(1) != 5 ||
+            WildCycleCount(2) != 5 || WildCycleCount(3) != 6 ||
+            WildCycleCount(4) != 7 ||
             GameStartDelay != 30 ||
             GameFadeInDelay != 10 ||
             MeatFallDelay != 30 || MeatFallGravity != 0x28 ||

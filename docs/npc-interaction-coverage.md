@@ -134,11 +134,13 @@ classified records and 156 specialized rows.
   an exchange, linked Rosa swap and escape, scent-seedling planting, shield
   upgrade, vine
   explanation, past and present Wild Tokay managers, present statues, native
-  runner/meat gameplay, ordered RNG pattern tables, all six imported prize
+  runner/meat gameplay, source-derived cycle counts and ordered RNG pattern
+  tables with four 60-update spawn slots plus the fifth reset slot, all six
+  imported prize
   accessories, the manager's 10-update raise/40-update hold/20-update lower
   cadence with animations `$06`/`$02`, the full-screen white start and
   same-room result fades, room-music restoration at the return boundary,
-  Link's packed `$57` post-game position,
+  the manager's post-warp `$48,$50` Link-position override,
   the controller's 30/10-update start waits, all six ordered arena tile writes (the
   four `$ef` entrances and two `$7a` center tiles), round-long room
   confinement, downward-facing runners, Bracelet-owned 8.8 meat fall/throw

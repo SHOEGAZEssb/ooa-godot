@@ -244,6 +244,98 @@ public sealed partial class ValidationRoot
             database.WildMeatAccessory(4) is not
                 { YOffset: -12, XOffset: 0, Animation: 3 },
             "Tokay Island source-derived holder, shop, or Wild Tokay tables changed.");
+
+        int[][] sourceWildPatterns =
+        [
+            [1, 0, 0, 2], [2, 0, 1, 0], [2, 1, 0, 1], [1, 0, 2, 2],
+            [1, 1, 2, 2], [2, 2, 1, 1], [2, 3, 1, 0], [1, 3, 2, 2]
+        ];
+        int[][] sourceWildSelections =
+        [
+            [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5],
+            [0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 6],
+            [0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7],
+            [1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 0, 0, 6, 7, 7],
+            [3, 4, 4, 4, 5, 5, 5, 5, 5, 2, 1, 0, 6, 7, 7, 7]
+        ];
+        int[] sourceWildCycleCounts = [5, 5, 5, 6, 7];
+        for (int level = 0; level < sourceWildSelections.Length; level++)
+        {
+            FailIf(
+                database.WildCycleCount(level) != sourceWildCycleCounts[level],
+                $"Wild Tokay level {level} cycle count changed from source " +
+                $"value {sourceWildCycleCounts[level]}.");
+            for (int randomIndex = 0; randomIndex < 16; randomIndex++)
+            {
+                int expectedPattern = sourceWildSelections[level][randomIndex];
+                int[] expectedCodes = sourceWildPatterns[expectedPattern];
+                WildTokayPatternRecord imported =
+                    database.WildPattern(level, randomIndex);
+                int[] importedCodes =
+                [
+                    imported.LeftBlue, imported.LeftRed,
+                    imported.RightBlue, imported.RightRed
+                ];
+                FailIf(
+                    imported.Pattern != expectedPattern ||
+                    !importedCodes.SequenceEqual(expectedCodes),
+                    $"Wild Tokay level {level}, random nibble " +
+                    $"${randomIndex:x1} did not preserve source pattern " +
+                    $"{expectedPattern}: {string.Join(",", expectedCodes)}.");
+
+                int randomCalls = 0;
+                var schedule = new WildTokaySpawnSchedule(
+                    database,
+                    () =>
+                    {
+                        randomCalls++;
+                        return randomIndex;
+                    });
+                schedule.Begin(level);
+                int emittedTokays = 0;
+                int lastOccupiedSlot = Array.FindLastIndex(
+                    expectedCodes, code => code != 0);
+                for (int cycle = 0; cycle < sourceWildCycleCounts[level]; cycle++)
+                {
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        WildTokaySpawnInstruction instruction = schedule.Advance();
+                        bool expectedFinal =
+                            cycle == sourceWildCycleCounts[level] - 1 &&
+                            slot == lastOccupiedSlot;
+                        FailIf(
+                            instruction.Reset ||
+                            instruction.Code != expectedCodes[slot] ||
+                            instruction.Final != expectedFinal,
+                            $"Wild Tokay level {level}, random nibble " +
+                            $"${randomIndex:x1}, cycle {cycle}, slot {slot} " +
+                            "did not preserve its source code/final marker.");
+                        emittedTokays += instruction.Code == 3
+                            ? 2
+                            : instruction.Code == 0 ? 0 : 1;
+                    }
+                    WildTokaySpawnInstruction reset = schedule.Advance();
+                    FailIf(
+                        !reset.Reset || reset.Code != 0 || reset.Final ||
+                        schedule.Slot != 0 ||
+                        schedule.CyclesRemaining !=
+                            sourceWildCycleCounts[level] - cycle - 1,
+                        $"Wild Tokay level {level}, random nibble " +
+                        $"${randomIndex:x1}, cycle {cycle} skipped its source " +
+                        "fifth 60-update reset slot.");
+                }
+                int tokaysPerPattern = expectedCodes.Sum(code =>
+                    code == 3 ? 2 : code == 0 ? 0 : 1);
+                FailIf(
+                    emittedTokays !=
+                        tokaysPerPattern * sourceWildCycleCounts[level] ||
+                    randomCalls != sourceWildCycleCounts[level] + 1 ||
+                    schedule.Advance() != default,
+                    $"Wild Tokay level {level}, random nibble " +
+                    $"${randomIndex:x1} changed its total participant count " +
+                    "or initial/per-reset/final RNG consumption.");
+            }
+        }
         var treasures = new TreasureDatabase();
         (string Object, int Treasure, int SubId, int ObjectParameter)[]
             shopRewards =
@@ -513,8 +605,8 @@ public sealed partial class ValidationRoot
             TreasureDatabase.TreasureBombs,
             TreasureDatabase.TreasureSword);
         LoadValidationRoom(2, 0xde);
-        Vector2 wildTokayReturnPosition =
-            WildTilePoint(database.GameReturnPosition);
+        Vector2 wildTokayResultPosition =
+            new(database.GameLinkX, database.GameLinkY);
         int wildTokayRoomMusic = _sound.Data.RoomMusic(2, 0xde);
         FailIf(
             wildTokayRoomMusic != 0x26,
@@ -808,12 +900,13 @@ public sealed partial class ValidationRoot
             _sound.ActiveMusic != wildTokayRoomMusic ||
             _sound.PlayRequestsFor(wildTokayRoomMusic) !=
                 losingRoomMusicRequests + 1 ||
-            _player.PrecisePosition != wildTokayReturnPosition ||
+            _player.PrecisePosition != wildTokayResultPosition ||
             _player.FacingVector != Vector2I.Up ||
             wildTokay.ScreenTransitionsDisabled ||
             _roomEvents.ScreenTransitionsDisabled,
             "Wild Tokay loss did not recreate `$48:$0d, restore all six " +
-            "arena tiles, move Link to packed `$57 facing up, clear " +
+            "arena tiles, apply the manager's `$48,$50 Link override facing " +
+            "up, clear " +
             "ROOMFLAG_40, restart room music `$26, and release the " +
             "screen-transition lock at the white warp boundary.");
         StepRoomEventFrames(31);
@@ -1016,15 +1109,15 @@ public sealed partial class ValidationRoot
             _sound.ActiveMusic != wildTokayRoomMusic ||
             _sound.PlayRequestsFor(wildTokayRoomMusic) !=
                 winningRoomMusicRequests + 1 ||
-            _player.PrecisePosition != wildTokayReturnPosition ||
+            _player.PrecisePosition != wildTokayResultPosition ||
             _player.FacingVector != Vector2I.Up ||
             database.WildStartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) !=
                     originalWildTiles[record.PackedPosition]),
             "Wild Tokay win did not remove game entities, recreate the " +
-            "manager, restore arena tiles, move Link to packed `$57 facing " +
-            "up, and restart room music `$26 at the fully-white same-room " +
+            "manager, restore arena tiles, apply its `$48,$50 Link override " +
+            "facing up, and restart room music `$26 at the fully-white same-room " +
             "boundary.");
         StepRoomEventFrames(31);
         FailIf(
@@ -1087,11 +1180,12 @@ public sealed partial class ValidationRoot
             "stock collision, decline, accepted Feather grant, and live " +
             "cross-stock Bracelet-for-shovel refresh, linked " +
             "Rosa visibility, imported Wild Tokay tables, forced Bracelet/meat " +
-            "start and throw path, prize raise/hold/lower timing, full white " +
+            "five-slot spawn cadence/order/count/RNG, start and throw path, " +
+            "prize raise/hold/lower timing, full white " +
             "start fade, manager lifecycle, downward-facing participant " +
             "boundaries, four-door arena writes, exit confinement, exact " +
             "fixed-point throws and source bounce, caught-meat attachment/pause, " +
-            "same-room result fades, packed `$57 Link return, room-music " +
+            "same-room result fades, manager-owned `$48,$50 Link return, room-music " +
             "restoration, delayed winning prize handoff, and restoration.");
     }
 }

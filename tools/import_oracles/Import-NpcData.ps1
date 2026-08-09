@@ -2141,6 +2141,9 @@ $agesWramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
 $tokayShopCollisionMatch = [regex]::Match(
     $tokayShopSource,
     '(?ms)^@state0:.*?ld a,\$(?<radius>[0-9a-f]{2})\s+call objectSetCollideRadius.*?^@state1:\s+call interactionAnimateAsNpc')
+$wildTokayManagerLinkPositionMatch = [regex]::Match(
+    $tokaySource,
+    '(?ms)^@initSubid0d:.*?bit 6,a.*?ld hl,w1Link\.yh\s+ld \(hl\),\$(?<y>[0-9a-f]{2})\s+ld l,<w1Link\.xh\s+ld \(hl\),\$(?<x>[0-9a-f]{2})\s+xor a\s+ld l,<w1Link\.direction')
 if ($tokaySource -notmatch
         '(?ms)^interactionCode48:.*?^@initSubid05:.*?^@initSubid1f:.*?^tokayState1:.*?^tokayScriptTable:' -or
     $tokaySource -notmatch
@@ -2160,6 +2163,7 @@ if ($tokaySource -notmatch
     $tokayShopSource -notmatch
         '(?ms)^interactionCode81:.*?^@initialShopTreasures:\s+\.db TREASURE_FEATHER, TREASURE_BRACELET.*?^@seedsNeededToBuyItems:.*?^@boughtItemGlobalflags:' -or
     -not $tokayShopCollisionMatch.Success -or
+    -not $wildTokayManagerLinkPositionMatch.Success -or
     $wildTokaySource -notmatch
         '(?ms)^interactionCode70:.*?^@var3bValues:\s+\.db \$05 \$05 \$05 \$06 \$07.*?^@tilesToReplaceOnStart:.*?^@data_5898:.*?^@table:' -or
     $wildTokaySource -notmatch
@@ -2187,6 +2191,10 @@ $tokayShopCollisionRadius = [Convert]::ToInt32(
 if ($tokayShopCollisionRadius -ne 0x06) {
     throw "INTERAC_TOKAY_SHOP_ITEM collision radius is no longer `$06."
 }
+$wildTokayManagerLinkY = [Convert]::ToInt32(
+    $wildTokayManagerLinkPositionMatch.Groups['y'].Value, 16)
+$wildTokayManagerLinkX = [Convert]::ToInt32(
+    $wildTokayManagerLinkPositionMatch.Groups['x'].Value, 16)
 $wildTokayReturnWarpMatches = [regex]::Matches(
     $wildTokaySource,
     '(?m)^\s*m_HardcodedWarpA ROOM_AGES_2(?<room>de|e5), \$00, \$(?<position>[0-9a-f]{2}), \$03\s*$')
@@ -2205,6 +2213,34 @@ if ($wildTokayReturnWarpMatches.Count -ne 2 -or
 }
 $wildTokayReturnPosition = [Convert]::ToInt32(
     $wildTokayReturnPositions[0], 16)
+$wildTokayCycleMatch = [regex]::Match(
+    $wildTokaySource,
+    '(?m)^@var3bValues:\s*\r?\n\s*\.db(?<values>(?: \$[0-9a-f]{2}){5})\s*$')
+$wildTokayPatternMatch = [regex]::Match(
+    $wildTokaySource,
+    '(?ms)^@data_5898:\s*(?<values>(?:\.db(?: \$[0-9a-f]{2}){4}\s*){8})')
+$wildTokayRandomTableMatch = [regex]::Match(
+    $wildTokaySource,
+    '(?ms)^@table:\s*(?<values>(?:\.db(?: \$[0-9a-f]{2}){16}\s*){5})')
+if (-not $wildTokayCycleMatch.Success -or
+    -not $wildTokayPatternMatch.Success -or
+    -not $wildTokayRandomTableMatch.Success) {
+    throw 'Could not parse the Wild Tokay cycle, pattern, or random-selection tables.'
+}
+$wildTokayCycleCounts = @(
+    [regex]::Matches($wildTokayCycleMatch.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+$wildTokayPatternValues = @(
+    [regex]::Matches($wildTokayPatternMatch.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+$wildTokayRandomPatternValues = @(
+    [regex]::Matches($wildTokayRandomTableMatch.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+if ($wildTokayCycleCounts.Count -ne 5 -or
+    $wildTokayPatternValues.Count -ne 32 -or
+    $wildTokayRandomPatternValues.Count -ne 80) {
+    throw 'Wild Tokay cycle or pattern table dimensions changed.'
+}
 
 $tokayTextRows = [Collections.Generic.List[string]]::new()
 $tokayTextRows.Add("# text-id`tutf8-base64")
@@ -2522,8 +2558,14 @@ $tokayConstantRows = @(
     'participant-left-x`t24`t-', 'participant-right-x`t136`t-',
     'participant-start-y`t248`t-',
     "participant-animation`t$($wildTokayParticipantGraphic.DefaultAnimation)`t-",
-    'game-link-y`t72`t-', 'game-link-x`t80`t-',
+    "game-link-y`t$wildTokayManagerLinkY`t-",
+    "game-link-x`t$wildTokayManagerLinkX`t-",
     "game-return-position`t$wildTokayReturnPosition`t-",
+    "wild-cycle-count-level-0`t$($wildTokayCycleCounts[0])`t-",
+    "wild-cycle-count-level-1`t$($wildTokayCycleCounts[1])`t-",
+    "wild-cycle-count-level-2`t$($wildTokayCycleCounts[2])`t-",
+    "wild-cycle-count-level-3`t$($wildTokayCycleCounts[3])`t-",
+    "wild-cycle-count-level-4`t$($wildTokayCycleCounts[4])`t-",
     'game-spawn-delay`t60`t-', 'game-start-delay`t30`t-',
     'game-fade-in-delay`t10`t-'
 ) | ForEach-Object { $_.Replace('`t', "`t") }
@@ -2574,21 +2616,11 @@ foreach ($spec in $tokayHolderSpecs) {
 
 $wildTokayPatternRows = [Collections.Generic.List[string]]::new()
 $wildTokayPatternRows.Add("# level`trandom-index`tpattern`tleft-count`tright-count")
-$wildTokayPatterns = @(
-    @(1, 0, 0, 2), @(2, 0, 1, 0), @(2, 1, 0, 1), @(1, 0, 2, 2),
-    @(1, 1, 2, 2), @(2, 2, 1, 1), @(2, 3, 1, 0), @(1, 3, 2, 2)
-)
-$wildTokayRandomPatterns = @(
-    @(0,0,0,1,1,1,2,2,2,3,3,3,4,4,5,5),
-    @(0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,6),
-    @(0,1,1,2,2,3,3,4,4,4,5,5,6,6,6,7),
-    @(1,2,3,3,4,4,4,5,5,5,5,0,0,6,7,7),
-    @(3,4,4,4,5,5,5,5,5,2,1,0,6,7,7,7)
-)
-for ($level = 0; $level -lt $wildTokayRandomPatterns.Count; $level++) {
+for ($level = 0; $level -lt $wildTokayCycleCounts.Count; $level++) {
     for ($randomIndex = 0; $randomIndex -lt 16; $randomIndex++) {
-        $pattern = [int]$wildTokayRandomPatterns[$level][$randomIndex]
-        $values = $wildTokayPatterns[$pattern]
+        $pattern = $wildTokayRandomPatternValues[$level * 16 + $randomIndex]
+        $offset = $pattern * 4
+        $values = $wildTokayPatternValues[$offset..($offset + 3)]
         $wildTokayPatternRows.Add(
             "$level`t$randomIndex`t$pattern`t$($values[0]),$($values[1])`t$($values[2]),$($values[3])")
     }
