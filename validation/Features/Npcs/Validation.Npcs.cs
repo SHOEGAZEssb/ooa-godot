@@ -217,6 +217,11 @@ public sealed partial class ValidationRoot
         int selectRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
         _dialogue.ShowChoiceMessage("\\opt()Yes \\opt()No", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
+        FailIf(
+            DialogueBox.ChoiceCursorGlyphCodeForValidation != 0x9f ||
+            _dialogue.ChoiceCursorOpaquePixelCountForValidation() != 16,
+            "The textbox option cursor did not use the 16-pixel triangle from " +
+            "clean-US gfx_hud tile $04 (hack-base font character $9f).");
         _dialogue.MoveChoiceForValidation(1);
         FailIf(
             _dialogue.SelectedChoice != 1 ||
@@ -227,6 +232,59 @@ public sealed partial class ValidationRoot
             _dialogue.IsOpen ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests + 1,
             "Confirming a textbox option did not request SND_SELECTITEM $56.");
+
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed: [], justPressed: [], movement: Vector2.Zero));
+        try
+        {
+            _dialogue.ShowChoiceMessage(
+                "\\opt()Yes \\opt()No", _player.Position.Y);
+            _dialogue.RevealCurrentPageForValidation();
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
+
+        moveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        selectRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed: ["item"], justPressed: ["item"], movement: Vector2.Zero));
+        try
+        {
+            _dialogue.AdvanceApplicationUpdate();
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
+        FailIf(
+            !_dialogue.IsOpen ||
+            !_dialogue.ChoiceActive ||
+            _dialogue.SelectedChoice != 1 ||
+            _dialogue.TryTakeChoiceResult(out _) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != moveRequests + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests,
+            "B did not move the textbox cursor to the final option without " +
+            "accepting it, as textOptionCode_checkBButton specifies.");
+
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed: ["attack"], justPressed: ["attack"], movement: Vector2.Zero));
+        try
+        {
+            _dialogue.AdvanceApplicationUpdate();
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
+        FailIf(
+            _dialogue.IsOpen ||
+            !_dialogue.TryTakeChoiceResult(out int bChoice) ||
+            bChoice != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests + 1,
+            "A did not accept the final textbox option selected by B on the " +
+            "following original update.");
 
         _dialogue.ShowMessage(
             "\\col(1)R\\col(3)B\\col(0)N\n\\sym(0x57)♪\\heart\\abtn\\bbtn",
@@ -334,7 +392,8 @@ public sealed partial class ValidationRoot
             "source $78 slowdown, " +
             "adjacent heart/byte controls, save-selected 7/5/4/3/2-update dialogue speed, white default " +
             "text, four-update SND_TEXT/inline voice cues, SND_TEXT_2 continuation, " +
-            "choice sounds, colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
+            "choice sounds/B-to-final-option input, gfx_hud tile $04 choice cursor, " +
+            "colored and symbol-font glyphs, gfx_hud tile $03 continuation " +
             "marker, one-line tile-row scrolling, continuation-only 32-update blink, " +
             "imported TX_510e/TX_0901 sign fallbacks, and final-message input consumption.");
     }

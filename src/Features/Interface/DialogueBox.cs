@@ -16,6 +16,7 @@ public partial class DialogueBox : Node2D
     private const int TextAreaHeight = LinesPerPage * LineSpacing;
     private const int TextSoundCooldownFrames = 4;
     private const int TextSlowdownFrames = 0x78;
+    private const int ChoiceCursorGlyphCode = 0x9f;
     private static readonly Rect2 ContinueMarkerRect = new(144, 32, 8, 8);
 
     // getCharacterDisplayLength reads byte 2 of each eight-byte row in
@@ -129,6 +130,8 @@ public partial class DialogueBox : Node2D
     internal static Color RedTextColorForValidation => RedTextColor;
     internal static Color BlueTextColorForValidation => BlueTextColor;
     internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
+    internal static int ChoiceCursorGlyphCodeForValidation =>
+        ChoiceCursorGlyphCode;
 
     private TextSegment CurrentSegment => _segments[_segmentIndex];
     private bool HasAnotherLine => _firstLineIndex + LinesPerPage < CurrentSegment.Lines.Count;
@@ -435,6 +438,19 @@ public partial class DialogueBox : Node2D
         {
             int choiceCount = CurrentLine(0).OptionColumns.Count +
                 CurrentLine(1).OptionColumns.Count;
+            // textOptionCode@state02 checks A/B before directions, and
+            // textOptionCode_checkBButton moves to the final option without
+            // accepting it. A confirms the selected option on a later update.
+            if (Input.IsActionJustPressed("item"))
+            {
+                MoveChoiceToLast();
+                return;
+            }
+            if (Input.IsActionJustPressed("attack"))
+            {
+                SubmitChoice();
+                return;
+            }
             if (choiceCount > 0 &&
                 (Input.IsActionJustPressed("move_left") ||
                  Input.IsActionJustPressed("move_right") ||
@@ -444,11 +460,6 @@ public partial class DialogueBox : Node2D
                 int choiceDelta = Input.IsActionJustPressed("move_left") ||
                     Input.IsActionJustPressed("move_up") ? -1 : 1;
                 MoveChoice(choiceDelta);
-                return;
-            }
-            if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"))
-            {
-                SubmitChoice();
                 return;
             }
         }
@@ -603,6 +614,21 @@ public partial class DialogueBox : Node2D
 
     internal void MoveChoiceForValidation(int delta) => MoveChoice(delta);
 
+    internal int ChoiceCursorOpaquePixelCountForValidation()
+    {
+        Image image = _fontTexture.GetImage();
+        int sourceX = (ChoiceCursorGlyphCode & 0x0f) * 8;
+        int sourceY = (ChoiceCursorGlyphCode >> 4) * 16;
+        int count = 0;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            if (image.GetPixel(sourceX + x, sourceY + y).A > 0.5f)
+                count++;
+        }
+        return count;
+    }
+
     internal int GlyphColorForValidation(int segment, int line, int column) =>
         _segments[segment].Lines[line].Glyphs[column].ColorIndex;
 
@@ -714,6 +740,21 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
     }
 
+    private void MoveChoiceToLast()
+    {
+        if (!_choiceActive || !IsPageComplete || HasContinuation)
+            return;
+
+        int choiceCount = CurrentLine(0).OptionColumns.Count +
+            CurrentLine(1).OptionColumns.Count;
+        if (choiceCount == 0)
+            return;
+
+        _playSound(OracleSoundEngine.SndMenuMove);
+        _selectedChoice = choiceCount - 1;
+        QueueRedraw();
+    }
+
     private void DrawChoiceCursor()
     {
         int optionIndex = 0;
@@ -723,8 +764,19 @@ public partial class DialogueBox : Node2D
             {
                 if (optionIndex++ != _selectedChoice)
                     continue;
+                // Clean-US updateSelectedTextPosition writes gfx_hud tile
+                // $04. The disassembly's hack-base branch moved those exact
+                // triangle pixels into font character $9f.
                 TextLine cursorLine = new TextLine(
-                    new[] { new TextGlyph('>', FontSource.Main, 0, 0, 0) },
+                    new[]
+                    {
+                        new TextGlyph(
+                            ChoiceCursorGlyphCode,
+                            FontSource.Main,
+                            0,
+                            0,
+                            0)
+                    },
                     Array.Empty<int>());
                 DrawFontLine(
                     cursorLine,
