@@ -1292,7 +1292,52 @@ public sealed partial class ValidationRoot
                 "The side-view Flippers burst did not return to SPEED_80 " +
                 "after its exact acceleration/deceleration counters.");
 
-            flippersInventory.EquipA(InventoryState.ItemSword);
+            int[] nonSwordPrimaryItems =
+            [
+                InventoryState.ItemNone,
+                InventoryState.ItemShield,
+                InventoryState.ItemBomb,
+                InventoryState.ItemHarp,
+                InventoryState.ItemShovel,
+                InventoryState.ItemBracelet,
+                InventoryState.ItemFeather,
+                InventoryState.ItemSeedSatchel
+            ];
+            foreach (int item in nonSwordPrimaryItems)
+            {
+                flippersInventory.SetScriptedEquippedItems(
+                    InventoryState.ItemNone,
+                    item);
+                int swimSoundCount = flippersWorld.Sounds.Count(
+                    sound => sound == OracleSoundEngine.SndLinkSwim);
+                Input.ActionRelease("attack");
+                Input.ActionPress("attack");
+                flippersPlayer._PhysicsProcess(UpdateDelta);
+                Input.ActionRelease("attack");
+                FailIf(
+                    flippersPlayer.SideScrollSwimBurstState != 1 ||
+                    flippersPlayer.SideScrollSwimBurstCounter != 0x0c ||
+                    flippersWorld.Sounds.Count(
+                        sound => sound == OracleSoundEngine.SndLinkSwim) !=
+                        swimSoundCount + 1,
+                    $"A-button side-view swimming with equipped item " +
+                    $"`${item:x2} did not begin the shared Flippers burst.");
+
+                for (int update = 0; update < 24; update++)
+                {
+                    flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                        Vector2.Right);
+                }
+                FailIf(
+                    flippersPlayer.SideScrollSwimBurstState != 0 ||
+                    flippersPlayer.SideScrollSwimBurstCounter != 0,
+                    $"The item `${item:x2} side-view Flippers burst did not " +
+                    "complete before the next equipped-item branch.");
+            }
+
+            flippersInventory.SetScriptedEquippedItems(
+                InventoryState.ItemNone,
+                InventoryState.ItemSword);
             int swordSwimSoundCount = flippersWorld.Sounds.Count(
                 sound => sound == OracleSoundEngine.SndLinkSwim);
             Vector2 swordStart = flippersPlayer.PrecisePosition;
@@ -1421,7 +1466,8 @@ public sealed partial class ValidationRoot
             "`$30 and water `$1b, TREASURE_FLIPPERS `$2e entry/movement, " +
             "forced horizontal facing, exact 9/9 Flippers and Mermaid " +
             "graphics, underwater sword composition with immobilized " +
-            "A-button burst suppression, shared free-A burst, water-to-water " +
+            "A-button burst suppression, shared A burst across every other " +
+            "equipped item, water-to-water " +
             "scroll retention, water exit, and no-Flippers drowning.");
     }
 

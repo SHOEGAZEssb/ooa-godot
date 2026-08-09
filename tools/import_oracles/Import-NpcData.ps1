@@ -2133,6 +2133,8 @@ $wildTokaySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\wildTokayController.s')
 $wildTokayMeatSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\tokayMeat.s')
+$wildTokayAccessorySource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\accessory.s')
 $wildTokayObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
 $agesWramSource = Read-ImportText (Join-Path $Disassembly 'include\wram.s')
@@ -2145,8 +2147,12 @@ if ($tokaySource -notmatch
         '(?ms)^@textIndices:\s+\.db <TX_0a64.*?\.db <TX_0a63' -or
     $tokaySource -notmatch
         '(?ms)^tokayItemGraphics:\s+\.db \$10 \$1b \$68 \$31 \$20' -or
+    $tokaySource -notmatch
+        '(?ms)^tokayRunSubid0d:.*?^@substate0:.*?SNDCTRL_MEDIUM_FADEOUT.*?fadeoutToWhite.*?^@substate1:.*?wPaletteThread_mode.*?clearAllItemsAndPutLinkOnGround.*?interactionDelete' -or
     $tokayHelperSource -notmatch
         '(?ms)^tokayGiveItemToLink:.*?ld b,\$06.*?cp \$06.*?jr z,\+.*?ld b,\$01.*?ld \(hl\),b.*?cp \$0a' -or
+    $tokayHelperSource -notmatch
+        '(?ms)^tokayGame_determinePrizeAndCheckRupees:.*?^@gfx:\s+\.db \$3e \$2b \$2c \$0d \$2d \$0e.*?^tokayGame_createAccessoryForPrize:\s+call interactionSetAnimation.*?INTERAC_ACCESSORY.*?Interaction\.var03.*?Interaction\.relatedObj1' -or
     $tokayScriptSource -notmatch
         '(?ms)^tokayHoldingItemScript:.*?^tokayRunningFromRosaScript:.*?^tokayGameManagerScript_past:.*?^tokayShopkeeperScript:.*?^tokayWithDimitri1Script:.*?^tokayWithDimitri2Script:.*?^tokayAtSeedlingPlotScript:.*?^tokayGameManagerScript_present:' -or
     $tokayHelperSource -notmatch
@@ -2156,8 +2162,20 @@ if ($tokaySource -notmatch
     -not $tokayShopCollisionMatch.Success -or
     $wildTokaySource -notmatch
         '(?ms)^interactionCode70:.*?^@var3bValues:\s+\.db \$05 \$05 \$05 \$06 \$07.*?^@tilesToReplaceOnStart:.*?^@data_5898:.*?^@table:' -or
+    $wildTokaySource -notmatch
+        '(?ms)^@tilesToReplaceOnStart:\s+\.db \$ef \$01\s+\.db \$ef \$08\s+\.db \$ef \$71\s+\.db \$ef \$78\s+\.db \$7a \$74\s+\.db \$7a \$75' -or
+    $wildTokaySource -notmatch
+        '(?ms)^@substate0:.*?ld \(hl\),30.*?^@substate1:.*?ld \(hl\),10.*?MUS_MINIGAME.*?fadeinFromWhite.*?^@substate2:.*?interactionDecCounter1IfPaletteNotFading.*?TX_0a16' -or
     $wildTokayMeatSource -notmatch
         '(?ms)^interactionCode8c:.*?ld \(hl\),30.*?objectSetCollideRadius.*?ld bc,\$3850.*?ld \(hl\),-\$40.*?^@state2:.*?^@state3:' -or
+    $wildTokayMeatSource -notmatch
+        '(?ms)^@@substate0:.*?SND_FALLINHOLE.*?^@@substate1:.*?ld c,\$28.*?objectUpdateSpeedZ_paramC.*?SND_BOMB_LAND' -or
+    $wildTokayMeatSource -notmatch
+        '(?ms)^@state2:.*?^@justGrabbed:.*?activeMeatObject.*?getFreeInteractionSlot.*?INTERAC_TOKAY_MEAT.*?interactionIncSubstate.*?^@released:.*?dropLinkHeldItem' -or
+    $tokaySource -notmatch
+        '(?ms)^wildTokayParticipant_checkGrabMeat:.*?ld a,\$0a.*?interactionIncSubstate.*?ld \(hl\),\$06.*?ld a,\$07.*?add \(hl\).*?tokayInitMeatAccessory:.*?INTERAC_ACCESSORY.*?ld \(hl\),\$73.*?inc \(hl\).*?Interaction\.relatedObj1.*?^wildTokayParticipantSubstate1:.*?interactionDecCounter1' -or
+    $wildTokayAccessorySource -notmatch
+        '(?ms)^@data:\s+\.db \$00 \$f3 \$80 \$03\s+\.db \$f3 \$00 \$80 \$03\s+\.db \$00 \$0d \$80 \$03\s+\.db \$f4 \$ff \$80 \$03\s+\.db \$f4 \$00 \$80 \$03' -or
     $wildTokayObjectSource -notmatch
         '(?ms)^wildTokayObjectTable:.*?^@tokayFromLeft:.*?\$48 \$0c \$f8 \$18.*?^@tokayFromRight:.*?\$48 \$0c \$f8 \$88.*?^@tokayOnBothSides:' -or
     $agesWramSource -notmatch '(?m)^wDimitriState: ; \$c647/' -or
@@ -2169,6 +2187,24 @@ $tokayShopCollisionRadius = [Convert]::ToInt32(
 if ($tokayShopCollisionRadius -ne 0x06) {
     throw "INTERAC_TOKAY_SHOP_ITEM collision radius is no longer `$06."
 }
+$wildTokayReturnWarpMatches = [regex]::Matches(
+    $wildTokaySource,
+    '(?m)^\s*m_HardcodedWarpA ROOM_AGES_2(?<room>de|e5), \$00, \$(?<position>[0-9a-f]{2}), \$03\s*$')
+$wildTokayReturnRooms = @(
+    $wildTokayReturnWarpMatches |
+        ForEach-Object { $_.Groups['room'].Value } |
+        Sort-Object -Unique)
+$wildTokayReturnPositions = @(
+    $wildTokayReturnWarpMatches |
+        ForEach-Object { $_.Groups['position'].Value } |
+        Sort-Object -Unique)
+if ($wildTokayReturnWarpMatches.Count -ne 2 -or
+    $wildTokayReturnRooms.Count -ne 2 -or
+    $wildTokayReturnPositions.Count -ne 1) {
+    throw 'Could not resolve the shared past/present Wild Tokay return-warp position.'
+}
+$wildTokayReturnPosition = [Convert]::ToInt32(
+    $wildTokayReturnPositions[0], 16)
 
 $tokayTextRows = [Collections.Generic.List[string]]::new()
 $tokayTextRows.Add("# text-id`tutf8-base64")
@@ -2228,6 +2264,96 @@ foreach ($animation in 0x00..0x09) {
         throw "Could not resolve INTERAC_TOKAY animation `$$($animation.ToString('x2'))."
     }
     $tokayAnimationRows.Add("$($animation.ToString('x2'))`t$encoded")
+}
+
+$wildTokayPrizeRows = [Collections.Generic.List[string]]::new()
+$wildTokayPrizeRows.Add(
+    "# prize-code`taccessory-subid`tsprite`ttile-base`tpalette`tanimation")
+$wildTokayPrizeAccessorySubids = @(0x3e, 0x2b, 0x2c, 0x0d, 0x2d, 0x0e)
+for ($prizeCode = 0; $prizeCode -lt $wildTokayPrizeAccessorySubids.Count; $prizeCode++) {
+    $subid = $wildTokayPrizeAccessorySubids[$prizeCode]
+    $graphic = $interactionGraphics["99`:$subid"]
+    if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) {
+        throw "Could not resolve Wild Tokay prize accessory `$$($subid.ToString('x2'))."
+    }
+    $animation = Resolve-NpcAnimation 0x63 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve Wild Tokay prize accessory animation `$$($graphic.DefaultAnimation.ToString('x2'))."
+    }
+    $sprite = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($sprite)
+    $wildTokayPrizeRows.Add((@(
+        $prizeCode, $subid.ToString('x2'), $sprite,
+        $graphic.TileBase.ToString('x2'), $graphic.Palette.ToString('x2'),
+        $animation
+    ) -join "`t"))
+}
+
+$wildTokayStartTileRows = [Collections.Generic.List[string]]::new()
+$wildTokayStartTileRows.Add('# order`ttile`tpacked-position'.Replace('`t', "`t"))
+$wildTokayStartTileMatch = [regex]::Match(
+    $wildTokaySource,
+    '(?ms)^@tilesToReplaceOnStart:\s*(?<rows>(?:\.db \$[0-9a-f]{2} \$[0-9a-f]{2}\s*){6})')
+if (-not $wildTokayStartTileMatch.Success) {
+    throw 'Could not parse the six Wild Tokay start-tile writes.'
+}
+$wildTokayStartTileMatches = [regex]::Matches(
+    $wildTokayStartTileMatch.Groups['rows'].Value,
+    '\.db \$(?<tile>[0-9a-f]{2}) \$(?<position>[0-9a-f]{2})')
+if ($wildTokayStartTileMatches.Count -ne 6) {
+    throw "Expected six Wild Tokay start-tile writes, got $($wildTokayStartTileMatches.Count)."
+}
+for ($order = 0; $order -lt $wildTokayStartTileMatches.Count; $order++) {
+    $row = $wildTokayStartTileMatches[$order]
+    $wildTokayStartTileRows.Add((@(
+        $order,
+        $row.Groups['tile'].Value,
+        $row.Groups['position'].Value
+    ) -join "`t"))
+}
+
+$wildTokayMeatAccessoryRows = [Collections.Generic.List[string]]::new()
+$wildTokayMeatAccessoryRows.Add(
+    '# parameter`ty-offset`tx-offset`tvisible`tanimation`tsprite`ttile-base`tpalette`tencoded'.Replace(
+        '`t', "`t"))
+$wildTokayMeatAccessoryMatch = [regex]::Match(
+    $wildTokayAccessorySource,
+    '(?ms)^@data:\s*(?<rows>(?:\.db \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2} \$[0-9a-f]{2}\s*){9})')
+if (-not $wildTokayMeatAccessoryMatch.Success) {
+    throw 'Could not parse INTERAC_ACCESSORY parameter offsets.'
+}
+$wildTokayMeatAccessoryMatches = [regex]::Matches(
+    $wildTokayMeatAccessoryMatch.Groups['rows'].Value,
+    '\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<visible>[0-9a-f]{2}) \$(?<animation>[0-9a-f]{2})')
+$wildTokayMeatGraphic = $interactionGraphics['99:115']
+if ($wildTokayMeatAccessoryMatches.Count -ne 9 -or
+    $null -eq $wildTokayMeatGraphic -or
+    -not $gfxNames.ContainsKey($wildTokayMeatGraphic.Gfx)) {
+    throw 'Could not resolve INTERAC_ACCESSORY `$63:$73 held-meat data.'
+}
+$wildTokayMeatSprite = $gfxNames[$wildTokayMeatGraphic.Gfx]
+[void]$npcSpriteNames.Add($wildTokayMeatSprite)
+for ($parameter = 0; $parameter -lt 5; $parameter++) {
+    $row = $wildTokayMeatAccessoryMatches[$parameter]
+    $yByte = [Convert]::ToInt32($row.Groups['y'].Value, 16)
+    $xByte = [Convert]::ToInt32($row.Groups['x'].Value, 16)
+    $yOffset = if ($yByte -ge 0x80) { $yByte - 0x100 } else { $yByte }
+    $xOffset = if ($xByte -ge 0x80) { $xByte - 0x100 } else { $xByte }
+    $animationIndex = [Convert]::ToInt32(
+        $row.Groups['animation'].Value, 16)
+    $animation = Resolve-NpcAnimation 0x63 $animationIndex
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "Could not resolve held-meat animation `$$($animationIndex.ToString('x2'))."
+    }
+    $wildTokayMeatAccessoryRows.Add((@(
+        $parameter, $yOffset, $xOffset,
+        $row.Groups['visible'].Value,
+        $row.Groups['animation'].Value,
+        $wildTokayMeatSprite,
+        $wildTokayMeatGraphic.TileBase.ToString('x2'),
+        $wildTokayMeatGraphic.Palette.ToString('x2'),
+        $animation
+    ) -join "`t"))
 }
 
 # The southern Crescent Island entrance uses two INTERAC_DECORATION `$80
@@ -2339,6 +2465,12 @@ if ([string]::IsNullOrWhiteSpace($tokayMeatAnimation)) {
 $tokayMeatSprite = $gfxNames[$tokayMeatGraphic.Gfx]
 [void]$npcSpriteNames.Add($tokayMeatSprite)
 
+$wildTokayParticipantGraphic = $interactionGraphics['72:0']
+if ($null -eq $wildTokayParticipantGraphic -or
+    $wildTokayParticipantGraphic.DefaultAnimation -ne 0x02) {
+    throw 'INTERAC_TOKAY `$48 no longer initializes with downward animation `$02.'
+}
+
 $tokayConstantRows = @(
     '# key`tvalue`ttext',
     'group-past-manager`t2`t-', 'room-past-manager`t222`t-',
@@ -2385,11 +2517,15 @@ $tokayConstantRows = @(
     "meat-animation`t0`t$tokayMeatAnimation",
     'meat-start-y`t56`t-', 'meat-start-x`t80`t-',
     'meat-start-z`t-64`t-', 'meat-fall-delay`t30`t-',
+    'meat-fall-gravity`t40`t-',
     'meat-collision-radius`t8`t-', 'meat-drop-life`t20`t-',
     'participant-left-x`t24`t-', 'participant-right-x`t136`t-',
     'participant-start-y`t248`t-',
+    "participant-animation`t$($wildTokayParticipantGraphic.DefaultAnimation)`t-",
     'game-link-y`t72`t-', 'game-link-x`t80`t-',
-    'game-spawn-delay`t60`t-', 'game-start-delay`t30`t-'
+    "game-return-position`t$wildTokayReturnPosition`t-",
+    'game-spawn-delay`t60`t-', 'game-start-delay`t30`t-',
+    'game-fade-in-delay`t10`t-'
 ) | ForEach-Object { $_.Replace('`t', "`t") }
 
 $tokayHolderRows = [Collections.Generic.List[string]]::new()
@@ -5580,6 +5716,12 @@ $tokayShopPath = Join-Path $destination "objects\tokay_shop_items.tsv"
 Write-GeneratedTable($tokayShopPath, $tokayShopRows)
 $wildTokayPatternPath = Join-Path $destination "objects\wild_tokay_patterns.tsv"
 Write-GeneratedTable($wildTokayPatternPath, $wildTokayPatternRows)
+$wildTokayPrizePath = Join-Path $destination "objects\wild_tokay_prizes.tsv"
+Write-GeneratedTable($wildTokayPrizePath, $wildTokayPrizeRows)
+$wildTokayStartTilePath = Join-Path $destination "objects\wild_tokay_start_tiles.tsv"
+Write-GeneratedTable($wildTokayStartTilePath, $wildTokayStartTileRows)
+$wildTokayMeatAccessoryPath = Join-Path $destination "objects\wild_tokay_meat_accessory.tsv"
+Write-GeneratedTable($wildTokayMeatAccessoryPath, $wildTokayMeatAccessoryRows)
 $companionTutorialPath = Join-Path $destination "objects\companion_tutorials.tsv"
 Write-GeneratedTable(
     $companionTutorialPath,

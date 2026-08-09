@@ -30,7 +30,8 @@ public sealed class BombDatabase
                     "initial-speed-z", "speed-raw", "toss-speed-raw",
                     "conveyor-speed-raw", "lift-low-frames",
                     "lift-mid-frames", "lift-high-frames", "throw-frames",
-                    "edge-offsets", "bounce-speeds", "break-probes",
+                    "edge-offsets", "bounce-speeds", "item-passable-tiles",
+                    "break-probes",
                     "fuse-animation", "explosion-animation", "source"
                 ],
                 ["item"],
@@ -70,10 +71,11 @@ public sealed class BombDatabase
             row.UnsignedDecimal(24),
             ParseEdgeOffsets(row.RequiredString(25), row),
             ParseBounceSpeeds(row.RequiredString(26), row),
-            ParseBreakProbes(row.RequiredString(27), row),
-            row.RequiredString(28),
+            ParseItemPassableTiles(row.RequiredString(27), row),
+            ParseBreakProbes(row.RequiredString(28), row),
             row.RequiredString(29),
-            row.RequiredString(30));
+            row.RequiredString(30),
+            row.RequiredString(31));
         Validate(Data);
     }
 
@@ -119,13 +121,46 @@ public sealed class BombDatabase
     {
         string[] entries = encoded.Split(';');
         if (entries.Length != 9)
-            throw row.Invalid(27, "nine ordered Z/Y/X probes");
+            throw row.Invalid(28, "nine ordered Z/Y/X probes");
         var result = new BombBreakProbe[entries.Length];
         for (int index = 0; index < entries.Length; index++)
         {
-            int[] values = ParseDecimalTuple(entries[index], 3, row, 27);
+            int[] values = ParseDecimalTuple(entries[index], 3, row, 28);
             result[index] = new BombBreakProbe(
                 values[0], new Vector2I(values[2], values[1]));
+        }
+        return result;
+    }
+
+    private static byte[][] ParseItemPassableTiles(
+        string encoded,
+        GeneratedTableRow row)
+    {
+        string[] groups = encoded.Split(';');
+        if (groups.Length != 6)
+            throw row.Invalid(27, "six collision-set tile lists");
+        var result = new byte[groups.Length][];
+        for (int index = 0; index < groups.Length; index++)
+        {
+            string[] pair = groups[index].Split(':');
+            if (pair.Length != 2 ||
+                !int.TryParse(pair[0], out int collisionSet) ||
+                collisionSet != index)
+            {
+                throw row.Invalid(27, "ordered collision-set:tile-list entries");
+            }
+            if (pair[1].Length == 0)
+            {
+                result[index] = [];
+                continue;
+            }
+            string[] tiles = pair[1].Split(',');
+            result[index] = new byte[tiles.Length];
+            for (int tileIndex = 0; tileIndex < tiles.Length; tileIndex++)
+            {
+                if (!byte.TryParse(tiles[tileIndex], out result[index][tileIndex]))
+                    throw row.Invalid(27, "decimal byte tile lists");
+            }
         }
         return result;
     }
@@ -179,6 +214,13 @@ public sealed class BombDatabase
             record.LiftHighFrames != 2 || record.ThrowFrames != 8 ||
             record.EdgeOffsets.Length != 4 ||
             record.BounceSpeeds.Count != 25 ||
+            record.ItemPassableTiles.Length != 6 ||
+            record.ItemPassableTiles[0].Length != 2 ||
+            record.ItemPassableTiles[1].Length != 3 ||
+            record.ItemPassableTiles[2].Length != 16 ||
+            record.ItemPassableTiles[3].Length != 0 ||
+            record.ItemPassableTiles[4].Length != 2 ||
+            record.ItemPassableTiles[5].Length != 16 ||
             record.BreakProbes.Length != 9 ||
             fuse.Frames.Length != 11 ||
             fuse.Frames[^1].Parameter != 1 ||
@@ -220,6 +262,7 @@ internal sealed record BombRecord(
     int ThrowFrames,
     Vector2I[] EdgeOffsets,
     IReadOnlyDictionary<int, int> BounceSpeeds,
+    byte[][] ItemPassableTiles,
     BombBreakProbe[] BreakProbes,
     string FuseAnimation,
     string ExplosionAnimation,
@@ -235,6 +278,15 @@ internal sealed record BombRecord(
             ? reduced
             : throw new InvalidOperationException(
                 $"{Source} has no bounce reduction for speed ${speed:x2}.");
+
+    internal bool CanPassSolidTile(OracleRoomData room, Vector2 point)
+    {
+        int collisionSet = room.ActiveCollisions;
+        return collisionSet >= 0 && collisionSet < ItemPassableTiles.Length &&
+            Array.IndexOf(
+                ItemPassableTiles[collisionSet],
+                room.GetMetatile(point)) >= 0;
+    }
 
     private static int DirectionIndex(Vector2I direction) =>
         direction == Vector2I.Up ? 0

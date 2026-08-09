@@ -2165,7 +2165,12 @@ internal sealed class RoomEntityFactory(
             Name = "WildTokayMeat",
             ZIndex = NpcCharacter.InFrontOfLinkZIndex
         };
-        meat.Initialize(_tokayIsland);
+        meat.Initialize(
+            _tokayIsland,
+            rooms?.CurrentRoom ?? throw new InvalidOperationException(
+                "Wild Tokay meat requires an active room."),
+            _bomb.Data,
+            soundRequested);
         return new WildTokayMeatRoomEntity(meat);
     }
 

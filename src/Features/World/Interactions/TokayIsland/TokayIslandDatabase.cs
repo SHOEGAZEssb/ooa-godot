@@ -14,6 +14,10 @@ internal sealed class TokayIslandDatabase
     private readonly Dictionary<int, string> _texts = new();
     private readonly Dictionary<int, string> _animations = new();
     private readonly Dictionary<int, TokayHeldItemRecord> _heldItems = new();
+    private readonly Dictionary<int, WildTokayPrizeRecord> _wildPrizes = new();
+    private readonly List<WildTokayStartTileRecord> _wildStartTiles = new();
+    private readonly Dictionary<int, WildTokayMeatAccessoryRecord>
+        _wildMeatAccessory = new();
     private readonly Dictionary<int, TokayShopPlacementRecord> _shopVisuals = new();
     private readonly List<TokayShopPlacementRecord> _shopPlacements = new();
     private readonly Dictionary<(int Level, int RandomIndex), WildTokayPatternRecord>
@@ -41,20 +45,26 @@ internal sealed class TokayIslandDatabase
     internal int ParticipantLeftX => Constant("participant-left-x");
     internal int ParticipantRightX => Constant("participant-right-x");
     internal int ParticipantStartY => Constant("participant-start-y");
+    internal int ParticipantAnimation => Constant("participant-animation");
     internal int GameLinkY => Constant("game-link-y");
     internal int GameLinkX => Constant("game-link-x");
+    internal int GameReturnPosition => Constant("game-return-position");
     internal int GameSpawnDelay => Constant("game-spawn-delay");
     internal int GameStartDelay => Constant("game-start-delay");
+    internal int GameFadeInDelay => Constant("game-fade-in-delay");
     internal int MeatStartY => Constant("meat-start-y");
     internal int MeatStartX => Constant("meat-start-x");
     internal int MeatStartZ => Constant("meat-start-z");
     internal int MeatFallDelay => Constant("meat-fall-delay");
+    internal int MeatFallGravity => Constant("meat-fall-gravity");
     internal string MeatSprite => TextConstant("meat-sprite");
     internal int MeatTileBase => Constant("meat-tile-base");
     internal int MeatPalette => Constant("meat-palette");
     internal string MeatAnimation => TextConstant("meat-animation");
     internal IReadOnlyList<TokayShopPlacementRecord> ShopPlacements =>
         _shopPlacements;
+    internal IReadOnlyList<WildTokayStartTileRecord> WildStartTiles =>
+        _wildStartTiles;
 
     internal TokayIslandDatabase()
     {
@@ -62,6 +72,9 @@ internal sealed class TokayIslandDatabase
         LoadTexts();
         LoadAnimations();
         LoadHeldItems();
+        LoadWildPrizes();
+        LoadWildStartTiles();
+        LoadWildMeatAccessory();
         LoadShopPlacements();
         LoadWildPatterns();
         Validate();
@@ -96,6 +109,19 @@ internal sealed class TokayIslandDatabase
             ? record
             : throw new KeyNotFoundException(
                 $"INTERAC_TOKAY holder ${subId:x2} was not imported.");
+
+    internal WildTokayPrizeRecord WildPrize(int prizeCode) =>
+        _wildPrizes.TryGetValue(prizeCode, out WildTokayPrizeRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"Wild Tokay prize code ${prizeCode:x2} was not imported.");
+
+    internal WildTokayMeatAccessoryRecord WildMeatAccessory(int parameter) =>
+        _wildMeatAccessory.TryGetValue(
+            parameter, out WildTokayMeatAccessoryRecord record)
+            ? record
+            : throw new KeyNotFoundException(
+                $"Wild Tokay held-meat parameter ${parameter:x2} was not imported.");
 
     internal TokayShopPlacementRecord ShopVisual(int subId) =>
         _shopVisuals.TryGetValue(subId, out TokayShopPlacementRecord record)
@@ -202,6 +228,71 @@ internal sealed class TokayIslandDatabase
         }
     }
 
+    private void LoadWildPrizes()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/wild_tokay_prizes.tsv",
+            new GeneratedTableSchema(
+                "Wild Tokay prizes",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "prize-code", "accessory-subid", "sprite", "tile-base",
+                    "palette", "animation"
+                ],
+                ["prize-code"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            var record = new WildTokayPrizeRecord(
+                row.UnsignedDecimal(0), row.HexByte(1), row.RequiredString(2),
+                row.HexByte(3), row.HexByte(4), row.RequiredString(5));
+            _wildPrizes.Add(record.PrizeCode, record);
+        }
+    }
+
+    private void LoadWildStartTiles()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/wild_tokay_start_tiles.tsv",
+            new GeneratedTableSchema(
+                "Wild Tokay start tiles",
+                GeneratedTableKeySemantics.Ordered,
+                ["order", "tile", "packed-position"],
+                headerRequired: true));
+        for (int index = 0; index < table.Rows.Count; index++)
+        {
+            GeneratedTableRow row = table.Rows[index];
+            int order = row.UnsignedDecimal(0);
+            if (order != index)
+                throw row.Invalid(0, $"ordered index {index}");
+            _wildStartTiles.Add(new WildTokayStartTileRecord(
+                order, row.HexByte(1), row.HexByte(2)));
+        }
+    }
+
+    private void LoadWildMeatAccessory()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/objects/wild_tokay_meat_accessory.tsv",
+            new GeneratedTableSchema(
+                "Wild Tokay held-meat accessory",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "parameter", "y-offset", "x-offset", "visible",
+                    "animation", "sprite", "tile-base", "palette", "encoded"
+                ],
+                ["parameter"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            var record = new WildTokayMeatAccessoryRecord(
+                row.UnsignedDecimal(0), row.Decimal(1), row.Decimal(2),
+                row.HexByte(3), row.HexByte(4), row.RequiredString(5),
+                row.HexByte(6), row.HexByte(7), row.RequiredString(8));
+            _wildMeatAccessory.Add(record.Parameter, record);
+        }
+    }
+
     private void LoadWildPatterns()
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -242,11 +333,25 @@ internal sealed class TokayIslandDatabase
             PresentGameGroup != 2 || PresentGameRoom != 0xe5 ||
             ShopGroup != 2 || ShopRoom != 0xe4 ||
             ShopItemCollisionRadius != 0x06 ||
+            ParticipantAnimation != 0x02 || GameReturnPosition != 0x57 ||
+            GameStartDelay != 30 ||
+            GameFadeInDelay != 10 ||
+            MeatFallDelay != 30 || MeatFallGravity != 0x28 ||
             DimitriStateAddress != 0xc647 || WildLevelAddress != 0xc6ea ||
             _texts.Count != 96 || _animations.Count != 10 ||
             _heldItems.Count != 5 || _shopPlacements.Count != 3 ||
-            _shopVisuals.Count != 7 ||
-            _wildPatterns.Count != 80 ||
+            _shopVisuals.Count != 7 || _wildPrizes.Count != 6 ||
+            _wildPatterns.Count != 80 || _wildStartTiles.Count != 6 ||
+            _wildMeatAccessory.Count != 5 ||
+            WildPrize(0).AccessorySubId != 0x3e ||
+            WildPrize(4).AccessorySubId != 0x2d ||
+            WildPrize(5).AccessorySubId != 0x0e ||
+            _wildStartTiles[0] != new WildTokayStartTileRecord(0, 0xef, 0x01) ||
+            _wildStartTiles[3] != new WildTokayStartTileRecord(3, 0xef, 0x78) ||
+            _wildStartTiles[5] != new WildTokayStartTileRecord(5, 0x7a, 0x75) ||
+            WildMeatAccessory(0) is not { YOffset: 0, XOffset: -13 } ||
+            WildMeatAccessory(3) is not { YOffset: -12, XOffset: -1 } ||
+            WildMeatAccessory(4) is not { YOffset: -12, XOffset: 0 } ||
             HeldItem(0x06).Treasure != TreasureDatabase.TreasureSword ||
             HeldItem(0x06).GrantSubId != 0x06 ||
             HeldItem(0x06).GrantParameter != 0x01 ||
@@ -270,6 +375,14 @@ internal readonly record struct TokayHeldItemRecord(
     int SubId, int Treasure, int ItemGraphic, string GrantObject,
     int GrantSubId, int GrantParameter, string ItemSprite, int ItemTileBase,
     int ItemPalette, string ItemAnimation);
+internal readonly record struct WildTokayPrizeRecord(
+    int PrizeCode, int AccessorySubId, string Sprite, int TileBase,
+    int Palette, string Animation);
+internal readonly record struct WildTokayStartTileRecord(
+    int Order, int Tile, int PackedPosition);
+internal readonly record struct WildTokayMeatAccessoryRecord(
+    int Parameter, int YOffset, int XOffset, int Visible, int Animation,
+    string Sprite, int TileBase, int Palette, string EncodedAnimation);
 internal readonly record struct TokayShopPlacementRecord(
     int Order, int PlacedSubId, int Y, int X, string Sprite,
     int TileBase, int Palette, string Animation);

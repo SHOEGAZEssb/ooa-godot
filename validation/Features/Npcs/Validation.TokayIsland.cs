@@ -188,6 +188,9 @@ public sealed partial class ValidationRoot
     private void ValidateTokayIslandInteractions()
     {
         var database = new TokayIslandDatabase();
+        static Vector2 WildTilePoint(int packedPosition) => new(
+            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
         var npcDatabase = new NpcDatabase();
         IReadOnlyList<NpcRecord> islandRecords = npcDatabase.AllRecords
             .Where(record =>
@@ -223,12 +226,23 @@ public sealed partial class ValidationRoot
         FailIf(
             database.PastGameRoom != 0xde || database.PresentGameRoom != 0xe5 ||
             database.ShopRoom != 0xe4 || database.ShopPlacements.Count != 3 ||
+            database.GameReturnPosition != 0x57 ||
             database.ShopItemCollisionRadius != 0x06 ||
             database.HeldItem(0x06).Treasure != TreasureDatabase.TreasureSword ||
             database.HeldItem(0x06).GrantParameter != 0x01 ||
             database.HeldItem(0x07).GrantParameter != 0x00 ||
             database.HeldItem(0x0a).Treasure != TreasureDatabase.TreasureSeedSatchel ||
-            database.WildPattern(4, 0x0f).Pattern != 7,
+            database.WildPattern(4, 0x0f).Pattern != 7 ||
+            database.WildStartTiles.Select(record =>
+                (record.Tile, record.PackedPosition)).ToArray() is not
+                [(0xef, 0x01), (0xef, 0x08), (0xef, 0x71),
+                 (0xef, 0x78), (0x7a, 0x74), (0x7a, 0x75)] ||
+            database.WildMeatAccessory(0) is not
+                { YOffset: 0, XOffset: -13, Animation: 3 } ||
+            database.WildMeatAccessory(3) is not
+                { YOffset: -12, XOffset: -1, Animation: 3 } ||
+            database.WildMeatAccessory(4) is not
+                { YOffset: -12, XOffset: 0, Animation: 3 },
             "Tokay Island source-derived holder, shop, or Wild Tokay tables changed.");
         var treasures = new TreasureDatabase();
         (string Object, int Treasure, int SubId, int ObjectParameter)[]
@@ -499,41 +513,564 @@ public sealed partial class ValidationRoot
             TreasureDatabase.TreasureBombs,
             TreasureDatabase.TreasureSword);
         LoadValidationRoom(2, 0xde);
+        Vector2 wildTokayReturnPosition =
+            WildTilePoint(database.GameReturnPosition);
+        int wildTokayRoomMusic = _sound.Data.RoomMusic(2, 0xde);
+        FailIf(
+            wildTokayRoomMusic != 0x26,
+            $"Wild Tokay room 2:de music changed from source value `$26 " +
+            $"(actual=${wildTokayRoomMusic:x2}).");
+        Dictionary<int, byte> originalWildTiles = database.WildStartTiles
+            .ToDictionary(
+                record => record.PackedPosition,
+                record => _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(record.PackedPosition)));
+        Vector2 originalFadePosition = _warpFade.Position;
+        Vector2 originalFadeSize = _warpFade.Size;
+        int originalFadeZ = _warpFade.ZIndex;
+        Color originalFadeColor = _warpFade.Color;
         NpcCharacter manager = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x48, SubId: 0x0d });
         FailIf(
             !wildTokay.TryInteractNpc(manager),
             "Wild Tokay manager rejected A-button input.");
         _dialogue.Close();
-        StepRoomEventFrames(51);
+        StepRoomEventFrames(10);
+        FailIf(
+            _entities.Entities<NpcCharacter>().Any(npc =>
+                npc.Record is { Id: 0x63 }) ||
+            wildTokay.Stage != WildTokayGameStage.Wait,
+            "Wild Tokay raised its prize before the source 10-update wait.");
+        StepRoomEventFrames(1);
+        WildTokayPrizeRecord firstPrize = database.WildPrize(0);
+        NpcCharacter prizeAccessory = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x63 } && npc.Active);
+        FailIf(
+            prizeAccessory.Record.SubId != firstPrize.AccessorySubId ||
+            prizeAccessory.Position != manager.Position + new Vector2(0, -12) ||
+            prizeAccessory.CurrentScriptAnimationSource != firstPrize.Animation ||
+            prizeAccessory.CurrentAnimationTextureSize == Vector2I.Zero ||
+            prizeAccessory.CurrentAnimationOpaquePixels == 0 ||
+            manager.CurrentScriptAnimationSource != database.Animation(0x06),
+            "tokayGame_createAccessoryForPrize did not raise the imported " +
+            "level-0 `$63:$3e prize above `$48:$0d with animation `$06.");
+        StepRoomEventFrames(39);
+        FailIf(
+            !prizeAccessory.Active || wildTokay.Stage != WildTokayGameStage.Wait,
+            "Wild Tokay did not hold the prize through the source 40-update wait.");
+        StepRoomEventFrames(1);
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
+        FailIf(
+            !prizeAccessory.Active || wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != 20,
+            "Wild Tokay lowered the prize before the accepted-play 20-update wait.");
+        StepRoomEventFrames(20);
+        FailIf(
+            prizeAccessory.Active ||
+            manager.CurrentScriptAnimationSource != database.Animation(0x02) ||
+            wildTokay.Stage != WildTokayGameStage.PastManagerRulesPrompt ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a14)),
+            "Wild Tokay did not lower the prize with animation `$02 before TX_0a14.");
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
         _dialogue.Close();
         StepRoomEventFrames(21);
         FailIf(
+            wildTokay.Stage != WildTokayGameStage.FadeOut ||
+            !manager.Active || !Mathf.IsZeroApprox(_warpFade.Color.A) ||
+            _warpFade.Position != Vector2.Zero ||
+            _warpFade.Size != new Vector2(
+                OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+            _warpFade.ZIndex != _hud.ZIndex + 1 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndCtrlMediumFadeOut) != 1,
+            "Wild Tokay did not start the manager-owned full-screen white " +
+            "fade and medium music fade after its 20-update intro wait.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.FadeOut ||
+            !manager.Active || !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f),
+            "Wild Tokay did not reach full white on fadeout update 31 while " +
+            "keeping `$48:$0d alive through the palette thread.");
+        StepRoomEventFrames(1);
+        FailIf(
             _inventory.EquippedB != InventoryState.ItemNone ||
             _inventory.EquippedA != InventoryState.ItemBracelet ||
-            wildTokay.Stage != WildTokayGameStage.Wait,
-            "Wild Tokay did not save equips and force Bracelet on its source start boundary.");
+            wildTokay.Stage != WildTokayGameStage.Wait || manager.Active ||
+            database.WildStartTiles.Any(record =>
+                _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(record.PackedPosition)) != record.Tile),
+            "Wild Tokay did not delete `$48:$0d, save equips, and force " +
+            "Bracelet or apply its four `$ef door and two `$7a floor writes " +
+            "on fadeout update 32.");
         StepRoomEventFrames(database.GameStartDelay);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.FadeIn ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusMinigame) != 1,
+            "Wild Tokay did not hold white for 30 updates before starting " +
+            "MUS_MINIGAME and fadeinFromWhite.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.FadeIn ||
+            !Mathf.IsZeroApprox(_warpFade.Color.A),
+            "Wild Tokay fadeinFromWhite did not reach palette offset `$00 " +
+            "on update 31.");
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != database.GameFadeInDelay ||
+            _warpFade.Position != originalFadePosition ||
+            _warpFade.Size != originalFadeSize ||
+            _warpFade.ZIndex != originalFadeZ ||
+            _warpFade.Color != originalFadeColor,
+            "Wild Tokay did not release the shared fade presentation after " +
+            "fadein update 32 and begin its 10-update text delay.");
+        StepRoomEventFrames(database.GameFadeInDelay);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.StartText ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a16)),
-            "Wild Tokay did not reach TX_0a16 after its 30-update start delay.");
+            "Wild Tokay did not reach TX_0a16 after its post-fade 10-update delay.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.Playing ||
-            _entities.Entities<WildTokayMeat>().Count != 1,
-            "Wild Tokay did not create INTERAC_TOKAY_MEAT at game start.");
+            _entities.Entities<WildTokayMeat>().Count != 1 || manager.Active ||
+            !wildTokay.ScreenTransitionsDisabled ||
+            !_roomEvents.ScreenTransitionsDisabled,
+            "Wild Tokay did not keep `$48:$0d deleted and create " +
+            "INTERAC_TOKAY_MEAT with the source screen-transition lock at game start.");
+        (Vector2 Attempt, Vector2 Expected)[] wildBoundaries =
+        [
+            (new Vector2(4.5f, 64.0f), new Vector2(6.5f, 64.0f)),
+            (new Vector2(155.5f, 64.0f), new Vector2(154.5f, 64.0f)),
+            (new Vector2(80.0f, 4.25f), new Vector2(80.0f, 6.25f)),
+            (new Vector2(80.0f, 122.75f), new Vector2(80.0f, 121.75f))
+        ];
+        foreach ((Vector2 attempt, Vector2 expected) in wildBoundaries)
+        {
+            _player.WarpTo(attempt, recordSafe: false);
+            _playerWorld.CheckRoomExit(_player);
+            FailIf(
+                _transitions.IsTransitioning ||
+                _rooms.ActiveGroup != 2 || _rooms.CurrentRoom.Id != 0xde ||
+                _player.PrecisePosition != expected,
+                "Wild Tokay allowed Link through a screen boundary while " +
+                $"substate 4 was active: attempted {attempt}, got " +
+                $"{_player.PrecisePosition}.");
+        }
+        WildTokayMeat thrownMeat = _entities.Entities<WildTokayMeat>().Single();
+        StepRoomEventFrames(database.GameSpawnDelay - 1);
+        FailIf(
+            thrownMeat.ZFixed >= 0 ||
+            _entities.Entities<NpcCharacter>().Any(npc =>
+                npc.Active && npc.Record is { Id: 0x48, SubId: 0x0c }),
+            "Wild Tokay meat or participant crossed the source 60-update " +
+            "initial fall/spawn boundary one update early.");
+        StepRoomEventFrames(1);
+        NpcCharacter participant = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record is { Id: 0x48, SubId: 0x0c } && npc.Active);
+        FailIf(
+            thrownMeat.ZFixed >= 0 || participant.Position.Y != -8 ||
+            participant.Position.X is not (24 or 136) ||
+            participant.CurrentScriptAnimationSource !=
+                database.Animation(database.ParticipantAnimation),
+            "Wild Tokay did not spawn participant `$48:$0c at source update " +
+            "60, Y `$f8, facing down while the exact meat fall remained airborne.");
+        StepRoomEventFrames(1);
+        FailIf(
+            thrownMeat.ZFixed != 0 || participant.Position.Y != -7.5f,
+            "Wild Tokay meat did not land one update after the first " +
+            "participant spawned.");
+        _player.WarpTo(thrownMeat.Position + Vector2.Down * 6, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        FailIf(
+            !_playerWorld.TryUseBracelet(_player, primaryButton: true) ||
+            _bracelet.State != BraceletState.LiftingEntity ||
+            !thrownMeat.Lifted || !_player.IsCarryingObject,
+            "Landed INTERAC_TOKAY_MEAT did not enter Link's shared Bracelet " +
+            "entity-lift and carried-object state.");
+        StepRoomEventFrames(1);
+        FailIf(
+            _entities.Entities<WildTokayMeat>().Count != 2 ||
+            participant.Position.Y != -7.0f,
+            "INTERAC_TOKAY_MEAT state 2 did not create its replacement on " +
+            "the update immediately after Link grabbed it, while the " +
+            "participant moved down at SPEED_80.");
+        var braceletData = new BraceletDatabase().Data;
+        int entityLiftUpdates = braceletData.LiftLowFrames +
+            braceletData.LiftMidFrames + braceletData.LiftHighFrames;
+        for (int update = 0; update < entityLiftUpdates; update++)
+        {
+            _playerWorld.UpdateBracelet(
+                _player,
+                Vector2.Zero,
+                primaryHeld: false,
+                secondaryHeld: false,
+                itemButtonJustPressed: false);
+        }
+        Vector2 heldMeatPosition = thrownMeat.Position;
+        int heldMeatZ = thrownMeat.ZFixed;
+        FailIf(
+            _bracelet.State != BraceletState.Idle ||
+            !_player.IsCarryingObject || !thrownMeat.Lifted ||
+            !_playerWorld.UpdateBracelet(
+                _player,
+                Vector2.Left,
+                primaryHeld: false,
+                secondaryHeld: false,
+                itemButtonJustPressed: true) ||
+            !thrownMeat.Thrown || thrownMeat.Lifted ||
+            _player.IsCarryingObject,
+            "Wild Tokay meat did not release through Bracelet state 3 when " +
+            "the equipped item button was pressed.");
+        int releasedMeatZ = thrownMeat.ZFixed;
+        StepRoomEventFrames(1);
+        FailIf(
+            thrownMeat.Position != heldMeatPosition + Vector2.Left * 3 ||
+            thrownMeat.ThrowDirection != Vector2I.Left ||
+            thrownMeat.ThrowSpeedRaw != braceletData.SpeedRaw ||
+            thrownMeat.ZFixed != releasedMeatZ + braceletData.InitialSpeedZ ||
+            thrownMeat.SpeedZ !=
+                braceletData.InitialSpeedZ + braceletData.Gravity,
+            "Thrown Wild Tokay meat did not apply the source facing offset, " +
+            "SPEED_`$3c lateral step, -`$f0 Z speed, and `$1c gravity " +
+            $"(position={thrownMeat.Position}, held={heldMeatPosition}, " +
+            $"direction={thrownMeat.ThrowDirection}, speed=" +
+            $"${thrownMeat.ThrowSpeedRaw:x2}, z={thrownMeat.ZFixed}, " +
+            $"held-z={heldMeatZ}, released-z={releasedMeatZ}, " +
+            $"speed-z={thrownMeat.SpeedZ}).");
+        FailIf(
+            participant.Position.Y != -6.5f,
+            "Wild Tokay participant `$48:$0c did not move down from source " +
+            $"Y `$f8 at SPEED_80 (actual Y={participant.Position.Y}).");
+        StepRoomEventFrames(284);
+        FailIf(
+            !participant.Active || participant.Position.Y != 135.5f ||
+            wildTokay.Stage != WildTokayGameStage.Playing,
+            "Wild Tokay participant `$48:$0c left before the source " +
+            "(yh + `$08) = `$90 boundary.");
+        StepRoomEventFrames(1);
+        FailIf(
+            participant.Active || participant.Position.Y != 136 ||
+            wildTokay.Stage != WildTokayGameStage.Wait,
+            "Wild Tokay participant `$48:$0c did not leave downward and fail " +
+            "the round at source Y `$88.");
+        FailIf(
+            !thrownMeat.Finished,
+            "The first thrown meat did not expire before the losing return boundary.");
+        // Real gameplay yields to the scene tree between these updates, so
+        // IRoomEntityLifetime has disposed this already-finished meat before
+        // FinishGame clears the event's retained source-order list. Force the
+        // same lifetime boundary inside this synchronous validation method.
+        thrownMeat.Finish();
+        if (GodotObject.IsInstanceValid(thrownMeat))
+            thrownMeat.Free();
+        FailIf(
+            GodotObject.IsInstanceValid(thrownMeat),
+            "The disposed-meat cleanup probe remained native-instance valid.");
+        _player.WarpTo(manager.Position, recordSafe: false);
+        int losingRoomMusicRequests =
+            _sound.PlayRequestsFor(wildTokayRoomMusic);
+        StepRoomEventFrames(30);
+        _dialogue.Close();
+        StepRoomEventFrames(21);
+        FailIf(
+            manager.Active ||
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
+            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
+            _inventory.EquippedA != TreasureDatabase.TreasureSword ||
+            !_saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
+            !Mathf.IsZeroApprox(_warpFade.Color.A) ||
+            _warpFade.Position != Vector2.Zero ||
+            _warpFade.Size != new Vector2(
+                OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+            _warpFade.ZIndex != _hud.ZIndex + 1,
+            "Wild Tokay loss did not restore Link's equipment, set " +
+            "ROOMFLAG_40, and begin the source same-room white fade after " +
+            "the result text and 20-update delay.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) || manager.Active ||
+            _sound.ActiveMusic != OracleSoundEngine.MusMinigame,
+            "Wild Tokay loss did not reach full white before recreating the " +
+            "manager or replacing MUS_MINIGAME.");
+        StepRoomEventFrames(1);
+        FailIf(
+            !manager.Active ||
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeIn ||
+            originalWildTiles.Any(entry =>
+                _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(entry.Key)) != entry.Value) ||
+            _saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
+            _sound.ActiveMusic != wildTokayRoomMusic ||
+            _sound.PlayRequestsFor(wildTokayRoomMusic) !=
+                losingRoomMusicRequests + 1 ||
+            _player.PrecisePosition != wildTokayReturnPosition ||
+            _player.FacingVector != Vector2I.Up ||
+            wildTokay.ScreenTransitionsDisabled ||
+            _roomEvents.ScreenTransitionsDisabled,
+            "Wild Tokay loss did not recreate `$48:$0d, restore all six " +
+            "arena tiles, move Link to packed `$57 facing up, clear " +
+            "ROOMFLAG_40, restart room music `$26, and release the " +
+            "screen-transition lock at the white warp boundary.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeIn ||
+            !Mathf.IsZeroApprox(_warpFade.Color.A),
+            "Wild Tokay losing return fade did not reach palette offset `$00 " +
+            "on fade-in update 31.");
+        StepRoomEventFrames(1);
+        FailIf(
+            !manager.Active || wildTokay.Stage != WildTokayGameStage.LossPrompt ||
+            !_dialogue.IsOpen ||
+            _warpFade.Position != originalFadePosition ||
+            _warpFade.Size != originalFadeSize ||
+            _warpFade.ZIndex != originalFadeZ ||
+            _warpFade.Color != originalFadeColor,
+            "Wild Tokay did not release the shared fade presentation and " +
+            "open its losing replay prompt after return fade-in update 32.");
+        _dialogue.SubmitChoiceForValidation(0);
+        StepRoomEventFrames(1);
+        _dialogue.Close();
+        StepRoomEventFrames(21);
+        FailIf(
+            !manager.Active || wildTokay.Stage != WildTokayGameStage.FadeOut ||
+            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
+            _inventory.EquippedA != TreasureDatabase.TreasureSword,
+            "Wild Tokay retry did not preserve the manager and restored equips " +
+            "while entering its start fade.");
+        StepRoomEventFrames((int)RoomTransitionController.WarpFadeFrames);
+        FailIf(
+            manager.Active || wildTokay.Stage != WildTokayGameStage.Wait ||
+            _inventory.EquippedB != InventoryState.ItemNone ||
+            _inventory.EquippedA != InventoryState.ItemBracelet ||
+            database.WildStartTiles.Any(record =>
+                _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(record.PackedPosition)) != record.Tile),
+            "Wild Tokay retry did not re-enter the hidden-manager, " +
+            "forced-Bracelet, open-arena state after fadeout update 32.");
+        StepRoomEventFrames(database.GameStartDelay);
+        StepRoomEventFrames((int)RoomTransitionController.WarpFadeFrames);
+        StepRoomEventFrames(database.GameFadeInDelay);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.StartText ||
+            !_dialogue.IsOpen,
+            "Wild Tokay retry did not reach its post-fade start text.");
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+
+        WildTokayMeat catchMeat = _entities.Entities<WildTokayMeat>()
+            .Single(meat => !meat.Finished);
+        StepRoomEventFrames(database.GameSpawnDelay);
+        StepRoomEventFrames(1);
+        _player.WarpTo(catchMeat.Position + Vector2.Down * 6, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        FailIf(
+            !_playerWorld.TryUseBracelet(_player, primaryButton: true),
+            "Wild Tokay retry meat could not be lifted for the catch path.");
+        StepRoomEventFrames(1);
+        for (int update = 0; update < entityLiftUpdates; update++)
+        {
+            _playerWorld.UpdateBracelet(
+                _player,
+                Vector2.Zero,
+                primaryHeld: false,
+                secondaryHeld: false,
+                itemButtonJustPressed: false);
+        }
+        NpcCharacter catchingParticipant = _entities.Entities<NpcCharacter>()
+            .Single(npc =>
+                npc.Record is { Id: 0x48, SubId: 0x0c } && npc.Active);
+        while (catchingParticipant.Position.Y < 45)
+            StepRoomEventFrames(1);
+        Vector2I catchThrowDirection =
+            catchingParticipant.Position.X < _player.Position.X
+                ? Vector2I.Left
+                : Vector2I.Right;
+        _player.Face(catchThrowDirection);
+        FailIf(
+            !_playerWorld.UpdateBracelet(
+                _player,
+                catchThrowDirection,
+                primaryHeld: false,
+                secondaryHeld: false,
+                itemButtonJustPressed: true) ||
+            catchMeat.ThrowDirection != catchThrowDirection ||
+            catchMeat.ThrowSpeedRaw != braceletData.SpeedRaw,
+            "Wild Tokay retry meat did not begin its horizontal source throw " +
+            "from Link's center position toward the runner lane " +
+            $"(bracelet={_bracelet.State}, carrying={_player.IsCarryingObject}, " +
+            $"lifted={catchMeat.Lifted}, thrown={catchMeat.Thrown}, " +
+            $"direction={catchMeat.ThrowDirection}, speed=" +
+            $"${catchMeat.ThrowSpeedRaw:x2}).");
+
+        for (int update = 0; update < 40 && catchMeat.BounceCount == 0; update++)
+            StepRoomEventFrames(1);
+        BombRecord throwingData = new BombDatabase().Data;
+        Vector2 stoppedFront = catchMeat.Position +
+            new Vector2(catchThrowDirection.X * 3, catchThrowDirection.Y * 3);
+        byte stoppedTile = _rooms.CurrentRoom.GetMetatile(stoppedFront);
+        FailIf(
+            catchMeat.BounceCount != 1 || !catchMeat.Thrown ||
+            catchMeat.SpeedZ >= 0 ||
+            catchMeat.ThrowSpeedRaw !=
+                throwingData.ReducedBounceSpeed(braceletData.SpeedRaw),
+            "Wild Tokay meat stopped at its first ground contact instead of " +
+            "using itemBounce to continue across the runner-lane border " +
+            $"(bounces={catchMeat.BounceCount}, thrown={catchMeat.Thrown}, " +
+            $"position={catchMeat.Position}, direction={catchMeat.ThrowDirection}, " +
+            $"collision-set={_rooms.CurrentRoom.ActiveCollisions}, " +
+            $"tile=${stoppedTile:x2}, passable=" +
+            $"{throwingData.CanPassSolidTile(_rooms.CurrentRoom, stoppedFront)}, " +
+            $"speed=${catchMeat.ThrowSpeedRaw:x2}, speed-z={catchMeat.SpeedZ}).");
+
+        NpcCharacter? meatAccessory = null;
+        for (int update = 0; update < 30 && meatAccessory is null; update++)
+        {
+            StepRoomEventFrames(1);
+            meatAccessory = _entities.Entities<NpcCharacter>().FirstOrDefault(npc =>
+                npc.Active && npc.Record is { Id: 0x63, SubId: 0x73 });
+        }
+        FailIf(
+            meatAccessory is null || !catchMeat.Finished ||
+            catchingParticipant.CurrentScriptAnimationSource != database.Animation(
+                catchingParticipant.Position.X == database.ParticipantRightX ? 8 : 7),
+            "Wild Tokay did not catch and delete the airborne meat, select " +
+            "animation `$07/`$08, and create INTERAC_ACCESSORY `$63:$73.");
+        WildTokayMeatAccessoryRecord caughtVisual = database.WildMeatAccessory(
+            catchingParticipant.CurrentAnimationParameter);
+        FailIf(
+            meatAccessory!.Position != catchingParticipant.Position +
+                new Vector2(caughtVisual.XOffset, caughtVisual.YOffset) ||
+            meatAccessory.CurrentScriptAnimationSource !=
+                caughtVisual.EncodedAnimation ||
+            meatAccessory.CurrentAnimationOpaquePixels == 0,
+            "The caught Tokay meat accessory did not use the parent animation " +
+            "parameter's source offset and `$63:$73 graphic.");
+        Vector2 catchPosition = catchingParticipant.Position;
+        StepRoomEventFrames(6);
+        caughtVisual = database.WildMeatAccessory(
+            catchingParticipant.CurrentAnimationParameter);
+        FailIf(
+            catchingParticipant.Position != catchPosition ||
+            meatAccessory.Position != catchingParticipant.Position +
+                new Vector2(caughtVisual.XOffset, caughtVisual.YOffset),
+            "Wild Tokay did not preserve the six-update catch pause while " +
+            "keeping the meat accessory attached to its animation parameter.");
+        StepRoomEventFrames(1);
+        FailIf(
+            catchingParticipant.Position.Y != catchPosition.Y + 0.5f,
+            "Wild Tokay did not resume downward movement after the six-update " +
+            "caught-meat pause.");
+
+        System.Reflection.MethodInfo endRound =
+            typeof(WildTokayGameEvent).GetMethod(
+                "EndRound",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic) ??
+            throw new InvalidOperationException(
+                "Wild Tokay validation could not resolve EndRound.");
+        int winningRoomMusicRequests =
+            _sound.PlayRequestsFor(wildTokayRoomMusic);
+        int successRequests = _sound.PlayRequestsFor(database.SoundSuccess);
+        _player.WarpTo(manager.Position, recordSafe: false);
+        endRound.Invoke(wildTokay, new object[] { true });
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != 30 || !_player.CutsceneControlled ||
+            _sound.PlayRequestsFor(database.SoundSuccess) != successRequests + 1,
+            "Wild Tokay win did not play SND_FILLED_HEART_CONTAINER and begin " +
+            "the source 30-update result-text delay.");
+        StepRoomEventFrames(30);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ResultText ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(
+                database.Text(0x0a18)),
+            "Wild Tokay win did not show TX_0a18 after the source 30-update delay.");
+        _dialogue.Close();
+        StepRoomEventFrames(21);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
+            manager.Active ||
+            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
+            _inventory.EquippedA != TreasureDatabase.TreasureSword ||
+            !_saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
+            !Mathf.IsZeroApprox(_warpFade.Color.A),
+            "Wild Tokay win did not restore equipment and enter the source " +
+            "same-room white fade after the past-era 20-update result delay.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) || manager.Active ||
+            _sound.ActiveMusic != OracleSoundEngine.MusMinigame,
+            "Wild Tokay win replaced MUS_MINIGAME or recreated its manager " +
+            "before the return fade reached full white.");
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeIn ||
+            !manager.Active || meatAccessory.Active ||
+            _saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
+            _sound.ActiveMusic != wildTokayRoomMusic ||
+            _sound.PlayRequestsFor(wildTokayRoomMusic) !=
+                winningRoomMusicRequests + 1 ||
+            _player.PrecisePosition != wildTokayReturnPosition ||
+            _player.FacingVector != Vector2I.Up ||
+            database.WildStartTiles.Any(record =>
+                _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(record.PackedPosition)) !=
+                    originalWildTiles[record.PackedPosition]),
+            "Wild Tokay win did not remove game entities, recreate the " +
+            "manager, restore arena tiles, move Link to packed `$57 facing " +
+            "up, and restart room music `$26 at the fully-white same-room " +
+            "boundary.");
+        StepRoomEventFrames(31);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.ReturnFadeIn ||
+            !Mathf.IsZeroApprox(_warpFade.Color.A),
+            "Wild Tokay winning return fade did not reach palette offset `$00 " +
+            "on fade-in update 31.");
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != 30 ||
+            _warpFade.Position != originalFadePosition ||
+            _warpFade.Size != originalFadeSize ||
+            _warpFade.ZIndex != originalFadeZ ||
+            _warpFade.Color != originalFadeColor,
+            "Wild Tokay win did not release the fade presentation and begin " +
+            "the recreated past manager's 30-update prize delay.");
+        StepRoomEventFrames(29);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != 1 ||
+            _entities.Entities<GroundTreasurePickup>().Any(reward =>
+                !reward.Finished),
+            "Wild Tokay spawned its winning prize before the past manager's " +
+            "30-update post-warp delay completed.");
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Prize ||
+            !_entities.Entities<GroundTreasurePickup>().Any(reward =>
+                !reward.Finished),
+            "Wild Tokay did not hand the winning prize to Link after the " +
+            "source post-warp manager delay.");
         wildTokay.Cancel();
+        _dialogue.Close();
         FailIf(
             _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
             _inventory.EquippedA != TreasureDatabase.TreasureSword ||
-            _player.CutsceneControlled,
-            "Cancelling Wild Tokay did not restore Link's saved equipped bytes and control.");
+            _player.CutsceneControlled || meatAccessory.Active ||
+            database.WildStartTiles.Any(record =>
+                _rooms.CurrentRoom.GetMetatile(
+                    WildTilePoint(record.PackedPosition)) !=
+                    originalWildTiles[record.PackedPosition]) ||
+            wildTokay.ScreenTransitionsDisabled ||
+            _roomEvents.ScreenTransitionsDisabled,
+            "Cancelling Wild Tokay did not remove the caught-meat accessory, " +
+            "restore Link's equips/control and arena tiles, or release exits.");
 
         int maxBombsBefore = _inventory.MaxBombs;
         _inventory.ApplyTokayBombCapacityUpgrade();
@@ -550,6 +1087,11 @@ public sealed partial class ValidationRoot
             "stock collision, decline, accepted Feather grant, and live " +
             "cross-stock Bracelet-for-shovel refresh, linked " +
             "Rosa visibility, imported Wild Tokay tables, forced Bracelet/meat " +
-            "start, and equip restoration.");
+            "start and throw path, prize raise/hold/lower timing, full white " +
+            "start fade, manager lifecycle, downward-facing participant " +
+            "boundaries, four-door arena writes, exit confinement, exact " +
+            "fixed-point throws and source bounce, caught-meat attachment/pause, " +
+            "same-room result fades, packed `$57 Link return, room-music " +
+            "restoration, delayed winning prize handoff, and restoration.");
     }
 }

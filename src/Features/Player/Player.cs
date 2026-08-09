@@ -1601,10 +1601,18 @@ public partial class Player : Node2D
             return;
         }
 
-        bool primaryPressed = Input.IsActionPressed("attack");
+        bool primaryItemInputSuppressed =
+            _world.SideScrolling &&
+            _sideScrollSwimmingState == 2 &&
+            !_sideScrollSwimMermaidAnimation &&
+            _inventory.EquippedA != InventoryState.ItemSword;
+        bool primaryPressed =
+            Input.IsActionPressed("attack") &&
+            !primaryItemInputSuppressed;
         bool secondaryPressed = Input.IsActionPressed("item");
         bool itemButtonJustPressed =
-            Input.IsActionJustPressed("attack") ||
+            (Input.IsActionJustPressed("attack") &&
+                !primaryItemInputSuppressed) ||
             Input.IsActionJustPressed("item");
         if (_world.UpdateBomb(this, input, itemButtonJustPressed))
         {
@@ -1640,17 +1648,20 @@ public partial class Player : Node2D
                 if (!_minecartRideControlled && !_raftRideControlled &&
                     _world.TryInteract(this))
                     return;
-                if (!_world.ItemUsageDisabled &&
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
                     !_minecartRideControlled &&
                     _inventory.EquippedA == InventoryState.ItemBomb &&
                     _world.TryUseBomb(this))
                     return;
-                if (!_world.ItemUsageDisabled &&
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
                     !_minecartRideControlled && !_raftRideControlled &&
                     _inventory.EquippedA == InventoryState.ItemBracelet &&
                     _world.TryUseBracelet(this, primaryButton: true))
                     return;
-                if (!_world.ItemUsageDisabled &&
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
                     !_minecartRideControlled && !_raftRideControlled &&
                     RingEffects.CanPunch(
                     _inventory,
@@ -1661,7 +1672,14 @@ public partial class Player : Node2D
                     return;
                 }
             }
-            if (_world.ItemUsageDisabled)
+            if (primaryItemInputSuppressed)
+            {
+                // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
+                // swimming with Flippers, that physical edge starts the short
+                // burst instead of reaching the equipped A parent item. The
+                // underwater sword path is the supported exception.
+            }
+            else if (_world.ItemUsageDisabled)
             {
                 // wInShop routes A/B to checkShopInput instead of updating
                 // either equipped parent item. Interaction remains available.
@@ -1744,7 +1762,7 @@ public partial class Player : Node2D
         }
 
         UpdateShieldState(
-            Input.IsActionPressed("attack"),
+            primaryPressed,
             Input.IsActionPressed("item"));
 
         if (_minecartRideControlled)

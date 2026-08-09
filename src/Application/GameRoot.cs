@@ -730,6 +730,8 @@ public partial class GameRoot : Node2D
         _transitions.ScreenTransitionsDisabledSource = () =>
             _roomEvents.ScreenTransitionsDisabled ||
             _entities.ScreenTransitionsDisabled;
+        _transitions.AllScreenTransitionsDisabledSource = () =>
+            _roomEvents.WildTokayGame.ScreenTransitionsDisabled;
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);

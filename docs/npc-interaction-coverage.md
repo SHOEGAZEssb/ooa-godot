@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 8, 2026. It is an implementation inventory, not a
+interactions as of August 9, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -134,8 +134,20 @@ classified records and 156 specialized rows.
   an exchange, linked Rosa swap and escape, scent-seedling planting, shield
   upgrade, vine
   explanation, past and present Wild Tokay managers, present statues, native
-  runner/meat gameplay, ordered RNG pattern tables, prizes, and persistent
-  flags. Snapshot counts are unchanged. Tokays `$48:$0f/$10` are **P** because
+  runner/meat gameplay, ordered RNG pattern tables, all six imported prize
+  accessories, the manager's 10-update raise/40-update hold/20-update lower
+  cadence with animations `$06`/`$02`, the full-screen white start and
+  same-room result fades, room-music restoration at the return boundary,
+  Link's packed `$57` post-game position,
+  the controller's 30/10-update start waits, all six ordered arena tile writes (the
+  four `$ef` entrances and two `$7a` center tiles), round-long room
+  confinement, downward-facing runners, Bracelet-owned 8.8 meat fall/throw
+  physics including source item-bounce speed reduction and immediate
+  replacement, and the caught-meat `$63:$73` accessory
+  with its six-update pause and parent-animation offsets. Prizes and persistent
+  flags are also supported. Snapshot counts and room `2:de`'s **I**
+  classification are unchanged. Tokays
+  `$48:$0f/$10` are **P** because
   the separate dynamic Dimitri special object and `$71:$07` mount controller
   remain outside the visible NPC path; present manager `$48:$19` is **P**
   because linked-secret text entry

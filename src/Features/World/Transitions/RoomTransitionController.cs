@@ -112,6 +112,8 @@ public sealed class RoomTransitionController
         _warpActive ? _pendingWarp.DestinationPosition : -1;
     internal Func<bool> ScreenTransitionsDisabledSource { get; set; } =
         static () => false;
+    internal Func<bool> AllScreenTransitionsDisabledSource { get; set; } =
+        static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
     internal int TimeWarpPhaseFrame => _timeWarpPhaseFrame;
     internal int TimeWarpDissolveStep => _timeWarpDissolveStep;
@@ -362,6 +364,30 @@ public sealed class RoomTransitionController
             : Vector2I.Zero;
         if (direction == Vector2I.Zero)
             return;
+
+        // A few modal games confine Link to their active room even at an
+        // explicit edge warp. Keep this separate from the original
+        // wDisableScreenTransitions gate below, whose forced-warps-bypass
+        // behavior remains authoritative for ordinary encounters.
+        if (AllScreenTransitionsDisabledSource())
+        {
+            bool horizontalBoundary = direction.X != 0;
+            int lockedBoundary =
+                direction == Vector2I.Up || direction == Vector2I.Left
+                    ? 6
+                    : horizontalBoundary ? room.Width - 6 : room.Height - 7;
+            if (transitionOwner is null)
+            {
+                player.SetScreenTransitionBoundaryCoordinate(
+                    horizontalBoundary, lockedBoundary);
+            }
+            else
+            {
+                transitionOwner.SetScreenTransitionBoundaryCoordinate(
+                    horizontalBoundary, lockedBoundary, player);
+            }
+            return;
+        }
 
         // checkWarpsSidescrolling raises a forced transition direction. Forced
         // transitions bypass the ordinary delay, input, knockback, hazard, and

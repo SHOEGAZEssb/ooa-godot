@@ -400,7 +400,8 @@ public sealed class RoomEventController
     internal bool ScreenTransitionsDisabled =>
         _makuSproutRescue.ScreenTransitionsDisabled ||
         _fairiesWoods.ScreenTransitionsDisabled ||
-        _mooshRescue.ScreenTransitionsDisabled;
+        _mooshRescue.ScreenTransitionsDisabled ||
+        _wildTokayGame.ScreenTransitionsDisabled;
     internal bool MenusDisabled =>
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||

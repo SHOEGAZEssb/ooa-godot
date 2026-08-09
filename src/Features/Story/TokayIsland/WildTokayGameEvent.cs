@@ -16,6 +16,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private readonly GashaSpotDatabase _ringDatabase = new();
     private readonly List<WildParticipantState> _participants = new();
     private readonly List<WildTokayMeat> _meats = new();
+    private readonly Dictionary<int, byte> _originalGameTiles = new();
+    private NpcCharacter? _prizeAccessory;
+    private OracleRoomData? _gameRoom;
     private WildTokayGameStage _stage;
     private WildTokayGameStage _nextStage;
     private NpcCharacter? _actor;
@@ -34,6 +37,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private bool _inventoryOverridden;
     private bool _prizePrepared;
     private bool _ringPrize;
+    private bool _ownsFade;
+    private int _fadeCounter;
+    private Vector2 _originalFadePosition;
+    private Vector2 _originalFadeSize;
+    private int _originalFadeZ;
+    private Color _originalFadeColor;
 
     internal WildTokayGameEvent(
         RoomEventContext context,
@@ -47,6 +56,8 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     public bool BlocksGameplay => _inputLocked;
     internal WildTokayGameStage Stage => _stage;
     internal int Counter => _counter;
+    internal bool ScreenTransitionsDisabled =>
+        _stage == WildTokayGameStage.Playing;
 
     internal void OnRoomLoaded(int group, OracleRoomData room)
     {
@@ -89,6 +100,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             UpdateGame();
             return;
         }
+        if (_stage is WildTokayGameStage.FadeOut or WildTokayGameStage.FadeIn or
+            WildTokayGameStage.ReturnFadeOut or WildTokayGameStage.ReturnFadeIn)
+        {
+            UpdateFade();
+            return;
+        }
         if (_stage == WildTokayGameStage.Wait)
         {
             if (--_counter == 0)
@@ -114,12 +131,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     {
         _reward?.Finish(_context.Player);
         _reward = null;
-        foreach (WildParticipantState participant in _participants)
-            participant.Actor.SetActive(false);
-        foreach (WildTokayMeat meat in _meats)
-            meat.Finish();
-        _participants.Clear();
-        _meats.Clear();
+        ClearGameEntities();
+        RemovePrizeAccessory();
+        RestoreFadePresentation();
+        RestoreGameTiles();
         RestoreInventory();
         UnlockInput();
         _actor = null;
@@ -176,7 +191,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 FinishInteraction();
                 break;
             case WildTokayGameStage.PastManagerPrizeIntro:
-                BeginWait(50, WildTokayGameStage.PastManagerPlayPrompt);
+                BeginWait(10, WildTokayGameStage.PastManagerRaisePrize);
                 break;
             case WildTokayGameStage.PastManagerPlayPrompt:
                 ResolvePastPlayPrompt();
@@ -260,8 +275,28 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             case WildTokayGameStage.PastManagerPlayPrompt:
                 ShowChoice(_wildLevel == 0 ? 0x0a13 : 0x0a11);
                 break;
+            case WildTokayGameStage.PastManagerRaisePrize:
+                RaisePrize();
+                BeginWait(40, WildTokayGameStage.PastManagerPlayPrompt);
+                break;
+            case WildTokayGameStage.PastManagerRulesPrompt:
+                LowerPrize();
+                ShowChoice(0x0a14);
+                break;
+            case WildTokayGameStage.PastManagerDeclined:
+                LowerPrize();
+                Show(0x0a1a);
+                break;
+            case WildTokayGameStage.PastManagerNoRupees:
+                LowerPrize();
+                Show(0x0a1b);
+                break;
             case WildTokayGameStage.Begin:
-                BeginGame();
+                BeginGameFade();
+                break;
+            case WildTokayGameStage.FadeIn:
+                _context.Sound.PlaySound(OracleSoundEngine.MusMinigame);
+                BeginFade(WildTokayGameStage.FadeIn);
                 break;
             case WildTokayGameStage.StartText:
                 Show(0x0a16);
@@ -270,7 +305,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 Show(_won ? 0x0a18 : 0x0a17);
                 break;
             case WildTokayGameStage.Finish:
-                FinishGame();
+                BeginGameReturn();
+                break;
+            case WildTokayGameStage.PastGivePrize:
+                GivePrize();
                 break;
             case WildTokayGameStage.PresentGiveBombUpgrade:
                 GivePresentBombUpgrade();
@@ -305,19 +343,16 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     {
         if (TakeChoice() != 0)
         {
-            Show(0x0a1a);
-            _stage = WildTokayGameStage.PastManagerDeclined;
+            BeginWait(20, WildTokayGameStage.PastManagerDeclined);
             return;
         }
         if (_context.Inventory.Rupees < 10)
         {
-            Show(0x0a1b);
-            _stage = WildTokayGameStage.PastManagerNoRupees;
+            BeginWait(20, WildTokayGameStage.PastManagerNoRupees);
             return;
         }
         _context.Inventory.AddRupees(-10);
-        ShowChoice(0x0a14);
-        _stage = WildTokayGameStage.PastManagerRulesPrompt;
+        BeginWait(20, WildTokayGameStage.PastManagerRulesPrompt);
     }
 
     private void ResolvePastRulesPrompt()
@@ -333,6 +368,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void BeginGame()
     {
+        // tokayRunSubid0d/tokayRunSubid19 delete the manager after the start
+        // fade, immediately before INTERAC_WILD_TOKAY_CONTROLLER initializes.
+        RequireActor().SetActive(false);
         _savedEquippedA = _context.Inventory.EquippedA;
         _savedEquippedB = _context.Inventory.EquippedB;
         _context.Inventory.SetScriptedEquippedItems(
@@ -342,6 +380,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             horizontal: false, coordinate: _database.GameLinkY);
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: true, coordinate: _database.GameLinkX);
+        ApplyGameTiles();
         _wildCycles = _wildLevel < 3 ? 5 : _wildLevel == 3 ? 6 : 7;
         _wildColumn = 0;
         SelectPattern();
@@ -353,7 +392,91 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 statue.SetActive(false);
         }
         LockInput();
-        BeginWait(_database.GameStartDelay, WildTokayGameStage.StartText);
+        BeginWait(_database.GameStartDelay, WildTokayGameStage.FadeIn);
+    }
+
+    private void BeginGameFade()
+    {
+        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+        BeginFade(WildTokayGameStage.FadeOut);
+    }
+
+    private void BeginFade(WildTokayGameStage stage)
+    {
+        OwnFadePresentation();
+        _fadeCounter = 0;
+        _stage = stage;
+        _context.Fade.Color = new Color(
+            1.0f, 1.0f, 1.0f,
+            IsFadeOutStage(stage) ? 0.0f : 1.0f);
+    }
+
+    private void UpdateFade()
+    {
+        _fadeCounter++;
+        float progress = Math.Min(
+            _fadeCounter,
+            RoomTransitionController.WarpFadeMaximumOffset) /
+            RoomTransitionController.WarpFadeMaximumOffset;
+        bool fadingOut = IsFadeOutStage(_stage);
+        bool returning = _stage is WildTokayGameStage.ReturnFadeOut or
+            WildTokayGameStage.ReturnFadeIn;
+        _context.Fade.Color = new Color(
+            1.0f, 1.0f, 1.0f, fadingOut ? progress : 1.0f - progress);
+        if (_fadeCounter < RoomTransitionController.WarpFadeFrames)
+            return;
+
+        _fadeCounter = 0;
+        if (fadingOut)
+        {
+            if (returning)
+            {
+                CompleteGameReturnBoundary();
+                BeginFade(WildTokayGameStage.ReturnFadeIn);
+                return;
+            }
+            BeginGame();
+            return;
+        }
+
+        RestoreFadePresentation();
+        if (returning)
+        {
+            ContinueGameResultAfterReturn();
+            return;
+        }
+        BeginWait(_database.GameFadeInDelay, WildTokayGameStage.StartText);
+    }
+
+    private static bool IsFadeOutStage(WildTokayGameStage stage) =>
+        stage is WildTokayGameStage.FadeOut or WildTokayGameStage.ReturnFadeOut;
+
+    private void OwnFadePresentation()
+    {
+        if (_ownsFade)
+            return;
+        _ownsFade = true;
+        _originalFadePosition = _context.Fade.Position;
+        _originalFadeSize = _context.Fade.Size;
+        _originalFadeZ = _context.Fade.ZIndex;
+        _originalFadeColor = _context.Fade.Color;
+        _context.Fade.Position = Vector2.Zero;
+        _context.Fade.Size = new Vector2(
+            OracleRoomData.ViewportWidth,
+            OracleRoomData.ScreenHeight);
+        _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
+    }
+
+    private void RestoreFadePresentation()
+    {
+        _fadeCounter = 0;
+        if (!_ownsFade)
+            return;
+        _context.Fade.Position = _originalFadePosition;
+        _context.Fade.Size = _originalFadeSize;
+        _context.Fade.ZIndex = _originalFadeZ;
+        _context.Fade.Color = _originalFadeColor;
+        _ownsFade = false;
     }
 
     private void UpdateGame()
@@ -363,8 +486,14 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             WildParticipantState participant = _participants[index];
             if (!participant.Actor.Active)
                 continue;
+            if (participant.CatchPause > 0)
+            {
+                participant.CatchPause--;
+                UpdateParticipantAccessory(participant);
+                continue;
+            }
             participant.Actor.SetStatePosition(
-                participant.Actor.Position + Vector2.Up * participant.Speed);
+                participant.Actor.Position + Vector2.Down * participant.Speed);
             if (!participant.HoldingMeat)
             {
                 foreach (WildTokayMeat meat in _meats)
@@ -376,14 +505,20 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                         participant.HoldingMeat = true;
                         participant.Actor.SetScriptAnimation(
                             _database.Animation(participant.FromRight ? 8 : 7));
+                        participant.CatchPause = 6;
+                        CreateParticipantAccessory(participant);
                         _context.Sound.PlaySound(_database.Constant("sound-open-chest"));
                         break;
                     }
                 }
             }
-            if (participant.Actor.Position.Y >= -8)
+            UpdateParticipantAccessory(participant);
+            // wildTokayParticipantSubstate2 keeps the participant while
+            // (yh + $08) < $90, then handles its result at Y $88.
+            if (participant.Actor.Position.Y < 0x88)
                 continue;
             participant.Actor.SetActive(false);
+            RemoveParticipantAccessory(participant);
             if (!participant.HoldingMeat)
             {
                 EndRound(won: false);
@@ -396,7 +531,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             }
         }
 
-        if (_meats.All(meat => meat.Finished || meat.Thrown))
+        // tokayMeat state 2 creates the replacement immediately after Link
+        // grabs the current meat, before he releases it.
+        if (_meats.All(meat => meat.Finished || meat.Thrown || meat.Lifted))
             SpawnMeat();
 
         if (--_wildSpawnCounter > 0)
@@ -451,7 +588,14 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         };
         NpcCharacter actor = _context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(record, $"WildTokay_{_participants.Count}"));
-        actor.SetScriptAnimation(_database.Animation(0));
+        // Object data stores the above-screen spawn as byte coordinate $f8;
+        // render it at -8 while retaining $f8 in the source-derived record.
+        actor.SetStatePosition(
+            OracleObjectMath.NormalizeSourceScreenPosition(actor.Position));
+        // interactionInitGraphics selects `$48's default animation `$02;
+        // interactionAnimateBasedOnSpeed then preserves that downward facing.
+        actor.SetScriptAnimation(
+            _database.Animation(_database.ParticipantAnimation));
         actor.SetBlocksLink(false);
         if (red)
             actor.SetBasePalette(2);
@@ -466,6 +610,143 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         _meats.Add(meat);
     }
 
+    private void ApplyGameTiles()
+    {
+        if (_gameRoom is not null)
+            throw new InvalidOperationException(
+                "Wild Tokay tried to apply its arena tiles twice.");
+
+        _gameRoom = _context.Rooms.CurrentRoom;
+        var writes = new Dictionary<int, byte>();
+        foreach (WildTokayStartTileRecord record in _database.WildStartTiles)
+        {
+            Vector2 point = PackedPositionCenter(record.PackedPosition);
+            _originalGameTiles.Add(
+                record.PackedPosition, _gameRoom.GetMetatile(point));
+            writes.Add(record.PackedPosition, (byte)record.Tile);
+        }
+        _gameRoom.ApplyRoomInitializationChanges(
+            writes, _context.AnimationTick());
+    }
+
+    private void RestoreGameTiles()
+    {
+        if (_gameRoom is null)
+            return;
+        _gameRoom.ApplyRoomInitializationChanges(
+            _originalGameTiles, _context.AnimationTick());
+        _originalGameTiles.Clear();
+        _gameRoom = null;
+    }
+
+    private void CreateParticipantAccessory(WildParticipantState participant)
+    {
+        WildTokayMeatAccessoryRecord visual = _database.WildMeatAccessory(
+            participant.Actor.CurrentAnimationParameter);
+        Vector2 position = participant.Actor.Position +
+            new Vector2(visual.XOffset, visual.YOffset);
+        NpcRecord parent = participant.Actor.BaseRecord;
+        var record = new NpcRecord(
+            parent.Group, parent.Room, 0x63, 0x73,
+            Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
+            0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
+            visual.EncodedAnimation, visual.EncodedAnimation,
+            visual.EncodedAnimation, visual.EncodedAnimation, string.Empty,
+            NpcImplementationClassification.EventOwned);
+        participant.Accessory = _context.Entities.Spawn<NpcCharacter>(
+            new CutsceneNpcSpawn(
+                record, $"WildTokayMeatAccessory_{_participants.IndexOf(participant)}"));
+        participant.Accessory.SetScriptAnimation(visual.EncodedAnimation);
+        participant.Accessory.SetAnimationRate(0.0f);
+        participant.Accessory.SetBlocksLink(false);
+        participant.Accessory.SetFixedDrawPriority(
+            NpcCharacter.InFrontOfLinkZIndex);
+        UpdateParticipantAccessory(participant);
+    }
+
+    private void UpdateParticipantAccessory(WildParticipantState participant)
+    {
+        if (participant.Accessory is not { Active: true } accessory)
+            return;
+        WildTokayMeatAccessoryRecord visual = _database.WildMeatAccessory(
+            participant.Actor.CurrentAnimationParameter);
+        accessory.SetStatePosition(
+            participant.Actor.Position +
+            new Vector2(visual.XOffset, visual.YOffset));
+    }
+
+    private static void RemoveParticipantAccessory(
+        WildParticipantState participant)
+    {
+        if (participant.Accessory is { } accessory &&
+            GodotObject.IsInstanceValid(accessory))
+        {
+            accessory.SetActive(false);
+        }
+        participant.Accessory = null;
+    }
+
+    private void ClearGameEntities()
+    {
+        foreach (WildParticipantState participant in _participants)
+        {
+            if (GodotObject.IsInstanceValid(participant.Actor))
+                participant.Actor.SetActive(false);
+            RemoveParticipantAccessory(participant);
+        }
+        foreach (WildTokayMeat meat in _meats)
+        {
+            if (GodotObject.IsInstanceValid(meat))
+                meat.Finish();
+        }
+        _participants.Clear();
+        _meats.Clear();
+    }
+
+    private static Vector2 PackedPositionCenter(int packedPosition) => new(
+        (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+        (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+
+    private void RaisePrize()
+    {
+        NpcCharacter manager = RequireActor();
+        manager.SetScriptAnimation(_database.Animation(0x06));
+        WildTokayPrizeRecord visual =
+            _database.WildPrize(_ringPrize ? 5 : _wildLevel);
+        Vector2 position = manager.Position + new Vector2(0, -12);
+        var record = new NpcRecord(
+            manager.Record.Group, manager.Record.Room, 0x63,
+            visual.AccessorySubId,
+            Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
+            0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
+            visual.Animation, visual.Animation, visual.Animation,
+            visual.Animation, string.Empty,
+            NpcImplementationClassification.EventOwned);
+        _prizeAccessory = _context.Entities.Spawn<NpcCharacter>(
+            new CutsceneNpcSpawn(record, "WildTokayPrizeAccessory"));
+        _prizeAccessory.SetStatePosition(position);
+        _prizeAccessory.SetScriptAnimation(visual.Animation);
+        _prizeAccessory.SetAnimationRate(0.0f);
+        _prizeAccessory.SetBlocksLink(false);
+        _context.Sound.PlaySound(_database.SoundGetSeed);
+    }
+
+    private void LowerPrize()
+    {
+        RequireActor().SetScriptAnimation(_database.Animation(0x02));
+        RemovePrizeAccessory();
+    }
+
+    private void RemovePrizeAccessory()
+    {
+        if (_prizeAccessory is { } accessory &&
+            GodotObject.IsInstanceValid(accessory))
+        {
+            accessory.SetActive(false);
+        }
+        _prizeAccessory = null;
+    }
+
     private void EndRound(bool won)
     {
         _won = won;
@@ -474,14 +755,47 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         BeginWait(30, WildTokayGameStage.ResultText);
     }
 
-    private void FinishGame()
+    private void BeginGameReturn()
     {
+        // substate 6 restores B/A, sets ROOMFLAG_40, invalidates active music,
+        // and installs a same-room warp whose wWarpTransition2 `$03 selects
+        // the ordinary 32-update white fade.
         RestoreInventory();
         _context.Rooms.SaveData.SetRoomFlag(
             _context.Rooms.ActiveGroup,
             _context.Rooms.CurrentRoom.Id,
             OracleSaveData.RoomFlag40,
+            value: true);
+        BeginFade(WildTokayGameStage.ReturnFadeOut);
+    }
+
+    private void CompleteGameReturnBoundary()
+    {
+        // The source controller warps back to the room, recreating the manager
+        // before its result/prize script runs. Keep the room identity stable,
+        // but reproduce the same entity, tile, flag, and music reload boundary.
+        ClearGameEntities();
+        RequireActor().SetActive(true);
+        RestoreGameTiles();
+        // The same-room hardcoded warp places Link at packed position `$57
+        // and transition `$03 faces him up. Do this while the screen is fully
+        // white, after the destination manager has been recreated.
+        _context.Player.WarpTo(PackedPositionCenter(
+            _database.GameReturnPosition));
+        _context.Player.Face(Vector2I.Up);
+        _context.Rooms.SaveData.SetRoomFlag(
+            _context.Rooms.ActiveGroup,
+            _context.Rooms.CurrentRoom.Id,
+            OracleSaveData.RoomFlag40,
             value: false);
+        _context.Sound.PlayRoomMusic(
+            _context.Rooms.ActiveGroup,
+            _context.Rooms.CurrentRoom.Id,
+            _context.Rooms.SaveData);
+    }
+
+    private void ContinueGameResultAfterReturn()
+    {
         if (_won)
         {
             if (_present)
@@ -491,7 +805,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             }
             else
             {
-                GivePrize();
+                // The recreated past manager waits 30 updates before calling
+                // tokayGame_givePrizeToLink.
+                BeginWait(30, WildTokayGameStage.PastGivePrize);
             }
             return;
         }
@@ -679,6 +995,8 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        RemovePrizeAccessory();
+        RestoreFadePresentation();
         UnlockInput();
         _actor = null;
         _stage = WildTokayGameStage.Inactive;
@@ -702,6 +1020,8 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         internal bool Red { get; } = red;
         internal float Speed { get; } = speed;
         internal bool HoldingMeat { get; set; }
+        internal int CatchPause { get; set; }
+        internal NpcCharacter? Accessory { get; set; }
     }
 }
 
@@ -711,17 +1031,23 @@ internal enum WildTokayGameStage
     DialogueOnly,
     Wait,
     PastManagerPrizeIntro,
+    PastManagerRaisePrize,
     PastManagerPlayPrompt,
     PastManagerRulesPrompt,
     PastManagerDeclined,
     PastManagerNoRupees,
     IntroText,
     Begin,
+    FadeOut,
+    FadeIn,
     StartText,
     Playing,
     ResultText,
     Finish,
+    ReturnFadeOut,
+    ReturnFadeIn,
     LossPrompt,
+    PastGivePrize,
     Prize,
     PresentSecretPrompt,
     PresentPlayPrompt,

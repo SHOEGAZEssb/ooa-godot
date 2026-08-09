@@ -163,6 +163,8 @@ $bombCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\bombs.s')
 $conveyorItemSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tile_properties\conveyorItemTiles.s')
+$itemPassableTilesSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\tile_properties\itemPassableTiles.s')
 $swordBeamSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\items\swordBeam.s')
 $shieldParentSource = Read-ImportText (
@@ -597,6 +599,45 @@ $bombDamage = 0x100 - $bombDamageRaw
 $bombGfxIndex = [Convert]::ToInt32(
     $bombData.Groups['gfx'].Value, 16)
 
+$itemPassableTiles = [regex]::Match(
+    $itemPassableTilesSource,
+    '(?ms)^itemPassableTilesTable:.*?^@overworld:\s*^@underwater:\s*(?<overworld>.*?)^@indoors:\s*(?<indoors>.*?)^@dungeons:\s*^@five:\s*(?<dungeons>.*?)^@sidescrolling:\s*(?<sidescrolling>.*)')
+if (-not $itemPassableTiles.Success) {
+    throw 'Could not parse itemPassableTilesTable.'
+}
+
+function Read-ItemPassableTiles([string]$name) {
+    $values = @([regex]::Matches(
+        $itemPassableTiles.Groups[$name].Value,
+        '\$(?<value>[0-9a-f]{2})') |
+        ForEach-Object { [Convert]::ToInt32($_.Groups['value'].Value, 16) })
+    # The dungeon/five list deliberately falls through to the following
+    # sidescrolling `$00 instead of owning a duplicate terminator.
+    if ($name -eq 'dungeons') { return $values }
+    if ($values.Count -eq 0 -or $values[-1] -ne 0) {
+        throw "Item-passable tile list $name has no `$00 terminator."
+    }
+    if ($values.Count -eq 1) { return @() }
+    return @($values[0..($values.Count - 2)])
+}
+
+$passableOverworld = @(Read-ItemPassableTiles 'overworld')
+$passableIndoors = @(Read-ItemPassableTiles 'indoors')
+$passableDungeons = @(Read-ItemPassableTiles 'dungeons')
+$passableSidescrolling = @(Read-ItemPassableTiles 'sidescrolling')
+if ($passableOverworld.Count -ne 2 -or $passableIndoors.Count -ne 3 -or
+    $passableDungeons.Count -ne 16 -or $passableSidescrolling.Count -ne 0) {
+    throw 'Ages item-passable tile lists changed.'
+}
+$encodedItemPassableTiles = @(
+    "0:$($passableOverworld -join ',')"
+    "1:$($passableIndoors -join ',')"
+    "2:$($passableDungeons -join ',')"
+    '3:'
+    "4:$($passableOverworld -join ',')"
+    "5:$($passableDungeons -join ',')"
+) -join ';'
+
 $bombSourceValid =
     $itemIds['ITEM_BOMB'] -eq 0x03 -and
     $treasureIds['TREASURE_BOMBS'] -eq 0x03 -and
@@ -634,9 +675,9 @@ if (-not $bombSourceValid) {
 
 $bombRows = [Collections.Generic.List[string]]::new()
 $bombRows.Add(
-    '# item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tbase-damage`texplosion-sprite`texplosion-tile-base`texplosion-oam-flags`tpickup-sound`tthrow-sound`tlanding-sound`texplosion-sound`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tconveyor-speed-raw`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tedge-offsets`tbounce-speeds`tbreak-probes`tfuse-animation`texplosion-animation`tsource')
+    '# item`ttreasure-id`tsprite`ttile-base`tpalette`tcollision`tradius-y`tradius-x`tbase-damage`texplosion-sprite`texplosion-tile-base`texplosion-oam-flags`tpickup-sound`tthrow-sound`tlanding-sound`texplosion-sound`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tconveyor-speed-raw`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tedge-offsets`tbounce-speeds`titem-passable-tiles`tbreak-probes`tfuse-animation`texplosion-animation`tsource')
 $bombRows.Add(
-    "$($itemIds['ITEM_BOMB'].ToString('x2'))`t$($treasureIds['TREASURE_BOMBS'].ToString('x2'))`tspr_common_items`t$($bombData.Groups['tile'].Value)`t$($bombData.Groups['palette'].Value)`t$($bombAttributes.Groups['collision'].Value)`t$(($bombRadius -shr 4) -band 0x0f)`t$($bombRadius -band 0x0f)`t$bombDamage`tspr_common_sprites`t0c`t0a`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_EXPLOSION'].ToString('x2'))`t28`t-240`t3c`t64`t14`t7`t4`t2`t8`t-3,0;0,3;7,0;0,-3`t0:0;5:0;10:5;15:5;20:10;25:10;30:15;35:15;40:20;45:20;50:25;55:25;60:30;65:30;70:35;75:35;80:40;85:40;90:45;95:45;100:50;105:50;110:55;115:55;120:60`t-8,-13,-13;-8,12,-13;-8,12,12;-8,-13,12;-12,0,-13;-12,12,0;-12,0,12;-12,-13,0;-14,0,0`t$encodedBombFuse`t$encodedBombExplosion`tobject_code/common/items/bombs.s:itemCode03")
+    "$($itemIds['ITEM_BOMB'].ToString('x2'))`t$($treasureIds['TREASURE_BOMBS'].ToString('x2'))`tspr_common_items`t$($bombData.Groups['tile'].Value)`t$($bombData.Groups['palette'].Value)`t$($bombAttributes.Groups['collision'].Value)`t$(($bombRadius -shr 4) -band 0x0f)`t$($bombRadius -band 0x0f)`t$bombDamage`tspr_common_sprites`t0c`t0a`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_EXPLOSION'].ToString('x2'))`t28`t-240`t3c`t64`t14`t7`t4`t2`t8`t-3,0;0,3;7,0;0,-3`t0:0;5:0;10:5;15:5;20:10;25:10;30:15;35:15;40:20;45:20;50:25;55:25;60:30;65:30;70:35;75:35;80:40;85:40;90:45;95:45;100:50;105:50;110:55;115:55;120:60`t$encodedItemPassableTiles`t-8,-13,-13;-8,12,-13;-8,12,12;-8,-13,12;-12,0,-13;-12,12,0;-12,0,12;-12,-13,0;-14,0,0`t$encodedBombFuse`t$encodedBombExplosion`tobject_code/common/items/bombs.s:itemCode03;data/ages/tile_properties/itemPassableTiles.s:itemPassableTilesTable")
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\bomb.tsv'),
     $bombRows)
