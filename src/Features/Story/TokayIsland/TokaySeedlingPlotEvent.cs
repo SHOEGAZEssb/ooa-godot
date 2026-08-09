@@ -8,7 +8,7 @@ namespace oracleofages;
 internal sealed class TokaySeedlingPlotEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private TokaySeedlingPlotStage _stage;
     private NpcCharacter? _actor;
     private int _counter;
@@ -16,7 +16,7 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
 
     internal TokaySeedlingPlotEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

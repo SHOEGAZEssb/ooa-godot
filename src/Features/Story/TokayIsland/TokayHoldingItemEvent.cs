@@ -20,7 +20,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
     ];
 
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private TokayHoldingItemStage _stage;
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
@@ -29,7 +29,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
 
     internal TokayHoldingItemEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

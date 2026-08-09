@@ -40,7 +40,7 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
         new(Position - new Vector2(8, 8), new Vector2(16, 16));
 
     internal void Initialize(
-        TokayIslandDatabase database,
+        WildTokayMeatDatabase database,
         OracleRoomData room,
         BombRecord throwing,
         Action<int> soundRequested)
@@ -49,25 +49,25 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
         _throwing = throwing;
         _soundRequested = soundRequested;
         _bracelet = new BraceletDatabase().Data;
-        Position = new Vector2(database.MeatStartX, database.MeatStartY);
+        Position = new Vector2(database.StartX, database.StartY);
         _groundPrecise = Position;
-        _zFixed = database.MeatStartZ << 8;
-        _fallDelay = database.MeatFallDelay;
-        _fallGravity = database.MeatFallGravity;
-        _fallSound = database.Constant("sound-fall");
-        _landingSound = database.Constant("sound-land");
-        _dropLife = database.Constant("meat-drop-life");
+        _zFixed = database.StartZ << 8;
+        _fallDelay = database.FallDelay;
+        _fallGravity = database.FallGravity;
+        _fallSound = database.SoundFall;
+        _landingSound = database.SoundLand;
+        _dropLife = database.DropLife;
         Visible = false;
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{database.MeatSprite}.png");
+            $"res://assets/oracle/gfx/{database.Sprite}.png");
         AnimationDefinition animation =
-            OracleGraphicsCache.GetAnimationDefinition(database.MeatAnimation);
+            OracleGraphicsCache.GetAnimationDefinition(database.Animation);
         foreach (AnimationFrameDefinition frame in animation.Frames)
         {
             (Texture2D texture, Vector2 offset) =
                 NpcCharacter.BuildPositionedOamTexture(
-                    source, frame.EncodedOam, database.MeatTileBase,
-                    database.MeatPalette, paletteOverride: null,
+                    source, frame.EncodedOam, database.TileBase,
+                    database.Palette, paletteOverride: null,
                     sourceGrayscaleInverted: true);
             _frames.Add(new WildTokayMeatFrame(texture, offset));
         }

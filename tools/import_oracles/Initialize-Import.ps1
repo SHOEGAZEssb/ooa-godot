@@ -486,7 +486,10 @@ foreach ($legacyGeneratedAsset in @(
     'menu\new_game_intro_sprites.tsv',
     'objects\maku_tree_cutscene.tsv',
     'objects\ralph_portal_event.tsv',
-    'objects\linked_game_ghini.tsv'
+    'objects\linked_game_ghini.tsv',
+    'objects\tokay_island_constants.tsv',
+    'objects\tokay_island_texts.tsv',
+    'objects\tokay_island_animations.tsv'
 )) {
     $legacyGeneratedPath = Join-Path $destination $legacyGeneratedAsset
     if (Test-Path -LiteralPath $legacyGeneratedPath) {

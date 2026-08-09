@@ -2507,44 +2507,71 @@ if ($null -eq $wildTokayParticipantGraphic -or
     throw 'INTERAC_TOKAY `$48 no longer initializes with downward animation `$02.'
 }
 
-$tokayConstantRows = @(
+$tokayInteractionConstantRows = @(
+    '# key`tvalue',
+    'tokay-id`t72',
+    'room-flag-item`t32',
+    'dimitri-state-address`t50759',
+    "treasure-sword`t$($treasureIds['TREASURE_SWORD'])",
+    "treasure-harp`t$($treasureIds['TREASURE_HARP'])",
+    "treasure-shovel`t$($treasureIds['TREASURE_SHOVEL'])",
+    "treasure-seed-satchel`t$($treasureIds['TREASURE_SEED_SATCHEL'])",
+    "treasure-flippers`t$($treasureIds['TREASURE_FLIPPERS'])",
+    "treasure-ember-seeds`t$($treasureIds['TREASURE_EMBER_SEEDS'])",
+    "treasure-scent-seeds`t$($treasureIds['TREASURE_SCENT_SEEDS'])",
+    "treasure-mystery-seeds`t$($treasureIds['TREASURE_MYSTERY_SEEDS'])",
+    "treasure-trade-item`t$($treasureIds['TREASURE_TRADEITEM'])",
+    "treasure-scent-seedling`t$($treasureIds['TREASURE_SCENT_SEEDLING'])",
+    "sound-get-item`t$($soundIds['SND_GETITEM'])",
+    "sound-get-seed`t$($soundIds['SND_GETSEED'])",
+    "sound-jump`t$($soundIds['SND_JUMP'])"
+) | ForEach-Object { $_.Replace('`t', "`t") }
+
+$tokayShopConstantRows = @(
+    '# key`tvalue',
+    'group`t2', 'room`t228',
+    'shop-item-id`t129',
+    "item-collision-radius`t$tokayShopCollisionRadius",
+    "treasure-shield`t$($treasureIds['TREASURE_SHIELD'])",
+    "treasure-feather`t$($treasureIds['TREASURE_FEATHER'])",
+    "global-bought-feather`t$($globalFlagValues['GLOBALFLAG_BOUGHT_FEATHER_FROM_TOKAY'])",
+    "global-bought-bracelet`t$($globalFlagValues['GLOBALFLAG_BOUGHT_BRACELET_FROM_TOKAY'])"
+) | ForEach-Object { $_.Replace('`t', "`t") }
+
+$wildTokayConstantRows = @(
+    '# key`tvalue',
+    'group-past-manager`t2', 'room-past-manager`t222',
+    'group-present-manager`t2', 'room-present-manager`t229',
+    'wild-controller-id`t112', 'wild-participant-subid`t12',
+    'room-flag-event`t64',
+    'room-flag-secondary`t128',
+    'wild-level-address`t50922',
+    "treasure-bombs`t$($treasureIds['TREASURE_BOMBS'])",
+    "treasure-bracelet`t$($treasureIds['TREASURE_BRACELET'])",
+    "global-finished-game`t$($globalFlagValues['GLOBALFLAG_FINISHEDGAME'])",
+    "global-began-secret`t$($globalFlagValues['GLOBALFLAG_BEGAN_TOKAY_SECRET'])",
+    "global-done-secret`t$($globalFlagValues['GLOBALFLAG_DONE_TOKAY_SECRET'])",
+    "sound-open-chest`t$($soundIds['SND_OPENCHEST'])",
+    "sound-whistle`t$($soundIds['SND_WHISTLE'])",
+    "sound-success`t$($soundIds['SND_FILLED_HEART_CONTAINER'])",
+    "sound-error`t$($soundIds['SND_ERROR'])",
+    'participant-left-x`t24', 'participant-right-x`t136',
+    'participant-start-y`t248',
+    "participant-animation`t$($wildTokayParticipantGraphic.DefaultAnimation)",
+    "game-link-y`t$wildTokayManagerLinkY",
+    "game-link-x`t$wildTokayManagerLinkX",
+    "game-return-position`t$wildTokayReturnPosition",
+    "wild-cycle-count-level-0`t$($wildTokayCycleCounts[0])",
+    "wild-cycle-count-level-1`t$($wildTokayCycleCounts[1])",
+    "wild-cycle-count-level-2`t$($wildTokayCycleCounts[2])",
+    "wild-cycle-count-level-3`t$($wildTokayCycleCounts[3])",
+    "wild-cycle-count-level-4`t$($wildTokayCycleCounts[4])",
+    'game-spawn-delay`t60', 'game-start-delay`t30',
+    'game-fade-in-delay`t10'
+) | ForEach-Object { $_.Replace('`t', "`t") }
+
+$wildTokayMeatConstantRows = @(
     '# key`tvalue`ttext',
-    'group-past-manager`t2`t-', 'room-past-manager`t222`t-',
-    'group-present-manager`t2`t-', 'room-present-manager`t229`t-',
-    'group-shop`t2`t-', 'room-shop`t228`t-',
-    'tokay-id`t72`t-', 'shop-item-id`t129`t-',
-    "shop-item-collision-radius`t$tokayShopCollisionRadius`t-",
-    'wild-controller-id`t112`t-', 'wild-participant-subid`t12`t-',
-    'room-flag-item`t32`t-', 'room-flag-event`t64`t-',
-    'room-flag-secondary`t128`t-',
-    'dimitri-state-address`t50759`t-',
-    'wild-level-address`t50922`t-',
-    "treasure-shield`t$($treasureIds['TREASURE_SHIELD'])`t-",
-    "treasure-bombs`t$($treasureIds['TREASURE_BOMBS'])`t-",
-    "treasure-sword`t$($treasureIds['TREASURE_SWORD'])`t-",
-    "treasure-harp`t$($treasureIds['TREASURE_HARP'])`t-",
-    "treasure-shovel`t$($treasureIds['TREASURE_SHOVEL'])`t-",
-    "treasure-bracelet`t$($treasureIds['TREASURE_BRACELET'])`t-",
-    "treasure-feather`t$($treasureIds['TREASURE_FEATHER'])`t-",
-    "treasure-seed-satchel`t$($treasureIds['TREASURE_SEED_SATCHEL'])`t-",
-    "treasure-flippers`t$($treasureIds['TREASURE_FLIPPERS'])`t-",
-    "treasure-ember-seeds`t$($treasureIds['TREASURE_EMBER_SEEDS'])`t-",
-    "treasure-scent-seeds`t$($treasureIds['TREASURE_SCENT_SEEDS'])`t-",
-    "treasure-mystery-seeds`t$($treasureIds['TREASURE_MYSTERY_SEEDS'])`t-",
-    "treasure-trade-item`t$($treasureIds['TREASURE_TRADEITEM'])`t-",
-    "treasure-scent-seedling`t$($treasureIds['TREASURE_SCENT_SEEDLING'])`t-",
-    "global-bought-feather`t$($globalFlagValues['GLOBALFLAG_BOUGHT_FEATHER_FROM_TOKAY'])`t-",
-    "global-bought-bracelet`t$($globalFlagValues['GLOBALFLAG_BOUGHT_BRACELET_FROM_TOKAY'])`t-",
-    "global-finished-game`t$($globalFlagValues['GLOBALFLAG_FINISHEDGAME'])`t-",
-    "global-began-secret`t$($globalFlagValues['GLOBALFLAG_BEGAN_TOKAY_SECRET'])`t-",
-    "global-done-secret`t$($globalFlagValues['GLOBALFLAG_DONE_TOKAY_SECRET'])`t-",
-    "sound-get-item`t$($soundIds['SND_GETITEM'])`t-",
-    "sound-get-seed`t$($soundIds['SND_GETSEED'])`t-",
-    "sound-jump`t$($soundIds['SND_JUMP'])`t-",
-    "sound-open-chest`t$($soundIds['SND_OPENCHEST'])`t-",
-    "sound-whistle`t$($soundIds['SND_WHISTLE'])`t-",
-    "sound-success`t$($soundIds['SND_FILLED_HEART_CONTAINER'])`t-",
-    "sound-error`t$($soundIds['SND_ERROR'])`t-",
     "sound-fall`t$($soundIds['SND_FALLINHOLE'])`t-",
     "sound-land`t$($soundIds['SND_BOMB_LAND'])`t-",
     "meat-sprite`t0`t$tokayMeatSprite",
@@ -2554,20 +2581,7 @@ $tokayConstantRows = @(
     'meat-start-y`t56`t-', 'meat-start-x`t80`t-',
     'meat-start-z`t-64`t-', 'meat-fall-delay`t30`t-',
     'meat-fall-gravity`t40`t-',
-    'meat-collision-radius`t8`t-', 'meat-drop-life`t20`t-',
-    'participant-left-x`t24`t-', 'participant-right-x`t136`t-',
-    'participant-start-y`t248`t-',
-    "participant-animation`t$($wildTokayParticipantGraphic.DefaultAnimation)`t-",
-    "game-link-y`t$wildTokayManagerLinkY`t-",
-    "game-link-x`t$wildTokayManagerLinkX`t-",
-    "game-return-position`t$wildTokayReturnPosition`t-",
-    "wild-cycle-count-level-0`t$($wildTokayCycleCounts[0])`t-",
-    "wild-cycle-count-level-1`t$($wildTokayCycleCounts[1])`t-",
-    "wild-cycle-count-level-2`t$($wildTokayCycleCounts[2])`t-",
-    "wild-cycle-count-level-3`t$($wildTokayCycleCounts[3])`t-",
-    "wild-cycle-count-level-4`t$($wildTokayCycleCounts[4])`t-",
-    'game-spawn-delay`t60`t-', 'game-start-delay`t30`t-',
-    'game-fade-in-delay`t10`t-'
+    'meat-collision-radius`t8`t-', 'meat-drop-life`t20`t-'
 ) | ForEach-Object { $_.Replace('`t', "`t") }
 
 $tokayHolderRows = [Collections.Generic.List[string]]::new()
@@ -5732,11 +5746,17 @@ foreach ($spriteName in $npcSpriteNames) {
 }
 $npcPath = Join-Path $destination "objects\npcs.tsv"
 Write-GeneratedTable($npcPath, $npcRows)
-$tokayConstantsPath = Join-Path $destination "objects\tokay_island_constants.tsv"
-Write-GeneratedTable($tokayConstantsPath, $tokayConstantRows)
-$tokayTextPath = Join-Path $destination "objects\tokay_island_texts.tsv"
+$tokayInteractionConstantsPath = Join-Path $destination "objects\tokay_interaction_constants.tsv"
+Write-GeneratedTable($tokayInteractionConstantsPath, $tokayInteractionConstantRows)
+$tokayShopConstantsPath = Join-Path $destination "objects\tokay_shop_constants.tsv"
+Write-GeneratedTable($tokayShopConstantsPath, $tokayShopConstantRows)
+$wildTokayConstantsPath = Join-Path $destination "objects\wild_tokay_constants.tsv"
+Write-GeneratedTable($wildTokayConstantsPath, $wildTokayConstantRows)
+$wildTokayMeatConstantsPath = Join-Path $destination "objects\wild_tokay_meat_constants.tsv"
+Write-GeneratedTable($wildTokayMeatConstantsPath, $wildTokayMeatConstantRows)
+$tokayTextPath = Join-Path $destination "objects\tokay_interaction_texts.tsv"
 Write-GeneratedTable($tokayTextPath, $tokayTextRows)
-$tokayAnimationPath = Join-Path $destination "objects\tokay_island_animations.tsv"
+$tokayAnimationPath = Join-Path $destination "objects\tokay_interaction_animations.tsv"
 Write-GeneratedTable($tokayAnimationPath, $tokayAnimationRows)
 $tokayEntranceEyePath = Join-Path $destination "objects\tokay_entrance_eyes.tsv"
 Write-GeneratedTable($tokayEntranceEyePath, $tokayEntranceEyeRows)

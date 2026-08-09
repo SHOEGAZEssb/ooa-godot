@@ -61,7 +61,9 @@ internal sealed class RoomEntityFactory(
     private readonly NayruHouseDatabase _nayruHouse = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
-    private readonly TokayIslandDatabase _tokayIsland = new();
+    private readonly TokayInteractionDatabase _tokayInteractions = new();
+    private readonly TokayShopDatabase _tokayShop = new();
+    private readonly WildTokayMeatDatabase _wildTokayMeat = new();
     private readonly TokayEntranceEyeDatabase _tokayEntranceEyes = new();
     private readonly BlackTowerWorkerDatabase _blackTower = new();
     private readonly ShootingGalleryEventDatabase _shootingGallery = new();
@@ -607,7 +609,7 @@ internal sealed class RoomEntityFactory(
             foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
         }
-        else if (group == _tokayIsland.ShopGroup && room.Id == _tokayIsland.ShopRoom)
+        else if (group == _tokayShop.Group && room.Id == _tokayShop.Room)
         {
             foreach (IRoomEntity entity in CreateTokayShop(roomNpcs))
                 yield return entity;
@@ -2166,7 +2168,7 @@ internal sealed class RoomEntityFactory(
             ZIndex = NpcCharacter.InFrontOfLinkZIndex
         };
         meat.Initialize(
-            _tokayIsland,
+            _wildTokayMeat,
             rooms?.CurrentRoom ?? throw new InvalidOperationException(
                 "Wild Tokay meat requires an active room."),
             _bomb.Data,
@@ -2216,7 +2218,7 @@ internal sealed class RoomEntityFactory(
                 throw new InvalidOperationException(
                     "Tokay item holders require live room-flag state.");
             }
-            TokayHeldItemRecord item = _tokayIsland.HeldItem(record.SubId);
+            TokayHeldItemRecord item = _tokayInteractions.HeldItem(record.SubId);
             var holder = new TokayHoldingItemCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
@@ -2762,13 +2764,13 @@ internal sealed class RoomEntityFactory(
                 $"Room 2:e4 must contain Tokay shopkeeper $48:$0e, got {records.Count} NPC records.");
         }
 
-        foreach (TokayShopPlacementRecord placement in _tokayIsland.ShopPlacements)
+        foreach (TokayShopPlacementRecord placement in _tokayShop.Placements)
         {
             int subId;
             int treasure;
             if (placement.PlacedSubId == 0)
             {
-                if (saveData.HasGlobalFlag(_tokayIsland.BoughtFeatherFlag))
+                if (saveData.HasGlobalFlag(_tokayShop.BoughtFeatherFlag))
                     continue;
                 bool replace = inventory.HasTreasure(TreasureDatabase.TreasureFeather);
                 subId = replace ? 2 : 0;
@@ -2778,7 +2780,7 @@ internal sealed class RoomEntityFactory(
             }
             else if (placement.PlacedSubId == 1)
             {
-                if (saveData.HasGlobalFlag(_tokayIsland.BoughtBraceletFlag))
+                if (saveData.HasGlobalFlag(_tokayShop.BoughtBraceletFlag))
                     continue;
                 bool replace = inventory.HasTreasure(TreasureDatabase.TreasureBracelet);
                 subId = replace ? 3 : 1;
@@ -2788,13 +2790,13 @@ internal sealed class RoomEntityFactory(
             }
             else
             {
-                if (!saveData.HasGlobalFlag(_tokayIsland.BoughtBraceletFlag))
+                if (!saveData.HasGlobalFlag(_tokayShop.BoughtBraceletFlag))
                     continue;
                 subId = Math.Clamp(4 + Math.Max(0, inventory.ShieldLevel - 1), 4, 6);
                 treasure = TreasureDatabase.TreasureShield;
             }
 
-            TokayShopPlacementRecord visual = _tokayIsland.ShopVisual(subId) with
+            TokayShopPlacementRecord visual = _tokayShop.Visual(subId) with
             {
                 Order = placement.Order,
                 Y = placement.Y,
@@ -2807,7 +2809,7 @@ internal sealed class RoomEntityFactory(
             };
             item.Initialize(
                 visual, placement.PlacedSubId, subId, treasure,
-                _tokayIsland.ShopItemCollisionRadius);
+                _tokayShop.ItemCollisionRadius);
             yield return new TokayShopItemRoomEntity(item);
         }
 
@@ -2836,7 +2838,8 @@ internal sealed class RoomEntityFactory(
 
         if (record.SubId is 0x0f or 0x10)
         {
-            byte dimitri = saveData.ReadWramByte(_tokayIsland.DimitriStateAddress);
+            byte dimitri = saveData.ReadWramByte(
+                _tokayInteractions.DimitriStateAddress);
             npc.SetActive((dimitri & 0x02) == 0 && (inventory.Essences & 0x04) != 0);
         }
         else if (record.SubId == 0x0b)
@@ -2860,8 +2863,8 @@ internal sealed class RoomEntityFactory(
         {
             string animation = saveData.HasRoomFlag(
                 record.Group, record.Room, OracleSaveData.RoomFlag40)
-                ? _tokayIsland.Animation(0x02)
-                : _tokayIsland.Animation(0x06);
+                ? _tokayInteractions.Animation(0x02)
+                : _tokayInteractions.Animation(0x06);
             npc.SetScriptAnimation(animation);
         }
     }

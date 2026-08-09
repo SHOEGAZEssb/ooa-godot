@@ -111,21 +111,25 @@ public sealed class RoomEventController
         _rafton = new RaftonEvent(_context);
         _raftwreck = new RaftwreckEvent(_context);
         _tokayTheft = new TokayTheftEvent(_context);
-        var tokayIslandDatabase = new TokayIslandDatabase();
-        _tokayCook = new TokayCookEvent(_context, tokayIslandDatabase);
-        _tokayHoldingItem = new TokayHoldingItemEvent(_context, tokayIslandDatabase);
+        var tokayInteractions = new TokayInteractionDatabase();
+        var tokayShop = new TokayShopDatabase();
+        var wildTokayGame = new WildTokayGameDatabase();
+        _tokayCook = new TokayCookEvent(_context, tokayInteractions);
+        _tokayHoldingItem = new TokayHoldingItemEvent(_context, tokayInteractions);
         _tokayRunningFromRosa = new TokayRunningFromRosaEvent(
-            _context, tokayIslandDatabase);
-        _tokayDimitri = new TokayDimitriEvent(_context, tokayIslandDatabase);
+            _context, tokayInteractions);
+        _tokayDimitri = new TokayDimitriEvent(_context, tokayInteractions);
         _tokaySeedlingPlot = new TokaySeedlingPlotEvent(
-            _context, tokayIslandDatabase);
+            _context, tokayInteractions);
         _tokayShieldUpgrade = new TokayShieldUpgradeEvent(
-            _context, tokayIslandDatabase);
+            _context, tokayInteractions);
         _tokayVineExplanation = new TokayVineExplanationEvent(
-            _context, tokayIslandDatabase);
-        _rosaShovel = new RosaShovelEvent(_context, tokayIslandDatabase);
-        _tokayTrading = new TokayTradingEvent(_context, tokayIslandDatabase);
-        _wildTokayGame = new WildTokayGameEvent(_context, tokayIslandDatabase);
+            _context, tokayInteractions);
+        _rosaShovel = new RosaShovelEvent(_context, tokayInteractions);
+        _tokayTrading = new TokayTradingEvent(
+            _context, tokayInteractions, tokayShop);
+        _wildTokayGame = new WildTokayGameEvent(
+            _context, tokayInteractions, wildTokayGame);
         _depressedBoy = new DepressedBoyEvent(_context);
         _toiletHand = new ToiletHandEvent(_context);
         _poe = new PoeEvent(_context);

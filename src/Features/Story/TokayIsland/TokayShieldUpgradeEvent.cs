@@ -8,7 +8,7 @@ namespace oracleofages;
 internal sealed class TokayShieldUpgradeEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private TokayShieldUpgradeStage _stage;
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
@@ -17,7 +17,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
 
     internal TokayShieldUpgradeEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

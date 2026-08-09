@@ -11,7 +11,7 @@ namespace oracleofages;
 internal sealed class TokayDimitriEvent : IRoomEntryEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private TokayDimitriStage _stage;
     private TokayDimitriStage _nextStage;
     private NpcCharacter? _actor;
@@ -20,7 +20,7 @@ internal sealed class TokayDimitriEvent : IRoomEntryEvent
 
     internal TokayDimitriEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

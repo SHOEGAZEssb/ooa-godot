@@ -12,7 +12,8 @@ namespace oracleofages;
 internal sealed class WildTokayGameEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _interactions;
+    private readonly WildTokayGameDatabase _database;
     private readonly WildTokaySpawnSchedule _wildSchedule;
     private readonly GashaSpotDatabase _ringDatabase = new();
     private readonly List<WildParticipantState> _participants = new();
@@ -44,9 +45,11 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     internal WildTokayGameEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase interactions,
+        WildTokayGameDatabase database)
     {
         _context = context;
+        _interactions = interactions;
         _database = database;
         _wildSchedule = new WildTokaySpawnSchedule(
             database, () => context.Entities.NextRandomValue());
@@ -210,7 +213,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             case WildTokayGameStage.StartText:
                 UnlockInput();
                 SpawnMeat();
-                _context.Sound.PlaySound(_database.Constant("sound-whistle"));
+                _context.Sound.PlaySound(_database.SoundWhistle);
                 _wildSpawnCounter = _database.GameSpawnDelay;
                 _stage = WildTokayGameStage.Playing;
                 break;
@@ -502,10 +505,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                         meat.Catch();
                         participant.HoldingMeat = true;
                         participant.Actor.SetScriptAnimation(
-                            _database.Animation(participant.FromRight ? 8 : 7));
+                            _interactions.Animation(participant.FromRight ? 8 : 7));
                         participant.CatchPause = 6;
                         CreateParticipantAccessory(participant);
-                        _context.Sound.PlaySound(_database.Constant("sound-open-chest"));
+                        _context.Sound.PlaySound(_database.SoundOpenChest);
                         break;
                     }
                 }
@@ -574,7 +577,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         // interactionInitGraphics selects `$48's default animation `$02;
         // interactionAnimateBasedOnSpeed then preserves that downward facing.
         actor.SetScriptAnimation(
-            _database.Animation(_database.ParticipantAnimation));
+            _interactions.Animation(_database.ParticipantAnimation));
         actor.SetBlocksLink(false);
         if (red)
             actor.SetBasePalette(2);
@@ -597,7 +600,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
         _gameRoom = _context.Rooms.CurrentRoom;
         var writes = new Dictionary<int, byte>();
-        foreach (WildTokayStartTileRecord record in _database.WildStartTiles)
+        foreach (WildTokayStartTileRecord record in _database.StartTiles)
         {
             Vector2 point = PackedPositionCenter(record.PackedPosition);
             _originalGameTiles.Add(
@@ -620,7 +623,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void CreateParticipantAccessory(WildParticipantState participant)
     {
-        WildTokayMeatAccessoryRecord visual = _database.WildMeatAccessory(
+        WildTokayMeatAccessoryRecord visual = _database.MeatAccessory(
             participant.Actor.CurrentAnimationParameter);
         Vector2 position = participant.Actor.Position +
             new Vector2(visual.XOffset, visual.YOffset);
@@ -647,7 +650,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     {
         if (participant.Accessory is not { Active: true } accessory)
             return;
-        WildTokayMeatAccessoryRecord visual = _database.WildMeatAccessory(
+        WildTokayMeatAccessoryRecord visual = _database.MeatAccessory(
             participant.Actor.CurrentAnimationParameter);
         accessory.SetStatePosition(
             participant.Actor.Position +
@@ -689,9 +692,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private void RaisePrize()
     {
         NpcCharacter manager = RequireActor();
-        manager.SetScriptAnimation(_database.Animation(0x06));
+        manager.SetScriptAnimation(_interactions.Animation(0x06));
         WildTokayPrizeRecord visual =
-            _database.WildPrize(_ringPrize ? 5 : _wildLevel);
+            _database.Prize(_ringPrize ? 5 : _wildLevel);
         Vector2 position = manager.Position + new Vector2(0, -12);
         var record = new NpcRecord(
             manager.Record.Group, manager.Record.Room, 0x63,
@@ -707,12 +710,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         _prizeAccessory.SetScriptAnimation(visual.Animation);
         _prizeAccessory.SetAnimationRate(0.0f);
         _prizeAccessory.SetBlocksLink(false);
-        _context.Sound.PlaySound(_database.SoundGetSeed);
+                _context.Sound.PlaySound(_interactions.SoundGetSeed);
     }
 
     private void LowerPrize()
     {
-        RequireActor().SetScriptAnimation(_database.Animation(0x02));
+        RequireActor().SetScriptAnimation(_interactions.Animation(0x02));
         RemovePrizeAccessory();
     }
 
@@ -922,10 +925,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     }
 
     private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
+        _context.ShowDialogue(_interactions.Text(textId));
 
     private void ShowChoice(int textId) =>
-        _context.ShowChoiceDialogue(_database.Text(textId));
+        _context.ShowChoiceDialogue(_interactions.Text(textId));
 
     private int TakeChoice()
     {

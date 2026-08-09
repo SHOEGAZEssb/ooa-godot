@@ -8,7 +8,7 @@ namespace oracleofages;
 internal sealed class TokayCookEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private TokayCookStage _stage;
     private GroundTreasurePickup? _reward;
     private int _counter;
@@ -16,7 +16,7 @@ internal sealed class TokayCookEvent : IRoomEvent
 
     internal TokayCookEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

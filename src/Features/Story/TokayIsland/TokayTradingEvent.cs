@@ -11,7 +11,8 @@ internal sealed class TokayTradingEvent :
     IRoomEvent, IUpdatesDuringDialogueRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _interactions;
+    private readonly TokayShopDatabase _shop;
     private TokayTradingStage _stage;
     private TokayShopItem? _shopItem;
     private GroundTreasurePickup? _reward;
@@ -20,10 +21,12 @@ internal sealed class TokayTradingEvent :
 
     internal TokayTradingEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase interactions,
+        TokayShopDatabase shop)
     {
         _context = context;
-        _database = database;
+        _interactions = interactions;
+        _shop = shop;
     }
 
     public bool HasState => _stage != TokayTradingStage.Inactive;
@@ -45,8 +48,8 @@ internal sealed class TokayTradingEvent :
     internal bool TryInteractPlayer(Player player)
     {
         if (HasState ||
-            _context.Rooms.ActiveGroup != _database.ShopGroup ||
-            _context.Rooms.CurrentRoom.Id != _database.ShopRoom)
+            _context.Rooms.ActiveGroup != _shop.Group ||
+            _context.Rooms.CurrentRoom.Id != _shop.Room)
         {
             return false;
         }
@@ -182,7 +185,7 @@ internal sealed class TokayTradingEvent :
                 giveTreasure = TreasureDatabase.TreasureFeather;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_FEATHER_02";
-                globalFlag = _database.BoughtFeatherFlag;
+                globalFlag = _shop.BoughtFeatherFlag;
                 seedTreasure = 0x24;
                 insufficientSeedsText = 0x0a2e;
                 break;
@@ -203,7 +206,7 @@ internal sealed class TokayTradingEvent :
                 giveTreasure = TreasureDatabase.TreasureBracelet;
                 parameter = 3;
                 objectName = "TREASURE_OBJECT_BRACELET_03";
-                globalFlag = _database.BoughtBraceletFlag;
+                globalFlag = _shop.BoughtBraceletFlag;
                 seedTreasure = 0x21;
                 insufficientSeedsText = 0x0a34;
                 break;
@@ -344,7 +347,7 @@ internal sealed class TokayTradingEvent :
             treasure = TreasureDatabase.TreasureShield;
         }
 
-        TokayShopPlacementRecord visual = _database.ShopVisual(subId) with
+        TokayShopPlacementRecord visual = _shop.Visual(subId) with
         {
             Order = item.Placement.Order,
             Y = item.Placement.Y,
@@ -352,7 +355,7 @@ internal sealed class TokayTradingEvent :
         };
         item.Initialize(
             visual, item.OriginalSubId, subId, treasure,
-            _database.ShopItemCollisionRadius);
+            _shop.ItemCollisionRadius);
     }
 
     private void ShowDialogueOnly(int textId)
@@ -362,10 +365,10 @@ internal sealed class TokayTradingEvent :
     }
 
     private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
+        _context.ShowDialogue(_interactions.Text(textId));
 
     private void ShowChoice(int textId) =>
-        _context.ShowChoiceDialogue(_database.Text(textId));
+        _context.ShowChoiceDialogue(_interactions.Text(textId));
 
     private int TakeChoice()
     {

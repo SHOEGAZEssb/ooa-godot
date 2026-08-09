@@ -10,7 +10,7 @@ internal sealed class WildTokaySpawnSchedule
 {
     private const int PatternSlots = 4;
 
-    private readonly TokayIslandDatabase _database;
+    private readonly WildTokayGameDatabase _database;
     private readonly Func<int> _nextRandomValue;
     private int _level;
     private int _cyclesRemaining;
@@ -22,7 +22,7 @@ internal sealed class WildTokaySpawnSchedule
     internal int RandomIndex => _randomIndex;
 
     internal WildTokaySpawnSchedule(
-        TokayIslandDatabase database,
+        WildTokayGameDatabase database,
         Func<int> nextRandomValue)
     {
         _database = database;
@@ -54,7 +54,7 @@ internal sealed class WildTokaySpawnSchedule
         }
 
         WildTokayPatternRecord pattern =
-            _database.WildPattern(_level, _randomIndex);
+            _database.Pattern(_level, _randomIndex);
         int code = CodeAt(pattern, _slot);
         bool final = _cyclesRemaining == 1 &&
             IsLastOccupiedSlot(pattern, _slot);

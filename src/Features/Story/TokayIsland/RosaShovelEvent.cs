@@ -9,7 +9,7 @@ namespace oracleofages;
 internal sealed class RosaShovelEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private RosaShovelStage _stage;
     private RosaShovelStage _nextStage;
     private NpcCharacter? _actor;
@@ -19,7 +19,7 @@ internal sealed class RosaShovelEvent : IRoomEvent
 
     internal RosaShovelEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;

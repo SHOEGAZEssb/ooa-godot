@@ -187,7 +187,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateTokayIslandInteractions()
     {
-        var database = new TokayIslandDatabase();
+        var database = new TokayInteractionDatabase();
+        var shopDatabase = new TokayShopDatabase();
+        var wildDatabase = new WildTokayGameDatabase();
         static Vector2 WildTilePoint(int packedPosition) => new(
             (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
             (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
@@ -224,24 +226,25 @@ public sealed partial class ValidationRoot
             "placement at `$56,$68.");
 
         FailIf(
-            database.PastGameRoom != 0xde || database.PresentGameRoom != 0xe5 ||
-            database.ShopRoom != 0xe4 || database.ShopPlacements.Count != 3 ||
-            database.GameReturnPosition != 0x57 ||
-            database.ShopItemCollisionRadius != 0x06 ||
+            wildDatabase.PastGameRoom != 0xde ||
+            wildDatabase.PresentGameRoom != 0xe5 ||
+            shopDatabase.Room != 0xe4 || shopDatabase.Placements.Count != 3 ||
+            wildDatabase.GameReturnPosition != 0x57 ||
+            shopDatabase.ItemCollisionRadius != 0x06 ||
             database.HeldItem(0x06).Treasure != TreasureDatabase.TreasureSword ||
             database.HeldItem(0x06).GrantParameter != 0x01 ||
             database.HeldItem(0x07).GrantParameter != 0x00 ||
             database.HeldItem(0x0a).Treasure != TreasureDatabase.TreasureSeedSatchel ||
-            database.WildPattern(4, 0x0f).Pattern != 7 ||
-            database.WildStartTiles.Select(record =>
+            wildDatabase.Pattern(4, 0x0f).Pattern != 7 ||
+            wildDatabase.StartTiles.Select(record =>
                 (record.Tile, record.PackedPosition)).ToArray() is not
                 [(0xef, 0x01), (0xef, 0x08), (0xef, 0x71),
                  (0xef, 0x78), (0x7a, 0x74), (0x7a, 0x75)] ||
-            database.WildMeatAccessory(0) is not
+            wildDatabase.MeatAccessory(0) is not
                 { YOffset: 0, XOffset: -13, Animation: 3 } ||
-            database.WildMeatAccessory(3) is not
+            wildDatabase.MeatAccessory(3) is not
                 { YOffset: -12, XOffset: -1, Animation: 3 } ||
-            database.WildMeatAccessory(4) is not
+            wildDatabase.MeatAccessory(4) is not
                 { YOffset: -12, XOffset: 0, Animation: 3 },
             "Tokay Island source-derived holder, shop, or Wild Tokay tables changed.");
 
@@ -262,7 +265,7 @@ public sealed partial class ValidationRoot
         for (int level = 0; level < sourceWildSelections.Length; level++)
         {
             FailIf(
-                database.WildCycleCount(level) != sourceWildCycleCounts[level],
+                wildDatabase.WildCycleCount(level) != sourceWildCycleCounts[level],
                 $"Wild Tokay level {level} cycle count changed from source " +
                 $"value {sourceWildCycleCounts[level]}.");
             for (int randomIndex = 0; randomIndex < 16; randomIndex++)
@@ -270,7 +273,7 @@ public sealed partial class ValidationRoot
                 int expectedPattern = sourceWildSelections[level][randomIndex];
                 int[] expectedCodes = sourceWildPatterns[expectedPattern];
                 WildTokayPatternRecord imported =
-                    database.WildPattern(level, randomIndex);
+                    wildDatabase.Pattern(level, randomIndex);
                 int[] importedCodes =
                 [
                     imported.LeftBlue, imported.LeftRed,
@@ -285,7 +288,7 @@ public sealed partial class ValidationRoot
 
                 int randomCalls = 0;
                 var schedule = new WildTokaySpawnSchedule(
-                    database,
+                    wildDatabase,
                     () =>
                     {
                         randomCalls++;
@@ -424,8 +427,8 @@ public sealed partial class ValidationRoot
 
         // The two source-ordered trading-hut items and their ordinary decline
         // route are driven through the same A-button player path as gameplay.
-        _saveData.SetGlobalFlag(database.BoughtFeatherFlag, value: false);
-        _saveData.SetGlobalFlag(database.BoughtBraceletFlag, value: false);
+        _saveData.SetGlobalFlag(shopDatabase.BoughtFeatherFlag, value: false);
+        _saveData.SetGlobalFlag(shopDatabase.BoughtBraceletFlag, value: false);
         _inventory.LoseTreasure(TreasureDatabase.TreasureFeather);
         _inventory.LoseTreasure(TreasureDatabase.TreasureBracelet);
         _inventory.LoseTreasure(TreasureDatabase.TreasureShovel);
@@ -507,7 +510,7 @@ public sealed partial class ValidationRoot
             "tokayShopItem_giveShovelAndLoseBracelet did not preserve its " +
             "same-update equipped inventory and pre-transform stock boundary.");
         StepRoomEventFrames(1);
-        TokayShopPlacementRecord braceletVisual = database.ShopVisual(1);
+        TokayShopPlacementRecord braceletVisual = shopDatabase.Visual(1);
         FailIf(
             featherStock.SubId != 0 ||
             featherStock.Treasure != TreasureDatabase.TreasureFeather ||
@@ -557,7 +560,7 @@ public sealed partial class ValidationRoot
                 "TREASURE_OBJECT_FEATHER_02" ||
             !featherReward.Held || !_player.IsHoldingItemTwoHands ||
             _inventory.MysterySeeds != 0 || _inventory.FeatherLevel != 1 ||
-            !_saveData.HasGlobalFlag(database.BoughtFeatherFlag) ||
+            !_saveData.HasGlobalFlag(shopDatabase.BoughtFeatherFlag) ||
             !stock[0].Removed || !_dialogue.IsOpen ||
             _entities.BlocksLink(stock[0].Position) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(
@@ -606,13 +609,13 @@ public sealed partial class ValidationRoot
             TreasureDatabase.TreasureSword);
         LoadValidationRoom(2, 0xde);
         Vector2 wildTokayResultPosition =
-            new(database.GameLinkX, database.GameLinkY);
+            new(wildDatabase.GameLinkX, wildDatabase.GameLinkY);
         int wildTokayRoomMusic = _sound.Data.RoomMusic(2, 0xde);
         FailIf(
             wildTokayRoomMusic != 0x26,
             $"Wild Tokay room 2:de music changed from source value `$26 " +
             $"(actual=${wildTokayRoomMusic:x2}).");
-        Dictionary<int, byte> originalWildTiles = database.WildStartTiles
+        Dictionary<int, byte> originalWildTiles = wildDatabase.StartTiles
             .ToDictionary(
                 record => record.PackedPosition,
                 record => _rooms.CurrentRoom.GetMetatile(
@@ -634,7 +637,7 @@ public sealed partial class ValidationRoot
             wildTokay.Stage != WildTokayGameStage.Wait,
             "Wild Tokay raised its prize before the source 10-update wait.");
         StepRoomEventFrames(1);
-        WildTokayPrizeRecord firstPrize = database.WildPrize(0);
+        WildTokayPrizeRecord firstPrize = wildDatabase.Prize(0);
         NpcCharacter prizeAccessory = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x63 } && npc.Active);
         FailIf(
@@ -690,13 +693,13 @@ public sealed partial class ValidationRoot
             _inventory.EquippedB != InventoryState.ItemNone ||
             _inventory.EquippedA != InventoryState.ItemBracelet ||
             wildTokay.Stage != WildTokayGameStage.Wait || manager.Active ||
-            database.WildStartTiles.Any(record =>
+            wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) != record.Tile),
             "Wild Tokay did not delete `$48:$0d, save equips, and force " +
             "Bracelet or apply its four `$ef door and two `$7a floor writes " +
             "on fadeout update 32.");
-        StepRoomEventFrames(database.GameStartDelay);
+        StepRoomEventFrames(wildDatabase.GameStartDelay);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.FadeIn ||
             !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) ||
@@ -712,14 +715,14 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.Wait ||
-            wildTokay.Counter != database.GameFadeInDelay ||
+            wildTokay.Counter != wildDatabase.GameFadeInDelay ||
             _warpFade.Position != originalFadePosition ||
             _warpFade.Size != originalFadeSize ||
             _warpFade.ZIndex != originalFadeZ ||
             _warpFade.Color != originalFadeColor,
             "Wild Tokay did not release the shared fade presentation after " +
             "fadein update 32 and begin its 10-update text delay.");
-        StepRoomEventFrames(database.GameFadeInDelay);
+        StepRoomEventFrames(wildDatabase.GameFadeInDelay);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.StartText ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a16)),
@@ -753,7 +756,7 @@ public sealed partial class ValidationRoot
                 $"{_player.PrecisePosition}.");
         }
         WildTokayMeat thrownMeat = _entities.Entities<WildTokayMeat>().Single();
-        StepRoomEventFrames(database.GameSpawnDelay - 1);
+        StepRoomEventFrames(wildDatabase.GameSpawnDelay - 1);
         FailIf(
             thrownMeat.ZFixed >= 0 ||
             _entities.Entities<NpcCharacter>().Any(npc =>
@@ -767,7 +770,7 @@ public sealed partial class ValidationRoot
             thrownMeat.ZFixed >= 0 || participant.Position.Y != -8 ||
             participant.Position.X is not (24 or 136) ||
             participant.CurrentScriptAnimationSource !=
-                database.Animation(database.ParticipantAnimation),
+                database.Animation(wildDatabase.ParticipantAnimation),
             "Wild Tokay did not spawn participant `$48:$0c at source update " +
             "60, Y `$f8, facing down while the exact meat fall remained airborne.");
         StepRoomEventFrames(1);
@@ -940,14 +943,14 @@ public sealed partial class ValidationRoot
             manager.Active || wildTokay.Stage != WildTokayGameStage.Wait ||
             _inventory.EquippedB != InventoryState.ItemNone ||
             _inventory.EquippedA != InventoryState.ItemBracelet ||
-            database.WildStartTiles.Any(record =>
+            wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) != record.Tile),
             "Wild Tokay retry did not re-enter the hidden-manager, " +
             "forced-Bracelet, open-arena state after fadeout update 32.");
-        StepRoomEventFrames(database.GameStartDelay);
+        StepRoomEventFrames(wildDatabase.GameStartDelay);
         StepRoomEventFrames((int)RoomTransitionController.WarpFadeFrames);
-        StepRoomEventFrames(database.GameFadeInDelay);
+        StepRoomEventFrames(wildDatabase.GameFadeInDelay);
         FailIf(
             wildTokay.Stage != WildTokayGameStage.StartText ||
             !_dialogue.IsOpen,
@@ -957,7 +960,7 @@ public sealed partial class ValidationRoot
 
         WildTokayMeat catchMeat = _entities.Entities<WildTokayMeat>()
             .Single(meat => !meat.Finished);
-        StepRoomEventFrames(database.GameSpawnDelay);
+        StepRoomEventFrames(wildDatabase.GameSpawnDelay);
         StepRoomEventFrames(1);
         _player.WarpTo(catchMeat.Position + Vector2.Down * 6, recordSafe: false);
         _player.Face(Vector2I.Up);
@@ -1030,10 +1033,10 @@ public sealed partial class ValidationRoot
         FailIf(
             meatAccessory is null || !catchMeat.Finished ||
             catchingParticipant.CurrentScriptAnimationSource != database.Animation(
-                catchingParticipant.Position.X == database.ParticipantRightX ? 8 : 7),
+                catchingParticipant.Position.X == wildDatabase.ParticipantRightX ? 8 : 7),
             "Wild Tokay did not catch and delete the airborne meat, select " +
             "animation `$07/`$08, and create INTERAC_ACCESSORY `$63:$73.");
-        WildTokayMeatAccessoryRecord caughtVisual = database.WildMeatAccessory(
+        WildTokayMeatAccessoryRecord caughtVisual = wildDatabase.MeatAccessory(
             catchingParticipant.CurrentAnimationParameter);
         FailIf(
             meatAccessory!.Position != catchingParticipant.Position +
@@ -1045,7 +1048,7 @@ public sealed partial class ValidationRoot
             "parameter's source offset and `$63:$73 graphic.");
         Vector2 catchPosition = catchingParticipant.Position;
         StepRoomEventFrames(6);
-        caughtVisual = database.WildMeatAccessory(
+        caughtVisual = wildDatabase.MeatAccessory(
             catchingParticipant.CurrentAnimationParameter);
         FailIf(
             catchingParticipant.Position != catchPosition ||
@@ -1068,13 +1071,13 @@ public sealed partial class ValidationRoot
                 "Wild Tokay validation could not resolve EndRound.");
         int winningRoomMusicRequests =
             _sound.PlayRequestsFor(wildTokayRoomMusic);
-        int successRequests = _sound.PlayRequestsFor(database.SoundSuccess);
+        int successRequests = _sound.PlayRequestsFor(wildDatabase.SoundSuccess);
         _player.WarpTo(manager.Position, recordSafe: false);
         endRound.Invoke(wildTokay, new object[] { true });
         FailIf(
             wildTokay.Stage != WildTokayGameStage.Wait ||
             wildTokay.Counter != 30 || !_player.CutsceneControlled ||
-            _sound.PlayRequestsFor(database.SoundSuccess) != successRequests + 1,
+            _sound.PlayRequestsFor(wildDatabase.SoundSuccess) != successRequests + 1,
             "Wild Tokay win did not play SND_FILLED_HEART_CONTAINER and begin " +
             "the source 30-update result-text delay.");
         StepRoomEventFrames(30);
@@ -1111,7 +1114,7 @@ public sealed partial class ValidationRoot
                 winningRoomMusicRequests + 1 ||
             _player.PrecisePosition != wildTokayResultPosition ||
             _player.FacingVector != Vector2I.Up ||
-            database.WildStartTiles.Any(record =>
+            wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) !=
                     originalWildTiles[record.PackedPosition]),
@@ -1156,7 +1159,7 @@ public sealed partial class ValidationRoot
             _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
             _inventory.EquippedA != TreasureDatabase.TreasureSword ||
             _player.CutsceneControlled || meatAccessory.Active ||
-            database.WildStartTiles.Any(record =>
+            wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) !=
                     originalWildTiles[record.PackedPosition]) ||

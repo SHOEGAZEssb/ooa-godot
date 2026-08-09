@@ -420,7 +420,7 @@ public sealed partial class ValidationRoot
             ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
-            ["objects/tokay_island_texts.tsv|\\secret1"] = 1,
+            ["objects/tokay_interaction_texts.tsv|\\secret1"] = 1,
             ["objects/troy_house.tsv|\\call(0xff)"] = 16,
             ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
         };

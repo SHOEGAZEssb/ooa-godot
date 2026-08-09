@@ -6,12 +6,12 @@ namespace oracleofages;
 internal sealed class TokayVineExplanationEvent : IRoomEvent
 {
     private readonly RoomEventContext _context;
-    private readonly TokayIslandDatabase _database;
+    private readonly TokayInteractionDatabase _database;
     private bool _active;
 
     internal TokayVineExplanationEvent(
         RoomEventContext context,
-        TokayIslandDatabase database)
+        TokayInteractionDatabase database)
     {
         _context = context;
         _database = database;
