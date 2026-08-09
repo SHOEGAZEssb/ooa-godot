@@ -69,7 +69,7 @@ that ledger instead of duplicating its 211-room inventory.
 
 | Priority | Open checklist item | Evidence and impact |
 | --- | --- | --- |
-| P1 | [ ] **CONFIRMED - complete top-down Mermaid Suit movement and underwater transitions.** | Production imports and ports the Flippers branch of `link.s:linkUpdateSwimming` plus normal-water `linkUpdateDiving`, and the side-view Flippers gate/movement/burst with exact `LINK_ANIM_MODE_SWIM_2D` graphics. Top-down Mermaid Suit movement, SeaWater handling, and deep-water transitions remain unsupported, so SeaWater still takes the safe drowning path. |
+| P1 | [ ] **CONFIRMED - complete top-down Mermaid Suit movement and underwater transitions.** | Production imports and ports the Flippers branch of `link.s:linkUpdateSwimming` plus normal-water `linkUpdateDiving`, the two source-placed `INTERAC_SPECIAL_WARP $1f:$00` normal-water dive routes, and the side-view Flippers gate/movement/burst with exact `LINK_ANIM_MODE_SWIM_2D` graphics. Top-down Mermaid Suit movement, SeaWater handling, and deep-water tile transitions remain unsupported, so SeaWater still takes the safe drowning path. |
 | P2 | [ ] **CONFIRMED - create and render side-view swim bubbles.** | On bubble-counter underflow, `link.s:linkUpdateSwimming_sidescroll` consumes RNG and creates `INTERAC_BUBBLE $91`. `Player.AdvanceSideScrollSwimming` deliberately consumes the same shared RNG call but has no bubble entity/spawn. RNG order is retained, but the visible interaction is absent. |
 
 ## Runtime foundation, ownership, and data boundaries
@@ -162,7 +162,8 @@ that ledger instead of duplicating its 211-room inventory.
 
 - [x] All 1,536 room layouts and 103 non-stub tilesets are imported, including
   palettes, metatiles, collision, animation groups, large-room stride/padding,
-  world maps, 529 warps, 42 signs, 133 chests, and dungeon floor layouts.
+  world maps, 529 tile/edge warps, 2 dive-interaction warps, 42 signs, 133
+  chests, and dungeon floor layouts.
 - [x] Implemented room loading, standard/single tile changes, animated terrain,
   world-space collision, cave/house/tile/time warps, small and large-room
   transitions, dungeon layout neighbors, destination preload/freeze, outgoing
@@ -457,14 +458,15 @@ coverage.
   `ValidateInventoryMenu`, `ValidateRingFunctionality`,
   `ValidateBraceletChestAndPushGate`, `ValidateChests`,
   `ValidatePushBlocks`, and `ValidateMapScreen`.
-- [x] **Enemies/drops/terrain/world (22):**
+- [x] **Enemies/drops/terrain/world (23):**
   `ValidateHardhatAndSpinyBeetles`, `ValidateSpikedBeetles`,
   `ValidateKeese`, `ValidatePeahat`,
   `ValidateGraveyardCrowsAndDropProducers`, `ValidateOctoroks`,
   `ValidateArrowMoblins`, `ValidateHostileProjectileLifecycle`,
   `ValidateEnemySwordKnockback`, `ValidateEnemyDamageBlink`,
   `ValidateEnemyHazards`, `ValidateStalfos`, `ValidateZolsAndGels`,
-  `ValidateItemDrops`, `ValidateHouseWarp`, `ValidateCaveWarps`,
+  `ValidateItemDrops`, `ValidateRoom5ccDiveWarp`, `ValidateHouseWarp`,
+  `ValidateCaveWarps`,
   `ValidateMakuTreeSouthExitReveal`, `ValidateTerrain`,
   `ValidateStartupTransitionFromRoom011`,
   `ValidateSymmetryTransitionFromRoom022`, `ValidateDarkRoomInteractions`, and

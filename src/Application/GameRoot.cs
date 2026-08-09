@@ -769,6 +769,7 @@ public partial class GameRoot : Node2D
         _terrain = new TerrainController(
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
             _collision.AdjacentWallsBitset, _sound.PlaySound);
+        _transitions.WarpDestinationLoading += _terrain.ClearTransientEffects;
         _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
@@ -1159,6 +1160,7 @@ public partial class GameRoot : Node2D
         _dialogue.Close();
         _transitions.ClearDeactivatedWarp();
         _entities.ClearRecentEnemyDefeats();
+        _terrain.ClearTransientEffects();
         OracleRoomData loaded = _rooms.Load(group, room);
         // Dungeon side-view layouts live in object/tileset groups $04/$05,
         // but the retail room loader switches the active group to $06/$07 so

@@ -54,6 +54,15 @@ public partial class SplashEffect : FixedEffectNode2D
 
     internal override void UpdateFrame() => Advance(1.0 / 60.0);
 
+    internal void StopImmediately()
+    {
+        if (Finished)
+            return;
+        Finished = true;
+        Visible = false;
+        QueueFree();
+    }
+
     public override void _Draw()
     {
         DrawTextureRectRegion(

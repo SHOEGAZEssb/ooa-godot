@@ -19,6 +19,7 @@ public sealed class TerrainController
 
     internal SplashEffect? ActiveSplash =>
         _splashes.Count == 0 ? null : _splashes[^1];
+    internal int ActiveSplashCount => _splashes.Count;
     internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
     internal SideScrollPlayerParameters SideScrollParameters =>
         _sideScroll.Parameters;
@@ -177,6 +178,13 @@ public sealed class TerrainController
             if (splash.Finished)
                 _splashes.RemoveAt(index);
         }
+    }
+
+    internal void ClearTransientEffects()
+    {
+        foreach (SplashEffect splash in _splashes)
+            splash.StopImmediately();
+        _splashes.Clear();
     }
 
     private bool IsCliffProbe(

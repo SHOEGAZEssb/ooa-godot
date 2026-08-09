@@ -3992,9 +3992,10 @@ public partial class Player : Node2D
 
     /// <summary>
     /// Port of the non-side-view linkUpdateSwimming states used by Flippers.
-    /// This includes normal-water linkUpdateDiving; Mermaid Suit movement and
-    /// underwater transitions remain owned by a later implementation, so Ages
-    /// SeaWater retains its drowning behavior on this path.
+    /// This includes normal-water linkUpdateDiving and the transition owner
+    /// may consume source-placed dive interactions. Mermaid Suit movement and
+    /// deep-water tile transitions remain owned by a later implementation, so
+    /// Ages SeaWater retains its drowning behavior on this path.
     /// </summary>
     private bool TryAdvanceTopDownSwimming(
         Vector2 input,

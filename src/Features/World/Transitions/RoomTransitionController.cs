@@ -7,6 +7,7 @@ namespace oracleofages;
 public sealed class RoomTransitionController
 {
     public event Action<Vector2I>? ScrollingTransitionFinished;
+    internal event Action? WarpDestinationLoading;
 
     public const float WarpFadeFrames = 32.0f;
     // fadeoutToWhite advances wPaletteThread_fadeOffset from $00 through $1f.
@@ -198,6 +199,18 @@ public sealed class RoomTransitionController
 
         if (_deactivatedWarpGroup >= 0)
             ClearDeactivatedWarp();
+
+        // INTERAC_SPECIAL_WARP $1f:$00 checks its small collision box after
+        // Link's swimming update and only installs the direct warp while the
+        // diving bit is set. It is intentionally independent of warp tiles.
+        if (player.TopDownDiving &&
+            _warps.TryGetDiveWarp(
+                _rooms.ActiveGroup, room.Id, linkPosition,
+                out DiveWarp diveWarp))
+        {
+            ApplyWarp(player, diveWarp.ToWarp());
+            return true;
+        }
 
         bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
@@ -1032,6 +1045,11 @@ public sealed class RoomTransitionController
             _roomView.ClearBackgroundFade();
         }
 
+        // loadingRoom clears the source room's interaction memory before
+        // applying and initializing the destination. Terrain-owned transient
+        // interactions such as INTERAC_SPLASH follow that same full-load
+        // boundary instead of surviving under the destination tilemap.
+        WarpDestinationLoading?.Invoke();
         Warp warp = _pendingWarp;
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         if (_timeWarp)

@@ -47,10 +47,18 @@ windows, not a generic full-metatile overlap. Screen edges use imported warp
 rows or dungeon-layout neighbors as appropriate. Preserve the source order of
 hazard, object, and boundary checks around a transition.
 
+Source-placed `INTERAC_SPECIAL_WARP $1f:$00` dive routes are imported separately
+from tile warps. They activate only while Link is diving inside the original
+interaction-plus-Link collision window and use the handler's direct destination
+room, packed position, and transition bytes.
+
 Ordinary warp destinations place Link at the exact center encoded by the
 imported packed position. Warp arrivals and local hazard respawns record that
 position as inactive until Link leaves it, so an anchor on a stair or doorway
 cannot immediately warp him again; do not move him to an adjacent metatile.
+Full room loads also discard source-room transient effects at the original
+interaction-memory clear boundary. Do not carry splashes or similar effects
+into the destination; scrolling has a separate outgoing-entity lifetime.
 
 ## Ordered room objects and RNG
 

@@ -112,6 +112,101 @@ public sealed partial class ValidationRoot
             "warpSource786a's final-position default and preserved exact $34 cave routing.");
     }
 
+    private void ValidateRoom5ccDiveWarp()
+    {
+        const int sourceGroup = 5;
+        const int sourceRoom = 0xcc;
+        const int sourcePosition = 0x12;
+        Vector2 sourceCenter = new(0x28, 0x18);
+        LoadValidationRoom(sourceGroup, sourceRoom);
+
+        var warps = new WarpDatabase();
+        FailIf(
+            _currentRoom.GetTerrainInfo(sourceCenter).Hazard != HazardType.Water ||
+            !warps.TryGetDiveWarp(
+                sourceGroup, sourceRoom, sourceCenter, out DiveWarp diveWarp) ||
+            diveWarp.Order != 1 ||
+            diveWarp.SourcePosition != sourcePosition ||
+            diveWarp.RouteIndex != 1 ||
+            diveWarp.CollisionRadius != 2 ||
+            diveWarp.DestinationGroup != 7 ||
+            diveWarp.DestinationRoom != 0x05 ||
+            diveWarp.DestinationPosition != 0x03 ||
+            diveWarp.DestinationTransition != 1 ||
+            diveWarp.WarpTransition2 != 3 ||
+            !diveWarp.Source.Contains(
+                "mainData.s:group5MapccObjectData",
+                StringComparison.Ordinal) ||
+            warps.TryGetDiveWarp(
+                sourceGroup,
+                sourceRoom,
+                sourceCenter + new Vector2(8, 0),
+                out _),
+            "Room 5:cc/$12 no longer resolves INTERAC_SPECIAL_WARP " +
+            "$1f:$00 route $01 and its exact radius-$02 collision window.");
+
+        _inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
+        _player.WarpTo(sourceCenter, recordSafe: false);
+        _player.AdvanceTopDownSwimmingUpdateForValidation(entryAngle: 0xff);
+        _terrain.AdvanceApplicationUpdate();
+        SplashEffect? entrySplash = _terrain.ActiveSplash;
+        for (int update = 0; update < 10; update++)
+        {
+            _player.AdvanceTopDownSwimmingUpdateForValidation();
+            _terrain.AdvanceApplicationUpdate();
+        }
+        FailIf(
+            IsTransitioning ||
+            entrySplash is null || entrySplash.Finished ||
+            _terrain.ActiveSplashCount != 1,
+            "Room 5:cc/$12 did not retain exactly the final source-water " +
+            "entry-splash frame before Link dived.");
+
+        _player.AdvanceTopDownSwimmingUpdateForValidation(
+            diveJustPressed: true);
+        SplashEffect? diveSplash = _terrain.ActiveSplash;
+        FailIf(
+            !_player.TopDownDiving ||
+            !IsTransitioning ||
+            _activeGroup != sourceGroup || _currentRoom.Id != sourceRoom ||
+            diveSplash is null || diveSplash.Finished ||
+            ReferenceEquals(entrySplash, diveSplash) ||
+            _terrain.ActiveSplashCount != 2,
+            "Diving inside room 5:cc/$12's imported interaction did not " +
+            "start wWarpTransition2 `$03 with the source dive splash.");
+
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        FailIf(
+            !IsTransitioning || _activeGroup != 7 ||
+            _currentRoom.Id != 0x05 ||
+            _player.Position != new Vector2(0x38, 0x08) ||
+            _terrain.ActiveSplashCount != 0 ||
+            !entrySplash.Finished || entrySplash.Visible ||
+            !diveSplash.Finished || diveSplash.Visible,
+            "Room 5:cc/$12 did not clear both source-room splashes while " +
+            "loading side-view room 7:05/$03 after its source fade.");
+
+        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        FailIf(IsTransitioning,
+            "Room 5:cc/$12 did not finish destination transition `$01.");
+
+        _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+        SplashEffect? arrivalSplash = _terrain.ActiveSplash;
+        FailIf(
+            !_player.SideScrollSwimming ||
+            _terrain.ActiveSplashCount != 1 ||
+            arrivalSplash is null || arrivalSplash.Finished ||
+            ReferenceEquals(arrivalSplash, entrySplash) ||
+            ReferenceEquals(arrivalSplash, diveSplash),
+            "Room 7:05's first water update did not create exactly one new " +
+            "arrival splash after the source effects were cleared.");
+
+        GD.Print(
+            "Validated room 5:cc/$12's INTERAC_SPECIAL_WARP diving " +
+            "transition to side-view room 7:05/$03 without retaining its " +
+            "two source splashes.");
+    }
+
     private void ValidateHouseWarp()
     {
         LoadHouseValidationRoom();

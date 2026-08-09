@@ -30,9 +30,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   hazards, chests, drops, push blocks, and breakable-object interactions.
 - Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
   Mystery Seed/Owl behavior, level-1 Roc's Feather, Harp/time-portal
-  foundations, source-timed top-down Flippers swimming/normal-water diving and
-  side-view Flippers swimming, common treasure transactions, and many ring
-  effects.
+  foundations, source-timed top-down Flippers swimming/normal-water diving,
+  source-placed normal-water dive transitions, side-view Flippers swimming,
+  common treasure transactions, and many ring effects.
 - A growing shared enemy and interaction roster with deterministic placement,
   combat, drops, projectiles, and native object behavior.
 - Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
@@ -76,9 +76,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   families, door/controller variants, companion systems, and Moosh's
   terrain-specific cliff states.
 - Several active items and upgrades, including top-down Mermaid Suit movement
-  and underwater transitions, other terrain-specific Link states, Roc's Cape
-  continuation, active Scent/Pegasus/Gale Seed behavior, and remaining
-  grabbable-object species.
+  and remaining deep-water transitions, other terrain-specific Link states,
+  Roc's Cape continuation, active Scent/Pegasus/Gale Seed behavior, and
+  remaining grabbable-object species.
 - Unimplemented or partial ring consumers whose base gameplay systems do not
   yet exist.
 - Linked-game transport and external Game Link functionality.
