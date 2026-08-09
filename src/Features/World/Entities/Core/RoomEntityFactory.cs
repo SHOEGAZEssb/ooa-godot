@@ -82,6 +82,7 @@ internal sealed class RoomEntityFactory(
     private readonly DungeonBossDatabase _dungeonBosses = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly WingDungeonDatabase _wingDungeon = new();
+    private readonly MovingSideScrollPlatformDatabase _sidePlatforms = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
@@ -414,6 +415,8 @@ internal sealed class RoomEntityFactory(
             _spiritsGrave.GetRoomRecords(group, room.Id);
         IReadOnlyList<DungeonObjectRecord> wingDungeonRecords =
             _wingDungeon.GetRoomRecords(group, room.Id);
+        IReadOnlyList<MovingSideScrollPlatformPlacement> sidePlatformRecords =
+            _sidePlatforms.GetRoomRecords(group, room.Id);
         ColoredCubePuzzleState? spiritsGravePuzzle =
             group == 4 && room.Id == 0x20 ? CreateColoredCubePuzzleState() : null;
         ColoredCubePuzzleState? wingDungeonPuzzle =
@@ -427,10 +430,12 @@ internal sealed class RoomEntityFactory(
         int sharedIndex = 0;
         int spiritsGraveIndex = 0;
         int wingDungeonIndex = 0;
+        int sidePlatformIndex = 0;
         while (mechanicIndex < dungeonRecords.Count ||
                sharedIndex < sharedDungeonRecords.Count ||
                spiritsGraveIndex < spiritsGraveRecords.Count ||
-               wingDungeonIndex < wingDungeonRecords.Count)
+               wingDungeonIndex < wingDungeonRecords.Count ||
+               sidePlatformIndex < sidePlatformRecords.Count)
         {
             int mechanicOrder = mechanicIndex < dungeonRecords.Count
                 ? dungeonRecords[mechanicIndex].Order : int.MaxValue;
@@ -440,9 +445,12 @@ internal sealed class RoomEntityFactory(
                 ? spiritsGraveRecords[spiritsGraveIndex].Order : int.MaxValue;
             int wingDungeonOrder = wingDungeonIndex < wingDungeonRecords.Count
                 ? wingDungeonRecords[wingDungeonIndex].Order : int.MaxValue;
+            int sidePlatformOrder = sidePlatformIndex < sidePlatformRecords.Count
+                ? sidePlatformRecords[sidePlatformIndex].Order : int.MaxValue;
             bool useShared = sharedOrder < mechanicOrder &&
                 sharedOrder < spiritsGraveOrder &&
-                sharedOrder < wingDungeonOrder;
+                sharedOrder < wingDungeonOrder &&
+                sharedOrder < sidePlatformOrder;
             if (useShared)
             {
                 PlacementRecord record =
@@ -462,7 +470,8 @@ internal sealed class RoomEntityFactory(
             }
 
             if (spiritsGraveOrder < mechanicOrder &&
-                spiritsGraveOrder < wingDungeonOrder)
+                spiritsGraveOrder < wingDungeonOrder &&
+                spiritsGraveOrder < sidePlatformOrder)
             {
                 DungeonObjectRecord record =
                     spiritsGraveRecords[spiritsGraveIndex++];
@@ -475,7 +484,8 @@ internal sealed class RoomEntityFactory(
                 continue;
             }
 
-            if (wingDungeonOrder < mechanicOrder)
+            if (wingDungeonOrder < mechanicOrder &&
+                wingDungeonOrder < sidePlatformOrder)
             {
                 DungeonObjectRecord record =
                     wingDungeonRecords[wingDungeonIndex++];
@@ -485,6 +495,17 @@ internal sealed class RoomEntityFactory(
                     record, room, wingDungeonPuzzle, placementContext);
                 if (entity is not null)
                     yield return entity;
+                continue;
+            }
+
+            if (sidePlatformOrder < mechanicOrder)
+            {
+                MovingSideScrollPlatformPlacement placement =
+                    sidePlatformRecords[sidePlatformIndex++];
+                yield return new MovingSideScrollPlatformRoomEntity(
+                    placement,
+                    _dungeonInteractions.SidePlatform(placement.SubId),
+                    _dungeonVisuals.Visual("moving-side-platform"));
                 continue;
             }
 
@@ -1068,11 +1089,6 @@ internal sealed class RoomEntityFactory(
                 return new FloorColorChangerRoomEntity(
                     record, room, _dungeonInteractions, random,
                     roomTileChanged, animationTick);
-            case DungeonObjectKind.SidePlatform:
-                return new MovingSideScrollPlatformRoomEntity(
-                    record,
-                    _dungeonInteractions.SidePlatform(record.SubId),
-                    _dungeonVisuals.Visual("moving-side-platform"));
             case DungeonObjectKind.CircularSidePlatform:
                 return new CircularSideScrollPlatformRoomEntity(
                     record,

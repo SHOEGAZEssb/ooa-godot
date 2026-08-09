@@ -113,7 +113,8 @@ internal sealed class DungeonInteractionDatabase
                     "right" => MovingSideScrollPlatformDirection.Right,
                     "down" => MovingSideScrollPlatformDirection.Down,
                     "left" => MovingSideScrollPlatformDirection.Left,
-                    _ => throw row.Invalid(5, "up, right, down, or left")
+                    "wait" => MovingSideScrollPlatformDirection.Wait,
+                    _ => throw row.Invalid(5, "up, right, down, left, or wait")
                 };
                 commands[index] = new(direction, endpoint);
             }
@@ -132,7 +133,7 @@ internal sealed class DungeonInteractionDatabase
     private void ValidateContract()
     {
         if (_constants.Count != 91 ||
-            _platforms.Count != 4 ||
+            _platforms.Count != 15 ||
             Constant("red-toggle-floor") != 0xad ||
             Constant("blue-toggle-floor") != 0xaf ||
             Constant("enemy-chest-wait") != 30 ||
@@ -151,6 +152,20 @@ internal sealed class DungeonInteractionDatabase
                 {
                     Direction: MovingSideScrollPlatformDirection.Right,
                     Endpoint: 0xa8
+                } ||
+            SidePlatform(0x0b) is not
+                { Direction: 3, RadiusY: 0x19, RadiusX: 0x0f } ||
+            SidePlatform(0x0b).Commands is not
+                [
+                    { Direction: MovingSideScrollPlatformDirection.Left, Endpoint: 0x40 },
+                    { Direction: MovingSideScrollPlatformDirection.Wait, Endpoint: 30 },
+                    { Direction: MovingSideScrollPlatformDirection.Right, Endpoint: 0x80 },
+                    { Direction: MovingSideScrollPlatformDirection.Wait, Endpoint: 30 }
+                ] ||
+            SidePlatform(0x0e).Commands[2] is not
+                {
+                    Direction: MovingSideScrollPlatformDirection.Right,
+                    Endpoint: 0xa0
                 })
         {
             throw new InvalidOperationException(
@@ -176,5 +191,6 @@ internal enum MovingSideScrollPlatformDirection
     Up,
     Right,
     Down,
-    Left
+    Left,
+    Wait
 }

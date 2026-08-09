@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_MOVING_SIDESCROLL_PLATFORM $a1:$06-$09.</summary>
+/// <summary>INTERAC_MOVING_SIDESCROLL_PLATFORM $a1:$00-$0e.</summary>
 internal sealed partial class MovingSideScrollPlatformRoomEntity :
     DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IPlayerRideableRoomEntity
@@ -12,16 +12,21 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     private readonly MovingSideScrollPlatformRecord _record;
     private Vector2 _precisePosition;
     private int _commandIndex;
+    private int _angle;
+    private int _waitCounter;
+    private bool _initialized;
     private bool _linkRiding;
 
     public Node2D Node => this;
     bool IPlayerRideableRoomEntity.LinkRiding => _linkRiding;
     internal bool LinkRiding => _linkRiding;
     internal int CommandIndex => _commandIndex;
+    internal int WaitCounter => _waitCounter;
+    internal int CurrentAnimationIndex => AnimationIndex;
     internal Vector2 PrecisePosition => _precisePosition;
 
     internal MovingSideScrollPlatformRoomEntity(
-        DungeonObjectRecord placement,
+        MovingSideScrollPlatformPlacement placement,
         MovingSideScrollPlatformRecord record,
         DungeonInteractionVisual visual)
     {
@@ -29,7 +34,14 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         Name =
             $"MovingSideScrollPlatform_{placement.SubId:x2}_{placement.Order}";
         ZIndex = NpcCharacter.FixedLowPriorityZIndex;
-        InitializeVisual(visual, placement.Position);
+        // Directions $01-$03 use 48-pixel OAM layouts. The fixed 32x32
+        // compositor clips their long axis and makes the source collision
+        // radii appear oversized, so preserve the complete positioned frame.
+        InitializeVisual(
+            visual,
+            placement.Position,
+            record.Direction,
+            positionedOam: true);
         _precisePosition = placement.Position;
     }
 
@@ -42,16 +54,25 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             frame.Player.SynchronizeMovingPlatformSubpixels(
                 _precisePosition);
         }
-        MovingSideScrollPlatformCommand command = _record.Commands[_commandIndex];
-        int angle = command.Direction switch
+        if (!_initialized)
         {
-            MovingSideScrollPlatformDirection.Up => 0x00,
-            MovingSideScrollPlatformDirection.Right => 0x08,
-            MovingSideScrollPlatformDirection.Down => 0x10,
-            MovingSideScrollPlatformDirection.Left => 0x18,
-            _ => throw new InvalidOperationException(
-                $"Unsupported side-platform direction {command.Direction}.")
-        };
+            // objectLoadMovementScript falls through to the first command on
+            // state zero, but interactionCodea1 does not apply speed until
+            // the following update.
+            _initialized = true;
+            LoadCurrentCommand();
+            ResolveContact(frame);
+            return;
+        }
+
+        MovingSideScrollPlatformCommand command = _record.Commands[_commandIndex];
+        if (command.Direction == MovingSideScrollPlatformDirection.Wait)
+        {
+            if (--_waitCounter == 0)
+                AdvanceCommand();
+            ResolveContact(frame);
+            return;
+        }
 
         bool shouldMove = ShouldMove(command);
         if (shouldMove)
@@ -64,12 +85,12 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             {
                 frame.Player.ApplySideScrollMovingPlatformVelocity(
                     _record.Speed,
-                    angle);
+                    _angle);
             }
             Position = OracleObjectMovement.Shared.ApplySpeed(
                 ref _precisePosition,
                 _record.Speed,
-                angle);
+                _angle);
         }
         else
         {
@@ -83,7 +104,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
                 SetCoordinateHigh(horizontal: true, command.Endpoint);
             }
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-            _commandIndex = (_commandIndex + 1) % _record.Commands.Length;
+            AdvanceCommand();
             if (_linkRiding)
             {
                 // sidescrollPlatformFunc_5bfc copies both low bytes after
@@ -93,13 +114,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             }
         }
 
-        frame.Player.ResolveSideScrollPlatformContact(
-            Position,
-            _record.RadiusY,
-            _record.RadiusX,
-            angle,
-            _linkRiding);
-        QueueRedraw();
+        ResolveContact(frame);
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
@@ -118,6 +133,42 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
                 command.Endpoint < Mathf.FloorToInt(_precisePosition.X),
             _ => false
         };
+
+    private void AdvanceCommand()
+    {
+        _commandIndex = (_commandIndex + 1) % _record.Commands.Length;
+        LoadCurrentCommand();
+    }
+
+    private void LoadCurrentCommand()
+    {
+        MovingSideScrollPlatformCommand command = _record.Commands[_commandIndex];
+        if (command.Direction == MovingSideScrollPlatformDirection.Wait)
+        {
+            _waitCounter = command.Endpoint;
+            return;
+        }
+        _angle = command.Direction switch
+        {
+            MovingSideScrollPlatformDirection.Up => 0x00,
+            MovingSideScrollPlatformDirection.Right => 0x08,
+            MovingSideScrollPlatformDirection.Down => 0x10,
+            MovingSideScrollPlatformDirection.Left => 0x18,
+            _ => throw new InvalidOperationException(
+                $"Unsupported side-platform direction {command.Direction}.")
+        };
+    }
+
+    private void ResolveContact(RoomEntityFrame frame)
+    {
+        frame.Player.ResolveSideScrollPlatformContact(
+            Position,
+            _record.RadiusY,
+            _record.RadiusX,
+            _angle,
+            _linkRiding);
+        QueueRedraw();
+    }
 
     private void SetCoordinateHigh(bool horizontal, int coordinate)
     {

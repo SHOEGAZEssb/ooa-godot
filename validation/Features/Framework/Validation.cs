@@ -308,6 +308,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSaveAndQuitToTitle);
         RunIsolatedValidation(ValidateRoom083Interactions);
         RunIsolatedValidation(ValidateDebugSavestates);
+        RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
         RunIsolatedValidation(ValidateWingDungeon);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 

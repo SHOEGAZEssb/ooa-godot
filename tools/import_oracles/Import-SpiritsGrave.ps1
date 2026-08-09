@@ -310,7 +310,7 @@ Add-DungeonInteractionVisual 'platform-09' 0x79 1 @(1)
 # not the cube drawing, becomes transparent during OAM composition.
 Add-DungeonInteractionVisual 'colored-cube' 0x19 5 (0..29) -sourceGrayscaleInverted $false
 Add-DungeonInteractionVisual 'cube-flame' 0x1a 0 @(0)
-Add-DungeonInteractionVisual 'moving-side-platform' 0xa1 0 @(4)
+Add-DungeonInteractionVisual 'moving-side-platform' 0xa1 0 (0..4)
 Add-DungeonInteractionVisual 'circular-side-platform' 0xa4 0 @(0)
 Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1) `
     -additionalAnimations (Resolve-MinecartSpecialObjectAnimations)

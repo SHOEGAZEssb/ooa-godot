@@ -144,10 +144,6 @@ $wingRows.Add(
 foreach ($row in @(
     '4	27	0	rupee-reward	20	01	28	28	item-clear	mainData.s:group4Map27ObjectData',
     '4	28	0	feather-reward	20	00	98	48	item-clear	mainData.s:group4Map28ObjectData',
-    '4	29	0	side-platform	a1	06	58	58	always	mainData.s:group4Map29ObjectData',
-    '4	29	1	side-platform	a1	07	68	98	always	mainData.s:group4Map29ObjectData',
-    '4	2a	0	side-platform	a1	08	98	58	always	mainData.s:group4Map2aObjectData',
-    '4	2a	1	side-platform	a1	09	48	d8	always	mainData.s:group4Map2aObjectData',
     '4	2b	0	boss-reward	20	03	58	78	item-clear	mainData.s:group4Map2bObjectData',
     '4	2b	1	circular-side-platform	a4	00	00	00	always	mainData.s:group4Map2bObjectData',
     '4	2b	2	circular-side-platform	a4	01	00	00	always	mainData.s:group4Map2bObjectData',
@@ -185,7 +181,7 @@ foreach ($row in @(
 )) {
     $wingRows.Add($row)
 }
-if ($wingRows.Count -ne 41) {
+if ($wingRows.Count -ne 37) {
     throw "Wing Dungeon native object count changed: $($wingRows.Count - 1)."
 }
 Write-GeneratedTable(
@@ -290,29 +286,112 @@ Write-GeneratedTable(
 
 $sidePlatformSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\movingSidescrollPlatform.s')
-foreach ($expected in @(
-    'movingSidescrollPlatformScript_subid06:',
-    'ms_up    $38',
-    'ms_down  $68',
-    'movingSidescrollPlatformScript_subid07:',
-    'ms_left  $88',
-    'ms_right $a8',
-    'movingSidescrollPlatformScript_subid08:',
-    'ms_up    $58',
-    'ms_down  $98',
-    'movingSidescrollPlatformScript_subid09:',
-    'ms_up    $48')) {
-    if (-not $sidePlatformSource.Contains($expected)) {
-        throw "Wing Dungeon side-platform command '$expected' changed."
-    }
-}
-$platformRows = @(
-    "# subid`tspeed`tdirection`tradius-y`tradius-x`tcommands"
-    "06`t20`t4`t9`t7`tup:38,down:68"
-    "07`t20`t4`t9`t7`tleft:88,right:a8"
-    "08`t20`t4`t9`t7`tup:58,down:98"
-    "09`t20`t4`t9`t7`tup:48,down:98"
+$sidePlatformPlacements = @(
+    @(4, 0x29, 0, 0x06, 0x58, 0x58),
+    @(4, 0x29, 1, 0x07, 0x68, 0x98),
+    @(4, 0x2a, 0, 0x08, 0x98, 0x58),
+    @(4, 0x2a, 1, 0x09, 0x48, 0xd8),
+    @(4, 0x68, 0, 0x01, 0x48, 0x58),
+    @(4, 0x68, 1, 0x01, 0x48, 0x98),
+    @(4, 0x95, 0, 0x0a, 0x68, 0x88),
+    @(4, 0x96, 0, 0x02, 0x68, 0x30),
+    @(4, 0x96, 1, 0x03, 0x88, 0x90),
+    @(4, 0x97, 0, 0x04, 0x88, 0x58),
+    @(4, 0x97, 1, 0x05, 0x58, 0x78),
+    @(4, 0x97, 2, 0x05, 0x38, 0x98),
+    @(5, 0x02, 0, 0x0c, 0x38, 0x40),
+    @(5, 0x02, 1, 0x0d, 0x68, 0x40),
+    @(5, 0x06, 0, 0x0b, 0x68, 0x68),
+    @(5, 0x11, 0, 0x0e, 0x58, 0x78),
+    @(5, 0xe7, 1, 0x00, 0x78, 0x58)
 )
+$sidePlatformPlacementRows = [Collections.Generic.List[string]]::new()
+$sidePlatformPlacementRows.Add(
+    '# group`troom`torder`tid`tsubid`ty`tx`tsource'.Replace('`t', "`t"))
+foreach ($placement in $sidePlatformPlacements) {
+    $group = [int]$placement[0]
+    $room = [int]$placement[1]
+    $order = [int]$placement[2]
+    $subid = [int]$placement[3]
+    $y = [int]$placement[4]
+    $x = [int]$placement[5]
+    $label = "group$($group.ToString('x1'))Map$($room.ToString('x2'))ObjectData"
+    $block = [regex]::Match(
+        $mainObjectSource,
+        '(?ms)^' + [regex]::Escape($label) +
+            ':\s*(?<body>.*?)(?=^[A-Za-z_][A-Za-z0-9_]*:|\z)')
+    $expected =
+        "obj_Interaction `$a1 `$$($subid.ToString('x2')) " +
+        "`$$($y.ToString('x2')) `$$($x.ToString('x2'))"
+    $sourceRecords = @([regex]::Matches(
+        $block.Groups['body'].Value,
+        '(?m)^\s*obj_(?!End\b)[^\r\n]+') |
+        ForEach-Object { $_.Value.Trim() })
+    if (-not $block.Success -or $order -ge $sourceRecords.Count -or
+        $sourceRecords[$order] -ne $expected) {
+        throw "Moving side-scroll platform placement '$expected' is missing or out of order in $label."
+    }
+    $sidePlatformPlacementRows.Add(
+        "$group`t$($room.ToString('x2'))`t$order`ta1`t" +
+        "$($subid.ToString('x2'))`t$($y.ToString('x2'))`t" +
+        "$($x.ToString('x2'))`tmainData.s:$label")
+}
+if ($sidePlatformPlacementRows.Count -ne 18) {
+    throw "Moving side-scroll platform placement count changed: $($sidePlatformPlacementRows.Count - 1)."
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\moving_side_scroll_platform_placements.tsv'),
+    $sidePlatformPlacementRows)
+
+$sidePlatformHandlerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\movingSidescrollPlatform.s')
+if ($sidePlatformSource -notmatch
+        '(?ms)^movingSidescrollPlatformScriptTable:\s*' +
+        '(?:\.dw movingSidescrollPlatformScript_subid[0-9a-f]{2}\s*){15}' -or
+    $sidePlatformHandlerSource -notmatch
+        '(?ms)^@collisionRadii:\s*' +
+        '\.db \$09 \$0f\s*\.db \$09 \$17\s*\.db \$19 \$07\s*' +
+        '\.db \$19 \$0f\s*\.db \$09 \$07') {
+    throw 'Moving side-scroll platform script table or collision radii changed.'
+}
+$collisionRadii = @(
+    @(0x09, 0x0f), @(0x09, 0x17), @(0x19, 0x07),
+    @(0x19, 0x0f), @(0x09, 0x07))
+$platformRows = [Collections.Generic.List[string]]::new()
+$platformRows.Add(
+    "# subid`tspeed`tdirection`tradius-y`tradius-x`tcommands")
+for ($subid = 0; $subid -lt 15; $subid++) {
+    $label = "movingSidescrollPlatformScript_subid$($subid.ToString('x2'))"
+    $script = [regex]::Match(
+        $sidePlatformSource,
+        '(?ms)^' + [regex]::Escape($label) +
+            ':\s*(?<body>.*?)(?=^movingSidescroll(?:PlatformScript_subid[0-9a-f]{2}|ConveyorScriptTable):|\z)')
+    if (-not $script.Success) {
+        throw "Moving side-scroll platform script $label is missing."
+    }
+    $header = [regex]::Match(
+        $script.Groups['body'].Value,
+        '^\.db SPEED_80\s+\.db \$(?<direction>[0-9a-f]{2})')
+    $commands = @([regex]::Matches(
+        $script.Groups['body'].Value,
+        '(?m)^\s*ms_(?<kind>up|right|down|left|wait)\s+(?<value>\$[0-9a-f]+|[0-9]+)') |
+        ForEach-Object {
+            $value = Convert-AssemblyInteger $_.Groups['value'].Value
+            "$($_.Groups['kind'].Value):$($value.ToString('x2'))"
+        })
+    if (-not $header.Success -or $commands.Count -eq 0 -or
+        $script.Groups['body'].Value -notmatch '(?m)^\s*ms_loop\s+@@loop\s*$') {
+        throw "Moving side-scroll platform script $label is incomplete."
+    }
+    $direction = [Convert]::ToInt32($header.Groups['direction'].Value, 16)
+    if ($direction -lt 0 -or $direction -ge $collisionRadii.Count) {
+        throw "Moving side-scroll platform script $label uses direction `$$($direction.ToString('x2'))."
+    }
+    $radii = $collisionRadii[$direction]
+    $platformRows.Add(
+        "$($subid.ToString('x2'))`t20`t$direction`t$($radii[0])`t" +
+        "$($radii[1])`t$($commands -join ',')")
+}
 Write-GeneratedTable(
     (Join-Path $destination 'objects\moving_side_scroll_platforms.tsv'),
     $platformRows)

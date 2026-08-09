@@ -75,7 +75,6 @@ internal enum DungeonObjectKind
     CubeColorSource,
     ColoredBlockKey,
     RedFlameTrigger,
-    SidePlatform,
     CircularSidePlatform,
     HeadThwomp,
     Swoop

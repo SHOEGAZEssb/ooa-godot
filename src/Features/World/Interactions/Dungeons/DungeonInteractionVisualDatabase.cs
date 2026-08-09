@@ -81,7 +81,7 @@ internal sealed class DungeonInteractionVisualDatabase
                 { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
             Visual("ancient-wood") is not
                 { TileBase: 4, Palette: 0, Animations.Length: 1 } ||
-            Visual("moving-side-platform").Animations.Length != 1 ||
+            Visual("moving-side-platform").Animations.Length != 5 ||
             Visual("circular-side-platform").Animations.Length != 1 ||
             Visual("minecart").Animations.Length != 4 ||
             Visual("minecart-gate") is not

@@ -12,13 +12,15 @@ internal abstract partial class DungeonInteractionVisualEntity : TransitionOffse
     protected int AnimationFrame => _animation.FrameIndex;
     protected int AnimationParameter => _animation.CurrentParameter;
     internal Texture2D CurrentTexture => _animation.CurrentTexture;
+    internal Vector2 CurrentDrawOffset => _animation.CurrentOffset;
 
     protected void InitializeVisual(
         DungeonInteractionVisual visual,
         Vector2 position,
         int animation = 0,
         int? palette = null,
-        IReadOnlyDictionary<int, Color[]>? paletteOverrides = null)
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
+        bool positionedOam = false)
     {
         Position = position;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
@@ -28,7 +30,8 @@ internal abstract partial class DungeonInteractionVisualEntity : TransitionOffse
             visual.TileBase,
             palette ?? visual.Palette,
             paletteOverrides: paletteOverrides,
-            sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
+            sourceGrayscaleInverted: visual.SourceGrayscaleInverted,
+            positionedOam: positionedOam);
         SetAnimation(animation);
     }
 
@@ -38,6 +41,10 @@ internal abstract partial class DungeonInteractionVisualEntity : TransitionOffse
     public override void _Draw()
     {
         if (Visible && _animation.HasFrames)
-            DrawTexture(_animation.CurrentTexture, new Vector2(-16, -16) + TransitionDrawOffset);
+        {
+            DrawTexture(
+                _animation.CurrentTexture,
+                _animation.CurrentOffset + TransitionDrawOffset);
+        }
     }
 }

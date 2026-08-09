@@ -38,6 +38,7 @@ public sealed partial class ValidationRoot
             .ToArray();
         var data = new WingDungeonDatabase();
         var interactions = new DungeonInteractionDatabase();
+        var sidePlatforms = new MovingSideScrollPlatformDatabase();
 
         void SetAllRoomFlags(bool value)
         {
@@ -253,15 +254,16 @@ public sealed partial class ValidationRoot
             .GroupBy(record => record.Kind)
             .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            native.Count != 40 ||
+            native.Count != 36 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.ToggleFloor) != 5 ||
-            kindCounts.GetValueOrDefault(DungeonObjectKind.SidePlatform) != 4 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.CircularSidePlatform) != 3 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.EnemyChest) != 3 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.ColoredCube) != 2 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.HeadThwomp) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Swoop) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Essence) != 1 ||
+            sidePlatforms.GetRoomRecords(4, 0x29).Count != 2 ||
+            sidePlatforms.GetRoomRecords(4, 0x2a).Count != 2 ||
             data.Pattern(DungeonObjectKind.FloorPatternKey, 1)
                 .SequenceEqual(new byte[] { 0x67, 0x77 }) == false ||
             data.Pattern(DungeonObjectKind.FloorPatternKey, 2)
@@ -1756,7 +1758,7 @@ public sealed partial class ValidationRoot
         // velocities must keep their rendered high-byte offset constant.
         PrepareRoom(0x29);
         _player.WarpTo(new Vector2(0x18, 0x18), recordSafe: false);
-        Step();
+        Step(2);
         MovingSideScrollPlatformRoomEntity movingPlatform =
             _entities.Entities<MovingSideScrollPlatformRoomEntity>()[1];
         FailIf(
