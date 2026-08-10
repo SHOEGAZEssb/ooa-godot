@@ -5,9 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Shared Satchel-thrown seed child for ITEM_EMBER_SEED ($20) and
-/// ITEM_MYSTERY_SEED ($24), subid $00. State and animation advances happen on
-/// original 60 Hz updates, including the setup-only first update.
+/// Shared Satchel-thrown seed child for ITEM_EMBER_SEED ($20),
+/// ITEM_SCENT_SEED ($21), and ITEM_MYSTERY_SEED ($24), subid $00. State and
+/// animation advances happen on original 60 Hz updates, including the
+/// setup-only first update.
 /// </summary>
 public partial class EmberSeedEffect : TransitionOffsetNode2D
 {
@@ -17,6 +18,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private BreakableTileDatabase _breakables = null!;
     private Action<int> _playSound = null!;
     private Action<Vector2, HazardType> _enteredHazard = null!;
+    private Action<ObjectFellInHoleKind> _objectFellInHole = null!;
     private Action _roomTileChanged = null!;
     private Func<long> _animationTick = null!;
     private Func<int, int?> _decideBreakableDrop = null!;
@@ -24,8 +26,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private OracleSaveData? _saveData;
     private int _group;
     private AnimationFrameDefinition[] _frames = null!;
+    private AnimationFrameDefinition[] _flyingFrames = null!;
+    private AnimationFrameDefinition[] _effectFrames = null!;
     private Texture2D[] _flyingTextures = null!;
-    private Texture2D[] _flameTextures = null!;
+    private Texture2D[] _effectTextures = null!;
+    private Texture2D[] _collisionEffectTextures = null!;
     private Vector2 _precisePosition;
     private Vector2I _direction;
     private EmberState _state;
@@ -35,8 +40,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _frameIndex;
     private int _frameCounter;
     private int _loopStart;
+    private int _effectLoopStart;
     private int _mysteryEffect;
     private bool _collisionEnabled;
+    private bool _scentPublished;
     private ISeedBurnTarget? _burnTarget;
 
     public bool Finished => _state == EmberState.Finished;
@@ -49,9 +56,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal Vector2 PrecisePosition => _precisePosition;
     internal bool CollisionEnabled => _collisionEnabled && !Finished;
     internal int SeedItem => _record.SeedItem;
+    internal Vector2? ScentTarget =>
+        _state == EmberState.Scent && _scentPublished
+            ? _precisePosition
+            : null;
     internal int MysteryEffect => _mysteryEffect;
     internal ulong FlameTextureHashForValidation(int frame) =>
-        OracleGraphicsCache.PixelHash(_flameTextures[frame].GetImage());
+        OracleGraphicsCache.PixelHash(_effectTextures[frame].GetImage());
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(_record.CollisionRadiusX, _record.CollisionRadiusY),
         new Vector2(_record.CollisionRadiusX * 2, _record.CollisionRadiusY * 2));
@@ -70,13 +81,15 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         OracleSaveData? saveData,
         int group,
         Func<Vector2I, int?>? linkedRoomNeighbor = null,
-        int mysteryEffect = 0)
+        int mysteryEffect = 0,
+        Action<ObjectFellInHoleKind>? objectFellInHole = null)
     {
         _record = record;
         _room = room;
         _breakables = breakables;
         _playSound = playSound;
         _enteredHazard = enteredHazard;
+        _objectFellInHole = objectFellInHole ?? (_ => { });
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         _decideBreakableDrop = decideBreakableDrop;
@@ -95,11 +108,16 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
-        _frames = animation.Frames;
+        AnimationDefinition effectAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(record.EffectAnimation);
+        _flyingFrames = animation.Frames;
+        _effectFrames = effectAnimation.Frames;
+        _frames = _flyingFrames;
         _loopStart = animation.LoopStart;
-        if (_frames.Length == 0)
+        _effectLoopStart = effectAnimation.LoopStart;
+        if (_flyingFrames.Length == 0 || _effectFrames.Length == 0)
             throw new InvalidOperationException(
-                $"{record.Source} imported an empty ITEM_EMBER_SEED animation.");
+                $"{record.Source} imported an empty active-seed animation.");
         _frameCounter = _frames[0].Duration;
 
         Image flyingSource = OracleGraphicsCache.LoadImage(
@@ -107,14 +125,25 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         Image flameSource = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.FlameSprite}.png");
         _flyingTextures = BuildTextures(
-            flyingSource, record.TileBase, record.Palette);
-        _flameTextures = BuildTextures(
-            flameSource, record.FlameTileBase, record.FlamePalette);
+            flyingSource, record.TileBase, record.Palette, _flyingFrames);
+        _effectTextures = BuildTextures(
+            flameSource, record.FlameTileBase, record.FlamePalette,
+            _effectFrames);
+        _collisionEffectTextures = BuildTextures(
+            flameSource,
+            record.CollisionEffectTileBase,
+            record.CollisionEffectPalette,
+            _flyingFrames);
         Visible = false;
         QueueRedraw();
     }
 
-    internal void UpdateFrame(ICollection<RoomEntitySpawn> spawns)
+    internal void UpdateFrame(ICollection<RoomEntitySpawn> spawns) =>
+        UpdateFrame(ElapsedFrames + 1, spawns);
+
+    internal void UpdateFrame(
+        int globalFrameCounter,
+        ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished)
             return;
@@ -133,7 +162,17 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
         if (_state == EmberState.Mystery)
         {
-            UpdateMystery();
+            UpdateDissipating();
+            return;
+        }
+        if (_state == EmberState.Dissipating)
+        {
+            UpdateDissipating();
+            return;
+        }
+        if (_state == EmberState.Scent)
+        {
+            UpdateScent(globalFrameCounter);
             return;
         }
 
@@ -160,16 +199,29 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         {
             if (hazard is HazardType.Water or HazardType.Lava)
                 _enteredHazard(Position, hazard);
+            else if (hazard == HazardType.Hole)
+                _objectFellInHole(SeedHoleKind());
             Finish();
             return;
         }
 
         _playSound(_record.LandingSound);
         AdvanceAnimation();
-        if (_record.SeedItem == 0x24)
-            BeginMystery();
-        else
-            BeginBurning();
+        switch (_record.SeedItem)
+        {
+            case 0x20:
+                BeginBurning();
+                break;
+            case 0x21:
+                BeginScent();
+                break;
+            case 0x24:
+                BeginMystery();
+                break;
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported active seed ITEM ${_record.SeedItem:x2} landed.");
+        }
     }
 
     internal void OnCollision(
@@ -189,6 +241,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             if (_state == EmberState.Flying)
                 AdvanceAnimation();
             BeginMystery();
+            return;
+        }
+        if (_record.SeedItem == 0x21)
+        {
+            if (_state == EmberState.Flying)
+                AdvanceAnimation();
+            BeginDissipating();
             return;
         }
         if (burnTarget is not null)
@@ -221,9 +280,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     {
         if (Finished || !Visible)
             return;
-        Texture2D texture = _state is EmberState.Burning or EmberState.Mystery
-            ? _flameTextures[_frameIndex]
-            : _flyingTextures[_frameIndex];
+        Texture2D texture = _state switch
+        {
+            EmberState.Burning or EmberState.Mystery or EmberState.Scent =>
+                _effectTextures[_frameIndex],
+            EmberState.Dissipating => _collisionEffectTextures[_frameIndex],
+            _ => _flyingTextures[_frameIndex]
+        };
         DrawTexture(texture,
             new Vector2(-16, -16 + (_zFixed >> 8)) + TransitionDrawOffset);
     }
@@ -244,7 +307,33 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         QueueRedraw();
     }
 
-    private void UpdateMystery()
+    private void BeginScent()
+    {
+        _state = EmberState.Scent;
+        // @scentLanded calls objectSetVisible83. Source priority 3 is the
+        // fixed low-priority group, below normal Link and priority-2 enemies.
+        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        _scentPublished = false;
+        _collisionEnabled = false;
+        _flameCounter = _record.FlameCounter;
+        _frames = _effectFrames;
+        _loopStart = _effectLoopStart;
+        _frameIndex = 0;
+        _frameCounter = _frames[0].Duration;
+        _playSound(_record.FlameSound);
+        QueueRedraw();
+    }
+
+    private void BeginDissipating()
+    {
+        _state = EmberState.Dissipating;
+        _collisionEnabled = false;
+        _flameCounter = _record.CollisionEffectCounter;
+        _playSound(_record.CollisionEffectSound);
+        QueueRedraw();
+    }
+
+    private void UpdateDissipating()
     {
         AdvanceAnimation();
         if ((_frames[_frameIndex].Parameter & 0x80) != 0)
@@ -252,6 +341,39 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             Finish();
             return;
         }
+        QueueRedraw();
+    }
+
+    private void UpdateScent(int globalFrameCounter)
+    {
+        // scentSeedSmell decrements its $96 counter only on even global
+        // updates. The zero update deletes before publishing
+        // wScentSeedActive, so enemies stop following it immediately.
+        if ((globalFrameCounter & 1) == 0)
+        {
+            _flameCounter--;
+            if (_flameCounter == 0)
+            {
+                Finish();
+                return;
+            }
+        }
+
+        if (_flameCounter < 0x1e)
+            Visible = !Visible;
+
+        AdvanceAnimation();
+        HazardType hazard = _room.GetTerrainInfo(Position).Hazard;
+        if (hazard != HazardType.None)
+        {
+            if (hazard is HazardType.Water or HazardType.Lava)
+                _enteredHazard(Position, hazard);
+            else if (hazard == HazardType.Hole)
+                _objectFellInHole(ObjectFellInHoleKind.ScentSeed);
+            Finish();
+            return;
+        }
+        _scentPublished = true;
         QueueRedraw();
     }
 
@@ -359,16 +481,29 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _frameCounter = _frames[_frameIndex].Duration;
     }
 
-    private Texture2D[] BuildTextures(Image source, int tileBase, int palette)
+    private static Texture2D[] BuildTextures(
+        Image source,
+        int tileBase,
+        int palette,
+        AnimationFrameDefinition[] frames)
     {
-        var result = new Texture2D[_frames.Length];
-        for (int index = 0; index < _frames.Length; index++)
+        var result = new Texture2D[frames.Length];
+        for (int index = 0; index < frames.Length; index++)
         {
             result[index] = NpcCharacter.BuildOamTexture(
-                source, _frames[index].EncodedOam, tileBase, palette);
+                source, frames[index].EncodedOam, tileBase, palette);
         }
         return result;
     }
+
+    private ObjectFellInHoleKind SeedHoleKind() => _record.SeedItem switch
+    {
+        0x20 => ObjectFellInHoleKind.EmberSeed,
+        0x21 => ObjectFellInHoleKind.ScentSeed,
+        0x24 => ObjectFellInHoleKind.MysterySeed,
+        _ => throw new InvalidOperationException(
+            $"Unsupported hole reaction for ITEM ${_record.SeedItem:x2}.")
+    };
 
     private bool WithinRoomBoundary(Vector2 point) =>
         point.X >= 0 && point.X < _room.Width &&
@@ -383,6 +518,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private void Finish()
     {
         _state = EmberState.Finished;
+        _scentPublished = false;
         _collisionEnabled = false;
         Visible = false;
     }
@@ -394,5 +530,7 @@ internal enum EmberState
     Flying,
     Burning,
     Mystery,
+    Scent,
+    Dissipating,
     Finished
 }

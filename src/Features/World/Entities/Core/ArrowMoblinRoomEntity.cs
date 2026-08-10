@@ -29,7 +29,8 @@ internal sealed class ArrowMoblinRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        int arrowAngle = Entity.UpdateFrame(frame.Player.Position);
+        int arrowAngle = Entity.UpdateFrame(
+            frame.Player.Position, frame.ScentSeedTarget);
         if (arrowAngle >= 0)
         {
             spawns.Add(new EnemyArrowSpawn(

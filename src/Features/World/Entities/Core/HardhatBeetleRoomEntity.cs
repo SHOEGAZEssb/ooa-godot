@@ -41,6 +41,8 @@ internal sealed class HardhatBeetleRoomEntity
         CombatDescriptor.Combat.Intersects(hitbox)
             ? seedItem == 0x24
                 ? SeedHitResult.Activate
+                : seedItem == 0x21
+                    ? SeedHitResult.Activate
                 : seedItem == 0x20
                     ? SeedHitResult.Consume
                     : SeedHitResult.None

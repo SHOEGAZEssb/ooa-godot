@@ -38,7 +38,7 @@ internal sealed class SwordEnemyRoomEntity
     {
         if (_swordPartInvincibilityCounter > 0)
             _swordPartInvincibilityCounter--;
-        Entity.UpdateFrame(frame.Player.Position);
+        Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget);
     }
 
     public void SetLinkSwordState(SwordActionState state, int swordLevel)

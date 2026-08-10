@@ -183,7 +183,7 @@ public sealed partial class ValidationRoot
             projectile.State != EmberState.Mystery ||
             projectile.CollisionEnabled ||
             owl.State != OwlStatueState.Activating ||
-            owl.Counter != 50 ||
+            owl.Counter != 49 ||
             sounds.Count(sound =>
                 sound == OracleSoundEngine.SndMysterySeed) != 1,
             "ITEM_MYSTERY_SEED did not consume one RNG value, activate on " +
@@ -200,7 +200,7 @@ public sealed partial class ValidationRoot
             "Seed while retaining its source counter.");
 
         var sparklePositions = new HashSet<Vector2>();
-        for (int update = 0; update < 50; update++)
+        for (int update = 0; update < 49; update++)
         {
             manager.Update(1.0 / 60.0, _player);
             foreach (OwlStatueSparkleEffect sparkle in
@@ -211,17 +211,11 @@ public sealed partial class ValidationRoot
             if (update == 0)
             {
                 FailIf(
-                    owl.Counter != 49 || sparklePositions.Count != 0,
-                    "PART_OWL_STATUE emitted a sparkle before counter `$30.");
-            }
-            if (update == 1)
-            {
-                FailIf(
                     owl.Counter != 48 ||
                     !sparklePositions.SetEquals(
                         [owl.Position + new Vector2(2, -1)]),
-                    "PART_OWL_STATUE counter `$30 did not emit the final " +
-                    "source-table offset first.");
+                    "The item-before-part pass did not let PART_OWL_STATUE " +
+                    "counter `$30 emit the final source-table offset first.");
             }
         }
 

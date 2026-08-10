@@ -79,8 +79,31 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int seedItem,
-        ICollection<RoomEntitySpawn> spawns) =>
-        ApplySeedHit(hitbox, seedItem);
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if (seedItem == 0x21)
+        {
+            if (_seedBurning || !Entity.CollisionEnabled ||
+                !combatDescriptor.Combat.Intersects(hitbox))
+            {
+                return SeedHitResult.None;
+            }
+            // ITEM_SCENT_SEED's standard collision-table entry is effect $08
+            // with item damage $fe: two health units, normal knockback, then
+            // the seed enters its non-attracting state-$03 effect.
+            return combatDescriptor.Combat.ApplySwordHit(
+                    hitbox,
+                    sourcePosition,
+                    2,
+                    EnemyKnockbackStrength.Normal,
+                    spawns,
+                    deathPuffDecrementsRoomCount:
+                        combatDescriptor.CountsAsEnemy)
+                ? SeedHitResult.Activate
+                : SeedHitResult.None;
+        }
+        return ApplySeedHit(hitbox, seedItem);
+    }
 
     private SeedHitResult ApplySeedHit(Rect2 hitbox, int seedItem)
     {

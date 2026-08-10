@@ -39,6 +39,7 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorPair> EnemySwordDamageProfiles { get; }
     internal EnemyKnockbackBehaviorProfile EnemyKnockback { get; }
     internal EnemyHazardBehaviorProfile EnemyHazards { get; }
+    internal ScentSeedAttractionBehaviorProfile ScentSeedAttraction { get; }
     internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
     internal KeeseStateBehaviorProfile KeeseState { get; }
     internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
@@ -164,6 +165,15 @@ internal sealed class EnemyBehaviorTables
             values[4].Value,
             values[5].Value,
             values[6].Value,
+            values);
+
+        values = TakeValues(
+            groups, "common-enemy", "scent-attraction-profile", 4);
+        ScentSeedAttraction = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
             values);
 
         values = TakeValues(
@@ -481,10 +491,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 376 || groups.Count != 0)
+        if (table.Rows.Count != 380 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 376 rows and no " +
+                $"Enemy behavior table contract expected 380 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -561,6 +571,13 @@ internal readonly record struct EnemyHazardBehaviorProfile(
     int PullIntervalMask,
     int PullSpeedRaw,
     int AnimationDecrement,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ScentSeedAttractionBehaviorProfile(
+    int State,
+    int AngleRefreshMask,
+    int CardinalRounding,
+    int CardinalMask,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct ProjectileBounceBehaviorProfile(

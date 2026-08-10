@@ -8,6 +8,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
 
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private BoomerangMoblinCharacterMoblinState _state;
     private int _counter;
     private int _angle;
@@ -19,6 +20,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     internal BoomerangMoblinCharacterMoblinState State => _state;
     internal int Counter => _counter;
     internal int Angle => _angle;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -38,7 +40,9 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             checksHazards: true);
     }
 
-    internal int UpdateFrame(Vector2 linkPosition)
+    internal int UpdateFrame(
+        Vector2 linkPosition,
+        Vector2? scentSeedTarget = null)
     {
         if (IsDead)
             return -1;
@@ -51,6 +55,24 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             // State 0 initializes SPEED_80 and chooses the first route on the
             // enemy's first object update, not while the room is parsed.
             _initialized = true;
+            ChooseDirection();
+            return -1;
+        }
+        if (scentSeedTarget is { } scentPosition)
+        {
+            _state = BoomerangMoblinCharacterMoblinState.FollowingScentSeed;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: true);
+            SetAnimation(_angle >> 3);
+            _movement.MoveAtAngle(
+                _angle,
+                _behavior.BoomerangMoblin.SpeedRaw,
+                allowHoles: false);
+            AdvanceAnimation();
+            return -1;
+        }
+        if (_state == BoomerangMoblinCharacterMoblinState.FollowingScentSeed)
+        {
             ChooseDirection();
             return -1;
         }
@@ -106,7 +128,8 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
 
 internal enum BoomerangMoblinCharacterMoblinState
 {
-    Moving,
-    Deciding,
-    WaitingForBoomerang
+    FollowingScentSeed = 4,
+    Moving = 8,
+    Deciding = 9,
+    WaitingForBoomerang = 10
 }

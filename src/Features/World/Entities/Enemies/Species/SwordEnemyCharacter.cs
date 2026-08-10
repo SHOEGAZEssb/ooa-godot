@@ -16,6 +16,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
 
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private SwordEnemyState _state;
     private int _counter1;
     private int _counter2;
@@ -27,6 +28,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
     internal Vector2 EnemySwordPosition
     {
         get
@@ -77,12 +79,37 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
             checksHazards: true);
     }
 
-    internal void UpdateFrame(Vector2 linkPosition)
+    internal void UpdateFrame(
+        Vector2 linkPosition,
+        Vector2? scentSeedTarget = null)
     {
         if (IsDead || BeginFrame())
             return;
         if (CheckHazards())
             return;
+        if (_state != SwordEnemyState.Uninitialized &&
+            scentSeedTarget is { } scentPosition)
+        {
+            _state = SwordEnemyState.FollowingScentSeed;
+            _speedRaw = _behavior.ChaseSpeedRaw;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: false);
+            SetDirectionalAnimation();
+            _movement.MoveAtAngle(_angle, _speedRaw, allowHoles: false);
+            AdvanceAnimation();
+            return;
+        }
+        if (_state == SwordEnemyState.FollowingScentSeed)
+        {
+            _state = SwordEnemyState.Wandering;
+            _speedRaw = _behavior.WanderSpeedRaw;
+            _angle = (_angle + 4) & 0x18;
+            _counter2 = _behavior.CooldownFrames[
+                System.Math.Min(2, Record.SubId)];
+            SetDirectionalAnimation();
+            AdvanceAnimation();
+            return;
+        }
         switch (_state)
         {
             case SwordEnemyState.Uninitialized:
@@ -201,6 +228,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
 internal enum SwordEnemyState
 {
     Uninitialized,
+    FollowingScentSeed = 4,
     Wandering = 8,
     PreparingChase,
     Chasing

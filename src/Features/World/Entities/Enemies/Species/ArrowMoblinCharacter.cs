@@ -14,6 +14,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         EnemyBehaviorTables.Shared.ArrowMoblin;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private ArrowMoblinState _state;
     private int _counter;
     private int _angle;
@@ -24,6 +25,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
     internal int Counter => _counter;
     internal int Angle => _angle;
     internal int MoveCycles => _moveCycles;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -58,7 +60,9 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
     }
 
     /// <returns>The cardinal angle of an arrow to create, or -1.</returns>
-    internal int UpdateFrame(Vector2 linkPosition)
+    internal int UpdateFrame(
+        Vector2 linkPosition,
+        Vector2? scentSeedTarget = null)
     {
         if (IsDead)
             return -1;
@@ -66,6 +70,26 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
             return -1;
         if (CheckHazards())
             return -1;
+
+        if (_state != ArrowMoblinState.Uninitialized &&
+            scentSeedTarget is { } scentPosition)
+        {
+            _state = ArrowMoblinState.FollowingScentSeed;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: true);
+            SetAnimation(_angle >> 3);
+            _movement.MoveAtAngle(
+                _angle, _behavior.SpeedRaw, allowHoles: false);
+            AdvanceAnimation();
+            return -1;
+        }
+        if (_state == ArrowMoblinState.FollowingScentSeed)
+        {
+            // moblin_state_scentSeed jumps to the shared state-$08 counter
+            // initializer, preserving its final scent-facing angle.
+            BeginMoving();
+            return -1;
+        }
 
         switch (_state)
         {
@@ -128,6 +152,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
 internal enum ArrowMoblinState
 {
     Uninitialized = 0,
+    FollowingScentSeed = 4,
     Moving = 8,
     Turning = 9
 }

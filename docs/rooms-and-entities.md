@@ -94,6 +94,11 @@ contacts, and owns their lifetime. Shared combat, terrain, and interaction
 controllers operate through explicit capabilities. Species or native-object
 state stays with the entity that owns it in the original.
 
+Ordinary gameplay preserves the source category order: items, enemies, parts,
+then interactions. Item collisions resolve in the item phase, so a landed
+Scent Seed publishes its target before compatible enemies update, and its
+zero-counter update removes that target before the same enemy pass.
+
 The live `w1Companion` slot has one runtime owner shared by rideable animal
 companions and the minecart. A mounted owner, rather than Link, supplies the
 screen-transition position and transfers from the outgoing entity set after

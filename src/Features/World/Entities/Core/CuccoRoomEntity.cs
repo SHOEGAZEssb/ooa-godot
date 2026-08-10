@@ -56,6 +56,10 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
             Entity.BeginMysterySeedTransformation(spawns);
             return SeedHitResult.Consume;
         }
+        if (seedItem == 0x21)
+            return Entity.TakeHit()
+                ? SeedHitResult.Activate
+                : SeedHitResult.None;
         return Entity.TakeHit() ? SeedHitResult.Consume : SeedHitResult.None;
     }
 

@@ -25,5 +25,5 @@ internal sealed class RopeRoomEntity
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player.Position);
+        Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget);
 }

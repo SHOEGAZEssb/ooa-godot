@@ -81,7 +81,7 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   terrain-specific cliff states.
 - Several active items and upgrades, including top-down Mermaid Suit movement
   and remaining deep-water transitions, other terrain-specific Link states,
-  Roc's Cape continuation, active Scent/Pegasus/Gale Seed behavior, and
+  Roc's Cape continuation, active Pegasus/Gale Seed behavior, and
   remaining grabbable-object species.
 - Unimplemented or partial ring consumers whose base gameplay systems do not
   yet exist.

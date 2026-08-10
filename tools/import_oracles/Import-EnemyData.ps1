@@ -3191,6 +3191,20 @@ Add-EnemyBehaviorProfile 'common-enemy' 'hazard-profile' `
     @(5, -1, 1, 60, 7, 0x14, 3) `
     'object_code/common/enemies/commonCode.s:ecom_checkHazardsCommon'
 
+if ($enemyCommonCodeSource -notmatch
+        '(?ms)^ecom_checkScentSeedActive:.*?' +
+        'bit 4,a.*?ld e,Enemy\.state.*?and \$f8.*?' +
+        'ld a,\$04.*?ld \(de\),a' -or
+    $enemyCommonCodeSource -notmatch
+        '(?ms)^ecom_updateAngleToScentSeed:.*?' +
+        'ld l,Enemy\.var3d.*?dec \(hl\).*?and \$0f.*?' +
+        'call objectGetRelativeAngle.*?ld \(de\),a') {
+    throw 'Common enemy Scent Seed attraction state/angle cadence changed.'
+}
+Add-EnemyBehaviorProfile 'common-enemy' 'scent-attraction-profile' `
+    @(0x04, 0x0f, 0x04, 0x18) `
+    'object_code/common/enemies/commonCode.s:ecom_checkScentSeedActive'
+
 if ($partCommonCodeSource -notmatch
         '(?ms)^partCommon_bounceWhenCollisionsEnabled:.*?' +
         'ld bc,-\$e0.*?ld \(hl\),\$20.*?' +
@@ -3693,8 +3707,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 377) {
-    throw "Expected 376 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 381) {
+    throw "Expected 380 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

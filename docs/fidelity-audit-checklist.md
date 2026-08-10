@@ -200,19 +200,20 @@ that ledger instead of duplicating its 211-room inventory.
 - [x] Shovel timing and tile effects; level-1 Roc's Feather top-down and
   side-view jump foundations; top-down Flippers swimming/normal diving;
   side-view Flippers entry, movement, burst, exit, and 9/9 animation; Harp
-  song/submenu/time-portal foundations; Ember and Mystery Satchel projectiles;
-  seed submenu; Owl/Mystery behavior; chests, ground treasures, drop producers,
-  inventory-dependent drops, BCD rupee countdown, water splashes, and
-  Gasha/Seed Tree behavior have focused source regressions.
+  song/submenu/time-portal foundations; Ember, Scent, and Mystery Satchel
+  projectiles; Scent attraction for all implemented source-compatible enemy
+  handlers; seed submenu; Owl/Mystery behavior; chests, ground treasures, drop
+  producers, inventory-dependent drops, BCD rupee countdown, water splashes,
+  and Gasha/Seed Tree behavior have focused source regressions.
 - [ ] **P1 DECLARED - implement the remaining usable Ages item parents:** Cane
   of Somaria `$04`, Boomerang `$06`, Switch Hook/helper/chain `$09-$0b`,
   Biggoron Sword `$0c`, Bombchus `$0d`, companion Flute `$0e`, and Seed Shooter
   `$0f`. Inventory/treasure storage for some of these exists, but the player
   input dispatcher has no production action path.
-- [ ] **P1 DECLARED - implement Scent `$21`, Pegasus `$22`, and Gale `$23` seed
-  children.** The Satchel database accepts only Ember `$20` and Mystery `$24`
-  and rejects unsupported children before consuming inventory. This is safe,
-  not complete.
+- [ ] **P1 DECLARED - implement Pegasus `$22` and Gale `$23` seed children.**
+  The Satchel database accepts Ember `$20`, Scent `$21`, and Mystery `$24`, and
+  rejects unsupported children before consuming inventory. This is safe, not
+  complete.
 - [ ] **P1 DECLARED - complete level-2 Roc's Feather/Roc's Cape and all remaining
   liftable/grabbable species.** Current side-view Cape code is a bounded
   foundation, not full game coverage.

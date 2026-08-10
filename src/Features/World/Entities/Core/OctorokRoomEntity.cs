@@ -27,7 +27,8 @@ internal sealed class OctorokRoomEntity
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (Entity.UpdateFrame(frame.Player.Position))
+        if (Entity.UpdateFrame(
+                frame.Player.Position, frame.ScentSeedTarget))
             spawns.Add(new OctorokRockSpawn(Entity.Position, Entity.Angle));
     }
 

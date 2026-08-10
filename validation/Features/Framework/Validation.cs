@@ -245,6 +245,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateShovel);
         RunIsolatedValidation(ValidateBombs);
         RunIsolatedValidation(ValidateSeedSatchel);
+        RunIsolatedValidation(ValidateScentSeed);
         RunIsolatedValidation(ValidateHarp);
         RunIsolatedValidation(ValidateSeedTrees);
         RunIsolatedValidation(ValidateRoom180OwlStatue);
@@ -260,6 +261,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePeahat);
         RunIsolatedValidation(ValidateGraveyardCrowsAndDropProducers);
         RunIsolatedValidation(ValidateOctoroks);
+        RunIsolatedValidation(ValidateScentSeedAttraction);
         RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);

@@ -3263,9 +3263,13 @@ internal sealed class RoomEntityFactory(
     {
         var seed = new EmberSeedEffect
         {
-            Name = spawn.Record.SeedItem == OwlStatueDatabase.MysterySeedItem
-                ? "MysterySeed"
-                : "EmberSeed",
+            Name = spawn.Record.SeedItem switch
+            {
+                0x20 => "EmberSeed",
+                0x21 => "ScentSeed",
+                OwlStatueDatabase.MysterySeedItem => "MysterySeed",
+                _ => $"Seed_{spawn.Record.SeedItem:x2}"
+            },
             ZIndex = 11
         };
         int mysteryEffect =
@@ -3284,7 +3288,8 @@ internal sealed class RoomEntityFactory(
                     spawn.Group, room.Id, direction, out int neighbor)
                     ? neighbor
                     : null,
-            mysteryEffect);
+            mysteryEffect,
+            objectFellInHole);
         return new EmberSeedRoomEntity(seed);
     }
 

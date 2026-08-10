@@ -431,7 +431,8 @@ public sealed class RoomEntityManager : IDisposable
         {
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
-            var frame = new RoomEntityFrame(player, _enemyFrameCounter, anyButtonJustPressed);
+            var frame = new RoomEntityFrame(
+                player, _enemyFrameCounter, anyButtonJustPressed, null);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if ((!textActive || UpdatesDuringDialogue(entity)) &&
@@ -452,8 +453,31 @@ public sealed class RoomEntityManager : IDisposable
             // 0 objects while wTextIsActive is set. UpdateThisFrame spawns
             // model that creation update and therefore remain unconditional.
             ProcessSpawns(frame);
+
+            // updateItems clears wScentSeedActive, updates every item slot,
+            // and only then begins the enemy pass. Run active seed children in
+            // that source phase so a landed scent starts on its following
+            // update and its zero-counter update stops attraction immediately.
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
+                if (entity is not ISeedProjectileRoomEntity ||
+                    textActive && !UpdatesDuringDialogue(entity) ||
+                    entity is not IFixedRoomEntity fixedSeed)
+                {
+                    continue;
+                }
+                fixedSeed.UpdateFrame(frame, _pendingSpawns);
+                ProcessSpawns(frame);
+            }
+            if (!textActive)
+                ResolveSeedCollisions();
+            ProcessSpawns(frame);
+            frame = frame with { ScentSeedTarget = ActiveScentSeedTarget() };
+
+            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            {
+                if (entity is ISeedProjectileRoomEntity)
+                    continue;
                 if (textActive && !UpdatesDuringDialogue(entity))
                     continue;
                 if (entity is ISeedBurnTarget
@@ -469,8 +493,6 @@ public sealed class RoomEntityManager : IDisposable
                 }
                 ProcessSpawns(frame);
             }
-            if (!textActive)
-                ResolveSeedCollisions();
             ProcessSpawns(frame);
             UpdateScreenShake();
             anyButtonJustPressed = false;
@@ -502,7 +524,8 @@ public sealed class RoomEntityManager : IDisposable
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             var frame = new RoomEntityFrame(
-                player, _enemyFrameCounter, AnyButtonJustPressed: false);
+                player, _enemyFrameCounter, AnyButtonJustPressed: false,
+                ScentSeedTarget: null);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if (entity is TimePortalRoomEntity portal)
@@ -777,6 +800,22 @@ public sealed class RoomEntityManager : IDisposable
                 break;
             }
         }
+    }
+
+    private Vector2? ActiveScentSeedTarget()
+    {
+        Vector2? result = null;
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is ISeedProjectileRoomEntity
+                { ScentTarget: { } target })
+            {
+                // The original item loop leaves hFFB2/hFFB3 containing the
+                // last active scent item's coordinates.
+                result = target;
+            }
+        }
+        return result;
     }
 
     private void ResolvePlayerProjectileCollisions()
@@ -1649,7 +1688,8 @@ internal readonly record struct RoomEntityManagerState(
 internal readonly record struct RoomEntityFrame(
     Player Player,
     int Counter,
-    bool AnyButtonJustPressed);
+    bool AnyButtonJustPressed,
+    Vector2? ScentSeedTarget = null);
 
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;

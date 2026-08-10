@@ -38,7 +38,7 @@ public sealed class SeedSatchelController
         {
             GD.PushError(
                 $"Unsupported active Satchel child ITEM ${seedItem:x2}; " +
-                "the imported Ember/Mystery seed slice does not include it.");
+                "the imported active-seed slice does not include it.");
             return 0;
         }
 

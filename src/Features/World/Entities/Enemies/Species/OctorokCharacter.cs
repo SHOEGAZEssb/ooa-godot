@@ -8,6 +8,7 @@ public partial class OctorokCharacter : EnemyCharacter
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private OctorokState _state;
     private int _counter1;
     private int _walkCounter;
@@ -18,6 +19,7 @@ public partial class OctorokCharacter : EnemyCharacter
     internal int Counter1 => _counter1;
     internal int Angle => _angle;
     internal int CurrentAnimationFrame => AnimationFrame;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(
         OctorokRecord record,
@@ -62,7 +64,7 @@ public partial class OctorokCharacter : EnemyCharacter
         QueueRedraw();
     }
 
-    internal bool UpdateFrame(Vector2 linkPosition)
+    internal bool UpdateFrame(Vector2 linkPosition, Vector2? scentSeedTarget = null)
     {
         if (IsDead)
             return false;
@@ -71,6 +73,25 @@ public partial class OctorokCharacter : EnemyCharacter
             return false;
         if (CheckHazards())
             return false;
+
+        if (scentSeedTarget is { } scentPosition)
+        {
+            _state = OctorokState.FollowingScentSeed;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: true);
+            SetAnimationFromAngle();
+            _movement.MoveAtAngle(
+                _angle, Record.SpeedRaw, allowHoles: false);
+            AdvanceAnimation();
+            return false;
+        }
+        if (_state == OctorokState.FollowingScentSeed)
+        {
+            // octorok_state_followingScentSeed writes state $08 and returns;
+            // ordinary decision logic resumes on the following update.
+            _state = OctorokState.Deciding;
+            return false;
+        }
 
         switch (_state)
         {
@@ -207,6 +228,7 @@ public partial class OctorokCharacter : EnemyCharacter
 
 internal enum OctorokState
 {
+    FollowingScentSeed = 4,
     Deciding = 8,
     Standing = 9,
     Walking = 10,

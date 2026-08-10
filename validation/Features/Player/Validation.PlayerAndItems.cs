@@ -2611,6 +2611,156 @@ public sealed partial class ValidationRoot
             "and room 0:48's watcher-backed permanent tree removal across re-entry/save reload.");
     }
 
+    private void ValidateScentSeed()
+    {
+        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        AnimationDefinition flying =
+            OracleGraphicsCache.GetAnimationDefinition(scent.Animation);
+        AnimationDefinition smell =
+            OracleGraphicsCache.GetAnimationDefinition(scent.EffectAnimation);
+        FailIf(
+            scent.ParentItem != 0x19 || scent.SeedItem != 0x21 ||
+            scent.TreasureId != 0x21 || scent.TileBase != 0x14 ||
+            scent.Palette != 3 || scent.Collision != 0x9c ||
+            scent.CollisionRadiusY != 4 || scent.CollisionRadiusX != 4 ||
+            scent.Damage != 0xfe || scent.InitialZ != -2 ||
+            scent.SpeedZ != -0x20 || scent.Gravity != 0x1c ||
+            scent.SpeedRaw != 0x1e || scent.FlameTileBase != 0x3c ||
+            scent.FlameOamFlags != 0x0b || scent.FlameCounter != 0x96 ||
+            scent.LandingSound != OracleSoundEngine.SndBombLand ||
+            scent.FlameSound != OracleSoundEngine.SndScentSeed ||
+            scent.CollisionEffectTileBase != 0x10 ||
+            scent.CollisionEffectOamFlags != 0x0b ||
+            scent.CollisionEffectCounter != 0x3c ||
+            scent.CollisionEffectSound != OracleSoundEngine.SndPirateBell ||
+            flying.Frames.Length != 5 || flying.LoopStart != 0 ||
+            smell.Frames.Length != 2 || smell.LoopStart != 0,
+            "The imported ITEM_SCENT_SEED `$21 data, fake `$27 landed " +
+            "effect, collision effect, or animations diverged from source.");
+
+        LoadBushValidationRoom();
+        Vector2 linkPosition = new(80, 80);
+        Vector2 scentPoint = new(80, 70);
+        _currentRoom.SetPositionTileAndCollision(
+            scentPoint, 0xc5, null, (long)_animationTicks);
+        var sounds = new List<int>();
+        var hazards = new List<HazardType>();
+        var spawns = new List<RoomEntitySpawn>();
+        var effect = new EmberSeedEffect();
+        effect.Initialize(
+            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
+            () => { }, () => (long)_animationTicks, _ => null,
+            _saveData, _activeGroup);
+
+        for (int frame = 1; frame <= 8; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.State != EmberState.Flying ||
+            effect.ScentTarget is not null,
+            "ITEM_SCENT_SEED landed before completing its setup plus eight-update arc.");
+        effect.UpdateFrame(9, spawns);
+        FailIf(
+            effect.State != EmberState.Scent ||
+            effect.PrecisePosition != scentPoint ||
+            effect.FlameCounter != 0x96 || effect.ScentTarget is not null ||
+            effect.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            !sounds.SequenceEqual(new[]
+            {
+                OracleSoundEngine.SndBombLand,
+                OracleSoundEngine.SndScentSeed
+            }) || hazards.Count != 0,
+            "The landed Scent Seed did not initialize its `$96 counter, " +
+            "priority-3 draw layer, and two sounds without publishing " +
+            "wScentSeedActive on the landing update.");
+        effect.UpdateFrame(10, spawns);
+        FailIf(
+            effect.FlameCounter != 0x95 ||
+            effect.ScentTarget != scentPoint,
+            "scentSeedSmell did not decrement on the next even global update " +
+            "and publish its room-coordinate target.");
+        for (int frame = 11; frame <= 249; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.FlameCounter != 0x1e || !effect.Visible ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed's half-rate lifetime or pre-flash boundary changed.");
+        effect.UpdateFrame(250, spawns);
+        FailIf(
+            effect.FlameCounter != 0x1d || effect.Visible ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed did not begin per-update flashing below counter `$1e.");
+        effect.UpdateFrame(251, spawns);
+        FailIf(!effect.Visible,
+            "The Scent Seed did not toggle back on the following flash update.");
+        for (int frame = 252; frame <= 307; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.Finished || effect.FlameCounter != 1 ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed ended before its final counter-1 attraction update.");
+        effect.UpdateFrame(308, spawns);
+        FailIf(
+            !effect.Finished || effect.ScentTarget is not null,
+            "The Scent Seed's zero update still published attraction or failed to delete.");
+        effect.Free();
+
+        sounds.Clear();
+        var collided = new EmberSeedEffect();
+        collided.Initialize(
+            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, _) => { }, () => { },
+            () => (long)_animationTicks, _ => null,
+            _saveData, _activeGroup);
+        collided.UpdateFrame(1, spawns);
+        collided.OnCollision(SeedHitResult.Activate);
+        FailIf(
+            collided.State != EmberState.Dissipating ||
+            collided.CollisionEnabled || collided.ScentTarget is not null ||
+            !sounds.SequenceEqual(new[] { OracleSoundEngine.SndPirateBell }),
+            "A flying ITEM_SCENT_SEED collision did not enter its short " +
+            "non-attracting state-3 animation with sound `$d0.");
+        for (int frame = 2; frame <= 9; frame++)
+            collided.UpdateFrame(frame, spawns);
+        FailIf(collided.Finished,
+            "The collided Scent Seed deleted before the terminal animation parameter.");
+        collided.UpdateFrame(10, spawns);
+        FailIf(!collided.Finished,
+            "The collided Scent Seed survived its terminal animation parameter `$ff.");
+        collided.Free();
+
+        if (_inventory.ScentSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureObjectRecord(
+                "VALIDATION_SCENT_SEED", 0x21, 0, 1, 0xff, 0,
+                string.Empty));
+        }
+        _inventory.SelectSatchelSeeds(1);
+        int scentSeedsBeforeUse = _inventory.ScentSeeds;
+        int expectedScentSeeds =
+            (scentSeedsBeforeUse >> 4) * 10 +
+            (scentSeedsBeforeUse & 0x0f) - 1;
+        expectedScentSeeds =
+            (expectedScentSeeds / 10 << 4) | expectedScentSeeds % 10;
+        int activeSeedsBeforeUse =
+            _entities.Entities<EmberSeedEffect>().Count;
+        _player.WarpTo(linkPosition);
+        _player.StartSeedSatchelActionForValidation(Vector2.Right);
+        FailIf(
+            !_player.IsUsingSeedSatchel ||
+            _inventory.ScentSeeds != expectedScentSeeds ||
+            _entities.Entities<EmberSeedEffect>().Count !=
+                activeSeedsBeforeUse + 1 ||
+            _entities.Entities<EmberSeedEffect>()[^1].SeedItem != 0x21,
+            "Selecting Scent Seeds did not allocate ITEM `$21 and consume " +
+            "one packed-BCD Satchel seed.");
+
+        GD.Print("Validated ITEM_SCENT_SEED `$21 imported visuals/collision data, " +
+            "nine-update throw, landed priority 3/sounds, half-rate `$96 lifetime, delayed " +
+            "target publication, final flashing, zero-before-publish deletion, " +
+            "short non-attracting collision animation, and Satchel allocation/consumption.");
+    }
+
     private void ValidateSeedInventorySubmenu()
     {
         MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;

@@ -27,5 +27,5 @@ internal sealed class SandCrabRoomEntity
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame();
+        Entity.UpdateFrame(frame.ScentSeedTarget);
 }

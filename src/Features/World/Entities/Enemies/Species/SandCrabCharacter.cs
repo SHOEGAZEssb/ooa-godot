@@ -8,6 +8,7 @@ internal partial class SandCrabCharacter : EnemyCharacter
         EnemyBehaviorTables.Shared.SandCrab;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private SandCrabState _state;
     private int _counter;
     private int _angle;
@@ -18,6 +19,7 @@ internal partial class SandCrabCharacter : EnemyCharacter
     internal int Counter => _counter;
     internal int Angle => _angle;
     internal int SpeedRaw => _speedRaw;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -35,10 +37,30 @@ internal partial class SandCrabCharacter : EnemyCharacter
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain);
     }
 
-    internal void UpdateFrame()
+    internal void UpdateFrame(Vector2? scentSeedTarget = null)
     {
         if (IsDead || BeginFrame())
             return;
+
+        if (_state != SandCrabState.Uninitialized &&
+            scentSeedTarget is { } scentPosition)
+        {
+            _state = SandCrabState.FollowingScentSeed;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: true);
+            _speedRaw = (_angle & 0x08) == 0
+                ? _behavior.VerticalSpeedRaw
+                : _behavior.HorizontalSpeedRaw;
+            _movement.MoveAtAngle(_angle, _speedRaw, allowHoles: false);
+            AdvanceAnimation();
+            return;
+        }
+        if (_state == SandCrabState.FollowingScentSeed)
+        {
+            _state = SandCrabState.ChoosingDirection;
+            AdvanceAnimation();
+            return;
+        }
 
         switch (_state)
         {
@@ -89,6 +111,7 @@ internal partial class SandCrabCharacter : EnemyCharacter
 internal enum SandCrabState
 {
     Uninitialized,
+    FollowingScentSeed = 4,
     ChoosingDirection = 8,
     Moving
 }

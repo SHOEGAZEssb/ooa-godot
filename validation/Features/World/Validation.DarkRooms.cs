@@ -90,16 +90,17 @@ public sealed partial class ValidationRoot
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
-            !left.HitPending || handler.State.LitCount != 0 ||
-            room.Layout[0x33] != 0x08,
-            "The first 5:ed torch did not consume its Ember Seed without a fire animation " +
-            "and retain the original hit-to-state-2 update delay.");
-        _entities.Update(1.0 / 60.0, _player);
-        FailIf(
-            handler.State.LitCount != 1 || room.Layout[0x33] != 0x09 ||
+            !left.HitPending || handler.State.LitCount != 1 ||
+            room.Layout[0x33] != 0x09 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1 ||
             handler.State.FadeActive,
-            "The first 5:ed torch did not light on its following object update with SND_LIGHTTORCH.");
+            "The first 5:ed torch did not consume its Ember Seed in the item " +
+            "pass and light in the following part pass with SND_LIGHTTORCH " +
+            $"(seeds={_entities.Entities<EmberSeedEffect>().Count}, " +
+            $"pending={left.HitPending}, lit={handler.State.LitCount}, " +
+            $"tile=${room.Layout[0x33]:x2}, sounds=" +
+            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)}, " +
+            $"fade={handler.State.FadeActive}).");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             !handler.State.FadeActive || handler.State.Parameter != 0xf7 ||

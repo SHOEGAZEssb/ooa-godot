@@ -1710,14 +1710,12 @@ public sealed partial class ValidationRoot
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             spiny.CoverProtects || spiny.CoverVisualActive ||
             spiny.Health != emberHealth ||
-            _entities.Entities<GrassDebrisEffect>().Count != 1,
-            "The completed Ember burn did not remove only the protective " +
-            "bush and create grass debris.");
-        _entities.Update(update, _player);
-        FailIf(
+            _entities.Entities<GrassDebrisEffect>().Count != 1 ||
             spiny.State != SpinyBeetleState.ExposedWaiting ||
             spiny.Counter1 != 60,
-            "The Ember-revealed Spiny Beetle did not enter its 60-update wait.");
+            "The completed Ember burn did not remove only the protective " +
+            "bush, create grass debris, and enter its 60-update wait in the " +
+            "following enemy pass.");
 
         LoadValidationRoom(5, 0xb5);
         spiny = _entities.Entities<SpinyBeetleCharacter>().Single();
@@ -2773,6 +2771,200 @@ public sealed partial class ValidationRoot
         GD.Print("Validated 33 imported ENEMY_OCTOROK room records / 48 instances, random and fixed " +
             "red/fast-red/blue subids, movement/combat attributes, 16-update firing, SPEED_200 rocks, " +
             "sword deflection, 32-update bounce, two-hit blue combat, scrolling, and `$8e item drops.");
+    }
+
+    private void ValidateScentSeedAttraction()
+    {
+        const double update = 1.0 / 60.0;
+        ScentSeedAttractionBehaviorProfile profile =
+            EnemyBehaviorTables.Shared.ScentSeedAttraction;
+        FailIf(
+            profile.State != 4 || profile.AngleRefreshMask != 0x0f ||
+            profile.CardinalRounding != 4 || profile.CardinalMask != 0x18 ||
+            profile.Sources.Count != 4,
+            "The imported ecom_checkScentSeedActive / " +
+            "ecom_updateAngleToScentSeed constants diverged from source.");
+
+        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        LoadValidationRoom(1, 0xbc);
+        List<OctorokCharacter> blues =
+            _entities.Entities<OctorokCharacter>();
+        OctorokCharacter struck = blues[0];
+        blues[1].Position = new Vector2(0x18, 0x68);
+        struck.SetStateForValidation(
+            OctorokState.Standing, counter1: 1000, angle: 0x18);
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _sound.ClearPlayRequestAudit();
+        EmberSeedEffect collided = _entities.Spawn<EmberSeedEffect>(
+            new EmberSeedSpawn(
+                struck.Position - scent.UpOffset,
+                Vector2I.Up,
+                scent,
+                _activeGroup));
+        _entities.Update(update, _player);
+        FailIf(
+            collided.State != EmberState.Dissipating ||
+            collided.ScentTarget is not null || struck.Health != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndPirateBell) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+            "ITEM_SCENT_SEED's standard `$9c collision did not apply damage " +
+            "`$fe and enter the short, non-attracting collision effect.");
+
+        LoadValidationRoom(1, 0xbc);
+        blues = _entities.Entities<OctorokCharacter>();
+        OctorokCharacter follower = blues[0];
+        follower.Position = new Vector2(0x28, 0x38);
+        blues[1].Position = new Vector2(0x18, 0x68);
+        follower.SetStateForValidation(
+            OctorokState.Standing, counter1: 1000, angle: 0x00);
+        blues[1].SetStateForValidation(
+            OctorokState.Standing, counter1: 1000, angle: 0x18);
+        Vector2 scentPoint = (
+            from y in Enumerable.Range(5, 2)
+            from x in Enumerable.Range(6, 3)
+            let point = new Vector2(x * 16 + 8, y * 16 + 8)
+            where _currentRoom.GetTerrainInfo(point).Hazard == HazardType.None
+            select point).First();
+        EmberSeedEffect lure = _entities.Spawn<EmberSeedEffect>(
+            new EmberSeedSpawn(
+                scentPoint + new Vector2(0, 10),
+                Vector2I.Up,
+                scent,
+                _activeGroup));
+        for (int frame = 0; frame < 9; frame++)
+            _entities.Update(update, _player);
+        FailIf(
+            lure.State != EmberState.Scent || lure.ScentTarget is not null ||
+            follower.State == OctorokState.FollowingScentSeed,
+            "The landed Scent Seed attracted an Octorok on its landing update.");
+        _entities.Update(update, _player);
+        FailIf(
+            lure.ScentTarget != scentPoint ||
+            follower.State != OctorokState.FollowingScentSeed ||
+            follower.ScentAttractionCounter != 0xff || follower.Angle != 0,
+            "The item-before-enemy pass did not publish the Scent Seed target " +
+            "and enter Octorok state `$04 on the following update.");
+        for (int frame = 0; frame < 14; frame++)
+            _entities.Update(update, _player);
+        FailIf(
+            follower.ScentAttractionCounter != 0xf1 || follower.Angle != 0,
+            "ecom_updateAngleToScentSeed refreshed before its wrapping " +
+            "16-update var3d boundary.");
+        _entities.Update(update, _player);
+        FailIf(
+            follower.ScentAttractionCounter != 0xf0 ||
+            follower.Angle is not (0x08 or 0x10),
+            "The Octorok did not acquire and cardinalize the target on scent " +
+            "attraction update 16.");
+        int remainingUpdates = 0;
+        while (!lure.Finished && remainingUpdates < 0x140)
+        {
+            _entities.Update(update, _player);
+            remainingUpdates++;
+        }
+        FailIf(
+            !lure.Finished || remainingUpdates is < 0x100 or > 0x130 ||
+            follower.State != OctorokState.Deciding,
+            "The Scent Seed zero-counter item pass did not make its Octorok " +
+            "leave state `$04 in the same update.");
+
+        LoadValidationRoom(0, 0x84);
+        _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
+        _entities.Update(update, _player);
+        ArrowMoblinCharacter arrow =
+            _entities.Entities<ArrowMoblinCharacter>().Single();
+        arrow.UpdateFrame(_player.Position, arrow.Position + new Vector2(48, 32));
+        int arrowRandomCalls = _entities.RandomCalls;
+        arrow.UpdateFrame(_player.Position);
+        FailIf(
+            arrow.State != ArrowMoblinState.Moving ||
+            arrow.ScentAttractionCounter != 0xff ||
+            _entities.RandomCalls != arrowRandomCalls + 1,
+            "ENEMY_ARROW_MOBLIN did not cardinally follow scent or retain " +
+            "its angle while consuming only the exit duration RNG.");
+
+        LoadValidationRoom(4, 0x2c);
+        _entities.Update(update, _player);
+        ArrowMoblinCharacter shrouded =
+            _entities.Entities<ArrowMoblinCharacter>()[0];
+        shrouded.UpdateFrame(
+            _player.Position, shrouded.Position + new Vector2(48, 32));
+        FailIf(
+            shrouded.Record.Id != 0x22 ||
+            shrouded.State != ArrowMoblinState.FollowingScentSeed ||
+            shrouded.ScentAttractionCounter != 0xff,
+            "The shared ENEMY_SHROUDED_STALFOS arrow handler did not enter " +
+            "its source scent state `$04.");
+
+        LoadValidationRoom(4, 0x17);
+        _entities.Update(update, _player);
+        BoomerangMoblinCharacter boomerang =
+            _entities.Entities<BoomerangMoblinCharacter>()[0];
+        boomerang.UpdateFrame(
+            _player.Position, boomerang.Position + new Vector2(48, 32));
+        int boomerangRandomCalls = _entities.RandomCalls;
+        boomerang.UpdateFrame(_player.Position);
+        FailIf(
+            boomerang.State !=
+                BoomerangMoblinCharacterMoblinState.Moving ||
+            boomerang.ScentAttractionCounter != 0xff ||
+            _entities.RandomCalls != boomerangRandomCalls + 2,
+            "ENEMY_BOOMERANG_MOBLIN did not follow scent and restore its " +
+            "duration-then-angle two-RNG route on exit.");
+
+        LoadValidationRoom(4, 0x1c);
+        _entities.Update(update, _player);
+        RopeCharacter rope = _entities.Entities<RopeCharacter>()[0];
+        rope.UpdateFrame(
+            _player.Position, rope.Position + new Vector2(48, 32));
+        FailIf(
+            rope.State != RopeState.FollowingScentSeed ||
+            rope.SpeedRaw != 0x32 || rope.ScentAttractionCounter != 0xff,
+            "ENEMY_ROPE did not follow scent at source SPEED_140.");
+        rope.UpdateFrame(_player.Position);
+        FailIf(
+            rope.State != RopeState.Wandering || rope.SpeedRaw != 0x0f,
+            "ENEMY_ROPE did not restore SPEED_60 and state `$09 after scent ended.");
+
+        LoadValidationRoom(0, 0xb9);
+        _entities.Update(update, _player);
+        SandCrabCharacter crab =
+            _entities.Entities<SandCrabCharacter>()[0];
+        crab.UpdateFrame(crab.Position + new Vector2(48, 32));
+        FailIf(
+            crab.State != SandCrabState.FollowingScentSeed ||
+            crab.ScentAttractionCounter != 0xff ||
+            crab.SpeedRaw is not (0x0a or 0x28),
+            "ENEMY_SAND_CRAB did not use its axis-specific scent speed.");
+        crab.UpdateFrame();
+        FailIf(crab.State != SandCrabState.ChoosingDirection,
+            "ENEMY_SAND_CRAB did not return to state `$08 after scent ended.");
+
+        LoadValidationRoom(4, 0x30);
+        _entities.Update(update, _player);
+        SwordEnemyCharacter sword =
+            _entities.Entities<SwordEnemyCharacter>()[0];
+        Vector2 diagonalTarget = sword.Position + new Vector2(64, 32);
+        for (int frame = 0; frame < 16; frame++)
+            sword.UpdateFrame(_player.Position, diagonalTarget);
+        FailIf(
+            sword.State != SwordEnemyState.FollowingScentSeed ||
+            sword.ScentAttractionCounter != 0xf0 ||
+            (sword.Angle & 0x07) == 0,
+            "The shared sword-enemy handler cardinalized its diagonal scent " +
+            "angle or missed the 16-update refresh.");
+        sword.UpdateFrame(_player.Position);
+        FailIf(
+            sword.State != SwordEnemyState.Wandering ||
+            (sword.Angle & 0x07) != 0 || sword.Counter2 == 0,
+            "The sword-enemy handler did not cardinalize and restore its " +
+            "state-$08 cooldown after scent ended.");
+
+        GD.Print("Validated ITEM_SCENT_SEED item-before-enemy publication, " +
+            "standard `$9c/`$fe hit, 16-update angle refresh, cardinal/non-cardinal " +
+            "movement, exact zero-counter exit, and source-compatible Octorok, " +
+            "Arrow Moblin/Shrouded Stalfos, Boomerang Moblin, Rope, Sand Crab, " +
+            "and sword-enemy state transitions.");
     }
 
     private void ValidateArrowMoblins()

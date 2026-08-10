@@ -174,6 +174,13 @@ internal sealed class SpikedBeetleRoomEntity
         }
         if (seedItem == 0x24)
             return SeedHitResult.Activate;
+        if (seedItem == 0x21)
+        {
+            return Entity.FlippedCollision
+                ? base.ApplySeedHit(
+                    hitbox, sourcePosition, seedItem, spawns)
+                : SeedHitResult.Activate;
+        }
         if (seedItem == 0x20)
         {
             return Entity.FlippedCollision

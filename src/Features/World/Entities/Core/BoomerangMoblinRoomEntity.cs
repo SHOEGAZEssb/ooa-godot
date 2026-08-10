@@ -26,7 +26,8 @@ internal sealed class BoomerangMoblinRoomEntity
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        int angle = Entity.UpdateFrame(frame.Player.Position);
+        int angle = Entity.UpdateFrame(
+            frame.Player.Position, frame.ScentSeedTarget);
         if (angle >= 0)
             spawns.Add(new MoblinBoomerangSpawn(Entity, Entity.Position, angle));
     }

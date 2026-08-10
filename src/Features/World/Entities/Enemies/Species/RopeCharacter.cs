@@ -9,6 +9,7 @@ internal partial class RopeCharacter : EnemyCharacter
         EnemyBehaviorTables.Shared.Rope;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
+    private readonly ScentSeedAttraction _scentAttraction = new();
     private RopeState _state;
     private int _counter;
     private int _cooldown;
@@ -22,6 +23,7 @@ internal partial class RopeCharacter : EnemyCharacter
     internal int Cooldown => _cooldown;
     internal int Angle => _angle;
     internal int SpeedRaw => _speed;
+    internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -40,9 +42,12 @@ internal partial class RopeCharacter : EnemyCharacter
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
         _speed = _behavior.WanderSpeedRaw;
+        _state = RopeState.Wandering;
     }
 
-    internal void UpdateFrame(Vector2 linkPosition)
+    internal void UpdateFrame(
+        Vector2 linkPosition,
+        Vector2? scentSeedTarget = null)
     {
         if (IsDead)
             return;
@@ -55,6 +60,23 @@ internal partial class RopeCharacter : EnemyCharacter
             // State 0 sets direction $ff/SPEED_80 and advances to state 8.
             // State 8 falls through to movement on the following update.
             _initialized = true;
+            return;
+        }
+        if (scentSeedTarget is { } scentPosition)
+        {
+            _state = RopeState.FollowingScentSeed;
+            _speed = _behavior.ChargeSpeedRaw;
+            _angle = _scentAttraction.UpdateAngle(
+                Position, scentPosition, _angle, cardinal: true);
+            SetAnimationFromAngle();
+            _movement.MoveAtAngle(_angle, _speed, allowHoles: false);
+            AdvanceAnimation(3);
+            return;
+        }
+        if (_state == RopeState.FollowingScentSeed)
+        {
+            _state = RopeState.Wandering;
+            _speed = _behavior.WanderSpeedRaw;
             return;
         }
         if (_state == RopeState.Wandering && _cooldown == 0 &&
@@ -113,6 +135,7 @@ internal partial class RopeCharacter : EnemyCharacter
 
 internal enum RopeState
 {
-    Wandering,
-    Charging
+    FollowingScentSeed = 4,
+    Wandering = 9,
+    Charging = 10
 }
