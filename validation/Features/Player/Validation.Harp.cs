@@ -44,14 +44,14 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _saveData.ClearTimePortalLocation();
         _saveData.SetRoomFlag(
-            0, 0x3a,
+            0, 0xcd,
             OracleSaveData.RoomFlagPortalSpotDiscovered,
             value: false);
-        LoadValidationRoom(0, 0x3a);
+        LoadValidationRoom(0, 0xcd);
         TimePortal dormant = _entities.Entities<TimePortal>().Single();
         FailIf(
             dormant.Active || dormant.Visible || dormant.Temporary,
-            "Ordinary room 0:3a portal was not dormant before Echoes.");
+            "Ordinary room 0:cd portal was not dormant before Echoes.");
 
         int randomBefore = _entities.RandomCalls;
         int notesBefore = _harp.NoteSpawnCount;
@@ -62,20 +62,42 @@ public sealed partial class ValidationRoot
             _player.IsUsingHarp || _player.HarpPoseActive ||
             _harp.PlayingSong != 0 || !dormant.Awakening || dormant.Active ||
             !_saveData.HasRoomFlag(
-                0, 0x3a, OracleSaveData.RoomFlagPortalSpotDiscovered) ||
+                0, 0xcd, OracleSaveData.RoomFlagPortalSpotDiscovered) ||
             _entities.RandomCalls != randomBefore + 8 ||
             _harp.NoteSpawnCount != notesBefore + 8 ||
+            _harp.ActiveMusicNoteCount != 3 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndTuneOfEchoes) != 1 ||
             _interactions.DialogueOpen,
             "Tune of Echoes did not run its 260-update/8-note parent, " +
             "mark the dormant portal, and finish without TX_5110.");
+        _player.WarpTo(dormant.Position, recordSafe: false);
         _entities.Update(HarpFrame, _player);
+        _harp.Update(HarpFrame);
         FailIf(
             !dormant.Active ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopSfx) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) != 1,
+            _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) != 1 ||
+            !_transitions.TimeWarpActive,
             "Echoes portal did not activate with STOP_SFX/TELEPORT on " +
-            "the first update after instrument playback ended.");
+            "the first update after instrument playback ended or touching " +
+            "room 0:cd's activated portal did not begin its time warp.");
+        for (int update = 0;
+            update < RoomTransitionController.TimeWarpInitializeFrames +
+                RoomTransitionController.TimeWarpDissolveFrames;
+            update++)
+        {
+            _transitions.UpdateWarp(HarpFrame);
+            _roomEvents.UpdateDuringTimeWarp(HarpFrame);
+            _harp.Update(HarpFrame);
+        }
+        FailIf(
+            _harp.ActiveMusicNoteCount != 0,
+            "Room 0:cd time-warp teardown retained a disposed ITEM_HARP " +
+            "floating-note actor.");
+        FinishTimeWarp();
+        FailIf(
+            _activeGroup != 1 || _currentRoom.Id != 0xcd,
+            "Room 0:cd's portal did not complete its paired warp to 1:cd.");
 
         LoadValidationRoom(0, 0x06);
         _saveData.SetRoomFlag(
@@ -160,9 +182,10 @@ public sealed partial class ValidationRoot
             "selection submenu, composite inventory/HUD graphics, 260-update " +
             "Link animation, eight parameter-sided shared-RNG floating notes, " +
             "source sounds, object freeze, dormant `$e1:$00 activation and " +
-            "room flag, TX_5110 failures, Currents past-only gate, Ages " +
-            "bidirectional warp, source tile replacements, and persistent " +
-            "palette-cycling INTERAC_TIMEPORTAL return point.");
+            "room flag, room 0:cd portal teardown with live notes, TX_5110 " +
+            "failures, Currents past-only gate, Ages bidirectional warp, " +
+            "source tile replacements, and persistent palette-cycling " +
+            "INTERAC_TIMEPORTAL return point.");
     }
 
     private void ValidateHarpInventorySubmenu()

@@ -27,6 +27,7 @@ public sealed class HarpController
     internal bool IsPlaying => PlayingSong != 0 || _emptySongPlaying;
     internal HarpItemDatabase Database => _database;
     internal int NoteSpawnCount => _noteSerial;
+    internal int ActiveMusicNoteCount => _notes.Count;
     private bool _emptySongPlaying;
 
     internal HarpController(
@@ -163,6 +164,15 @@ public sealed class HarpController
         for (int index = _notes.Count - 1; index >= 0; index--)
         {
             PlayableHarpMusicNoteState note = _notes[index];
+            // Full room loads clear interaction memory. The room-entity owner
+            // therefore queues floating-note actors for deletion before this
+            // item-parent update runs later in the same application update.
+            if (!GodotObject.IsInstanceValid(note.Actor) ||
+                note.Actor.IsQueuedForDeletion())
+            {
+                _notes.RemoveAt(index);
+                continue;
+            }
             note.Actor.Position += note.Velocity;
             if (note.Sway && (_entities.FrameCounter & 7) == 0)
             {
@@ -180,7 +190,13 @@ public sealed class HarpController
     private void ClearNotes()
     {
         foreach (PlayableHarpMusicNoteState note in _notes)
-            note.Actor.SetActive(false);
+        {
+            if (GodotObject.IsInstanceValid(note.Actor) &&
+                !note.Actor.IsQueuedForDeletion())
+            {
+                note.Actor.SetActive(false);
+            }
+        }
         _notes.Clear();
     }
 }
