@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 namespace oracleofages;
 
@@ -8,7 +7,7 @@ public partial class OctorokCharacter : EnemyCharacter
 
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
-    private OracleRoomData _room = null!;
+    private EnemyTerrainMovement _movement = null!;
     private OctorokState _state;
     private int _counter1;
     private int _walkCounter;
@@ -27,8 +26,8 @@ public partial class OctorokCharacter : EnemyCharacter
         OracleRandom random)
     {
         Record = record;
-        _room = room;
         _random = random;
+        _movement = new EnemyTerrainMovement(this, room);
 
         string[] encodedAnimations =
         {
@@ -169,7 +168,11 @@ public partial class OctorokCharacter : EnemyCharacter
             return;
         }
 
-        if (!MoveAtAngle(_angle, Record.SpeedRaw, allowHazards: false))
+        if (!_movement.MoveUsingAdjacentWalls(
+            _angle,
+            Record.SpeedRaw,
+            allowHoles: false,
+            topDown: true))
         {
             _angle = _random.Next().Value & 0x18;
             SetAnimationFromAngle();
@@ -185,40 +188,6 @@ public partial class OctorokCharacter : EnemyCharacter
 
         _counter1 = _behavior.Octorok.PostShotWaitFrames;
         _state = OctorokState.Standing;
-        return true;
-    }
-
-    private bool MoveAtAngle(int angle, int speed, bool allowHazards)
-    {
-        Vector2 destination =
-            Position + OracleObjectMovement.Shared.Delta(speed, angle & 0x18);
-        if (!CanOccupy(destination, allowHazards))
-            return false;
-        Position = destination;
-        QueueRedraw();
-        return true;
-    }
-
-    private bool CanOccupy(Vector2 center, bool allowHazards)
-    {
-        float radiusX = Math.Max(1, Record.CollisionRadiusX - 1);
-        float radiusY = Math.Max(1, Record.CollisionRadiusY - 1);
-        Vector2[] samples =
-        {
-            center + new Vector2(-radiusX, -radiusY),
-            center + new Vector2(radiusX, -radiusY),
-            center + new Vector2(-radiusX, radiusY),
-            center + new Vector2(radiusX, radiusY)
-        };
-        foreach (Vector2 sample in samples)
-        {
-            if (sample.X < 0 || sample.X >= _room.Width ||
-                sample.Y < 0 || sample.Y >= _room.Height || _room.IsSolid(sample))
-                return false;
-            if (!allowHazards && _room.GetTerrainInfo(sample).Hazard is
-                HazardType.Water or HazardType.Hole)
-                return false;
-        }
         return true;
     }
 

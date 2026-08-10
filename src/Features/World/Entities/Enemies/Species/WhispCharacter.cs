@@ -7,7 +7,6 @@ internal partial class WhispCharacter : EnemyCharacter
 {
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
-    private EnemyTerrainMovement _movement = null!;
     private bool _initialized;
     private int _angle;
 
@@ -24,7 +23,6 @@ internal partial class WhispCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _movement = new EnemyTerrainMovement(this, room);
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -46,10 +44,12 @@ internal partial class WhispCharacter : EnemyCharacter
                 Position, _angle, Collides);
         _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
             _angle, walls);
-        _movement.MoveAtAngle(
-            _angle,
+        // whisp_state8 calls ecom_bounceOffWalls, then objectApplySpeed; it
+        // does not run the adjacent-wall movement helper a second time.
+        Position += OracleObjectMovement.Shared.Delta(
             EnemyBehaviorTables.Shared.Whisp.SpeedRaw,
-            allowHoles: false);
+            _angle);
+        QueueRedraw();
         AdvanceAnimation();
     }
 

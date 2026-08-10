@@ -3513,6 +3513,92 @@ public sealed partial class ValidationRoot
             "A raised Iron Shield did not route an ordinary Octorok through " +
             "COLLISIONEFFECT_$0f's LINKDMG/ENEMYDMG_$10 response.");
 
+        static bool BlocksEnemyMovement(
+            OracleRoomData room,
+            Vector2I point)
+        {
+            return point.X < 0 || point.X >= room.Width ||
+                point.Y < 0 || point.Y >= room.Height ||
+                room.IsSolidForEnemyMovement(point, holesAreWalls: true);
+        }
+
+        // At this room 0:74 edge the side-view knockback probes allow the
+        // first rightward SPEED_200 update, then stop at x=$7b.80. Both
+        // source walking probe variants can move left from that legal rest.
+        var wallBumpStart = new Vector2(121.5f, 22);
+        Vector2 wallStop = wallBumpStart + Vector2.Right * 2.0f;
+        EnemyAdjacentWallResolver wallResolver =
+            EnemyAdjacentWallResolver.Shared;
+        EnemyAdjacentWallProbe startProbe = wallResolver.Probe(
+            wallBumpStart,
+            0x08,
+            point => BlocksEnemyMovement(octorokRoom, point));
+        EnemyAdjacentWallProbe stopProbe = wallResolver.Probe(
+            wallStop,
+            0x08,
+            point => BlocksEnemyMovement(octorokRoom, point));
+        EnemyAdjacentWallProbe sideviewEscapeProbe = wallResolver.Probe(
+            wallStop,
+            0x18,
+            point => BlocksEnemyMovement(octorokRoom, point));
+        EnemyAdjacentWallProbe topDownEscapeProbe =
+            wallResolver.ProbeTopDown(
+                wallStop,
+                0x18,
+                point => BlocksEnemyMovement(octorokRoom, point));
+        FailIf(
+            startProbe.XBlocked ||
+            (stopProbe.Bitset & 0x03) != 0x03 ||
+            sideviewEscapeProbe.XBlocked ||
+            topDownEscapeProbe.XBlocked,
+            "Room 0:74 no longer exposes the `$79.80 -> `$7b.80 source " +
+            "knockback stop and leftward walking-probe escape.");
+
+        var sideviewMover = new Node2D { Position = wallStop };
+        var sideviewMovement =
+            new EnemyTerrainMovement(sideviewMover, octorokRoom);
+        FailIf(
+            !sideviewMovement.MoveAtAngle(
+                0x18,
+                octorok.Record.SpeedRaw,
+                allowHoles: false) ||
+            !sideviewMover.Position.IsEqualApprox(
+                wallStop + Vector2.Left * 0.5f),
+            "The shared side-view adjacent-wall path could not move an " +
+            "enemy away from a legal knockback resting position in room 0:74.");
+
+        var wallOctorok = new OctorokCharacter();
+        wallOctorok.Initialize(
+            ResolveOctorok(database, octorokSource),
+            octorokRoom,
+            wallBumpStart,
+            new OracleRandom());
+        wallOctorok.SetStateForValidation(
+            OctorokState.Walking,
+            walkCounter: 10,
+            angle: 0x18);
+        FailIf(
+            !wallOctorok.TryApplyShieldBump(
+                wallOctorok.CollisionBounds.Grow(1),
+                wallBumpStart + Vector2.Left * 16.0f,
+                EnemyKnockbackStrength.Normal) ||
+            wallOctorok.KnockbackAngle != 0x08,
+            "The room 0:74 fractional-wall Octorok did not accept the " +
+            "rightward Wooden Shield bump.");
+        wallOctorok.UpdateFrame(shieldPlayer.Position);
+        wallOctorok.UpdateFrame(shieldPlayer.Position);
+        FailIf(
+            wallOctorok.KnockbackCounter != 0 ||
+            !wallOctorok.Position.IsEqualApprox(wallStop),
+            "The room 0:74 Octorok did not stop its Wooden Shield knockback " +
+            "at the source side-view wall probes.");
+        wallOctorok.UpdateFrame(shieldPlayer.Position);
+        FailIf(
+            !wallOctorok.Position.IsEqualApprox(
+                wallStop + Vector2.Left * 0.5f),
+            "The room 0:74 Octorok remained stuck after a Wooden Shield " +
+            "bump instead of escaping through top-down adjacent-wall movement.");
+
         EnemyCombatSourceDescriptor ghini = CombatSource(0x17, 0x00);
         EnemyCombatSourceDescriptor hardhat = CombatSource(0x4d, 0x00);
         EnemyCombatSourceDescriptor spark = CombatSource(0x13, 0x00);
@@ -3565,12 +3651,15 @@ public sealed partial class ValidationRoot
             "halves of the Iron Shield's COLLISIONEFFECT_$0f response.");
 
         octorok.Free();
+        sideviewMover.Free();
+        wallOctorok.Free();
         spiked.Free();
         shieldPlayer.Free();
         GD.Print(
             "Validated all 30 implemented combat enemy keys against the " +
             "clean-US L1/L2/L3 shield columns, 7 non-combat keys, common " +
-            "Wooden/Iron enemy-and-Link recoil routing, and " +
+            "Wooden/Iron enemy-and-Link recoil routing, fractional wall-bump " +
+            "escape through side-view and Octorok top-down probes, and " +
             "Ghini/Hardhat/Spark/Spiked Beetle exceptions.");
 
         static EnemyShieldBumpResponse? BumpResponse(int effect) =>

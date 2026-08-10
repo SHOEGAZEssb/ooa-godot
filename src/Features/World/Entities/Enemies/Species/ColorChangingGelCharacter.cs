@@ -16,7 +16,6 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
 
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
-    private EnemyTerrainMovement _movement = null!;
     private ColorChangingGelState _state;
     private int _counter;
     private int _colorCounter;
@@ -47,7 +46,6 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
-        _movement = new EnemyTerrainMovement(this, room);
         _state = ColorChangingGelState.Uninitialized;
         _color = 2;
         InitializeEnemy(
@@ -119,10 +117,12 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
                     int angleToTarget =
                         OracleObjectMovement.Shared.RelativeAngle(
                             Position, _target);
-                    _movement.MoveAtAngle(
-                        angleToTarget,
+                    // ecom_moveTowardPosition calls objectApplySpeed after
+                    // state 8 already rejected a solid target tile.
+                    Position += OracleObjectMovement.Shared.Delta(
                         _behavior.SpeedRaw,
-                        allowHoles: false);
+                        angleToTarget);
+                    QueueRedraw();
                     return;
                 }
                 Position = new Vector2(

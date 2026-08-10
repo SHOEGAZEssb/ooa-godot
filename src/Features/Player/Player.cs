@@ -5741,7 +5741,12 @@ public partial class Player : Node2D
 
     private void StartSwordAttack(string? buttonAction, Vector2 facingInput)
     {
-        if (IsUsingShovel || IsUsingSeedSatchel)
+        // ITEM_SWORD can allocate w1ParentItem2 while the Harp occupies
+        // w1ParentItem5, but clearParentItemIfCantUseSword observes the
+        // Harp's wcc95 bit 7 and deletes the sword before state 0 can run.
+        // Preserve that instrument-specific exclusion before state 0 can
+        // consume RNG, play a slash sound, or create the weapon child.
+        if (IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp)
             return;
         if (IsAttacking && !SwordCanRestart)
             return;

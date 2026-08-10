@@ -41,6 +41,7 @@ public sealed partial class ValidationRoot
             "Imported ITEM_HARP mechanics or full Link animation changed.");
 
         EnsureHarpAndSongs();
+        ValidateHarpRejectsOtherEquippedItem();
         _dialogue.Close();
         _saveData.ClearTimePortalLocation();
         _saveData.SetRoomFlag(
@@ -181,11 +182,106 @@ public sealed partial class ValidationRoot
             "Validated ITEM_HARP's Tune-of-Echoes inventory award, 2/3-song " +
             "selection submenu, composite inventory/HUD graphics, 260-update " +
             "Link animation, eight parameter-sided shared-RNG floating notes, " +
-            "source sounds, object freeze, dormant `$e1:$00 activation and " +
+            "source sounds, ITEM_SWORD parent exclusion and frozen-enemy " +
+            "health, object freeze, dormant `$e1:$00 activation and " +
             "room flag, room 0:cd portal teardown with live notes, TX_5110 " +
             "failures, Currents past-only gate, Ages bidirectional warp, " +
             "source tile replacements, and persistent palette-cycling " +
             "INTERAC_TIMEPORTAL return point.");
+    }
+
+    private void ValidateHarpRejectsOtherEquippedItem()
+    {
+        if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword))
+        {
+            _inventory.GiveTreasure(
+                _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        }
+        _inventory.EquipA(InventoryState.ItemHarp);
+        _inventory.EquipB(InventoryState.ItemSword);
+        FailIf(
+            _inventory.EquippedA != InventoryState.ItemHarp ||
+            _inventory.EquippedB != InventoryState.ItemSword,
+            "Could not arrange ITEM_HARP on A and ITEM_SWORD on B for " +
+            "parent-item exclusion validation.");
+
+        // Establish a deterministic down-facing sword arc before loading the
+        // canonical overworld enemy room. The completed setup swing cannot
+        // affect the target room or its actors.
+        _player.StartSwordAttackForValidation(Vector2.Down);
+        _player.AdvanceSwordForValidation(32, buttonHeld: false);
+        FailIf(
+            _player.IsAttacking || _player.FacingVector != Vector2I.Down,
+            "Could not establish Link's down-facing idle state before the " +
+            "ITEM_HARP parent exclusion case.");
+
+        LoadValidationRoom(0, 0x74);
+        OctorokCharacter target = _entities.Entities<OctorokCharacter>()[0];
+        int firstSwingPhase = LinkItemDatabase.Shared.SwingPhase(1);
+        int firstDownArc = (int)Facing.Down + firstSwingPhase * 4;
+        SwordArc arc = LinkItemDatabase.Shared.SwordArc(firstDownArc);
+        _player.WarpTo(
+            target.Position - new Vector2(arc.OffsetX, arc.OffsetY),
+            recordSafe: false);
+        Rect2 targetBounds = target.CollisionBounds;
+        Rect2 latentSwordBounds = new(
+            target.Position - new Vector2(arc.RadiusX, arc.RadiusY),
+            new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
+        FailIf(
+            !latentSwordBounds.Intersects(targetBounds),
+            "Room 0:74 ENEMY_OCTOROK $09 was not inside the first down-facing " +
+            "ITEM_SWORD collision arc for the Harp exclusion fixture.");
+
+        _inventory.SelectHarpSong(1);
+        _player.StartHarpActionForValidation();
+        FailIf(
+            !_player.IsUsingHarp || !_player.HarpPoseActive,
+            "ITEM_HARP did not start before the other equipped-item input case.");
+
+        int health = target.Health;
+        int invincibility = target.InvincibilityCounter;
+        int randomCalls = _random.Calls;
+        _sound.ClearPlayRequestAudit();
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed: ["item"], justPressed: ["item"], movement: Vector2.Zero));
+        try
+        {
+            _player.AdvanceApplicationUpdate();
+            _entities.UpdateDuringHarp(HarpFrame, _player);
+            _harp.Update(HarpFrame);
+        }
+        finally
+        {
+            Input.EndOriginalUpdate();
+        }
+
+        int swordSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
+        FailIf(
+            !_player.IsUsingHarp || _player.IsAttacking ||
+            target.Health != health ||
+            target.InvincibilityCounter != invincibility ||
+            _random.Calls != randomCalls || swordSounds != 0,
+            "Pressing ITEM_SWORD on B during ITEM_HARP playback allocated a " +
+            "sword parent, consumed sword RNG/sound, or damaged frozen room " +
+            $"0:74 ENEMY_OCTOROK $09 (health {target.Health}/{health}, " +
+            $"invincibility {target.InvincibilityCounter}/{invincibility}, " +
+            $"rng {_random.Calls - randomCalls}, sounds {swordSounds}).");
+
+        while (_player.IsUsingHarp)
+        {
+            _entities.UpdateDuringHarp(HarpFrame, _player);
+            _harp.Update(HarpFrame);
+            _player.AdvanceHarpForValidation(1);
+        }
+        FailIf(
+            target.Health != health ||
+            target.InvincibilityCounter != invincibility,
+            "Room 0:74 ENEMY_OCTOROK $09 revealed deferred ITEM_SWORD " +
+            "damage after ITEM_HARP playback completed.");
+        _dialogue.Close();
     }
 
     private void ValidateHarpInventorySubmenu()
