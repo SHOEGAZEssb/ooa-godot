@@ -58,7 +58,7 @@ public sealed class RoomTileChangeDatabase
                 if (!Matches(rule.Conditions, group, room.Id, save))
                     continue;
                 foreach (Operation operation in rule.Operations)
-                    ApplyOperation(operation, group, room, world, writes);
+                    ApplyOperation(operation, group, room, save, world, writes);
             }
         }
 
@@ -87,6 +87,8 @@ public sealed class RoomTileChangeDatabase
                 ConditionKind.TreasureSet => save.HasTreasure(condition.A),
                 ConditionKind.WramMaskEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,
+                ConditionKind.WramMaskNotEquals =>
+                    (save.ReadWramByte(condition.A) & condition.B) != condition.C,
                 _ => false
             };
             if (!matches)
@@ -99,6 +101,7 @@ public sealed class RoomTileChangeDatabase
         Operation operation,
         int group,
         OracleRoomData room,
+        OracleSaveData save,
         OracleWorldData world,
         Dictionary<int, byte> writes)
     {
@@ -159,8 +162,47 @@ public sealed class RoomTileChangeDatabase
                 }
                 break;
             }
+
+            case OperationKind.SetBelowLast:
+            {
+                int foundPosition = -1;
+                for (int y = room.HeightInTiles - 1; y >= 0 && foundPosition < 0; y--)
+                for (int x = room.WidthInTiles - 1; x >= 0; x--)
+                {
+                    int position = (y << 4) | x;
+                    if (CurrentTile(position, room, writes) == values[0])
+                    {
+                        foundPosition = position;
+                        break;
+                    }
+                }
+                if (foundPosition >= 0)
+                    Set(foundPosition + 0x10, (byte)values[1], room, writes);
+                break;
+            }
+
+            case OperationKind.SetWramPositionIfClear:
+            {
+                int position = save.ReadWramByte(values[0]);
+                int x = position & 0x0f;
+                int y = position >> 4;
+                if (x >= room.WidthInTiles || y >= room.HeightInTiles)
+                    break;
+                byte current = CurrentTile(position, room, writes);
+                if (room.GetCollision(current) == 0)
+                    Set(position, (byte)values[1], room, writes);
+                break;
+            }
         }
     }
+
+    private static byte CurrentTile(
+        int position,
+        OracleRoomData room,
+        IReadOnlyDictionary<int, byte> writes) =>
+        writes.TryGetValue(position, out byte written)
+            ? written
+            : room.GetMetatile(PointFor(position));
 
     private static void Fill(
         int position,
@@ -226,6 +268,9 @@ public sealed class RoomTileChangeDatabase
                 "wram_mask_eq" when fields.Length == 4 =>
                     new Condition(
                         ConditionKind.WramMaskEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
+                "wram_mask_ne" when fields.Length == 4 =>
+                    new Condition(
+                        ConditionKind.WramMaskNotEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
                 _ => throw new InvalidOperationException(
                     $"Malformed room tile-change condition '{tokens[index]}'.")
             };
@@ -258,6 +303,12 @@ public sealed class RoomTileChangeDatabase
                     new Operation(OperationKind.Replace, ParseHexValues(fields[1..])),
                 "copy_original" when fields.Length == 2 =>
                     new Operation(OperationKind.CopyOriginal, new[] { Hex(fields[1]) }),
+                "set_below_last" when fields.Length == 3 =>
+                    new Operation(OperationKind.SetBelowLast, ParseHexValues(fields[1..])),
+                "set_wram_position_if_clear" when fields.Length == 3 =>
+                    new Operation(
+                        OperationKind.SetWramPositionIfClear,
+                        ParseHexValues(fields[1..])),
                 _ => throw new InvalidOperationException(
                     $"Malformed room tile-change operation '{token}'.")
             };
@@ -318,7 +369,9 @@ internal enum OperationKind
     Fill,
     Draw,
     Replace,
-    CopyOriginal
+    CopyOriginal,
+    SetBelowLast,
+    SetWramPositionIfClear
 }
 
 internal readonly record struct Operation(OperationKind Kind, int[] Values);
@@ -331,7 +384,8 @@ internal enum ConditionKind
     RoomSet,
     EssenceSet,
     TreasureSet,
-    WramMaskEquals
+    WramMaskEquals,
+    WramMaskNotEquals
 }
 
 internal readonly record struct Condition(ConditionKind Kind, int A, int B, int C);

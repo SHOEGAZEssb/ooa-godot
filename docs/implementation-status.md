@@ -61,7 +61,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
   trading hut, and past/present Wild Tokay gameplay with imported patterns and
   prizes; all five source-placed vine sprouts retain and restore their terrain
-  while pushing and persist their room positions, and the southern entrance
+  while pushing and persist their room positions. The three Tokay sprouts grow
+  the corresponding two-room present vines at their source positions and leave
+  the source withered-vine tile when misaligned. The southern entrance
   Eyeball/socket sequence places the second eye and opens the doorway with the
   original timing. Present Sand Crabs and past red Leevers use their imported
   non-dungeon placements, source RNG/counters, movement, and combat. The

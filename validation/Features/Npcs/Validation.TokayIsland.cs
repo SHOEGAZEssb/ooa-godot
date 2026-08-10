@@ -258,12 +258,160 @@ public sealed partial class ValidationRoot
             "Room 1:ba re-entry did not retain both eyes, suppress the socket, " +
             "and apply the room-flag `$80 entrance tile changes.");
 
+        ValidateTokayPresentVines();
+
         GD.Print(
             "Validated five direct ENEMY_VINE_SPROUT placements, default/live " +
             "position persistence, preserved normal ground, Link push animation, " +
-            "cliff-landing destruction, 20+$16 push boundaries, both room 1:ba " +
-            "entrance eyes, and the " +
+            "cliff-landing destruction, 20+$16 push boundaries, all three " +
+            "past-to-present Tokay vine mappings and withered branches, both " +
+            "room 1:ba entrance eyes, and the " +
             "independent `$c4:$04 insertion sequence.");
+    }
+
+    private void ValidateTokayPresentVines()
+    {
+        var specs = new[]
+        {
+            (SubId: 0x02, Target: 0x18, Lower: 0xba, Upper: 0xaa,
+                LowerEdges: new[] { 0x07, 0x61, 0x09, 0x60 },
+                UpperEdges: new[] { 0x77, 0x46, 0x79, 0x45 },
+                ExtraPosition: 0x18, ExtraTile: 0x8b),
+            (SubId: 0x03, Target: 0x11, Lower: 0xcc, Upper: 0xbc,
+                LowerEdges: new[] { 0x00, 0x61, 0x02, 0x5d },
+                UpperEdges: new[] { 0x70, 0x46, 0x72, 0x5c },
+                ExtraPosition: -1, ExtraTile: -1),
+            (SubId: 0x04, Target: 0x18, Lower: 0xda, Upper: 0xca,
+                LowerEdges: new[] { 0x07, 0x61, 0x09, 0x60 },
+                UpperEdges: new[] { 0x77, 0x46, 0x79, 0x45 },
+                ExtraPosition: -1, ExtraTile: -1)
+        };
+
+        static Vector2 Point(int position) => new(
+            (position & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (position >> 4) * OracleRoomData.MetatileSize + 8);
+
+        static Dictionary<int, byte> OriginalLayout(OracleRoomData room)
+        {
+            var result = new Dictionary<int, byte>();
+            for (int y = 0; y < room.HeightInTiles; y++)
+            for (int x = 0; x < room.WidthInTiles; x++)
+            {
+                int position = (y << 4) | x;
+                result[position] = room.GetOriginalMetatile(Point(position));
+            }
+            return result;
+        }
+
+        void ValidateLayout(
+            OracleRoomData room,
+            IReadOnlyDictionary<int, byte> expected,
+            string branch)
+        {
+            foreach ((int position, byte tile) in expected)
+            {
+                FailIf(
+                    room.GetMetatile(Point(position)) != tile,
+                    $"Tokay present room 0:{room.Id:x2} {branch} wrote " +
+                    $"${room.GetMetatile(Point(position)):x2} at ${position:x2}; " +
+                    $"expected ${tile:x2}.");
+            }
+        }
+
+        Dictionary<int, byte> GrownLayout(
+            OracleRoomData room,
+            int[] edges,
+            int extraPosition,
+            int extraTile,
+            bool requireVineBottom)
+        {
+            Dictionary<int, byte> expected = OriginalLayout(room);
+            for (int index = 0; index < edges.Length; index += 2)
+                expected[edges[index]] = checked((byte)edges[index + 1]);
+            foreach (int position in expected.Keys.ToArray())
+            {
+                expected[position] = expected[position] switch
+                {
+                    0x05 => 0xd4,
+                    0x8e => 0xd5,
+                    0x8f => 0xd6,
+                    _ => expected[position]
+                };
+            }
+
+            int vineBottom = expected
+                .Where(entry => entry.Value == 0xd6)
+                .Select(entry => entry.Key)
+                .DefaultIfEmpty(-1)
+                .Max();
+            FailIf(
+                requireVineBottom &&
+                    (vineBottom < 0 || !expected.ContainsKey(vineBottom + 0x10)),
+                $"Tokay present room 0:{room.Id:x2} has no valid `$d6 vine bottom.");
+            if (vineBottom >= 0)
+                expected[vineBottom + 0x10] = 0x8d;
+            if (extraPosition >= 0)
+                expected[extraPosition] = checked((byte)extraTile);
+            return expected;
+        }
+
+        foreach (var spec in specs)
+        {
+            OracleRoomData lowerSource = _rooms.World.LoadRoom(0, spec.Lower);
+            int mismatch = -1;
+            for (int y = 1; y < lowerSource.HeightInTiles - 1 && mismatch < 0; y++)
+            for (int x = 1; x < lowerSource.WidthInTiles - 1; x++)
+            {
+                int position = (y << 4) | x;
+                byte original = lowerSource.GetOriginalMetatile(Point(position));
+                if (position != spec.Target && original != 0x8c &&
+                    lowerSource.GetCollision(original) == 0)
+                {
+                    mismatch = position;
+                    break;
+                }
+            }
+            FailIf(
+                mismatch < 0,
+                $"Tokay present room 0:{spec.Lower:x2} has no clear withered-vine probe.");
+
+            _saveData.WriteWramByte(
+                VineSproutDatabase.PositionAddress + spec.SubId,
+                checked((byte)mismatch));
+            OracleRoomData lowerWithered = _rooms.GetRoom(0, spec.Lower);
+            Dictionary<int, byte> witheredExpected = OriginalLayout(lowerWithered);
+            witheredExpected[mismatch] = 0x8c;
+            ValidateLayout(lowerWithered, witheredExpected, "misaligned branch");
+            OracleRoomData upperUnchanged = _rooms.GetRoom(0, spec.Upper);
+            ValidateLayout(
+                upperUnchanged,
+                OriginalLayout(upperUnchanged),
+                "misaligned upper-room branch");
+
+            _saveData.WriteWramByte(
+                VineSproutDatabase.PositionAddress + spec.SubId,
+                checked((byte)spec.Target));
+            OracleRoomData lowerGrown = _rooms.GetRoom(0, spec.Lower);
+            ValidateLayout(
+                lowerGrown,
+                GrownLayout(
+                    lowerGrown,
+                    spec.LowerEdges,
+                    spec.ExtraPosition,
+                    spec.ExtraTile,
+                    requireVineBottom: true),
+                "grown branch");
+            OracleRoomData upperGrown = _rooms.GetRoom(0, spec.Upper);
+            ValidateLayout(
+                upperGrown,
+                GrownLayout(
+                    upperGrown,
+                    spec.UpperEdges,
+                    -1,
+                    -1,
+                    requireVineBottom: false),
+                "grown upper-room branch");
+        }
     }
 
     private void ValidateTokayIslandInteractions()

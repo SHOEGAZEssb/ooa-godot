@@ -515,7 +515,7 @@ public sealed partial class ValidationRoot
         OracleRoomData room = rooms.CurrentRoom;
 
         FailIf(
-            changes.RuleCount != 47 || changes.RoomCount != 36 ||
+            changes.RuleCount != 56 || changes.RoomCount != 42 ||
             singleTileChanges.RecordCount != 56 ||
             room.GetPackedPosition(doorPoint) != 0x23 ||
             room.GetOriginalMetatile(doorPoint) != 0xa7 ||
@@ -645,7 +645,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(Point(0x57)) != 0xf0,
             "Room 4:60 item flag $20 did not select the opened chest under the D3 global flag.");
 
-        GD.Print("Validated 56 single-tile changes and 47 imported rules for 36 " +
+        GD.Print("Validated 56 single-tile changes and 56 imported rules for 42 " +
             "room-specific tile changers: " +
             "global/current/specific-room/essence/treasure/WRAM conditions, " +
             "set/fill/draw/replace/copy " +

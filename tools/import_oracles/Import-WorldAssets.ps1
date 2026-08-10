@@ -99,8 +99,10 @@ Write-GeneratedTable(
 # Import the save-backed subset of applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
 # repeating group/room IDs, so shared routines automatically expand to every
-# room that calls them. Transient switch, water, vine, and encounter state is
-# kept out until its owning runtime systems exist.
+# room that calls them. Transient switch, water, and encounter state is kept
+# out until its owning runtime systems exist. The save-backed vine positions
+# are imported below with the six Tokay Island present-room routines that read
+# them.
 $roomTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
 $tileChangeJumpBlock = [regex]::Match(
@@ -271,6 +273,58 @@ Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
 Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
     'treasure_set:48' 'set:24:3a'
 
+# Tokay Island's three past ENEMY_VINE_SPROUT positions are read while the
+# paired present rooms load. A matching packed position grows the full vine in
+# both vertical rooms. A mismatch in the lower room leaves tile $8c at the
+# live sprout position when the underlying metatile has zero collision.
+$vineHelperContract =
+    $roomTileChangeSource -match '(?ms)^replaceVineTiles:.*?ld de,@vineReplacements.*?call replaceTiles.*?ld a,\$d6.*?call findTileInRoom.*?ret nz.*?ld a,l.*?add \$10.*?ld l,a.*?ld \(hl\),\$8d' -and
+    $roomTileChangeSource -match '(?ms)^@vineReplacements:.*?\.db \$d4 \$05.*?\.db \$d5 \$8e.*?\.db \$d6 \$8f.*?\.db \$00' -and
+    $roomTileChangeSource -match '(?ms)^setTileToWitheredVine:.*?ld l,\(hl\).*?call retrieveTileCollisionValue.*?or a\s*ret nz\s*ld \(hl\),\$8c' -and
+    $roomTileChangeSource -match '(?ms)^getVinePosition:.*?ld hl,wVinePositions.*?cp c\s*ret'
+if (-not $vineHelperContract) {
+    throw 'Tokay Island present-vine helper behavior changed.'
+}
+
+$tokayVineSpecs = @(
+    @{ Label = 'tileReplacement_group0Mapba'; SubId = 2; Target = 0x18;
+       Edge = '07:61,09:60'; Extra = '|set:18:8b'; Withered = $true;
+       Pattern = '(?ms)^tileReplacement_group0Mapba:\s*ld bc,\$0218\s*call getVinePosition\s*jp nz,setTileToWitheredVine\s*ld l,\$07.*?\.db \$61 \$60\s*\.db \$00' },
+    @{ Label = 'tileReplacement_group0Mapaa'; SubId = 2; Target = 0x18;
+       Edge = '77:46,79:45'; Extra = ''; Withered = $false;
+       Pattern = '(?ms)^tileReplacement_group0Mapaa:\s*ld bc,\$0218\s*call getVinePosition\s*ret nz\s*ld l,\$77.*?\.db \$46 \$45\s*\.db \$00' },
+    @{ Label = 'tileReplacement_group0Mapcc'; SubId = 3; Target = 0x11;
+       Edge = '00:61,02:5d'; Extra = ''; Withered = $true;
+       Pattern = '(?ms)^tileReplacement_group0Mapcc:\s*ld bc,\$0311\s*call getVinePosition\s*jp nz,setTileToWitheredVine\s*ld l,\$00.*?\.db \$61 \$5d\s*\.db \$00' },
+    @{ Label = 'tileReplacement_group0Mapbc'; SubId = 3; Target = 0x11;
+       Edge = '70:46,72:5c'; Extra = ''; Withered = $false;
+       Pattern = '(?ms)^tileReplacement_group0Mapbc:\s*ld bc,\$0311\s*call getVinePosition\s*ret nz\s*ld l,\$70.*?\.db \$46 \$5c\s*\.db \$00' },
+    @{ Label = 'tileReplacement_group0Mapda'; SubId = 4; Target = 0x18;
+       Edge = '07:61,09:60'; Extra = ''; Withered = $true;
+       Pattern = '(?ms)^tileReplacement_group0Mapda:\s*ld bc,\$0418\s*call getVinePosition\s*jp nz,setTileToWitheredVine\s*ld l,\$07.*?\.db \$61 \$60\s*\.db \$00' },
+    @{ Label = 'tileReplacement_group0Mapca'; SubId = 4; Target = 0x18;
+       Edge = '77:46,79:45'; Extra = ''; Withered = $false;
+       Pattern = '(?ms)^tileReplacement_group0Mapca:\s*ld bc,\$0418\s*call getVinePosition\s*ret nz\s*ld l,\$77.*?\.db \$46 \$45\s*\.db \$00' }
+)
+$vineGrowthOperations =
+    'replace:05:d4|replace:8e:d5|replace:8f:d6|set_below_last:d6:8d'
+foreach ($spec in $tokayVineSpecs) {
+    if ($roomTileChangeSource -notmatch $spec.Pattern) {
+        throw "Tokay Island present-vine routine $($spec.Label) changed."
+    }
+    $address = 0xc8f0 + $spec.SubId
+    $addressText = $address.ToString('x4')
+    $targetText = $spec.Target.ToString('x2')
+    Add-RoomTileChangeRule $spec.Label `
+        "wram_mask_eq:${addressText}:ff:${targetText}" `
+        "set:$($spec.Edge)|${vineGrowthOperations}$($spec.Extra)"
+    if ($spec.Withered) {
+        Add-RoomTileChangeRule $spec.Label `
+            "wram_mask_ne:${addressText}:ff:${targetText}" `
+            "set_wram_position_if_clear:${addressText}:8c"
+    }
+}
+
 # Essence-backed changes.
 Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'essence_set:4' `
     'set:06:b0,07:b0,08:b0,09:b0,16:ef,19:ef,26:ef,29:ef,36:b4,37:b2,38:b2,39:b2'
@@ -301,8 +355,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was neither imported nor deferred."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 36) {
-    throw "Expected 34 flag-backed and 36 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 42) {
+    throw "Expected 34 flag-backed and 42 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
