@@ -1582,6 +1582,21 @@ internal sealed class RoomEntityFactory(
                 return new BoomerangMoblinRoomEntity(
                     moblin, combatSource, soundRequested);
 
+            case EnemyHandlerKind.Leever:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition leeverRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var leever = new LeeverCharacter
+                {
+                    Name = $"Leever_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                leever.Initialize(leeverRecord, room, position, random);
+                return new LeeverRoomEntity(
+                    leever, combatSource, soundRequested);
+
             case EnemyHandlerKind.ArrowMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition arrowMoblinRecord))
@@ -1654,6 +1669,22 @@ internal sealed class RoomEntityFactory(
                 whisp.Initialize(whispRecord, room, position, random);
                 return new WhispRoomEntity(
                     whisp, combatSource, soundRequested);
+
+            case EnemyHandlerKind.SandCrab:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition sandCrabRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var sandCrab = new SandCrabCharacter
+                {
+                    Name = $"SandCrab_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                sandCrab.Initialize(
+                    sandCrabRecord, room, position, random);
+                return new SandCrabRoomEntity(
+                    sandCrab, combatSource, soundRequested);
 
             case EnemyHandlerKind.Thwomp:
                 if (!enemies.TryGetImportedEnemyDefinition(

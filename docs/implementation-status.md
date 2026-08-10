@@ -63,8 +63,10 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   prizes; all five source-placed vine sprouts retain and restore their terrain
   while pushing and persist their room positions, and the southern entrance
   Eyeball/socket sequence places the second eye and opens the doorway with the
-  original timing. The separate Dimitri mount controller and linked-secret
-  input/return generation remain partial shared-system boundaries.
+  original timing. Present Sand Crabs and past red Leevers use their imported
+  non-dungeon placements, source RNG/counters, movement, and combat. The
+  separate Dimitri mount controller and linked-secret input/return generation
+  remain partial shared-system boundaries.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

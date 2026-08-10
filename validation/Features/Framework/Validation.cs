@@ -260,6 +260,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePeahat);
         RunIsolatedValidation(ValidateGraveyardCrowsAndDropProducers);
         RunIsolatedValidation(ValidateOctoroks);
+        RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);
         RunIsolatedValidation(ValidateEnemySwordKnockback);

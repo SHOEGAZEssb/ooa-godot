@@ -206,6 +206,192 @@ public sealed partial class ValidationRoot
             "sword immunity, and grounded vulnerability.");
     }
 
+    private void ValidateTokayIslandEnemies()
+    {
+        var database = new EnemyDatabase();
+        int[] crescentPresentRooms = [0xb9, 0xc9, 0xcb];
+        int[] crescentPastRooms = [0xab, 0xca, 0xcc, 0xdb];
+        List<RoomObjectRecord> sandCrabPlacements = crescentPresentRooms
+            .SelectMany(room => database.GetRoomObjects(0, room))
+            .Where(source => source is
+            {
+                Id: 0x1a,
+                SubId: 0x00,
+                Kind: RoomObjectKind.RandomEnemy or
+                    RoomObjectKind.FixedEnemy
+            })
+            .ToList();
+        List<RoomObjectRecord> leeverPlacements = crescentPastRooms
+            .SelectMany(room => database.GetRoomObjects(1, room))
+            .Where(source => source is
+            {
+                Id: 0x0b,
+                SubId: 0x00,
+                Kind: RoomObjectKind.RandomEnemy or
+                    RoomObjectKind.FixedEnemy
+            })
+            .ToList();
+        FailIf(
+            sandCrabPlacements.Count != 3 ||
+            sandCrabPlacements.Sum(source => source.Count) != 5 ||
+            leeverPlacements.Count != 4 ||
+            leeverPlacements.Sum(source => source.Count) != 4 ||
+            sandCrabPlacements.SingleOrDefault(source => source.Room == 0xcb)
+                is not { Kind: RoomObjectKind.FixedEnemy, Y: 0x28, X: 0x38 },
+            "Crescent Island lost ENEMY_SAND_CRAB $1a:$00 in present rooms " +
+            "0:b9/c9/cb or ENEMY_LEEVER $0b:$00 in past rooms " +
+            "1:ab/ca/cc/db.");
+
+        ImportedEnemyDefinition leeverRecord = database.ImportedEnemy(0x0b);
+        OracleRoomData pastRoom = _world.LoadRoom(1, 0xab);
+        int[] expectedOffsets =
+        [
+            -0x30, -0x40, -0x50, -0x50,
+            0x03, 0x04, 0x05, 0x05,
+            0x30, 0x40, 0x50, 0x50,
+            -0x03, -0x04, -0x05, -0x05
+        ];
+        Vector2I[] facings =
+            [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
+        Vector2 linkPosition = default;
+        Vector2 expectedSpawn = default;
+        Vector2I linkFacing = default;
+        int spawnFrame = -1;
+        for (int tileY = 0; tileY < 8 && spawnFrame < 0; tileY++)
+        for (int tileX = 0; tileX < 10 && spawnFrame < 0; tileX++)
+        for (int direction = 0; direction < 4 && spawnFrame < 0; direction++)
+        for (int frame = 0; frame < 4; frame++)
+        {
+            int linkPacked = tileY * 0x10 + tileX;
+            int candidate = unchecked((byte)(
+                linkPacked + expectedOffsets[direction * 4 + frame]));
+            int candidateY = candidate >> 4;
+            int candidateX = candidate & 0x0f;
+            if (candidateY >= 8 || candidateX >= 10)
+                continue;
+            var point = new Vector2(
+                candidateX * 16 + 8, candidateY * 16 + 8);
+            if (pastRoom.GetTerrainInfo(point) is not
+                { Collision: 0, Hazard: HazardType.None })
+                continue;
+            linkPosition = new Vector2(tileX * 16 + 8, tileY * 16 + 8);
+            expectedSpawn = point;
+            linkFacing = facings[direction];
+            spawnFrame = frame;
+            break;
+        }
+        FailIf(
+            spawnFrame < 0,
+            "Room 1:ab has no source-valid Link-relative Leever spawn cell.");
+
+        var leeverRandom = new OracleRandom();
+        var leever = new LeeverCharacter();
+        leever.Initialize(
+            leeverRecord, pastRoom, expectedSpawn, leeverRandom);
+        leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
+        FailIf(
+            leever.State != LeeverState.Underground ||
+            leever.Counter != 0x50 || leever.Visible ||
+            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            "ENEMY_LEEVER $0b:$00 did not consume one source RNG call for " +
+            $"its initial hidden $50-update delay; state={leever.State}, " +
+            $"counter=${leever.Counter:x2}, visible={leever.Visible}, " +
+            $"collision={leever.CollisionEnabled}, rng={leeverRandom.Calls}.");
+        for (int update = 0; update < 79; update++)
+            leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
+        FailIf(
+            leever.State != LeeverState.Underground || leever.Counter != 1,
+            "ENEMY_LEEVER $0b:$00 crossed its underground zero boundary early.");
+        leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
+        FailIf(
+            leever.State != LeeverState.Emerging ||
+            leever.Position != expectedSpawn || !leever.Visible ||
+            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            $"ENEMY_LEEVER $0b:$00 did not emerge at the source facing/frame " +
+            $"offset in room 1:ab; position={leever.Position}, " +
+            $"expected={expectedSpawn}.");
+        for (int update = 0; update < 27; update++)
+            leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
+        FailIf(
+            leever.State != LeeverState.Emerging ||
+            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            "ENEMY_LEEVER $0b:$00 enabled collision before its complete " +
+            "source emergence animation.");
+        leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
+        FailIf(
+            leever.State != LeeverState.Chasing ||
+            leever.Counter != 0x80 || !leever.CollisionEnabled ||
+            leeverRandom.Calls != 2,
+            "ENEMY_LEEVER $0b:$00 did not enter collision-enabled chasing " +
+            "with the source $70+($38 RNG mask) counter.");
+
+        RoomObjectRecord leeverSource = leeverPlacements[0];
+        var sounds = new List<int>();
+        var leeverEntity = new LeeverRoomEntity(
+            leever,
+            database.EnemyHandlers.ResolveHandler(leeverSource)
+                .CombatSource(leeverSource, killableEnemyIndex: 1),
+            sounds.Add);
+        var spawns = new List<RoomEntitySpawn>();
+        bool leeverHit = leeverEntity.ApplySwordHit(
+            leever.CollisionBounds.Grow(1),
+            leever.Position + Vector2.Left * 12,
+            1,
+            EnemyKnockbackStrength.Normal,
+            spawns);
+        FailIf(
+            !leeverHit || leever.Health != 2 ||
+            leever.InvincibilityCounter != 0x15 ||
+            leever.KnockbackCounter != 0x0b ||
+            sounds is not [OracleSoundEngine.SndDamageEnemy] ||
+            spawns.Count != 0,
+            "Collision-enabled ENEMY_LEEVER $0b:$00 did not use standard " +
+            "damage, invincibility, and knockback handling.");
+
+        ImportedEnemyDefinition crabRecord = database.ImportedEnemy(0x1a);
+        OracleRoomData presentRoom = _world.LoadRoom(0, 0xcb);
+        var crabRandom = new OracleRandom();
+        crabRandom.Next();
+        var crab = new SandCrabCharacter();
+        var crabStart = new Vector2(0x38, 0x28);
+        crab.Initialize(crabRecord, presentRoom, crabStart, crabRandom);
+        crab.UpdateFrame();
+        crab.UpdateFrame();
+        FailIf(
+            crab.State != SandCrabState.Moving || crab.Angle != 0x10 ||
+            crab.Counter != 0x40 || crab.SpeedRaw != 0x0a ||
+            crabRandom.Calls != 2,
+            "ENEMY_SAND_CRAB $1a:$00 did not derive its down/$40/SPEED_40 " +
+            "route from the source high/low RNG bytes.");
+        crab.UpdateFrame();
+        FailIf(
+            crab.State != SandCrabState.ChoosingDirection ||
+            crab.Counter != 0x3f ||
+            crab.Position != crabStart + new Vector2(0, 0.25f),
+            $"ENEMY_SAND_CRAB $1a:$00 did not preserve its fractional " +
+            $"SPEED_40 step before the source no-high-byte movement result " +
+            $"returned it to state 8; position={crab.Position}.");
+
+        LoadValidationRoom(0, 0xb9);
+        FailIf(
+            _entities.Entities<SandCrabCharacter>().Count != 2,
+            "Room 0:b9 did not construct its two ordered Tokay Island " +
+            "ENEMY_SAND_CRAB $1a:$00 instances.");
+        LoadValidationRoom(1, 0xab);
+        FailIf(
+            _entities.Entities<LeeverCharacter>().Count != 1,
+            "Room 1:ab did not construct its ordered Tokay Island " +
+            "ENEMY_LEEVER $0b:$00 instance.");
+
+        leever.Free();
+        crab.Free();
+        GD.Print(
+            "Validated non-dungeon Tokay Island ENEMY_LEEVER $0b:$00 and " +
+            "ENEMY_SAND_CRAB $1a:$00 placements, source RNG/counter order, " +
+            "Leever emergence collision boundary, fractional crab movement, " +
+            "combat, and ordered room construction.");
+    }
+
     private void ValidateObjectSpeedTable()
     {
         OracleObjectSpeedTable speeds = OracleObjectSpeedTable.Shared;
@@ -485,6 +671,32 @@ public sealed partial class ValidationRoot
                 ],
                 [16, 32]) ||
             !ProfileMatches(
+                tables.Leever.Sources,
+                [
+                    tables.Leever.ChaseSpeedRaw,
+                    tables.Leever.SinkSpeedRaw,
+                    tables.Leever.ChaseCounterMask,
+                    tables.Leever.ChaseCounterBase,
+                    tables.Leever.CardinalRounding,
+                    tables.Leever.CardinalMask
+                ],
+                [20, 5, 56, 112, 4, 24]) ||
+            !Values(tables.Leever.UndergroundCounters).SequenceEqual(
+                [16, 48, 80, 112]) ||
+            !Values(tables.Leever.LinkRelativeOffsets).SequenceEqual(
+                [-48, -64, -80, -80, 3, 4, 5, 5,
+                  48,  64,  80,  80, -3, -4, -5, -5]) ||
+            !ProfileMatches(
+                tables.SandCrab.Sources,
+                [
+                    tables.SandCrab.AngleMask,
+                    tables.SandCrab.DurationMask,
+                    tables.SandCrab.DurationBase,
+                    tables.SandCrab.VerticalSpeedRaw,
+                    tables.SandCrab.HorizontalSpeedRaw
+                ],
+                [24, 48, 48, 10, 40]) ||
+            !ProfileMatches(
                 tables.BoomerangMoblin.Sources,
                 [tables.BoomerangMoblin.SpeedRaw],
                 [20]) ||
@@ -683,11 +895,11 @@ public sealed partial class ValidationRoot
             !tables.Wallmaster.Sources[0].Source.Contains(
                 "wallmaster.s",
                 StringComparison.Ordinal),
-            "The 256 imported enemy behavior rows lost a source value, " +
+            "The imported enemy behavior tables lost a source value, " +
             "signed component, runtime index order, or source identity.");
 
         GD.Print(
-            "Validated 256 imported enemy behavior rows: source lookup " +
+            "Validated imported enemy behavior rows: source lookup " +
             "streams plus typed collision, recoil, hazard, bounce, speed, " +
             "counter, gravity, bounds, and projectile profiles.");
     }
@@ -846,12 +1058,14 @@ public sealed partial class ValidationRoot
             [(0x09, 0x01)] = (0x90, EnemySwordResponse.Knockback),
             [(0x09, 0x02)] = (0x90, EnemySwordResponse.Knockback),
             [(0x0a, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x0b, 0x00)] = (0x10, EnemySwordResponse.Knockback),
             [(0x0c, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
             [(0x13, 0x00)] = (0x97, EnemySwordResponse.NoKnockback),
             [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
             [(0x19, 0x00)] = (0x9c, EnemySwordResponse.NoKnockback),
+            [(0x1a, 0x00)] = (0x90, EnemySwordResponse.Knockback),
             [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
             [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
@@ -968,30 +1182,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 386 ||
+                EnemyHandlerClassification.OrderedImplemented) != 409 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 435 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 412 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 588 ||
+                EnemyHandlerClassification.OrderedImplemented) != 616 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 573 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 545 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 35 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 37 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 88 ||
-            combatSourceRows != 377 ||
-            combatSourceFlags.Count != 83 ||
-            expectedCombat.Count != 28 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 86 ||
+            combatSourceRows != 400 ||
+            combatSourceFlags.Count != 88 ||
+            expectedCombat.Count != 30 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -1042,7 +1256,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 821-row implementation " +
-            "classification, 377-row/83-flag typed combat descriptors, " +
+            "classification, 400-row/88-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -1122,7 +1336,7 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,145 clean-US ordered room placement records, mid-stream aliases, " +
             "all 821 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "377 typed combat descriptors across 28 handlers / 83 source-flag " +
+            "400 typed combat descriptors across 30 handlers / 88 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +
             "wrapping, and fixed/unsupported/item reservations before random Keese " +

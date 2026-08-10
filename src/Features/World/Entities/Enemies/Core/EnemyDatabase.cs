@@ -61,9 +61,19 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 19 ||
+        if (_importedDefinitions.Count != 21 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
+            ImportedEnemy(0x0b) is not
+                {
+                    TileBase: 14,
+                    Palette: 2,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 3,
+                    DamageQuarters: 2,
+                    Animations.Length: 3
+                } ||
             ImportedEnemy(0x0c) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
@@ -78,6 +88,16 @@ public sealed class EnemyDatabase
                     Animations.Length: 2
                 } ||
             ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
+            ImportedEnemy(0x1a) is not
+                {
+                    TileBase: 0,
+                    Palette: 3,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 2,
+                    DamageQuarters: 2,
+                    Animations.Length: 1
+                } ||
             ImportedEnemy(0x1b, 0x01) is not
                 { Health: 2, DamageQuarters: 2, Animations.Length: 1 } ||
             ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
@@ -738,6 +758,8 @@ public sealed class EnemyDatabase
             _octorokDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.BoomerangMoblin =>
             HasImportedDefinition(descriptor, 0x0a),
+        EnemyHandlerKind.Leever =>
+            HasImportedDefinition(descriptor, 0x0b),
         EnemyHandlerKind.ArrowMoblin =>
             descriptor.Id is 0x0c or 0x22 &&
             _importedDefinitions.ContainsKey(
@@ -751,6 +773,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x13),
         EnemyHandlerKind.Whisp =>
             HasImportedDefinition(descriptor, 0x19),
+        EnemyHandlerKind.SandCrab =>
+            HasImportedDefinition(descriptor, 0x1a),
         EnemyHandlerKind.Thwomp =>
             HasImportedDefinition(descriptor, 0x2f),
         EnemyHandlerKind.Peahat =>

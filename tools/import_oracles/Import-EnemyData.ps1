@@ -324,18 +324,21 @@ function Get-EnemySpriteSourceGrayscaleInverted([string]$name) {
 
 $commonEnemySprites = @{
     0x0a = @($gfxNames[0x91])
+    0x0b = @($gfxNames[0x8f])
     0x0c = @($gfxNames[0x91])
     0x10 = @($gfxNames[0x9b])
     0x14 = @($gfxNames[0x8c])
     0x17 = @($gfxNames[0x90])
+    0x1a = @($gfxNames[0x94])
     0x1b = @($gfxNames[0x94])
     0x28 = @($gfxNames[0xa0])
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
-    @(0x0a, 0x00), @(0x0c, 0x00), @(0x10, 0x00), @(0x13, 0x00),
+    @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
+    @(0x10, 0x00), @(0x13, 0x00),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
-    @(0x22, 0x00), @(0x28, 0x00), @(0x33, 0x00),
+    @(0x1a, 0x00), @(0x22, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x4a, 0x01), @(0x4d, 0x00)
 )
@@ -366,12 +369,15 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 20 -or
+if ($commonEnemyRows.Count -ne 22 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0c\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^0b\t00\tspr_octorok_leever_tektite_zora\t14\t2\t1\t6\t6\t2\t3\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^10\t00\tspr_gibdo_stalfos_rope_whisp_spark_bubble_beetle\t12\t0\t1\t6\t6\t2\t2\t'
@@ -384,6 +390,9 @@ if ($commonEnemyRows.Count -ne 20 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^1b\t01\tspr_crab_fish_goponga_beetle\t24\t2\t1\t6\t6\t2\t2\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^1a\t00\tspr_crab_fish_goponga_beetle\t0\t3\t1\t6\t6\t2\t2\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
@@ -1369,12 +1378,14 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '09:01' = 'octorok'
     '09:02' = 'octorok'
     '0a:00' = 'boomerang-moblin'
+    '0b:00' = 'leever'
     '0c:00' = 'arrow-moblin'
     '10:00' = 'rope'
     '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
     '19:00' = 'whisp'
+    '1a:00' = 'sand-crab'
     '1b:01' = 'spiny-beetle'
     '20:00' = 'masked-moblin'
     '20:01' = 'masked-moblin'
@@ -1402,7 +1413,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 35 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 37 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1473,9 +1484,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 386 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 409 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 435) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 412) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -2877,6 +2888,48 @@ Add-EnemyBehaviorValueTable 'octorok' 'counter-values' $octorokCounterValues `
 Add-EnemyBehaviorValueTable 'octorok' 'walk-counter-values' $octorokWalkValues `
     'object_code/common/enemies/octorok.s:octorok_walkCounterValues'
 
+$leeverCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\leever.s')
+$leeverCounterValues = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody $leeverCodeSource '@counter1Vals'))
+$leeverSpawnOffsets = @(
+    Read-EnemyBehaviorValues (
+        Get-AssemblyLabelBody $leeverCodeSource '@@linkRelativeOffsets') $true)
+if (($leeverCounterValues -join ',') -ne '16,48,80,112' -or
+    ($leeverSpawnOffsets -join ',') -ne
+        '-48,-64,-80,-80,3,4,5,5,48,64,80,80,-3,-4,-5,-5' -or
+    $leeverCodeSource -notmatch
+        '(?ms)^@state9:.*?ld \(hl\),SPEED_80.*?' +
+        '^@backIntoGround:.*?ld \(hl\),SPEED_20.*?' +
+        '^@setRandomHighCounter1:.*?and \$38\s+add \$70' -or
+    $leeverCodeSource -notmatch
+        '(?ms)^@chooseSpawnPosition:.*?ld a,\(wFrameCounter\)\s+and \$03.*?' +
+        'add \(hl\).*?SMALL_ROOM_HEIGHT<<4.*?SMALL_ROOM_WIDTH') {
+    throw 'Leever counters, Link-relative spawn offsets, or state operands changed.'
+}
+Add-EnemyBehaviorValueTable 'leever' 'underground-counters' `
+    $leeverCounterValues `
+    'object_code/common/enemies/leever.s:@counter1Vals'
+Add-EnemyBehaviorValueTable 'leever' 'link-relative-offsets' `
+    $leeverSpawnOffsets `
+    'object_code/common/enemies/leever.s:@@linkRelativeOffsets'
+Add-EnemyBehaviorProfile 'leever' 'state-profile' `
+    @(0x14, 0x05, 0x38, 0x70, 0x04, 0x18) `
+    'object_code/common/enemies/leever.s:state-entry-operands'
+
+$sandCrabCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\sandCrab.s')
+if ($sandCrabCodeSource -notmatch
+        '(?ms)^@state8:.*?ldbc \$18,\$30.*?ld a,\$30\s+add c.*?' +
+        'bit 3,b\s+ld a,SPEED_40.*?ld a,SPEED_100.*?' +
+        '^@state9:.*?ecom_applyVelocityForSideviewEnemyNoHoles') {
+    throw 'Sand Crab RNG masks, counters, directional speeds, or movement helper changed.'
+}
+Add-EnemyBehaviorProfile 'sand-crab' 'state-profile' `
+    @(0x18, 0x30, 0x30, 0x0a, 0x28) `
+    'object_code/common/enemies/sandCrab.s:state-entry-operands'
+
 $boomerangMoblinCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\boomerangMoblin.s')
 $boomerangMoblinCounterBlock = [regex]::Match(
@@ -3605,8 +3658,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 346) {
-    throw "Expected 345 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 377) {
+    throw "Expected 376 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

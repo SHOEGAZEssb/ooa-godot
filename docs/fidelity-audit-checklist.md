@@ -253,9 +253,11 @@ that ledger instead of duplicating its 211-room inventory.
   roster, sword/projectile hits, damage blink, recoil, hazards, death puffs,
   kill/drop counters, item drops, and hostile-projectile lifecycle.
 - [x] Focused implementations inspected: Octorok `$09:$00-$02`, Boomerang
-  Moblin `$0a:$00`, Arrow Moblin `$0c:$00`, Rope `$10:$00`, Spark `$13:$00`,
-  Spiked Beetle `$14:$00`, Ghini `$17:$00`, Whisp `$19:$00`, Spiny Beetle
-  `$1b:$01`, Masked Moblin `$20:$00/$01`, Arrow Shrouded Stalfos `$22:$00`,
+  Moblin `$0a:$00`, Leever `$0b:$00`, Arrow Moblin `$0c:$00`, Rope `$10:$00`,
+  Spark `$13:$00`,
+  Spiked Beetle `$14:$00`, Ghini `$17:$00`, Whisp `$19:$00`, Sand Crab
+  `$1a:$00`, Spiny Beetle `$1b:$01`, Masked Moblin `$20:$00/$01`, Arrow
+  Shrouded Stalfos `$22:$00`,
   Wallmaster `$28:$00`, Thwomp `$2f:$00`, Stalfos `$31:$00`, Keese
   `$32:$00/$01`, Zol `$34:$00/$01`, Peahat `$3e:$00`, Crow `$41:$00`, Gel
   `$43:$00`, Color-changing Gel `$47:$00`, Sword Shrouded Stalfos `$49:$00`,
@@ -275,7 +277,7 @@ until the corresponding native handler and its used subids are source-traced,
 implemented, and covered.
 
 - [ ] `ENEMY_RIVER_ZORA` `$08:$00`
-- [ ] `ENEMY_LEEVER` `$0b:$00/$01`
+- [ ] `ENEMY_LEEVER` `$0b:$01`
 - [ ] `ENEMY_ARROW_MOBLIN` `$0c:$01`
 - [ ] `ENEMY_LYNEL` `$0d:$00/$01`
 - [ ] `ENEMY_BLADE_TRAP` `$0e:$00/$01/$05`
@@ -285,7 +287,6 @@ implemented, and covered.
 - [ ] `ENEMY_BEAMOS` `$16:$00`
 - [ ] `ENEMY_GHINI` `$17:$01/$02`
 - [ ] `ENEMY_BUZZBLOB` `$18:$00`
-- [ ] `ENEMY_SAND_CRAB` `$1a:$00`
 - [ ] `ENEMY_SPINY_BEETLE` `$1b:$00/$03`
 - [ ] `ENEMY_IRON_MASK` `$1c:$00`
 - [ ] `ENEMY_ARROW_DARKNUT` `$21:$00/$01`

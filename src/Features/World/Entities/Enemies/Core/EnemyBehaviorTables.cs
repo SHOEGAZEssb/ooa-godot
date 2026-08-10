@@ -50,6 +50,8 @@ internal sealed class EnemyBehaviorTables
     internal GelBehaviorProfile Gel { get; }
     internal ZolBehaviorProfile Zol { get; }
     internal OctorokBehaviorProfile Octorok { get; }
+    internal LeeverBehaviorProfile Leever { get; }
+    internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
     internal GhiniBehaviorProfile Ghini { get; }
@@ -297,6 +299,31 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "octorok", "state-profile", 2);
         Octorok = new(values[0].Value, values[1].Value, values);
 
+        values = TakeValues(groups, "leever", "state-profile", 6);
+        EnemyBehaviorValue[] leeverUndergroundCounters = TakeValues(
+            groups, "leever", "underground-counters", 4);
+        EnemyBehaviorValue[] leeverLinkRelativeOffsets = TakeValues(
+            groups, "leever", "link-relative-offsets", 16);
+        Leever = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            leeverUndergroundCounters,
+            leeverLinkRelativeOffsets,
+            values);
+
+        values = TakeValues(groups, "sand-crab", "state-profile", 5);
+        SandCrab = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values);
+
         values = TakeValues(groups, "boomerang-moblin", "state-profile", 1);
         BoomerangMoblin = new(values[0].Value, values);
 
@@ -454,10 +481,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 345 || groups.Count != 0)
+        if (table.Rows.Count != 376 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 345 rows and no " +
+                $"Enemy behavior table contract expected 376 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -647,6 +674,25 @@ internal readonly record struct ZolBehaviorProfile(
 internal readonly record struct OctorokBehaviorProfile(
     int ShootDelayFrames,
     int PostShotWaitFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct LeeverBehaviorProfile(
+    int ChaseSpeedRaw,
+    int SinkSpeedRaw,
+    int ChaseCounterMask,
+    int ChaseCounterBase,
+    int CardinalRounding,
+    int CardinalMask,
+    IReadOnlyList<EnemyBehaviorValue> UndergroundCounters,
+    IReadOnlyList<EnemyBehaviorValue> LinkRelativeOffsets,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct SandCrabBehaviorProfile(
+    int AngleMask,
+    int DurationMask,
+    int DurationBase,
+    int VerticalSpeedRaw,
+    int HorizontalSpeedRaw,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct BoomerangMoblinBehaviorProfile(
