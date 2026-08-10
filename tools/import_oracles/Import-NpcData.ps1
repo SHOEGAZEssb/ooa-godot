@@ -2272,6 +2272,15 @@ function Resolve-TokayText(
         $jumpedId = [Convert]::ToInt32($jump.Groups['id'].Value, 16)
         $message = $message.Substring(0, $jump.Index) +
             (Resolve-TokayText $jumpedId $visited)
+    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
+        $successorId = [int]$allTextFallthroughIds[$textId]
+        # An unterminated trailing \n is a complete text command in the ROM.
+        # Resolve it before adjoining the successor so the runtime command
+        # scanner cannot greedily consume the successor's first word.
+        if ($message.EndsWith('\n', [StringComparison]::Ordinal)) {
+            $message = $message.Substring(0, $message.Length - 2) + "`n"
+        }
+        $message += Resolve-TokayText $successorId $visited
     }
     [void]$visited.Remove($textId)
     return $message
@@ -2283,6 +2292,11 @@ $tokayTextIds = @(
     0x0a60..0x0a6c
     0x1c10..0x1c12
 ) | Sort-Object -Unique
+if (-not $allTextFallthroughIds.ContainsKey(0x0a11) -or
+    $allTextFallthroughIds[0x0a11] -ne 0x0a12 -or
+    -not $allTexts[0x0a11].EndsWith('\n', [StringComparison]::Ordinal)) {
+    throw 'Wild Tokay replay prompt TX_0a11 no longer falls through into TX_0a12.'
+}
 foreach ($textId in $tokayTextIds) {
     if (-not $allTexts.ContainsKey($textId)) {
         throw "Could not resolve Tokay Island TX_$($textId.ToString('x4'))."

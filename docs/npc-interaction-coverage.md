@@ -138,7 +138,9 @@ classified records and 156 specialized rows.
   tables with four 60-update spawn slots plus the fifth reset slot, all six
   imported prize
   accessories, the manager's 10-update raise/40-update hold/20-update lower
-  cadence with animations `$06`/`$02`, the full-screen white start and
+  cadence with animations `$06`/`$02`, the post-seedling `TX_0a11` fallthrough
+  into `TX_0a12`'s complete replay price/choice and decline branch, the
+  full-screen white start and
   same-room result fades, room-music restoration at the return boundary,
   the manager's post-warp `$48,$50` Link-position override,
   the controller's 30/10-update start waits, all six ordered arena tile writes (the

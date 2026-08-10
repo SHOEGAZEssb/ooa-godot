@@ -1399,6 +1399,50 @@ public sealed partial class ValidationRoot
             "Cancelling Wild Tokay did not remove the caught-meat accessory, " +
             "restore Link's equips/control and arena tiles, or release exits.");
 
+        // Once the Scent Seedling has been awarded, TX_0a11 is deliberately
+        // unterminated and falls through into TX_0a12's replay price/options.
+        // Exercise the manager from that live level-1 state and deny the game.
+        FailIf(
+            !_inventory.HasTreasure(database.TreasureScentSeedling) ||
+            _saveData.ReadWramByte(wildDatabase.WildLevelAddress) != 1 ||
+            !manager.Active || !wildTokay.TryInteractNpc(manager),
+            "Wild Tokay post-seedling replay setup did not retain the reward, " +
+            "level 1, and active past manager.");
+        _dialogue.Close();
+        StepRoomEventFrames(51);
+        string replayPrompt = database.Text(0x0a11);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.PastManagerPlayPrompt ||
+            !_dialogue.IsOpen || !_dialogue.ChoiceActive ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(replayPrompt) ||
+            !replayPrompt.Contains(
+                "take the Wild\nTokay challenge!", StringComparison.Ordinal) ||
+            !replayPrompt.Contains(
+                "\\opt()OK \\opt()No thanks", StringComparison.Ordinal),
+            "Wild Tokay level-1 TX_0a11 did not fall through into TX_0a12's " +
+            "complete replay price and choices.");
+        _dialogue.SubmitChoiceForValidation(1);
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Wait ||
+            wildTokay.Counter != 20,
+            "Denying the post-seedling Wild Tokay replay did not enter the " +
+            "source 20-update decline wait.");
+        StepRoomEventFrames(20);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.PastManagerDeclined ||
+            !_dialogue.IsOpen ||
+            _dialogue.CurrentMessage !=
+                DialogueBox.PlainText(database.Text(0x0a1a)),
+            "Denying the post-seedling Wild Tokay replay did not lower the " +
+            "prize and show TX_0a1a.");
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(
+            wildTokay.Stage != WildTokayGameStage.Inactive ||
+            _player.CutsceneControlled,
+            "The denied post-seedling Wild Tokay replay did not release Link.");
+
         int maxBombsBefore = _inventory.MaxBombs;
         _inventory.ApplyTokayBombCapacityUpgrade();
         int expectedBombCapacity = (maxBombsBefore + 0x20) & 0xff;
@@ -1420,6 +1464,7 @@ public sealed partial class ValidationRoot
             "boundaries, four-door arena writes, exit confinement, exact " +
             "fixed-point throws and source bounce, caught-meat attachment/pause, " +
             "same-room result fades, manager-owned `$48,$50 Link return, room-music " +
-            "restoration, delayed winning prize handoff, and restoration.");
+            "restoration, delayed winning prize handoff, post-seedling replay " +
+            "fallthrough/decline, and restoration.");
     }
 }

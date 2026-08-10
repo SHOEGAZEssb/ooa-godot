@@ -85,7 +85,8 @@ $stageContracts = @(
             'treasureObjectRecords', 'treasureObjectSource')
     New-ImportStageContract 'npcs' 'Import-NpcData.ps1' `
         -inputs @(
-            'allTextPositions', 'allTexts', 'globalFlagValues',
+            'allTextFallthroughIds', 'allTextPositions', 'allTexts',
+            'globalFlagValues',
             'npcInteractionIds', 'objectGfxHeaderSource', 'paletteHeaderSource',
             'singleTileChangeRecords', 'soundIds', 'tilesetRecordSize',
             'treasureIds', 'treasureObjectRecords') `
