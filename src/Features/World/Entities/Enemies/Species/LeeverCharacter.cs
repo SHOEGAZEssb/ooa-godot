@@ -55,8 +55,7 @@ internal partial class LeeverCharacter : EnemyCharacter
         switch (_state)
         {
             case LeeverState.Uninitialized:
-                _state = LeeverState.Underground;
-                SetRandomUndergroundCounter();
+                PrepareForScreenTransition();
                 return;
 
             case LeeverState.Underground:
@@ -132,6 +131,20 @@ internal partial class LeeverCharacter : EnemyCharacter
                 AdvanceAnimation();
                 return;
         }
+    }
+
+    /// <summary>
+    /// ENEMY_LEEVER state 0 consumes one global RNG value, installs state $08
+    /// and its underground counter, and intentionally remains hidden while
+    /// the destination room is preloaded. State-$08 timing stays frozen until
+    /// scrolling completes.
+    /// </summary>
+    internal void PrepareForScreenTransition()
+    {
+        if (_state != LeeverState.Uninitialized)
+            return;
+        _state = LeeverState.Underground;
+        SetRandomUndergroundCounter();
     }
 
     private bool TryChooseSpawnPosition(

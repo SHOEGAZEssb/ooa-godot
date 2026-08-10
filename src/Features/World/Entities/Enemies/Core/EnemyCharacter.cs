@@ -351,6 +351,52 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    /// <summary>
+    /// Applies ENEMYDMG_$10/$14/$18 using the corresponding imported common
+    /// damage-table row. Shield collision mode $10 uses the first two rows.
+    /// </summary>
+    private protected void ApplyCollisionBump(
+        Vector2 sourcePosition,
+        EnemyKnockbackStrength strength)
+    {
+        int profileIndex =
+            (int)strength - (int)EnemyKnockbackStrength.Low;
+        if (profileIndex < 0 ||
+            profileIndex >= _behavior.EnemySwordDamageProfiles.Count - 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(strength), strength, "Unknown enemy bump strength.");
+        }
+        EnemyBehaviorPair profile =
+            _behavior.EnemySwordDamageProfiles[profileIndex];
+        ApplyCollisionBump(
+            sourcePosition,
+            profile.First,
+            profile.Second);
+    }
+
+    internal bool TryApplyShieldBump(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        EnemyKnockbackStrength strength)
+    {
+        if (IsDead || !CollisionEnabled || InvincibilityCounter != 0 ||
+            !hitbox.Intersects(CollisionBounds))
+        {
+            return false;
+        }
+        if (_knockbackMotion == EnemyKnockbackMotion.None ||
+            _knockbackRoom is null)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} accepted a shield bump without a " +
+                "movement policy.");
+        }
+
+        ApplyCollisionBump(sourcePosition, strength);
+        return true;
+    }
+
     protected virtual int SwordInvincibilityFrames =>
         _behavior.EnemySwordDamageProfiles[1].First;
 

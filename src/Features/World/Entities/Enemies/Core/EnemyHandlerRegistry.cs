@@ -23,7 +23,8 @@ internal sealed class EnemyHandlerRegistry
                 GeneratedTableKeySemantics.Unique,
                 [
                     "id", "subid", "collision-mode", "classification",
-                    "handler", "enemy-name", "source"
+                    "handler", "enemy-name", "source", "shield-l1-effect",
+                    "shield-l2-effect", "shield-l3-effect", "shield-source"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -36,7 +37,11 @@ internal sealed class EnemyHandlerRegistry
                 ParseClassification(row, 3),
                 ParseHandler(row, 4),
                 row.RequiredString(5),
-                row.RequiredString(6));
+                row.RequiredString(6),
+                row.HexByte(7),
+                row.HexByte(8),
+                row.HexByte(9),
+                row.RequiredString(10));
             ValidateDescriptor(row, descriptor);
             if (!_handlers.TryAdd(
                 (descriptor.Id, descriptor.SubId), descriptor))
@@ -216,7 +221,11 @@ internal sealed record EnemyHandlerDescriptor(
     EnemyHandlerClassification Classification,
     EnemyHandlerKind Handler,
     string EnemyName,
-    string Source)
+    string Source,
+    int ShieldLevel1Effect,
+    int ShieldLevel2Effect,
+    int ShieldLevel3Effect,
+    string ShieldSource)
 {
     internal bool SupportsOrderedConstruction =>
         Classification == EnemyHandlerClassification.OrderedImplemented;
@@ -265,7 +274,11 @@ internal sealed record EnemyHandlerDescriptor(
             objectFlags,
             killableEnemyIndex,
             Handler,
-            source);
+            source,
+            ShieldLevel1Effect,
+            ShieldLevel2Effect,
+            ShieldLevel3Effect,
+            ShieldSource);
     }
 }
 

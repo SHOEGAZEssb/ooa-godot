@@ -94,19 +94,22 @@ internal sealed class EnemyCombatComponent(
 internal sealed class EnemyCombatDescriptor
 {
     private readonly Func<RoomEnemyOutcome>? _completedOutcome;
+    private readonly Action<int>? _soundRequested;
 
     private EnemyCombatDescriptor(
         EnemyCombatComponent combat,
         bool countsAsEnemy,
         int killableEnemyIndex,
         Func<RoomEnemyOutcome>? completedOutcome,
-        EnemyCombatSourceDescriptor? source)
+        EnemyCombatSourceDescriptor? source,
+        Action<int>? soundRequested)
     {
         Combat = combat;
         CountsAsEnemy = countsAsEnemy;
         KillableEnemyIndex = killableEnemyIndex;
         _completedOutcome = completedOutcome;
         Source = source;
+        _soundRequested = soundRequested;
     }
 
     internal EnemyCombatComponent Combat { get; }
@@ -151,14 +154,15 @@ internal sealed class EnemyCombatDescriptor
                     soundRequested(acceptedHitSound);
             });
         return FromSource(
-            source, combat, swordResponse, completedOutcome);
+            source, combat, swordResponse, completedOutcome, soundRequested);
     }
 
     internal static EnemyCombatDescriptor FromSource(
         EnemyCombatSourceDescriptor source,
         EnemyCombatComponent combat,
         EnemySwordResponse swordResponse,
-        Func<RoomEnemyOutcome>? completedOutcome = null)
+        Func<RoomEnemyOutcome>? completedOutcome = null,
+        Action<int>? soundRequested = null)
     {
         source.ValidateSwordResponse(swordResponse);
         return new EnemyCombatDescriptor(
@@ -166,7 +170,8 @@ internal sealed class EnemyCombatDescriptor
             source.CountsAsEnemy,
             source.KillableEnemyIndex,
             completedOutcome,
-            source);
+            source,
+            soundRequested);
     }
 
     internal static EnemyCombatDescriptor Special(
@@ -179,7 +184,11 @@ internal sealed class EnemyCombatDescriptor
             countsAsEnemy,
             killableEnemyIndex,
             completedOutcome,
-            source: null);
+            source: null,
+            soundRequested: null);
+
+    internal void RequestSound(int sound) =>
+        _soundRequested?.Invoke(sound);
 
     internal RoomEnemyOutcome CompletedOutcome(EnemyCharacter enemy) =>
         _completedOutcome?.Invoke() ??
@@ -195,10 +204,39 @@ internal readonly record struct EnemyCombatSourceDescriptor(
     int ObjectFlags,
     int KillableEnemyIndex,
     EnemyHandlerKind Handler,
-    string Source)
+    string Source,
+    int ShieldLevel1Effect = 0,
+    int ShieldLevel2Effect = 0,
+    int ShieldLevel3Effect = 0,
+    string ShieldSource = "unavailable")
 {
     internal bool CountsAsEnemy => (ObjectFlags & 0x02) == 0;
     internal bool CollisionInitiallyEnabled => (CollisionMode & 0x80) != 0;
+
+    internal EnemyShieldBumpResponse? ShieldBumpResponse(int shieldLevel)
+    {
+        int effect = shieldLevel switch
+        {
+            1 => ShieldLevel1Effect,
+            2 => ShieldLevel2Effect,
+            3 => ShieldLevel3Effect,
+            _ => 0
+        };
+        return effect switch
+        {
+            // collisionEffect0f applies LINKDMG_$10 / ENEMYDMG_$10.
+            0x0f => new EnemyShieldBumpResponse(
+                EnemyKnockbackStrength.Low,
+                LinkInvincibilityFrames: 0x08,
+                LinkKnockbackFrames: 0x0b),
+            // collisionEffect10 applies LINKDMG_$14 / ENEMYDMG_$14.
+            0x10 => new EnemyShieldBumpResponse(
+                EnemyKnockbackStrength.Normal,
+                LinkInvincibilityFrames: 0x0f,
+                LinkKnockbackFrames: 0x13),
+            _ => null
+        };
+    }
 
     internal void ValidateSwordResponse(EnemySwordResponse response)
     {
@@ -228,6 +266,11 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         }
     }
 }
+
+internal readonly record struct EnemyShieldBumpResponse(
+    EnemyKnockbackStrength EnemyStrength,
+    int LinkInvincibilityFrames,
+    int LinkKnockbackFrames);
 
 internal enum EnemySwordResponse
 {

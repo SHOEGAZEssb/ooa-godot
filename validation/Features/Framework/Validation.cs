@@ -263,6 +263,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);
+        RunIsolatedValidation(ValidateEnemyShieldBumps);
         RunIsolatedValidation(ValidateEnemySwordKnockback);
         RunIsolatedValidation(ValidateEnemyDamageBlink);
         RunIsolatedValidation(ValidateEnemyHazards);

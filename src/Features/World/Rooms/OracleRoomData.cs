@@ -372,7 +372,23 @@ public sealed class OracleRoomData
             activeHeaders, destinationTile, out _, out _);
     }
 
-    public bool IsSolid(Vector2 localPoint)
+    public bool IsSolid(Vector2 localPoint) =>
+        IsSolid(localPoint, SpecialCollisionMasks);
+
+    /// <summary>
+    /// Applies checkTileCollisionAt_disallowHoles when holesAreWalls is true.
+    /// In the source, SPECIALCOLLISION_HOLE $10 also covers water and lava.
+    /// </summary>
+    internal bool IsSolidForEnemyMovement(
+        Vector2 localPoint,
+        bool holesAreWalls) =>
+        IsSolid(
+            localPoint,
+            holesAreWalls
+                ? EnemySpecialCollisionMasks
+                : SpecialCollisionMasks);
+
+    private bool IsSolid(Vector2 localPoint, byte[] specialCollisionMasks)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
@@ -388,15 +404,12 @@ public sealed class OracleRoomData
         int inTileX = Mathf.PosMod(Mathf.FloorToInt(localPoint.X), MetatileSize);
         int inTileY = Mathf.PosMod(Mathf.FloorToInt(localPoint.Y), MetatileSize);
 
-        if (collision == 0x10)
-            return false;
-
-        if (collision is >= 0x11 and <= 0x1f)
+        if (collision is >= 0x10 and <= 0x1f)
         {
             // Port of bank0.s:@specialCollisions for Link. Values $11-$17
             // describe eight two-pixel vertical strips; $18-$1f describe
             // horizontal strips. In particular, stairs ($18) are fully open.
-            byte mask = SpecialCollisionMasks[collision - 0x10];
+            byte mask = specialCollisionMasks[collision - 0x10];
             int axisPosition = collision < 0x18 ? inTileX : inTileY;
             int strip = axisPosition >> 1;
             return (mask & (1 << strip)) != 0;
@@ -945,6 +958,12 @@ public sealed class OracleRoomData
     {
         0x00, 0xc3, 0x03, 0xc0, 0x00, 0xc3, 0xc3, 0x00,
         0x00, 0xc3, 0x03, 0xc0, 0xc0, 0xc1, 0xff, 0x00
+    };
+
+    private static readonly byte[] EnemySpecialCollisionMasks =
+    {
+        0xff, 0xc3, 0x03, 0xc0, 0x00, 0xc3, 0xc3, 0x00,
+        0x00, 0xc3, 0x03, 0xc0, 0xc1, 0xc1, 0xff, 0xff
     };
 
     private static TerrainType GetTerrainType(int activeCollisions, byte tile)

@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class LeeverRoomEntity
-    : CombatEnemyRoomEntityAdapter<LeeverCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<LeeverCharacter>, IFixedRoomEntity,
+        IScreenTransitionPreloadRoomEntity
 {
     internal LeeverRoomEntity(
         LeeverCharacter leever,
@@ -32,4 +33,11 @@ internal sealed class LeeverRoomEntity
             frame.Player.Position,
             frame.Player.FacingVector,
             frame.Counter);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Hidden;
+    }
 }

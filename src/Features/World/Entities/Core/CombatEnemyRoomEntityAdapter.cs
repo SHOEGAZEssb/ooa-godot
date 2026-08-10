@@ -34,8 +34,31 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public int CollisionZ => collisionZ?.Invoke() ?? 0;
     public virtual void HandleLinkContact(Player player)
     {
-        if (!_seedBurning || !FreezesDuringSeedBurn)
-            combatDescriptor.Combat.HandleLinkContact(player);
+        if (_seedBurning && FreezesDuringSeedBurn)
+            return;
+
+        if (player.IsUsingShield &&
+            combatDescriptor.Source is { } source &&
+            source.ShieldBumpResponse(player.Inventory.ShieldLevel) is
+                { } response &&
+            combatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
+        {
+            if (player.CanAcceptShieldCollision &&
+                Entity.TryApplyShieldBump(
+                player.ShieldCollisionBounds,
+                player.ShieldCollisionBounds.GetCenter(),
+                response.EnemyStrength))
+            {
+                player.ApplyShieldCollisionRecoil(
+                    Entity.Position,
+                    response.LinkInvincibilityFrames,
+                    response.LinkKnockbackFrames);
+                combatDescriptor.RequestSound(OracleSoundEngine.SndBombLand);
+            }
+            return;
+        }
+
+        combatDescriptor.Combat.HandleLinkContact(player);
     }
     public virtual bool ApplySwordHit(
         Rect2 hitbox,

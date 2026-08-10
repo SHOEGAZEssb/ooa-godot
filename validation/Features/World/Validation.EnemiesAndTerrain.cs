@@ -372,24 +372,102 @@ public sealed partial class ValidationRoot
             $"SPEED_40 step before the source no-high-byte movement result " +
             $"returned it to state 8; position={crab.Position}.");
 
+        OracleRoomData shoreRoom = _world.LoadRoom(0, 0xb9);
+        var shoreRandom = new OracleRandom();
+        for (int call = 0; call < 7; call++)
+            shoreRandom.Next();
+        var shoreCrab = new SandCrabCharacter();
+        var shorePosition = new Vector2(0x46, 0x28);
+        shoreCrab.Initialize(
+            crabRecord, shoreRoom, shorePosition, shoreRandom);
+        shoreCrab.UpdateFrame();
+        shoreCrab.UpdateFrame();
+        FailIf(
+            shoreCrab.Angle != 0x18 ||
+            shoreRoom.GetTerrainInfo(new Vector2(0x3f, 0x28)) is not
+                { Collision: 0x10, Hazard: HazardType.Water },
+            "Room 0:b9 did not provide the source left-facing Sand Crab " +
+            "ocean-boundary fixture.");
+        shoreCrab.UpdateFrame();
+        FailIf(
+            shoreCrab.State != SandCrabState.ChoosingDirection ||
+            shoreCrab.Position != shorePosition,
+            $"ENEMY_SAND_CRAB $1a:$00 crossed SPECIALCOLLISION_HOLE $10 " +
+            $"during ecom_applyVelocityForSideviewEnemyNoHoles; " +
+            $"position={shoreCrab.Position}.");
+
+        EnemyCombatSourceDescriptor crabCombat = database.EnemyHandlers
+            .ResolveHandler(sandCrabPlacements[0])
+            .CombatSource(sandCrabPlacements[0], killableEnemyIndex: 1);
+        EnemyShieldBumpResponse? woodenShieldBump =
+            crabCombat.ShieldBumpResponse(shieldLevel: 1);
+        bool shieldBump = woodenShieldBump is { } crabBump &&
+            shoreCrab.TryApplyShieldBump(
+                shoreCrab.CollisionBounds,
+                shoreCrab.Position + Vector2.Right * 12,
+                crabBump.EnemyStrength);
+        for (int update = 0; update < 11; update++)
+            shoreCrab.UpdateFrame();
+        var bumpedPosition = new Vector2(0x30, 0x28);
+        FailIf(
+            !shieldBump || shoreCrab.KnockbackCounter != 0 ||
+            shoreCrab.Position != bumpedPosition ||
+            shoreRoom.GetTerrainInfo(shoreCrab.Position) is not
+                { Collision: 0x10, Hazard: HazardType.Water },
+            $"The wooden-shield ENEMYDMG_$14 path did not preserve the " +
+            $"original Sand Crab ocean-bump bug; position={shoreCrab.Position}, " +
+            $"counter={shoreCrab.KnockbackCounter}.");
+        shoreCrab.UpdateFrame();
+        shoreCrab.UpdateFrame();
+        FailIf(
+            shoreCrab.Position != bumpedPosition ||
+            shoreCrab.State != SandCrabState.ChoosingDirection,
+            "A shield-bumped ENEMY_SAND_CRAB $1a:$00 walked farther through " +
+            "ocean after returning to its no-holes movement state.");
+
         LoadValidationRoom(0, 0xb9);
         FailIf(
             _entities.Entities<SandCrabCharacter>().Count != 2,
             "Room 0:b9 did not construct its two ordered Tokay Island " +
             "ENEMY_SAND_CRAB $1a:$00 instances.");
-        LoadValidationRoom(1, 0xab);
+
+        int randomCallsBeforePreload = _entities.RandomCalls;
+        _entities.BeginScreenTransition(
+            1,
+            pastRoom,
+            Vector2.Left * pastRoom.Width);
+        LeeverCharacter incomingLeever =
+            _entities.Entities<LeeverCharacter>().Single();
         FailIf(
-            _entities.Entities<LeeverCharacter>().Count != 1,
-            "Room 1:ab did not construct its ordered Tokay Island " +
-            "ENEMY_LEEVER $0b:$00 instance.");
+            incomingLeever.State != LeeverState.Underground ||
+            incomingLeever.Visible ||
+            incomingLeever.Counter is not (0x10 or 0x30 or 0x50 or 0x70) ||
+            _entities.RandomCalls <= randomCallsBeforePreload ||
+            incomingLeever.TransitionDrawOffset !=
+                Vector2.Left * pastRoom.Width,
+            "Room 1:ab did not resolve its hidden ENEMY_LEEVER $0b:$00 " +
+            "state-0 RNG/counter/presentation during destination preload.");
+        int frozenLeeverCounter = incomingLeever.Counter;
+        int frozenPreloadRandomCalls = _entities.RandomCalls;
+        _entities.Update(1.0, _player);
+        FailIf(
+            incomingLeever.State != LeeverState.Underground ||
+            incomingLeever.Visible ||
+            incomingLeever.Counter != frozenLeeverCounter ||
+            _entities.RandomCalls != frozenPreloadRandomCalls,
+            "Room 1:ab advanced its hidden ENEMY_LEEVER $0b:$00 state $08 " +
+            "while the destination room was still scrolling.");
+        _entities.FinishScreenTransition();
 
         leever.Free();
         crab.Free();
+        shoreCrab.Free();
         GD.Print(
             "Validated non-dungeon Tokay Island ENEMY_LEEVER $0b:$00 and " +
             "ENEMY_SAND_CRAB $1a:$00 placements, source RNG/counter order, " +
             "Leever emergence collision boundary, fractional crab movement, " +
-            "combat, and ordered room construction.");
+            "normal ocean blocking, the shield-bump ocean bug, combat, and " +
+            "ordered room construction including hidden Leever preload.");
     }
 
     private void ValidateObjectSpeedTable()
@@ -3246,6 +3324,271 @@ public sealed partial class ValidationRoot
             "cancellation, one SND_DAMAGE_ENEMY per accepted ordinary hit, " +
             "handler pause/resume, lethal-hit ordering, and Zol no-knockback " +
             "effect $0b.");
+    }
+
+    private void ValidateEnemyShieldBumps()
+    {
+        var database = new EnemyDatabase();
+        var expectedEffects = new Dictionary<int, (int L1, int L2, int L3)>
+        {
+            [0x10] = (0x10, 0x0f, 0x0f),
+            [0x11] = (0x10, 0x0f, 0x0f),
+            [0x14] = (0x10, 0x0f, 0x0f),
+            [0x17] = (0x00, 0x00, 0x05),
+            [0x18] = (0x10, 0x0f, 0x0f),
+            [0x1a] = (0x00, 0x00, 0x0f),
+            [0x1c] = (0x00, 0x00, 0x05),
+            [0x1f] = (0x10, 0x0f, 0x0f),
+            [0x25] = (0x00, 0x00, 0x00),
+            [0x28] = (0x07, 0x06, 0x06),
+            [0x29] = (0x10, 0x0f, 0x0f),
+            [0x31] = (0x10, 0x0f, 0x0f),
+            [0x33] = (0x00, 0x00, 0x00),
+            [0x36] = (0x10, 0x0f, 0x0f),
+            [0x38] = (0x10, 0x10, 0x10),
+            [0x58] = (0x06, 0x05, 0x05),
+            [0x6e] = (0x00, 0x00, 0x00),
+            [0x7d] = (0x10, 0x0f, 0x0f),
+            [0x7e] = (0x10, 0x0f, 0x0f)
+        };
+        var auditedCombatKeys = new HashSet<(int Id, int SubId)>();
+        var auditedNonCombatKeys = new HashSet<(int Id, int SubId)>();
+        for (int group = 0; group < 6; group++)
+        for (int room = 0; room < 0x100; room++)
+        foreach (RoomObjectRecord source in database.GetRoomObjects(group, room))
+        {
+            if (source.Kind is not (RoomObjectKind.RandomEnemy or
+                RoomObjectKind.FixedEnemy))
+            {
+                continue;
+            }
+
+            EnemyHandlerDescriptor handler =
+                database.EnemyHandlers.ResolveHandler(source);
+            if (handler.Classification !=
+                EnemyHandlerClassification.OrderedImplemented)
+            {
+                continue;
+            }
+            if (!handler.SupportsCombatSource)
+            {
+                auditedNonCombatKeys.Add((handler.Id, handler.SubId));
+                continue;
+            }
+
+            EnemyCombatSourceDescriptor combat =
+                handler.CombatSource(source, killableEnemyIndex: 1);
+            int mode = combat.CollisionMode & 0x7f;
+            FailIf(
+                !expectedEffects.TryGetValue(mode, out var effects) ||
+                combat.ShieldLevel1Effect != effects.L1 ||
+                combat.ShieldLevel2Effect != effects.L2 ||
+                combat.ShieldLevel3Effect != effects.L3 ||
+                combat.ShieldBumpResponse(1) != BumpResponse(effects.L1) ||
+                combat.ShieldBumpResponse(2) != BumpResponse(effects.L2) ||
+                combat.ShieldBumpResponse(3) != BumpResponse(effects.L3) ||
+                combat.ShieldSource !=
+                    "data/ages/objectCollisionTable.s:" +
+                    $"objectCollisionTable+${mode * 0x20:x4}",
+                $"{source.Source} did not retain the clean-US shield " +
+                $"collision columns for mode ${mode:x2}.");
+            auditedCombatKeys.Add((handler.Id, handler.SubId));
+        }
+
+        FailIf(
+            auditedCombatKeys.Count != 30 ||
+            auditedNonCombatKeys.Count != 7,
+            "The shield audit did not cover all 30 implemented combat " +
+            "enemy keys and 7 deliberately non-combat implemented keys.");
+
+        RoomObjectRecord octorokSource = RoomEnemyPlacements(
+            database, 0, 0x74, 0x09, 0x00)[0];
+        OracleRoomData octorokRoom = _world.LoadRoom(0, 0x74);
+        var shieldSave = OracleSaveData.CreateStandardGame();
+        var shieldInventory = new InventoryState(_treasures, shieldSave);
+        shieldInventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
+        shieldInventory.EquipA(InventoryState.ItemShield);
+        var shieldWorld = new ValidationRingPlayerWorld();
+        var shieldPlayer = new Player { Name = "EnemyShieldBumpPlayer" };
+        AddChild(shieldPlayer);
+        shieldPlayer.Initialize(
+            shieldWorld,
+            shieldInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        shieldPlayer.Face(Vector2I.Right);
+        shieldPlayer.UpdateShieldForValidation(
+            attackHeld: true,
+            itemHeld: false);
+
+        var octorok = new OctorokCharacter();
+        octorok.Initialize(
+            ResolveOctorok(database, octorokSource),
+            octorokRoom,
+            shieldPlayer.ShieldCollisionBounds.GetCenter(),
+            new OracleRandom());
+        var sounds = new List<int>();
+        var adapter = new OctorokRoomEntity(
+            octorok,
+            database.EnemyHandlers.ResolveHandler(octorokSource)
+                .CombatSource(octorokSource, killableEnemyIndex: 1),
+            sounds.Add);
+        int linkHealth = shieldPlayer.HealthQuarters;
+        adapter.HandleLinkContact(shieldPlayer);
+        adapter.HandleLinkContact(shieldPlayer);
+        FailIf(
+            octorok.InvincibilityCounter != -0x15 ||
+            octorok.KnockbackCounter != 0x0b ||
+            octorok.KnockbackAngle != 0x08 ||
+            shieldPlayer.HealthQuarters != linkHealth ||
+            shieldPlayer.InvincibilityFrames != -0x0f ||
+            shieldPlayer.KnockbackFrames != 0x13 ||
+            sounds is not [OracleSoundEngine.SndBombLand],
+            "A raised Wooden Shield did not route an ordinary Octorok " +
+            "through COLLISIONEFFECT_$10's LINKDMG/ENEMYDMG_$14 response " +
+            "exactly once.");
+
+        Vector2 linkRecoilStart = shieldPlayer.PrecisePosition;
+        Input.ActionPress("attack");
+        try
+        {
+            shieldPlayer.AdvanceApplicationUpdate();
+        }
+        finally
+        {
+            Input.ActionRelease("attack");
+        }
+        FailIf(
+            shieldPlayer.InvincibilityFrames != -0x0e ||
+            shieldPlayer.KnockbackFrames != 0x12 ||
+            !shieldPlayer.IsUsingShield ||
+            !Mathf.IsEqualApprox(
+                shieldPlayer.PrecisePosition.X,
+                linkRecoilStart.X - 1.25f) ||
+            !Mathf.IsEqualApprox(
+                shieldPlayer.PrecisePosition.Y,
+                linkRecoilStart.Y),
+            "Link did not begin the Wooden Shield's source-angle, " +
+            "non-damaging 19-update recoil while retaining its held parent.");
+
+        shieldPlayer.AdvanceApplicationUpdate();
+        FailIf(
+            shieldPlayer.IsUsingShield ||
+            shieldPlayer.InvincibilityFrames != -0x0d ||
+            shieldPlayer.KnockbackFrames != 0x11,
+            "Releasing ITEM_SHIELD during recoil did not lower it while " +
+            "continuing Link's collision counters.");
+
+        shieldPlayer.UpdateShieldForValidation(
+            attackHeld: false,
+            itemHeld: false);
+        shieldInventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
+        for (int update = 0; update < 0x15; update++)
+            octorok.UpdateFrame(shieldPlayer.Position);
+        FailIf(
+            octorok.InvincibilityCounter != 0 ||
+            octorok.KnockbackCounter != 0,
+            "The Wooden Shield bump did not expire on its source $15/$0b " +
+            "counter boundaries.");
+        shieldPlayer.WarpTo(
+            new Vector2(80, 80),
+            recordSafe: false);
+        shieldPlayer.Face(Vector2I.Right);
+        shieldPlayer.UpdateShieldForValidation(
+            attackHeld: true,
+            itemHeld: false);
+        octorok.Position = shieldPlayer.ShieldCollisionBounds.GetCenter();
+        adapter.HandleLinkContact(shieldPlayer);
+        FailIf(
+            octorok.InvincibilityCounter != -0x10 ||
+            octorok.KnockbackCounter != 0x08 ||
+            shieldPlayer.HealthQuarters != linkHealth ||
+            shieldPlayer.InvincibilityFrames != -0x08 ||
+            shieldPlayer.KnockbackFrames != 0x0b ||
+            sounds is not
+                [OracleSoundEngine.SndBombLand,
+                 OracleSoundEngine.SndBombLand],
+            "A raised Iron Shield did not route an ordinary Octorok through " +
+            "COLLISIONEFFECT_$0f's LINKDMG/ENEMYDMG_$10 response.");
+
+        EnemyCombatSourceDescriptor ghini = CombatSource(0x17, 0x00);
+        EnemyCombatSourceDescriptor hardhat = CombatSource(0x4d, 0x00);
+        EnemyCombatSourceDescriptor spark = CombatSource(0x13, 0x00);
+        FailIf(
+            ghini.ShieldBumpResponse(1) is not null ||
+            ghini.ShieldBumpResponse(2) is not null ||
+            ghini.ShieldBumpResponse(3) != BumpResponse(0x0f) ||
+            hardhat.ShieldBumpResponse(1) != BumpResponse(0x10) ||
+            hardhat.ShieldBumpResponse(2) != BumpResponse(0x10) ||
+            hardhat.ShieldBumpResponse(3) != BumpResponse(0x10) ||
+            spark.ShieldBumpResponse(1) is not null ||
+            spark.ShieldBumpResponse(2) is not null ||
+            spark.ShieldBumpResponse(3) is not null,
+            "Ghini, Hardhat Beetle, or Spark lost its exceptional source " +
+            "shield response.");
+
+        shieldPlayer.WarpTo(
+            new Vector2(80, 80),
+            recordSafe: false);
+        shieldPlayer.Face(Vector2I.Right);
+        shieldPlayer.UpdateShieldForValidation(
+            attackHeld: true,
+            itemHeld: false);
+        RoomObjectRecord spikedSource =
+            EnemyPlacements(database, 0x14, 0x00)[0];
+        OracleRoomData spikedRoom =
+            _world.LoadRoom(spikedSource.Group, spikedSource.Room);
+        var spikedSounds = new List<int>();
+        var spiked = new SpikedBeetleCharacter();
+        spiked.Initialize(
+            database.ImportedEnemy(0x14),
+            spikedRoom,
+            shieldPlayer.ShieldCollisionBounds.GetCenter(),
+            new OracleRandom(),
+            spikedSounds.Add);
+        var spikedAdapter = new SpikedBeetleRoomEntity(
+            spiked,
+            database.EnemyHandlers.ResolveHandler(spikedSource)
+                .CombatSource(spikedSource, killableEnemyIndex: 1),
+            spikedSounds.Add);
+        spikedAdapter.HandleLinkContact(shieldPlayer);
+        FailIf(
+            !spiked.FlipHitPending ||
+            spiked.InvincibilityCounter != -0x10 ||
+            spiked.KnockbackCounter != 0x08 ||
+            shieldPlayer.InvincibilityFrames != -0x08 ||
+            shieldPlayer.KnockbackFrames != 0x0b ||
+            spikedSounds is not [OracleSoundEngine.SndBombLand],
+            "The custom Spiked Beetle shield-flip path did not apply both " +
+            "halves of the Iron Shield's COLLISIONEFFECT_$0f response.");
+
+        octorok.Free();
+        spiked.Free();
+        shieldPlayer.Free();
+        GD.Print(
+            "Validated all 30 implemented combat enemy keys against the " +
+            "clean-US L1/L2/L3 shield columns, 7 non-combat keys, common " +
+            "Wooden/Iron enemy-and-Link recoil routing, and " +
+            "Ghini/Hardhat/Spark/Spiked Beetle exceptions.");
+
+        static EnemyShieldBumpResponse? BumpResponse(int effect) =>
+            effect switch
+            {
+                0x0f => new EnemyShieldBumpResponse(
+                    EnemyKnockbackStrength.Low, 0x08, 0x0b),
+                0x10 => new EnemyShieldBumpResponse(
+                    EnemyKnockbackStrength.Normal, 0x0f, 0x13),
+                _ => null
+            };
+
+        EnemyCombatSourceDescriptor CombatSource(int id, int subId)
+        {
+            RoomObjectRecord source = EnemyPlacements(database, id, subId)[0];
+            return database.EnemyHandlers.ResolveHandler(source)
+                .CombatSource(source, killableEnemyIndex: 1);
+        }
     }
 
     private void ValidateEnemyHazards()

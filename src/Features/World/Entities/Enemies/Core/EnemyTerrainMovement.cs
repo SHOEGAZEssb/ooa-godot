@@ -100,13 +100,14 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
     private bool CanOccupySample(Vector2 sample, bool allowHoles)
     {
         if (sample.X < 0 || sample.X >= room.Width ||
-            sample.Y < 0 || sample.Y >= room.Height || room.IsSolid(sample))
+            sample.Y < 0 || sample.Y >= room.Height ||
+            room.IsSolidForEnemyMovement(
+                sample,
+                holesAreWalls: !allowHoles))
         {
             return false;
         }
-
-        return allowHoles || room.GetTerrainInfo(sample).Hazard !=
-            HazardType.Hole;
+        return true;
     }
 
     private bool IsAdjacentWallCollision(
@@ -115,11 +116,12 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
     {
         if (point.X < 0 || point.X >= room.Width ||
             point.Y < 0 || point.Y >= room.Height ||
-            room.IsSolid(point))
+            room.IsSolidForEnemyMovement(
+                point,
+                holesAreWalls: !allowHoles))
         {
             return true;
         }
-        return !allowHoles &&
-            room.GetTerrainInfo(point).Hazard == HazardType.Hole;
+        return false;
     }
 }

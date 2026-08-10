@@ -83,6 +83,7 @@ internal partial class SandCrabCharacter : EnemyCharacter
                 return;
         }
     }
+
 }
 
 internal enum SandCrabState

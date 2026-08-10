@@ -61,6 +61,10 @@ public partial class ZolCharacter : EnemyCharacter
                 encodedAnimations,
                 record.TileBase,
                 record.Palette));
+        ConfigureSwordKnockback(
+            room,
+            EnemyKnockbackMotion.Terrain,
+            checksHazards: true);
         ConfigureHazards(
             room,
             animateWhileFallingInHole: false,

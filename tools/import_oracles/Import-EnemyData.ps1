@@ -1515,9 +1515,30 @@ if ($enemyCollisionModes.Count -ne 128) {
     throw "Expected 128 source enemy collision modes, got $($enemyCollisionModes.Count)."
 }
 
+$enemyCollisionTableSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
+$enemyCollisionTableValues = [Collections.Generic.List[int]]::new()
+$enemyCollisionRows = [regex]::Matches(
+    $enemyCollisionTableSource,
+    '(?m)^\s*\.db(?<values>(?:\s+\$[0-9a-f]{2}){16})\s*$')
+foreach ($collisionRow in $enemyCollisionRows) {
+    foreach ($value in [regex]::Matches(
+        $collisionRow.Groups['values'].Value,
+        '\$(?<value>[0-9a-f]{2})')) {
+        $enemyCollisionTableValues.Add(
+            [Convert]::ToInt32($value.Groups['value'].Value, 16))
+    }
+}
+if ($enemyCollisionRows.Count -ne 256 -or
+    $enemyCollisionTableValues.Count -ne 0x1000) {
+    throw "Expected 256 object-collision rows / 4096 effects, got " +
+        "$($enemyCollisionRows.Count) / $($enemyCollisionTableValues.Count)."
+}
+
 $enemyHandlerRows = [Collections.Generic.List[string]]::new()
 $enemyHandlerRows.Add(
-    "# id`tsubid`tcollision-mode`tclassification`thandler`tenemy-name`tsource")
+    "# id`tsubid`tcollision-mode`tclassification`thandler`tenemy-name`tsource`t" +
+    "shield-l1-effect`tshield-l2-effect`tshield-l3-effect`tshield-source")
 foreach ($record in $enemyHandlerKeys.Values |
     Sort-Object @{ Expression = { [int]$_.Id } },
         @{ Expression = { [int]$_.SubId } }) {
@@ -1541,25 +1562,41 @@ foreach ($record in $enemyHandlerKeys.Values |
     } else {
         [string]$definition.Source
     }
+    $collisionMode = [int]$enemyCollisionModes[[int]$record.Id]
+    $collisionRowOffset = ($collisionMode -band 0x7f) * 0x20
+    $shieldSource = 'data/ages/objectCollisionTable.s:' +
+        "objectCollisionTable+`$$($collisionRowOffset.ToString('x4'))"
     $enemyHandlerRows.Add(
         "$(([int]$record.Id).ToString('x2'))`t" +
         "$(([int]$record.SubId).ToString('x2'))`t" +
-        "$(([int]$enemyCollisionModes[[int]$record.Id]).ToString('x2'))`t" +
-        "$classification`t$handler`t$($definition.Name)`t$source")
+        "$($collisionMode.ToString('x2'))`t" +
+        "$classification`t$handler`t$($definition.Name)`t$source`t" +
+        "$($enemyCollisionTableValues[$collisionRowOffset + 1].ToString('x2'))`t" +
+        "$($enemyCollisionTableValues[$collisionRowOffset + 2].ToString('x2'))`t" +
+        "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
+        $shieldSource)
 }
 if ($enemyHandlerRows.Count -ne 124 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
-        'constants/common/enemies.s:ENEMY_OCTOROK')) -or
+        'constants/common/enemies.s:ENEMY_OCTOROK' +
+        "`t10`t0f`t0f`tdata/ages/objectCollisionTable.s:" +
+        'objectCollisionTable+$0200')) -or
     -not $enemyHandlerRows.Contains((
         "20`t00`t91`tordered-implemented`tmasked-moblin`t" +
-        "ENEMY_MASKED_MOBLIN`tconstants/common/enemies.s:ENEMY_MASKED_MOBLIN")) -or
+        "ENEMY_MASKED_MOBLIN`tconstants/common/enemies.s:ENEMY_MASKED_MOBLIN`t" +
+        "10`t0f`t0f`tdata/ages/objectCollisionTable.s:" +
+        'objectCollisionTable+$0220')) -or
     -not $enemyHandlerRows.Contains((
         "14`t00`t98`tordered-implemented`tspiked-beetle`tENEMY_SPIKED_BEETLE`t" +
-        'constants/common/enemies.s:ENEMY_SPIKED_BEETLE')) -or
+        'constants/common/enemies.s:ENEMY_SPIKED_BEETLE' +
+        "`t10`t0f`t0f`tdata/ages/objectCollisionTable.s:" +
+        'objectCollisionTable+$0300')) -or
     -not $enemyHandlerRows.Contains((
         "1b`t01`t90`tordered-implemented`tspiny-beetle`tENEMY_SPINY_BEETLE`t" +
-        'constants/common/enemies.s:ENEMY_SPINY_BEETLE'))) {
+        'constants/common/enemies.s:ENEMY_SPINY_BEETLE' +
+        "`t10`t0f`t0f`tdata/ages/objectCollisionTable.s:" +
+        'objectCollisionTable+$0200'))) {
     $representativeRows = @($enemyHandlerRows | Where-Object {
         $_ -match 'ENEMY_(OCTOROK|MASKED_MOBLIN|SPIKED_BEETLE|SPINY_BEETLE)'
     })
@@ -3437,8 +3474,6 @@ Add-EnemyBehaviorProfile 'hardhat-beetle' 'state-profile' `
 
 $spikedBeetleCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\spikedBeetle.s')
-$enemyCollisionTableSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
 if ($spikedBeetleCodeSource -notmatch
         '(?ms)^@state_uninitialized:.*?call @setRandomAngleAndCounter1.*?' +
         'ld a,SPEED_40.*?ecom_setSpeedAndState8AndVisible' -or

@@ -390,6 +390,11 @@ public partial class Player : Node2D
     internal bool AcceptsRoomEntityContact =>
         _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
+    internal bool CanAcceptShieldCollision =>
+        IsUsingShield && AcceptsRoomEntityContact &&
+        !_braceletLiftCollisionsDisabled && !IsDying &&
+        _enemyInvincibilityFrames == 0.0f &&
+        _enemyKnockbackFrames == 0.0f;
     internal int LedgeZ => _ledgeZFixed >> 8;
     internal int LedgeSpeedZ => _ledgeSpeedZ;
     internal int LedgeSpeedRaw => _ledgeSpeedRaw;
@@ -1168,7 +1173,8 @@ public partial class Player : Node2D
         RingDamageSource source)
     {
         if (_braceletLiftCollisionsDisabled || !AcceptsRoomEntityContact ||
-            IsDying || _enemyInvincibilityFrames > 0.0f || quarters <= 0)
+            IsDying || _enemyInvincibilityFrames != 0.0f ||
+            _enemyKnockbackFrames > 0.0f || quarters <= 0)
             return false;
         if (!ApplyDamage(quarters, source))
             return false;
@@ -1201,6 +1207,40 @@ public partial class Player : Node2D
         CancelShovelAction();
         QueueRedraw();
         return true;
+    }
+
+    /// <summary>
+    /// COLLISIONEFFECT_SHIELD_BUMP writes LINKDMG_$10/$14 directly to Link:
+    /// no health damage, a negative non-flashing invincibility counter, and
+    /// recoil away from the enemy. linkApplyDamage still applies Steadfast.
+    /// </summary>
+    internal void ApplyShieldCollisionRecoil(
+        Vector2 sourcePosition,
+        int invincibilityFrames,
+        int knockbackFrames)
+    {
+        if (!CanAcceptShieldCollision)
+        {
+            throw new InvalidOperationException(
+                "Link accepted shield recoil while collision-disabled.");
+        }
+        if (invincibilityFrames <= 0)
+            throw new ArgumentOutOfRangeException(nameof(invincibilityFrames));
+        if (knockbackFrames <= 0)
+            throw new ArgumentOutOfRangeException(nameof(knockbackFrames));
+
+        _enemyInvincibilityFrames = -invincibilityFrames;
+        _enemyKnockbackFrames = RingEffects.KnockbackFrames(
+            _inventory, knockbackFrames);
+        _swordCollisionKnockback = false;
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            sourcePosition,
+            Position);
+        _enemyKnockbackDirection =
+            OracleObjectMovement.Shared.Direction(angle);
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
     }
 
     /// <summary>
@@ -1482,7 +1522,12 @@ public partial class Player : Node2D
             // update. Angle $ff clears lateral and Z speed; gravity starts on
             // this update rather than after knockback expires.
             _world.AdvanceBraceletProjectile();
-            ClearShieldParent();
+            // linkState01 runs checkUseItems before linkUpdateKnockback. A
+            // held shield parent therefore keeps wUsingShield active during
+            // recoil, while releasing its button clears it normally.
+            UpdateShieldState(
+                Input.IsActionPressed("attack"),
+                Input.IsActionPressed("item"));
             float frameDelta = (float)delta * 60.0f;
             if (_world.SideScrolling)
             {
@@ -2565,10 +2610,14 @@ public partial class Player : Node2D
 
     private void AdvanceItems(double delta)
     {
-        if (_enemyInvincibilityFrames > 0.0f)
+        if (_enemyInvincibilityFrames != 0.0f)
         {
-            _enemyInvincibilityFrames = Mathf.Max(
-                0.0f, _enemyInvincibilityFrames - (float)delta * 60.0f);
+            float frameDelta = (float)delta * 60.0f;
+            _enemyInvincibilityFrames = _enemyInvincibilityFrames > 0.0f
+                ? Mathf.Max(
+                    0.0f, _enemyInvincibilityFrames - frameDelta)
+                : Mathf.Min(
+                    0.0f, _enemyInvincibilityFrames + frameDelta);
             QueueRedraw();
         }
 

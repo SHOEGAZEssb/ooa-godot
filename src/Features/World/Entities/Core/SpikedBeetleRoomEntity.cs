@@ -45,13 +45,21 @@ internal sealed class SpikedBeetleRoomEntity
             return;
 
         if (player.IsUsingShield &&
+            CombatDescriptor.Source is { } source &&
+            source.ShieldBumpResponse(player.Inventory.ShieldLevel) is
+                { } response &&
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {
-            if (Entity.TryApplyFlipHit(
+            if (player.CanAcceptShieldCollision &&
+                Entity.TryApplyFlipHit(
                 player.ShieldCollisionBounds,
                 player.ShieldCollisionBounds.GetCenter(),
                 player.Inventory.ShieldLevel))
             {
+                player.ApplyShieldCollisionRecoil(
+                    Entity.Position,
+                    response.LinkInvincibilityFrames,
+                    response.LinkKnockbackFrames);
                 _soundRequested(OracleSoundEngine.SndBombLand);
             }
             return;
