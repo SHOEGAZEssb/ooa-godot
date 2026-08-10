@@ -61,7 +61,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 17 ||
+        if (_importedDefinitions.Count != 19 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0c) is not
@@ -89,6 +89,26 @@ public sealed class EnemyDatabase
                     RadiusX: 6,
                     Health: 127,
                     DamageQuarters: 128,
+                    Animations.Length: 2
+                } ||
+            ImportedEnemy(0x36) is not
+                {
+                    TileBase: 0,
+                    Palette: 2,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 32,
+                    DamageQuarters: 128,
+                    Animations.Length: 2
+                } ||
+            ImportedEnemy(0x3b) is not
+                {
+                    TileBase: 0,
+                    Palette: 2,
+                    RadiusY: 7,
+                    RadiusX: 12,
+                    Health: 2,
+                    DamageQuarters: 2,
                     Animations.Length: 2
                 } ||
             ImportedEnemy(0x4d) is not
@@ -757,6 +777,8 @@ public sealed class EnemyDatabase
             _keeseDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.BabyCucco =>
             HasImportedDefinition(descriptor, 0x33),
+        EnemyHandlerKind.Cucco =>
+            HasImportedDefinition(descriptor, 0x36),
         EnemyHandlerKind.Zol =>
             descriptor.Id == 0x34 &&
             _zolDefinitions.ContainsKey(descriptor.SubId),

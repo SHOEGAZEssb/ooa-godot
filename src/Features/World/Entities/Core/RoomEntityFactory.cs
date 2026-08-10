@@ -1460,6 +1460,32 @@ internal sealed class RoomEntityFactory(
                 applyThrownObjectHit);
             return new BabyCuccoRoomEntity(babyCucco);
         }
+        if (handler.Handler == EnemyHandlerKind.Cucco)
+        {
+            if (!enemies.TryGetImportedEnemyDefinition(
+                source, out ImportedEnemyDefinition cuccoRecord))
+            {
+                throw MissingEnemyDefinition(handler, source);
+            }
+            var cucco = new CuccoCharacter
+            {
+                Name = $"Cucco_{source.Order}_{instance}",
+                ZIndex = 10
+            };
+            cucco.Initialize(
+                cuccoRecord,
+                enemies.ImportedEnemy(
+                    EnemyBehaviorTables.Shared.Cucco.GiantReplacementId),
+                room,
+                position,
+                random,
+                _bracelet.Data,
+                _bomb.Data,
+                soundRequested,
+                screenShakeRequested,
+                applyThrownObjectHit);
+            return new CuccoRoomEntity(cucco);
+        }
 
         EnemyCombatSourceDescriptor combatSource =
             handler.CombatSource(source, killableEnemyIndex);
@@ -1834,6 +1860,9 @@ internal sealed class RoomEntityFactory(
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
+        CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),
+        BabyCuccoReplacementSpawn babyCucco =>
+            CreateBabyCuccoReplacement(babyCucco, room),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         BossShadowSpawn shadow => CreateBossShadow(shadow),
@@ -3073,6 +3102,39 @@ internal sealed class RoomEntityFactory(
             soundRequested);
     }
 
+    private IRoomEntity CreateCuccoAttacker(CuccoAttackerSpawn spawn)
+    {
+        var attacker = new CuccoAttackerCharacter
+        {
+            Name = "CuccoAttacker",
+            ZIndex = 10
+        };
+        attacker.Initialize(enemies.ImportedEnemy(0x36), random, spawn.HitCount);
+        return new CuccoAttackerRoomEntity(attacker);
+    }
+
+    private IRoomEntity CreateBabyCuccoReplacement(
+        BabyCuccoReplacementSpawn spawn,
+        OracleRoomData room)
+    {
+        var babyCucco = new BabyCuccoCharacter
+        {
+            Name = "TransformedBabyCucco",
+            ZIndex = 10
+        };
+        babyCucco.Initialize(
+            enemies.ImportedEnemy(
+                EnemyBehaviorTables.Shared.Cucco.BabyReplacementId),
+            room,
+            spawn.Position,
+            random,
+            _bracelet.Data,
+            _bomb.Data,
+            soundRequested,
+            applyThrownObjectHit);
+        return new BabyCuccoRoomEntity(babyCucco);
+    }
+
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
     {
         var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = 10 };
@@ -4066,6 +4128,12 @@ internal sealed record SwordBeamClinkSpawn(Vector2 Position)
     : RoomEntitySpawn;
 
 internal sealed record EnemyClinkSpawn(Vector2 Position)
+    : RoomEntitySpawn;
+
+internal sealed record CuccoAttackerSpawn(int HitCount)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record BabyCuccoReplacementSpawn(Vector2 Position)
     : RoomEntitySpawn;
 
 internal sealed record StatueEyeballSpawn(Vector2 Position)

@@ -336,7 +336,7 @@ $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0c, 0x00), @(0x10, 0x00), @(0x13, 0x00),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
     @(0x22, 0x00), @(0x28, 0x00), @(0x33, 0x00),
-    @(0x2f, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
+    @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x4a, 0x01), @(0x4d, 0x00)
 )
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
@@ -366,7 +366,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 18 -or
+if ($commonEnemyRows.Count -ne 20 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -390,6 +390,12 @@ if ($commonEnemyRows.Count -ne 18 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^33\t00\tspr_chickens_dog_forestfairy_other\t14\t3\t1\t6\t6\t128\t127\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^36\t00\tspr_chickens_dog_forestfairy_other\t0\t2\t1\t6\t6\t128\t32\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^3b\t00\tspr_giantcucco\t0\t2\t1\t7\t12\t2\t2\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^2f\t00\tspr_thwomps\t0\t4\t0\t15\t12\t4\t127\t'
@@ -1381,6 +1387,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '33:00' = 'baby-cucco'
     '34:00' = 'zol'
     '34:01' = 'zol'
+    '36:00' = 'cucco'
     '3e:00' = 'peahat'
     '41:00' = 'crow'
     '43:00' = 'gel'
@@ -1395,7 +1402,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 34 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 35 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1466,9 +1473,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 385 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 386 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 436) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 435) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3157,6 +3164,81 @@ Add-EnemyBehaviorProfile 'baby-cucco' 'state-profile' `
     @(0x0a, 0x10, 0x3f, -0xc0, 0x12, 0x10) `
     'object_code/common/enemies/babyCucco.s:state-entry-operands'
 
+$cuccoCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\cucco.s')
+$giantCuccoCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\giantCucco.s')
+$collisionEffectsSource = Read-ImportText (
+    Join-Path $Disassembly 'code\collisionEffects.s')
+if ($cuccoCodeSource -notmatch
+        '(?ms)^cucco_state_uninitialized:.*?ld a,SPEED_80.*?ecom_setSpeedAndState8AndVisible' -or
+    $cuccoCodeSource -notmatch
+        '(?ms)^cucco_state8:.*?ld bc,\$031f.*?ecom_randomBitwiseAndBCE.*?or e\s+ret nz.*?ld a,\$02\s+add b.*?ld \(hl\),a.*?ld a,c.*?cucco_setAnimationFromAngle' -or
+    $cuccoCodeSource -notmatch
+        '(?ms)^cucco_state9:.*?and \$0f.*?cucco_zVals.*?ecom_decCounter2.*?ecom_bounceOffWallsAndHoles.*?objectApplySpeed' -or
+    $cuccoCodeSource -notmatch
+        '(?ms)^cucco_stateA:.*?ecom_updateCardinalAngleAwayFromTarget.*?ecom_applyVelocityForSideviewEnemyNoHoles' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^cucco_zVals:\s+\.db \$00 \$ff \$ff \$fe \$fe \$fe \$fd \$fd\s+\.db \$fd \$fd \$fe \$fe \$fe \$ff \$ff \$00' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^cucco_checkSpawnCuccoAttacker:.*?cp \$10.*?@var33Vals:\s+\.db \$1e \$1a \$18 \$16 \$14 \$12 \$10 \$0e\s+\.db \$0c' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^cucco_attacked:.*?ld \(hl\),SPEED_100.*?bit 5,\(hl\).*?inc \(hl\).*?SND_CHICKEN' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^cucco_hitWithMysterySeed:.*?cp \$10.*?ld a,ENEMY_GIANT_CUCCO.*?ld a,ENEMY_BABY_CUCCO' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^enemyCode3b:.*?cp ITEMCOLLISION_L1_SWORD.*?ld l,Enemy\.var30\s+inc \(hl\).*?ld l,Enemy\.health\s+ld \(hl\),\$40' -or
+    $collisionEffectsSource -notmatch
+        '(?ms)^applyDamageToEnemyOrPart:.*?; If health reaches zero, disable collisions.*?add Object\.collisionType-Object\.health.*?res 7,a' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^giantCucco_state_uninitialized:.*?ld a,SPEED_c0.*?ld a,\$30.*?setScreenShakeCounter' -or
+    $giantCuccoCodeSource -notmatch
+        '(?ms)^giantCucco_stateA:.*?cp \$08.*?SND_TELEPORT.*?^@runAway:.*?ecom_updateCardinalAngleAwayFromTarget.*?^giantCucco_stateB:.*?objectGetAngleTowardEnemyTarget.*?objectNudgeAngleTowards.*?objectApplySpeed') {
+    throw 'Cucco wandering, hit, or revenge-spawn behavior changed.'
+}
+Add-EnemyBehaviorProfile 'cucco' 'state-profile' `
+    @(0x14, 0x28, 0x3f, 0x02, 0x03, 0x1f, 0x10, 0x33, 0x3b) `
+    'object_code/common/enemies/cucco.s:state-operands'
+Add-EnemyBehaviorValueTable 'cucco' 'hop-z-values' `
+    @(0, -1, -1, -2, -2, -2, -3, -3,
+      -3, -3, -2, -2, -2, -1, -1, 0) `
+    'object_code/common/enemies/giantCucco.s:cucco_zVals'
+Add-EnemyBehaviorValueTable 'cucco' 'revenge-delays' `
+    @(0x1e, 0x1a, 0x18, 0x16, 0x14, 0x12, 0x10, 0x0e, 0x0c) `
+    'object_code/common/enemies/giantCucco.s:@var33Vals'
+Add-EnemyBehaviorProfile 'giant-cucco' 'state-profile' `
+    @(0x1e, 0x30, 0x40) `
+    'object_code/common/enemies/giantCucco.s:state-operands'
+$cuccoAttackerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\cuccoAttacker.s')
+if ($cuccoAttackerSource -notmatch
+        '(?ms)^@state0:.*?ld \(hl\),\$18.*?ld \(hl\),\$fa.*?@speedVals.*?getRandomNumber_noPreserveVars.*?and \$30.*?swap b.*?and \$10.*?@xOrYVals.*?and \$0f.*?@screenEdgePositions.*?objectGetAngleTowardEnemyTarget' -or
+    $cuccoAttackerSource -notmatch
+        '(?ms)^@state1:.*?partCommon_decCounter1IfNonzero.*?^@state2:.*?objectCheckWithinScreenBoundary.*?partDelete' -or
+    $cuccoAttackerSource -notmatch
+        '(?ms)^@screenEdgePositions:\s+\.db \$08 \$98 \$88 \$08\s+^@xOrYVals:\s+\.db \$05 \$0e \$17 \$20 \$29 \$32 \$3b \$44\s+\.db \$4d \$56 \$5f \$68 \$71 \$7a \$83 \$8c\s+\.db \$05 \$0f \$19 \$23 \$2d \$37 \$41 \$4b\s+\.db \$55 \$5f \$69 \$73 \$7d \$87 \$91 \$9b' -or
+    $cuccoAttackerSource -notmatch
+        '(?ms)^@speedVals:\s+\.db SPEED_140 SPEED_180 SPEED_1c0 SPEED_200\s+\.db SPEED_240 SPEED_240 SPEED_280 SPEED_2c0\s+\.db SPEED_300' -or
+    $partAnimationSource -notmatch
+        '(?ms)^part22Animations:.*?partAnimation5b98c' ) {
+    throw 'PART_CUCCO_ATTACKER movement behavior changed.'
+}
+Add-EnemyBehaviorProfile 'cucco-attacker' 'state-profile' `
+    @(0x18, -6, 0x30, 0x10, 0x0f, 0x11, 4) `
+    'object_code/common/parts/cuccoAttacker.s:state-operands'
+Add-EnemyBehaviorValueTable 'cucco-attacker' 'screen-edge-positions' `
+    @(0x08, 0x98, 0x88, 0x08) `
+    'object_code/common/parts/cuccoAttacker.s:@screenEdgePositions'
+Add-EnemyBehaviorValueTable 'cucco-attacker' 'edge-axis-values' `
+    @(0x05, 0x0e, 0x17, 0x20, 0x29, 0x32, 0x3b, 0x44,
+      0x4d, 0x56, 0x5f, 0x68, 0x71, 0x7a, 0x83, 0x8c,
+      0x05, 0x0f, 0x19, 0x23, 0x2d, 0x37, 0x41, 0x4b,
+      0x55, 0x5f, 0x69, 0x73, 0x7d, 0x87, 0x91, 0x9b) `
+    'object_code/common/parts/cuccoAttacker.s:@xOrYVals'
+Add-EnemyBehaviorValueTable 'cucco-attacker' 'speeds' `
+    @(0x32, 0x3c, 0x46, 0x50, 0x5a, 0x5a, 0x64, 0x6e, 0x78) `
+    'object_code/common/parts/cuccoAttacker.s:@speedVals'
+
 $crowCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\crows.s')
 if ($crowCodeSource -notmatch
@@ -3523,8 +3605,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 257) {
-    throw "Expected 256 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 346) {
+    throw "Expected 345 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

@@ -171,6 +171,7 @@ internal sealed class EnemyHandlerRegistry
         "stalfos" => EnemyHandlerKind.Stalfos,
         "keese" => EnemyHandlerKind.Keese,
         "baby-cucco" => EnemyHandlerKind.BabyCucco,
+        "cucco" => EnemyHandlerKind.Cucco,
         "zol" => EnemyHandlerKind.Zol,
         "crow" => EnemyHandlerKind.Crow,
         "gel" => EnemyHandlerKind.Gel,
@@ -221,7 +222,7 @@ internal sealed record EnemyHandlerDescriptor(
     internal bool SupportsCombatSource =>
         Classification != EnemyHandlerClassification.DeliberatelyUnsupported &&
         Handler is not (EnemyHandlerKind.VineSprout or
-            EnemyHandlerKind.BabyCucco);
+            EnemyHandlerKind.BabyCucco or EnemyHandlerKind.Cucco);
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
 
@@ -304,6 +305,7 @@ internal enum EnemyHandlerKind
     Stalfos,
     Keese,
     BabyCucco,
+    Cucco,
     Zol,
     Crow,
     Gel,

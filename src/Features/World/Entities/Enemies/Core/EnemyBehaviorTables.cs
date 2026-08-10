@@ -43,6 +43,9 @@ internal sealed class EnemyBehaviorTables
     internal KeeseStateBehaviorProfile KeeseState { get; }
     internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
     internal BabyCuccoBehaviorProfile BabyCucco { get; }
+    internal CuccoBehaviorProfile Cucco { get; }
+    internal GiantCuccoBehaviorProfile GiantCucco { get; }
+    internal CuccoAttackerBehaviorProfile CuccoAttacker { get; }
     internal CrowBehaviorProfile Crow { get; }
     internal GelBehaviorProfile Gel { get; }
     internal ZolBehaviorProfile Zol { get; }
@@ -202,6 +205,53 @@ internal sealed class EnemyBehaviorTables
             values[3].Value,
             values[4].Value,
             values[5].Value,
+            values);
+
+        values = TakeValues(groups, "cucco", "state-profile", 9);
+        EnemyBehaviorValue[] cuccoHopZValues = TakeValues(
+            groups, "cucco", "hop-z-values", 16);
+        EnemyBehaviorValue[] cuccoRevengeDelays = TakeValues(
+            groups, "cucco", "revenge-delays", 9);
+        Cucco = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            cuccoHopZValues,
+            cuccoRevengeDelays,
+            values);
+
+        values = TakeValues(groups, "giant-cucco", "state-profile", 3);
+        GiantCucco = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values);
+
+        values = TakeValues(
+            groups, "cucco-attacker", "state-profile", 7);
+        EnemyBehaviorValue[] cuccoAttackerEdges = TakeValues(
+            groups, "cucco-attacker", "screen-edge-positions", 4);
+        EnemyBehaviorValue[] cuccoAttackerAxes = TakeValues(
+            groups, "cucco-attacker", "edge-axis-values", 32);
+        EnemyBehaviorValue[] cuccoAttackerSpeeds = TakeValues(
+            groups, "cucco-attacker", "speeds", 9);
+        CuccoAttacker = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            cuccoAttackerEdges,
+            cuccoAttackerAxes,
+            cuccoAttackerSpeeds,
             values);
 
         values = TakeValues(groups, "crow", "state-profile", 6);
@@ -404,10 +454,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 256 || groups.Count != 0)
+        if (table.Rows.Count != 345 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 256 rows and no " +
+                $"Enemy behavior table contract expected 345 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -522,6 +572,39 @@ internal readonly record struct BabyCuccoBehaviorProfile(
     int HopSpeedZ,
     int HopGravity,
     int AnimationAngleThreshold,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct CuccoBehaviorProfile(
+    int WanderSpeedRaw,
+    int RunawaySpeedRaw,
+    int IdleRollMask,
+    int HopCountBase,
+    int HopCountMask,
+    int AngleMask,
+    int RevengeHitThreshold,
+    int BabyReplacementId,
+    int GiantReplacementId,
+    IReadOnlyList<EnemyBehaviorValue> HopZValues,
+    IReadOnlyList<EnemyBehaviorValue> RevengeDelays,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct GiantCuccoBehaviorProfile(
+    int WanderSpeedRaw,
+    int InitialScreenShakeUpdates,
+    int PostHitHealth,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct CuccoAttackerBehaviorProfile(
+    int EntryDelay,
+    int Z,
+    int EdgeMask,
+    int AxisTableMask,
+    int AxisIndexMask,
+    int LeftAnimationAngleThreshold,
+    int AnimationFrameDuration,
+    IReadOnlyList<EnemyBehaviorValue> ScreenEdgePositions,
+    IReadOnlyList<EnemyBehaviorValue> EdgeAxisValues,
+    IReadOnlyList<EnemyBehaviorValue> Speeds,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct CrowBehaviorProfile(

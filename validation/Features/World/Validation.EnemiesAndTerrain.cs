@@ -968,27 +968,27 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 385 ||
+                EnemyHandlerClassification.OrderedImplemented) != 386 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 436 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 435 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 586 ||
+                EnemyHandlerClassification.OrderedImplemented) != 588 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 575 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 573 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 34 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 35 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 89 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 88 ||
             combatSourceRows != 377 ||
             combatSourceFlags.Count != 83 ||
             expectedCombat.Count != 28 ||

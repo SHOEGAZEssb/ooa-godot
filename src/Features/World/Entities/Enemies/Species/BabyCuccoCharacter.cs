@@ -35,6 +35,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
     internal int SpeedZ => _speedZ;
     internal Vector2I ThrowDirection => _throwDirection;
     internal int ThrowSpeedRaw => _throwSpeedRaw;
+    internal int CurrentAnimationFrame => AnimationFrame;
     internal ulong CurrentAnimationPixelHash =>
         OracleGraphicsCache.PixelHash(CurrentAnimationTexture.GetImage());
     internal override bool CollisionEnabled => false;
@@ -167,18 +168,22 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
 
         _state = BabyCuccoState.Held;
         player.BeginCarriedObjectPose();
-        SetHeldAnimation(player.FacingVector);
-        UpdateHeld(player);
+        RestartAnimation(HeldAnimationIndex(player.FacingVector));
+        UpdateHeld(player, justGrabbed: true);
         return true;
     }
 
-    private void UpdateHeld(Player player)
+    private void UpdateHeld(Player player, bool justGrabbed = false)
     {
         Vector2I offset = HeldOffset(player);
         Position = player.Position + new Vector2(offset.X, 0);
         _zFixed = offset.Y << 8;
         ZIndex = 11;
-        SetHeldAnimation(player.FacingVector);
+        int animation = HeldAnimationIndex(player.FacingVector);
+        if (AnimationIndex != animation)
+            RestartAnimation(animation);
+        else if (!justGrabbed)
+            AdvanceAnimation();
         QueueRedraw();
     }
 
@@ -284,8 +289,8 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
             Mathf.Abs((int)target.Y - (int)source.Y);
     }
 
-    private void SetHeldAnimation(Vector2I facing) =>
-        SetAnimation(facing is { Y: < 0 } or { X: > 0 } ? 1 : 0);
+    private static int HeldAnimationIndex(Vector2I facing) =>
+        facing is { Y: < 0 } or { X: > 0 } ? 1 : 0;
 
     private static Vector2I HeldOffset(Player player) =>
         player.BraceletEntityOffset ??

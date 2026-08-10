@@ -199,8 +199,20 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Right);
         FailIf(!_entities.TryUseBracelet(_player, Vector2I.Zero) ||
             carried.State != BabyCuccoState.Held ||
+            carried.CurrentAnimationFrame != 0 ||
             !_player.IsCarryingObject,
             "The first source-order Baby Cucco was not grabbable from state 8.");
+        for (int update = 0; update < 3; update++)
+            _entities.Update(frame, _player);
+        FailIf(
+            carried.CurrentAnimationFrame != 0,
+            "Held Baby Cucco advanced before its source four-update " +
+            "animation boundary.");
+        _entities.Update(frame, _player);
+        FailIf(
+            carried.CurrentAnimationFrame != 1,
+            "Held Baby Cucco did not run enemyAnimate on its source " +
+            "four-update frame boundary.");
         FailIf(!_entities.TryUseBracelet(_player, Vector2I.Right) ||
             carried.State != BabyCuccoState.Thrown ||
             carried.ThrowDirection != Vector2I.Right ||
@@ -228,6 +240,7 @@ public sealed partial class ValidationRoot
         GD.Print(
             "Validated room 2:e3 $6b:$0a and $33:$00: imported Bombs " +
             "placement/visual/refill/item flag/input lease plus three ordered " +
-            "Baby Cuccos with shared-RNG chase/hop and bracelet throw/bounce.");
+            "Baby Cuccos with shared-RNG chase/hop, held animation, and " +
+            "bracelet throw/bounce.");
     }
 }
