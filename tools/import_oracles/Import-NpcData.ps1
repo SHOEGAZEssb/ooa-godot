@@ -2127,6 +2127,8 @@ $tokayScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
 $tokayHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$decorationSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\decoration.s')
 $tokayShopSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\tokayShopItem.s')
 $wildTokaySource = Read-ImportText (
@@ -2392,12 +2394,9 @@ for ($parameter = 0; $parameter -lt 5; $parameter++) {
     ) -join "`t"))
 }
 
-# The southern Crescent Island entrance uses two INTERAC_DECORATION `$80
-# eyeballs followed by the invisible INTERAC_PIRATE `$c4:$04 socket. Keep the
-# visuals and the socket's native sequence separate from the visible Tokay
-# NPC/event tables.
-$decorationSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\ages\interactions\decoration.s')
+# The scent-seedling plot and southern Crescent Island entrance use the
+# room-flag-gated INTERAC_DECORATION `$80 family. Keep their visuals and native
+# sequences separate from the visible Tokay NPC table.
 $pirateSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pirate.s')
 $pirateScriptSource = Read-ImportText (
@@ -2406,9 +2405,29 @@ $pirateHelperSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
 $tokayEntranceObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
-if ($decorationSource -notmatch
-        '(?ms)^interactionCode80:.*?^@deleteIfRoomFlagBit7Unset:.*?bit 7,a' -or
-    $pirateSource -notmatch
+$tokaySeedlingPlotMatch = [regex]::Match(
+    $tokayScriptSource,
+    '(?ms)^tokayAtSeedlingPlotScript:.*?^@plantSeedling:\s+disableinput\s+showtextlowindex <TX_0a40\s+wait (?<introWait>\d+)\s+showtextlowindex <TX_0a41\s+asm15 scriptHelp\.tokayFlipDirection\s+setspeed SPEED_100\s+applyspeed \$(?<moveCounter>[0-9a-f]{2})\s+asm15 scriptHelp\.tokayFlipDirection\s+asm15 scriptHelp\.tokayPlantScentSeedling\s+spawninteraction INTERAC_DECORATION, \$(?<subid>[0-9a-f]{2}), \$(?<y>[0-9a-f]{2}), \$(?<x>[0-9a-f]{2})\s+playsound SND_GETSEED\s+wait (?<doneWait>\d+)\s+asm15 scriptHelp\.tokayTurnToFaceLink\s+showtextlowindex <TX_0a42')
+$tokaySeedlingInitMatch = [regex]::Match(
+    $tokaySource,
+    '(?ms)^@initSubid11:\s+call getThisRoomFlags\s+bit 7,a\s+jr z,@initSubid0e.*?ld e,Interaction\.xh\s+ld a,\(de\)\s+add \$(?<xOffset>[0-9a-f]{2})\s+ld \(de\),a\s+call objectMarkSolidPosition\s+jr @initSubid0e')
+$objectSpeedSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$tokaySeedlingSpeedMatch = [regex]::Match(
+    $objectSpeedSource,
+    '(?m)^\s*SPEED_100\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})\s*$')
+if (-not $tokaySeedlingPlotMatch.Success -or
+    -not $tokaySeedlingInitMatch.Success -or
+    -not $tokaySeedlingSpeedMatch.Success -or
+    $mainObjectSource -notmatch
+        '(?ms)^group1MapacObjectData:\s+obj_Interaction \$48 \$11 \$38 \$48\s+obj_Interaction \$80 \$04 \$38 \$48' -or
+    $tokayHelperSource -notmatch
+        '(?ms)^tokayTurnToFaceLink:.*?objectGetAngleTowardLink.*?add \$04.*?and \$18.*?^tokayFlipDirection:.*?xor \$10.*?^tokayPlantScentSeedling:.*?getThisRoomFlags.*?set 7,\(hl\).*?dec h.*?set 7,\(hl\).*?TREASURE_SCENT_SEEDLING.*?loseTreasure' -or
+    $decorationSource -notmatch
+        '(?ms)^interactionCode80:.*?^@deleteIfRoomFlagBit7Unset:.*?bit 7,a') {
+    throw 'Tokay seedling plot source contract changed.'
+}
+if ($pirateSource -notmatch
         '(?ms)^@subid4Init:.*?ROOMFLAG_80.*?^@state3:.*?^@resetPushCounter:.*?ld a,10' -or
     $pirateScriptSource -notmatch
         '(?ms)^pirateSubid4Script:.*?TREASURE_TOKAY_EYEBALL.*?^pirateSubid4Script_insertEyeball:.*?ROOMFLAG_80.*?INTERAC_DECORATION, \$06, \$52, \$6a.*?wait 60.*?SND_OPENING.*?shakescreen 160.*?wait 120.*?pirate_openEyeballCave.*?wait 60.*?loseTreasure, TREASURE_TOKAY_EYEBALL' -or
@@ -2418,6 +2437,39 @@ if ($decorationSource -notmatch
         '(?ms)^group1MapbaObjectData:\s+obj_Interaction \$80 \$05 \$52 \$46\s+obj_Interaction \$80 \$06 \$52 \$6a\s+obj_Interaction \$c4 \$04 \$5a \$68') {
     throw 'Southern Tokay entrance eye/socket source contract changed.'
 }
+$tokaySeedlingSubid = [Convert]::ToInt32(
+    $tokaySeedlingPlotMatch.Groups['subid'].Value, 16)
+$tokaySeedlingGraphic = $interactionGraphics["128`:$tokaySeedlingSubid"]
+if ($null -eq $tokaySeedlingGraphic -or
+    -not $gfxNames.ContainsKey($tokaySeedlingGraphic.Gfx)) {
+    throw 'Could not resolve INTERAC_DECORATION `$80:$04 scent-seedling visual.'
+}
+$tokaySeedlingAnimation = Resolve-NpcAnimation 0x80 (
+    $tokaySeedlingGraphic.DefaultAnimation)
+if ([string]::IsNullOrWhiteSpace($tokaySeedlingAnimation)) {
+    throw 'Could not resolve INTERAC_DECORATION `$80:$04 scent-seedling animation.'
+}
+$tokaySeedlingSprite = $gfxNames[$tokaySeedlingGraphic.Gfx]
+[void]$npcSpriteNames.Add($tokaySeedlingSprite)
+$tokaySeedlingPlotRows = @(
+    '# group`troom`tnpc-id`tnpc-subid`tdecoration-id`tdecoration-subid`ty`tx`troom-flag`tspeed`tmove-counter`tplanted-x-offset`tintro-wait`tdone-wait`tsprite`ttile-base`tpalette`tanimation`tsource',
+    (@(
+        1, 'ac', '48', '11', '80',
+        $tokaySeedlingPlotMatch.Groups['subid'].Value,
+        $tokaySeedlingPlotMatch.Groups['y'].Value,
+        $tokaySeedlingPlotMatch.Groups['x'].Value,
+        '80', $tokaySeedlingSpeedMatch.Groups['value'].Value,
+        $tokaySeedlingPlotMatch.Groups['moveCounter'].Value,
+        $tokaySeedlingInitMatch.Groups['xOffset'].Value,
+        $tokaySeedlingPlotMatch.Groups['introWait'].Value,
+        $tokaySeedlingPlotMatch.Groups['doneWait'].Value,
+        $tokaySeedlingSprite,
+        $tokaySeedlingGraphic.TileBase.ToString('x2'),
+        $tokaySeedlingGraphic.Palette.ToString('x2'),
+        $tokaySeedlingAnimation,
+        'objects/ages/mainData.s:group1MapacObjectData;scripts/ages/scripts.s:tokayAtSeedlingPlotScript;object_code/ages/interactions/tokay.s:@initSubid11;object_code/ages/interactions/decoration.s:interactionCode80'
+    ) -join "`t")
+) | ForEach-Object { $_.Replace('`t', "`t") }
 $tokayEntranceEyeRows = [Collections.Generic.List[string]]::new()
 $tokayEntranceEyeRows.Add(
     '# order`tgroup`troom`tid`tsubid`ty`tx`troom-flag-required`tsprite`ttile-base`tpalette`tanimation`tsource'.Replace(
@@ -5760,6 +5812,8 @@ $tokayAnimationPath = Join-Path $destination "objects\tokay_interaction_animatio
 Write-GeneratedTable($tokayAnimationPath, $tokayAnimationRows)
 $tokayEntranceEyePath = Join-Path $destination "objects\tokay_entrance_eyes.tsv"
 Write-GeneratedTable($tokayEntranceEyePath, $tokayEntranceEyeRows)
+$tokaySeedlingPlotPath = Join-Path $destination "objects\tokay_seedling_plot.tsv"
+Write-GeneratedTable($tokaySeedlingPlotPath, $tokaySeedlingPlotRows)
 $tokayEyeballSlotPath = Join-Path $destination "objects\tokay_eyeball_slot.tsv"
 Write-GeneratedTable($tokayEyeballSlotPath, $tokayEyeballSlotRows)
 $tokayHolderPath = Join-Path $destination "objects\tokay_item_holders.tsv"

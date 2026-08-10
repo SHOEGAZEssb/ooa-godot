@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 9, 2026. It is an implementation inventory, not a
+interactions as of August 10, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -148,7 +148,11 @@ classified records and 156 specialized rows.
   replacement, and the caught-meat `$63:$73` accessory
   with its six-update pause and parent-animation offsets. Prizes and persistent
   flags are also supported. Snapshot counts and room `2:de`'s **I**
-  classification are unchanged. Tokays
+  classification are unchanged. Room `1:ac`'s seedling sequence preserves its
+  Link-relative flip, `SPEED_100`/`applyspeed $10` movement and counter-zero
+  boundary, both-era room bit `$80`, visible `$80:$04` decoration at
+  `$38,$48`, 30/120-update dialogue waits, and planted-room re-entry position.
+  Tokays
   `$48:$0f/$10` are **P** because
   the separate dynamic Dimitri special object and `$71:$07` mount controller
   remain outside the visible NPC path; present manager `$48:$19` is **P**

@@ -14,6 +14,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     IFixedRoomEntity,
     IRoomBlocker,
     IRoomPushableEntity,
+    IRoomEntityLifetime,
     IScreenTransitionPreloadRoomEntity
 {
     private const float CombinedLinkRadius = 12.0f;
@@ -39,6 +40,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     internal int MoveCounter => _moveCounter;
     internal int PersistedPosition =>
         _save.ReadWramByte(VineSproutDatabase.PositionAddress + _record.SubId);
+    public bool Finished { get; private set; }
 
     internal VineSproutRoomEntity(
         VineSproutDatabase database,
@@ -92,7 +94,10 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
             return;
         }
         if (!_moving)
+        {
+            UpdateResting(frame.Player, spawns);
             return;
+        }
 
         Position += _moveDelta;
         _moveCounter--;
@@ -104,6 +109,47 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _moving = false;
         _pushCounter = _record.PushDelay;
         OccupyTile();
+    }
+
+    private void UpdateResting(
+        Player player,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        bool jumpingDownCliff = player.LedgeJumpPhase is
+            LedgeJumpState.Airborne or
+            LedgeJumpState.AirborneBeforeScroll or
+            LedgeJumpState.AirborneAfterScroll;
+        if (jumpingDownCliff)
+        {
+            // vineSprout_linkJumpingDownCliff restores the tile throughout
+            // LINK_STATE_JUMPING_DOWN_LEDGE, then destroys the sprout only
+            // inside the source's signed Z and high-byte overlap windows.
+            RestoreTile();
+            if (!OverlapsLink(player.Position) ||
+                player.LedgeZ < -_record.CliffGroundProximity ||
+                player.LedgeZ >= 0)
+            {
+                return;
+            }
+
+            spawns.Add(new RockDebrisSpawn(
+                Position,
+                _record.CliffDebrisInteraction));
+            _database.ResetPosition(_record.SubId, _save);
+            Finished = true;
+            return;
+        }
+
+        // State 1 also leaves the underlying tile restored while Link is
+        // already inside the sprout, then reclaims it after he leaves.
+        if (OverlapsLink(player.Position))
+        {
+            RestoreTile();
+            return;
+        }
+
+        if (_occupiedPackedPosition < 0)
+            OccupyTile();
     }
 
     public void UpdatePushAttempt(
@@ -210,6 +256,13 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     }
 
     private void ResetPush() => _pushCounter = _record.PushDelay;
+
+    private bool OverlapsLink(Vector2 linkPosition)
+    {
+        Vector2 delta = Position - linkPosition;
+        return Mathf.Abs(delta.X) <= _record.CliffOverlapRadius &&
+            Mathf.Abs(delta.Y) <= _record.CliffOverlapRadius;
+    }
 
     private static Vector2 CenterOnTile(Vector2 position) => new(
         Mathf.Floor(position.X / OracleRoomData.MetatileSize) *

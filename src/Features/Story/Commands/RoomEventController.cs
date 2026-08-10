@@ -112,6 +112,7 @@ public sealed class RoomEventController
         _raftwreck = new RaftwreckEvent(_context);
         _tokayTheft = new TokayTheftEvent(_context);
         var tokayInteractions = new TokayInteractionDatabase();
+        var tokaySeedlingPlot = new TokaySeedlingPlotDatabase();
         var tokayShop = new TokayShopDatabase();
         var wildTokayGame = new WildTokayGameDatabase();
         _tokayCook = new TokayCookEvent(_context, tokayInteractions);
@@ -120,7 +121,7 @@ public sealed class RoomEventController
             _context, tokayInteractions);
         _tokayDimitri = new TokayDimitriEvent(_context, tokayInteractions);
         _tokaySeedlingPlot = new TokaySeedlingPlotEvent(
-            _context, tokayInteractions);
+            _context, tokayInteractions, tokaySeedlingPlot);
         _tokayShieldUpgrade = new TokayShieldUpgradeEvent(
             _context, tokayInteractions);
         _tokayVineExplanation = new TokayVineExplanationEvent(

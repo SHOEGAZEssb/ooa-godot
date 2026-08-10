@@ -23,7 +23,9 @@ internal sealed class VineSproutDatabase
                 [
                     "subid", "default-position", "sprite", "tile-base",
                     "palette", "source-grayscale-inverted", "animation",
-                    "speed-raw", "push-delay", "move-frames", "source"
+                    "speed-raw", "push-delay", "move-frames",
+                    "cliff-overlap-radius", "cliff-ground-proximity",
+                    "cliff-debris-interaction", "source"
                 ],
                 ["subid"],
                 headerRequired: true));
@@ -34,7 +36,8 @@ internal sealed class VineSproutDatabase
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4),
                 row.Boolean01(5), row.RequiredString(6), row.HexByte(7),
                 row.UnsignedDecimal(8), row.UnsignedDecimal(9),
-                row.RequiredString(10));
+                row.UnsignedDecimal(10), row.UnsignedDecimal(11),
+                row.HexByte(12), row.RequiredString(13));
             if (!_records.TryAdd(record.SubId, record))
                 throw row.Invalid(0, "a unique vine sprout subid");
         }
@@ -47,7 +50,10 @@ internal sealed class VineSproutDatabase
                     Palette: 0,
                     SpeedRaw: 0x1e,
                     PushDelay: 20,
-                    MoveFrames: 22
+                    MoveFrames: 22,
+                    CliffOverlapRadius: 6,
+                    CliffGroundProximity: 3,
+                    CliffDebrisInteraction: 0x06
                 } ||
             Record(2).DefaultPosition != 0x16 ||
             Record(3).DefaultPosition != 0x35 ||
@@ -122,4 +128,7 @@ internal readonly record struct VineSproutRecord(
     int SpeedRaw,
     int PushDelay,
     int MoveFrames,
+    int CliffOverlapRadius,
+    int CliffGroundProximity,
+    int CliffDebrisInteraction,
     string Source);

@@ -62,6 +62,7 @@ internal sealed class RoomEntityFactory(
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly TokayInteractionDatabase _tokayInteractions = new();
+    private readonly TokaySeedlingPlotDatabase _tokaySeedlingPlot = new();
     private readonly TokayShopDatabase _tokayShop = new();
     private readonly WildTokayMeatDatabase _wildTokayMeat = new();
     private readonly TokayEntranceEyeDatabase _tokayEntranceEyes = new();
@@ -642,6 +643,21 @@ internal sealed class RoomEntityFactory(
                         throw UnsupportedNpcClassification(record);
                 }
             }
+        }
+
+        // group1MapacObjectData places the room-flag-gated $80:$04
+        // decoration immediately after the $48:$11 Tokay. Its initial state
+        // deletes it while bit $80 is clear; the planting script recreates it
+        // dynamically after setting that flag.
+        if (saveData is not null &&
+            _tokaySeedlingPlot.MatchesRoom(group, room.Id) &&
+            saveData.HasRoomFlag(
+                group,
+                room.Id,
+                checked((byte)_tokaySeedlingPlot.Record.RoomFlag)))
+        {
+            yield return new TokaySeedlingDecorationRoomEntity(
+                _tokaySeedlingPlot.Record);
         }
 
         // Every Ages Gasha placement precedes the room's enemy pointer. In
@@ -1839,6 +1855,8 @@ internal sealed class RoomEntityFactory(
         WildTokayMeatSpawn => CreateWildTokayMeat(),
         TokayEntranceEyeSpawn eye =>
             new TokayEntranceEyeRoomEntity(eye.Record),
+        TokaySeedlingDecorationSpawn seedling =>
+            new TokaySeedlingDecorationRoomEntity(seedling.Record),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
@@ -2853,10 +2871,11 @@ internal sealed class RoomEntityFactory(
         {
             npc.SetActive(false);
         }
-        else if (record.SubId == 0x11 &&
+        else if (_tokaySeedlingPlot.MatchesNpc(record) &&
             saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag80))
         {
-            npc.SetStatePosition(npc.Position + new Vector2(16, 0));
+            npc.SetStatePosition(npc.Position + new Vector2(
+                _tokaySeedlingPlot.Record.PlantedXOffset, 0));
         }
 
         if (record.SubId is >= 0x06 and <= 0x0a)

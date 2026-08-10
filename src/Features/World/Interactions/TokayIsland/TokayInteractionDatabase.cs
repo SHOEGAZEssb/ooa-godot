@@ -18,6 +18,8 @@ internal sealed class TokayInteractionDatabase
     internal int DimitriStateAddress => Constant("dimitri-state-address");
     internal int SoundGetSeed => Constant("sound-get-seed");
     internal int SoundJump => Constant("sound-jump");
+    internal int TreasureScentSeeds => Constant("treasure-scent-seeds");
+    internal int TreasureScentSeedling => Constant("treasure-scent-seedling");
 
     internal TokayInteractionDatabase()
     {

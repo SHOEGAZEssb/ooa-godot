@@ -436,6 +436,10 @@ if ($vineDefinition.Gfx -ne 0x6b -or
     $vineSource -notmatch
         '(?ms)^vineSprout_state1:.*?All the above must hold for 20 frames.*?ld \(hl\),\$16.*?SND_MOVEBLOCK' -or
     $vineSource -notmatch
+        '(?ms)^vineSprout_linkJumpingDownCliff:.*?vineSprout_restoreTileAtPosition.*?vineSprout_checkLinkInSprout.*?ret nc.*?SpecialObject\.zh.*?add \$03.*?ret nc.*?^vineSprout_destroy:.*?INTERAC_ROCKDEBRIS.*?objectCreateInteractionWithSubid00.*?vineSprout_getDefaultPosition.*?wVinePositions.*?enemyDelete' -or
+    $vineSource -notmatch
+        '(?ms)^vineSprout_checkLinkInSprout:.*?sub \(hl\)\s+add \$06\s+cp \$0d\s+ret nc.*?sub \(hl\)\s+add \$06\s+cp \$0d\s+ret' -or
+    $vineSource -notmatch
         '(?ms)^vineSprout_updateTileAtPosition:.*?ld \(hl\),\$0f.*?ld \(hl\),TILEINDEX_00.*?wVinePositions') {
     throw 'ENEMY_VINE_SPROUT source contract changed.'
 }
@@ -445,14 +449,14 @@ $vineSourceGrayscaleInverted = if (
 $vineAnimation = $vineDefinition.Animations[0]
 $vineRows = [Collections.Generic.List[string]]::new()
 $vineRows.Add(
-    '# subid`tdefault-position`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tspeed-raw`tpush-delay`tmove-frames`tsource'.Replace(
+    '# subid`tdefault-position`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tspeed-raw`tpush-delay`tmove-frames`tcliff-overlap-radius`tcliff-ground-proximity`tcliff-debris-interaction`tsource'.Replace(
         '`t', "`t"))
 for ($subid = 0; $subid -lt $vineDefaults.Count; $subid++) {
     $vineRows.Add(
         "$($subid.ToString('x2'))`t$($vineDefaults[$subid])`t$vineSprite`t" +
         "$($vineDefinition.TileBase)`t$($vineDefinition.Palette)`t" +
         "$vineSourceGrayscaleInverted`t$vineAnimation`t" +
-        "1e`t20`t22`tobject_code/ages/enemies/vineSprout.s:" +
+        "1e`t20`t22`t6`t3`t06`tobject_code/ages/enemies/vineSprout.s:" +
         "ENEMY_VINE_SPROUT+$($subid.ToString('x2'))")
 }
 Write-GeneratedTable(

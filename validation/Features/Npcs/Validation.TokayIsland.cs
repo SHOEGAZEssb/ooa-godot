@@ -46,11 +46,15 @@ public sealed partial class ValidationRoot
         VineSproutRoomEntity vine =
             _entities.Entities<VineSproutRoomEntity>().Single();
         Vector2 sourcePosition = vine.Position;
+        VineSproutRecord vineRecord = enemies.VineSprouts.Record(0x02);
         FailIf(
             sourcePosition != new Vector2(0x68, 0x18) ||
             _rooms.CurrentRoom.GetMetatile(sourcePosition) != 0x00 ||
             _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0x0f ||
             vine.PersistedPosition != 0x16 || originalVineTile == 0x00 ||
+            vineRecord.CliffOverlapRadius != 6 ||
+            vineRecord.CliffGroundProximity != 3 ||
+            vineRecord.CliffDebrisInteraction != 0x06 ||
             originalVineGroundHash == logicalTile00Hash ||
             OracleGraphicsCache.PixelHash(
                 _rooms.CurrentRoom.BuildMimickedMetatileTexture(
@@ -58,6 +62,82 @@ public sealed partial class ValidationRoot
             "Room 1:ba vine did not resolve default packed position `$16 and " +
             "own logical `$00/`$0f state while preserving its normal rendered " +
             "ground metatile on state 1.");
+
+        void BeginCliffJump(Vector2 position, int speedZ, int gravity)
+        {
+            _player.WarpTo(position, recordSafe: false);
+            _player.StartLedgeHop(new LedgeJumpPlan(
+                Vector2I.Down,
+                0x10,
+                1,
+                0,
+                false,
+                _rooms.CurrentRoom.Height - 7,
+                sourcePosition,
+                speedZ,
+                -0x100,
+                gravity,
+                OracleSoundEngine.SndJump,
+                OracleSoundEngine.SndLand,
+                [9, 9, 6]));
+            _player._PhysicsProcess(1.0 / 60.0);
+        }
+
+        BeginCliffJump(sourcePosition + Vector2.Right * 7.0f, -0x1c0, 0x20);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            _entities.Entities<VineSproutRoomEntity>().Count != 1 ||
+            _rooms.CurrentRoom.GetMetatile(sourcePosition) != originalVineTile ||
+            _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0 ||
+            _entities.Entities<RockDebrisEffect>().Count != 0,
+            "Room 1:ba ENEMY_VINE_SPROUT did not restore its tile during a " +
+            "cliff jump or used more than the source's inclusive 6-pixel " +
+            "Link overlap window.");
+
+        _player.WarpTo(sourcePosition + Vector2.Right * 7.0f, recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            _rooms.CurrentRoom.GetMetatile(sourcePosition) != 0x00 ||
+            _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0x0f,
+            "ENEMY_VINE_SPROUT did not reclaim its tile after Link left its " +
+            "restored overlap window.");
+
+        BeginCliffJump(sourcePosition, -0x400, 0);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            _player.LedgeZ != -4 ||
+            _entities.Entities<VineSproutRoomEntity>().Count != 1 ||
+            _entities.Entities<RockDebrisEffect>().Count != 0,
+            "ENEMY_VINE_SPROUT broke before Link entered the source's " +
+            "signed Z -3 through -1 cliff-landing window.");
+
+        _player.WarpTo(sourcePosition + Vector2.Right * 7.0f, recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        _saveData.WriteWramByte(
+            VineSproutDatabase.PositionAddress + vineRecord.SubId,
+            0x25);
+        _sound.ClearPlayRequestAudit();
+        BeginCliffJump(sourcePosition, -0x1c0, 0x20);
+        _entities.Update(1.0 / 60.0, _player);
+        RockDebrisEffect cliffDebris =
+            _entities.Entities<RockDebrisEffect>().SingleOrDefault()!;
+        FailIf(
+            _player.LedgeZ != -2 ||
+            _entities.Entities<VineSproutRoomEntity>().Count != 0 ||
+            cliffDebris is null || cliffDebris.Position != sourcePosition ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1 ||
+            _saveData.ReadWramByte(
+                VineSproutDatabase.PositionAddress + vineRecord.SubId) != 0x16 ||
+            _rooms.CurrentRoom.GetMetatile(sourcePosition) != originalVineTile ||
+            _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0,
+            "Room 1:ba cliff landing did not create INTERAC_ROCKDEBRIS $06, " +
+            "delete ENEMY_VINE_SPROUT $62:$02, restore its ground, and reset " +
+            "wVinePositions+$02 to default packed position $16.");
+
+        LoadValidationRoom(1, 0xba);
+        _entities.Update(1.0 / 60.0, _player);
+        vine = _entities.Entities<VineSproutRoomEntity>().Single();
+        sourcePosition = vine.Position;
 
         Vector2I[] directions =
         [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
@@ -181,13 +261,15 @@ public sealed partial class ValidationRoot
         GD.Print(
             "Validated five direct ENEMY_VINE_SPROUT placements, default/live " +
             "position persistence, preserved normal ground, Link push animation, " +
-            "20+$16 push boundaries, both room 1:ba entrance eyes, and the " +
+            "cliff-landing destruction, 20+$16 push boundaries, both room 1:ba " +
+            "entrance eyes, and the " +
             "independent `$c4:$04 insertion sequence.");
     }
 
     private void ValidateTokayIslandInteractions()
     {
         var database = new TokayInteractionDatabase();
+        var seedlingDatabase = new TokaySeedlingPlotDatabase();
         var shopDatabase = new TokayShopDatabase();
         var wildDatabase = new WildTokayGameDatabase();
         static Vector2 WildTilePoint(int packedPosition) => new(
@@ -245,8 +327,18 @@ public sealed partial class ValidationRoot
             wildDatabase.MeatAccessory(3) is not
                 { YOffset: -12, XOffset: -1, Animation: 3 } ||
             wildDatabase.MeatAccessory(4) is not
-                { YOffset: -12, XOffset: 0, Animation: 3 },
-            "Tokay Island source-derived holder, shop, or Wild Tokay tables changed.");
+                { YOffset: -12, XOffset: 0, Animation: 3 } ||
+            seedlingDatabase.Record is not
+                {
+                    Group: 1, Room: 0xac,
+                    NpcId: 0x48, NpcSubId: 0x11,
+                    DecorationId: 0x80, DecorationSubId: 0x04,
+                    Y: 0x38, X: 0x48, RoomFlag: 0x80,
+                    Speed: 0x28, MoveCounter: 0x10,
+                    PlantedXOffset: 0x10,
+                    IntroWait: 30, DoneWait: 120
+                },
+            "Tokay Island source-derived seedling, holder, shop, or Wild Tokay tables changed.");
 
         int[][] sourceWildPatterns =
         [
@@ -380,6 +472,145 @@ public sealed partial class ValidationRoot
         RosaShovelEvent rosaShovel = _roomEvents.RosaShovel;
         TokayTradingEvent trading = _roomEvents.TokayTrading;
         WildTokayGameEvent wildTokay = _roomEvents.WildTokayGame;
+
+        // Room 1:ac's source script faces Link, flips away, installs
+        // applyspeed $10, applies SPEED_100 only while counter2 remains
+        // nonzero after DEC, flips back, plants, and spawns $80:$04.
+        TokaySeedlingPlotRecord seedlingRecord = seedlingDatabase.Record;
+        TokaySeedlingPlotEvent seedlingPlot = _roomEvents.TokaySeedlingPlot;
+        _saveData.SetRoomFlag(
+            seedlingRecord.Group,
+            seedlingRecord.Room,
+            checked((byte)seedlingRecord.RoomFlag),
+            value: false);
+        _saveData.SetRoomFlag(
+            seedlingRecord.Group - 1,
+            seedlingRecord.Room,
+            checked((byte)seedlingRecord.RoomFlag),
+            value: false);
+        _inventory.GiveTreasure(database.TreasureScentSeedling, 1);
+        LoadValidationRoom(seedlingRecord.Group, seedlingRecord.Room);
+        NpcCharacter seedlingTokay = _entities.Entities<NpcCharacter>().Single(npc =>
+            seedlingDatabase.MatchesNpc(npc.Record));
+        Vector2 seedlingTokayStart = seedlingTokay.Position;
+        _player.WarpTo(
+            seedlingTokayStart + Vector2.Right * 16,
+            recordSafe: false);
+        _player.Face(Vector2I.Left);
+        FailIf(
+            _entities.Entities<TokaySeedlingDecorationRoomEntity>().Count != 0 ||
+            !seedlingPlot.TryInteractNpc(seedlingTokay) ||
+            seedlingTokay.FacingVector != Vector2I.Right ||
+            seedlingPlot.Stage != TokaySeedlingPlotStage.Intro ||
+            !_player.CutsceneControlled ||
+            _dialogue.CurrentMessage !=
+                DialogueBox.PlainText(database.Text(0x0a40)),
+            "Room 1:ac did not enter tokayAtSeedlingPlotScript facing Link " +
+            "with unplanted INTERAC_DECORATION `$80:$04 suppressed.");
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.PlantTextWait ||
+            seedlingPlot.Counter != seedlingRecord.IntroWait,
+            "Room 1:ac did not install wait 30 after TX_0a40 closed.");
+        StepRoomEventFrames(seedlingRecord.IntroWait - 1);
+        FailIf(
+            seedlingPlot.Counter != 1 || _dialogue.IsOpen,
+            "Room 1:ac showed TX_0a41 before the source wait 30 boundary.");
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.PlantText ||
+            _dialogue.CurrentMessage !=
+                DialogueBox.PlainText(database.Text(0x0a41)),
+            "Room 1:ac did not show TX_0a41 on wait-30 update 30.");
+
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.Moving ||
+            seedlingPlot.Counter != seedlingRecord.MoveCounter ||
+            seedlingPlot.MoveAngle != 0x18 ||
+            seedlingTokay.Position != seedlingTokayStart ||
+            seedlingTokay.FacingVector != Vector2I.Left,
+            "Room 1:ac did not flip away from right-side Link and install " +
+            "SPEED_100 applyspeed `$10 without moving on its setup update.");
+        StepRoomEventFrames(seedlingRecord.MoveCounter - 1);
+        Vector2 expectedMovedPosition =
+            seedlingTokayStart + Vector2.Left * (seedlingRecord.MoveCounter - 1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.Moving ||
+            seedlingPlot.Counter != 1 ||
+            seedlingTokay.Position != expectedMovedPosition ||
+            _entities.Entities<TokaySeedlingDecorationRoomEntity>().Count != 0,
+            "Room 1:ac Tokay did not apply the source's 15 SPEED_100 left " +
+            "moves while counter2 decremented from `$10 to `$01.");
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.Plant ||
+            seedlingPlot.Counter != 0 ||
+            seedlingTokay.Position != expectedMovedPosition ||
+            _entities.Entities<TokaySeedlingDecorationRoomEntity>().Count != 0,
+            "Room 1:ac moved or planted on applyspeed's counter2-zero update.");
+
+        _sound.ClearPlayRequestAudit();
+        StepRoomEventFrames(1);
+        TokaySeedlingDecorationRoomEntity plantedSeedling = _entities
+            .Entities<TokaySeedlingDecorationRoomEntity>()
+            .Single();
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.DoneTextWait ||
+            seedlingPlot.Counter != seedlingRecord.DoneWait ||
+            seedlingTokay.Position != expectedMovedPosition ||
+            seedlingTokay.FacingVector != Vector2I.Right ||
+            _inventory.HasTreasure(database.TreasureScentSeedling) ||
+            !_saveData.HasRoomFlag(
+                seedlingRecord.Group,
+                seedlingRecord.Room,
+                checked((byte)seedlingRecord.RoomFlag)) ||
+            !_saveData.HasRoomFlag(
+                seedlingRecord.Group - 1,
+                seedlingRecord.Room,
+                checked((byte)seedlingRecord.RoomFlag)) ||
+            plantedSeedling.Position !=
+                new Vector2(seedlingRecord.X, seedlingRecord.Y) ||
+            plantedSeedling.Record.DecorationId != 0x80 ||
+            plantedSeedling.Record.DecorationSubId != 0x04 ||
+            plantedSeedling.OpaquePixels == 0 ||
+            _sound.PlayRequestsFor(database.SoundGetSeed) != 1,
+            "Room 1:ac did not flip back, plant both-era bit `$80, create " +
+            "visible INTERAC_DECORATION `$80:$04 at `$38,$48, and play " +
+            "SND_GETSEED on the post-applyspeed update.");
+        StepRoomEventFrames(seedlingRecord.DoneWait - 1);
+        FailIf(
+            seedlingPlot.Counter != 1 || _dialogue.IsOpen,
+            "Room 1:ac showed TX_0a42 before the source wait 120 boundary.");
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.DoneText ||
+            _dialogue.CurrentMessage !=
+                DialogueBox.PlainText(database.Text(0x0a42)),
+            "Room 1:ac did not show TX_0a42 on wait-120 update 120.");
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(
+            seedlingPlot.Stage != TokaySeedlingPlotStage.Inactive ||
+            _player.CutsceneControlled,
+            "Room 1:ac did not release Link after the planting dialogue.");
+
+        LoadValidationRoom(seedlingRecord.Group, seedlingRecord.Room);
+        seedlingTokay = _entities.Entities<NpcCharacter>().Single(npc =>
+            seedlingDatabase.MatchesNpc(npc.Record));
+        plantedSeedling = _entities
+            .Entities<TokaySeedlingDecorationRoomEntity>()
+            .Single();
+        FailIf(
+            seedlingTokay.Position != seedlingTokayStart +
+                Vector2.Right * seedlingRecord.PlantedXOffset ||
+            plantedSeedling.Position !=
+                new Vector2(seedlingRecord.X, seedlingRecord.Y) ||
+            plantedSeedling.OpaquePixels == 0,
+            "Room 1:ac re-entry did not apply @initSubid11's +`$10 X and " +
+            "restore visible INTERAC_DECORATION `$80:$04 from room bit `$80.");
 
         // Returned-item predicates and the source held-accessory animation.
         _saveData.SetRoomFlag(5, 0xca, OracleSaveData.RoomFlag40, value: false);
@@ -1178,7 +1409,7 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated all 27 non-dungeon Tokay Island NPC records, clean-US " +
-            "room 1:ad placement, held accessories, " +
+            "room 1:ad placement, room 1:ac exact seedling planting, held accessories, " +
             "source-addressed item grants, holder/re-entry state, trading-hut " +
             "stock collision, decline, accepted Feather grant, and live " +
             "cross-stock Bracelet-for-shovel refresh, linked " +
