@@ -1089,10 +1089,6 @@ internal sealed class RoomEntityFactory(
                     record, room, runtimeState,
                     _dungeonVisuals.Visual("minecart-gate"), soundRequested,
                     roomTileChanged, animationTick);
-            case DungeonObjectKind.EnemyChest:
-                return new EnemyClearChestRoomEntity(
-                    record, room, _dungeonInteractions, roomEnemyCount,
-                    soundRequested, roomTileChanged, animationTick);
             case DungeonObjectKind.EnemySmallKey:
                 return new DungeonRewardRoomEntity(
                     record, _dungeonInteractions, saveData, roomEnemyCount,
@@ -1350,6 +1346,19 @@ internal sealed class RoomEntityFactory(
                 () => saveData?.HasRoomFlag(
                     group, room.Id, OracleSaveData.RoomFlagItem) == true,
                 animationTick, soundRequested);
+        }
+        if (record.Id == 0x12)
+        {
+            if (saveData?.HasRoomFlag(
+                    group, room.Id, OracleSaveData.RoomFlagItem) == true ||
+                !record.CountSourceComplete ||
+                !DungeonEnemyCountIsComplete(group, room))
+            {
+                return null;
+            }
+            return new EnemyClearChestRoomEntity(
+                record, room, _dungeonInteractions, roomEnemyCount,
+                soundRequested, roomTileChanged, animationTick);
         }
         if (record.Id == 0x13 && !enemyMechanicsSupported)
             return null;
@@ -1639,6 +1648,37 @@ internal sealed class RoomEntityFactory(
                 rope.Initialize(ropeRecord, room, position, random);
                 return new RopeRoomEntity(
                     rope, combatSource, soundRequested);
+
+            case EnemyHandlerKind.PolsVoice:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition polsVoiceRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var polsVoice = new PolsVoiceCharacter
+                {
+                    Name = $"PolsVoice_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                polsVoice.Initialize(
+                    polsVoiceRecord, room, position, random);
+                return new PolsVoiceRoomEntity(
+                    polsVoice, combatSource, soundRequested);
+
+            case EnemyHandlerKind.Moldorm:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition moldormRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var moldorm = new MoldormCharacter
+                {
+                    Name = $"Moldorm_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                moldorm.Initialize(moldormRecord, room, position, random);
+                return new MoldormRoomEntity(
+                    moldorm, combatSource, soundRequested);
 
             case EnemyHandlerKind.Spark:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -3289,7 +3329,9 @@ internal sealed class RoomEntityFactory(
                     ? neighbor
                     : null,
             mysteryEffect,
-            objectFellInHole);
+            objectFellInHole,
+            spawn.LaunchKind,
+            spawn.Angle);
         return new EmberSeedRoomEntity(seed);
     }
 
@@ -4150,8 +4192,16 @@ internal sealed record EmberSeedSpawn(
     Vector2 LinkPosition,
     Vector2I Direction,
     SeedRecord Record,
-    int Group)
+    int Group,
+    SeedLaunchKind LaunchKind = SeedLaunchKind.Satchel,
+    int Angle = 0)
     : RoomEntitySpawn;
+
+internal enum SeedLaunchKind
+{
+    Satchel,
+    Shooter
+}
 
 internal sealed record BombSpawn(
     Player Player,

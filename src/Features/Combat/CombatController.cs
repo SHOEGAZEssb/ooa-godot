@@ -53,7 +53,8 @@ public sealed class CombatController
                     response.Frames),
             swordState: player.SwordState,
             swordLevel: player.Inventory.SwordLevel,
-            itemZ: player.MeleeItemZ);
+            itemZ: player.MeleeItemZ,
+            expertPunch: player.IsUsingExpertPunch);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

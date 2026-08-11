@@ -34,6 +34,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool BombParentActive => _bomb.Active;
+    public bool SeedShooterActive => _seedSatchel.ShooterActive;
     public bool SideScrolling =>
         (_terrain.CurrentTilesetFlags & 0x20) != 0;
     public SideScrollPlayerParameters SideScrollParameters =>
@@ -121,6 +122,15 @@ public sealed class PlayerWorld : IPlayerWorld
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
+    public bool TryBeginSeedShooter(
+        Player player, bool primaryButton, Vector2 movementInput) =>
+        _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
+    public bool UpdateSeedShooter(
+        Player player, Vector2 movementInput,
+        bool primaryHeld, bool secondaryHeld) =>
+        _seedSatchel.UpdateShooter(
+            player, movementInput, primaryHeld, secondaryHeld);
+    public void InterruptSeedShooter() => _seedSatchel.InterruptShooter();
     public int BeginHarp(Player player)
     {
         int song = _harp.TryStart(player);

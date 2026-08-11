@@ -76,6 +76,7 @@ public partial class OracleSoundEngine : Node
     public const int SndExplosion = 0x6f;
     public const int SndDoorClose = 0x70;
     public const int SndDing = 0xc8;
+    public const int SndSeedShooter = 0xcb;
     public const int SndMoveBlock = 0x71;
     public const int SndLightTorch = 0x72;
     public const int SndKillEnemy = 0x73;

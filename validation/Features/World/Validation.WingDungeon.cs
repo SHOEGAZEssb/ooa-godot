@@ -254,10 +254,9 @@ public sealed partial class ValidationRoot
             .GroupBy(record => record.Kind)
             .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            native.Count != 36 ||
+            native.Count != 33 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.ToggleFloor) != 5 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.CircularSidePlatform) != 3 ||
-            kindCounts.GetValueOrDefault(DungeonObjectKind.EnemyChest) != 3 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.ColoredCube) != 2 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.HeadThwomp) != 1 ||
             kindCounts.GetValueOrDefault(DungeonObjectKind.Swoop) != 1 ||

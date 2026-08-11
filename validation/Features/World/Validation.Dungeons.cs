@@ -956,6 +956,7 @@ public sealed partial class ValidationRoot
         int switchRecordCount = 0;
         int buttonRecordCount = 0;
         int triggerDoorRecordCount = 0;
+        int enemyClearChestCount = 0;
         int permanentTriggerChestCount = 0;
         int retractableTriggerChestCount = 0;
         for (int group = 0; group < 8; group++)
@@ -968,6 +969,8 @@ public sealed partial class ValidationRoot
                 buttonRecordCount += record.Id == 0x09 ? 1 : 0;
                 triggerDoorRecordCount += record is
                     { Id: 0x1e, SubId: >= 0x04 and <= 0x07 } ? 1 : 0;
+                enemyClearChestCount += record is
+                    { Id: 0x12, SubId: 0x02 } ? 1 : 0;
                 permanentTriggerChestCount += record is
                     { Id: 0x20, SubId: 0x00 } ? 1 : 0;
                 retractableTriggerChestCount += record is
@@ -975,16 +978,17 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 162 || switchRecordCount != 7 ||
+            database.RecordCount != 174 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
+            enemyClearChestCount != 12 ||
             permanentTriggerChestCount != 7 ||
             retractableTriggerChestCount != 6 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
-            "Expected seven switches, 49 buttons, 20 trigger shutters, seven " +
-            "delayed and six retractable trigger chests, and 73 ordered " +
-            "$13:$01/enemy-shutter dungeon placements.");
+            "Expected 12 enemy-clear chests, seven switches, 49 buttons, 20 " +
+            "trigger shutters, seven delayed and six retractable trigger " +
+            "chests, and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
         void Step() => _entities.Update(update, _player);
         _entities.WorldToScreen = static position => position;
@@ -1964,7 +1968,8 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 162 imported switch/button/trigger-chest/$13:$01/$1e:$04-$0b " +
+        GD.Print("Validated all 174 imported enemy-clear-chest/switch/button/" +
+            "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +
             "room 4:7a's reusable chest retraction, room 4:09's one-shot bit-0 " +

@@ -8,7 +8,6 @@ namespace oracleofages;
 internal sealed partial class EnemyClearChestRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
 {
-    private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
     private readonly DungeonInteractionDatabase _data;
     private readonly Func<int> _enemyCount;
@@ -23,7 +22,32 @@ internal sealed partial class EnemyClearChestRoomEntity : Node2D,
     internal int Counter => _counter;
 
     internal EnemyClearChestRoomEntity(
-        DungeonObjectRecord record,
+        DungeonMechanicDatabaseRecord record,
+        OracleRoomData room,
+        DungeonInteractionDatabase data,
+        Func<int> enemyCount,
+        Action<int> playSound,
+        Action roomTileChanged,
+        Func<long> animationTick)
+        : this(
+            record.Group,
+            record.Room,
+            new Vector2(
+                (record.PackedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+                (record.PackedPosition >> 4) * OracleRoomData.MetatileSize + 8),
+            room,
+            data,
+            enemyCount,
+            playSound,
+            roomTileChanged,
+            animationTick)
+    {
+    }
+
+    private EnemyClearChestRoomEntity(
+        int group,
+        int roomId,
+        Vector2 position,
         OracleRoomData room,
         DungeonInteractionDatabase data,
         Func<int> enemyCount,
@@ -31,15 +55,14 @@ internal sealed partial class EnemyClearChestRoomEntity : Node2D,
         Action roomTileChanged,
         Func<long> animationTick)
     {
-        _record = record;
         _room = room;
         _data = data;
         _enemyCount = enemyCount;
         _playSound = playSound;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
-        Name = $"EnemyClearChest_{record.Group}_{record.Room:x2}";
-        Position = record.Position;
+        Name = $"EnemyClearChest_{group}_{roomId:x2}";
+        Position = position;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

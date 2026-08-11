@@ -29,7 +29,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Core Link movement and collision; level-1 sword combat; common terrain,
   hazards, chests, drops, push blocks, and breakable-object interactions.
 - Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
-  Mystery Seed/Owl behavior, level-1 Roc's Feather, Harp/time-portal
+  eight-direction Seed Shooter aiming and three-bounce projectiles, Mystery
+  Seed/Owl behavior, level-1 Roc's Feather, Harp/time-portal
   foundations, source-timed top-down Flippers swimming/normal-water diving,
   source-placed normal-water dive transitions, side-view Flippers swimming,
   common treasure transactions, and many ring effects.

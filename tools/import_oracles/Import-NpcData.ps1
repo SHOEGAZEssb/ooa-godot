@@ -1852,6 +1852,12 @@ $triggerChestPredicateByDungeon = @{
     0x0b = 'bit'
     0x0d = 'exact'
 }
+$enemyClearChestScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\common\commonScripts.s')
+if ($enemyClearChestScriptSource -notmatch
+    '(?ms)^createChestWhenNoEnemiesScript:.*?stopifitemflagset.*?checknoenemies.*?playsound SND_SOLVEPUZZLE.*?createpuff.*?wait 30.*?settilehere TILEINDEX_CHEST.*?incstate.*?scriptend') {
+    throw 'INTERAC_DUNGEON_STUFF $12:$02 enemy-clear chest script changed.'
+}
 $mechanicTilesetsByGroup = @{}
 function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
     if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
@@ -1864,6 +1870,7 @@ function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
 
 $dungeonMechanicRows = [Collections.Generic.List[string]]::new()
 $dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`ttrigger-predicate`tcount-source-complete")
+$enemyClearChestCount = 0
 $permanentTriggerChestCount = 0
 $retractableTriggerChestCount = 0
 $mechanicGroup = -1
@@ -1888,18 +1895,19 @@ foreach ($line in $mainObjectLines) {
                 $dungeonScriptPredicate = $triggerChestPredicateByDungeon[$dungeon]
             }
         }
-        if (($id -eq 0x13 -and $subid -eq 0x01) -or
+        if (($id -eq 0x12 -and $subid -eq 0x02) -or
+            ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             $dungeonScriptPredicate -ne '' -or
             ($id -eq 0x21 -and $subid -eq 0x17)) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
-            $position = if ($id -eq 0x13 -or $id -eq 0x20) {
+            $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20) {
                 ($a -band 0xf0) -bor (($b -shr 4) -band 0x0f)
             } else {
                 $a
             }
-            $parameter = if ($id -eq 0x13) {
+            $parameter = if ($id -eq 0x12 -or $id -eq 0x13) {
                 0
             } elseif ($id -eq 0x20) {
                 if ($dungeonScriptPredicate -eq 'exact') { 1 } else { 0 }
@@ -1919,6 +1927,7 @@ foreach ($line in $mainObjectLines) {
                 "$mechanicGroup`:$($mechanicRoom.ToString('x2'))")) { 0 } else { 1 }
             $dungeonMechanicRows.Add(
                 "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$triggerPredicate`t$countSourceComplete")
+            if ($id -eq 0x12) { $enemyClearChestCount++ }
             if ($id -eq 0x20) { $permanentTriggerChestCount++ }
             if ($id -eq 0x21) { $retractableTriggerChestCount++ }
         }
@@ -1928,7 +1937,8 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 163 -or
+if ($dungeonMechanicRows.Count -ne 175 -or
+    $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
     -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
@@ -1939,13 +1949,14 @@ if ($dungeonMechanicRows.Count -ne 163 -or
     -not ($dungeonMechanicRows -contains "4`t09`t5`t09`t00`t14`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t22`t1`t09`t80`t5b`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t7a`t0`t21`t17`t39`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 162 reusable dungeon switch/button/trigger/chest/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:2f/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 174 reusable dungeon enemy-clear chest/switch/button/trigger/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:2f/4:65/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
 }
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"

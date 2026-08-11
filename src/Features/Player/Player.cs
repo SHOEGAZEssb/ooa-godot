@@ -297,6 +297,7 @@ public partial class Player : Node2D
     public bool IsUsingHarp => _usingHarp;
     public bool IsUsingShield => _usingShield;
     internal bool IsUsingPunch => _usingPunch;
+    internal bool IsUsingExpertPunch => _usingPunch && _expertPunch;
     private bool IsUsingItem =>
         IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp ||
         IsUsingPunch;
@@ -814,6 +815,7 @@ public partial class Player : Node2D
             return;
         _world.InterruptBomb(this, discard);
         _world.InterruptBracelet(this, discard);
+        _world.InterruptSeedShooter();
     }
 
     internal void BeginNewGameSlowFall(int initialZ)
@@ -1680,6 +1682,15 @@ public partial class Player : Node2D
             QueueRedraw();
             return;
         }
+        if (_world.SeedShooterActive && _world.UpdateSeedShooter(
+                this, input, primaryPressed, secondaryPressed))
+        {
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
 
         if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
@@ -1741,6 +1752,10 @@ public partial class Player : Node2D
                 _inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
             else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedA == InventoryState.ItemShooter &&
+                _world.TryBeginSeedShooter(this, primaryButton: true, input))
+                return;
+            else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemHarp)
                 StartHarpAction();
         }
@@ -1798,6 +1813,12 @@ public partial class Player : Node2D
                 _inventory.EquippedB == InventoryState.ItemSeedSatchel)
             {
                 StartSeedSatchelAction(input);
+            }
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedB == InventoryState.ItemShooter &&
+                _world.TryBeginSeedShooter(this, primaryButton: false, input))
+            {
+                return;
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemHarp)

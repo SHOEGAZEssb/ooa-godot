@@ -209,7 +209,7 @@ internal sealed class WingDungeonDatabase
         int count = 0;
         foreach (IReadOnlyList<DungeonObjectRecord> records in _objects.Values)
             count += records.Count;
-        if (count != 36 ||
+        if (count != 33 ||
             _patterns.Count != 5 ||
             _minecarts.Count != 3 ||
             Pattern(DungeonObjectKind.FloorPatternKey, 0).Count != 0 ||
@@ -254,7 +254,6 @@ internal sealed class WingDungeonDatabase
             "minecart-gate" => DungeonObjectKind.MinecartGate,
             "cube-light-sensor" => DungeonObjectKind.CubeLightSensor,
             "cube-switch-sensor" => DungeonObjectKind.CubeSwitchSensor,
-            "enemy-chest" => DungeonObjectKind.EnemyChest,
             "red-floor-trigger" => DungeonObjectKind.RedFloorTrigger,
             "miniboss-reward" => DungeonObjectKind.MinibossReward,
             "boss-reward" => DungeonObjectKind.BossReward,

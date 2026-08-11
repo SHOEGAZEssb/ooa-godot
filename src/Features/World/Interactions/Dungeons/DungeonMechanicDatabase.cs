@@ -6,8 +6,8 @@ namespace oracleofages;
 /// <summary>
 /// Imported placements and common constants for PART_SWITCH $05,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
-/// INTERAC_PUSHBLOCK_TRIGGER $13:$01, and shutter-door controller variants
-/// $1e:$04-$0b.
+/// INTERAC_DUNGEON_STUFF $12:$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
+/// shutter-door controller variants $1e:$04-$0b.
 /// </summary>
 internal sealed class DungeonMechanicDatabase
 {
@@ -73,7 +73,8 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x05 or 0x09 or 0x13 or 0x1e or 0x20 or 0x21) ||
+            if (record.Id is not (0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21) ||
+                record.Id == 0x12 && record.SubId != 0x02 ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId != 0x17)
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
@@ -110,8 +111,9 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room09 = GetRoomRecords(4, 0x09);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room22 = GetRoomRecords(4, 0x22);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room2f = GetRoomRecords(4, 0x2f);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room65 = GetRoomRecords(4, 0x65);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
-        if (RecordCount != 162 || _constants.Count != 27 ||
+        if (RecordCount != 174 || _constants.Count != 27 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -139,6 +141,10 @@ internal sealed class DungeonMechanicDatabase
             room2f.Count != 1 || room2f[0] !=
                 new DungeonMechanicDatabaseRecord(
                     4, 0x2f, 5, 0x05, 0x02, 0x79, 0x00,
+                    TriggerPredicate.None, true) ||
+            room65.Count != 1 || room65[0] !=
+                new DungeonMechanicDatabaseRecord(
+                    4, 0x65, 0, 0x12, 0x02, 0x58, 0x00,
                     TriggerPredicate.None, true) ||
             room7a.Count != 2 || room7a[0] !=
                 new DungeonMechanicDatabaseRecord(
@@ -168,8 +174,8 @@ internal sealed class DungeonMechanicDatabase
             ChestTile != 0xf1 || ChestWait != 15 || PuffSound != 0x98)
         {
             throw new InvalidOperationException(
-                "Imported dungeon switch / button / trigger-chest / $13:$01 / " +
-                "$1e:$04-$0b contract is incomplete.");
+                "Imported dungeon enemy-clear chest / switch / button / " +
+                "trigger-chest / $13:$01 / $1e:$04-$0b contract is incomplete.");
         }
     }
 

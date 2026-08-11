@@ -791,6 +791,31 @@ public sealed partial class ValidationRoot
                 ],
                 [15, 50, 15, 64, 10, 112, 112]) ||
             !ProfileMatches(
+                tables.PolsVoice.Sources,
+                [
+                    tables.PolsVoice.InitialCounterMask,
+                    tables.PolsVoice.InitialCounterAdd,
+                    tables.PolsVoice.JumpTypeHighMask,
+                    tables.PolsVoice.RandomAngleMask,
+                    tables.PolsVoice.NormalInitialSpeedZ,
+                    tables.PolsVoice.NormalGravity,
+                    tables.PolsVoice.NormalSpeedRaw,
+                    tables.PolsVoice.FastInitialSpeedZ,
+                    tables.PolsVoice.FastGravity,
+                    tables.PolsVoice.FastSpeedRaw,
+                    tables.PolsVoice.TargetAngleRounding,
+                    tables.PolsVoice.TargetAngleMask,
+                    tables.PolsVoice.LandingWaitFrames
+                ],
+                [63, 1, 15, 28, -296, 12, 20, -384, 12, 30, 2, 28, 32]) ||
+            !Values(tables.PolsVoiceCollisionEffects).SequenceEqual(
+                [
+                    0x02, 0x0f, 0x0f, 0x0f, 0x0c, 0x0d, 0x0d, 0x0e,
+                    0x0e, 0x0c, 0x0c, 0x09, 0x0d, 0x0c, 0x0c, 0x25,
+                    0x00, 0x00, 0x00, 0x0d, 0x0d, 0x0d, 0x09, 0x0d,
+                    0x0a, 0x0d, 0x20, 0x20, 0x0d, 0x28, 0x29, 0x00
+                ]) ||
+            !ProfileMatches(
                 tables.Ghini.Sources,
                 [
                     tables.Ghini.SpeedRaw,
@@ -1148,6 +1173,7 @@ public sealed partial class ValidationRoot
             [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x22, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x23, 0x00)] = (0xa1, EnemySwordResponse.Bump),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
             [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
             [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
@@ -1161,7 +1187,8 @@ public sealed partial class ValidationRoot
             [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
             [(0x49, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
             [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
-            [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump)
+            [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump),
+            [(0x4f, 0x00)] = (0xba, EnemySwordResponse.Knockback)
         };
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
         int combatSourceRows = 0;
@@ -1260,30 +1287,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 409 ||
+                EnemyHandlerClassification.OrderedImplemented) != 430 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 412 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 391 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 616 ||
+                EnemyHandlerClassification.OrderedImplemented) != 643 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 545 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 518 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 37 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 39 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 86 ||
-            combatSourceRows != 400 ||
-            combatSourceFlags.Count != 88 ||
-            expectedCombat.Count != 30 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 84 ||
+            combatSourceRows != 421 ||
+            combatSourceFlags.Count != 93 ||
+            expectedCombat.Count != 32 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -1334,7 +1361,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 821-row implementation " +
-            "classification, 400-row/88-flag typed combat descriptors, " +
+            "classification, 421-row/93-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -1414,11 +1441,656 @@ public sealed partial class ValidationRoot
         validationRoot.Free();
         GD.Print("Validated 1,145 clean-US ordered room placement records, mid-stream aliases, " +
             "all 821 fixed/random enemy handler classifications, 12 parameter slots, " +
-            "400 typed combat descriptors across 30 handlers / 88 source-flag " +
+            "421 typed combat descriptors across 32 handlers / 93 source-flag " +
             "combinations, source collision modes and sword responses, source-aware " +
             "construction/shutter capability, condition masks, 16-entry reservation " +
             "wrapping, and fixed/unsupported/item reservations before random Keese " +
             "in rooms 4:9a, 5:b0, and 5:db.");
+    }
+
+    private void ValidateRoom465PolsVoices()
+    {
+        const double update = 1.0 / 60.0;
+        bool originalItemFlag = _saveData.HasRoomFlag(
+            4, 0x65, OracleSaveData.RoomFlagItem);
+        _saveData.SetRoomFlag(
+            4, 0x65, OracleSaveData.RoomFlagItem, value: false);
+        var database = new EnemyDatabase();
+        List<RoomObjectRecord> placements =
+            EnemyPlacements(database, 0x23, 0x00);
+        List<RoomObjectRecord> roomPlacements =
+            RoomEnemyPlacements(database, 4, 0x65, 0x23, 0x00);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(0x23);
+        EnemyHandlerDescriptor handler = database.EnemyHandlers.ResolveHandler(
+            roomPlacements[0]);
+        FailIf(
+            placements.Count != 4 ||
+            placements.Sum(source => source.Count) != 4 ||
+            roomPlacements.Count != 2 ||
+            roomPlacements[0] is not
+                { Order: 5, Y: 0x58, X: 0xa0, PackedPosition: 0x5a } ||
+            roomPlacements[1] is not
+                { Order: 6, Y: 0x68, X: 0x90, PackedPosition: 0x69 } ||
+            definition is not
+            {
+                Id: 0x23,
+                SubId: 0x00,
+                TileBase: 0,
+                Palette: 3,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 3,
+                Animations.Length: 5
+            } ||
+            handler is not
+            {
+                Id: 0x23,
+                SubId: 0x00,
+                CollisionMode: 0xa1,
+                Classification:
+                    EnemyHandlerClassification.OrderedImplemented,
+                Handler: EnemyHandlerKind.PolsVoice,
+                EnemyName: "ENEMY_POLS_VOICE",
+                CompletesDungeonEnemyCount: true
+            },
+            "ENEMY_POLS_VOICE $23:$00 lost its four clean-US placements, " +
+            "room 4:65 source order/coordinates, or imported combat/visual definition.");
+
+        OracleRoomData room = _world.LoadRoom(4, 0x65);
+        var normalRandom = new OracleRandom();
+        var normal = new PolsVoiceCharacter();
+        normal.Initialize(definition, room, new Vector2(0x50, 0x50), normalRandom);
+        normal.UpdateFrame(new Vector2(0x90, 0x50), instrumentPlaying: false);
+        FailIf(
+            normal.State != PolsVoiceState.Waiting || normal.Counter != 31 ||
+            !normal.Visible || normal.AnimationIndex != 1 ||
+            normalRandom.Calls != 1,
+            "The first Pols Voice update did not consume random $5e, enter " +
+            "visible animation 1, and select its source 31-update wait.");
+        for (int frame = 0; frame < 31; frame++)
+        {
+            normal.UpdateFrame(
+                new Vector2(0x90, 0x50), instrumentPlaying: false);
+        }
+        FailIf(
+            normal.State != PolsVoiceState.Jumping ||
+            normal.SpeedZ != -296 || normal.Gravity != 12 ||
+            normal.SpeedRaw != 20 || normal.Angle != 0x18 ||
+            normal.ZFixed != 0 || normalRandom.Calls != 2,
+            "The default second RNG value $d4/$76/$1a did not select the " +
+            "cardinal SPEED_80, speedZ -$128 Pols Voice jump at angle $18.");
+        int airborneUpdates = 0;
+        while (normal.State == PolsVoiceState.Jumping && airborneUpdates++ < 120)
+        {
+            normal.UpdateFrame(
+                new Vector2(0x90, 0x50), instrumentPlaying: false);
+        }
+        FailIf(
+            normal.State != PolsVoiceState.Waiting ||
+            normal.Counter != 32 || normal.AnimationIndex != 1 ||
+            airborneUpdates > 120,
+            "The normal Pols Voice arc did not land into its exact $20-update wait.");
+        normal.Free();
+
+        var rareRandom = new OracleRandom();
+        OracleRandomState rareStart = default;
+        OracleRandomResult rareInitial = default;
+        OracleRandomResult rareJump = default;
+        bool foundRareJump = false;
+        for (int attempt = 0; attempt < 256 && !foundRareJump; attempt++)
+        {
+            OracleRandomState candidate = rareRandom.CaptureState();
+            OracleRandomResult initial = rareRandom.Next();
+            OracleRandomResult jump = rareRandom.Next();
+            if ((jump.High & 0x0f) != 0)
+                continue;
+            rareStart = candidate;
+            rareInitial = initial;
+            rareJump = jump;
+            foundRareJump = true;
+        }
+        FailIf(!foundRareJump, "No rare Pols Voice jump exists in 256 RNG pairs.");
+        rareRandom.RestoreState(rareStart);
+        var rare = new PolsVoiceCharacter();
+        Vector2 rarePosition = new(0x50, 0x50);
+        rare.Initialize(definition, room, rarePosition, rareRandom);
+        rare.UpdateFrame(rarePosition + Vector2.Right * 64, instrumentPlaying: false);
+        int rareWait = (rareInitial.Value & 0x3f) + 1;
+        for (int frame = 0; frame < rareWait; frame++)
+        {
+            rare.UpdateFrame(
+                rarePosition + Vector2.Right * 64,
+                instrumentPlaying: false);
+        }
+        FailIf(
+            rare.State != PolsVoiceState.Jumping ||
+            (rareJump.High & 0x0f) != 0 ||
+            rare.SpeedZ != -384 || rare.Gravity != 12 ||
+            rare.SpeedRaw != 30 || rare.Angle != 0x08,
+            "A high-byte low-nibble-zero RNG result did not select the rare " +
+            "Link-directed SPEED_c0, speedZ -$180 Pols Voice jump.");
+        rare.Free();
+
+        LoadValidationRoom(4, 0x65);
+        List<PolsVoiceCharacter> live =
+            _entities.Entities<PolsVoiceCharacter>();
+        FailIf(
+            live.Count != 2 || _entities.RoomEnemyCount != 2 ||
+            !live.Select(enemy => enemy.Position).ToHashSet().SetEquals(
+                [new Vector2(0xa0, 0x58), new Vector2(0x90, 0x68)]) ||
+            live.Exists(enemy =>
+                enemy.State != PolsVoiceState.Uninitialized || enemy.Visible),
+            "Room 4:65 did not construct its two initially hidden Pols Voices " +
+            "at `$58,$a0 and `$68,$90 in source order.");
+        int roomRandomCalls = _entities.RandomCalls;
+        _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            _entities.RandomCalls != roomRandomCalls + 2 ||
+            live.Exists(enemy =>
+                enemy.State != PolsVoiceState.Waiting || !enemy.Visible ||
+                enemy.Counter is < 1 or > 64),
+            "Room 4:65 did not initialize both Pols Voices in ordered enemy " +
+            "passes with one shared-RNG call apiece.");
+
+        PolsVoiceCharacter swordTarget = live[0];
+        live[1].Position = new Vector2(0x20, 0x70);
+        int swordHealth = swordTarget.Health;
+        int swordDamageSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+        FailIf(
+            !_entities.ApplySwordHit(
+                swordTarget.CollisionBounds,
+                swordTarget.Position + Vector2.Left * 16,
+                damage: 2) ||
+            swordTarget.Health != swordHealth ||
+            swordTarget.InvincibilityCounter != -16 ||
+            swordTarget.KnockbackCounter != 8 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+                swordDamageSounds,
+            "ITEMCOLLISION_L1_SWORD did not apply Pols Voice effect $0c: " +
+            "an unharmed 16-update bump with eight recoil updates and no " +
+            "enemy-damage sound.");
+
+        EnemyCombatSourceDescriptor combatSource =
+            handler.CombatSource(roomPlacements[0], killableEnemyIndex: 1);
+        var collisionSpawns = new List<RoomEntitySpawn>();
+        int directDamageSounds = 0;
+        (PolsVoiceCharacter Enemy, PolsVoiceRoomEntity Adapter) Combatant()
+        {
+            var enemy = new PolsVoiceCharacter();
+            enemy.Initialize(
+                definition, room, new Vector2(0x50, 0x50),
+                new OracleRandom());
+            enemy.UpdateFrame(Vector2.Zero, instrumentPlaying: false);
+            return (
+                enemy,
+                new PolsVoiceRoomEntity(
+                    enemy, combatSource, _ => directDamageSounds++));
+        }
+
+        var thrown = Combatant();
+        FailIf(
+            !thrown.Adapter.ApplyItemCollision(
+                RoomEntityItemCollision.ThrownObject,
+                thrown.Enemy.CollisionBounds,
+                thrown.Enemy.Position + Vector2.Left * 16,
+                damage: 2,
+                collisionSpawns) ||
+            thrown.Enemy.Health != 1 ||
+            thrown.Enemy.InvincibilityCounter != 21 ||
+            thrown.Enemy.KnockbackCounter != 11,
+            "ITEMCOLLISION_THROWN_OBJECT effect $09 did not damage a Pols " +
+            "Voice with normal recoil.");
+        thrown.Enemy.Free();
+
+        var bomb = Combatant();
+        FailIf(
+            !bomb.Adapter.ApplyItemCollision(
+                RoomEntityItemCollision.Bomb,
+                bomb.Enemy.CollisionBounds,
+                bomb.Enemy.Position,
+                damage: 4,
+                collisionSpawns) ||
+            bomb.Enemy.Health != 0 || !bomb.Enemy.PendingKnockbackDeath ||
+            bomb.Enemy.InvincibilityCounter != 26 ||
+            bomb.Enemy.KnockbackCounter != 15,
+            "ITEMCOLLISION_BOMB effect $0a did not lethally damage a Pols " +
+            "Voice with high recoil.");
+        bomb.Enemy.Free();
+
+        var expert = Combatant();
+        FailIf(
+            !expert.Adapter.ApplyExpertPunch(
+                expert.Enemy.CollisionBounds,
+                expert.Enemy.Position + Vector2.Left * 16,
+                damage: 4,
+                collisionSpawns) ||
+            expert.Enemy.Health != 0 ||
+            expert.Enemy.InvincibilityCounter != 21 ||
+            expert.Enemy.KnockbackCounter != 11,
+            "ITEMCOLLISION_EXPERT_PUNCH effect $09 did not damage a Pols " +
+            "Voice with normal recoil.");
+        expert.Enemy.Free();
+
+        var beam = Combatant();
+        FailIf(
+            !beam.Adapter.ApplyItemCollision(
+                RoomEntityItemCollision.SwordBeam,
+                beam.Enemy.CollisionBounds,
+                beam.Enemy.Position + Vector2.Left * 16,
+                damage: 2,
+                collisionSpawns) ||
+            beam.Enemy.Health != 3 ||
+            beam.Enemy.InvincibilityCounter != -21 ||
+            beam.Enemy.KnockbackCounter != 11,
+            "ITEMCOLLISION_SWORD_BEAM effect $0d damaged the Pols Voice " +
+            "instead of applying only a normal bump.");
+        beam.Enemy.Free();
+
+        foreach ((int seedItem, SeedHitResult expected, int invincibility,
+            int knockback) in new[]
+            {
+                (0x20, SeedHitResult.Activate, 0, 0),
+                (0x21, SeedHitResult.Activate, -21, 11),
+                (0x24, SeedHitResult.Activate, 0, 0)
+            })
+        {
+            var seedTarget = Combatant();
+            SeedHitResult result = seedTarget.Adapter.ApplySeedHit(
+                seedTarget.Enemy.CollisionBounds,
+                seedTarget.Enemy.Position + Vector2.Left * 16,
+                seedItem,
+                collisionSpawns);
+            FailIf(
+                result != expected || seedTarget.Enemy.Health != 3 ||
+                seedTarget.Enemy.InvincibilityCounter != invincibility ||
+                seedTarget.Enemy.KnockbackCounter != knockback,
+                $"ITEM ${seedItem:x2} did not preserve the Pols Voice's " +
+                "source non-damaging collision response.");
+            seedTarget.Enemy.Free();
+        }
+        FailIf(
+            directDamageSounds != 3,
+            "The damaging thrown-object, Bomb, and Expert's Ring paths did " +
+            "not each request exactly one SND_DAMAGE_ENEMY.");
+
+        LoadValidationRoom(4, 0x65);
+        _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
+        _entities.Update(update, _player);
+        PolsVoiceCharacter expertTarget =
+            _entities.Entities<PolsVoiceCharacter>()[0];
+        _entities.Entities<PolsVoiceCharacter>()[1].Position =
+            new Vector2(0x20, 0x70);
+        FailIf(
+            !_entities.ApplySwordHit(
+                expertTarget.CollisionBounds,
+                expertTarget.Position + Vector2.Left * 16,
+                damage: 4,
+                knockbackStrength: EnemyKnockbackStrength.High,
+                expertPunch: true) ||
+            expertTarget.Health != 0 ||
+            expertTarget.InvincibilityCounter != 21 ||
+            expertTarget.KnockbackCounter != 11,
+            "The room collision dispatcher did not route Expert's Ring " +
+            "ITEMCOLLISION_$0b separately from the non-damaging sword row.");
+
+        LoadValidationRoom(4, 0x65);
+        Vector2 mapChestPosition = new(0x88, 0x58);
+        var chests = new ChestDatabase();
+        FailIf(
+            _entities.Entities<EnemyClearChestRoomEntity>() is not
+                [{ Position: { X: 0x88, Y: 0x58 } }] ||
+            !chests.TryGet(4, 0x65, 0x58, out ChestRecord mapChest) ||
+            mapChest.TreasureObject != "TREASURE_OBJECT_MAP_02" ||
+            _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
+            "Room 4:65 did not import INTERAC_DUNGEON_STUFF $12:$02 at " +
+            "$58,$88 with its TREASURE_OBJECT_MAP_02 closed-chest record.");
+        int harpRandomCalls = _entities.RandomCalls;
+        int killSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+        int defeats = 0;
+        void RecordDefeat() => defeats++;
+        _entities.EnemyDefeated += RecordDefeat;
+        _entities.UpdateDuringHarp(update, _player);
+        _entities.EnemyDefeated -= RecordDefeat;
+        List<EnemyDeathPuffEffect> puffs =
+            _entities.Entities<EnemyDeathPuffEffect>();
+        FailIf(
+            _entities.Entities<PolsVoiceCharacter>().Count != 0 ||
+            puffs.Count != 2 ||
+            puffs.Exists(puff =>
+                puff.EnemyId != 0x23 || puff.ElapsedFrames != 1) ||
+            !puffs.Select(puff => puff.Position).ToHashSet().SetEquals(
+                [new Vector2(0xa0, 0x58), new Vector2(0x90, 0x68)]) ||
+            _entities.RoomEnemyCount != 2 || defeats != 2 ||
+            _entities.RandomCalls != harpRandomCalls ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+                killSounds + 2,
+            "The Harp phase did not instantly replace both room 4:65 Pols " +
+            "Voices with same-update PART_ENEMY_DESTROYED effects while " +
+            "retaining the room count through each death animation " +
+            $"(pols={_entities.Entities<PolsVoiceCharacter>().Count}, " +
+            $"puffs={puffs.Count}, puffFrames=" +
+            $"{string.Join(',', puffs.Select(puff => puff.ElapsedFrames))}, " +
+            $"roomCount={_entities.RoomEnemyCount}, defeats={defeats}, " +
+            $"rng={_entities.RandomCalls - harpRandomCalls}, " +
+            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - killSounds}).");
+
+        int deathPuffDuration = puffs[0].DurationFrames;
+        for (int frame = 1; frame < deathPuffDuration; frame++)
+            _entities.Update(update, _player);
+        FailIf(
+            _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.Entities<EnemyClearChestRoomEntity>() is not
+                [{ Counter: 0 }] ||
+            _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
+            "Room 4:65's enemy-clear chest reacted before both " +
+            "PART_ENEMY_DESTROYED effects released wNumEnemies.");
+
+        int solveSounds =
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle);
+        int poofSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndPoof);
+        _entities.Update(update, _player);
+        FailIf(
+            _entities.Entities<EnemyClearChestRoomEntity>() is not
+                [{ Counter: 30 }] ||
+            _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
+            _currentRoom.GetMetatile(mapChestPosition) == 0xf1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) !=
+                solveSounds + 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != poofSounds + 1,
+            "Room 4:65 did not begin the solve/poof and exact 30-update " +
+            "enemy-clear chest reveal after wNumEnemies reached zero.");
+        for (int frame = 0; frame < 29; frame++)
+            _entities.Update(update, _player);
+        FailIf(
+            _entities.Entities<EnemyClearChestRoomEntity>() is not
+                [{ Counter: 1 }] ||
+            _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
+            "Room 4:65 installed its Dungeon Map chest before wait 30 " +
+            "reached zero.");
+        _entities.Update(update, _player);
+        FailIf(
+            _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
+            _currentRoom.GetMetatile(mapChestPosition) != 0xf1,
+            "Room 4:65 did not install chest tile $f1 at $58,$88 when the " +
+            "enemy-clear wait reached zero.");
+
+        _saveData.SetRoomFlag(
+            4, 0x65, OracleSaveData.RoomFlagItem, originalItemFlag);
+
+        GD.Print(
+            "Validated all four ENEMY_POLS_VOICE $23:$00 placements, exact " +
+            "room 4:65 roster/order, shared-RNG 1-64 waits, normal and rare " +
+            "jump arcs, complete collision row (non-damaging sword/beam/seeds " +
+            "and damaging Bomb/thrown-object/Expert punch), Harp " +
+            "instant-death phase, death-puff enemy-count boundary, and " +
+            "30-update Dungeon Map chest reveal.");
+    }
+
+    private void ValidateRoom462Moldorms()
+    {
+        const double update = 1.0 / 60.0;
+        var database = new EnemyDatabase();
+        List<RoomObjectRecord> placements =
+            EnemyPlacements(database, 0x4f, 0x00);
+        List<RoomObjectRecord> roomPlacements =
+            RoomEnemyPlacements(database, 4, 0x62, 0x4f, 0x00);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(0x4f);
+        EnemyHandlerDescriptor handler = database.EnemyHandlers.ResolveHandler(
+            roomPlacements[0]);
+        FailIf(
+            placements.Count != 17 ||
+            placements.Sum(source => source.Count) != 23 ||
+            roomPlacements is not
+            [
+                {
+                    Order: 0,
+                    Kind: RoomObjectKind.RandomEnemy,
+                    Flags: 0x40,
+                    Count: 2
+                }
+            ] ||
+            definition is not
+            {
+                Id: 0x4f,
+                SubId: 0x00,
+                TileBase: 14,
+                Palette: 0,
+                RadiusY: 6,
+                RadiusX: 6,
+                DamageQuarters: 2,
+                Health: 8,
+                Animations.Length: 10
+            } ||
+            handler is not
+            {
+                Id: 0x4f,
+                SubId: 0x00,
+                CollisionMode: 0xba,
+                Classification:
+                    EnemyHandlerClassification.OrderedImplemented,
+                Handler: EnemyHandlerKind.Moldorm,
+                EnemyName: "ENEMY_MOLDORM",
+                CompletesDungeonEnemyCount: true
+            },
+            "ENEMY_MOLDORM $4f:$00 lost its 17 clean-US records / 23 " +
+            "instances, room 4:62 random pair, multipart visuals, or typed combat definition.");
+
+        OracleRoomData room = _world.LoadRoom(4, 0x62);
+        var movementRandom = new OracleRandom();
+        var movement = new MoldormCharacter();
+        Vector2 start = new(0x78, 0x58);
+        movement.Initialize(definition, room, start, movementRandom);
+        movement.PrepareForScreenTransition();
+        FailIf(
+            !movement.Initialized || !movement.Visible ||
+            movement.Angle != 0x1e || movement.AngularSpeed != 2 ||
+            movement.TurnCounter != 8 || movement.SpeedRaw != 0x28 ||
+            movement.AnimationIndex != 0 || movementRandom.Calls != 1 ||
+            movement.Tail1Position != start ||
+            movement.Tail2Position != start,
+            "Moldorm initialization did not consume random $5e, install " +
+            "SPEED_100 / angle $1e / angular speed +2, and overlap both " +
+            "non-colliding tails at the head position.");
+
+        Vector2 firstHeadPosition = default;
+        for (int frame = 1; frame <= 7; frame++)
+        {
+            movement.UpdateFrame();
+            if (frame == 1)
+                firstHeadPosition = movement.Position;
+        }
+        FailIf(
+            movement.Tail1Position != start ||
+            movement.Tail2Position != start ||
+            movement.TurnCounter != 1 || movementRandom.Calls != 1,
+            "Moldorm tails moved before their source eight-entry displacement buffers matured.");
+        movement.UpdateFrame();
+        FailIf(
+            movement.Angle != 0 || movement.AngularSpeed != 2 ||
+            movement.TurnCounter != 8 || movementRandom.Calls != 2 ||
+            movement.Tail1Position != firstHeadPosition ||
+            movement.Tail2Position != start,
+            "Moldorm update 8 did not turn by +2, consume the 1-in-16 " +
+            "reversal roll, or replay the head's first displacement into tail 1.");
+        for (int frame = 9; frame <= 15; frame++)
+            movement.UpdateFrame();
+        FailIf(
+            movement.Tail2Position != firstHeadPosition,
+            "Moldorm tail 2 did not replay tail 1's first delayed displacement on update 15.");
+        movement.Free();
+
+        EnemyCombatSourceDescriptor combatSource =
+            handler.CombatSource(roomPlacements[0], killableEnemyIndex: 1);
+        var collisionSpawns = new List<RoomEntitySpawn>();
+        int damageSounds = 0;
+        (MoldormCharacter Enemy, MoldormRoomEntity Adapter) Combatant()
+        {
+            var enemy = new MoldormCharacter();
+            enemy.Initialize(
+                definition, room, new Vector2(0x78, 0x58),
+                new OracleRandom());
+            enemy.PrepareForScreenTransition();
+            return (
+                enemy,
+                new MoldormRoomEntity(
+                    enemy, combatSource, _ => damageSounds++));
+        }
+
+        foreach ((RoomEntityItemCollision collision, int expectedInvincibility,
+            int expectedKnockback) in new[]
+            {
+                (RoomEntityItemCollision.ThrownObject, 21, 11),
+                (RoomEntityItemCollision.Bomb, 26, 15),
+                (RoomEntityItemCollision.SwordBeam, 16, 8)
+            })
+        {
+            var target = Combatant();
+            FailIf(
+                !target.Adapter.ApplyItemCollision(
+                    collision,
+                    target.Enemy.CollisionBounds,
+                    target.Enemy.Position + Vector2.Left * 16,
+                    damage: 2,
+                    collisionSpawns) ||
+                target.Enemy.Health != 6 ||
+                target.Enemy.InvincibilityCounter != expectedInvincibility ||
+                target.Enemy.KnockbackCounter != expectedKnockback,
+                $"Moldorm {collision} did not apply its imported damaging collision response.");
+            target.Enemy.Free();
+        }
+        var punch = Combatant();
+        FailIf(
+            !punch.Adapter.ApplyExpertPunch(
+                punch.Enemy.CollisionBounds,
+                punch.Enemy.Position + Vector2.Left * 16,
+                damage: 2,
+                collisionSpawns) ||
+            punch.Enemy.Health != 6 ||
+            punch.Enemy.InvincibilityCounter != 26 ||
+            punch.Enemy.KnockbackCounter != 15,
+            "Moldorm Expert's Ring collision $0b did not use effect $0a.");
+        punch.Enemy.Free();
+
+        foreach ((int seedItem, int health, int invincibility,
+            int knockback) in new[]
+            {
+                (0x20, 8, 0, 0),
+                (0x21, 6, 16, 8),
+                (0x24, 8, 0, 0)
+            })
+        {
+            var seedTarget = Combatant();
+            SeedHitResult result = seedTarget.Adapter.ApplySeedHit(
+                seedTarget.Enemy.CollisionBounds,
+                seedTarget.Enemy.Position + Vector2.Left * 16,
+                seedItem,
+                collisionSpawns);
+            FailIf(
+                result != SeedHitResult.Activate ||
+                seedTarget.Enemy.Health != health ||
+                seedTarget.Enemy.InvincibilityCounter != invincibility ||
+                seedTarget.Enemy.KnockbackCounter != knockback,
+                $"Moldorm seed item ${seedItem:x2} did not preserve collision row $3a.");
+            seedTarget.Enemy.Free();
+        }
+        FailIf(
+            damageSounds != 5,
+            "Moldorm's three direct-item, Expert punch, and Scent Seed " +
+            "damage paths did not each request SND_DAMAGE_ENEMY once.");
+
+        _entities.ClearRecentEnemyDefeats();
+        LoadValidationRoom(4, 0x62);
+        room = _currentRoom;
+        Vector2 rightShutter = new(0xe8, 0x58);
+        List<MoldormCharacter> live =
+            _entities.Entities<MoldormCharacter>();
+        FailIf(
+            live.Count != 2 || _entities.RoomEnemyCount != 2 ||
+            live.Any(enemy => enemy.Visible || enemy.Initialized) ||
+            live.Select(enemy => enemy.Position).Distinct().Count() != 2 ||
+            live.Any(enemy => room.IsSolid(enemy.Position)) ||
+            _entities.Entities<DungeonDoorRoomEntity>() is not
+                [{ SubId: 0x09, PackedPosition: 0x5e,
+                    EnemyCompletionSupported: true }] ||
+            room.GetMetatile(rightShutter) != 0x79 ||
+            !room.IsSolid(rightShutter),
+            "Room 4:62 did not construct two ordered random Moldorms with " +
+            "its supported closed right enemy shutter $1e:$09 at $5e.");
+        int initializationRandomCalls = _entities.RandomCalls;
+        _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
+        _entities.Update(update, _player);
+        FailIf(
+            live.Any(enemy => !enemy.Visible || !enemy.Initialized) ||
+            _entities.RandomCalls != initializationRandomCalls + 2,
+            "Room 4:62 did not initialize its two Moldorm heads in source " +
+            "order with one shared-RNG call each.");
+
+        _sound.ClearPlayRequestAudit();
+        foreach (MoldormCharacter target in live)
+        {
+            FailIf(
+                !_entities.ApplySwordHit(
+                    target.CollisionBounds,
+                    target.Position,
+                    damage: 8,
+                    knockbackStrength: EnemyKnockbackStrength.High),
+                "A room 4:62 Moldorm head rejected a lethal high-recoil hit.");
+        }
+        FailIf(
+            live.Any(enemy => !enemy.PendingKnockbackDeath) ||
+            _entities.RoomEnemyCount != 2,
+            "Room 4:62 released wNumEnemies before both Moldorm heads " +
+            "completed lethal recoil and their multipart death path.");
+
+        int deathFrames = 0;
+        while (_entities.Entities<MoldormCharacter>().Count != 0 &&
+            deathFrames++ < 40)
+        {
+            _entities.Update(update, _player);
+        }
+        FailIf(
+            deathFrames > 40 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
+            _entities.RoomEnemyCount != 2,
+            "Room 4:62 did not replace both defeated Moldorms with counted " +
+            "PART_ENEMY_DESTROYED effects after lethal recoil.");
+        int puffFrames = 0;
+        while (_entities.RoomEnemyCount != 0 && puffFrames++ < 40)
+            _entities.Update(update, _player);
+        FailIf(
+            puffFrames > 40 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
+            "Room 4:62's Moldorm death puffs did not release the two logical enemy counts.");
+
+        int openFrames = 0;
+        while (_entities.Entities<DungeonDoorRoomEntity>().Count != 0 &&
+            openFrames++ < 40)
+        {
+            _entities.Update(update, _player);
+        }
+        FailIf(
+            openFrames > 40 || room.GetMetatile(rightShutter) != 0xa0 ||
+            room.IsSolid(rightShutter) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+            "Room 4:62's right shutter did not complete its solve wait and " +
+            "six-update opening after both Moldorm death puffs finished " +
+            $"(frames={openFrames}, tile=${room.GetMetatile(rightShutter):x2}, " +
+            $"solid={room.IsSolid(rightShutter)}, doors=" +
+            $"{_entities.Entities<DungeonDoorRoomEntity>().Count}, solve=" +
+            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}, " +
+            $"doorSounds={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}).");
+
+        GD.Print(
+            "Validated all 17 ENEMY_MOLDORM $4f:$00 records / 23 instances, " +
+            "three-segment eight-update following, shared-RNG steering, " +
+            "head-only collision row $3a, room 4:62's random pair, counted " +
+            "death puffs, and right enemy-shutter completion.");
     }
 
     private void ValidateHardhatAndSpinyBeetles()
@@ -3531,6 +4203,7 @@ public sealed partial class ValidationRoot
             [0x1a] = (0x00, 0x00, 0x0f),
             [0x1c] = (0x00, 0x00, 0x05),
             [0x1f] = (0x10, 0x0f, 0x0f),
+            [0x21] = (0x0f, 0x0f, 0x0f),
             [0x25] = (0x00, 0x00, 0x00),
             [0x28] = (0x07, 0x06, 0x06),
             [0x29] = (0x10, 0x0f, 0x0f),
@@ -3538,6 +4211,7 @@ public sealed partial class ValidationRoot
             [0x33] = (0x00, 0x00, 0x00),
             [0x36] = (0x10, 0x0f, 0x0f),
             [0x38] = (0x10, 0x10, 0x10),
+            [0x3a] = (0x10, 0x0f, 0x0f),
             [0x58] = (0x06, 0x05, 0x05),
             [0x6e] = (0x00, 0x00, 0x00),
             [0x7d] = (0x10, 0x0f, 0x0f),
@@ -3588,9 +4262,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 30 ||
+            auditedCombatKeys.Count != 32 ||
             auditedNonCombatKeys.Count != 7,
-            "The shield audit did not cover all 30 implemented combat " +
+            "The shield audit did not cover all 32 implemented combat " +
             "enemy keys and 7 deliberately non-combat implemented keys.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
@@ -3848,7 +4522,7 @@ public sealed partial class ValidationRoot
         spiked.Free();
         shieldPlayer.Free();
         GD.Print(
-            "Validated all 30 implemented combat enemy keys against the " +
+            "Validated all 32 implemented combat enemy keys against the " +
             "clean-US L1/L2/L3 shield columns, 7 non-combat keys, common " +
             "Wooden/Iron enemy-and-Link recoil routing, fractional wall-bump " +
             "escape through side-view and Octorok top-down probes, and " +

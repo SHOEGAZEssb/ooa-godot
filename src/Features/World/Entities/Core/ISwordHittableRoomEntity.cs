@@ -15,6 +15,19 @@ internal interface ISwordHittableRoomEntity
 }
 
 /// <summary>
+/// Collision modes whose ITEMCOLLISION_EXPERT_PUNCH ($0b) row differs from
+/// their ordinary sword/fist rows consume that direct-item path explicitly.
+/// </summary>
+internal interface IExpertPunchHittableRoomEntity
+{
+    bool ApplyExpertPunch(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        ICollection<RoomEntitySpawn> spawns);
+}
+
+/// <summary>
 /// Some collision effects write knockback to the attacking sword item. The
 /// item's next update transfers this response to Link.
 /// </summary>

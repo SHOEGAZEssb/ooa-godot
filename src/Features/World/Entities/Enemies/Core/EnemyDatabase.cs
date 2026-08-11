@@ -61,7 +61,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 21 ||
+        if (_importedDefinitions.Count != 23 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -100,6 +100,16 @@ public sealed class EnemyDatabase
                 } ||
             ImportedEnemy(0x1b, 0x01) is not
                 { Health: 2, DamageQuarters: 2, Animations.Length: 1 } ||
+            ImportedEnemy(0x23) is not
+                {
+                    TileBase: 0,
+                    Palette: 3,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 3,
+                    DamageQuarters: 2,
+                    Animations.Length: 5
+                } ||
             ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
             ImportedEnemy(0x33) is not
                 {
@@ -132,7 +142,17 @@ public sealed class EnemyDatabase
                     Animations.Length: 2
                 } ||
             ImportedEnemy(0x4d) is not
-                { Health: 4, DamageQuarters: 2, Animations.Length: 1 })
+                { Health: 4, DamageQuarters: 2, Animations.Length: 1 } ||
+            ImportedEnemy(0x4f) is not
+                {
+                    TileBase: 14,
+                    Palette: 0,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 8,
+                    DamageQuarters: 2,
+                    Animations.Length: 10
+                })
         {
             throw new InvalidOperationException(
                 "Imported common-enemy contract is incomplete.");
@@ -775,6 +795,10 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x19),
         EnemyHandlerKind.SandCrab =>
             HasImportedDefinition(descriptor, 0x1a),
+        EnemyHandlerKind.PolsVoice =>
+            HasImportedDefinition(descriptor, 0x23),
+        EnemyHandlerKind.Moldorm =>
+            HasImportedDefinition(descriptor, 0x4f),
         EnemyHandlerKind.Thwomp =>
             HasImportedDefinition(descriptor, 0x2f),
         EnemyHandlerKind.Peahat =>

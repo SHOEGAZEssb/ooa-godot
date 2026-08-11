@@ -331,6 +331,7 @@ $commonEnemySprites = @{
     0x17 = @($gfxNames[0x90])
     0x1a = @($gfxNames[0x94])
     0x1b = @($gfxNames[0x94])
+    0x23 = @($gfxNames[0x8c])
     0x28 = @($gfxNames[0xa0])
     0x4d = @($gfxNames[0x8c])
 }
@@ -338,9 +339,9 @@ $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
     @(0x10, 0x00), @(0x13, 0x00),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
-    @(0x1a, 0x00), @(0x22, 0x00), @(0x28, 0x00), @(0x33, 0x00),
+    @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
-    @(0x4a, 0x01), @(0x4d, 0x00)
+    @(0x4a, 0x01), @(0x4d, 0x00), @(0x4f, 0x00)
 )
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
@@ -369,7 +370,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 22 -or
+if ($commonEnemyRows.Count -ne 24 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -395,6 +396,9 @@ if ($commonEnemyRows.Count -ne 22 -or
         $_ -match '^1a\t00\tspr_crab_fish_goponga_beetle\t0\t3\t1\t6\t6\t2\t2\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
+        $_ -match '^23\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t0\t3\t1\t6\t6\t2\t3\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
         $_ -match '^28\t00\tspr_ironmask\t24\t2\t1\t6\t6\t2\t5\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
@@ -411,6 +415,9 @@ if ($commonEnemyRows.Count -ne 22 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^4d\t00\tspr_polsvoice_hardhatbeetle_spikedbeetle_beamon\t4\t3\t1\t6\t6\t2\t4\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^4f\t00\tspr_zol_peahat_watertektite_moldorm_gel\t14\t0\t1\t6\t6\t2\t8\t'
     }) -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^(13|19|22|2f|3e|47|49|4a)\t'
@@ -1390,6 +1397,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '20:00' = 'masked-moblin'
     '20:01' = 'masked-moblin'
     '22:00' = 'arrow-moblin'
+    '23:00' = 'pols-voice'
     '28:00' = 'wallmaster'
     '2f:00' = 'thwomp'
     '31:00' = 'stalfos'
@@ -1406,6 +1414,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '49:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
+    '4f:00' = 'moldorm'
     '62:00' = 'vine-sprout'
     '62:01' = 'vine-sprout'
     '62:02' = 'vine-sprout'
@@ -1413,7 +1422,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 37 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 39 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1484,9 +1493,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 409 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 430 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 412) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 391) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3448,6 +3457,106 @@ Add-EnemyBehaviorProfile 'rope' 'state-profile' `
     @(0x0f, 0x32, 0x0f, 0x40, 0x0a, 0x70, 0x70) `
     'object_code/common/enemies/rope.s:subid00-state-operands'
 
+$polsVoiceCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\polsVoice.s')
+if ($polsVoiceCodeSource -notmatch
+        '(?ms)^enemyCode23:.*?ecom_checkHazardsNoAnimationForHoles.*?' +
+        'polsVoice_checkLinkPlayingInstrument.*?ENEMYSTATUS_NO_HEALTH.*?' +
+        'enemyDie' -or
+    $polsVoiceCodeSource -notmatch
+        '(?ms)^polsVoice_state_uninitialized:.*?' +
+        'getRandomNumber_noPreserveVars.*?and \$3f\s+inc a.*?' +
+        'polsVoice_setLandedAnimation' -or
+    $polsVoiceCodeSource -notmatch
+        '(?ms)^polsVoice_state8:.*?ld bc,\$0f1c.*?' +
+        'ecom_randomBitwiseAndBCE.*?^@jumpSpeeds1:\s*' +
+        'dwbb -\$128, \$0c, SPEED_80\s*^@jumpSpeeds2:\s*' +
+        'dwbb -\$180, \$0c, SPEED_c0' -or
+    $polsVoiceCodeSource -notmatch
+        '(?ms)cp SPEED_80.*?objectGetAngleTowardEnemyTarget.*?' +
+        'add \$02\s+and \$1c' -or
+    $polsVoiceCodeSource -notmatch
+        '(?ms)^polsVoice_state9:.*?' +
+        'ecom_applyVelocityForSideviewEnemyNoHoles.*?' +
+        'objectUpdateSpeedZ_paramC.*?ld \(hl\),\$20.*?' +
+        'polsVoice_setLandedAnimation' -or
+    $polsVoiceCodeSource -notmatch
+        '(?ms)^polsVoice_checkLinkPlayingInstrument:.*?' +
+        'wLinkPlayingInstrument.*?ENEMYSTATUS_NO_HEALTH') {
+    throw 'Pols Voice RNG, jump, terrain, landing, or instrument response changed.'
+}
+Add-EnemyBehaviorProfile 'pols-voice' 'state-profile' `
+    @(0x3f, 1, 0x0f, 0x1c,
+      -0x128, 0x0c, 0x14,
+      -0x180, 0x0c, 0x1e,
+      2, 0x1c, 0x20) `
+    'object_code/common/enemies/polsVoice.s:state-entry-operands'
+$polsVoiceCollisionEffects = @(
+    0..0x1f | ForEach-Object {
+        $enemyCollisionTableValues[0x21 * 0x20 + $_]
+    })
+$expectedPolsVoiceCollisionEffects = @(
+    0x02, 0x0f, 0x0f, 0x0f, 0x0c, 0x0d, 0x0d, 0x0e,
+    0x0e, 0x0c, 0x0c, 0x09, 0x0d, 0x0c, 0x0c, 0x25,
+    0x00, 0x00, 0x00, 0x0d, 0x0d, 0x0d, 0x09, 0x0d,
+    0x0a, 0x0d, 0x20, 0x20, 0x0d, 0x28, 0x29, 0x00)
+if (($polsVoiceCollisionEffects -join ',') -ne
+    ($expectedPolsVoiceCollisionEffects -join ',')) {
+    throw 'ENEMYCOLLISION_POLS_VOICE `$21 item-effect row changed.'
+}
+Add-EnemyBehaviorProfile 'pols-voice' 'collision-effects' `
+    $polsVoiceCollisionEffects `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0420'
+
+$moldormCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\moldorm.s')
+if ($moldormCodeSource -notmatch
+        '(?ms)^moldorm_state1:.*?ld b,\$03.*?' +
+        'ecom_spawnUncountedEnemyWithSubid01.*?' +
+        'ecom_spawnEnemyWithSubid01.*?' +
+        'ecom_spawnEnemyWithSubid01.*?enemyDelete' -or
+    $moldormCodeSource -notmatch
+        '(?ms)^@state8:.*?ld \(hl\),\$08.*?' +
+        'ld \(hl\),SPEED_100.*?ld \(hl\),\$02.*?' +
+        'ecom_setRandomAngle' -or
+    $moldormCodeSource -notmatch
+        '(?ms)^@state9:.*?ld \(hl\),\$08.*?' +
+        'add \(hl\)\s+and \$1f.*?' +
+        'getRandomNumber_noPreserveVars\s+and \$0f.*?' +
+        'ecom_bounceOffWallsAndHoles.*?objectApplySpeed' -or
+    $moldormCodeSource -notmatch
+        '(?ms)^moldorm_head_updateAnimationFromAngle:.*?' +
+        'add \$02\s+and \$1c\s+rrca\s+rrca' -or
+    $moldormCodeSource -notmatch
+        '(?ms)^moldorm_tail:.*?^@state8:.*?' +
+        'res 7,\(hl\).*?moldorm_tail_clearOffsetBuffer.*?' +
+        '^@state9:.*?add \$08\s+swap a.*?add \$08\s+or b.*?' +
+        'inc a\s+and \$07.*?sub \$08.*?sub \$08' -or
+    $moldormCodeSource -notmatch
+        '(?ms)^moldorm_tail_clearOffsetBuffer:.*?' +
+        'ld b,\$02\s+ld a,\$88') {
+    throw 'Moldorm spawning, steering, animation, or delayed-tail behavior changed.'
+}
+Add-EnemyBehaviorProfile 'moldorm' 'state-profile' `
+    @(3, 8, 0x28, 2, 0x1f, 0x0f, 2, 0x1c, 8, 0x88) `
+    'object_code/common/enemies/moldorm.s:state-entry-operands'
+$moldormCollisionEffects = @(
+    0..0x1f | ForEach-Object {
+        $enemyCollisionTableValues[0x3a * 0x20 + $_]
+    })
+$expectedMoldormCollisionEffects = @(
+    0x02, 0x10, 0x0f, 0x0f, 0x08, 0x09, 0x09, 0x0a,
+    0x0a, 0x08, 0x08, 0x0a, 0x0d, 0x08, 0x08, 0x25,
+    0x00, 0x00, 0x00, 0x1b, 0x00, 0x2f, 0x09, 0x1b,
+    0x0a, 0x08, 0x20, 0x20, 0x08, 0x20, 0x20, 0x00)
+if (($moldormCollisionEffects -join ',') -ne
+    ($expectedMoldormCollisionEffects -join ',')) {
+    throw 'ENEMYCOLLISION_MOLDORM `$3a item-effect row changed.'
+}
+Add-EnemyBehaviorProfile 'moldorm' 'collision-effects' `
+    $moldormCollisionEffects `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0740'
+
 $ghiniCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\ghini.s')
 if ($ghiniCodeSource -notmatch
@@ -3707,8 +3816,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 381) {
-    throw "Expected 380 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 468) {
+    throw "Expected 467 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

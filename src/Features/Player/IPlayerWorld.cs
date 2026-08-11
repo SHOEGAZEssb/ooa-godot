@@ -40,6 +40,13 @@ public interface IPlayerWorld
     void AdvanceBraceletProjectile();
     void InterruptBracelet(Player player, bool discard);
     int TryUseSeedSatchel(Player player);
+    bool SeedShooterActive => false;
+    bool TryBeginSeedShooter(
+        Player player, bool primaryButton, Vector2 movementInput) => false;
+    bool UpdateSeedShooter(
+        Player player, Vector2 movementInput,
+        bool primaryHeld, bool secondaryHeld) => false;
+    void InterruptSeedShooter() { }
     int BeginHarp(Player player) => 0;
     void AdvanceHarp(Player player, int actionUpdate) { }
     void CompleteHarp(Player player, int song) { }

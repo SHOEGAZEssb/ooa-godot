@@ -764,7 +764,8 @@ public partial class GameRoot : Node2D
             _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);
         _seedSatchel = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(), _rooms);
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms,
+            _sound.PlaySound);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
         _entities.PlayingInstrumentSource = () => _harp.PlayingSong;

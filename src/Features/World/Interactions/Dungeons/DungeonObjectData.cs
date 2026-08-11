@@ -68,7 +68,6 @@ internal enum DungeonObjectKind
     SwitchTileToggler,
     MinecartGate,
     CubeSwitchSensor,
-    EnemyChest,
     RedFloorTrigger,
     FloorSwitchBit,
     FloorColorChanger,

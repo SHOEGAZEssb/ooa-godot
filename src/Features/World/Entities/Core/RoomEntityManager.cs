@@ -515,9 +515,11 @@ public sealed class RoomEntityManager : IDisposable
     internal void UpdateDuringHarp(double delta, Player player)
     {
         // ITEM_HARP writes $7e to wDisabledObjects: every ordinary object
-        // category is frozen. The dormant portal spawner explicitly carries
-        // the interaction always-update bit, as do the floating notes owned
-        // by HarpController.
+        // category is frozen. ENEMY_POLS_VOICE is the exception: its handler
+        // explicitly reads wLinkPlayingInstrument before ordinary state
+        // dispatch and dies during this enemy phase. The dormant portal
+        // spawner separately carries the interaction always-update bit, as do
+        // the floating notes owned by HarpController.
         _enemyFrameAccumulator += delta * 60.0;
         while (_enemyFrameAccumulator >= 1.0)
         {
@@ -528,9 +530,23 @@ public sealed class RoomEntityManager : IDisposable
                 ScentSeedTarget: null);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
+                if (entity is IInstrumentReactiveRoomEntity reactive)
+                {
+                    SynchronizeEnemyFrameCounter(entity, frame.Counter);
+                    reactive.UpdateDuringInstrument(frame, _pendingSpawns);
+                }
+            }
+            ProcessSpawns(frame);
+            // enemyDie creates PART_ENEMY_DESTROYED in the following part
+            // phase, before always-updating interactions run.
+            RemoveFinishedEntities(frame);
+            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            {
                 if (entity is TimePortalRoomEntity portal)
                     portal.UpdateFrame(frame, _pendingSpawns);
             }
+            ProcessSpawns(frame);
+            RemoveFinishedEntities(frame);
         }
     }
 
@@ -665,7 +681,8 @@ public sealed class RoomEntityManager : IDisposable
         Action<SwordAttackerKnockback>? attackerKnockback = null,
         SwordActionState swordState = SwordActionState.Swing,
         int swordLevel = 1,
-        int itemZ = -2)
+        int itemZ = -2,
+        bool expertPunch = false)
     {
         bool hit = false;
         Vector2 source = sourcePosition ?? hitbox.GetCenter();
@@ -694,12 +711,20 @@ public sealed class RoomEntityManager : IDisposable
                 }
                 if (entity is ILinkSwordStateAwareRoomEntity stateAware)
                     stateAware.SetLinkSwordState(swordState, swordLevel);
-                bool accepted = swordHittable.ApplySwordHit(
-                    hitbox,
-                    source,
-                    damage,
-                    knockbackStrength,
-                    _pendingSpawns);
+                bool accepted =
+                    expertPunch &&
+                    entity is IExpertPunchHittableRoomEntity expertTarget
+                        ? expertTarget.ApplyExpertPunch(
+                            hitbox,
+                            source,
+                            damage,
+                            _pendingSpawns)
+                        : swordHittable.ApplySwordHit(
+                            hitbox,
+                            source,
+                            damage,
+                            knockbackStrength,
+                            _pendingSpawns);
                 hit |= accepted;
                 if (accepted &&
                     attackerKnockback is not null &&
@@ -1411,7 +1436,7 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
-    private void RemoveFinishedEntities()
+    private void RemoveFinishedEntities(RoomEntityFrame? frame = null)
     {
         for (int index = _activeEntities.Count - 1; index >= 0; index--)
         {
@@ -1423,7 +1448,7 @@ public sealed class RoomEntityManager : IDisposable
             _activeEntities.RemoveAt(index);
             FreeEntity(entity);
         }
-        ProcessSpawns();
+        ProcessSpawns(frame);
     }
 
     private void ApplyEnemyOutcomes(IRoomEntity entity)

@@ -827,6 +827,44 @@ Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows)
 
+# ITEM_SHOOTER ($0f) holds its parent until the assigned button is released,
+# rotates through eight directions while held, then creates the selected seed
+# with subid $63. The child uses SPEED_300 and activates after its third solid
+# bounce. Keep these parent/child boundaries separate from the Satchel rows:
+# the seed item IDs and graphics are shared, but their motion is not.
+$seedShooterSourceValid =
+    $itemIds['ITEM_SHOOTER'] -eq 0x0f -and
+    $treasureIds['TREASURE_SHOOTER'] -eq 0x0f -and
+    $soundIds['SND_SEEDSHOOTER'] -eq 0xcb -and
+    $itemUsageSource -match
+        '(?m)^\s*\.db\s+\$43,\s*<wGameKeysJustPressed\s*;\s*ITEM_SHOOTER' -and
+    $itemUsageSource -match
+        '(?m)^\s*\.db\s+\$c6,\s*LINK_ANIM_MODE_21\s*;\s*ITEM_SHOOTER' -and
+    $seedParentSource -match
+        '(?ms)^parentItemCode_shooter:.*?^@state0:.*?call clearSelfIfNoSeeds.*?call updateLinkDirectionFromAngle.*?call parentItemLoadAnimationAndIncState.*?call itemCreateChild' -and
+    $seedParentSource -match
+        '(?ms)^@state1:.*?call parentItemCheckButtonPressed.*?wIsSeedShooterInUse.*?ld c,\$63.*?call itemCreateChildWithID.*?ld \(hl\),\$0c.*?SND_SEEDSHOOTER' -and
+    $seedParentSource -match
+        '(?ms)^@updateAngleFrom5Bit:.*?^@checkUpdateAngle:.*?and \(BTN_RIGHT\|BTN_LEFT\|BTN_UP\|BTN_DOWN\).*?ld \(hl\),\$10.*?^@determineBaseAnimation:' -and
+    $seedCodeSource -match
+        '(?ms)^@shooterPositionOffsets:\s*\.db \$f2 \$fc.*?\.db \$fc \$0b.*?\.db \$05 \$0c.*?\.db \$09 \$0b.*?\.db \$0d \$03.*?\.db \$0a \$f8.*?\.db \$05 \$f3.*?\.db \$f8 \$f8' -and
+    $seedCodeSource -match
+        '(?ms)^@state0:.*?ld l,Item\.var34\s*ld \(hl\),\$03.*?^@shooter:\s*ld e,Item\.angle.*?SPEED_300' -and
+    $seedCodeSource -match
+        '(?ms)^seedItemUpdateBouncing:.*?Decrement bounce counter.*?dec \(hl\).*?jr z,@unsetZFlag' -and
+    $objectSpeedsSource -match
+        '(?m)^\s*SPEED_300\s+dsb 5 ; 0x78$'
+if (-not $seedShooterSourceValid) {
+    throw 'ITEM_SHOOTER aiming, child allocation, offsets, speed, bounce count, or sound changed in the disassembly.'
+}
+$seedShooterRows = @(
+    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-dungeon-tiles`tsource'.Replace('`t', "`t")
+    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t42,43`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\seed_shooter.tsv'),
+    $seedShooterRows)
+
 # Link-facing item presentation and sword-tile probes are runtime data, not
 # state-machine policy. Preserve the source tables as typed rows so Player,
 # BraceletController, and CombatController do not maintain parallel copies.

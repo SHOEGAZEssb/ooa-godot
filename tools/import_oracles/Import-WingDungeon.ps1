@@ -156,7 +156,6 @@ foreach ($row in @(
     '4	2f	2	minecart-gate	1b	04	48	50	always	mainData.s:group4Map2fObjectData',
     '4	2f	3	cube-light-sensor	21	03	58	68	always	mainData.s:group4Map2fObjectData',
     '4	2f	4	cube-switch-sensor	21	08	00	10	always	mainData.s:group4Map2fObjectData',
-    '4	30	0	enemy-chest	12	02	58	78	item-clear	mainData.s:group4Map30ObjectData',
     '4	32	2	toggle-floor	15	00	00	00	always	mainData.s:group4Map32ObjectData',
     '4	32	3	red-floor-trigger	21	02	00	00	always	mainData.s:group4Map32ObjectData',
     '4	34	3	miniboss-reward	20	02	58	78	flag80-clear	mainData.s:group4Map34ObjectData',
@@ -166,7 +165,6 @@ foreach ($row in @(
     '4	3b	0	toggle-floor	15	00	00	00	always	mainData.s:group4Map3bObjectData',
     '4	3b	1	floor-switch-bit	21	07	79	20	always	mainData.s:group4Map3bObjectData',
     '4	3b	2	minecart-gate	1b	25	78	b0	always	mainData.s:group4Map3bObjectData',
-    '4	3e	1	enemy-chest	12	02	58	88	item-clear	mainData.s:group4Map3eObjectData',
     '4	3e	2	floor-color-changer	22	00	58	78	always	mainData.s:group4Map3eObjectData',
     '4	3e	3	toggle-floor	15	00	00	00	always	mainData.s:group4Map3eObjectData',
     '4	42	0	toggle-floor	15	00	00	00	always	mainData.s:group4Map42ObjectData',
@@ -176,12 +174,11 @@ foreach ($row in @(
     '4	43	1	colored-cube	19	04	38	98	always	mainData.s:group4Map43ObjectData',
     '4	43	2	cube-flame	1a	00	2e	28	always	mainData.s:group4Map43ObjectData',
     '4	43	3	cube-light-sensor	21	03	38	58	always	mainData.s:group4Map43ObjectData',
-    '4	43	4	red-flame-trigger	21	06	00	00	always	mainData.s:group4Map43ObjectData',
-    '4	48	0	enemy-chest	12	02	58	78	item-clear	mainData.s:group4Map48ObjectData'
+    '4	43	4	red-flame-trigger	21	06	00	00	always	mainData.s:group4Map43ObjectData'
 )) {
     $wingRows.Add($row)
 }
-if ($wingRows.Count -ne 37) {
+if ($wingRows.Count -ne 34) {
     throw "Wing Dungeon native object count changed: $($wingRows.Count - 1)."
 }
 Write-GeneratedTable(

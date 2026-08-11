@@ -2761,6 +2761,95 @@ public sealed partial class ValidationRoot
             "short non-attracting collision animation, and Satchel allocation/consumption.");
     }
 
+    private void ValidateSeedShooter()
+    {
+        SeedShooterRecord record = SeedShooterRecord.Load();
+        Vector2I[] offsets =
+        [
+            new(-4, -14), new(11, -4), new(12, 5), new(11, 9),
+            new(3, 13), new(-8, 10), new(-13, 5), new(-8, -8)
+        ];
+        FailIf(
+            record.Item != InventoryState.ItemShooter ||
+            record.SubId != 0x63 || record.SpeedRaw != 0x78 ||
+            record.Bounces != 3 || record.AimLockout != 16 ||
+            record.PostShotWait != 12 ||
+            record.Sound != OracleSoundEngine.SndSeedShooter ||
+            !record.Offsets.SequenceEqual(offsets) ||
+            !record.NonBounceDungeonTiles.SequenceEqual([0x42, 0x43]),
+            "The imported ITEM_SHOOTER parent/child constants diverged from " +
+            "parentItemCode_shooter or seedItemUpdateBouncing.");
+
+        _inventory.GiveTreasure(new TreasureObjectRecord(
+            "VALIDATION_SHOOTER", InventoryState.ItemShooter, 0,
+            1, 0xff, 0, string.Empty));
+        if (_inventory.EmberSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureObjectRecord(
+                "VALIDATION_EMBER_SEEDS", 0x20, 0,
+                1, 0xff, 0, string.Empty));
+        }
+        _inventory.SelectShooterSeeds(0);
+        var sounds = new List<int>();
+        var controller = new SeedSatchelController(
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms,
+            sounds.Add);
+        _player.Face(Vector2I.Right);
+        int amountBefore = _inventory.EmberSeeds;
+        FailIf(
+            !controller.TryBeginShooter(
+                _player, primaryButton: true, Vector2.Right) ||
+            !controller.ShooterActive || controller.ShooterAngle != 2 ||
+            controller.ShooterAimCounter != 16 ||
+            _inventory.EmberSeeds != amountBefore,
+            "ITEM_SHOOTER state 0 did not hold the parent at the facing angle " +
+            "without consuming ammo.");
+        for (int update = 0; update < 16; update++)
+        {
+            controller.UpdateShooter(
+                _player, Vector2.Down, primaryHeld: true,
+                secondaryHeld: false);
+        }
+        FailIf(
+            controller.ShooterAngle != 3 || controller.ShooterAimCounter != 16,
+            "ITEM_SHOOTER did not rotate one eighth-turn on its `$10 repeat boundary.");
+
+        int childCount = _entities.Entities<EmberSeedEffect>().Count;
+        controller.UpdateShooter(
+            _player, Vector2.Zero, primaryHeld: false,
+            secondaryHeld: false);
+        int expectedAmount = ((amountBefore >> 4) * 10 +
+            (amountBefore & 0x0f)) - 1;
+        expectedAmount = ((expectedAmount / 10) << 4) |
+            expectedAmount % 10;
+        EmberSeedEffect shooterSeed = _entities.Entities<EmberSeedEffect>().Last();
+        FailIf(
+            _inventory.EmberSeeds != expectedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != childCount + 1 ||
+            shooterSeed.LaunchKind != SeedLaunchKind.Shooter ||
+            shooterSeed.Angle != 3 || shooterSeed.BouncesRemaining != 3 ||
+            shooterSeed.PrecisePosition != _player.Position + offsets[3] ||
+            !sounds.SequenceEqual([OracleSoundEngine.SndSeedShooter]) ||
+            controller.ShooterPostShotCounter != 12,
+            "Releasing ITEM_SHOOTER did not allocate subid `$63, consume one " +
+            "packed-BCD seed, or begin its `$0c cooldown.");
+        for (int update = 0; update < 11; update++)
+            controller.UpdateShooter(
+                _player, Vector2.Zero, primaryHeld: false,
+                secondaryHeld: false);
+        FailIf(!controller.ShooterActive || controller.ShooterPostShotCounter != 1,
+            "ITEM_SHOOTER ended before the `$0c post-shot boundary.");
+        controller.UpdateShooter(
+            _player, Vector2.Zero, primaryHeld: false,
+            secondaryHeld: false);
+        FailIf(controller.ShooterActive,
+            "ITEM_SHOOTER did not clear on the twelfth post-shot update.");
+
+        GD.Print("Validated ITEM_SHOOTER imported aiming/offset/speed/bounce " +
+            "contract, held-parent rotation, release-time BCD consumption, " +
+            "subid `$63 allocation, sound, and `$0c cleanup boundary.");
+    }
+
     private void ValidateSeedInventorySubmenu()
     {
         MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;

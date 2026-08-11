@@ -47,9 +47,11 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal int AnimationParameter => _animation.CurrentParameter;
     internal Texture2D CurrentAnimationTexture => _animation.CurrentTexture;
     internal virtual Texture2D CurrentDrawTexture =>
-        InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0
+        DrawsDamagePalette
             ? _animation.DamageTexture
             : _animation.CurrentTexture;
+    protected bool DrawsDamagePalette =>
+        InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0;
     internal virtual bool CollisionEnabled =>
         !IsDead && !_pendingKnockbackDeath && !_hazardActive && Visible;
     public virtual Rect2 CollisionBounds => new(

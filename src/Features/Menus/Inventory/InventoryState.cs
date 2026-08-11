@@ -12,6 +12,7 @@ public sealed class InventoryState
     public const int ItemShield = 0x01;
     public const int ItemBomb = 0x03;
     public const int ItemSword = 0x05;
+    public const int ItemShooter = 0x0f;
     public const int ItemHarp = 0x11;
     public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;
@@ -349,9 +350,23 @@ public sealed class InventoryState
     }
 
     internal bool TryConsumeSelectedSatchelSeed(out int seedItem)
+        => TryConsumeSelectedSeed(_satchelSelectedSeeds, out seedItem);
+
+    internal bool HasSelectedShooterSeed()
     {
-        seedItem = TreasureDatabase.TreasureEmberSeeds + _satchelSelectedSeeds;
-        TreasureVariable? variable = _satchelSelectedSeeds switch
+        int selected = _shooterSelectedSeeds;
+        return selected is >= 0 and < 5 &&
+            BcdAmountForInventoryDisplay(
+                TreasureDatabase.TreasureEmberSeeds + selected) != 0;
+    }
+
+    internal bool TryConsumeSelectedShooterSeed(out int seedItem)
+        => TryConsumeSelectedSeed(_shooterSelectedSeeds, out seedItem);
+
+    private bool TryConsumeSelectedSeed(int selectedSeed, out int seedItem)
+    {
+        seedItem = TreasureDatabase.TreasureEmberSeeds + selectedSeed;
+        TreasureVariable? variable = selectedSeed switch
         {
             0 => TreasureVariable.EmberSeeds,
             1 => TreasureVariable.ScentSeeds,

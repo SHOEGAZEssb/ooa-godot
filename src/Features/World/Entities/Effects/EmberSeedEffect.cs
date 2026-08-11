@@ -45,6 +45,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private bool _collisionEnabled;
     private bool _scentPublished;
     private ISeedBurnTarget? _burnTarget;
+    private SeedLaunchKind _launchKind;
+    private int _angle;
+    private int _bouncesRemaining;
+    private SeedShooterRecord _shooter;
 
     public bool Finished => _state == EmberState.Finished;
     internal EmberState State => _state;
@@ -55,6 +59,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int AnimationFrame => _frameIndex;
     internal Vector2 PrecisePosition => _precisePosition;
     internal bool CollisionEnabled => _collisionEnabled && !Finished;
+    internal SeedLaunchKind LaunchKind => _launchKind;
+    internal int Angle => _angle;
+    internal int BouncesRemaining => _bouncesRemaining;
     internal int SeedItem => _record.SeedItem;
     internal Vector2? ScentTarget =>
         _state == EmberState.Scent && _scentPublished
@@ -82,7 +89,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         int group,
         Func<Vector2I, int?>? linkedRoomNeighbor = null,
         int mysteryEffect = 0,
-        Action<ObjectFellInHoleKind>? objectFellInHole = null)
+        Action<ObjectFellInHoleKind>? objectFellInHole = null,
+        SeedLaunchKind launchKind = SeedLaunchKind.Satchel,
+        int angle = 0)
     {
         _record = record;
         _room = room;
@@ -96,14 +105,25 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _linkedRoomNeighbor = linkedRoomNeighbor;
         _saveData = saveData;
         _group = group;
+        _launchKind = launchKind;
+        _angle = angle;
+        _shooter = SeedShooterRecord.Load();
+        if (launchKind == SeedLaunchKind.Shooter && angle is < 0 or > 7)
+            throw new ArgumentOutOfRangeException(nameof(angle));
+        _bouncesRemaining = launchKind == SeedLaunchKind.Shooter
+            ? _shooter.Bounces
+            : 0;
         if (record.SeedItem == 0x24 && mysteryEffect is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(mysteryEffect));
         _mysteryEffect = record.SeedItem == 0x24 ? mysteryEffect : -1;
         _direction = direction;
-        _precisePosition = linkPosition + record.Offset(direction);
+        _precisePosition = linkPosition +
+            (launchKind == SeedLaunchKind.Shooter
+                ? _shooter.Offsets[angle]
+                : record.Offset(direction));
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _zFixed = record.InitialZ << 8;
-        _speedZ = record.SpeedZ;
+        _speedZ = launchKind == SeedLaunchKind.Shooter ? 0 : record.SpeedZ;
         _collisionEnabled = true;
 
         AnimationDefinition animation =
@@ -173,6 +193,12 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (_state == EmberState.Scent)
         {
             UpdateScent(globalFrameCounter);
+            return;
+        }
+
+        if (_launchKind == SeedLaunchKind.Shooter)
+        {
+            UpdateShooter(spawns);
             return;
         }
 
@@ -468,6 +494,73 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 subId, tileCenter, DirectionAngle(_direction)));
         }
         _roomTileChanged();
+    }
+
+    private void UpdateShooter(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!WithinRoomBoundary(_precisePosition))
+        {
+            Finish();
+            return;
+        }
+        Vector2 before = _precisePosition;
+        Vector2 moved = OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
+        Vector2 delta = _precisePosition - before;
+        bool hitX = delta.X != 0 &&
+            _room.IsSolid(new Vector2(_precisePosition.X, before.Y));
+        bool hitY = delta.Y != 0 &&
+            _room.IsSolid(new Vector2(before.X, _precisePosition.Y));
+        bool hitBoth = _room.IsSolid(_precisePosition);
+        if (!hitX && !hitY && !hitBoth)
+        {
+            Position = moved;
+            AdvanceAnimation();
+            QueueRedraw();
+            return;
+        }
+
+        _precisePosition = before;
+        Position = OracleObjectMath.ToPixelPosition(before);
+        byte tile = _room.GetMetatile(before + delta);
+        if (Array.IndexOf(_shooter.NonBounceDungeonTiles, tile) >= 0)
+        {
+            ActivateShooterSeed(spawns);
+            return;
+        }
+        _bouncesRemaining--;
+        if (_bouncesRemaining == 0)
+        {
+            ActivateShooterSeed(spawns);
+            return;
+        }
+        if (hitX && hitY || (!hitX && !hitY && hitBoth))
+            _angle = (_angle + 4) & 7;
+        else if (hitX)
+            _angle = (8 - _angle) & 7;
+        else
+            _angle = (4 - _angle) & 7;
+        QueueRedraw();
+    }
+
+    private void ActivateShooterSeed(ICollection<RoomEntitySpawn> spawns)
+    {
+        _collisionEnabled = false;
+        switch (_record.SeedItem)
+        {
+            case 0x20:
+                BeginBurning();
+                break;
+            case 0x21:
+                BeginDissipating();
+                break;
+            case 0x24:
+                BeginMystery();
+                break;
+            default:
+                Finish();
+                break;
+        }
     }
 
     private void AdvanceAnimation()

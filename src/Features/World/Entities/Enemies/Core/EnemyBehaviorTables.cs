@@ -55,6 +55,10 @@ internal sealed class EnemyBehaviorTables
     internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
+    internal PolsVoiceBehaviorProfile PolsVoice { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PolsVoiceCollisionEffects { get; }
+    internal MoldormBehaviorProfile Moldorm { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> MoldormCollisionEffects { get; }
     internal GhiniBehaviorProfile Ghini { get; }
     internal StalfosBehaviorProfile Stalfos { get; }
     internal HardhatBeetleBehaviorProfile HardhatBeetle { get; }
@@ -348,6 +352,41 @@ internal sealed class EnemyBehaviorTables
             values[6].Value,
             values);
 
+        values = TakeValues(groups, "pols-voice", "state-profile", 13);
+        PolsVoice = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values[10].Value,
+            values[11].Value,
+            values[12].Value,
+            values);
+        PolsVoiceCollisionEffects = TakeValues(
+            groups, "pols-voice", "collision-effects", 32);
+
+        values = TakeValues(groups, "moldorm", "state-profile", 10);
+        Moldorm = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values);
+        MoldormCollisionEffects = TakeValues(
+            groups, "moldorm", "collision-effects", 32);
+
         values = TakeValues(groups, "ghini", "state-profile", 3);
         Ghini = new(
             values[0].Value,
@@ -491,10 +530,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 380 || groups.Count != 0)
+        if (table.Rows.Count != 467 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 380 rows and no " +
+                $"Enemy behavior table contract expected 467 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -724,6 +763,35 @@ internal readonly record struct RopeBehaviorProfile(
     int ApproachAxisRadius,
     int WanderCounterBase,
     int WanderCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct PolsVoiceBehaviorProfile(
+    int InitialCounterMask,
+    int InitialCounterAdd,
+    int JumpTypeHighMask,
+    int RandomAngleMask,
+    int NormalInitialSpeedZ,
+    int NormalGravity,
+    int NormalSpeedRaw,
+    int FastInitialSpeedZ,
+    int FastGravity,
+    int FastSpeedRaw,
+    int TargetAngleRounding,
+    int TargetAngleMask,
+    int LandingWaitFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct MoldormBehaviorProfile(
+    int RequiredEnemySlots,
+    int TurnCounterFrames,
+    int SpeedRaw,
+    int InitialAngularSpeed,
+    int AngleMask,
+    int ReverseRollMask,
+    int AnimationAngleOffset,
+    int AnimationAngleMask,
+    int TailDelayFrames,
+    int NeutralTailDelta,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct GhiniBehaviorProfile(
