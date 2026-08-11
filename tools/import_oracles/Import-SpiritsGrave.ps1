@@ -317,6 +317,10 @@ Add-DungeonInteractionVisual 'minecart' 0x16 0 @(0, 1) `
 # interactionCode1b rewrites subid to direction $00/$02 before graphics
 # initialization, then selects direction|open for the four source animations.
 Add-DungeonInteractionVisual 'minecart-gate' 0x1b 0 @(0, 1, 2, 3)
+# INTERAC_SPINNER selects animation 0/1 from its angle while the related arrow
+# uses animation 2/3. The parent toggles only its oamFlags palette bit, which
+# the runtime applies to both objects from the same imported graphics closure.
+Add-DungeonInteractionVisual 'spinner' 0x7d 0 @(0, 1, 2, 3)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix
@@ -682,12 +686,42 @@ Add-DungeonPartVisualRow `
     1 `
     @($headThwompBoulderVisual.Animations[1])
 
-if ($dungeonVisualRows.Count -ne 20) {
-    throw "Expected nineteen imported D1/D2 dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 21) {
+    throw "Expected twenty imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),
     $dungeonVisualRows)
+
+# Moonlit Grotto's spinner is created by roomSpecificCode rather than its
+# empty object stream. Breaking the dungeon crystals moves the room-$60
+# layout and the same mask-$01 spinner to room $52. Retain that conditional
+# source dispatch as data so runtime code does not invent a room exception.
+$roomSpecificCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
+$globalFlagSource = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\globalFlags.s')
+if ($globalFlagSource -notmatch
+        '(?m)^\s*GLOBALFLAG_D3_CRYSTALS\s+db\s*;\s*\$0f\s*$' -or
+    $roomSpecificCodeSource -notmatch
+        '(?ms)^roomSpecificCodeGroup4Table:.*?\.db \$60 \$01.*?\.db \$52 \$02.*?\.db \$00' -or
+    $roomSpecificCodeSource -notmatch
+        '(?ms)^roomSpecificCode1:.*?ld a, GLOBALFLAG_D3_CRYSTALS.*?call checkGlobalFlag.*?ret nz.*?ld \(hl\),\$7d.*?ld \(hl\),\$57.*?ld \(hl\),\$01.*?ret' -or
+    $roomSpecificCodeSource -notmatch
+        '(?ms)^roomSpecificCode2:.*?ld a,GLOBALFLAG_D3_CRYSTALS.*?call checkGlobalFlag.*?ret z.*?jr ---') {
+    throw 'Moonlit Grotto room-specific spinner dispatch changed.'
+}
+$spinnerRows = [Collections.Generic.List[string]]::new()
+$spinnerRows.Add(
+    '# group`troom`tposition`tstate-mask`trequired-global-flag`trequired-global-state`tsource'.Replace(
+        '`t', "`t"))
+$spinnerRows.Add(
+    "4`t60`t57`t01`t0f`t0`tcode/ages/roomSpecificCode.s:roomSpecificCode1")
+$spinnerRows.Add(
+    "4`t52`t57`t01`t0f`t1`tcode/ages/roomSpecificCode.s:roomSpecificCode2")
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\dungeon_spinners.tsv'),
+    $spinnerRows)
 foreach ($obsoleteDungeonAsset in @(
     'objects\spirits_grave_enemies.tsv',
     'objects\spirits_grave_head_thwomp_palette.bin',

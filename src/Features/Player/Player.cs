@@ -125,6 +125,7 @@ public partial class Player : Node2D
     private bool _companionRideControlled;
     private bool _raftRideControlled;
     private bool _forcedRoomEntryMovement;
+    private bool _spinnerControlled;
     private int _minecartJumpAngle = 0xff;
     private int _companionJumpAngle = 0xff;
     private int _ledgeGroundYFixed;
@@ -782,6 +783,7 @@ public partial class Player : Node2D
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
         _forcedRoomEntryMovement = false;
+        _spinnerControlled = false;
         if (preserveSideScrollSwimming)
         {
             // finishScrollingTransition adjusts Link's coordinate bytes but
@@ -1476,7 +1478,7 @@ public partial class Player : Node2D
         // LINK_STATE_FORCE_MOVEMENT owns Link's update. The object that
         // requested it advances Link later in updateAllObjects, so ordinary
         // input, swimming, and terrain hazards must not run first.
-        if (_forcedRoomEntryMovement)
+        if (_forcedRoomEntryMovement || _spinnerControlled)
         {
             _walking = true;
             _pushing = false;
@@ -2277,6 +2279,77 @@ public partial class Player : Node2D
     {
         _forcedRoomEntryMovement = false;
         _walking = false;
+        QueueRedraw();
+    }
+
+    /// <summary>
+    /// spinnerScript drops Link's held object on the collision update, one
+    /// interaction update before INTERAC_SPINNER clears every parent item and
+    /// snaps Link to its entry point.
+    /// </summary>
+    internal void BeginSpinnerTouch()
+    {
+        if (_world is not null)
+        {
+            _world.InterruptBomb(this, discard: false);
+            _world.InterruptBracelet(this, discard: false);
+        }
+        _spinnerControlled = true;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void BeginSpinnerTurn(Vector2 position, int exitDirection)
+    {
+        InterruptCarriedItems(discard: true);
+        CancelSwordAttack();
+        CancelShovelAction();
+        ClearShieldParent();
+        ClearTopDownAirState();
+        _enemyKnockbackFrames = 0.0f;
+        _pendingSwordKnockbackFrames = 0;
+        _spinnerControlled = true;
+        SetSpinnerTurnPosition(position, exitDirection);
+    }
+
+    internal void SetSpinnerTurnPosition(Vector2 position, int exitDirection)
+    {
+        if (exitDirection is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(exitDirection));
+        _precisePosition = position;
+        _facing = (Facing)exitDirection;
+        _walking = false;
+        _pushing = false;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void BeginSpinnerExit(int exitDirection)
+    {
+        if (exitDirection is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(exitDirection));
+        _facing = (Facing)exitDirection;
+        _walking = true;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void AdvanceSpinnerExit(Vector2I direction)
+    {
+        _walking = true;
+        Face(direction);
+        _precisePosition += (Vector2)direction;
+        AdvanceLinkWalkAnimation();
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void EndSpinnerControl()
+    {
+        _spinnerControlled = false;
+        _walking = false;
+        _pushing = false;
         QueueRedraw();
     }
 

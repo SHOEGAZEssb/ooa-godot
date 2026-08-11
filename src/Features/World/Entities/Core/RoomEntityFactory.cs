@@ -82,6 +82,7 @@ internal sealed class RoomEntityFactory(
     private readonly DungeonEntranceInteractionDatabase _dungeonEntrances = new();
     private readonly DungeonInteractionDatabase _dungeonInteractions = new();
     private readonly DungeonInteractionVisualDatabase _dungeonVisuals = new();
+    private readonly DungeonSpinnerDatabase _dungeonSpinners = new();
     private readonly DungeonBossDatabase _dungeonBosses = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly WingDungeonDatabase _wingDungeon = new();
@@ -342,6 +343,19 @@ internal sealed class RoomEntityFactory(
             7 => 5,
             _ => group
         };
+        foreach (DungeonSpinnerPlacement spinner in
+            _dungeonSpinners.GetRoomRecords(group, room.Id))
+        {
+            if (DungeonSpinnerDatabase.IsEnabled(spinner, saveData))
+            {
+                yield return new DungeonSpinnerRoomEntity(
+                    spinner,
+                    runtimeState,
+                    _dungeonVisuals.Visual("spinner"),
+                    soundRequested,
+                    screenShakeRequested);
+            }
+        }
         if (group == _room2e3.Record.Group &&
             room.Id == _room2e3.Record.Room)
         {
