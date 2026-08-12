@@ -375,7 +375,9 @@ public partial class BombEffect : TransitionOffsetNode2D
         {
             Vector2 edge = _precisePosition +
                 _record.EdgeOffset(_throwDirection);
-            if (WithinRoomBoundary(edge) && _room.IsSolid(edge))
+            if (WithinRoomBoundary(edge) &&
+                _room.IsSolid(edge) &&
+                !_record.CanPassSolidTile(_room, edge))
             {
                 _throwDirection = Vector2I.Zero;
                 _speedRaw = 0;

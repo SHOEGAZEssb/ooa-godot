@@ -12,8 +12,6 @@ namespace oracleofages;
 /// </summary>
 internal partial class CuccoCharacter : EnemyCharacter
 {
-    private const int SndChicken = 0xa0;
-
     private readonly CuccoBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Cucco;
     private readonly GiantCuccoBehaviorProfile _giantBehavior =
@@ -249,7 +247,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         _heldSoundCounter = 0;
         player.BeginCarriedObjectPose();
         RestartAnimation(HeldAnimationIndex(player.FacingVector));
-        _soundRequested(SndChicken);
+        _soundRequested(OracleSoundEngine.SndChicken);
         UpdateHeld(player, justGrabbed: true);
         return true;
     }
@@ -282,7 +280,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         }
         _soundRequested(OracleSoundEngine.SndDamageEnemy);
         if (!_giant)
-            _soundRequested(SndChicken);
+            _soundRequested(OracleSoundEngine.SndChicken);
         QueueRedraw();
         return true;
     }
@@ -332,7 +330,7 @@ internal partial class CuccoCharacter : EnemyCharacter
             if ((_heldSoundCounter & 0x1f) == 0 &&
                 InvincibilityCounter == 0)
             {
-                _soundRequested(SndChicken);
+                _soundRequested(OracleSoundEngine.SndChicken);
             }
         }
         Vector2I offset = HeldOffset(player);

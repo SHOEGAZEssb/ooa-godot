@@ -165,8 +165,9 @@ public sealed partial class ValidationRoot
         FailIf(key.SpawnCounter != 1 || key.Visible, "The falling key appeared before delay update 40.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            key.ZFixed != -48 << 8 || !key.Visible,
-            $"objectGetZAboveScreen for 5:ed expected -48, got {key.ZFixed >> 8}.");
+            key.ZFixed != -48 << 8 || key.Visible,
+            $"objectGetZAboveScreen for 5:ed expected hidden boundary Z -48, " +
+            $"got Z {key.ZFixed >> 8}, visible={key.Visible}.");
 
         for (int update = 0;
              update < 240 && key.State != PickupState.Waiting;

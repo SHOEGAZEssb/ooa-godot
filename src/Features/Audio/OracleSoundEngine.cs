@@ -102,6 +102,7 @@ public partial class OracleSoundEngine : Node
     public const int SndPoof = 0x98;
     public const int SndBaseball = 0x99;
     public const int SndPickup = 0x9c;
+    public const int SndChicken = 0xa0;
     public const int SndLand = 0xa3;
     public const int SndLinkSwim = 0x88;
     public const int SndBeam = 0xa4;

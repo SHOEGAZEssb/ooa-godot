@@ -249,10 +249,14 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 return;
         }
 
-        bool landed = OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, Record.Gravity);
+        // INTERAC_TREASURE spawn mode $02 checks its current camera-relative
+        // position before objectUpdateSpeedZ_paramC. This matters at the top
+        // screen boundary: the newly moved position is not made visible until
+        // the following update.
         UpdateAirborneVisibility();
         QueueRedraw();
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref _zFixed, ref _speedZ, Record.Gravity);
         if (!landed)
             return;
 
@@ -339,8 +343,10 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
 
     private void UpdateAirborneVisibility()
     {
+        Vector2 screenPosition = _worldToScreen(Position) +
+            new Vector2(0, _zFixed >> 8);
         Visible = OracleObjectMath.IsInsideOriginalScreenBoundary(
-            Position + new Vector2(0, _zFixed >> 8));
+            screenPosition);
     }
 
     private int GetZAboveScreen(Vector2 worldPosition)

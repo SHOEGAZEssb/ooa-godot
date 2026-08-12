@@ -278,6 +278,54 @@ public sealed partial class ValidationRoot
             "ITEM_BOMB explosion did not delete on parameter $ff after 35 updates.");
         effect.Free();
 
+        // itemUpdateThrowingLaterally observes ordinary solidity before
+        // itemCheckCanPassSolidTileAt exempts these imported dungeon fences.
+        var fenceRooms = new RoomSession(
+            4, 0x61, () => 0, () => { }, save);
+        OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
+        Vector2 fenceEdge = default;
+        bool foundFenceEdge = false;
+        for (int y = 1; y < fenceRoom.Height - 1 && !foundFenceEdge; y++)
+        for (int x = 4; x < fenceRoom.Width - 1; x++)
+        {
+            Vector2 candidate = new(x, y);
+            byte tile = fenceRoom.GetMetatile(candidate);
+            if (tile is not (0x94 or 0x96) ||
+                !fenceRoom.IsSolid(candidate) ||
+                !record.CanPassSolidTile(fenceRoom, candidate) ||
+                fenceRoom.IsSolid(candidate - new Vector2(3, 0)))
+            {
+                continue;
+            }
+            fenceEdge = candidate;
+            foundFenceEdge = true;
+        }
+        FailIf(
+            !foundFenceEdge,
+            "Room 4:61 lost its solid, item-passable fence edge `$94/`$96.");
+        Vector2 fenceStart = fenceEdge - new Vector2(3, 0);
+        player.SetScriptedPosition(fenceStart - Vector2.Right);
+        player.Face(Vector2I.Right);
+        var fenceBomb = new BombEffect();
+        fenceBomb.Initialize(
+            record, fenceRoom, new BreakableTileDatabase(),
+            player, 4, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        fenceBomb.UpdateFrame(player, effectSpawns);
+        fenceBomb.Throw(
+            player, Vector2I.Zero, Vector2I.Right,
+            record.InitialSpeedZ, record.SpeedRaw);
+        Vector2 beforeFenceUpdate = fenceBomb.PrecisePosition;
+        fenceBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            fenceBomb.ThrowDirection != Vector2I.Right ||
+            fenceBomb.SpeedRaw != record.SpeedRaw ||
+            fenceBomb.PrecisePosition.X <= beforeFenceUpdate.X,
+            "A thrown ITEM_BOMB stopped on room 4:61's item-passable " +
+            "dungeon fence instead of crossing it.");
+        fenceBomb.Free();
+
         InventoryState peaceInventory = Wearing(RingId.Peace);
         var peacePlayer = new Player { Name = "PeaceBombValidationPlayer" };
         peacePlayer.Initialize(
@@ -468,7 +516,7 @@ public sealed partial class ValidationRoot
             "Validated ITEM_BOMB imported OAM/physics/probes, packed-BCD " +
             "allocation, live pickup and object cap, 7/4/2 lift, eight-update " +
             "angle-$ff in-place drop, directional throw, 116-update fuse, " +
-            "center-first bombable tile break, " +
+            "room 4:61 fence crossing, center-first bombable tile break, " +
             "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");
     }
 

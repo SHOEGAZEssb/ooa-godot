@@ -496,17 +496,37 @@ function Get-DungeonPartVisual(
     $oamFlags = Convert-AssemblyInteger $partRow.Operands[6]
     $palette = $oamFlags -band 0x07
     # PART $3b/$3c alias PART $45/$42 at consecutive table labels.
-    $animationTableHex = if ($partId -eq 0x3b) {
+    $animationTableHex = if ($partId -eq 0x03) {
+        '24'
+    } elseif ($partId -eq 0x3b) {
         '45'
     } elseif ($partId -eq 0x3c) {
         '42'
     } else {
         $hex
     }
-    $oamTableHex = if ($partId -eq 0x3b) {
+    $oamTableHex = if ($partId -eq 0x03) {
+        '59'
+    } elseif ($partId -eq 0x24) {
+        '4d'
+    } elseif ($partId -eq 0x3b) {
         '54'
     } else {
         $animationTableHex
+    }
+    if ($partId -eq 0x03 -and
+        ($partAnimationSource -notmatch
+            '(?m)^part03Animations:\s*\r?\npart0bAnimations:\s*\r?\n' +
+            'part24Animations:\s*\r?\n\s*\.dw\s+partAnimation5b8c0' -or
+         $partAnimationSource -notmatch
+            '(?m)^part03OamDataPointers:[^\r\n]*\r?\n' +
+            'part0bOamDataPointers:[^\r\n]*\r?\n' +
+            'part12OamDataPointers:[^\r\n]*\r?\n' +
+            'part18OamDataPointers:[^\r\n]*\r?\n' +
+            'part20OamDataPointers:[^\r\n]*\r?\n' +
+            'part23OamDataPointers:[^\r\n]*\r?\n' +
+            'part59OamDataPointers:[^\r\n]*\r?\n')) {
+        throw 'PART_ORB no longer aliases PART $24 animations.'
     }
     if ($partId -eq 0x3b -and
         ($partAnimationSource -notmatch
@@ -516,6 +536,13 @@ function Get-DungeonPartVisual(
             'part45OamDataPointers:[^\r\n]*\r?\n' +
             'part54OamDataPointers:[^\r\n]*\r?\n')) {
         throw 'PART_3b no longer aliases PART $45 graphics.'
+    }
+    if ($partId -eq 0x24 -and
+        $partAnimationSource -notmatch
+            '(?m)^part24OamDataPointers:[^\r\n]*\r?\n' +
+            'part4bOamDataPointers:[^\r\n]*\r?\n' +
+            'part4dOamDataPointers:[^\r\n]*\r?\n') {
+        throw 'PART_GROTTO_CRYSTAL no longer aliases PART $4d OAM data.'
     }
     if ($partId -eq 0x3c -and
         $partAnimationSource -notmatch
@@ -686,8 +713,52 @@ Add-DungeonPartVisualRow `
     1 `
     @($headThwompBoulderVisual.Animations[1])
 
-if ($dungeonVisualRows.Count -ne 21) {
-    throw "Expected twenty imported shared dungeon interaction visuals."
+# PART_GROTTO_CRYSTAL $24 uses both static frames from object-GFX $76.
+# On collision it creates INTERAC_SARCOPHAGUS $82:$80 directly in @break,
+# which replaces the ordinary interaction graphics with fixed-bank common
+# sprites, tile base $40, and palette 4 before selecting animation 0.
+$grottoCrystalVisual = Get-DungeonPartVisual 0x24 $true
+if ($grottoCrystalVisual.Sprite -ne 'spr_pedestal_flame_crystal' -or
+    $grottoCrystalVisual.TileBase -ne 0x12 -or
+    $grottoCrystalVisual.Palette -ne 1 -or
+    $grottoCrystalVisual.Animations.Count -ne 2) {
+    throw 'PART_GROTTO_CRYSTAL $24 graphics no longer match object-GFX $76.'
+}
+Add-DungeonPartVisualRow `
+    'grotto-crystal' `
+    $grottoCrystalVisual.Sprite `
+    $grottoCrystalVisual.TileBase `
+    $grottoCrystalVisual.Palette `
+    $grottoCrystalVisual.SourceGrayscaleInverted `
+    $grottoCrystalVisual.Animations
+$grottoCrystalBreakSprite = 'spr_common_sprites'
+Copy-EnemySprite $grottoCrystalBreakSprite
+Add-DungeonPartVisualRow `
+    'grotto-crystal-break' `
+    $grottoCrystalBreakSprite `
+    0x40 `
+    4 `
+    1 `
+    @((Resolve-DungeonInteractionAnimation 0x82 0))
+
+# PART_ORB $03 shares the two static part frames but loads object-GFX $74.
+$grottoOrbVisual = Get-DungeonPartVisual 0x03 $true
+if ($grottoOrbVisual.Sprite -ne 'spr_roller_owl_barrier_orb' -or
+    $grottoOrbVisual.TileBase -ne 0x1e -or
+    $grottoOrbVisual.Palette -ne 0 -or
+    $grottoOrbVisual.Animations.Count -ne 2) {
+    throw 'PART_ORB $03 graphics no longer match object-GFX $74.'
+}
+Add-DungeonPartVisualRow `
+    'grotto-orb' `
+    $grottoOrbVisual.Sprite `
+    $grottoOrbVisual.TileBase `
+    $grottoOrbVisual.Palette `
+    $grottoOrbVisual.SourceGrayscaleInverted `
+    $grottoOrbVisual.Animations
+
+if ($dungeonVisualRows.Count -ne 24) {
+    throw "Expected twenty-three imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

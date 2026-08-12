@@ -1341,6 +1341,77 @@ internal sealed class RoomEntityFactory(
         bool enemyMechanicsSupported,
         EnemyPlacementContext placementContext)
     {
+        if (record.Id == 0x21 && record.SubId == 0x0a)
+        {
+            return new MoonlitGrottoArmosEventRoomEntity(
+                record,
+                _dungeonMechanics,
+                saveData,
+                runtimeState);
+        }
+        if (record.Id == 0x21 && record.SubId == 0x0d)
+        {
+            if (saveData?.HasGlobalFlag(_dungeonMechanics.MoonlitGlobalFlag) == true ||
+                saveData?.HasRoomFlag(
+                    group,
+                    room.Id,
+                    (byte)_dungeonMechanics.MoonlitRoomFlag) == true)
+            {
+                return null;
+            }
+            return new MoonlitGrottoCrystalEventRoomEntity(
+                record,
+                _dungeonMechanics,
+                saveData,
+                runtimeState,
+                soundRequested,
+                screenShakeRequested,
+                roomEntityDialogueRequested,
+                dialogueOpen);
+        }
+        if (record.Id == 0x21 && record.SubId == 0x0e)
+        {
+            if (saveData?.HasRoomFlag(
+                    group, room.Id, OracleSaveData.RoomFlagItem) == true)
+            {
+                return null;
+            }
+            var request = new GroundTreasureGrantRequest(
+                record.Group,
+                record.Room,
+                record.Order,
+                record.PackedPosition,
+                record.Parameter,
+                "TREASURE_OBJECT_SMALL_KEY_01",
+                "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$0e")
+            {
+                SpawnMode = 2,
+                GrabMode = 2,
+                SpawnDelayFrames =
+                    _dungeonInteractions.Constant("falling-key-spawn-delay"),
+                BounceCount = 2,
+                Gravity = 0x10,
+                BounceSpeed = -0xaa,
+                SpawnSound = OracleSoundEngine.SndSolvePuzzle,
+                LandingSound = OracleSoundEngine.SndDropEssence,
+                InitialZAboveScreen = true
+            };
+            return new MoonlitGrottoFallingKeyRoomEntity(
+                record, _dungeonMechanics, room, request);
+        }
+        if (record.Id == 0x24)
+        {
+            return new MoonlitGrottoCrystalRoomEntity(
+                record,
+                _dungeonMechanics,
+                _dungeonVisuals.Visual("grotto-crystal"),
+                _dungeonVisuals.Visual("grotto-crystal-break"),
+                room,
+                saveData,
+                runtimeState,
+                animationTick,
+                soundRequested);
+        }
         if (record.Id == 0x05)
         {
             return new DungeonSwitchRoomEntity(
@@ -1353,7 +1424,8 @@ internal sealed class RoomEntityFactory(
                 record, room, _dungeonMechanics, setTrigger,
                 animationTick, soundRequested);
         }
-        if (record.Id is 0x20 or 0x21)
+        if (record.Id == 0x20 ||
+            record.Id == 0x21 && record.SubId == 0x17)
         {
             return new TriggerChestRoomEntity(
                 record, room, _dungeonMechanics, triggerState,
@@ -1942,6 +2014,28 @@ internal sealed class RoomEntityFactory(
         OctorokRockSpawn rock => CreateRock(rock, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),
+        ArmosSpawn armos => CreateArmos(armos, room),
+        ArmosSpawnerSpawn spawner => new ArmosSpawnerRoomEntity(
+            room, spawner.SourceTile, spawner.ReplacementTile),
+        MoonlitGrottoOrbSpawn orb => new MoonlitGrottoOrbRoomEntity(
+            orb.Group,
+            orb.Room,
+            _dungeonMechanics,
+            _dungeonVisuals.Visual("grotto-orb"),
+            room,
+            runtimeState,
+            animationTick,
+            soundRequested),
+        EnemyClearChestSpawn chest => new EnemyClearChestRoomEntity(
+            chest.Group,
+            chest.Room,
+            chest.PackedPosition,
+            room,
+            _dungeonInteractions,
+            roomEnemyCount,
+            soundRequested,
+            roomTileChanged,
+            animationTick),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
@@ -3187,6 +3281,24 @@ internal sealed class RoomEntityFactory(
             soundRequested);
     }
 
+    private IRoomEntity CreateArmos(ArmosSpawn spawn, OracleRoomData room)
+    {
+        var armos = new ArmosCharacter
+        {
+            Name = "RedArmos",
+            ZIndex = 10
+        };
+        armos.Initialize(
+            enemies.ImportedEnemy(0x1d),
+            room,
+            spawn.Position,
+            spawn.ReplacementTile,
+            runtimeState,
+            random,
+            roomTileChanged);
+        return new ArmosRoomEntity(armos);
+    }
+
     private IRoomEntity CreateCuccoAttacker(CuccoAttackerSpawn spawn)
     {
         var attacker = new CuccoAttackerCharacter
@@ -4294,6 +4406,21 @@ internal sealed record MaskedMoblinSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record GhiniSpawn(Vector2 Position, string Name)
+    : RoomEntitySpawn;
+
+internal sealed record ArmosSpawn(Vector2 Position, int ReplacementTile)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record ArmosSpawnerSpawn(int SourceTile, int ReplacementTile)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record MoonlitGrottoOrbSpawn(int Group, int Room)
+    : RoomEntitySpawn;
+
+internal sealed record EnemyClearChestSpawn(
+    int Group,
+    int Room,
+    int PackedPosition)
     : RoomEntitySpawn;
 
 internal sealed record LightableTorchSpawn(

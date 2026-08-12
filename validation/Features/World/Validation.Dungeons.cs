@@ -959,6 +959,10 @@ public sealed partial class ValidationRoot
         int enemyClearChestCount = 0;
         int permanentTriggerChestCount = 0;
         int retractableTriggerChestCount = 0;
+        int moonlitCrystalEventCount = 0;
+        int moonlitArmosEventCount = 0;
+        int moonlitCrystalCount = 0;
+        int moonlitFallingKeyCount = 0;
         for (int group = 0; group < 8; group++)
         for (int roomId = 0; roomId < 0x100; roomId++)
         {
@@ -975,20 +979,32 @@ public sealed partial class ValidationRoot
                     { Id: 0x20, SubId: 0x00 } ? 1 : 0;
                 retractableTriggerChestCount += record is
                     { Id: 0x21, SubId: 0x17 } ? 1 : 0;
+                moonlitCrystalEventCount += record is
+                    { Id: 0x21, SubId: 0x0d } ? 1 : 0;
+                moonlitArmosEventCount += record is
+                    { Id: 0x21, SubId: 0x0a } ? 1 : 0;
+                moonlitFallingKeyCount += record is
+                    { Id: 0x21, SubId: 0x0e } ? 1 : 0;
+                moonlitCrystalCount += record.Id == 0x24 ? 1 : 0;
             }
         }
         FailIf(
-            database.RecordCount != 174 || switchRecordCount != 7 ||
+            database.RecordCount != 184 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyClearChestCount != 12 ||
             permanentTriggerChestCount != 7 ||
             retractableTriggerChestCount != 6 ||
+            moonlitArmosEventCount != 1 ||
+            moonlitCrystalEventCount != 4 || moonlitCrystalCount != 4 ||
+            moonlitFallingKeyCount != 1 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
             "Expected 12 enemy-clear chests, seven switches, 49 buttons, 20 " +
             "trigger shutters, seven delayed and six retractable trigger " +
-            "chests, and 73 ordered $13:$01/enemy-shutter dungeon placements.");
+            "chests, one Moonlit orb/Armos event, four Moonlit crystal " +
+            "handlers/parts, one falling key, " +
+            "and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
         void Step() => _entities.Update(update, _player);
         _entities.WorldToScreen = static position => position;
@@ -1968,7 +1984,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 174 imported enemy-clear-chest/switch/button/" +
+        GD.Print("Validated all 183 imported enemy-clear-chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

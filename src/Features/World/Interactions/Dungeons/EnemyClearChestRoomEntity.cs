@@ -44,6 +44,31 @@ internal sealed partial class EnemyClearChestRoomEntity : Node2D,
     {
     }
 
+    internal EnemyClearChestRoomEntity(
+        int group,
+        int roomId,
+        int packedPosition,
+        OracleRoomData room,
+        DungeonInteractionDatabase data,
+        Func<int> enemyCount,
+        Action<int> playSound,
+        Action roomTileChanged,
+        Func<long> animationTick)
+        : this(
+            group,
+            roomId,
+            new Vector2(
+                (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+                (packedPosition >> 4) * OracleRoomData.MetatileSize + 8),
+            room,
+            data,
+            enemyCount,
+            playSound,
+            roomTileChanged,
+            animationTick)
+    {
+    }
+
     private EnemyClearChestRoomEntity(
         int group,
         int roomId,

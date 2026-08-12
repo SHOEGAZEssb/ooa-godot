@@ -16,6 +16,7 @@ public sealed class OracleRuntimeState
     public const int ToggleBlocksStateAddress = 0xcc31;
     public const int SwitchStateAddress = 0xcc32;
     public const int SpinnerStateAddress = 0xcc33;
+    public const int ArmosTriggerAddress = 0xcca2;
     public const int SentBackByStrangeForceAddress = 0xcdde;
     internal const int SeedTreeRefillLocationCount = 16;
     internal const int SeedTreeRefillRoomsPerLocation = 8;

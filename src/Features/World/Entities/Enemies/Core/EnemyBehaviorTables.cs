@@ -55,6 +55,8 @@ internal sealed class EnemyBehaviorTables
     internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
+    internal ArmosBehaviorProfile Armos { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> ArmosCollisionEffects { get; }
     internal PolsVoiceBehaviorProfile PolsVoice { get; }
     internal IReadOnlyList<EnemyBehaviorValue> PolsVoiceCollisionEffects { get; }
     internal MoldormBehaviorProfile Moldorm { get; }
@@ -352,6 +354,21 @@ internal sealed class EnemyBehaviorTables
             values[6].Value,
             values);
 
+        values = TakeValues(groups, "armos", "state-profile", 9);
+        Armos = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values);
+        ArmosCollisionEffects = TakeValues(
+            groups, "armos", "collision-effects", 32);
+
         values = TakeValues(groups, "pols-voice", "state-profile", 13);
         PolsVoice = new(
             values[0].Value,
@@ -530,10 +547,10 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 467 || groups.Count != 0)
+        if (table.Rows.Count != 508 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 467 rows and no " +
+                $"Enemy behavior table contract expected 508 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -763,6 +780,18 @@ internal readonly record struct RopeBehaviorProfile(
     int ApproachAxisRadius,
     int WanderCounterBase,
     int WanderCounterMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct ArmosBehaviorProfile(
+    int OamPalette,
+    int SpeedRaw,
+    int ActivationCounter,
+    int ActivationYOffset,
+    int ActiveCollisionMode,
+    int ActiveCollisionRadius,
+    int MovementCounter,
+    int SpawnYOffset,
+    int SpawnXOffset,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct PolsVoiceBehaviorProfile(

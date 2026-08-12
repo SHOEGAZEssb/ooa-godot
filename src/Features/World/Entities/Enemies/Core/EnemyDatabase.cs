@@ -61,7 +61,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 23 ||
+        if (_importedDefinitions.Count != 24 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -88,6 +88,16 @@ public sealed class EnemyDatabase
                     Animations.Length: 2
                 } ||
             ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
+            ImportedEnemy(0x1d) is not
+                {
+                    TileBase: 18,
+                    Palette: 0,
+                    RadiusY: 7,
+                    RadiusX: 7,
+                    Health: 4,
+                    DamageQuarters: 4,
+                    Animations.Length: 1
+                } ||
             ImportedEnemy(0x1a) is not
                 {
                     TileBase: 0,

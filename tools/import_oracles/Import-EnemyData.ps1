@@ -338,7 +338,7 @@ $commonEnemySprites = @{
 $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
     @(0x10, 0x00), @(0x13, 0x00),
-    @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01),
+    @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x4a, 0x01), @(0x4d, 0x00), @(0x4f, 0x00)
@@ -370,7 +370,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 24 -or
+if ($commonEnemyRows.Count -ne 25 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -388,6 +388,9 @@ if ($commonEnemyRows.Count -ne 24 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^17\t00\tspr_moblin_ghini\t22\t2\t1\t6\t6\t2\t10\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^1d\t00\tspr_pincer_pokey_armos\t18\t0\t1\t7\t7\t4\t4\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^1b\t01\tspr_crab_fish_goponga_beetle\t24\t2\t1\t6\t6\t2\t2\t'
@@ -3457,6 +3460,47 @@ Add-EnemyBehaviorProfile 'rope' 'state-profile' `
     @(0x0f, 0x32, 0x0f, 0x40, 0x0a, 0x70, 0x70) `
     'object_code/common/enemies/rope.s:subid00-state-operands'
 
+$armosCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\armos.s')
+if ($armosCodeSource -notmatch
+        '(?ms)^armos_uninitialized:.*?ld \(hl\),\$80\|ENEMY_PODOBOO.*?' +
+        '^@oamFlagsAndSpeeds:\s+\.db \$05, SPEED_80' -or
+    $armosCodeSource -notmatch
+        '(?ms)^armos_state9:.*?ld \(hl\),60.*?inc \(hl\)\s+inc \(hl\).*?' +
+        'objectSetVisible82' -or
+    $armosCodeSource -notmatch
+        '(?ms)^armos_subid00_stateA:.*?ENEMYCOLLISION_ACTIVE_RED_ARMOS.*?' +
+        'ld a,\$06\s+ldi \(hl\),a\s+ld \(hl\),a.*?' +
+        'armos_replaceTileUnderSelf' -or
+    $armosCodeSource -notmatch
+        '(?ms)^armos_subid00_stateB:.*?ld \(hl\),61.*?' +
+        'ecom_setRandomCardinalAngle.*?^armos_subid00_stateC:.*?' +
+        'ecom_applyVelocityForTopDownEnemyNoHoles.*?enemyAnimate' -or
+    $armosCodeSource -notmatch
+        '(?ms)^armos_spawnArmosAtPosition:.*?and \$0f\s+swap a\s+' +
+        'add \$08.*?and \$f0\s+add \$06') {
+    throw 'Red ENEMY_ARMOS activation, collision, movement, or spawn profile changed.'
+}
+Add-EnemyBehaviorProfile 'armos' 'state-profile' `
+    @(0x05, 0x14, 60, 2, 0x1e, 6, 61, 6, 8) `
+    'object_code/common/enemies/armos.s:subid00-state-operands'
+$armosCollisionEffects = @(
+    0..0x1f | ForEach-Object {
+        $enemyCollisionTableValues[0x1e * 0x20 + $_]
+    })
+$expectedArmosCollisionEffects = @(
+    0x02, 0x07, 0x06, 0x06, 0x15, 0x15, 0x15, 0x08,
+    0x16, 0x15, 0x00, 0x00, 0x15, 0x2e, 0x15, 0x25,
+    0x00, 0x00, 0x00, 0x2b, 0x15, 0x2f, 0x1c, 0x22,
+    0x0b, 0x20, 0x35, 0x20, 0x0b, 0x28, 0x20, 0x00)
+if (($armosCollisionEffects -join ',') -ne
+    ($expectedArmosCollisionEffects -join ',')) {
+    throw 'ENEMYCOLLISION_ACTIVE_RED_ARMOS `$1e item-effect row changed.'
+}
+Add-EnemyBehaviorProfile 'armos' 'collision-effects' `
+    $armosCollisionEffects `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$03c0'
+
 $polsVoiceCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\polsVoice.s')
 if ($polsVoiceCodeSource -notmatch
@@ -3816,8 +3860,8 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 468) {
-    throw "Expected 467 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 509) {
+    throw "Expected 508 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

@@ -1899,7 +1899,7 @@ foreach ($line in $mainObjectLines) {
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             $dungeonScriptPredicate -ne '' -or
-            ($id -eq 0x21 -and $subid -eq 0x17)) {
+            ($id -eq 0x21 -and $subid -in @(0x0e, 0x17))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
             $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20) {
@@ -1918,7 +1918,7 @@ foreach ($line in $mainObjectLines) {
                 'bit'
             } elseif ($id -eq 0x20) {
                 $dungeonScriptPredicate
-            } elseif ($id -eq 0x21) {
+            } elseif ($id -eq 0x21 -and $subid -eq 0x17) {
                 'exact'
             } else {
                 'none'
@@ -1929,15 +1929,20 @@ foreach ($line in $mainObjectLines) {
                 "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$triggerPredicate`t$countSourceComplete")
             if ($id -eq 0x12) { $enemyClearChestCount++ }
             if ($id -eq 0x20) { $permanentTriggerChestCount++ }
-            if ($id -eq 0x21) { $retractableTriggerChestCount++ }
+            if ($id -eq 0x21 -and $subid -eq 0x17) {
+                $retractableTriggerChestCount++
+            }
         }
-    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
+    } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0d)\s*$') {
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
+    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 175 -or
+if ($dungeonMechanicRows.Count -ne 185 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
@@ -1950,14 +1955,73 @@ if ($dungeonMechanicRows.Count -ne 175 -or
     -not ($dungeonMechanicRows -contains "4`t22`t1`t09`t80`t5b`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t56`t0`t21`t0a`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t5d`t0`t21`t0d`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t5d`t1`t24`t10`t23`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t61`t0`t21`t0d`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t61`t1`t21`t0e`t58`tb8`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t61`t2`t24`t40`t57`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t7a`t0`t21`t17`t39`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 174 reusable dungeon enemy-clear chest/switch/button/trigger/shutter placements including rooms 4:08/4:09/4:0b/4:0c/4:2f/4:65/4:7a, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 184 reusable dungeon mechanics including Moonlit Grotto's room 4:56 orb/Armos event, four crystal handlers/parts, and room 4:61 falling key, parsed $($dungeonMechanicRows.Count - 1)."
 }
+$moonlitCrystalSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
+$moonlitEventSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\dungeonEvents.s')
+$moonlitScriptSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\dungeonScripts.s')
+$moonlitSarcophagusSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\sarcophagus.s')
+$moonlitPartDataSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\partData.s')
+$moonlitExtraObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
+if ($moonlitPartDataSource -notmatch
+        '(?m)^\s*\.db \$74 \$83 \$44 \$00 \$40 \$1e \$00 \$00 ; \$03\s*$' -or
+    $moonlitEventSource -notmatch
+        '(?ms)^interaction21_subid0a:.*?res 4,\(hl\).*?' +
+        'objectData\.moonlitGrotto_orb.*?interactionDeleteAndRetIfItemFlagSet.*?' +
+        'bit 4,\(hl\).*?ld \(\$cca2\),a.*?' +
+        'objectData\.moonlitGrotto_onOrbActivation' -or
+    $moonlitExtraObjectSource -notmatch
+        '(?ms)^moonlitGrotto_orb:\s+obj_Part \$03 \$04 \$75\s+obj_End' -or
+    $moonlitExtraObjectSource -notmatch
+        '(?ms)^moonlitGrotto_onOrbActivation:\s+' +
+        'obj_Interaction \$12 \$02 \$68 \$98\s+' +
+        'obj_SpecificEnemyA \$00 \$1d \$00 \$26 \$a0\s+obj_End' -or
+    $moonlitPartDataSource -notmatch
+        '(?m)^\s*\.db \$76 \$83 \$44 \$00 \$40 \$12 \$01 \$00 ; \$24\s*$' -or
+    $moonlitCrystalSource -notmatch
+        '(?ms)^partCode24:.*?xor \(hl\).*?ld \(wSwitchState\),a.*?' +
+        'ldbc, INTERAC_SARCOPHAGUS \$80.*?bit 6,\(hl\).*?' +
+        'call objectMakeTileSolid.*?ld h,\$cf\s+ld \(hl\),\$0a' -or
+    $moonlitEventSource -notmatch
+        '(?ms)^interaction21_subid0d:.*?GLOBALFLAG_D3_CRYSTALS.*?' +
+        'and \$40.*?and \$f0\s+cp \$f0.*?ld \(wSpinnerState\),a' -or
+    $moonlitEventSource -notmatch
+        '(?ms)^interaction21_subid0e:.*?wRoomLayout\+\$4a.*?' +
+        'cp \$2a.*?spawnSmallKeyFromCeiling' -or
+    $moonlitScriptSource -notmatch
+        '(?ms)^moonlitGrottoScript_brokeCrystal:.*?wait 30.*?' +
+        'playsound SNDCTRL_STOPSFX.*?shakescreen 180.*?' +
+        'playsound SND_RUMBLE2.*?wait 180.*?showtext TX_1200.*?' +
+        'orroomflag \$40' -or
+    $moonlitScriptSource -notmatch
+        '(?ms)^moonlitGrottoScript_brokeAllCrystals:.*?wait 30.*?' +
+        'shakescreen 100.*?playsound SND_BIG_EXPLOSION.*?wait 90.*?' +
+        'playsound SND_SOLVEPUZZLE.*?wait 30.*?showtext TX_1201.*?' +
+        'setglobalflag GLOBALFLAG_D3_CRYSTALS' -or
+    $moonlitSarcophagusSource -notmatch
+        '(?ms)^interactionCode82:.*?@break:.*?ld \(hl\),\$02.*?' +
+        'ld a,SND_KILLENEMY\s+call z,playSound') {
+    throw 'Moonlit Grotto orb/Armos, crystal, cutscene, or falling-key source contract changed.'
+}
+
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
     "pushable-block`t29"
@@ -1987,6 +2051,37 @@ $dungeonMechanicConstantRows = @(
     "chest-tile`t241"
     "chest-wait`t15"
     "puff-sound`t152"
+    "moonlit-global-flag`t$($globalFlagValues['GLOBALFLAG_D3_CRYSTALS'])"
+    "moonlit-all-crystals-mask`t240"
+    "moonlit-room-flag`t64"
+    "moonlit-crystal-collision`t10"
+    "moonlit-crystal-radius-y`t4"
+    "moonlit-crystal-radius-x`t4"
+    "moonlit-orb-position`t117"
+    "moonlit-orb-mask`t16"
+    "moonlit-orb-collision`t10"
+    "moonlit-orb-radius-y`t4"
+    "moonlit-orb-radius-x`t4"
+    "moonlit-armos-chest-position`t105"
+    "moonlit-armos-source-tile`t38"
+    "moonlit-armos-replacement-tile`t160"
+    "moonlit-key-goal-position`t74"
+    "moonlit-key-goal-tile`t42"
+    "moonlit-first-wait`t30"
+    "moonlit-rumble-wait`t180"
+    "moonlit-all-wait`t30"
+    "moonlit-explosion-wait`t90"
+    "moonlit-solve-wait`t30"
+    "moonlit-rumble-sound`t$($soundIds['SND_RUMBLE2'])"
+    "moonlit-big-explosion-sound`t$($soundIds['SND_BIG_EXPLOSION'])"
+    "moonlit-solve-sound`t$($soundIds['SND_SOLVEPUZZLE'])"
+    "moonlit-break-sound`t$($soundIds['SND_KILLENEMY'])"
+    "moonlit-break-sound-delay`t2"
+)
+$dungeonMechanicTextRows = @(
+    "# text-id`tmessage-base64"
+    "1200`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x1200])))"
+    "1201`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x1201])))"
 )
 $currentGroup = -1
 $currentRoom = -1
@@ -5919,6 +6014,10 @@ $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic
 Write-GeneratedTable(
     $dungeonMechanicConstantsPath,
     $dungeonMechanicConstantRows)
+$dungeonMechanicTextPath = Join-Path $destination "objects\dungeon_mechanic_text.tsv"
+Write-GeneratedTable(
+    $dungeonMechanicTextPath,
+    $dungeonMechanicTextRows)
 $puzzlePuffPath = Join-Path $destination "effects\puzzle_puff.tsv"
 Write-GeneratedTable(
     $puzzlePuffPath,
