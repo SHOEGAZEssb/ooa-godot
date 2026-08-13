@@ -8,7 +8,7 @@ namespace oracleofages;
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
 /// INTERAC_DUNGEON_STUFF $12:$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
 /// shutter-door controller variants $1e:$04-$0b. Moonlit Grotto's
-/// INTERAC_DUNGEON_EVENTS $21:$0a/$0d/$0e, PART_ORB $03, and
+/// INTERAC_DUNGEON_EVENTS $21:$09/$0a/$0d/$0e, PART_ORB $03, and
 /// PART_GROTTO_CRYSTAL $24 share this
 /// source-ordered dispatch because their switch state and reward are common
 /// dungeon mechanics rather than room-authored exceptions.
@@ -18,6 +18,8 @@ internal sealed class DungeonMechanicDatabase
 
     private readonly Lookup<int, DungeonMechanicDatabaseRecord> _recordsByRoom =
         new();
+    private readonly Lookup<(int Id, int SubId), DungeonTilePatternRecord>
+        _tilePatterns = new();
     private readonly Dictionary<string, int> _constants = new();
     private readonly Dictionary<int, string> _texts = new();
 
@@ -110,7 +112,7 @@ internal sealed class DungeonMechanicDatabase
             if (record.Id is not (0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x24) ||
                 record.Id == 0x12 && record.SubId != 0x02 ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
-                record.Id == 0x21 && record.SubId is not (0x0a or 0x0d or 0x0e or 0x17) ||
+                record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0d or 0x0e or 0x17) ||
                 record.Id == 0x24 && record.SubId is not (0x10 or 0x20 or 0x40 or 0x80))
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             List<DungeonMechanicDatabaseRecord> records =
@@ -126,6 +128,34 @@ internal sealed class DungeonMechanicDatabase
             count++;
         }
         RecordCount = count;
+
+        GeneratedTable tilePatterns = GeneratedTable.Load(
+            "res://assets/oracle/objects/dungeon_event_tile_patterns.tsv",
+            new GeneratedTableSchema(
+                "dungeon event tile patterns",
+                GeneratedTableKeySemantics.Unique,
+                ["id", "subid", "order", "tile", "position", "source"],
+                ["id", "subid", "order"],
+                headerRequired: true));
+        foreach (GeneratedTableRow row in tilePatterns.Rows)
+        {
+            DungeonTilePatternRecord record = new(
+                row.HexByte(0),
+                row.HexByte(1),
+                row.UnsignedDecimal(2),
+                row.HexByte(3),
+                row.HexByte(4),
+                row.RequiredString(5));
+            List<DungeonTilePatternRecord> pattern =
+                _tilePatterns.GetOrAdd((record.Id, record.SubId));
+            if (record.Order != pattern.Count)
+            {
+                throw new InvalidOperationException(
+                    $"{record.Source}: ${record.Id:x2}:${record.SubId:x2} tile " +
+                    $"pattern order {record.Order} was not contiguous.");
+            }
+            pattern.Add(record);
+        }
 
         GeneratedTable constants = GeneratedTable.Load(
             "res://assets/oracle/objects/dungeon_mechanic_constants.tsv",
@@ -160,8 +190,11 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room65 = GetRoomRecords(4, 0x65);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room56 = GetRoomRecords(4, 0x56);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room61 = GetRoomRecords(4, 0x61);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room64 = GetRoomRecords(4, 0x64);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
-        if (RecordCount != 184 || _constants.Count != 53 || _texts.Count != 2 ||
+        IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
+            TilePattern(0x21, 0x09);
+        if (RecordCount != 185 || _constants.Count != 53 || _texts.Count != 2 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -208,6 +241,18 @@ internal sealed class DungeonMechanicDatabase
             room61[2] != new DungeonMechanicDatabaseRecord(
                 4, 0x61, 2, 0x24, 0x40, 0x57, 0x00,
                 TriggerPredicate.None, true) ||
+            room64.Count != 1 || room64[0] !=
+                new DungeonMechanicDatabaseRecord(
+                    4, 0x64, 0, 0x21, 0x09, 0x68, 0xb8,
+                    TriggerPredicate.None, true) ||
+            room64Pattern.Count != 3 ||
+            room64Pattern[0] != new DungeonTilePatternRecord(
+                0x21, 0x09, 0, 0x1d, 0x3b,
+                "object_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") ||
+            room64Pattern[1].Tile != 0x1d ||
+            room64Pattern[1].PackedPosition != 0x59 ||
+            room64Pattern[2].Tile != 0x1d ||
+            room64Pattern[2].PackedPosition != 0x5d ||
             room7a.Count != 2 || room7a[0] !=
                 new DungeonMechanicDatabaseRecord(
                     4, 0x7a, 0, 0x21, 0x17, 0x39, 0x01,
@@ -255,12 +300,15 @@ internal sealed class DungeonMechanicDatabase
             throw new InvalidOperationException(
                 "Imported dungeon enemy-clear chest / switch / button / " +
                 "trigger-chest / $13:$01 / $1e:$04-$0b / Moonlit Grotto " +
-                "orb / Armos / crystal contract is incomplete.");
+                "orb / Armos / crystal / falling-key contract is incomplete.");
         }
     }
 
     internal IReadOnlyList<DungeonMechanicDatabaseRecord> GetRoomRecords(int group, int room) =>
         _recordsByRoom.ValuesOrEmpty(MakeKey(group, room));
+
+    internal IReadOnlyList<DungeonTilePatternRecord> TilePattern(int id, int subId) =>
+        _tilePatterns.ValuesOrEmpty((id, subId));
 
     internal string Text(int textId) => _texts.TryGetValue(textId, out string? text)
         ? text
@@ -294,3 +342,11 @@ internal enum TriggerPredicate
 }
 
 internal readonly record struct DungeonMechanicDatabaseRecord(int Group, int Room, int Order, int Id, int SubId, int PackedPosition, int Parameter, TriggerPredicate Predicate, bool CountSourceComplete);
+
+internal readonly record struct DungeonTilePatternRecord(
+    int Id,
+    int SubId,
+    int Order,
+    int Tile,
+    int PackedPosition,
+    string Source);

@@ -266,6 +266,185 @@ public sealed partial class ValidationRoot
             "drop producers, and ROOMFLAG_ITEM re-entry.");
     }
 
+    private void ValidateRoom464MoonlitGrotto()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new DungeonMechanicDatabase();
+        IReadOnlyList<DungeonMechanicDatabaseRecord> records =
+            data.GetRoomRecords(4, 0x64);
+        IReadOnlyList<DungeonTilePatternRecord> pattern =
+            data.TilePattern(0x21, 0x09);
+        FailIf(
+            records is not
+                [{ Order: 0, Id: 0x21, SubId: 0x09,
+                   PackedPosition: 0x68, Parameter: 0xb8 }] ||
+            pattern.Select(cell =>
+                    (cell.Order, cell.Tile, cell.PackedPosition)).ToArray() is not
+                [(0, 0x1d, 0x3b), (1, 0x1d, 0x59), (2, 0x1d, 0x5d)],
+            "Room 4:64 lost its source INTERAC_DUNGEON_EVENTS $21:$09 " +
+            "placement or ordered $1d:$3b/$59/$5d tile pattern.");
+
+        _saveData.SetRoomFlag(
+            4, 0x64, OracleSaveData.RoomFlagItem, value: false);
+        LoadValidationRoom(4, 0x64);
+        OracleRoomData room = _currentRoom;
+        DungeonTilePatternFallingKeyRoomEntity roomEvent =
+            _entities.Entities<DungeonTilePatternFallingKeyRoomEntity>().Single();
+        var pushables = new PushableTileDatabase();
+        FailIf(
+            room.ActiveCollisions != 2 || room.Width != 240 || room.Height != 176 ||
+            _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            room.GetMetatile(Point(0x4b)) != 0x18 ||
+            room.GetMetatile(Point(0x5a)) != 0x1b ||
+            room.GetMetatile(Point(0x5c)) != 0x19 ||
+            room.GetMetatile(Point(0x3b)) != 0xa0 ||
+            room.GetMetatile(Point(0x59)) != 0xa0 ||
+            room.GetMetatile(Point(0x5d)) != 0xa0 ||
+            room.GetMetatile(Point(0x79)) != 0x1d ||
+            room.GetMetatile(Point(0x7d)) != 0x1d ||
+            room.GetMetatile(Point(0x9b)) != 0x1d,
+            "Room 4:64 did not load its enemy-free large-room geometry, " +
+            "three one-way source blocks, three goals, and decorative $1d blocks.");
+        FailIf(
+            !pushables.TryGet(2, 0x18, out PushableTileRecord up) ||
+            up is not
+                { InteractionParameter: 0x00, SourceReplacement: 0xa0,
+                  DestinationTile: 0x1d, PropertyFlags: 0x01 } ||
+            !pushables.TryGet(2, 0x1b, out PushableTileRecord left) ||
+            left is not
+                { InteractionParameter: 0x30, SourceReplacement: 0xa0,
+                  DestinationTile: 0x1d, PropertyFlags: 0x01 } ||
+            !pushables.TryGet(2, 0x19, out PushableTileRecord right) ||
+            right is not
+                { InteractionParameter: 0x10, SourceReplacement: 0xa0,
+                  DestinationTile: 0x1d, PropertyFlags: 0x01 },
+            "Room 4:64's $18/$1b/$19 blocks lost their imported up/left/right " +
+            "push directions or $a0->$1d completion rule.");
+
+        _sound.ClearPlayRequestAudit();
+        void PushBlock(int sourcePacked, Vector2I direction, int goalPacked,
+            int expectedMoveSounds)
+        {
+            Vector2 source = Point(sourcePacked);
+            Vector2 link = source - (Vector2)direction * 10.0f;
+            for (int frame = 0;
+                 frame < PushBlockController.PushDelayFrames;
+                 frame++)
+            {
+                _pushBlocks.UpdatePushAttempt(link, direction, direction);
+            }
+            FailIf(
+                !_pushBlocks.Active || room.GetMetatile(source) != 0xa0 ||
+                room.GetMetatile(Point(goalPacked)) != 0xa0 ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) !=
+                    expectedMoveSounds,
+                $"Room 4:64 block ${sourcePacked:x2} did not begin its " +
+                "source 20-update push over floor $a0.");
+            for (int frame = 0;
+                 frame < PushBlockController.MoveFrames - 1;
+                 frame++)
+            {
+                _pushBlocks.Advance(Update);
+            }
+            FailIf(
+                !_pushBlocks.Active ||
+                room.GetMetatile(Point(goalPacked)) != 0xa0,
+                $"Room 4:64 block ${sourcePacked:x2} completed before its " +
+                "32nd SPEED_80 movement update.");
+            _pushBlocks.Advance(Update);
+            FailIf(
+                _pushBlocks.Active ||
+                room.GetMetatile(Point(goalPacked)) != 0x1d,
+                $"Room 4:64 block ${sourcePacked:x2} did not write goal " +
+                $"${goalPacked:x2}:$1d on movement update 32.");
+        }
+
+        Step();
+        PushBlock(0x4b, Vector2I.Up, 0x3b, 1);
+        Step();
+        FailIf(
+            roomEvent.Finished ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:64 accepted only its first completed goal.");
+        PushBlock(0x5a, Vector2I.Left, 0x59, 2);
+        Step();
+        FailIf(
+            roomEvent.Finished ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:64 accepted only two completed goals.");
+        PushBlock(0x5c, Vector2I.Right, 0x5d, 3);
+        FailIf(roomEvent.Finished,
+            "Room 4:64's event advanced outside the ordered interaction update.");
+
+        Func<Vector2, Vector2> priorWorldToScreen = _entities.WorldToScreen;
+        _entities.WorldToScreen = static position =>
+            position - new Vector2(80, 0);
+        Step();
+        GroundTreasurePickup fallingKey =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        FailIf(
+            _entities.Entities<DungeonTilePatternFallingKeyRoomEntity>().Count != 0 ||
+            fallingKey.Position != new Vector2(0xb8, 0x68) ||
+            fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
+            fallingKey.Record.SpawnMode != 2 ||
+            fallingKey.Record.GrabMode != 2 ||
+            fallingKey.Record.SpawnDelayFrames != 40 ||
+            fallingKey.Record.BounceCount != 2 ||
+            fallingKey.Record.Gravity != 0x10 ||
+            fallingKey.Record.BounceSpeed != -0xaa ||
+            !fallingKey.Record.InitialZAboveScreen,
+            "Room 4:64 did not create its source falling small key at exact " +
+            "Y/X $68/$b8 after all three goals matched.");
+
+        for (int frame = 0;
+             frame < 300 && fallingKey.State != PickupState.Waiting;
+             frame++)
+        {
+            Step();
+        }
+        int dungeon = _rooms.CurrentDungeonIndex;
+        int keysBeforePickup = _inventory.GetDungeonSmallKeys(dungeon);
+        _sound.ClearPlayRequestAudit();
+        _player.WarpTo(fallingKey.Position, recordSafe: false);
+        Step();
+        FailIf(
+            fallingKey.State != PickupState.Collected ||
+            _inventory.GetDungeonSmallKeys(dungeon) != keysBeforePickup + 1 ||
+            !_saveData.HasRoomFlag(4, 0x64, OracleSaveData.RoomFlagItem) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            "Room 4:64's landed key did not grant one dungeon-$03 small key, " +
+            "SND_GETSEED, and ROOMFLAG_ITEM on contact.");
+        Step();
+        FailIf(
+            !fallingKey.Held ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            "Room 4:64's collected key did not enter its held SND_GETITEM pose.");
+
+        LoadValidationRoom(4, 0x64);
+        FailIf(
+            _entities.Entities<DungeonTilePatternFallingKeyRoomEntity>().Count != 0 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "ROOMFLAG_ITEM re-entry did not suppress room 4:64's completed " +
+            "tile-pattern watcher and falling key.");
+        _entities.WorldToScreen = priorWorldToScreen;
+
+        GD.Print(
+            "Validated full room 4:64: empty source stream apart from $21:$09, " +
+            "large-room geometry, directional $18/$1b/$19 pushes with exact " +
+            "20/32 timing, ordered $1d goals, falling key Y/X $68/$b8, " +
+            "collection, and ROOMFLAG_ITEM re-entry.");
+    }
+
     private void ValidateRoom461MoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;

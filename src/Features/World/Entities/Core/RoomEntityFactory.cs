@@ -1242,6 +1242,30 @@ internal sealed class RoomEntityFactory(
             InitialZAboveScreen = true
         };
 
+    private GroundTreasureGrantRequest CreateFallingSmallKeyRequest(
+        DungeonMechanicDatabaseRecord record,
+        string source) =>
+        new(
+            record.Group,
+            record.Room,
+            record.Order,
+            record.PackedPosition,
+            record.Parameter,
+            "TREASURE_OBJECT_SMALL_KEY_01",
+            source)
+        {
+            SpawnMode = 2,
+            GrabMode = 2,
+            SpawnDelayFrames =
+                _dungeonInteractions.Constant("falling-key-spawn-delay"),
+            BounceCount = 2,
+            Gravity = 0x10,
+            BounceSpeed = -0xaa,
+            SpawnSound = OracleSoundEngine.SndSolvePuzzle,
+            LandingSound = OracleSoundEngine.SndDropEssence,
+            InitialZAboveScreen = true
+        };
+
     private static GroundTreasureGrantRequest CreateDungeonBossRewardRequest(
         DungeonObjectRecord record,
         DungeonBossRewardScriptDefinition definition) =>
@@ -1341,6 +1365,21 @@ internal sealed class RoomEntityFactory(
         bool enemyMechanicsSupported,
         EnemyPlacementContext placementContext)
     {
+        if (record.Id == 0x21 && record.SubId == 0x09)
+        {
+            if (saveData?.HasRoomFlag(
+                    group, room.Id, OracleSaveData.RoomFlagItem) == true)
+            {
+                return null;
+            }
+            return new DungeonTilePatternFallingKeyRoomEntity(
+                record,
+                _dungeonMechanics.TilePattern(record.Id, record.SubId),
+                room,
+                CreateFallingSmallKeyRequest(
+                    record,
+                    "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$09"));
+        }
         if (record.Id == 0x21 && record.SubId == 0x0a)
         {
             return new MoonlitGrottoArmosEventRoomEntity(
@@ -1376,28 +1415,13 @@ internal sealed class RoomEntityFactory(
             {
                 return null;
             }
-            var request = new GroundTreasureGrantRequest(
-                record.Group,
-                record.Room,
-                record.Order,
-                record.PackedPosition,
-                record.Parameter,
-                "TREASURE_OBJECT_SMALL_KEY_01",
-                "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$0e")
-            {
-                SpawnMode = 2,
-                GrabMode = 2,
-                SpawnDelayFrames =
-                    _dungeonInteractions.Constant("falling-key-spawn-delay"),
-                BounceCount = 2,
-                Gravity = 0x10,
-                BounceSpeed = -0xaa,
-                SpawnSound = OracleSoundEngine.SndSolvePuzzle,
-                LandingSound = OracleSoundEngine.SndDropEssence,
-                InitialZAboveScreen = true
-            };
             return new MoonlitGrottoFallingKeyRoomEntity(
-                record, _dungeonMechanics, room, request);
+                record,
+                _dungeonMechanics,
+                room,
+                CreateFallingSmallKeyRequest(
+                    record,
+                    "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$0e"));
         }
         if (record.Id == 0x24)
         {

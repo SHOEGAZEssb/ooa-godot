@@ -1899,7 +1899,7 @@ foreach ($line in $mainObjectLines) {
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             $dungeonScriptPredicate -ne '' -or
-            ($id -eq 0x21 -and $subid -in @(0x0e, 0x17))) {
+            ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
             $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20) {
@@ -1942,7 +1942,7 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 185 -or
+if ($dungeonMechanicRows.Count -ne 186 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
@@ -1961,13 +1961,14 @@ if ($dungeonMechanicRows.Count -ne 185 -or
     -not ($dungeonMechanicRows -contains "4`t61`t0`t21`t0d`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t61`t1`t21`t0e`t58`tb8`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t61`t2`t24`t40`t57`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t64`t0`t21`t09`t68`tb8`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t7a`t0`t21`t17`t39`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t0`t13`t01`t47`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0c`t1`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 184 reusable dungeon mechanics including Moonlit Grotto's room 4:56 orb/Armos event, four crystal handlers/parts, and room 4:61 falling key, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 185 reusable dungeon mechanics including Moonlit Grotto's room 4:56 orb/Armos event, four crystal handlers/parts, and room 4:61/4:64 falling keys, parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2006,6 +2007,10 @@ if ($moonlitPartDataSource -notmatch
     $moonlitEventSource -notmatch
         '(?ms)^interaction21_subid0e:.*?wRoomLayout\+\$4a.*?' +
         'cp \$2a.*?spawnSmallKeyFromCeiling' -or
+    $moonlitEventSource -notmatch
+        '(?ms)^interaction21_subid09:.*?interactionDeleteAndRetIfItemFlagSet.*?' +
+        'ld hl,@tileData.*?verifyTilesAndDropSmallKey.*?^@tileData:\s*' +
+        '\.db TILEINDEX_PUSHABLE_BLOCK \$3b \$59 \$5d \$00' -or
     $moonlitScriptSource -notmatch
         '(?ms)^moonlitGrottoScript_brokeCrystal:.*?wait 30.*?' +
         'playsound SNDCTRL_STOPSFX.*?shakescreen 180.*?' +
@@ -2020,6 +2025,44 @@ if ($moonlitPartDataSource -notmatch
         '(?ms)^interactionCode82:.*?@break:.*?ld \(hl\),\$02.*?' +
         'ld a,SND_KILLENEMY\s+call z,playSound') {
     throw 'Moonlit Grotto orb/Armos, crystal, cutscene, or falling-key source contract changed.'
+}
+
+$room464PatternMatch = [regex]::Match(
+    $moonlitEventSource,
+    '(?ms)^interaction21_subid09:.*?^@tileData:\s*' +
+    '\.db\s+(?<tile>TILEINDEX_[A-Z0-9_]+)\s+' +
+    '(?<positions>(?:\$[0-9a-f]{2}\s+)+)\$00')
+if (-not $room464PatternMatch.Success) {
+    throw 'INTERAC_DUNGEON_EVENTS $21:$09 tile pattern could not be parsed.'
+}
+$room464TileSymbol = $room464PatternMatch.Groups['tile'].Value
+$room464TileMatch = [regex]::Match(
+    $tileIndexSource,
+    "(?m)^\.define\s+$([regex]::Escape($room464TileSymbol))\s+\`$(?<tile>[0-9a-f]{2})\b")
+if (-not $room464TileMatch.Success) {
+    throw "Tile constant $room464TileSymbol used by `$21:`$09 could not be resolved."
+}
+$room464Tile = [Convert]::ToInt32(
+    $room464TileMatch.Groups['tile'].Value, 16)
+$room464Positions = [regex]::Matches(
+    $room464PatternMatch.Groups['positions'].Value,
+    '\$(?<position>[0-9a-f]{2})')
+$dungeonEventTilePatternRows = [Collections.Generic.List[string]]::new()
+$dungeonEventTilePatternRows.Add("# id`tsubid`torder`ttile`tposition`tsource")
+for ($index = 0; $index -lt $room464Positions.Count; $index++) {
+    $position = [Convert]::ToInt32(
+        $room464Positions[$index].Groups['position'].Value, 16)
+    $dungeonEventTilePatternRows.Add(
+        "21`t09`t$index`t$($room464Tile.ToString('x2'))`t$($position.ToString('x2'))`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData")
+}
+if ($dungeonEventTilePatternRows.Count -ne 4 -or
+    -not ($dungeonEventTilePatternRows -contains
+        "21`t09`t0`t1d`t3b`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
+    -not ($dungeonEventTilePatternRows -contains
+        "21`t09`t1`t1d`t59`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
+    -not ($dungeonEventTilePatternRows -contains
+        "21`t09`t2`t1d`t5d`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData")) {
+    throw 'Expected the three source-ordered $21:$09 pushable-block goals.'
 }
 
 $dungeonMechanicConstantRows = @(
@@ -6010,6 +6053,10 @@ $dungeonMechanicPath = Join-Path $destination "objects\dungeon_mechanics.tsv"
 Write-GeneratedTable(
     $dungeonMechanicPath,
     $dungeonMechanicRows)
+$dungeonEventTilePatternPath = Join-Path $destination "objects\dungeon_event_tile_patterns.tsv"
+Write-GeneratedTable(
+    $dungeonEventTilePatternPath,
+    $dungeonEventTilePatternRows)
 $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic_constants.tsv"
 Write-GeneratedTable(
     $dungeonMechanicConstantsPath,
