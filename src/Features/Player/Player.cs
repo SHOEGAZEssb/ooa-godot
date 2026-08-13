@@ -407,6 +407,11 @@ public partial class Player : Node2D
     internal int SideScrollSpeedZ => _sideScrollSpeedZ;
     internal int SideScrollYFixed => _sideScrollYFixed;
     internal int SideScrollAngle => _sideScrollAngle;
+    internal int LinkMovementAngle => _world.SideScrolling
+        ? _sideScrollAngle
+        : TopDownSwimming
+            ? _topDownSwimAngle
+            : AngleForVector(_lastMovementInput);
     internal int SideScrollSpeedRaw => _sideScrollSpeedRaw;
     internal int SideScrollAnimationPhase => _sideScrollAnimationPhase;
     internal bool SideScrollSwimming => _sideScrollSwimmingState != 0;

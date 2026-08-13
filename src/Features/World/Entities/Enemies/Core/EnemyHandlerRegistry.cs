@@ -185,6 +185,8 @@ internal sealed class EnemyHandlerRegistry
         "crow" => EnemyHandlerKind.Crow,
         "gel" => EnemyHandlerKind.Gel,
         "hardhat-beetle" => EnemyHandlerKind.HardhatBeetle,
+        "arm-mimic" => EnemyHandlerKind.ArmMimic,
+        "flying-tile" => EnemyHandlerKind.FlyingTile,
         "vine-sprout" => EnemyHandlerKind.VineSprout,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
@@ -331,6 +333,8 @@ internal enum EnemyHandlerKind
     Crow,
     Gel,
     HardhatBeetle,
+    ArmMimic,
+    FlyingTile,
     VineSprout,
     MakuSproutMaskedMoblin
 }

@@ -160,7 +160,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         return true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    public virtual void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.TakeCompletedKnockbackDeath() &&
             combatDescriptor.Combat.CreateDeathPuff() is { } deathPuff)

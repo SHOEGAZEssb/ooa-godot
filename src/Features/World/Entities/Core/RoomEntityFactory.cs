@@ -795,7 +795,7 @@ internal sealed class RoomEntityFactory(
                         }
                         IRoomEntity? entity = CreateOrderedEnemy(
                             randomHandler, source, room, position, instance,
-                            killableEnemyIndex);
+                            killableEnemyIndex, placementContext);
                         if (entity is not null)
                             yield return entity;
                     }
@@ -818,7 +818,7 @@ internal sealed class RoomEntityFactory(
                     reservations.Add(room.GetPackedPosition(fixedPosition));
                     IRoomEntity? fixedEntity = CreateOrderedEnemy(
                         fixedHandler, source, room, fixedPosition, 0,
-                        fixedKillableEnemyIndex);
+                        fixedKillableEnemyIndex, placementContext);
                     if (fixedEntity is not null)
                         yield return fixedEntity;
                     break;
@@ -1580,7 +1580,8 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         Vector2 position,
         int instance,
-        int killableEnemyIndex)
+        int killableEnemyIndex,
+        EnemyPlacementContext placementContext)
     {
         if (!handler.SupportsOrderedConstruction)
             return null;
@@ -2046,6 +2047,40 @@ internal sealed class RoomEntityFactory(
                 return new HardhatBeetleRoomEntity(
                     hardhatBeetle, combatSource, soundRequested);
 
+            case EnemyHandlerKind.ArmMimic:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition armMimicRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                var armMimic = new ArmMimicCharacter
+                {
+                    Name = $"ArmMimic_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                armMimic.Initialize(
+                    armMimicRecord,
+                    room,
+                    position,
+                    placementContext.Kind is
+                        EnemyPlacementEntryKind.Scrolling or
+                        EnemyPlacementEntryKind.ScreenWarp
+                            ? placementContext.ScrollDirection
+                            : Vector2I.Zero);
+                return new ArmMimicRoomEntity(
+                    armMimic, combatSource, soundRequested);
+
+            case EnemyHandlerKind.FlyingTile:
+                if (!enemies.TryGetImportedEnemyDefinition(
+                    source, out ImportedEnemyDefinition flyingTileRecord))
+                {
+                    throw MissingEnemyDefinition(handler, source);
+                }
+                return new FlyingTileSpawnerRoomEntity(
+                    source.SubId,
+                    flyingTileRecord,
+                    combatSource.CountsAsEnemy);
+
             case EnemyHandlerKind.Gel:
                 return CreateGel(
                     new GelSpawn(
@@ -2086,6 +2121,7 @@ internal sealed class RoomEntityFactory(
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),
         ArmosSpawn armos => CreateArmos(armos, room),
+        FlyingTileSpawn tile => CreateFlyingTile(tile, room),
         ArmosSpawnerSpawn spawner => new ArmosSpawnerRoomEntity(
             room, spawner.SourceTile, spawner.ReplacementTile),
         MoonlitGrottoOrbSpawn orb => new MoonlitGrottoOrbRoomEntity(
@@ -3371,6 +3407,24 @@ internal sealed class RoomEntityFactory(
         return new ArmosRoomEntity(armos);
     }
 
+    private IRoomEntity CreateFlyingTile(
+        FlyingTileSpawn spawn,
+        OracleRoomData room)
+    {
+        var tile = new FlyingTileCharacter
+        {
+            Name = "FlyingTile",
+            ZIndex = 10
+        };
+        tile.Initialize(
+            spawn.Definition,
+            room,
+            spawn.Position,
+            roomTileChanged,
+            animationTick);
+        return new FlyingTileRoomEntity(tile, spawn.CountsAsEnemy);
+    }
+
     private IRoomEntity CreateCuccoAttacker(CuccoAttackerSpawn spawn)
     {
         var attacker = new CuccoAttackerCharacter
@@ -4481,6 +4535,12 @@ internal sealed record GhiniSpawn(Vector2 Position, string Name)
     : RoomEntitySpawn;
 
 internal sealed record ArmosSpawn(Vector2 Position, int ReplacementTile)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record FlyingTileSpawn(
+    ImportedEnemyDefinition Definition,
+    Vector2 Position,
+    bool CountsAsEnemy)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record ArmosSpawnerSpawn(int SourceTile, int ReplacementTile)

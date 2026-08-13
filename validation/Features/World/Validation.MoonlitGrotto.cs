@@ -459,6 +459,618 @@ public sealed partial class ValidationRoot
             "small key $58/$58, collection, and ROOMFLAG_ITEM re-entry.");
     }
 
+    private void ValidateRoom458MoonlitGrotto()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var enemyData = new EnemyDatabase();
+        IReadOnlyList<RoomObjectRecord> objects =
+            enemyData.GetRoomObjects(4, 0x58);
+        FailIf(
+            objects is not
+                [{ Order: 0, Kind: RoomObjectKind.FixedEnemy,
+                   Id: 0x4e, SubId: 0x00, Flags: 0x00, Count: 1,
+                   Y: 0x48, X: 0x58, PackedPosition: 0x45 },
+                 { Order: 1, Kind: RoomObjectKind.FixedEnemy,
+                   Id: 0x4e, SubId: 0x00, Flags: 0x00, Count: 1,
+                   Y: 0x68, X: 0x98, PackedPosition: 0x69 },
+                 { Order: 2, Kind: RoomObjectKind.RandomEnemy,
+                   Id: 0x4f, SubId: 0x00, Flags: 0x40, Count: 2 }],
+            "Room 4:58 lost its two fixed Arm Mimics followed by two " +
+            "random Moldorms in source object order.");
+        var mechanics = new DungeonMechanicDatabase();
+        FailIf(
+            mechanics.GetRoomRecords(4, 0x58) is not
+                [{ Order: 0, Id: 0x12, SubId: 0x02,
+                   PackedPosition: 0x59, Parameter: 0x00,
+                   Predicate: TriggerPredicate.None,
+                   CountSourceComplete: true }],
+            "Room 4:58 lost INTERAC_DUNGEON_STUFF $12:$02 and its " +
+            "enemy-clear Seed Shooter chest at $59.");
+        var chests = new ChestDatabase();
+        FailIf(
+            !chests.TryGet(4, 0x58, 0x59, out ChestRecord shooterChest) ||
+            shooterChest is not
+                {
+                    TreasureObject: "TREASURE_OBJECT_SHOOTER_00",
+                    TreasureId: 0x0f, SubId: 0x00, Parameter: 0x01
+                },
+            "Room 4:58's $59 chest lost its Seed Shooter treasure row.");
+
+        ImportedEnemyDefinition definition = enemyData.ImportedEnemy(0x4e);
+        EnemyHandlerDescriptor handler =
+            enemyData.EnemyHandlers.ResolveHandler(objects[0]);
+        FailIf(
+            definition is not
+                {
+                    TileBase: 0, Palette: 3,
+                    RadiusY: 6, RadiusX: 6,
+                    DamageQuarters: 4, Health: 5,
+                    Animations.Length: 4
+                } ||
+            handler is not
+                {
+                    CollisionMode: 0xb9,
+                    Classification:
+                        EnemyHandlerClassification.OrderedImplemented,
+                    Handler: EnemyHandlerKind.ArmMimic,
+                    EnemyName: "ENEMY_ARM_MIMIC",
+                    ShieldLevel1Effect: 0x10,
+                    ShieldLevel2Effect: 0x0f,
+                    ShieldLevel3Effect: 0x0f
+                },
+            "ENEMY_ARM_MIMIC $4e:$00 lost its imported definition, " +
+            "collision mode, handler, or shield row.");
+
+        OracleRoomData movementRoom = _world.LoadRoom(4, 0x58);
+        var movementMimic = new ArmMimicCharacter();
+        movementMimic.Initialize(definition, movementRoom, Point(0x45));
+        movementMimic.UpdateFrame(0xff, Vector2I.Up);
+        FailIf(
+            !movementMimic.Initialized || !movementMimic.Visible ||
+            movementMimic.Direction != 2 || movementMimic.AnimationIndex != 2 ||
+            movementMimic.Position != Point(0x45) ||
+            movementMimic.SpeedRaw != 0x28,
+            "Arm Mimic state 0 did not face opposite Link and become " +
+            "visible at SPEED_100 without moving.");
+        int stoppedFrame = movementMimic.AnimationFrame;
+        movementMimic.UpdateFrame(0xff, Vector2I.Right);
+        FailIf(
+            movementMimic.Position != Point(0x45) ||
+            movementMimic.AnimationFrame != stoppedFrame ||
+            movementMimic.Direction != 2,
+            "wLinkAngle=$ff did not return before Arm Mimic movement, " +
+            "direction changes, and enemyAnimate.");
+
+        Vector2 movementOrigin = movementMimic.Position;
+        var expectedNode = new Node2D { Position = movementOrigin };
+        var expectedMovement = new EnemyTerrainMovement(
+            expectedNode, movementRoom);
+        expectedMovement.MoveUsingAdjacentWalls(
+            0x18,
+            movementMimic.SpeedRaw,
+            allowHoles: false,
+            topDown: false);
+        Vector2 expectedPosition = expectedNode.Position;
+        movementMimic.UpdateFrame(0x08, Vector2I.Right);
+        FailIf(
+            movementMimic.Angle != 0x18 ||
+            movementMimic.Direction != 3 ||
+            movementMimic.AnimationIndex != 3 ||
+            !movementMimic.Position.IsEqualApprox(expectedPosition),
+            "Arm Mimic did not reverse Link's rightward angle/facing and " +
+            "apply the side-view no-holes movement helper.");
+        expectedNode.Free();
+        movementMimic.Free();
+
+        ArmMimicRoomEntity Combatant(out ArmMimicCharacter mimic)
+        {
+            mimic = new ArmMimicCharacter();
+            mimic.Initialize(definition, movementRoom, Point(0x45));
+            mimic.UpdateFrame(0xff, Vector2I.Up);
+            return new ArmMimicRoomEntity(
+                mimic,
+                handler.CombatSource(objects[0], killableEnemyIndex: 1),
+                static _ => { });
+        }
+
+        ArmMimicRoomEntity sword = Combatant(out ArmMimicCharacter swordMimic);
+        var combatSpawns = new List<RoomEntitySpawn>();
+        FailIf(
+            !sword.ApplySwordHit(
+                swordMimic.CollisionBounds,
+                swordMimic.Position,
+                damage: 1,
+                EnemyKnockbackStrength.Low,
+                combatSpawns) ||
+            swordMimic.Health != 4 ||
+            swordMimic.InvincibilityCounter != 0x10 ||
+            swordMimic.KnockbackCounter != 0x08,
+            "Arm Mimic's L1 sword effect $08 did not damage it with the " +
+            "low-recoil ENEMYDMG_$00 profile.");
+        swordMimic.Free();
+
+        ArmMimicRoomEntity bomb = Combatant(out ArmMimicCharacter bombMimic);
+        combatSpawns.Clear();
+        FailIf(
+            !bomb.ApplyItemCollision(
+                RoomEntityItemCollision.Bomb,
+                bombMimic.CollisionBounds,
+                bombMimic.Position,
+                damage: 4,
+                combatSpawns) ||
+            bombMimic.Health != 1 ||
+            bombMimic.InvincibilityCounter != 0x1a ||
+            bombMimic.KnockbackCounter != 0x0f,
+            "Arm Mimic's bomb collision effect $0a did not apply high " +
+            "damage recoil without inventing armor.");
+        bombMimic.Free();
+
+        ArmMimicRoomEntity mystery =
+            Combatant(out ArmMimicCharacter mysteryMimic);
+        combatSpawns.Clear();
+        FailIf(
+            mystery.ApplySeedHit(
+                mysteryMimic.CollisionBounds,
+                mysteryMimic.Position,
+                seedItem: 0x24,
+                combatSpawns) != SeedHitResult.Activate ||
+            !mysteryMimic.IsDead ||
+            combatSpawns is not
+                [EnemyDeathPuffSpawn
+                    { EnemyId: 0x4e, DecrementsRoomCount: true }],
+            "Arm Mimic's Mystery Seed collision effect $35 did not force " +
+            "zero health and transfer its enemy count to the death puff.");
+        mysteryMimic.Free();
+
+        ArmMimicRoomEntity ember = Combatant(out ArmMimicCharacter emberMimic);
+        combatSpawns.Clear();
+        FailIf(
+            ember.ApplySeedHit(
+                emberMimic.CollisionBounds,
+                emberMimic.Position,
+                seedItem: 0x20,
+                combatSpawns) != SeedHitResult.Ignite,
+            "Arm Mimic rejected its collisionEffect27 Ember burn.");
+        ember.CompleteSeedBurn(combatSpawns);
+        FailIf(emberMimic.Health != 3,
+            "Arm Mimic's completed Ember burn did not apply two health units.");
+        emberMimic.Free();
+
+        _saveData.SetRoomFlag(
+            4, 0x58, OracleSaveData.RoomFlagItem, value: false);
+
+        OracleRoomData transitionSource = _world.LoadRoom(4, 0x57);
+        OracleRoomData transitionDestination = _world.LoadRoom(4, 0x58);
+        _entities.LoadRoom(4, transitionSource);
+        Vector2 incomingOffset =
+            Vector2.Right * transitionDestination.Width;
+        _entities.BeginScreenTransition(
+            4,
+            transitionDestination,
+            incomingOffset,
+            Vector2I.Right,
+            entryPackedPosition: 0x55);
+        List<ArmMimicCharacter> incomingMimics =
+            _entities.Entities<ArmMimicCharacter>();
+        List<MoldormCharacter> incomingMoldorms =
+            _entities.Entities<MoldormCharacter>();
+        FailIf(
+            incomingMimics.Count != 2 ||
+            incomingMimics.Any(value =>
+                !value.Initialized || !value.Visible ||
+                value.Direction != 3 || value.AnimationIndex != 3 ||
+                value.TransitionDrawOffset != incomingOffset) ||
+            !incomingMimics.Select(value => value.Position)
+                .SequenceEqual([Point(0x45), Point(0x69)]),
+            "Room 4:58 scrolling preload did not run Arm Mimic source " +
+            "state 0 with Link's right-facing direction and incoming offset.");
+        FailIf(
+            incomingMoldorms.Count != 2 ||
+            incomingMoldorms.Any(value =>
+                !value.Initialized || !value.Visible ||
+                value.TurnCounter != 8 || value.AngularSpeed != 2 ||
+                value.Angle is < 0 or > 0x1f ||
+                value.Tail1Position != value.Position ||
+                value.Tail2Position != value.Position ||
+                value.TransitionDrawOffset != incomingOffset ||
+                OracleGraphicsCache.PixelHash(
+                    value.CurrentAnimationTexture.GetImage()) == 0),
+            "Room 4:58 scrolling preload did not replace both Moldorm " +
+            "controllers with visible initialized heads and coincident " +
+            "tails at the incoming offset.");
+        Vector2[] frozenMimicPositions =
+            incomingMimics.Select(value => value.Position).ToArray();
+        int[] frozenMimicFrames =
+            incomingMimics.Select(value => value.AnimationFrame).ToArray();
+        var frozenMoldormState = incomingMoldorms.Select(value =>
+            (value.Position, value.Tail1Position, value.Tail2Position,
+             value.Angle, value.AngularSpeed, value.TurnCounter,
+             value.AnimationFrame)).ToArray();
+        _entities.Update(1.0, _player);
+        FailIf(
+            !incomingMimics.Select(value => value.Position)
+                .SequenceEqual(frozenMimicPositions) ||
+            !incomingMimics.Select(value => value.AnimationFrame)
+                .SequenceEqual(frozenMimicFrames) ||
+            !incomingMoldorms.Select(value =>
+                (value.Position, value.Tail1Position, value.Tail2Position,
+                 value.Angle, value.AngularSpeed, value.TurnCounter,
+                 value.AnimationFrame)).SequenceEqual(frozenMoldormState),
+            "Room 4:58 advanced Arm Mimic or multipart Moldorm state while " +
+            "destination entities were frozen during scrolling.");
+        _entities.FinishScreenTransition();
+
+        LoadValidationRoom(4, 0x58);
+        List<ArmMimicCharacter> mimics =
+            _entities.Entities<ArmMimicCharacter>();
+        FailIf(
+            _currentRoom.Width != 240 || _currentRoom.Height != 176 ||
+            _entities.RoomEnemyCount != 4 ||
+            !mimics.Select(value => value.Position)
+                .SequenceEqual([Point(0x45), Point(0x69)]) ||
+            _entities.Entities<MoldormCharacter>().Count != 2 ||
+            _entities.Entities<EnemyClearChestRoomEntity>() is not
+                [{ Position: { X: 0x98, Y: 0x58 }, Counter: 0 }] ||
+            _currentRoom.GetMetatile(Point(0x59)) == mechanics.ChestTile,
+            "Room 4:58 did not construct its four counted enemies and " +
+            "hidden $59 Seed Shooter chest in source order.");
+        Step();
+        FailIf(
+            mimics.Any(value => !value.Initialized || !value.Visible) ||
+            _entities.Entities<MoldormCharacter>()
+                .Any(value => !value.Initialized),
+            "Room 4:58's Arm Mimics and Moldorms did not initialize on " +
+            "their first active enemy update.");
+
+        foreach (ArmMimicCharacter mimic in mimics)
+            FailIf(!mimic.TakeSwordHit(mimic.Position, damage: 0x7f),
+                "A room 4:58 Arm Mimic rejected a lethal test hit.");
+        foreach (MoldormCharacter moldorm in
+            _entities.Entities<MoldormCharacter>())
+        {
+            FailIf(!moldorm.TakeSwordHit(moldorm.Position, damage: 0x7f),
+                "A room 4:58 Moldorm rejected a lethal test hit.");
+        }
+        _sound.ClearPlayRequestAudit();
+        Step();
+        EnemyClearChestRoomEntity chest =
+            _entities.Entities<EnemyClearChestRoomEntity>().Single();
+        FailIf(
+            _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<ArmMimicCharacter>().Count != 0 ||
+            _entities.Entities<MoldormCharacter>().Count != 0 ||
+            chest.Counter != 30 ||
+            _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            "Room 4:58 did not clear all four enemies and immediately " +
+            "start the chest's exact 30-update solve wait, puff, and sound.");
+        Step(29);
+        FailIf(
+            chest.Counter != 1 ||
+            _currentRoom.GetMetatile(Point(0x59)) == mechanics.ChestTile,
+            "Room 4:58 created its Seed Shooter chest before wait update 30.");
+        Step();
+        FailIf(
+            _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
+            _currentRoom.GetMetatile(Point(0x59)) != mechanics.ChestTile,
+            "Room 4:58 did not create TILEINDEX_CHEST $f1 at $59 on the " +
+            "exact enemy-clear boundary.");
+
+        GD.Print(
+            "Validated full room 4:58: two opposite-input Arm Mimics, " +
+            "no-hole motion, collision row $39 weapon/seed responses, two " +
+            "Moldorms, live enemy count, and delayed Seed Shooter chest $59.");
+    }
+
+    private void ValidateRoom45bMoonlitGrotto()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var enemyData = new EnemyDatabase();
+        FailIf(
+            enemyData.GetRoomObjects(4, 0x5b) is not
+                [{ Order: 0, Kind: RoomObjectKind.RandomEnemy,
+                   Id: 0x52, SubId: 0x00, Flags: 0x21, Count: 1 },
+                 { Order: 1, Kind: RoomObjectKind.RandomEnemy,
+                   Id: 0x34, SubId: 0x01, Flags: 0x61, Count: 3 }],
+            "Room 4:5b lost its source-ordered one ENEMY_FLYING_TILE " +
+            "$52:$00 controller followed by three red Zols.");
+        var mechanics = new DungeonMechanicDatabase();
+        FailIf(
+            mechanics.GetRoomRecords(4, 0x5b) is not
+                [{ Order: 0, Id: 0x1e, SubId: 0x0b,
+                   PackedPosition: 0x50 },
+                 { Order: 1, Id: 0x1e, SubId: 0x0a,
+                   PackedPosition: 0xa7 }],
+            "Room 4:5b lost its left/down enemy-shutter stream.");
+
+        int[] layout =
+        [
+            0x57, 0x56, 0x46, 0x47, 0x48, 0x58, 0x68, 0x67,
+            0x66, 0x65, 0x55, 0x45, 0x36, 0x37, 0x38, 0x49,
+            0x59, 0x69, 0x78, 0x77, 0x76, 0x54, 0x5a
+        ];
+
+        LoadValidationRoom(4, 0x5b);
+        OracleRoomData room = _currentRoom;
+        FlyingTileSpawnerRoomEntity spawner =
+            _entities.Entities<FlyingTileSpawnerRoomEntity>().Single();
+        FailIf(
+            room.Width != 240 || room.Height != 176 ||
+            _entities.RoomEnemyCount != 4 ||
+            _entities.Entities<ZolCharacter>().Count != 3 ||
+            _entities.Entities<FlyingTileCharacter>().Count != 0 ||
+            _entities.Entities<DungeonDoorRoomEntity>().Select(door =>
+                (door.SubId, door.PackedPosition,
+                 door.EnemyCompletionSupported)).ToArray() is not
+                [(0x0b, 0x50, true), (0x0a, 0xa7, true)] ||
+            layout.Any(position => room.GetMetatile(Point(position)) != 0x9c) ||
+            room.GetMetatile(Point(0x50)) != 0x7b ||
+            room.GetMetatile(Point(0xa7)) != 0x7a ||
+            !room.IsSolid(Point(0x50)) || !room.IsSolid(Point(0xa7)),
+            "Room 4:5b did not load its large layout, 23 source $9c tiles, " +
+            "four counted enemies, and closed left/down enemy shutters.");
+
+        Step();
+        FailIf(
+            spawner.State != FlyingTileSpawnerState.Initializing ||
+            _entities.Entities<FlyingTileCharacter>().Count != 0,
+            "ENEMY_FLYING_TILE state 0 did not enter its controller state " +
+            "without starting the initial counter early.");
+        Step();
+        FailIf(
+            spawner.State != FlyingTileSpawnerState.Waiting ||
+            spawner.Counter != 120,
+            "Flying Tile controller substate 0 did not load counter1=120.");
+        Step(119);
+        FailIf(
+            spawner.Counter != 1 || spawner.LayoutIndex != 0 ||
+            _entities.Entities<FlyingTileCharacter>().Count != 0 ||
+            room.GetMetatile(Point(layout[0])) != 0x9c,
+            "Room 4:5b spawned its first flying tile before countdown 120.");
+        Step();
+
+        FlyingTileCharacter tile =
+            _entities.Entities<FlyingTileCharacter>().Single();
+        FailIf(
+            spawner.Counter != 60 || spawner.LayoutIndex != 1 ||
+            tile.Position != Point(layout[0]) ||
+            tile.State != FlyingTileState.Rising || tile.ZFixed != 0 ||
+            !tile.Visible || !tile.CollisionEnabled ||
+            tile.SpeedRaw != 0x46 ||
+            room.GetMetatile(Point(layout[0])) != 0xa0 ||
+            _entities.RoomEnemyCount != 5 ||
+            OracleGraphicsCache.PixelHash(
+                tile.CurrentAnimationTexture.GetImage()) == 0,
+            "The first Flying Tile did not replace $57:$9c on its spawn " +
+            "update, become visible/collidable, and preserve the parent plus " +
+            "child enemy counts.");
+        Step(6);
+        FailIf(
+            tile.State != FlyingTileState.Rising || tile.ZFixed != -0x300,
+            "Flying Tile left its -$0080 rise before the seventh update.");
+        Step();
+        FailIf(
+            tile.State != FlyingTileState.Waiting ||
+            tile.ZFixed != -0x380 || tile.Counter != 15,
+            "Flying Tile did not enter its 15-update aim wait immediately " +
+            "after Z's high byte passed -3.");
+
+        var tileAdapter = new FlyingTileRoomEntity(tile, countsAsEnemy: true);
+        int healthBeforeBeam = tile.Health;
+        bool beamAccepted = tileAdapter.ApplyItemCollision(
+            RoomEntityItemCollision.SwordBeam,
+            tile.CollisionBounds,
+            tile.Position,
+            damage: 2,
+            new List<RoomEntitySpawn>());
+        FailIf(
+            !beamAccepted || tile.IsDead || tile.Health != healthBeforeBeam ||
+            tile.CollisionEnabled,
+            "ENEMY_FLYING_TILE collision effect $20 did not queue the sword " +
+            "beam's status death without reducing health on contact.");
+        Step();
+        FailIf(
+            _entities.RoomEnemyCount != 4 ||
+            _entities.Entities<FlyingTileCharacter>().Count != 0 ||
+            _entities.Entities<RockDebrisEffect>().Count != 1,
+            "A sword-beam-shattered Flying Tile did not delete on its next " +
+            "object update, decrement its count, and create " +
+            "INTERAC_ROCKDEBRIS $06 on its deletion update.");
+
+        for (int layoutIndex = 1; layoutIndex < layout.Length; layoutIndex++)
+        {
+            Step(spawner.Counter);
+            tile = _entities.Entities<FlyingTileCharacter>().Single();
+            FailIf(
+                tile.Position != Point(layout[layoutIndex]) ||
+                tile.State != FlyingTileState.Rising ||
+                room.GetMetatile(Point(layout[layoutIndex])) != 0xa0,
+                $"Flying Tile layout index {layoutIndex} did not spawn in " +
+                "the imported source order at its 60-update boundary " +
+                $"(count={_entities.Entities<FlyingTileCharacter>().Count}, " +
+                $"position={tile.Position}, state={tile.State}, " +
+                $"tile=${room.GetMetatile(Point(layout[layoutIndex])):x2}, " +
+                $"controller={spawner.State}/{spawner.Counter}/" +
+                $"{spawner.LayoutIndex}).");
+            var adapter = new FlyingTileRoomEntity(tile, countsAsEnemy: true);
+            var collisionSpawns = new List<RoomEntitySpawn>();
+            bool broke = layoutIndex switch
+            {
+                1 => adapter.ApplyItemCollision(
+                    RoomEntityItemCollision.Bomb,
+                    tile.CollisionBounds,
+                    tile.Position,
+                    damage: 4,
+                    collisionSpawns),
+                2 => adapter.ApplyItemCollision(
+                    RoomEntityItemCollision.ThrownObject,
+                    tile.CollisionBounds,
+                    tile.Position,
+                    damage: 2,
+                    collisionSpawns),
+                3 => adapter.ApplyExpertPunch(
+                    tile.CollisionBounds,
+                    tile.Position,
+                    damage: 4,
+                    collisionSpawns),
+                4 => adapter.ApplySeedHit(
+                    tile.CollisionBounds,
+                    tile.Position,
+                    seedItem: 0x20,
+                    collisionSpawns) == SeedHitResult.Activate,
+                _ => adapter.ApplySwordHit(
+                    tile.CollisionBounds,
+                    tile.Position,
+                    damage: 1,
+                    EnemyKnockbackStrength.Low,
+                    collisionSpawns)
+            };
+            FailIf(!broke || tile.IsDead || tile.CollisionEnabled,
+                $"Flying Tile layout index {layoutIndex} rejected its " +
+                "source status-setting item collision.");
+        }
+        Step();
+        FailIf(
+            _entities.Entities<FlyingTileSpawnerRoomEntity>().Count != 0 ||
+            _entities.RoomEnemyCount != 3 ||
+            layout.Any(position => room.GetMetatile(Point(position)) != 0xa0),
+            "Room 4:5b did not consume the controller after all 23 ordered " +
+            "tiles or retain only its three red Zols.");
+
+        Step();
+        bool zolsAccepted = true;
+        foreach (ZolCharacter zol in _entities.Entities<ZolCharacter>())
+        {
+            zol.InvincibilityCounter = 0;
+            zolsAccepted &= zol.TakeSwordHit(zol.Position, damage: 0x7f);
+        }
+        _sound.ClearPlayRequestAudit();
+        Step();
+        FailIf(
+            !zolsAccepted || _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<ZolCharacter>().Count != 0,
+            "Room 4:5b did not clear its three red Zols from the live enemy count.");
+        FailIf(
+            _sound.PlayRequestsFor(mechanics.SolveSound) != 2 ||
+            !room.IsSolid(Point(0x50)) || !room.IsSolid(Point(0xa7)),
+            "Room 4:5b's two enemy shutters did not independently begin " +
+            "their source eight-update solve delays after the final enemy.");
+        Step(mechanics.SolveWait);
+        FailIf(
+            room.GetMetatile(Point(0x50)) != 0x7b ||
+            room.GetMetatile(Point(0xa7)) != 0x7a,
+            "Room 4:5b changed either shutter before the post-solve ready update.");
+        Step();
+        FailIf(
+            room.GetMetatile(Point(0x50)) != 0xa0 ||
+            room.GetMetatile(Point(0xa7)) != 0xa0 ||
+            !room.IsSolid(Point(0x50)) || !room.IsSolid(Point(0xa7)),
+            "Room 4:5b did not begin both interleaved shutter openings while " +
+            "retaining collision.");
+        Step(mechanics.DoorFrameWait);
+        FailIf(
+            room.IsSolid(Point(0x50)) || room.IsSolid(Point(0xa7)) ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 0,
+            "Room 4:5b did not finish both enemy shutters on the exact " +
+            "six-update interleaving boundary.");
+
+        // Exercise the active tile's remaining source paths independently of
+        // the controller cadence: state A aims without moving, state B uses
+        // precise SPEED_1c0 movement and breaks at allow-holes wall collision.
+        var wallTile = new FlyingTileCharacter();
+        wallTile.Initialize(
+            enemyData.ImportedEnemy(0x52, 0x00),
+            room,
+            Point(0x23),
+            roomTileChanged: static () => { },
+            animationTick: static () => 0);
+        Vector2 wallTarget = new(0, Point(0x23).Y);
+        wallTile.UpdateFrame(wallTarget);
+        for (int update = 0; update < 7; update++)
+            wallTile.UpdateFrame(wallTarget);
+        Vector2 beforeAim = wallTile.Position;
+        for (int update = 0; update < 15; update++)
+            wallTile.UpdateFrame(wallTarget);
+        int expectedAngle = OracleObjectMovement.Shared.RelativeAngle(
+            beforeAim, wallTarget);
+        FailIf(
+            wallTile.State != FlyingTileState.Charging ||
+            wallTile.Counter != 0 || wallTile.Position != beforeAim ||
+            wallTile.Angle != expectedAngle,
+            "Flying Tile state A did not wait exactly 15 updates and aim at " +
+            "Link without applying speed on the counter-zero update.");
+        for (int update = 0; update < 16 && !wallTile.IsDead; update++)
+            wallTile.UpdateFrame(wallTarget);
+        FailIf(
+            !wallTile.IsDead || !wallTile.TakeDebrisRequest(),
+            "Flying Tile state B did not apply SPEED_1c0 and shatter when " +
+            "objectCheckTileCollision_allowHoles reached the left wall.");
+        wallTile.Free();
+
+        var shieldSave = OracleSaveData.CreateStandardGame();
+        var shieldInventory = new InventoryState(_treasures, shieldSave);
+        shieldInventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
+        shieldInventory.EquipA(InventoryState.ItemShield);
+        var shieldPlayer = new Player { Name = "FlyingTileShieldPlayer" };
+        AddChild(shieldPlayer);
+        shieldPlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            shieldInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        shieldPlayer.Face(Vector2I.Right);
+        shieldPlayer.UpdateShieldForValidation(
+            attackHeld: true,
+            itemHeld: false);
+        var shieldTile = new FlyingTileCharacter();
+        shieldTile.Initialize(
+            enemyData.ImportedEnemy(0x52, 0x00),
+            room,
+            shieldPlayer.ShieldCollisionBounds.GetCenter(),
+            roomTileChanged: static () => { },
+            animationTick: static () => 0);
+        shieldTile.UpdateFrame(shieldPlayer.Position);
+        new FlyingTileRoomEntity(shieldTile, countsAsEnemy: false)
+            .HandleLinkContact(shieldPlayer);
+        FailIf(
+            shieldTile.IsDead || shieldTile.CollisionEnabled ||
+            shieldPlayer.InvincibilityFrames != -0x16 ||
+            shieldPlayer.KnockbackFrames != 0x19,
+            "Flying Tile's Wooden Shield effect $07 did not apply " +
+            "ENEMYDMG_$1c plus LINKDMG_$18's $16/$19 recoil.");
+        shieldTile.UpdateFrame(shieldPlayer.Position);
+        FailIf(!shieldTile.IsDead,
+            "Flying Tile did not dispatch the Wooden Shield's pending " +
+            "ENEMYDMG_$1c status on its next object update.");
+        shieldTile.Free();
+        shieldPlayer.Free();
+
+        GD.Print(
+            "Validated full room 4:5b: source enemy/shutter order, 23-tile " +
+            "Flying Tile layout, 120/60 spawn cadence, 7-update rise, " +
+            "15-update aim wait, deferred effect-$1c/$20 status deaths, " +
+            "red Zols, live enemy counts, and left/down shutter clear.");
+    }
+
     private void ValidateRoom464MoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;

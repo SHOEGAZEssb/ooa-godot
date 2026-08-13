@@ -59,6 +59,8 @@ internal sealed class EnemyBehaviorTables
     internal IReadOnlyList<EnemyBehaviorValue> ArmosCollisionEffects { get; }
     internal PolsVoiceBehaviorProfile PolsVoice { get; }
     internal IReadOnlyList<EnemyBehaviorValue> PolsVoiceCollisionEffects { get; }
+    internal ArmMimicBehaviorProfile ArmMimic { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> ArmMimicCollisionEffects { get; }
     internal MoldormBehaviorProfile Moldorm { get; }
     internal IReadOnlyList<EnemyBehaviorValue> MoldormCollisionEffects { get; }
     internal GhiniBehaviorProfile Ghini { get; }
@@ -75,6 +77,8 @@ internal sealed class EnemyBehaviorTables
     internal PeahatBehaviorProfile Peahat { get; }
     internal SwordEnemyBehaviorProfile SwordEnemy { get; }
     internal ColorChangingGelBehaviorProfile ColorChangingGel { get; }
+    internal FlyingTileBehaviorProfile FlyingTile { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> FlyingTileCollisionEffects { get; }
 
     private EnemyBehaviorTables()
     {
@@ -388,6 +392,17 @@ internal sealed class EnemyBehaviorTables
         PolsVoiceCollisionEffects = TakeValues(
             groups, "pols-voice", "collision-effects", 32);
 
+        values = TakeValues(groups, "arm-mimic", "state-profile", 5);
+        ArmMimic = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values);
+        ArmMimicCollisionEffects = TakeValues(
+            groups, "arm-mimic", "collision-effects", 32);
+
         values = TakeValues(groups, "moldorm", "state-profile", 10);
         Moldorm = new(
             values[0].Value,
@@ -547,10 +562,29 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
-        if (table.Rows.Count != 508 || groups.Count != 0)
+        values = TakeValues(groups, "flying-tile", "state-profile", 8);
+        FlyingTile = new(
+            values[0].Value,
+            values[1].Value,
+            values[2].Value,
+            values[3].Value,
+            values[4].Value,
+            values[5].Value,
+            values[6].Value,
+            values[7].Value,
+            [
+                TakeValues(groups, "flying-tile", "layout-0", 23),
+                TakeValues(groups, "flying-tile", "layout-1", 20),
+                TakeValues(groups, "flying-tile", "layout-2", 16)
+            ],
+            values);
+        FlyingTileCollisionEffects = TakeValues(
+            groups, "flying-tile", "collision-effects", 32);
+
+        if (table.Rows.Count != 644 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 508 rows and no " +
+                $"Enemy behavior table contract expected 644 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -810,6 +844,14 @@ internal readonly record struct PolsVoiceBehaviorProfile(
     int LandingWaitFrames,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
+internal readonly record struct ArmMimicBehaviorProfile(
+    int SpeedRaw,
+    int ReverseAngleOffset,
+    int AngleMask,
+    int ReverseDirectionOffset,
+    int DirectionMask,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
 internal readonly record struct MoldormBehaviorProfile(
     int RequiredEnemySlots,
     int TurnCounterFrames,
@@ -955,4 +997,16 @@ internal readonly record struct ColorChangingGelBehaviorProfile(
     int InitialSpeedZ,
     int Gravity,
     int ColorDelayFrames,
+    IReadOnlyList<EnemyBehaviorValue> Sources);
+
+internal readonly record struct FlyingTileBehaviorProfile(
+    int InitialSpawnWaitFrames,
+    int SpawnWaitFrames,
+    int ChildSubId,
+    int ReplacementTile,
+    int RiseDeltaZFixed,
+    int RiseHighByteThreshold,
+    int ChargeWaitFrames,
+    int SpeedRaw,
+    IReadOnlyList<EnemyBehaviorValue>[] Layouts,
     IReadOnlyList<EnemyBehaviorValue> Sources);

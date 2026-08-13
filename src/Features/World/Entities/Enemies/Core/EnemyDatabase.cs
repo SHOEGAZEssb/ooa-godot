@@ -61,7 +61,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 24 ||
+        if (_importedDefinitions.Count != 27 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -77,6 +77,16 @@ public sealed class EnemyDatabase
             ImportedEnemy(0x0c) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
+            ImportedEnemy(0x52, 0x00) is not
+                {
+                    TileBase: 22,
+                    Palette: 5,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 2,
+                    DamageQuarters: 2
+                } ||
+            ImportedEnemy(0x52, 0x02) is not { Health: 2 } ||
             ImportedEnemy(0x14) is not
                 {
                     TileBase: 8,
@@ -153,6 +163,16 @@ public sealed class EnemyDatabase
                 } ||
             ImportedEnemy(0x4d) is not
                 { Health: 4, DamageQuarters: 2, Animations.Length: 1 } ||
+            ImportedEnemy(0x4e) is not
+                {
+                    TileBase: 0,
+                    Palette: 3,
+                    RadiusY: 6,
+                    RadiusX: 6,
+                    Health: 5,
+                    DamageQuarters: 4,
+                    Animations.Length: 4
+                } ||
             ImportedEnemy(0x4f) is not
                 {
                     TileBase: 14,
@@ -849,6 +869,10 @@ public sealed class EnemyDatabase
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>
             HasImportedDefinition(descriptor, 0x4d),
+        EnemyHandlerKind.ArmMimic =>
+            HasImportedDefinition(descriptor, 0x4e),
+        EnemyHandlerKind.FlyingTile =>
+            HasImportedDefinition(descriptor, 0x52),
         _ => false
     };
 

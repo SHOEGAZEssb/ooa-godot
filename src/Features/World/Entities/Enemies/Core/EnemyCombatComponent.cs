@@ -244,8 +244,12 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         EnemySwordResponse expected =
             (Handler, collisionMode) switch
         {
+            (EnemyHandlerKind.FlyingTile, 0x3c) =>
+                EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.Thwomp, 0x28) =>
                 EnemySwordResponse.Armored,
+            (EnemyHandlerKind.ArmMimic, 0x39) =>
+                EnemySwordResponse.Knockback,
             (_, 0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x3a or 0x7d) =>
                 EnemySwordResponse.Knockback,
             (_, 0x18) => EnemySwordResponse.Armored,

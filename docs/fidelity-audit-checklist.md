@@ -315,10 +315,10 @@ implemented, and covered.
 - [ ] `ENEMY_SWORD_SHROUDED_STALFOS` `$49:$01`
 - [ ] `ENEMY_SWORD_MASKED_MOBLIN` `$4a:$00`
 - [ ] `ENEMY_BALL_AND_CHAIN_SOLDIER` `$4b:$00`
-- [ ] `ENEMY_ARM_MIMIC` `$4e:$00`
+- [x] `ENEMY_ARM_MIMIC` `$4e:$00`
 - [ ] `ENEMY_MOLDORM` `$4f:$00`
 - [ ] `ENEMY_FIREBALL_SHOOTER` `$50:$00/$01`
-- [ ] `ENEMY_FLYING_TILE` `$52:$00/$02`
+- [x] `ENEMY_FLYING_TILE` `$52:$00/$02`
 - [ ] `ENEMY_AMBI_GUARD` `$54:$02-$08/$0a-$0c/$82-$8c`
 - [ ] `ENEMY_CANDLE` `$55:$00`
 - [ ] `ENEMY_TARGET_CART_CRYSTAL` `$63:$05-$0b`

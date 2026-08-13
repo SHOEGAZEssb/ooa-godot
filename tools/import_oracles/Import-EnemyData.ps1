@@ -341,7 +341,8 @@ $commonEnemySpecs = @(
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
-    @(0x4a, 0x01), @(0x4d, 0x00), @(0x4f, 0x00)
+    @(0x4a, 0x01), @(0x4d, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
+    @(0x52, 0x00), @(0x52, 0x02)
 )
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
@@ -370,7 +371,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 25 -or
+if ($commonEnemyRows.Count -ne 28 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -391,6 +392,9 @@ if ($commonEnemyRows.Count -ne 25 -or
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^1d\t00\tspr_pincer_pokey_armos\t18\t0\t1\t7\t7\t4\t4\t'
+    }) -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^4e\t00\tspr_armmimic_spikedroller_bari_biri\t0\t3\t1\t6\t6\t4\t5\t'
     }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^1b\t01\tspr_crab_fish_goponga_beetle\t24\t2\t1\t6\t6\t2\t2\t'
@@ -422,6 +426,9 @@ if ($commonEnemyRows.Count -ne 25 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^4f\t00\tspr_zol_peahat_watertektite_moldorm_gel\t14\t0\t1\t6\t6\t2\t8\t'
     }) -or
+    ($commonEnemyRows | Where-Object {
+        $_ -match '^52\t0[02]\tspr_shroudedstalfos_tile_candle\t22\t5\t1\t6\t6\t2\t2\t'
+    }).Count -ne 2 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^(13|19|22|2f|3e|47|49|4a)\t'
     }).Count -ne 8
@@ -1417,7 +1424,10 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '49:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
+    '4e:00' = 'arm-mimic'
     '4f:00' = 'moldorm'
+    '52:00' = 'flying-tile'
+    '52:02' = 'flying-tile'
     '62:00' = 'vine-sprout'
     '62:01' = 'vine-sprout'
     '62:02' = 'vine-sprout'
@@ -1425,7 +1435,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 39 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 42 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1496,9 +1506,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 430 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 440 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 391) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 381) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3552,6 +3562,40 @@ Add-EnemyBehaviorProfile 'pols-voice' 'collision-effects' `
     $polsVoiceCollisionEffects `
     'data/ages/objectCollisionTable.s:objectCollisionTable+$0420'
 
+$armMimicCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\armMimic.s')
+if ($armMimicCodeSource -notmatch
+        '(?ms)^armMimic_uninitialized:.*?w1Link\.direction.*?' +
+        'add \$02\s+and \$03.*?enemySetAnimation.*?' +
+        'ld a,SPEED_100.*?ecom_setSpeedAndState8AndVisible' -or
+    $armMimicCodeSource -notmatch
+        '(?ms)^armMimic_state8:.*?wLinkAngle.*?inc a\s+ret z.*?' +
+        'add \$0f\s+and \$1f.*?' +
+        'ecom_applyVelocityForSideviewEnemyNoHoles.*?' +
+        'w1Link\.direction.*?add \$02\s+and \$03.*?' +
+        'enemySetAnimation.*?enemyAnimate') {
+    throw 'Arm Mimic input mirroring, speed, terrain, or animation behavior changed.'
+}
+Add-EnemyBehaviorProfile 'arm-mimic' 'state-profile' `
+    @($enemySpeedCodes['SPEED_100'], 0x10, 0x1f, 2, 3) `
+    'object_code/common/enemies/armMimic.s:state-entry-operands'
+$armMimicCollisionEffects = @(
+    0..0x1f | ForEach-Object {
+        $enemyCollisionTableValues[0x39 * 0x20 + $_]
+    })
+$expectedArmMimicCollisionEffects = @(
+    0x02, 0x10, 0x0f, 0x0f, 0x08, 0x09, 0x09, 0x0a,
+    0x0a, 0x08, 0x08, 0x0a, 0x0d, 0x2e, 0x08, 0x25,
+    0x00, 0x00, 0x00, 0x22, 0x0d, 0x2f, 0x09, 0x22,
+    0x0a, 0x08, 0x35, 0x27, 0x08, 0x20, 0x29, 0x00)
+if (($armMimicCollisionEffects -join ',') -ne
+    ($expectedArmMimicCollisionEffects -join ',')) {
+    throw 'ENEMYCOLLISION_ARM_MIMIC `$39 item-effect row changed.'
+}
+Add-EnemyBehaviorProfile 'arm-mimic' 'collision-effects' `
+    $armMimicCollisionEffects `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0720'
+
 $moldormCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\moldorm.s')
 if ($moldormCodeSource -notmatch
@@ -3860,8 +3904,94 @@ Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
 
-if ($enemyBehaviorRows.Count -ne 509) {
-    throw "Expected 508 enemy behavior-table rows, got " +
+$flyingTileCodeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\flyingTile.s')
+$flyingTileAgesLayout = [regex]::Match(
+    $flyingTileCodeSource,
+    '(?ms)^\.ifdef ROM_AGES\s+flyingTile_layoutData:(?<body>.*?)^\.else')
+if (-not $flyingTileAgesLayout.Success -or
+    $flyingTileCodeSource -notmatch
+        '(?ms)^flyingTile_state_spawner:.*?^@substate0:.*?' +
+        'ld \(hl\),120.*?^@substate1:.*?ecom_decCounter1.*?' +
+        'ld \(hl\),60.*?ecom_spawnEnemyWithSubid01' -or
+    $flyingTileCodeSource -notmatch
+        '(?ms)^flyingTile_state8:.*?set 7,\(hl\).*?' +
+        'flyingTile_overwriteTileHere.*?objectSetVisiblec2' -or
+    $flyingTileCodeSource -notmatch
+        '(?ms)^flyingTile_state9:.*?sub <\(\$0080\).*?' +
+        'sbc >\(\$0080\).*?cp \$fd.*?ld \(hl\),\$0f' -or
+    $flyingTileCodeSource -notmatch
+        '(?ms)^flyingTile_stateA:.*?ecom_decCounter1.*?' +
+        'ecom_updateAngleTowardTarget.*?^flyingTile_stateB:.*?' +
+        'objectApplySpeed.*?objectCheckTileCollision_allowHoles.*?' +
+        '^flyingTile_dead:.*?INTERAC_ROCKDEBRIS') {
+    throw 'Flying Tile spawn, rise, charge, collision, or debris behavior changed.'
+}
+$flyingTileReplacementBody = Get-AssemblyLabelBody `
+    $flyingTileCodeSource '@tileReplacements'
+$flyingTileReplacements = @([regex]::Matches(
+    $flyingTileReplacementBody,
+    '\$(?<value>[0-9a-f]{2})') | ForEach-Object {
+        [Convert]::ToInt32($_.Groups['value'].Value, 16)
+    })
+if (($flyingTileReplacements -join ',') -ne '160,243,244,76,164') {
+    throw 'Flying Tile replacement-metatile table changed.'
+}
+Add-EnemyBehaviorProfile 'flying-tile' 'state-profile' `
+    @(120, 60, 0x80, $flyingTileReplacements[0], -0x80, -3, 15,
+      $enemySpeedCodes['SPEED_1c0']) `
+    'object_code/common/enemies/flyingTile.s:state-operands'
+$expectedFlyingTileLayouts = @(
+    @(0x57, 0x56, 0x46, 0x47, 0x48, 0x58, 0x68, 0x67,
+      0x66, 0x65, 0x55, 0x45, 0x36, 0x37, 0x38, 0x49,
+      0x59, 0x69, 0x78, 0x77, 0x76, 0x54, 0x5a),
+    @(0x57, 0x46, 0x48, 0x39, 0x35, 0x26, 0x37, 0x59,
+      0x49, 0x38, 0x29, 0x28, 0x36, 0x45, 0x56, 0x58,
+      0x27, 0x47, 0x55, 0x25),
+    @(0x67, 0x54, 0x5a, 0x47, 0x34, 0x3a, 0x76, 0x38,
+      0x78, 0x36, 0x58, 0x45, 0x49, 0x56, 0x65, 0x69)
+)
+for ($subid = 0; $subid -lt $expectedFlyingTileLayouts.Count; $subid++) {
+    $layoutMatch = [regex]::Match(
+        $flyingTileAgesLayout.Groups['body'].Value,
+        (('(?ms)^@subid{0}:\s+\.db \$(?<child>[0-9a-f]{{2}})' +
+            '(?<positions>.*?)\s+\.db \$00') -f $subid))
+    $positions = if ($layoutMatch.Success) {
+        @([regex]::Matches(
+            $layoutMatch.Groups['positions'].Value,
+            '\$(?<value>[0-9a-f]{2})') | ForEach-Object {
+                [Convert]::ToInt32($_.Groups['value'].Value, 16)
+            })
+    } else { @() }
+    if (-not $layoutMatch.Success -or
+        $layoutMatch.Groups['child'].Value -ne '80' -or
+        ($positions -join ',') -ne
+            ($expectedFlyingTileLayouts[$subid] -join ',')) {
+        throw "Flying Tile Ages layout `$$($subid.ToString('x2')) changed."
+    }
+    Add-EnemyBehaviorProfile 'flying-tile' "layout-$subid" `
+        $positions `
+        "object_code/common/enemies/flyingTile.s:flyingTile_layoutData@subid$subid"
+}
+$flyingTileCollisionEffects = @(
+    0..0x1f | ForEach-Object {
+        $enemyCollisionTableValues[0x3c * 0x20 + $_]
+    })
+$expectedFlyingTileCollisionEffects = @(
+    0x02, 0x07, 0x06, 0x06, 0x1c, 0x1c, 0x1c, 0x1c,
+    0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x00,
+    0x00, 0x00, 0x00, 0x1c, 0x0b, 0x00, 0x1c, 0x1c,
+    0x1c, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00)
+if (($flyingTileCollisionEffects -join ',') -ne
+    ($expectedFlyingTileCollisionEffects -join ',')) {
+    throw 'ENEMY_FLYING_TILE `$3c item-effect row changed.'
+}
+Add-EnemyBehaviorProfile 'flying-tile' 'collision-effects' `
+    $flyingTileCollisionEffects `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0780'
+
+if ($enemyBehaviorRows.Count -ne 645) {
+    throw "Expected 644 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(
