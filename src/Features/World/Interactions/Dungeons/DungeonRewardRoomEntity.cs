@@ -40,6 +40,23 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     {
         if (Finished)
             return;
+        // Static $12:$01 placements are omitted by the room factory when the
+        // item flag is already set. Dynamically parsed placements still
+        // create the interaction, whose first script command is
+        // stopifitemflagset, so retain that guard in the shared runtime owner.
+        if (_record is
+                {
+                    Kind: DungeonObjectKind.EnemySmallKey,
+                    Predicate: DungeonObjectCondition.ItemClear
+                } &&
+            _save?.HasRoomFlag(
+                _record.Group,
+                _record.Room,
+                OracleSaveData.RoomFlagItem) == true)
+        {
+            Finished = true;
+            return;
+        }
         if (_record.Kind == DungeonObjectKind.BraceletReward)
         {
             SpawnTreasure(spawns);

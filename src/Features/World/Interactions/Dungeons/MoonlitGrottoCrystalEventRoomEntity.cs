@@ -10,7 +10,8 @@ namespace oracleofages;
 /// dialogue sequences, and persists the per-room/global completion flags.
 /// </summary>
 internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction,
+    IRoomEntityUpdateFreeze
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly DungeonMechanicDatabase _data;
@@ -33,6 +34,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
     public bool DisablesMenus => RestrictsPlayer;
     public bool DisablesScreenTransitions => RestrictsPlayer;
     internal bool RestrictsPlayer => !Finished && _phase != MoonlitCrystalEventPhase.Waiting;
+    public bool FreezesRoomEntities => RestrictsPlayer;
     internal MoonlitCrystalEventPhase Phase => _phase;
     internal int Counter => _counter;
 

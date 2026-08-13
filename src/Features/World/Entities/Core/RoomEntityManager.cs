@@ -417,9 +417,11 @@ public sealed class RoomEntityManager : IDisposable
         }
 
         bool textActive = TextActiveSource();
+        bool roomEntityFreezeActive = RoomEntityFreezeActive();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (textActive && !UpdatesDuringDialogue(entity))
+            if (textActive && !UpdatesDuringDialogue(entity) ||
+                roomEntityFreezeActive && !UpdatesDuringRoomEntityFreeze(entity))
                 continue;
             if (entity is IVariableRoomEntity variableEntity)
                 variableEntity.Update(delta, player);
@@ -429,6 +431,7 @@ public sealed class RoomEntityManager : IDisposable
         _enemyFrameAccumulator += delta * 60.0;
         while (_enemyFrameAccumulator >= 1.0)
         {
+            roomEntityFreezeActive = RoomEntityFreezeActive();
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             var frame = new RoomEntityFrame(
@@ -436,12 +439,14 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if ((!textActive || UpdatesDuringDialogue(entity)) &&
+                    (!roomEntityFreezeActive ||
+                     UpdatesDuringRoomEntityFreeze(entity)) &&
                     entity is IPlayerForcedMovement forcedMovement)
                 {
                     forcedMovement.UpdatePlayerForcedMovement(player);
                 }
             }
-            if (!textActive)
+            if (!textActive && !roomEntityFreezeActive)
             {
                 ResolvePlayerProjectileCollisions();
                 ResolveBossBombCatches();
@@ -462,6 +467,8 @@ public sealed class RoomEntityManager : IDisposable
             {
                 if (entity is not ISeedProjectileRoomEntity ||
                     textActive && !UpdatesDuringDialogue(entity) ||
+                    roomEntityFreezeActive &&
+                        !UpdatesDuringRoomEntityFreeze(entity) ||
                     entity is not IFixedRoomEntity fixedSeed)
                 {
                     continue;
@@ -469,7 +476,7 @@ public sealed class RoomEntityManager : IDisposable
                 fixedSeed.UpdateFrame(frame, _pendingSpawns);
                 ProcessSpawns(frame);
             }
-            if (!textActive)
+            if (!textActive && !roomEntityFreezeActive)
                 ResolveSeedCollisions();
             ProcessSpawns(frame);
             frame = frame with { ScentSeedTarget = ActiveScentSeedTarget() };
@@ -479,6 +486,9 @@ public sealed class RoomEntityManager : IDisposable
                 if (entity is ISeedProjectileRoomEntity)
                     continue;
                 if (textActive && !UpdatesDuringDialogue(entity))
+                    continue;
+                if (roomEntityFreezeActive &&
+                    !UpdatesDuringRoomEntityFreeze(entity))
                     continue;
                 if (entity is ISeedBurnTarget
                     {
@@ -501,6 +511,7 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (!textActive &&
+                !RoomEntityFreezeActive() &&
                 !_linkCollisionsAndMenuDisabled &&
                 player.AcceptsRoomEntityContact &&
                 entity is ILinkContactEntity contactEntity)
@@ -1421,6 +1432,25 @@ public sealed class RoomEntityManager : IDisposable
         {
             UpdatesDuringDialogue: true
         };
+
+    private bool RoomEntityFreezeActive()
+    {
+        foreach (IRoomEntity entity in _activeEntities)
+        {
+            if (entity is IRoomEntityUpdateFreeze
+                {
+                    FreezesRoomEntities: true
+                })
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity) =>
+        entity is IUpdatesDuringRoomEntityFreeze ||
+        entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true };
 
     private bool HasPlayerRestriction(
         Func<IPlayerRestriction, bool> predicate)

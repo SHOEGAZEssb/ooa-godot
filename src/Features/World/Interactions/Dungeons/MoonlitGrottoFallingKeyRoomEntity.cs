@@ -9,7 +9,8 @@ namespace oracleofages;
 /// metatile $2a, then creates TREASURE_SMALL_KEY:$01 at its exact Y/X.
 /// </summary>
 internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly DungeonMechanicDatabase _data;

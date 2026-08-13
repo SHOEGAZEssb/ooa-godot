@@ -1244,13 +1244,27 @@ internal sealed class RoomEntityFactory(
 
     private GroundTreasureGrantRequest CreateFallingSmallKeyRequest(
         DungeonMechanicDatabaseRecord record,
-        string source) =>
-        new(
+        string source) => CreateFallingSmallKeyRequest(
             record.Group,
             record.Room,
             record.Order,
             record.PackedPosition,
             record.Parameter,
+            source);
+
+    private GroundTreasureGrantRequest CreateFallingSmallKeyRequest(
+        int group,
+        int room,
+        int order,
+        int y,
+        int x,
+        string source) =>
+        new(
+            group,
+            room,
+            order,
+            y,
+            x,
             "TREASURE_OBJECT_SMALL_KEY_01",
             source)
         {
@@ -1335,6 +1349,29 @@ internal sealed class RoomEntityFactory(
             enableLinkCollisionsAndMenu);
     }
 
+    private DungeonRewardRoomEntity CreateEnemySmallKeyReward(
+        GroundTreasureGrantRequest request)
+    {
+        var record = new DungeonObjectRecord(
+            request.Group,
+            request.Room,
+            request.Order,
+            DungeonObjectKind.EnemySmallKey,
+            0x12,
+            0x01,
+            request.Y,
+            request.X,
+            DungeonObjectCondition.ItemClear,
+            request.Source);
+        return new DungeonRewardRoomEntity(
+            record,
+            _dungeonInteractions,
+            saveData,
+            roomEnemyCount,
+            request,
+            enableLinkCollisionsAndMenu);
+    }
+
     private static ColoredCubePuzzleState RequireColoredCubePuzzle(
         ColoredCubePuzzleState? puzzle,
         DungeonObjectRecord record) =>
@@ -1380,13 +1417,23 @@ internal sealed class RoomEntityFactory(
                     record,
                     "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$09"));
         }
-        if (record.Id == 0x21 && record.SubId == 0x0a)
+        if (record.Id == 0x21 && record.SubId is 0x0a or 0x0c)
         {
             return new MoonlitGrottoArmosEventRoomEntity(
                 record,
                 _dungeonMechanics,
                 saveData,
-                runtimeState);
+                runtimeState,
+                triggerState,
+                record.SubId == 0x0c
+                    ? CreateFallingSmallKeyRequest(
+                        record.Group,
+                        record.Room,
+                        record.Order,
+                        _dungeonMechanics.MoonlitButtonKeyY,
+                        _dungeonMechanics.MoonlitButtonKeyX,
+                        "objects/ages/extraData3.s:moonlitGrotto_onArmosSwitchPressed")
+                    : null);
         }
         if (record.Id == 0x21 && record.SubId == 0x0d)
         {
@@ -2060,6 +2107,7 @@ internal sealed class RoomEntityFactory(
             soundRequested,
             roomTileChanged,
             animationTick),
+        EnemySmallKeyRewardSpawn key => CreateEnemySmallKeyReward(key.Request),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
@@ -4445,6 +4493,10 @@ internal sealed record EnemyClearChestSpawn(
     int Group,
     int Room,
     int PackedPosition)
+    : RoomEntitySpawn;
+
+internal sealed record EnemySmallKeyRewardSpawn(
+    GroundTreasureGrantRequest Request)
     : RoomEntitySpawn;
 
 internal sealed record LightableTorchSpawn(

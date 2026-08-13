@@ -1135,7 +1135,7 @@ $tinglePartDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
 $tinglePartActiveCollisionsSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partActiveCollisions.s')
-$tingleItemCollisionTypesSource = Read-ImportText (
+$itemCollisionTypesSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\itemCollisionTypes.s')
 $tingleItemAttributesSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\itemAttributes.s')
@@ -1189,7 +1189,7 @@ if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction 
     $tingleActiveCollisions -ne '00001111111101100001100100000000' -or
     -not $tingleExplosionOffsetMatch.Success -or
     $tingleExplosionYOffset -ne -16 -or $tingleExplosionXOffset -ne 0 -or
-    $tingleItemCollisionTypesSource -notmatch '(?m)^\s*ITEMCOLLISION_SWORD_BEAM\s+db ; \$19: Sword beam, Ricky punch/tornado, Moosh stomp\s*$' -or
+    $itemCollisionTypesSource -notmatch '(?m)^\s*ITEMCOLLISION_SWORD_BEAM\s+db ; \$19: Sword beam, Ricky punch/tornado, Moosh stomp\s*$' -or
     $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$22 \$fe \$00 ; \$27: ITEM_SWORD_BEAM\s*$' -or
     $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$aa \$fc \$00 ; \$28: ITEM_28\s*$' -or
     $tingleItemAttributesSource -notmatch '(?m)^\s*\.db \$99 \$66 \$fc \$00 ; \$2a: ITEM_RICKY_TORNADO\s*$' -or
@@ -1933,7 +1933,7 @@ foreach ($line in $mainObjectLines) {
                 $retractableTriggerChestCount++
             }
         }
-    } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0d)\s*$') {
+    } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
     } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
@@ -1942,7 +1942,7 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 186 -or
+if ($dungeonMechanicRows.Count -ne 187 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
@@ -1956,6 +1956,8 @@ if ($dungeonMechanicRows.Count -ne 186 -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t56`t0`t21`t0a`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t5e`t0`t21`t0c`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t5e`t1`t09`t00`t19`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t5d`t0`t21`t0d`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t5d`t1`t24`t10`t23`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t61`t0`t21`t0d`t00`t00`tnone`t1") -or
@@ -1968,7 +1970,7 @@ if ($dungeonMechanicRows.Count -ne 186 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 185 reusable dungeon mechanics including Moonlit Grotto's room 4:56 orb/Armos event, four crystal handlers/parts, and room 4:61/4:64 falling keys, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 186 reusable dungeon mechanics including Moonlit Grotto's room 4:56 and 4:5e Armos events, four crystal handlers/parts, and room 4:61/4:64 falling keys, parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -1976,12 +1978,18 @@ $moonlitEventSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\dungeonEvents.s')
 $moonlitScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\dungeonScripts.s')
+$moonlitScriptHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$moonlitScriptingSource = Read-ImportText (
+    Join-Path $Disassembly 'code\scripting.s')
 $moonlitSarcophagusSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\sarcophagus.s')
 $moonlitPartDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
 $moonlitExtraObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
+$dungeonStuffSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
 if ($moonlitPartDataSource -notmatch
         '(?m)^\s*\.db \$74 \$83 \$44 \$00 \$40 \$1e \$00 \$00 ; \$03\s*$' -or
     $moonlitEventSource -notmatch
@@ -1995,8 +2003,29 @@ if ($moonlitPartDataSource -notmatch
         '(?ms)^moonlitGrotto_onOrbActivation:\s+' +
         'obj_Interaction \$12 \$02 \$68 \$98\s+' +
         'obj_SpecificEnemyA \$00 \$1d \$00 \$26 \$a0\s+obj_End' -or
+    $moonlitEventSource -notmatch
+        '(?ms)^interaction21_subid0c:\s+ld a,\(wActiveTriggers\)\s+' +
+        'or a\s+ret z\s+ld \(\$cca2\),a\s+' +
+        'ld hl,objectData\.moonlitGrotto_onArmosSwitchPressed\s+' +
+        'call parseGivenObjectData\s+jp interactionDelete' -or
+    $dungeonStuffSource -notmatch
+        '(?ms)^@subid01:\s+call returnIfScrollMode01Unset.*?' +
+        'ld hl,mainScripts\.dropSmallKeyWhenNoEnemiesScript.*?' +
+        'call interactionSetScript.*?^@runScript:' -or
+    $enemyClearChestScriptSource -notmatch
+        '(?ms)^dropSmallKeyWhenNoEnemiesScript:\s+' +
+        'stopifitemflagset.*?checknoenemies\s+' +
+        'spawnitem TREASURE_SMALL_KEY, \$01\s+scriptend' -or
     $moonlitPartDataSource -notmatch
         '(?m)^\s*\.db \$76 \$83 \$44 \$00 \$40 \$12 \$01 \$00 ; \$24\s*$' -or
+    # partCheckCollisions indexes this table with Part.collisionType, which
+    # partLoadGraphicsAndProperties derives from Part.id ($24), while $83 in
+    # partData supplies enemyCollisionMode $03. In row $24, collision $18 is
+    # disabled and $19 is enabled after dbrev/bitTable indexing.
+    $partActiveCollisionsSource -notmatch
+        '(?m)^\s*dbrev %00001111 %11110110 %00010001 %01111110 ; 0x24\s*$' -or
+    $itemCollisionTypesSource -notmatch
+        '(?m)^\s*ITEMCOLLISION_BOMB\s+db ; \$18: Bomb, bombchu\s*$' -or
     $moonlitCrystalSource -notmatch
         '(?ms)^partCode24:.*?xor \(hl\).*?ld \(wSwitchState\),a.*?' +
         'ldbc, INTERAC_SARCOPHAGUS \$80.*?bit 6,\(hl\).*?' +
@@ -2012,7 +2041,7 @@ if ($moonlitPartDataSource -notmatch
         'ld hl,@tileData.*?verifyTilesAndDropSmallKey.*?^@tileData:\s*' +
         '\.db TILEINDEX_PUSHABLE_BLOCK \$3b \$59 \$5d \$00' -or
     $moonlitScriptSource -notmatch
-        '(?ms)^moonlitGrottoScript_brokeCrystal:.*?wait 30.*?' +
+        '(?ms)^moonlitGrottoScript_brokeCrystal:\s+disableinput.*?wait 30.*?' +
         'playsound SNDCTRL_STOPSFX.*?shakescreen 180.*?' +
         'playsound SND_RUMBLE2.*?wait 180.*?showtext TX_1200.*?' +
         'orroomflag \$40' -or
@@ -2021,10 +2050,40 @@ if ($moonlitPartDataSource -notmatch
         'shakescreen 100.*?playsound SND_BIG_EXPLOSION.*?wait 90.*?' +
         'playsound SND_SOLVEPUZZLE.*?wait 30.*?showtext TX_1201.*?' +
         'setglobalflag GLOBALFLAG_D3_CRYSTALS' -or
+    $moonlitScriptingSource -notmatch
+        '(?ms)^scriptCmd_disableInput:\s+ld a,\$81\s+' +
+        'ld \(wDisabledObjects\),a.*?^scriptCmd_disableMenu:' -or
+    $moonlitScriptHelperSource -notmatch
+        '(?ms)^moonlitGrotto_enableControlAfterBreakingCrystal:\s+xor a\s+' +
+        'ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a.*?' +
+        'ld \(wDisableScreenTransitions\),a\s+ld \(wDisableWarpTiles\),a' -or
     $moonlitSarcophagusSource -notmatch
         '(?ms)^interactionCode82:.*?@break:.*?ld \(hl\),\$02.*?' +
         'ld a,SND_KILLENEMY\s+call z,playSound') {
     throw 'Moonlit Grotto orb/Armos, crystal, cutscene, or falling-key source contract changed.'
+}
+
+$moonlitButtonArmosMatch = [regex]::Match(
+    $moonlitExtraObjectSource,
+    '(?ms)^moonlitGrotto_onArmosSwitchPressed:\s+' +
+    'obj_Interaction \$12 \$01 \$(?<keyY>[0-9a-f]{2}) \$(?<keyX>[0-9a-f]{2})\s+' +
+    'obj_SpecificEnemyA \$00 \$1d \$00 \$(?<source>[0-9a-f]{2}) \$(?<replacement>[0-9a-f]{2})\s+' +
+    'obj_End')
+if (-not $moonlitButtonArmosMatch.Success) {
+    throw 'Moonlit Grotto button/Armos dynamic object list could not be parsed.'
+}
+$moonlitButtonKeyY = [Convert]::ToInt32(
+    $moonlitButtonArmosMatch.Groups['keyY'].Value, 16)
+$moonlitButtonKeyX = [Convert]::ToInt32(
+    $moonlitButtonArmosMatch.Groups['keyX'].Value, 16)
+$moonlitArmosSourceTile = [Convert]::ToInt32(
+    $moonlitButtonArmosMatch.Groups['source'].Value, 16)
+$moonlitArmosReplacementTile = [Convert]::ToInt32(
+    $moonlitButtonArmosMatch.Groups['replacement'].Value, 16)
+if ($moonlitButtonKeyY -ne 0x58 -or $moonlitButtonKeyX -ne 0x58 -or
+    $moonlitArmosSourceTile -ne 0x26 -or
+    $moonlitArmosReplacementTile -ne 0xa0) {
+    throw 'Moonlit Grotto button/Armos dynamic object constants changed.'
 }
 
 $room464PatternMatch = [regex]::Match(
@@ -2106,8 +2165,10 @@ $dungeonMechanicConstantRows = @(
     "moonlit-orb-radius-y`t4"
     "moonlit-orb-radius-x`t4"
     "moonlit-armos-chest-position`t105"
-    "moonlit-armos-source-tile`t38"
-    "moonlit-armos-replacement-tile`t160"
+    "moonlit-button-key-y`t$moonlitButtonKeyY"
+    "moonlit-button-key-x`t$moonlitButtonKeyX"
+    "moonlit-armos-source-tile`t$moonlitArmosSourceTile"
+    "moonlit-armos-replacement-tile`t$moonlitArmosReplacementTile"
     "moonlit-key-goal-position`t74"
     "moonlit-key-goal-tile`t42"
     "moonlit-first-wait`t30"
@@ -3265,8 +3326,6 @@ $room148PickaxeRows = @(
 # graphics, offsets, collision, timing, and sound. This keeps room 4:24 from
 # becoming a one-room reconstruction and lets the runtime merge these records
 # with the existing ordered dungeon-mechanic stream.
-$dungeonStuffSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
 $statueEyeballSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\statueEyeball.s')
 $minibossPortalSource = Read-ImportText (

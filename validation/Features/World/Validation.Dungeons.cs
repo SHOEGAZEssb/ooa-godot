@@ -983,7 +983,7 @@ public sealed partial class ValidationRoot
                 moonlitCrystalEventCount += record is
                     { Id: 0x21, SubId: 0x0d } ? 1 : 0;
                 moonlitArmosEventCount += record is
-                    { Id: 0x21, SubId: 0x0a } ? 1 : 0;
+                    { Id: 0x21, SubId: 0x0a or 0x0c } ? 1 : 0;
                 moonlitFallingKeyCount += record is
                     { Id: 0x21, SubId: 0x0e } ? 1 : 0;
                 tilePatternFallingKeyCount += record is
@@ -992,13 +992,13 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 185 || switchRecordCount != 7 ||
+            database.RecordCount != 186 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyClearChestCount != 12 ||
             permanentTriggerChestCount != 7 ||
             retractableTriggerChestCount != 6 ||
-            moonlitArmosEventCount != 1 ||
+            moonlitArmosEventCount != 2 ||
             moonlitCrystalEventCount != 4 || moonlitCrystalCount != 4 ||
             moonlitFallingKeyCount != 1 ||
             tilePatternFallingKeyCount != 1 ||
@@ -1006,7 +1006,7 @@ public sealed partial class ValidationRoot
                 .ToArray() is not [0, 1],
             "Expected 12 enemy-clear chests, seven switches, 49 buttons, 20 " +
             "trigger shutters, seven delayed and six retractable trigger " +
-            "chests, one Moonlit orb/Armos event, four Moonlit crystal " +
+            "chests, two Moonlit orb/button Armos events, four Moonlit crystal " +
             "handlers/parts, one direct-layout and one tile-pattern falling key, " +
             "and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
@@ -1988,7 +1988,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 185 imported enemy-clear-chest/switch/button/" +
+        GD.Print("Validated all 186 imported enemy-clear-chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

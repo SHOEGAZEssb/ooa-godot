@@ -266,6 +266,199 @@ public sealed partial class ValidationRoot
             "drop producers, and ROOMFLAG_ITEM re-entry.");
     }
 
+    private void ValidateRoom45eMoonlitGrotto()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new DungeonMechanicDatabase();
+        FailIf(
+            data.GetRoomRecords(4, 0x5e) is not
+                [{ Order: 0, Id: 0x21, SubId: 0x0c },
+                 { Order: 1, Id: 0x09, SubId: 0x00,
+                   PackedPosition: 0x19 }],
+            "Room 4:5e lost its source-ordered $21:$0c event and one-shot " +
+            "PART_BUTTON $09:$00 at $19.");
+
+        _saveData.SetRoomFlag(
+            4, 0x5e, OracleSaveData.RoomFlagItem, value: false);
+        _runtimeState.SetWramByte(OracleRuntimeState.ArmosTriggerAddress, 0);
+        LoadValidationRoom(4, 0x5e);
+        OracleRoomData room = _currentRoom;
+        Vector2 buttonPosition = Point(0x19);
+        int[] statuePositions = [0x33, 0x37, 0x73, 0x77];
+        FailIf(
+            room.Width != 240 || room.Height != 176 ||
+            _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<MoonlitGrottoArmosEventRoomEntity>().Count != 1 ||
+            _entities.Entities<GroundButtonRoomEntity>() is not
+                [{ SubId: 0x00, PackedPosition: 0x19,
+                   TriggerBit: 0, Reusable: false }] ||
+            room.GetMetatile(buttonPosition) != data.ButtonTile ||
+            statuePositions.Any(position =>
+                room.GetMetatile(Point(position)) != data.MoonlitArmosSourceTile),
+            "Room 4:5e did not load its large-room event/button stream and " +
+            "four $26 Armos statues without counting them as enemies.");
+
+        _player.WarpTo(new Vector2(0x78, 0x58));
+        Step();
+        _sound.ClearPlayRequestAudit();
+        _player.WarpTo(buttonPosition);
+        Step();
+        FailIf(
+            _entities.ActiveTriggers != 0x01 ||
+            room.GetMetatile(buttonPosition) != data.PressedButtonTile ||
+            _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
+            _entities.Entities<ArmosCharacter>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1,
+            "Room 4:5e's one-shot button did not latch trigger bit 0 before " +
+            "the earlier $21:$0c event observed it.");
+
+        Step();
+        List<ArmosCharacter> armos = _entities.Entities<ArmosCharacter>();
+        Vector2[] expectedHiddenPositions =
+        [
+            new(0x38, 0x36), new(0x78, 0x36),
+            new(0x38, 0x76), new(0x78, 0x76)
+        ];
+        FailIf(
+            _entities.Entities<MoonlitGrottoArmosEventRoomEntity>().Count != 0 ||
+            _entities.Entities<ArmosSpawnerRoomEntity>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            _runtimeState.ReadWramByte(
+                OracleRuntimeState.ArmosTriggerAddress) != 0x01 ||
+            _entities.RoomEnemyCount != 4 || armos.Count != 4 ||
+            !armos.Select(value => value.Position)
+                .SequenceEqual(expectedHiddenPositions) ||
+            armos.Any(value =>
+                value.State != ArmosState.Waiting || value.Visible),
+            "Room 4:5e's $21:$0c event did not copy wActiveTriggers to $cca2, " +
+            "create the $12:$01 key watcher first, and scan all four $26 " +
+            "statues into hidden red Armos in room-layout order.");
+
+        Step();
+        FailIf(
+            armos.Any(value => value.State != ArmosState.Activating) ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:5e's Armos did not consume $cca2 while the falling-key " +
+            "watcher continued waiting on the live enemy count.");
+        Step();
+        FailIf(
+            armos.Any(value =>
+                value.State != ArmosState.Flickering ||
+                value.Counter != 60 || !value.Visible ||
+                value.CollisionEnabled) ||
+            !armos.Select(value => value.Position)
+                .SequenceEqual(statuePositions.Select(Point)),
+            "Room 4:5e's four red Armos did not enter their exact visible, " +
+            "non-colliding 60-update activation at the statue centers.");
+        Step(60);
+        FailIf(
+            armos.Any(value =>
+                value.State != ArmosState.ChoosingDirection ||
+                !value.CollisionEnabled) ||
+            statuePositions.Any(position =>
+                room.GetMetatile(Point(position)) !=
+                    data.MoonlitArmosReplacementTile),
+            "Room 4:5e's four Armos did not replace every $26 statue with " +
+            "$a0 and enable collision on activation update 60.");
+
+        foreach (ArmosCharacter enemy in armos)
+        {
+            var deathSpawns = new List<RoomEntitySpawn>();
+            bool accepted = new ArmosRoomEntity(enemy).ApplyItemCollision(
+                RoomEntityItemCollision.Bomb,
+                enemy.CollisionBounds,
+                enemy.Position,
+                damage: 4,
+                deathSpawns);
+            FailIf(
+                !accepted || !enemy.IsDead ||
+                deathSpawns is not [EnemyDeathPuffSpawn
+                    { EnemyId: 0x1d, DecrementsRoomCount: true }],
+                "Room 4:5e's active red Armos did not retain its bomb-only " +
+                "damage/death-count behavior.");
+        }
+        FailIf(_entities.RoomEnemyCount != 0,
+            "Room 4:5e retained an enemy count after all four Armos died.");
+
+        Step();
+        GroundTreasurePickup fallingKey =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        FailIf(
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            fallingKey.Position != new Vector2(0x58, 0x58) ||
+            fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
+            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != 2 ||
+            fallingKey.Record.SpawnDelayFrames != 40 ||
+            fallingKey.Record.BounceCount != 2 ||
+            fallingKey.Record.Gravity != 0x10 ||
+            fallingKey.Record.BounceSpeed != -0xaa ||
+            !fallingKey.Record.InitialZAboveScreen,
+            "Defeating room 4:5e's four Armos did not make $12:$01 spawn " +
+            "the original falling small key at exact Y/X $58/$58.");
+
+        _sound.ClearPlayRequestAudit();
+        Step(2);
+        FailIf(
+            fallingKey.State != PickupState.Spawning ||
+            fallingKey.SpawnSubstate != 1 || fallingKey.SpawnCounter != 40 ||
+            fallingKey.Visible ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            "Room 4:5e's key did not begin its source 40-update hidden " +
+            "SND_SOLVEPUZZLE delay.");
+        for (int frame = 0;
+             frame < 300 && fallingKey.State != PickupState.Waiting;
+             frame++)
+        {
+            Step();
+        }
+        int dungeon = _rooms.CurrentDungeonIndex;
+        int keysBeforePickup = _inventory.GetDungeonSmallKeys(dungeon);
+        _sound.ClearPlayRequestAudit();
+        _player.WarpTo(fallingKey.Position, recordSafe: false);
+        Step();
+        FailIf(
+            fallingKey.State != PickupState.Collected ||
+            _inventory.GetDungeonSmallKeys(dungeon) != keysBeforePickup + 1 ||
+            !_saveData.HasRoomFlag(4, 0x5e, OracleSaveData.RoomFlagItem) ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            "Room 4:5e's landed key did not grant one dungeon-$03 small key " +
+            "and set ROOMFLAG_ITEM on contact.");
+
+        // The room has no item-flag tile substitution. Re-entry restores all
+        // four statues and allows the button event to run again, while the
+        // dynamically created $12:$01 script immediately suppresses a second
+        // key because stopifitemflagset is its first command.
+        LoadValidationRoom(4, 0x5e);
+        room = _currentRoom;
+        Step();
+        _player.WarpTo(buttonPosition, recordSafe: false);
+        Step(2);
+        Step();
+        FailIf(
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            _entities.Entities<ArmosCharacter>().Count != 4 ||
+            statuePositions.Any(position =>
+                room.GetMetatile(Point(position)) != data.MoonlitArmosSourceTile),
+            "ROOMFLAG_ITEM re-entry did not restore room 4:5e's statues, " +
+            "rerun its Armos event, and suppress only the second key watcher.");
+
+        GD.Print(
+            "Validated full room 4:5e: source-ordered one-shot button, " +
+            "dynamic four-Armos scan/activation, bomb-only kills, falling " +
+            "small key $58/$58, collection, and ROOMFLAG_ITEM re-entry.");
+    }
+
     private void ValidateRoom464MoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
@@ -445,6 +638,110 @@ public sealed partial class ValidationRoot
             "collection, and ROOMFLAG_ITEM re-entry.");
     }
 
+    private void ValidateMoonlitGrottoCrystalCutsceneFreeze()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new DungeonMechanicDatabase();
+        _saveData.SetGlobalFlag(data.MoonlitGlobalFlag, value: false);
+        _saveData.SetRoomFlag(
+            4, 0x5f, (byte)data.MoonlitRoomFlag, value: false);
+        _runtimeState.SetWramByte(
+            OracleRuntimeState.SwitchStateAddress, 0);
+        LoadValidationRoom(4, 0x5f);
+        MoonlitGrottoCrystalEventRoomEntity roomEvent =
+            _entities.Entities<MoonlitGrottoCrystalEventRoomEntity>().Single();
+        MoonlitGrottoCrystalRoomEntity crystal =
+            _entities.Entities<MoonlitGrottoCrystalRoomEntity>().Single();
+        List<PeahatCharacter> peahats =
+            _entities.Entities<PeahatCharacter>();
+        List<ZolCharacter> zols = _entities.Entities<ZolCharacter>();
+        FailIf(
+            crystal.SwitchMask != 0x20 || peahats.Count == 0 || zols.Count == 0,
+            "Room 4:5f did not load its mask-$20 crystal with source Peahats " +
+            "and Zols for the wDisabledObjects freeze regression.");
+
+        Step(3);
+        var spawns = new List<RoomEntitySpawn>();
+        crystal.ApplySwordHit(
+            crystal.CollisionBounds,
+            crystal.Position,
+            damage: 2,
+            EnemyKnockbackStrength.None,
+            spawns);
+        Step();
+        FailIf(
+            !crystal.Broken ||
+            roomEvent.Phase != MoonlitCrystalEventPhase.FirstWait ||
+            roomEvent.Counter != data.MoonlitFirstWait ||
+            !roomEvent.FreezesRoomEntities,
+            "Room 4:5f's crystal hit did not enter the source disableinput " +
+            "freeze before moonlitGrottoScript_brokeCrystal wait 30.");
+
+        var frozenPeahats = peahats.Select(enemy =>
+            (enemy.State, enemy.Counter, enemy.Position)).ToArray();
+        var frozenZols = zols.Select(enemy =>
+            (enemy.State, enemy.Counter1, enemy.Counter2, enemy.Position)).ToArray();
+        Step(data.MoonlitFirstWait - 1);
+        FailIf(
+            !frozenPeahats.SequenceEqual(peahats.Select(enemy =>
+                (enemy.State, enemy.Counter, enemy.Position))) ||
+            !frozenZols.SequenceEqual(zols.Select(enemy =>
+                (enemy.State, enemy.Counter1, enemy.Counter2, enemy.Position))) ||
+            roomEvent.Counter != 1,
+            "Room 4:5f advanced enemies during the frozen pre-shake wait.");
+
+        Step();
+        FailIf(
+            roomEvent.Phase != MoonlitCrystalEventPhase.Rumbling ||
+            roomEvent.Counter != data.MoonlitRumbleWait ||
+            _entities.ScreenShakeCounter != data.MoonlitRumbleWait - 1,
+            "Room 4:5f did not begin its 180-update shake on the wait-30 boundary.");
+        Step(60);
+        FailIf(
+            !frozenPeahats.SequenceEqual(peahats.Select(enemy =>
+                (enemy.State, enemy.Counter, enemy.Position))) ||
+            !frozenZols.SequenceEqual(zols.Select(enemy =>
+                (enemy.State, enemy.Counter1, enemy.Counter2, enemy.Position))) ||
+            roomEvent.Phase != MoonlitCrystalEventPhase.Rumbling ||
+            roomEvent.Counter != data.MoonlitRumbleWait - 60 ||
+            _entities.ScreenShakeCounter != data.MoonlitRumbleWait - 61,
+            "Room 4:5f advanced Peahats or Zols while the crystal screen " +
+            "shake continued.");
+
+        Step(data.MoonlitRumbleWait - 60);
+        FailIf(
+            roomEvent.Phase != MoonlitCrystalEventPhase.FirstDialogue ||
+            !_dialogue.IsOpen || !roomEvent.FreezesRoomEntities ||
+            !frozenPeahats.SequenceEqual(peahats.Select(enemy =>
+                (enemy.State, enemy.Counter, enemy.Position))) ||
+            !frozenZols.SequenceEqual(zols.Select(enemy =>
+                (enemy.State, enemy.Counter1, enemy.Counter2, enemy.Position))),
+            "Room 4:5f did not retain the object freeze through TX_1200.");
+
+        _dialogue.Close();
+        Step();
+        FailIf(
+            _entities.Entities<MoonlitGrottoCrystalEventRoomEntity>().Count != 0 ||
+            !_saveData.HasRoomFlag(4, 0x5f, OracleSaveData.RoomFlag40),
+            "Closing TX_1200 did not persist the crystal and release its event.");
+        Step();
+        FailIf(
+            frozenPeahats.SequenceEqual(peahats.Select(enemy =>
+                (enemy.State, enemy.Counter, enemy.Position))),
+            "Room 4:5f's Peahats remained frozen after control was restored.");
+
+        GD.Print(
+            "Validated Moonlit Grotto crystal cutscene freeze: source " +
+            "disableinput, 30-update lead-in, 180-update shake, TX_1200, " +
+            "frozen Peahats/Zols, and next-update control restoration.");
+    }
+
     private void ValidateRoom461MoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
@@ -586,17 +883,36 @@ public sealed partial class ValidationRoot
         Rect2 crystalHitbox = new(
             crystal.Position - new Vector2(8, 8), new Vector2(16, 16));
         crystal.ApplyItemCollision(
+            RoomEntityItemCollision.ThrownObject,
+            crystalHitbox,
+            crystal.Position,
+            damage: 4,
+            collisionSpawns);
+        crystal.ApplyItemCollision(
             RoomEntityItemCollision.Bomb,
             crystalHitbox,
             crystal.Position,
             damage: 4,
             collisionSpawns);
         FailIf(
+            crystal.Broken || crystal.CrystalAnimation != 0 ||
+            crystal.BreakEffectActive ||
+            (_runtimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) & 0x40) != 0,
+            "PART_GROTTO_CRYSTAL `$24 accepted thrown-object `$16 or bomb " +
+            "`$18 despite both bits being clear in active-collision row `$24.");
+        crystal.ApplySwordHit(
+            crystalHitbox,
+            crystal.Position,
+            damage: 2,
+            EnemyKnockbackStrength.Low,
+            collisionSpawns);
+        FailIf(
             !crystal.Broken || crystal.CrystalAnimation != 1 ||
             !crystal.BreakEffectActive ||
             (_runtimeState.ReadWramByte(
                 OracleRuntimeState.SwitchStateAddress) & 0x40) == 0,
-            "A bomb explosion did not break PART_GROTTO_CRYSTAL `$24, " +
+            "A sword collision did not break PART_GROTTO_CRYSTAL `$24, " +
             "select animation 1, create its break effect, and XOR mask `$40.");
         Step(_entities, _player);
         FailIf(

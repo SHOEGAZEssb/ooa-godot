@@ -6,13 +6,14 @@ namespace oracleofages;
 
 /// <summary>
 /// PART_GROTTO_CRYSTAL $24. Its parameter is one retained wSwitchState bit;
-/// every active source collision breaks it, while the part's own room flag
-/// selects the already-broken frame on later visits.
+/// its part-ID collision bitmap accepts sword-family attacks, sword beams,
+/// boomerangs, and seeds, but rejects bombs and thrown objects. The part's own
+/// room flag selects the already-broken frame on later visits.
 /// </summary>
 internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, ISwordHittableRoomEntity,
     IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity
+    IObjectCollisionHeightRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly DungeonMechanicDatabase _data;
@@ -121,9 +122,9 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
         int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (collision is RoomEntityItemCollision.ThrownObject or
-            RoomEntityItemCollision.Bomb or
-            RoomEntityItemCollision.SwordBeam)
+        // partActiveCollisions row $24 is indexed by Part.id, not by
+        // enemyCollisionMode $03. It accepts $19 but rejects $16 and $18.
+        if (collision == RoomEntityItemCollision.SwordBeam)
         {
             TryBreak(hitbox);
         }
