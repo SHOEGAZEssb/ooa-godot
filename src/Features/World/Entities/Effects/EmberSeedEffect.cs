@@ -521,9 +521,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
 
-        _precisePosition = before;
-        Position = OracleObjectMath.ToPixelPosition(before);
-        byte tile = _room.GetMetatile(before + delta);
+        // seedItemState1 tests the tile before objectApplySpeed. By the time a
+        // collision is observed, the original seed already occupies that tile;
+        // its flame and any bounce therefore begin at the collided position.
+        // Keeping the previous point here made Ember flames inspect the floor
+        // behind the bush or torch they had struck.
+        Position = moved;
+        byte tile = _room.GetMetatile(_precisePosition);
         if (Array.IndexOf(_shooter.NonBounceDungeonTiles, tile) >= 0)
         {
             ActivateShooterSeed(spawns);

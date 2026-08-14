@@ -1858,6 +1858,24 @@ if ($enemyClearChestScriptSource -notmatch
     '(?ms)^createChestWhenNoEnemiesScript:.*?stopifitemflagset.*?checknoenemies.*?playsound SND_SOLVEPUZZLE.*?createpuff.*?wait 30.*?settilehere TILEINDEX_CHEST.*?incstate.*?scriptend') {
     throw 'INTERAC_DUNGEON_STUFF $12:$02 enemy-clear chest script changed.'
 }
+$triggerTranslatorSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\triggerTranslator.s')
+if ($triggerTranslatorSource -notmatch
+    '(?ms)^@subid2:.*?Interaction\.yh.*?wNumTorchesLit.*?cp b.*?wActiveTriggers.*?or c.*?wActiveTriggers.*?ret.*?wActiveTriggers.*?and c.*?wActiveTriggers.*?ret') {
+    throw 'INTERAC_TRIGGER_TRANSLATOR $24:$02 torch-count contract changed.'
+}
+$tileObjectCreatorSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\createObjectAtEachTileindex.s')
+if ($tileObjectCreatorSource -notmatch
+    '(?ms)^interactionCodec7:.*?wRoomLayout.*?LARGE_ROOM_HEIGHT\*\$10.*?cp c.*?call z,@createObject.*?Interaction\.xh.*?and \$f0.*?Interaction\.yh.*?Interaction\.xh.*?and \$0f') {
+    throw 'INTERAC_CREATE_OBJECT_AT_EACH_TILEINDEX $c7 scan/spawn contract changed.'
+}
+$torchObjectDataSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\extraData1.s')
+if ($torchObjectDataSource -notmatch
+    '(?ms)^objectData_makeAllTorchesLightable:\s*obj_Interaction \$c7 \$08 \$06 \$10\s*obj_EndPointer') {
+    throw 'objectData_makeAllTorchesLightable no longer creates PART_LIGHTABLE_TORCH $06:$00 at tile $08.'
+}
 $mechanicTilesetsByGroup = @{}
 function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
     if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
@@ -1873,6 +1891,8 @@ $dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`t
 $enemyClearChestCount = 0
 $permanentTriggerChestCount = 0
 $retractableTriggerChestCount = 0
+$torchTranslatorCount = 0
+$torchScannerCount = 0
 $mechanicGroup = -1
 $mechanicRoom = -1
 $mechanicOrder = 0
@@ -1898,6 +1918,7 @@ foreach ($line in $mainObjectLines) {
         if (($id -eq 0x12 -and $subid -eq 0x02) -or
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
+            ($id -eq 0x24 -and $subid -eq 0x02) -or
             $dungeonScriptPredicate -ne '' -or
             ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
@@ -1920,6 +1941,8 @@ foreach ($line in $mainObjectLines) {
                 $dungeonScriptPredicate
             } elseif ($id -eq 0x21 -and $subid -eq 0x17) {
                 'exact'
+            } elseif ($id -eq 0x24 -and $subid -eq 0x02) {
+                'exact'
             } else {
                 'none'
             }
@@ -1932,6 +1955,9 @@ foreach ($line in $mainObjectLines) {
             if ($id -eq 0x21 -and $subid -eq 0x17) {
                 $retractableTriggerChestCount++
             }
+            if ($id -eq 0x24 -and $subid -eq 0x02) {
+                $torchTranslatorCount++
+            }
         }
     } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
@@ -1939,13 +1965,19 @@ foreach ($line in $mainObjectLines) {
     } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
+    } elseif ($line -match '^\s*obj_Pointer\s+objectData_makeAllTorchesLightable\s*$') {
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tc7`t08`t06`t10`tnone`t1")
+        $torchScannerCount++
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 187 -or
+if ($dungeonMechanicRows.Count -ne 197 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
+    $torchTranslatorCount -ne 2 -or
+    $torchScannerCount -ne 8 -or
     -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t08`t1`t09`t00`t17`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t09`t0`t1e`t04`t07`t00`tbit`t1") -or
@@ -1956,6 +1988,9 @@ if ($dungeonMechanicRows.Count -ne 187 -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t56`t0`t21`t0a`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t59`t0`t24`t02`t01`t01`texact`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t59`t1`t1e`t06`ta3`t00`tbit`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t59`t2`tc7`t08`t06`t10`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t5e`t0`t21`t0c`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t5e`t1`t09`t00`t19`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t5d`t0`t21`t0d`t00`t00`tnone`t1") -or
@@ -1970,7 +2005,7 @@ if ($dungeonMechanicRows.Count -ne 187 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 186 reusable dungeon mechanics including Moonlit Grotto's room 4:56 and 4:5e Armos events, four crystal handlers/parts, and room 4:61/4:64 falling keys, parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 196 reusable dungeon mechanics including Moonlit Grotto's room 4:56 and 4:5e Armos events, four crystal handlers/parts, room 4:61/4:64 falling keys, and the eight generic lightable-torch scanners with two count translators; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')

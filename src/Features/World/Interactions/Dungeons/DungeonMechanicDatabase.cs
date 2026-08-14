@@ -7,7 +7,8 @@ namespace oracleofages;
 /// Imported placements and common constants for PART_SWITCH $05,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
 /// INTERAC_DUNGEON_STUFF $12:$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
-/// shutter-door controller variants $1e:$04-$0b. Moonlit Grotto's
+/// shutter-door controller variants $1e:$04-$0b, torch-count translator
+/// $24:$02, and the $c7:$08 lightable-torch scanner. Moonlit Grotto's
 /// INTERAC_DUNGEON_EVENTS $21:$09/$0a/$0c/$0d/$0e, PART_ORB $03, and
 /// PART_GROTTO_CRYSTAL $24 share this
 /// source-ordered dispatch because their switch state and reward are common
@@ -111,11 +112,12 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x24) ||
+            if (record.Id is not (0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x24 or 0xc7) ||
                 record.Id == 0x12 && record.SubId != 0x02 ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
-                record.Id == 0x24 && record.SubId is not (0x10 or 0x20 or 0x40 or 0x80))
+                record.Id == 0x24 && record.SubId is not (0x02 or 0x10 or 0x20 or 0x40 or 0x80) ||
+                record.Id == 0xc7 && record.SubId != 0x08)
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             List<DungeonMechanicDatabaseRecord> records =
                 _recordsByRoom.GetOrAdd(
@@ -191,13 +193,14 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room2f = GetRoomRecords(4, 0x2f);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room65 = GetRoomRecords(4, 0x65);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room56 = GetRoomRecords(4, 0x56);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room59 = GetRoomRecords(4, 0x59);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room5e = GetRoomRecords(4, 0x5e);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room61 = GetRoomRecords(4, 0x61);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room64 = GetRoomRecords(4, 0x64);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 186 || _constants.Count != 55 || _texts.Count != 2 ||
+        if (RecordCount != 196 || _constants.Count != 55 || _texts.Count != 2 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -205,7 +208,7 @@ internal sealed class DungeonMechanicDatabase
             room08[1] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 1, 0x09, 0x00, 0x17, 0x00,
                 TriggerPredicate.None, true) ||
-            room09.Count != 4 ||
+            room09.Count != 5 ||
             room09[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x09, 0, 0x1e, 0x04, 0x07, 0x00,
                 TriggerPredicate.BitSet, true) ||
@@ -217,6 +220,9 @@ internal sealed class DungeonMechanicDatabase
                 TriggerPredicate.None, true) ||
             room09[3] != new DungeonMechanicDatabaseRecord(
                 4, 0x09, 5, 0x09, 0x00, 0x14, 0x00,
+                TriggerPredicate.None, true) ||
+            room09[4] != new DungeonMechanicDatabaseRecord(
+                4, 0x09, 6, 0xc7, 0x08, 0x06, 0x10,
                 TriggerPredicate.None, true) ||
             room22.Count != 2 || room22[1] !=
                 new DungeonMechanicDatabaseRecord(
@@ -234,6 +240,16 @@ internal sealed class DungeonMechanicDatabase
                 new DungeonMechanicDatabaseRecord(
                     4, 0x56, 0, 0x21, 0x0a, 0x00, 0x00,
                     TriggerPredicate.None, true) ||
+            room59.Count != 3 ||
+            room59[0] != new DungeonMechanicDatabaseRecord(
+                4, 0x59, 0, 0x24, 0x02, 0x01, 0x01,
+                TriggerPredicate.Exact, true) ||
+            room59[1] != new DungeonMechanicDatabaseRecord(
+                4, 0x59, 1, 0x1e, 0x06, 0xa3, 0x00,
+                TriggerPredicate.BitSet, true) ||
+            room59[2] != new DungeonMechanicDatabaseRecord(
+                4, 0x59, 2, 0xc7, 0x08, 0x06, 0x10,
+                TriggerPredicate.None, true) ||
             room5e.Count != 2 ||
             room5e[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x5e, 0, 0x21, 0x0c, 0x00, 0x00,
@@ -310,7 +326,8 @@ internal sealed class DungeonMechanicDatabase
         {
             throw new InvalidOperationException(
                 "Imported dungeon enemy-clear chest / switch / button / " +
-                "trigger-chest / $13:$01 / $1e:$04-$0b / Moonlit Grotto " +
+                "trigger-chest / $13:$01 / $1e:$04-$0b / torch scanner / " +
+                "translator / Moonlit Grotto " +
                 "orb / Armos / button-key / crystal / falling-key contract is incomplete.");
         }
     }

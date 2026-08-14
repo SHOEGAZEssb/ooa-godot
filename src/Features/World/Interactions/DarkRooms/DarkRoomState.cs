@@ -8,16 +8,12 @@ namespace oracleofages;
 /// The room-local wNumTorchesLit count and palette-thread state shared by one
 /// PART_DARK_ROOM_HANDLER and its generated PART_LIGHTABLE_TORCH children.
 /// </summary>
-internal sealed class DarkRoomState
+internal sealed class DarkRoomState : LightableTorchState
 {
     private readonly OracleRoomData _room;
     private readonly DarkRoomDatabase _data;
     private int _fadeOffset;
     private int _fadeDirection;
-    private bool _torchTotalInitialized;
-
-    internal int LitCount { get; private set; }
-    internal int TotalTorches { get; private set; }
     internal int Parameter { get; private set; }
     internal int RenderedOffset => _fadeOffset;
     internal bool FadeActive { get; private set; }
@@ -29,21 +25,6 @@ internal sealed class DarkRoomState
         Parameter = data.FullDarkParameter;
         _fadeOffset = SignedParameter(Parameter);
         _room.SetTemporaryBackgroundPaletteOffset(_fadeOffset);
-    }
-
-    internal void SetTotalTorches(int count)
-    {
-        if (count < 0 || _torchTotalInitialized)
-            throw new InvalidOperationException("The dark-room torch total can only be initialized once.");
-        TotalTorches = count;
-        _torchTotalInitialized = true;
-    }
-
-    internal void IncrementLitCount()
-    {
-        if (LitCount >= TotalTorches)
-            throw new InvalidOperationException("The dark-room lit count exceeded its torch total.");
-        LitCount++;
     }
 
     internal void BeginBrighten(int targetParameter) => BeginFade(targetParameter, 1);

@@ -12,7 +12,7 @@ namespace oracleofages;
 internal sealed partial class LightableTorchRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, ISeedHittableRoomEntity, IRoomEntityLifetime
 {
-    private readonly DarkRoomState _state;
+    private readonly LightableTorchState _state;
     private readonly OracleRoomData _room;
     private readonly DarkRoomDatabase _data;
     private readonly Action<int> _playSound;
@@ -30,7 +30,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
         new Vector2(_data.TorchRadiusX * 2, _data.TorchRadiusY * 2));
 
     internal LightableTorchRoomEntity(
-        DarkRoomState state,
+        LightableTorchState state,
         int packedPosition,
         OracleRoomData room,
         DarkRoomDatabase data,

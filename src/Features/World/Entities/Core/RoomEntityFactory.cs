@@ -426,6 +426,16 @@ internal sealed class RoomEntityFactory(
         // safe backtracking; solving and non-entry shutters stay disabled.
         IReadOnlyList<DungeonMechanicDatabaseRecord> dungeonRecords =
             _dungeonMechanics.GetRoomRecords(group, room.Id);
+        LightableTorchState? lightableTorchState = null;
+        foreach (DungeonMechanicDatabaseRecord record in dungeonRecords)
+        {
+            if (record is { Id: 0x24, SubId: 0x02 } or
+                { Id: 0xc7, SubId: 0x08 })
+            {
+                lightableTorchState = new LightableTorchState();
+                break;
+            }
+        }
         IReadOnlyList<PlacementRecord>
             sharedDungeonRecords = _dungeonEntrances.GetRoomRecords(group, room.Id);
         IReadOnlyList<DungeonObjectRecord> spiritsGraveRecords =
@@ -528,7 +538,8 @@ internal sealed class RoomEntityFactory(
 
             DungeonMechanicDatabaseRecord mechanic = dungeonRecords[mechanicIndex++];
             IRoomEntity? mechanicEntity = CreateDungeonMechanic(
-                mechanic, room, group, enemyMechanicsSupported, placementContext);
+                mechanic, room, group, enemyMechanicsSupported, placementContext,
+                lightableTorchState);
             if (mechanicEntity is not null)
                 yield return mechanicEntity;
         }
@@ -1400,8 +1411,24 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         int group,
         bool enemyMechanicsSupported,
-        EnemyPlacementContext placementContext)
+        EnemyPlacementContext placementContext,
+        LightableTorchState? lightableTorchState)
     {
+        if (record.Id == 0x24 && record.SubId == 0x02)
+        {
+            return new TorchTriggerTranslatorRoomEntity(
+                record,
+                lightableTorchState ?? throw MissingLightableTorchState(record),
+                setTrigger);
+        }
+        if (record.Id == 0xc7 && record.SubId == 0x08)
+        {
+            return new LightableTorchScannerRoomEntity(
+                record,
+                room,
+                lightableTorchState ?? throw MissingLightableTorchState(record),
+                _darkRooms);
+        }
         if (record.Id == 0x21 && record.SubId == 0x09)
         {
             if (saveData?.HasRoomFlag(
@@ -1533,6 +1560,11 @@ internal sealed class RoomEntityFactory(
                 $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
         };
     }
+
+    private static InvalidOperationException MissingLightableTorchState(
+        DungeonMechanicDatabaseRecord record) => new(
+        $"Room {record.Group:x1}:{record.Room:x2} ${record.Id:x2}:" +
+        $"${record.SubId:x2} is missing its room-local torch state.");
 
     private IRoomEntity CreateSharedDungeonInteraction(
         PlacementRecord record,
@@ -4560,7 +4592,7 @@ internal sealed record EnemySmallKeyRewardSpawn(
     : RoomEntitySpawn;
 
 internal sealed record LightableTorchSpawn(
-    DarkRoomState State,
+    LightableTorchState State,
     int PackedPosition)
     : RoomEntitySpawn(UpdateThisFrame: true);
 

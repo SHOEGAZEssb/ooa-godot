@@ -2974,6 +2974,87 @@ public sealed partial class ValidationRoot
             "without bouncing while holding its source-static flight frame.");
         fenceSeed.Free();
 
+        var bushRooms = new RoomSession(
+            0, 0x69, () => 0, () => { }, OracleSaveData.CreateStandardGame());
+        OracleRoomData bushRoom = bushRooms.CurrentRoom;
+        Vector2 bushPoint = new(24, 56);
+        bushRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, 0);
+        Vector2 bushSeedStart = bushPoint + new Vector2(0, 16);
+        int bushTileChanges = 0;
+        var bushSeed = new EmberSeedEffect();
+        bushSeed.Initialize(
+            emberRecord,
+            bushRoom,
+            new BreakableTileDatabase(),
+            bushSeedStart - record.Offsets[0],
+            Vector2I.Up,
+            _ => { },
+            (_, _) => { },
+            () => bushTileChanges++,
+            () => 0,
+            _ => null,
+            null,
+            0,
+            launchKind: SeedLaunchKind.Shooter,
+            angle: 0);
+        var bushSpawns = new List<RoomEntitySpawn>();
+        for (int update = 0; update < 80 && !bushSeed.Finished; update++)
+            bushSeed.UpdateFrame(update + 1, bushSpawns);
+        FailIf(
+            !bushSeed.Finished || bushRoom.GetMetatile(bushPoint) != 0x3a ||
+            bushTileChanges != 1,
+            "A shooter-fired Ember Seed did not retain its collided-tile " +
+            "position through the `$3a flame countdown and burn bush `$c5.");
+        bushSeed.Free();
+
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(4, 0x59);
+        OracleRoomData torchRoom = _currentRoom;
+        FailIf(
+            torchRoom.Layout.Length != 176 || torchRoom.Layout[0x55] != 0x08 ||
+            _entities.Entities<TorchTriggerTranslatorRoomEntity>() is not
+                [{ RequiredCount: 1, TriggerBit: 0 }] ||
+            _entities.Entities<LightableTorchScannerRoomEntity>().Count != 1 ||
+            _entities.Entities<DungeonDoorRoomEntity>() is not
+                [{ SubId: 0x06, PackedPosition: 0xa3 }],
+            "Room 4:59 did not instantiate its source-ordered `$24:$02 " +
+            "translator, `$1e:$06 shutter, and `$c7:$08 torch scanner.");
+        _entities.Update(1.0 / 60.0, _player);
+        LightableTorchRoomEntity torch =
+            _entities.Entities<LightableTorchRoomEntity>().Single();
+        FailIf(
+            torch.PackedPosition != 0x55 ||
+            _entities.Entities<LightableTorchScannerRoomEntity>().Count != 0 ||
+            _entities.ActiveTriggers != 0,
+            "Room 4:59's `$c7:$08 scanner did not create the tile-$08 torch " +
+            "at packed position `$55 and clear trigger bit 0 initially.");
+
+        Vector2 torchSeedStart = torch.Position - new Vector2(16, 0);
+        _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+            torchSeedStart - record.Offsets[2],
+            Vector2I.Right,
+            emberRecord,
+            4,
+            LaunchKind: SeedLaunchKind.Shooter,
+            Angle: 2));
+        for (int update = 0;
+             update < 12 && torchRoom.Layout[0x55] != 0x09;
+             update++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+        }
+        FailIf(
+            torchRoom.Layout[0x55] != 0x09 ||
+            _entities.Entities<LightableTorchRoomEntity>().Count != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1,
+            "A shooter-fired Ember Seed did not collide with and light room " +
+            "4:59's PART_LIGHTABLE_TORCH `$06:$00 with SND_LIGHTTORCH.");
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            _entities.ActiveTriggers != 0x01,
+            "Room 4:59's `$24:$02 translator did not set trigger bit 0 when " +
+            "wNumTorchesLit reached exactly one.");
+
         _inventory.GiveTreasure(new TreasureObjectRecord(
             "VALIDATION_SHOOTER", InventoryState.ItemShooter, 0,
             1, 0xff, 0, string.Empty));
@@ -3066,7 +3147,8 @@ public sealed partial class ValidationRoot
         GD.Print("Validated ITEM_SHOOTER imported aiming/offset/speed/bounce " +
             "contract, 24 func_4553 `$38-$4f Link poses, positioned weapon OAM " +
             "rotations, source transparency, immediate diagonal aim, room 4:59 " +
-            "item-passable fences, static seed flight, release-time " +
+            "item-passable fences, collided-tile bush burning, room 4:59's " +
+            "lightable torch/trigger, static seed flight, release-time " +
             "BCD consumption, subid `$63 allocation, sound, and `$0c cleanup boundary.");
     }
 
