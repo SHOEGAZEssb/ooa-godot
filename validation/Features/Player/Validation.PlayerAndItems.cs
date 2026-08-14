@@ -2824,9 +2824,155 @@ public sealed partial class ValidationRoot
             record.PostShotWait != 12 ||
             record.Sound != OracleSoundEngine.SndSeedShooter ||
             !record.Offsets.SequenceEqual(offsets) ||
-            !record.NonBounceDungeonTiles.SequenceEqual([0x42, 0x43]),
+            !record.NonBounceDungeonTiles.SequenceEqual([0x42, 0x43]) ||
+            record.ItemPassableTiles.Length != 6 ||
+            !record.ItemPassableTiles[2].SequenceEqual(new byte[]
+            {
+                0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+                0x98, 0x99, 0x9a, 0x9b, 0x0a, 0x0b, 0x0e, 0x0f
+            }) ||
+            record.WeaponSprite != "spr_seed_shooter" ||
+            record.WeaponVramTileBase != 0x52 ||
+            record.WeaponPalette != 0 ||
+            record.WeaponSourceGrayscaleInverted ||
+            record.WeaponOam.Length != 8,
             "The imported ITEM_SHOOTER parent/child constants diverged from " +
             "parentItemCode_shooter or seedItemUpdateBouncing.");
+
+        ulong[] shooterLinkHashes = Enumerable.Range(0, 3)
+            .SelectMany(variant => Enumerable.Range(0, 8)
+                .Select(angle =>
+                    _player.SeedShooterLinkTextureHash(angle, variant)))
+            .ToArray();
+        ulong[] shooterWeaponHashes = Enumerable.Range(0, 8)
+            .Select(_player.SeedShooterWeaponTextureHash).ToArray();
+        FailIf(
+            shooterLinkHashes.Any(hash => hash == 0) ||
+            shooterWeaponHashes.Any(hash => hash == 0) ||
+            shooterLinkHashes.Distinct().Count() != 24 ||
+            shooterWeaponHashes.Distinct().Count() != 8,
+            "ITEM_SHOOTER did not compose func_4553's 24 `$38-$4f Link " +
+            "poses and eight distinct spr_seed_shooter overlays " +
+            $"(Link hashes={shooterLinkHashes.Distinct().Count()}, " +
+            $"weapon hashes={shooterWeaponHashes.Distinct().Count()}).");
+        int[] shooterBases = [0x38, 0x40, 0x48];
+        for (int variant = 0; variant < shooterBases.Length; variant++)
+        for (int angle = 0; angle < 8; angle++)
+        {
+            FailIf(
+                LinkItemDatabase.Shared.Graphic(
+                    "shooter", variant, 0, angle).GraphicsIndex !=
+                    shooterBases[variant] + angle,
+                "ITEM_SHOOTER parent priority did not override Link with " +
+                $"func_4553 frame `${shooterBases[variant] + angle:x2}.");
+        }
+        int[] shooterOpaquePixels = Enumerable.Range(0, 8)
+            .Select(_player.SeedShooterWeaponOpaquePixels).ToArray();
+        int[] shooterLinkOpaquePixels = Enumerable.Range(0, 8)
+            .Select(angle => _player.SeedShooterLinkOpaquePixels(angle))
+            .ToArray();
+        FailIf(
+            !shooterOpaquePixels.SequenceEqual(
+                [94, 88, 94, 88, 94, 88, 94, 88]),
+            "ITEM_SHOOTER weapon composition did not preserve white as " +
+            "source color 0 from spr_seed_shooter.properties invert:false.");
+        var shooterPoseSizes = new List<Vector2I>();
+        var shooterPoseOpaquePixels = new List<int>();
+        var shooterPoseHashes = new List<ulong>();
+        for (int angle = 0; angle < 8; angle++)
+        {
+            Image image = _player.SeedShooterPoseImage(angle);
+            shooterPoseSizes.Add(new Vector2I(
+                image.GetWidth(), image.GetHeight()));
+            int opaque = 0;
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                    opaque++;
+            }
+            shooterPoseOpaquePixels.Add(opaque);
+            shooterPoseHashes.Add(OracleGraphicsCache.PixelHash(image));
+        }
+        FailIf(
+            !shooterPoseSizes.SequenceEqual(new Vector2I[]
+            {
+                new(16, 30), new(30, 24), new(30, 24), new(30, 27),
+                new(16, 30), new(27, 27), new(30, 24), new(27, 30)
+            }) ||
+            !shooterPoseOpaquePixels.SequenceEqual(
+                [246, 236, 267, 256, 251, 230, 267, 270]) ||
+            !shooterPoseHashes.SequenceEqual(new ulong[]
+                {
+                    0x62aad1428817d634UL, 0x50aa30324ca79b35UL,
+                    0x30e6ad88174f1692UL, 0x755972de44069befUL,
+                    0x9df8d83b5b34bde1UL, 0xc2fc8d99e2a9aa61UL,
+                    0x28a69101fcbb2ecaUL, 0xc13b9bc4fa8b35b5UL
+                }),
+            "ITEM_SHOOTER's exact Link/weapon union changed or regained an " +
+            "opaque source-background rectangle compared with clean-ROM " +
+            "VRAM/OAM captures " +
+            $"(sizes={string.Join(',', shooterPoseSizes)}, " +
+            $"opaque={string.Join(',', shooterPoseOpaquePixels)}, " +
+            $"hashes={string.Join(',', shooterPoseHashes.Select(
+                hash => hash.ToString("x16")))}, " +
+            $"linkHashes={string.Join(',', shooterLinkHashes.Take(8).Select(
+                hash => hash.ToString("x16")))}, " +
+            $"linkOpaque={string.Join(',', shooterLinkOpaquePixels)}, " +
+            $"weaponHashes={string.Join(',', shooterWeaponHashes.Select(
+                hash => hash.ToString("x16")))})." );
+        Vector2[] shooterOffsets = Enumerable.Range(0, 8)
+            .Select(angle => _player.SeedShooterPoseOffset(angle)).ToArray();
+        FailIf(
+            !shooterOffsets.SequenceEqual(new Vector2[]
+            {
+                new(-8, -22), new(-8, -16), new(-8, -8), new(-8, -8),
+                new(-8, -8), new(-19, -8), new(-22, -8), new(-19, -22)
+            }),
+            "ITEM_SHOOTER did not retain the union of Link and child item's " +
+            "signed OAM bounds.");
+
+        var fenceRooms = new RoomSession(
+            4, 0x59, () => 0, () => { }, _saveData);
+        OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
+        Vector2 fencePoint = new(2 * OracleRoomData.MetatileSize + 8,
+            5 * OracleRoomData.MetatileSize + 8);
+        Vector2 flyingStart = new(29, fencePoint.Y);
+        var fenceSeed = new EmberSeedEffect();
+        SeedRecord emberRecord = new SeedSatchelDatabase().Ember;
+        fenceSeed.Initialize(
+            emberRecord,
+            fenceRoom,
+            new BreakableTileDatabase(),
+            flyingStart - record.Offsets[2],
+            Vector2I.Right,
+            _ => { },
+            (_, _) => { },
+            () => { },
+            () => 0,
+            _ => null,
+            _saveData,
+            4,
+            launchKind: SeedLaunchKind.Shooter,
+            angle: 2);
+        var fenceSpawns = new List<RoomEntitySpawn>();
+        fenceSeed.UpdateFrame(1, fenceSpawns);
+        ulong flyingFrameHash = fenceSeed.FlyingTextureHashForValidation(0);
+        for (int frame = 2; frame <= 9; frame++)
+            fenceSeed.UpdateFrame(frame, fenceSpawns);
+        FailIf(
+            fenceRoom.GetMetatile(fencePoint) != 0x94 ||
+            !fenceRoom.IsSolid(fencePoint) ||
+            !record.CanPassSolidTile(fenceRoom, fencePoint) ||
+            fenceSeed.State != EmberState.Flying ||
+            fenceSeed.PrecisePosition != flyingStart + new Vector2(24, 0) ||
+            fenceSeed.Angle != 2 || fenceSeed.BouncesRemaining != 3 ||
+            fenceSeed.AnimationFrame != 0 ||
+            fenceSeed.FlyingTextureHashForValidation(
+                fenceSeed.AnimationFrame) != flyingFrameHash,
+            "ITEM_SHOOTER seed did not cross room 4:59's solid `$94 fence " +
+            "without bouncing while holding its source-static flight frame.");
+        fenceSeed.Free();
 
         _inventory.GiveTreasure(new TreasureObjectRecord(
             "VALIDATION_SHOOTER", InventoryState.ItemShooter, 0,
@@ -2852,6 +2998,30 @@ public sealed partial class ValidationRoot
             _inventory.EmberSeeds != amountBefore,
             "ITEM_SHOOTER state 0 did not hold the parent at the facing angle " +
             "without consuming ammo.");
+
+        var diagonalController = new SeedSatchelController(
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms);
+        _player.Face(Vector2I.Left);
+        FailIf(
+            !diagonalController.TryBeginShooter(
+                _player, primaryButton: true, new Vector2(1, -1)) ||
+            diagonalController.ShooterAngle != 1 ||
+            _player.FacingVector != Vector2I.Up,
+            "ITEM_SHOOTER state 0 did not derive its immediate up-right " +
+            "angle and Link-facing component from wLinkAngle.");
+        diagonalController.UpdateShooter(
+            _player,
+            Vector2.Left,
+            primaryHeld: true,
+            secondaryHeld: false,
+            directionJustPressed: true);
+        FailIf(
+            diagonalController.ShooterAngle != 0 ||
+            diagonalController.ShooterAimCounter != 16,
+            "A newly pressed direction did not bypass ITEM_SHOOTER's active " +
+            "`$10 repeat counter and rotate one eighth-turn immediately.");
+        diagonalController.InterruptShooter();
+        _player.Face(Vector2I.Right);
         for (int update = 0; update < 16; update++)
         {
             controller.UpdateShooter(
@@ -2894,8 +3064,10 @@ public sealed partial class ValidationRoot
             "ITEM_SHOOTER did not clear on the twelfth post-shot update.");
 
         GD.Print("Validated ITEM_SHOOTER imported aiming/offset/speed/bounce " +
-            "contract, held-parent rotation, release-time BCD consumption, " +
-            "subid `$63 allocation, sound, and `$0c cleanup boundary.");
+            "contract, 24 func_4553 `$38-$4f Link poses, positioned weapon OAM " +
+            "rotations, source transparency, immediate diagonal aim, room 4:59 " +
+            "item-passable fences, static seed flight, release-time " +
+            "BCD consumption, subid `$63 allocation, sound, and `$0c cleanup boundary.");
     }
 
     private void ValidateSeedInventorySubmenu()

@@ -62,6 +62,68 @@ internal static class OracleGraphicsCache
         return image;
     }
 
+    /// <summary>
+    /// Loads a canonical Game Boy 2bpp sprite stream as 8x16 source cells.
+    /// Each cell contains the two consecutive 8x8 tiles used by OBJ OAM.
+    /// </summary>
+    internal static Image LoadTwoBitSpriteSheet(
+        string path,
+        int expectedByteLength,
+        int cellsPerRow = 16)
+    {
+        if (expectedByteLength <= 0 || (expectedByteLength & 0x1f) != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(expectedByteLength),
+                "A 2bpp 8x16 sprite stream must contain complete 32-byte cells.");
+        }
+        if (cellsPerRow <= 0)
+            throw new ArgumentOutOfRangeException(nameof(cellsPerRow));
+
+        string cacheKey = $"2bpp:{expectedByteLength}:{cellsPerRow}:{path}";
+        if (SourceImages.TryGetValue(cacheKey, out Image? cached))
+        {
+            Observe(OracleGraphicsCacheOperation.SourceHit, path);
+            return cached;
+        }
+
+        byte[] bytes = FileAccess.GetFileAsBytes(path);
+        if (bytes.Length != expectedByteLength)
+        {
+            throw new InvalidOperationException(
+                $"{path} should contain {expectedByteLength} bytes, got {bytes.Length}.");
+        }
+
+        int cellCount = bytes.Length / 32;
+        int cellRows = (cellCount + cellsPerRow - 1) / cellsPerRow;
+        Image image = Image.CreateEmpty(
+            cellsPerRow * 8, cellRows * 16, false, Image.Format.Rgba8);
+        image.Fill(Colors.Black);
+        for (int cell = 0; cell < cellCount; cell++)
+        for (int tileY = 0; tileY < 2; tileY++)
+        for (int y = 0; y < 8; y++)
+        {
+            int byteOffset = cell * 32 + tileY * 16 + y * 2;
+            byte low = bytes[byteOffset];
+            byte high = bytes[byteOffset + 1];
+            for (int x = 0; x < 8; x++)
+            {
+                int bit = 7 - x;
+                int shade = ((low >> bit) & 1) | (((high >> bit) & 1) << 1);
+                float value = shade / 3.0f;
+                image.SetPixel(
+                    cell % cellsPerRow * 8 + x,
+                    cell / cellsPerRow * 16 + tileY * 8 + y,
+                    new Color(value, value, value));
+            }
+        }
+
+        SourceImages.Add(cacheKey, image);
+        ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
+        Observe(OracleGraphicsCacheOperation.SourceLoad, path);
+        return image;
+    }
+
     internal static Image AppendGraphics(Image source, string extraPath)
     {
         Image extra = LoadImage(extraPath);

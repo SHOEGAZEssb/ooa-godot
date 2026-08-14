@@ -147,10 +147,16 @@ $itemAttributesSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemA
 $itemAnimationsSource = Read-ImportText (Join-Path $Disassembly 'data\itemAnimations.s')
 $itemOamDataSource = Read-ImportText (Join-Path $Disassembly 'data\itemOamData.s')
 $itemUsageSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
+$uncmpGfxHeadersSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\uncmpGfxHeaders.s')
+$seedShooterPropertiesSource = Read-ImportText (
+    Join-Path $Disassembly 'gfx\common\spr_seed_shooter.properties')
 $specialObjectAnimationsSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 $specialObjectAnimationLogicSource = Read-ImportText (
     Join-Path $Disassembly 'code\specialObjectAnimationsAndDamage.s')
+$gfxDataBank1aSource = Read-ImportText (
+    Join-Path $Disassembly 'data\gfxDataBank1a.s')
 $objectGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
 $gfxHeadersSource = Read-ImportText (
@@ -840,12 +846,17 @@ $seedShooterSourceValid =
         '(?m)^\s*\.db\s+\$43,\s*<wGameKeysJustPressed\s*;\s*ITEM_SHOOTER' -and
     $itemUsageSource -match
         '(?m)^\s*\.db\s+\$c6,\s*LINK_ANIM_MODE_21\s*;\s*ITEM_SHOOTER' -and
+    $uncmpGfxHeadersSource -match
+        '(?ms)^uncmpGfxHeader1d:\s*m_GfxHeader spr_seed_shooter, \$8521' -and
+    $seedShooterPropertiesSource -match '(?m)^invert:\s*false\s*$' -and
     $seedParentSource -match
         '(?ms)^parentItemCode_shooter:.*?^@state0:.*?call clearSelfIfNoSeeds.*?call updateLinkDirectionFromAngle.*?call parentItemLoadAnimationAndIncState.*?call itemCreateChild' -and
     $seedParentSource -match
         '(?ms)^@state1:.*?call parentItemCheckButtonPressed.*?wIsSeedShooterInUse.*?ld c,\$63.*?call itemCreateChildWithID.*?ld \(hl\),\$0c.*?SND_SEEDSHOOTER' -and
     $seedParentSource -match
-        '(?ms)^@updateAngleFrom5Bit:.*?^@checkUpdateAngle:.*?and \(BTN_RIGHT\|BTN_LEFT\|BTN_UP\|BTN_DOWN\).*?ld \(hl\),\$10.*?^@determineBaseAnimation:' -and
+        '(?ms)^@updateAngleFrom5Bit:.*?^@checkUpdateAngle:.*?and \(BTN_RIGHT\|BTN_LEFT\|BTN_UP\|BTN_DOWN\).*?ld \(hl\),\$10.*?^@determineBaseAnimation:.*?ld a,\$48.*?ld a,\$40.*?ld a,\$38.*?ld l,Item\.var31.*?ld \(hl\),a.*?ld l,Item\.var3f.*?ld \(hl\),\$04' -and
+    $specialObjectAnimationLogicSource -match
+        '(?ms)^func_4553:.*?^--\s*ld l,Item\.var3f\s*ld a,\(hl\)\s*cp c\s*jr c,\+\s*ld c,a\s*ld l,Item\.var31\s*ld b,\(hl\)' -and
     $seedCodeSource -match
         '(?ms)^@shooterPositionOffsets:\s*\.db \$f2 \$fc.*?\.db \$fc \$0b.*?\.db \$05 \$0c.*?\.db \$09 \$0b.*?\.db \$0d \$03.*?\.db \$0a \$f8.*?\.db \$05 \$f3.*?\.db \$f8 \$f8' -and
     $seedCodeSource -match
@@ -857,9 +868,35 @@ $seedShooterSourceValid =
 if (-not $seedShooterSourceValid) {
     throw 'ITEM_SHOOTER aiming, child allocation, offsets, speed, bounce count, or sound changed in the disassembly.'
 }
+$shooterItemData = [regex]::Match(
+    $itemDataSource,
+    '(?m)^\s*\.db\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<tile>[0-9a-f]{2})\s+\$(?<palette>[0-9a-f]{2})\s*;\s*\$0f:\s*ITEM_SHOOTER')
+$shooterOamPointers = [regex]::Match(
+    $itemAnimationsSource,
+    '(?ms)^item0fOamDataPointers:.*?\r?\n(?<body>(?:\s*\.dw\s+itemOamData[0-9a-f]+\s*\r?\n){8})')
+$shooterAnimationAliases = $itemAnimationsSource -match
+    '(?ms)^item0fAnimations:\s*^item13Animations:\s*^item16Animations:\s*^item27Animations:\s*\.dw itemAnimation1e7ad\s*\.dw itemAnimation1e7b0\s*\.dw itemAnimation1e7b3\s*\.dw itemAnimation1e7b6\s*\.dw itemAnimation1e7b9\s*\.dw itemAnimation1e7bc\s*\.dw itemAnimation1e7bf\s*\.dw itemAnimation1e7c2' -and
+    $itemAnimationsSource -match
+    '(?ms)^itemAnimation1e7ad:\s*\.db \$7f \$00 \$00\s*^itemAnimation1e7b0:\s*\.db \$7f \$02 \$00\s*^itemAnimation1e7b3:\s*\.db \$7f \$04 \$00\s*^itemAnimation1e7b6:\s*\.db \$7f \$06 \$00\s*^itemAnimation1e7b9:\s*\.db \$7f \$08 \$00\s*^itemAnimation1e7bc:\s*\.db \$7f \$0a \$00\s*^itemAnimation1e7bf:\s*\.db \$7f \$0c \$00\s*^itemAnimation1e7c2:\s*\.db \$7f \$0e \$00'
+if (-not $shooterItemData.Success -or
+    $shooterItemData.Groups['gfx'].Value -ne '00' -or
+    $shooterItemData.Groups['tile'].Value -ne '52' -or
+    $shooterItemData.Groups['palette'].Value -ne '08' -or
+    -not $shooterOamPointers.Success -or -not $shooterAnimationAliases) {
+    throw 'ITEM_SHOOTER weapon data, OAM pointers, or eight static animations changed.'
+}
+$shooterOamLabels = @([regex]::Matches(
+    $shooterOamPointers.Groups['body'].Value,
+    '(?m)^\s*\.dw\s+(?<label>itemOamData[0-9a-f]+)') |
+    ForEach-Object { $_.Groups['label'].Value })
+if ($shooterOamLabels.Count -ne 8) {
+    throw "Expected eight ITEM_SHOOTER OAM pointers, parsed $($shooterOamLabels.Count)."
+}
+$encodedShooterOam = @($shooterOamLabels |
+    ForEach-Object { Read-ItemOamComposition $_ }) -join '|'
 $seedShooterRows = @(
-    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-dungeon-tiles`tsource'.Replace('`t', "`t")
-    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t42,43`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing"
+    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-dungeon-tiles`titem-passable-tiles`tweapon-sprite`tweapon-vram-tile-base`tweapon-palette`tweapon-source-grayscale-inverted`tweapon-oam`tsource'.Replace('`t', "`t")
+    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t42,43`t$encodedItemPassableTiles`tspr_seed_shooter`t52`t00`t0`t$encodedShooterOam`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seedShooter.s:itemCode0fPost;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing;data/itemAnimations.s:item0fAnimations;gfx/common/spr_seed_shooter.properties"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_shooter.tsv'),
@@ -972,6 +1009,15 @@ for ($phase = 0; $phase -lt 3; $phase++) {
             $phaseBase + $direction)
     }
 }
+for ($variant = 0; $variant -lt 3; $variant++) {
+    for ($angle = 0; $angle -lt 8; $angle++) {
+        # @determineBaseAnimation chooses $38 normally, $40 in a minecart,
+        # and $48 underwater. func_4553 then lets the priority-$04 parent
+        # replace Link's generic LINK_ANIM_MODE_21 graphics with base+angle.
+        Add-LinkGraphicRow $linkGraphicRows 'shooter' $variant 0 $angle (
+            @(0x38, 0x40, 0x48)[$variant] + $angle)
+    }
+}
 for ($phase = 0; $phase -lt 3; $phase++) {
     # parentItemLoadAnimationAndIncState changes LINK_ANIM_MODE_22 to $2d
     # when w1Link.var2f bit 7 marks an underwater tileset. Modes $2d-$2e
@@ -1027,6 +1073,31 @@ for ($variant = 0; $variant -lt 4; $variant++) {
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\link_item_graphics.tsv'),
     $linkGraphicRows)
+
+# The randomizer-oriented disassembly artwork deliberately unflips and
+# rearranges spr_link.png to make character edits easier. The clean game does
+# not read that PNG layout: special-object graphics pointers address the
+# original contiguous 2bpp stream at ROM $068000. Preserve that canonical
+# stream so OAM-driven poses (including ITEM_SHOOTER $38-$4f) use exactly the
+# bytes loaded by the supported US ROM.
+if ($gfxDataBank1aSource -notmatch
+        '(?m)^\s*m_GfxDataSimple spr_link\s*; \$068000\s*$' -or
+    $gfxDataBank1aSource -notmatch
+        '(?m)^\s*m_GfxDataSimple spr_dungeon_sprites\s*; \$06a2e0\s*$') {
+    throw 'Could not verify the clean-ROM spr_link graphics extent in gfxDataBank1a.s.'
+}
+$linkGraphicsRomOffset = 0x068000
+$linkGraphicsLength = 0x06a2e0 - $linkGraphicsRomOffset
+$linkGraphicsBytes = [byte[]]::new($linkGraphicsLength)
+[Array]::Copy(
+    $romBytes,
+    $linkGraphicsRomOffset,
+    $linkGraphicsBytes,
+    0,
+    $linkGraphicsLength)
+Write-GeneratedBytes(
+    (Join-Path $destination 'gfx\spr_link.2bpp'),
+    $linkGraphicsBytes)
 
 $linkOffsetRows = [Collections.Generic.List[string]]::new()
 $linkOffsetRows.Add(

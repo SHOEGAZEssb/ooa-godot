@@ -70,6 +70,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int MysteryEffect => _mysteryEffect;
     internal ulong FlameTextureHashForValidation(int frame) =>
         OracleGraphicsCache.PixelHash(_effectTextures[frame].GetImage());
+    internal ulong FlyingTextureHashForValidation(int frame) =>
+        OracleGraphicsCache.PixelHash(_flyingTextures[frame].GetImage());
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(_record.CollisionRadiusX, _record.CollisionRadiusY),
         new Vector2(_record.CollisionRadiusX * 2, _record.CollisionRadiusY * 2));
@@ -508,14 +510,13 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
         Vector2 delta = _precisePosition - before;
         bool hitX = delta.X != 0 &&
-            _room.IsSolid(new Vector2(_precisePosition.X, before.Y));
+            ShooterTileBlocks(new Vector2(_precisePosition.X, before.Y));
         bool hitY = delta.Y != 0 &&
-            _room.IsSolid(new Vector2(before.X, _precisePosition.Y));
-        bool hitBoth = _room.IsSolid(_precisePosition);
+            ShooterTileBlocks(new Vector2(before.X, _precisePosition.Y));
+        bool hitBoth = ShooterTileBlocks(_precisePosition);
         if (!hitX && !hitY && !hitBoth)
         {
             Position = moved;
-            AdvanceAnimation();
             QueueRedraw();
             return;
         }
@@ -546,6 +547,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private void ActivateShooterSeed(ICollection<RoomEntitySpawn> spawns)
     {
         _collisionEnabled = false;
+        // @seedCollidedWithWall performs exactly one itemAnimate call. The
+        // moving shooter path itself never animates the seed.
+        AdvanceAnimation();
         switch (_record.SeedItem)
         {
             case 0x20:
@@ -562,6 +566,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 break;
         }
     }
+
+    private bool ShooterTileBlocks(Vector2 point) =>
+        _room.IsSolid(point) && !_shooter.CanPassSolidTile(_room, point);
 
     private void AdvanceAnimation()
     {

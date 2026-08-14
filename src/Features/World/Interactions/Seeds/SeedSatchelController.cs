@@ -81,11 +81,13 @@ public sealed class SeedSatchelController
         }
         _shooterActive = true;
         _shooterPrimaryButton = primaryButton;
-        _shooterAngle = AngleForDirection(player.FacingVector);
+        _shooterAngle = movementInput.LengthSquared() > 0.01f
+            ? AngleForInput(movementInput)
+            : AngleForDirection(player.FacingVector);
         _shooterAimCounter = _shooter.AimLockout;
         _shooterPostShotCounter = 0;
         _shooterFired = false;
-        UpdateShooterAngle(movementInput);
+        player.FaceShooterDirection(DirectionForAngle(_shooterAngle));
         return true;
     }
 
@@ -93,7 +95,8 @@ public sealed class SeedSatchelController
         Player player,
         Vector2 movementInput,
         bool primaryHeld,
-        bool secondaryHeld)
+        bool secondaryHeld,
+        bool directionJustPressed = false)
     {
         if (!_shooterActive)
             return false;
@@ -101,7 +104,10 @@ public sealed class SeedSatchelController
         {
             _shooterPostShotCounter--;
             if (_shooterPostShotCounter == 0)
+            {
+                player.FaceShooterDirection(DirectionForAngle(_shooterAngle));
                 ClearShooter();
+            }
             return true;
         }
 
@@ -111,9 +117,8 @@ public sealed class SeedSatchelController
             FireShooter(player);
             return true;
         }
-        if (_shooterAimCounter > 0)
-            _shooterAimCounter--;
-        UpdateShooterAngle(movementInput);
+        if (UpdateShooterAngle(movementInput, directionJustPressed))
+            player.QueueRedraw();
         return true;
     }
 
@@ -149,17 +154,25 @@ public sealed class SeedSatchelController
         _shooterPostShotCounter = _shooter.PostShotWait;
     }
 
-    private void UpdateShooterAngle(Vector2 input)
+    private bool UpdateShooterAngle(Vector2 input, bool directionJustPressed)
     {
+        if (!directionJustPressed)
+        {
+            _shooterAimCounter = (_shooterAimCounter - 1) & 0xff;
+            if (_shooterAimCounter != 0)
+                return false;
+        }
         if (input.LengthSquared() <= 0.01f)
-            return;
+            return false;
         int requested = AngleForInput(input);
-        if (_shooterAimCounter == 0 && requested != _shooterAngle)
+        if (requested != _shooterAngle)
         {
             int clockwise = (requested - _shooterAngle + 8) & 7;
             _shooterAngle = (_shooterAngle + (clockwise is > 0 and < 4 ? 1 : -1)) & 7;
             _shooterAimCounter = _shooter.AimLockout;
+            return true;
         }
+        return false;
     }
 
     private void ClearShooter()
@@ -208,6 +221,12 @@ internal readonly record struct SeedShooterRecord(
     int Sound,
     Vector2I[] Offsets,
     int[] NonBounceDungeonTiles,
+    byte[][] ItemPassableTiles,
+    string WeaponSprite,
+    int WeaponVramTileBase,
+    int WeaponPalette,
+    bool WeaponSourceGrayscaleInverted,
+    string[] WeaponOam,
     string Source)
 {
     internal static SeedShooterRecord Load()
@@ -219,7 +238,10 @@ internal readonly record struct SeedShooterRecord(
                 GeneratedTableKeySemantics.Unique,
                 ["item", "subid", "speed-raw", "bounces", "aim-lockout",
                     "post-shot-wait", "sound", "offsets",
-                    "non-bounce-dungeon-tiles", "source"],
+                    "non-bounce-dungeon-tiles", "item-passable-tiles",
+                    "weapon-sprite", "weapon-vram-tile-base",
+                    "weapon-palette", "weapon-source-grayscale-inverted",
+                    "weapon-oam", "source"],
                 ["item"],
                 headerRequired: true));
         if (table.Rows.Count != 1)
@@ -240,19 +262,82 @@ internal readonly record struct SeedShooterRecord(
         int[] nonBounce = System.Array.ConvertAll(
             row.RequiredString(8).Split(','), value =>
                 System.Convert.ToInt32(value, 16));
+        byte[][] passableTiles = ParseItemPassableTiles(
+            row.RequiredString(9), row);
+        string[] weaponOam = row.RequiredString(14).Split('|');
         var record = new SeedShooterRecord(
             row.HexByte(0), row.HexByte(1), row.HexByte(2),
             row.UnsignedDecimal(3), row.UnsignedDecimal(4),
             row.UnsignedDecimal(5), row.HexByte(6), offsets,
-            nonBounce, row.RequiredString(9));
+            nonBounce, passableTiles, row.RequiredString(10),
+            row.HexByte(11), row.HexByte(12), row.Boolean01(13), weaponOam,
+            row.RequiredString(15));
         if (record.Item != InventoryState.ItemShooter || record.SubId != 0x63 ||
             record.SpeedRaw != 0x78 || record.Bounces != 3 ||
             record.AimLockout != 16 || record.PostShotWait != 12 ||
-            record.Sound != 0xcb || offsets.Length != 8)
+            record.Sound != 0xcb || offsets.Length != 8 ||
+            record.ItemPassableTiles.Length != 6 ||
+            record.ItemPassableTiles[0].Length != 2 ||
+            record.ItemPassableTiles[1].Length != 3 ||
+            record.ItemPassableTiles[2].Length != 16 ||
+            record.ItemPassableTiles[3].Length != 0 ||
+            record.ItemPassableTiles[4].Length != 2 ||
+            record.ItemPassableTiles[5].Length != 16 ||
+            record.WeaponSprite != "spr_seed_shooter" ||
+            record.WeaponVramTileBase != 0x52 ||
+            record.WeaponPalette != 0 ||
+            record.WeaponSourceGrayscaleInverted ||
+            record.WeaponOam.Length != 8)
         {
             throw new System.InvalidOperationException(
                 "Imported ITEM_SHOOTER contract is incomplete.");
         }
         return record;
+    }
+
+    internal bool CanPassSolidTile(OracleRoomData room, Vector2 point)
+    {
+        int collisionSet = room.ActiveCollisions;
+        return collisionSet >= 0 && collisionSet < ItemPassableTiles.Length &&
+            System.Array.IndexOf(
+                ItemPassableTiles[collisionSet],
+                room.GetMetatile(point)) >= 0;
+    }
+
+    private static byte[][] ParseItemPassableTiles(
+        string encoded,
+        GeneratedTableRow row)
+    {
+        string[] groups = encoded.Split(';');
+        if (groups.Length != 6)
+            throw row.Invalid(9, "six collision-set tile lists");
+        var result = new byte[groups.Length][];
+        for (int index = 0; index < groups.Length; index++)
+        {
+            string[] pair = groups[index].Split(':');
+            if (pair.Length != 2 ||
+                !int.TryParse(pair[0], out int collisionSet) ||
+                collisionSet != index)
+            {
+                throw row.Invalid(
+                    9, "ordered collision-set:tile-list entries");
+            }
+            if (pair[1].Length == 0)
+            {
+                result[index] = [];
+                continue;
+            }
+            string[] tiles = pair[1].Split(',');
+            result[index] = new byte[tiles.Length];
+            for (int tileIndex = 0; tileIndex < tiles.Length; tileIndex++)
+            {
+                if (!byte.TryParse(
+                        tiles[tileIndex], out result[index][tileIndex]))
+                {
+                    throw row.Invalid(9, "decimal byte tile lists");
+                }
+            }
+        }
+        return result;
     }
 }

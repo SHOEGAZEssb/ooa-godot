@@ -747,6 +747,7 @@ Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bi
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"
 Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
 Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
+Copy-GeneratedFile "gfx\common\spr_seed_shooter.png" "gfx\spr_seed_shooter.png"
 Copy-GeneratedFile "gfx\ages\spr_subrosian.png" "gfx\spr_subrosian.png"
 Copy-GeneratedFile "gfx\common\spr_link_retro.png" "gfx\spr_link_retro.png"
 Copy-GeneratedFile "gfx\common\spr_octorok_leever_tektite_zora.png" "gfx\spr_octorok_leever_tektite_zora.png"

@@ -35,8 +35,11 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool BombParentActive => _bomb.Active;
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
+    public int SeedShooterAngle => _seedSatchel.ShooterAngle;
     public bool SideScrolling =>
         (_terrain.CurrentTilesetFlags & 0x20) != 0;
+    public bool Underwater =>
+        (_terrain.CurrentTilesetFlags & 0x40) != 0;
     public SideScrollPlayerParameters SideScrollParameters =>
         _terrain.SideScrollParameters;
     public bool RingTransformationsAllowed =>
@@ -127,9 +130,11 @@ public sealed class PlayerWorld : IPlayerWorld
         _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
     public bool UpdateSeedShooter(
         Player player, Vector2 movementInput,
-        bool primaryHeld, bool secondaryHeld) =>
+        bool primaryHeld, bool secondaryHeld,
+        bool directionJustPressed) =>
         _seedSatchel.UpdateShooter(
-            player, movementInput, primaryHeld, secondaryHeld);
+            player, movementInput, primaryHeld, secondaryHeld,
+            directionJustPressed);
     public void InterruptSeedShooter() => _seedSatchel.InterruptShooter();
     public int BeginHarp(Player player)
     {

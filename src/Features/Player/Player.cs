@@ -63,6 +63,11 @@ public partial class Player : Node2D
     private Texture2D _damagePushTexture = null!;
     private Texture2D _attackTexture = null!;
     private Texture2D _damageAttackTexture = null!;
+    private Texture2D[,] _seedShooterLinkTextures = null!;
+    private Texture2D[] _seedShooterWeaponTextures = null!;
+    private Texture2D[,] _seedShooterPoseTextures = null!;
+    private Texture2D[,] _damageSeedShooterPoseTextures = null!;
+    private Vector2[,] _seedShooterPoseOffsets = null!;
     private Texture2D _underwaterAttackTexture = null!;
     private Texture2D _damageUnderwaterAttackTexture = null!;
     private Texture2D _swordTexture = null!;
@@ -295,13 +300,15 @@ public partial class Player : Node2D
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
+    public bool IsUsingSeedShooter =>
+        _world is not null && _world.SeedShooterActive;
     public bool IsUsingHarp => _usingHarp;
     public bool IsUsingShield => _usingShield;
     internal bool IsUsingPunch => _usingPunch;
     internal bool IsUsingExpertPunch => _usingPunch && _expertPunch;
     private bool IsUsingItem =>
-        IsAttacking || IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp ||
-        IsUsingPunch;
+        IsAttacking || IsUsingShovel || IsUsingSeedSatchel ||
+        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -381,6 +388,41 @@ public partial class Player : Node2D
         OracleGraphicsCache.PixelHash(_texture.GetImage());
     internal ulong DamageLinkAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_damageTexture.GetImage());
+    internal ulong SeedShooterLinkTextureHash(int angle, int variant = 0) =>
+        OracleGraphicsCache.PixelHash(
+            _seedShooterLinkTextures[
+                CheckedSeedShooterVariant(variant),
+                CheckedSeedShooterAngle(angle)].GetImage());
+    internal ulong SeedShooterWeaponTextureHash(int angle) =>
+        OracleGraphicsCache.PixelHash(
+            _seedShooterWeaponTextures[CheckedSeedShooterAngle(angle)].GetImage());
+    internal int SeedShooterLinkOpaquePixels(int angle, int variant = 0) =>
+        CountOpaquePixels(_seedShooterLinkTextures[
+            CheckedSeedShooterVariant(variant),
+            CheckedSeedShooterAngle(angle)].GetImage());
+    internal int SeedShooterWeaponOpaquePixels(int angle)
+        => CountOpaquePixels(_seedShooterWeaponTextures[
+            CheckedSeedShooterAngle(angle)].GetImage());
+
+    private static int CountOpaquePixels(Image image)
+    {
+        int count = 0;
+        for (int y = 0; y < image.GetHeight(); y++)
+        for (int x = 0; x < image.GetWidth(); x++)
+        {
+            if (image.GetPixel(x, y).A > 0.1f)
+                count++;
+        }
+        return count;
+    }
+    internal Image SeedShooterPoseImage(int angle, int variant = 0) =>
+        _seedShooterPoseTextures[
+            CheckedSeedShooterVariant(variant),
+            CheckedSeedShooterAngle(angle)].GetImage();
+    internal Vector2 SeedShooterPoseOffset(int angle, int variant = 0) =>
+        _seedShooterPoseOffsets[
+            CheckedSeedShooterVariant(variant),
+            CheckedSeedShooterAngle(angle)];
     internal bool IsNewGameSlowFalling => _newGameSlowFalling;
     internal bool IsRoomWarpFalling => _roomWarpFallActive;
     internal bool RoomWarpFallCollapsed => _roomWarpFallCollapsed;
@@ -669,6 +711,9 @@ public partial class Player : Node2D
         _damagePushTexture = BuildPushLinkTexture(damagePalette: true);
         _attackTexture = BuildAttackLinkTexture(damagePalette: false);
         _damageAttackTexture = BuildAttackLinkTexture(damagePalette: true);
+        (_seedShooterLinkTextures, _seedShooterWeaponTextures,
+            _seedShooterPoseTextures, _damageSeedShooterPoseTextures,
+            _seedShooterPoseOffsets) = BuildSeedShooterPoseTextures();
         _underwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
             damagePalette: false);
         _damageUnderwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
@@ -1657,6 +1702,7 @@ public partial class Player : Node2D
 
         bool primaryItemInputSuppressed =
             _world.SideScrolling &&
+            !_world.Underwater &&
             _sideScrollSwimmingState == 2 &&
             !_sideScrollSwimMermaidAnimation &&
             _inventory.EquippedA != InventoryState.ItemSword;
@@ -1690,7 +1736,8 @@ public partial class Player : Node2D
             return;
         }
         if (_world.SeedShooterActive && _world.UpdateSeedShooter(
-                this, input, primaryPressed, secondaryPressed))
+                this, input, primaryPressed, secondaryPressed,
+                DirectionalInputJustPressed()))
         {
             _walking = false;
             _pushing = false;
@@ -1738,9 +1785,10 @@ public partial class Player : Node2D
             if (primaryItemInputSuppressed)
             {
                 // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
-                // swimming with Flippers, that physical edge starts the short
-                // burst instead of reaching the equipped A parent item. The
-                // underwater sword path is the supported exception.
+                // swimming with Flippers in an ordinary side-view map, that
+                // physical edge starts the short burst instead of reaching an
+                // equipped A parent item. TILESETFLAG_UNDERWATER instead uses
+                // checkUseItems' A-only underwater path.
             }
             else if (_world.ItemUsageDisabled)
             {
@@ -1758,7 +1806,7 @@ public partial class Player : Node2D
             else if (!_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
-            else if (!_minecartRideControlled && !_raftRideControlled &&
+            else if (!_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemShooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: true, input))
                 return;
@@ -1821,7 +1869,8 @@ public partial class Player : Node2D
             {
                 StartSeedSatchelAction(input);
             }
-            else if (!_minecartRideControlled && !_raftRideControlled &&
+            else if (!_raftRideControlled &&
+                !_world.Underwater &&
                 _inventory.EquippedB == InventoryState.ItemShooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: false, input))
             {
@@ -2930,6 +2979,10 @@ public partial class Player : Node2D
                     TopDownDiving ? 0 : (int)_facing * 16,
                     16,
                     16));
+        }
+        else if (IsUsingSeedShooter)
+        {
+            DrawSeedShooterPose();
         }
         else if (UsesSideScrollSwimmingSwordPose)
         {
@@ -5340,6 +5393,12 @@ public partial class Player : Node2D
         return current;
     }
 
+    private static bool DirectionalInputJustPressed() =>
+        Input.IsActionJustPressed("move_up") ||
+        Input.IsActionJustPressed("move_right") ||
+        Input.IsActionJustPressed("move_down") ||
+        Input.IsActionJustPressed("move_left");
+
     private static Vector2I FacingVectorFor(Facing facing) => facing switch
     {
         Facing.Up => Vector2I.Up,
@@ -5354,6 +5413,12 @@ public partial class Player : Node2D
             : direction == Vector2I.Right ? Facing.Right
             : direction == Vector2I.Down ? Facing.Down
             : Facing.Left;
+        QueueRedraw();
+    }
+
+    internal void FaceShooterDirection(Vector2I direction)
+    {
+        _facing = FacingForInput(_facing, direction);
         QueueRedraw();
     }
 
@@ -6862,6 +6927,140 @@ public partial class Player : Node2D
         }
         return ImageTexture.CreateFromImage(output);
     }
+
+    private (Texture2D[,] LinkTextures, Texture2D[] WeaponTextures,
+        Texture2D[,] Poses, Texture2D[,] DamagePoses, Vector2[,] Offsets)
+        BuildSeedShooterPoseTextures()
+    {
+        SeedShooterRecord record = SeedShooterRecord.Load();
+        Image linkSource = OracleGraphicsCache.LoadTwoBitSpriteSheet(
+            "res://assets/oracle/gfx/spr_link.2bpp", 0x22e0);
+        Image weaponSource = OracleGraphicsCache.LoadImage(
+            $"res://assets/oracle/gfx/{record.WeaponSprite}.png");
+        const int variantCount = 3;
+        int angleCount = record.WeaponOam.Length;
+        var linkTextures = new Texture2D[variantCount, angleCount];
+        var weaponTextures = new Texture2D[record.WeaponOam.Length];
+        var poses = new Texture2D[variantCount, angleCount];
+        var damagePoses = new Texture2D[variantCount, angleCount];
+        var offsets = new Vector2[variantCount, angleCount];
+        for (int angle = 0; angle < angleCount; angle++)
+        {
+            (Texture2D weapon, Vector2 weaponOffset) =
+                NpcCharacter.BuildPositionedOamTexture(
+                    weaponSource, record.WeaponOam[angle], tileBase: 0,
+                    basePalette: record.WeaponPalette,
+                    paletteOverride: null,
+                    sourceGrayscaleInverted:
+                        record.WeaponSourceGrayscaleInverted);
+            weaponTextures[angle] = weapon;
+            for (int variant = 0; variant < variantCount; variant++)
+            {
+                LinkGraphicRecord linkGraphic =
+                    _linkItems.Graphic("shooter", variant, 0, angle);
+                (Texture2D link, Vector2 linkOffset) =
+                    NpcCharacter.BuildPositionedOamTexture(
+                        linkSource, linkGraphic.Oam,
+                        tileBase: 0, basePalette: 0,
+                        paletteOverride: null,
+                        sourceGrayscaleInverted: true,
+                        sourceOffset: linkGraphic.ByteOffset);
+                (Texture2D damageLink, Vector2 damageLinkOffset) =
+                    NpcCharacter.BuildPositionedOamTexture(
+                        linkSource, linkGraphic.Oam,
+                        tileBase: 0, basePalette: 5,
+                        paletteOverride: null,
+                        sourceGrayscaleInverted: true,
+                        sourceOffset: linkGraphic.ByteOffset);
+                if (damageLinkOffset != linkOffset)
+                {
+                    throw new InvalidOperationException(
+                        $"ITEM_SHOOTER Link palette changed variant {variant}, " +
+                        $"angle {angle} OAM bounds.");
+                }
+                linkTextures[variant, angle] = link;
+                (poses[variant, angle], offsets[variant, angle]) =
+                    ComposeSeedShooterPose(
+                        link, linkOffset, weapon, weaponOffset);
+                (Texture2D damagePose, Vector2 damageOffset) =
+                    ComposeSeedShooterPose(
+                        damageLink, damageLinkOffset, weapon, weaponOffset);
+                damagePoses[variant, angle] = damagePose;
+                if (damageOffset != offsets[variant, angle])
+                {
+                    throw new InvalidOperationException(
+                        $"ITEM_SHOOTER damage palette changed variant " +
+                        $"{variant}, angle {angle} bounds.");
+                }
+            }
+        }
+        return (linkTextures, weaponTextures, poses, damagePoses, offsets);
+    }
+
+    private static (Texture2D Texture, Vector2 Offset) ComposeSeedShooterPose(
+        Texture2D link,
+        Vector2 linkOffset,
+        Texture2D weapon,
+        Vector2 weaponOffset)
+    {
+        int minX = Mathf.FloorToInt(Mathf.Min(linkOffset.X, weaponOffset.X));
+        int minY = Mathf.FloorToInt(Mathf.Min(linkOffset.Y, weaponOffset.Y));
+        int maxX = Mathf.CeilToInt(Mathf.Max(
+            linkOffset.X + link.GetWidth(), weaponOffset.X + weapon.GetWidth()));
+        int maxY = Mathf.CeilToInt(Mathf.Max(
+            linkOffset.Y + link.GetHeight(), weaponOffset.Y + weapon.GetHeight()));
+        Image output = Image.CreateEmpty(
+            maxX - minX, maxY - minY, false, Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+
+        // queueDrawEverything enqueues priority-$01 items before Link, so the
+        // shooter receives lower (winning) hardware OAM indices. Blend Link
+        // first and the shooter second to preserve that per-pixel priority.
+        BlendSeedShooterLayer(output, link.GetImage(), linkOffset, minX, minY);
+        BlendSeedShooterLayer(output, weapon.GetImage(), weaponOffset, minX, minY);
+        return (ImageTexture.CreateFromImage(output), new Vector2(minX, minY));
+    }
+
+    private static void BlendSeedShooterLayer(
+        Image output,
+        Image layer,
+        Vector2 offset,
+        int minX,
+        int minY)
+    {
+        output.BlendRect(
+            layer,
+            new Rect2I(0, 0, layer.GetWidth(), layer.GetHeight()),
+            new Vector2I(
+                Mathf.RoundToInt(offset.X) - minX,
+                Mathf.RoundToInt(offset.Y) - minY));
+    }
+
+    private void DrawSeedShooterPose()
+    {
+        int angle = CheckedSeedShooterAngle(_world.SeedShooterAngle);
+        // @determineBaseAnimation checks the underwater-map flag first, then
+        // SPECIALOBJECT_MINECART, before falling back to the ordinary pose.
+        int variant = _world.Underwater ? 2 : _minecartRideControlled ? 1 : 0;
+        DrawTexture(
+            DamagePaletteActive
+                ? _damageSeedShooterPoseTextures[variant, angle]
+                : _seedShooterPoseTextures[variant, angle],
+            _seedShooterPoseOffsets[variant, angle]);
+    }
+
+    private static int CheckedSeedShooterAngle(int angle) =>
+        angle is >= 0 and < 8
+            ? angle
+            : throw new ArgumentOutOfRangeException(
+                nameof(angle), angle, "ITEM_SHOOTER angle must be 0-7.");
+
+    private static int CheckedSeedShooterVariant(int variant) =>
+        variant is >= 0 and < 3
+            ? variant
+            : throw new ArgumentOutOfRangeException(
+                nameof(variant), variant,
+                "ITEM_SHOOTER graphics variant must be normal, minecart, or underwater.");
 
     private Texture2D BuildUnderwaterAttackLinkTexture(bool damagePalette)
     {

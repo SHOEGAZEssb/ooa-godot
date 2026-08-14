@@ -16,6 +16,7 @@ public interface IPlayerWorld
     bool RidingObject { get; }
     bool BombParentActive => false;
     bool SideScrolling { get; }
+    bool Underwater => false;
     SideScrollPlayerParameters SideScrollParameters { get; }
     bool ApplySwordHit(Player player, Rect2 hitbox);
     bool ApplySwordTileHit(Player player, int direction, bool swordPoke);
@@ -41,11 +42,13 @@ public interface IPlayerWorld
     void InterruptBracelet(Player player, bool discard);
     int TryUseSeedSatchel(Player player);
     bool SeedShooterActive => false;
+    int SeedShooterAngle => 0;
     bool TryBeginSeedShooter(
         Player player, bool primaryButton, Vector2 movementInput) => false;
     bool UpdateSeedShooter(
         Player player, Vector2 movementInput,
-        bool primaryHeld, bool secondaryHeld) => false;
+        bool primaryHeld, bool secondaryHeld,
+        bool directionJustPressed) => false;
     void InterruptSeedShooter() { }
     int BeginHarp(Player player) => 0;
     void AdvanceHarp(Player player, int actionUpdate) { }
