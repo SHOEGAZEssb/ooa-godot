@@ -7,6 +7,286 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoom44eMoonlitGrotto()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new DungeonMechanicDatabase();
+        IReadOnlyList<DungeonMechanicDatabaseRecord> records =
+            data.GetRoomRecords(4, 0x4e);
+        FailIf(
+            records.Count != 8 ||
+            records.Select(record => (record.Order, record.Id, record.SubId,
+                record.PackedPosition, record.Parameter)).ToArray() is not
+            [
+                (0, 0x23, 0x01, 0x39, 0x02),
+                (1, 0x23, 0x01, 0x42, 0x03),
+                (2, 0x23, 0x01, 0x4c, 0x04),
+                (3, 0x03, 0x02, 0x31, 0x00),
+                (4, 0x03, 0x03, 0x3d, 0x00),
+                (5, 0x05, 0x02, 0x68, 0x00),
+                (6, 0x33, 0x0a, 0x18, 0x0c),
+                (7, 0xc7, 0x04, 0x0f, 0x16)
+            ],
+            "Room 4:4e lost its eight source-ordered bridge/orb/switch/" +
+            "seed-bouncer/respawnable-bush objects.");
+
+        _runtimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0);
+        _runtimeState.SetWramByte(
+            OracleRuntimeState.ToggleBlocksStateAddress, 0);
+        LoadValidationRoom(4, 0x4e);
+        _sound.ClearPlayRequestAudit();
+        OracleRoomData room = _currentRoom;
+        List<ExtendableBridgeRoomEntity> bridges =
+            _entities.Entities<ExtendableBridgeRoomEntity>();
+        List<DungeonOrbRoomEntity> orbs =
+            _entities.Entities<DungeonOrbRoomEntity>();
+        DungeonSwitchRoomEntity roomSwitch =
+            _entities.Entities<DungeonSwitchRoomEntity>().Single();
+        RotatableSeedThingRoomEntity bouncer =
+            _entities.Entities<RotatableSeedThingRoomEntity>().Single();
+        FailIf(
+            bridges.Select(bridge =>
+                (bridge.PackedPosition, bridge.PatternVariant)).ToArray() is not
+                [(0x39, 2), (0x42, 3), (0x4c, 4)] ||
+            orbs.Select(orb => (room.GetPackedPosition(orb.Position),
+                orb.ToggleMask)).ToArray() is not [(0x31, 0x04), (0x3d, 0x08)] ||
+            roomSwitch is not { PackedPosition: 0x68, SwitchMask: 0x02 } ||
+            bouncer.Position != Point(0x18) || bouncer.ToggleMask != 0x0c ||
+            bouncer.Orientation != 2 ||
+            !room.IsSolid(Point(0x18) + Vector2.Left * 4) ||
+            room.IsSolid(Point(0x18) + Vector2.Right * 4) ||
+            _entities.Entities<RespawnableBushScannerRoomEntity>().Count != 1 ||
+            _entities.Entities<RespawnableBushRoomEntity>().Count != 0,
+            "Room 4:4e did not instantiate the placed mechanisms before the " +
+            "`$c7:$04 scanner's first interaction update.");
+
+        Step();
+        List<RespawnableBushRoomEntity> bushes =
+            _entities.Entities<RespawnableBushRoomEntity>();
+        FailIf(
+            _entities.Entities<RespawnableBushScannerRoomEntity>().Count != 0 ||
+            bushes.Select(bush =>
+                (bush.PackedPosition, bush.DropSubId)).ToArray() is not
+                [(0x11, 0x06), (0x12, 0x06), (0x8a, 0x06), (0x9a, 0x06)] ||
+            bridges.Select(bridge => bridge.BridgePresent).ToArray() is not
+                [false, true, true],
+            "Room 4:4e's scanner did not create four initialized Scent Seed " +
+            "bushes in layout order or the bridges misread their source tiles.");
+
+        SeedShooterRecord shooter = SeedShooterRecord.Load();
+        SeedRecord ember = new SeedSatchelDatabase().Ember;
+        EmberSeedEffect SpawnShooterSeed(Vector2 position, int angle = 1) =>
+            _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+                position - shooter.Offsets[angle],
+                Vector2I.Up,
+                ember,
+                4,
+                SeedLaunchKind.Shooter,
+                angle));
+
+        EmberSeedEffect firstOrbSeed = SpawnShooterSeed(
+            orbs[0].Position + new Vector2(12, 0), angle: 6);
+        Step();
+        FailIf(
+            firstOrbSeed.State != EmberState.Flying ||
+            _runtimeState.ReadWramByte(
+                OracleRuntimeState.ToggleBlocksStateAddress) != 0,
+            "A newly allocated shooter seed collided with PART_ORB during " +
+            "its setup-only update.");
+        int firstOrbFlightUpdates = 0;
+        while ((_runtimeState.ReadWramByte(
+                   OracleRuntimeState.ToggleBlocksStateAddress) & 0x04) == 0 &&
+               firstOrbFlightUpdates < 6)
+        {
+            Step();
+            firstOrbFlightUpdates++;
+        }
+        FailIf(
+            firstOrbFlightUpdates != 3 ||
+            _runtimeState.ReadWramByte(
+                OracleRuntimeState.ToggleBlocksStateAddress) != 0x04 ||
+            orbs[0].Palette != 2 || orbs[0].HitLockout != 0 ||
+            firstOrbSeed.State != EmberState.Burning ||
+            firstOrbSeed.CollisionEnabled || bouncer.Orientation != 3 ||
+            _sound.PlayRequestsFor(0x7e) != 1,
+            "A shooter-fired Ember Seed did not reach PART_ORB before solid-" +
+            "tile handling, XOR bit `$04, activate on collision, and rotate " +
+            "the seed bouncer without sword-style invincibility " +
+            $"(flight={firstOrbFlightUpdates}, toggle=${_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}, " +
+            $"palette={orbs[0].Palette}, lockout={orbs[0].HitLockout}, " +
+            $"seed={firstOrbSeed.State}/{firstOrbSeed.PrecisePosition}, " +
+            $"bouncer={bouncer.Orientation}, switchSounds={_sound.PlayRequestsFor(0x7e)}).");
+
+        EmberSeedEffect secondOrbSeed = SpawnShooterSeed(
+            orbs[1].Position - new Vector2(12, 0), angle: 2);
+        Step();
+        int secondOrbFlightUpdates = 0;
+        while ((_runtimeState.ReadWramByte(
+                   OracleRuntimeState.ToggleBlocksStateAddress) & 0x08) == 0 &&
+               secondOrbFlightUpdates < 6)
+        {
+            Step();
+            secondOrbFlightUpdates++;
+        }
+        FailIf(
+            secondOrbFlightUpdates != 3 ||
+            _runtimeState.ReadWramByte(
+                OracleRuntimeState.ToggleBlocksStateAddress) != 0x0c ||
+            orbs[1].Palette != 2 || orbs[1].HitLockout != 0 ||
+            secondOrbSeed.State != EmberState.Burning ||
+            secondOrbSeed.CollisionEnabled || bouncer.Orientation != 0 ||
+            _sound.PlayRequestsFor(0x7e) != 2,
+            "The second shooter seed did not toggle room 4:4e orb bit `$08, " +
+            "rotate the seed bouncer, and play SND_SWITCH once.");
+
+        Vector2 childBouncePoint = bouncer.Position + new Vector2(0, 12);
+        EmberSeedEffect reflectedSeed = SpawnShooterSeed(bouncer.Position);
+        Step();
+        FailIf(
+            reflectedSeed.State != EmberState.Flying ||
+            reflectedSeed.PrecisePosition != bouncer.Position ||
+            !bouncer.IntersectsSeed(reflectedSeed.CollisionBounds) ||
+            !bouncer.IntersectsSeed(new Rect2(
+                childBouncePoint - Vector2.One,
+                Vector2.One * 2)) ||
+            bouncer.SeedBounceOrientation != 0 ||
+            bouncer.CollisionRadii != new Vector2(4, 6),
+            "The `$33:$0a parent/child did not expose their source `$06/$04 " +
+            "orientation-0 collision rectangles to shooter seeds.");
+        Step();
+        FailIf(
+            reflectedSeed.State != EmberState.Flying ||
+            reflectedSeed.Angle != 7 ||
+            reflectedSeed.BouncesRemaining != 2,
+            "COLLISIONEFFECT_2a/func_50f4 did not reflect shooter angle 1 " +
+            "to angle 7, consume one bounce, and bypass same-update terrain " +
+            "collision from animation parameter 0.");
+        reflectedSeed.OnCollision(SeedHitResult.Consume);
+        Step();
+
+        _sound.ClearPlayRequestAudit();
+        EmberSeedEffect switchSeed = SpawnShooterSeed(
+            roomSwitch.Position - new Vector2(0, 12), angle: 4);
+        Step();
+        int switchFlightUpdates = 0;
+        while (_runtimeState.ReadWramByte(
+                   OracleRuntimeState.SwitchStateAddress) == 0 &&
+               switchFlightUpdates < 6)
+        {
+            Step();
+            switchFlightUpdates++;
+        }
+        FailIf(
+            switchFlightUpdates != 3 ||
+            _runtimeState.ReadWramByte(
+                OracleRuntimeState.SwitchStateAddress) != 0x02 ||
+            room.GetMetatile(Point(0x68)) != data.SwitchOnTile ||
+            roomSwitch.HitLockout != 0 ||
+            switchSeed.State != EmberState.Burning ||
+            switchSeed.CollisionEnabled ||
+            bridges.Any(bridge =>
+                !bridge.UpdatingTiles || bridge.Counter != 10),
+            "A shooter-fired Ember Seed did not reach PART_SWITCH before " +
+            "terrain handling, XOR wSwitchState bit 1, activate on contact, " +
+            "and start all three bridge streams without sword invincibility.");
+        Step(9);
+        FailIf(
+            room.GetMetatile(Point(0x39)) != 0xf7 ||
+            room.GetMetatile(Point(0x62)) != 0x6a ||
+            room.GetMetatile(Point(0x6c)) != 0x6a,
+            "INTERAC_EXTENDABLE_BRIDGE changed a tile before its tenth update.");
+        Step();
+        FailIf(
+            room.GetMetatile(Point(0x39)) != 0x6d ||
+            room.GetMetatile(Point(0x62)) != 0xf4 ||
+            room.GetMetatile(Point(0x6c)) != 0xf4 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 3,
+            "The three room 4:4e bridge streams did not apply their first " +
+            "source tile together with SND_DOORCLOSE on update ten.");
+        Step(30);
+        FailIf(
+            room.GetMetatile(Point(0x39)) != 0x6d ||
+            room.GetMetatile(Point(0x38)) != 0x6d ||
+            room.GetMetatile(Point(0x37)) != 0x6d ||
+            room.GetMetatile(Point(0x36)) != 0x6d ||
+            room.GetMetatile(Point(0x42)) != 0xf4 ||
+            room.GetMetatile(Point(0x52)) != 0xf4 ||
+            room.GetMetatile(Point(0x62)) != 0xf4 ||
+            room.GetMetatile(Point(0x4c)) != 0xf4 ||
+            room.GetMetatile(Point(0x5c)) != 0xf4 ||
+            room.GetMetatile(Point(0x6c)) != 0xf4 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 10,
+            "Room 4:4e did not finish the source-ordered horizontal creation " +
+            "and paired vertical removals at ten-update intervals.");
+        Step(10);
+        FailIf(bridges.Any(bridge => bridge.UpdatingTiles),
+            "The horizontal bridge did not consume its terminal `$ff ten " +
+            "updates after placing the fourth tile.");
+
+        RespawnableBushRoomEntity bush = bushes[0];
+        int rngCalls = _random.Calls;
+        int dropsBefore = _entities.Entities<ItemDropEffect>().Count;
+        FailIf(!_entities.ApplySwordHit(bush.CollisionBounds, bush.Position),
+            "The room 4:4e respawnable bush rejected an ordinary sword hit.");
+        bool expectedDrop = (_random.LastResult.Value & 1) != 0;
+        FailIf(
+            _random.Calls != rngCalls + 1 ||
+            bush.State != RespawnableBushState.CutDelay ||
+            bush.Counter != 0xf0 || room.GetMetatile(bush.Position) != 0x02 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1 ||
+            _entities.Entities<ItemDropEffect>().Count !=
+                dropsBefore + (expectedDrop ? 1 : 0) ||
+            expectedDrop && _entities.Entities<ItemDropEffect>()[^1].SubId != 0x06,
+            "Cutting PART_RESPAWNABLE_BUSH did not consume one RNG value, " +
+            "apply the 50% fixed Scent Seed drop, create grass debris, and " +
+            "enter tile `$02/$f0 delay.");
+
+        int delayUpdates = 0;
+        while (bush.State == RespawnableBushState.CutDelay && delayUpdates < 482)
+        {
+            Step();
+            delayUpdates++;
+        }
+        FailIf(
+            delayUpdates is < 479 or > 480 ||
+            bush.State != RespawnableBushState.Regenerating ||
+            bush.Counter != 0x0c || room.GetMetatile(bush.Position) != 0x03,
+            "PART_RESPAWNABLE_BUSH did not decrement `$f0 on alternating " +
+            "global frames before entering its `$0c tile-$03 regeneration.");
+        Step(11);
+        FailIf(bush.State != RespawnableBushState.Regenerating || bush.Counter != 1,
+            "The respawnable bush ended its `$0c regeneration wait early.");
+        Step();
+        FailIf(
+            bush.State != RespawnableBushState.Arming || bush.Counter != 8 ||
+            room.GetMetatile(bush.Position) != 0x04 || bush.CollisionEnabled,
+            "The respawnable bush did not restore tile `$04 before its final " +
+            "eight-update collision delay.");
+        Step(7);
+        FailIf(bush.CollisionEnabled,
+            "The restored respawnable bush enabled collision before update eight.");
+        Step();
+        FailIf(!bush.CollisionEnabled || bush.State != RespawnableBushState.Ready,
+            "The restored respawnable bush did not re-arm on update eight.");
+
+        GD.Print(
+            "Validated full room 4:4e: eight source-ordered objects, three " +
+            "bit-1 extendable bridges and ten-update tile streams, two toggle " +
+            "orbs and switch hit by moving shooter seeds before terrain, one " +
+            "visible rotating bouncer with its collision-only child, four " +
+            "`$c7-created Scent Seed bushes, one-call 50% drops, debris, and " +
+            "exact respawn timing.");
+    }
+
     private void ValidateRoom456MoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
@@ -41,8 +321,8 @@ public sealed partial class ValidationRoot
         Vector2 incomingOffset = Vector2.Left * transitionDestination.Width;
         _entities.BeginScreenTransition(
             4, transitionDestination, incomingOffset);
-        MoonlitGrottoOrbRoomEntity preloadedOrb =
-            _entities.Entities<MoonlitGrottoOrbRoomEntity>().Single();
+        DungeonOrbRoomEntity preloadedOrb =
+            _entities.Entities<DungeonOrbRoomEntity>().Single();
         MoonlitGrottoArmosEventRoomEntity preloadedEvent =
             _entities.Entities<MoonlitGrottoArmosEventRoomEntity>().Single();
         FailIf(
@@ -64,7 +344,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x56);
         FailIf(
             _entities.Entities<MoonlitGrottoArmosEventRoomEntity>().Count != 1 ||
-            _entities.Entities<MoonlitGrottoOrbRoomEntity>().Count != 0 ||
+            _entities.Entities<DungeonOrbRoomEntity>().Count != 0 ||
             _entities.Entities<ItemDropProducer>().Select(value => value.Position)
                 .ToArray() is not [{ X: 0x98, Y: 0x18 }, { X: 0x98, Y: 0x28 }] ||
             _currentRoom.GetMetatile(Point(0x44)) != 0x26 ||
@@ -73,8 +353,8 @@ public sealed partial class ValidationRoot
             "producers, hidden $26 statue, and unspawned Compass chest.");
 
         Step();
-        MoonlitGrottoOrbRoomEntity orb =
-            _entities.Entities<MoonlitGrottoOrbRoomEntity>().Single();
+        DungeonOrbRoomEntity orb =
+            _entities.Entities<DungeonOrbRoomEntity>().Single();
         FailIf(
             orb.Position != Point(0x75) || orb.ToggleMask != 0x10 ||
             orb.IsOn || orb.Palette != 1 ||
@@ -248,7 +528,7 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             _entities.Entities<MoonlitGrottoArmosEventRoomEntity>().Count != 0 ||
-            _entities.Entities<MoonlitGrottoOrbRoomEntity>().Count != 1 ||
+            _entities.Entities<DungeonOrbRoomEntity>().Count != 1 ||
             _entities.Entities<ArmosCharacter>().Count != 0 ||
             _entities.Entities<EnemyClearChestRoomEntity>().Count != 0 ||
             (_runtimeState.ReadWramByte(

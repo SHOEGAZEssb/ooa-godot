@@ -10,7 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntity,
     IFixedRoomEntity, ISwordHittableRoomEntity,
-    IItemCollisionHittableRoomEntity, IObjectCollisionHeightRoomEntity
+    IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
+    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
@@ -96,22 +97,32 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         return false;
     }
 
-    private void TryToggle(Rect2 hitbox)
+    public SeedHitResult ApplySeedHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int seedItem,
+        ICollection<RoomEntitySpawn> spawns) =>
+        TryToggle(hitbox, applyHitLockout: false)
+            ? SeedHitResult.Activate
+            : SeedHitResult.None;
+
+    private bool TryToggle(Rect2 hitbox, bool applyHitLockout = true)
     {
         if (_hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
-            return;
+            return false;
 
         byte switchState = _runtime.ReadWramByte(
             OracleRuntimeState.SwitchStateAddress);
         switchState ^= (byte)SwitchMask;
         _runtime.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, switchState);
-        _hitLockout = _data.SwitchHitLockout;
+        _hitLockout = applyHitLockout ? _data.SwitchHitLockout : 0;
         SetSwitchTile(
             (switchState & SwitchMask) != 0
                 ? _data.SwitchOnTile
                 : _data.SwitchOffTile);
         _playSound(_data.SwitchSound);
+        return true;
     }
 
     private bool SwitchIsOn() =>

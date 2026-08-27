@@ -4,21 +4,22 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>PART_ORB $03:$04 created by room 4:56's event.</summary>
-internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2D,
+/// <summary>Common PART_ORB $03 placed directly or spawned by an event.</summary>
+internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, ISwordHittableRoomEntity,
     IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity
+    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget
 {
     private readonly DungeonMechanicDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly EnemyAnimationPlayer _animation;
+    private readonly int _toggleMask;
     private int _hitLockout;
 
     public Node2D Node => this;
     public int CollisionZ => 0;
-    internal int ToggleMask => _data.MoonlitOrbMask;
+    internal int ToggleMask => _toggleMask;
     internal int Palette => IsOn ? 2 : 1;
     internal int HitLockout => _hitLockout;
     internal bool IsOn =>
@@ -34,9 +35,35 @@ internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2
             _data.MoonlitOrbRadiusX * 2,
             _data.MoonlitOrbRadiusY * 2));
 
-    internal MoonlitGrottoOrbRoomEntity(
+    internal DungeonOrbRoomEntity(
+        DungeonMechanicDatabaseRecord record,
+        DungeonMechanicDatabase data,
+        DungeonInteractionVisual visual,
+        OracleRoomData roomData,
+        OracleRuntimeState runtime,
+        Func<long> animationTick,
+        Action<int> playSound)
+        : this(
+            record.Group,
+            record.Room,
+            record.PackedPosition,
+            1 << (record.SubId & 0x07),
+            data,
+            visual,
+            roomData,
+            runtime,
+            animationTick,
+            playSound)
+    {
+        if (record.Id != 0x03 || record.SubId > 0x07)
+            throw new ArgumentOutOfRangeException(nameof(record));
+    }
+
+    internal DungeonOrbRoomEntity(
         int group,
         int room,
+        int packedPosition,
+        int toggleMask,
         DungeonMechanicDatabase data,
         DungeonInteractionVisual visual,
         OracleRoomData roomData,
@@ -44,11 +71,14 @@ internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2
         Func<long> animationTick,
         Action<int> playSound)
     {
+        if (toggleMask is <= 0 or > 0x80 || (toggleMask & (toggleMask - 1)) != 0)
+            throw new ArgumentOutOfRangeException(nameof(toggleMask));
         _data = data;
         _runtime = runtime;
         _playSound = playSound;
-        Name = $"GrottoOrb_{group}_{room:x2}";
-        Position = Point(data.MoonlitOrbPosition);
+        _toggleMask = toggleMask;
+        Name = $"DungeonOrb_{group}_{room:x2}_{packedPosition:x2}";
+        Position = Point(packedPosition);
         ZIndex = NpcCharacter.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
@@ -72,9 +102,6 @@ internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        // ENEMYCOLLISION_SWITCH applies ENEMYDMG_34. Its signed $e4
-        // invincibility counter increments through zero over 28 updates,
-        // preventing one multi-frame bomb explosion from hitting repeatedly.
         if (_hitLockout > 0)
             _hitLockout--;
     }
@@ -111,9 +138,11 @@ internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2
         Vector2 sourcePosition,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        Toggle(hitbox) ? SeedHitResult.Consume : SeedHitResult.None;
+        Toggle(hitbox, applyHitLockout: false)
+            ? SeedHitResult.Activate
+            : SeedHitResult.None;
 
-    private bool Toggle(Rect2 hitbox)
+    private bool Toggle(Rect2 hitbox, bool applyHitLockout = true)
     {
         if (_hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
             return false;
@@ -122,7 +151,7 @@ internal sealed partial class MoonlitGrottoOrbRoomEntity : TransitionOffsetNode2
         _runtime.SetWramByte(
             OracleRuntimeState.ToggleBlocksStateAddress,
             (byte)(state ^ ToggleMask));
-        _hitLockout = _data.SwitchHitLockout;
+        _hitLockout = applyHitLockout ? _data.SwitchHitLockout : 0;
         _playSound(_data.SwitchSound);
         QueueRedraw();
         return true;

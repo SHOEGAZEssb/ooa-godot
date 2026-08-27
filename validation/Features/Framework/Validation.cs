@@ -296,6 +296,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateBraceletChestAndPushGate);
         RunIsolatedValidation(ValidatePushBlocks);
         RunIsolatedValidation(ValidateDungeonMechanics);
+        RunIsolatedValidation(ValidateRoom44eMoonlitGrotto);
         RunIsolatedValidation(ValidateRoom456MoonlitGrotto);
         RunIsolatedValidation(ValidateRoom458MoonlitGrotto);
         RunIsolatedValidation(ValidateRoom45eMoonlitGrotto);

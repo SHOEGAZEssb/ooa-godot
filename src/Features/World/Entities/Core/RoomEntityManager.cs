@@ -459,6 +459,13 @@ public sealed class RoomEntityManager : IDisposable
             // model that creation update and therefore remain unconditional.
             ProcessSpawns(frame);
 
+            // itemUpdateDamageToApply resolves PART_ORB, PART_SWITCH, and
+            // PART_ROTATABLE_SEED_THING before seedItemState1's terrain check
+            // and objectApplySpeed. Keep those solid-tile parts in that pass.
+            if (!textActive && !roomEntityFreezeActive)
+                ResolvePreMovementSeedCollisions();
+            ProcessSpawns(frame);
+
             // updateItems clears wScentSeedActive, updates every item slot,
             // and only then begins the enemy pass. Run active seed children in
             // that source phase so a landed scent starts on its following
@@ -821,7 +828,8 @@ public sealed class RoomEntityManager : IDisposable
             }
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
-                if (target is not ISeedHittableRoomEntity hittable)
+                if (target is not ISeedHittableRoomEntity hittable ||
+                    target is ISeedPreMovementCollisionTarget)
                     continue;
                 SeedHitResult result = hittable.ApplySeedHit(
                     seed.CollisionBounds,
@@ -832,7 +840,51 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     continue;
                 }
-                seed.OnCollision(result, hittable as ISeedBurnTarget);
+                seed.OnCollision(
+                    result,
+                    hittable as ISeedBurnTarget,
+                    hittable as ISeedBounceTarget);
+                break;
+            }
+        }
+    }
+
+    private void ResolvePreMovementSeedCollisions()
+    {
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            if (entity is not ISeedProjectileRoomEntity
+                { CollisionEnabled: true } seed)
+            {
+                continue;
+            }
+            foreach (IRoomEntity target in _activeEntities.ToArray())
+            {
+                if (target is not ISeedPreMovementCollisionTarget ||
+                    target is not ISeedHittableRoomEntity hittable)
+                {
+                    continue;
+                }
+                SeedHitResult result = hittable.ApplySeedHit(
+                    seed.CollisionBounds,
+                    seed.CollisionBounds.GetCenter(),
+                    seed.SeedItem,
+                    _pendingSpawns);
+                if (result == SeedHitResult.None)
+                    continue;
+                ISeedBounceTarget? bounceTarget =
+                    target as ISeedBounceTarget;
+                if (result == SeedHitResult.Bounce && bounceTarget is null)
+                {
+                    throw new InvalidOperationException(
+                        $"{target.GetType().Name} returned {result} from " +
+                        "the pre-movement seed-collision pass without " +
+                        $"implementing {nameof(ISeedBounceTarget)}.");
+                }
+                seed.OnCollision(
+                    result,
+                    hittable as ISeedBurnTarget,
+                    bounceTarget);
                 break;
             }
         }

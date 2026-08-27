@@ -10,5 +10,8 @@ internal interface ISeedProjectileRoomEntity
     int SeedItem { get; }
     Vector2? ScentTarget { get; }
     Rect2 CollisionBounds { get; }
-    void OnCollision(SeedHitResult result, ISeedBurnTarget? burnTarget);
+    void OnCollision(
+        SeedHitResult result,
+        ISeedBurnTarget? burnTarget,
+        ISeedBounceTarget? bounceTarget);
 }

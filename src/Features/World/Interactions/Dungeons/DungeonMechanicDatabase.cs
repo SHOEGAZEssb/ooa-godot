@@ -4,7 +4,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Imported placements and common constants for PART_SWITCH $05,
+/// Imported placements and common constants for PART_ORB $03, PART_SWITCH $05,
+/// INTERAC_EXTENDABLE_BRIDGE $23, rotating seed bouncer PART $33:$0a,
+/// respawnable-bush scanner $c7:$04,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
 /// INTERAC_DUNGEON_STUFF $12:$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
 /// shutter-door controller variants $1e:$04-$0b, torch-count translator
@@ -32,6 +34,9 @@ internal sealed class DungeonMechanicDatabase
     internal int OpenTile => Constant("open-tile");
     internal int SolveSound => Constant("solve-sound");
     internal int DoorSound => Constant("door-sound");
+    internal int BridgeStepWait => Constant("bridge-step-wait");
+    internal int BridgeFirstTile => Constant("bridge-first-tile");
+    internal int BridgeTileCount => Constant("bridge-tile-count");
     internal int ButtonTile => Constant("button-tile");
     internal int PressedButtonTile => Constant("pressed-button-tile");
     internal int ButtonRadiusY => Constant("button-radius-y");
@@ -48,6 +53,14 @@ internal sealed class DungeonMechanicDatabase
     internal int ChestTile => Constant("chest-tile");
     internal int ChestWait => Constant("chest-wait");
     internal int PuffSound => Constant("puff-sound");
+    internal int RespawningBushCutTile => Constant("respawning-bush-cut-tile");
+    internal int RespawningBushRegenTile => Constant("respawning-bush-regen-tile");
+    internal int RespawningBushReadyTile => Constant("respawning-bush-ready-tile");
+    internal int RespawningBushDelay => Constant("respawning-bush-delay");
+    internal int RespawningBushRegenWait => Constant("respawning-bush-regen-wait");
+    internal int RespawningBushReadyWait => Constant("respawning-bush-ready-wait");
+    internal int RespawningBushRadiusY => Constant("respawning-bush-radius-y");
+    internal int RespawningBushRadiusX => Constant("respawning-bush-radius-x");
     internal int MoonlitGlobalFlag => Constant("moonlit-global-flag");
     internal int MoonlitAllCrystalsMask => Constant("moonlit-all-crystals-mask");
     internal int MoonlitRoomFlag => Constant("moonlit-room-flag");
@@ -112,12 +125,15 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x24 or 0xc7) ||
+            if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0xc7) ||
+                record.Id == 0x03 && record.SubId > 0x07 ||
                 record.Id == 0x12 && record.SubId != 0x02 ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
+                record.Id == 0x23 && record.SubId > 0x07 ||
                 record.Id == 0x24 && record.SubId is not (0x02 or 0x10 or 0x20 or 0x40 or 0x80) ||
-                record.Id == 0xc7 && record.SubId != 0x08)
+                record.Id == 0x33 && record.SubId != 0x0a ||
+                record.Id == 0xc7 && record.SubId is not (0x04 or 0x08))
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             List<DungeonMechanicDatabaseRecord> records =
                 _recordsByRoom.GetOrAdd(
@@ -192,6 +208,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room22 = GetRoomRecords(4, 0x22);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room2f = GetRoomRecords(4, 0x2f);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room65 = GetRoomRecords(4, 0x65);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room4e = GetRoomRecords(4, 0x4e);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room56 = GetRoomRecords(4, 0x56);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room59 = GetRoomRecords(4, 0x59);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room5e = GetRoomRecords(4, 0x5e);
@@ -200,7 +217,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 196 || _constants.Count != 55 || _texts.Count != 2 ||
+        if (RecordCount != 225 || _constants.Count != 66 || _texts.Count != 2 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -236,6 +253,24 @@ internal sealed class DungeonMechanicDatabase
                 new DungeonMechanicDatabaseRecord(
                     4, 0x65, 0, 0x12, 0x02, 0x58, 0x00,
                     TriggerPredicate.None, true) ||
+            room4e.Count != 8 ||
+            room4e[0] != new DungeonMechanicDatabaseRecord(
+                4, 0x4e, 0, 0x23, 0x01, 0x39, 0x02,
+                TriggerPredicate.None, true) ||
+            room4e[1] is not { Order: 1, Id: 0x23, SubId: 0x01,
+                PackedPosition: 0x42, Parameter: 0x03 } ||
+            room4e[2] is not { Order: 2, Id: 0x23, SubId: 0x01,
+                PackedPosition: 0x4c, Parameter: 0x04 } ||
+            room4e[3] is not { Order: 3, Id: 0x03, SubId: 0x02,
+                PackedPosition: 0x31 } ||
+            room4e[4] is not { Order: 4, Id: 0x03, SubId: 0x03,
+                PackedPosition: 0x3d } ||
+            room4e[5] is not { Order: 5, Id: 0x05, SubId: 0x02,
+                PackedPosition: 0x68 } ||
+            room4e[6] is not { Order: 6, Id: 0x33, SubId: 0x0a,
+                PackedPosition: 0x18, Parameter: 0x0c } ||
+            room4e[7] is not { Order: 7, Id: 0xc7, SubId: 0x04,
+                PackedPosition: 0x0f, Parameter: 0x16 } ||
             room56.Count != 1 || room56[0] !=
                 new DungeonMechanicDatabaseRecord(
                     4, 0x56, 0, 0x21, 0x0a, 0x00, 0x00,
@@ -293,6 +328,8 @@ internal sealed class DungeonMechanicDatabase
             room0b.Count != 2 || room0b[0].SubId != 0x08 || room0b[1].SubId != 0x0b ||
             PushableBlock != 0x1d || PushDelay != 30 || SolveWait != 8 ||
             DoorFrameWait != 6 || OpenTile != 0xa0 ||
+            BridgeStepWait != 10 || BridgeFirstTile != 0x6a ||
+            BridgeTileCount != 6 ||
             ClosedTile(0x08) != 0x78 || ClosedTile(0x09) != 0x79 ||
             ClosedTile(0x0a) != 0x7a || ClosedTile(0x0b) != 0x7b ||
             ClosedTile(0x04) != 0x78 || ClosedTile(0x07) != 0x7b ||
@@ -305,6 +342,13 @@ internal sealed class DungeonMechanicDatabase
             SwitchCollisionZ != -6 || SwitchHitLockout != 0x1c ||
             SwitchSound != 0x7e ||
             ChestTile != 0xf1 || ChestWait != 15 || PuffSound != 0x98 ||
+            RespawningBushCutTile != 0x02 ||
+            RespawningBushRegenTile != 0x03 ||
+            RespawningBushReadyTile != 0x04 ||
+            RespawningBushDelay != 0xf0 ||
+            RespawningBushRegenWait != 0x0c ||
+            RespawningBushReadyWait != 0x08 ||
+            RespawningBushRadiusY != 3 || RespawningBushRadiusX != 3 ||
             MoonlitGlobalFlag != 0x0f || MoonlitAllCrystalsMask != 0xf0 ||
             MoonlitRoomFlag != 0x40 || MoonlitCrystalCollision != 0x0a ||
             MoonlitCrystalRadiusY != 4 || MoonlitCrystalRadiusX != 4 ||
@@ -325,7 +369,8 @@ internal sealed class DungeonMechanicDatabase
             string.IsNullOrWhiteSpace(Text(0x1201)))
         {
             throw new InvalidOperationException(
-                "Imported dungeon enemy-clear chest / switch / button / " +
+                "Imported dungeon orb / bridge / seed-bouncer / " +
+                "respawnable-bush / enemy-clear chest / switch / button / " +
                 "trigger-chest / $13:$01 / $1e:$04-$0b / torch scanner / " +
                 "translator / Moonlit Grotto " +
                 "orb / Armos / button-key / crystal / falling-key contract is incomplete.");

@@ -16,6 +16,9 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     public Rect2 CollisionBounds => Entity.CollisionBounds;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter, spawns);
-    public void OnCollision(SeedHitResult result, ISeedBurnTarget? burnTarget) =>
-        Entity.OnCollision(result, burnTarget);
+    public void OnCollision(
+        SeedHitResult result,
+        ISeedBurnTarget? burnTarget,
+        ISeedBounceTarget? bounceTarget) =>
+        Entity.OnCollision(result, burnTarget, bounceTarget);
 }

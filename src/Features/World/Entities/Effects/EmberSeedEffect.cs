@@ -49,6 +49,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _angle;
     private int _bouncesRemaining;
     private SeedShooterRecord _shooter;
+    private ISeedBounceTarget? _lastBounceTarget;
+    private bool _skipShooterTerrainCollision;
 
     public bool Finished => _state == EmberState.Finished;
     internal EmberState State => _state;
@@ -58,7 +60,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int FlameCounter => _flameCounter;
     internal int AnimationFrame => _frameIndex;
     internal Vector2 PrecisePosition => _precisePosition;
-    internal bool CollisionEnabled => _collisionEnabled && !Finished;
+    internal bool CollisionEnabled =>
+        _collisionEnabled && !Finished && _state != EmberState.Initializing;
     internal SeedLaunchKind LaunchKind => _launchKind;
     internal int Angle => _angle;
     internal int BouncesRemaining => _bouncesRemaining;
@@ -254,10 +257,25 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     internal void OnCollision(
         SeedHitResult result,
-        ISeedBurnTarget? burnTarget = null)
+        ISeedBurnTarget? burnTarget = null,
+        ISeedBounceTarget? bounceTarget = null)
     {
         if (!CollisionEnabled || result == SeedHitResult.None)
             return;
+        if (result == SeedHitResult.Bounce)
+        {
+            if (bounceTarget is null)
+                throw new ArgumentNullException(nameof(bounceTarget));
+            if (_launchKind == SeedLaunchKind.Shooter)
+            {
+                BounceFrom(bounceTarget);
+                return;
+            }
+
+            // The CROSSITEMS guard in func_50f4 only reflects shooter subid
+            // $63. A Satchel seed takes the ordinary collided-with-wall path.
+            result = SeedHitResult.Activate;
+        }
         _collisionEnabled = false;
         if (result == SeedHitResult.Consume)
         {
@@ -505,50 +523,113 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             Finish();
             return;
         }
-        Vector2 before = _precisePosition;
-        Vector2 moved = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
-        Vector2 delta = _precisePosition - before;
-        bool hitX = delta.X != 0 &&
-            ShooterTileBlocks(new Vector2(_precisePosition.X, before.Y));
-        bool hitY = delta.Y != 0 &&
-            ShooterTileBlocks(new Vector2(before.X, _precisePosition.Y));
-        bool hitBoth = ShooterTileBlocks(_precisePosition);
-        if (!hitX && !hitY && !hitBoth)
+
+        if (_skipShooterTerrainCollision)
         {
-            Position = moved;
+            _skipShooterTerrainCollision = false;
+            MoveShooterSeed();
+            ClearSeparatedBounceTarget();
             QueueRedraw();
             return;
         }
 
-        // seedItemState1 tests the tile before objectApplySpeed. By the time a
-        // collision is observed, the original seed already occupies that tile;
-        // its flame and any bounce therefore begin at the collided position.
-        // Keeping the previous point here made Ember flames inspect the floor
-        // behind the bush or torch they had struck.
-        Position = moved;
+        // seedItemUpdateBouncing inspects the seed's current tile and
+        // direction-edge probes before objectApplySpeed. The seed entered this
+        // tile on the previous update, so itemUpdateDamageToApply gets the
+        // first chance to hit an orb, switch, or seed reflector above.
         byte tile = _room.GetMetatile(_precisePosition);
         if (Array.IndexOf(_shooter.NonBounceDungeonTiles, tile) >= 0)
         {
-            ActivateShooterSeed(spawns);
+            ActivateShooterSeed();
             return;
         }
+
+        bool diagonal = (_angle & 1) != 0;
+        bool hitX = false;
+        bool hitY = false;
+        if (diagonal)
+        {
+            int probeX = _angle is 1 or 3 ? 3 : -4;
+            int probeY = _angle is 3 or 5 ? 3 : -4;
+            hitY = ShooterTileBlocks(
+                _precisePosition + new Vector2(0, probeY));
+            hitX = ShooterTileBlocks(
+                _precisePosition + new Vector2(probeX, 0));
+        }
+        else
+        {
+            // The cardinal branch calls objectCheckTileCollision_allowHoles,
+            // which tests the object's current Y/X rather than an edge probe.
+            bool hit = ShooterTileBlocks(_precisePosition);
+            hitX = hit;
+            hitY = hit;
+        }
+        if (!hitX && !hitY)
+        {
+            MoveShooterSeed();
+            ClearSeparatedBounceTarget();
+            QueueRedraw();
+            return;
+        }
+
         _bouncesRemaining--;
         if (_bouncesRemaining == 0)
         {
-            ActivateShooterSeed(spawns);
+            ActivateShooterSeed();
             return;
         }
-        if (hitX && hitY || (!hitX && !hitY && hitBoth))
+        if (hitX && hitY)
             _angle = (_angle + 4) & 7;
         else if (hitX)
             _angle = (8 - _angle) & 7;
         else
             _angle = (4 - _angle) & 7;
+        ClearSeparatedBounceTarget();
         QueueRedraw();
     }
 
-    private void ActivateShooterSeed(ICollection<RoomEntitySpawn> spawns)
+    private void MoveShooterSeed() => Position =
+        OracleObjectMovement.Shared.ApplySpeed(
+            ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
+
+    private void BounceFrom(ISeedBounceTarget target)
+    {
+        if (ReferenceEquals(_lastBounceTarget, target))
+            return;
+        _lastBounceTarget = target;
+
+        int reflectedAngle =
+            ((target.SeedBounceOrientation & 0x03) * 2 - _angle) & 0x07;
+        if (reflectedAngle == _angle)
+        {
+            // func_50f4 clears knockbackCounter when the reflector returns
+            // the seed's existing direction, allowing normal movement.
+            _lastBounceTarget = null;
+            _skipShooterTerrainCollision = true;
+            return;
+        }
+
+        _bouncesRemaining--;
+        if (_bouncesRemaining == 0)
+        {
+            ActivateShooterSeed();
+            return;
+        }
+
+        _angle = reflectedAngle;
+        _skipShooterTerrainCollision = true;
+    }
+
+    private void ClearSeparatedBounceTarget()
+    {
+        if (_lastBounceTarget is not null &&
+            !_lastBounceTarget.IntersectsSeed(CollisionBounds))
+        {
+            _lastBounceTarget = null;
+        }
+    }
+
+    private void ActivateShooterSeed()
     {
         _collisionEnabled = false;
         // @seedCollidedWithWall performs exactly one itemAnimate call. The

@@ -757,8 +757,26 @@ Add-DungeonPartVisualRow `
     $grottoOrbVisual.SourceGrayscaleInverted `
     $grottoOrbVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 24) {
-    throw "Expected twenty-three imported shared dungeon interaction visuals."
+# PART_ROTATABLE_SEED_THING $33 uses object-GFX $73 and four static
+# orientations. Its automatically created, invisible $03 child copies the
+# animation parameter and collision radii but is not rendered.
+$seedBouncerVisual = Get-DungeonPartVisual 0x33 $true
+if ($seedBouncerVisual.Sprite -ne 'spr_spinner_seedbouncer' -or
+    $seedBouncerVisual.TileBase -ne 0x1a -or
+    $seedBouncerVisual.Palette -ne 2 -or
+    $seedBouncerVisual.Animations.Count -ne 4) {
+    throw 'PART_ROTATABLE_SEED_THING $33 graphics no longer match object-GFX $73.'
+}
+Add-DungeonPartVisualRow `
+    'rotatable-seed-thing' `
+    $seedBouncerVisual.Sprite `
+    $seedBouncerVisual.TileBase `
+    $seedBouncerVisual.Palette `
+    $seedBouncerVisual.SourceGrayscaleInverted `
+    $seedBouncerVisual.Animations
+
+if ($dungeonVisualRows.Count -ne 25) {
+    throw "Expected twenty-four imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

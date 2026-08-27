@@ -1876,6 +1876,25 @@ if ($torchObjectDataSource -notmatch
     '(?ms)^objectData_makeAllTorchesLightable:\s*obj_Interaction \$c7 \$08 \$06 \$10\s*obj_EndPointer') {
     throw 'objectData_makeAllTorchesLightable no longer creates PART_LIGHTABLE_TORCH $06:$00 at tile $08.'
 }
+$extendableBridgeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\extendableBridge.s')
+$rotatableSeedThingSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\rotatableSeedThing.s')
+$respawnableBushSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\respawnableBush.s')
+if ($extendableBridgeSource -notmatch
+        '(?ms)^interactionCode23:.*?and \$07.*?bitTable.*?wSwitchState.*?' +
+        '@bridgeCreationData:.*?@bridgeRemovalData:' -or
+    $rotatableSeedThingSource -notmatch
+        '(?ms)^partCode33:.*?@subid2:.*?xor b.*?@func_657e:.*?' +
+        'add \(hl\).*?and \$03.*?@subid3:' -or
+    $respawnableBushSource -notmatch
+        '(?ms)^partCode0f:.*?ld \(hl\),\$f0.*?TILEINDEX_RESPAWNING_BUSH_CUT.*?' +
+        'getRandomNumber_noPreserveVars.*?PART_ITEM_DROP.*?' +
+        'wFrameCounter.*?TILEINDEX_RESPAWNING_BUSH_REGEN.*?' +
+        'TILEINDEX_RESPAWNING_BUSH_READY') {
+    throw 'Room 4:4e bridge, seed-bouncer, or respawnable-bush source contract changed.'
+}
 $mechanicTilesetsByGroup = @{}
 function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
     if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
@@ -1893,6 +1912,10 @@ $permanentTriggerChestCount = 0
 $retractableTriggerChestCount = 0
 $torchTranslatorCount = 0
 $torchScannerCount = 0
+$extendableBridgeCount = 0
+$orbCount = 0
+$rotatableSeedThingCount = 0
+$respawnableBushScannerCount = 0
 $mechanicGroup = -1
 $mechanicRoom = -1
 $mechanicOrder = 0
@@ -1918,6 +1941,7 @@ foreach ($line in $mainObjectLines) {
         if (($id -eq 0x12 -and $subid -eq 0x02) -or
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
+            ($id -eq 0x23 -and $subid -le 0x07) -or
             ($id -eq 0x24 -and $subid -eq 0x02) -or
             $dungeonScriptPredicate -ne '' -or
             ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17))) {
@@ -1958,26 +1982,44 @@ foreach ($line in $mainObjectLines) {
             if ($id -eq 0x24 -and $subid -eq 0x02) {
                 $torchTranslatorCount++
             }
+            if ($id -eq 0x23) { $extendableBridgeCount++ }
         }
     } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
-    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
+    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>03|05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
+        if ($Matches['id'] -eq '03') { $orbCount++ }
+    } elseif ($line -match '^\s*obj_Part\s+\$33\s+\$0a\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s*$') {
+        $y = [Convert]::ToInt32($Matches['y'], 16)
+        $x = [Convert]::ToInt32($Matches['x'], 16)
+        $position = ($y -band 0xf0) -bor (($x -shr 4) -band 0x0f)
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t33`t0a`t$($position.ToString('x2'))`t$($Matches['mask'])`tnone`t1")
+        $rotatableSeedThingCount++
     } elseif ($line -match '^\s*obj_Pointer\s+objectData_makeAllTorchesLightable\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tc7`t08`t06`t10`tnone`t1")
         $torchScannerCount++
+    } elseif ($line -match '^\s*obj_Pointer\s+objectData_respawningBush(?<drop>Bombs|ScentSeeds)\s*$') {
+        $drop = if ($Matches['drop'] -eq 'Bombs') { 0x04 } else { 0x06 }
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tc7`t04`t0f`t$((0x10 -bor $drop).ToString('x2'))`tnone`t1")
+        $respawnableBushScannerCount++
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 197 -or
+if ($dungeonMechanicRows.Count -ne 226 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
     $torchTranslatorCount -ne 2 -or
     $torchScannerCount -ne 8 -or
+    $extendableBridgeCount -ne 7 -or
+    $orbCount -ne 17 -or
+    $rotatableSeedThingCount -ne 2 -or
+    $respawnableBushScannerCount -ne 3 -or
     -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t08`t1`t09`t00`t17`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t09`t0`t1e`t04`t07`t00`tbit`t1") -or
@@ -1988,6 +2030,14 @@ if ($dungeonMechanicRows.Count -ne 197 -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t56`t0`t21`t0a`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t0`t23`t01`t39`t02`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t1`t23`t01`t42`t03`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t2`t23`t01`t4c`t04`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t3`t03`t02`t31`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t4`t03`t03`t3d`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t5`t05`t02`t68`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t6`t33`t0a`t18`t0c`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4e`t7`tc7`t04`t0f`t16`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t59`t0`t24`t02`t01`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t59`t1`t1e`t06`ta3`t00`tbit`t1") -or
     -not ($dungeonMechanicRows -contains "4`t59`t2`tc7`t08`t06`t10`tnone`t1") -or
@@ -2005,7 +2055,7 @@ if ($dungeonMechanicRows.Count -ne 197 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 196 reusable dungeon mechanics including Moonlit Grotto's room 4:56 and 4:5e Armos events, four crystal handlers/parts, room 4:61/4:64 falling keys, and the eight generic lightable-torch scanners with two count translators; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 225 reusable dungeon mechanics including room 4:4e's bridges, orbs, switch, rotating seed bouncer, and respawnable Scent Seed bushes; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2149,14 +2199,54 @@ for ($index = 0; $index -lt $room464Positions.Count; $index++) {
     $dungeonEventTilePatternRows.Add(
         "21`t09`t$index`t$($room464Tile.ToString('x2'))`t$($position.ToString('x2'))`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData")
 }
-if ($dungeonEventTilePatternRows.Count -ne 4 -or
+
+foreach ($kind in @('creation', 'removal')) {
+    for ($variant = 0; $variant -lt 7; $variant++) {
+        $bridgePattern = [regex]::Match(
+            $extendableBridgeSource,
+            "(?ms)^@$kind$variant`:\s*\.db\s+" +
+            '(?<tile>TILEINDEX_[A-Z0-9_]+)(?<add>\+[0-9]+)?\s+' +
+            '(?<positions>(?:\$[0-9a-f]{2}\s+)+)\$ff')
+        if (-not $bridgePattern.Success) {
+            throw "INTERAC_EXTENDABLE_BRIDGE @$kind$variant pattern could not be parsed."
+        }
+        $bridgeTileSymbol = $bridgePattern.Groups['tile'].Value
+        $bridgeTileMatch = [regex]::Match(
+            $tileIndexSource,
+            "(?m)^\.define\s+$([regex]::Escape($bridgeTileSymbol))\s+\`$(?<tile>[0-9a-f]{2})\b")
+        if (-not $bridgeTileMatch.Success) {
+            throw "Tile constant $bridgeTileSymbol used by INTERAC_EXTENDABLE_BRIDGE could not be resolved."
+        }
+        $bridgeTile = [Convert]::ToInt32(
+            $bridgeTileMatch.Groups['tile'].Value, 16)
+        if ($bridgePattern.Groups['add'].Success) {
+            $bridgeTile += [Convert]::ToInt32(
+                $bridgePattern.Groups['add'].Value.Substring(1), 10)
+        }
+        $bridgePositions = [regex]::Matches(
+            $bridgePattern.Groups['positions'].Value,
+            '\$(?<position>[0-9a-f]{2})')
+        $patternSubId = $variant -bor $(if ($kind -eq 'removal') { 0x80 } else { 0 })
+        for ($index = 0; $index -lt $bridgePositions.Count; $index++) {
+            $position = [Convert]::ToInt32(
+                $bridgePositions[$index].Groups['position'].Value, 16)
+            $dungeonEventTilePatternRows.Add(
+                "23`t$($patternSubId.ToString('x2'))`t$index`t$($bridgeTile.ToString('x2'))`t$($position.ToString('x2'))`tobject_code/ages/interactions/extendableBridge.s:@$kind$variant")
+        }
+    }
+}
+if ($dungeonEventTilePatternRows.Count -ne 54 -or
     -not ($dungeonEventTilePatternRows -contains
         "21`t09`t0`t1d`t3b`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
     -not ($dungeonEventTilePatternRows -contains
         "21`t09`t1`t1d`t59`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
     -not ($dungeonEventTilePatternRows -contains
-        "21`t09`t2`t1d`t5d`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData")) {
-    throw 'Expected the three source-ordered $21:$09 pushable-block goals.'
+        "21`t09`t2`t1d`t5d`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
+    -not ($dungeonEventTilePatternRows -contains
+        "23`t02`t0`t6d`t39`tobject_code/ages/interactions/extendableBridge.s:@creation2") -or
+    -not ($dungeonEventTilePatternRows -contains
+        "23`t82`t3`tf4`t39`tobject_code/ages/interactions/extendableBridge.s:@removal2")) {
+    throw 'Expected the three $21:$09 goals and 50 source-ordered INTERAC_EXTENDABLE_BRIDGE creation/removal tiles.'
 }
 
 $dungeonMechanicConstantRows = @(
@@ -2172,6 +2262,9 @@ $dungeonMechanicConstantRows = @(
     "closed-left`t123"
     "solve-sound`t77"
     "door-sound`t112"
+    "bridge-step-wait`t10"
+    "bridge-first-tile`t106"
+    "bridge-tile-count`t6"
     "button-tile`t12"
     "pressed-button-tile`t13"
     "button-radius-y`t2"
@@ -2188,6 +2281,14 @@ $dungeonMechanicConstantRows = @(
     "chest-tile`t241"
     "chest-wait`t15"
     "puff-sound`t152"
+    "respawning-bush-cut-tile`t2"
+    "respawning-bush-regen-tile`t3"
+    "respawning-bush-ready-tile`t4"
+    "respawning-bush-delay`t240"
+    "respawning-bush-regen-wait`t12"
+    "respawning-bush-ready-wait`t8"
+    "respawning-bush-radius-y`t3"
+    "respawning-bush-radius-x`t3"
     "moonlit-global-flag`t$($globalFlagValues['GLOBALFLAG_D3_CRYSTALS'])"
     "moonlit-all-crystals-mask`t240"
     "moonlit-room-flag`t64"

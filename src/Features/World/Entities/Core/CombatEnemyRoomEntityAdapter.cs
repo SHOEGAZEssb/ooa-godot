@@ -193,7 +193,8 @@ internal enum SeedHitResult
     None,
     Ignite,
     Activate,
-    Consume
+    Consume,
+    Bounce
 }
 
 internal abstract record RoomEntitySpawn(bool UpdateThisFrame = false);

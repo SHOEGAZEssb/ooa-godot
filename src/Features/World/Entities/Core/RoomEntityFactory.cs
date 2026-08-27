@@ -1414,6 +1414,38 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext,
         LightableTorchState? lightableTorchState)
     {
+        if (record.Id == 0x03)
+        {
+            return new DungeonOrbRoomEntity(
+                record,
+                _dungeonMechanics,
+                _dungeonVisuals.Visual("grotto-orb"),
+                room,
+                runtimeState,
+                animationTick,
+                soundRequested);
+        }
+        if (record.Id == 0x23)
+        {
+            return new ExtendableBridgeRoomEntity(
+                record,
+                room,
+                _dungeonMechanics,
+                runtimeState,
+                animationTick,
+                roomTileChanged,
+                soundRequested);
+        }
+        if (record.Id == 0x33)
+        {
+            return new RotatableSeedThingRoomEntity(
+                record,
+                _dungeonMechanics,
+                _dungeonVisuals.Visual("rotatable-seed-thing"),
+                room,
+                runtimeState,
+                animationTick);
+        }
         if (record.Id == 0x24 && record.SubId == 0x02)
         {
             return new TorchTriggerTranslatorRoomEntity(
@@ -1429,6 +1461,8 @@ internal sealed class RoomEntityFactory(
                 lightableTorchState ?? throw MissingLightableTorchState(record),
                 _darkRooms);
         }
+        if (record.Id == 0xc7 && record.SubId == 0x04)
+            return new RespawnableBushScannerRoomEntity(record, room);
         if (record.Id == 0x21 && record.SubId == 0x09)
         {
             if (saveData?.HasRoomFlag(
@@ -2156,9 +2190,11 @@ internal sealed class RoomEntityFactory(
         FlyingTileSpawn tile => CreateFlyingTile(tile, room),
         ArmosSpawnerSpawn spawner => new ArmosSpawnerRoomEntity(
             room, spawner.SourceTile, spawner.ReplacementTile),
-        MoonlitGrottoOrbSpawn orb => new MoonlitGrottoOrbRoomEntity(
+        MoonlitGrottoOrbSpawn orb => new DungeonOrbRoomEntity(
             orb.Group,
             orb.Room,
+            _dungeonMechanics.MoonlitOrbPosition,
+            _dungeonMechanics.MoonlitOrbMask,
             _dungeonMechanics,
             _dungeonVisuals.Visual("grotto-orb"),
             room,
@@ -2216,6 +2252,14 @@ internal sealed class RoomEntityFactory(
             CreateGroundTreasure(treasure.Request.Resolve(treasures)),
         MapleDroppedItemSpawn item => CreateMapleDroppedItem(item, room),
         LightableTorchSpawn torch => CreateLightableTorch(torch, room),
+        RespawnableBushSpawn bush => new RespawnableBushRoomEntity(
+            bush.PackedPosition,
+            bush.DropSubId,
+            room,
+            _dungeonMechanics,
+            random,
+            animationTick,
+            roomTileChanged),
         Room148DebrisSpawn debris => CreateRoom148Debris(debris),
         ShootingGalleryGameControllerSpawn controller =>
             CreateShootingGalleryController(controller, room),
@@ -4594,6 +4638,11 @@ internal sealed record EnemySmallKeyRewardSpawn(
 internal sealed record LightableTorchSpawn(
     LightableTorchState State,
     int PackedPosition)
+    : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record RespawnableBushSpawn(
+    int PackedPosition,
+    int DropSubId)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record GroundTreasureSpawn(GroundTreasureDatabaseRecord Record)

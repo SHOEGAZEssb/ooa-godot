@@ -3004,7 +3004,10 @@ public sealed partial class ValidationRoot
             !bushSeed.Finished || bushRoom.GetMetatile(bushPoint) != 0x3a ||
             bushTileChanges != 1,
             "A shooter-fired Ember Seed did not retain its collided-tile " +
-            "position through the `$3a flame countdown and burn bush `$c5.");
+            "position through the `$3a flame countdown and burn bush `$c5 " +
+            $"(state={bushSeed.State}, position={bushSeed.PrecisePosition}, " +
+            $"tile=${bushRoom.GetMetatile(bushPoint):x2}, " +
+            $"changes={bushTileChanges}).");
         bushSeed.Free();
 
         _sound.ClearPlayRequestAudit();

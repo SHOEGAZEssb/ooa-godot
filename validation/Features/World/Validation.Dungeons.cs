@@ -966,6 +966,10 @@ public sealed partial class ValidationRoot
         int tilePatternFallingKeyCount = 0;
         int torchTranslatorCount = 0;
         int torchScannerCount = 0;
+        int orbCount = 0;
+        int extendableBridgeCount = 0;
+        int rotatableSeedThingCount = 0;
+        int respawnableBushScannerCount = 0;
         for (int group = 0; group < 8; group++)
         for (int roomId = 0; roomId < 0x100; roomId++)
         {
@@ -996,10 +1000,16 @@ public sealed partial class ValidationRoot
                     { Id: 0x24, SubId: 0x02 } ? 1 : 0;
                 torchScannerCount += record is
                     { Id: 0xc7, SubId: 0x08 } ? 1 : 0;
+                orbCount += record.Id == 0x03 ? 1 : 0;
+                extendableBridgeCount += record.Id == 0x23 ? 1 : 0;
+                rotatableSeedThingCount += record is
+                    { Id: 0x33, SubId: 0x0a } ? 1 : 0;
+                respawnableBushScannerCount += record is
+                    { Id: 0xc7, SubId: 0x04 } ? 1 : 0;
             }
         }
         FailIf(
-            database.RecordCount != 196 || switchRecordCount != 7 ||
+            database.RecordCount != 225 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyClearChestCount != 12 ||
@@ -1010,6 +1020,8 @@ public sealed partial class ValidationRoot
             moonlitFallingKeyCount != 1 ||
             tilePatternFallingKeyCount != 1 ||
             torchTranslatorCount != 2 || torchScannerCount != 8 ||
+            orbCount != 17 || extendableBridgeCount != 7 ||
+            rotatableSeedThingCount != 2 || respawnableBushScannerCount != 3 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
             "Expected 12 enemy-clear chests, seven switches, 49 buttons, 20 " +
@@ -1017,6 +1029,8 @@ public sealed partial class ValidationRoot
             "chests, two Moonlit orb/button Armos events, four Moonlit crystal " +
             "handlers/parts, one direct-layout and one tile-pattern falling key, " +
             "two torch-count translators, eight tile-$08 torch scanners, " +
+            "17 orbs, seven extendable bridges, two rotating seed bouncers, " +
+            "three respawnable-bush scanners, " +
             "and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
         void Step() => _entities.Update(update, _player);
@@ -1997,7 +2011,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 196 imported enemy-clear-chest/switch/button/" +
+        GD.Print("Validated all 225 imported enemy-clear-chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +
