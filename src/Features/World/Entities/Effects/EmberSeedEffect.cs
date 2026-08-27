@@ -576,6 +576,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _angle = (8 - _angle) & 7;
         else
             _angle = (4 - _angle) & 7;
+        // seedItemUpdateBouncing returns with Z set after choosing the new
+        // angle, then seedItemState1 immediately reaches objectApplySpeed.
+        // Moving on this same update takes the seed back out of the collided
+        // tile; leaving it there consumes the remaining bounces in place.
+        MoveShooterSeed();
         ClearSeparatedBounceTarget();
         QueueRedraw();
     }

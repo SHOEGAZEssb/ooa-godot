@@ -123,8 +123,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         BeginFrame();
         if (!_initialized)
         {
-            _initialized = true;
-            InitializeState();
+            PrepareForScreenTransition();
             return;
         }
         if (_dying)
@@ -167,6 +166,16 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
                 UpdateAboveGround(spawns);
                 break;
         }
+        QueueRedraw();
+    }
+
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized)
+            return;
+        _initialized = true;
+        InitializeState();
+        Visible = false;
         QueueRedraw();
     }
 

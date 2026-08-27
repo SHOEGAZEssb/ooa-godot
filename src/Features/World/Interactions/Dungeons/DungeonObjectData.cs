@@ -77,5 +77,6 @@ internal enum DungeonObjectKind
     CircularSidePlatform,
     HeadThwomp,
     Swoop,
-    Subterror
+    Subterror,
+    ShadowHag
 }

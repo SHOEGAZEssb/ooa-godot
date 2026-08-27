@@ -10,6 +10,9 @@ $pumpkinHeadSource = Read-ImportText (
 
 $dungeonBossSpriteSequences = @{
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
+    # Shadow Hag's uncounted $42 bugs use the second boss sheet. The boss
+    # itself loads both consecutive $c2/$c3 headers.
+    0x42 = @($gfxNames[0xc3])
     0x70 = @($gfxNames[0xad], $gfxNames[0xae])
     # Swoop's $af header is followed by the chained $b0 header. Grounded OAM
     # frames use tiles $20-$2c from spr_pound for the expanding impact arcs.
@@ -20,21 +23,25 @@ $dungeonBossSpriteSequences = @{
     0x72 = @($gfxNames[0xb1], $gfxNames[0xb2], $gfxNames[0xb3])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
+    0x7a = @($gfxNames[0xc2], $gfxNames[0xc3])
 }
 $dungeonBossSourceGrayscaleInverted = @{
     # Giant Ghini's two source sheets use white as color 0, unlike the
     # ordinary black-background enemy sheets.
     0x3f = $false
+    0x42 = $true
     0x70 = $false
     0x71 = $true
     0x72 = $true
     0x78 = $true
     0x79 = $true
+    0x7a = $true
 }
 $dungeonBossRows = [Collections.Generic.List[string]]::new()
 $dungeonBossRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
-    @(0x3f, 0), @(0x70, 0), @(0x71, 0), @(0x72, 0), @(0x78, 0), @(0x79, 0)
+    @(0x3f, 0), @(0x42, 0), @(0x70, 0), @(0x71, 0), @(0x72, 0), @(0x78, 0),
+    @(0x79, 0), @(0x7a, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
@@ -47,13 +54,15 @@ foreach ($spec in @(
     $dungeonBossRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($dungeonBossRows.Count -ne 7 -or
+if ($dungeonBossRows.Count -ne 9 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^42\t00\tspr_shadowhag_2\t20\t2\t1\t6\t6\t1\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop,spr_pound\t0\t2\t1\t10\t10\t2\t20\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^72\t00\tspr_subterror_1,spr_subterror_2,spr_subterror_3\t0\t1\t1\t6\t6\t2\t20\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
-    -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
+    -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^7a\t00\tspr_shadowhag_1,spr_shadowhag_2\t0\t3\t1\t9\t9\t3\t12\t' })) {
     throw "Shared dungeon boss definitions no longer match the traced records:`n$($dungeonBossRows -join "`n")"
 }
 Write-GeneratedTable(
@@ -380,7 +389,8 @@ $essenceSource = Read-ImportText (
 $essencePedestalGraphic = $interactionGraphics['127:1']
 $essenceGlowGraphic = $interactionGraphics['127:2']
 if ($essenceSource -notmatch
-        '(?ms)^@essenceOamData:.*?\.db \$00 \$01 \$01' -or
+        '(?ms)^@essenceOamData:.*?\.db \$00 \$01 \$01\s+' +
+        '\.db \$04 \$00 \$02\s+\.db \$06 \$03 \$02' -or
     $null -eq $essencePedestalGraphic -or
     $essencePedestalGraphic.Gfx -ne 0x76 -or
     $essencePedestalGraphic.TileBase -ne 0 -or
@@ -393,10 +403,26 @@ if ($essenceSource -notmatch
     $essenceGlowGraphic.DefaultAnimation -ne 3) {
     throw 'INTERAC_ESSENCE D1/pedestal/glow graphics initialization changed.'
 }
+if ($essenceSource -notmatch
+        '(?ms)^@state0:.*?ld a,\(wDungeonIndex\)\s+dec a.*?' +
+        'ld l,Interaction\.var03\s+ld \(hl\),a' -or
+    $essenceSource -notmatch
+        '(?ms)^@getEssenceTextTable:\s+\.db <TX_000e\s+' +
+        '\.db <TX_000f\s+\.db <TX_0010' -or
+    $essenceSource -notmatch
+        '(?ms)^@essenceWarps:.*?' +
+        '\.db \$80, \$8d, \$26, TRANSITION_DEST_SET_RESPAWN\s+' +
+        '\.db \$81, \$83, \$25, TRANSITION_DEST_SET_RESPAWN\s+' +
+        '\.db \$80, \$ba, \$55, TRANSITION_DEST_SET_RESPAWN') {
+    throw 'INTERAC_ESSENCE D1-D3 index, text, or exit-warp mapping changed.'
+}
 Add-DungeonInteractionVisual 'eternal-spirit' 0x7f 0 @(1) 0 1
 # D2's second @essenceOamData row selects the four-tile Ancient Wood layout
 # with tile base $04 and OBJ palette 0.
 Add-DungeonInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
+# D3's third row keeps the four-tile layout for Echoing Howl while selecting
+# tile base $06 and OBJ palette 3.
+Add-DungeonInteractionVisual 'echoing-howl' 0x7f 0 @(2) 6 3
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -528,6 +554,8 @@ function Get-DungeonPartVisual(
         '45'
     } elseif ($partId -eq 0x3c) {
         '42'
+    } elseif ($partId -eq 0x41) {
+        '58'
     } else {
         $hex
     }
@@ -577,6 +605,12 @@ function Get-DungeonPartVisual(
         $partAnimationSource -notmatch
             '(?m)^part3cOamDataPointers:[^\r\n]*\r?\npart42OamDataPointers:[^\r\n]*\r?\n') {
         throw 'PART_HEAD_THWOMP_CIRCULAR_PROJECTILE no longer aliases PART $42 graphics.'
+    }
+    if ($partId -eq 0x41 -and
+        $partAnimationSource -notmatch
+            '(?m)^part41Animations:\s*\r?\npart56Animations:\s*\r?\n' +
+            'part58Animations:\s*\r?\n\s*\.dw\s+partAnimation5b8c0') {
+        throw 'PART_SHADOW_HAG_SHADOW no longer aliases PART $58 animations.'
     }
     $animationLabels = @([regex]::Matches(
         (Get-AssemblyLabelBody $partAnimationSource "part${animationTableHex}Animations"),
@@ -814,6 +848,24 @@ Add-DungeonPartVisualRow `
     $subterrorDirtVisual.SourceGrayscaleInverted `
     $subterrorDirtVisual.Animations
 
+# PART_SHADOW_HAG_SHADOW $41 uses object-GFX $a7 and selects animation 1.
+# Retain its full five-entry source table because the part owns the mapping,
+# even though this handler uses only the static second entry.
+$shadowHagShadowVisual = Get-DungeonPartVisual 0x41 $true
+if ($shadowHagShadowVisual.Sprite -ne 'spr_projectiles_3' -or
+    $shadowHagShadowVisual.TileBase -ne 0 -or
+    $shadowHagShadowVisual.Palette -ne 0 -or
+    $shadowHagShadowVisual.Animations.Count -ne 5) {
+    throw 'PART_SHADOW_HAG_SHADOW $41 graphics no longer match object-GFX $a7.'
+}
+Add-DungeonPartVisualRow `
+    'shadow-hag-shadow' `
+    $shadowHagShadowVisual.Sprite `
+    $shadowHagShadowVisual.TileBase `
+    $shadowHagShadowVisual.Palette `
+    $shadowHagShadowVisual.SourceGrayscaleInverted `
+    $shadowHagShadowVisual.Animations
+
 # PART_ROTATABLE_SEED_THING $33 uses object-GFX $73 and four static
 # orientations. Its automatically created, invisible $03 child copies the
 # animation parameter and collision radii but is not rendered.
@@ -832,8 +884,8 @@ Add-DungeonPartVisualRow `
     $seedBouncerVisual.SourceGrayscaleInverted `
     $seedBouncerVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 26) {
-    throw "Expected twenty-five imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 28) {
+    throw "Expected twenty-seven imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),
@@ -921,6 +973,48 @@ if (-not $mainObjectSource.Contains(
         'obj_EndPointer') {
     throw 'Moonlit Grotto room 4:4d miniboss object stream changed.'
 }
+$expectedMoonlitBossMainData = @'
+group4Map4aObjectData:
+	obj_Interaction $1e $0b $50 $00
+	obj_Interaction $1e $09 $5e $00
+	obj_Interaction $20 $01 $58 $78
+	obj_BeforeEvent group4Map4aBeforeEventObjectData
+	obj_End
+'@
+ $expectedMoonlitEssenceMainData = @'
+group4Map49ObjectData:
+	obj_Interaction $7f $00 $28 $78
+	obj_End
+'@
+if (-not $mainObjectSource.Contains(
+        $expectedMoonlitEssenceMainData.Replace("`r", ''))) {
+    throw 'Moonlit Grotto room 4:49 Essence object stream changed.'
+}
+if (-not $mainObjectSource.Contains(
+        $expectedMoonlitBossMainData.Replace("`r", '')) -or
+    $enemyObjectSource -notmatch
+        '(?ms)^group4Map4aBeforeEventObjectData:\s+' +
+        'obj_SpecificEnemyA \$00 \$7a \$00 \$58 \$d8\s+' +
+        'obj_EndPointer') {
+    throw 'Moonlit Grotto room 4:4a boss object stream changed.'
+}
+$shadowHagSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\shadowHag.s')
+$shadowHagBugSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\shadowHagBug.s')
+$shadowHagShadowSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\parts\shadowHagShadow.s')
+foreach ($contract in @(
+    @($shadowHagSource, '(?ms)^shadowHag_stateA:.*?wFrameCounter.*?ecom_decCounter1.*?getRandomNumber_noPreserveVars.*?@targetPositions:\s*\.db \$38 \$48\s*\.db \$38 \$b8\s*\.db \$78 \$48\s*\.db \$78 \$b8'),
+    @($shadowHagSource, '(?ms)^shadowHag_stateD:.*?and \$0f.*?cp \$07.*?ENEMY_SHADOW_HAG_BUG.*?inc \(hl\)'),
+    @($shadowHagSource, '(?ms)^shadowHag_chooseSpawnPosition:.*?@spawnOffsets:\s*\.db \$40 \$00\s*\.db \$08 \$c0\s*\.db \$c0 \$00\s*\.db \$08 \$40'),
+    @($shadowHagBugSource, '(?ms)^shadowHagBug_state8:.*?objectUpdateSpeedZ_paramC.*?getRandomNumber.*?\(hl\),180.*?^shadowHagBug_state9:.*?cp 30.*?ld bc,\$0f0f.*?ecom_randomBitwiseAndBCE'),
+    @($shadowHagShadowSource, '(?ms)^@state0:.*?\(hl\),\$08.*?SPEED_100.*?@angles:\s*\.db \$04 \$0c \$14 \$1c.*?^@state1:.*?Object\.counter1.*?objectNudgeAngleTowards.*?objectApplySpeed.*?^@state2:.*?add \$04\s+cp \$09.*?Enemy\.counter2\s+dec \(hl\)')
+)) {
+    if ($contract[0] -notmatch $contract[1]) {
+        throw "Shadow Hag source contract changed: $($contract[1])"
+    }
+}
 foreach ($required in @(
     'ld \(hl\),SPEED_180',
     'ld \(hl\),60',
@@ -935,20 +1029,27 @@ foreach ($required in @(
 }
 $moonlitMinibossRows = @(
     "# group`troom`torder`tkind`tid`tsubid`ty`tx`tcondition`tsource"
+    "4`t49`t0`tessence`t7f`t00`t28`t78`talways`tmainData.s:group4Map49ObjectData"
+    "4`t4a`t2`tboss-reward`t20`t01`t58`t78`titem-clear`tmainData.s:group4Map4aObjectData"
+    "4`t4a`t3`tshadow-hag`t7a`t00`t58`td8`tflag80-clear`tenemyData.s:group4Map4aBeforeEventObjectData"
     "4`t4d`t3`tminiboss-reward`t20`t00`t58`t78`tflag80-clear`tmainData.s:group4Map4dObjectData"
     "4`t4d`t4`tsubterror`t72`t00`t18`t78`tflag80-clear`tenemyData.s:group4Map4dBeforeEventObjectData"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'objects\moonlit_grotto_objects.tsv'),
     $moonlitMinibossRows)
-if (-not $allTexts.ContainsKey(0x2f03)) {
-    throw 'Moonlit Grotto Subterror text TX_2f03 was not imported.'
+if (-not $allTexts.ContainsKey(0x0010) -or
+    -not $allTexts.ContainsKey(0x2f03) -or
+    -not $allTexts.ContainsKey(0x2f2b)) {
+    throw 'Moonlit Grotto text TX_0010/TX_2f03/TX_2f2b was not imported.'
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\moonlit_grotto_text.tsv'),
     @(
         "# text-id`tmessage-base64"
+        "0010`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x0010])))"
         "2f03`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x2f03])))"
+        "2f2b`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x2f2b])))"
     ))
 
 $sgObjectRows = @(

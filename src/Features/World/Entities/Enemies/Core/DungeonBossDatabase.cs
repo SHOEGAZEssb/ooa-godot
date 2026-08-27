@@ -126,9 +126,11 @@ internal sealed class DungeonBossDatabase
 
     private void ValidateContract()
     {
-        if (_enemies.Count != 6 ||
+        if (_enemies.Count != 8 ||
             Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
+            Enemy(0x42) is not
+                { Health: 2, DamageQuarters: 1, Sprites.Length: 1 } ||
             Enemy(0x70) is not
                 { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
             Enemy(0x71).Sprites is not ["spr_swoop", "spr_pound"] ||
@@ -136,6 +138,8 @@ internal sealed class DungeonBossDatabase
                 { Health: 20, DamageQuarters: 2, Sprites.Length: 3 } ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
             Enemy(0x79).Sprites.Length != 3 ||
+            Enemy(0x7a) is not
+                { Health: 12, DamageQuarters: 3, Sprites.Length: 2 } ||
             _constants.Count != 2 ||
             Constant("pumpkin-body-palette") != 1 ||
             Constant("pumpkin-ghost-palette") != 5 ||

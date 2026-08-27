@@ -75,12 +75,14 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 25 ||
+        if (_visuals.Count != 27 ||
             Visual("colored-cube").Animations.Length != 30 ||
             Visual("eternal-spirit") is not
                 { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
             Visual("ancient-wood") is not
                 { TileBase: 4, Palette: 0, Animations.Length: 1 } ||
+            Visual("echoing-howl") is not
+                { TileBase: 6, Palette: 3, Animations.Length: 1 } ||
             Visual("moving-side-platform").Animations.Length != 5 ||
             Visual("circular-side-platform").Animations.Length != 1 ||
             Visual("minecart").Animations.Length != 4 ||
@@ -94,6 +96,8 @@ internal sealed class DungeonInteractionVisualDatabase
                 { TileBase: 0x1e, Palette: 0, Animations.Length: 2 } ||
             Visual("subterror-dirt") is not
                 { TileBase: 0, Palette: 6, Animations.Length: 1 } ||
+            Visual("shadow-hag-shadow") is not
+                { TileBase: 0, Palette: 0, Animations.Length: 5 } ||
             Visual("rotatable-seed-thing") is not
                 { TileBase: 0x1a, Palette: 2, Animations.Length: 4 } ||
             Visual("minecart-gate") is not

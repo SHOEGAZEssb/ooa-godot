@@ -1263,6 +1263,32 @@ internal sealed class RoomEntityFactory(
     {
         switch (record.Kind)
         {
+            case DungeonObjectKind.Essence:
+                return new DungeonEssence(
+                    record,
+                    _dungeonVisuals.Visual("echoing-howl"),
+                    _dungeonVisuals.Visual("essence-pedestal"),
+                    _dungeonVisuals.Visual("essence-glow"),
+                    _dungeonVisuals.Visual("energy-bead"),
+                    room,
+                    saveData?.HasRoomFlag(
+                        record.Group,
+                        record.Room,
+                        OracleSaveData.RoomFlagItem) == true,
+                    animationTick,
+                    random,
+                    dungeonEssenceTriggered,
+                    new DungeonEssenceDefinition(
+                        2,
+                        _moonlitGrotto.EssenceMessage,
+                        new Warp(
+                            4, 0x49, -1, 0, 0, 0,
+                            0xba, 0x55, 0, 1)));
+            case DungeonObjectKind.BossReward:
+                return CreateDungeonReward(
+                    record,
+                    "TREASURE_OBJECT_HEART_CONTAINER_00",
+                    falling: false);
             case DungeonObjectKind.MinibossReward:
                 return new DungeonRewardRoomEntity(
                     record,
@@ -1291,6 +1317,26 @@ internal sealed class RoomEntityFactory(
                     _moonlitGrotto.SubterrorMessage);
                 return new SubterrorBossRoomEntity(
                     subterror,
+                    BossEntryDirection(placementContext));
+            case DungeonObjectKind.ShadowHag:
+                ImportedEnemyDefinition shadowHagDefinition =
+                    _dungeonBosses.Enemy(0x7a);
+                var shadowHag = new ShadowHagBoss();
+                shadowHag.Initialize(
+                    shadowHagDefinition,
+                    room,
+                    record.Position,
+                    random,
+                    soundRequested,
+                    bossShuttersClosed,
+                    disableLinkCollisionsAndMenu,
+                    enableLinkCollisionsAndMenu,
+                    () => roomMusicRequested(record.Group, record.Room),
+                    roomEntityDialogueRequested,
+                    dialogueOpen,
+                    _moonlitGrotto.ShadowHagMessage);
+                return new ShadowHagBossRoomEntity(
+                    shadowHag,
                     BossEntryDirection(placementContext));
             default:
                 throw new ArgumentOutOfRangeException(
@@ -2320,6 +2366,7 @@ internal sealed class RoomEntityFactory(
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         BossShadowSpawn shadow => CreateBossShadow(shadow),
         SubterrorDirtSpawn dirt => CreateSubterrorDirt(dirt),
+        ShadowHagShadowSpawn shadow => CreateShadowHagShadow(shadow),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         HeadThwompBombDropSpawn drop =>
@@ -2374,6 +2421,7 @@ internal sealed class RoomEntityFactory(
             CreateMovingPlatform(platform),
         MinibossPortalSpawn => CreateMinibossPortal(room),
         GiantGhiniChildSpawn child => CreateGiantGhiniChild(child, room),
+        ShadowHagBugSpawn bug => CreateShadowHagBug(bug),
         PumpkinHeadProjectileSpawn projectile =>
             CreatePumpkinHeadProjectile(projectile, room),
         HeadThwompProjectileSpawn projectile =>
@@ -2594,6 +2642,30 @@ internal sealed class RoomEntityFactory(
             _dungeonBosses.Enemy(0x3f), spawn.Owner, room, spawn.Index);
         return new GiantGhiniChildRoomEntity(
             child, soundRequested);
+    }
+
+    private IRoomEntity CreateShadowHagBug(ShadowHagBugSpawn spawn)
+    {
+        var bug = new ShadowHagBug();
+        bug.Initialize(
+            _dungeonBosses.Enemy(0x42),
+            spawn.Owner,
+            random,
+            spawn.Position);
+        return new ShadowHagBugRoomEntity(bug, soundRequested);
+    }
+
+    private IRoomEntity CreateShadowHagShadow(ShadowHagShadowSpawn spawn)
+    {
+        var shadow = new ShadowHagShadowEffect
+        {
+            Name = $"ShadowHagShadow_{spawn.AngleIndex}"
+        };
+        shadow.Initialize(
+            spawn.Owner,
+            spawn.AngleIndex,
+            _dungeonVisuals.Visual("shadow-hag-shadow"));
+        return new ShadowHagShadowRoomEntity(shadow);
     }
 
     private IRoomEntity CreatePumpkinHeadProjectile(
@@ -4459,7 +4531,8 @@ internal sealed class RoomEntityFactory(
         foreach (DungeonObjectRecord native in
             _moonlitGrotto.GetRoomRecords(group, room.Id))
         {
-            if (native.Kind == DungeonObjectKind.Subterror)
+            if (native.Kind is DungeonObjectKind.Subterror or
+                DungeonObjectKind.ShadowHag)
             {
                 hasSupportedNativeBossRecord = true;
                 break;

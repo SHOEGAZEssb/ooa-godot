@@ -20,6 +20,8 @@ internal sealed class MoonlitGrottoDatabase
     }
 
     internal string SubterrorMessage => Text(0x2f03);
+    internal string ShadowHagMessage => Text(0x2f2b);
+    internal string EssenceMessage => Text(0x0010);
 
     internal IReadOnlyList<DungeonObjectRecord> GetRoomRecords(
         int group,
@@ -48,9 +50,12 @@ internal sealed class MoonlitGrottoDatabase
                 row.RequiredString(3) switch
                 {
                     "miniboss-reward" => DungeonObjectKind.MinibossReward,
+                    "boss-reward" => DungeonObjectKind.BossReward,
+                    "essence" => DungeonObjectKind.Essence,
                     "subterror" => DungeonObjectKind.Subterror,
+                    "shadow-hag" => DungeonObjectKind.ShadowHag,
                     _ => throw row.Invalid(
-                        3, "miniboss-reward or subterror")
+                        3, "boss-reward, essence, miniboss-reward, shadow-hag, or subterror")
                 },
                 row.HexByte(4),
                 row.HexByte(5),
@@ -86,9 +91,45 @@ internal sealed class MoonlitGrottoDatabase
 
     private void ValidateContract()
     {
+        IReadOnlyList<DungeonObjectRecord> room49 =
+            GetRoomRecords(4, 0x49);
+        IReadOnlyList<DungeonObjectRecord> room4a =
+            GetRoomRecords(4, 0x4a);
         IReadOnlyList<DungeonObjectRecord> room4d =
             GetRoomRecords(4, 0x4d);
-        if (room4d.Count != 2 ||
+        if (room49.Count != 1 ||
+            room49[0] is not
+            {
+                Order: 0,
+                Kind: DungeonObjectKind.Essence,
+                Id: 0x7f,
+                SubId: 0x00,
+                Y: 0x28,
+                X: 0x78,
+                Predicate: DungeonObjectCondition.Always
+            } ||
+            room4a.Count != 2 ||
+            room4a[0] is not
+            {
+                Order: 2,
+                Kind: DungeonObjectKind.BossReward,
+                Id: 0x20,
+                SubId: 0x01,
+                Y: 0x58,
+                X: 0x78,
+                Predicate: DungeonObjectCondition.ItemClear
+            } ||
+            room4a[1] is not
+            {
+                Order: 3,
+                Kind: DungeonObjectKind.ShadowHag,
+                Id: 0x7a,
+                SubId: 0x00,
+                Y: 0x58,
+                X: 0xd8,
+                Predicate: DungeonObjectCondition.Flag80Clear
+            } ||
+            room4d.Count != 2 ||
             room4d[0] is not
             {
                 Order: 3,
@@ -109,11 +150,13 @@ internal sealed class MoonlitGrottoDatabase
                 X: 0x78,
                 Predicate: DungeonObjectCondition.Flag80Clear
             } ||
-            _texts.Count != 1 ||
-            string.IsNullOrWhiteSpace(SubterrorMessage))
+            _texts.Count != 3 ||
+            string.IsNullOrWhiteSpace(EssenceMessage) ||
+            string.IsNullOrWhiteSpace(SubterrorMessage) ||
+            string.IsNullOrWhiteSpace(ShadowHagMessage))
         {
             throw new InvalidOperationException(
-                "Imported Moonlit Grotto room 4:4d miniboss contract is incomplete.");
+                "Imported Moonlit Grotto room 4:49/4a/4d native-object contract is incomplete.");
         }
     }
 

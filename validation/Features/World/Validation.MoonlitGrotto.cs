@@ -7,6 +7,563 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoom449EchoingHowl()
+    {
+        const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+            {
+                _entities.Update(update, _player);
+                _roomEvents.Update(update);
+            }
+        }
+
+        var data = new MoonlitGrottoDatabase();
+        DungeonInteractionVisual visual =
+            new DungeonInteractionVisualDatabase().Visual("echoing-howl");
+        IReadOnlyList<DungeonObjectRecord> records =
+            data.GetRoomRecords(4, 0x49);
+        FailIf(
+            records is not
+                [{
+                    Order: 0,
+                    Kind: DungeonObjectKind.Essence,
+                    Id: 0x7f,
+                    SubId: 0x00,
+                    Y: 0x28,
+                    X: 0x78,
+                    Predicate: DungeonObjectCondition.Always,
+                    Source: "mainData.s:group4Map49ObjectData"
+                }] ||
+            visual is not
+                {
+                    TileBase: 0x06,
+                    Palette: 0x03,
+                    Animations.Length: 1
+                } ||
+            !data.EssenceMessage.Contains(
+                "Echoing Howl", StringComparison.Ordinal),
+            "Room 4:49 lost INTERAC_ESSENCE $7f:$00, the third " +
+            "@essenceOamData row, or TX_0010.");
+
+        _saveData.SetRoomFlag(
+            4, 0x49, OracleSaveData.RoomFlagItem, value: false);
+        LoadValidationRoom(4, 0x49);
+        DungeonEssence essence =
+            _entities.Entities<DungeonEssence>().Single();
+        FailIf(
+            _rooms.CurrentDungeonIndex != 3 ||
+            essence.Position != new Vector2(0x78, 0x28) ||
+            essence.EssenceIndex != 2 || essence.Collected ||
+            essence.ExitWarp is not
+                {
+                    SourceGroup: 4,
+                    SourceRoom: 0x49,
+                    DestinationGroup: 0,
+                    DestinationRoom: 0xba,
+                    DestinationPosition: 0x55,
+                    DestinationParameter: 0,
+                    DestinationTransition: 1
+                } ||
+            _currentRoom.GetTerrainInfo(
+                new Vector2(0x78, 0x28)).Collision != 0x0f ||
+            !essence.BlocksLink(new Vector2(0x78, 0x28)),
+            "Room 4:49 did not create D3's Echoing Howl and its always-present " +
+            "subid-$01 pedestal with the source exit route.");
+
+        _player.WarpTo(new Vector2(0x78, 0x3a), recordSafe: false);
+        _player.Face(Vector2I.Up);
+        _sound.ClearPlayRequestAudit();
+        for (int frame = 0; frame < 180 && !_dialogue.IsOpen; frame++)
+            Step();
+        FailIf(
+            !_dialogue.IsOpen || !essence.ReadyForDialogue ||
+            !_player.IsHoldingItemTwoHands ||
+            !_saveData.HasRoomFlag(
+                4, 0x49, OracleSaveData.RoomFlagItem) ||
+            (_inventory.Essences & 0x04) == 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1,
+            "Room 4:49's Echoing Howl did not approach, fall, enter the " +
+            "two-hand pose, show TX_0010, set ROOMFLAG_ITEM/D3's Essence bit, " +
+            "and start the source sounds.");
+
+        _dialogue.Close();
+        Step();
+        FailIf(
+            !essence.SwirlActive ||
+            _roomEvents.DungeonEssence.Counter != 360 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1,
+            "Echoing Howl did not begin the common 360-update inward-energy " +
+            "swirl on the post-dialogue update.");
+        for (int frame = 0;
+             frame < 520 && !_transitions.IsTransitioning;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            !_transitions.IsTransitioning || essence.SwirlActive ||
+            _roomEvents.DungeonEssence.TracksEssence ||
+            !_player.IsHoldingItemTwoHands ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+            "Room 4:49 did not finish the common 360/20/20/40/30 Essence " +
+            "cadence and begin its delayed white exit warp.");
+
+        for (int frame = 0;
+             frame < 180 && _transitions.IsTransitioning;
+             frame++)
+        {
+            _transitions.Update(update);
+        }
+        FailIf(
+            _transitions.IsTransitioning ||
+            _rooms.ActiveGroup != 0 || _rooms.CurrentRoom.Id != 0xba ||
+            _currentRoom.Id != 0xba ||
+            _player.Position != new Vector2(0x58, 0x58) ||
+            _player.IsHoldingItemTwoHands ||
+            _roomView.BackgroundFadeAlpha != 0.0f,
+            "D3's Essence did not finish its source warp to 0:ba/$55 with " +
+            "the held pose and white fade cleaned up.");
+
+        LoadValidationRoom(4, 0x49);
+        DungeonEssence collected =
+            _entities.Entities<DungeonEssence>().Single();
+        FailIf(
+            !collected.Collected ||
+            _entities.Entities<DungeonEssence>().Count != 1 ||
+            _currentRoom.GetTerrainInfo(
+                new Vector2(0x78, 0x28)).Collision != 0x0f ||
+            !collected.BlocksLink(new Vector2(0x78, 0x28)),
+            "Collected room 4:49 re-entry did not delete only Echoing Howl's " +
+            "essence/glow while retaining the subid-$01 pedestal and collision.");
+
+        GD.Print(
+            "Validated room 4:49 Echoing Howl: imported placement/OAM/text, " +
+            "pedestal, collection, Essence bit, common timing/sounds, exit " +
+            "warp, and persistent re-entry.");
+    }
+
+    private void ValidateRoom44aShadowHagBoss()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packedPosition) => new(
+            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+        void FaceBoss(ShadowHagBoss target)
+        {
+            Vector2 delta = target.Position - _player.Position;
+            _player.Face(Mathf.Abs(delta.X) >= Mathf.Abs(delta.Y)
+                ? delta.X >= 0 ? Vector2I.Right : Vector2I.Left
+                : delta.Y >= 0 ? Vector2I.Down : Vector2I.Up);
+        }
+
+        var data = new MoonlitGrottoDatabase();
+        var visuals = new DungeonInteractionVisualDatabase();
+        var bosses = new DungeonBossDatabase();
+        var mechanics = new DungeonMechanicDatabase();
+        IReadOnlyList<DungeonObjectRecord> records =
+            data.GetRoomRecords(4, 0x4a);
+        DungeonInteractionVisual shadowVisual =
+            visuals.Visual("shadow-hag-shadow");
+        FailIf(
+            records.Select(record =>
+                (record.Order, record.Kind, record.Id, record.SubId,
+                 record.Y, record.X)).ToArray() is not
+                [
+                    (2, DungeonObjectKind.BossReward, 0x20, 0x01,
+                        0x58, 0x78),
+                    (3, DungeonObjectKind.ShadowHag, 0x7a, 0x00,
+                        0x58, 0xd8)
+                ] ||
+            bosses.Enemy(0x7a) is not
+                {
+                    Health: 12, DamageQuarters: 3,
+                    RadiusY: 9, RadiusX: 9,
+                    Palette: 3, Sprites.Length: 2,
+                    Animations.Length: 7
+                } ||
+            bosses.Enemy(0x42) is not
+                {
+                    Health: 2, DamageQuarters: 1,
+                    RadiusY: 6, RadiusX: 6,
+                    TileBase: 0x14, Palette: 2,
+                    Animations.Length: 1
+                } ||
+            shadowVisual is not
+                {
+                    TileBase: 0, Palette: 0,
+                    Sprites: ["spr_projectiles_3"],
+                    Animations.Length: 5
+                } ||
+            string.IsNullOrWhiteSpace(data.ShadowHagMessage),
+            "Room 4:4a lost its source-ordered reward/boss, imported $7a/$42 " +
+            "definitions, PART $41 visual, or TX_2f2b text.");
+
+        _saveData.SetRoomFlag(
+            4, 0x4a, OracleSaveData.RoomFlag80, value: false);
+        _saveData.SetRoomFlag(
+            4, 0x4a, OracleSaveData.RoomFlagItem, value: false);
+        _sound.ClearPlayRequestAudit();
+        OracleRoomData transitionSource = _world.LoadRoom(4, 0x49);
+        OracleRoomData transitionDestination = _world.LoadRoom(4, 0x4a);
+        _entities.LoadRoom(4, transitionSource);
+        Vector2 incomingOffset = Vector2.Left * transitionDestination.Width;
+        _entities.BeginScreenTransition(
+            4, transitionDestination, incomingOffset);
+        ShadowHagBoss preloadedBoss =
+            _entities.Entities<ShadowHagBoss>().Single();
+        FailIf(
+            preloadedBoss.Visible ||
+            preloadedBoss.State != ShadowHagState.IntroWaitingForDoors ||
+            preloadedBoss.TransitionDrawOffset != incomingOffset ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndCtrlStopMusic) != 1,
+            "Incoming room 4:4a did not resolve Shadow Hag's hidden state 0 " +
+            "before exposing the scrolling destination.");
+        _entities.Update(1.0, _player);
+        FailIf(
+            preloadedBoss.State != ShadowHagState.IntroWaitingForDoors,
+            "Incoming room 4:4a advanced Shadow Hag while destination " +
+            "entities were frozen during scrolling.");
+        _entities.FinishScreenTransition();
+
+        SeedShooterRecord shooter = SeedShooterRecord.Load();
+        SeedRecord ember = new SeedSatchelDatabase().Ember;
+        Vector2 wallApproach = new(40, 88);
+        var wallSeed = new EmberSeedEffect();
+        wallSeed.Initialize(
+            ember,
+            transitionDestination,
+            new BreakableTileDatabase(),
+            wallApproach - shooter.Offsets[6],
+            Vector2I.Left,
+            _ => { },
+            (_, _) => { },
+            () => { },
+            () => 0,
+            _ => null,
+            _saveData,
+            4,
+            launchKind: SeedLaunchKind.Shooter,
+            angle: 6);
+        var wallSeedSpawns = new List<RoomEntitySpawn>();
+        wallSeed.UpdateFrame(1, wallSeedSpawns);
+        for (int frame = 2;
+             frame < 12 &&
+             !transitionDestination.IsSolid(wallSeed.PrecisePosition);
+             frame++)
+        {
+            wallSeed.UpdateFrame(frame, wallSeedSpawns);
+        }
+        Vector2 wallCollisionPosition = wallSeed.PrecisePosition;
+        FailIf(
+            !transitionDestination.IsSolid(wallCollisionPosition) ||
+            wallSeed.Angle != 6 || wallSeed.BouncesRemaining != 3,
+            "Room 4:4a's left arena wall did not receive the cardinal " +
+            $"shooter seed at the source collision position " +
+            $"(position={wallCollisionPosition}, angle={wallSeed.Angle}, " +
+            $"bounces={wallSeed.BouncesRemaining}).");
+        wallSeed.UpdateFrame(wallSeed.ElapsedFrames + 1, wallSeedSpawns);
+        FailIf(
+            wallSeed.State != EmberState.Flying || wallSeed.Angle != 2 ||
+            wallSeed.BouncesRemaining != 2 ||
+            wallSeed.PrecisePosition !=
+                wallCollisionPosition + new Vector2(3, 0),
+            "A cardinal shooter seed did not reflect right and run the " +
+            "same-update objectApplySpeed after hitting room 4:4a's left " +
+            $"wall (state={wallSeed.State}, angle={wallSeed.Angle}, " +
+            $"bounces={wallSeed.BouncesRemaining}, " +
+            $"position={wallSeed.PrecisePosition}).");
+        wallSeed.UpdateFrame(wallSeed.ElapsedFrames + 1, wallSeedSpawns);
+        FailIf(
+            wallSeed.State != EmberState.Flying || wallSeed.Angle != 2 ||
+            wallSeed.BouncesRemaining != 2 ||
+            wallSeed.PrecisePosition !=
+                wallCollisionPosition + new Vector2(6, 0),
+            "Room 4:4a's reflected shooter seed remained embedded in the " +
+            "wall and consumed another bounce instead of crossing the arena.");
+        wallSeed.Free();
+
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(4, 0x4a);
+        _player.WarpTo(new Vector2(0x78, 0x58), recordSafe: false);
+        ShadowHagBoss boss = _entities.Entities<ShadowHagBoss>().Single();
+        DungeonRewardRoomEntity reward =
+            _entities.Entities<DungeonRewardRoomEntity>().Single();
+        FailIf(
+            boss.Position != new Vector2(0xd8, 0x58) ||
+            _entities.RoomEnemyCount != 1 || reward.Finished ||
+            _entities.Entities<DungeonDoorRoomEntity>().Select(door =>
+                (door.SubId, door.PackedPosition,
+                 door.EnemyCompletionSupported)).ToArray() is not
+                    [(0x0b, 0x50, true), (0x09, 0x5e, true)] ||
+            _currentRoom.GetMetatile(Point(0x50)) != 0x7b ||
+            _currentRoom.GetMetatile(Point(0x5e)) != 0x79 ||
+            !_currentRoom.IsSolid(Point(0x50)) ||
+            !_currentRoom.IsSolid(Point(0x5e)),
+            "Room 4:4a did not create its counted ENEMY_SHADOW_HAG and " +
+            "heart-container script with both supported enemy shutters in " +
+            "source order.");
+
+        for (int frame = 0;
+             frame < 600 && boss.State != ShadowHagState.IntroDialogue;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            boss.State != ShadowHagState.IntroDialogue ||
+            !_dialogue.IsOpen || !boss.Visible ||
+            !_entities.LinkCollisionsAndMenuDisabled ||
+            boss.Position.X >= 0x78 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndCtrlStopMusic) != 1,
+            "Shadow Hag did not close room 4:4a, slide left from Link's " +
+            "position, emerge, and open TX_2f2b with Link locked.");
+        _dialogue.Close();
+        for (int frame = 0;
+             frame < 16 && boss.State == ShadowHagState.IntroDialogue;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            boss.State != ShadowHagState.GroundEyes || boss.IntroActive ||
+            _entities.LinkCollisionsAndMenuDisabled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusBoss) != 1,
+            "Shadow Hag did not honor the post-dialogue eight-update delay, " +
+            "start boss music, and restore Link.");
+
+        for (int frame = 0;
+             frame < 150 &&
+             boss.State != ShadowHagState.ShadowsChasing;
+             frame++)
+        {
+            Step();
+        }
+        List<ShadowHagShadowEffect> shadows =
+            _entities.Entities<ShadowHagShadowEffect>();
+        FailIf(
+            boss.State != ShadowHagState.ShadowsChasing ||
+            boss.Counter1 != 150 || boss.Counter2 != 4 ||
+            boss.Visible || shadows.Count != 4 ||
+            shadows.Select(shadow => shadow.Angle).Order().ToArray() is not
+                [0x04, 0x0c, 0x14, 0x1c],
+            "Shadow Hag did not flicker for 90 updates and create four " +
+            "PART_SHADOW_HAG_SHADOW children in source angle order " +
+            $"(state={boss.State}, c1={boss.Counter1}, c2={boss.Counter2}, " +
+            $"visible={boss.Visible}, shadows={shadows.Count}, " +
+            $"angles={string.Join(',', shadows.Select(shadow => shadow.Angle))}).");
+
+        int randomCallsBeforeConvergence = _entities.RandomCalls;
+        for (int frame = 0;
+             frame < 900 && boss.State != ShadowHagState.SpawningBugs;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            boss.State != ShadowHagState.SpawningBugs ||
+            _entities.Entities<ShadowHagShadowEffect>().Count != 0 ||
+            _entities.RandomCalls < randomCallsBeforeConvergence + 2,
+            "The four Shadow Hag parts did not chase on alternate updates, " +
+            "reconverge, and consume the shared RNG for target/cycle count.");
+
+        for (int frame = 0;
+             frame < 80 && boss.State == ShadowHagState.SpawningBugs;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            boss.BugsAlive != 4 ||
+            _entities.Entities<ShadowHagBug>().Count != 4 ||
+            _entities.Entities<ShadowHagBug>().Any(bug =>
+                bug.Record.Id != 0x42),
+            "Shadow Hag did not spawn four uncounted $42 bugs at each " +
+            "16-update boundary while retaining one room enemy count.");
+
+        Vector2 behindOffset = _player.FacingVector == Vector2I.Up
+            ? new Vector2(0, 0x40)
+            : _player.FacingVector == Vector2I.Right
+                ? new Vector2(-0x40, 8)
+                : _player.FacingVector == Vector2I.Down
+                    ? new Vector2(0, -0x40)
+                    : new Vector2(0x40, 8);
+        Vector2 chargeAnchor = (
+            from y in Enumerable.Range(2, _currentRoom.HeightInTiles - 4)
+            from x in Enumerable.Range(2, _currentRoom.WidthInTiles - 4)
+            let link = new Vector2(x * 16 + 8, y * 16 + 8)
+            let spawn = link + behindOffset
+            where spawn.Y >= 0x1c && spawn.Y < 0x9c &&
+                spawn.X >= 0 && spawn.X < 0xf0 &&
+                _currentRoom.GetTerrainInfo(link).Collision == 0 &&
+                _currentRoom.GetTerrainInfo(spawn).Collision == 0
+            select link).First();
+        _player.WarpTo(chargeAnchor, recordSafe: false);
+
+        for (int frame = 0;
+             frame < 300 && boss.State != ShadowHagState.ChargeTell;
+             frame++)
+        {
+            _player.WarpTo(chargeAnchor, recordSafe: false);
+            Step();
+        }
+        FailIf(
+            boss.State != ShadowHagState.ChargeTell || !boss.Vulnerable ||
+            !boss.Visible || _entities.RoomEnemyCount != 1,
+            "Shadow Hag did not choose the source offset behind Link, emerge, " +
+            "and enter its seed-vulnerable 30-update charge tell " +
+            $"(state={boss.State}, c1={boss.Counter1}, c2={boss.Counter2}, " +
+            $"pos={boss.Position}, visible={boss.Visible}, " +
+            $"bugs={boss.BugsAlive}).");
+        int health = boss.Health;
+        FailIf(
+            _entities.ApplySwordHit(
+                boss.CollisionBounds.Grow(1), boss.Position, damage: 2) ||
+            boss.Health != health,
+            "Shadow Hag accepted sword damage despite collision mode $4b.");
+        FailIf(
+            !boss.TakeSeedHit(2) || boss.Health != health - 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            "Shadow Hag rejected source seed damage during state $11.");
+
+        Vector2I spawnFacing = _player.FacingVector;
+        bool sawSecondShadows = false;
+        bool sawSecondConvergence = false;
+        for (int frame = 0; frame < 4000; frame++)
+        {
+            _player.WarpTo(chargeAnchor, recordSafe: false);
+            if (boss.State == ShadowHagState.WaitingBehindLink)
+                _player.Face(spawnFacing);
+            else if (boss.State is ShadowHagState.ChargeTell or
+                     ShadowHagState.Charging)
+                FaceBoss(boss);
+            Step();
+            sawSecondShadows |= boss.State == ShadowHagState.ShadowsChasing;
+            sawSecondConvergence |=
+                sawSecondShadows &&
+                boss.State == ShadowHagState.ShadowsConverging;
+            if (sawSecondConvergence &&
+                boss.State == ShadowHagState.BugSpawnDelay)
+            {
+                break;
+            }
+        }
+        string secondShadowSummary = string.Join(
+            ';',
+            _entities.Entities<ShadowHagShadowEffect>().Select(shadow =>
+                $"{shadow.State}@{shadow.Position}/${shadow.Angle:x2}"));
+        FailIf(
+            !sawSecondShadows || !sawSecondConvergence ||
+            boss.State != ShadowHagState.BugSpawnDelay ||
+            boss.Counter1 != 30 || !boss.Visible ||
+            _entities.Entities<ShadowHagShadowEffect>().Count != 0,
+            "Shadow Hag did not complete her second split/reassembly cycle " +
+            $"(state={boss.State}, c1={boss.Counter1}, c2={boss.Counter2}, " +
+            $"visible={boss.Visible}, shadows={secondShadowSummary}).");
+
+        for (int frame = 0;
+             frame < 1200 && boss.State != ShadowHagState.ChargeTell;
+             frame++)
+        {
+            _player.WarpTo(chargeAnchor, recordSafe: false);
+            if (boss.State == ShadowHagState.WaitingBehindLink)
+                _player.Face(spawnFacing);
+            Step();
+        }
+        FailIf(
+            boss.State != ShadowHagState.ChargeTell || !boss.Vulnerable,
+            "Shadow Hag did not resume her attack after the second " +
+            $"reassembly (state={boss.State}, c1={boss.Counter1}, " +
+            $"c2={boss.Counter2}).");
+        boss.InvincibilityCounter = 0;
+        FailIf(!boss.TakeSeedHit(0x7f),
+            "Shadow Hag rejected a lethal seed hit during its vulnerable phase.");
+
+        Step();
+        FailIf(
+            _entities.Entities<ShadowHagBug>().Count != 0 ||
+            boss.BugsAlive != 0,
+            "Shadow Hag's no-health handler did not kill every live $42 child.");
+        Step(119);
+        BossDeathExplosionEffect explosion =
+            _entities.Entities<BossDeathExplosionEffect>().Single();
+        FailIf(
+            _entities.Entities<ShadowHagBoss>().Count != 0 ||
+            explosion.BossId != 0x7a ||
+            _saveData.HasRoomFlag(
+                4, 0x4a, OracleSaveData.RoomFlag80) ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            !_entities.LinkCollisionsAndMenuDisabled,
+            "Shadow Hag did not hand off to the counted 120-update boss " +
+            "death and finite PART_BOSS_DEATH_EXPLOSION sequence.");
+        _sound.ClearPlayRequestAudit();
+        Step(80);
+        FailIf(
+            !_saveData.HasRoomFlag(
+                4, 0x4a, OracleSaveData.RoomFlag80) ||
+            _entities.Entities<GroundTreasurePickup>() is not
+                [{ Record: { TreasureObject:
+                    "TREASURE_OBJECT_HEART_CONTAINER_00" } }] ||
+            _entities.LinkCollisionsAndMenuDisabled ||
+            _entities.RoomEnemyCount != 0 ||
+            !_currentRoom.IsSolid(Point(0x50)) ||
+            !_currentRoom.IsSolid(Point(0x5e)) ||
+            _sound.PlayRequestsFor(mechanics.SolveSound) != 2,
+            "Room 4:4a did not persist flag $80 and spawn its Heart " +
+            "Container and begin both enemy-shutter solve delays when the " +
+            "boss explosion released the enemy count.");
+        Step(mechanics.SolveWait);
+        FailIf(
+            _currentRoom.GetMetatile(Point(0x50)) != 0x7b ||
+            _currentRoom.GetMetatile(Point(0x5e)) != 0x79,
+            "Room 4:4a changed either shutter before the post-solve ready " +
+            "update.");
+        Step();
+        FailIf(
+            _currentRoom.GetMetatile(Point(0x50)) != 0xa0 ||
+            _currentRoom.GetMetatile(Point(0x5e)) != 0xa0 ||
+            !_currentRoom.IsSolid(Point(0x50)) ||
+            !_currentRoom.IsSolid(Point(0x5e)),
+            "Room 4:4a did not begin both interleaved shutter openings " +
+            "while retaining collision.");
+        Step(mechanics.DoorFrameWait);
+        FailIf(
+            _currentRoom.IsSolid(Point(0x50)) ||
+            _currentRoom.IsSolid(Point(0x5e)) ||
+            _entities.Entities<DungeonDoorRoomEntity>().Count != 0,
+            "Room 4:4a did not finish both enemy shutters on the exact " +
+            "six-update interleaving boundary.");
+
+        _saveData.SetRoomFlag(
+            4, 0x4a, OracleSaveData.RoomFlagItem, value: true);
+        LoadValidationRoom(4, 0x4a);
+        FailIf(
+            _entities.Entities<ShadowHagBoss>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0,
+            "Completed room 4:4a did not suppress its BeforeEvent boss and " +
+            "$20:$01 reward after the item flag was persisted.");
+
+        GD.Print(
+            "Validated room 4:4a Shadow Hag: source order/visuals, transition " +
+            "preload, arena-wall shooter ricochet, intro, four shadows, " +
+            "shared RNG, bugs, behind-Link charge, repeated reassembly, seed " +
+            "vulnerability, death, enemy-shutter opening, Heart Container, " +
+            "and re-entry.");
+    }
+
     private void ValidateRoom44dSubterrorMiniboss()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
@@ -75,6 +632,31 @@ public sealed partial class ValidationRoot
 
         _saveData.SetRoomFlag(
             4, 0x4d, OracleSaveData.RoomFlag80, value: false);
+        _sound.ClearPlayRequestAudit();
+        OracleRoomData transitionSource = _world.LoadRoom(4, 0x4c);
+        OracleRoomData transitionDestination = _world.LoadRoom(4, 0x4d);
+        _entities.LoadRoom(4, transitionSource);
+        Vector2 incomingOffset = Vector2.Left * transitionDestination.Width;
+        _entities.BeginScreenTransition(
+            4, transitionDestination, incomingOffset);
+        SubterrorBoss preloadedBoss =
+            _entities.Entities<SubterrorBoss>().Single();
+        FailIf(
+            preloadedBoss.Visible || preloadedBoss.Counter2 != 30 ||
+            preloadedBoss.DirtCounter != 7 || preloadedBoss.Speed != 0x3c ||
+            preloadedBoss.TransitionDrawOffset != incomingOffset ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndCtrlStopMusic) != 1,
+            "Incoming room 4:4d did not resolve Subterror's hidden source " +
+            "state 0 before exposing the scrolling destination.");
+        _entities.Update(1.0, _player);
+        FailIf(
+            preloadedBoss.Counter2 != 30 || preloadedBoss.DirtCounter != 7 ||
+            preloadedBoss.State != SubterrorState.WaitingForDoors,
+            "Incoming room 4:4d advanced Subterror while destination " +
+            "entities were frozen during scrolling.");
+        _entities.FinishScreenTransition();
+
         _sound.ClearPlayRequestAudit();
         LoadValidationRoom(4, 0x4d);
         SubterrorBoss boss = _entities.Entities<SubterrorBoss>().Single();

@@ -3,16 +3,16 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class SubterrorBossRoomEntity
-    : CombatEnemyRoomEntityAdapter<SubterrorBoss>, IFixedRoomEntity,
-        IShovelHittableRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
+internal sealed class ShadowHagBossRoomEntity
+    : CombatEnemyRoomEntityAdapter<ShadowHagBoss>, IFixedRoomEntity,
+        IPlayerRestriction, IPlayerForcedMovement,
         IScreenTransitionPreloadRoomEntity
 {
     private readonly BossEntryMovement _entryMovement;
     private bool _initialized;
 
-    internal SubterrorBossRoomEntity(
-        SubterrorBoss boss,
+    internal ShadowHagBossRoomEntity(
+        ShadowHagBoss boss,
         Vector2I entryDirection)
         : base(
             boss,
@@ -44,7 +44,7 @@ internal sealed class SubterrorBossRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        Entity.UpdateFrame(frame.Player, spawns);
+        Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
         if (_initialized)
             return;
         _initialized = true;
@@ -61,6 +61,28 @@ internal sealed class SubterrorBossRoomEntity
         return ScreenTransitionPresentation.Hidden;
     }
 
-    public bool ApplyShovelHit(Rect2 hitbox, Vector2 sourcePosition) =>
-        Entity.TryApplyShovelHit(hitbox, sourcePosition);
+    public override SeedHitResult ApplySeedHit(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int seedItem,
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        _ = sourcePosition;
+        _ = spawns;
+        if (seedItem is < 0x20 or > 0x24 || !Entity.Vulnerable ||
+            !Entity.CollisionBounds.Intersects(hitbox))
+        {
+            return SeedHitResult.None;
+        }
+        // Collision mode $4b routes only Ember ($1b) and Scent ($1c) through
+        // collisionEffect21 / ENEMYDMG_$30. Mystery, Pegasus, and Gale use
+        // collisionEffect20 / ENEMYDMG_$44, which consumes their collision
+        // without reducing Shadow Hag's health.
+        if ((seedItem is 0x20 or 0x21) &&
+            !Entity.TakeSeedHit(damage: 2))
+            return SeedHitResult.None;
+        return seedItem is 0x21 or 0x24
+            ? SeedHitResult.Activate
+            : SeedHitResult.Consume;
+    }
 }
