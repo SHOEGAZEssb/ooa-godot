@@ -62,6 +62,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal Vector2 PrecisePosition => _precisePosition;
     internal bool CollisionEnabled =>
         _collisionEnabled && !Finished && _state != EmberState.Initializing;
+    internal int CollisionZ => _zFixed >> 8;
     internal SeedLaunchKind LaunchKind => _launchKind;
     internal int Angle => _angle;
     internal int BouncesRemaining => _bouncesRemaining;

@@ -10,6 +10,7 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
 {
     public bool Finished => Entity.Finished;
     public bool CollisionEnabled => Entity.CollisionEnabled;
+    public int CollisionZ => Entity.CollisionZ;
     public int SeedItem => Entity.SeedItem;
     internal SeedLaunchKind LaunchKind => Entity.LaunchKind;
     public Vector2? ScentTarget => Entity.ScentTarget;

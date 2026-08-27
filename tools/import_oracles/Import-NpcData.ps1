@@ -1481,13 +1481,16 @@ if ($miscMan2Source -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr 
 }
 
 # PART_SWITCH $05, PART_BUTTON $09, the buttons' trigger-chest consumers
-# $20:$00/$21:$17, the
+# $20:$00/$21:$17, INTERAC_DUNGEON_STUFF's falling-key/enemy-clear rewards
+# $12:$01/$02, the
 # trigger-controlled and enemy-controlled shutter variants of
 # INTERAC_DOOR_CONTROLLER $1e:$04-$0b, and INTERAC_PUSHBLOCK_TRIGGER $13:$01
 # form reusable dungeon mechanisms around wActiveTriggers and wNumEnemies.
 # Export every supported direct placement in source order; rooms 4:08, 4:09,
 # 4:0b, and 4:0c are the canonical button-chest, button-door, combat-door, and
-# trigger-before-door cases.
+# trigger-before-door cases. Spirit's Grave room 4:1e and Wing Dungeon room
+# 4:39 already import their $12:$01 placements through their source-ordered
+# dungeon object tables, so the shared table must not duplicate those owners.
 $pushblockTriggerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\pushblockTrigger.s')
 $buttonSource = Read-ImportText (
@@ -1496,6 +1499,8 @@ $switchSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\switch.s')
 $doorControllerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\interactions\doorController.s')
+$dungeonStuffSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
 $dungeonScriptSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\dungeonScript.s')
 $dungeonEventSource = Read-ImportText (
@@ -1550,6 +1555,8 @@ $musicIdSource = Read-ImportText (
 $objectSpeedSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\objectSpeeds.s')
 if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_BLOCK.*?ld hl,wNumEnemies\s+inc \(hl\).*?^@state1:.*?^@state2:.*?cp \(hl\)\s+ret z.*?ld a,\$1e.*?^@state3:.*?interactionDecCounter1.*?xor a\s+ld \(wNumEnemies\),a' -or
+    $dungeonStuffSource -notmatch '(?ms)^@subid01:\s+call returnIfScrollMode01Unset.*?ld hl,mainScripts\.dropSmallKeyWhenNoEnemiesScript.*?call interactionSetScript.*?^@runScript:' -or
+    $commonScriptSource -notmatch '(?ms)^dropSmallKeyWhenNoEnemiesScript:\s+stopifitemflagset.*?checknoenemies\s+spawnitem TREASURE_SMALL_KEY, \$01\s+scriptend' -or
     $switchSource -notmatch '(?ms)^partCode05:\s+jr z,@normalStatus.*?ld a,\(wSwitchState\).*?xor \(hl\)\s+ld \(wSwitchState\),a\s+call @updateTile\s+ld a,SND_SWITCH.*?^@state0:.*?ld \(hl\),\$fa\s+call objectGetShortPosition.*?^@updateTile:.*?TILEINDEX_DUNGEON_SWITCH_OFF.*?inc a.*?jp setTile' -or
     $buttonSource -notmatch '(?ms)^partCode09:.*?call z,@state0.*?checkObjectsCollided.*?@linkTouchedButton:.*?ld a,\(w1Link\.zh\).*?rlca\s+jr nc,@delete.*?@checkButtonPushed:.*?TILEINDEX_PRESSED_BUTTON.*?@setTriggerAndPlaySound:.*?wActiveTriggers.*?setFlag.*?SND_SPLASH.*?@state0:.*?and \$07' -or
     $buttonSource -notmatch '(?ms)^@somethingOnButton:.*?bit 7,\(hl\).*?ld \(hl\),\$1c.*?setTileInRoomLayoutBuffer.*?^@updateTileBeforeDeletion:.*?TILEINDEX_PRESSED_BUTTON.*?setTileInRoomLayoutBuffer' -or
@@ -1882,6 +1889,18 @@ $rotatableSeedThingSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\rotatableSeedThing.s')
 $respawnableBushSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\parts\respawnableBush.s')
+$seedBouncerTileMatch = [regex]::Match(
+    $rotatableSeedThingSource,
+    '(?ms)^@subid0_state0:.*?call objectMakeTileSolid\s+' +
+    'ld h,\$cf\s+ld \(hl\),\$(?<tile>[0-9a-f]{2})')
+$seedBouncerCollisionMatch = [regex]::Match(
+    $bank0Source,
+    '(?ms)^objectMakeTileSolid:\s+call objectGetTileCollisions\s+' +
+    'ld \(hl\),\$(?<collision>[0-9a-f]{2})\s+ret')
+$seedBouncerChildMatch = [regex]::Match(
+    $rotatableSeedThingSource,
+    '(?ms)^func_65d5:.*?ld bc,\$(?<offset>[0-9a-f]{4}).*?' +
+    'ld l,\$cf\s+ld \(hl\),\$(?<z>[0-9a-f]{2})')
 if ($extendableBridgeSource -notmatch
         '(?ms)^interactionCode23:.*?and \$07.*?bitTable.*?wSwitchState.*?' +
         '@bridgeCreationData:.*?@bridgeRemovalData:' -or
@@ -1892,9 +1911,23 @@ if ($extendableBridgeSource -notmatch
         '(?ms)^partCode0f:.*?ld \(hl\),\$f0.*?TILEINDEX_RESPAWNING_BUSH_CUT.*?' +
         'getRandomNumber_noPreserveVars.*?PART_ITEM_DROP.*?' +
         'wFrameCounter.*?TILEINDEX_RESPAWNING_BUSH_REGEN.*?' +
-        'TILEINDEX_RESPAWNING_BUSH_READY') {
+        'TILEINDEX_RESPAWNING_BUSH_READY' -or
+    -not $seedBouncerTileMatch.Success -or
+    -not $seedBouncerCollisionMatch.Success -or
+    -not $seedBouncerChildMatch.Success) {
     throw 'Room 4:4e bridge, seed-bouncer, or respawnable-bush source contract changed.'
 }
+$seedBouncerTile = [Convert]::ToInt32(
+    $seedBouncerTileMatch.Groups['tile'].Value, 16)
+$seedBouncerCollision = [Convert]::ToInt32(
+    $seedBouncerCollisionMatch.Groups['collision'].Value, 16)
+$seedBouncerChildOffset = [Convert]::ToInt32(
+    $seedBouncerChildMatch.Groups['offset'].Value, 16)
+$seedBouncerChildY = ($seedBouncerChildOffset -shr 8) -band 0xff
+$seedBouncerChildX = $seedBouncerChildOffset -band 0xff
+$seedBouncerChildZ = [Convert]::ToInt32(
+    $seedBouncerChildMatch.Groups['z'].Value, 16)
+if ($seedBouncerChildZ -ge 0x80) { $seedBouncerChildZ -= 0x100 }
 $mechanicTilesetsByGroup = @{}
 function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
     if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
@@ -1907,6 +1940,12 @@ function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
 
 $dungeonMechanicRows = [Collections.Generic.List[string]]::new()
 $dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`ttrigger-predicate`tcount-source-complete")
+$specializedEnemyFallingKeyRooms = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal)
+[void]$specializedEnemyFallingKeyRooms.Add('4:1e')
+[void]$specializedEnemyFallingKeyRooms.Add('4:39')
+$sourceEnemyFallingKeyCount = 0
+$enemyFallingKeyCount = 0
 $enemyClearChestCount = 0
 $permanentTriggerChestCount = 0
 $retractableTriggerChestCount = 0
@@ -1931,6 +1970,11 @@ foreach ($line in $mainObjectLines) {
     if ($line -match '^\s*obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<a>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})') {
         $id = [Convert]::ToInt32($Matches['id'], 16)
         $subid = [Convert]::ToInt32($Matches['subid'], 16)
+        $enemyFallingKey = $id -eq 0x12 -and $subid -eq 0x01
+        if ($enemyFallingKey) { $sourceEnemyFallingKeyCount++ }
+        $specializedEnemyFallingKey = $enemyFallingKey -and
+            $specializedEnemyFallingKeyRooms.Contains(
+                "$mechanicGroup`:$($mechanicRoom.ToString('x2'))")
         $dungeonScriptPredicate = ''
         if ($id -eq 0x20 -and $subid -eq 0x00) {
             $dungeon = Resolve-DungeonMechanicDungeonIndex $mechanicGroup $mechanicRoom
@@ -1938,13 +1982,14 @@ foreach ($line in $mainObjectLines) {
                 $dungeonScriptPredicate = $triggerChestPredicateByDungeon[$dungeon]
             }
         }
-        if (($id -eq 0x12 -and $subid -eq 0x02) -or
+        if (-not $specializedEnemyFallingKey -and (
+            ($id -eq 0x12 -and $subid -in @(0x01, 0x02)) -or
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             ($id -eq 0x23 -and $subid -le 0x07) -or
             ($id -eq 0x24 -and $subid -eq 0x02) -or
             $dungeonScriptPredicate -ne '' -or
-            ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17))) {
+            ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17)))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
             $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20) {
@@ -1974,7 +2019,12 @@ foreach ($line in $mainObjectLines) {
                 "$mechanicGroup`:$($mechanicRoom.ToString('x2'))")) { 0 } else { 1 }
             $dungeonMechanicRows.Add(
                 "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($position.ToString('x2'))`t$($parameter.ToString('x2'))`t$triggerPredicate`t$countSourceComplete")
-            if ($id -eq 0x12) { $enemyClearChestCount++ }
+            if ($id -eq 0x12 -and $subid -eq 0x01) {
+                $enemyFallingKeyCount++
+            }
+            if ($id -eq 0x12 -and $subid -eq 0x02) {
+                $enemyClearChestCount++
+            }
             if ($id -eq 0x20) { $permanentTriggerChestCount++ }
             if ($id -eq 0x21 -and $subid -eq 0x17) {
                 $retractableTriggerChestCount++
@@ -2010,7 +2060,9 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 226 -or
+if ($dungeonMechanicRows.Count -ne 228 -or
+    $sourceEnemyFallingKeyCount -ne 4 -or
+    $enemyFallingKeyCount -ne 2 -or
     $enemyClearChestCount -ne 12 -or
     $permanentTriggerChestCount -ne 7 -or
     $retractableTriggerChestCount -ne 6 -or
@@ -2029,6 +2081,8 @@ if ($dungeonMechanicRows.Count -ne 226 -or
     -not ($dungeonMechanicRows -contains "4`t22`t1`t09`t80`t5b`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t2f`t5`t05`t02`t79`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t65`t0`t12`t02`t58`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4b`t0`t13`t01`t6b`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`t4b`t1`t12`t01`t58`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t56`t0`t21`t0a`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t4e`t0`t23`t01`t39`t02`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t4e`t1`t23`t01`t42`t03`tnone`t1") -or
@@ -2055,7 +2109,7 @@ if ($dungeonMechanicRows.Count -ne 226 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 225 reusable dungeon mechanics including room 4:4e's bridges, orbs, switch, rotating seed bouncer, and respawnable Scent Seed bushes; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 229 reusable dungeon mechanics including room 4:4b's push-trigger/falling-key pair and room 4:4e's bridges, orbs, switch, rotating seed bouncer, and respawnable Scent Seed bushes; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2073,8 +2127,6 @@ $moonlitPartDataSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\partData.s')
 $moonlitExtraObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
-$dungeonStuffSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\common\interactions\dungeonStuff.s')
 if ($moonlitPartDataSource -notmatch
         '(?m)^\s*\.db \$74 \$83 \$44 \$00 \$40 \$1e \$00 \$00 ; \$03\s*$' -or
     $moonlitEventSource -notmatch
@@ -2300,6 +2352,11 @@ $dungeonMechanicConstantRows = @(
     "moonlit-orb-collision`t10"
     "moonlit-orb-radius-y`t4"
     "moonlit-orb-radius-x`t4"
+    "seed-bouncer-background-tile`t$seedBouncerTile"
+    "seed-bouncer-tile-collision`t$seedBouncerCollision"
+    "seed-bouncer-child-y`t$seedBouncerChildY"
+    "seed-bouncer-child-x`t$seedBouncerChildX"
+    "seed-bouncer-child-z`t$seedBouncerChildZ"
     "moonlit-armos-chest-position`t105"
     "moonlit-button-key-y`t$moonlitButtonKeyY"
     "moonlit-button-key-x`t$moonlitButtonKeyX"

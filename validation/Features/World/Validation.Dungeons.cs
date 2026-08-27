@@ -956,6 +956,7 @@ public sealed partial class ValidationRoot
         int switchRecordCount = 0;
         int buttonRecordCount = 0;
         int triggerDoorRecordCount = 0;
+        int enemyFallingKeyCount = 0;
         int enemyClearChestCount = 0;
         int permanentTriggerChestCount = 0;
         int retractableTriggerChestCount = 0;
@@ -980,6 +981,8 @@ public sealed partial class ValidationRoot
                 buttonRecordCount += record.Id == 0x09 ? 1 : 0;
                 triggerDoorRecordCount += record is
                     { Id: 0x1e, SubId: >= 0x04 and <= 0x07 } ? 1 : 0;
+                enemyFallingKeyCount += record is
+                    { Id: 0x12, SubId: 0x01 } ? 1 : 0;
                 enemyClearChestCount += record is
                     { Id: 0x12, SubId: 0x02 } ? 1 : 0;
                 permanentTriggerChestCount += record is
@@ -1009,9 +1012,10 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 225 || switchRecordCount != 7 ||
+            database.RecordCount != 227 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
+            enemyFallingKeyCount != 2 ||
             enemyClearChestCount != 12 ||
             permanentTriggerChestCount != 7 ||
             retractableTriggerChestCount != 6 ||
@@ -1024,7 +1028,8 @@ public sealed partial class ValidationRoot
             rotatableSeedThingCount != 2 || respawnableBushScannerCount != 3 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
-            "Expected 12 enemy-clear chests, seven switches, 49 buttons, 20 " +
+            "Expected two shared enemy-clear falling keys, 12 enemy-clear chests, " +
+            "seven switches, 49 buttons, 20 " +
             "trigger shutters, seven delayed and six retractable trigger " +
             "chests, two Moonlit orb/button Armos events, four Moonlit crystal " +
             "handlers/parts, one direct-layout and one tile-pattern falling key, " +
@@ -2011,7 +2016,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 225 imported enemy-clear-chest/switch/button/" +
+        GD.Print("Validated all 227 imported enemy-clear-key/chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

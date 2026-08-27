@@ -1383,6 +1383,21 @@ internal sealed class RoomEntityFactory(
             enableLinkCollisionsAndMenu);
     }
 
+    private GroundTreasureGrantRequest CreatePlacedFallingSmallKeyRequest(
+        DungeonMechanicDatabaseRecord record)
+    {
+        int y = (record.PackedPosition >> 4) * OracleRoomData.MetatileSize + 8;
+        int x = (record.PackedPosition & 0x0f) * OracleRoomData.MetatileSize + 8;
+        return CreateFallingSmallKeyRequest(
+            record.Group,
+            record.Room,
+            record.Order,
+            y,
+            x,
+            $"objects/ages/mainData.s:group{record.Group}Map" +
+            $"{record.Room:x2}ObjectData/INTERAC_DUNGEON_STUFF $12:$01");
+    }
+
     private static ColoredCubePuzzleState RequireColoredCubePuzzle(
         ColoredCubePuzzleState? puzzle,
         DungeonObjectRecord record) =>
@@ -1564,6 +1579,17 @@ internal sealed class RoomEntityFactory(
                 () => saveData?.HasRoomFlag(
                     group, room.Id, OracleSaveData.RoomFlagItem) == true,
                 animationTick, soundRequested);
+        }
+        if (record.Id == 0x12 && record.SubId == 0x01)
+        {
+            if (saveData?.HasRoomFlag(
+                    group, room.Id, OracleSaveData.RoomFlagItem) == true ||
+                !enemyMechanicsSupported)
+            {
+                return null;
+            }
+            return CreateEnemySmallKeyReward(
+                CreatePlacedFallingSmallKeyRequest(record));
         }
         if (record.Id == 0x12)
         {
@@ -4343,19 +4369,22 @@ internal sealed class RoomEntityFactory(
                 break;
             }
         }
-        bool hasSupportedDoor = false;
+        bool hasEnemyCountConsumer = false;
         foreach (DungeonMechanicDatabaseRecord record in records)
         {
             if (record.Id == 0x09)
                 continue;
-            if (record.Id == 0x1e)
-                hasSupportedDoor = true;
+            if (record.Id == 0x1e || record.Id == 0x13 ||
+                record is { Id: 0x12, SubId: 0x01 })
+            {
+                hasEnemyCountConsumer = true;
+            }
             if (record.Id == 0x1e && record.SubId <= 0x07)
                 continue;
             if (!record.CountSourceComplete && !hasSupportedNativeBossRecord)
                 return false;
         }
-        return hasSupportedDoor && DungeonEnemyCountIsComplete(group, room);
+        return hasEnemyCountConsumer && DungeonEnemyCountIsComplete(group, room);
     }
 
     private bool TryChooseRandomEnemyPosition(

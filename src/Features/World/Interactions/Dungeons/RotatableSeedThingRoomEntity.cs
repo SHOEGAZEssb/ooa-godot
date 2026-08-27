@@ -7,18 +7,22 @@ namespace oracleofages;
 /// <summary>
 /// PART_ROTATABLE_SEED_THING $33:$0a and its automatically created $03 child.
 /// The parent watches the imported toggle-state mask and rotates one quarter
-/// turn whenever either selected bit changes; the invisible child mirrors its
-/// collision orientation twelve pixels below it.
+/// turn whenever either selected bit changes. The child mirrors its collision
+/// orientation at Y+$0c and Z=$f2, so it does not extend the ground-level
+/// seed-shooter target below the visible parent.
 /// </summary>
 internal sealed partial class RotatableSeedThingRoomEntity :
     TransitionOffsetNode2D, IRoomEntity, IFixedRoomEntity,
     ISeedHittableRoomEntity, ISeedBounceTarget,
+    ISeedHeightAwareHittableRoomEntity,
     ISeedPreMovementCollisionTarget
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRuntimeState _runtime;
     private readonly EnemyAnimationPlayer _animation;
     private readonly int _rotationStep;
+    private readonly Vector2 _childOffset;
+    private readonly int _childZ;
     private bool _initialized;
     private byte _lastMaskedState;
 
@@ -50,6 +54,9 @@ internal sealed partial class RotatableSeedThingRoomEntity :
         }
         _record = record;
         _runtime = runtime;
+        _childOffset = new Vector2(
+            data.SeedBouncerChildX, data.SeedBouncerChildY);
+        _childZ = data.SeedBouncerChildZ;
         Position = Point(record.PackedPosition);
         Name = $"RotatableSeedThing_{record.Order}";
         ZIndex = NpcCharacter.BehindLinkZIndex;
@@ -69,8 +76,8 @@ internal sealed partial class RotatableSeedThingRoomEntity :
 
         room.SetPositionTileAndCollision(
             Position,
-            room.GetMetatile(Position),
-            (byte)data.MoonlitOrbCollision,
+            (byte)data.SeedBouncerBackgroundTile,
+            (byte)data.SeedBouncerTileCollision,
             animationTick(),
             preserveRenderedTile: true);
     }
@@ -98,17 +105,48 @@ internal sealed partial class RotatableSeedThingRoomEntity :
         Rect2 hitbox,
         Vector2 sourcePosition,
         int seedItem,
-        ICollection<RoomEntitySpawn> spawns) =>
-        IntersectsSeed(hitbox) ? SeedHitResult.Bounce : SeedHitResult.None;
+        ICollection<RoomEntitySpawn> spawns) => ApplySeedHitAtHeight(
+            hitbox, sourcePosition, sourceZ: 0, seedItem, spawns);
 
-    public bool IntersectsSeed(Rect2 hitbox)
+    public SeedHitResult ApplySeedHitAtHeight(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int sourceZ,
+        int seedItem,
+        ICollection<RoomEntitySpawn> spawns)
     {
         Vector2 radii = CollisionRadii;
-        Vector2 size = radii * 2;
-        return hitbox.Intersects(new Rect2(Position - radii, size)) ||
-            hitbox.Intersects(new Rect2(
-                Position + new Vector2(0, 12) - radii,
-                size));
+        bool parentHit = RoomEntityManager.ObjectCollisionZOverlaps(
+                targetZ: 0, sourceZ, radius: 7) &&
+            SourceCollisionIntersects(hitbox, Position, radii);
+        bool childHit = RoomEntityManager.ObjectCollisionZOverlaps(
+                _childZ, sourceZ, radius: 7) &&
+            SourceCollisionIntersects(hitbox, Position + _childOffset, radii);
+        return parentHit || childHit
+            ? SeedHitResult.Bounce
+            : SeedHitResult.None;
+    }
+
+    // Shooter seeds remain at Z 0. The source child is at Z $f2 (-14), so it
+    // fails the ordinary +/-7 item overlap and must not extend their target.
+    public bool IntersectsSeed(Rect2 hitbox) =>
+        SourceCollisionIntersects(hitbox, Position, CollisionRadii);
+
+    private static bool SourceCollisionIntersects(
+        Rect2 itemBounds,
+        Vector2 partPosition,
+        Vector2 partRadii)
+    {
+        // checkObjectsCollidedFromVariables adds the radii in byte arithmetic
+        // before comparing against twice their sum. For item - part, the
+        // accepted interval is [-sum, sum): the upper/left touching edge is a
+        // collision, while the lower/right touching edge is not. Rect2's
+        // symmetric edge exclusion loses the valid approach beside solid
+        // bouncer tiles in rooms such as 4:4e.
+        Vector2 sums = itemBounds.Size / 2 + partRadii;
+        Vector2 delta = itemBounds.GetCenter() - partPosition;
+        return delta.Y >= -sums.Y && delta.Y < sums.Y &&
+            delta.X >= -sums.X && delta.X < sums.X;
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>

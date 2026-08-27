@@ -833,11 +833,19 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     continue;
                 }
-                SeedHitResult result = hittable.ApplySeedHit(
-                    seed.CollisionBounds,
-                    seed.CollisionBounds.GetCenter(),
-                    seed.SeedItem,
-                    _pendingSpawns);
+                SeedHitResult result =
+                    target is ISeedHeightAwareHittableRoomEntity heightAware
+                        ? heightAware.ApplySeedHitAtHeight(
+                            seed.CollisionBounds,
+                            seed.CollisionBounds.GetCenter(),
+                            seed.CollisionZ,
+                            seed.SeedItem,
+                            _pendingSpawns)
+                        : hittable.ApplySeedHit(
+                            seed.CollisionBounds,
+                            seed.CollisionBounds.GetCenter(),
+                            seed.SeedItem,
+                            _pendingSpawns);
                 if (result == SeedHitResult.None)
                 {
                     continue;

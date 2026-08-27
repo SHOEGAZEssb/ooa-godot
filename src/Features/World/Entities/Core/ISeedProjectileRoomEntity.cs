@@ -7,6 +7,7 @@ namespace oracleofages;
 internal interface ISeedProjectileRoomEntity
 {
     bool CollisionEnabled { get; }
+    int CollisionZ { get; }
     int SeedItem { get; }
     Vector2? ScentTarget { get; }
     Rect2 CollisionBounds { get; }

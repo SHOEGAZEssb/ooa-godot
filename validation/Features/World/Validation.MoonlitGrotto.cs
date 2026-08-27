@@ -7,6 +7,198 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoom44bMoonlitGrottoInteractions()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static Vector2 Point(int packed) => new(
+            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new DungeonMechanicDatabase();
+        IReadOnlyList<DungeonMechanicDatabaseRecord> records =
+            data.GetRoomRecords(4, 0x4b);
+        RoomTileChangeWatcherDatabaseRecord watcherRecord =
+            new RoomTileChangeWatcherDatabase().GetRoomRecords(4, 0x4b).Single();
+        FailIf(
+            records.Select(record =>
+                (record.Order, record.Id, record.SubId,
+                 record.PackedPosition)).ToArray() is not
+                [(0, 0x13, 0x01, 0x6b), (1, 0x12, 0x01, 0x58)] ||
+            watcherRecord is not { Order: 2, Position: 0x54, RoomFlag: 0x80 },
+            "Room 4:4b lost its source-ordered $13:$01 push trigger, " +
+            "$12:$01 falling key, or $dc:$08 tile-$54/flag-$80 watcher.");
+
+        _saveData.SetRoomFlag(
+            4, 0x4b, OracleSaveData.RoomFlagItem, value: false);
+        _saveData.SetRoomFlag(
+            4, 0x4b, OracleSaveData.RoomFlag80, value: false);
+        LoadValidationRoom(4, 0x4b);
+        OracleRoomData room = _currentRoom;
+        PushBlockTriggerRoomEntity trigger =
+            _entities.Entities<PushBlockTriggerRoomEntity>().Single();
+        DungeonRewardRoomEntity keyController =
+            _entities.Entities<DungeonRewardRoomEntity>().Single();
+        bool WatcherPresent() => _entities.Entities<Node2D>().Any(
+            node => node.Name == "TileChangeWatcher_2");
+        List<MoldormCharacter> moldorms =
+            _entities.Entities<MoldormCharacter>();
+        FailIf(
+            room.ActiveCollisions != 2 || room.Width != 240 || room.Height != 176 ||
+            trigger.PackedPosition != 0x6b || trigger.CountsAsEnemy ||
+            moldorms.Count != 2 || _entities.RoomEnemyCount != 2 ||
+            room.GetMetatile(Point(0x6b)) != 0x1b ||
+            room.GetMetatile(Point(0x54)) != 0x19 ||
+            room.GetMetatile(Point(0x55)) != 0xa0 ||
+            !WatcherPresent() ||
+            _entities.Entities<ItemDropProducer>().Select(value => value.Position)
+                .ToArray() is not
+                [{ X: 0x18, Y: 0x18 }, { X: 0x28, Y: 0x18 },
+                 { X: 0x18, Y: 0x28 }, { X: 0x28, Y: 0x28 }] ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:4b did not load its two counted Moldorms, four uncounted " +
+            "drop producers, directional blocks, and three placed interactions.");
+
+        Step();
+        FailIf(
+            room.GetMetatile(Point(0x6b)) != data.PushableBlock ||
+            !trigger.CountsAsEnemy || _entities.RoomEnemyCount != 3 ||
+            _saveData.HasRoomFlag(4, 0x4b, OracleSaveData.RoomFlag80) ||
+            keyController.Finished,
+            "$13:$01 did not temporarily replace room 4:4b/$6b with $1d " +
+            "and add itself to wNumEnemies before $12:$01 checked the count.");
+
+        foreach (MoldormCharacter moldorm in moldorms)
+        {
+            FailIf(!moldorm.TakeSwordHit(moldorm.Position, damage: 0x7f),
+                "A room 4:4b Moldorm rejected a lethal validation hit.");
+        }
+        Step();
+        FailIf(
+            _entities.Entities<MoldormCharacter>().Count != 0 ||
+            _entities.RoomEnemyCount != 1 ||
+            room.GetMetatile(Point(0x6b)) != 0x1b ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "$13:$01 did not restore the source left-only block when only its " +
+            "synthetic enemy count remained, or $12:$01 spawned early.");
+
+        void PushBlock(int sourcePacked, Vector2I direction, int goalPacked)
+        {
+            Vector2 source = Point(sourcePacked);
+            Vector2 link = source - (Vector2)direction * 10.0f;
+            for (int frame = 0;
+                 frame < PushBlockController.PushDelayFrames;
+                 frame++)
+            {
+                _pushBlocks.UpdatePushAttempt(link, direction, direction);
+            }
+            FailIf(
+                !_pushBlocks.Active || room.GetMetatile(source) != 0xa0,
+                $"Room 4:4b block ${sourcePacked:x2} did not begin its " +
+                $"source-direction push toward ${goalPacked:x2}.");
+            for (int frame = 0;
+                 frame < PushBlockController.MoveFrames - 1;
+                 frame++)
+            {
+                _pushBlocks.Advance(Update);
+            }
+            FailIf(
+                !_pushBlocks.Active ||
+                room.GetMetatile(Point(goalPacked)) != 0xa0,
+                $"Room 4:4b block ${sourcePacked:x2} completed before " +
+                "SPEED_80 update 32.");
+            _pushBlocks.Advance(Update);
+            FailIf(
+                _pushBlocks.Active ||
+                room.GetMetatile(Point(goalPacked)) != data.PushableBlock,
+                $"Room 4:4b block ${sourcePacked:x2} did not write $1d at " +
+                $"goal ${goalPacked:x2} on movement update 32.");
+        }
+
+        PushBlock(0x6b, Vector2I.Left, 0x6a);
+        Step();
+        Step(data.PushDelay - 1);
+        FailIf(
+            _entities.Entities<PushBlockTriggerRoomEntity>().Count != 1 ||
+            _entities.RoomEnemyCount != 1 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0,
+            "Room 4:4b released the push trigger or falling key before the " +
+            "source $1e counter's 30th decrement.");
+        Step();
+        GroundTreasurePickup fallingKey =
+            _entities.Entities<GroundTreasurePickup>().Single();
+        FailIf(
+            _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            _entities.RoomEnemyCount != 0 ||
+            fallingKey.Position != new Vector2(0x88, 0x58) ||
+            fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
+            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != 2 ||
+            fallingKey.Record.SpawnDelayFrames != 40 ||
+            fallingKey.Record.BounceCount != 2 || fallingKey.Record.Gravity != 0x10 ||
+            fallingKey.Record.BounceSpeed != -0xaa ||
+            !fallingKey.Record.InitialZAboveScreen,
+            "$13:$01 did not clear the synthetic count on update 30 so the " +
+            "following $12:$01 slot could create its exact falling small key.");
+
+        for (int frame = 0;
+             frame < 300 && fallingKey.State != PickupState.Waiting;
+             frame++)
+        {
+            Step();
+        }
+        int dungeon = _rooms.CurrentDungeonIndex;
+        int keysBeforePickup = _inventory.GetDungeonSmallKeys(dungeon);
+        _player.WarpTo(fallingKey.Position, recordSafe: false);
+        Step();
+        FailIf(
+            fallingKey.State != PickupState.Collected ||
+            _inventory.GetDungeonSmallKeys(dungeon) != keysBeforePickup + 1 ||
+            !_saveData.HasRoomFlag(
+                4, 0x4b, OracleSaveData.RoomFlagItem),
+            "Room 4:4b's falling key did not grant one dungeon-$03 small key " +
+            "and persist ROOMFLAG_ITEM.");
+
+        PushBlock(0x54, Vector2I.Right, 0x55);
+        FailIf(_saveData.HasRoomFlag(
+                4, 0x4b, OracleSaveData.RoomFlag80),
+            "$dc:$08 wrote room 4:4b flag $80 outside its interaction update.");
+        Step();
+        FailIf(
+            !_saveData.HasRoomFlag(
+                4, 0x4b, OracleSaveData.RoomFlag80) ||
+            WatcherPresent(),
+            "$dc:$08 did not persist the changed tile-$54 block with room " +
+            "flag $80 on its next source update.");
+
+        LoadValidationRoom(4, 0x4b);
+        room = _currentRoom;
+        FailIf(
+            room.GetMetatile(Point(0x54)) != 0xa0 ||
+            room.GetMetatile(Point(0x55)) != data.PushableBlock ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            !WatcherPresent(),
+            "Room 4:4b re-entry did not apply the flag-$80 single-tile " +
+            "changes or suppress the collected $12:$01 key controller.");
+        Step();
+        FailIf(
+            WatcherPresent() ||
+            room.GetMetatile(Point(0x6b)) != data.PushableBlock,
+            "Room 4:4b's completed $dc:$08 watcher did not delete before " +
+            "$13:$01 re-armed its enemy-gated block on re-entry.");
+
+        GD.Print(
+            "Validated full room 4:4b interactions: source-ordered $13:$01 " +
+            "synthetic enemy count and block restore, $1e release wait, " +
+            "$12:$01 falling small key/item flag, $dc:$08 tile watcher, " +
+            "flag-$80 single-tile persistence, and completed re-entry.");
+    }
+
     private void ValidateRoom44eMoonlitGrotto()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
@@ -53,6 +245,20 @@ public sealed partial class ValidationRoot
             _entities.Entities<DungeonSwitchRoomEntity>().Single();
         RotatableSeedThingRoomEntity bouncer =
             _entities.Entities<RotatableSeedThingRoomEntity>().Single();
+        byte[] bouncerBackground =
+        [
+            room.GetBackgroundSubtileForValidation(16, 2),
+            room.GetBackgroundSubtileForValidation(17, 2),
+            room.GetBackgroundSubtileForValidation(16, 3),
+            room.GetBackgroundSubtileForValidation(17, 3)
+        ];
+        byte[] switchBackground =
+        [
+            room.GetBackgroundSubtileForValidation(16, 12),
+            room.GetBackgroundSubtileForValidation(17, 12),
+            room.GetBackgroundSubtileForValidation(16, 13),
+            room.GetBackgroundSubtileForValidation(17, 13)
+        ];
         FailIf(
             bridges.Select(bridge =>
                 (bridge.PackedPosition, bridge.PatternVariant)).ToArray() is not
@@ -62,12 +268,19 @@ public sealed partial class ValidationRoot
             roomSwitch is not { PackedPosition: 0x68, SwitchMask: 0x02 } ||
             bouncer.Position != Point(0x18) || bouncer.ToggleMask != 0x0c ||
             bouncer.Orientation != 2 ||
+            room.GetMetatile(Point(0x18)) != data.SeedBouncerBackgroundTile ||
+            bouncerBackground.SequenceEqual(switchBackground) ||
+            data.SeedBouncerChildY != 12 ||
+            data.SeedBouncerChildX != 0 ||
+            data.SeedBouncerChildZ != -14 ||
             !room.IsSolid(Point(0x18) + Vector2.Left * 4) ||
-            room.IsSolid(Point(0x18) + Vector2.Right * 4) ||
+            !room.IsSolid(Point(0x18) + Vector2.Right * 4) ||
             _entities.Entities<RespawnableBushScannerRoomEntity>().Count != 1 ||
             _entities.Entities<RespawnableBushRoomEntity>().Count != 0,
             "Room 4:4e did not instantiate the placed mechanisms before the " +
-            "`$c7:$04 scanner's first interaction update.");
+            "`$c7:$04 scanner's first interaction update, or " +
+            "PART_ROTATABLE_SEED_THING redrew logical tile `$0a as the " +
+            "visible switch graphic beneath itself.");
 
         Step();
         List<RespawnableBushRoomEntity> bushes =
@@ -92,6 +305,113 @@ public sealed partial class ValidationRoot
                 4,
                 SeedLaunchKind.Shooter,
                 angle));
+
+        // checkObjectsCollidedFromVariables accepts item - part == -sum but
+        // rejects +sum. At orientation 2, the left-edge center is ten pixels
+        // from the parent ($04 seed radius + $06 part radius). Missing that
+        // exact edge lets seedItemCheckDiagonalCollision see the solid tile
+        // and produce wall angle 5 instead of reflector angle 1.
+        Vector2 leftEdge = bouncer.Position + Vector2.Left * 10;
+        EmberSeedEffect lenientSeed = SpawnShooterSeed(leftEdge, angle: 3);
+        Step();
+        FailIf(
+            lenientSeed.State != EmberState.Flying ||
+            lenientSeed.PrecisePosition != leftEdge ||
+            !bouncer.IntersectsSeed(lenientSeed.CollisionBounds) ||
+            bouncer.IntersectsSeed(new Rect2(
+                bouncer.Position + Vector2.Right * 10 - Vector2.One * 4,
+                Vector2.One * 8)),
+            "PART_ROTATABLE_SEED_THING $33:$0a lost the source asymmetric " +
+            "[-sum,+sum) collision boundary for a shooter seed in room 4:4e.");
+        Step();
+        FailIf(
+            lenientSeed.State != EmberState.Flying ||
+            lenientSeed.Angle != 1 ||
+            lenientSeed.BouncesRemaining != 2 ||
+            lenientSeed.PrecisePosition == leftEdge,
+            "Room 4:4e's valid left-edge bouncer hit fell through to the " +
+            "nearby solid-tile bounce (expected reflector angle 1, not wall " +
+            $"angle 5; actual={lenientSeed.Angle}).");
+        lenientSeed.OnCollision(SeedHitResult.Consume);
+        Step();
+
+        EmberSeedEffect downwardSeed = SpawnShooterSeed(
+            bouncer.Position + Vector2.Left * 4,
+            angle: 0);
+        Step();
+        Step();
+        FailIf(
+            downwardSeed.Angle != 4 ||
+            downwardSeed.BouncesRemaining != 2 ||
+            downwardSeed.PrecisePosition !=
+                bouncer.Position + new Vector2(-4, 3),
+            "PART_ROTATABLE_SEED_THING $33:$0a did not reflect the room " +
+            "4:4e seed downward before its source item-passable background " +
+            "tile `$0a check.");
+        Step();
+        FailIf(
+            downwardSeed.State != EmberState.Flying ||
+            downwardSeed.Angle != 4 ||
+            downwardSeed.BouncesRemaining != 2 ||
+            downwardSeed.PrecisePosition !=
+                bouncer.Position + new Vector2(-4, 6) ||
+            !shooter.CanPassSolidTile(room, downwardSeed.PrecisePosition),
+            "Room 4:4e's valid downward seed reflection bounced off the " +
+            "bouncer's background instead of passing through source tile " +
+            "`$0a with collision `$0f.");
+        downwardSeed.OnCollision(SeedHitResult.Consume);
+        Step();
+
+        Rect2 childOnlyBounds = new(
+            bouncer.Position + new Vector2(-4, 8),
+            Vector2.One * 8);
+        var ignoredSpawns = new List<RoomEntitySpawn>();
+        FailIf(
+            bouncer.IntersectsSeed(childOnlyBounds) ||
+            bouncer.ApplySeedHitAtHeight(
+                childOnlyBounds,
+                childOnlyBounds.GetCenter(),
+                sourceZ: 0,
+                ember.SeedItem,
+                ignoredSpawns) != SeedHitResult.None ||
+            bouncer.ApplySeedHitAtHeight(
+                childOnlyBounds,
+                childOnlyBounds.GetCenter(),
+                sourceZ: -14,
+                ember.SeedItem,
+                ignoredSpawns) != SeedHitResult.Bounce,
+            "PART_ROTATABLE_SEED_THING's `$03 child at Y+$0c/Z=$f2 " +
+            "incorrectly extended the ground-level shooter collision below " +
+            "the visible parent in room 4:4e.");
+
+        EmberSeedEffect centeredBounceSeed = SpawnShooterSeed(
+            bouncer.Position + Vector2.Down * 13,
+            angle: 0);
+        Step();
+        Step();
+        FailIf(
+            centeredBounceSeed.Angle != 0 ||
+            centeredBounceSeed.PrecisePosition !=
+                bouncer.Position + Vector2.Down * 10,
+            "A ground-level shooter seed reflected from the source `$03 " +
+            "child instead of continuing toward the visible bouncer parent.");
+        Step();
+        FailIf(
+            centeredBounceSeed.Angle != 0 ||
+            centeredBounceSeed.PrecisePosition !=
+                bouncer.Position + Vector2.Down * 7,
+            "The shooter seed did not enter the visible parent collision " +
+            "before the room 4:4e reflection.");
+        Step();
+        FailIf(
+            centeredBounceSeed.Angle != 4 ||
+            centeredBounceSeed.BouncesRemaining != 2 ||
+            centeredBounceSeed.PrecisePosition !=
+                bouncer.Position + Vector2.Down * 10,
+            "Room 4:4e reflected a ground-level shooter seed away from the " +
+            "invisible child rather than the visible bouncer parent.");
+        centeredBounceSeed.OnCollision(SeedHitResult.Consume);
+        Step();
 
         EmberSeedEffect firstOrbSeed = SpawnShooterSeed(
             orbs[0].Position + new Vector2(12, 0), angle: 6);
@@ -155,13 +475,14 @@ public sealed partial class ValidationRoot
             reflectedSeed.State != EmberState.Flying ||
             reflectedSeed.PrecisePosition != bouncer.Position ||
             !bouncer.IntersectsSeed(reflectedSeed.CollisionBounds) ||
-            !bouncer.IntersectsSeed(new Rect2(
+            bouncer.IntersectsSeed(new Rect2(
                 childBouncePoint - Vector2.One,
                 Vector2.One * 2)) ||
             bouncer.SeedBounceOrientation != 0 ||
             bouncer.CollisionRadii != new Vector2(4, 6),
-            "The `$33:$0a parent/child did not expose their source `$06/$04 " +
-            "orientation-0 collision rectangles to shooter seeds.");
+            "The `$33:$0a parent did not expose its source `$06/$04 " +
+            "orientation-0 collision rectangle, or its Z=$f2 child leaked " +
+            "into the ground-level shooter target.");
         Step();
         FailIf(
             reflectedSeed.State != EmberState.Flying ||

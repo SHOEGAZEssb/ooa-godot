@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_EXTENDABLE_BRIDGE $23, rotating seed bouncer PART $33:$0a,
 /// respawnable-bush scanner $c7:$04,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
-/// INTERAC_DUNGEON_STUFF $12:$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
+/// INTERAC_DUNGEON_STUFF $12:$01/$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
 /// shutter-door controller variants $1e:$04-$0b, torch-count translator
 /// $24:$02, and the $c7:$08 lightable-torch scanner. Moonlit Grotto's
 /// INTERAC_DUNGEON_EVENTS $21:$09/$0a/$0c/$0d/$0e, PART_ORB $03, and
@@ -72,6 +72,13 @@ internal sealed class DungeonMechanicDatabase
     internal int MoonlitOrbCollision => Constant("moonlit-orb-collision");
     internal int MoonlitOrbRadiusY => Constant("moonlit-orb-radius-y");
     internal int MoonlitOrbRadiusX => Constant("moonlit-orb-radius-x");
+    internal int SeedBouncerBackgroundTile =>
+        Constant("seed-bouncer-background-tile");
+    internal int SeedBouncerTileCollision =>
+        Constant("seed-bouncer-tile-collision");
+    internal int SeedBouncerChildY => Constant("seed-bouncer-child-y");
+    internal int SeedBouncerChildX => Constant("seed-bouncer-child-x");
+    internal int SeedBouncerChildZ => Constant("seed-bouncer-child-z");
     internal int MoonlitArmosChestPosition =>
         Constant("moonlit-armos-chest-position");
     internal int MoonlitButtonKeyY => Constant("moonlit-button-key-y");
@@ -127,7 +134,7 @@ internal sealed class DungeonMechanicDatabase
                 row.Boolean01(8));
             if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0xc7) ||
                 record.Id == 0x03 && record.SubId > 0x07 ||
-                record.Id == 0x12 && record.SubId != 0x02 ||
+                record.Id == 0x12 && record.SubId is not (0x01 or 0x02) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
                 record.Id == 0x23 && record.SubId > 0x07 ||
@@ -208,6 +215,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room22 = GetRoomRecords(4, 0x22);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room2f = GetRoomRecords(4, 0x2f);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room65 = GetRoomRecords(4, 0x65);
+        IReadOnlyList<DungeonMechanicDatabaseRecord> room4b = GetRoomRecords(4, 0x4b);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room4e = GetRoomRecords(4, 0x4e);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room56 = GetRoomRecords(4, 0x56);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room59 = GetRoomRecords(4, 0x59);
@@ -217,7 +225,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 225 || _constants.Count != 66 || _texts.Count != 2 ||
+        if (RecordCount != 227 || _constants.Count != 71 || _texts.Count != 2 ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
@@ -253,6 +261,13 @@ internal sealed class DungeonMechanicDatabase
                 new DungeonMechanicDatabaseRecord(
                     4, 0x65, 0, 0x12, 0x02, 0x58, 0x00,
                     TriggerPredicate.None, true) ||
+            room4b.Count != 2 ||
+            room4b[0] != new DungeonMechanicDatabaseRecord(
+                4, 0x4b, 0, 0x13, 0x01, 0x6b, 0x00,
+                TriggerPredicate.None, true) ||
+            room4b[1] != new DungeonMechanicDatabaseRecord(
+                4, 0x4b, 1, 0x12, 0x01, 0x58, 0x00,
+                TriggerPredicate.None, true) ||
             room4e.Count != 8 ||
             room4e[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x4e, 0, 0x23, 0x01, 0x39, 0x02,
@@ -355,6 +370,10 @@ internal sealed class DungeonMechanicDatabase
             MoonlitOrbPosition != 0x75 || MoonlitOrbMask != 0x10 ||
             MoonlitOrbCollision != 0x0a ||
             MoonlitOrbRadiusY != 4 || MoonlitOrbRadiusX != 4 ||
+            SeedBouncerBackgroundTile != 0x0a ||
+            SeedBouncerTileCollision != 0x0f ||
+            SeedBouncerChildY != 12 || SeedBouncerChildX != 0 ||
+            SeedBouncerChildZ != -14 ||
             MoonlitArmosChestPosition != 0x69 ||
             MoonlitButtonKeyY != 0x58 || MoonlitButtonKeyX != 0x58 ||
             MoonlitArmosSourceTile != 0x26 ||
@@ -370,7 +389,7 @@ internal sealed class DungeonMechanicDatabase
         {
             throw new InvalidOperationException(
                 "Imported dungeon orb / bridge / seed-bouncer / " +
-                "respawnable-bush / enemy-clear chest / switch / button / " +
+                "respawnable-bush / enemy-clear falling key/chest / switch / button / " +
                 "trigger-chest / $13:$01 / $1e:$04-$0b / torch scanner / " +
                 "translator / Moonlit Grotto " +
                 "orb / Armos / button-key / crystal / falling-key contract is incomplete.");
