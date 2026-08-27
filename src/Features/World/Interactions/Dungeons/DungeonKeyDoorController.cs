@@ -114,13 +114,9 @@ public partial class DungeonKeyDoorController : Node
         // the same byte once more when it is still nonzero. The imported
         // initial value is 20, so a continuously pushed door activates on
         // the tenth original update.
-        _pushCounter--;
-        if (_pushCounter != 0)
-        {
-            _pushCounter--;
-            if (_pushCounter != 0)
-                return;
-        }
+        if (!PushingAgainstTileCounter.DecrementTwiceToZero(
+                ref _pushCounter))
+            return;
 
         TryOpen(center, door);
     }

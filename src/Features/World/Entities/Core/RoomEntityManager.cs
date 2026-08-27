@@ -463,7 +463,7 @@ public sealed class RoomEntityManager : IDisposable
             // PART_ROTATABLE_SEED_THING before seedItemState1's terrain check
             // and objectApplySpeed. Keep those solid-tile parts in that pass.
             if (!textActive && !roomEntityFreezeActive)
-                ResolvePreMovementSeedCollisions();
+                ResolveSeedCollisions(preMovement: true);
             ProcessSpawns(frame);
 
             // updateItems clears wScentSeedActive, updates every item slot,
@@ -484,7 +484,7 @@ public sealed class RoomEntityManager : IDisposable
                 ProcessSpawns(frame);
             }
             if (!textActive && !roomEntityFreezeActive)
-                ResolveSeedCollisions();
+                ResolveSeedCollisions(preMovement: false);
             ProcessSpawns(frame);
             frame = frame with { ScentSeedTarget = ActiveScentSeedTarget() };
 
@@ -817,7 +817,7 @@ public sealed class RoomEntityManager : IDisposable
         return ((targetZ - itemZ + radius) & 0xff) < radius * 2;
     }
 
-    private void ResolveSeedCollisions()
+    private void ResolveSeedCollisions(bool preMovement)
     {
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
@@ -829,39 +829,7 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
                 if (target is not ISeedHittableRoomEntity hittable ||
-                    target is ISeedPreMovementCollisionTarget)
-                    continue;
-                SeedHitResult result = hittable.ApplySeedHit(
-                    seed.CollisionBounds,
-                    seed.CollisionBounds.GetCenter(),
-                    seed.SeedItem,
-                    _pendingSpawns);
-                if (result == SeedHitResult.None)
-                {
-                    continue;
-                }
-                seed.OnCollision(
-                    result,
-                    hittable as ISeedBurnTarget,
-                    hittable as ISeedBounceTarget);
-                break;
-            }
-        }
-    }
-
-    private void ResolvePreMovementSeedCollisions()
-    {
-        foreach (IRoomEntity entity in _activeEntities.ToArray())
-        {
-            if (entity is not ISeedProjectileRoomEntity
-                { CollisionEnabled: true } seed)
-            {
-                continue;
-            }
-            foreach (IRoomEntity target in _activeEntities.ToArray())
-            {
-                if (target is not ISeedPreMovementCollisionTarget ||
-                    target is not ISeedHittableRoomEntity hittable)
+                    (target is ISeedPreMovementCollisionTarget) != preMovement)
                 {
                     continue;
                 }
@@ -871,10 +839,14 @@ public sealed class RoomEntityManager : IDisposable
                     seed.SeedItem,
                     _pendingSpawns);
                 if (result == SeedHitResult.None)
+                {
                     continue;
+                }
                 ISeedBounceTarget? bounceTarget =
                     target as ISeedBounceTarget;
-                if (result == SeedHitResult.Bounce && bounceTarget is null)
+                if (preMovement &&
+                    result == SeedHitResult.Bounce &&
+                    bounceTarget is null)
                 {
                     throw new InvalidOperationException(
                         $"{target.GetType().Name} returned {result} from " +
@@ -1080,10 +1052,12 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
+    internal Node2D Spawn(RoomEntitySpawn spawn) =>
+        AddEntity(_factory.Create(spawn, _roomForActiveEntities)).Node;
+
     internal T Spawn<T>(RoomEntitySpawn spawn) where T : Node2D
     {
-        IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
-        return (T)entity.Node;
+        return (T)Spawn(spawn);
     }
 
     internal TimePortal SpawnTemporaryTimePortal(Vector2 position)

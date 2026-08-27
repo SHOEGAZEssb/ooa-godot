@@ -523,11 +523,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
         if (_headHeld)
         {
-            Vector2I offset = player.BraceletEntityOffset ??
-                new Vector2I(
-                    0,
-                    player.CarriedObjectAnimationFrame == 0 &&
-                        player.FacingVector.X != 0 ? -14 : -13);
+            Vector2I offset = CarriedObjectMotion.HeldOffset(player);
             _headPosition =
                 player.Position + new Vector2(offset.X, 0);
             _headZ = offset.Y;
@@ -746,7 +742,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         byte durationRandom = _random.Next().Value;
         _walkCounter = _behavior.PumpkinHeadWalkDurations[
             durationRandom & 0x0f].Value;
-        _angle = _random.Next().Value & 0x18;
+        _angle = _random.NextCardinalAngle();
         UpdateFacingAnimations();
     }
 

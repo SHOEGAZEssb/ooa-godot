@@ -64,7 +64,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
         switch (_state)
         {
             case MoblinState.Uninitialized:
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 BeginMoving();
                 Visible = true;
                 return -1;
@@ -82,7 +82,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
             case MoblinState.Turning:
                 if (--_counter != 0)
                     return -1;
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 BeginMoving();
                 _moveCycles++;
                 int towardLink = (OracleObjectMovement.Shared.RelativeAngle(

@@ -486,33 +486,24 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     private void TryBreakTile(ICollection<RoomEntitySpawn> spawns)
     {
-        byte tile = _room.GetMetatile(Position);
-        if (!_breakables.TryGet(
-                _room.ActiveCollisions, tile,
-                out BreakableTileRecord breakable) ||
-            !breakable.AllowsSource(BreakableTileDatabase.SourceEmberSeed))
+        if (_breakables.TryBreak(
+                _room,
+                BreakableTileDatabase.SourceEmberSeed,
+                Position,
+                _saveData,
+                _group,
+                _animationTick,
+                _linkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             return;
         }
-        int packedPosition = _room.GetPackedPosition(Position);
-        Vector2 tileCenter = new(
-            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
-        bool changed = breakable.Replacement == 0 || _room.ReplaceMetatile(
-            tileCenter, tile, (byte)breakable.Replacement, _animationTick());
-        if (!changed)
-            return;
-
-        breakable.ApplyPersistentEffects(
-            _saveData, _group, _room.Id, _linkedRoomNeighbor);
-        if ((breakable.Effect & 0x40) != 0)
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
-        if (breakable.Drop != 0 &&
-            _decideBreakableDrop(breakable.Drop) is int subId)
-        {
-            spawns.Add(new ItemDropSpawn(
-                subId, tileCenter, DirectionAngle(_direction)));
-        }
+        result.ApplyCommonEffects(
+            _playSound,
+            _decideBreakableDrop,
+            spawns,
+            DirectionAngle(_direction));
         _roomTileChanged();
     }
 

@@ -89,6 +89,14 @@ systems: fixed update, presentation, collision/contact, combat, interaction,
 transition offset, or explicit native hooks. Do not grow one universal entity
 base class or infer behavior from a node name.
 
+The shared `tryToBreakTile` transaction owns breakable-table lookup, special
+replacement selection, tile mutation, persistent flags/maturity, solve sound,
+and drop selection for every source. Sword, bracelet, bombs, seeds, shovel,
+and companions retain only source-specific probe order and debris/interaction
+creation. Likewise, bracelet-carried objects share the parent item's held,
+release, lateral throw, gravity, and bounce arithmetic while their object
+handlers retain landing and destruction states.
+
 `RoomEntityManager` creates entities, preserves original update order, routes
 contacts, and owns their lifetime. Shared combat, terrain, and interaction
 controllers operate through explicit capabilities. Species or native-object

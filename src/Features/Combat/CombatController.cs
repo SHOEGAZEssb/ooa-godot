@@ -74,43 +74,23 @@ public sealed class CombatController
     {
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 point = linkPosition + new Vector2(0, 5);
-        byte tile = room.GetMetatile(point);
-        if (!_breakables.TryGet(
-                room.ActiveCollisions,
-                tile,
-                out BreakableTileRecord record) ||
-            !record.AllowsSource(BreakableTileDatabase.SourceLanded))
+        if (_breakables.TryBreak(
+                room,
+                BreakableTileDatabase.SourceLanded,
+                point,
+                _saveData,
+                _rooms.ActiveGroup,
+                _animationTick,
+                LinkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             return false;
         }
 
-        int packedPosition = room.GetPackedPosition(point);
-        Vector2 tileCenter = new(
-            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
-        byte replacement = record.ReplacementFor(room, tileCenter);
-        bool changed = record.Replacement == 0 ||
-            room.ReplaceMetatile(
-                tileCenter,
-                tile,
-                replacement,
-                _animationTick());
-        if (!changed)
-            return false;
-
-        record.ApplyPersistentEffects(
-            _saveData,
-            _rooms.ActiveGroup,
-            room.Id,
-            direction => _rooms.TryGetNeighbor(direction, out int neighbor)
-                ? neighbor
-                : null);
-        if ((record.Effect & 0x40) != 0)
-            _sound.PlaySound(OracleSoundEngine.SndSolvePuzzle);
-        if (record.Drop != 0)
-            _entities.SpawnBreakableDrop(record.Drop, tileCenter);
-
-        SpawnBreakEffect(tileCenter, record.Effect);
+        result.ApplyCommonEffects(
+            _sound.PlaySound, _entities.SpawnBreakableDrop);
+        SpawnBreakEffect(result.TileCenter, result.Record.Effect);
         _roomView.QueueRedraw();
         return true;
     }
@@ -121,20 +101,27 @@ public sealed class CombatController
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 point =
             player.Position + _linkItems.SwordTileOffset(direction);
-        byte tile = room.GetMetatile(point);
-        if (_breakables.TryGet(room.ActiveCollisions, tile, out BreakableTileRecord record) &&
-            record.AllowsSource(breakableSource))
+        BreakableTileBreakStatus breakStatus = _breakables.TryBreak(
+            room,
+            breakableSource,
+            point,
+            _saveData,
+            _rooms.ActiveGroup,
+            _animationTick,
+            LinkedRoomNeighbor,
+            out BreakableTileBreak result);
+        if (breakStatus == BreakableTileBreakStatus.Broken)
         {
-            bool changed = record.Replacement == 0 ||
-                room.ReplaceMetatile(point, tile, (byte)record.Replacement, _animationTick());
-            if (!changed)
-                return false;
-
-            SpawnBreakEffect(point, record.Effect);
+            result.ApplyCommonEffects(
+                _sound.PlaySound, _entities.SpawnBreakableDrop);
+            SpawnBreakEffect(result.TileCenter, result.Record.Effect);
             _roomView.QueueRedraw();
             return true;
         }
+        if (breakStatus == BreakableTileBreakStatus.Unchanged)
+            return false;
 
+        byte tile = room.GetMetatile(point);
         int collisionSet = Math.Clamp(room.ActiveCollisions, 0, 5);
         if (_linkItems.IsBombableClinkTile(collisionSet, tile))
         {
@@ -153,6 +140,9 @@ public sealed class CombatController
         _sound.PlaySound(OracleSoundEngine.SndClink);
         return true;
     }
+
+    private int? LinkedRoomNeighbor(Vector2I direction) =>
+        _rooms.TryGetNeighbor(direction, out int neighbor) ? neighbor : null;
 
     internal void SetEffectObserver(ICombatEffectObserver? observer) =>
         _effectObserver = observer;
@@ -184,39 +174,10 @@ public sealed class CombatController
 
     internal void SpawnBreakEffect(Vector2 point, int effect)
     {
-        // INTERAC_GRASSDEBRIS ($00), INTERAC_REDGRASSDEBRIS ($01), and
-        // INTERAC_ROCKDEBRIS ($06/$0c) own their imported animation,
-        // palette, timing, and sound through the room-entity path.
-        int interaction = effect & 0x0f;
-        bool flickers = (effect & 0x10) != 0;
-        if (interaction is 0x06 or 0x0c)
+        if (BreakableTileEffectSpawn.Create(
+                _rooms.CurrentRoom, point, effect) is { } spawn)
         {
-            int rockTileX = Mathf.FloorToInt(
-                point.X / OracleRoomData.MetatileSize);
-            int rockTileY = Mathf.FloorToInt(
-                point.Y / OracleRoomData.MetatileSize);
-            _entities.Spawn<RockDebrisEffect>(new RockDebrisSpawn(
-                new Vector2(
-                    rockTileX * OracleRoomData.MetatileSize +
-                        OracleRoomData.MetatileSize / 2.0f,
-                    rockTileY * OracleRoomData.MetatileSize +
-                        OracleRoomData.MetatileSize / 2.0f),
-                interaction));
-            return;
+            _entities.Spawn(spawn);
         }
-        if (interaction is not (0x00 or 0x01))
-            return;
-
-        int tileX = Mathf.FloorToInt(point.X / OracleRoomData.MetatileSize);
-        int tileY = Mathf.FloorToInt(point.Y / OracleRoomData.MetatileSize);
-        _entities.Spawn<GrassDebrisEffect>(new GrassDebrisSpawn(
-            new Vector2(
-                tileX * OracleRoomData.MetatileSize +
-                    OracleRoomData.MetatileSize / 2.0f,
-                tileY * OracleRoomData.MetatileSize +
-                    OracleRoomData.MetatileSize / 2.0f),
-            interaction,
-            flickers,
-            (_rooms.CurrentRoom.TilesetFlags & 0x40) != 0));
     }
 }

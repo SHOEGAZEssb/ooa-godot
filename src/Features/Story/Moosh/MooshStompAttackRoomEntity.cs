@@ -27,6 +27,8 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
     private readonly Action<Rect2, int, int, int> _applyHit;
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
+    private readonly Action<int> _playSound;
+    private readonly Func<int, int?> _decideBreakableDrop;
     private int _counter = 0x14;
 
     public Node2D Node => this;
@@ -40,7 +42,9 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         Func<Vector2I, int?>? linkedRoomNeighbor,
         Action<Rect2, int, int, int> applyHit,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        Action<int> playSound,
+        Func<int, int?> decideBreakableDrop)
     {
         _group = spawn.Group;
         _room = room;
@@ -50,6 +54,8 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         _applyHit = applyHit;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
+        _playSound = playSound;
+        _decideBreakableDrop = decideBreakableDrop;
         Position = spawn.Position;
         Name = "MooshStompAttack";
         Visible = false;
@@ -60,7 +66,6 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         ICollection<RoomEntitySpawn> spawns)
     {
         _ = frame;
-        _ = spawns;
         if (Finished)
             return;
 
@@ -69,46 +74,42 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
             new Vector2(48, 48));
         _applyHit(hitbox, 0, 7, 7);
         foreach (Vector2 offset in BreakOffsets)
-            TryBreakTile(Position + offset);
+            TryBreakTile(Position + offset, spawns);
         if (--_counter == 0)
             Finished = true;
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => _ = offset;
 
-    private void TryBreakTile(Vector2 point)
+    private void TryBreakTile(
+        Vector2 point,
+        ICollection<RoomEntitySpawn> spawns)
     {
         if (point.X < 0 || point.X >= _room.Width ||
             point.Y < 0 || point.Y >= _room.Height)
         {
             return;
         }
-        byte tile = _room.GetMetatile(point);
-        if (!_breakables.TryGet(
-                _room.ActiveCollisions,
-                tile,
-                out BreakableTileRecord breakable) ||
-            !breakable.AllowsSource(
-                BreakableTileDatabase.SourceMooshButtstomp))
+        if (_breakables.TryBreak(
+                _room,
+                BreakableTileDatabase.SourceMooshButtstomp,
+                point,
+                _saveData,
+                _group,
+                _animationTick,
+                _linkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             return;
         }
-
-        int packed = _room.GetPackedPosition(point);
-        Vector2 tileCenter = new(
-            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packed >> 4) * OracleRoomData.MetatileSize + 8);
-        byte replacement = breakable.ReplacementFor(_room, tileCenter);
-        bool changed = breakable.Replacement == 0 ||
-            _room.ReplaceMetatile(
-                tileCenter, tile, replacement, _animationTick());
-        if (!changed)
-            return;
-        breakable.ApplyPersistentEffects(
-            _saveData,
-            _group,
-            _room.Id,
-            _linkedRoomNeighbor);
+        result.ApplyCommonEffects(
+            _playSound, _decideBreakableDrop, spawns);
+        if (BreakableTileEffectSpawn.Create(
+                _room, result.TileCenter, result.Record.Effect) is { } effect)
+        {
+            spawns.Add(effect);
+        }
         _roomTileChanged();
     }
 }

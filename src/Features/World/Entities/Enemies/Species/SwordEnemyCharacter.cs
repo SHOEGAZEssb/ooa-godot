@@ -113,7 +113,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
         switch (_state)
         {
             case SwordEnemyState.Uninitialized:
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 _speedRaw = _behavior.WanderSpeedRaw;
                 _counter1 = 1;
                 _counter2 = _behavior.CooldownFrames[

@@ -54,6 +54,95 @@ public sealed class BreakableTileDatabase
 
     public bool TryGet(int activeCollisions, int tile, out BreakableTileRecord record) =>
         _records.TryGetValue((activeCollisions << 8) | tile, out record);
+
+    /// <summary>
+    /// Executes bank6.tryToBreakTile_body's shared lookup, replacement, and
+    /// persistent-state transaction. Callers retain only their source-specific
+    /// interaction or debris creation.
+    /// </summary>
+    public BreakableTileBreakStatus TryBreak(
+        OracleRoomData room,
+        int source,
+        Vector2 point,
+        OracleSaveData? saveData,
+        int group,
+        Func<long> animationTick,
+        Func<Vector2I, int?>? linkedRoomNeighbor,
+        out BreakableTileBreak result)
+    {
+        byte tile = room.GetMetatile(point);
+        if (!TryGet(room.ActiveCollisions, tile, out BreakableTileRecord record) ||
+            !record.AllowsSource(source))
+        {
+            result = default;
+            return BreakableTileBreakStatus.NotBreakable;
+        }
+
+        int packedPosition = room.GetPackedPosition(point);
+        Vector2 tileCenter = new(
+            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
+            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
+        byte replacement = record.ReplacementFor(room, tileCenter);
+        bool changed = record.Replacement == 0 ||
+            room.ReplaceMetatile(
+                tileCenter, tile, replacement, animationTick());
+        if (!changed)
+        {
+            result = default;
+            return BreakableTileBreakStatus.Unchanged;
+        }
+
+        record.ApplyPersistentEffects(
+            saveData, group, room.Id, linkedRoomNeighbor);
+        result = new BreakableTileBreak(
+            record, tile, packedPosition, tileCenter, replacement);
+        return BreakableTileBreakStatus.Broken;
+    }
+}
+
+public enum BreakableTileBreakStatus
+{
+    NotBreakable,
+    Unchanged,
+    Broken
+}
+
+public readonly record struct BreakableTileBreak(
+    BreakableTileRecord Record,
+    byte FormerTile,
+    int PackedPosition,
+    Vector2 TileCenter,
+    byte Replacement)
+{
+    /// <summary>
+    /// Applies the solve sound and breakable drop selected inside
+    /// tryToBreakTile_body, before the caller creates its source-specific
+    /// break interaction.
+    /// </summary>
+    public void ApplyCommonEffects(
+        Action<int> playSound,
+        Action<int, Vector2> spawnDrop)
+    {
+        if ((Record.Effect & 0x40) != 0)
+            playSound(OracleSoundEngine.SndSolvePuzzle);
+        if (Record.Drop != 0)
+            spawnDrop(Record.Drop, TileCenter);
+    }
+
+    internal void ApplyCommonEffects(
+        Action<int> playSound,
+        Func<int, int?> decideDrop,
+        ICollection<RoomEntitySpawn> spawns,
+        int angle = 0)
+    {
+        ApplyCommonEffects(
+            playSound,
+            (drop, position) =>
+            {
+                if (decideDrop(drop) is int subId)
+                    spawns.Add(new ItemDropSpawn(subId, position, angle));
+            });
+    }
 }
 
 public readonly record struct BreakableTileRecord(int ActiveCollisions, int Tile, int Mode, int SourceMask, int Drop, int Effect, int Replacement, int RoomFlagAction, int GashaMaturity)

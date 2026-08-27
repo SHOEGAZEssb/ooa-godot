@@ -30,6 +30,9 @@ internal sealed class OracleRandom
         return LastResult;
     }
 
+    // object_code/common/enemies/commonCode.s:ecom_setRandomCardinalAngle
+    internal int NextCardinalAngle() => Next().Value & 0x18;
+
     public byte NextPlacementValue()
     {
         if (!_placementBufferReady)

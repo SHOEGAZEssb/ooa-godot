@@ -28,9 +28,6 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private const int CollisionRadius = 4;
     private const int ZCollisionRadius = 7;
     private const int SwordZ = -2;
-    private const int SideScrollGroundYOffset = 6;
-    private const int SideScrollLeftXOffset = -4;
-    private const int SideScrollRightXOffset = 3;
     private const int SideScrollDeleteY = 0xb0;
     private static readonly int[] FairySpeeds = [0x0a, 0x14, 0x1e, 0x28];
     private static readonly Vector2[] FairyProbeOffsets =
@@ -319,18 +316,20 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     /// </summary>
     private void UpdateSideScrollVerticalMotion()
     {
-        short signedSpeed = unchecked((short)_speedZ);
-        if (signedSpeed >= 0 && SideScrollFloorProbeIsSolid())
+        OracleObjectPosition position =
+            OracleObjectMovement.Shared.PositionFromPixels(_precisePosition);
+        position = new OracleObjectPosition(
+            _sideScrollYFixed, position.XFixed);
+        if (OracleObjectMovement.Shared.UpdateSpeedZSidescroll(
+                ref position, ref _speedZ, Gravity, _room.IsSolid))
         {
             DeleteIfBelowSideScrollRoom();
             return;
         }
 
-        _sideScrollYFixed = unchecked(
-            (ushort)(_sideScrollYFixed + signedSpeed));
+        _sideScrollYFixed = position.YFixed;
         _precisePosition.Y = _sideScrollYFixed / 256.0f;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        _speedZ = unchecked((short)(signedSpeed + Gravity));
 
         if (_sideScrollWater)
         {
@@ -343,17 +342,6 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
 
         DeleteIfBelowSideScrollRoom();
         QueueRedraw();
-    }
-
-    private bool SideScrollFloorProbeIsSolid()
-    {
-        int y = unchecked((byte)((_sideScrollYFixed >> 8) +
-            SideScrollGroundYOffset));
-        int x = OracleObjectPosition.HighByte(_precisePosition.X);
-        return _room.IsSolid(new Vector2(
-                unchecked((byte)(x + SideScrollLeftXOffset)), y)) ||
-            _room.IsSolid(new Vector2(
-                unchecked((byte)(x + SideScrollRightXOffset)), y));
     }
 
     private void DeleteIfBelowSideScrollRoom()

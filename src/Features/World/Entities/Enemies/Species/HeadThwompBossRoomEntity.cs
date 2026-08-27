@@ -88,9 +88,6 @@ internal sealed class HeadThwompBombDropRoomEntity
         IRoomEntityLifetime, ILinkSwordCollectibleRoomEntity
 {
     private const int Gravity = 0x20;
-    private const int GroundYOffset = 6;
-    private const int LeftXOffset = -4;
-    private const int RightXOffset = 3;
     private static readonly int[] Speeds = [0x14, 0x19, 0x1e, 0x23];
     private static readonly int[] InitialVerticalSpeeds =
         [-0x300, -0x320, -0x340, -0x360];
@@ -145,7 +142,11 @@ internal sealed class HeadThwompBombDropRoomEntity
             return;
         }
 
-        if (_verticalSpeedFixed >= 0 && IsOnSolidFloor())
+        if (OracleObjectMovement.Shared.UpdateSpeedZSidescroll(
+                ref _dropperPosition,
+                ref _verticalSpeedFixed,
+                Gravity,
+                IsSolidExceptHole))
         {
             // objectUpdateSpeedZ_sidescroll returns with carry before moving;
             // PART $40 deletes itself without one final position copy.
@@ -153,10 +154,6 @@ internal sealed class HeadThwompBombDropRoomEntity
             return;
         }
 
-        _dropperPosition = _dropperPosition.Add(
-            _verticalSpeedFixed, xFixed: 0);
-        _verticalSpeedFixed = unchecked(
-            (short)(_verticalSpeedFixed + Gravity));
         _dropperPosition = OracleObjectMovement.Shared.ApplySpeed(
             _dropperPosition, _speed, _angle);
         Entity.CopyHeadThwompBombDropperPosition(_dropperPosition);
@@ -178,19 +175,7 @@ internal sealed class HeadThwompBombDropRoomEntity
     public bool TryCollectWithSword(Rect2 hitbox) =>
         Entity.TryCollectWithSword(hitbox);
 
-    private bool IsOnSolidFloor()
-    {
-        int y = unchecked((byte)(
-            (_dropperPosition.YFixed >> 8) + GroundYOffset));
-        int x = _dropperPosition.XFixed >> 8;
-        return IsSolidExceptHole(unchecked((byte)(x + LeftXOffset)), y) ||
-            IsSolidExceptHole(unchecked((byte)(x + RightXOffset)), y);
-    }
-
-    private bool IsSolidExceptHole(int x, int y)
-    {
-        var point = new Vector2(x, y);
-        return _room.IsSolid(point) &&
+    private bool IsSolidExceptHole(Vector2 point) =>
+        _room.IsSolid(point) &&
             _room.GetTerrainInfo(point).Hazard != HazardType.Hole;
-    }
 }

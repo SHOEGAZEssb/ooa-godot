@@ -22,25 +22,21 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
     private Action<Rect2, int, int, int> _applyThrownObjectHit = null!;
     private BabyCuccoState _state;
     private int _angle;
-    private int _zFixed;
-    private int _speedZ;
-    private Vector2 _throwPrecise;
-    private Vector2I _throwDirection;
-    private int _throwSpeedRaw;
+    private CarriedObjectMotion _carried;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BabyCuccoState State => _state;
     internal int Angle => _angle;
-    internal int ZFixed => _zFixed;
-    internal int SpeedZ => _speedZ;
-    internal Vector2I ThrowDirection => _throwDirection;
-    internal int ThrowSpeedRaw => _throwSpeedRaw;
+    internal int ZFixed => _carried.ZFixed;
+    internal int SpeedZ => _carried.SpeedZ;
+    internal Vector2I ThrowDirection => _carried.Direction;
+    internal int ThrowSpeedRaw => _carried.SpeedRaw;
     internal int CurrentAnimationFrame => AnimationFrame;
     internal ulong CurrentAnimationPixelHash =>
         OracleGraphicsCache.PixelHash(CurrentAnimationTexture.GetImage());
     internal override bool CollisionEnabled => false;
     protected override Vector2 AnimationDrawOffset =>
-        Animation.CurrentOffset + Vector2.Down * (_zFixed >> 8);
+        Animation.CurrentOffset + Vector2.Down * (_carried.ZFixed >> 8);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -69,11 +65,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         _movement = new EnemyTerrainMovement(this, room);
         _state = BabyCuccoState.Uninitialized;
         _angle = 0;
-        _zFixed = 0;
-        _speedZ = 0;
-        _throwPrecise = position;
-        _throwDirection = Vector2I.Zero;
-        _throwSpeedRaw = 0;
+        _carried = new CarriedObjectMotion(position);
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -108,7 +100,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
                     if ((_random.Next().Value & _behavior.RandomHopMask) == 0)
                     {
                         _state = BabyCuccoState.Hopping;
-                        _speedZ = _behavior.HopSpeedZ;
+                        _carried.SpeedZ = _behavior.HopSpeedZ;
                     }
                     return;
                 }
@@ -122,9 +114,11 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
 
             case BabyCuccoState.Hopping:
                 if (OracleObjectMath.UpdateSpeedZ(
-                    ref _zFixed, ref _speedZ, _behavior.HopGravity))
+                    ref _carried.ZFixed,
+                    ref _carried.SpeedZ,
+                    _behavior.HopGravity))
                 {
-                    _zFixed = 0;
+                    _carried.ZFixed = 0;
                     _state = BabyCuccoState.Following;
                     QueueRedraw();
                     return;
@@ -175,9 +169,8 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
 
     private void UpdateHeld(Player player, bool justGrabbed = false)
     {
-        Vector2I offset = HeldOffset(player);
-        Position = player.Position + new Vector2(offset.X, 0);
-        _zFixed = offset.Y << 8;
+        _carried.Hold(player);
+        Position = _carried.GroundPosition;
         ZIndex = 11;
         int animation = HeldAnimationIndex(player.FacingVector);
         if (AnimationIndex != animation)
@@ -189,48 +182,19 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
 
     private void Release(Player player, Vector2I releaseDirection)
     {
-        Vector2I offset = HeldOffset(player);
         _state = BabyCuccoState.Thrown;
-        _throwDirection = releaseDirection;
-        _throwPrecise =
-            player.Position + new Vector2(offset.X, 0) + player.FacingVector;
-        Position = OracleObjectMath.ToPixelPosition(_throwPrecise);
-        _zFixed = offset.Y << 8;
-        _speedZ = releaseDirection == Vector2I.Zero
-            ? 0
-            : _bracelet.InitialSpeedZ;
-        _throwSpeedRaw = releaseDirection == Vector2I.Zero
-            ? 0
-            : RingEffects.UsesStrongThrow(player.Inventory)
-                ? _bracelet.TossSpeedRaw
-                : _bracelet.SpeedRaw;
-        player.EndCarriedObjectPose();
+        _carried.Release(player, releaseDirection, _bracelet);
+        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         QueueRedraw();
     }
 
     private void UpdateThrown()
     {
-        if (_throwDirection != Vector2I.Zero)
-        {
-            Vector2 edge = _throwPrecise +
-                _throwing.EdgeOffset(_throwDirection);
-            if (WithinRoom(edge) && _room.IsSolid(edge))
-            {
-                _throwDirection = Vector2I.Zero;
-                _throwSpeedRaw = 0;
-            }
-            else
-            {
-                OracleObjectMovement.Shared.ApplySpeed(
-                    ref _throwPrecise,
-                    _throwSpeedRaw,
-                    DirectionAngle(_throwDirection));
-            }
-        }
-
-        bool landed = OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, _bracelet.Gravity);
-        Position = OracleObjectMath.ToPixelPosition(_throwPrecise);
+        _carried.AdvanceHorizontal(
+            _throwing,
+            edge => WithinRoom(edge) && _room.IsSolid(edge));
+        bool landed = _carried.AdvanceVertical(_bracelet);
+        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         if (!WithinRoom(Position))
         {
             Finish();
@@ -238,14 +202,8 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         }
 
         _applyThrownObjectHit(
-            new Rect2(
-                Position - new Vector2(
-                    _bracelet.RadiusX,
-                    _bracelet.RadiusY),
-                new Vector2(
-                    _bracelet.RadiusX * 2,
-                    _bracelet.RadiusY * 2)),
-            _zFixed >> 8,
+            CarriedObjectMotion.CollisionBounds(Position, _bracelet),
+            _carried.ZFixed >> 8,
             _bracelet.CollisionZRadius,
             _bracelet.Damage);
 
@@ -257,22 +215,13 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         }
 
         _soundRequested(_throwing.LandingSound);
-        int rebound = (-_speedZ) >> 1;
-        if (rebound > -0x80)
+        if (!_carried.Bounce(_throwing))
         {
-            _zFixed = 0;
-            _speedZ = 0;
-            _throwSpeedRaw = 0;
-            _throwDirection = Vector2I.Zero;
             _state = BabyCuccoState.Following;
             ZIndex = 10;
         }
         else
         {
-            _speedZ = rebound;
-            _throwSpeedRaw = _throwing.ReducedBounceSpeed(_throwSpeedRaw);
-            if (_throwSpeedRaw == 0)
-                _throwDirection = Vector2I.Zero;
             AdvanceAnimation();
         }
         QueueRedraw();
@@ -292,23 +241,10 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
     private static int HeldAnimationIndex(Vector2I facing) =>
         facing is { Y: < 0 } or { X: > 0 } ? 1 : 0;
 
-    private static Vector2I HeldOffset(Player player) =>
-        player.BraceletEntityOffset ??
-            new Vector2I(
-                0,
-                player.CarriedObjectAnimationFrame == 0 &&
-                    player.FacingVector.X != 0 ? -14 : -13);
-
     private bool WithinRoom(Vector2 point) =>
         point.X >= 0 && point.X < _room.Width &&
         point.Y >= 0 && point.Y < _room.Height;
 
-    private static int DirectionAngle(Vector2I direction) =>
-        direction == Vector2I.Up ? 0x00
-        : direction == Vector2I.Right ? 0x08
-        : direction == Vector2I.Down ? 0x10
-        : direction == Vector2I.Left ? 0x18
-        : throw new ArgumentOutOfRangeException(nameof(direction));
 }
 
 internal enum BabyCuccoState

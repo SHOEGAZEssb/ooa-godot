@@ -29,57 +29,26 @@ internal sealed class RickyAttackTileBreaker(
         {
             return;
         }
-        byte tile = room.GetMetatile(point);
-        if (!breakables.TryGet(
-                room.ActiveCollisions,
-                tile,
-                out BreakableTileRecord breakable) ||
-            !breakable.AllowsSource(source))
+        if (breakables.TryBreak(
+                room,
+                source,
+                point,
+                saveData,
+                group,
+                animationTick,
+                linkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             return;
         }
-
-        int packed = room.GetPackedPosition(point);
-        Vector2 tileCenter = new(
-            (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packed >> 4) * OracleRoomData.MetatileSize + 8);
-        byte replacement = breakable.ReplacementFor(room, tileCenter);
-        bool changed = breakable.Replacement == 0 ||
-            room.ReplaceMetatile(
-                tileCenter, tile, replacement, animationTick());
-        if (!changed)
-            return;
-        breakable.ApplyPersistentEffects(
-            saveData, group, room.Id, linkedRoomNeighbor);
-        if ((breakable.Effect & 0x40) != 0)
-            playSound(OracleSoundEngine.SndSolvePuzzle);
-        if (breakable.Drop != 0 &&
-            decideBreakableDrop(breakable.Drop) is int subId)
+        result.ApplyCommonEffects(
+            playSound, decideBreakableDrop, spawns);
+        if (BreakableTileEffectSpawn.Create(
+                room, result.TileCenter, result.Record.Effect) is { } effect)
         {
-            spawns.Add(new ItemDropSpawn(subId, tileCenter));
+            spawns.Add(effect);
         }
-        AddBreakEffect(spawns, tileCenter, breakable.Effect);
         roomTileChanged();
-    }
-
-    private void AddBreakEffect(
-        ICollection<RoomEntitySpawn> spawns,
-        Vector2 position,
-        int effect)
-    {
-        int interaction = effect & 0x0f;
-        bool flickers = (effect & 0x10) != 0;
-        if (interaction is 0x06 or 0x0c)
-        {
-            spawns.Add(new RockDebrisSpawn(position, interaction));
-        }
-        else if (interaction is 0x00 or 0x01)
-        {
-            spawns.Add(new GrassDebrisSpawn(
-                position,
-                interaction,
-                flickers,
-                (room.TilesetFlags & 0x40) != 0));
-        }
     }
 }

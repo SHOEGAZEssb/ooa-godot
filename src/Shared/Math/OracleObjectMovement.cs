@@ -90,6 +90,36 @@ internal sealed class OracleObjectMovement
     }
 
     /// <summary>
+    /// Ports bank0.objectUpdateSpeedZ_sidescroll. Positive speed probes y+$06
+    /// at x-$04 and x+$03 and returns before either position or speed changes
+    /// when a floor is found.
+    /// </summary>
+    internal bool UpdateSpeedZSidescroll(
+        ref OracleObjectPosition position,
+        ref int speedZ,
+        int gravity,
+        Func<Vector2, bool> isSolidAllowingHoles)
+    {
+        short signedSpeed = unchecked((short)speedZ);
+        if (signedSpeed >= 0)
+        {
+            int y = unchecked((byte)((position.YFixed >> 8) + 6));
+            int x = position.XFixed >> 8;
+            if (isSolidAllowingHoles(new Vector2(
+                    unchecked((byte)(x - 4)), y)) ||
+                isSolidAllowingHoles(new Vector2(
+                    unchecked((byte)(x + 3)), y)))
+            {
+                return true;
+            }
+        }
+
+        position = position.Add(signedSpeed, xFixed: 0);
+        speedZ = unchecked((short)(signedSpeed + gravity));
+        return false;
+    }
+
+    /// <summary>
     /// Applies objectApplySpeed to a retained precise position and returns the
     /// high-byte rendering position.
     /// </summary>

@@ -48,8 +48,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private int _flapCount;
     private int _chargeCounter;
     private int _waterHoverCounter;
-    private HazardType _hazard;
-    private Vector2 _hazardCenter;
+    private CompanionHazard _hazard;
     private bool _airborneInitialized;
     private bool _mountStarted;
     private bool _attackPressed;
@@ -59,7 +58,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _attackEdgeObserved;
     private bool _itemEdgeObserved;
     private bool _chargePaletteActive;
-    private bool _hazardAnimationStarted;
     private bool _dismountInitialized;
     private bool _dismountLandingObserved;
     private Vector2 _dismountPreviousLinkPosition;
@@ -112,7 +110,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     internal int AnimationParameter => _animation.CurrentParameter;
     internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
     internal bool ChargePaletteActive => _chargePaletteActive;
-    internal HazardType Hazard => _hazard;
+    internal HazardType Hazard => _hazard.Type;
     internal bool GoodbyeActive => _goodbye is not null && !_finished;
     internal ulong MooshTexturePixelHash => OracleGraphicsCache.PixelHash(
         CurrentMooshTexture.GetImage());
@@ -686,18 +684,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private bool TryBeginHazard()
     {
-        HazardType hazard = _room.GetTerrainInfo(
-            _precisePosition + new Vector2(0, 5)).Hazard;
-        if (hazard == HazardType.None)
+        if (!CompanionHazard.TryCreate(
+                _room, _precisePosition, out _hazard))
             return false;
-
-        int packedPosition = _room.GetPackedPosition(
-            _precisePosition + new Vector2(0, 5));
-        _hazard = hazard;
-        _hazardCenter = new Vector2(
-            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
-        _hazardAnimationStarted = false;
         _phase = MooshCompanionPhase.HazardFalling;
         _zFixed = 0;
         _speedZ = 0;
@@ -707,70 +696,28 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateHazardFalling(Player player)
     {
-        bool water = _hazard == HazardType.Water;
-        if (!water && !DragToHazardCenter())
-            return;
-
-        if (!_hazardAnimationStarted)
+        if (!_hazard.Advance(
+                ref _precisePosition,
+                _animation,
+                waterAnimation: 0x0d,
+                holeAnimation: 0x0e,
+                SetAnimation,
+                _playSound))
         {
-            _hazardAnimationStarted = true;
-            SetAnimation(water ? 0x0d : 0x0e);
-            if (!water)
-            {
-                _playSound(OracleSoundEngine.SndLinkFall);
-                return;
-            }
+            return;
         }
 
-        _animation.Advance();
-        if ((_animation.CurrentParameter & 0x80) == 0)
-            return;
-
-        HazardType completedHazard = _hazard;
-        Vector2 respawn = ResolveHazardRespawn(player);
+        HazardType completedHazard = _hazard.Type;
+        Vector2 respawn = CompanionHazard.ResolveRespawn(
+            player, _runtime, CanRespawnAt);
         _precisePosition = respawn;
-        _hazard = HazardType.None;
-        _hazardAnimationStarted = false;
+        _hazard = default;
         _phase = MooshCompanionPhase.Riding;
         _angle = 0xff;
         _chargeCounter = 0;
         _airborneInitialized = false;
         player.ApplyCompanionHazardDamage(completedHazard);
         SetAnimation(0x13 + _direction);
-    }
-
-    private bool DragToHazardCenter()
-    {
-        bool centered = true;
-        if (Mathf.FloorToInt(_precisePosition.X) !=
-            Mathf.FloorToInt(_hazardCenter.X))
-        {
-            _precisePosition.X += _precisePosition.X < _hazardCenter.X
-                ? 0.25f
-                : -0.25f;
-            centered = false;
-        }
-        if (Mathf.FloorToInt(_precisePosition.Y) !=
-            Mathf.FloorToInt(_hazardCenter.Y))
-        {
-            _precisePosition.Y += _precisePosition.Y < _hazardCenter.Y
-                ? 0.25f
-                : -0.25f;
-            centered = false;
-        }
-        return centered;
-    }
-
-    private Vector2 ResolveHazardRespawn(Player player)
-    {
-        Vector2 localRespawn = player.LocalRespawnPosition;
-        if (CanRespawnAt(localRespawn))
-            return localRespawn;
-
-        Vector2 lastMount =
-            CompanionRuntimeState.ReadLastAnimalMountPosition(_runtime);
-        player.SetLocalRespawnCoordinates(lastMount);
-        return lastMount;
     }
 
     private bool CanRespawnAt(Vector2 position) =>
@@ -782,7 +729,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
-        int angle = AngleForInput(input);
+        int angle = CompanionMovement.AngleForInput(input);
         if (angle == 0xff)
         {
             return;
@@ -807,7 +754,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
-        int angle = AngleForInput(input);
+        int angle = CompanionMovement.AngleForInput(input);
         if (angle == 0xff)
         {
             return;
@@ -836,7 +783,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateDirectionAndAnimation(int animationBase)
     {
-        int direction = DirectionForAngle(_angle, _direction);
+        int direction = CompanionMovement.DirectionForAngle(
+            _angle, _direction);
         if (direction == _direction)
         {
             _animation.Advance();
@@ -1000,38 +948,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             _runtime, CompanionRuntimeState.MooshId,
             _roomId, position, _direction);
         SynchronizePlayer(player, Vector2.Zero);
-    }
-
-    private static int AngleForInput(Vector2 input)
-    {
-        int x = Math.Sign(input.X);
-        int y = Math.Sign(input.Y);
-        return (x, y) switch
-        {
-            (0, -1) => 0x00,
-            (1, -1) => 0x04,
-            (1, 0) => 0x08,
-            (1, 1) => 0x0c,
-            (0, 1) => 0x10,
-            (-1, 1) => 0x14,
-            (-1, 0) => 0x18,
-            (-1, -1) => 0x1c,
-            _ => 0xff
-        };
-    }
-
-    private static int DirectionForAngle(int angle, int currentDirection)
-    {
-        if (angle == 0xff)
-            return currentDirection;
-        int firstDirection = (angle >> 3) & 0x03;
-        if ((angle & 0x04) == 0)
-            return firstDirection;
-        int secondDirection = (firstDirection + 1) & 0x03;
-        return currentDirection == firstDirection ||
-            currentDirection == secondDirection
-                ? currentDirection
-                : firstDirection;
     }
 
     private Texture2D CurrentMooshTexture => _chargePaletteActive

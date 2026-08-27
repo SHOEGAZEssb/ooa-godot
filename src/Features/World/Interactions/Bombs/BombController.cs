@@ -148,13 +148,14 @@ public sealed class BombController
             }
             else if (_bomb.State == BombState.Exploding)
             {
-                _bomb.ReleaseExploding(player, GetHeldOffset(player));
+                _bomb.ReleaseExploding(
+                    player, CarriedObjectMotion.HeldOffset(player));
             }
             else if (_bomb.State == BombState.Held)
             {
                 _bomb.Throw(
                     player,
-                    GetHeldOffset(player),
+                    CarriedObjectMotion.HeldOffset(player),
                     Vector2I.Zero,
                     speedZ: 0,
                     speedRaw: 0);
@@ -173,30 +174,18 @@ public sealed class BombController
             return;
         }
 
-        _counter++;
-        int middleBoundary =
-            _record.LiftLowFrames + _record.LiftMidFrames;
-        int finishedBoundary =
-            middleBoundary + _record.LiftHighFrames;
-        if (_counter <= _record.LiftLowFrames)
+        if (!BraceletLiftSequence.Advance(
+                player,
+                ref _counter,
+                _record.LiftLowFrames,
+                _record.LiftMidFrames,
+                _record.LiftHighFrames,
+                stage => _bomb.SetHeldOffset(
+                    player, GetLiftOffset(player, stage))))
         {
-            player.SetBraceletActionPose(
-                BraceletActionPose.PullStrain);
-            _bomb.SetHeldOffset(player, GetLiftOffset(player, 0));
-            return;
-        }
-        if (_counter <= middleBoundary)
-        {
-            player.SetBraceletActionPose(BraceletActionPose.Pull);
-            _bomb.SetHeldOffset(player, GetLiftOffset(player, 1));
             return;
         }
 
-        _bomb.SetHeldOffset(player, GetLiftOffset(player, 2));
-        if (_counter < finishedBoundary)
-            return;
-
-        player.ClearBraceletActionPose();
         player.SetBraceletLiftCollisionsDisabled(false);
         player.BeginCarriedObjectPose();
         _counter = 0;
@@ -205,7 +194,7 @@ public sealed class BombController
     }
 
     private void UpdateHeldPosition(Player player) =>
-        _bomb?.SetHeldOffset(player, GetHeldOffset(player));
+        _bomb?.SetHeldOffset(player, CarriedObjectMotion.HeldOffset(player));
 
     private void Throw(Player player, Vector2 movementInput)
     {
@@ -220,7 +209,7 @@ public sealed class BombController
         bool dropped = direction == Vector2I.Zero;
         _bomb.Throw(
             player,
-            GetHeldOffset(player),
+            CarriedObjectMotion.HeldOffset(player),
             direction,
             dropped ? 0 : _record.InitialSpeedZ,
             dropped
@@ -245,7 +234,7 @@ public sealed class BombController
         Player? player = bomb.HeldPlayer;
         if (player is null)
             return;
-        bomb.ReleaseExploding(player, GetHeldOffset(player));
+        bomb.ReleaseExploding(player, CarriedObjectMotion.HeldOffset(player));
         player.SetBraceletLiftCollisionsDisabled(false);
         player.ClearBraceletActionPose();
         player.EndCarriedObjectPose();
@@ -257,20 +246,8 @@ public sealed class BombController
     private Vector2I GetLiftOffset(Player player, int frame) =>
         _linkItems.BraceletLiftOffset(
             frame,
-            DirectionIndex(player.FacingVector));
+            CarriedObjectMotion.DirectionIndex(player.FacingVector));
 
-    private Vector2I GetHeldOffset(Player player)
-    {
-        int frame = player.CarriedObjectAnimationFrame == 0 ? 2 : 3;
-        return GetLiftOffset(player, frame);
-    }
-
-    private static int DirectionIndex(Vector2I direction) =>
-        direction == Vector2I.Up ? 0
-        : direction == Vector2I.Right ? 1
-        : direction == Vector2I.Down ? 2
-        : direction == Vector2I.Left ? 3
-        : throw new ArgumentOutOfRangeException(nameof(direction));
 }
 
 internal enum BombParentState

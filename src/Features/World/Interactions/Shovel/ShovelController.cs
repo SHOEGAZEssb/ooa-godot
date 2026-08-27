@@ -62,29 +62,29 @@ public sealed class ShovelController
                 $"collision set ${room.ActiveCollisions:x2}, tile ${tile:x2}.");
         }
 
-        int packedPosition = room.GetPackedPosition(point);
-        Vector2 tileCenter = new(
-            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
-        bool changed = record.Replacement == 0 || room.ReplaceMetatile(
-            tileCenter, tile, (byte)record.Replacement, _animationTick());
-        if (!changed)
+        if (_breakables.TryBreak(
+                room,
+                BreakableTileDatabase.SourceShovel,
+                point,
+                _saveData,
+                _rooms.ActiveGroup,
+                _animationTick,
+                linkedRoomNeighbor: null,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             _playSound(OracleSoundEngine.SndClink);
             return false;
         }
 
-        record.ApplyPersistentEffects(
-            _saveData, _rooms.ActiveGroup, room.Id);
-        _entities.NotifyTileDug(packedPosition);
-
-        if ((record.Effect & 0x40) != 0)
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
-        if (record.Drop != 0)
-            _entities.SpawnBreakableDrop(record.Drop, tileCenter, direction);
+        _entities.NotifyTileDug(result.PackedPosition);
+        result.ApplyCommonEffects(
+            _playSound,
+            (drop, position) =>
+                _entities.SpawnBreakableDrop(drop, position, direction));
 
         _entities.Spawn<ShovelDebrisEffect>(
-            new ShovelDebrisSpawn(tileCenter, direction));
+            new ShovelDebrisSpawn(result.TileCenter, direction));
         _roomView.QueueRedraw();
         _saveData.AddGashaMaturity(1);
         _playSound(OracleSoundEngine.SndDig);

@@ -17,6 +17,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
     private BraceletDatabaseRecord _bracelet;
+    private BombRecord _throwing = null!;
     private Action<Rect2, int, int, int> _applyThrownObjectHit = null!;
     private Texture2D _coverTexture = null!;
     private SpinyBeetleState _state;
@@ -32,10 +33,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     private bool _coverDebrisPending;
     private bool _swordRemovedCover;
     private Vector2 _coverDrawOffset;
-    private Vector2 _coverGroundPrecise;
-    private Vector2I _coverThrowDirection;
-    private int _coverZFixed;
-    private int _coverSpeedZ;
+    private CarriedObjectMotion _coverMotion;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SpinyBeetleState State => _state;
@@ -47,7 +45,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     internal bool CoverVisualActive => _coverVisualActive;
     internal bool CoverHeld => _coverHeld;
     internal bool CoverThrown => _coverThrown;
-    internal Vector2I CoverThrowDirection => _coverThrowDirection;
+    internal Vector2I CoverThrowDirection => _coverMotion.Direction;
     internal Vector2 CoverDrawOffset => _coverDrawOffset;
     internal ulong CoverTextureHash =>
         OracleGraphicsCache.PixelHash(_coverTexture.GetImage());
@@ -70,6 +68,8 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
+        BraceletDatabaseRecord bracelet,
+        BombRecord throwing,
         Action<Rect2, int, int, int> applyThrownObjectHit)
     {
         Record = record;
@@ -79,7 +79,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         _room = room;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
-        _bracelet = new BraceletDatabase().Data;
+        _bracelet = bracelet;
+        _throwing = throwing;
+        _coverMotion = new CarriedObjectMotion(position);
         _applyThrownObjectHit = applyThrownObjectHit;
         _coverTexture = room.BuildMimickedMetatileTexture(
             (byte)_behavior.DungeonBushTile);
@@ -341,13 +343,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
     private void UpdateHeldCover(Player player)
     {
-        Vector2I offset = player.BraceletEntityOffset ??
-            new Vector2I(
-                0,
-                player.CarriedObjectAnimationFrame == 0 &&
-                    player.FacingVector.X != 0 ? -14 : -13);
-        Vector2 world =
-            player.Position + new Vector2(offset.X, offset.Y);
+        _coverMotion.Hold(player);
+        Vector2 world = _coverMotion.GroundPosition +
+            Vector2.Down * (_coverMotion.ZFixed >> 8);
         _coverDrawOffset = world - Position;
         QueueRedraw();
     }
@@ -356,29 +354,16 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         Player player,
         Vector2I releaseDirection)
     {
-        Vector2I heldOffset = player.BraceletEntityOffset ??
-            new Vector2I(
-                0,
-                player.CarriedObjectAnimationFrame == 0 &&
-                    player.FacingVector.X != 0 ? -14 : -13);
         _coverHeld = false;
         _coverThrown = true;
-        _coverThrowDirection = releaseDirection;
-        _coverGroundPrecise =
-            player.Position + new Vector2(heldOffset.X, 0) +
-            player.FacingVector;
-        _coverZFixed = heldOffset.Y << 8;
-        _coverSpeedZ = releaseDirection == Vector2I.Zero
-            ? 0
-            : _bracelet.InitialSpeedZ;
-        player.EndCarriedObjectPose();
+        _coverMotion.Release(player, releaseDirection, _bracelet);
         SyncThrownCoverDrawOffset();
     }
 
     private void UpdateThrownCover(ICollection<RoomEntitySpawn> spawns)
     {
         Vector2 ground =
-            OracleObjectMath.ToPixelPosition(_coverGroundPrecise);
+            OracleObjectMath.ToPixelPosition(_coverMotion.GroundPosition);
         if (ground.X < 0 || ground.X >= _room.Width ||
             ground.Y < 0 || ground.Y >= _room.Height)
         {
@@ -386,47 +371,30 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
             return;
         }
 
-        Vector2 front = ground + ThrowCollisionOffset(
-            _coverThrowDirection);
-        if (_coverThrowDirection != Vector2I.Zero &&
-            (front.X < 0 || front.X >= _room.Width ||
-             front.Y < 0 || front.Y >= _room.Height ||
-             _room.IsSolid(front)))
+        if (_coverMotion.AdvanceHorizontal(
+                _throwing,
+                front =>
+                    front.X < 0 || front.X >= _room.Width ||
+                    front.Y < 0 || front.Y >= _room.Height ||
+                    _room.IsSolid(front)))
         {
             BreakThrownCover(ground, spawns);
             return;
         }
-
-        if (_coverThrowDirection != Vector2I.Zero)
-        {
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _coverGroundPrecise,
-                _bracelet.SpeedRaw,
-                DirectionAngle(_coverThrowDirection));
-        }
-        if (OracleObjectMath.UpdateSpeedZ(
-            ref _coverZFixed,
-            ref _coverSpeedZ,
-            _bracelet.Gravity))
+        if (_coverMotion.AdvanceVertical(_bracelet))
         {
             BreakThrownCover(
-                OracleObjectMath.ToPixelPosition(_coverGroundPrecise),
+                OracleObjectMath.ToPixelPosition(_coverMotion.GroundPosition),
                 spawns);
             return;
         }
 
         SyncThrownCoverDrawOffset();
         Vector2 center =
-            OracleObjectMath.ToPixelPosition(_coverGroundPrecise);
+            OracleObjectMath.ToPixelPosition(_coverMotion.GroundPosition);
         _applyThrownObjectHit(
-            new Rect2(
-                center - new Vector2(
-                    _bracelet.RadiusX,
-                    _bracelet.RadiusY),
-                new Vector2(
-                    _bracelet.RadiusX * 2,
-                    _bracelet.RadiusY * 2)),
-            _coverZFixed >> 8,
+            CarriedObjectMotion.CollisionBounds(center, _bracelet),
+            _coverMotion.ZFixed >> 8,
             _bracelet.CollisionZRadius,
             _bracelet.Damage);
     }
@@ -455,9 +423,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     private void SyncThrownCoverDrawOffset()
     {
         Vector2 ground =
-            OracleObjectMath.ToPixelPosition(_coverGroundPrecise);
+            OracleObjectMath.ToPixelPosition(_coverMotion.GroundPosition);
         _coverDrawOffset =
-            ground + Vector2.Down * (_coverZFixed >> 8) - Position;
+            ground + Vector2.Down * (_coverMotion.ZFixed >> 8) - Position;
         QueueRedraw();
     }
 
@@ -487,19 +455,6 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
                 _room.GetTerrainInfo(point).Hazard == HazardType.Hole)
             .Bitset != 0;
 
-    private static int DirectionAngle(Vector2I direction) =>
-        direction == Vector2I.Up ? 0x00
-        : direction == Vector2I.Right ? 0x08
-        : direction == Vector2I.Down ? 0x10
-        : direction == Vector2I.Left ? 0x18
-        : throw new ArgumentOutOfRangeException(nameof(direction));
-
-    private static Vector2 ThrowCollisionOffset(Vector2I direction) =>
-        direction == Vector2I.Up ? new Vector2(0, -3)
-        : direction == Vector2I.Right ? new Vector2(3, 0)
-        : direction == Vector2I.Down ? new Vector2(0, 7)
-        : direction == Vector2I.Left ? new Vector2(-3, 0)
-        : Vector2.Zero;
 }
 
 internal enum SpinyBeetleState

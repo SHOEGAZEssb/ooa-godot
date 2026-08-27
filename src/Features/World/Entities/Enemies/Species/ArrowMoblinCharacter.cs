@@ -97,7 +97,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
                 // arrowDarknut_state_uninitialized selects the angle before
                 // arrowDarknut_setState8WithRandomAngleAndCounter consumes
                 // the second RNG value for the movement duration.
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 BeginMoving();
                 Visible = true;
                 return -1;
@@ -123,7 +123,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
                 // moblin_state_9 consumes the direction RNG first, then the
                 // movement-duration RNG. var30 starts at zero, so the first
                 // completed route is an eligible firing cycle.
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 BeginMoving();
                 _moveCycles++;
                 int towardLink =

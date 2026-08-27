@@ -29,15 +29,11 @@ internal partial class CuccoCharacter : EnemyCharacter
     private int _counter1;
     private int _counter2;
     private int _angle;
-    private int _zFixed;
-    private int _speedZ;
     private int _hitCount;
     private int _revengeCounter;
     private int _heldSoundCounter;
     private int _transformationCounter;
-    private Vector2 _throwPrecise;
-    private Vector2I _throwDirection;
-    private int _throwSpeedRaw;
+    private CarriedObjectMotion _carried;
     private bool _giant;
     private bool _giantCollisionDisabled;
     private bool _transformToGiant;
@@ -47,13 +43,13 @@ internal partial class CuccoCharacter : EnemyCharacter
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
-    internal int Z => _zFixed >> 8;
-    internal int ZFixed => _zFixed;
-    internal int SpeedZ => _speedZ;
+    internal int Z => _carried.ZFixed >> 8;
+    internal int ZFixed => _carried.ZFixed;
+    internal int SpeedZ => _carried.SpeedZ;
     internal int HitCount => _hitCount;
     internal int RevengeCounter => _revengeCounter;
-    internal Vector2I ThrowDirection => _throwDirection;
-    internal int ThrowSpeedRaw => _throwSpeedRaw;
+    internal Vector2I ThrowDirection => _carried.Direction;
+    internal int ThrowSpeedRaw => _carried.SpeedRaw;
     internal bool IsGiant => _giant;
     internal int CurrentAnimationFrame => AnimationFrame;
     internal Vector2 CurrentAnimationDrawOffset => AnimationDrawOffset;
@@ -65,7 +61,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         _state is not (
             CuccoState.Held or CuccoState.Thrown or CuccoState.Transforming);
     protected override Vector2 AnimationDrawOffset =>
-        Animation.CurrentOffset + Vector2.Down * (_zFixed >> 8);
+        Animation.CurrentOffset + Vector2.Down * (_carried.ZFixed >> 8);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -108,15 +104,11 @@ internal partial class CuccoCharacter : EnemyCharacter
         _counter1 = 0;
         _counter2 = 0;
         _angle = 0;
-        _zFixed = 0;
-        _speedZ = 0;
         _hitCount = 0;
         _revengeCounter = 0;
         _heldSoundCounter = 0;
         _transformationCounter = 0;
-        _throwPrecise = position;
-        _throwDirection = Vector2I.Zero;
-        _throwSpeedRaw = 0;
+        _carried = new CarriedObjectMotion(position);
         _giant = false;
         _giantCollisionDisabled = false;
         _transformToGiant = false;
@@ -162,8 +154,8 @@ internal partial class CuccoCharacter : EnemyCharacter
             case CuccoState.Hopping:
                 int zIndex = _counter1 & 0x0f;
                 _counter1 = (_counter1 + 1) & 0xff;
-                _zFixed = _behavior.HopZValues[zIndex].Value << 8;
-                if (_zFixed == 0)
+                _carried.ZFixed = _behavior.HopZValues[zIndex].Value << 8;
+                if (_carried.ZFixed == 0)
                 {
                     _counter2--;
                     if (_counter2 == 0)
@@ -258,7 +250,7 @@ internal partial class CuccoCharacter : EnemyCharacter
             return false;
 
         InvincibilityCounter = 0x20;
-        _zFixed = 0;
+        _carried.ZFixed = 0;
         if (_giant)
         {
             // Ages applies the sword's damage first: health $02 reaches zero
@@ -333,9 +325,8 @@ internal partial class CuccoCharacter : EnemyCharacter
                 _soundRequested(OracleSoundEngine.SndChicken);
             }
         }
-        Vector2I offset = HeldOffset(player);
-        Position = player.Position + new Vector2(offset.X, 0);
-        _zFixed = offset.Y << 8;
+        _carried.Hold(player);
+        Position = _carried.GroundPosition;
         ZIndex = 11;
         int animation = HeldAnimationIndex(player.FacingVector);
         if (AnimationIndex != animation)
@@ -347,45 +338,18 @@ internal partial class CuccoCharacter : EnemyCharacter
 
     private void Release(Player player, Vector2I releaseDirection)
     {
-        Vector2I offset = HeldOffset(player);
         _state = CuccoState.Thrown;
-        _throwDirection = releaseDirection;
-        _throwPrecise =
-            player.Position + new Vector2(offset.X, 0) + player.FacingVector;
-        Position = OracleObjectMath.ToPixelPosition(_throwPrecise);
-        _zFixed = offset.Y << 8;
-        _speedZ = releaseDirection == Vector2I.Zero
-            ? 0
-            : _bracelet.InitialSpeedZ;
-        _throwSpeedRaw = releaseDirection == Vector2I.Zero
-            ? 0
-            : RingEffects.UsesStrongThrow(player.Inventory)
-                ? _bracelet.TossSpeedRaw
-                : _bracelet.SpeedRaw;
-        player.EndCarriedObjectPose();
+        _carried.Release(player, releaseDirection, _bracelet);
+        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         QueueRedraw();
     }
 
     private void UpdateThrown()
     {
-        if (_throwDirection != Vector2I.Zero)
-        {
-            Vector2 edge = _throwPrecise + _throwing.EdgeOffset(_throwDirection);
-            if (WithinRoom(edge) && _room.IsSolid(edge))
-            {
-                _throwDirection = Vector2I.Zero;
-                _throwSpeedRaw = 0;
-            }
-            else
-            {
-                OracleObjectMovement.Shared.ApplySpeed(
-                    ref _throwPrecise,
-                    _throwSpeedRaw,
-                    DirectionAngle(_throwDirection));
-            }
-        }
-
-        Position = OracleObjectMath.ToPixelPosition(_throwPrecise);
+        _carried.AdvanceHorizontal(
+            _throwing,
+            edge => WithinRoom(edge) && _room.IsSolid(edge));
+        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         if (!WithinRoom(Position))
         {
             Finish();
@@ -393,15 +357,12 @@ internal partial class CuccoCharacter : EnemyCharacter
         }
 
         _applyThrownObjectHit(
-            new Rect2(
-                Position - new Vector2(_bracelet.RadiusX, _bracelet.RadiusY),
-                new Vector2(_bracelet.RadiusX * 2, _bracelet.RadiusY * 2)),
-            _zFixed >> 8,
+            CarriedObjectMotion.CollisionBounds(Position, _bracelet),
+            _carried.ZFixed >> 8,
             _bracelet.CollisionZRadius,
             _bracelet.Damage);
 
-        bool landed = OracleObjectMath.UpdateSpeedZ(
-            ref _zFixed, ref _speedZ, _bracelet.Gravity);
+        bool landed = _carried.AdvanceVertical(_bracelet);
         if (!landed)
         {
             AdvanceAnimation();
@@ -410,22 +371,13 @@ internal partial class CuccoCharacter : EnemyCharacter
         }
 
         _soundRequested(_throwing.LandingSound);
-        int rebound = (-_speedZ) >> 1;
-        if (rebound > -0x80)
+        if (!_carried.Bounce(_throwing))
         {
-            _zFixed = 0;
-            _speedZ = 0;
-            _throwSpeedRaw = 0;
-            _throwDirection = Vector2I.Zero;
             _state = CuccoState.Runaway;
             ZIndex = 10;
         }
         else
         {
-            _speedZ = rebound;
-            _throwSpeedRaw = _throwing.ReducedBounceSpeed(_throwSpeedRaw);
-            if (_throwSpeedRaw == 0)
-                _throwDirection = Vector2I.Zero;
             AdvanceAnimation();
         }
         QueueRedraw();
@@ -443,13 +395,6 @@ internal partial class CuccoCharacter : EnemyCharacter
     private static int HeldAnimationIndex(Vector2I facing) =>
         facing is { Y: < 0 } or { X: > 0 } ? 1 : 0;
 
-    private static Vector2I HeldOffset(Player player) =>
-        player.BraceletEntityOffset ??
-            new Vector2I(
-                0,
-                player.CarriedObjectAnimationFrame == 0 &&
-                    player.FacingVector.X != 0 ? -14 : -13);
-
     private bool IsWallOrHole(Vector2I point)
     {
         if (point.X < 0 || point.X >= _room.Width ||
@@ -466,13 +411,6 @@ internal partial class CuccoCharacter : EnemyCharacter
         point.X >= 0 && point.X < _room.Width &&
         point.Y >= 0 && point.Y < _room.Height;
 
-    private static int DirectionAngle(Vector2I direction) =>
-        direction == Vector2I.Up ? 0x00
-        : direction == Vector2I.Right ? 0x08
-        : direction == Vector2I.Down ? 0x10
-        : direction == Vector2I.Left ? 0x18
-        : throw new ArgumentOutOfRangeException(nameof(direction));
-
     private void TransformIntoGiant()
     {
         Vector2 position = Position;
@@ -484,14 +422,11 @@ internal partial class CuccoCharacter : EnemyCharacter
         _counter1 = 0;
         _counter2 = 0;
         _angle = 0;
-        _zFixed = 0;
-        _speedZ = 0;
+        _carried = new CarriedObjectMotion(position);
         _hitCount = 0;
         _revengeCounter = 0;
         _heldSoundCounter = 0;
         _transformationCounter = 0;
-        _throwDirection = Vector2I.Zero;
-        _throwSpeedRaw = 0;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(_giantRecord),

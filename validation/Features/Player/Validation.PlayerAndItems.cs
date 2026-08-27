@@ -3498,6 +3498,32 @@ public sealed partial class ValidationRoot
             "Flickering grass debris did not delete silently after its " +
             "terminal update.");
 
+        // tryToBreakTile_body owns these effects for every accepted source.
+        // The former sword-local path replaced the tile but silently omitted
+        // effect bit 7 persistence, effect bit 6 sound, and gasha maturity.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xc6, null, (long)_animationTicks);
+        _saveData.SetRoomFlag(
+            _activeGroup, _currentRoom.Id,
+            OracleSaveData.RoomFlag80, value: false);
+        int maturityBeforeSwordBreak = _saveData.GashaMaturity;
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            !_combat.ApplySwordTileHit(
+                _player, direction: 0, swordPoke: false) ||
+            _currentRoom.GetMetatile(bushPoint) != 0xdc ||
+            !_saveData.HasRoomFlag(
+                _activeGroup, _currentRoom.Id,
+                OracleSaveData.RoomFlag80) ||
+            _saveData.GashaMaturity != maturityBeforeSwordBreak + 30 ||
+            _sound.PlayRequestsFor(
+                OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1,
+            "Sword source $01 did not execute shared tryToBreakTile effects " +
+            "for tile $c6 (replacement $dc, flag $80, +30 maturity, " +
+            "SND_SOLVEPUZZLE, and INTERAC_GRASSDEBRIS $00).");
+        StepEntities(34);
+
         // Complete LINK_ANIM_MODE_22 while preserving the initiating button.
         // State 6 must re-enable movement but keep turning disabled and expose
         // the fourth normal swordArcData row continuously while charging.

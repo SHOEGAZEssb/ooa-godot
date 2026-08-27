@@ -2071,6 +2071,8 @@ internal sealed class RoomEntityFactory(
                     room,
                     position,
                     random,
+                    _bracelet.Data,
+                    _bomb.Data,
                     applyThrownObjectHit);
                 return new SpinyBeetleRoomEntity(
                     spinyBeetle, combatSource, soundRequested);
@@ -2415,7 +2417,10 @@ internal sealed class RoomEntityFactory(
             LinkedNeighbor,
             applyThrownObjectHit,
             roomTileChanged,
-            animationTick);
+            animationTick,
+            soundRequested,
+            drop => itemDrops.DecideBreakableDrop(
+                drop, random, inventory, saveData));
     }
 
     private IRoomEntity CreateSeedOnTree(

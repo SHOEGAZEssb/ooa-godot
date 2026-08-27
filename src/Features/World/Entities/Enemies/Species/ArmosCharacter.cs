@@ -111,7 +111,7 @@ internal partial class ArmosCharacter : EnemyCharacter
             case ArmosState.ChoosingDirection:
                 // ecom_setRandomCardinalAngle masks A, the returned RNG byte;
                 // H is only the intermediate 16-bit multiplication high byte.
-                _angle = _random.Next().Value & 0x18;
+                _angle = _random.NextCardinalAngle();
                 _counter = _behavior.MovementCounter;
                 _state = ArmosState.Moving;
                 goto case ArmosState.Moving;

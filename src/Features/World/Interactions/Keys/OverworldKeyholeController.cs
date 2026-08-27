@@ -84,13 +84,9 @@ public partial class OverworldKeyholeController : Node
 
         // Like nextToKeyDoor, nextToOverworldKeyhole decrements the global
         // pushing counter twice until it reaches zero.
-        _pushCounter--;
-        if (_pushCounter != 0)
-        {
-            _pushCounter--;
-            if (_pushCounter != 0)
-                return;
-        }
+        if (!PushingAgainstTileCounter.DecrementTwiceToZero(
+                ref _pushCounter))
+            return;
 
         if (!_inventory.HasTreasure(record.Treasure))
         {

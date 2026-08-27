@@ -195,7 +195,7 @@ public partial class OctorokCharacter : EnemyCharacter
             allowHoles: false,
             topDown: true))
         {
-            _angle = _random.Next().Value & 0x18;
+            _angle = _random.NextCardinalAngle();
             SetAnimationFromAngle();
         }
         AdvanceAnimation();

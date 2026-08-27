@@ -630,42 +630,26 @@ public partial class BombEffect : TransitionOffsetNode2D
         Vector2 point = Position + offset;
         if (!WithinRoomBoundary(point))
             return;
-        byte tile = _room.GetMetatile(point);
-        if (!_breakables.TryGet(
-                _room.ActiveCollisions, tile,
-                out BreakableTileRecord breakable) ||
-            !breakable.AllowsSource(BreakableTileDatabase.SourceBomb))
+        if (_breakables.TryBreak(
+                _room,
+                BreakableTileDatabase.SourceBomb,
+                point,
+                _saveData,
+                _group,
+                _animationTick,
+                _linkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
         {
             return;
         }
-
-        int packedPosition = _room.GetPackedPosition(point);
-        Vector2 tileCenter = new(
-            (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
-        byte replacement = breakable.ReplacementFor(_room, tileCenter);
-        bool changed = breakable.Replacement == 0 ||
-            _room.ReplaceMetatile(
-                tileCenter,
-                tile,
-                replacement,
-                _animationTick());
-        if (!changed)
-            return;
-
-        breakable.ApplyPersistentEffects(
-            _saveData,
-            _group,
-            _room.Id,
-            _linkedRoomNeighbor);
-        if ((breakable.Effect & 0x40) != 0)
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
-        if (breakable.Drop != 0 &&
-            _decideBreakableDrop(breakable.Drop) is int subId)
+        result.ApplyCommonEffects(
+            _playSound, _decideBreakableDrop, spawns);
+        if (BreakableTileEffectSpawn.Create(
+                _room, result.TileCenter, result.Record.Effect) is { } effect)
         {
-            spawns.Add(new ItemDropSpawn(subId, tileCenter));
+            spawns.Add(effect);
         }
-        AddBreakEffect(spawns, tileCenter, breakable.Effect);
         _roomTileChanged();
     }
 
@@ -757,26 +741,6 @@ public partial class BombEffect : TransitionOffsetNode2D
         return result;
     }
 
-    private void AddBreakEffect(
-        ICollection<RoomEntitySpawn> spawns,
-        Vector2 position,
-        int effect)
-    {
-        int interaction = effect & 0x0f;
-        bool flickers = (effect & 0x10) != 0;
-        if (interaction is 0x06 or 0x0c)
-        {
-            spawns.Add(new RockDebrisSpawn(position, interaction));
-        }
-        else if (interaction is 0x00 or 0x01)
-        {
-            spawns.Add(new GrassDebrisSpawn(
-                position,
-                interaction,
-                flickers,
-                (_room.TilesetFlags & 0x40) != 0));
-        }
-    }
 }
 
 internal enum BombState

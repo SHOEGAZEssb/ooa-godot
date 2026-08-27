@@ -63,7 +63,7 @@ internal partial class WhispCharacter : EnemyCharacter
         if (_initialized)
             return;
         _initialized = true;
-        _angle = (_random.Next().Value & 0x18) + 0x04;
+        _angle = _random.NextCardinalAngle() + 0x04;
         Visible = true;
         QueueRedraw();
     }

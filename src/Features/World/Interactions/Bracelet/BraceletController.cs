@@ -311,24 +311,20 @@ public sealed class BraceletController
 
         Vector2 tileCenter = PackedPositionCenter(_targetPackedPosition);
         Texture2D texture = room.BuildMimickedMetatileTexture(tileCenter);
-        byte replacement = _targetRecord.ReplacementFor(room, tileCenter);
-        bool changed = _targetRecord.Replacement == 0 ||
-            room.ReplaceMetatile(
-                tileCenter, _targetTile, replacement, _animationTick());
-        if (!changed)
+        if (_breakables.TryBreak(
+                room,
+                BreakableTileDatabase.SourceBracelet,
+                tileCenter,
+                _saveData,
+                _rooms.ActiveGroup,
+                _animationTick,
+                LinkedRoomNeighbor,
+                out BreakableTileBreak result) !=
+            BreakableTileBreakStatus.Broken)
+        {
             return false;
-
-        _targetRecord.ApplyPersistentEffects(
-            _saveData,
-            _rooms.ActiveGroup,
-            room.Id,
-            direction => _rooms.TryGetNeighbor(direction, out int neighbor)
-                ? neighbor
-                : null);
-        if ((_targetRecord.Effect & 0x40) != 0)
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
-        if (_targetRecord.Drop != 0)
-            _entities.SpawnBreakableDrop(_targetRecord.Drop, tileCenter);
+        }
+        result.ApplyCommonEffects(_playSound, _entities.SpawnBreakableDrop);
 
         _object = new BraceletLiftedObject
         {
@@ -348,10 +344,13 @@ public sealed class BraceletController
             room.Id,
             _targetPackedPosition,
             _targetTile,
-            replacement,
+            result.Replacement,
             tileCenter));
         return true;
     }
+
+    private int? LinkedRoomNeighbor(Vector2I direction) =>
+        _rooms.TryGetNeighbor(direction, out int neighbor) ? neighbor : null;
 
     private void UpdateLift(Player player)
     {
@@ -361,30 +360,18 @@ public sealed class BraceletController
             return;
         }
 
-        _counter++;
-        int middleBoundary =
-            _record.LiftLowFrames + _record.LiftMidFrames;
-        int finishedBoundary =
-            middleBoundary + _record.LiftHighFrames;
-        if (_counter <= _record.LiftLowFrames)
+        if (!BraceletLiftSequence.Advance(
+                player,
+                ref _counter,
+                _record.LiftLowFrames,
+                _record.LiftMidFrames,
+                _record.LiftHighFrames,
+                stage => _object.SetHeldOffset(
+                    GetLiftOffset(player, stage))))
         {
-            player.SetBraceletActionPose(
-                BraceletActionPose.PullStrain);
-            _object.SetHeldOffset(GetLiftOffset(player, 0));
-            return;
-        }
-        if (_counter <= middleBoundary)
-        {
-            player.SetBraceletActionPose(BraceletActionPose.Pull);
-            _object.SetHeldOffset(GetLiftOffset(player, 1));
             return;
         }
 
-        _object.SetHeldOffset(GetLiftOffset(player, 2));
-        if (_counter < finishedBoundary)
-            return;
-
-        player.ClearBraceletActionPose();
         player.SetBraceletLiftCollisionsDisabled(false);
         player.BeginCarriedObjectPose();
         _state = BraceletState.Holding;
@@ -414,29 +401,18 @@ public sealed class BraceletController
 
     private void UpdateEntityLift(Player player)
     {
-        _counter++;
-        int middleBoundary =
-            _record.LiftLowFrames + _record.LiftMidFrames;
-        int finishedBoundary =
-            middleBoundary + _record.LiftHighFrames;
-        if (_counter <= _record.LiftLowFrames)
+        if (!BraceletLiftSequence.Advance(
+                player,
+                ref _counter,
+                _record.LiftLowFrames,
+                _record.LiftMidFrames,
+                _record.LiftHighFrames,
+                stage => player.SetBraceletEntityOffset(
+                    GetLiftOffset(player, stage))))
         {
-            player.SetBraceletActionPose(
-                BraceletActionPose.PullStrain);
-            player.SetBraceletEntityOffset(GetLiftOffset(player, 0));
             return;
         }
-        if (_counter <= middleBoundary)
-        {
-            player.SetBraceletActionPose(BraceletActionPose.Pull);
-            player.SetBraceletEntityOffset(GetLiftOffset(player, 1));
-            return;
-        }
-        player.SetBraceletEntityOffset(GetLiftOffset(player, 2));
-        if (_counter < finishedBoundary)
-            return;
 
-        player.ClearBraceletActionPose();
         player.SetBraceletEntityOffset(null);
         player.SetBraceletLiftCollisionsDisabled(false);
         player.BeginCarriedObjectPose();
@@ -446,7 +422,7 @@ public sealed class BraceletController
 
     private void UpdateHeldPosition(Player player)
     {
-        _object?.SetHeldOffset(GetHeldOffset(player));
+        _object?.SetHeldOffset(CarriedObjectMotion.HeldOffset(player));
     }
 
     private void Throw(Player player, Vector2 movementInput)
@@ -457,7 +433,7 @@ public sealed class BraceletController
             return;
         }
 
-        Vector2I heldOffset = GetHeldOffset(player);
+        Vector2I heldOffset = CarriedObjectMotion.HeldOffset(player);
         Vector2I direction =
             player.SelectCarriedObjectReleaseDirection(movementInput);
         bool dropped = direction == Vector2I.Zero;
@@ -515,7 +491,7 @@ public sealed class BraceletController
             return;
         }
 
-        Vector2 front = ground + ThrowCollisionOffset(
+        Vector2 front = ground + CarriedObjectMotion.ThrowCollisionOffset(
             _object.ThrowDirection);
         if (_object.ThrowDirection != Vector2I.Zero &&
             (front.X < 0 || front.X >= room.Width ||
@@ -607,34 +583,15 @@ public sealed class BraceletController
 
     private static Vector2 WallPoint(Player player)
     {
-        int direction = DirectionIndex(player.FacingVector);
+        int direction = CarriedObjectMotion.DirectionIndex(
+            player.FacingVector);
         return player.Position + WallOffsets[direction];
     }
 
     private Vector2I GetLiftOffset(Player player, int frame) =>
         _linkItems.BraceletLiftOffset(
             frame,
-            DirectionIndex(player.FacingVector));
-
-    private Vector2I GetHeldOffset(Player player)
-    {
-        int frame = player.CarriedObjectAnimationFrame == 0 ? 2 : 3;
-        return GetLiftOffset(player, frame);
-    }
-
-    private static Vector2 ThrowCollisionOffset(Vector2I direction) =>
-        direction == Vector2I.Up ? new Vector2(0, -3)
-        : direction == Vector2I.Right ? new Vector2(3, 0)
-        : direction == Vector2I.Down ? new Vector2(0, 7)
-        : direction == Vector2I.Left ? new Vector2(-3, 0)
-        : Vector2.Zero;
-
-    private static int DirectionIndex(Vector2I direction) =>
-        direction == Vector2I.Up ? 0
-        : direction == Vector2I.Right ? 1
-        : direction == Vector2I.Down ? 2
-        : direction == Vector2I.Left ? 3
-        : throw new ArgumentOutOfRangeException(nameof(direction));
+            CarriedObjectMotion.DirectionIndex(player.FacingVector));
 
     private static Vector2 PackedPositionCenter(int packedPosition) =>
         new(

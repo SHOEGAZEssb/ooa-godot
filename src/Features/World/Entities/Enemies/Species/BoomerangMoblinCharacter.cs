@@ -120,7 +120,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
         // duration, then ecom_setRandomCardinalAngle consumes a second value.
         _counter = _behavior.BoomerangMoblinRouteCounters[
             _random.Next().Value & 0x03].Value;
-        _angle = _random.Next().Value & 0x18;
+        _angle = _random.NextCardinalAngle();
         _state = BoomerangMoblinCharacterMoblinState.Moving;
         SetAnimation(_angle >> 3);
     }
