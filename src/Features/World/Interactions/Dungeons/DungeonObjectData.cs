@@ -76,5 +76,6 @@ internal enum DungeonObjectKind
     RedFlameTrigger,
     CircularSidePlatform,
     HeadThwomp,
-    Swoop
+    Swoop,
+    Subterror
 }

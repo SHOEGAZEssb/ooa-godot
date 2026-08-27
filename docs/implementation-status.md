@@ -39,6 +39,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
   end to end, including their principal rooms, puzzles, side-view passages,
   minibosses, bosses, rewards, and Essences.
+- Moonlit Grotto (dungeon `$03`) has selected source-traced puzzle rooms plus
+  the complete room `4:4d` Subterror miniboss, reward portal, and persistent
+  re-entry flow; the dungeon is not yet an end-to-end playable-fidelity claim.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.

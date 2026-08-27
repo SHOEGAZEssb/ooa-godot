@@ -111,6 +111,7 @@ public partial class OracleSoundEngine : Node
     public const int SndVeranFairyAttack = 0xa8;
     public const int SndDig = 0xa9;
     public const int SndSwordObtained = 0xab;
+    public const int SndShock = 0xac;
     public const int SndTuneOfEchoes = 0xad;
     public const int SndTuneOfCurrents = 0xae;
     public const int SndTuneOfAges = 0xaf;

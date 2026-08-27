@@ -264,8 +264,9 @@ that ledger instead of duplicating its 211-room inventory.
   `$43:$00`, Color-changing Gel `$47:$00`, Sword Shrouded Stalfos `$49:$00`,
   Sword Masked Moblin `$4a:$01`, and Hardhat Beetle `$4d:$00`.
 - [x] Implemented dungeon bosses/minibosses Giant Ghini, Pumpkin Head, Swoop,
-  and Head Thwomp have focused state/counter/RNG/projectile/reward/room-lock
-  coverage, with especially detailed Head Thwomp fidelity assertions.
+  Head Thwomp, and Subterror have focused state/counter/RNG/projectile/reward/
+  room-lock coverage, with especially detailed Head Thwomp fidelity
+  assertions.
 - [ ] **P2 VERIFY - add retail object-slot traces for every implemented species.**
   The source validations are detailed, but no automated ROM trace currently
   compares the complete object struct and shared RNG after representative

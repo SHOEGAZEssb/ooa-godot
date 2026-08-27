@@ -75,7 +75,7 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 24 ||
+        if (_visuals.Count != 25 ||
             Visual("colored-cube").Animations.Length != 30 ||
             Visual("eternal-spirit") is not
                 { TileBase: 0, Palette: 1, Animations.Length: 1 } ||
@@ -92,6 +92,8 @@ internal sealed class DungeonInteractionVisualDatabase
                 { TileBase: 0x40, Palette: 4, Animations.Length: 1 } ||
             Visual("grotto-orb") is not
                 { TileBase: 0x1e, Palette: 0, Animations.Length: 2 } ||
+            Visual("subterror-dirt") is not
+                { TileBase: 0, Palette: 6, Animations.Length: 1 } ||
             Visual("rotatable-seed-thing") is not
                 { TileBase: 0x1a, Palette: 2, Animations.Length: 4 } ||
             Visual("minecart-gate") is not

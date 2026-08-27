@@ -86,6 +86,7 @@ internal sealed class RoomEntityFactory(
     private readonly DungeonBossDatabase _dungeonBosses = new();
     private readonly SpiritsGraveDatabase _spiritsGrave = new();
     private readonly WingDungeonDatabase _wingDungeon = new();
+    private readonly MoonlitGrottoDatabase _moonlitGrotto = new();
     private readonly MovingSideScrollPlatformDatabase _sidePlatforms = new();
     private readonly EnemySpawnTileDatabase _enemySpawnTiles = new();
     private readonly GroundTreasureDatabase _groundTreasures = new();
@@ -442,6 +443,8 @@ internal sealed class RoomEntityFactory(
             _spiritsGrave.GetRoomRecords(group, room.Id);
         IReadOnlyList<DungeonObjectRecord> wingDungeonRecords =
             _wingDungeon.GetRoomRecords(group, room.Id);
+        IReadOnlyList<DungeonObjectRecord> moonlitGrottoRecords =
+            _moonlitGrotto.GetRoomRecords(group, room.Id);
         IReadOnlyList<MovingSideScrollPlatformPlacement> sidePlatformRecords =
             _sidePlatforms.GetRoomRecords(group, room.Id);
         ColoredCubePuzzleState? spiritsGravePuzzle =
@@ -457,11 +460,13 @@ internal sealed class RoomEntityFactory(
         int sharedIndex = 0;
         int spiritsGraveIndex = 0;
         int wingDungeonIndex = 0;
+        int moonlitGrottoIndex = 0;
         int sidePlatformIndex = 0;
         while (mechanicIndex < dungeonRecords.Count ||
                sharedIndex < sharedDungeonRecords.Count ||
                spiritsGraveIndex < spiritsGraveRecords.Count ||
                wingDungeonIndex < wingDungeonRecords.Count ||
+               moonlitGrottoIndex < moonlitGrottoRecords.Count ||
                sidePlatformIndex < sidePlatformRecords.Count)
         {
             int mechanicOrder = mechanicIndex < dungeonRecords.Count
@@ -472,11 +477,16 @@ internal sealed class RoomEntityFactory(
                 ? spiritsGraveRecords[spiritsGraveIndex].Order : int.MaxValue;
             int wingDungeonOrder = wingDungeonIndex < wingDungeonRecords.Count
                 ? wingDungeonRecords[wingDungeonIndex].Order : int.MaxValue;
+            int moonlitGrottoOrder =
+                moonlitGrottoIndex < moonlitGrottoRecords.Count
+                    ? moonlitGrottoRecords[moonlitGrottoIndex].Order
+                    : int.MaxValue;
             int sidePlatformOrder = sidePlatformIndex < sidePlatformRecords.Count
                 ? sidePlatformRecords[sidePlatformIndex].Order : int.MaxValue;
             bool useShared = sharedOrder < mechanicOrder &&
                 sharedOrder < spiritsGraveOrder &&
                 sharedOrder < wingDungeonOrder &&
+                sharedOrder < moonlitGrottoOrder &&
                 sharedOrder < sidePlatformOrder;
             if (useShared)
             {
@@ -498,6 +508,7 @@ internal sealed class RoomEntityFactory(
 
             if (spiritsGraveOrder < mechanicOrder &&
                 spiritsGraveOrder < wingDungeonOrder &&
+                spiritsGraveOrder < moonlitGrottoOrder &&
                 spiritsGraveOrder < sidePlatformOrder)
             {
                 DungeonObjectRecord record =
@@ -512,6 +523,7 @@ internal sealed class RoomEntityFactory(
             }
 
             if (wingDungeonOrder < mechanicOrder &&
+                wingDungeonOrder < moonlitGrottoOrder &&
                 wingDungeonOrder < sidePlatformOrder)
             {
                 DungeonObjectRecord record =
@@ -520,6 +532,20 @@ internal sealed class RoomEntityFactory(
                     continue;
                 IRoomEntity? entity = CreateWingDungeonInteraction(
                     record, room, wingDungeonPuzzle, placementContext);
+                if (entity is not null)
+                    yield return entity;
+                continue;
+            }
+
+            if (moonlitGrottoOrder < mechanicOrder &&
+                moonlitGrottoOrder < sidePlatformOrder)
+            {
+                DungeonObjectRecord record =
+                    moonlitGrottoRecords[moonlitGrottoIndex++];
+                if (!DungeonObjectConditionMet(record))
+                    continue;
+                IRoomEntity? entity = CreateMoonlitGrottoInteraction(
+                    record, room, placementContext);
                 if (entity is not null)
                     yield return entity;
                 continue;
@@ -1228,6 +1254,50 @@ internal sealed class RoomEntityFactory(
             GrabMode = 2
         };
         return new ImmediateDungeonRewardRoomEntity(record, request);
+    }
+
+    private IRoomEntity CreateMoonlitGrottoInteraction(
+        DungeonObjectRecord record,
+        OracleRoomData room,
+        EnemyPlacementContext placementContext)
+    {
+        switch (record.Kind)
+        {
+            case DungeonObjectKind.MinibossReward:
+                return new DungeonRewardRoomEntity(
+                    record,
+                    _dungeonInteractions,
+                    saveData,
+                    roomEnemyCount,
+                    treasure: null,
+                    enableLinkCollisionsAndMenu);
+            case DungeonObjectKind.Subterror:
+                ImportedEnemyDefinition definition =
+                    _dungeonBosses.Enemy(0x72);
+                var subterror = new SubterrorBoss();
+                subterror.Initialize(
+                    definition,
+                    room,
+                    record.Position,
+                    random,
+                    soundRequested,
+                    bossShuttersClosed,
+                    disableLinkCollisionsAndMenu,
+                    enableLinkCollisionsAndMenu,
+                    () => roomMusicRequested(record.Group, record.Room),
+                    roomEntityDialogueRequested,
+                    dialogueOpen,
+                    animationTick,
+                    _moonlitGrotto.SubterrorMessage);
+                return new SubterrorBossRoomEntity(
+                    subterror,
+                    BossEntryDirection(placementContext));
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(record),
+                    record,
+                    "Unsupported Moonlit Grotto native object.");
+        }
     }
 
     private GroundTreasureGrantRequest CreateFallingSmallKeyRequest(
@@ -2249,6 +2319,7 @@ internal sealed class RoomEntityFactory(
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         BossShadowSpawn shadow => CreateBossShadow(shadow),
+        SubterrorDirtSpawn dirt => CreateSubterrorDirt(dirt),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
         ItemDropSpawn drop => CreateItemDrop(drop, room),
         HeadThwompBombDropSpawn drop =>
@@ -3929,6 +4000,22 @@ internal sealed class RoomEntityFactory(
             explosion, itemDrops, random, inventory, saveData, roomEnemyCount);
     }
 
+    private IRoomEntity CreateSubterrorDirt(SubterrorDirtSpawn spawn)
+    {
+        var dirt = new SubterrorDirtEffect
+        {
+            Name = "SubterrorDirt",
+            ZIndex = 10
+        };
+        dirt.Initialize(
+            spawn.Position,
+            _dungeonVisuals.Visual("subterror-dirt"),
+            _dungeonBosses.SubterrorPalettes,
+            soundRequested);
+        return new DialogueFixedEffectRoomEntityAdapter<SubterrorDirtEffect>(
+            dirt);
+    }
+
     private static IRoomEntity CreateBossShadow(BossShadowSpawn spawn)
     {
         var shadow = new BossShadowEffect
@@ -4369,6 +4456,15 @@ internal sealed class RoomEntityFactory(
                 break;
             }
         }
+        foreach (DungeonObjectRecord native in
+            _moonlitGrotto.GetRoomRecords(group, room.Id))
+        {
+            if (native.Kind == DungeonObjectKind.Subterror)
+            {
+                hasSupportedNativeBossRecord = true;
+                break;
+            }
+        }
         bool hasEnemyCountConsumer = false;
         foreach (DungeonMechanicDatabaseRecord record in records)
         {
@@ -4591,6 +4687,9 @@ internal sealed record MovingPlatformSpawn(Vector2 Position, int SubId)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record MinibossPortalSpawn : RoomEntitySpawn;
+
+internal sealed record SubterrorDirtSpawn(Vector2 Position)
+    : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record ShovelDebrisSpawn(Vector2 Position, Vector2I Direction)
     : RoomEntitySpawn(UpdateThisFrame: true);

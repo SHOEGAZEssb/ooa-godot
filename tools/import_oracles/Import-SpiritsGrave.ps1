@@ -14,6 +14,10 @@ $dungeonBossSpriteSequences = @{
     # Swoop's $af header is followed by the chained $b0 header. Grounded OAM
     # frames use tiles $20-$2c from spr_pound for the expanding impact arcs.
     0x71 = @($gfxNames[0xaf], $gfxNames[0xb0])
+    # Subterror loads the consecutive $b1-$b3 headers. PART_SUBTERROR_DIRT
+    # shares the final header while the enemy animations address the complete
+    # live extra-GFX closure.
+    0x72 = @($gfxNames[0xb1], $gfxNames[0xb2], $gfxNames[0xb3])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
 }
@@ -23,13 +27,14 @@ $dungeonBossSourceGrayscaleInverted = @{
     0x3f = $false
     0x70 = $false
     0x71 = $true
+    0x72 = $true
     0x78 = $true
     0x79 = $true
 }
 $dungeonBossRows = [Collections.Generic.List[string]]::new()
 $dungeonBossRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
-    @(0x3f, 0), @(0x70, 0), @(0x71, 0), @(0x78, 0), @(0x79, 0)
+    @(0x3f, 0), @(0x70, 0), @(0x71, 0), @(0x72, 0), @(0x78, 0), @(0x79, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
@@ -42,10 +47,11 @@ foreach ($spec in @(
     $dungeonBossRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($dungeonBossRows.Count -ne 6 -or
+if ($dungeonBossRows.Count -ne 7 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop,spr_pound\t0\t2\t1\t10\t10\t2\t20\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^72\t00\tspr_subterror_1,spr_subterror_2,spr_subterror_3\t0\t1\t1\t6\t6\t2\t20\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' })) {
     throw "Shared dungeon boss definitions no longer match the traced records:`n$($dungeonBossRows -join "`n")"
@@ -53,6 +59,26 @@ if ($dungeonBossRows.Count -ne 6 -or
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_bosses.tsv'),
     $dungeonBossRows)
+
+# ENEMY_SUBTERROR initializes PALH_be. The header replaces OBJ palette 6 for
+# PART_SUBTERROR_DIRT; using the ordinary slot-6 palette makes the dirt blue.
+$subterrorSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\enemies\subterror.s')
+$subterrorPaletteHeader = [regex]::Match(
+    $paletteHeaderSource,
+    '(?ms)^m_PaletteHeaderStart\s+\$be,\s*PALH_be(?<body>.*?)(?=^m_PaletteHeaderStart|\z)')
+if ($subterrorSource -notmatch
+        '(?ms)^subterror_state_uninitialized:.*?' +
+        'ld a,ENEMY_SUBTERROR.*?ld b,PALH_be.*?' +
+        'call enemyBoss_initializeRoom' -or
+    -not $subterrorPaletteHeader.Success -or
+    $subterrorPaletteHeader.Groups['body'].Value -notmatch
+        'm_PaletteHeaderSpr\s+6,\s*1,\s*paletteData4950') {
+    throw 'ENEMY_SUBTERROR no longer loads PALH_be/paletteData4950 into OBJ palette 6.'
+}
+Write-GeneratedBytes(
+    (Join-Path $destination 'objects\dungeon_subterror_palette.bin'),
+    (Read-PaletteBytes 'paletteData4950' 4))
 
 # ENEMY_HEAD_THWOMP initializes PALH_81 before becoming visible. The header
 # replaces OBJ palette 6 with paletteData4958; the boss's purple-face OAM
@@ -579,7 +605,13 @@ function Get-DungeonPartVisual(
             $metadata = if ($parameter -eq 0) { "$duration" } else { "$duration,$parameter" }
             $frames.Add(
                 "$metadata@$(Resolve-Oam $partOamSource $oamLabels[$pointerIndex])")
-            if (($parameter -band 0x80) -ne 0) { break }
+            # Most native visuals consumed here only need their first
+            # parameter-signalled sequence. PART_SUBTERROR_DIRT is different:
+            # $83/$82 are visible-frame parameters and its fifth frame writes
+            # the terminal zero observed by partCode32.
+            if (($parameter -band 0x80) -ne 0 -and $partId -ne 0x32) {
+                break
+            }
         }
         if ($frames.Count -eq 0) {
             throw "PART_`$$hex $label has no animation frames."
@@ -757,6 +789,31 @@ Add-DungeonPartVisualRow `
     $grottoOrbVisual.SourceGrayscaleInverted `
     $grottoOrbVisual.Animations
 
+# PART_SUBTERROR_DIRT $32 uses the third Subterror object-GFX header and its
+# one terminal animation. It is globally a part, but only the native $72
+# miniboss creates it.
+$subterrorDirtVisual = Get-DungeonPartVisual 0x32 $true
+$subterrorDirtFrames = @($subterrorDirtVisual.Animations[0] -split '\|')
+if ($subterrorDirtVisual.Sprite -ne 'spr_subterror_3' -or
+    $subterrorDirtVisual.TileBase -ne 0 -or
+    $subterrorDirtVisual.Palette -ne 6 -or
+    $subterrorDirtVisual.Animations.Count -ne 1 -or
+    $subterrorDirtFrames.Count -ne 5 -or
+    $subterrorDirtFrames[0] -notmatch '^3,131@' -or
+    $subterrorDirtFrames[1] -notmatch '^6,130@' -or
+    $subterrorDirtFrames[2] -notmatch '^6,131@' -or
+    $subterrorDirtFrames[3] -notmatch '^6,131@' -or
+    $subterrorDirtFrames[4] -notmatch '^1@') {
+    throw 'PART_SUBTERROR_DIRT $32 graphics no longer match object-GFX $b3.'
+}
+Add-DungeonPartVisualRow `
+    'subterror-dirt' `
+    $subterrorDirtVisual.Sprite `
+    $subterrorDirtVisual.TileBase `
+    $subterrorDirtVisual.Palette `
+    $subterrorDirtVisual.SourceGrayscaleInverted `
+    $subterrorDirtVisual.Animations
+
 # PART_ROTATABLE_SEED_THING $33 uses object-GFX $73 and four static
 # orientations. Its automatically created, invisible $03 child copies the
 # animation parameter and collision radii but is not rendered.
@@ -775,8 +832,8 @@ Add-DungeonPartVisualRow `
     $seedBouncerVisual.SourceGrayscaleInverted `
     $seedBouncerVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 25) {
-    throw "Expected twenty-four imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 26) {
+    throw "Expected twenty-five imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),
@@ -842,6 +899,58 @@ foreach ($required in @(
         throw "Spirit's Grave before-event boss placement changed."
     }
 }
+
+# Moonlit Grotto room $4d orders its two shutter controllers, dormant portal,
+# miniboss-death script, then the BeforeEvent ENEMY_SUBTERROR record. Keep the
+# native reward and enemy rows together so the runtime can merge them into
+# that existing source stream without treating either as an ordinary pointer.
+$expectedMoonlitMinibossMainData = @'
+group4Map4dObjectData:
+	obj_Interaction $1e $0a $a7 $00
+	obj_Interaction $1e $0b $30 $00
+	obj_Interaction $7e $00 $58 $78
+	obj_Interaction $20 $00 $58 $78
+	obj_BeforeEvent group4Map4dBeforeEventObjectData
+	obj_End
+'@
+if (-not $mainObjectSource.Contains(
+        $expectedMoonlitMinibossMainData.Replace("`r", '')) -or
+    $enemyObjectSource -notmatch
+        '(?ms)^group4Map4dBeforeEventObjectData:\s+' +
+        'obj_SpecificEnemyA \$00 \$72 \$00 \$18 \$78\s+' +
+        'obj_EndPointer') {
+    throw 'Moonlit Grotto room 4:4d miniboss object stream changed.'
+}
+foreach ($required in @(
+    'ld \(hl\),SPEED_180',
+    'ld \(hl\),60',
+    'ld \(hl\),90',
+    'ld \(hl\),180',
+    'subterror_speedVals:[^\r\n]*\r?\n\s*\.db SPEED_80 SPEED_100 SPEED_180',
+    'subterror_timeUntilDrillAttack:[^\r\n]*\r?\n\s*\.db 120 90 60',
+    'subterror_durationAboveGround:[^\r\n]*\r?\n\s*\.db 60 90 120 180')) {
+    if ($subterrorSource -notmatch "(?m)$required") {
+        throw "ENEMY_SUBTERROR source contract changed: $required"
+    }
+}
+$moonlitMinibossRows = @(
+    "# group`troom`torder`tkind`tid`tsubid`ty`tx`tcondition`tsource"
+    "4`t4d`t3`tminiboss-reward`t20`t00`t58`t78`tflag80-clear`tmainData.s:group4Map4dObjectData"
+    "4`t4d`t4`tsubterror`t72`t00`t18`t78`tflag80-clear`tenemyData.s:group4Map4dBeforeEventObjectData"
+)
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\moonlit_grotto_objects.tsv'),
+    $moonlitMinibossRows)
+if (-not $allTexts.ContainsKey(0x2f03)) {
+    throw 'Moonlit Grotto Subterror text TX_2f03 was not imported.'
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\moonlit_grotto_text.tsv'),
+    @(
+        "# text-id`tmessage-base64"
+        "2f03`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x2f03])))"
+    ))
+
 $sgObjectRows = @(
     "# group`troom`torder`tkind`tid`tsubid`ty`tx`tcondition`t source".Replace("`t source", "`tsource")
     "4`t10`t0`tbracelet-reward`t20`t01`t58`t58`titem-clear`tmainData.s:group4Map10ObjectData"

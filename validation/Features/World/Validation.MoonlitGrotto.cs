@@ -7,6 +7,249 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoom44dSubterrorMiniboss()
+    {
+        const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        static bool IsGbcColor(Color color, int red, int green, int blue)
+        {
+            const float TextureTolerance = 1.5f / 255.0f;
+            return Mathf.Abs(color.R - red / 31.0f) <= TextureTolerance &&
+                Mathf.Abs(color.G - green / 31.0f) <= TextureTolerance &&
+                Mathf.Abs(color.B - blue / 31.0f) <= TextureTolerance;
+        }
+        void Step(int count = 1)
+        {
+            for (int index = 0; index < count; index++)
+                _entities.Update(Update, _player);
+        }
+
+        var data = new MoonlitGrottoDatabase();
+        var visuals = new DungeonInteractionVisualDatabase();
+        var bosses = new DungeonBossDatabase();
+        DungeonInteractionVisual dirtVisual = visuals.Visual("subterror-dirt");
+        AnimationDefinition dirtAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(
+                dirtVisual.Animations.Single());
+        FailIf(
+            dirtAnimation.Frames.Select(frame =>
+                (frame.Duration, frame.Parameter)).ToArray() is not
+                [(3, 0x83), (6, 0x82), (6, 0x83), (6, 0x83), (1, 0)] ||
+            bosses.SubterrorPalettes is not { Count: 1 } ||
+            !bosses.SubterrorPalettes.ContainsKey(6) ||
+            !IsGbcColor(
+                bosses.SubterrorPalettes[6][0], 0x1f, 0x1f, 0x1f) ||
+            !IsGbcColor(
+                bosses.SubterrorPalettes[6][1], 0x1b, 0x14, 0x00) ||
+            !IsGbcColor(
+                bosses.SubterrorPalettes[6][2], 0x15, 0x0c, 0x00) ||
+            !IsGbcColor(
+                bosses.SubterrorPalettes[6][3], 0x0b, 0x06, 0x00),
+            "PART_SUBTERROR_DIRT lost its full five-frame animation or " +
+            "PALH_be paletteData4950 override for OBJ palette 6.");
+        Texture2D expectedDirtTexture =
+            NpcCharacter.BuildOamTextureWithPaletteOverrides(
+                EnemyVisualSource.LoadComposite(dirtVisual.Sprites),
+                dirtAnimation.Frames[0].EncodedOam,
+                dirtVisual.TileBase,
+                dirtVisual.Palette,
+                bosses.SubterrorPalettes,
+                dirtVisual.SourceGrayscaleInverted);
+        ulong expectedDirtHash;
+        using (Image expectedDirtImage = expectedDirtTexture.GetImage())
+            expectedDirtHash = OracleGraphicsCache.PixelHash(expectedDirtImage);
+        IReadOnlyList<DungeonObjectRecord> records =
+            data.GetRoomRecords(4, 0x4d);
+        FailIf(
+            records.Select(record =>
+                (record.Order, record.Kind, record.Id, record.SubId,
+                 record.Y, record.X)).ToArray() is not
+                [
+                    (3, DungeonObjectKind.MinibossReward, 0x20, 0x00,
+                        0x58, 0x78),
+                    (4, DungeonObjectKind.Subterror, 0x72, 0x00,
+                        0x18, 0x78)
+                ] ||
+            string.IsNullOrWhiteSpace(data.SubterrorMessage),
+            "Room 4:4d lost its source-ordered $20:$00 reward, " +
+            "$72:$00 BeforeEvent boss, or TX_2f03 text.");
+
+        _saveData.SetRoomFlag(
+            4, 0x4d, OracleSaveData.RoomFlag80, value: false);
+        _sound.ClearPlayRequestAudit();
+        LoadValidationRoom(4, 0x4d);
+        SubterrorBoss boss = _entities.Entities<SubterrorBoss>().Single();
+        DungeonRewardRoomEntity reward =
+            _entities.Entities<DungeonRewardRoomEntity>().Single();
+        FailIf(
+            boss.Record is not
+                {
+                    Id: 0x72, Health: 20, DamageQuarters: 2,
+                    RadiusY: 6, RadiusX: 6, Palette: 1,
+                    Sprites.Length: 3
+                } ||
+            boss.Position != new Vector2(0x78, 0x18) ||
+            _entities.RoomEnemyCount != 1 || reward.Finished,
+            "Room 4:4d did not create imported ENEMY_SUBTERROR $72 and " +
+            "its counted miniboss-death controller.");
+
+        ulong? observedDirtHash = null;
+        for (int frame = 0;
+             frame < 360 &&
+             !(boss.State == SubterrorState.WaitingForDoors &&
+               boss.Substate == 3);
+             frame++)
+        {
+            Step();
+            if (!observedDirtHash.HasValue &&
+                _entities.Entities<SubterrorDirtEffect>().FirstOrDefault() is
+                    { } dirt)
+            {
+                using Image image = dirt.CurrentAnimationTexture.GetImage();
+                observedDirtHash = OracleGraphicsCache.PixelHash(image);
+            }
+        }
+        FailIf(
+            boss.State != SubterrorState.WaitingForDoors ||
+            boss.Substate != 3 || boss.Position.Y != 0x58 + 0x80 / 256.0f ||
+            !_dialogue.IsOpen ||
+            !_entities.LinkCollisionsAndMenuDisabled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) == 0 ||
+            observedDirtHash != expectedDirtHash ||
+            _entities.Entities<SubterrorDirtEffect>().Count != 0,
+            "Subterror did not close room 4:4d, trail finite brown " +
+            "PART_SUBTERROR_DIRT effects, emerge at Y=$58, bounce, and open " +
+            "TX_2f03 with Link locked.");
+
+        _dialogue.Close();
+        Step();
+        FailIf(
+            boss.State != SubterrorState.Digging || boss.IntroActive ||
+            _entities.LinkCollisionsAndMenuDisabled ||
+            _entities.PlayerMenusDisabled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.MusMiniboss) != 1,
+            "Subterror did not begin the fight and restore Link after TX_2f03.");
+
+        for (int frame = 0;
+             frame < 360 && boss.State != SubterrorState.Drilling;
+             frame++)
+        {
+            _player.WarpTo(boss.Position, recordSafe: false);
+            Step();
+        }
+        FailIf(
+            boss.State != SubterrorState.Drilling || boss.Counter2 != 30 ||
+            boss.Visible || boss.DrillingCollisionEnabled,
+            "Subterror did not use its health-$14 120-update pursuit timer " +
+            "before teleporting to Link for a hidden 30-update drill tell.");
+        Step(29);
+        FailIf(
+            boss.Counter2 != 1 || boss.Visible ||
+            boss.DrillingCollisionEnabled,
+            "Subterror became visible or collidable before drill tell " +
+            "counter2 reached zero.");
+        int shockSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndShock);
+        Step();
+        FailIf(
+            boss.Counter2 != 0 || !boss.Visible ||
+            !boss.DrillingCollisionEnabled ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndShock) !=
+                shockSounds + 1,
+            "Subterror did not expose its damaging drill and request " +
+            "SND_SHOCK on the exact counter2-zero update.");
+
+        for (int frame = 0;
+             frame < 240 && !boss.ShovelCollisionEnabled;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            !boss.ShovelCollisionEnabled || boss.Visible ||
+            boss.State != SubterrorState.UndergroundMoving,
+            "Subterror did not return to its invisible shovel-only " +
+            "underground collision mode after drilling.");
+        Vector2 shovelPosition = boss.Position;
+        FailIf(
+            !_entities.ApplyShovelHit(
+                boss.CollisionBounds.Grow(1), shovelPosition) ||
+            boss.State != SubterrorState.AboveGround ||
+            boss.Substate != 0 || boss.ZFixed != -0x100 ||
+            boss.Speed != 0x28 || !boss.Visible,
+            "ITEM_SHOVEL did not launch Subterror into state $0c with " +
+            "-$0100 Z speed and SPEED_100 movement away from the hit.");
+
+        for (int frame = 0;
+             frame < 240 && !boss.Vulnerable;
+             frame++)
+        {
+            Step();
+        }
+        FailIf(
+            !boss.Vulnerable || boss.Substate != 1 ||
+            boss.Counter1 != 180,
+            "Subterror did not complete its source two-bounce emergence " +
+            "and enter the 180-update vulnerable wait.");
+        int health = boss.Health;
+        FailIf(
+            !_entities.ApplySwordHit(
+                boss.CollisionBounds.Grow(1), boss.Position, damage: 2) ||
+            boss.Health != health - 2 || boss.Substate != 1,
+            "Subterror rejected an ordinary sword hit during its vulnerable " +
+            "above-ground state.");
+        Step();
+        FailIf(
+            boss.Substate != 2 ||
+            boss.Counter1 is not (60 or 90 or 120 or 180),
+            "A successful hit did not immediately advance Subterror to its " +
+            "two-call shared-RNG movement phase.");
+
+        boss.InvincibilityCounter = 0;
+        FailIf(!boss.TakeSwordHit(boss.Position, damage: 0x7f),
+            "Subterror rejected a lethal vulnerable validation hit.");
+        Step(120);
+        BossDeathExplosionEffect explosion =
+            _entities.Entities<BossDeathExplosionEffect>().Single();
+        FailIf(
+            _entities.Entities<SubterrorBoss>().Count != 0 ||
+            explosion.BossId != 0x72 ||
+            !_entities.LinkCollisionsAndMenuDisabled ||
+            _saveData.HasRoomFlag(
+                4, 0x4d, OracleSaveData.RoomFlag80),
+            "Subterror did not hand off to the counted 120-update boss " +
+            "death / PART_BOSS_DEATH_EXPLOSION sequence.");
+        Step(79);
+        Step();
+        FailIf(
+            !_saveData.HasRoomFlag(
+                4, 0x4d, OracleSaveData.RoomFlag80) ||
+            _entities.Entities<MinibossPortal>().Count != 0,
+            "Room 4:4d did not persist flag $80 and begin the standard " +
+            "20-update miniboss portal wait after the explosion released " +
+            "its enemy count.");
+        Step(19);
+        FailIf(_entities.Entities<MinibossPortal>().Count != 0,
+            "Room 4:4d created its miniboss portal before update 20.");
+        Step();
+        FailIf(
+            _entities.Entities<MinibossPortal>().Count != 1 ||
+            _entities.LinkCollisionsAndMenuDisabled,
+            "Room 4:4d did not create its paired portal and restore Link on " +
+            "the exact reward-wait boundary.");
+
+        LoadValidationRoom(4, 0x4d);
+        FailIf(
+            _entities.Entities<SubterrorBoss>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0,
+            "Completed room 4:4d did not suppress its BeforeEvent boss and " +
+            "$20:$00 reward controller on re-entry.");
+
+        GD.Print(
+            "Validated room 4:4d Subterror: imported source order/visuals, " +
+            "intro, dirt tiles, 120/30 drill timing, shovel emergence, " +
+            "two-bounce vulnerability, shared RNG, death, portal, and re-entry.");
+    }
+
     private void ValidateRoom44bMoonlitGrottoInteractions()
     {
         const double Update = 1.0 / OracleSoundEngine.UpdatesPerSecond;

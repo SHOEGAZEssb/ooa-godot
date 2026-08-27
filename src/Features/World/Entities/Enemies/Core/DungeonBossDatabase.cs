@@ -16,12 +16,14 @@ internal sealed class DungeonBossDatabase
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, Color[]> _headThwompPalettes = new();
+    private readonly Dictionary<int, Color[]> _subterrorPalettes = new();
 
     internal DungeonBossDatabase()
     {
         LoadEnemies();
         LoadConstants();
         LoadHeadThwompPalettes();
+        LoadSubterrorPalettes();
         ValidateContract();
     }
 
@@ -33,6 +35,8 @@ internal sealed class DungeonBossDatabase
 
     internal IReadOnlyDictionary<int, Color[]> HeadThwompPalettes =>
         _headThwompPalettes;
+    internal IReadOnlyDictionary<int, Color[]> SubterrorPalettes =>
+        _subterrorPalettes;
 
     internal int Constant(string key) =>
         _constants.TryGetValue(key, out int value)
@@ -87,6 +91,18 @@ internal sealed class DungeonBossDatabase
         _headThwompPalettes.Add(6, colors);
     }
 
+    private void LoadSubterrorPalettes()
+    {
+        Color[,] palettes = OracleGraphicsData.LoadPalette(
+            "res://assets/oracle/objects/dungeon_subterror_palette.bin",
+            1,
+            6);
+        var colors = new Color[4];
+        for (int shade = 0; shade < colors.Length; shade++)
+            colors[shade] = palettes[6, shade];
+        _subterrorPalettes.Add(6, colors);
+    }
+
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -110,18 +126,21 @@ internal sealed class DungeonBossDatabase
 
     private void ValidateContract()
     {
-        if (_enemies.Count != 5 ||
+        if (_enemies.Count != 6 ||
             Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
             Enemy(0x70) is not
                 { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
             Enemy(0x71).Sprites is not ["spr_swoop", "spr_pound"] ||
+            Enemy(0x72) is not
+                { Health: 20, DamageQuarters: 2, Sprites.Length: 3 } ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
             Enemy(0x79).Sprites.Length != 3 ||
             _constants.Count != 2 ||
             Constant("pumpkin-body-palette") != 1 ||
             Constant("pumpkin-ghost-palette") != 5 ||
-            _headThwompPalettes.Count != 1)
+            _headThwompPalettes.Count != 1 ||
+            _subterrorPalettes.Count != 1)
         {
             throw new InvalidOperationException(
                 "Imported dungeon boss contract is incomplete.");
