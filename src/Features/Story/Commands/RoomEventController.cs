@@ -60,6 +60,8 @@ public sealed class RoomEventController
     private readonly RemoteMakuSecondEssenceEvent _remoteMakuSecondEssence;
     private readonly RemoteMakuHarpEvent _remoteMakuHarp;
     private readonly RemoteMakuWingDungeonEvent _remoteMakuWingDungeon;
+    private readonly RemoteMakuThirdEssenceEvent _remoteMakuThirdEssence;
+    private readonly PostD3RemoteMakuEvent _postD3RemoteMaku;
     private readonly FairiesWoodsEvent _fairiesWoods;
     private readonly WingDungeonCollapseEvent _wingDungeonCollapse;
     private readonly IRoomEvent[] _eventsByPriority;
@@ -158,6 +160,9 @@ public sealed class RoomEventController
         _remoteMakuSecondEssence = new RemoteMakuSecondEssenceEvent(_context);
         _remoteMakuHarp = new RemoteMakuHarpEvent(_context);
         _remoteMakuWingDungeon = new RemoteMakuWingDungeonEvent(_context);
+        _remoteMakuThirdEssence = new RemoteMakuThirdEssenceEvent(_context);
+        _postD3RemoteMaku = new PostD3RemoteMakuEvent(
+            _context, _remoteMakuThirdEssence);
         _fairiesWoods = new FairiesWoodsEvent(_context);
         _wingDungeonCollapse = new WingDungeonCollapseEvent(
             _context,
@@ -170,6 +175,8 @@ public sealed class RoomEventController
             _remoteMakuSecondEssence,
             _remoteMakuHarp,
             _remoteMakuWingDungeon,
+            _postD3RemoteMaku,
+            _remoteMakuThirdEssence,
             _fairiesWoods,
             _wingDungeonCollapse,
             _nayru,
@@ -381,6 +388,9 @@ public sealed class RoomEventController
     internal RemoteMakuHarpEvent RemoteMakuHarp => _remoteMakuHarp;
     internal RemoteMakuWingDungeonEvent RemoteMakuWingDungeon =>
         _remoteMakuWingDungeon;
+    internal RemoteMakuThirdEssenceEvent RemoteMakuThirdEssence =>
+        _remoteMakuThirdEssence;
+    internal PostD3RemoteMakuEvent PostD3RemoteMaku => _postD3RemoteMaku;
     internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
     internal WingDungeonCollapseEvent WingDungeonCollapse =>
         _wingDungeonCollapse;

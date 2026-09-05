@@ -3705,35 +3705,52 @@ Write-CutsceneGeneratedTable(
 
 $blackTowerCutsceneSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s')
-if ($blackTowerCutsceneSource -notmatch '(?ms)^blackTowerExplanationCutsceneHandler:.*?^@@table_6625:\s+\.db GFXH_BLACK_TOWER_STAGE_1_LAYOUT, GFXH_BLACK_TOWER_BASE' -or
+if ($blackTowerCutsceneSource -notmatch '(?ms)^blackTowerExplanationCutsceneHandler:.*?^@@table_6625:\s+\.db GFXH_BLACK_TOWER_STAGE_1_LAYOUT, GFXH_BLACK_TOWER_BASE\s+\.db GFXH_BLACK_TOWER_STAGE_2_LAYOUT, GFXH_BLACK_TOWER_MIDDLE' -or
     $blackTowerCutsceneSource -notmatch '(?ms)^func_6ef7:.*?and \$1f.*?call getRandomNumber.*?and \$07.*?SND_LIGHTNING' -or
-    $blackTowerCutsceneSource -notmatch '(?ms)^func_6f44:.*?oamData_714c') {
-    throw 'Black Tower explanation stage-0 presentation changed.'
+    $blackTowerCutsceneSource -notmatch '(?ms)^func_6f44:.*?^@cbb8_00:.*?oamData_714c.*?^@cbb8_01:.*?oamData_718d.*?oamData_71ce') {
+    throw 'Black Tower explanation stage-0/stage-1 presentation changed.'
 }
 $blackTowerOamSource = Read-ImportText (Join-Path $Disassembly 'ages.s')
-$blackTowerOamMatch = [regex]::Match(
-    $blackTowerOamSource,
-    '(?ms)^oamData_714c:\s+\.db \$10(?<body>.*?)(?=^oamData_718d:)')
-$blackTowerOamEntries = [regex]::Matches(
-    $blackTowerOamMatch.Groups['body'].Value,
-    '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$')
-if (-not $blackTowerOamMatch.Success -or $blackTowerOamEntries.Count -ne 16) {
-    throw 'Could not import stage-0 Black Tower OAM data $714c.'
+function Export-BlackTowerOam(
+    [string]$label,
+    [string]$nextLabel,
+    [int]$expectedCount,
+    [string]$destinationName) {
+    $match = [regex]::Match(
+        $blackTowerOamSource,
+        "(?ms)^$($label):\s+\.db \`$$($expectedCount.ToString('x2'))" +
+        "(?<body>.*?)(?=^$($nextLabel):)")
+    $entries = [regex]::Matches(
+        $match.Groups['body'].Value,
+        '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$')
+    if (-not $match.Success -or $entries.Count -ne $expectedCount) {
+        throw "Could not import Black Tower OAM data $label."
+    }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# index`ty`tx`ttile`tflags`tsource")
+    for ($index = 0; $index -lt $entries.Count; $index++) {
+        $entry = $entries[$index]
+        $rows.Add(
+            "$index`t$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)`tages.s:$label")
+    }
+    Write-CutsceneGeneratedTable(
+        (Join-Path $destination "cutscenes\$destinationName"),
+        $rows)
 }
-$blackTowerOamRows = [Collections.Generic.List[string]]::new()
-$blackTowerOamRows.Add("# index`ty`tx`ttile`tflags`tsource")
-for ($index = 0; $index -lt $blackTowerOamEntries.Count; $index++) {
-    $entry = $blackTowerOamEntries[$index]
-    $blackTowerOamRows.Add(
-        "$index`t$($entry.Groups['y'].Value)`t$($entry.Groups['x'].Value)`t$($entry.Groups['tile'].Value)`t$($entry.Groups['flags'].Value)`tages.s:oamData_714c")
-}
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\black_tower_stage_0_oam.tsv'),
-    $blackTowerOamRows)
+Export-BlackTowerOam 'oamData_714c' 'oamData_718d' 16 `
+    'black_tower_stage_0_oam.tsv'
+Export-BlackTowerOam 'oamData_718d' 'oamData_71ce' 16 `
+    'black_tower_stage_1_tower_oam.tsv'
+Export-BlackTowerOam 'oamData_71ce' 'oamData_71f7' 10 `
+    'black_tower_stage_1_workers_oam.tsv'
 
 foreach ($asset in @(
     @('map_black_tower_stage_1.bin', 'map_black_tower_stage_1.bin'),
     @('flg_black_tower_stage_1.bin', 'flags_black_tower_stage_1.bin'),
+    @('map_black_tower_stage_2.bin', 'map_black_tower_stage_2.bin'),
+    @('flg_black_tower_stage_2.bin', 'flags_black_tower_stage_2.bin'),
+    @('map_black_tower_middle.bin', 'map_black_tower_middle.bin'),
+    @('flg_black_tower_middle.bin', 'flags_black_tower_middle.bin'),
     @('map_black_tower_base.bin', 'map_black_tower_base.bin'),
     @('flg_black_tower_base.bin', 'flags_black_tower_base.bin'),
     @('gfx_black_tower_scene_1.png', 'gfx_black_tower_scene_1.png'),
@@ -4441,8 +4458,9 @@ Write-CutsceneGeneratedTable(
 # fades to black, runs the era-selected $62 confetti emitter, reports the next
 # objective through TX_05b0-$05bb (TX_05c0-$05cb in a linked game), then
 # updates the corresponding Maku map/state bytes. Import the supported room
-# 0:8d first-Essence, room 0:83 Wing Dungeon, room 0:3a post-Harp, and room
-# 1:83 second-Essence lanes while retaining each native var03 predicate.
+# 0:8d first-Essence, room 0:83 Wing Dungeon, room 0:3a post-Harp, room 1:83
+# second-Essence, and post-D3 room 0:ba lanes while retaining each native
+# var03 predicate and dynamic-spawn boundary.
 $remoteMakuScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
 $remoteMakuScriptSource = Read-ImportText $remoteMakuScriptPath
 $remoteMakuHelperPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
@@ -4455,6 +4473,14 @@ $sparkleSourceForRemoteMaku = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\sparkle.s')
 $remoteMakuObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\mainData.s')
+$postD3InteractionSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+$postD3AmbiSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\ambi.s')
+$postD3NayruSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\nayru.s')
+$postD3ExtraObjectSource = Read-ImportText (
+    Join-Path $Disassembly 'objects\ages\extraData3.s')
 
 if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$00\s+obj_End' -or
     $remoteMakuObjectSource -notmatch '(?ms)^group0Map3aObjectData:.*?obj_Interaction \$8a \$00 \$00 \$00 \$02.*?obj_End' -or
@@ -4462,10 +4488,28 @@ if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Intera
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?returnIfScrollMode01Unset.*?^@checkConditionsAndSetText:.*?^@val00:\s+xor a\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b0.*?^@checkEssenceObtained:\s+ld hl,wEssencesObtained\s+jp checkFlag' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val02:\s+ld a,TREASURE_HARP\s+call checkTreasureObtained\s+jp nc,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b2\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val03:\s+ld a,\$01\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b3\s+jp @setTextForScript' -or
+    $remoteMakuInteractionSource -notmatch '(?ms)^@val04:\s+ld a,\$02\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ld hl,wPastRoomFlags\+\$76\s+set 0,\(hl\)\s+call checkIsLinkedGame\s+ld a,GLOBALFLAG_CAN_BUY_FLUTE\s+call z,setGlobalFlag\s+ldbc \$00, <TX_05b4\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?getThisRoomFlags\s+and \$40\s+jp nz,interactionDelete.*?^@scriptTable:\s+\.dw mainScripts\.remoteMakuCutsceneScript' -or
     $remoteMakuHelperSource -notmatch '(?ms)^remoteMakuCutscene_fadeoutToBlackWithDelay:.*?fadeoutToBlackWithDelay.*?ld a,\$ff\s+ld \(wDirtyFadeBgPalettes\),a\s+ld \(wFadeBgPaletteSources\),a\s+ld a,\$01\s+ld \(wDirtyFadeSprPalettes\),a\s+ld a,\$fe\s+ld \(wFadeSprPaletteSources\),a' -or
     $remoteMakuHelperSource -notmatch '(?ms)^makuTree_modifyTextIndexForLinked:.*?checkIsLinkedGame.*?^@getLinkedTextOffset:.*?INTERAC_REMOTE_MAKU_CUTSCENE.*?dec a.*?INTERAC_MAKU_TREE.*?^makuTree_textOffsetsForLinked:\s+\.db \$20, \$20, \$10') {
     throw 'Remote-Maku placement, predicate, palette mask, or linked-text offset changed.'
+}
+
+if ($remoteMakuObjectSource -notmatch
+        '(?ms)^group0MapbaObjectData:\s+obj_Interaction \$6b \$06\s+obj_End' -or
+    $postD3InteractionSource -notmatch
+        '(?ms)^interaction6b_subid06:.*?^@state0:.*?wEssencesObtained.*?bit 2,a.*?getThisRoomFlags.*?and \$40.*?wDisabledObjects.*?wMenuDisabled.*?Interaction\.counter1.*?\(hl\),90.*?^@substate0:.*?interactionDecCounter1.*?wGenericCutscene\.cbb3.*?wGenericCutscene\.cbba.*?SND_LIGHTNING.*?^@substate1:.*?ld b,\$01.*?flashScreen.*?fadeoutToWhite.*?^@substate2:.*?\$0116.*?disableLcdAndLoadRoom.*?ambiAndNayruInPostD3Cutscene.*?MUS_DISASTER.*?fadeinFromWhite' -or
+    $postD3ExtraObjectSource -notmatch
+        '(?ms)^ambiAndNayruInPostD3Cutscene:\s+obj_Interaction \$4d \$08 \$28 \$48\s+obj_Interaction \$36 \$0e \$28 \$58\s+obj_End' -or
+    $remoteMakuScriptSource -notmatch
+        '(?ms)^ambiSubid08Script:\s+checkpalettefadedone\s+wait 60\s+showtext TX_1316\s+wait 60\s+asm15 fadeoutToWhite\s+checkpalettefadedone\s+scriptend' -or
+    $postD3AmbiSource -notmatch
+        '(?ms)^ambi_runSubid08:.*?ambi_updateAnimationAndRunScript.*?ld a,\$01.*?\(\$cbb8\).*?CUTSCENE_BLACK_TOWER_EXPLANATION.*?wCutsceneTrigger' -or
+    $postD3NayruSource -notmatch
+        '(?ms)^@init0e:.*?ld a,\$06.*?Interaction\.oamFlags.*?^@loadEvilPalette:.*?PALH_97' -or
+    $blackTowerCutsceneSource -notmatch
+        '(?ms)^@cbb8_01:.*?^@@state5:.*?decCbb3.*?fadeoutToWhite.*?^@@state6:.*?ROOM_AGES_0ba.*?INTERAC_REMOTE_MAKU_CUTSCENE.*?\(hl\),\$04.*?w1Link\.yh.*?\(hl\),\$65.*?w1Link\.xh.*?\(hl\),\$58.*?DIR_DOWN.*?SNDCTRL_STOPMUSIC.*?fadeinFromWhiteToRoom.*?showStatusBar.*?^@@state7:.*?wMenuDisabled.*?wDisabledObjects') {
+    throw 'Room 0:ba post-D3 palace, tower, or remote-Maku route changed.'
 }
 
 $remoteMakuSupportedOpcodes = [Collections.Generic.HashSet[string]]::new(
@@ -4599,8 +4643,12 @@ if (-not $allTexts.ContainsKey(0x05b0) -or
     -not $allTexts.ContainsKey(0x05b2) -or
     -not $allTexts.ContainsKey(0x05c2) -or
     -not $allTexts.ContainsKey(0x05b3) -or
-    -not $allTexts.ContainsKey(0x05c3)) {
-    throw 'Remote Maku text TX_05b0-TX_05b3/TX_05c0-TX_05c3 was not imported.'
+    -not $allTexts.ContainsKey(0x05c3) -or
+    -not $allTexts.ContainsKey(0x05b4) -or
+    -not $allTexts.ContainsKey(0x05c4) -or
+    -not $allTexts.ContainsKey(0x1316) -or
+    -not $allTexts.ContainsKey(0x1317)) {
+    throw 'Remote Maku text through TX_05b4/TX_05c4 or post-D3 text TX_1316/TX_1317 was not imported.'
 }
 
 $positionPayload = @($confettiPositions | ForEach-Object {
@@ -4649,6 +4697,32 @@ $remoteMakuSecondEssenceEventRows = @(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_second_essence_event.tsv'),
     $remoteMakuSecondEssenceEventRows)
+$remoteMakuThirdEssenceEventRows = @(
+    $remoteMakuEventHeader
+    "0`tba`t8a`t00`t04`t04`tff`t40`t05b4`t05c4`tb4`tc4`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\remote_maku_third_essence_event.tsv'),
+    $remoteMakuThirdEssenceEventRows)
+
+$postD3EventRows = @(
+    "# group`troom`tid`tsubid`tessence-mask`troom-flag`tinitial-wait`tflash-frames`tfade-frames`tpalace-group`tpalace-room`tambi-id`tambi-subid`tambi-y`tambi-x`tnayru-id`tnayru-subid`tnayru-y`tnayru-x`tpalace-wait`tpalace-post-wait`tpalace-text-id`tpalace-text-base64`texplanation-wait`texplanation-post-wait`texplanation-text-id`texplanation-text-base64`texplanation-textbox-flags`tscreen-offset-y`treturn-y`treturn-x`treturn-direction`tpast-flag-group`tpast-flag-room`tpast-room-flag`tstandard-global-flag`tmusic`tsource",
+    (@(
+        '0', 'ba', '6b', '06', '04', '40', '90', '13', '32',
+        '1', '16', '4d', '08', '28', '48', '36', '0e', '28', '58',
+        '60', '60', '1316',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x1316]),
+        '60', '60', '1317',
+        (ConvertTo-CutsceneCommandPayload $allTexts[0x1317]),
+        '01', '70', '65', '58', '02', '1', '76', '01',
+        $globalFlagValues['GLOBALFLAG_CAN_BUY_FLUTE'].ToString('x2'),
+        '21',
+        'miscellaneous1.s:interaction6b_subid06;extraData3.s:ambiAndNayruInPostD3Cutscene;miscCutscenes.s:CUTSCENE_BLACK_TOWER_EXPLANATION/cbb8_01'
+    ) -join "`t")
+)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\post_d3_remote_maku_event.tsv'),
+    $postD3EventRows)
 
 $remoteMakuVisualRows = @(
     "# key`tsprite`ttile-base`tpalette`tanimation"
@@ -4748,6 +4822,28 @@ for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
     $remoteMakuHarpCommandRows)
+$remoteMakuThirdEssenceCommandRows = [Collections.Generic.List[string]]::new()
+$remoteMakuThirdEssenceCommandRows.Add($remoteMakuCommandRows[0])
+for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
+    $spec = $remoteMakuCommandSpecs[$index]
+    $sourceCommand = $spec[0]
+    $opcode = $spec[1]
+    $actor = $spec[2]
+    $arg0 = $spec[3]
+    $arg1 = $spec[4]
+    $payload = $spec[5]
+    if ($index -eq 10) {
+        $arg0 = '05b4'
+        $arg1 = '05c4'
+        $payload = "$($allTexts[0x05b4])`0$($allTexts[0x05c4])"
+    }
+    $remoteMakuThirdEssenceCommandRows.Add((New-CutsceneCommandRow `
+        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
+}
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\remote_maku_third_essence_commands.tsv'),
+    $remoteMakuThirdEssenceCommandRows)
 $remoteMakuSecondEssenceCommandRows =
     [Collections.Generic.List[string]]::new()
 $remoteMakuSecondEssenceCommandRows.Add($remoteMakuCommandRows[0])

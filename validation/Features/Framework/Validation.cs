@@ -324,6 +324,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuSecondEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuHarpCutscene);
+        RunIsolatedValidation(ValidatePostD3RemoteMakuCutscene);
         RunIsolatedValidation(ValidateFairiesWoodsSequence);
         RunIsolatedValidation(ValidateGameOverRestart);
         RunIsolatedValidation(ValidateSaveAndQuitToTitle);

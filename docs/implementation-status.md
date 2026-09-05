@@ -42,8 +42,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Moonlit Grotto (dungeon `$03`) has selected source-traced puzzle rooms plus
   the complete room `4:4d` Subterror miniboss and room `4:4a` Shadow Hag boss,
   their rewards and persistent re-entry flows, and room `4:49`'s Echoing Howl
-  Essence sequence; the dungeon is not yet an end-to-end playable-fidelity
-  claim.
+  Essence sequence followed by room `0:ba`'s Ambi/Black Tower/remote Maku
+  story event; the dungeon is not yet an end-to-end playable-fidelity claim.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.

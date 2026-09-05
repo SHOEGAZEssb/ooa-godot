@@ -13,6 +13,7 @@ internal sealed class BlackTowerEntranceEventDatabase
     public IReadOnlyList<CutsceneCommand> First { get; }
     public IReadOnlyList<CutsceneCommand> Aftermath { get; }
     public IReadOnlyList<OamRecord> Oam { get; }
+    public IReadOnlyList<OamRecord> Stage1Oam { get; }
     public Color[,] BackgroundPalettes { get; }
     public Color[,] SpritePalettes { get; }
 
@@ -43,7 +44,14 @@ internal sealed class BlackTowerEntranceEventDatabase
             Root + "black_tower_guard_first.tsv");
         Aftermath = CutsceneCommandCatalog.Load(
             Root + "black_tower_guard_aftermath.tsv");
-        Oam = LoadOam();
+        Oam = LoadOam(
+            "black_tower_stage_0_oam.tsv", "stage-zero", 16);
+        var stage1 = new List<OamRecord>();
+        stage1.AddRange(LoadOam(
+            "black_tower_stage_1_tower_oam.tsv", "stage-one tower", 16));
+        stage1.AddRange(LoadOam(
+            "black_tower_stage_1_workers_oam.tsv", "stage-one workers", 10));
+        Stage1Oam = stage1;
         BackgroundPalettes = LoadPalettes(
             Root + "black_tower_bg_palette.bin", 7, transparentZero: false,
             destinationStart: 1);
@@ -71,20 +79,31 @@ internal sealed class BlackTowerEntranceEventDatabase
             Aftermath[9] is not CutsceneMoveCommand
                 { Actor: "Guard", Angle: 0x08, Counter: 0x21 } ||
             Aftermath[12] is not CutsceneOrRoomFlagCommand { Flag: 0x80 } ||
-            Oam.Count != 16)
+            Oam.Count != 16 || Stage1Oam.Count != 26)
         {
             throw new InvalidOperationException(
                 "Room 1:86 guard data diverges from hardhatWorkerSubid02Script.");
         }
     }
 
-    private static IReadOnlyList<OamRecord> LoadOam()
+    internal IReadOnlyList<OamRecord> OamForStage(int stage) => stage switch
+    {
+        0 => Oam,
+        1 => Stage1Oam,
+        _ => throw new InvalidOperationException(
+            $"Black Tower explanation stage {stage} is not imported.")
+    };
+
+    private static IReadOnlyList<OamRecord> LoadOam(
+        string file,
+        string description,
+        int expectedCount)
     {
         var result = new List<OamRecord>();
         GeneratedTable table = GeneratedTable.Load(
-            Root + "black_tower_stage_0_oam.tsv",
+            Root + file,
             new GeneratedTableSchema(
-                "Black Tower stage-zero OAM",
+                $"Black Tower {description} OAM",
                 GeneratedTableKeySemantics.Unique,
                 ["index", "y", "x", "tile", "flags", "source"],
                 ["index"],
@@ -96,6 +115,12 @@ internal sealed class BlackTowerEntranceEventDatabase
             result.Add(new OamRecord(
                 row.HexByte(1), row.HexByte(2), row.HexByte(3),
                 row.HexByte(4), row.RequiredString(5)));
+        }
+        if (result.Count != expectedCount)
+        {
+            throw new InvalidOperationException(
+                $"Black Tower {description} OAM should contain " +
+                $"{expectedCount} entries, got {result.Count}.");
         }
         return result;
     }

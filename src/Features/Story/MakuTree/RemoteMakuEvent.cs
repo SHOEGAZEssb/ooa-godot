@@ -72,7 +72,7 @@ internal abstract class RemoteMakuEvent :
 
     public void UpdateDuringDialogueFrame() => _confetti?.UpdateFrame();
 
-    public void Cancel()
+    public virtual void Cancel()
     {
         _runner.Clear();
         Context.Player.EndCutsceneControl();
