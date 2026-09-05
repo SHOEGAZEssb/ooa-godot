@@ -3705,9 +3705,11 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(11);
         NayruSingingScreen? singing =
             _scene.InterfaceLayer.GetNodeOrNull<NayruSingingScreen>("NayruSingingScreen");
+        using Image? singingBackground = singing?.Background.GetImage();
         FailIf(
             nayruIntro.CurrentStage != 10 || singing is null || singing.ScrollX != 0 ||
-            singing.BackgroundPixelHash != 0x95c5df57b7e479f5UL ||
+            singingBackground is null ||
+            OracleGraphicsCache.PixelHash(singingBackground) != 0x95c5df57b7e479f5UL ||
             _hud.Visible || _warpFade.Position != Vector2.Zero ||
             _warpFade.Size != new Vector2(
                 OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||

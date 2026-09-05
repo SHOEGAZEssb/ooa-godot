@@ -13,7 +13,7 @@ public partial class NayruSingingScreen : Control
     private int _scrollX;
 
     public int ScrollX => _scrollX;
-    internal ulong BackgroundPixelHash { get; }
+    internal Texture2D Background => _background;
 
     public NayruSingingScreen(NayruIntroEventDatabase database)
     {
@@ -23,8 +23,6 @@ public partial class NayruSingingScreen : Control
         MouseFilter = MouseFilterEnum.Ignore;
         ZIndex = 14;
         _background = BuildBackground(database.SingingBackgroundPalettes);
-        BackgroundPixelHash = OracleGraphicsCache.PixelHash(
-            _background.GetImage());
         _sprites = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/cutscenes/spr_nayru_singing_cutscene.png");
     }

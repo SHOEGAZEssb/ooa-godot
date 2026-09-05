@@ -1078,6 +1078,41 @@ public sealed partial class ValidationRoot
 
     private static void ValidateGraphicsCache()
     {
+        // PALH_97's first OBJ palette is shared by the palace and post-D3
+        // scenes. Preserve both the single-palette transparent black and the
+        // bank loader's original RGB beneath alpha zero, including slot 6.
+        const string possessedPath =
+            "res://assets/oracle/metadata/nayru_possessed_palette.bin";
+        Color[] possessed = OracleGraphicsData.LoadPaletteColors(
+            possessedPath, transparentZero: true);
+        Color[,] paletteBank = OracleGraphicsData.LoadPalette(
+            possessedPath, 1, firstPalette: 6, transparentZero: true);
+        FailIf(
+            possessed.Length != 4 || possessed[0] != Colors.Transparent ||
+            possessed[1] != Colors.Black ||
+            possessed[2] != new Color(3 / 31.0f, 13 / 31.0f, 27 / 31.0f) ||
+            possessed[3] != new Color(18 / 31.0f, 26 / 31.0f, 1) ||
+            paletteBank.GetLength(0) != 8 || paletteBank.GetLength(1) != 4 ||
+            paletteBank[5, 0] != default || paletteBank[7, 0] != default ||
+            paletteBank[6, 0] != new Color(1, 1, 1, 0) ||
+            paletteBank[6, 2] != possessed[2] ||
+            OracleGraphicsData.LoadPaletteColors(possessedPath)[0] != Colors.White,
+            "Shared PALH_97 readers changed RGB precision, OBJ transparency, " +
+            "or palette-slot placement.");
+        bool rejectedWrongLength = false;
+        try
+        {
+            OracleGraphicsData.LoadPalette(possessedPath, 2);
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains(possessedPath, StringComparison.Ordinal) &&
+            exception.Message.Contains("24 bytes, got 12", StringComparison.Ordinal))
+        {
+            rejectedWrongLength = true;
+        }
+        FailIf(!rejectedWrongLength,
+            "Shared palette reads accepted a short asset or lost its source path.");
+
         ValidationGraphicsCacheAudit cacheAudit =
             ValidationGraphicsCacheAudit.Attach();
         string[] pngPaths = EnumeratePngPaths("res://assets/oracle")
@@ -1246,6 +1281,7 @@ public sealed partial class ValidationRoot
 
         OracleGraphicsCache.SetObserver(null);
         GD.Print($"Validated ResourceLoader pixel parity for {pngPaths.Length} generated PNGs, " +
+            "PALH_97 palette precision/transparency/slots and strict lengths, " +
             "immutable source/composite reuse, `$20-tile chain alignment, complete OAM cache keys, " +
             "cross-instance/scripted-animation reuse, and byte-identical fixed/positioned composition.");
     }

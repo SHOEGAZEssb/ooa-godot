@@ -50,9 +50,6 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
     internal int Counter => _runner.Counter;
     internal int FlashFrame => _flashFrame;
     internal int FlashPhase => _flashPhase;
-    internal int HelperCount => _helpers.Count;
-    internal int WindCount => _interactionEffects.Count(effect => !effect.Debris);
-    internal int LightningCount => _lightningParts.Count;
     internal int CenterCounter => _centerCounter;
     internal Vector2 PrecisePosition => _position;
     internal int Direction => _direction;

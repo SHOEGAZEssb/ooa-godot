@@ -90,8 +90,9 @@ internal sealed class DekuForestPalaceEventDatabase
         NayruCommands = LoadCommands("deku_forest_palace_nayru_commands.tsv");
         ExitGuardCommands = LoadCommands("deku_forest_palace_exit_guard_commands.tsv");
         InitialEscortAnimation = ResolveInitialEscortAnimation();
-        PossessedNayruPalette = ReadPalette(
-            "res://assets/oracle/metadata/nayru_possessed_palette.bin");
+        PossessedNayruPalette = OracleGraphicsData.LoadPaletteColors(
+            "res://assets/oracle/metadata/nayru_possessed_palette.bin",
+            transparentZero: true);
         Validate();
     }
 
@@ -159,29 +160,6 @@ internal sealed class DekuForestPalaceEventDatabase
                 "animation-$00 moveup command.");
         }
         return corridorAnimation;
-    }
-
-    private static Color[] ReadPalette(string path)
-    {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        if (bytes.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"Possessed Nayru PALH_97 palette should contain 12 bytes, " +
-                $"got {bytes.Length}.");
-        }
-
-        var colors = new Color[4];
-        colors[0] = Colors.Transparent;
-        for (int color = 1; color < colors.Length; color++)
-        {
-            int offset = color * 3;
-            colors[color] = new Color(
-                bytes[offset] / 31.0f,
-                bytes[offset + 1] / 31.0f,
-                bytes[offset + 2] / 31.0f);
-        }
-        return colors;
     }
 
     private void Validate()

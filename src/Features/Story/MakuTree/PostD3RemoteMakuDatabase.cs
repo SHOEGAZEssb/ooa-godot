@@ -53,7 +53,9 @@ internal sealed class PostD3RemoteMakuDatabase
             row.HexByte(31), row.Decimal(32, 0, 7), row.HexByte(33),
             row.HexByte(34), row.HexByte(35), row.HexByte(36),
             row.RequiredString(37));
-        PossessedNayruPalette = ReadPossessedPalette();
+        PossessedNayruPalette = OracleGraphicsData.LoadPaletteColors(
+            "res://assets/oracle/metadata/nayru_possessed_palette.bin",
+            transparentZero: true);
         Validate();
     }
 
@@ -89,30 +91,6 @@ internal sealed class PostD3RemoteMakuDatabase
                 $"contain one actor template ${id:x2}:${subId:x2}.");
         }
         return matches[0];
-    }
-
-    private static Color[] ReadPossessedPalette()
-    {
-        const string path =
-            "res://assets/oracle/metadata/nayru_possessed_palette.bin";
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        if (bytes.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"Possessed Nayru palette should contain 12 bytes, got " +
-                $"{bytes.Length}.");
-        }
-        var colors = new Color[4];
-        colors[0] = Colors.Transparent;
-        for (int color = 1; color < colors.Length; color++)
-        {
-            int offset = color * 3;
-            colors[color] = new Color(
-                bytes[offset] / 31.0f,
-                bytes[offset + 1] / 31.0f,
-                bytes[offset + 2] / 31.0f);
-        }
-        return colors;
     }
 
     private void Validate()

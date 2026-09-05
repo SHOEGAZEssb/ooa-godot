@@ -19,7 +19,6 @@ internal sealed partial class LightableTorchScannerRoomEntity :
     private readonly DarkRoomDatabase _data;
 
     public bool Finished { get; private set; }
-    internal int TorchCount => _state.TotalTorches;
 
     internal LightableTorchScannerRoomEntity(
         DungeonMechanicDatabaseRecord record,

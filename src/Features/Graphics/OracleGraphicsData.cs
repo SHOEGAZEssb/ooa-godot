@@ -19,12 +19,11 @@ internal static class OracleGraphicsData
         return data;
     }
 
-    public static Color[,] LoadPalette(string path) => LoadPalette(path, 8, 0);
-
-    public static Color[,] LoadPalette(string path, int count) =>
-        LoadPalette(path, count, 0);
-
-    public static Color[,] LoadPalette(string path, int count, int firstPalette)
+    public static Color[,] LoadPalette(
+        string path,
+        int count = 8,
+        int firstPalette = 0,
+        bool transparentZero = false)
     {
         if (count < 0 || firstPalette < 0 || firstPalette + count > 8)
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -37,7 +36,8 @@ internal static class OracleGraphicsData
             result[firstPalette + palette, shade] = new Color(
                 bytes[offset] / 31.0f,
                 bytes[offset + 1] / 31.0f,
-                bytes[offset + 2] / 31.0f);
+                bytes[offset + 2] / 31.0f,
+                transparentZero && shade == 0 ? 0.0f : 1.0f);
         }
         return result;
     }
@@ -58,10 +58,12 @@ internal static class OracleGraphicsData
         return result;
     }
 
-    public static Color[] LoadCommonBackgroundPalette()
+    public static Color[] LoadCommonBackgroundPalette() =>
+        LoadPaletteColors("res://assets/oracle/metadata/commonBgPalette0.bin");
+
+    public static Color[] LoadPaletteColors(string path, bool transparentZero = false)
     {
-        byte[] bytes = ReadBytes(
-            "res://assets/oracle/metadata/commonBgPalette0.bin", 12);
+        byte[] bytes = ReadBytes(path, 12);
         var result = new Color[4];
         for (int shade = 0; shade < result.Length; shade++)
         {
@@ -70,6 +72,8 @@ internal static class OracleGraphicsData
                 bytes[shade * 3 + 1] / 31.0f,
                 bytes[shade * 3 + 2] / 31.0f);
         }
+        if (transparentZero)
+            result[0] = Colors.Transparent;
         return result;
     }
 

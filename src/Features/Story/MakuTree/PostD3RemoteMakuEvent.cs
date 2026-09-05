@@ -42,7 +42,6 @@ internal sealed class PostD3RemoteMakuEvent :
     internal PostD3RemoteMakuStage Stage => _stage;
     internal int Counter => _counter;
     internal int InitialFlashCounter => _initialFlashCounter;
-    internal int TowerFlashCounter => _towerFlashCounter;
     internal NpcCharacter? Ambi => _ambi;
     internal NpcCharacter? Nayru => _nayru;
     internal BlackTowerExplanationScreen? TowerScreen => _towerScreen;

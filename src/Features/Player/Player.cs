@@ -516,7 +516,6 @@ public partial class Player : Node2D
     internal bool TopDownAirborne => _topDownAirborne;
     internal int TopDownAirZ => _topDownAirZFixed >> 8;
     internal int TopDownAirSpeedZ => _topDownAirSpeedZ;
-    internal int TopDownAirAnimationPhase => _topDownAirAnimationPhase;
     internal bool MinecartJumpActive => _minecartJumpControlled;
     internal bool MinecartRideActive => _minecartRideControlled;
     internal bool CompanionJumpActive => _companionJumpControlled;
@@ -591,7 +590,6 @@ public partial class Player : Node2D
     internal bool IsHoldingItemOneHand => _getItemOneHandPose;
     internal bool IsHoldingItemTwoHands => _getItemTwoHandPose;
     internal int? ScriptedLinkAnimationMode => _scriptedLinkAnimationMode;
-    internal int CutsceneDrawZFixed => _cutsceneDrawZFixed;
     internal ulong ScriptedLinkAnimationPixelHash =>
         _scriptedLinkAnimationMode is int mode
             ? OracleGraphicsCache.PixelHash(
@@ -5088,23 +5086,6 @@ public partial class Player : Node2D
         _sideScrollReducedGravity = true;
         _rocsCapeButtonAction = null;
         _world.PlaySound(OracleSoundEngine.SndThrow);
-    }
-
-    internal bool ActivateRocsCapeForValidation()
-    {
-        if (!_sideScrollAirborne ||
-            _inventory.FeatherLevel < 2 ||
-            _sideScrollReducedGravity ||
-            _sideScrollSpeedZ < 0 ||
-            _sideScrollSpeedZ > 0x0100)
-        {
-            return false;
-        }
-        _sideScrollSpeedZ =
-            _world.SideScrollParameters.RocsCapeSpeedZ;
-        _sideScrollReducedGravity = true;
-        _world.PlaySound(OracleSoundEngine.SndThrow);
-        return true;
     }
 
     private void BeginSideScrollInstantRespawn()

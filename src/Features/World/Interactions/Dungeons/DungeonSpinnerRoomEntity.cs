@@ -71,7 +71,6 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     internal int SpinnerAnimationIndex => _spinnerAnimation.AnimationIndex;
     internal int SpinnerAnimationFrame => _spinnerAnimation.FrameIndex;
     internal int ArrowAnimationIndex => _arrowAnimation.AnimationIndex;
-    internal int ArrowAnimationFrame => _arrowAnimation.FrameIndex;
     internal Vector2 LinkOffset => _linkOffset;
     internal Texture2D SpinnerTexture =>
         _spinnerAnimation.CurrentTextureForPalette(_red ? 5 : 4);

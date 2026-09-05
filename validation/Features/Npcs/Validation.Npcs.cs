@@ -3168,8 +3168,10 @@ public sealed partial class ValidationRoot
             if (roomEvent.Screen is { } screen)
             {
                 sawExplanation = true;
+                using Image background = screen.Background.GetImage();
                 FailIf(
-                    screen.BackgroundPixelHash != 0x353a5833802cb82dUL ||
+                    OracleGraphicsCache.PixelHash(background) !=
+                        0x353a5833802cb82dUL ||
                     _hud.Visible ||
                     _sound.ActiveMusic != OracleSoundEngine.MusDisaster ||
                     _warpFade.Position != Vector2.Zero ||

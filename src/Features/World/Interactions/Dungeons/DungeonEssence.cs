@@ -46,7 +46,6 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     public Node2D Node => this;
     internal bool ReadyForDialogue => _state == MotionState.Held;
     internal bool SwirlActive => _swirl;
-    internal int Motion => (int)_state;
     internal int Delay => _delay;
     internal bool Collected => _collected;
     internal bool GlowVisible => _glowVisible;

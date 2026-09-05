@@ -33,7 +33,6 @@ internal sealed partial class ExtendableBridgeRoomEntity :
     internal bool BridgePresent => _bridgePresent;
     internal bool UpdatingTiles => _updatingTiles;
     internal int Counter => _counter;
-    internal int PatternIndex => _patternIndex;
 
     internal ExtendableBridgeRoomEntity(
         DungeonMechanicDatabaseRecord record,

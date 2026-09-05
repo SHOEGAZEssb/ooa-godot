@@ -25,7 +25,6 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
 
     internal bool Lifted => _lifted;
     internal bool Thrown { get; private set; }
-    internal bool Dropped => _dropped;
     internal bool Finished { get; private set; }
     internal int ZFixed => _carried.ZFixed;
     internal int SpeedZ => _carried.SpeedZ;

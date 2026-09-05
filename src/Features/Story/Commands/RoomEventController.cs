@@ -344,15 +344,8 @@ public sealed class RoomEventController
     internal RaftonEvent Rafton => _rafton;
     internal RaftwreckEvent Raftwreck => _raftwreck;
     internal TokayTheftEvent TokayTheft => _tokayTheft;
-    internal TokayCookEvent TokayCook => _tokayCook;
     internal TokayHoldingItemEvent TokayHoldingItem => _tokayHoldingItem;
-    internal TokayRunningFromRosaEvent TokayRunningFromRosa =>
-        _tokayRunningFromRosa;
-    internal TokayDimitriEvent TokayDimitri => _tokayDimitri;
     internal TokaySeedlingPlotEvent TokaySeedlingPlot => _tokaySeedlingPlot;
-    internal TokayShieldUpgradeEvent TokayShieldUpgrade => _tokayShieldUpgrade;
-    internal TokayVineExplanationEvent TokayVineExplanation =>
-        _tokayVineExplanation;
     internal RosaShovelEvent RosaShovel => _rosaShovel;
     internal TokayTradingEvent TokayTrading => _tokayTrading;
     internal WildTokayGameEvent WildTokayGame => _wildTokayGame;
@@ -376,7 +369,6 @@ public sealed class RoomEventController
         _dekuForestSoldier;
     internal DekuForestPalaceEvent DekuForestPalace =>
         _dekuForestPalace;
-    internal BusinessScrubEvent BusinessScrub => _businessScrub;
     internal LynnaShopEvent LynnaShop => _lynnaShop;
     internal VasuShopEvent VasuShop => _vasuShop;
     internal HarpOfAgesEvent HarpOfAges => _harpOfAges;

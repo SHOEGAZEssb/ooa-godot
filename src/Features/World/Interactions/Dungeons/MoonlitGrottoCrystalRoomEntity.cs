@@ -31,7 +31,6 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
     internal bool BreakEffectActive => _breakActive;
     internal int CrystalAnimation => _crystal.AnimationIndex;
     internal Texture2D CrystalTexture => _crystal.CurrentTexture;
-    internal int BreakAnimationFrame => _breakEffect.FrameIndex;
     internal int SwitchMask => _record.SubId;
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(

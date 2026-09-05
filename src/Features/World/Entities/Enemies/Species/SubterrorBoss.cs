@@ -49,7 +49,6 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     internal int Speed => _speed;
     internal int ZFixed => _zFixed;
     internal int DirtCounter => _dirtCounter;
-    internal bool DirtEnabled => _dirtEnabled;
     internal bool IntroActive => _introActive;
     internal bool Defeated => _dying || IsDead;
     internal bool ShovelCollisionEnabled =>

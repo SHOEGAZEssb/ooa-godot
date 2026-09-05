@@ -922,12 +922,6 @@ internal partial class FrontendIntroScreen : Node2D
         return signature;
     }
 
-    internal Color CapcomLogoPixelForValidation(int x, int y) =>
-        _capcom.GetImage().GetPixel(x, y);
-
-    internal Color TemplePixelForValidation(int x, int y) =>
-        _temple.GetImage().GetPixel(x, y);
-
     internal ulong TempleAnimationPixelHashForValidation(int group, long tick)
     {
         int[] activeHeaders =

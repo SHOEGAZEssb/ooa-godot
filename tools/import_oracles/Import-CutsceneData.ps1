@@ -4741,9 +4741,8 @@ Copy-GeneratedFile `
     "gfx_compressible\ages\$($gfxNames[$remoteMakuSparkleGraphic.Gfx]).png" `
     "gfx\$($gfxNames[$remoteMakuSparkleGraphic.Gfx]).png"
 
-$remoteMakuCommandRows = [Collections.Generic.List[string]]::new()
-$remoteMakuCommandRows.Add(
-    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+$remoteMakuCommandHeader =
+    "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64"
 $remoteMakuCommandSpecs = @(
     @($remoteMakuParsed[0],  'disableinput', '', '', '', ''),
     @($remoteMakuParsed[1],  'writememory', '', '04', '', 'TextboxFlags'),
@@ -4755,8 +4754,7 @@ $remoteMakuCommandSpecs = @(
     @($remoteMakuParsed[9],  'native', '', '', '', 'SpawnPresentConfetti'),
     @($remoteMakuParsed[10], 'wait', '', '240', '', ''),
     @($remoteMakuParsed[11], 'wait', '', '180', '', ''),
-    @($remoteMakuParsed[16], 'showtextdifferentforlinked', '', '05b0', '05c0',
-        "$($allTexts[0x05b0])`0$($allTexts[0x05c0])"),
+    @($remoteMakuParsed[16], 'showtextdifferentforlinked', '', '', '', ''),
     @($remoteMakuParsed[17], 'wait', '', '1', '', ''),
     @($remoteMakuParsed[18], 'native', '', '', '', 'ShowHud'),
     @($remoteMakuParsed[19], 'native', '', '', '', 'ClearFadingPalettes'),
@@ -4767,86 +4765,38 @@ $remoteMakuCommandSpecs = @(
     @($remoteMakuParsed[27], 'enableinput', '', '', '', ''),
     @($remoteMakuParsed[28], 'scriptend', '', '', '', '')
 )
-for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
-    $spec = $remoteMakuCommandSpecs[$index]
-    $sourceCommand = $spec[0]
-    $remoteMakuCommandRows.Add((New-CutsceneCommandRow `
-        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
-        $sourceCommand.Line $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
-}
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\remote_maku_first_essence_commands.tsv'),
-    $remoteMakuCommandRows)
-
-$remoteMakuWingCommandRows = [Collections.Generic.List[string]]::new()
-$remoteMakuWingCommandRows.Add($remoteMakuCommandRows[0])
-for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
-    $spec = $remoteMakuCommandSpecs[$index]
-    $sourceCommand = $spec[0]
-    $opcode = $spec[1]
-    $actor = $spec[2]
-    $arg0 = $spec[3]
-    $arg1 = $spec[4]
-    $payload = $spec[5]
-    if ($index -eq 10) {
-        $arg0 = '05b1'
-        $arg1 = '05c1'
-        $payload = "$($allTexts[0x05b1])`0$($allTexts[0x05c1])"
+# These placements execute the same @present branch. Only @val00/@val01/
+# @val02/@val04's text selection differs; preserve the shared source order.
+foreach ($variant in @(
+    @('first_essence', 0x05b0, 0x05c0),
+    @('wing_dungeon', 0x05b1, 0x05c1),
+    @('harp', 0x05b2, 0x05c2),
+    @('third_essence', 0x05b4, 0x05c4)
+)) {
+    $remoteMakuCommandRows = [Collections.Generic.List[string]]::new()
+    $remoteMakuCommandRows.Add($remoteMakuCommandHeader)
+    for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
+        $spec = $remoteMakuCommandSpecs[$index]
+        $sourceCommand = $spec[0]
+        $arg0 = $spec[3]
+        $arg1 = $spec[4]
+        $payload = $spec[5]
+        if ($spec[1] -eq 'showtextdifferentforlinked') {
+            $arg0 = $variant[1].ToString('x4')
+            $arg1 = $variant[2].ToString('x4')
+            $payload = "$($allTexts[$variant[1]])`0$($allTexts[$variant[2]])"
+        }
+        $remoteMakuCommandRows.Add((New-CutsceneCommandRow `
+            'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+            $sourceCommand.Line $spec[1] $spec[2] $arg0 $arg1 $payload))
     }
-    $remoteMakuWingCommandRows.Add((New-CutsceneCommandRow `
-        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
-        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
+    Write-CutsceneGeneratedTable(
+        (Join-Path $destination "cutscenes\remote_maku_$($variant[0])_commands.tsv"),
+        $remoteMakuCommandRows)
 }
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\remote_maku_wing_dungeon_commands.tsv'),
-    $remoteMakuWingCommandRows)
-$remoteMakuHarpCommandRows = [Collections.Generic.List[string]]::new()
-$remoteMakuHarpCommandRows.Add($remoteMakuCommandRows[0])
-for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
-    $spec = $remoteMakuCommandSpecs[$index]
-    $sourceCommand = $spec[0]
-    $opcode = $spec[1]
-    $actor = $spec[2]
-    $arg0 = $spec[3]
-    $arg1 = $spec[4]
-    $payload = $spec[5]
-    if ($index -eq 10) {
-        $arg0 = '05b2'
-        $arg1 = '05c2'
-        $payload = "$($allTexts[0x05b2])`0$($allTexts[0x05c2])"
-    }
-    $remoteMakuHarpCommandRows.Add((New-CutsceneCommandRow `
-        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
-        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
-}
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\remote_maku_harp_commands.tsv'),
-    $remoteMakuHarpCommandRows)
-$remoteMakuThirdEssenceCommandRows = [Collections.Generic.List[string]]::new()
-$remoteMakuThirdEssenceCommandRows.Add($remoteMakuCommandRows[0])
-for ($index = 0; $index -lt $remoteMakuCommandSpecs.Count; $index++) {
-    $spec = $remoteMakuCommandSpecs[$index]
-    $sourceCommand = $spec[0]
-    $opcode = $spec[1]
-    $actor = $spec[2]
-    $arg0 = $spec[3]
-    $arg1 = $spec[4]
-    $payload = $spec[5]
-    if ($index -eq 10) {
-        $arg0 = '05b4'
-        $arg1 = '05c4'
-        $payload = "$($allTexts[0x05b4])`0$($allTexts[0x05c4])"
-    }
-    $remoteMakuThirdEssenceCommandRows.Add((New-CutsceneCommandRow `
-        'remoteMakuCutsceneScript' $index $sourceCommand.Label `
-        $sourceCommand.Line $opcode $actor $arg0 $arg1 $payload))
-}
-Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\remote_maku_third_essence_commands.tsv'),
-    $remoteMakuThirdEssenceCommandRows)
 $remoteMakuSecondEssenceCommandRows =
     [Collections.Generic.List[string]]::new()
-$remoteMakuSecondEssenceCommandRows.Add($remoteMakuCommandRows[0])
+$remoteMakuSecondEssenceCommandRows.Add($remoteMakuCommandHeader)
 $remoteMakuSecondEssenceCommandSpecs = @(
     @($remoteMakuParsed[0],  'disableinput', '', '', '', ''),
     @($remoteMakuParsed[1],  'writememory', '', '04', '', 'TextboxFlags'),

@@ -52,12 +52,10 @@ internal sealed class BlackTowerEntranceEventDatabase
         stage1.AddRange(LoadOam(
             "black_tower_stage_1_workers_oam.tsv", "stage-one workers", 10));
         Stage1Oam = stage1;
-        BackgroundPalettes = LoadPalettes(
-            Root + "black_tower_bg_palette.bin", 7, transparentZero: false,
-            destinationStart: 1);
-        SpritePalettes = LoadPalettes(
-            Root + "black_tower_sprite_palette.bin", 8, transparentZero: true,
-            destinationStart: 0);
+        BackgroundPalettes = OracleGraphicsData.LoadPalette(
+            Root + "black_tower_bg_palette.bin", 7, firstPalette: 1);
+        SpritePalettes = OracleGraphicsData.LoadPalette(
+            Root + "black_tower_sprite_palette.bin", transparentZero: true);
         Validate();
     }
 
@@ -125,30 +123,6 @@ internal sealed class BlackTowerEntranceEventDatabase
         return result;
     }
 
-    private static Color[,] LoadPalettes(
-        string path,
-        int sourceCount,
-        bool transparentZero,
-        int destinationStart)
-    {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
-        if (bytes.Length != sourceCount * 12)
-            throw new InvalidOperationException(
-                $"{path} should contain {sourceCount * 12} bytes, got {bytes.Length}.");
-        var result = new Color[8, 4];
-        for (int palette = 0; palette < sourceCount; palette++)
-        for (int shade = 0; shade < 4; shade++)
-        {
-            int offset = (palette * 4 + shade) * 3;
-            Color color = new(
-                bytes[offset] / 31.0f,
-                bytes[offset + 1] / 31.0f,
-                bytes[offset + 2] / 31.0f,
-                transparentZero && shade == 0 ? 0.0f : 1.0f);
-            result[palette + destinationStart, shade] = color;
-        }
-        return result;
-    }
 }
 
 internal readonly record struct OamRecord(int Y, int X, int Tile, int Flags, string Source);

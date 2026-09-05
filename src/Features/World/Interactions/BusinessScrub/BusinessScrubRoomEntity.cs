@@ -21,8 +21,6 @@ internal sealed class BusinessScrubRoomEntity
 
     public NpcCharacter Npc => _npc;
     public Node2D Node => _npc;
-    internal bool LinkWasNear => _linkWasNear;
-    internal Sprite2D Bush => _bush;
 
     public BusinessScrubRoomEntity(
         NpcCharacter npc,

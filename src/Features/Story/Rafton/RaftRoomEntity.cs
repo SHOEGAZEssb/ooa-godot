@@ -56,7 +56,6 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     public Vector2 ScreenTransitionPosition => _precisePosition;
     internal int Direction => _direction;
     internal int Angle => _angle;
-    internal int DismountCounter => _dismountCounter;
     internal Vector2 PrecisePosition => _precisePosition;
     internal int AnimationIndex => LinkRiding
         ? _mountedAnimation.AnimationIndex

@@ -168,10 +168,12 @@ public sealed partial class ValidationRoot
                 postD3.Stage != PostD3RemoteMakuStage.LoadTower,
                 "Ambi's post-TX_1316 wait/fade did not reach the tower scene.");
             StepRoomEventFrames(1);
+            using Image? towerBackground = postD3.TowerScreen?.Background.GetImage();
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.TowerFadeIn ||
-                postD3.TowerScreen is not { } screen ||
-                screen.BackgroundPixelHash != 0xd73336f411bc2213UL ||
+                towerBackground is null ||
+                OracleGraphicsCache.PixelHash(towerBackground) !=
+                    0xd73336f411bc2213UL ||
                 _hud.Visible ||
                 _warpFade.ZIndex <= _hud.ZIndex,
                 "Black Tower stage 1 did not use its distinct stage-2/middle " +

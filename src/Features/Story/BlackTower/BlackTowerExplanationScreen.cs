@@ -15,7 +15,7 @@ internal partial class BlackTowerExplanationScreen : Control
     private readonly Image _sprites;
     private bool _flashWhite;
 
-    internal ulong BackgroundPixelHash { get; }
+    internal Texture2D Background => _background;
 
     public BlackTowerExplanationScreen(
         BlackTowerEntranceEventDatabase database,
@@ -28,8 +28,6 @@ internal partial class BlackTowerExplanationScreen : Control
         ZIndex = 14;
         _oam = database.OamForStage(stage);
         _background = BuildBackground(database.BackgroundPalettes, stage);
-        BackgroundPixelHash = OracleGraphicsCache.PixelHash(
-            _background.GetImage());
         _sprites = OracleGraphicsCache.LoadImage(
             Root + "spr_black_tower_scene.png");
     }
