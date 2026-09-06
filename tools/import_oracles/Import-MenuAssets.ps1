@@ -1,6 +1,12 @@
 # Title and file-select screens use the same split VRAM layout as the original
 # GFXH_TITLESCREEN / GFXH_FILE_MENU_* headers. Preserve each source piece at
 # its header destination instead of baking a replacement menu image.
+foreach ($piece in @('top', 'middle', 'bottom', 'error')) {
+    Copy-GeneratedFile "gfx_compressible\common\map_secret_entry_$piece.bin" "menu\map_secret_entry_$piece.bin"
+    Copy-GeneratedFile "gfx_compressible\common\flg_secret_entry_$piece.bin" "menu\flags_secret_entry_$piece.bin"
+}
+Copy-GeneratedFile 'gfx_compressible\common\gfx_secret_thatswrong.png' 'menu\gfx_secret_thatswrong.png'
+
 foreach ($menuAsset in @(
     @{ Source = 'gfx_compressible\ages\gfx_titlescreen_1.png'; Destination = 'menu\gfx_titlescreen_1.png' },
     @{ Source = 'gfx_compressible\common\gfx_titlescreen_2.png'; Destination = 'menu\gfx_titlescreen_2.png' },

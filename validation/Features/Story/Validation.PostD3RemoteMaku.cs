@@ -28,6 +28,21 @@ public sealed partial class ValidationRoot
         int originalMakuState = _saveData.MakuTreeState;
         int originalMapText = _saveData.MakuMapTextPresent;
 
+        void StepRoomEventFrames(int frames)
+        {
+            for (int frame = 0; frame < frames; frame++)
+            {
+                this.StepRoomEventFrames(1);
+                // Gameplay checks room exits after event-authored movement.
+                // Include that pass so a hidden Link at an edge cannot
+                // silently start a warp during the palace/tower sequence.
+                UpdatePostObjectPlayerState();
+                FailIf(_transitions.IsTransitioning,
+                    "Post-D3 cutscene started an unintended room transition " +
+                    $"in room {_rooms.ActiveGroup:x}:{_rooms.CurrentRoom.Id:x2}.");
+            }
+        }
+
         void SetEssences(int value)
         {
             if (_saveData.WriteWramByte(0xc6bf, (byte)value))
@@ -138,6 +153,7 @@ public sealed partial class ValidationRoot
                 postD3.Stage != PostD3RemoteMakuStage.LoadPalace ||
                 _warpFade.Color.A != 1.0f,
                 "Room 0:ba did not complete fadeoutToWhite in 32 updates.");
+            Vector2 entrancePosition = _player.Position;
             StepRoomEventFrames(1);
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.PalaceFadeIn ||
@@ -147,6 +163,7 @@ public sealed partial class ValidationRoot
                 postD3.Ambi.Position != new Vector2(0x48, 0x28) ||
                 postD3.Nayru is not { Record.Id: 0x36, Record.SubId: 0x0e } ||
                 postD3.Nayru.Position != new Vector2(0x58, 0x28) ||
+                _player.Position != entrancePosition ||
                 _player.Visible ||
                 _sound.ActiveMusic != OracleSoundEngine.MusDisaster,
                 "The cutscene-only room 1:16 load did not create Ambi " +
@@ -155,6 +172,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(record.PalaceWait);
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.PalaceDialogue ||
+                _dialogue.Position.Y != 96 ||
                 !_dialogue.IsOpen ||
                 _dialogue.CurrentMessage != DialogueBox.PlainText(
                     record.PalaceText),
@@ -182,6 +200,8 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(record.ExplanationWait);
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.TowerDialogue ||
+                _player.Position != entrancePosition || _player.Visible ||
+                _dialogue.Position.Y != 80 ||
                 !_dialogue.IsOpen ||
                 _dialogue.CurrentMessage != DialogueBox.PlainText(
                     record.ExplanationText) ||
@@ -224,6 +244,7 @@ public sealed partial class ValidationRoot
                 "$8a:$00/v$04 after the return fade.");
             StepToRemoteDialogue();
             FailIf(
+                _dialogue.Position.Y != 24 || postD3.DialogueScreen is not null ||
                 _dialogue.CurrentMessage !=
                     DialogueBox.PlainText(remoteText.StandardMessage) ||
                 _saveData.MakuMapTextPresent != remoteRecord.StandardMapText,
@@ -264,6 +285,17 @@ public sealed partial class ValidationRoot
                 "Linked room 0:ba remote Maku guidance did not show TX_05c4 " +
                 "and write present-map byte $c4.");
             FinishRemote(9, remoteRecord.LinkedMapText);
+
+            SetCompletionFlag(false);
+            LoadValidationRoom(group, room);
+            Vector2 beforeCancelledCutscene = _player.Position;
+            StepRoomEventFrames(record.InitialWait + record.FlashFrames + record.FadeFrames + 1);
+            FailIf(postD3.DialogueScreen is null,
+                "Post-D3 palace did not expose its native textbox screen context.");
+            postD3.Cancel();
+            FailIf(postD3.DialogueScreen is not null || !_player.Visible ||
+                _player.Position != beforeCancelledCutscene || _player.CutsceneControlled,
+                "Cancelling the post-D3 palace retained textbox context or changed live Link.");
         }
         finally
         {

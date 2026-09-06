@@ -7,6 +7,17 @@ namespace oracleofages;
 
 public partial class DialogueBox : Node2D
 {
+    private Func<float> _gameplayCameraY = () => 0;
+
+    internal void SetGameplayCameraYProvider(Func<float> cameraY) =>
+        _gameplayCameraY = cameraY;
+
+    private DialogueScreenContext GameplayScreen(float linkScreenY)
+    {
+        float cameraY = _gameplayCameraY();
+        return DialogueScreenContext.Gameplay(linkScreenY + cameraY, cameraY);
+    }
+
     private const int LinesPerPage = 2;
     private const int LineSpacing = 16;
     private const int CharactersPerLine = 16;
@@ -203,15 +214,13 @@ public partial class DialogueBox : Node2D
     /// </summary>
     internal void ShowGameplayMessage(string message, float linkY)
     {
-        ShowMessage(message, linkY);
-        OffsetIntoGameplayField();
+        ShowMessageCore(message, GameplayScreen(linkY), 0, 0);
     }
 
     internal void ShowGameplayMessage(
         string message, float linkY, int textPosition)
     {
-        ShowMessage(message, linkY, textPosition);
-        OffsetIntoGameplayField();
+        ShowMessageCore(message, GameplayScreen(linkY), textPosition, 0);
     }
 
     internal void ShowGameplayMessageWithFlags(
@@ -220,22 +229,31 @@ public partial class DialogueBox : Node2D
         int textboxFlags,
         int? textPosition = null)
     {
-        ShowMessageCore(message, linkY, textPosition ?? 0, textboxFlags);
-        OffsetIntoGameplayField();
+        ShowMessageCore(message, GameplayScreen(linkY), textPosition ?? 0, textboxFlags);
     }
 
     public void ShowMessage(string message, float linkY, int textPosition)
     {
-        ShowMessageCore(message, linkY, textPosition, textboxFlags: 0);
+        ShowMessageCore(message, DialogueScreenContext.FullScreen(linkY), textPosition, textboxFlags: 0);
     }
+
+    internal void ShowMessage(
+        string message, DialogueScreenContext screen,
+        int? textPosition = null, int textboxFlags = 0) =>
+        ShowMessageCore(message, screen, textPosition ?? 0, textboxFlags);
 
     private void ShowMessageCore(
         string message,
-        float linkY,
+        DialogueScreenContext screen,
         int textPosition,
         int textboxFlags)
     {
         ArgumentNullException.ThrowIfNull(message);
+        // checkInitialTextCommands recognizes $0c:$20-$23 only at the
+        // beginning of the resolved text, after initTextbox's automatic side.
+        Match initialPosition = Regex.Match(message, @"^\\pos\(([0-3])\)");
+        int? textCommandPosition = initialPosition.Success
+            ? initialPosition.Groups[1].Value[0] - '0' : null;
         IReadOnlyList<string> unresolved = UnresolvedCommandsForValidation(message);
         if (unresolved.Count > 0)
         {
@@ -287,12 +305,15 @@ public partial class DialogueBox : Node2D
         _textScrollState = 0;
         ResetHeartPieceDisplay();
 
-        // Port of initTextbox: Link above $48 puts the box at tilemap offset
-        // $0140 (y=80); otherwise it uses $0020 (y=8).
-        // Text command \pos(2) explicitly selects the lower textbox. Without
-        // a command, initTextbox chooses the side opposite Link.
-        int textboxY = textPosition switch
+        // initTextbox subtracts hCameraY as a byte. Explicit source position
+        // $00 is top when DONTCHECKPOSITION is set, not automatic placement.
+        int position = textPosition == 0 && (textboxFlags & 0x08) == 0
+            ? screen.AutomaticPosition : textPosition;
+        if ((textboxFlags & 0x08) == 0 && textCommandPosition.HasValue)
+            position = textCommandPosition.Value;
+        int textboxY = position switch
         {
+            0 => 8,
             1 => 40,
             2 => 80,
             3 => 96,
@@ -301,11 +322,23 @@ public partial class DialogueBox : Node2D
             4 => 104,
             5 => 48,
             6 => 24,
-            _ => linkY < 0x48 ? 80 : 8
+            _ => throw new InvalidOperationException(
+                $"Unsupported wTextboxPosition ${position:x2}.")
         };
-        Position = new Vector2(0, textboxY);
+        Position = new Vector2(0, screen.ScreenY(textboxY));
         Visible = true;
         QueueRedraw();
+    }
+
+    internal void ShowChoiceMessage(
+        string message,
+        DialogueScreenContext screen,
+        int initialChoice = 0,
+        int? textPosition = null)
+    {
+        ShowMessage(message, screen, textPosition);
+        _choiceActive = true;
+        _selectedChoice = Math.Max(0, initialChoice);
     }
 
     internal void ShowChoiceMessage(
@@ -328,8 +361,7 @@ public partial class DialogueBox : Node2D
         int initialChoice = 0,
         int? textPosition = null)
     {
-        ShowChoiceMessage(message, linkY, initialChoice, textPosition);
-        OffsetIntoGameplayField();
+        ShowChoiceMessage(message, GameplayScreen(linkY), initialChoice, textPosition);
     }
 
     /// <summary>
@@ -342,9 +374,6 @@ public partial class DialogueBox : Node2D
         ShowMessage(message, linkY, textPosition);
         _passive = true;
     }
-
-    private void OffsetIntoGameplayField() =>
-        Position += new Vector2(0, OracleRoomData.GameplayScreenTop);
 
     internal bool TryTakeChoiceResult(out int choice)
     {

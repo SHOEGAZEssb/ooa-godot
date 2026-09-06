@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Native INTERAC_FOREST_FAIRY $49:$00 movement. Coordinates and velocities
+/// Native INTERAC_FOREST_FAIRY $49:$00/$03/$04 movement. Coordinates and velocities
 /// retain the original unsigned high-byte checks and signed 8.8 word wrapping.
 /// </summary>
 internal sealed class ForestFairyFlight
@@ -27,6 +27,8 @@ internal sealed class ForestFairyFlight
     private int _sparkleCounter = 0x5a;
     private FairyFlightStage _stage = FairyFlightStage.FirstLeg;
     private bool _stateZeroPending = true;
+    private readonly int _subId;
+    private int _circleSteps;
 
     internal NpcCharacter Actor { get; }
     internal bool Active { get; private set; } = true;
@@ -47,7 +49,8 @@ internal sealed class ForestFairyFlight
         FairiesWoodsSparkleLayer sparkles,
         NpcCharacter actor,
         int presetIndex,
-        Action<Vector2> spawnPuff)
+        Action<Vector2> spawnPuff,
+        int subId = 0)
     {
         _database = database;
         _event = database.Event;
@@ -57,13 +60,16 @@ internal sealed class ForestFairyFlight
         _spawnPuff = spawnPuff;
         Actor = actor;
         _presetIndex = presetIndex;
+        _subId = subId;
+        if (subId == 4) _stage = FairyFlightStage.WaitForSignal;
         LoadPreset(setPosition: true);
     }
 
-    internal void UpdateFrame(int globalFrame)
+    internal void UpdateFrame(int globalFrame, bool textActive = false)
     {
         if (!Active)
             return;
+        if (textActive && !_stateZeroPending) return;
         if (_stateZeroPending)
         {
             _stateZeroPending = false;
@@ -75,8 +81,13 @@ internal sealed class ForestFairyFlight
             case FairyFlightStage.FirstLeg:
                 if (UpdateFlight(globalFrame))
                 {
-                    SnapToTarget();
-                    _stage = FairyFlightStage.WaitForSignal;
+                    if (_subId == 3)
+                    {
+                        _counter1 = _counter2 = 2;
+                        _circleSteps = 0x20;
+                        _stage = FairyFlightStage.Circle;
+                    }
+                    else { SnapToTarget(); _stage = FairyFlightStage.WaitForSignal; }
                 }
                 break;
 
@@ -84,6 +95,19 @@ internal sealed class ForestFairyFlight
                 if (Signal != 0)
                 {
                     Actor.AdvanceAnimationUpdates(1);
+                    break;
+                }
+                if (_subId == 3)
+                {
+                    _presetIndex++;
+                    _stage = FairyFlightStage.SecondLeg;
+                    LoadPreset(setPosition: false);
+                    break;
+                }
+                if (_subId == 4)
+                {
+                    _stage = FairyFlightStage.SecondLeg;
+                    LoadPreset(setPosition: true);
                     break;
                 }
                 if (_presetIndex >= 6)
@@ -103,7 +127,29 @@ internal sealed class ForestFairyFlight
                     break;
                 }
                 if (PositionY >= 0x80 || PositionX >= 0xa0)
+                {
                     Signal = unchecked((byte)(Signal + 1));
+                    Delete();
+                }
+                break;
+
+            case FairyFlightStage.Circle:
+                _sparkleCounter = (_sparkleCounter - 1) & 255;
+                if ((_sparkleCounter & 7) == 0) _sparkles.Spawn(Actor.Position);
+                if (--_counter2 == 0)
+                {
+                    _counter2 = _counter1;
+                    _angle = (_angle + 1) & 31;
+                    if (--_circleSteps == 0)
+                    {
+                        Signal = unchecked((byte)(Signal + 1));
+                        _stage = FairyFlightStage.WaitForSignal;
+                        break;
+                    }
+                }
+                ApplySpeed();
+                if ((globalFrame & 31) == 0) _sound.PlaySound(_event.MagicSound);
+                Actor.AdvanceAnimationUpdates(1);
                 break;
 
         }
@@ -245,5 +291,6 @@ internal enum FairyFlightStage
 {
     FirstLeg,
     WaitForSignal,
-    SecondLeg
+    SecondLeg,
+    Circle
 }

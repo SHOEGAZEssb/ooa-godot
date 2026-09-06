@@ -18,7 +18,7 @@ internal sealed partial class RickyPunchAttackRoomEntity : Node2D,
 
     private readonly RickyCompanionRoomEntity _owner;
     private readonly RickyCompanionBehaviorRecord _behavior;
-    private readonly RickyAttackTileBreaker _tileBreaker;
+    private readonly CompanionAttackTileBreaker _tileBreaker;
     private int _counter;
     private bool _initialized;
 
@@ -41,7 +41,7 @@ internal sealed partial class RickyPunchAttackRoomEntity : Node2D,
     internal RickyPunchAttackRoomEntity(
         RickyPunchAttackSpawn spawn,
         RickyCompanionBehaviorRecord behavior,
-        RickyAttackTileBreaker tileBreaker)
+        CompanionAttackTileBreaker tileBreaker)
     {
         _owner = spawn.Owner;
         _behavior = behavior;

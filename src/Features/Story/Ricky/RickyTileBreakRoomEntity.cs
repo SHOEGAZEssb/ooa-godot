@@ -12,11 +12,11 @@ internal sealed partial class RickyTileBreakRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
 {
     private readonly RickyTileBreakSpawn _spawn;
-    private readonly RickyAttackTileBreaker _breaker;
+    private readonly CompanionAttackTileBreaker _breaker;
 
     internal RickyTileBreakRoomEntity(
         RickyTileBreakSpawn spawn,
-        RickyAttackTileBreaker breaker)
+        CompanionAttackTileBreaker breaker)
     {
         _spawn = spawn;
         _breaker = breaker;

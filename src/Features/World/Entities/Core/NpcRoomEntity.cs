@@ -7,10 +7,11 @@ namespace oracleofages;
 internal sealed class NpcRoomEntity(NpcCharacter npc)
     : NpcCharacterRoomEntityAdapter(
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
-    IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
+    IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     public NpcCharacter Npc => Entity;
-    public void Update(double delta, Player player) => Entity.UpdateNpc(delta, player.Position);
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+        Entity.FaceLinkAndAnimateOneUpdate(frame.Player, preventPassing: false);
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
     private static NpcCharacter RequireOrdinaryGeneric(NpcCharacter npc)

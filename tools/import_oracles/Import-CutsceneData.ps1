@@ -362,6 +362,31 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\harpItem.tsv'),
     $harpItemRows)
 
+$fluteBody = [regex]::Match($harpAnimationSource, '(?ms)^animationData19f90:(?<body>.*?)^animationData19fa5:')
+$fluteAnimation = @([regex]::Matches($fluteBody.Groups['body'].Value,
+    '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<graphic>[0-9a-f]{2}) \$(?<parameter>[0-9a-f]{2})'))
+if ($fluteAnimation.Count -ne 7) { throw 'LINK_ANIM_MODE_FLUTE source animation changed.' }
+$fluteRows = @("# kind`tindex`tvalue`tsource")
+for ($index=0; $index -lt 7; $index++) {
+    $fluteRows += "parameter`t$index`t$($fluteAnimation[$index].Groups['parameter'].Value)`tspecialObjectAnimationData.s:animationData19f90"
+}
+$fluteSoundNames = @('SND_FILLED_HEART_CONTAINER','SND_FLUTE_RICKY','SND_FLUTE_DIMITRI','SND_FLUTE_MOOSH')
+for ($index=0; $index -lt 4; $index++) {
+    $fluteRows += "sound`t$index`t$($soundIds[$fluteSoundNames[$index]].ToString('x2'))`tharpFluteParent.s:@sfxList"
+}
+foreach ($textId in @(0x510c,0x510f)) {
+    $fluteRows += "text`t$textId`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))`tcompanionSpawner.s:@fluteCall"
+}
+$fluteCallableSource = Read-ImportText (Join-Path $Disassembly 'data\ages\companionCallableRooms.s')
+$fluteCallableBytes = @([regex]::Matches($fluteCallableSource, '%([01]{8})'))
+if ($fluteCallableBytes.Count -ne 32) { throw 'Ages companionCallableRooms must contain 256 room bits.' }
+for ($index=0; $index -lt 256; $index++) {
+    if ($fluteCallableBytes[[int][Math]::Floor($index/8)].Groups[1].Value[$index%8] -eq '1') {
+        $fluteRows += "room`t$index`t01`tcompanionCallableRooms.s:companionCallableRooms/dbrev"
+    }
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'objects\flute.tsv'), $fluteRows)
+
 # INTERAC_TIMEPORTAL_SPAWNER ($e1) is a scenery interaction rather than an
 # NPC, but it uses the same interaction graphics, animation, and OAM tables.
 # Export every placed portal spot so runtime activation stays data-driven.
@@ -9320,7 +9345,7 @@ $specialObjectCommonSource = Read-ImportText (
 $specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
 $specialOamNodes = @(Read-AssemblyNodes $specialOamPath)
 $specialOamTables = Read-AssemblyDwTables `
-    $specialAnimationPath 'specialObject(?:08|09|0b|0d|0f|11)OamDataPointers' 'oamData[0-9a-f]+'
+    $specialAnimationPath 'specialObject(?:08|09|0b|0c|0d|0f|10|11)OamDataPointers' 'oamData[0-9a-f]+'
 $mooshOamPointers = $specialOamTables['specialObject0dOamDataPointers']
 if ($null -eq $mooshOamPointers) {
     $mooshOamPointers = $specialOamTables['specialObject11OamDataPointers']
@@ -9795,12 +9820,15 @@ if ($rickyGfxOffsets.Count -ne 0x34 -or
     $rickyAnimationLabels.Count -ne 37) {
     throw "Expected 52 Ricky graphics/OAM rows and 37 animations; got $($rickyGfxOffsets.Count)/$($rickyOamIndices.Count)/$($rickyAnimationLabels.Count)."
 }
-function Resolve-RickySpecialAnimation([string]$label) {
+function Resolve-CompanionSpecialAnimation(
+    [string]$label, [string]$companionName, [hashtable]$gfxOffsets,
+    [hashtable]$gfxCounts, [hashtable]$oamIndices, [array]$oamPointers,
+    [int]$oamStart) {
     $startLabel = @($specialAnimationNodes | Where-Object {
         $_.Kind -eq 'Label' -and $_.Name -eq $label
     })
     if ($startLabel.Count -ne 1) {
-        throw "Could not resolve Ricky animation label $label."
+        throw "Could not resolve $companionName animation label $label."
     }
     $nextAnimation = @($specialAnimationNodes | Where-Object {
         $_.Kind -eq 'Label' -and
@@ -9810,7 +9838,7 @@ function Resolve-RickySpecialAnimation([string]$label) {
     $endOffset = if ($nextAnimation.Count -eq 1) {
         $nextAnimation[0].Offset
     } else {
-        $rickyOamStart
+        $oamStart
     }
     $frameNodes = @($specialAnimationNodes | Where-Object {
         $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
@@ -9824,7 +9852,7 @@ function Resolve-RickySpecialAnimation([string]$label) {
         $_.Offset -lt $endOffset
     })
     if ($loopNodes.Count -gt 1) {
-        throw "Ricky animation $label has multiple loop terminators."
+        throw "$companionName animation $label has multiple loop terminators."
     }
     $loopStart = 0
     if ($loopNodes.Count -eq 1) {
@@ -9835,7 +9863,7 @@ function Resolve-RickySpecialAnimation([string]$label) {
         if ($targetLabel.Count -ne 1 -or
             $targetLabel[0].Offset -lt $startLabel[0].Offset -or
             $targetLabel[0].Offset -gt $loopNodes[0].Offset) {
-            throw "Ricky animation $label loops to invalid label $target."
+            throw "$companionName animation $label loops to invalid label $target."
         }
         $loopStart = @($frameNodes | Where-Object {
             $_.Offset -lt $targetLabel[0].Offset
@@ -9849,25 +9877,25 @@ function Resolve-RickySpecialAnimation([string]$label) {
         $duration = Convert-AssemblyInteger $frame.Operands[0]
         $gfx = Convert-AssemblyInteger $frame.Operands[1]
         $parameter = Convert-AssemblyInteger $frame.Operands[2]
-        if (-not $rickyGfxOffsets.ContainsKey($gfx) -or
-            -not $rickyOamIndices.ContainsKey($gfx)) {
-            throw "$label references missing Ricky graphics row `$$($gfx.ToString('x2'))."
+        if (-not $gfxOffsets.ContainsKey($gfx) -or
+            -not $oamIndices.ContainsKey($gfx)) {
+            throw "$label references missing $companionName graphics row `$$($gfx.ToString('x2'))."
         }
-        $oamIndex = [int]$rickyOamIndices[$gfx]
-        if ($oamIndex -ge $rickyOamPointers.Count) {
-            throw "$label graphics row `$$($gfx.ToString('x2')) references missing Ricky OAM index `$$($oamIndex.ToString('x2'))."
+        $oamIndex = [int]$oamIndices[$gfx]
+        if ($oamIndex -ge $oamPointers.Count) {
+            throw "$label graphics row `$$($gfx.ToString('x2')) references missing $companionName OAM index `$$($oamIndex.ToString('x2'))."
         }
-        $loadedOffset = [int]$rickyGfxOffsets[$gfx]
-        $loadedCount = [int]$rickyGfxCounts[$gfx]
+        $loadedOffset = [int]$gfxOffsets[$gfx]
+        $loadedCount = [int]$gfxCounts[$gfx]
         for ($tile = 0; $tile -lt $loadedCount; $tile++) {
             $vramTiles[$tile] = $loadedOffset + $tile
         }
         # The animation byte selects a physical graphics row. The first byte
         # emitted by m_SpecialObjectGfxPointer then selects the OAM layout;
-        # those indexes intentionally diverge for several Ricky poses.
-        $rawOam = Resolve-MooshOam $rickyOamPointers[$oamIndex]
+        # those indexes intentionally diverge for several $companionName poses.
+        $rawOam = Resolve-MooshOam $oamPointers[$oamIndex]
         # Resolve each hardware OAM tile through the live VRAM map. Several
-        # Ricky rows load only the first two 8x16 cells and retain the remaining
+        # $companionName rows load only the first two 8x16 cells and retain the remaining
         # cells from the preceding row. Rebase that mixed set from its lowest
         # absolute source tile, rather than assuming every cell belongs to the
         # latest load. The separate byte offset also keeps hardware-relative
@@ -9883,12 +9911,12 @@ function Resolve-RickySpecialAnimation([string]$label) {
         $sourceTileBase = [int](
             $resolvedBlocks | Measure-Object -Property Tile -Minimum).Minimum
         if (($sourceTileBase -band 1) -ne 0) {
-            throw "$label graphic `$$($gfx.ToString('x2')) resolved to odd Ricky source tile `$$($sourceTileBase.ToString('x2'))."
+            throw "$label graphic `$$($gfx.ToString('x2')) resolved to odd $companionName source tile `$$($sourceTileBase.ToString('x2'))."
         }
         $oam = (@($resolvedBlocks | ForEach-Object {
             $relativeTile = $_.Tile - $sourceTileBase
             if ($relativeTile -lt 0 -or $relativeTile -gt 0xfe) {
-                throw "$label graphic `$$($gfx.ToString('x2')) spans more than one Ricky OAM tile byte."
+                throw "$label graphic `$$($gfx.ToString('x2')) spans more than one $companionName OAM tile byte."
             }
             $_.Fields[2] = $relativeTile.ToString()
             $_.Fields -join ','
@@ -9897,7 +9925,7 @@ function Resolve-RickySpecialAnimation([string]$label) {
         $frames.Add("$metadata@$oam")
         $sourceOffsets.Add(($sourceTileBase * 16).ToString('x'))
     }
-    if ($frames.Count -eq 0) { throw "Ricky animation $label has no frames." }
+    if ($frames.Count -eq 0) { throw "$companionName animation $label has no frames." }
     $encoded = $frames -join '|'
     if ($loopStart -gt 0) { $encoded += "~$loopStart" }
     return [pscustomobject]@{
@@ -9906,7 +9934,8 @@ function Resolve-RickySpecialAnimation([string]$label) {
     }
 }
 $rickyResolvedAnimations = @($rickyAnimationLabels | ForEach-Object {
-    Resolve-RickySpecialAnimation $_
+    Resolve-CompanionSpecialAnimation $_ Ricky $rickyGfxOffsets $rickyGfxCounts `
+        $rickyOamIndices $rickyOamPointers $rickyOamStart
 })
 $rickyAnimations = @($rickyResolvedAnimations | ForEach-Object { $_.Encoded })
 $rickyAnimationSourceOffsets = @($rickyResolvedAnimations | ForEach-Object {
@@ -9920,6 +9949,219 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ricky_companion_visual.tsv'),
     $rickyVisualRows)
 Copy-GeneratedFile 'gfx\common\spr_ricky.png' 'gfx\spr_ricky.png'
+
+# SPECIALOBJECT_DIMITRI $0c uses the same incremental VRAM/OAM format as
+# Ricky, including graphics rows which retain tiles from earlier frames.
+$dimitriGfxStart = $specialAnimationSource.IndexOf('specialObject0cGfxPointers:')
+$dimitriAnimStart = $specialAnimationSource.IndexOf('specialObject0cAnimationDataPointers:')
+$dimitriOamStart = $specialAnimationSource.IndexOf('specialObject0cOamDataPointers:')
+$dimitriOam = $specialOamTables['specialObject0cOamDataPointers']
+if ($null -eq $dimitriOam) { $dimitriOam = $specialOamTables['specialObject10OamDataPointers'] }
+$dimitriOffsets = @{}; $dimitriCounts = @{}; $dimitriIndices = @{}
+$dimitriGfx = 0
+foreach ($line in ($specialAnimationSource.Substring(
+    $dimitriGfxStart, $dimitriAnimStart - $dimitriGfxStart) -split '\r?\n')) {
+    if ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+spr_dimitri\s+\$(?<offset>[0-9a-f]{4})\s+\$(?<size>[0-9a-f]{2})') {
+        $dimitriIndices[$dimitriGfx] = [Convert]::ToInt32($Matches['oam'], 16)
+        $dimitriOffsets[$dimitriGfx] = [Convert]::ToInt32($Matches['offset'], 16) / 16
+        $dimitriCounts[$dimitriGfx] = [Convert]::ToInt32($Matches['size'], 16)
+        $dimitriGfx++
+    } elseif ($line -match 'm_SpecialObjectGfxPointer\s+\$(?<oam>[0-9a-f]{2})\s+\$0000') {
+        $dimitriIndices[$dimitriGfx] = [Convert]::ToInt32($Matches['oam'], 16)
+        $dimitriOffsets[$dimitriGfx] = 0
+        $dimitriCounts[$dimitriGfx] = 0
+        $dimitriGfx++
+    }
+}
+$dimitriLabels = @([regex]::Matches($specialAnimationSource.Substring(
+    $dimitriAnimStart, $dimitriOamStart - $dimitriAnimStart),
+    '(?m)^\s*\.dw\s+(?<label>animationData[0-9a-f]+)') | ForEach-Object { $_.Groups['label'].Value })
+if ($dimitriGfx -ne 54 -or $dimitriLabels.Count -ne 40 -or $null -eq $dimitriOam -or
+    $specialObjectCommonSource -notmatch '(?m)^\s*\.db \$60 \$0a ; 0x0c') {
+    throw "SPECIALOBJECT_DIMITRI `$0c graphics/OAM/animation contract changed: gfx=$dimitriGfx animations=$($dimitriLabels.Count) OAM=$($dimitriOam.Count)."
+}
+$dimitriResolved = @($dimitriLabels | ForEach-Object {
+    Resolve-CompanionSpecialAnimation $_ Dimitri $dimitriOffsets $dimitriCounts `
+        $dimitriIndices $dimitriOam $dimitriOamStart
+})
+$dimitriAnimations = @($dimitriResolved | ForEach-Object { $_.Encoded })
+$dimitriSourceOffsets = @($dimitriResolved | ForEach-Object { $_.SourceOffsets -join ',' })
+$dimitriRows = @(
+    '# sprite`tpalette`tanimations-base64`tanimation-source-offsets-base64`tlink-frames-base64`tlink-source-offsets`tsource',
+    "spr_dimitri`t2`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($dimitriAnimations -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($dimitriSourceOffsets -join "`n")))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`tspecialObjectAnimationData.s:specialObject0c,specialObject09")
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_visual.tsv'), $dimitriRows)
+Copy-GeneratedFile 'gfx\common\spr_dimitri.png' 'gfx\spr_dimitri.png'
+$dimitriSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\dimitri.s')
+if ($dimitriSource -notmatch '(?ms)^dimitriState5:.*?BTN_BIT_A.*?dimitriGotoEatingState.*?BTN_BIT_B.*?^dimitriUpdateMovement:.*?SPEED_c0.*?SPEED_100' -or
+    $dimitriSource -notmatch '(?ms)^dimitriAddWaterfallResistance:.*?TILEINDEX_WATERFALL.*?TILEINDEX_WATERFALL_BOTTOM.*?add \$c0') {
+    throw 'Dimitri riding/eating/waterfall source contract changed.'
+}
+$dimitriTexts = [Collections.Generic.List[string]]::new()
+$dimitriTexts.Add("# text-id`ttext-base64`tsource")
+foreach ($textId in @(0x2100,0x2101,0x2102,0x2104,0x2106)) {
+    $message = $allTexts[$textId].Replace('\jump(TX_2103)', $allTexts[0x2103])
+    $dimitriTexts.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message)))`tscripts.s:companionScript_subid06Script;scriptHelper.s:companionScript_subid07Script_body")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_texts.tsv'), $dimitriTexts)
+
+# Companion forest scripts retain every instruction, label and source line.
+$forestOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($op in @('showtext','checkmemoryeq','jumpifmemoryeq','jumpiftextoptioneq','scriptjump','wait','writememory','orroomflag','unsetglobalflag','setglobalflag','enableinput','disableinput','scriptend','asm15','writeobjectbyte','checktext')) { [void]$forestOpcodes.Add($op) }
+foreach ($sub in @('08','09','0a','0b')) {
+    $script = "companionScript_subid${sub}Script_body"
+    $commands = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') $script $forestOpcodes)
+    if ($sub -eq '08') {
+        $tail = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scriptHelper.s') 'script15_6e71' $forestOpcodes)
+        $commands += $tail
+    }
+    $targets = @{}
+    for ($i = 0; $i -lt $commands.Count; $i++) { if (!$targets.ContainsKey($commands[$i].Label)) { $targets[$commands[$i].Label] = $i } }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+    for ($i = 0; $i -lt $commands.Count; $i++) {
+        $command = $commands[$i]; $op = $command.Opcode; $args = ([string]$command.Operands).Trim(); $arg0 = ''; $arg1 = ''; $payload = ''
+        switch ($op) {
+            'showtext' { $arg0 = $args.Substring(3); $payload = $allTexts[[Convert]::ToInt32($arg0,16)] }
+            'wait' { $arg0 = $args }
+            'scriptjump' { if (!$targets.ContainsKey($args)) { throw "Unresolved forest jump $script : $args" }; $arg0 = "$($targets[$args])" }
+            'jumpiftextoptioneq' { if ($args -notmatch '^\$(?<value>[0-9a-f]{2}), (?<target>@\w+)$') { throw "Invalid forest choice: $args" }; if (!$targets.ContainsKey($Matches.target)) { throw "Unresolved forest choice $script : $args" }; $arg0=$Matches.value; $arg1="$($targets[$Matches.target])" }
+            { $_ -in @('checkmemoryeq','jumpifmemoryeq','writememory') } {
+                if ($args -notmatch '^(?<binding>[^,]+), (?<value>\$[0-9a-f]{2}|>w1Companion)(?:, (?<target>@\w+))?$') { throw "Invalid forest memory command $script : $args" }
+                $payload = $Matches.binding; $arg0 = if ($Matches.value -eq '>w1Companion') {'01'} else {$Matches.value.Substring(1)}
+                if ($op -eq 'jumpifmemoryeq') { if (!$targets.ContainsKey($Matches.target)) { throw "Unresolved forest memory jump $script : $args" }; $arg1="$($targets[$Matches.target])" }
+                if ($op -eq 'writememory' -and $payload -eq 'w1Companion.var03') { $op='native'; $payload='ForceMount'; $arg0='' }
+            }
+            'writeobjectbyte' { if ($args -ne 'Interaction.state, $02') { throw "Unknown forest state write: $args" }; $op='nativeyield'; $payload='GiveFlute' }
+            'asm15' {
+                $op='native'; $payload = switch ($args) {
+                    'companionScript_noticeLink' {'NoticeLink'}
+                    'companionScript_spawnFairyAfterFindingCompanionInForest' {'SpawnRescueFairy'}
+                    'companionScript_warpOutOfForest' {'WarpOut'}
+                    default { throw "Unknown forest helper $args" }
+                }
+            }
+            'orroomflag' { $arg0 = $args.TrimStart('$') }
+            'setglobalflag' { if (!$globalFlagValues.ContainsKey($args)) { throw "Unknown forest flag $args" }; $arg0 = $globalFlagValues[$args].ToString('x2') }
+            'unsetglobalflag' { if ($args -ne 'GLOBALFLAG_FOREST_UNSCRAMBLED') {throw "Unknown forest flag $args"}; $op='native'; $payload='ScrambleForest' }
+            { $_ -in @('enableinput','disableinput','scriptend','checktext') } { }
+            default { throw "Unsupported forest command $script : $op" }
+        }
+        $rows.Add((New-CutsceneCommandRow $script $i $command.Label $command.Line $op '' "$arg0" "$arg1" $payload))
+    }
+    Write-CutsceneGeneratedTable((Join-Path $destination "cutscenes\companion_forest_$sub.tsv"), $rows)
+}
+$forestTextRows = [Collections.Generic.List[string]]::new()
+$forestTextRows.Add("# text-id`ttext-base64`tsource")
+foreach ($id in @((0x1120..0x1147) + @(0x0039,0x006a))) {
+    $text = $allTexts[$id]
+    if ($null -eq $text) { throw "Missing forest text TX_$($id.ToString('x4'))" }
+    if ($id -eq 0x1121) { $text += ' ' + $allTexts[0x1122] }
+    if ($id -eq 0x113e) { $text += ' ' + $allTexts[0x113f] }
+    $text = $text.Replace('\jump(TX_113f)', $allTexts[0x113f])
+    $forestTextRows.Add("$($id.ToString('x4'))`t$(ConvertTo-CutsceneCommandPayload $text)`ttext/ages/text.yaml:TX_$($id.ToString('x4'))")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_text.tsv'), $forestTextRows)
+$forestRooms = [Collections.Generic.List[string]]::new()
+$forestRooms.Add("# group`troom`tsubid`tsource")
+foreach ($roomMatch in [regex]::Matches($mainObjectSource, '(?ms)^group(?<group>[0-9])Map(?<room>[0-9a-f]{2})ObjectData:\s*(?<body>.*?)(?=^\w+:|\z)')) {
+    foreach ($placement in [regex]::Matches($roomMatch.Groups['body'].Value, 'obj_Interaction \$71 \$(?<sub>0[89abc])')) {
+        $forestRooms.Add("$($roomMatch.Groups['group'].Value)`t$($roomMatch.Groups['room'].Value)`t$($placement.Groups['sub'].Value)`tmainData.s:$($roomMatch.Value.Split(':')[0])")
+    }
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_rooms.tsv'), $forestRooms)
+$forestFluteGraphic = $interactionGraphics['113:0']
+$forestFluteAnimation = Resolve-NpcAnimation 0x71 $forestFluteGraphic.DefaultAnimation
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_flute.tsv'), @(
+    "# sprite`ttile-base`tanimation-base64`tsource",
+    "$($gfxNames[$forestFluteGraphic.Gfx])`t$($forestFluteGraphic.TileBase)`t$(ConvertTo-CutsceneCommandPayload $forestFluteAnimation)`tcompanionScripts.s:companionScript_subid0a_state2/interactionData.s:71"))
+$forestExclamationGraphic = $interactionGraphics['159:0']
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_forest_exclamation.tsv'), @(
+    "# sprite`ttile-base`tpalette`tanimation-base64`tsource",
+    "$($gfxNames[$forestExclamationGraphic.Gfx])`t$($forestExclamationGraphic.TileBase)`t$($forestExclamationGraphic.Palette)`t$(ConvertTo-CutsceneCommandPayload (Resolve-NpcAnimation 0x9f $forestExclamationGraphic.DefaultAnimation))`tcompanionScript_makeExclamationMark/exclamationMark.s:9f"))
+foreach ($flag in @(@('GLOBALFLAG_TALKED_TO_HEAD_CARPENTER',0x22), @('GLOBALFLAG_GOT_FLUTE',0x23), @('GLOBALFLAG_SAVED_COMPANION_FROM_FOREST',0x24), @('GLOBALFLAG_COMPANION_LOST_IN_FOREST',0x42), @('GLOBALFLAG_FOREST_UNSCRAMBLED',0x2b), @('GLOBALFLAG_CAN_BUY_FLUTE',0x1d))) {
+    if ($globalFlagValues[$flag[0]] -ne $flag[1]) { throw "Companion forest native flag binding changed: $($flag[0])" }
+}
+if ($mooshHelperSource -notmatch 'm_HardcodedWarpA ROOM_AGES_063, \$00, \$56, \$03' -or
+    $companionSpawnerSource -notmatch '\.db \$00,\s+\$58, \$50, \$00 ; \$04' -or
+    $companionSpawnerSource -notmatch '\.db \$00,\s+\$48, \$68, \$00 ; \$05') {
+    throw 'Companion forest preset positions or outgoing warp contract changed.'
+}
+
+if ($companionSpawnerSource -notmatch '(?ms)^@subid03:\s*ld hl,wDimitriState\s*ld a,\(wEssencesObtained\)\s*bit 2,a\s*jr z,@deleteSelf\s*jr @loadCompanionPresetIfHasntLeft' -or
+    $companionSpawnerSource -notmatch '(?m)^\s*\.db SPECIALOBJECT_DIMITRI,\s+\$48, \$30, \$00 ; \$03\s*$') {
+    throw 'companionSpawner.s Dimitri preset $03 or essence predicate changed.'
+}
+$dimitriRooms = [Collections.Generic.List[string]]::new()
+$dimitriRooms.Add("# group`troom`trole`tx`ty`tsource")
+foreach ($roomMatch in [regex]::Matches($mainObjectSource, '(?ms)^group(?<group>[0-9])Map(?<room>[0-9a-f]{2})ObjectData:\s*(?<body>.*?)(?=^\w+:|\z)')) {
+    $body = $roomMatch.Groups['body'].Value
+    $role = if ($body -match 'obj_Interaction \$67 \$03') { 'preset' }
+        elseif ($body -match 'obj_Interaction \$71 \$06') { 'goodbye' } else { $null }
+    if ($null -ne $role) {
+        $dimitriRooms.Add("$($roomMatch.Groups['group'].Value)`t$($roomMatch.Groups['room'].Value)`t$role`t30`t48`tmainData.s:$($roomMatch.Value.Split(':')[0])")
+    }
+}
+if ($dimitriRooms.Count -ne 5) { throw 'Expected Dimitri preset and three mainland departure placements.' }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_rooms.tsv'), $dimitriRooms)
+$dimitriCollisionSource = Read-ImportText (Join-Path $Disassembly 'data\ages\objectCollisionTable.s')
+$dimitriCollisionBytes = @([regex]::Matches($dimitriCollisionSource, '(?m)^\s*\.db (?<bytes>[^;\r\n]+)') |
+    ForEach-Object { [regex]::Matches($_.Groups['bytes'].Value, '\$([0-9a-f]{2})') } |
+    ForEach-Object { [Convert]::ToInt32($_.Groups[1].Value, 16) })
+if ($dimitriCollisionBytes.Count % 32 -ne 0) { throw 'objectCollisionTable.s row stride changed.' }
+$dimitriCollisionRows = [Collections.Generic.List[string]]::new()
+$dimitriCollisionRows.Add("# enemy-mode`teffect`tsource")
+for ($mode = 0; $mode -lt $dimitriCollisionBytes.Count / 32; $mode++) {
+    $effect = $dimitriCollisionBytes[$mode * 32 + 0x0f]
+    if ($effect -notin @(0,0x1c,0x25,0x26)) { throw "Unsupported Dimitri mouth collision effect `$$( $effect.ToString('x2')) in enemy mode `$$( $mode.ToString('x2'))." }
+    $dimitriCollisionRows.Add("$($mode.ToString('x2'))`t$($effect.ToString('x2'))`tobjectCollisionTable.s:ITEMCOLLISION_DIMITRI_MOUTH")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_collisions.tsv'), $dimitriCollisionRows)
+
+$dimitriActiveSource = Read-ImportText (Join-Path $Disassembly 'data\ages\enemyActiveCollisions.s')
+$dimitriActiveRows = [Collections.Generic.List[string]]::new()
+$dimitriActiveRows.Add("# collision-type`tenabled`tsource")
+$dimitriActiveMatches = [regex]::Matches($dimitriActiveSource, '(?m)^\s*dbrev (?<bits>(?:%[01]{8}\s+){3}%[01]{8})\s*; 0x(?<id>[0-9a-f]{2})')
+foreach ($match in $dimitriActiveMatches) {
+    $bits = $match.Groups['bits'].Value -replace '[%\s]', ''
+    $id = $match.Groups['id'].Value
+    $dimitriActiveRows.Add("$id`t$($bits[0x0f])`tenemyActiveCollisions.s:0x$id/ITEMCOLLISION_DIMITRI_MOUTH")
+}
+if ($dimitriActiveMatches.Count -ne 128) { throw 'Expected 128 enemyActiveCollisions.s rows for Dimitri collision gating.' }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_active_collisions.tsv'), $dimitriActiveRows)
+
+# Native directional probes are ordered Y/X byte pairs. Collision probes are
+# cumulative deltas; carry and cliff probes are independent offsets.
+$dimitriNativeRows = [Collections.Generic.List[string]]::new()
+$dimitriNativeRows.Add("# kind`tindex`tx`ty`tsource")
+$dimitriCommonSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
+foreach ($probe in @(
+    @{ Kind='carry'; Source=$dimitriSource; Pattern='(?ms)^dimitriTileOffsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){4})'; Count=4; Cumulative=$false; Label='dimitri.s:dimitriTileOffsets' },
+    @{ Kind='cliff'; Source=$dimitriCommonSource; Pattern='(?ms)^companionCheckHopDownCliff:.*?^@directionOffsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){4})'; Count=4; Cumulative=$false; Label='commonCode.s:companionCheckHopDownCliff@directionOffsets' },
+    @{ Kind='collision'; Source=$dimitriCommonSource; Pattern='(?ms)^companionCalculateAdjacentWallsBitset:.*?^@offsets:(?<body>(?:\s*\.db[^\r\n]*[\r\n]+){8})'; Count=8; Cumulative=$true; Label='commonCode.s:companionCalculateAdjacentWallsBitset@offsets' }
+)) {
+    $match = [regex]::Match($probe.Source, $probe.Pattern)
+    if (!$match.Success) { throw "Missing Dimitri native probes: $($probe.Label)" }
+    $pairs = @([regex]::Matches($match.Groups['body'].Value, '\.db\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})'))
+    if ($pairs.Count -ne $probe.Count) { throw "Dimitri probe count changed: $($probe.Label)" }
+    $nativeX = 0; $nativeY = 0
+    for ($index=0; $index -lt $pairs.Count; $index++) {
+        $x = [Convert]::ToInt32($pairs[$index].Groups['x'].Value,16)
+        $y = [Convert]::ToInt32($pairs[$index].Groups['y'].Value,16)
+        if ($x -ge 128) { $x -= 256 }; if ($y -ge 128) { $y -= 256 }
+        if ($probe.Cumulative) { $nativeX += $x; $nativeY += $y } else { $nativeX=$x; $nativeY=$y }
+        $dimitriNativeRows.Add("$($probe.Kind)`t$index`t$nativeX`t$nativeY`t$($probe.Label)")
+    }
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\dimitri_native_probes.tsv'), $dimitriNativeRows)
+$nativeCollisionSource = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
+$nativeCollisionMatch = [regex]::Match($nativeCollisionSource, '(?ms)^checkCollisionPosition_disallowSmallBridges:.*?^@specialCollisions:(?<body>.*?)^_simpleCollision:')
+$nativeMasks = @([regex]::Matches($nativeCollisionMatch.Groups['body'].Value, '%([01]{8})'))
+if ($nativeMasks.Count -ne 16) { throw 'Companion special collision mask count changed.' }
+$nativeMaskRows = @("# index`tmask`tsource")
+for ($index=0; $index -lt 16; $index++) {
+    $nativeMaskRows += "$index`t$([Convert]::ToInt32($nativeMasks[$index].Groups[1].Value,2).ToString('x2'))`tbank0.s:checkCollisionPosition_disallowSmallBridges@specialCollisions"
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_collision_masks.tsv'), $nativeMaskRows)
 
 # SPECIALOBJECT_RICKY's mounted state owns A/B, movement hopping, ITEM_28's
 # direction-dependent punch, and ITEM_RICKY_TORNADO. Keep the gameplay

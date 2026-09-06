@@ -10,7 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class PostD3RemoteMakuEvent :
     IRoomEntryEvent,
-    IUpdatesDuringDialogueRoomEvent
+    IUpdatesDuringDialogueRoomEvent,
+    IRoomEventDialogueContext
 {
     private readonly RoomEventContext _context;
     private readonly PostD3RemoteMakuDatabase _database = new();
@@ -46,6 +47,18 @@ internal sealed class PostD3RemoteMakuEvent :
     internal NpcCharacter? Nayru => _nayru;
     internal BlackTowerExplanationScreen? TowerScreen => _towerScreen;
     internal PostD3RemoteMakuDatabase Database => _database;
+    public DialogueScreenContext? DialogueScreen => _stage switch
+    {
+        // disableLcdAndLoadRoom clears w1Link; resetCamera clears hCameraY.
+        // Gfx state $02 uses SCY=$f0 below the palace HUD.
+        >= PostD3RemoteMakuStage.PalaceFadeIn and <= PostD3RemoteMakuStage.LoadTower =>
+            _context.DialogueScreens.ClearedLink(0x02),
+        // Black Tower state 0 clears WRAM bank 1 again, writes
+        // wScreenOffsetY=$70, and selects gfx state $09 (SCY=$70).
+        >= PostD3RemoteMakuStage.TowerFadeIn and <= PostD3RemoteMakuStage.LoadReturnRoom =>
+            _context.DialogueScreens.ClearedLink(0x09, _database.Record.ScreenOffsetY),
+        _ => null
+    };
 
     public bool Matches(int group, OracleRoomData room)
     {

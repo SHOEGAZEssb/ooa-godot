@@ -209,15 +209,21 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(0x4f, 0);
         TokayEyeballSlotRoomEntity slot =
             _entities.Entities<TokayEyeballSlotRoomEntity>().Single();
-        Vector2 socketLinkPosition = slot.Position + Vector2.Down * 12.0f;
-        for (int update = 0; update < 9; update++)
+        Vector2 socketLinkPosition = slot.Position + Vector2.Down * 11.0f;
+        _player.WarpTo(socketLinkPosition, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(slot.PushCounter != 9,
+            "Tokay Eyeball socket must decrement to nine even after a failed-push reset.");
+        for (int update = 0; update < 8; update++)
+        {
             slot.UpdatePushAttempt(socketLinkPosition, Vector2I.Up, Vector2I.Up);
+            _entities.Update(1.0 / 60.0, _player);
+        }
         FailIf(
             slot.State != TokayEyeballSlotState.Waiting || slot.PushCounter != 1,
-            "Tokay Eyeball socket activated before ten upward push updates.");
+            "Tokay Eyeball socket lost the reset-then-decrement boundary.");
         slot.UpdatePushAttempt(socketLinkPosition, Vector2I.Up, Vector2I.Up);
-        FailIf(slot.State != TokayEyeballSlotState.BeginInsert,
-            "Tokay Eyeball socket rejected the tenth upward push with treasure `$4f.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.EyeWait || slot.Counter != 60 ||
@@ -784,7 +790,7 @@ public sealed partial class ValidationRoot
         FailIf(
             holdingItem.Stage != TokayHoldingItemStage.Reward ||
             swordHolder.HeldItemVisible ||
-            swordHolder.CurrentScriptAnimationSource != database.Animation(0x02),
+            swordHolder.NativeAnimation != TokayAnimationMode.FaceLink,
             "tokayHoldingItemScript did not remove its related accessory and " +
             "create the source-addressed sword treasure after 30 updates.");
         holdingItem.Cancel();
@@ -796,7 +802,7 @@ public sealed partial class ValidationRoot
             .OfType<TokayHoldingItemCharacter>()
             .Single(npc => npc.Record is { Id: 0x48, SubId: 0x06 });
         FailIf(
-            swordHolder.CurrentScriptAnimationSource != database.Animation(0x02) ||
+            swordHolder.NativeAnimation != TokayAnimationMode.FaceLink ||
             swordHolder.HeldItemVisible ||
             !holdingItem.TryInteractNpc(swordHolder) ||
             holdingItem.Stage != TokayHoldingItemStage.DialogueOnly,
@@ -881,6 +887,17 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
         FailIf(
+            trading.Stage != TokayTradingStage.ShopReturnText ||
+            !_inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
+            _inventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a28)),
+            "The return helper ran before TX_0a28 closed.");
+        StepRoomEventFrames(5);
+        FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureBracelet),
+            "The return helper changed inventory during TX_0a28.");
+        _dialogue.Close();
+        StepRoomEventFrames(1);
+        FailIf(
             trading.Stage != TokayTradingStage.ShopReward ||
             !_inventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
             _inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
@@ -922,6 +939,9 @@ public sealed partial class ValidationRoot
         _player.WarpTo(
             stock[0].Position + Vector2.Down * 10, recordSafe: false);
         _player.Face(Vector2I.Up);
+        _inventory.SetMysterySeedsFromScript(0x10);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
+        _inventory.GiveTreasure(0x24, 1);
         _inventory.SetMysterySeedsFromScript(0x10);
         selectedStock = trading.TryInteractPlayer(_player);
         FailIf(
@@ -1048,6 +1068,12 @@ public sealed partial class ValidationRoot
             "Wild Tokay did not lower the prize with animation `$02 before TX_0a14.");
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
+        StepRoomEventFrames(19);
+        FailIf(_dialogue.IsOpen || wildTokay.Counter != 1,
+            "TX_0a15 opened before the source 20-update wait.");
+        StepRoomEventFrames(1);
+        FailIf(_dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a15)),
+            "The accepted rules branch did not open TX_0a15 after 20 updates.");
         _dialogue.Close();
         StepRoomEventFrames(21);
         FailIf(
@@ -1228,9 +1254,12 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             participant.Active || participant.Position.Y != 136 ||
-            wildTokay.Stage != WildTokayGameStage.Wait,
-            "Wild Tokay participant `$48:$0c did not leave downward and fail " +
-            "the round at source Y `$88.");
+            wildTokay.Stage != WildTokayGameStage.Playing,
+            "Wild Tokay participant `$48:$0c did not publish failure after " +
+            "the controller slot at source Y `$88.");
+        StepRoomEventFrames(1);
+        FailIf(wildTokay.Stage != WildTokayGameStage.Wait || wildTokay.Counter != 30,
+            "The controller did not consume participant failure on its next update.");
         FailIf(
             !thrownMeat.Finished,
             "The first thrown meat did not expire before the losing return boundary.");
@@ -1309,6 +1338,7 @@ public sealed partial class ValidationRoot
             "open its losing replay prompt after return fade-in update 32.");
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
+        StepRoomEventFrames(20);
         _dialogue.Close();
         StepRoomEventFrames(21);
         FailIf(

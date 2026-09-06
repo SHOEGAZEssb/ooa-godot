@@ -1031,16 +1031,16 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    private void BeginPlayableHarpPose()
+    private void BeginPlayableHarpPose(bool flute = false)
     {
         _harpRenderer ??= new CutsceneSpriteRenderer();
         _itemHarpFrames ??=
             new NewGameIntroDatabase().SpriteFrames("link-harp-item");
-        _harpFrames = _itemHarpFrames;
-        if (_harpFrames.Length != 17)
+        _harpFrames = flute ? new NewGameIntroDatabase().SpriteFrames("link-flute-item") : _itemHarpFrames;
+        if (_harpFrames.Length != (flute ? 7 : 17))
         {
             throw new InvalidOperationException(
-                "Expected seventeen playable LINK_ANIM_MODE_HARP_2 frames.");
+                $"Expected {(flute ? 7 : 17)} playable {(flute ? "flute" : "harp")} animation frames.");
         }
 
         _harpFrame = 0;
@@ -1809,8 +1809,8 @@ public partial class Player : Node2D
                 _world.TryBeginSeedShooter(this, primaryButton: true, input))
                 return;
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA == InventoryState.ItemHarp)
-                StartHarpAction();
+                _inventory.EquippedA is InventoryState.ItemHarp or InventoryState.ItemFlute)
+                StartHarpAction(_inventory.EquippedA == InventoryState.ItemFlute);
         }
         else if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
@@ -1875,9 +1875,9 @@ public partial class Player : Node2D
                 return;
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemHarp)
+                _inventory.EquippedB is InventoryState.ItemHarp or InventoryState.ItemFlute)
             {
-                StartHarpAction();
+                StartHarpAction(_inventory.EquippedB == InventoryState.ItemFlute);
             }
         }
 
@@ -2119,6 +2119,16 @@ public partial class Player : Node2D
 
     internal bool CutsceneControlled => _cutsceneControlled;
     internal bool Walking => _walking;
+
+    internal void PutOnGroundForScript()
+    {
+        // bank0.s:putLinkOnGround leaves a mounted special object untouched.
+        if (_companionRideControlled || _minecartRideControlled || _raftRideControlled)
+            return;
+        ClearTopDownAirState();
+        ClearLedgeHop();
+        QueueRedraw();
+    }
 
     internal void BeginGetItemOneHandPose()
     {
@@ -5971,14 +5981,14 @@ public partial class Player : Node2D
 
     internal void StartHarpActionForValidation() => StartHarpAction();
 
-    private void StartHarpAction()
+    private void StartHarpAction(bool flute = false)
     {
         if (IsUsingItem || !IsGroundedForFloorButton ||
             _pullingIntoHole || _drowning || _fallingInHole)
         {
             return;
         }
-        int frames = _world.BeginHarp(this);
+        int frames = flute ? _world.BeginFlute(this) : _world.BeginHarp(this);
         if (frames <= 0)
             return;
         _usingHarp = true;
@@ -5986,7 +5996,7 @@ public partial class Player : Node2D
         _harpActionUpdate = 0;
         _harpActionFrames = frames;
         _harpFrameAccumulator = 0.0;
-        BeginPlayableHarpPose();
+        BeginPlayableHarpPose(flute);
     }
 
     private void AdvanceHarpAction()

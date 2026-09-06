@@ -12,6 +12,10 @@ internal sealed class SpikedBeetleRoomEntity
 {
     private readonly Action<int> _soundRequested;
 
+    // spikedBeetle.s changes enemyCollisionMode while overturned; its
+    // ENEMYCOLLISION_SPIKED_BEETLE_FLIPPED $51 mouth row is not edible.
+    public override int DimitriCollisionMode => Entity.FlippedCollision ? 0x51 : base.DimitriCollisionMode;
+
     public SpikedBeetleRoomEntity(
         SpikedBeetleCharacter beetle,
         EnemyCombatSourceDescriptor combatSource,

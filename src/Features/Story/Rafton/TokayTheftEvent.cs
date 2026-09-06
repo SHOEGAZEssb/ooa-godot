@@ -13,6 +13,8 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
     private const int ThiefCount = 5;
     private readonly RoomEventContext _context;
     private readonly TokayTheftEventDatabase _database = new();
+    private readonly TokayNativeDatabase _native = new();
+    private int _waveCounter;
     private readonly List<ThiefState> _thieves = [];
     private bool _active;
     private bool _initializing;
@@ -122,6 +124,18 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         }
         AdvanceLinkJump();
         SynchronizeAccessories();
+        // $6b:$08 follows all five thieves and the cliff NPC in the object
+        // stream. The main thief's cfd1 signal deletes it before this pass
+        // once Link jumps. Each wave consumes exactly one shared RNG byte.
+        if (_scriptStage == ScriptStage.InitialWait)
+        {
+            if (_waveCounter != 0) _waveCounter--;
+            else
+            {
+                _context.Sound.PlaySound(0xaa); // SND_WAVE
+                _waveCounter = _native.Constant($"wave-{_context.Entities.NextRandomValue() & 3}");
+            }
+        }
     }
 
     public void Cancel()
@@ -139,6 +153,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _scriptCounter = 0;
         _stealCounter = 0;
         _stolenCount = 0;
+        _waveCounter = 0;
         _linkZFixed = 0;
         _linkSpeedZ = 0;
         _linkFrame = 0;

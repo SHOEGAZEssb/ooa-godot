@@ -141,6 +141,7 @@ public sealed class PlayerWorld : IPlayerWorld
         int song = _harp.TryStart(player);
         return song < 0 ? 0 : _harp.Database.FramesForSong(song);
     }
+    public int BeginFlute(Player player) => _harp.TryStartFlute(player);
     public void AdvanceHarp(Player player, int actionUpdate) =>
         _harp.Advance(player, actionUpdate);
     public void CompleteHarp(Player player, int song) =>

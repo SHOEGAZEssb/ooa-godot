@@ -21,6 +21,7 @@ public partial class TimePortal : TransitionOffsetNode2D
     private bool _startsActive;
     private bool _linkWasOutside;
     private TimePortalState _state;
+    private bool _ranActiveUpdate;
 
     public PortalRecord Record { get; private set; }
     public bool Entered { get; private set; }
@@ -77,6 +78,7 @@ public partial class TimePortal : TransitionOffsetNode2D
             throw new InvalidOperationException(
                 "Temporary time portal has invalid animation data.");
         _state = TimePortalState.Active;
+        _ranActiveUpdate = true;
         Visible = true;
         QueueRedraw();
     }
@@ -107,8 +109,12 @@ public partial class TimePortal : TransitionOffsetNode2D
             _playSound(OracleSoundEngine.SndCtrlStopSfx);
             _playSound(OracleSoundEngine.SndTeleport);
             _state = TimePortalState.Active;
+            // interactionCodee1 state 2 returns after interactionIncState.
+            // Presentation and contact belong to the following state-3 update.
+            return;
         }
 
+        _ranActiveUpdate = true;
         if (!Temporary)
         {
             // INTERAC_TIMEPORTAL_SPAWNER uses objectFlickerVisibility with b=$01.
@@ -156,7 +162,7 @@ public partial class TimePortal : TransitionOffsetNode2D
 
     internal bool CheckLinkContact(Vector2 linkPosition)
     {
-        if (!Active || Entered)
+        if (!Active || !_ranActiveUpdate || Entered)
             return false;
         Vector2 delta = linkPosition - Position;
         bool overlaps =

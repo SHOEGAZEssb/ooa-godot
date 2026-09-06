@@ -13,7 +13,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
 {
     private readonly RickyCompanionBehaviorRecord _behavior;
     private readonly OracleRoomData _room;
-    private readonly RickyAttackTileBreaker _tileBreaker;
+    private readonly CompanionAttackTileBreaker _tileBreaker;
     private readonly EnemyAnimationPlayer _animation;
     private Vector2 _precisePosition;
     private readonly int _angle;
@@ -38,7 +38,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
         RickyTornadoSpawn spawn,
         RickyCompanionBehaviorRecord behavior,
         OracleRoomData room,
-        RickyAttackTileBreaker tileBreaker)
+        CompanionAttackTileBreaker tileBreaker)
     {
         _behavior = behavior;
         _room = room;

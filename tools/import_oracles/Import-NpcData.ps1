@@ -894,8 +894,10 @@ foreach ($key in @(
     }
 }
 
+[void]$specializedNpcImplementationKeys.Add('1:bc:ce:00:00')
+[void]$specializedNpcImplementationKeys.Add('1:90:ce:00:00')
 if ($ordinaryNpcImplementationKeys.Count -ne 61 -or
-    $specializedNpcImplementationKeys.Count -ne 82 -or
+    $specializedNpcImplementationKeys.Count -ne 84 -or
     $eventOwnedNpcImplementationKeys.Count -ne 22) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -1440,6 +1442,15 @@ $businessScrubConstantRows = @(
     "insufficient-text`t17671",
     "already-owned-text`t17672"
 )
+$businessScrubAllOfferRows = @("# subid`tprice`ttreasure`tparameter`tsource")
+$prices = [regex]::Match($businessScrubSource, '(?ms)^@itemPrices:\s+\.ifdef ROM_AGES\s+(?<rows>(?:\.dw \$[0-9a-f]{4}\s+){9})')
+if (-not $prices.Success) { throw 'Business Scrub Ages price table changed.' }
+$priceRows = [regex]::Matches($prices.Groups['rows'].Value, '\$([0-9a-f]{4})')
+for ($i = 0; $i -lt 9; $i++) {
+    $price = [int]::Parse($priceRows[$i].Groups[1].Value)
+    $businessScrubAllOfferRows += "$($i.ToString('x2'))`t$price`t01`t$(($i % 3 + 1).ToString('x2'))`tbusinessScrub.s:@itemPrices/@treasuresToSell"
+}
+Write-GeneratedTable((Join-Path $destination 'objects\business_scrub_all_offers.tsv'), $businessScrubAllOfferRows)
 $businessScrubAnimationRows =
     [Collections.Generic.List[string]]::new()
 $businessScrubAnimationRows.Add(
@@ -2868,6 +2879,34 @@ if ([string]::IsNullOrWhiteSpace($tokaySeedlingAnimation)) {
 }
 $tokaySeedlingSprite = $gfxNames[$tokaySeedlingGraphic.Gfx]
 [void]$npcSpriteNames.Add($tokaySeedlingSprite)
+$tokayEmberSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\tokayCutsceneEmberSeed.s')
+if ($tokayEmberSource -notmatch '(?ms)^@state0:.*?ld bc,-\$100.*?interactionSetAlwaysUpdateBit.*?objectSetVisible80.*?^@state1:.*?ld c,\$10.*?objectUpdateSpeedZ_paramC.*?objectSetInvisible.*?wTextIsActive.*?^@state2:.*?retIfTextIsActive.*?ld a,\$0a.*?ld \(hl\),\$06.*?ld \(hl\),58.*?ld a,\$0b.*?^@state3:.*?interactionAnimate.*?interactionDecCounter1.*?interactionDelete') {
+    throw 'INTERAC_TOKAY_CUTSCENE_EMBER_SEED $8f native arc/dialogue/flame contract changed.'
+}
+$tokayEmberGraphic = $interactionGraphics['143:0']
+if ($null -eq $tokayEmberGraphic -or -not $gfxNames.ContainsKey($tokayEmberGraphic.Gfx)) {
+    throw 'Could not resolve INTERAC_TOKAY_CUTSCENE_EMBER_SEED $8f initial graphics.'
+}
+$tokayEmberSprite = $gfxNames[$tokayEmberGraphic.Gfx]
+$tokayEmberAnimation = Resolve-NpcAnimation 0x8f $tokayEmberGraphic.DefaultAnimation
+$tokayFlameAnimation = Resolve-NpcAnimation 0x8f 0x0b
+if ([string]::IsNullOrWhiteSpace($tokayEmberAnimation) -or [string]::IsNullOrWhiteSpace($tokayFlameAnimation)) {
+    throw 'Could not resolve INTERAC_TOKAY_CUTSCENE_EMBER_SEED $8f animations.'
+}
+[void]$npcSpriteNames.Add($tokayEmberSprite)
+[void]$npcSpriteNames.Add('spr_common_sprites')
+$tokayEmberRows = @(
+    "# sprite`ttile-base`tpalette`tseed-animation`tflame-sprite`tflame-tile-base`tflame-palette`tflame-animation`tspeed-z`tgravity`tflame-counter`tsource",
+    "$tokayEmberSprite`t$($tokayEmberGraphic.TileBase.ToString('x2'))`t$($tokayEmberGraphic.Palette.ToString('x2'))`t$tokayEmberAnimation`tspr_common_sprites`t06`t02`t$tokayFlameAnimation`t-256`t16`t58`ttokayCutsceneEmberSeed.s:interactionCode8f;interactionAnimations.s:interaction8fAnimations"
+)
+$tokayEmberPlacements = @([regex]::Matches($tokayScriptSource,
+    'spawninteraction INTERAC_TOKAY_CUTSCENE_EMBER_SEED, \$00, \$(?<y>[0-9a-f]{2}), \$(?<x>[0-9a-f]{2})'))
+if ($tokayEmberPlacements.Count -ne 2) { throw 'Expected two ordered Tokay rescue Ember Seed placements.' }
+$tokayEmberPlacementRows = @("# order`ty`tx`tsource")
+for ($index = 0; $index -lt $tokayEmberPlacements.Count; $index++) {
+    $placement = $tokayEmberPlacements[$index]
+    $tokayEmberPlacementRows += "$index`t$($placement.Groups['y'].Value)`t$($placement.Groups['x'].Value)`tscripts.s:tokayWithDimitri1Script"
+}
 $tokaySeedlingPlotRows = @(
     '# group`troom`tnpc-id`tnpc-subid`tdecoration-id`tdecoration-subid`ty`tx`troom-flag`tspeed`tmove-counter`tplanted-x-offset`tintro-wait`tdone-wait`tsprite`ttile-base`tpalette`tanimation`tsource',
     (@(
@@ -2976,11 +3015,26 @@ if ($null -eq $wildTokayParticipantGraphic -or
     throw 'INTERAC_TOKAY `$48 no longer initializes with downward animation `$02.'
 }
 
+# The two moveleft operands are counter2 values, not pixel distances.
+# interactionRunScript decrements first, moves only while nonzero, then
+# resumes the script on the following update.
+if ($tokaySource -notmatch '(?ms)^@initSubid0f:.*?^@initSubid10:.*?ld a,SPEED_200\s*ld \(de\),a' -or
+    $tokayScriptSource -notmatch '(?ms)^tokayWithDimitri1Script:.*?showtextlowindex <TX_0a25\s*ormemory w1Companion.var3e, \$08\s*moveleft \$(?<first>[0-9a-f]{2})\s*enablemenu\s*scriptend') {
+    throw 'Tokay $48:$0f-$10 departure speed or first moveleft script changed.'
+}
+$tokayDimitriFirstMoveCounter = [Convert]::ToInt32($Matches['first'], 16)
+if ($tokayScriptSource -notmatch '(?ms)^tokayWithDimitri2Script:.*?@wait:\s*jumpifmemoryset w1Companion.var3e, \$08, @runAway\s*wait 1\s*scriptjump @wait\s*@runAway:\s*moveleft \$(?<second>[0-9a-f]{2})\s*ormemory wDimitriState, \$02\s*enableallobjects\s*scriptend') {
+    throw 'Tokay $48:$10 departure signal, moveleft, or completion write changed.'
+}
+$tokayDimitriSecondMoveCounter = [Convert]::ToInt32($Matches['second'], 16)
 $tokayInteractionConstantRows = @(
     '# key`tvalue',
     'tokay-id`t72',
     'room-flag-item`t32',
     'dimitri-state-address`t50759',
+    'dimitri-departure-speed`t80',
+    "dimitri-first-move-counter`t$tokayDimitriFirstMoveCounter",
+    "dimitri-second-move-counter`t$tokayDimitriSecondMoveCounter",
     "treasure-sword`t$($treasureIds['TREASURE_SWORD'])",
     "treasure-harp`t$($treasureIds['TREASURE_HARP'])",
     "treasure-shovel`t$($treasureIds['TREASURE_SHOVEL'])",
@@ -3096,6 +3150,49 @@ foreach ($spec in $tokayHolderSpecs) {
         ([int]$graphic.Palette).ToString('x2'), $animation
     ) -join "`t"))
 }
+
+# Native Tokay operands and non-NPC children. Runtime never reads assembly.
+$tokayNativeRows = [Collections.Generic.List[string]]::new()
+$tokayNativeRows.Add("# key`tvalue`tsource")
+foreach ($speed in @('020', '100', '180', '200', '300')) {
+    $speedSymbol = $speed.TrimStart('0')
+    $match = [regex]::Match($objectSpeedSource, "(?m)^\s*SPEED_$speedSymbol\s+dsb\s+\d+\s*;\s*0x(?<value>[0-9a-f]{2})\s*$")
+    if (-not $match.Success) { throw "Tokay native speed SPEED_$speed was not resolved." }
+    $tokayNativeRows.Add("speed-$speed`t$([Convert]::ToInt32($match.Groups['value'].Value, 16))`tobjectSpeeds.s:SPEED_$speed")
+}
+$cookPaths = [regex]::Matches($tokaySource, '(?m)^\s*dbwb \$(?<angle>[0-9a-f]{2}), -\$(?<z>[0-9a-f]+), -\$(?<gravity>[0-9a-f]{2})\s*$')
+if ($cookPaths.Count -ne 6) { throw 'tokayRunStinkBagCutscene must have six jump paths.' }
+$tokayCookPathRows = @("# index`tangle`tspeed-z`tgravity`tsource")
+for ($i = 0; $i -lt $cookPaths.Count; $i++) {
+    $p = $cookPaths[$i]
+    $tokayCookPathRows += "$i`t$($p.Groups['angle'].Value)`t$(-[Convert]::ToInt32($p.Groups['z'].Value,16))`t$(256-[Convert]::ToInt32($p.Groups['gravity'].Value,16))`ttokay.s:tokayRunStinkBagCutscene@jumpPaths"
+}
+$waveSource = Read-ImportText (Join-Path $Disassembly 'code\ages\cutscenes\bank10.s')
+$waveMatch = [regex]::Match($waveSource, '(?ms)^@playWaveSoundAtRandomIntervals_body:.*?getRandomNumber\s+and \$03.*?^@@data:\s+\.db (?<values>\$[0-9a-f]{2}(?: \$[0-9a-f]{2}){3})')
+if (-not $waveMatch.Success) { throw 'Could not trace theft wave RNG intervals.' }
+$waveValues = @([regex]::Matches($waveMatch.Groups['values'].Value, '\$([0-9a-f]{2})'))
+for ($i = 0; $i -lt 4; $i++) {
+    $tokayNativeRows.Add("wave-$i`t$([Convert]::ToInt32($waveValues[$i].Groups[1].Value,16))`tbank10.s:playWaveSoundAtRandomIntervals_body")
+}
+$tokayVisualRows = @("# key`tid`tsubid`tsprite`ttile-base`tpalette`tanimation`tsource")
+foreach ($spec in @(
+    @{ Key='shield1'; Id=0x63; Subid=0x14 },
+    @{ Key='shield2'; Id=0x63; Subid=0x15 },
+    @{ Key='museum-meat'; Id=0x63; Subid=0x73 },
+    @{ Key='rosa-shovel'; Id=0x6b; Subid=0x09 },
+    @{ Key='exclamation'; Id=0x9f; Subid=0x00 }
+)) {
+    $graphic = $interactionGraphics["$($spec.Id):$($spec.Subid)"]
+    if ($null -eq $graphic) { throw "Missing Tokay visual $($spec.Key)." }
+    $sprite = if ($graphic.Gfx -eq 0) { 'spr_common_sprites' } else { $gfxNames[$graphic.Gfx] }
+    $animation = Resolve-NpcAnimation $spec.Id $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($sprite) -or [string]::IsNullOrWhiteSpace($animation)) { throw "Unresolved Tokay visual $($spec.Key)." }
+    [void]$npcSpriteNames.Add($sprite)
+    $tokayVisualRows += (@($spec.Key, $spec.Id.ToString('x2'), $spec.Subid.ToString('x2'), $sprite, $graphic.TileBase.ToString('x2'), $graphic.Palette.ToString('x2'), $animation, 'tokay.s/rosa.s/miscellaneous1.s:initialization') -join "`t")
+}
+Write-GeneratedTable((Join-Path $destination 'objects\tokay_native_constants.tsv'), $tokayNativeRows)
+Write-GeneratedTable((Join-Path $destination 'objects\tokay_cook_paths.tsv'), $tokayCookPathRows)
+Write-GeneratedTable((Join-Path $destination 'objects\tokay_native_visuals.tsv'), $tokayVisualRows)
 
 $wildTokayPatternRows = [Collections.Generic.List[string]]::new()
 $wildTokayPatternRows.Add("# level`trandom-index`tpattern`tleft-count`tright-count")
@@ -4372,9 +4469,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 61 -or
-    $npcImplementationCounts['specialized-native'] -ne 84 -or
+    $npcImplementationCounts['specialized-native'] -ne 86 -or
     $npcImplementationCounts['event-owned'] -ne 22 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 216 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 214 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -6215,6 +6312,8 @@ $npcPath = Join-Path $destination "objects\npcs.tsv"
 Write-GeneratedTable($npcPath, $npcRows)
 $tokayInteractionConstantsPath = Join-Path $destination "objects\tokay_interaction_constants.tsv"
 Write-GeneratedTable($tokayInteractionConstantsPath, $tokayInteractionConstantRows)
+Write-GeneratedTable((Join-Path $destination 'objects\tokay_rescue_ember.tsv'), $tokayEmberRows)
+Write-GeneratedTable((Join-Path $destination 'objects\tokay_rescue_ember_placements.tsv'), $tokayEmberPlacementRows)
 $tokayShopConstantsPath = Join-Path $destination "objects\tokay_shop_constants.tsv"
 Write-GeneratedTable($tokayShopConstantsPath, $tokayShopConstantRows)
 $wildTokayConstantsPath = Join-Path $destination "objects\wild_tokay_constants.tsv"

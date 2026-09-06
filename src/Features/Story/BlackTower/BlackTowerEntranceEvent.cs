@@ -8,8 +8,10 @@ namespace oracleofages;
 /// room $1:$86. Room bits $40/$80 select the return and completed phases.
 /// </summary>
 internal sealed class BlackTowerEntranceEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost, IRoomEventDialogueContext
 {
+    public DialogueScreenContext? DialogueScreen => _screen is null ? null :
+        _context.DialogueScreens.ClearedLink(0x09, _record.ScreenOffsetY);
 
     private const int FadeFrames = 32;
     private readonly RoomEventContext _context;

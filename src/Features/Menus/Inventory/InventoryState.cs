@@ -13,6 +13,7 @@ public sealed class InventoryState
     public const int ItemBomb = 0x03;
     public const int ItemSword = 0x05;
     public const int ItemShooter = 0x0f;
+    public const int ItemFlute = 0x0e;
     public const int ItemHarp = 0x11;
     public const int ItemShovel = 0x15;
     public const int ItemBracelet = 0x16;

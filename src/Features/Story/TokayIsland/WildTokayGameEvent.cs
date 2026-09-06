@@ -26,6 +26,11 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
     private int _counter;
+    private int _pendingChoice;
+    private readonly LinkedGameNpcDatabase _secrets = new();
+    private Func<int, Action<bool>, bool>? _openSecretMenu;
+    private bool _validSecret;
+    internal void SetSecretMenuOpener(Func<int, Action<bool>, bool> opener) => _openSecretMenu = opener;
     private bool _inputLocked;
     private int _savedEquippedA;
     private int _savedEquippedB;
@@ -33,8 +38,11 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     private int _wildSpawnCounter;
     private bool _present;
     private bool _won;
+    private int _roundResult;
+    private bool _roundEntitiesActive;
     private bool _inventoryOverridden;
     private bool _prizePrepared;
+    private bool _canAffordRound;
     private bool _ringPrize;
     private bool _ownsFade;
     private int _fadeCounter;
@@ -83,10 +91,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         {
             case 0x0d:
                 _actor = npc;
+                ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
                 BeginPastManager();
                 return true;
             case 0x19:
                 _actor = npc;
+                ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
                 BeginPresentManager();
                 return true;
             default:
@@ -95,6 +105,16 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     }
 
     public void UpdateFrame()
+    {
+        int existingParticipants = _participants.Count;
+        var actor = _actor as TokayCharacter;
+        UpdateController();
+        actor?.RunNativeUpdate(_context.Player);
+        if (_roundEntitiesActive)
+            UpdateParticipants(existingParticipants);
+    }
+
+    private void UpdateController()
     {
         if (_stage == WildTokayGameStage.Inactive)
             return;
@@ -132,6 +152,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         _reward?.Finish(_context.Player);
         _reward = null;
         ClearGameEntities();
@@ -164,6 +185,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void BeginPresentManager()
     {
+        _present = true;
         OracleSaveData save = _context.Rooms.SaveData;
         if (!save.HasGlobalFlag(_database.FinishedGameFlag))
         {
@@ -172,7 +194,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         }
         if (save.HasGlobalFlag(_database.DoneSecretFlag))
         {
-            ShowDialogueOnly(0x0a53);
+            ShowReturnSecret(0x0a53);
             return;
         }
         LockInput();
@@ -208,7 +230,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 FinishInteraction();
                 break;
             case WildTokayGameStage.IntroText:
-                BeginWait(20, WildTokayGameStage.Begin);
+                BeginWait(_present ? 40 : 20, WildTokayGameStage.Begin);
                 break;
             case WildTokayGameStage.StartText:
                 UnlockInput();
@@ -221,45 +243,30 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 BeginWait(_present ? 60 : 20, WildTokayGameStage.Finish);
                 break;
             case WildTokayGameStage.LossPrompt:
-                ResolveLossPrompt();
+                if (_present)
+                {
+                    _pendingChoice = TakeChoice();
+                    BeginWait(20, WildTokayGameStage.PresentResolveLoss);
+                }
+                else ResolveLossPrompt(TakeChoice());
                 break;
             case WildTokayGameStage.PresentSecretPrompt:
-                if (TakeChoice() == 0)
-                {
-                    // Shared secret-entry UI is not yet available; retain the
-                    // original invalid-secret result without inventing state.
-                    Show(0x0a48);
-                }
-                else
-                {
-                    Show(0x0a46);
-                }
-                _stage = WildTokayGameStage.DialogueOnly;
+                _pendingChoice = TakeChoice();
+                BeginWait(20, WildTokayGameStage.PresentResolveSecretPrompt);
+                break;
+            case WildTokayGameStage.PresentEnteringSecret:
                 break;
             case WildTokayGameStage.PresentPlayPrompt:
-                if (TakeChoice() != 0)
-                {
-                    Show(0x0a52);
-                    _stage = WildTokayGameStage.DialogueOnly;
-                }
-                else
-                {
-                    ShowChoice(0x0a4a);
-                    _stage = WildTokayGameStage.PresentRulesPrompt;
-                }
+                _pendingChoice = TakeChoice();
+                BeginWait(2, WildTokayGameStage.PresentResolvePlay);
                 break;
             case WildTokayGameStage.PresentRulesPrompt:
-                if (TakeChoice() == 0)
-                {
-                    Show(0x0a4c);
-                    _present = true;
-                    _wildLevel = 2;
-                    _stage = WildTokayGameStage.IntroText;
-                }
-                else
-                {
-                    ShowChoice(0x0a4b);
-                }
+                _pendingChoice = TakeChoice();
+                BeginWait(2, WildTokayGameStage.PresentResolveRules);
+                break;
+            case WildTokayGameStage.PresentRulesExplanation:
+                _pendingChoice = TakeChoice();
+                BeginWait(20, WildTokayGameStage.PresentResolveRules);
                 break;
             case WildTokayGameStage.PresentWinText:
                 BeginWait(30, WildTokayGameStage.PresentGiveBombUpgrade);
@@ -286,6 +293,18 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 LowerPrize();
                 ShowChoice(0x0a14);
                 break;
+            case WildTokayGameStage.PastRulesExplanation:
+                ShowChoice(0x0a26);
+                _stage = WildTokayGameStage.PastManagerRulesPrompt;
+                break;
+            case WildTokayGameStage.BeginText:
+                if (_present) _wildLevel = 2;
+                Show(_present ? 0x0a4c : 0x0a15);
+                _stage = WildTokayGameStage.IntroText;
+                break;
+            case WildTokayGameStage.ReleaseAfterPrize:
+                FinishInteraction();
+                break;
             case WildTokayGameStage.PastManagerDeclined:
                 LowerPrize();
                 Show(0x0a1a);
@@ -305,7 +324,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 Show(0x0a16);
                 break;
             case WildTokayGameStage.ResultText:
-                Show(_won ? 0x0a18 : 0x0a17);
+                if (_present)
+                    BeginWait(60, WildTokayGameStage.Finish);
+                else
+                    Show(_won ? 0x0a18 : 0x0a17);
                 break;
             case WildTokayGameStage.Finish:
                 BeginGameReturn();
@@ -315,6 +337,58 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 break;
             case WildTokayGameStage.PresentGiveBombUpgrade:
                 GivePresentBombUpgrade();
+                break;
+            case WildTokayGameStage.PresentResolvePlay:
+                BeginWait(20, _pendingChoice == 0
+                    ? WildTokayGameStage.PresentRulesPrompt
+                    : WildTokayGameStage.PresentDeclined);
+                break;
+            case WildTokayGameStage.PresentDeclined:
+                ShowDialogueOnly(0x0a52);
+                break;
+            case WildTokayGameStage.PresentRulesPrompt:
+                ShowChoice(0x0a4a);
+                break;
+            case WildTokayGameStage.PresentResolveRules:
+                BeginWait(20, _pendingChoice == 0
+                    ? WildTokayGameStage.BeginText
+                    : WildTokayGameStage.PresentRulesExplanation);
+                break;
+            case WildTokayGameStage.PresentRulesExplanation:
+                ShowChoice(0x0a4b);
+                break;
+            case WildTokayGameStage.PresentResolveSecretPrompt:
+                if (_pendingChoice != 0)
+                {
+                    BeginWait(30, WildTokayGameStage.PresentSecretDeclined);
+                    break;
+                }
+                _stage = WildTokayGameStage.PresentEnteringSecret;
+                if (_openSecretMenu is null || !_openSecretMenu(0x05, valid =>
+                    {
+                        _validSecret = valid;
+                        BeginWait(20, WildTokayGameStage.PresentSecretResult);
+                    }))
+                    throw new InvalidOperationException("tokayGameManagerScript_present: askforsecret TOKAY_SECRET could not acquire MENU_SECRET.");
+                break;
+            case WildTokayGameStage.PresentSecretDeclined:
+                ShowDialogueOnly(0x0a46);
+                break;
+            case WildTokayGameStage.PresentSecretResult:
+                if (!_validSecret) ShowDialogueOnly(0x0a48);
+                else
+                {
+                    _context.Rooms.SaveData.SetGlobalFlag(_database.BeganSecretFlag);
+                    ShowChoice(0x0a47);
+                    _stage = WildTokayGameStage.PresentPlayPrompt;
+                }
+                break;
+            case WildTokayGameStage.PresentSecretReward:
+                _context.Rooms.SaveData.SetGlobalFlag(_database.DoneSecretFlag);
+                ShowReturnSecret(0x0a50);
+                break;
+            case WildTokayGameStage.PresentResolveLoss:
+                ResolveLossPrompt(_pendingChoice);
                 break;
             default:
                 throw new InvalidOperationException(
@@ -327,14 +401,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         switch (_stage)
         {
             case WildTokayGameStage.Prize:
-                FinishInteraction();
+                BeginWait(30, WildTokayGameStage.ReleaseAfterPrize);
                 break;
             case WildTokayGameStage.PresentBombReward:
-                _context.Rooms.SaveData.SetGlobalFlag(_database.DoneSecretFlag);
-                // TX_0a50 embeds the generated Holodrum return secret. The
-                // shared return-secret subsystem is not yet available, so end
-                // after the source Bomb Upgrade instead of fabricating it.
-                FinishInteraction();
+                BeginWait(30, WildTokayGameStage.PresentSecretReward);
                 break;
             default:
                 throw new InvalidOperationException(
@@ -349,7 +419,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             BeginWait(20, WildTokayGameStage.PastManagerDeclined);
             return;
         }
-        if (_context.Inventory.Rupees < 10)
+        if (!_canAffordRound)
         {
             BeginWait(20, WildTokayGameStage.PastManagerNoRupees);
             return;
@@ -362,15 +432,16 @@ internal sealed class WildTokayGameEvent : IRoomEvent
     {
         if (TakeChoice() != 0)
         {
-            ShowChoice(0x0a26);
+            BeginWait(20, WildTokayGameStage.PastRulesExplanation);
             return;
         }
-        Show(0x0a15);
-        _stage = WildTokayGameStage.IntroText;
+        BeginWait(20, WildTokayGameStage.BeginText);
     }
 
     private void BeginGame()
     {
+        _roundEntitiesActive = true;
+        _roundResult = 0;
         // tokayRunSubid0d/tokayRunSubid19 delete the manager after the start
         // fade, immediately before INTERAC_WILD_TOKAY_CONTROLLER initializes.
         RequireActor().SetActive(false);
@@ -482,7 +553,24 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void UpdateGame()
     {
-        for (int index = _participants.Count - 1; index >= 0; index--)
+        // $70's slot precedes its spawned meat and participant slots. A
+        // participant result is consumed on the following controller update.
+        if (_roundResult != 0)
+        {
+            EndRound(_roundResult == 1);
+            return;
+        }
+        if (_meats.All(meat => meat.Finished || meat.Thrown || meat.Lifted))
+            SpawnMeat();
+        if (--_wildSpawnCounter > 0) return;
+        _wildSpawnCounter = _database.GameSpawnDelay;
+        WildTokaySpawnInstruction instruction = _wildSchedule.Advance();
+        if (instruction.Code != 0) SpawnParticipants(instruction.Code, instruction.Final);
+    }
+
+    private void UpdateParticipants(int count)
+    {
+        for (int index = 0; index < count; index++)
         {
             WildParticipantState participant = _participants[index];
             if (!participant.Actor.Active)
@@ -493,14 +581,12 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                 UpdateParticipantAccessory(participant);
                 continue;
             }
-            participant.Actor.SetStatePosition(
-                participant.Actor.Position + Vector2.Down * participant.Speed);
             if (!participant.HoldingMeat)
             {
                 foreach (WildTokayMeat meat in _meats)
                 {
                     if (!meat.Finished && meat.Thrown &&
-                        (meat.Position - participant.Actor.Position).LengthSquared() < 100)
+                        CanParticipantCatch(participant.Actor.Position, meat.Position))
                     {
                         meat.Catch();
                         participant.HoldingMeat = true;
@@ -513,37 +599,32 @@ internal sealed class WildTokayGameEvent : IRoomEvent
                     }
                 }
             }
+            participant.Actor.SetStatePosition(
+                participant.Actor.Position + Vector2.Down * participant.Speed);
             UpdateParticipantAccessory(participant);
             // wildTokayParticipantSubstate2 keeps the participant while
             // (yh + $08) < $90, then handles its result at Y $88.
             if (participant.Actor.Position.Y < 0x88)
+            {
+                participant.Actor.AdvanceAnimationUpdates(1);
                 continue;
+            }
             participant.Actor.SetActive(false);
             RemoveParticipantAccessory(participant);
             if (!participant.HoldingMeat)
             {
-                EndRound(won: false);
-                return;
+                _roundResult = 0xff;
             }
-            if (participant.Red)
+            else if (participant.Red)
             {
-                EndRound(won: true);
-                return;
+                _roundResult = 1;
             }
         }
-
-        // tokayMeat state 2 creates the replacement immediately after Link
-        // grabs the current meat, before he releases it.
-        if (_meats.All(meat => meat.Finished || meat.Thrown || meat.Lifted))
-            SpawnMeat();
-
-        if (--_wildSpawnCounter > 0)
-            return;
-        _wildSpawnCounter = _database.GameSpawnDelay;
-        WildTokaySpawnInstruction instruction = _wildSchedule.Advance();
-        if (instruction.Code != 0)
-            SpawnParticipants(instruction.Code, instruction.Final);
     }
+
+    internal static bool CanParticipantCatch(Vector2 actor, Vector2 meat) =>
+        ((Mathf.FloorToInt(meat.X) - Mathf.FloorToInt(actor.X) + 10) & 0xff) <= 20 &&
+        ((Mathf.FloorToInt(meat.Y) - Mathf.FloorToInt(actor.Y) + 10) & 0xff) <= 20;
 
     private void SpawnParticipants(int code, bool final)
     {
@@ -579,6 +660,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         actor.SetScriptAnimation(
             _interactions.Animation(_database.ParticipantAnimation));
         actor.SetBlocksLink(false);
+        actor.SetAnimationRate(0);
         if (red)
             actor.SetBasePalette(2);
         float speed = _wildLevel >= 3 ? 0.625f : 0.5f;
@@ -670,6 +752,8 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void ClearGameEntities()
     {
+        _roundEntitiesActive = false;
+        _roundResult = 0;
         foreach (WildParticipantState participant in _participants)
         {
             if (GodotObject.IsInstanceValid(participant.Actor))
@@ -794,13 +878,14 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             }
             return;
         }
+        _canAffordRound = _context.Inventory.Rupees >= 10;
         ShowChoice(_present ? 0x0a4d : 0x0a19);
         _stage = WildTokayGameStage.LossPrompt;
     }
 
-    private void ResolveLossPrompt()
+    private void ResolveLossPrompt(int choice)
     {
-        if (TakeChoice() != 0)
+        if (choice != 0)
         {
             if (_present)
                 Show(0x0a4e);
@@ -816,16 +901,14 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         }
         if (!_present)
         {
-            if (_context.Inventory.Rupees < 10)
+            if (!_canAffordRound)
             {
-                Show(0x0a1b);
-                _stage = WildTokayGameStage.PastManagerNoRupees;
+                BeginWait(20, WildTokayGameStage.PastManagerNoRupees);
                 return;
             }
             _context.Inventory.AddRupees(-10);
         }
-        Show(_present ? 0x0a4c : 0x0a15);
-        _stage = WildTokayGameStage.IntroText;
+        BeginWait(20, WildTokayGameStage.BeginText);
     }
 
     private void GivePrize()
@@ -834,9 +917,20 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         {
             int ring = _ringDatabase.SelectRing(
                 2, (byte)_context.Entities.NextRandomValue());
-            _context.Inventory.GiveUnappraisedRing(ring);
+            Vector2 position = _context.Player.Position;
+            _reward = _context.Entities.GrantGroundTreasure(new GroundTreasureGrantRequest(
+                _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, 0,
+                Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
+                "TREASURE_OBJECT_RING_00", "scriptHelper.s:tokayGame_givePrizeToLink@giveRingToLink")
+            {
+                SpawnMode = 0,
+                GrabMode = 2,
+                InventoryWrite = GroundTreasureInventoryWrite.UnappraisedRing,
+                InventoryParameter = ring,
+                RoomFlagTiming = GroundTreasureRoomFlagTiming.Never
+            }, _context.Player);
             _prizePrepared = false;
-            FinishInteraction();
+            _stage = WildTokayGameStage.Prize;
             return;
         }
 
@@ -874,6 +968,7 @@ internal sealed class WildTokayGameEvent : IRoomEvent
             (int)_context.Rooms.SaveData.ReadWramByte(_database.WildLevelAddress), 0, 4);
         _ringPrize =
             _wildLevel == 4 && (_context.Entities.NextRandomValue() & 0x07) == 0;
+        _canAffordRound = _context.Inventory.Rupees >= 10;
         _prizePrepared = true;
     }
 
@@ -924,6 +1019,13 @@ internal sealed class WildTokayGameEvent : IRoomEvent
         _stage = WildTokayGameStage.DialogueOnly;
     }
 
+    private void ShowReturnSecret(int textId)
+    {
+        string secret = _secrets.GenerateSecret(0x15, _context.Rooms.SaveData);
+        _context.ShowDialogue(_interactions.Text(textId).Replace("\\secret1", secret, StringComparison.Ordinal));
+        _stage = WildTokayGameStage.DialogueOnly;
+    }
+
     private void Show(int textId) =>
         _context.ShowDialogue(_interactions.Text(textId));
 
@@ -956,6 +1058,10 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
+        if (_actor?.Record.SubId == 0x0d &&
+            _context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet))
+            PreparePrize();
         RemovePrizeAccessory();
         RestoreFadePresentation();
         UnlockInput();
@@ -989,6 +1095,9 @@ internal sealed class WildTokayGameEvent : IRoomEvent
 internal enum WildTokayGameStage
 {
     Inactive,
+    PastRulesExplanation,
+    BeginText,
+    ReleaseAfterPrize,
     DialogueOnly,
     Wait,
     PastManagerPrizeIntro,
@@ -1011,6 +1120,16 @@ internal enum WildTokayGameStage
     PastGivePrize,
     Prize,
     PresentSecretPrompt,
+    PresentResolveSecretPrompt,
+    PresentSecretDeclined,
+    PresentEnteringSecret,
+    PresentSecretResult,
+    PresentSecretReward,
+    PresentResolveLoss,
+    PresentResolvePlay,
+    PresentDeclined,
+    PresentResolveRules,
+    PresentRulesExplanation,
     PresentPlayPrompt,
     PresentRulesPrompt,
     PresentWinText,

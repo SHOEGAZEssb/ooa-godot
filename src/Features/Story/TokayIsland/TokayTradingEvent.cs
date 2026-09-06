@@ -18,6 +18,7 @@ internal sealed class TokayTradingEvent :
     private GroundTreasurePickup? _reward;
     private bool _refreshShopItemsNextUpdate;
     private bool _inputLocked;
+    private bool _braceletPurchased;
 
     internal TokayTradingEvent(
         RoomEventContext context,
@@ -81,7 +82,13 @@ internal sealed class TokayTradingEvent :
             if (_reward is { Finished: true })
             {
                 _reward = null;
-                FinishInteraction();
+                if (_braceletPurchased)
+                {
+                    Show(0x0a3b);
+                    _stage = TokayTradingStage.ShopResultText;
+                    _braceletPurchased = false;
+                }
+                else FinishInteraction();
             }
             return;
         }
@@ -97,6 +104,9 @@ internal sealed class TokayTradingEvent :
             case TokayTradingStage.ShopPrompt:
                 ResolveShopChoice();
                 break;
+            case TokayTradingStage.ShopReturnText:
+                ResolveShopChoice(returnTextClosed: true);
+                break;
             default:
                 throw new InvalidOperationException(
                     $"Tokay trading stage {_stage} closed an unexpected dialogue.");
@@ -110,6 +120,7 @@ internal sealed class TokayTradingEvent :
         _reward?.Finish(_context.Player);
         _reward = null;
         _refreshShopItemsNextUpdate = false;
+        _braceletPurchased = false;
         UnlockInput();
         _shopItem = null;
         _stage = TokayTradingStage.Inactive;
@@ -120,7 +131,7 @@ internal sealed class TokayTradingEvent :
         switch (item.SubId)
         {
             case 0:
-                if (_context.Inventory.MysterySeeds != 0)
+                if (OffersSeeds(0x24))
                     ShowChoice(0x0a2b);
                 else if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
                     ShowChoice(0x0a2c);
@@ -128,7 +139,7 @@ internal sealed class TokayTradingEvent :
                     ShowChoice(0x0a27);
                 break;
             case 1:
-                if (_context.Inventory.ScentSeeds != 0)
+                if (OffersSeeds(0x21))
                     ShowChoice(0x0a32);
                 else if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
                     ShowChoice(0x0a33);
@@ -151,17 +162,21 @@ internal sealed class TokayTradingEvent :
         _stage = TokayTradingStage.ShopPrompt;
     }
 
-    private void ResolveShopChoice()
+    private bool OffersSeeds(int treasure) =>
+        _context.Inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
+        _context.Inventory.HasTreasure(treasure);
+
+    private void ResolveShopChoice(bool returnTextClosed = false)
     {
         TokayShopItem item = _shopItem ??
             throw new InvalidOperationException("Tokay shop lost its selected item.");
-        if (TakeChoice() != 0)
+        if (!returnTextClosed && TakeChoice() != 0)
         {
             bool firstDecline = item.SubId switch
             {
-                0 => _context.Inventory.MysterySeeds != 0 ||
+                0 => OffersSeeds(0x24) ||
                     _context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
-                1 => _context.Inventory.ScentSeeds != 0 ||
+                1 => OffersSeeds(0x21) ||
                     _context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
                 >= 4 => true,
                 _ => false
@@ -172,6 +187,15 @@ internal sealed class TokayTradingEvent :
         }
 
         InventoryState inventory = _context.Inventory;
+        bool returningItem = item.SubId is 2 or 3 ||
+            (item.SubId is 0 or 1 && !OffersSeeds(item.SubId == 0 ? 0x24 : 0x21) &&
+             !inventory.HasTreasure(TreasureDatabase.TreasureShovel));
+        if (returningItem && !returnTextClosed)
+        {
+            Show(0x0a28);
+            _stage = TokayTradingStage.ShopReturnText;
+            return;
+        }
         int giveTreasure;
         int parameter;
         string objectName;
@@ -181,7 +205,7 @@ internal sealed class TokayTradingEvent :
         int insufficientSeedsText = 0;
         switch (item.SubId)
         {
-            case 0 when inventory.MysterySeeds != 0:
+            case 0 when OffersSeeds(0x24):
                 giveTreasure = TreasureDatabase.TreasureFeather;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_FEATHER_02";
@@ -196,13 +220,12 @@ internal sealed class TokayTradingEvent :
                 loseTreasure = TreasureDatabase.TreasureShovel;
                 break;
             case 0:
-                Show(0x0a28);
                 giveTreasure = TreasureDatabase.TreasureShovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
                 loseTreasure = TreasureDatabase.TreasureBracelet;
                 break;
-            case 1 when inventory.ScentSeeds != 0:
+            case 1 when OffersSeeds(0x21):
                 giveTreasure = TreasureDatabase.TreasureBracelet;
                 parameter = 3;
                 objectName = "TREASURE_OBJECT_BRACELET_03";
@@ -218,14 +241,12 @@ internal sealed class TokayTradingEvent :
                 break;
             case 1:
             case 2:
-                Show(0x0a28);
                 giveTreasure = TreasureDatabase.TreasureShovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
                 loseTreasure = TreasureDatabase.TreasureFeather;
                 break;
             case 3:
-                Show(0x0a28);
                 giveTreasure = TreasureDatabase.TreasureShovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
@@ -272,6 +293,9 @@ internal sealed class TokayTradingEvent :
             _context.Rooms.SaveData.SetGlobalFlag(globalFlag);
             item.Remove();
         }
+        if (giveTreasure == TreasureDatabase.TreasureShield)
+            item.Remove();
+        _braceletPurchased = globalFlag == _shop.BoughtBraceletFlag;
         _reward = _context.GrantScriptTreasure(
             _context.Rooms.ActiveGroup,
             _context.Rooms.CurrentRoom.Id,
@@ -408,5 +432,6 @@ internal enum TokayTradingStage
     DialogueOnly,
     ShopPrompt,
     ShopResultText,
+    ShopReturnText,
     ShopReward
 }

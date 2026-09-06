@@ -51,6 +51,7 @@ public interface IPlayerWorld
         bool directionJustPressed) => false;
     void InterruptSeedShooter() { }
     int BeginHarp(Player player) => 0;
+    int BeginFlute(Player player) => 0;
     void AdvanceHarp(Player player, int actionUpdate) { }
     void CompleteHarp(Player player, int song) { }
     void CancelHarp() { }

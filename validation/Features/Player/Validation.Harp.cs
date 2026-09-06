@@ -78,10 +78,13 @@ public sealed partial class ValidationRoot
             !dormant.Active ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopSfx) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) != 1 ||
-            !_transitions.TimeWarpActive,
+            _transitions.TimeWarpActive,
             "Echoes portal did not activate with STOP_SFX/TELEPORT on " +
-            "the first update after instrument playback ended or touching " +
-            "room 0:cd's activated portal did not begin its time warp.");
+            "the first update after playback, or accepted contact before state 3.");
+        _entities.Update(HarpFrame, _player);
+        _harp.Update(HarpFrame);
+        FailIf(!_transitions.TimeWarpActive,
+            "Room 0:cd's portal did not accept contact on the following state-3 update.");
         for (int update = 0;
             update < RoomTransitionController.TimeWarpInitializeFrames +
                 RoomTransitionController.TimeWarpDissolveFrames;

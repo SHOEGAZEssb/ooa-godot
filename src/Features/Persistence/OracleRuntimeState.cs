@@ -18,6 +18,7 @@ public sealed class OracleRuntimeState
     public const int SpinnerStateAddress = 0xcc33;
     public const int ArmosTriggerAddress = 0xcca2;
     public const int SentBackByStrangeForceAddress = 0xcdde;
+    public const int DiggingUpEnemiesForbiddenAddress = 0xccde;
     internal const int SeedTreeRefillLocationCount = 16;
     internal const int SeedTreeRefillRoomsPerLocation = 8;
 

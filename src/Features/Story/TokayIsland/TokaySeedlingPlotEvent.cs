@@ -215,6 +215,7 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        _actor?.SetFacingDirection(Vector2I.Down);
         UnlockInput();
         _actor = null;
         _stage = TokaySeedlingPlotStage.Inactive;

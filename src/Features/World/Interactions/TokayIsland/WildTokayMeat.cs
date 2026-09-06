@@ -97,7 +97,7 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
         return true;
     }
 
-    internal void UpdateFrame(Player player)
+    internal void UpdateFrame(Player player, int frameCounter = 0)
     {
         if (Finished)
             return;
@@ -141,7 +141,7 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
             return;
 
         _dropLife--;
-        Visible = (_dropLife & 1) != 0;
+        Visible = (frameCounter & 1) != 0;
         if (_dropLife <= 0)
             Finish();
     }

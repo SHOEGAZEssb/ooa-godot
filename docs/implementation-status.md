@@ -63,7 +63,7 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   destination continues into the first Tokay theft cutscene with the imported
   washed-up Link animation, exact item-loss cadence, thief movement and exits,
   completion flag, respawn update, music restoration, and input release.
-- Non-dungeon Tokay Island NPCs and interactions: ordinary island dialogue,
+- Non-dungeon Tokay Island NPCs and interactions are partial: ordinary island dialogue,
   stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
   trading hut, and past/present Wild Tokay gameplay with imported patterns and
   prizes; all five source-placed vine sprouts retain and restore their terrain
@@ -73,8 +73,23 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   Eyeball/socket sequence places the second eye and opens the doorway with the
   original timing. Present Sand Crabs and past red Leevers use their imported
   non-dungeon placements, source RNG/counters, movement, and combat. The
-  separate Dimitri mount controller and linked-secret input/return generation
-  remain partial shared-system boundaries.
+  companion Dimitri now appears after D3, completes the rescue/mount dialogue, rides and
+  swims with Link, bites edible tiles and supported enemies, remembers land
+  dismounts, and departs on reaching the mainland. Bracelet carrying/throwing,
+  carried scrolling, autonomous water return, cliff hops, unmounted hole recovery,
+  and flute playback/entrance use source timing and collision data. Mouth attacks
+  check imported enemy collision masks and flipped-beetle/Armos modes. Dimitri's
+  forest rescue and flute acquisition now use imported scripts, native fairy
+  flights, linked/unlinked dialogue and the mount-gated forest reset. Complete
+  thrown-NPC collision handling and exhaustive native initialization/slot-order
+  parity remain incomplete.
+  The Tokay rescue trade includes the native seed-hop/flame effects and timed
+  departures. Native facing/animation, cook/Rosa/vine events, shop ordering,
+  Wild Tokay catching/results, statue/accessory presentation and theft wave
+  audio/RNG behavior have source-based implementations.
+  Island Business Scrub sales and present Wild Tokay linked-secret input and
+  return generation are implemented. Complete interaction-slot reuse and
+  cross-object signal interleavings remain unverified.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

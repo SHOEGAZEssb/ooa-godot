@@ -63,6 +63,7 @@ public sealed class RoomEventController
     private readonly RemoteMakuThirdEssenceEvent _remoteMakuThirdEssence;
     private readonly PostD3RemoteMakuEvent _postD3RemoteMaku;
     private readonly FairiesWoodsEvent _fairiesWoods;
+    private readonly CompanionForestEvent _companionForest;
     private readonly WingDungeonCollapseEvent _wingDungeonCollapse;
     private readonly IRoomEvent[] _eventsByPriority;
     private readonly NpcInteractionHandler[] _interactionHandlers;
@@ -164,6 +165,7 @@ public sealed class RoomEventController
         _postD3RemoteMaku = new PostD3RemoteMakuEvent(
             _context, _remoteMakuThirdEssence);
         _fairiesWoods = new FairiesWoodsEvent(_context);
+        _companionForest = new CompanionForestEvent(_context);
         _wingDungeonCollapse = new WingDungeonCollapseEvent(
             _context,
             () => _remoteMakuWingDungeon.StartWarning());
@@ -177,6 +179,7 @@ public sealed class RoomEventController
             _remoteMakuWingDungeon,
             _postD3RemoteMaku,
             _remoteMakuThirdEssence,
+            _companionForest,
             _fairiesWoods,
             _wingDungeonCollapse,
             _nayru,
@@ -222,6 +225,15 @@ public sealed class RoomEventController
             _graveyardGhostKids,
             _impa,
         ];
+        _context.NativeDialogueScreen = () =>
+        {
+            foreach (IRoomEvent roomEvent in _eventsByPriority)
+            {
+                if (roomEvent.HasState)
+                    return (roomEvent as IRoomEventDialogueContext)?.DialogueScreen;
+            }
+            return null;
+        };
         _interactionHandlers =
         [
             NpcInteractionHandler.ForNpc(
@@ -345,6 +357,12 @@ public sealed class RoomEventController
     internal RaftwreckEvent Raftwreck => _raftwreck;
     internal TokayTheftEvent TokayTheft => _tokayTheft;
     internal TokayHoldingItemEvent TokayHoldingItem => _tokayHoldingItem;
+    internal TokayCookEvent TokayCook => _tokayCook;
+    internal TokayVineExplanationEvent TokayVineExplanation => _tokayVineExplanation;
+    internal BusinessScrubEvent BusinessScrub => _businessScrub;
+    internal TokayShieldUpgradeEvent TokayShieldUpgrade => _tokayShieldUpgrade;
+    internal TokayRunningFromRosaEvent TokayRunningFromRosa => _tokayRunningFromRosa;
+    internal TokayDimitriEvent TokayDimitri => _tokayDimitri;
     internal TokaySeedlingPlotEvent TokaySeedlingPlot => _tokaySeedlingPlot;
     internal RosaShovelEvent RosaShovel => _rosaShovel;
     internal TokayTradingEvent TokayTrading => _tokayTrading;
@@ -384,6 +402,7 @@ public sealed class RoomEventController
         _remoteMakuThirdEssence;
     internal PostD3RemoteMakuEvent PostD3RemoteMaku => _postD3RemoteMaku;
     internal FairiesWoodsEvent FairiesWoods => _fairiesWoods;
+    internal CompanionForestEvent CompanionForest => _companionForest;
     internal WingDungeonCollapseEvent WingDungeonCollapse =>
         _wingDungeonCollapse;
     internal IReadOnlyList<NpcInteractionHandler> InteractionHandlers =>
@@ -400,6 +419,8 @@ public sealed class RoomEventController
         _toiletHand.OnObjectFellInHole(kind);
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
+    internal void SetSecretMenuOpener(Func<int, Action<bool>, bool> opener) =>
+        _wildTokayGame.SetSecretMenuOpener(opener);
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         _graveyardGate.CanTrigger(group, room);
     internal void TriggerOverworldKeyhole(int group, int room) =>
@@ -410,6 +431,7 @@ public sealed class RoomEventController
         _mooshRescue.ScreenTransitionsDisabled ||
         _wildTokayGame.ScreenTransitionsDisabled;
     internal bool MenusDisabled =>
+        _companionForest.MenusDisabled ||
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||
         _ralphAfterRafton.MenusDisabled ||
@@ -418,10 +440,10 @@ public sealed class RoomEventController
         _tokayCook.HasState ||
         _tokayHoldingItem.HasState ||
         _tokayRunningFromRosa.HasState ||
-        _tokayDimitri.HasState ||
+        _tokayDimitri.MenusDisabled ||
         _tokaySeedlingPlot.HasState ||
         _tokayShieldUpgrade.HasState ||
-        _tokayVineExplanation.HasState ||
+        _tokayVineExplanation.BlocksGameplay ||
         _rosaShovel.HasState ||
         _tokayTrading.HasState ||
         _wildTokayGame.HasState ||
@@ -488,6 +510,7 @@ public sealed class RoomEventController
         _tingle.OnRoomLoaded(group, room);
         _wingDungeonCollapse.RestoreCollapsedEntrance(group, room);
         _fairiesWoods.OnRoomLoaded(group, room);
+        _companionForest.OnRoomLoaded(group, room);
         _graveyardGate.RetireCompletedControllerOnRoomLoad();
         _nayru.RestoreCompletedPortal(group, room);
         // The placed $31:$00 Impa object shares room $0:$6a with Ricky's

@@ -16,6 +16,9 @@ internal sealed class TokayInteractionDatabase
     private readonly Dictionary<int, TokayHeldItemRecord> _heldItems = new();
 
     internal int DimitriStateAddress => Constant("dimitri-state-address");
+    internal int DimitriDepartureSpeed => Constant("dimitri-departure-speed");
+    internal int DimitriFirstMoveCounter => Constant("dimitri-first-move-counter");
+    internal int DimitriSecondMoveCounter => Constant("dimitri-second-move-counter");
     internal int SoundGetSeed => Constant("sound-get-seed");
     internal int SoundJump => Constant("sound-jump");
     internal int TreasureScentSeeds => Constant("treasure-scent-seeds");

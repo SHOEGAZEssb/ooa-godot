@@ -410,6 +410,16 @@ public sealed partial class ValidationRoot
         {
             ["cutscenes/rafton_text.tsv|\\jump(TX_2709)"] = 1,
             ["cutscenes/cheval_text.tsv|\\call(TX_270b)"] = 2,
+            // CompanionForestEvent resolves the selected Dimitri substitutions;
+            // the shared text bank also retains unselected Ricky/Moosh jumps.
+            ["cutscenes/companion_forest_09.tsv|\\call(0xfe)"] = 1,
+            ["cutscenes/companion_forest_09.tsv|\\call(0xff)"] = 1,
+            ["cutscenes/companion_forest_0a.tsv|\\call(0xfe)"] = 1,
+            ["cutscenes/companion_forest_0a.tsv|\\call(0xff)"] = 1,
+            ["cutscenes/companion_forest_text.tsv|\\call(0xfe)"] = 1,
+            ["cutscenes/companion_forest_text.tsv|\\call(0xff)"] = 3,
+            ["cutscenes/companion_forest_text.tsv|\\jump(TX_1138)"] = 1,
+            ["cutscenes/companion_forest_text.tsv|\\jump(TX_1146)"] = 1,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
             ["map/texts.tsv|\\jump(TX_0560)"] = 1,
@@ -520,9 +530,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 61,
-                [NpcImplementationClassification.SpecializedNative] = 156,
+                [NpcImplementationClassification.SpecializedNative] = 158,
                 [NpcImplementationClassification.EventOwned] = 22,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 216
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 214
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -535,7 +545,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "61 ordinary, 156 specialized, 22 event-owned, and 216 " +
+            "61 ordinary, 158 specialized, 22 event-owned, and 214 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -2149,7 +2159,9 @@ public sealed partial class ValidationRoot
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower) ||
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone) ||
             !unlinkedTexts.SequenceEqual(expectedUnlinked),
-            "Unlinked room 1:75 did not complete its exact Ralph/Impa/Nayru dialogue and flag sequence.");
+            "Unlinked room 1:75 did not complete its exact Ralph/Impa/Nayru dialogue and flag sequence. " +
+            $"Stage={roomEvent.Stage}, controlled={_player.CutsceneControlled}, " +
+            $"position={_player.Position}, texts={string.Join(',', unlinkedTexts.Select(value => value.ToString("x4")))}.");
 
         trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;

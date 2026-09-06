@@ -12,6 +12,7 @@ internal static class CompanionRuntimeState
 {
     internal const int MinecartId = 0x0a;
     internal const int RickyId = 0x0b;
+    internal const int DimitriId = 0x0c;
     internal const int MooshId = 0x0d;
     internal const int RaftId = 0x13;
 
@@ -53,12 +54,13 @@ internal static class CompanionRuntimeState
         int id,
         int room,
         Vector2 position,
-        int direction)
+        int direction,
+        bool updateMountPoint = true)
     {
         state.SetWramByte(Active, 1);
         state.SetWramByte(Id, checked((byte)id));
         Update(state, id, room, position, direction);
-        if (id is RickyId or MooshId)
+        if (updateMountPoint && id is RickyId or DimitriId or MooshId)
             SetLastAnimalMountPosition(state, position);
     }
 

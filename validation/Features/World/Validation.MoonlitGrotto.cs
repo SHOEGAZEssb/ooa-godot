@@ -125,11 +125,32 @@ public sealed partial class ValidationRoot
             _transitions.IsTransitioning ||
             _rooms.ActiveGroup != 0 || _rooms.CurrentRoom.Id != 0xba ||
             _currentRoom.Id != 0xba ||
+            _sound.ActiveMusic != 0 ||
+            _sound.PlayRequestsFor(_sound.Data.RoomMusic(0, 0xba)) != 0 ||
             _player.Position != new Vector2(0x58, 0x58) ||
             _player.IsHoldingItemTwoHands ||
             _roomView.BackgroundFadeAlpha != 0.0f,
             "D3's Essence did not finish its source warp to 0:ba/$55 with " +
             "the held pose and white fade cleaned up.");
+
+        for (int frame = 0; frame < 2000 && _roomEvents.Active; frame++)
+        {
+            if (_dialogue.IsOpen)
+            {
+                FailIf(
+                    _sound.PlayRequestsFor(_sound.Data.RoomMusic(0, 0xba)) != 0,
+                    "Room 0:ba started island music before the post-D3 " +
+                    "event's dialogue finished.");
+                _dialogue.Close();
+            }
+            StepRoomEventFrames(1);
+        }
+        FailIf(
+            _roomEvents.Active ||
+            _sound.ActiveMusic != _sound.Data.RoomMusic(0, 0xba) ||
+            _sound.PlayRequestsFor(_sound.Data.RoomMusic(0, 0xba)) != 1,
+            "Room 0:ba did not restore island music exactly once after " +
+            "the post-D3 event.");
 
         LoadValidationRoom(4, 0x49);
         DungeonEssence collected =

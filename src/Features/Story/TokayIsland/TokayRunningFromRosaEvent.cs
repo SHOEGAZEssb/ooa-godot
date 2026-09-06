@@ -17,6 +17,10 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
     private Vector2 _moveDirection;
     private int _counter;
     private bool _inputLocked;
+    private readonly TokayNativeDatabase _native = new();
+    private Vector2 _position;
+    private int _z;
+    private int _speedZ;
 
     internal TokayRunningFromRosaEvent(
         RoomEventContext context,
@@ -41,10 +45,22 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
                 $"{_context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
         _actor = FindActor() ?? throw new InvalidOperationException(
             "tokayRunningFromRosaScript lost INTERAC_TOKAY $48:$0b on room entry.");
+        ((TokayCharacter)_actor).ScriptOwnsNativeUpdate = true;
+        _position = _actor.Position;
         _stage = TokayRunningFromRosaStage.LinkTriggerWait;
     }
 
     public void UpdateFrame()
+    {
+        UpdateScript();
+        if (_actor is { } actor)
+        {
+            actor.AdvanceAnimationUpdates(_stage == TokayRunningFromRosaStage.ActorMove && _counter != 0 ? 2 : 1);
+            actor.SetScriptDrawOffset(new Vector2(_position.X >= 0xf0 ? -256 : 0, _z >> 8));
+        }
+    }
+
+    private void UpdateScript()
     {
         if (_stage == TokayRunningFromRosaStage.Inactive)
             return;
@@ -61,9 +77,17 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
         {
             NpcCharacter actor = _actor ?? throw new InvalidOperationException(
                 "tokayRunningFromRosaScript lost its actor while moving.");
-            actor.SetStatePosition(actor.Position + _moveDirection);
-            if (--_counter == 0)
+            if (_counter == 0)
                 EnterStage(_nextStage);
+            else if (--_counter != 0)
+                actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _position,
+                    _native.Constant("speed-180"), _moveDirection == Vector2.Up ? 0 : 0x18));
+            return;
+        }
+        if (_stage == TokayRunningFromRosaStage.Jumping)
+        {
+            if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, 0x20))
+                BeginWait(20, TokayRunningFromRosaStage.SecondText);
             return;
         }
         if (_stage == TokayRunningFromRosaStage.Wait)
@@ -91,6 +115,11 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
 
     public void Cancel()
     {
+        if (_actor is TokayCharacter actor && GodotObject.IsInstanceValid(actor))
+        {
+            actor.ScriptOwnsNativeUpdate = false;
+            actor.SetScriptDrawOffset(Vector2.Zero);
+        }
         UnlockInput();
         _actor = null;
         _counter = 0;
@@ -106,11 +135,19 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
                 Show(0x0a0e);
                 break;
             case TokayRunningFromRosaStage.FirstPause:
-                BeginWait(80, TokayRunningFromRosaStage.Jump);
+                BeginWait(30, TokayRunningFromRosaStage.TurnDown);
+                break;
+            case TokayRunningFromRosaStage.TurnDown:
+                _actor!.SetFacingDirection(Vector2I.Down);
+                BeginWait(30, TokayRunningFromRosaStage.Jump);
                 break;
             case TokayRunningFromRosaStage.Jump:
+                _speedZ = -0x1c0;
+                _z = 0;
                 _context.Sound.PlaySound(_database.SoundJump);
-                BeginWait(50, TokayRunningFromRosaStage.SecondText);
+                _stage = TokayRunningFromRosaStage.Jumping;
+                // setzspeed and the first asm15 objectUpdateSpeedZ share this pass.
+                OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, 0x20);
                 break;
             case TokayRunningFromRosaStage.SecondText:
                 Show(0x0a0f);
@@ -144,6 +181,7 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
         TokayRunningFromRosaStage next)
     {
         _moveDirection = direction;
+        _actor!.SetFacingDirection(direction == Vector2.Up ? Vector2I.Up : Vector2I.Left);
         _counter = pixels;
         _nextStage = next;
         _stage = TokayRunningFromRosaStage.ActorMove;
@@ -193,7 +231,9 @@ internal enum TokayRunningFromRosaStage
     ActorMove,
     FirstText,
     FirstPause,
+    TurnDown,
     Jump,
+    Jumping,
     SecondText,
     SecondMoveUp,
     SecondPause,

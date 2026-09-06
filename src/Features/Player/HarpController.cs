@@ -29,6 +29,20 @@ public sealed class HarpController
     internal int NoteSpawnCount => _noteSerial;
     internal int ActiveMusicNoteCount => _notes.Count;
     private bool _emptySongPlaying;
+    private FluteDatabase? _fluteData;
+    private int? _fluteIcon;
+    internal bool IsPlayingFlute => _fluteIcon is not null;
+
+    internal int TryStartFlute(Player player)
+    {
+        if (IsPlaying) return 0;
+        _fluteData ??= new FluteDatabase();
+        int icon = _rooms.SaveData.ReadWramByte(0xc6b5);
+        _sound.PlaySound(_fluteData.Sound(icon));
+        _fluteIcon = icon;
+        PlayingSong = 0xff;
+        return _fluteData.Duration(icon);
+    }
 
     internal HarpController(
         RoomSession rooms,
@@ -68,7 +82,8 @@ public sealed class HarpController
         }
 
         bool spawnOnRight =
-            (_database.AnimationParameterAtUpdate(actionUpdate) & 1) != 0;
+            ((_fluteIcon is null ? _database.AnimationParameterAtUpdate(actionUpdate) :
+                _fluteData!.Parameter(actionUpdate)) & 1) != 0;
         bool floatsRight = (_entities.NextRandomValue() & 1) != 0;
         SpawnMusicNote(
             player.Position + new Vector2(spawnOnRight ? 8 : -8, -4),
@@ -79,6 +94,14 @@ public sealed class HarpController
     {
         if (!IsPlaying)
             return;
+        if (_fluteIcon is int icon)
+        {
+            PlayingSong = 0;
+            _fluteIcon = null;
+            new CompanionFluteSpawner(_rooms, _entities, _fluteData!,
+                _interactions.ShowRoomInteractionMessage).Call(player, icon);
+            return;
+        }
         PlayingSong = 0;
         _emptySongPlaying = false;
 
@@ -125,6 +148,7 @@ public sealed class HarpController
     {
         PlayingSong = 0;
         _emptySongPlaying = false;
+        _fluteIcon = null;
     }
 
     internal void Update(double delta)

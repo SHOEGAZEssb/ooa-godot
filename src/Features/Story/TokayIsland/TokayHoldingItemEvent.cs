@@ -7,18 +7,6 @@ namespace oracleofages;
 /// </summary>
 internal sealed class TokayHoldingItemEvent : IRoomEvent
 {
-    private static readonly int[] RecoveredItems =
-    [
-        TreasureDatabase.TreasureSword,
-        TreasureDatabase.TreasureShovel,
-        TreasureDatabase.TreasureHarp,
-        0x2e,
-        TreasureDatabase.TreasureSeedSatchel,
-        TreasureDatabase.TreasureBombs,
-        TreasureDatabase.TreasureBracelet,
-        TreasureDatabase.TreasureFeather
-    ];
-
     private readonly RoomEventContext _context;
     private readonly TokayInteractionDatabase _database;
     private TokayHoldingItemStage _stage;
@@ -48,11 +36,12 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
         }
 
         _actor = npc;
+        ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
         bool returned = _context.Rooms.SaveData.HasRoomFlag(
             npc.Record.Group, npc.Record.Room, OracleSaveData.RoomFlag40);
         if (returned)
         {
-            Show(AllRecovered() ? 0x0a0d : 0x0a0c);
+            Show(((TokayCharacter)npc).ReturnedItemDialogue);
             _stage = TokayHoldingItemStage.DialogueOnly;
             return true;
         }
@@ -64,6 +53,13 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
     }
 
     public void UpdateFrame()
+    {
+        var actor = _actor as TokayCharacter;
+        UpdateScript();
+        actor?.RunNativeUpdate(_context.Player);
+    }
+
+    private void UpdateScript()
     {
         if (_stage == TokayHoldingItemStage.Inactive)
             return;
@@ -115,6 +111,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         _reward?.Finish(_context.Player);
         _reward = null;
         UnlockInput();
@@ -133,6 +130,8 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
         // writeobjectbyte Interaction.var3b,$01 deletes the related accessory
         // before tokayGiveItemToLink creates the treasure interaction.
         actor.RemoveHeldItem();
+        actor.SetFacingDirection(Godot.Vector2I.Down);
+        actor.NativeAnimation = TokayAnimationMode.FaceLink;
         if (item.Treasure == TreasureDatabase.TreasureSeedSatchel)
             _context.Inventory.PrepareReturnedTokaySeedSatchel();
         _reward = _context.GrantScriptTreasure(
@@ -144,14 +143,6 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
             "scripts/ages:tokayGiveItemToLink",
             objectParameter: item.GrantParameter);
         _stage = TokayHoldingItemStage.Reward;
-    }
-
-    private bool AllRecovered()
-    {
-        foreach (int treasure in RecoveredItems)
-            if (!_context.Inventory.HasTreasure(treasure))
-                return false;
-        return true;
     }
 
     private void SetCurrentRoomFlag(byte flag) =>
@@ -177,6 +168,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         UnlockInput();
         _actor = null;
         _stage = TokayHoldingItemStage.Inactive;

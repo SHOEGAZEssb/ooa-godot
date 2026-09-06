@@ -10,7 +10,7 @@ internal sealed class WildTokayMeatRoomEntity(WildTokayMeat meat)
     public bool Finished => Entity.Finished;
     public void UpdateFrame(
         RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame.Player);
+        ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame.Player, frame.Counter);
     public bool TryUseBracelet(Player player, Vector2I releaseDirection) =>
         Entity.TryUseBracelet(player, releaseDirection);
 }

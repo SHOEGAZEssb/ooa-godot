@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -16,6 +17,10 @@ internal sealed class RosaShovelEvent : IRoomEvent
     private GroundTreasurePickup? _reward;
     private int _counter;
     private bool _inputLocked;
+    private readonly TokayNativeDatabase _native = new();
+    private Vector2 _position;
+    private TokayAttachedVisualRoomEntity? _shovel;
+    private RosaNpcRoomEntity? _nativeActor;
 
     internal RosaShovelEvent(
         RoomEventContext context,
@@ -38,6 +43,9 @@ internal sealed class RosaShovelEvent : IRoomEvent
         }
 
         _actor = npc;
+        _nativeActor = _context.Entities.EntityAdapters<RosaNpcRoomEntity>().Single();
+        _nativeActor.ScriptOwnsNativeUpdate = true;
+        _shovel = _context.Entities.Entities<TokayAttachedVisualRoomEntity>().FirstOrDefault();
         if (_context.Rooms.SaveData.HasRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40))
         {
             Show(0x1c12);
@@ -54,23 +62,32 @@ internal sealed class RosaShovelEvent : IRoomEvent
 
     public void UpdateFrame()
     {
+        var native = _nativeActor;
+        UpdateScript();
+        native?.RunNativeUpdate(_context.Player);
+    }
+
+    private void UpdateScript()
+    {
         if (_stage == RosaShovelStage.Inactive)
             return;
         if (_stage == RosaShovelStage.MoveRight)
         {
             NpcCharacter actor = _actor ??
                 throw new InvalidOperationException("rosa_subid00Script lost Rosa.");
-            actor.SetStatePosition(actor.Position + Vector2.Right);
-            if (--_counter == 0)
+            if (_counter == 0)
             {
-                _counter = 70;
-                _nextStage = RosaShovelStage.SecondText;
+                _counter = 20;
+                _nextStage = RosaShovelStage.ShiftShovelRight;
                 _stage = RosaShovelStage.SecondTextWait;
             }
+            else if (--_counter != 0)
+                actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
+                    ref _position, _native.Constant("speed-020"), 0x08));
             return;
         }
         if (_stage is RosaShovelStage.MoveWait or RosaShovelStage.SecondTextWait or
-            RosaShovelStage.GiveWait)
+            RosaShovelStage.GiveWait or RosaShovelStage.FinalWait)
         {
             if (--_counter == 0)
                 EnterStage(_nextStage);
@@ -81,10 +98,9 @@ internal sealed class RosaShovelEvent : IRoomEvent
             if (_reward is { Finished: true })
             {
                 _reward = null;
-                _context.Rooms.SaveData.SetRoomFlag(
-                    1, 0xcb, OracleSaveData.RoomFlag40);
-                Show(0x1c12);
-                _stage = RosaShovelStage.FinalText;
+                _counter = 30;
+                _nextStage = RosaShovelStage.Done;
+                _stage = RosaShovelStage.FinalWait;
             }
             return;
         }
@@ -115,6 +131,8 @@ internal sealed class RosaShovelEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_nativeActor is not null) _nativeActor.ScriptOwnsNativeUpdate = false;
+        _nativeActor = null;
         _reward?.Finish(_context.Player);
         _reward = null;
         UnlockInput();
@@ -130,11 +148,39 @@ internal sealed class RosaShovelEvent : IRoomEvent
         {
             case RosaShovelStage.MoveRight:
                 _counter = 48;
+                _position = _actor!.Position;
+                _actor.SetFacingDirection(Vector2I.Right);
+                break;
+            case RosaShovelStage.ShiftShovelRight:
+                if (_shovel is { } right)
+                {
+                    right.FollowParent = true;
+                    right.ParentOffset = new Vector2(9, 0);
+                }
+                _counter = 20;
+                _nextStage = RosaShovelStage.ShiftShovelLeft;
+                _stage = RosaShovelStage.SecondTextWait;
+                break;
+            case RosaShovelStage.ShiftShovelLeft:
+                if (_shovel is { } left)
+                {
+                    left.ParentOffset = new Vector2(-9, 0);
+                    left.ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                }
+                _actor!.SetFacingDirection(Vector2I.Left);
+                _counter = 30;
+                _nextStage = RosaShovelStage.SecondText;
+                _stage = RosaShovelStage.SecondTextWait;
+                break;
+            case RosaShovelStage.Done:
+                _context.Rooms.SaveData.SetRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40);
+                FinishInteraction();
                 break;
             case RosaShovelStage.SecondText:
                 Show(0x1c11);
                 break;
             case RosaShovelStage.Give:
+                if (_shovel is { } shovel) shovel.Retired = true;
                 _reward = _context.GrantScriptTreasure(
                     _context.Rooms.ActiveGroup,
                     _context.Rooms.CurrentRoom.Id,
@@ -153,11 +199,9 @@ internal sealed class RosaShovelEvent : IRoomEvent
 
     private void FaceActorToLink(NpcCharacter actor)
     {
-        Vector2 delta = _context.Player.Position - actor.Position;
-        int animation = Mathf.Abs(delta.X) > Mathf.Abs(delta.Y)
-            ? (delta.X >= 0 ? 1 : 3)
-            : (delta.Y >= 0 ? 2 : 0);
-        actor.SetScriptAnimation(_database.Animation(animation));
+        int angle = OracleObjectMovement.Shared.RelativeAngle(actor.Position, _context.Player.Position);
+        Vector2 direction = OracleObjectMath.StrictCardinalVector((angle + 4) & 0x18);
+        actor.SetFacingDirection(new Vector2I((int)direction.X, (int)direction.Y));
     }
 
     private void Show(int textId) =>
@@ -179,6 +223,8 @@ internal sealed class RosaShovelEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        if (_nativeActor is not null) _nativeActor.ScriptOwnsNativeUpdate = false;
+        _nativeActor = null;
         UnlockInput();
         _actor = null;
         _stage = RosaShovelStage.Inactive;
@@ -193,9 +239,13 @@ internal enum RosaShovelStage
     MoveWait,
     MoveRight,
     SecondTextWait,
+    ShiftShovelRight,
+    ShiftShovelLeft,
     SecondText,
     GiveWait,
     Give,
     Reward,
-    FinalText
+    FinalText,
+    FinalWait,
+    Done
 }

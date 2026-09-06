@@ -1,11 +1,12 @@
 using System;
+using Godot;
 
 namespace oracleofages;
 
 /// <summary>
 /// tokayCookScript for INTERAC_TOKAY $48:$05.
 /// </summary>
-internal sealed class TokayCookEvent : IRoomEvent
+internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEvent
 {
     private readonly RoomEventContext _context;
     private readonly TokayInteractionDatabase _database;
@@ -13,6 +14,16 @@ internal sealed class TokayCookEvent : IRoomEvent
     private GroundTreasurePickup? _reward;
     private int _counter;
     private bool _inputLocked;
+    private readonly TokayNativeDatabase _native = new();
+    private TokayCharacter? _actor;
+    private bool _jumping;
+    private bool _awayFromStart;
+    private int _jumpIndex;
+    private int _jumpState;
+    private int _z;
+    private int _speedZ;
+    private Vector2 _position;
+    private int _choice;
 
     internal TokayCookEvent(
         RoomEventContext context,
@@ -30,6 +41,9 @@ internal sealed class TokayCookEvent : IRoomEvent
     {
         if (HasState || !npc.Active || npc.Record is not { Id: 0x48, SubId: 0x05 })
             return false;
+        _actor = (TokayCharacter)npc;
+        _actor.ScriptOwnsNativeUpdate = true;
+        LockInput();
 
         if (CurrentRoomFlag(OracleSaveData.RoomFlagItem))
         {
@@ -37,7 +51,6 @@ internal sealed class TokayCookEvent : IRoomEvent
             _stage = TokayCookStage.DialogueOnly;
             return true;
         }
-        LockInput();
         Show(0x0a00);
         _stage = TokayCookStage.Intro;
         return true;
@@ -45,11 +58,19 @@ internal sealed class TokayCookEvent : IRoomEvent
 
     public void UpdateFrame()
     {
+        UpdateScript();
+        UpdateActor();
+    }
+
+    public void UpdateDuringDialogueFrame() => UpdateActor();
+
+    private void UpdateScript()
+    {
         if (_stage == TokayCookStage.Inactive)
             return;
         if (_stage is TokayCookStage.CheckWait or TokayCookStage.AcceptedWait or
             TokayCookStage.SecondAcceptedWait or TokayCookStage.ThirdAcceptedWait or
-            TokayCookStage.CookingWait or TokayCookStage.GiveWait)
+            TokayCookStage.CookingWait or TokayCookStage.GiveWait or TokayCookStage.ChoiceWait)
         {
             if (--_counter == 0)
                 CompleteWait();
@@ -79,16 +100,8 @@ internal sealed class TokayCookEvent : IRoomEvent
                 BeginWait(30, TokayCookStage.CheckWait);
                 break;
             case TokayCookStage.Prompt:
-                if (TakeChoice() == 0)
-                {
-                    Show(0x0a02);
-                    _stage = TokayCookStage.AcceptedText;
-                }
-                else
-                {
-                    Show(0x0a08);
-                    _stage = TokayCookStage.Declined;
-                }
+                _choice = TakeChoice();
+                BeginWait(30, TokayCookStage.ChoiceWait);
                 break;
             case TokayCookStage.AcceptedText:
                 BeginWait(30, TokayCookStage.AcceptedWait);
@@ -100,8 +113,11 @@ internal sealed class TokayCookEvent : IRoomEvent
                 BeginWait(30, TokayCookStage.ThirdAcceptedWait);
                 break;
             case TokayCookStage.JumpText:
-                _context.Sound.PlaySound(_database.SoundJump);
-                BeginWait(196, TokayCookStage.CookingWait);
+                if (!_awayFromStart)
+                {
+                    _jumping = false;
+                    BeginWait(40, TokayCookStage.CookingWait);
+                }
                 break;
             case TokayCookStage.BeforeRewardText:
                 BeginWait(30, TokayCookStage.GiveWait);
@@ -119,12 +135,17 @@ internal sealed class TokayCookEvent : IRoomEvent
         UnlockInput();
         _counter = 0;
         _stage = TokayCookStage.Inactive;
+        ReleaseActor();
     }
 
     private void CompleteWait()
     {
         switch (_stage)
         {
+            case TokayCookStage.ChoiceWait:
+                Show(_choice == 0 ? 0x0a02 : 0x0a08);
+                _stage = _choice == 0 ? TokayCookStage.AcceptedText : TokayCookStage.Declined;
+                break;
             case TokayCookStage.CheckWait:
                 if (_context.Inventory.TradeItem != 2)
                 {
@@ -146,6 +167,10 @@ internal sealed class TokayCookEvent : IRoomEvent
                 _stage = TokayCookStage.ThirdAcceptedText;
                 break;
             case TokayCookStage.ThirdAcceptedWait:
+                _jumping = true;
+                _jumpIndex = 0;
+                _jumpState = 0;
+                _position = _actor!.Position;
                 Show(0x0a05);
                 _stage = TokayCookStage.JumpText;
                 break;
@@ -215,8 +240,61 @@ internal sealed class TokayCookEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        ReleaseActor();
         UnlockInput();
         _stage = TokayCookStage.Inactive;
+    }
+
+    private void ReleaseActor()
+    {
+        if (_actor is { } actor && GodotObject.IsInstanceValid(actor))
+        {
+            actor.ScriptOwnsNativeUpdate = false;
+            actor.SetScriptDrawOffset(Vector2.Zero);
+        }
+        _actor = null;
+        _jumping = false;
+        _awayFromStart = false;
+        _z = 0;
+        _speedZ = 0;
+        _jumpState = 0;
+        _jumpIndex = 0;
+    }
+
+    private void UpdateActor()
+    {
+        if (_actor is not { } actor) return;
+        if (!_jumping)
+        {
+            actor.FaceLinkAndAnimateOneUpdate(_context.Player);
+            return;
+        }
+        if (_jumpState is 0 or 2)
+        {
+            if (_jumpState == 2) _jumpIndex = (_jumpIndex + 1) % _native.CookPaths.Count;
+            _speedZ = _native.CookPaths[_jumpIndex].SpeedZ;
+            _awayFromStart = true;
+            _jumpState = 1;
+            _context.Sound.PlaySound(_database.SoundJump);
+        }
+        else
+        {
+            TokayCookJump jump = _native.CookPaths[_jumpIndex];
+            if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, jump.Gravity))
+            {
+                _jumpState = 2;
+                if (_jumpIndex == 5)
+                {
+                    _position = new Vector2(0x48, 0x28);
+                    _awayFromStart = false;
+                }
+            }
+            else
+                OracleObjectMovement.Shared.ApplySpeed(ref _position, _native.Constant("speed-300"), jump.Angle);
+        }
+        actor.SetStatePosition(OracleObjectMath.ToPixelPosition(_position));
+        actor.SetScriptDrawOffset(new Vector2(0, _z >> 8));
+        actor.AnimateAndUpdateDrawPriorityOneUpdate(_context.Player);
     }
 }
 
@@ -228,6 +306,7 @@ internal enum TokayCookStage
     CheckWait,
     WrongItem,
     Prompt,
+    ChoiceWait,
     Declined,
     AcceptedText,
     AcceptedWait,

@@ -14,7 +14,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
-        IObjectCollisionHeightRoomEntity
+        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget
     where T : EnemyCharacter
 {
     private bool _seedBurning;
@@ -32,6 +32,17 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     protected int KillableEnemyIndex =>
         combatDescriptor.KillableEnemyIndex;
     public int CollisionZ => collisionZ?.Invoke() ?? 0;
+    public virtual int DimitriCollisionMode => combatDescriptor.Source?.CollisionMode & 0x7f ?? 0;
+    // Special combat owners without a source collision identity are explicitly
+    // excluded until they supply their native type, rather than borrowing $00.
+    public virtual int DimitriCollisionType => combatDescriptor.Source?.Id ?? -1;
+    public bool TrySwallow(Rect2 hitbox)
+    {
+        if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
+            CollisionZ != 0 || !combatDescriptor.Combat.Intersects(hitbox)) return false;
+        Entity.Swallow();
+        return true;
+    }
     public virtual void HandleLinkContact(Player player)
     {
         if (_seedBurning && FreezesDuringSeedBurn)

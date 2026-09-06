@@ -24,12 +24,29 @@ Gameplay-owned submenus may use their interaction controller when that matches
 the original mechanism. Do not force every prompt through the map/inventory
 lifecycle; preserve its update masks, fade, and screen boundary.
 
+Short-secret entry uses the application-owned shared pause/fade lifecycle.
+Its keyboard, glyph mapping, lower cursor offsets and error overlay are imported
+from the source; the controller retains source button priority and repeat timing.
+Validation and return-secret generation share the linked-game codec and live
+save game ID. An interaction receives its result only after the closing fade
+releases menu ownership, so its script waits do not run behind the menu.
+
 ## Screen-space boundaries
 
 Full-screen menus and their fade use 160 by 144 screen space, including the
 HUD. A room-warp fade covers only the gameplay field at y=16-143. Ordinary room
 dialogue starts with field-relative positions and adds the 16-pixel display
 offset; pregame and full-screen presentations do not.
+
+Textbox placement follows `initTextbox`'s unsigned byte subtraction of Link Y
+and camera Y, then `initTextboxStuff`'s rounded tilemap address and hardware
+SCY. Native events expose their source screen context through
+`IRoomEventDialogueContext`; the event stage remains its authoritative owner.
+A cutscene that clears WRAM bank 1 supplies cleared Link coordinates to that
+context without moving the retained gameplay player. Imported graphics register
+states distinguish the palace HUD layout from the full-screen Black Tower.
+Returning or cancelling the event restores normal player/camera selection.
+Explicit position operands are reserved for original text/script commands.
 
 Imported presentation records own source-ordered tilemaps, OAM, cursor
 locations, palette selections, and layout data. Menu controllers own input,

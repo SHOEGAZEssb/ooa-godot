@@ -5,6 +5,60 @@ namespace oracleofages;
 
 internal static class CompanionMovement
 {
+    // specialObjectUpdatePosition: adjust an angle at a single blocked corner,
+    // then suppress axes using the collision probes at the current position.
+    internal static void ApplySpeed(ref Vector2 position, int speed, int angle, int walls)
+    {
+        if (angle == 0xff) return;
+        int movementAngle = AdjustAngleForTileEdge(angle, walls) ?? angle;
+        ReadOnlySpan<int> masks =
+        [
+            0xcf, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3,
+            0xf3, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33,
+            0x3f, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c,
+            0xfc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc
+        ];
+        int blocked = walls & masks[movementAngle];
+        Vector2 next = position;
+        OracleObjectMovement.Shared.ApplySpeed(ref next, speed, movementAngle);
+        if ((blocked & 0xf0) == 0) position.Y = next.Y;
+        if ((blocked & 0x0f) == 0) position.X = next.X;
+    }
+
+    private static int? AdjustAngleForTileEdge(int angle, int walls)
+    {
+        ReadOnlySpan<int> table =
+        [
+            0x80, 0x80, 1, 2, 2, 2, 3, 0x24,
+            0x24, 0x24, 5, 6, 6, 6, 7, 0x48,
+            0x48, 0x48, 9, 10, 10, 10, 11, 0x1c,
+            0x1c, 0x1c, 13, 14, 14, 14, 15, 0x80
+        ];
+        int entry = table[angle];
+        if ((entry & 3) != 0) return null;
+        if ((entry & 0x80) != 0)
+        {
+            if ((walls & 0xc3) == 0x80) return 8;
+            if ((walls & 0xcc) == 0x40) return 0x18;
+        }
+        else if ((entry & 0x40) != 0)
+        {
+            if ((walls & 0x33) == 0x20) return 8;
+            if ((walls & 0x3c) == 0x10) return 0x18;
+        }
+        else if ((entry & 0x20) != 0)
+        {
+            if ((walls & 0xc3) == 1) return 0;
+            if ((walls & 0x33) == 2) return 0x10;
+        }
+        else
+        {
+            if ((walls & 0xcc) == 4) return 0;
+            if ((walls & 0x3c) == 8) return 0x10;
+        }
+        return null;
+    }
+
     internal static int AngleForInput(Vector2 input)
     {
         int x = Math.Sign(input.X);

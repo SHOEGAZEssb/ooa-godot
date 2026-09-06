@@ -16,6 +16,9 @@ internal sealed class ArmosRoomEntity
     private SwordActionState _swordState;
     private int _swordLevel;
 
+    public override int DimitriCollisionMode => Entity.ActiveCollisionMode;
+    public override int DimitriCollisionType => 0x1d;
+
     internal ArmosRoomEntity(ArmosCharacter armos)
         : base(
             armos,

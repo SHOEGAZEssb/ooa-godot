@@ -44,6 +44,8 @@ internal sealed class RoomEventContext(
     public OracleSoundEngine Sound { get; } = sound;
     public Camera2D RoomCamera { get; } = roomCamera;
     public bool DialogueOpen => _dialogue.IsOpen;
+    internal DialogueScreenDatabase DialogueScreens { get; } = new();
+    internal Func<DialogueScreenContext?> NativeDialogueScreen { get; set; } = () => null;
     internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
 
     internal void SetBraceletActions(
@@ -107,17 +109,9 @@ internal sealed class RoomEventContext(
         int textboxFlags = 0)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
-        if (textboxFlags != 0)
-        {
-            _dialogue.ShowGameplayMessageWithFlags(
-                message, playerScreenY, textboxFlags, textboxPosition);
-            return;
-        }
-        if (textboxPosition.HasValue)
-            _dialogue.ShowGameplayMessage(
-                message, playerScreenY, textboxPosition.Value);
-        else
-            _dialogue.ShowGameplayMessage(message, playerScreenY);
+        DialogueScreenContext screen = NativeDialogueScreen() ??
+            DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
+        _dialogue.ShowMessage(message, screen, textboxPosition, textboxFlags);
     }
 
     public void ShowChoiceDialogue(
@@ -126,8 +120,9 @@ internal sealed class RoomEventContext(
         int? textboxPosition = null)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
-        _dialogue.ShowGameplayChoiceMessage(
-            message, playerScreenY, initialChoice, textboxPosition);
+        DialogueScreenContext screen = NativeDialogueScreen() ??
+            DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
+        _dialogue.ShowChoiceMessage(message, screen, initialChoice, textboxPosition);
     }
 
     public bool TryTakeDialogueChoice(out int choice) =>

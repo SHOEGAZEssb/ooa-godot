@@ -130,7 +130,10 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
         _context.Transitions.ApplyWarpWithDelayedFadeOut(
             _context.Player,
             _essence?.ExitWarp ?? throw new InvalidOperationException(
-                "The essence get event has no active essence."));
+                "The essence get event has no active essence."),
+            // essence.s state 7 clears wActiveMusic; checkPlayRoomMusic
+            // returns while it is zero until the destination script resumes music.
+            suppressDestinationMusic: true);
         // The two-hand pose survives the source-room fade and Player.WarpTo
         // clears it when the destination loads. The source interaction itself
         // is freed there, so retaining it would leave CancelAll holding a

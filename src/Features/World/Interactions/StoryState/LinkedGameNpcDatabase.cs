@@ -165,9 +165,11 @@ public sealed class LinkedGameNpcDatabase
 
     internal string GenerateSecret(
         LinkedGameNpcDatabaseRecord record,
-        OracleSaveData save)
+        OracleSaveData save) => GenerateSecret(record.ShortSecretIndex, save);
+
+    internal string GenerateSecret(int shortSecretIndex, OracleSaveData save)
     {
-        byte[] values = GenerateSecretValues(record, save);
+        byte[] values = GenerateSecretValues(shortSecretIndex, save);
         var result = new System.Text.StringBuilder();
         foreach (byte value in values)
             result.Append(_secretSymbols[value]);
@@ -176,17 +178,20 @@ public sealed class LinkedGameNpcDatabase
 
     internal byte[] GenerateSecretValues(
         LinkedGameNpcDatabaseRecord record,
-        OracleSaveData save)
+        OracleSaveData save) => GenerateSecretValues(record.ShortSecretIndex, save);
+
+    internal byte[] GenerateSecretValues(int shortSecretIndex, OracleSaveData save)
     {
+        if ((uint)shortSecretIndex >= 64) throw new ArgumentOutOfRangeException(nameof(shortSecretIndex));
         EnsureGameId(save);
         int gameIdLow = save.ReadWramByte(GameIdAddress);
         int gameIdHigh = save.ReadWramByte(GameIdAddress + 1) & 0x7f;
         save.WriteWramByte(
-            ShortSecretIndexAddress, (byte)record.ShortSecretIndex);
+            ShortSecretIndexAddress, (byte)shortSecretIndex);
 
         int sum = (gameIdLow + gameIdHigh) & 0xff;
-        int swappedHighNibble = (record.ShortSecretIndex >> 4) & 0x0f;
-        int lowBitOffset = (record.ShortSecretIndex & 1) << 2;
+        int swappedHighNibble = (shortSecretIndex >> 4) & 0x0f;
+        int lowBitOffset = (shortSecretIndex & 1) << 2;
         int cipherIndex =
             ((sum + swappedHighNibble) ^ lowBitOffset) & 0x07;
 
@@ -195,7 +200,7 @@ public sealed class LinkedGameNpcDatabase
         InsertBits(buffer, SecretType, 2);
         InsertBits(buffer, gameIdLow, 8);
         InsertBits(buffer, gameIdHigh, 7);
-        InsertBits(buffer, record.ShortSecretIndex, 6);
+        InsertBits(buffer, shortSecretIndex, 6);
         InsertBits(buffer, 0, 4);
 
         int checksum = 0;
@@ -216,6 +221,36 @@ public sealed class LinkedGameNpcDatabase
             shortBuffer[index] ^= (byte)cipher;
         }
         return shortBuffer;
+    }
+
+    internal bool ValidateSecret(ReadOnlySpan<byte> symbols, int expectedIndex, OracleSaveData save)
+    {
+        if (symbols.Length != 5) return false;
+        byte[] buffer = symbols.ToArray();
+        foreach (byte symbol in buffer) if (symbol >= 64) return false;
+        int offset = ((buffer[0] & 0x38) >> 3) * 4;
+        for (int index = 0; index < buffer.Length; index++)
+            buffer[index] ^= (byte)(_xorCipher[offset + index] & (index == 0 ? 7 : 63));
+        int checksum = buffer[4] & 15;
+        buffer[4] &= 0x30;
+        int sum = 0;
+        foreach (byte value in buffer) sum += value;
+        if ((sum & 15) != checksum) return false;
+        int bitOffset = 0;
+        int ReadBits(int count)
+        {
+            int value = 0;
+            for (int bit = 0; bit < count; bit++, bitOffset++)
+                value |= ((buffer[bitOffset / 6] >> (5 - bitOffset % 6)) & 1) << bit;
+            return value;
+        }
+        _ = ReadBits(3);
+        if (ReadBits(2) != SecretType) return false;
+        int low = ReadBits(8), high = ReadBits(7);
+        if (ReadBits(6) != expectedIndex) return false;
+        // bank3.s:verifyUnpackedSecretGameID explicitly accepts GameID $0000.
+        return (low == 0 && high == 0) ||
+            (low == save.ReadWramByte(GameIdAddress) && high == save.ReadWramByte(GameIdAddress + 1));
     }
 
     private static void InsertBits(byte[] buffer, int value, int bitCount)

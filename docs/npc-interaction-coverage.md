@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of August 10, 2026. It is an implementation inventory, not a
+interactions as of September 6, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 137 | Traced and covered by the current named NPC/event scenarios. |
-| **P** | 30 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 216 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **I** | 113 | Traced and covered by the current named NPC/event scenarios. |
+| **P** | 56 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
+| **D** | 214 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,13 +63,26 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 61 ordinary, 84 specialized,
-22 event-owned, and 216 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 61 ordinary, 86 specialized,
+22 event-owned, and 214 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
-classified records and 156 specialized rows.
+classified records and 158 specialized rows.
 
 ### Important partial and deferred boundaries
 
+- September 6, 2026: Dimitri's forest controllers `$71:$08-$0c` now supply the
+  entry trigger, rescue, flute reward and persistent departure flag. Shared
+  fairy `$49:$03/$04` movement preserves arrival/circle/departure signals and
+  dialogue freezing; linked and unlinked rescue routes have focused coverage.
+  These controllers and their dynamic actors add no positioned `NpcRecord`
+  rows. The snapshot remains **113 I / 56 P / 214 D**, total **383**.
+- Room `0:ba`'s implemented post-D3 event supplies original cleared-Link and
+  graphics-register screen context to shared textbox placement, without moving
+  the live player, and preserves the essence warp's music
+  suppression until the final remote Maku guidance restores island music.
+  The temporary room `1:16` Ambi `$4d:$08` and Nayru `$36:$0e` actors are
+  event-created; ordinary room `1:16` records retain their **D** status.
+  Positioned-row statuses and all snapshot counts are unchanged.
 - Room `0:38` implements the Maku Tree disappearance and
   `wMakuTreeState=$02` Seed Satchel path. Later adult-tree states are not
   classified here and keep the record at **P**.
@@ -127,7 +140,7 @@ classified records and 156 specialized rows.
   two-jump exits, final room bit `$40`, music/input restoration, death-respawn
   update, and completed-room suppression. The ordinary `$48:$1f` cliff Tokay
   in the same room now uses its imported generic dialogue path.
-- The remaining 27 non-dungeon Tokay Island rows implement the source-ordered
+- The remaining 27 non-dungeon Tokay Island rows have partial implementations of
   ordinary dialogue variants, stolen-item holders and returned-item state,
   Stink Bag/Tasty Meat trade, trading-hut feather/Bracelet/Shovel/shield stock,
   including every surviving stock object's next-update transformation after
@@ -149,20 +162,34 @@ classified records and 156 specialized rows.
   physics including source item-bounce speed reduction and immediate
   replacement, and the caught-meat `$63:$73` accessory
   with its six-update pause and parent-animation offsets. Prizes and persistent
-  flags are also supported. Snapshot counts and room `2:de`'s **I**
-  classification are unchanged. Room `1:ac`'s seedling sequence preserves its
+  flags are also supported. All 27 rows remain **P**. Room `1:ac`'s planting sequence preserves its
   Link-relative flip, `SPEED_100`/`applyspeed $10` movement and counter-zero
   boundary, both-era room bit `$80`, visible `$80:$04` decoration at
   `$38,$48`, 30/120-update dialogue waits, and planted-room re-entry position.
   Tokays
-  `$48:$0f/$10` are **P** because
-  the separate dynamic Dimitri special object and `$71:$07` mount controller
-  remain outside the visible NPC path; present manager `$48:$19` is **P**
-  because linked-secret text entry
-  still depends on the unavailable shared secret-input subsystem. Its
-  preconfigured play, win/loss, and Bomb Upgrade branches are implemented.
+  `$48:$0f/$10` defer their room `0:aa` introduction until scrolling finishes,
+  selecting the textbox from Link's destination position. The separate dynamic
+  Dimitri special object now supplies his source animations, TX_2100 response,
+  rescue/mount tutorial, riding/swimming, mouth item, remembered dismount, and
+  mainland departure. The Tokays' departure now preserves the separate
+  `moveleft` counters, left-edge OAM wrap, first-actor menu release, and delayed
+  second-actor rescue flag/deletion. Both source-ordered `$8f` effects now hop,
+  hide on landing, wait for the textbox to close, and animate the native flame
+  for 58 updates, including during dialogue. Cancellation retires both effects;
+  natural script completion permits an unfinished effect to finish independently.
+  Both rows remain **P** pending complete signal-interleaving parity. September 6 repaired
+  counts are 113 **I**, 56 **P**, and 214 **D**; dynamic companion objects are
+  outside the `NpcRecord` denominator. September 6's companion extension adds
+  Bracelet carrying/throwing and carried scrolling, water return, cliff hops,
+  unmounted hole recovery, and flute playback/entrance. Mouth collisions now
+  honor enemy active masks and flipped-beetle/Armos modes. Forest rescue/flute
+  acquisition, complete thrown-NPC collision handling, and native initialization/
+  slot-order parity remain incomplete. Present manager `$48:$19` includes linked-secret input,
+  validation and return-secret generation through the shared menu/codec owners.
+  It remains **P** with the other Wild Tokay records pending complete slot-order
+  and branch coverage.
 - Room `1:ba`'s invisible `$c4:$04` entrance socket is a separate specialized
-  interaction: it accepts the Eyeball after ten upward pushes, owns the timed
+  interaction: it accepts the Eyeball through A or its native push counter, owns the timed
   shake/opening sequence, and persists room flag `$80`. The two entrance eyes
   and five pushable vine sprouts are generated enemy/decorative world objects,
   not additional visible `NpcRecord` rows, so they do not change this ledger's
@@ -213,9 +240,8 @@ classified records and 156 specialized rows.
   down-left cliff hops using retained airborne companion collision bits, the
   source `$18`/`$10` wall probes and straight-down cliff jump, farewell punch,
   and straight-down exit.
-  Postgame Tingle-secret entry
-  and return-secret generation still depend on the unavailable shared secret
-  input/output subsystem, so the visible Tingle row remains **P**.
+  Postgame Tingle-secret entry and return-secret generation are not yet wired
+  to the shared secret menu/codec, so the visible Tingle row remains **P**.
 - Rooms `0:79` and `0:89` implement invisible
   `INTERAC_COMPANION_TUTORIAL $d0:$01/$00`, including mounted-only
   `TX_2009/TX_2008`, exact position predicates, and persistent tutorial bits
@@ -293,18 +319,18 @@ well as record selection.
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [D] `$49:$06/v$00` forestFairy |
-| `0:81` | [D] `$49:$0d/v$00` forestFairy |
+| `0:81` | [D] `$49:$0d/v$00` forestFairy<br>Dimitri's separate `$71:$09` controller and dynamically spawned `$49:$03` rescue fairy are implemented; the positioned `$49:$0d` record remains deferred. |
 | `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[D] `$49:$0e/v$00` forestFairy<br>[D] `$49:$0f/v$00` forestFairy<br>[D] `$49:$10/v$00` forestFairy |
 | `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |
 | `0:a7` | [D] `$41:$06/v$00` miscMan |
-| `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay |
-| `0:bb` | [I] `$48:$1e/v$00` tokay |
-| `0:bd` | [I] `$48:$12/v$00` tokay |
-| `0:cd` | [I] `$48:$13/v$00` tokay |
-| `0:dd` | [I] `$48:$14/v$00` tokay |
+| `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay<br>Introduction waits for scroll completion; Dimitri appears, responds, and mounts after rescue. His companion owner also supports carrying/throwing, water return, cliff hops and flute entrance. Seed hops, dialogue-gated flames, and separate departure counters are implemented; full NPC facing/input-path parity remains unverified. |
+| `0:bb` | [P] `$48:$1e/v$00` tokay |
+| `0:bd` | [P] `$48:$12/v$00` tokay |
+| `0:cd` | [P] `$48:$13/v$00` tokay |
+| `0:dd` | [P] `$48:$14/v$00` tokay |
 | `1:03` | [P] `$bf:$0c/v$00` symmetryNpc |
 | `1:05` | [D] `$40:$0d/v$02` soldier |
 | `1:06` | [D] `$40:$0d/v$03` soldier<br>[D] `$40:$0d/v$04` soldier |
@@ -340,23 +366,23 @@ well as record selection.
 | `1:83` | [I] `$41:$00/v$00` miscMan |
 | `1:84` | [I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$40:$01/v$00` soldier |
 | `1:86` | [I] `$58:$02/v$00` hardhatWorker |
-| `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[D] `$ce:$00/v$00` businessScrub |
+| `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[P] `$ce:$00/v$00` businessScrub |
 | `1:92` | [I] `$43:$00/v$00` pastGuy |
 | `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
 | `1:96` | [D] `$3b:$06/v$00` femaleVillager |
 | `1:97` | [I] `$37:$03/v$00` ralph |
-| `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[I] `$48:$1f/v$00` tokay |
-| `1:ac` | [I] `$48:$11/v$00` tokay |
-| `1:ad` | [I] `$48:$15/v$00` tokay |
+| `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[P] `$48:$1f/v$00` tokay |
+| `1:ac` | [P] `$48:$11/v$00` tokay |
+| `1:ad` | [P] `$48:$15/v$00` tokay |
 | `1:ba` | [I] `$c4:$04/v$00` pirate |
-| `1:bb` | [I] `$48:$0a/v$00` tokay<br>[I] `$48:$0b/v$00` tokay |
-| `1:bc` | [D] `$ce:$00/v$00` businessScrub |
-| `1:bd` | [I] `$48:$16/v$00` tokay |
-| `1:cb` | [I] `$48:$07/v$00` tokay<br>[I] `$68:$00/v$00` rosa |
-| `1:cd` | [I] `$48:$17/v$00` tokay |
-| `1:da` | [I] `$48:$08/v$00` tokay |
-| `1:dd` | [I] `$48:$18/v$00` tokay |
+| `1:bb` | [P] `$48:$0a/v$00` tokay<br>[P] `$48:$0b/v$00` tokay |
+| `1:bc` | [P] `$ce:$00/v$00` businessScrub |
+| `1:bd` | [P] `$48:$16/v$00` tokay |
+| `1:cb` | [P] `$48:$07/v$00` tokay<br>[P] `$68:$00/v$00` rosa |
+| `1:cd` | [P] `$48:$17/v$00` tokay |
+| `1:da` | [P] `$48:$08/v$00` tokay |
+| `1:dd` | [P] `$48:$18/v$00` tokay |
 | `2:0e` | [I] `$3c:$0d/v$00` boy<br>[I] `$3d:$00/v$00` oldLady |
 | `2:0f` | [I] `$6a:$00/v$00` cheval |
 | `2:1e` | [I] `$69:$00/v$00` rafton |
@@ -364,7 +390,7 @@ well as record selection.
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |
-| `2:3f` | [I] `$48:$05/v$00` tokay |
+| `2:3f` | [P] `$48:$05/v$00` tokay |
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:7e` | [D] `$46:$01/v$00` shopkeeper |
@@ -372,9 +398,9 @@ well as record selection.
 | `2:b1` | [D] `$ab:$13/v$00` zora |
 | `2:d1` | [D] `$ab:$1b/v$00` zora |
 | `2:d7` | [D] `$ab:$12/v$00` zora |
-| `2:de` | [I] `$48:$0d/v$00` tokay |
-| `2:e4` | [I] `$48:$0e/v$00` tokay |
-| `2:e5` | [P] `$48:$19/v$00` tokay<br>[I] `$48:$1a/v$00` tokay<br>[I] `$48:$1b/v$00` tokay<br>[I] `$48:$1c/v$00` tokay |
+| `2:de` | [P] `$48:$0d/v$00` tokay |
+| `2:e4` | [P] `$48:$0e/v$00` tokay |
+| `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [D] `$51:$00/v$00` dumbellMan |
@@ -387,7 +413,7 @@ well as record selection.
 | `2:f7` | [D] `$66:$07/v$00` goron |
 | `2:fb` | [D] `$66:$0e/v$03` goron |
 | `2:fd` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
-| `2:ff` | [D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$04` goron<br>[D] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
+| `2:ff` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$04` goron<br>[D] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
 | `3:1f` | [D] `$66:$0a/v$00` goron |
 | `3:2e` | [D] `$66:$0e/v$04` goron |
 | `3:3e` | [D] `$66:$0b/v$00` goron |
@@ -446,8 +472,8 @@ well as record selection.
 | `5:c4` | [D] `$66:$05/v$00` goron<br>[D] `$66:$05/v$01` goron |
 | `5:c6` | [D] `$66:$0d/v$03` goron<br>[D] `$66:$0e/v$07` goron |
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
-| `5:ca` | [I] `$48:$06/v$00` tokay |
-| `5:cc` | [I] `$48:$09/v$00` tokay |
+| `5:ca` | [P] `$48:$06/v$00` tokay |
+| `5:cc` | [P] `$48:$09/v$00` tokay |
 | `5:ce` | [D] `$6d:$00/v$00` possessedNayru<br>[D] `$40:$0d/v$0e` soldier |
 | `5:cf` | [D] `$10:$00/v$00` farore |
 | `5:d0` | [D] `$3b:$07/v$00` femaleVillager<br>[D] `$ab:$0e/v$00` zora<br>[D] `$3c:$0b/v$00` boy<br>[D] `$2a:$00/v$00` librarian<br>[D] `$9a:$09/v$00` carpenter |
@@ -465,7 +491,7 @@ well as record selection.
 | `5:e2` | [D] `$66:$0c/v$01` goron<br>[D] `$66:$0c/v$02` goron |
 | `5:e4` | [D] `$52:$00/v$00` oldMan<br>[D] `$52:$02/v$00` oldMan |
 | `5:e8` | [D] `$94:$01/v$00` patch<br>[D] `$94:$02/v$00` patch |
-| `5:e9` | [I] `$48:$1d/v$00` tokay |
+| `5:e9` | [P] `$48:$1d/v$00` tokay |
 | `5:ec` | [D] `$52:$03/v$00` oldMan<br>[D] `$52:$04/v$00` oldMan<br>[D] `$52:$05/v$00` oldMan<br>[D] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
 | `5:f6` | [D] `$bf:$08/v$00` symmetryNpc<br>[D] `$bf:$09/v$00` symmetryNpc |

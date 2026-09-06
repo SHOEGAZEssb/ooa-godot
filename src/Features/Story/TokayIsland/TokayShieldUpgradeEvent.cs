@@ -33,19 +33,27 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
             return false;
 
         _actor = npc;
+        ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
+        LockInput();
         if (CurrentRoomFlag(OracleSaveData.RoomFlag40))
         {
             Show(0x0a69);
             _stage = TokayShieldUpgradeStage.DialogueOnly;
             return true;
         }
-        LockInput();
         Show(0x0a68);
         _stage = TokayShieldUpgradeStage.Intro;
         return true;
     }
 
     public void UpdateFrame()
+    {
+        var actor = _actor as TokayCharacter;
+        UpdateScript();
+        actor?.RunNativeUpdate(_context.Player);
+    }
+
+    private void UpdateScript()
     {
         if (_stage == TokayShieldUpgradeStage.Inactive)
             return;
@@ -69,7 +77,6 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
             if (_reward is { Finished: true })
             {
                 _reward = null;
-                SetCurrentRoomFlag(OracleSaveData.RoomFlag40);
                 _counter = 30;
                 _stage = TokayShieldUpgradeStage.FinalTextWait;
             }
@@ -96,6 +103,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         _reward?.Finish(_context.Player);
         _reward = null;
         UnlockInput();
@@ -108,6 +116,12 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
     {
         int parameter = _context.Inventory.ShieldLevel < 2 ? 1 : 2;
         _actor?.SetScriptAnimation(_database.Animation(0x02));
+        if (_actor is TokayCharacter tokay)
+        {
+            if (tokay.Accessory is { } accessory) accessory.Retired = true;
+            tokay.SetFacingDirection(Godot.Vector2I.Down);
+            tokay.NativeAnimation = TokayAnimationMode.FaceLink;
+        }
         _reward = _context.GrantScriptTreasure(
             _context.Rooms.ActiveGroup,
             _context.Rooms.CurrentRoom.Id,
@@ -116,6 +130,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
             $"TREASURE_OBJECT_SHIELD_{parameter:x2}",
             "scripts/ages:tokayGiveShieldUpgradeToLink",
             objectParameter: parameter + 1);
+        SetCurrentRoomFlag(OracleSaveData.RoomFlag40);
         _stage = TokayShieldUpgradeStage.Reward;
     }
 
@@ -146,6 +161,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
 
     private void FinishInteraction()
     {
+        if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         UnlockInput();
         _actor = null;
         _stage = TokayShieldUpgradeStage.Inactive;

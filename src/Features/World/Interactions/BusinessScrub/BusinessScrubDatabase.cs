@@ -4,14 +4,14 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Imported INTERAC_BUSINESS_SCRUB $ce:$03 shield-sale data used by past
-/// room 1:81.
+/// Imported INTERAC_BUSINESS_SCRUB $ce:$00/$03 shield-sale data.
 /// </summary>
 internal sealed class BusinessScrubDatabase
 {
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, BusinessScrubOffer> _offers = new();
+    private readonly Dictionary<int, BusinessScrubOffer> _allOffers = new();
     private readonly Dictionary<int, string> _animations = new();
     private readonly Dictionary<int, string> _texts = new();
 
@@ -37,16 +37,22 @@ internal sealed class BusinessScrubDatabase
     {
         LoadConstants();
         LoadOffers();
+        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/business_scrub_all_offers.tsv",
+            new GeneratedTableSchema("Business Scrub source offers", GeneratedTableKeySemantics.Unique,
+                ["subid", "price", "treasure", "parameter", "source"], ["subid"], headerRequired: true)).Rows)
+            _allOffers.Add(row.HexByte(0), new(0, row.HexByte(0), row.UnsignedDecimal(1),
+                row.HexByte(2), row.HexByte(3), row.RequiredString(4)));
         LoadAnimations();
         LoadTexts();
         Validate();
     }
 
     public bool Matches(NpcRecord npc) =>
-        npc.Group == Group &&
-        npc.Room == Room &&
         npc.Id == InteractionId &&
-        npc.SubId == PlacedSubId;
+        npc.SubId is 0x00 or 0x03;
+
+    public BusinessScrubOffer OfferFor(int baseSubid, int shieldLevel) =>
+        _allOffers[baseSubid + Math.Max(0, shieldLevel - 1)] with { ShieldLevel = shieldLevel };
 
     public BusinessScrubOffer OfferForShieldLevel(int shieldLevel) =>
         _offers.TryGetValue(shieldLevel, out BusinessScrubOffer offer)

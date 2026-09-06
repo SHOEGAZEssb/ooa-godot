@@ -70,6 +70,7 @@ public sealed class RoomTransitionController
     private int _deactivatedWarpRoom = -1;
     private int _deactivatedWarpPosition = -1;
     private bool _warpActive;
+    private bool _suppressDestinationMusic;
     private WarpPhase _warpPhase;
     private Warp _pendingWarp;
     private float _warpFrame;
@@ -101,6 +102,7 @@ public sealed class RoomTransitionController
     };
 
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
+    internal bool SuppressesDestinationMusic => _warpActive && _suppressDestinationMusic;
     public bool ScrollActive => _scrollActive;
     public Vector2I ScrollDirection => _scrollDirection;
     internal Vector2 ScrollLinkPositionInDestination =>
@@ -654,9 +656,11 @@ public sealed class RoomTransitionController
         BeginWarp(player, warp, false, forceFadeOut: true);
     }
 
-    public void ApplyWarpWithDelayedFadeOut(Player player, Warp warp)
+    public void ApplyWarpWithDelayedFadeOut(
+        Player player, Warp warp, bool suppressDestinationMusic = false)
     {
-        BeginWarp(player, warp, true);
+        BeginWarp(player, warp, true,
+            suppressDestinationMusic: suppressDestinationMusic);
     }
 
     /// <summary>
@@ -743,6 +747,7 @@ public sealed class RoomTransitionController
             _rooms.ActiveGroup, _rooms.CurrentRoom.Id, position, 0, 0,
             destinationGroup, _rooms.CurrentRoom.Id, position, 0, 6);
         _timeWarp = true;
+        _suppressDestinationMusic = false;
         _warpActive = true;
         _warpPhase = WarpPhase.TimeWarpInitialize;
         _warpFrame = 0.0f;
@@ -775,12 +780,14 @@ public sealed class RoomTransitionController
         Player player,
         Warp warp,
         bool delayedFadeOut,
-        bool forceFadeOut = false)
+        bool forceFadeOut = false,
+        bool suppressDestinationMusic = false)
     {
         if (_warpActive || !_rooms.World.HasRoom(warp.DestinationGroup, warp.DestinationRoom))
             return;
         _dialogue.Close();
         _pendingWarp = warp;
+        _suppressDestinationMusic = suppressDestinationMusic;
         _timeWarp = false;
         _createTimePortalAtDestination = false;
         _warpActive = true;

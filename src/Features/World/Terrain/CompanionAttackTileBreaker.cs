@@ -5,10 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Routes Ricky's ITEM_28, landing, and tornado tile probes through the
+/// Routes animal companion attacks through the
 /// imported breakable-tile source masks.
 /// </summary>
-internal sealed class RickyAttackTileBreaker(
+internal sealed class CompanionAttackTileBreaker(
     int group,
     OracleRoomData room,
     BreakableTileDatabase breakables,
@@ -19,7 +19,7 @@ internal sealed class RickyAttackTileBreaker(
     Action<int> playSound,
     Func<int, int?> decideBreakableDrop)
 {
-    internal void TryBreak(
+    internal bool TryBreak(
         Vector2 point,
         int source,
         ICollection<RoomEntitySpawn> spawns)
@@ -27,7 +27,7 @@ internal sealed class RickyAttackTileBreaker(
         if (point.X < 0 || point.X >= room.Width ||
             point.Y < 0 || point.Y >= room.Height)
         {
-            return;
+            return false;
         }
         if (breakables.TryBreak(
                 room,
@@ -40,7 +40,7 @@ internal sealed class RickyAttackTileBreaker(
                 out BreakableTileBreak result) !=
             BreakableTileBreakStatus.Broken)
         {
-            return;
+            return false;
         }
         result.ApplyCommonEffects(
             playSound, decideBreakableDrop, spawns);
@@ -50,5 +50,6 @@ internal sealed class RickyAttackTileBreaker(
             spawns.Add(effect);
         }
         roomTileChanged();
+        return true;
     }
 }

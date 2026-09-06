@@ -8,7 +8,7 @@ namespace oracleofages;
 /// by tokayInitHeldItem. The accessory is frozen on its initial frame and
 /// follows the Tokay at the source offset bc=$f400 (Y -12, X 0).
 /// </summary>
-internal partial class TokayHoldingItemCharacter : NpcCharacter
+internal partial class TokayHoldingItemCharacter : TokayCharacter
 {
     private static readonly Vector2 HeldItemOffset = new(0, -12);
 

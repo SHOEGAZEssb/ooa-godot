@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -299,6 +300,8 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
+    internal IEnumerable<T> EntityAdapters<T>() where T : IRoomEntity =>
+        _activeEntities.OfType<T>();
     public List<T> OutgoingEntities<T>() where T : Node2D => SelectNodes<T>(_outgoingEntities);
 
     public void LoadRoom(int group, OracleRoomData room)
@@ -897,6 +900,12 @@ public sealed class RoomEntityManager : IDisposable
             }
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
+                if (projectile is DimitriMouthRoomEntity mouth)
+                {
+                    if (!mouth.TrySwallow(target)) continue;
+                    mouth.OnEnemyCollision(_pendingSpawns);
+                    break;
+                }
                 if (target is not ISwordHittableRoomEntity &&
                     target is not IItemCollisionHittableRoomEntity)
                     continue;
@@ -1172,6 +1181,7 @@ public sealed class RoomEntityManager : IDisposable
         _factory.ApplyEntryShutterSubstitution(room, placementContext);
         // wActiveTriggers is room-local scratch state cleared by room loading.
         _activeTriggers = 0;
+        _runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 0);
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
         // last-eight-room list before rebuilding w4RandomBuffer.
         _recentEnemyDefeats.BeginRoom(room.Id);

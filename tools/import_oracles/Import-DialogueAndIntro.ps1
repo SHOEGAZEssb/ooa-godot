@@ -379,6 +379,9 @@ $playableHarpGraphics = @($harpFrames | Select-Object -First 17 |
     ForEach-Object Graphic)
 Add-LinkIntroSpriteRows `
     'link-harp-item' $playableHarpDurations $playableHarpGraphics $true
+$fluteFrames = @(Read-IntroAnimation 'animationData19f90')
+if ($fluteFrames.Count -ne 7) { throw 'LINK_ANIM_MODE_FLUTE must contain seven source frames.' }
+Add-LinkIntroSpriteRows 'link-flute-item' @($fluteFrames | ForEach-Object Duration) @($fluteFrames | ForEach-Object Graphic) $true
 
 $sparkleRows = @(Read-AssemblyMacroInvocations `
     $interactionDataPath 'interaction84SubidData' 'm_InteractionSubidData')
@@ -426,8 +429,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 52) {
-    throw "Expected 51 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 59) {
+    throw "Expected 58 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

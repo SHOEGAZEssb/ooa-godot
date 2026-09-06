@@ -53,6 +53,13 @@ public partial class MainMenuScreen : Node2D
     private readonly char[] _enteredName = new string(' ', 5).ToCharArray();
     private int _nameEntryPosition;
     private int _nameLowerChoice;
+    private SecretEntryDatabase? _secretData;
+    private Texture2D? _secretEntryMenu;
+    private bool _secretError;
+    internal bool EnteringSecret => CurrentPage == Page.SecretEntry;
+    internal byte[] EnteredSecret => Array.ConvertAll(_enteredName,
+        character => character == ' ' ? (byte)0xff :
+            (byte)Array.IndexOf(_secretData!.Glyphs, (byte)character));
 
     public Page CurrentPage { get; private set; }
     public int Cursor { get; private set; }
@@ -134,6 +141,7 @@ public partial class MainMenuScreen : Node2D
             Page.EraseSelect or Page.EraseConfirm => _eraseMenu,
             Page.NewFileOptions => _newFileMenu,
             Page.NameEntry => _nameEntryMenus[SelectedSlot],
+            Page.SecretEntry => _secretEntryMenu!,
             Page.TextSpeed => _textSpeedMenu,
             _ => _fileMenu
         };
@@ -148,6 +156,7 @@ public partial class MainMenuScreen : Node2D
             case Page.EraseSelect: DrawFileSelect(showActorAndSummary: true); break;
             case Page.NewFileOptions: DrawNewFileOptions(); break;
             case Page.NameEntry: DrawNameEntry(); break;
+            case Page.SecretEntry: DrawNameEntry(); break;
             case Page.TextSpeed: DrawTextSpeed(); break;
             case Page.CopyConfirm: DrawConfirm(); break;
             case Page.EraseConfirm: DrawConfirm(); break;
@@ -192,6 +201,27 @@ public partial class MainMenuScreen : Node2D
         NameCursor = 0;
         QueueRedraw();
     }
+    internal void ShowSecretEntry()
+    {
+        ShowNameEntry(0, string.Empty);
+        _secretData ??= new SecretEntryDatabase();
+        CurrentPage = Page.SecretEntry;
+        ShowSecretError(false);
+    }
+    internal void ShowSecretError(bool error)
+    {
+        _secretError = error;
+        _secretEntryMenu = BuildNameEntryTexture(0, secret: true, error: error);
+        QueueRedraw();
+    }
+    internal bool SelectSecretLowerOption(int choice)
+    {
+        bool alreadySelected = NameCursor >= 0x50 && _nameLowerChoice == choice;
+        NameCursor = choice == 2 ? 0x57 : 0x5a;
+        _nameLowerChoice = choice;
+        QueueRedraw();
+        return alreadySelected;
+    }
     public void ShowTextSpeed(int slot, int speed) { CurrentPage = Page.TextSpeed; SelectedSlot = slot; Cursor = slot; TextSpeed = Math.Clamp(speed, 0, 4); QueueRedraw(); }
     public void ShowCopySource() { CurrentPage = Page.CopySource; Cursor = 0; QueueRedraw(); }
     public void ShowCopyDestination(int source) { CurrentPage = Page.CopyDestination; Cursor = (source + 1) % 3; QueueRedraw(); }
@@ -234,13 +264,14 @@ public partial class MainMenuScreen : Node2D
                 int row = NameCursor & 0xf0;
                 int column = NameCursor & 0x0f;
                 do column = (column + direction.X + 16) & 0x0f;
-                while (column >= 12);
+                while (column >= (EnteringSecret ? 13 : 12));
                 NameCursor = row | column;
             }
             else
             {
-                _nameLowerChoice = (_nameLowerChoice + direction.X + 3) % 3;
-                NameCursor = 0x50 + new[] { 0, 3, 6 }[_nameLowerChoice];
+                int count = EnteringSecret ? 4 : 3;
+                _nameLowerChoice = (_nameLowerChoice + direction.X + count) % count;
+                NameCursor = 0x50 + (EnteringSecret ? new[] { 0, 3, 5, 9 } : new[] { 0, 3, 6 })[_nameLowerChoice];
             }
         }
         else if (direction.Y != 0)
@@ -252,7 +283,9 @@ public partial class MainMenuScreen : Node2D
             NameCursor = row | column;
             if (row == 0x50)
             {
-                _nameLowerChoice = column < 3 ? 0 : column < 6 ? 1 : 2;
+                _nameLowerChoice = EnteringSecret
+                    ? column < 3 ? 0 : column < 5 ? 1 : column < 9 ? 2 : 3
+                    : column < 3 ? 0 : column < 6 ? 1 : 2;
             }
         }
         QueueRedraw();
@@ -273,6 +306,11 @@ public partial class MainMenuScreen : Node2D
             return false;
         int row = NameCursor >> 4;
         int column = NameCursor & 0x0f;
+        if (EnteringSecret)
+        {
+            character = _secretData!.KeyboardGlyph(row, column);
+            return true;
+        }
         int alphabetIndex = row * 6 + column % 6;
         if (alphabetIndex < 26)
             character = (char)((column < 6 ? 'A' : 'a') + alphabetIndex);
@@ -427,13 +465,14 @@ public partial class MainMenuScreen : Node2D
 
     private void DrawNameEntry()
     {
-        DrawText(new string(_enteredName), new Vector2(80, 8), _nameEntryFont);
+        DrawText(new string(_enteredName), EnteringSecret ? new Vector2(48, 0) : new Vector2(80, 8), _nameEntryFont);
+        if (_secretError && EnteringSecret) return;
 
         if (NameCursor < 0x50)
         {
             int row = NameCursor >> 4;
             int column = NameCursor & 0x0f;
-            int mappedColumn = column + (column >= 6 ? 2 : 0);
+            int mappedColumn = column + (EnteringSecret ? column >= 8 ? 1 : 0 : column >= 6 ? 2 : 0);
             Vector2 offset = new(mappedColumn * 8, row * 16);
             if (TryGetSelectedNameCharacter(out char selectedCharacter) &&
                 selectedCharacter != ' ')
@@ -458,7 +497,7 @@ public partial class MainMenuScreen : Node2D
         }
         else
         {
-            int xOffset = new[] { 24, 48, 120 }[_nameLowerChoice];
+            int xOffset = EnteringSecret ? _secretData!.LowerOffsets[_nameLowerChoice] : new[] { 24, 48, 120 }[_nameLowerChoice];
             foreach (MenuOamPart part in
                 MenuPresentationDatabase.Shared.FileOam(
                     "name-lower-option-cursor"))
@@ -468,7 +507,7 @@ public partial class MainMenuScreen : Node2D
         }
 
         DrawFileOamPart(
-            MenuPresentationDatabase.Shared.FileOam("name-entry-cursor")[0],
+            MenuPresentationDatabase.Shared.FileOam(EnteringSecret ? "secret-entry-cursor" : "name-entry-cursor")[0],
             new Vector2(_nameEntryPosition * 8, 0));
     }
 
@@ -815,27 +854,33 @@ public partial class MainMenuScreen : Node2D
             ("res://assets/oracle/menu/gfx_newfilescreen.png", 0x8800, 1, true));
     }
 
-    private Texture2D BuildNameEntryTexture(int slot)
+    private Texture2D BuildNameEntryTexture(int slot, bool secret = false, bool error = false)
     {
         byte[] map = new byte[576];
         byte[] flags = new byte[576];
-        Overlay(map, ReadBytes("res://assets/oracle/menu/map_name_entry_top.bin", 160), 0);
-        Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_name_entry_top.bin", 160), 0);
-        Overlay(map, ReadBytes("res://assets/oracle/menu/map_name_entry_middle.bin", 320), 0xa0);
-        Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_name_entry_middle.bin", 320), 0xa0);
-        Overlay(map, ReadBytes("res://assets/oracle/menu/map_name_entry_bottom.bin", 128),
+        string prefix = secret ? "secret" : "name";
+        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_top.bin", 160), 0);
+        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_top.bin", 160), 0);
+        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
-        Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_name_entry_bottom.bin", 128),
+        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
 
         // label_02_038 writes hActiveFileSlot+$20 into this tile before the
         // $9c00 tilemap upload, producing the original FILE 1/2/3 digit.
-        map[0x49] = (byte)(0x20 + slot);
+        if (!secret) map[0x49] = (byte)(0x20 + slot);
+        if (error)
+        {
+            Overlay(map, ReadBytes("res://assets/oracle/menu/map_secret_entry_error.bin", 64), 0x140);
+            Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_secret_entry_error.bin", 64), 0x140);
+        }
 
         Texture2D baseTexture = BuildScreenTexture(map, flags, _fileBgPalette,
             ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
             ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_name.png", 0x8800, 1, true),
+            (secret ? "res://assets/oracle/menu/gfx_secret_thatswrong.png" : "res://assets/oracle/menu/gfx_name.png", 0x8800, 1, true),
             ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false));
 
         // UNCMP_GFXH_0b expands characters $40-$7a from the 1bpp font into
@@ -852,6 +897,8 @@ public partial class MainMenuScreen : Node2D
             if ((attributes & 0x08) != 0 || tile < 0x80)
                 continue;
             int sourceTile = 128 + SourceTileIndex(tile - 0x80, 16, interleaved: true);
+            if (secret)
+                sourceTile = SourceTileIndex(_secretData!.Glyphs[(tile - 0x80) / 2] * 2 + (tile & 1), 16, interleaved: true);
             DrawBackgroundTile(output, font, sourceTile, attributes, _fileBgPalette,
                 column * 8, row * 8);
         }
@@ -895,6 +942,7 @@ public enum Page
     FileSelect,
     NewFileOptions,
     NameEntry,
+    SecretEntry,
     TextSpeed,
     CopySource,
     CopyDestination,

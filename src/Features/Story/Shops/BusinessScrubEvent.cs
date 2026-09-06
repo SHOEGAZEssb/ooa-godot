@@ -1,9 +1,10 @@
 using System;
+using System.Linq;
 
 namespace oracleofages;
 
 /// <summary>
-/// Native INTERAC_BUSINESS_SCRUB $ce:$03 shield purchase in past room 1:81.
+/// Native INTERAC_BUSINESS_SCRUB $ce:$00/$03 shield purchases.
 /// </summary>
 internal sealed class BusinessScrubEvent : IRoomEvent
 {
@@ -11,6 +12,8 @@ internal sealed class BusinessScrubEvent : IRoomEvent
     private readonly BusinessScrubDatabase _database = new();
     private NpcCharacter? _scrub;
     private BusinessScrubEventStage _stage;
+    private BusinessScrubOffer _offer;
+    private BusinessScrubRoomEntity? _native;
 
     public BusinessScrubEvent(RoomEventContext context) => _context = context;
 
@@ -22,8 +25,6 @@ internal sealed class BusinessScrubEvent : IRoomEvent
     public bool TryInteractNpc(NpcCharacter npc)
     {
         if (_stage != BusinessScrubEventStage.Inactive ||
-            _context.Rooms.ActiveGroup != _database.Group ||
-            _context.Rooms.CurrentRoom.Id != _database.Room ||
             !_database.Matches(npc.Record))
         {
             return false;
@@ -32,8 +33,11 @@ internal sealed class BusinessScrubEvent : IRoomEvent
         _scrub = npc;
         npc.SetScriptButtonSensitive(false);
         npc.SetScriptAnimation(_database.Animation(2));
-        BusinessScrubOffer offer =
-            _database.OfferForShieldLevel(_context.Inventory.ShieldLevel);
+        _native = _context.Entities.EntityAdapters<BusinessScrubRoomEntity>()
+            .Single(scrub => ReferenceEquals(scrub.Npc, npc));
+        _native.Talking = true;
+        _offer = _native.Offer;
+        BusinessScrubOffer offer = _offer;
         _context.ShowChoiceDialogue(
             _database.Text(_database.PromptText).Replace(
                 "\\num1", offer.Price.ToString(), StringComparison.Ordinal));
@@ -67,8 +71,7 @@ internal sealed class BusinessScrubEvent : IRoomEvent
             return;
         }
 
-        BusinessScrubOffer offer =
-            _database.OfferForShieldLevel(_context.Inventory.ShieldLevel);
+        BusinessScrubOffer offer = _offer;
         if (_context.Inventory.Rupees < offer.Price)
         {
             ShowResult(_database.InsufficientText);
@@ -104,6 +107,8 @@ internal sealed class BusinessScrubEvent : IRoomEvent
 
     private void FinishTalk()
     {
+        if (_native is not null) _native.Talking = false;
+        _native = null;
         if (_scrub is not null)
         {
             _scrub.SetScriptAnimation(_database.Animation(4));

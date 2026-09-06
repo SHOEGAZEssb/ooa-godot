@@ -367,7 +367,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     /// One original update of npcFaceLinkAndAnimate, including the same
     /// post-change value $1d for its 30-update direction-change counter.
     /// </summary>
-    internal void FaceLinkAndAnimateOneUpdate(Player player)
+    internal void FaceLinkAndAnimateOneUpdate(Player player, bool preventPassing = true)
     {
         if (!Active)
             return;
@@ -407,7 +407,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             }
         }
 
-        AnimateAsNpcOneUpdate(player);
+        if (preventPassing)
+            AnimateAsNpcOneUpdate(player);
+        else
+            AnimateAndUpdateDrawPriorityOneUpdate(player);
     }
 
     /// <summary>

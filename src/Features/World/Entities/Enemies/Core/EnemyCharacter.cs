@@ -483,6 +483,15 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Visible = false;
     }
 
+    // collisionEffect25 sets health to zero and var3f bit 7. enemyDie still
+    // counts the defeat, but skips the death puff, sound and random item drop.
+    internal void Swallow()
+    {
+        Health = 0;
+        _completedKnockbackDeath = false;
+        Finish();
+    }
+
     protected virtual void CompleteKnockbackDeath() => Finish();
 
     internal bool TakeCompletedKnockbackDeath()

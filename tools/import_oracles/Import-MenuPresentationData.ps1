@@ -517,16 +517,52 @@ Add-MenuOamRows $fileOamRows 'name-lower-option-cursor' `
     'drawNameInputCursors' '@lowerOptionCursorSprites'
 Add-MenuOamRows $fileOamRows 'name-entry-cursor' `
     'drawNameInputCursors' '@textInputCursorSprite'
+Add-MenuOamRows $fileOamRows 'secret-entry-cursor' `
+    'drawSecretInputCursors' '@textInputCursorSprite'
 Add-MenuOamRows $fileOamRows 'save-quit-acorn' `
     'saveQuitMenu_drawSprites' '@acornSprite'
-if ($fileOamRows.Count -ne 25) {
-    throw "Expected 24 file/save OAM parts, got $($fileOamRows.Count - 1)."
+if ($fileOamRows.Count -ne 26) {
+    throw "Expected 25 file/save OAM parts, got $($fileOamRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'menu\file_oam.tsv'),
     $fileOamRows)
 
 $ringOamRows = [Collections.Generic.List[string]]::new()
+$secretGlyphRows = [Collections.Generic.List[string]]::new()
+$secretGlyphRows.Add("# index`tglyph")
+$secretSymbolBlock = [regex]::Match(
+    (Read-ImportText (Join-Path $Disassembly 'code\bank0.s')),
+    '(?ms)^secretSymbols:.*?^\.ifndef REGION_JP\s*\r?\n(?<table>.*?)^[ \t]*\.db \$00[^\r\n]*\r?\n^\.endif')
+if (-not $secretSymbolBlock.Success) { throw 'Missing clean-US secretSymbols table.' }
+$secretSymbolSource = $secretSymbolBlock.Groups['table'].Value
+$secretGlyphIndex = 0
+foreach ($line in ($secretSymbolSource -split "`n")) {
+    if ($line -match '^\s*\.asc\s+"([^"]+)"') {
+        foreach ($character in $Matches[1].ToCharArray()) {
+            $secretGlyphRows.Add("$secretGlyphIndex`t$(([int]$character).ToString('x2'))")
+            $secretGlyphIndex++
+        }
+    } elseif ($line -match '^\s*\.db\s+(\$[0-9a-f]{2}(?:\s+\$[0-9a-f]{2})*)') {
+        foreach ($value in [regex]::Matches($Matches[1], '\$([0-9a-f]{2})')) {
+            if ($value.Groups[1].Value -eq '00') { continue }
+            $secretGlyphRows.Add("$secretGlyphIndex`t$($value.Groups[1].Value)")
+            $secretGlyphIndex++
+        }
+    }
+}
+if ($secretGlyphIndex -ne 64) { throw "Expected 64 clean-US secret glyphs, got $secretGlyphIndex." }
+Write-GeneratedTable((Join-Path $destination 'menu\secret_glyphs.tsv'), $secretGlyphRows)
+$secretOffsetRows = @("# index`tx")
+$secretOffsetIndex = 0
+foreach ($node in Get-MenuLocalData $menuBank2Path 'drawSecretInputCursors' '@lowerOptionsOffsets' '.db') {
+    foreach ($operand in $node.Operands) {
+        $secretOffsetRows += "$secretOffsetIndex`t$(Convert-AssemblyInteger $operand)"
+        $secretOffsetIndex++
+    }
+}
+if ($secretOffsetIndex -ne 4) { throw 'Secret input must have four lower options.' }
+Write-GeneratedTable((Join-Path $destination 'menu\secret_lower_offsets.tsv'), $secretOffsetRows)
 $ringOamRows.Add(
     '# layout`tpart`ty`tx`ttile`tattributes`tsource-label`talias-of`tsource')
 Add-MenuOamRows $ringOamRows 'list-cursor' `
@@ -951,6 +987,22 @@ $frontendHorseInteractionSource = Read-ImportText `
     $frontendHorseInteractionPath
 $frontendGfxRegisterRows = @(Read-AssemblyDataDirectives `
     $frontendBank0Path 'gfxRegisterStates' '.db')
+# Native dialogue screens retain the hardware SCY byte independently of
+# wScreenOffsetY. In particular, gfx state $09 has no 16-pixel HUD offset.
+$dialogueScreenRows = [Collections.Generic.List[string]]::new()
+$dialogueScreenRows.Add('# state`tscroll-y`tsource')
+foreach ($state in @(0x02, 0x09)) {
+    $registerRow = $frontendGfxRegisterRows[$state * 2]
+    if ($registerRow.Operands.Count -ne 6) {
+        throw "gfxRegisterStates state $state must contain six bytes per phase."
+    }
+    $scrollY = Convert-AssemblyInteger $registerRow.Operands[1]
+    $dialogueScreenRows.Add(
+        "$($state.ToString('x2'))`t$($scrollY.ToString('x2'))`tcode/bank0.s:gfxRegisterStates+$($state.ToString('x2'))")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'menu\dialogue_screen_registers.tsv'),
+    $dialogueScreenRows)
 $faceRegisterRows = @($frontendGfxRegisterRows |
     Select-Object -Skip (0x19 * 2) -First 2)
 $faceRegisters = @($faceRegisterRows | ForEach-Object {

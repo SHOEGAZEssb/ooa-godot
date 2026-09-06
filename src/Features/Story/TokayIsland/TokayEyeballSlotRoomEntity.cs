@@ -5,19 +5,20 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Invisible INTERAC_PIRATE $c4:$04. Link pushes upward for ten updates to
-/// insert the Tokay Eyeball; this owner runs only the socket's native sequence.
+/// Invisible INTERAC_PIRATE $c4:$04. The native push counter and script A-button
+/// loop share the Tokay Eyeball insertion sequence.
 /// </summary>
 internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
     IRoomEntity,
     IFixedRoomEntity,
     IRoomBlocker,
     IRoomPushableEntity,
+    IPlayerInteractable,
     IPlayerRestriction,
     IRoomEntityLifetime,
     IScreenTransitionPreloadRoomEntity
 {
-    private const float CombinedLinkRadius = 12.0f;
+    private const float CombinedLinkRadius = 11.0f;
     private readonly NpcRecord _placement;
     private readonly TokayEntranceEyeDatabase _database;
     private readonly TokayEyeballSlotRecord _record;
@@ -33,6 +34,8 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
     private TokayEyeballSlotState _state;
     private int _counter;
     private int _pushCounter;
+    private Vector2 _pushInput;
+    private readonly bool _scriptHasEyeball;
 
     public Node2D Node => this;
     public bool Finished => _state == TokayEyeballSlotState.Finished;
@@ -67,6 +70,7 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         _room = room;
         _save = save;
         _inventory = inventory;
+        _scriptHasEyeball = inventory.HasTreasure(_record.Treasure);
         _showText = showText;
         _playSound = playSound;
         _beginScreenShake = beginScreenShake;
@@ -91,23 +95,23 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         Vector2I facing,
         Vector2 movementInput)
     {
-        if (_state != TokayEyeballSlotState.Waiting ||
-            !InteractableTilePushGeometry.TryGetCardinalInput(
-                movementInput, out Vector2I direction) ||
-            direction != Vector2I.Up || facing != Vector2I.Up)
-        {
-            ResetPush();
-            return;
-        }
+        _pushInput = facing == Vector2I.Up ? movementInput : Vector2.Zero;
+    }
 
-        Vector2 delta = Position - linkPosition;
-        if (Mathf.Abs(delta.X) >= 5.0f ||
-            delta.LengthSquared() >= 0x12 * 0x12 ||
-            delta.Dot(Vector2I.Up) <= 0.0f)
-        {
+    private void UpdateWaiting(Player player)
+    {
+        Vector2 delta = OracleObjectMath.ToPixelPosition(player.Position) - Position;
+        // pirate.s resets on failed contact/centering, then still decrements.
+        // objectCheckCenteredWithLink includes both endpoints of +/-$05.
+        bool touching = !player.IsDying && player.TopDownAirZ is >= -7 and < 7 &&
+            delta.X is >= -12 and < 12 && delta.Y is >= -12 and < 12;
+        bool centered = Mathf.Abs(delta.X) <= 5 || Mathf.Abs(delta.Y) <= 5;
+        bool pushing = InteractableTilePushGeometry.TryGetCardinalInput(_pushInput, out var direction) &&
+            direction == Vector2I.Up;
+        _pushInput = Vector2.Zero;
+        if (!touching || !centered || !pushing ||
+            Input.IsActionPressed("attack") || Input.IsActionPressed("item"))
             ResetPush();
-            return;
-        }
 
         _pushCounter--;
         if (_pushCounter != 0)
@@ -118,17 +122,43 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
             _showText(_placement.TextId, _placement.Message, Position);
             return;
         }
+        if (!CollisionsEnabled(player))
+            return;
         _state = TokayEyeballSlotState.BeginInsert;
+    }
+
+    private static bool CollisionsEnabled(Player player) =>
+        !player.IsDying && !player.CutsceneControlled &&
+        !player.BraceletLiftCollisionsDisabled && player.AcceptsRoomEntityContact;
+
+    public bool TryInteract(Player player)
+    {
+        if (_state != TokayEyeballSlotState.Waiting || !CollisionsEnabled(player))
+            return false;
+        Vector2 point = OracleObjectMath.ToPixelPosition(player.Position) +
+            player.FacingVector * NpcCharacter.AButtonPointOffset;
+        Vector2 delta = point - Position;
+        if (delta.X is < -6 or >= 6 || delta.Y is < -6 or >= 6)
+            return false;
+        // pirateSubid4Script selects this loop once, before waiting for A.
+        if (_scriptHasEyeball)
+            _state = TokayEyeballSlotState.BeginInsert;
+        else
+            _showText(_placement.TextId, _placement.Message, Position);
+        return true;
     }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        _ = frame;
         switch (_state)
         {
             case TokayEyeballSlotState.Waiting:
+                UpdateWaiting(frame.Player);
+                if (_state == TokayEyeballSlotState.BeginInsert)
+                    BeginInsert(spawns);
+                return;
             case TokayEyeballSlotState.Finished:
                 return;
 

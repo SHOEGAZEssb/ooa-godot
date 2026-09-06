@@ -2684,6 +2684,10 @@ public sealed partial class ValidationRoot
                 bombLandSounds + 2,
             "The shovel just-hit update did not enter flipped state `$0b`, " +
             "switch collision/animation, reverse its recovery angle, and jump.");
+        var flippedMouthTarget = _entities.EntityAdapters<SpikedBeetleRoomEntity>().Single(actor => actor.Node == flipped);
+        FailIf(flippedMouthTarget.DimitriCollisionMode != 0x51 ||
+            new DimitriDatabase().CanSwallow(flippedMouthTarget.DimitriCollisionMode),
+            "Overturned Spiked Beetle did not switch to the non-edible mouth row $51.");
 
         _entities.Update(update, _player);
         FailIf(

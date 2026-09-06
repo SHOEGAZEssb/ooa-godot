@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -62,6 +63,7 @@ internal sealed class RoomEntityFactory(
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
     private readonly TokayInteractionDatabase _tokayInteractions = new();
+    private readonly TokayNativeDatabase _tokayNative = new();
     private readonly TokaySeedlingPlotDatabase _tokaySeedlingPlot = new();
     private readonly TokayShopDatabase _tokayShop = new();
     private readonly WildTokayMeatDatabase _wildTokayMeat = new();
@@ -105,6 +107,7 @@ internal sealed class RoomEntityFactory(
     private readonly RickyGlovesEventDatabase _ricky = new();
     private readonly MooshRescueEventDatabase _moosh = new();
     private readonly MooshGoodbyeEventDatabase _mooshGoodbye = new();
+    private readonly DimitriDatabase _dimitri = new();
     private readonly CompanionTutorialDatabase _companionTutorials = new();
     private readonly CompanionBarrierDatabase _companionBarriers = new();
     private readonly TingleDatabase _tingle = new();
@@ -162,7 +165,17 @@ internal sealed class RoomEntityFactory(
             _ricky.ShouldSpawn(activeGroup, room.Id, saveData);
         IRoomEntity? companionEntity = null;
         ICompanionBarrierTarget? companionBarrierTarget = null;
-        if (CompanionRuntimeState.IsActive(
+        if (CompanionRuntimeState.IsActive(runtimeState, CompanionRuntimeState.DimitriId))
+        {
+            ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
+            if (active.Room == room.Id)
+            {
+                var dimitri = CreateDimitri(new(active.Position, active.Direction, activeGroup, room.Id, Riding: true), room);
+                companionEntity = dimitri;
+                companionBarrierTarget = dimitri;
+            }
+        }
+        else if (CompanionRuntimeState.IsActive(
                 runtimeState, CompanionRuntimeState.RaftId))
         {
             ActiveCompanion active = CompanionRuntimeState.Read(runtimeState);
@@ -256,6 +269,25 @@ internal sealed class RoomEntityFactory(
                 Goodbye: goodbye), room);
             companionEntity = moosh;
             companionBarrierTarget = moosh;
+        }
+        if (companionEntity is null && !companionSlotActive && saveData is not null)
+        {
+            bool remembered = CompanionRuntimeState.TryGetRemembered(runtimeState, 0x0c, activeGroup, room.Id, out Vector2 position);
+            // companionSpawner.s subid $03 / preset $03.
+            bool preset = _dimitri.ShouldSpawnPreset(activeGroup, room.Id, saveData);
+            if (remembered || preset)
+            {
+                // Room initialization restores a remembered companion before
+                // $67:$03; the spawner then sees the occupied slot and deletes.
+                if (preset && !remembered)
+                {
+                    position = _dimitri.PresetPosition;
+                    CompanionRuntimeState.ForgetRemembered(runtimeState);
+                }
+                var dimitri = CreateDimitri(new(position, 2, activeGroup, room.Id), room);
+                companionEntity = dimitri;
+                companionBarrierTarget = dimitri;
+            }
         }
         if (companionEntity is not null)
             yield return companionEntity;
@@ -682,7 +714,12 @@ internal sealed class RoomEntityFactory(
                             CreateNpcCharacter(record));
                         break;
                     case NpcImplementationClassification.SpecializedNative:
-                        yield return CreateSpecializedNpc(record, room);
+                        IRoomEntity specialized = CreateSpecializedNpc(record, room);
+                        yield return specialized;
+                        if (specialized.Node is TokayCharacter { Accessory: { } accessory })
+                            yield return accessory;
+                        if (specialized is RosaNpcRoomEntity { Shovel: { } shovel })
+                            yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
                         yield return new EventOwnedNpcRoomEntity(
@@ -2437,6 +2474,12 @@ internal sealed class RoomEntityFactory(
         RickyTornadoSpawn tornado => CreateRickyTornado(tornado, room),
         RickyTileBreakSpawn tileBreak => CreateRickyTileBreak(tileBreak, room),
         MooshCompanionSpawn moosh => CreateMoosh(moosh, room),
+        DimitriCompanionSpawn dimitri => CreateDimitri(dimitri, room),
+        TokayRescueEmberSpawn ember => new TokayRescueEmberRoomEntity(ember),
+        TokayAttachedVisualSpawn accessory => new TokayAttachedVisualRoomEntity(
+            accessory.Parent, accessory.Record, accessory.Offset),
+        DimitriMouthSpawn mouth => new DimitriMouthRoomEntity(mouth,
+            CreateCompanionTileBreaker(mouth.Group, mouth.Room, room)),
         MooshHoverExclamationSpawn exclamation =>
             CreateMooshHoverExclamation(exclamation),
         MooshStompAttackSpawn stomp => CreateMooshStomp(stomp, room),
@@ -2462,7 +2505,7 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room) => new(
             spawn,
             _ricky.Behavior,
-            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
 
     private RickyTornadoRoomEntity CreateRickyTornado(
         RickyTornadoSpawn spawn,
@@ -2470,15 +2513,15 @@ internal sealed class RoomEntityFactory(
             spawn,
             _ricky.Behavior,
             room,
-            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
 
     private RickyTileBreakRoomEntity CreateRickyTileBreak(
         RickyTileBreakSpawn spawn,
         OracleRoomData room) => new(
             spawn,
-            CreateRickyTileBreaker(spawn.Group, spawn.Room, room));
+            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
 
-    private RickyAttackTileBreaker CreateRickyTileBreaker(
+    private CompanionAttackTileBreaker CreateCompanionTileBreaker(
         int group,
         int roomId,
         OracleRoomData room)
@@ -2493,7 +2536,7 @@ internal sealed class RoomEntityFactory(
             return null;
         }
 
-        return new RickyAttackTileBreaker(
+        return new CompanionAttackTileBreaker(
             group,
             room,
             _breakables,
@@ -2505,6 +2548,11 @@ internal sealed class RoomEntityFactory(
             drop => itemDrops.DecideBreakableDrop(
                 drop, random, inventory, saveData));
     }
+
+    private DimitriCompanionRoomEntity CreateDimitri(DimitriCompanionSpawn spawn, OracleRoomData room) =>
+        new(spawn, room, _dimitri, saveData ?? throw new InvalidOperationException("Dimitri requires live save state."),
+            runtimeState, soundRequested, roomEntityDialogueRequested, dialogueOpen,
+            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination));
 
     private MooshCompanionRoomEntity CreateMoosh(
         MooshCompanionSpawn spawn,
@@ -2814,15 +2862,74 @@ internal sealed class RoomEntityFactory(
                 saveData.HasRoomFlag(
                     record.Group, record.Room, OracleSaveData.RoomFlag40));
             ConfigureTokayActor(holder);
-            return new SpecializedNpcRoomEntity(holder);
+            bool returned = saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40);
+            holder.ReturnedItemDialogue = returned && inventory is not null &&
+                new TokayTheftEventDatabase().Record.StolenItems
+                    .Where(treasure => treasure != TreasureDatabase.TreasureShield)
+                    .All(inventory.HasTreasure) ? 0x0a0d : 0x0a0c;
+            if (returned)
+            {
+                holder.SetFacingDirection(Vector2I.Down);
+                holder.NativeAnimation = TokayAnimationMode.FaceLink;
+            }
+            return new TokayNpcRoomEntity(holder);
         }
 
-        if (record.Id == 0x48 ||
-            record is { Group: 1, Room: 0xcb, Id: 0x68, SubId: 0x00 })
+        if (record.Id == 0x48)
+        {
+            var tokay = new TokayCharacter { Name = $"Npc_48_{record.SubId:x2}" };
+            tokay.Initialize(record);
+            ConfigureTokayActor(tokay);
+            if (record.SubId == 0x0b && tokay.Active)
+                runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
+            if (record.SubId == 0x1e)
+            {
+                room.SetPositionTileAndCollision(tokay.Position, 0, 0x0f,
+                    animationTick(), preserveRenderedTile: true);
+                roomTileChanged();
+            }
+            tokay.NativeAnimation = record.SubId switch
+            {
+                0x05 => TokayAnimationMode.FaceLink,
+                >= 0x1a and <= 0x1c => TokayAnimationMode.Still,
+                _ => TokayAnimationMode.Animate
+            };
+            if (record.SubId is 0x0f or 0x10)
+                tokay.SetFacingDirection(record.SubId == 0x0f ? Vector2I.Right : Vector2I.Up);
+            if (record.SubId == 0x1a)
+            {
+                tokay.SetBasePalette(2);
+                tokay.ForceNextAnimationFrame();
+            }
+            if (record.SubId == 0x1c)
+            {
+                tokay.SetScriptAnimation(_tokayInteractions.Animation(9));
+                tokay.Accessory = new TokayAttachedVisualRoomEntity(tokay,
+                    _tokayNative.Visual("museum-meat", record.Group, record.Room), new Vector2(0, -12));
+            }
+            if (record.SubId == 0x1d && saveData is not null && inventory is not null)
+            {
+                bool returned = saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40);
+                tokay.SetScriptAnimation(_tokayInteractions.Animation(returned ? 2 : 6));
+                if (!returned)
+                    tokay.Accessory = new TokayAttachedVisualRoomEntity(tokay,
+                        _tokayNative.Visual(inventory.ShieldLevel < 2 ? "shield1" : "shield2", record.Group, record.Room),
+                        new Vector2(0, -12));
+            }
+            return new TokayNpcRoomEntity(tokay);
+        }
+
+        if (record is { Group: 1, Room: 0xcb, Id: 0x68, SubId: 0x00 })
         {
             NpcCharacter tokayActor = CreateNpcCharacter(record);
             ConfigureTokayActor(tokayActor);
-            return new SpecializedNpcRoomEntity(tokayActor);
+            TokayAttachedVisualRoomEntity? shovel = null;
+            if (tokayActor.Active && saveData is not null &&
+                !saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40))
+                shovel = new TokayAttachedVisualRoomEntity(tokayActor,
+                    _tokayNative.Visual("rosa-shovel", record.Group, record.Room), new Vector2(0x48, 0x38))
+                    { FollowParent = false, ZIndex = NpcCharacter.InFrontOfLinkZIndex };
+            return new RosaNpcRoomEntity(tokayActor, inventory!, shovel);
         }
 
         if (record.Group == _shootingGallery.Record.Group &&
@@ -2987,7 +3094,8 @@ internal sealed class RoomEntityFactory(
                 _businessScrub,
                 room,
                 animationTick(),
-                roomTileChanged);
+                roomTileChanged,
+                inventory?.ShieldLevel ?? 0);
         }
         if (_room20e.Matches(record))
         {
@@ -3400,9 +3508,10 @@ internal sealed class RoomEntityFactory(
         NpcRecord shopkeeper = records[0];
         RequireNpcImplementation(
             shopkeeper, NpcImplementationClassification.SpecializedNative);
-        NpcCharacter npc = CreateNpcCharacter(shopkeeper);
+        var npc = new TokayCharacter { Name = "TokayShopkeeper" };
+        npc.Initialize(shopkeeper);
         ConfigureTokayActor(npc);
-        yield return new SpecializedNpcRoomEntity(npc);
+        yield return new TokayNpcRoomEntity(npc);
     }
 
     private void ConfigureTokayActor(NpcCharacter npc)

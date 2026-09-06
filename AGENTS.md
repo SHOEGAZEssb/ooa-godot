@@ -124,6 +124,12 @@ Run the complete suite before handoff.
 
 ## Documentation rule
 
+Keep fidelity audits and working findings in untracked files under
+`local-audits/`, excluded through `.git/info/exclude`. Never put audit reports
+in tracked documentation, including `docs/npc-interaction-coverage.md`, or link
+tracked documentation to local audit files. The coverage ledger still records
+statuses, room entries, counts, and dated snapshots.
+
 Documentation explains durable decisions: evidence, ownership, invariants,
 file-format contracts, and contributor workflow. It does not duplicate class
 inventories, generated tables, per-room implementation notes, or validation

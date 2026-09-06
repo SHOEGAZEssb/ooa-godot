@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Native INTERAC_BUSINESS_SCRUB $ce:$03 and its $ce:$80 mimicked-bush child.
+/// Native INTERAC_BUSINESS_SCRUB $ce:$00/$03 and its $ce:$80 mimicked-bush child.
 /// The scrub emerges at strict Manhattan distance $20 and remains an
 /// always-updating interaction while gameplay text is active.
 /// </summary>
@@ -21,16 +21,20 @@ internal sealed class BusinessScrubRoomEntity
 
     public NpcCharacter Npc => _npc;
     public Node2D Node => _npc;
+    internal BusinessScrubOffer Offer { get; }
+    internal bool Talking { get; set; }
 
     public BusinessScrubRoomEntity(
         NpcCharacter npc,
         BusinessScrubDatabase database,
         OracleRoomData room,
         long animationTick,
-        Action roomTileChanged)
+        Action roomTileChanged,
+        int shieldLevel = 0)
     {
         _npc = RequireBusinessScrub(npc, database);
         _database = database;
+        Offer = database.OfferFor(npc.Record.SubId, shieldLevel);
 
         Texture2D bushTexture = room.BuildMimickedMetatileTexture(
             (byte)database.BushTile);
@@ -76,6 +80,11 @@ internal sealed class BusinessScrubRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         _npc.AnimateAndUpdateDrawPriorityOneUpdate(frame.Player);
+        if (Talking)
+        {
+            UpdateBushPosition();
+            return;
+        }
 
         Vector2 delta = frame.Player.Position - _npc.Position;
         bool near = Mathf.Abs(delta.X) + Mathf.Abs(delta.Y) <
