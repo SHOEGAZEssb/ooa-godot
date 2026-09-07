@@ -13,8 +13,75 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction,
     IPlayerForcedMovement, IPlayerRideableRoomEntity,
     IPlayerScreenTransitionRoomEntity, IRoomEntityLifetime,
-    ICompanionBarrierTarget
+    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker
 {
+
+    private bool _forestWaiting;
+    public bool ForestButtonPressed { get; private set; }
+
+    public void UseForestInteraction(bool outside)
+    {
+        _forestWaiting = true;
+        _phase = MooshCompanionPhase.Waiting;
+        SetAnimation(outside ? 3 : 0);
+    }
+
+    public void NoticeForestLink(int animation) => SetAnimation(animation);
+
+    public void ForceForestMount()
+    {
+        _forestWaiting = false;
+        _phase = MooshCompanionPhase.Mounting;
+        _mountStarted = false;
+        SetAnimation(1 + _direction);
+    }
+
+    public bool TryInteract(Player player)
+    {
+        Vector2 delta = _precisePosition - player.Position;
+        if (!_forestWaiting || _dialogueOpen() || Math.Abs(delta.X) + Math.Abs(delta.Y) > 24 ||
+            delta.Dot(player.FacingVector) <= 0) return false;
+        ForestButtonPressed = true;
+        return true;
+    }
+
+    public bool BlocksLink(Vector2 center) => _forestWaiting &&
+        Math.Abs(center.X - Position.X) < 12 && Math.Abs(center.Y - Position.Y) < 8;
+
+    private bool _fluteEntrance;
+    private bool _flutePending;
+    private int _fluteCounter;
+
+    private void UpdateFluteEntrance()
+    {
+        if (_flutePending)
+        {
+            _flutePending = false;
+            _fluteCounter = 0x3c;
+            _playSound(0xc5);
+            SetAnimation(0x0f + _direction);
+            return;
+        }
+        _animation.Advance();
+        Vector2 next = _precisePosition;
+        OracleObjectMovement.Shared.ApplySpeed(ref next, 0x1e, _angle);
+        if (_precisePosition.X < 0 && next.X > 128) next.X -= 256;
+        if (_precisePosition.Y < 0 && next.Y > 128) next.Y -= 256;
+        _precisePosition += ResolveMovement(next - _precisePosition);
+        Vector2 offset = _direction switch
+        {
+            0 => new(0, -8), 1 => new(8, 0), 2 => new(0, 8), _ => new(-8, 0)
+        };
+        // mooshStateC/companionRetIfNotFinishedWalkingIn stop at a nonzero
+        // collision tile or the sixtieth clear-tile update.
+        if (_room.GetTerrainInfo(_precisePosition + offset).Collision == 0 && --_fluteCounter != 0) return;
+        _fluteEntrance = false;
+        _phase = MooshCompanionPhase.Waiting;
+        _direction = 2;
+        _angle = 0xff;
+        SetAnimation(3);
+    }
+
     private static readonly Vector2[] CollisionSamples =
     [
         new(-3, -5), new(4, -5), new(-3, 8), new(4, 8),
@@ -152,6 +219,13 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _precisePosition = spawn.Position;
         Position = spawn.Position;
         _direction = spawn.Direction;
+        if (spawn.FluteDestination is Vector2 destination)
+        {
+            _fluteEntrance = true;
+            _flutePending = true;
+            _angle = _direction * 8;
+            CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, destination);
+        }
         _phase = spawn.Goodbye is not null
             ? MooshCompanionPhase.GoodbyeInitializing
             : spawn.ForceMount
@@ -227,7 +301,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _chargePaletteActive = false;
 
-        switch (_phase)
+        if (_fluteEntrance) UpdateFluteEntrance();
+        else switch (_phase)
         {
             case MooshCompanionPhase.Waiting:
                 UpdateWaiting(frame.Player);
@@ -304,7 +379,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateWaiting(Player player)
     {
-        if (player.TopDownAirborne || player.IsDying ||
+        if (_forestWaiting) { _animation.Advance(); return; }
+        if (CompanionRuntimeState.MountingDisabled(_runtime) || player.TopDownAirborne || player.IsDying ||
             player.IsDrowning || player.IsFallingInHole ||
             !LinkWithinMountDistance(player))
         {
@@ -1038,7 +1114,8 @@ internal sealed record MooshCompanionSpawn(
     int Room,
     bool ForceMount = false,
     bool Riding = false,
-    MooshGoodbyeEventRecord? Goodbye = null) : RoomEntitySpawn;
+    MooshGoodbyeEventRecord? Goodbye = null,
+    Vector2? FluteDestination = null) : RoomEntitySpawn;
 
 internal sealed record MooshStompAttackSpawn(
     Vector2 Position,

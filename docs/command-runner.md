@@ -82,6 +82,9 @@ Use one command with several actors only when one source operation genuinely
 owns them together. Use `CutsceneCommandLaneScheduler` when original object
 slots own independent scripts. Each lane retains its own instruction pointer,
 stack, counters, and registers, and lanes update in original object order.
+Lanes may bind their own host and script-table entry. A lane's native pre-update
+runs immediately before its script, preserving interleaved object work such as
+gravity and shared-state observations.
 
 Keep source-native work in named native handlers: palette progression, room
 loading, actor/part creation, portals, fixed-point physics, follower buffers,

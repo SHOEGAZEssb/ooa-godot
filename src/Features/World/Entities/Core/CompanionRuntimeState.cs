@@ -34,6 +34,9 @@ internal static class CompanionRuntimeState
     // overwrite them; companionRespawn reads them without a room-id guard.
     private const int LastAnimalMountY = 0xc638;
     private const int LastAnimalMountX = 0xc639;
+    // Ages wDisallowMountingCompanion. The interaction owns its countdown.
+    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(0xccb2) != 0;
+    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(0xccb2, checked((byte)frames));
 
     internal static bool IsActive(OracleRuntimeState state, int id) =>
         state.ReadWramByte(Active) != 0 &&

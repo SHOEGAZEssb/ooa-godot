@@ -25,6 +25,8 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly Func<bool> _collisionsDisabled;
 
     public int FrameCounter => _entities.FrameCounter;
+    public void UpdateElectricShockPresentation(int counter) =>
+        _entities.UpdateElectricShockPresentation(counter);
     public bool IsTransitioning => _transitions.IsTransitioning;
     public bool ScreenScrolling => _transitions.ScrollActive;
     public bool DialogueOpen => _interactions.DialogueOpen;

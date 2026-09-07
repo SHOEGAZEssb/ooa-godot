@@ -97,6 +97,37 @@ public sealed class RoomEntityManager : IDisposable
     private int _horizontalScreenShakeCounter;
     private bool _linkCollisionsAndMenuDisabled;
     private bool _disposed;
+    private Color[,]? _preShockBackgroundPalettes;
+    private IReadOnlyDictionary<int, Color[]>? _activeObjectPaletteOverride;
+
+    internal void UpdateElectricShockPresentation(int counter)
+    {
+        if (counter == 0x2d)
+            _preShockBackgroundPalettes = _roomForActiveEntities.BackgroundPalettes.Capture();
+        if (counter != 0 && (counter & 7) != 0) return;
+        if (_preShockBackgroundPalettes is null) return;
+        if ((counter & 8) == 0)
+        {
+            _roomForActiveEntities.BackgroundPalettes.Restore(_preShockBackgroundPalettes);
+            _activeObjectPaletteOverride = null;
+        }
+        else
+        {
+            _roomForActiveEntities.BackgroundPalettes.Restore(ElectricShockPalette.Background);
+            _activeObjectPaletteOverride = ElectricShockPalette.Objects;
+            BeginScreenShake(8);
+        }
+        foreach (IRoomEntity entity in _activeEntities) ApplyObjectPaletteOverride(entity);
+        if (counter == 0) _preShockBackgroundPalettes = null;
+    }
+
+    private void ApplyObjectPaletteOverride(IRoomEntity entity)
+    {
+        if (entity.Node is EnemyCharacter enemy)
+            enemy.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
+        else if (entity.Node is ZoraFireProjectile fire)
+            fire.SetPaletteOverride(_activeObjectPaletteOverride);
+    }
 
     internal Func<bool> GameButtonJustPressedSource { get; set; } =
         ReadGameButtonJustPressed;
@@ -252,6 +283,7 @@ public sealed class RoomEntityManager : IDisposable
     public bool ScreenTransitionsDisabled
         => HasPlayerRestriction(
             static restriction => restriction.DisablesScreenTransitions);
+    internal bool WarpTilesDisabled => HasPlayerRestriction(static restriction => restriction.DisablesWarpTiles);
 
     public RoomEntityManager(
         Node worldRoot,
@@ -476,6 +508,7 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if ((!textActive || UpdatesDuringDialogue(entity)) &&
+                    !(player.ElectricShockActive && entity is IPlayerRideableRoomEntity) &&
                     (!roomEntityFreezeActive ||
                      UpdatesDuringRoomEntityFreeze(entity)) &&
                     entity is IPlayerForcedMovement forcedMovement)
@@ -535,6 +568,8 @@ public sealed class RoomEntityManager : IDisposable
             {
                 if (_updatedEntitiesThisFrame.Contains(entity))
                     continue;
+                if (player.ElectricShockActive && entity is IPlayerRideableRoomEntity)
+                    continue;
                 if (entity is ISeedProjectileRoomEntity)
                     continue;
                 if (entity is IRoomEntityLifetime { Finished: true })
@@ -567,6 +602,9 @@ public sealed class RoomEntityManager : IDisposable
             }
             ProcessSpawns(frame);
             UpdateScreenShake();
+            // specialObjects.s clears this after the companion update;
+            // native interaction events publish the next update's lock.
+            CompanionRuntimeState.SetMountingLock(_runtimeState, 0);
             anyButtonJustPressed = false;
         }
 
@@ -918,14 +956,14 @@ public sealed class RoomEntityManager : IDisposable
                 }
                 seed.OnCollision(
                     result,
-                    hittable as ISeedBurnTarget,
+                    result == SeedHitResult.Ignite ? hittable as ISeedBurnTarget : null,
                     bounceTarget);
                 break;
             }
         }
     }
 
-    private Vector2? ActiveScentSeedTarget()
+    internal Vector2? ActiveScentSeedTarget()
     {
         Vector2? result = null;
         foreach (IRoomEntity entity in _activeEntities)
@@ -1207,6 +1245,8 @@ public sealed class RoomEntityManager : IDisposable
 
     public void Clear()
     {
+        _preShockBackgroundPalettes = null;
+        _activeObjectPaletteOverride = null;
         ClearEntities(_outgoingEntities);
         ClearEntities(_activeEntities);
         _enemySlots.Clear();
@@ -1390,6 +1430,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private IRoomEntity AddEntity(IRoomEntity entity)
     {
+        if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.
         if (entity.Node is EnemyCharacter && entity is IRoomEnemyCounterEntity &&
@@ -1462,7 +1503,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity ? 1 : 2;
+        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity ? 1 : 2;
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {

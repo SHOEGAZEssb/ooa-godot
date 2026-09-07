@@ -62,6 +62,16 @@ public sealed class BackgroundPaletteState
         return _colors[palette, shade];
     }
 
+    internal Color[,] Capture() => (Color[,])_colors.Clone();
+
+    internal void Restore(Color[,] palettes)
+    {
+        if (palettes.GetLength(0) != PaletteCount || palettes.GetLength(1) != ColorsPerPalette)
+            throw new ArgumentException("A live BG palette snapshot must contain eight palettes.", nameof(palettes));
+        for (int palette = 0; palette < PaletteCount; palette++)
+            WritePalette(palette, shade => palettes[palette, shade]);
+    }
+
     internal void LoadTileset(Color[,] palettes)
     {
         ValidateSixPalettes(palettes, nameof(palettes));

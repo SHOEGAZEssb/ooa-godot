@@ -19,7 +19,7 @@ internal sealed class CutsceneSpriteRenderer
         { Colors.Transparent, GbcColor(0x1f, 0x16, 0x06), GbcColor(0x1b, 0x00, 0x00), GbcColor(0x00, 0x00, 0x00) }
     };
 
-    private readonly Dictionary<long, Texture2D> _cells = new();
+    private readonly Dictionary<(int SourceOffset, int Tile, int Palette, bool FlipX, bool FlipY), Texture2D> _cells = new();
     private readonly Image _source =
         OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_link.png");
 
@@ -61,16 +61,14 @@ internal sealed class CutsceneSpriteRenderer
         }
     }
 
-    private Texture2D CellTexture(
+    internal Texture2D CellTexture(
         IntroSpriteFrame frame,
         IntroOamPart part)
     {
         int palette = (frame.BasePalette ^ part.Flags) & 0x07;
         bool flipX = (part.Flags & 0x20) != 0;
         bool flipY = (part.Flags & 0x40) != 0;
-        long key = (uint)frame.SourceOffset | ((long)(uint)part.Tile << 16) |
-            ((long)(uint)palette << 24) |
-            (flipX ? 1L << 28 : 0) | (flipY ? 1L << 29 : 0);
+        var key = (frame.SourceOffset, part.Tile, palette, flipX, flipY);
         if (_cells.TryGetValue(key, out Texture2D? cached))
             return cached;
 
@@ -96,7 +94,9 @@ internal sealed class CutsceneSpriteRenderer
         int x,
         int y)
     {
-        int cell = sourceOffset / 32 + (tileOffset & 0xfe) / 2;
+        // Imported partial-load frames use absolute source tiles, which may
+        // exceed $ff (the flute starts at $118). Only clear the 8x16 pair bit.
+        int cell = sourceOffset / 32 + (tileOffset & ~1) / 2;
         return new Vector2I((cell % 16) * 8 + x, (cell / 16) * 16 + y);
     }
 

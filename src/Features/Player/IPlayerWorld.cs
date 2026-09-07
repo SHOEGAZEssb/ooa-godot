@@ -23,6 +23,7 @@ public interface IPlayerWorld
     bool ApplyExpertsRingTileHit(Player player, int direction);
     bool TryCreateSwordBeam(Player player, int direction);
     void PlaySound(int soundId);
+    void UpdateElectricShockPresentation(int counter) { }
     bool TryInteract(Player player);
     bool TrySecondaryInteract(Player player);
     bool TryUseBomb(Player player) => false;

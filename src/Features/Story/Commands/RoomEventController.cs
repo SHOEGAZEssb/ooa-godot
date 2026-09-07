@@ -45,6 +45,7 @@ public sealed class RoomEventController
     private readonly GraveyardGhostKidsEvent _graveyardGhostKids;
     private readonly RickyGlovesEvent _rickyGloves;
     private readonly TingleEvent _tingle;
+    private readonly CarpenterEvent _carpenters;
     private readonly MooshRescueEvent _mooshRescue;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
@@ -146,6 +147,7 @@ public sealed class RoomEventController
         _graveyardGhostKids = new GraveyardGhostKidsEvent(_context);
         _rickyGloves = new RickyGlovesEvent(_context);
         _tingle = new TingleEvent(_context);
+        _carpenters = new CarpenterEvent(_context);
         _mooshRescue = new MooshRescueEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
@@ -186,6 +188,7 @@ public sealed class RoomEventController
             _graveyardGate,
             _rickyGloves,
             _tingle,
+            _carpenters,
             _mooshRescue,
             _makuSproutRescue,
             _dekuForestSoldier,
@@ -236,6 +239,9 @@ public sealed class RoomEventController
         };
         _interactionHandlers =
         [
+            NpcInteractionHandler.ForNpc(
+                "carpenter.s:room025Scripts",
+                (target, _) => _carpenters.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "forestFairy.s:forestFairy_discovered",
                 (target, _) => _fairiesWoods.TryInteractNpc(target.Npc)),
@@ -379,6 +385,7 @@ public sealed class RoomEventController
     internal GraveyardGhostKidsEvent GraveyardGhostKids => _graveyardGhostKids;
     internal RickyGlovesEvent RickyGloves => _rickyGloves;
     internal TingleEvent Tingle => _tingle;
+    internal CarpenterEvent Carpenters => _carpenters;
     internal MooshRescueEvent MooshRescue => _mooshRescue;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
@@ -426,11 +433,13 @@ public sealed class RoomEventController
     internal void TriggerOverworldKeyhole(int group, int room) =>
         _graveyardGate.Trigger(group, room);
     internal bool ScreenTransitionsDisabled =>
+        _carpenters.BlocksGameplay ||
         _makuSproutRescue.ScreenTransitionsDisabled ||
         _fairiesWoods.ScreenTransitionsDisabled ||
         _mooshRescue.ScreenTransitionsDisabled ||
         _wildTokayGame.ScreenTransitionsDisabled;
     internal bool MenusDisabled =>
+        _carpenters.MenusDisabled ||
         _companionForest.MenusDisabled ||
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||

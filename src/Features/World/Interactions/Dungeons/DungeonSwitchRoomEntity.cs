@@ -11,7 +11,7 @@ namespace oracleofages;
 internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntity,
     IFixedRoomEntity, ISwordHittableRoomEntity,
     IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget
+    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget, IRoomEntityLifetime
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
@@ -21,6 +21,8 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     private readonly Action _roomTileChanged;
     private readonly Action<int> _playSound;
     private int _hitLockout;
+    private readonly OracleSaveData? _save;
+    public bool Finished { get; private set; }
 
     public int CollisionZ => _data.SwitchCollisionZ;
     internal int PackedPosition => _record.PackedPosition;
@@ -37,7 +39,8 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         OracleRuntimeState runtime,
         Func<long> animationTick,
         Action roomTileChanged,
-        Action<int> playSound)
+        Action<int> playSound,
+        OracleSaveData? save = null)
         : base(record, $"DungeonSwitch_{record.SubId:x2}_{record.Order}")
     {
         if (record.Id != 0x05 || record.SubId == 0)
@@ -49,10 +52,13 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         _animationTick = animationTick;
         _roomTileChanged = roomTileChanged;
         _playSound = playSound;
+        _save = save;
+        if (record.Group == 0 && save is null)
+            throw new InvalidOperationException("Overworld PART_SWITCH $05 requires live save state.");
 
         // replaceSwitchTiles runs before object parsing and restores each
         // switch's on metatile when its retained dungeon bit is already set.
-        if (SwitchIsOn())
+        if (record.Group != 0 && SwitchIsOn())
             SetSwitchTile(_data.SwitchOnTile);
     }
 
@@ -108,7 +114,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
 
     private bool TryToggle(Rect2 hitbox, bool applyHitLockout = true)
     {
-        if (_hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
+        if (Finished || _hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
             return false;
 
         byte switchState = _runtime.ReadWramByte(
@@ -117,7 +123,18 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         _runtime.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, switchState);
         _hitLockout = applyHitLockout ? _data.SwitchHitLockout : 0;
-        SetSwitchTile(
+        if (_record.Group == 0)
+        {
+            // switch.s writes the visible $9e tile, then clears only the
+            // logical layout byte before deleting the one-shot part.
+            SetSwitchTile(_data.OverworldSwitchOnTile);
+            _room.SetPositionTileAndCollision(Position, 0,
+                _room.GetCollision((byte)_data.OverworldSwitchOnTile),
+                _animationTick(), preserveRenderedTile: true);
+            _save!.SetRoomFlag(_record.Group, _record.Room, 0x40);
+            Finished = true;
+        }
+        else SetSwitchTile(
             (switchState & SwitchMask) != 0
                 ? _data.SwitchOnTile
                 : _data.SwitchOffTile);
@@ -136,3 +153,5 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         _roomTileChanged();
     }
 }
+
+internal sealed record DungeonSwitchSpawn(DungeonMechanicDatabaseRecord Record) : RoomEntitySpawn;

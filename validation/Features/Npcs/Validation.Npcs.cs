@@ -418,8 +418,6 @@ public sealed partial class ValidationRoot
             ["cutscenes/companion_forest_0a.tsv|\\call(0xff)"] = 1,
             ["cutscenes/companion_forest_text.tsv|\\call(0xfe)"] = 1,
             ["cutscenes/companion_forest_text.tsv|\\call(0xff)"] = 3,
-            ["cutscenes/companion_forest_text.tsv|\\jump(TX_1138)"] = 1,
-            ["cutscenes/companion_forest_text.tsv|\\jump(TX_1146)"] = 1,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
             ["map/texts.tsv|\\jump(TX_0560)"] = 1,
@@ -530,9 +528,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 61,
-                [NpcImplementationClassification.SpecializedNative] = 158,
-                [NpcImplementationClassification.EventOwned] = 22,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 214
+                [NpcImplementationClassification.SpecializedNative] = 161,
+                [NpcImplementationClassification.EventOwned] = 36,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 197
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -545,7 +543,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "61 ordinary, 158 specialized, 22 event-owned, and 214 " +
+            "61 ordinary, 161 specialized, 27 event-owned, and 206 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -565,7 +563,7 @@ public sealed partial class ValidationRoot
         NpcRecord ordinary = Find(0, 0x48, 0x3a, 0x03, 0x00);
         NpcRecord specialized = Find(0, 0x56, 0x65, 0x00, 0x00);
         NpcRecord eventOwned = Find(0, 0x39, 0x37, 0x0d, 0x00);
-        NpcRecord unsupported = Find(0, 0x16, 0x9a, 0xb2, 0x00);
+        NpcRecord unsupported = Find(5, 0xd0, 0x9a, 0x09, 0x00);
         FailIf(
             ordinary.Implementation !=
                 NpcImplementationClassification.OrdinaryGeneric ||
@@ -780,6 +778,7 @@ public sealed partial class ValidationRoot
         string[] expectedSources =
         [
             "blossom.s:MENU_KIDNAME",
+            "carpenter.s:room025Scripts",
             "forestFairy.s:forestFairy_discovered",
             "shopkeeper.s:lynnaShop:npc",
             "businessScrub.s:interactionCodece",
@@ -3787,7 +3786,7 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 344 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 350 ||
             new NpcDialogueRuleDatabase().RuleCount != 122 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
             "Expected 344 NPC visibility, 122 NPC dialogue, and two NPC " +
@@ -4115,7 +4114,7 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x82));
         FailIf(
-            manager.Entities<NpcCharacter>().Count != 0,
+            manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id != 0x49 || npc.Record.SubId < 0x0e),
             "Room 0:82 instantiated deliberately unsupported placed " +
             "Forest Fairy phases.");
 
@@ -4327,7 +4326,7 @@ public sealed partial class ValidationRoot
             "table, one-Essence gate, two-Essence stage/personality save write, refill-bit clear, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "344 imported visibility, 122 dialogue, and two position predicates, " +
+            "350 imported visibility, 122 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
     }

@@ -10,9 +10,25 @@ internal sealed class TingleDatabase
     private readonly Dictionary<int, string> _texts = new();
 
     internal TingleRecord Record { get; }
+    internal TimedSparkleVisual UpgradeGlowVisual { get; }
 
     internal TingleDatabase()
     {
+        GeneratedTableRow glow = GeneratedTable.Load(
+            "res://assets/oracle/objects/tingle_upgrade_glow.tsv",
+            new GeneratedTableSchema("Tingle upgrade glow",
+                GeneratedTableKeySemantics.Ordered,
+                ["id", "subid", "lifetime", "sprite", "source-offset", "tile-base", "palette", "animation", "source"],
+                headerRequired: true)).SingleRow();
+        if (glow.HexByte(0) != 0x84 || glow.HexByte(1) != 0x04 ||
+            glow.UnsignedDecimal(2) != 120 || glow.RequiredString(3) != "spr_link" ||
+            glow.HexWord(4) != 0x1c00 || glow.UnsignedDecimal(5) != 0 ||
+            glow.UnsignedDecimal(6) != 0)
+            throw glow.Invalid(0, "INTERAC_SPARKLE $84:$04 with lifetime 120 and source tile/palette $00");
+        UpgradeGlowVisual = new TimedSparkleVisual(glow.RequiredString(3),
+            glow.HexWord(4), glow.UnsignedDecimal(5), glow.UnsignedDecimal(6), glow.RequiredString(7));
+        _ = OracleGraphicsCache.GetAnimationDefinition(UpgradeGlowVisual.Animation);
+        glow.RequiredString(8);
         GeneratedTableRow row = GeneratedTable.Load(
             "res://assets/oracle/objects/tingle.tsv",
             new GeneratedTableSchema(

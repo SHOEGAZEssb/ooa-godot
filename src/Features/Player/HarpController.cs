@@ -37,7 +37,7 @@ public sealed class HarpController
     {
         if (IsPlaying) return 0;
         _fluteData ??= new FluteDatabase();
-        int icon = _rooms.SaveData.ReadWramByte(0xc6b5);
+        int icon = player.Inventory.FluteIcon;
         _sound.PlaySound(_fluteData.Sound(icon));
         _fluteIcon = icon;
         PlayingSong = 0xff;

@@ -55,9 +55,22 @@ internal sealed class CompanionFluteSpawner(RoomSession rooms, RoomEntityManager
             0 => new(point.X, 112), 1 => new(16, point.Y),
             2 => new(point.X, 16), _ => new(144, point.Y)
         };
-        if (player.Inventory.AnimalCompanion != 0x0c)
-            throw new InvalidOperationException($"companionSpawner.s:@fluteCall has no runtime entrance owner for companion ${player.Inventory.AnimalCompanion:x2}.");
-        entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start, direction,
-            rooms.ActiveGroup, rooms.CurrentRoom.Id, FluteDestination: destination));
+        switch (player.Inventory.AnimalCompanion)
+        {
+            case 0x0b:
+                entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(start, direction,
+                    rooms.ActiveGroup, rooms.CurrentRoom.Id, FluteDestination: destination));
+                break;
+            case 0x0c:
+                entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start, direction,
+                    rooms.ActiveGroup, rooms.CurrentRoom.Id, FluteDestination: destination));
+                break;
+            case 0x0d:
+                entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(start, direction,
+                    rooms.ActiveGroup, rooms.CurrentRoom.Id, FluteDestination: destination));
+                break;
+            default:
+                throw new InvalidOperationException($"companionSpawner.s:@fluteCall invalid companion ${player.Inventory.AnimalCompanion:x2}.");
+        }
     }
 }

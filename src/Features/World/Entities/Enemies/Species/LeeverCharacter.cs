@@ -107,7 +107,16 @@ internal partial class LeeverCharacter : EnemyCharacter
 
             case LeeverState.Chasing:
                 _counter = (_counter - 1) & 0xff;
-                if (_counter == 0 || HasWallOrHoleAhead())
+                if (_counter == 0)
+                {
+                    BeginSinking();
+                    return;
+                }
+                // leever.s:@subid01_stateA consumes RNG even when a wall
+                // immediately forces this update to sink.
+                if (Record.SubId == 1 && _random.Next().Value < 0x14)
+                    _angle = CardinalAngleToward(linkPosition);
+                if (HasWallOrHoleAhead())
                 {
                     BeginSinking();
                     return;
@@ -153,6 +162,12 @@ internal partial class LeeverCharacter : EnemyCharacter
         int frameCounter,
         out Vector2 spawn)
     {
+        if (Record.SubId == 1)
+        {
+            int candidate = _random.Next().Value & 0x77;
+            spawn = new Vector2((candidate & 15) * 16 + 8, (candidate >> 4) * 16 + 8);
+            return _room.GetTerrainInfo(spawn).Collision == 0;
+        }
         int direction = linkFacing == Vector2I.Up ? 0
             : linkFacing == Vector2I.Right ? 1
             : linkFacing == Vector2I.Down ? 2

@@ -41,12 +41,22 @@ an actor animation selects cached definitions; it does not rebuild textures.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,
 palette results, and hashes from real generated data.
 
+Partial-load Link frames encode absolute source tile indices, which can exceed
+one byte. Renderers clear only the 8-by-16 pairing bit; they must not truncate
+the index or overlap its high bits with palette fields in cache keys.
+
 ## Palettes and background state
 
 `OracleWorldData` owns the live gameplay background palette slots shared by
 rooms, dialogue, and palette effects. Source palette writes update those slots
 at their original boundary and rerender affected presentation without replacing
 logical room data.
+
+Electric shock keeps its update counter with Link. Its presentation captures
+and restores the live background slots, while enemy animation palette overrides
+select separately cached OAM textures without changing animation clocks or
+source images. Overrides retain each OBJ slot, including the inverted colors
+in slots 4-7. Zora fireballs created during the effect inherit the active override.
 
 Keep these concepts separate:
 

@@ -94,6 +94,14 @@ Override the V target with `--debug-warp-group=` and
 project's explicit-save rules. Debug savestates are separate from the three
 retail-compatible file slots.
 
+On F1's items page, selecting `FLUTE_00`, `FLUTE_01`, or `FLUTE_02` switches
+the companion to Ricky, Dimitri, or Moosh and grants its callable flute. Equip
+it on A or B and play it in a supported present overworld room to summon that
+companion. Normal shop/minigame Strange Flutes still require the forest quest.
+Closing F1 after a companion change
+in Nuun Highlands reloads its terrain and entities and moves Link to safe
+ground. Quest progress is retained.
+
 ## Change cycle
 
 1. Inspect `git status --short` and preserve unrelated changes.

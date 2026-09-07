@@ -10,6 +10,9 @@ public sealed class DebugFlagMenuController
     private readonly RoomSession _rooms;
     private readonly GameplayPauseController _pause;
     private readonly Func<bool> _canOpen;
+    private readonly InventoryState _inventory;
+    private readonly Action _companionChanged;
+    private int _companionOnOpen;
     private PauseLease? _pauseLease;
 
     public bool IsActive { get; private set; }
@@ -18,12 +21,16 @@ public sealed class DebugFlagMenuController
         DebugFlagScreen screen,
         RoomSession rooms,
         GameplayPauseController pause,
-        Func<bool> canOpen)
+        Func<bool> canOpen,
+        InventoryState inventory,
+        Action companionChanged)
     {
         _screen = screen;
         _rooms = rooms;
         _pause = pause;
         _canOpen = canOpen;
+        _inventory = inventory;
+        _companionChanged = companionChanged;
         EnsureInputAction();
     }
 
@@ -60,6 +67,7 @@ public sealed class DebugFlagMenuController
         _pauseLease = _pause.TryAcquire(this);
         if (_pauseLease is null)
             return;
+        _companionOnOpen = _inventory.AnimalCompanion;
         _screen.Open(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
         IsActive = true;
     }
@@ -70,6 +78,8 @@ public sealed class DebugFlagMenuController
         IsActive = false;
         _pauseLease?.Dispose();
         _pauseLease = null;
+        if (_inventory.AnimalCompanion != _companionOnOpen)
+            _companionChanged();
     }
 
     private static void EnsureInputAction()

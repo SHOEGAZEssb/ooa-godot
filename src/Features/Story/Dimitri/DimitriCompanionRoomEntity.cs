@@ -9,7 +9,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
     IPlayerRideableRoomEntity, IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime, IPlayerInteractable, IRoomBlocker, ICompanionBarrierTarget,
-    IBraceletInteractableRoomEntity
+    IBraceletInteractableRoomEntity, IForestCompanion
 {
     private readonly DimitriDatabase _data;
     private readonly OracleSaveData _save;
@@ -50,16 +50,16 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private int _cliffWalls;
     private Player? _holder;
     private bool _forestInteraction;
-    internal bool ForestButtonPressed { get; private set; }
+    public bool ForestButtonPressed { get; private set; }
 
-    internal void UseForestInteraction(bool outside)
+    public void UseForestInteraction(bool outside)
     {
         _forestInteraction = true;
         _phase = DimitriPhase.Harassed;
         if (outside) _animation.SetAnimation(0x1e);
     }
-    internal void NoticeForestLink() => _animation.SetAnimation(0x1e);
-    internal void ForceForestMount()
+    public void NoticeForestLink(int animation) => _animation.SetAnimation(animation);
+    public void ForceForestMount()
     {
         _phase = DimitriPhase.Mounting;
         _mountStarted = false;
@@ -129,6 +129,15 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     {
         if ((_save.ReadWramByte(0xc647) & 1) == 0)
             _phase = DimitriPhase.IntroPending;
+    }
+
+    internal void StopAtCarpenterSearchBoundary()
+    {
+        // carpenter.s:@dimitri redirects biting state $08 through state $0d.
+        if (_phase != DimitriPhase.Eating) return;
+        _phase = DimitriPhase.Riding;
+        _carried.ZFixed = 0;
+        SetAnimation(0);
     }
 
     public bool TryInteract(Player player)
@@ -211,7 +220,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 CheckHazard();
                 if (_phase == DimitriPhase.Hazard) break;
                 UpdateWater();
-                if (!player.TopDownAirborne && !player.IsDying && !player.IsDrowning &&
+                if (!CompanionRuntimeState.MountingDisabled(_runtime) && !player.TopDownAirborne && !player.IsDying && !player.IsDrowning &&
                     !player.IsFallingInHole && Distance(player.Position) < 9)
                     _phase = DimitriPhase.Mounting;
                 break;

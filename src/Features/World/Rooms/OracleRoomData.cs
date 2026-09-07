@@ -21,6 +21,7 @@ public sealed class OracleRoomData
     public int AnimationGroup { get; }
     public int ActiveCollisions { get; }
     public byte TilesetFlags { get; }
+    internal bool IsCompanionRegion { get; init; }
     public int WidthInTiles { get; }
     public int HeightInTiles { get; }
     public int Width => WidthInTiles * MetatileSize;
@@ -52,6 +53,7 @@ public sealed class OracleRoomData
     internal int CurrentAnimationSignature => _animationSignature;
     internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
     internal int? TemporaryBackgroundPaletteOffset => _temporaryBackgroundPaletteOffset;
+    internal BackgroundPaletteState BackgroundPalettes => _backgroundPalettes;
 
     internal OracleRoomData(
         int group,

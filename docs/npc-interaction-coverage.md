@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 113 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 130 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 56 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 214 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 197 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,18 +63,42 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 61 ordinary, 86 specialized,
-22 event-owned, and 214 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 61 ordinary, 89 specialized,
+36 event-owned, and 197 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
-classified records and 158 specialized rows.
+classified records and 161 specialized rows.
 
 ### Important partial and deferred boundaries
 
+- September 7, 2026: Nuun Highlands' nine companion-specific carpenter rows
+  are **I**. `ValidateNuunHighlands` covers all three searches, departure and
+  return flags, the boss warp, bridge completion, and both search-exit choices.
+  The snapshot is **130 I / 56 P / 197 D**, with **36 event-owned** rows.
+- September 7, 2026: the companion forest quest supports Ricky, Dimitri and
+  Moosh from introduction through rescue, named flute reward, mounting and
+  permanent forest reset, with linked/unlinked dialogue and subsequent flute
+  calls. Room `0:82`'s three search hints `$49:$0e-$10` are **I**, covered by
+  `ValidateForestHintFairies` and the six companion forest quest scenarios.
+  The snapshot is **121 I / 56 P / 206 D**, with **27 event-owned** rows.
+- September 7, 2026: room `0:25`'s five `$9a:$00-$04` carpenter records
+  are **I**, covered by `ValidateRoom025Carpenters`: search dialogue,
+  returned-worker visibility, coordinated bridge construction, departure,
+  linked gating and persistent re-entry. The separate search-area records
+  were deferred in this earlier snapshot and are covered by the Nuun entry above.
+  The snapshot is **118 I / 56 P / 209 D**, with **27 event-owned** rows.
+- September 7, 2026: room `0:79` now creates the source `$84:$04` glow
+  around Link during Tingle's 120-update Seed Satchel upgrade wait. The
+  Tingle row remains **P** for its existing postgame-secret boundary;
+  snapshot counts remain **113 I / 56 P / 214 D** across **383** records.
 - September 7, 2026: Moosh's rescue retains its source room-local digging-enemy
   restriction through departure. The three `0:6c` Ghini rows remain **I**;
   snapshot totals remain **113 I / 56 P / 214 D**, with **22 event-owned** rows.
   The non-character `0:83` collapse controller also supplies that restriction
   and remains outside the NPC denominator.
+- September 7, 2026: Room `0:34`'s invisible `$71:$08` introduction supports
+  Ricky, Dimitri and Moosh, including assignment of Moosh when unassigned.
+  This controller and its dynamic fairy add no positioned rows; snapshot
+  counts remain **113 I / 56 P / 214 D**, total **383**.
 - September 6, 2026: Dimitri's forest controllers `$71:$08-$0c` now supply the
   entry trigger, rescue, flute reward and persistent departure flag. Shared
   fairy `$49:$03/$04` movement preserves arrival/circle/departure signals and
@@ -91,6 +115,10 @@ classified records and 158 specialized rows.
 - Room `0:38` implements the Maku Tree disappearance and
   `wMakuTreeState=$02` Seed Satchel path. Later adult-tree states are not
   classified here and keep the record at **P**.
+- 2026-09-07: Room `0:54` implements invisible `INTERAC_MISCELLANEOUS_1
+  $6b:$0f`, its one-shot overworld switch, and bridge construction/re-entry.
+  This controller has no visible `NpcRecord`; the snapshot remains
+  **113 I / 56 P / 214 D**, total **383**.
 - Room `0:5b` implements invisible `INTERAC_COMPANION_TUTORIAL $d0:$04`:
   mounted Moosh shows `TX_2207` on the source state-1 update, and crossing
   strictly right of X=`$60` sets `wCompanionTutorialTextShown` bit `$04` and
@@ -241,6 +269,8 @@ classified records and 158 specialized rows.
   reward, seed-type gate, Seed Satchel upgrade path, kooloo-limpah animation,
   three source-positioned `INTERAC_SPARKLE $84:$00` effects with `$10`
   foreground priority and terminal-parameter lifetime,
+  the stationary `$84:$04` glow around Link before the Satchel upgrade,
+  with source OAM, animation, frame-parity flicker, and 120-update lifetime,
   and the post-chart 60-update handoff into Ricky's source state-$0a
   down-left cliff hops using retained airborne companion collision bits, the
   source `$18`/`$10` wall probes and straight-down cliff jump, farewell punch,
@@ -290,12 +320,12 @@ well as record selection.
 | Room | Imported records in source order |
 | --- | --- |
 | `0:09` | [D] `$72:$00/v$00` kingMoblinDefeated |
-| `0:16` | [D] `$9a:$b2/v$00` carpenter<br>[D] `$9a:$d2/v$00` carpenter |
-| `0:17` | [D] `$9a:$c2/v$00` carpenter<br>[D] `$9a:$d3/v$00` carpenter |
-| `0:25` | [D] `$9a:$00/v$00` carpenter<br>[D] `$9a:$01/v$00` carpenter<br>[D] `$9a:$02/v$00` carpenter<br>[D] `$9a:$03/v$00` carpenter<br>[D] `$9a:$04/v$00` carpenter |
-| `0:26` | [D] `$9a:$b3/v$00` carpenter<br>[D] `$9a:$c3/v$00` carpenter |
-| `0:27` | [D] `$9a:$b4/v$00` carpenter<br>[D] `$9a:$d4/v$00` carpenter |
-| `0:37` | [D] `$9a:$c4/v$00` carpenter |
+| `0:16` | [I] `$9a:$b2/v$00` carpenter<br>[I] `$9a:$d2/v$00` carpenter |
+| `0:17` | [I] `$9a:$c2/v$00` carpenter<br>[I] `$9a:$d3/v$00` carpenter |
+| `0:25` | [I] `$9a:$00/v$00` carpenter<br>[I] `$9a:$01/v$00` carpenter<br>[I] `$9a:$02/v$00` carpenter<br>[I] `$9a:$03/v$00` carpenter<br>[I] `$9a:$04/v$00` carpenter |
+| `0:26` | [I] `$9a:$b3/v$00` carpenter<br>[I] `$9a:$c3/v$00` carpenter |
+| `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
+| `0:37` | [I] `$9a:$c4/v$00` carpenter |
 | `0:38` | [P] `$87:$00/v$00` makuTree |
 | `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
@@ -320,12 +350,12 @@ well as record selection.
 | `0:72` | [D] `$49:$0c/v$00` forestFairy |
 | `0:77` | [D] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
-| `0:79` | [P] `$c8:$00/v$00` tingle |
+| `0:79` | [P] `$c8:$00/v$00` tingle (includes pre-upgrade `$84:$04` glow) |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [D] `$49:$06/v$00` forestFairy |
 | `0:81` | [D] `$49:$0d/v$00` forestFairy<br>Dimitri's separate `$71:$09` controller and dynamically spawned `$49:$03` rescue fairy are implemented; the positioned `$49:$0d` record remains deferred. |
-| `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[D] `$49:$0e/v$00` forestFairy<br>[D] `$49:$0f/v$00` forestFairy<br>[D] `$49:$10/v$00` forestFairy |
+| `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[I] `$49:$0e/v$00` forestFairy<br>[I] `$49:$0f/v$00` forestFairy<br>[I] `$49:$10/v$00` forestFairy |
 | `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse, including its digging restriction |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |

@@ -26,9 +26,25 @@ public sealed class EnemyDatabase
         _colorChangingGelPalettes;
     internal EnemyHandlerRegistry EnemyHandlers { get; }
     internal VineSproutDatabase VineSprouts { get; } = new();
+    private readonly Dictionary<int, string> _cukemanTexts = new();
+    internal string CukemanText(int id) => _cukemanTexts.TryGetValue(id, out string? text)
+        ? text : throw new InvalidOperationException($"Missing Cukeman text ${id:x4}.");
 
     public EnemyDatabase()
     {
+        GeneratedTable texts = GeneratedTable.Load("res://assets/oracle/objects/cukeman_text.tsv",
+            new GeneratedTableSchema("Cukeman dialogue", GeneratedTableKeySemantics.Unique,
+                ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
+        foreach (GeneratedTableRow row in texts.Rows)
+        {
+            int id = row.HexWord(0);
+            if (id is < 0x2f1e or > 0x2f25)
+                throw row.Invalid(0, "TX_2f1e through TX_2f25");
+            _cukemanTexts.Add(id, row.Base64Utf8(1));
+            _ = row.RequiredString(2);
+        }
+        if (_cukemanTexts.Count != 8)
+            throw new InvalidOperationException("Cukeman requires TX_2f1e through TX_2f25.");
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/objects/common_enemies.tsv",
             new GeneratedTableSchema(
@@ -61,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 31 ||
+        if (_importedDefinitions.Count != 35 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -803,6 +819,9 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
+        EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
+        EnemyHandlerKind.BuzzBlob => HasImportedDefinition(descriptor, 0x18),
         EnemyHandlerKind.Octorok =>
             descriptor.Id == 0x09 &&
             _octorokDefinitions.ContainsKey(descriptor.SubId),

@@ -809,7 +809,7 @@ public partial class GameRoot : Node2D
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_interactions.GameplayMenuActive &&
-                !_entities.PlayerMenusDisabled);
+                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
@@ -817,7 +817,7 @@ public partial class GameRoot : Node2D
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
-                !_entities.PlayerMenusDisabled,
+                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
         _inventoryMenu = new InventoryMenuController(
@@ -827,7 +827,7 @@ public partial class GameRoot : Node2D
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
-                !_entities.PlayerMenusDisabled,
+                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);
         _ringMenu = new RingMenuController(
@@ -841,7 +841,8 @@ public partial class GameRoot : Node2D
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !_player.IsDying &&
-                !_roomEvents.Active && !_roomEvents.MenusDisabled);
+                !_roomEvents.Active && !_roomEvents.MenusDisabled,
+            _inventory, RefreshDebugCompanionLayout);
     }
 
     internal void UpdateAnimatedTiles(double delta)
@@ -912,7 +913,7 @@ public partial class GameRoot : Node2D
         !_player.IsUsingHarp &&
         !_roomEvents.Active &&
         !_roomEvents.MenusDisabled &&
-        !_entities.PlayerMenusDisabled;
+        !_entities.PlayerMenusDisabled && !_player.ElectricShockActive;
 
     internal DebugSavestateData CaptureDebugSavestate() =>
         DebugSavestateData.Capture(
@@ -1167,6 +1168,20 @@ public partial class GameRoot : Node2D
             }
         }
         return best;
+    }
+
+    private void RefreshDebugCompanionLayout()
+    {
+        if (!_rooms.CurrentRoom.IsCompanionRegion)
+            return;
+        // Debug selection may replace the terrain underneath a mounted animal.
+        // Drop the old live slot before rebuilding entities and finding safe ground.
+        foreach (int id in new[] { CompanionRuntimeState.RickyId,
+                     CompanionRuntimeState.DimitriId, CompanionRuntimeState.MooshId })
+            CompanionRuntimeState.Clear(_runtimeState, id);
+        CompanionRuntimeState.ForgetRemembered(_runtimeState);
+        LoadDebugRoom(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
+        _player.WarpTo(FindSpawn());
     }
 
     internal void LoadDebugRoom(int group, int room)

@@ -17,8 +17,96 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     IPlayerRideableRoomEntity,
     IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime,
-    ICompanionBarrierTarget
+    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker
 {
+
+    private bool _forestWaiting;
+    public bool ForestButtonPressed { get; private set; }
+
+    public void UseForestInteraction(bool outside)
+    {
+        _forestWaiting = true;
+        _phase = RickyCompanionPhase.Waiting;
+        // rickyState0: returned Ricky uses $17, while an unmet Ricky uses $00.
+        SetAnimation(((_saveData?.ReadWramByte(0xc646) ?? 0) & 0x60) != 0 ? 0x17 : 0);
+    }
+
+    public void NoticeForestLink(int animation)
+    {
+        if (animation != 0) SetAnimation(animation);
+    }
+
+    public void ForceForestMount()
+    {
+        _forestWaiting = false;
+        _phase = RickyCompanionPhase.Mounting;
+        _mountStarted = false;
+    }
+
+    public bool TryInteract(Player player)
+    {
+        Vector2 delta = _precisePosition - player.Position;
+        if (!_forestWaiting || _dialogueOpen() || Math.Abs(delta.X) + Math.Abs(delta.Y) > 24 ||
+            delta.Dot(player.FacingVector) <= 0) return false;
+        ForestButtonPressed = true;
+        return true;
+    }
+
+    public bool BlocksLink(Vector2 center) => _forestWaiting &&
+        Math.Abs(center.X - Position.X) < 12 && Math.Abs(center.Y - Position.Y) < 8;
+
+    private bool _fluteEntrance;
+    private bool _flutePending;
+    private int _fluteHops;
+
+    // rickyStateC uses two cutscene hops, retaining state-5 landing/hazard rules.
+    private void UpdateFluteEntrance(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_flutePending)
+        {
+            _flutePending = false;
+            _fluteHops = 2;
+            StartFluteHop();
+            _playSound(_record.RickySound);
+            return;
+        }
+        if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40))
+        {
+            if (!IsHoleAt(_precisePosition + _behavior.HoleOffsets[_direction]))
+            {
+                var before = _precisePosition;
+                ApplyCompanionMovement(0x50);
+                if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
+                if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
+            }
+            return;
+        }
+        _animation.Advance();
+        if (_landingCounter > 0 && --_landingCounter != 0) return;
+        if (TryBeginHazard()) { _fluteEntrance = false; return; }
+        foreach (var offset in _behavior.LandingProbes)
+            spawns.Add(new RickyTileBreakSpawn(_precisePosition + offset,
+                BreakableTileDatabase.SourceRickyLanded, _group, _roomId));
+        if (_room.GetTerrainInfo(_precisePosition + _behavior.HoleOffsets[_direction]).Collision == 0 &&
+            --_fluteHops != 0)
+        {
+            StartFluteHop();
+            return;
+        }
+        _fluteEntrance = false;
+        _phase = RickyCompanionPhase.Waiting;
+        _direction = 2;
+        _angle = 0xff;
+        SetAnimation(0x17);
+    }
+
+    private void StartFluteHop()
+    {
+        _speedZ = -0x180;
+        _landingCounter = 8;
+        SetAnimation(1 + _direction);
+    }
+
     private static readonly Vector2[] CollisionSamples =
     [
         new(-3, -5), new(4, -5), new(-3, 8), new(4, 8),
@@ -162,6 +250,13 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _roomId = spawn.Room;
         _precisePosition = spawn.Position;
         _direction = spawn.Direction;
+        if (spawn.FluteDestination is Vector2 destination)
+        {
+            _fluteEntrance = true;
+            _flutePending = true;
+            _angle = _direction * 8;
+            CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, destination);
+        }
         _phase = spawn.ForceMount
             ? RickyCompanionPhase.Mounting
             : spawn.Riding
@@ -229,7 +324,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _chargePaletteActive = false;
 
-        switch (_phase)
+        if (_fluteEntrance) UpdateFluteEntrance(spawns);
+        else switch (_phase)
         {
             case RickyCompanionPhase.Waiting:
                 UpdateWaiting(frame.Player);
@@ -308,7 +404,14 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private void UpdateWaiting(Player player)
     {
         _animation.Advance();
-        if (!player.TopDownAirborne && !player.IsDying &&
+        if (_forestWaiting)
+        {
+            // rickyStateASubstate0 integrates gravity on every non-$80 frame.
+            if ((_animation.CurrentParameter & 0x80) != 0) _speedZ = -0x100;
+            else OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
+            return;
+        }
+        if (!CompanionRuntimeState.MountingDisabled(_runtime) && !player.TopDownAirborne && !player.IsDying &&
             !player.IsDrowning && !player.IsFallingInHole &&
             LinkWithinMountDistance(player.PrecisePosition))
         {
@@ -332,6 +435,14 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             OracleObjectMath.UpdateSpeedZ(
                 ref _zFixed, ref _speedZ, _record.JumpGravity);
         }
+    }
+
+    internal void StopAtCarpenterSearchBoundary()
+    {
+        // carpenter.s:@ricky writes state-$05 substate $03.
+        if (_phase != RickyCompanionPhase.Hopping) return;
+        _phase = RickyCompanionPhase.Landing;
+        _landingCounter = 0;
     }
 
     private void UpdateMounting(Player player)
@@ -1515,4 +1626,5 @@ internal sealed record RickyCompanionSpawn(
     int Group,
     int Room,
     bool ForceMount = false,
-    bool Riding = false) : RoomEntitySpawn;
+    bool Riding = false,
+    Vector2? FluteDestination = null) : RoomEntitySpawn;

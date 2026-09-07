@@ -662,6 +662,76 @@ $encodedItemPassableTiles = @(
     "5:$($passableDungeons -join ',')"
 ) -join ';'
 
+# Preserve the directional cliff rows separately from unconditional item
+# passability. Diagonal angles try adjacent directions in source order.
+$itemCliffPath = Join-Path $Disassembly 'data\ages\tile_properties\itemPassableTiles.s'
+$itemCliffSource = Read-ImportText $itemCliffPath
+if ($itemCliffSource -notmatch '(?s)@overworld:\s*@underwater:\s*dbrel @overworldUp' -or
+    $itemCliffSource -notmatch '(?s)@dungeons:\s*@five:\s*dbrel @dungeonsUp' -or
+    $itemCliffSource -notmatch '@sidescrollingUp:\s*@sidescrollingRight:\s*@sidescrollingDown:\s*@sidescrollingLeft:\s*\.db \$00') {
+    throw 'itemPassableCliffTilesTable collision-set aliases changed.'
+}
+$cliffGroups = @('overworld', 'indoors', 'dungeons', 'sidescrolling', 'underwater', 'five')
+$cliffPointers = @(Read-AssemblyDataDirectives $itemCliffPath 'itemPassableCliffTilesTable' '.dw' |
+    ForEach-Object { $_.Operands[0] })
+if (($cliffPointers -join ',') -ne (($cliffGroups | ForEach-Object { '@' + $_ }) -join ',')) {
+    throw 'itemPassableCliffTilesTable collision-set pointer order changed.'
+}
+$itemCliffRows = [Collections.Generic.List[string]]::new()
+$itemCliffRows.Add("# collision-set`tdirection`torder`ttile`televation-delta`tsource")
+for ($collisionSet = 0; $collisionSet -lt 6; $collisionSet++) {
+    $family = @('overworld', 'indoors', 'dungeons', 'sidescrolling', 'overworld', 'dungeons')[$collisionSet]
+    $directionPattern = (@('Up', 'Right', 'Down', 'Left', 'Up') |
+        ForEach-Object { 'dbrel @' + $family + $_ }) -join '\s*'
+    if ($itemCliffSource -notmatch $directionPattern) {
+        throw "itemPassableCliffTilesTable $family direction order changed."
+    }
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        $label = '@' + $family + @('Up', 'Right', 'Down', 'Left')[$direction]
+        $dataLabel = if ($family -eq 'sidescrolling') { '@sidescrollingLeft' } else { $label }
+        $values = @(Read-AssemblyLiteralValues $itemCliffPath $dataLabel)
+        if ($values.Count % 2 -ne 1 -or $values[-1] -ne 0) {
+            throw "itemPassableCliffTilesTable $label lost its tile/delta pairs or terminator."
+        }
+        for ($index = 0; $index -lt $values.Count - 1; $index += 2) {
+            if ($values[$index + 1] -notin @(1, 255)) { throw "Unexpected cliff delta in $label." }
+            $itemCliffRows.Add("$collisionSet`t$direction`t$($index / 2)`t$($values[$index].ToString('x2'))`t$($values[$index + 1].ToString('x2'))`tdata/ages/tile_properties/itemPassableTiles.s:$label")
+        }
+    }
+}
+if ($itemCliffRows.Count -ne 69 -or $itemCommonCode1Source -notmatch
+    '(?s)itemCheckCanPassSolidTile:.*?Item.var3c.*?ret z.*?checkTileIsPassableFromDirection.*?Item.var3e.*?add \(hl\).*?ld \(hl\),a.*?and \$80.*?Item.var3c.*?\$ff') {
+    throw 'Item cliff passability/elevation/cache contract changed.'
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\item_passable_cliffs.tsv'), $itemCliffRows)
+
+$seedNonBouncePath = Join-Path $Disassembly 'data\ages\tile_properties\seedsDontBounce.s'
+$seedNonBounceSource = Read-ImportText $seedNonBouncePath
+if ($seedNonBounceSource -notmatch '@indoors:\s*@sidescrolling:\s*@underwater:\s*\.db \$00' -or
+    $seedNonBounceSource -notmatch '@dungeons:\s*@five:\s*\.db TILEINDEX_UNLIT_TORCH' -or
+    $seedNonBounceSource -notmatch 'seedsDontBounceTilesTable:\s*\.dw @overworld\s*\.dw @indoors\s*\.dw @dungeons\s*\.dw @sidescrolling\s*\.dw @underwater\s*\.dw @five') {
+    throw 'seedsDontBounceTilesTable pointer order or aliases changed.'
+}
+$seedNonBounceOverworld = @(Read-AssemblyLiteralValues $seedNonBouncePath '@overworld')
+$seedNonBounceDungeon = @()
+foreach ($node in Read-AssemblyDataDirectives $seedNonBouncePath '@five' '.db') {
+    foreach ($operand in $node.Operands) {
+        if ($operand -eq '$00') { continue }
+        $constant = @(Read-AssemblyConstants (Join-Path $Disassembly 'constants\common\tileIndices.s') '' $operand)
+        if ($constant.Count -ne 1) { throw "seedsDontBounceTilesTable: unresolved $operand." }
+        $seedNonBounceDungeon += Convert-AssemblyInteger $constant[0].OperandText
+    }
+}
+if (($seedNonBounceOverworld -join ',') -ne '206,207,197,197,198,199,200,201,202' -or
+    ($seedNonBounceDungeon -join ',') -ne '8,9') {
+    throw 'seedsDontBounceTilesTable overworld/dungeon rows changed.'
+}
+$encodedSeedNonBounceTiles = @(
+    "0:$($seedNonBounceOverworld -join ',')", '1:',
+    "2:$($seedNonBounceDungeon -join ',')", '3:', '4:',
+    "5:$($seedNonBounceDungeon -join ',')"
+) -join ';'
+
 $bombSourceValid =
     $itemIds['ITEM_BOMB'] -eq 0x03 -and
     $treasureIds['TREASURE_BOMBS'] -eq 0x03 -and
@@ -895,8 +965,8 @@ if ($shooterOamLabels.Count -ne 8) {
 $encodedShooterOam = @($shooterOamLabels |
     ForEach-Object { Read-ItemOamComposition $_ }) -join '|'
 $seedShooterRows = @(
-    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-dungeon-tiles`titem-passable-tiles`tweapon-sprite`tweapon-vram-tile-base`tweapon-palette`tweapon-source-grayscale-inverted`tweapon-oam`tsource'.Replace('`t', "`t")
-    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t42,43`t$encodedItemPassableTiles`tspr_seed_shooter`t52`t00`t0`t$encodedShooterOam`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seedShooter.s:itemCode0fPost;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing;data/itemAnimations.s:item0fAnimations;gfx/common/spr_seed_shooter.properties"
+    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-tiles`titem-passable-tiles`tweapon-sprite`tweapon-vram-tile-base`tweapon-palette`tweapon-source-grayscale-inverted`tweapon-oam`tsource'.Replace('`t', "`t")
+    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t$encodedSeedNonBounceTiles`t$encodedItemPassableTiles`tspr_seed_shooter`t52`t00`t0`t$encodedShooterOam`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seedShooter.s:itemCode0fPost;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing;data/ages/tile_properties/seedsDontBounce.s;data/itemAnimations.s:item0fAnimations;gfx/common/spr_seed_shooter.properties"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_shooter.tsv'),

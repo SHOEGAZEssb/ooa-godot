@@ -14,8 +14,9 @@ public sealed class OracleWorldData
     private const int TilesetRecordSize = 8;
 
     private readonly byte[] _tilesetMetadata;
+    private readonly byte[] _presentRoomPacks;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
-    private readonly Dictionary<(int Group, int Room, int DataGroup), OracleRoomData> _rooms = new();
+    private readonly Dictionary<(int Group, int Room, int DataGroup, int LayoutGroup), OracleRoomData> _rooms = new();
     private readonly Dictionary<int, Image> _graphics = new();
     private readonly Dictionary<int, byte[]> _mappings = new();
     private readonly Dictionary<int, byte[]> _collisions = new();
@@ -30,6 +31,7 @@ public sealed class OracleWorldData
     public OracleWorldData()
     {
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
+        _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
         Color[] commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
         Color[,] textboxBgPalette1 = LoadPaletteSet(
@@ -60,13 +62,21 @@ public sealed class OracleWorldData
         return LoadRoom(group, room, group);
     }
 
-    public OracleRoomData LoadRoom(int group, int room, int dataGroup)
+    public OracleRoomData LoadRoom(int group, int room, int dataGroup, int? animalCompanion = null)
     {
-        var key = (group, room, dataGroup);
         if (!HasRoom(dataGroup, room))
             throw new InvalidOperationException($"Room {group:x1}:{room:x2} is not available.");
 
         int tileset = GetTilesetId(dataGroup, room);
+        int metadataOffset = tileset * TilesetRecordSize;
+        int layoutGroup = _tilesetMetadata[metadataOffset + 1];
+        // ages/loadTilesetData.s:checkTilesetOverride changes only the layout
+        // group for present room pack $7f in the expanded asset format.
+        // Ricky keeps the base layout; Dimitri uses $01; every other value
+        // (including an unassigned companion) follows the Moosh branch $03.
+        if (animalCompanion.HasValue && group == 0 && _presentRoomPacks[room] == 0x7f && animalCompanion != 0x0b)
+            layoutGroup = animalCompanion == 0x0c ? 1 : 3;
+        var key = (group, room, dataGroup, layoutGroup);
         if (_rooms.TryGetValue(key, out OracleRoomData? cached))
         {
             if (cached.TilesetId == tileset)
@@ -78,8 +88,6 @@ public sealed class OracleWorldData
             _rooms.Remove(key);
         }
 
-        int metadataOffset = tileset * TilesetRecordSize;
-        int layoutGroup = _tilesetMetadata[metadataOffset + 1];
         int animationGroup = _tilesetMetadata[metadataOffset + 4];
         int activeCollisions = _tilesetMetadata[metadataOffset + 6];
         byte tilesetFlags = _tilesetMetadata[metadataOffset + 7];
@@ -115,7 +123,7 @@ public sealed class OracleWorldData
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
             graphics, _hudGraphics, mappings, palette, BackgroundPalettes,
-            _animations);
+            _animations) { IsCompanionRegion = group == 0 && _presentRoomPacks[room] == 0x7f };
         _rooms.Add(key, result);
         _loadingPaletteRoom = result;
         result.LoadTilesetPalette();

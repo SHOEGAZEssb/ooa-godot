@@ -336,6 +336,7 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
     @(0x10, 0x00), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
     @(0x51, 0x02), @(0x51, 0x03),
@@ -345,6 +346,17 @@ $commonEnemySpecs = @(
     @(0x4a, 0x01), @(0x4d, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
     @(0x52, 0x00), @(0x52, 0x02)
 )
+$cukemanTexts = [Collections.Generic.List[string]]::new()
+Write-GeneratedBytes((Join-Path $destination 'metadata\electric_shock_bg_palette.bin'),
+    (Read-PaletteBytes 'paletteData49b0' 32))
+Write-GeneratedBytes((Join-Path $destination 'metadata\electric_shock_obj_palette.bin'),
+    (Read-PaletteBytes 'paletteData49f0' 32))
+$cukemanTexts.Add("# text-id`ttext-base64`tsource")
+for ($textId = 0x2f1e; $textId -le 0x2f25; $textId++) {
+    if (-not $allTexts.ContainsKey($textId)) { throw "Missing Cukeman text $textId." }
+    $cukemanTexts.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))`tobject_code/common/enemies/buzzblob.s:buzzblob_checkShowText")
+}
+Write-GeneratedTable((Join-Path $destination 'objects\cukeman_text.tsv'), $cukemanTexts)
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
     '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
@@ -372,7 +384,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 32 -or
+if ($commonEnemyRows.Count -ne 36 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1045,7 +1057,6 @@ $orderedObjectRows = [Collections.Generic.List[string]]::new()
 $orderedObjectRows.Add(
     "# group`troom`torder`tkind`tid`tsubid`tflags`tcount`ty`tx`tpacked-position`tcondition-mask")
 $orderedAliases = [Collections.Generic.List[object]]::new()
-$orderedPendingCondition = 'ff'
 $orderedActiveCondition = 'ff'
 $orderedActiveOpcode = ''
 $orderedSpecificFlags = '00'
@@ -1082,7 +1093,6 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
 
     if ($line -match '^group(?<group>[0-5])Map(?<room>[0-9a-f]{2})EnemyObjectData:') {
         if ($orderedAliases.Count -eq 0) {
-            $orderedPendingCondition = 'ff'
             $orderedActiveCondition = 'ff'
             $orderedActiveOpcode = ''
             $orderedSpecificFlags = '00'
@@ -1098,14 +1108,14 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
     if ($orderedAliases.Count -eq 0) { continue }
 
     if ($line -match '^\s*obj_Condition\s+\$(?<mask>[0-9a-f]{2})') {
-        $orderedPendingCondition = $Matches['mask']
+        # objectDataOp0 skips whole opcode runs until another $f0 or
+        # pointer/end opcode. A new enemy's flags do not end the condition.
+        $orderedActiveCondition = $Matches['mask']
         $orderedActiveOpcode = ''
         continue
     }
 
     if ($line -match '^\s*obj_RandomEnemy\s+\$(?<flags>[0-9a-f]{2})\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})') {
-        $orderedActiveCondition = $orderedPendingCondition
-        $orderedPendingCondition = 'ff'
         $orderedActiveOpcode = 'R'
         $count = ([Convert]::ToInt32($Matches['flags'], 16) -shr 5) -band 7
         foreach ($alias in $orderedAliases) {
@@ -1120,8 +1130,6 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
         $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
             ForEach-Object { $_.Groups['value'].Value })
         if ($values.Count -eq 5) {
-            $orderedActiveCondition = $orderedPendingCondition
-            $orderedPendingCondition = 'ff'
             $orderedActiveOpcode = 'F'
             $orderedSpecificFlags = $values[0]
             $id, $subid, $y, $x = $values[1..4]
@@ -1144,20 +1152,12 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
         $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
             ForEach-Object { $_.Groups['value'].Value })
         if ($values.Count -eq 3) {
-            if ($orderedActiveOpcode -ne 'P') {
-                $orderedActiveCondition = $orderedPendingCondition
-                $orderedPendingCondition = 'ff'
-            }
             $orderedActiveOpcode = 'P'
             $id, $subid, $packed = $values
             $kind = 'P'
             $y = '-1'
             $x = '-1'
         } elseif ($values.Count -eq 5) {
-            if ($orderedActiveOpcode -ne '9') {
-                $orderedActiveCondition = $orderedPendingCondition
-                $orderedPendingCondition = 'ff'
-            }
             $orderedActiveOpcode = '9'
             $id, $subid, $y, $x, $null = $values
             $packedValue = ([Convert]::ToInt32($y, 16) -band 0xf0) -bor
@@ -1176,10 +1176,6 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
     }
 
     if ($line -match '^\s*obj_SpecificEnemyB\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<var03>[0-9a-f]{2})') {
-        if ($orderedActiveOpcode -ne '9') {
-            $orderedActiveCondition = $orderedPendingCondition
-            $orderedPendingCondition = 'ff'
-        }
         $orderedActiveOpcode = '9'
         $packed = ([Convert]::ToInt32($Matches['y'], 16) -band 0xf0) -bor
             (([Convert]::ToInt32($Matches['x'], 16) -shr 4) -band 0x0f)
@@ -1195,8 +1191,6 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
         $values = @([regex]::Matches($Matches['values'], '\$(?<value>[0-9a-f]{2})') |
             ForEach-Object { $_.Groups['value'].Value })
         if ($values.Count -eq 3) {
-            $orderedActiveCondition = $orderedPendingCondition
-            $orderedPendingCondition = 'ff'
             $orderedActiveOpcode = 'I'
             $orderedItemFlags, $item, $packed = $values
         } elseif ($values.Count -eq 2 -and $orderedActiveOpcode -eq 'I') {
@@ -1218,8 +1212,6 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
     }
     if ($line -match '^\s*obj_[A-Za-z0-9_]+') {
         $orderedActiveOpcode = 'X'
-        $orderedActiveCondition = $orderedPendingCondition
-        $orderedPendingCondition = 'ff'
         continue
     }
     if ($line -match '^[A-Za-z0-9_@]+:') {
@@ -1392,11 +1384,15 @@ Write-GeneratedTable(
 # ID/subid; each room-object row still owns its source order, count, flags, and
 # fixed/random/parameter placement semantics.
 $orderedEnemyImplementationHandlers = [ordered]@{
+    '08:00' = 'river-zora'
+    '18:00' = 'buzzblob'
     '09:00' = 'octorok'
     '09:01' = 'octorok'
     '09:02' = 'octorok'
     '0a:00' = 'boomerang-moblin'
     '0b:00' = 'leever'
+    '0b:01' = 'leever'
+    '25:00' = 'goponga-flower'
     '0c:00' = 'arrow-moblin'
     '10:00' = 'rope'
     '13:00' = 'spark'
@@ -1436,7 +1432,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 42 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 46 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1507,9 +1503,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 440 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 476 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 381) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 345) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -2366,6 +2362,36 @@ $octorokProjectilePath = Join-Path $destination 'effects\octorok_projectile.tsv'
 Write-GeneratedTable(
     $octorokProjectilePath, $octorokProjectileRows)
 
+# PART_ZORA_FIRE $19 uses fixed-bank common sprites, not its parent's sheet.
+$zoraPartPath = Join-Path $Disassembly 'data\ages\partAnimations.s'
+$gopongaPartBytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x31]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($gopongaPartBytes -join ',') -ne '0,134,34,252,64,28,10,0' -or
+    (Read-ImportText $zoraPartPath) -notmatch '(?m)^part19Animations:\s+part31Animations:\s+part3aAnimations:' -or
+    (Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\fireProjectiles.s')) -notmatch '(?m)^partCode19:\s+partCode31:') {
+    throw 'PART_GOPONGA_PROJECTILE $31 no longer shares Zora fire behavior/visuals.'
+}
+$zoraPartTables = Read-AssemblyDwTables $zoraPartPath 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
+$zoraPartPointers = Read-AssemblyDwTables $zoraPartPath 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
+$zoraPartFrames = Read-AssemblyAnimationDefinitions $zoraPartPath 'partAnimation[0-9a-f]+(?:Loop)?' $true
+$zoraAnimation = $zoraPartFrames[$zoraPartTables['part19Animations'][0]]
+$zoraOam = $zoraPartPointers['part19OamDataPointers']
+$zoraFrames = [Collections.Generic.List[string]]::new()
+foreach ($frame in $zoraAnimation.Frames) {
+    $index = [int]($frame.PointerOffset / 2)
+    if ($index -ge $zoraOam.Count) { throw 'PART_ZORA_FIRE $19 OAM index out of range.' }
+    $zoraFrames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $zoraOam[$index])")
+}
+$zoraPartData = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x19]
+$zoraBytes = @($zoraPartData.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($zoraBytes -join ',') -ne '0,135,34,252,64,28,10,0') {
+    throw 'PART_ZORA_FIRE $19 attributes changed.'
+}
+Copy-EnemySprite 'spr_common_sprites'
+Write-GeneratedTable((Join-Path $destination 'effects\zora_fire.tsv'), @(
+    "# sprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`tspeed-raw`tanimation`tsource",
+    "spr_common_sprites`t$($zoraBytes[5])`t$($zoraBytes[6] -band 7)`t2`t2`t2`t60`t$($zoraFrames -join '|')`tobject_code/common/parts/fireProjectiles.s:partCode19"
+))
+
 # ENEMY_MASKED_MOBLIN (`$20:`$00) is created dynamically by the room 1:38
 # Maku Sprout rescue script. Export its shared four-direction animation table
 # and PART_ENEMY_ARROW (`$1a) here so the cutscene does not need room-local
@@ -2979,6 +3005,18 @@ Add-EnemyBehaviorValueTable 'octorok' 'walk-counter-values' $octorokWalkValues `
 
 $leeverCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\leever.s')
+if ($leeverCodeSource -notmatch '(?ms)^@subid01_stateA:.*?getRandomNumber_noPreserveVars\s+cp \$14.*?ecom_updateCardinalAngleTowardTarget' -or
+    $leeverCodeSource -notmatch '(?ms)^@@chooseRandomSpot:\s+call getRandomNumber_noPreserveVars\s+and \$77') {
+    throw 'leever.s: red Leever random spawn/retarget operands changed.'
+}
+$gopongaSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\gopongaFlower.s')
+if ($gopongaSource -notmatch '(?ms)^@state_uninitialized:.*?ld \(hl\),90.*?^@state8:.*?ld \(hl\),60.*?^@state9:.*?cp 40.*?call nz,getRandomNumber_noPreserveVars\s+and \$03.*?PART_GOPONGA_PROJECTILE' -or
+    $gopongaSource -notmatch '(?m)^\s*\.db \$78 \$b4\s*$') {
+    throw 'gopongaFlower.s: unsupported flower state operands.'
+}
+Add-EnemyBehaviorProfile 'goponga-flower' 'state-profile' @(90,60,40,120,3) 'object_code/common/enemies/gopongaFlower.s:states8-9'
+$gopongaCollisionEffects = @(0..0x1f | ForEach-Object { $enemyCollisionTableValues[0x23 * 0x20 + $_] })
+Add-EnemyBehaviorProfile 'goponga-flower' 'collision-effects' $gopongaCollisionEffects 'data/ages/objectCollisionTable.s:objectCollisionTable+$0460'
 $leeverCounterValues = @(
     Read-EnemyBehaviorValues (
         Get-AssemblyLabelBody $leeverCodeSource '@counter1Vals'))
@@ -4020,8 +4058,25 @@ Add-EnemyBehaviorProfile 'flying-tile' 'collision-effects' `
     $flyingTileCollisionEffects `
     'data/ages/objectCollisionTable.s:objectCollisionTable+$0780'
 
-if ($enemyBehaviorRows.Count -ne 645) {
-    throw "Expected 644 enemy behavior-table rows, got " +
+$riverZoraCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\riverZora.s')
+$buzzblobCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\buzzblob.s')
+if ($riverZoraCode -notmatch 'ld \(hl\),48' -or
+    $riverZoraCode -notmatch 'and \$1f\s+add \$18' -or
+    $buzzblobCode -notmatch 'ldbc \$1c,\$30' -or
+    $buzzblobCode -notmatch 'ld \(hl\),60' -or
+    $buzzblobCode -notmatch 'ld a,SPEED_40' -or
+    $buzzblobCode -notmatch 'and \$07\s+add <TX_2f1e') {
+    throw 'River Zora $08 or Buzz Blob $18 state operands changed.'
+}
+Add-EnemyBehaviorProfile 'river-zora' 'state-profile' `
+    @(152, 127, 48, 31, 24, 0xf9, 5) `
+    'object_code/common/enemies/riverZora.s:enemyCode08+code/bank0.s:checkTileAtPositionIsWater'
+Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
+    @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
+    'object_code/common/enemies/buzzblob.s:enemyCode18'
+
+if ($enemyBehaviorRows.Count -ne 696) {
+    throw "Expected 695 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

@@ -2824,7 +2824,8 @@ public sealed partial class ValidationRoot
             record.PostShotWait != 12 ||
             record.Sound != OracleSoundEngine.SndSeedShooter ||
             !record.Offsets.SequenceEqual(offsets) ||
-            !record.NonBounceDungeonTiles.SequenceEqual([0x42, 0x43]) ||
+            !record.NonBounceTiles[0].SequenceEqual(new byte[] { 0xce, 0xcf, 0xc5, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca }) ||
+            !record.NonBounceTiles[2].SequenceEqual(new byte[] { 0x08, 0x09 }) ||
             record.ItemPassableTiles.Length != 6 ||
             !record.ItemPassableTiles[2].SequenceEqual(new byte[]
             {

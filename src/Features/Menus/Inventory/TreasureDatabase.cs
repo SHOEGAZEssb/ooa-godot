@@ -99,6 +99,7 @@ public sealed class TreasureDatabase
             TreasureSeedSatchel => GetDisplay("treasureDisplayData_satchel", inventory.SatchelSelectedSeeds),
             TreasureShooter => GetDisplay("treasureDisplayData_shooter", inventory.ShooterSelectedSeeds),
             TreasureHarp => GetDisplay("treasureDisplayData_harp", inventory.SelectedHarpSong),
+            InventoryState.ItemFlute => GetDisplay("treasureDisplayData_flute", inventory.FluteIcon),
             TreasureSlingshot when inventory.SlingshotLevel == 2 =>
                 GetDisplay("treasureDisplayData_hyperSlingshot", inventory.SlingshotSelectedSeeds),
             TreasureSlingshot => GetDisplay("treasureDisplayData_slingshot", inventory.SlingshotSelectedSeeds),

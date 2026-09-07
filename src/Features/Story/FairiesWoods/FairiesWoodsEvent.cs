@@ -88,10 +88,9 @@ internal sealed class FairiesWoodsEvent :
             ClearTransientState();
         if (!ForestRooms.Contains(room.Id))
             return;
-        // Placed $49:$05-$10 actors belong to the later Jabu, companion, and
-        // linked-game phases. Keep every ordinary variant retired until its
-        // native state-0 predicate and loaded-text table are supported.
-        for (int subId = 0; subId <= 0x10; subId++)
+        // Later Jabu and linked-game variants remain unsupported. Companion
+        // search hints $0e-$10 have their own imported predicates and owner.
+        for (int subId = 0; subId < 0x0e; subId++)
             _context.DeactivateNpcs(0x49, subId);
     }
 

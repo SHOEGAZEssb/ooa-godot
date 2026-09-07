@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_COMPANION_SCRIPTS $71:$08-$0b, Dimitri's forest route.</summary>
+/// <summary>Companion forest introduction, rescue, reward and guide controllers $71:$08-$0b.</summary>
 internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent, ICutsceneCommandHost
 {
@@ -14,12 +14,14 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     private readonly CutsceneCommandRunner _runner;
     private readonly List<ForestFairyFlight> _flights = new();
     private FairiesWoodsSparkleLayer? _sparkles;
-    private DimitriCompanionRoomEntity? _companion;
+    private IForestCompanion? _companion;
+    private int _companionId;
     private NpcCharacter? _flute;
     private bool _waitingForTrigger;
     private bool _menusDisabled;
     private int _role;
     private int _choice;
+    private int _companionDescription = 0x1124;
     private bool _rewardVisible;
     private bool _giveFlutePending;
     private NpcCharacter? _exclamation;
@@ -40,7 +42,6 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
 
     public bool Matches(int group, OracleRoomData room)
     {
-        if (_context.Inventory.AnimalCompanion != 0x0c) return false;
         int role = _data.Role(group, room.Id);
         return role switch
         {
@@ -62,12 +63,18 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
         if (role != 8) return;
         for (int address = 0xcfd0; address < 0xcfe0; address++) _context.Entities.RuntimeState.SetWramByte(address, 0);
         Save.SetGlobalFlag(0x1d, false);
+        // companionScripts.s:subid08@state0 assigns Moosh without granting a
+        // flute, before checking entry direction, carpenter progress or room flags.
+        if (_context.Inventory.AnimalCompanion == 0)
+            _context.Inventory.AssignAnimalCompanion(0x0d);
+        _companionDescription = 0x1123 + _context.Inventory.AnimalCompanion - 0x0b;
     }
 
     public void Start(OracleRoomData room)
     {
         Cancel();
         _role = _data.Role(_context.Rooms.ActiveGroup, room.Id);
+        _companionId = _context.Inventory.AnimalCompanion;
         _context.Entities.RuntimeState.SetWramByte(0xcfd2, (byte)(_role == 10 ? 1 : 0));
         if (_role == 8) { _waitingForTrigger = true; return; }
         if (_role == 9 && Flag(0x42) || _role == 10)
@@ -75,7 +82,13 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
             Vector2 position = _role == 10 ? new(0x68, 0x48) : new(0x50, 0x58);
             if (CompanionRuntimeState.AnyActive(_context.Entities.RuntimeState))
                 throw new InvalidOperationException($"companionSpawner.s:${(_role == 10 ? 5 : 4):x2} found an occupied companion slot in 0:{room.Id:x2}.");
-            _companion = _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, 2, 0, room.Id));
+            _companion = _companionId switch
+            {
+                0x0b => _context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, 2, 0, room.Id)),
+                0x0c => _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, 2, 0, room.Id)),
+                0x0d => _context.Entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, 2, 0, room.Id)),
+                _ => throw UnsupportedCommand($"spawn forest companion ${_companionId:x2}")
+            };
             _companion.UseForestInteraction(_role == 10);
             CompanionRuntimeState.ForgetRemembered(_context.Entities.RuntimeState);
             CompanionRuntimeState.SetLastAnimalMountPosition(_context.Entities.RuntimeState, position);
@@ -148,9 +161,14 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     }
     public override void ShowText(int textId, string message)
     {
-        if (textId == 0x1131) textId = _role == 9 ? 0x113a : IsLinkedGame ? 0x113e : 0x113d;
-        if (textId == 0x1132) textId = _role == 9 ? IsLinkedGame ? 0x113c : 0x113b : 0x1140;
-        message = _data.Text(textId).Replace("\\call(0xff)", _data.Text(0x1124));
+        if (textId is 0x1131 or 0x1132)
+        {
+            var branch = _data.Companion(_companionId);
+            textId = textId == 0x1131
+                ? _role == 9 ? branch.RescueFirst : IsLinkedGame ? branch.RewardLinked : branch.RewardUnlinked
+                : _role == 9 ? IsLinkedGame ? branch.RescueLinked : branch.RescueUnlinked : branch.RewardAfter;
+        }
+        message = _data.Text(textId).Replace("\\call(0xff)", _data.Text(_role == 8 ? _companionDescription : 0x1124));
         if (textId == 0x1121) _context.ShowChoiceDialogue(message);
         else _context.ShowDialogue(message);
     }
@@ -160,7 +178,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
         switch (handler)
         {
             case "NoticeLink":
-                _companion?.NoticeForestLink();
+                _companion?.NoticeForestLink(_data.Companion(_companionId).NoticeAnimation);
                 _exclamation = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                     _data.ExclamationRecord(_context.Rooms.CurrentRoom.Id, new Vector2(0x50, 0x48)),
                     "ForestCompanionExclamation", Talkable: false, Solid: false));
@@ -174,14 +192,15 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                 _giveFlutePending = true;
                 break;
             case "GiveFluteNow":
-                ShowText(_context.Inventory.HasTreasure(0x0e) ? 0x006a : 0x0039, string.Empty);
-                Save.WriteWramByte(0xc6b5, 2);
-                Save.WriteWramByte(0xc647, (byte)(Save.ReadWramByte(0xc647) | 0x80));
+                ShowText((_context.Inventory.HasTreasure(0x0e) ? 0x0069 : 0x0038) + _companionId - 0x0b, string.Empty);
+                Save.WriteWramByte(0xc6b5, (byte)(_companionId - 0x0a));
+                int stateAddress = 0xc646 + _companionId - 0x0b;
+                Save.WriteWramByte(stateAddress, (byte)(Save.ReadWramByte(stateAddress) | 0x80));
                 _context.Inventory.GiveTreasure(0x0e, 1);
                 _context.Sound.PlaySound(OracleSoundEngine.SndGetItem);
                 _flute = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                     _data.FluteRecord(_context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id,
-                        _context.Player.Position + new Vector2(0, -14)), "CompanionFluteReward", Talkable: false, Solid: false));
+                        _context.Player.Position + new Vector2(0, -14), _companionId), "CompanionFluteReward", Talkable: false, Solid: false));
                 _flute.SetAnimationRate(0);
                 _context.Player.BeginGetItemTwoHandPose();
                 _rewardVisible = true;

@@ -48,6 +48,7 @@ internal sealed class DungeonMechanicDatabase
     internal int ButtonSound => Constant("button-sound");
     internal int SwitchOffTile => Constant("switch-off-tile");
     internal int SwitchOnTile => Constant("switch-on-tile");
+    internal int OverworldSwitchOnTile => Constant("overworld-switch-on");
     internal int SwitchRadiusY => Constant("switch-radius-y");
     internal int SwitchRadiusX => Constant("switch-radius-x");
     internal int SwitchCollisionZ => Constant("switch-collision-z");
@@ -135,7 +136,8 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0xc7 or 0xdc) ||
+            if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0x6b or 0xc7 or 0xdc) ||
+                record.Id == 0x6b && record.SubId != 0x0f ||
                 record.Id == 0xdc && (record.SubId != 0x12 || record.Parameter == 0) ||
                 record.Id == 0x03 && record.SubId > 0x07 ||
                 record.Id == 0x12 && record.SubId is not (0x01 or 0x02) ||
@@ -229,7 +231,8 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 228 || _constants.Count != 74 || _texts.Count != 2 ||
+        if (RecordCount != 229 || _constants.Count != 75 || _texts.Count != 2 ||
+            OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||
             room08.Count != 2 ||

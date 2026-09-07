@@ -36,7 +36,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   common treasure transactions, and many ring effects.
 - A growing shared enemy and interaction roster with deterministic placement,
   combat, drops, projectiles, and native object behavior, including random
-  digging spawns with Rope/Beetle launch behavior and room restrictions.
+  digging spawns with Rope/Beetle launch behavior and room restrictions,
+  River Zora surfacing/fireballs, and Buzz Blob electric shock and Cukeman form.
 - Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
   end to end, including their principal rooms, puzzles, side-view passages,
   minibosses, bosses, rewards, and Essences.
@@ -79,9 +80,10 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   dismounts, and departs on reaching the mainland. Bracelet carrying/throwing,
   carried scrolling, autonomous water return, cliff hops, unmounted hole recovery,
   and flute playback/entrance use source timing and collision data. Mouth attacks
-  check imported enemy collision masks and flipped-beetle/Armos modes. Dimitri's
-  forest rescue and flute acquisition now use imported scripts, native fairy
-  flights, linked/unlinked dialogue and the mount-gated forest reset. Complete
+  check imported enemy collision masks and flipped-beetle/Armos modes. All three
+  companion forest quests support the introductory fairy, search hints, rescue,
+  flute acquisition, linked/unlinked dialogue and mount-gated forest reset.
+  Awarded flutes summon Ricky, Dimitri or Moosh through their native entrances. Complete
   thrown-NPC collision handling and exhaustive native initialization/slot-order
   parity remain incomplete.
   The Tokay rescue trade includes the native seed-hop/flame effects and timed
@@ -91,6 +93,10 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   Island Business Scrub sales and present Wild Tokay linked-secret input and
   return generation are implemented. Complete interaction-slot reuse and
   cross-object signal interleavings remain unverified.
+- Nuun Highlands supports all three companion layouts and their conditional
+  enemies, the full carpenter search and bridge completion, search cancellation,
+  waterfall tutorials, and Dimitri's waterfall cave round trip. Goponga Flowers
+  and red Leevers use the shared enemy dispatcher and imported behavior data.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

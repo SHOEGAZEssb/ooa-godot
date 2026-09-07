@@ -120,6 +120,7 @@ public sealed class InventoryState
     public int TotalRupeesCollected { get; private set; }
     public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
     public int AnimalCompanion { get; private set; }
+    public int FluteIcon => _saveData?.ReadWramByte(0xc6b5) ?? 0;
     public int RememberedCompanionId { get; private set; }
     public int ObtainedSeasons { get; private set; }
     public int MagnetGlovePolarity { get; private set; }
@@ -166,6 +167,9 @@ public sealed class InventoryState
 
     internal bool HasTreasureObjectForDebug(TreasureObjectRecord treasureObject) =>
         HasTreasure(treasureObject.TreasureId) &&
+        (treasureObject.TreasureId != ItemFlute ||
+            (AnimalCompanion == treasureObject.Parameter &&
+             (_saveData is null || _saveData.ReadWramByte(0xc6b5) == treasureObject.Parameter - 0x0a))) &&
         (treasureObject.TreasureId != TreasureDatabase.TreasureTradeItem ||
             TradeItem == treasureObject.Parameter);
 
@@ -489,7 +493,19 @@ public sealed class InventoryState
     {
         if (!HasTreasureObjectForDebug(treasureObject))
         {
-            GiveTreasure(treasureObject);
+            using (_saveData?.BeginMutation())
+            {
+                if (treasureObject.TreasureId == ItemFlute)
+                {
+                    // companionScripts.s:companionScript_subid0a_state2 sets
+                    // wFluteIcon separately from the Strange Flute treasure.
+                    // Debug grants provide the callable flute, without advancing
+                    // the forest quest. Retail collection retains mode $08.
+                    SetVariable(TreasureVariable.AnimalCompanion, treasureObject.Parameter);
+                    _saveData?.WriteWramByte(0xc6b5, checked((byte)(treasureObject.Parameter - 0x0a)));
+                }
+                GiveTreasure(treasureObject);
+            }
             return;
         }
 
@@ -978,6 +994,14 @@ public sealed class InventoryState
             _saveData.CommitInventoryChange();
         }
         Changed?.Invoke();
+    }
+
+    internal void AssignAnimalCompanion(int companion)
+    {
+        if (companion is < 0x0b or > 0x0d)
+            throw new ArgumentOutOfRangeException(nameof(companion));
+        SetVariable(TreasureVariable.AnimalCompanion, companion);
+        NotifyChanged();
     }
 
     internal void GiveTreasure(int treasure, int parameter)

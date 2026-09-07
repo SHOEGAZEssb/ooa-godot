@@ -51,6 +51,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private SeedShooterRecord _shooter;
     private ISeedBounceTarget? _lastBounceTarget;
     private bool _skipShooterTerrainCollision;
+    private ItemCliffDatabase? _itemCliffs;
+    private byte _shooterElevation;
+    private int _lastShooterTilePosition;
+    private byte _lastShooterTile;
 
     public bool Finished => _state == EmberState.Finished;
     internal EmberState State => _state;
@@ -66,6 +70,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal SeedLaunchKind LaunchKind => _launchKind;
     internal int Angle => _angle;
     internal int BouncesRemaining => _bouncesRemaining;
+    internal byte ShooterElevation => _shooterElevation;
     internal int SeedItem => _record.SeedItem;
     internal Vector2? ScentTarget =>
         _state == EmberState.Scent && _scentPublished
@@ -114,6 +119,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _launchKind = launchKind;
         _angle = angle;
         _shooter = SeedShooterRecord.Load();
+        _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase() : null;
+        _shooterElevation = 0;
+        _lastShooterTilePosition = 0;
+        _lastShooterTile = 0;
         if (launchKind == SeedLaunchKind.Shooter && angle is < 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(angle));
         _bouncesRemaining = launchKind == SeedLaunchKind.Shooter
@@ -530,7 +539,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         // tile on the previous update, so itemUpdateDamageToApply gets the
         // first chance to hit an orb, switch, or seed reflector above.
         byte tile = _room.GetMetatile(_precisePosition);
-        if (Array.IndexOf(_shooter.NonBounceDungeonTiles, tile) >= 0)
+        if (_shooter.DoesNotBounce(_room, tile))
         {
             ActivateShooterSeed();
             return;
@@ -543,16 +552,19 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         {
             int probeX = _angle is 1 or 3 ? 3 : -4;
             int probeY = _angle is 3 or 5 ? 3 : -4;
-            hitY = ShooterTileBlocks(
+            hitY = ShooterDiagonalTileBlocks(
                 _precisePosition + new Vector2(0, probeY));
-            hitX = ShooterTileBlocks(
+            hitX = ShooterDiagonalTileBlocks(
                 _precisePosition + new Vector2(probeX, 0));
+            // Diagonal probes predict elevation without changing it. The
+            // source then commits only the current tile and ignores its Z flag.
+            CanPassCurrentShooterTile();
         }
         else
         {
             // The cardinal branch calls objectCheckTileCollision_allowHoles,
             // which tests the object's current Y/X rather than an edge probe.
-            bool hit = ShooterTileBlocks(_precisePosition);
+            bool hit = _room.IsSolid(_precisePosition) && !CanPassCurrentShooterTile();
             hitX = hit;
             hitY = hit;
         }
@@ -649,8 +661,44 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
     }
 
-    private bool ShooterTileBlocks(Vector2 point) =>
-        _room.IsSolid(point) && !_shooter.CanPassSolidTile(_room, point);
+    private bool ShooterDiagonalTileBlocks(Vector2 point)
+    {
+        if (!_room.IsSolid(point) || _shooter.DoesNotBounce(_room, _room.GetMetatile(point)))
+            return false;
+        return !TryShooterTileDelta(point, out byte delta) ||
+            delta != 0 && ((_shooterElevation + delta) & 0x80) != 0;
+    }
+
+    private bool TryShooterTileDelta(Vector2 point, out byte delta)
+    {
+        delta = 0;
+        return _shooter.CanPassSolidTile(_room, point) ||
+            _itemCliffs!.TryGetDelta(_room.ActiveCollisions,
+                _room.GetMetatile(point), _angle, out delta);
+    }
+
+    private bool CanPassCurrentShooterTile()
+    {
+        int packed = _room.GetPackedPosition(_precisePosition);
+        byte tile = _room.GetMetatile(_precisePosition);
+        if (packed == _lastShooterTilePosition && tile == _lastShooterTile)
+            return true;
+        _lastShooterTilePosition = packed;
+        _lastShooterTile = tile;
+        if (TryShooterTileDelta(_precisePosition, out byte delta))
+        {
+            if (delta == 0)
+                return true;
+            // itemCheckCanPassSolidTile writes var3e before testing its sign;
+            // even a rejected uphill crossing retains the wrapped negative byte.
+            _shooterElevation = unchecked((byte)(_shooterElevation + delta));
+            if ((_shooterElevation & 0x80) == 0)
+                return true;
+        }
+        _lastShooterTilePosition = 0xff;
+        _lastShooterTile = 0xff;
+        return false;
+    }
 
     private void AdvanceAnimation()
     {

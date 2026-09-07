@@ -9,6 +9,11 @@ public partial class Player : Node2D
     internal const int DivingZIndex = 8;
     internal const int AlternateTextboxPaletteZIndex = 13;
     private const int NormalTopDownSpeed = 0x28;
+    private int _electricShockCounter;
+    private bool _electricShockPending;
+    private ShaderMaterial? _electricShockMaterial;
+    internal bool ElectricShockActive => _electricShockPending || _electricShockCounter != 0;
+    internal int ElectricShockCounter => _electricShockCounter;
     private const int GrassTopDownSpeed = 0x1e;
     private const int StairsTopDownSpeed = 0x14;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
@@ -432,7 +437,7 @@ public partial class Player : Node2D
         !_sideScrollAirborne && !_topDownAirborne &&
         !TopDownSwimming && !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
-        _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
+        !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
     internal bool CanAcceptShieldCollision =>
         IsUsingShield && AcceptsRoomEntityContact &&
@@ -784,6 +789,13 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        if (ElectricShockActive)
+        {
+            _electricShockPending = false;
+            _electricShockCounter = 0;
+            _world.UpdateElectricShockPresentation(0);
+            Material = null;
+        }
         InterruptCarriedItems(discard: true);
         if (!preserveSword)
             CancelSwordAttack();
@@ -1219,6 +1231,37 @@ public partial class Player : Node2D
         ApplyEnemyContactDamage(
             sourcePosition, quarters, RingDamageSource.Generic);
 
+    internal void ApplyElectricShock(Vector2 sourcePosition)
+    {
+        // collisionEffect36 writes these counters directly, even when the
+        // Green Holy Ring prevents the four-quarter health subtraction.
+        ApplyDamage(4, RingDamageSource.Electric);
+        _enemyInvincibilityFrames = 0x0c;
+        _enemyKnockbackFrames = RingEffects.KnockbackFrames(_inventory, 8);
+        _enemyKnockbackDirection = OracleObjectMovement.Shared.Direction(
+            OracleObjectMovement.Shared.RelativeAngle(sourcePosition, Position));
+        _swordCollisionKnockback = false;
+        CancelSwordAttack();
+        ClearShieldParent();
+        if (!ElectricShockActive) _electricShockPending = true;
+    }
+
+    internal void ApplyObjectInteractionGrace()
+    {
+        // linkInteractWithAButtonSensitiveObjects preserves the sign and
+        // extends either kind of invincibility to at least four updates.
+        _enemyInvincibilityFrames = _enemyInvincibilityFrames > 0
+            ? Mathf.Max(_enemyInvincibilityFrames, 4)
+            : Mathf.Min(_enemyInvincibilityFrames, -4);
+        _pushing = false;
+    }
+
+    internal void ApplyInteractionInvincibility(int frames)
+    {
+        _enemyInvincibilityFrames = -frames;
+        _enemyKnockbackFrames = 0;
+    }
+
     internal bool ApplyEnemyContactDamage(
         Vector2 sourcePosition,
         int quarters,
@@ -1471,6 +1514,29 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta)
     {
+        if (ElectricShockActive)
+        {
+            if (_electricShockPending)
+            {
+                _electricShockPending = false;
+                _electricShockCounter = 0x2d;
+                _world.PlaySound(OracleSoundEngine.SndShock);
+            }
+            else
+            {
+                _electricShockCounter--;
+            }
+            _world.UpdateElectricShockPresentation(_electricShockCounter);
+            if ((_electricShockCounter & 7) == 0)
+            {
+                if ((_electricShockCounter & 8) != 0)
+                    Material = _electricShockMaterial ??= ElectricShockPalette.CreateLinkMaterial();
+                else
+                    Material = null;
+                QueueRedraw();
+            }
+            if (_electricShockCounter != 0) return;
+        }
         _pushing = false;
         if (_floorDoorRespawnCounter != 0)
         {
@@ -2766,6 +2832,7 @@ public partial class Player : Node2D
 
     private void AdvanceItems(double delta)
     {
+        if (ElectricShockActive) return;
         if (_enemyInvincibilityFrames != 0.0f)
         {
             float frameDelta = (float)delta * 60.0f;
@@ -2868,6 +2935,7 @@ public partial class Player : Node2D
 
     public override void _Draw()
     {
+        _electricShockMaterial?.SetShaderParameter("damage_palette", DamagePaletteActive);
         if (LedgeShadowDrawn ||
             _topDownAirborne && (_world.FrameCounter & 1) != 0)
             DrawTexture(_terrainShadowTexture, _terrainShadowOffset);

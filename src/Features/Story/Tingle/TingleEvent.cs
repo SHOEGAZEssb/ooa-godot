@@ -16,6 +16,7 @@ internal sealed class TingleEvent : IRoomEvent
     private readonly TingleRecord _record;
     private TingleRoomEntity? _actor;
     private GroundTreasurePickup? _reward;
+    private TimedSparkleRoomEntity? _upgradeGlow;
     private TingleEventStage _stage;
     private TingleAfterKooloo _afterKooloo;
     private int _counter;
@@ -122,6 +123,9 @@ internal sealed class TingleEvent : IRoomEvent
             case TingleEventStage.UpgradeAnimation:
                 if (_actor is { KoolooComplete: true })
                 {
+                    _upgradeGlow = _context.Entities.Spawn<TimedSparkleRoomEntity>(
+                        new TimedSparkleSpawn(_context.Player.Position.Floor(),
+                            _record.UpgradeGlowWait, _database.UpgradeGlowVisual));
                     _counter = _record.UpgradeGlowWait;
                     _stage = TingleEventStage.UpgradeGlowWait;
                 }
@@ -129,7 +133,10 @@ internal sealed class TingleEvent : IRoomEvent
             case TingleEventStage.UpgradeGlowWait:
                 _counter--;
                 if (_counter == 0)
+                {
+                    _upgradeGlow = null;
                     GrantSatchelUpgrade();
+                }
                 break;
             case TingleEventStage.UpgradeReward:
                 if (_reward is { Finished: true })
@@ -147,6 +154,9 @@ internal sealed class TingleEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (Godot.GodotObject.IsInstanceValid(_upgradeGlow))
+            _upgradeGlow!.Cancel();
+        _upgradeGlow = null;
         _reward?.Finish(_context.Player);
         _reward = null;
         _actor?.SetInteractionEnabled(true);

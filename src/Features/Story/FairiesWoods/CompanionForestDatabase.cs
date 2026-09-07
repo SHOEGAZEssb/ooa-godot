@@ -14,12 +14,21 @@ internal sealed class CompanionForestDatabase
     private readonly int _tileBase;
     private readonly string _animation;
     private readonly NpcRecord _exclamation;
+    private readonly Dictionary<int, ForestCompanionRecord> _companions = new();
+    internal ForestCompanionRecord Companion(int id) => _companions.TryGetValue(id, out var record)
+        ? record : throw new InvalidOperationException($"companionScripts.s: invalid forest companion ${id:x2}.");
     internal int Role(int group, int room) => _rooms.GetValueOrDefault((group, room), -1);
     internal string Text(int id) => _texts[id];
     internal IReadOnlyList<CutsceneCommand> Commands(int subId) => _commands[subId];
 
     internal CompanionForestDatabase()
     {
+        foreach (var row in GeneratedTable.Load(Root + "companion_forest_companions.tsv",
+            new GeneratedTableSchema("Forest companion branches", GeneratedTableKeySemantics.Unique,
+                ["companion", "rescue-first", "rescue-unlinked", "rescue-linked", "reward-after",
+                 "reward-unlinked", "reward-linked", "notice-animation", "source"], ["companion"], headerRequired: true)).Rows)
+            _companions.Add(row.HexByte(0), new(row.HexWord(1), row.HexWord(2), row.HexWord(3),
+                row.HexWord(4), row.HexWord(5), row.HexWord(6), row.HexByte(7)));
         foreach (int sub in new[] { 8, 9, 10, 11 })
             _commands.Add(sub, CutsceneCommandCatalog.Load(Root + $"companion_forest_{sub:x2}.tsv"));
         foreach (var row in GeneratedTable.Load(Root + "companion_forest_rooms.tsv",
@@ -43,9 +52,12 @@ internal sealed class CompanionForestDatabase
             animation, animation, animation, animation, string.Empty, NpcImplementationClassification.EventOwned);
     }
 
-    internal NpcRecord FluteRecord(int group, int room, Vector2 point) => new(
+    internal NpcRecord FluteRecord(int group, int room, Vector2 point, int companion = 0x0c) => new(
         group, room, 0x71, 0x0a, (int)point.Y, (int)point.X, 0, 0,
-        _sprite, _tileBase, 2, 0, false, _animation, _animation, _animation, _animation,
+        _sprite, _tileBase, ((companion - 0x0a) & 1) * 2 ^ (companion - 0x0a), 0, false, _animation, _animation, _animation, _animation,
         string.Empty, NpcImplementationClassification.EventOwned);
     internal NpcRecord ExclamationRecord(int room, Vector2 point) => _exclamation with { Room = room, X = (int)point.X, Y = (int)point.Y };
 }
+
+internal sealed record ForestCompanionRecord(int RescueFirst, int RescueUnlinked, int RescueLinked,
+    int RewardAfter, int RewardUnlinked, int RewardLinked, int NoticeAnimation);

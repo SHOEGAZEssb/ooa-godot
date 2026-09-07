@@ -698,6 +698,28 @@ foreach ($subid in @(0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x1f)) {
     $npcCanFaceBySubid["72`:$subid"] = $true
 }
 
+# carpenter.s:@initSubid00/@initSubid01 override the graphics-table palette.
+$npcPaletteBySubid['154:0'] = 3
+$npcPaletteBySubid['154:1'] = 0
+$npcInitialAnimationBySubid['154:0'] = 4
+$npcInitialAnimationBySubid['154:1'] = 6
+$npcTextBySubid['154:0'] = 0x2301
+
+# forestFairy_initNpcFromData packs palette and animation in its second byte.
+$forestHintSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\forestFairy.s')
+$forestHintSource = $forestHintSource.Substring($forestHintSource.IndexOf('forestFairy_subid0e:'))
+$forestHintRows = @([regex]::Matches($forestHintSource, '\.db <TX_(?<text>[0-9a-f]{4}), \$(?<packed>[0-9a-f]{2})'))
+if ($forestHintRows.Count -ne 3) { throw 'forestFairy.s:$0e-$10 hint table changed.' }
+for ($index = 0; $index -lt 3; $index++) {
+    $key = "73:$($index + 0x0e)"
+    $packed = [Convert]::ToInt32($forestHintRows[$index].Groups['packed'].Value,16)
+    $npcTextBySubid[$key] = [Convert]::ToInt32($forestHintRows[$index].Groups['text'].Value,16)
+    $npcPaletteBySubid[$key] = $packed -band 0x0f
+    $npcInitialAnimationBySubid[$key] = $packed -shr 4
+    $npcCanFaceBySubid[$key] = $false
+}
+foreach ($subid in @(2,3,4)) { $npcInitialAnimationBySubid["154`:$subid"] = 2 }
+
 # Every visible character row is denied the generic adapter unless its exact
 # source placement has a traced production owner. This prevents a newly added
 # native or cutscene-only interaction from becoming a solid idle NPC merely
@@ -866,6 +888,20 @@ foreach ($key in @(
 $eventOwnedNpcImplementationKeys =
     [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($key in @(
+    '0:25:9a:00:00',
+    '0:25:9a:01:00',
+    '0:25:9a:02:00',
+    '0:25:9a:03:00',
+    '0:25:9a:04:00',
+    '0:16:9a:b2:00',
+    '0:16:9a:d2:00',
+    '0:17:9a:c2:00',
+    '0:17:9a:d3:00',
+    '0:26:9a:b3:00',
+    '0:26:9a:c3:00',
+    '0:27:9a:b4:00',
+    '0:27:9a:d4:00',
+    '0:37:9a:c4:00',
     '0:38:87:00:00',
     '0:39:37:0d:00',
     '0:6c:73:00:00',
@@ -895,10 +931,13 @@ foreach ($key in @(
 }
 
 [void]$specializedNpcImplementationKeys.Add('1:bc:ce:00:00')
+[void]$specializedNpcImplementationKeys.Add('0:82:49:0e:00')
+[void]$specializedNpcImplementationKeys.Add('0:82:49:0f:00')
+[void]$specializedNpcImplementationKeys.Add('0:82:49:10:00')
 [void]$specializedNpcImplementationKeys.Add('1:90:ce:00:00')
 if ($ordinaryNpcImplementationKeys.Count -ne 61 -or
-    $specializedNpcImplementationKeys.Count -ne 84 -or
-    $eventOwnedNpcImplementationKeys.Count -ne 22) {
+    $specializedNpcImplementationKeys.Count -ne 87 -or
+    $eventOwnedNpcImplementationKeys.Count -ne 36) {
     throw 'NPC implementation registry key counts changed.'
 }
 
@@ -972,6 +1011,10 @@ function New-NpcDataRow(
         0
     }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
+    if ($id -eq 0x9a -and $subid -eq 0x00 -and $textId -eq 0x2301) {
+        if (!$message.Contains('\call(TX_2300)')) { throw 'Head carpenter TX_2301 lost its TX_2300 call.' }
+        $message = $message.Replace('\call(TX_2300)', [string]$allTexts[0x2300])
+    }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
     $initialAnimation = if ($initialAnimationOverride -ge 0) {
         $initialAnimationOverride
@@ -1267,6 +1310,32 @@ $tingleAnimationRows.Add(
     "explosion`t0`t$tingleExplosionAnimation`tinteractionAnimations.s:interaction56Animations")
 $tingleAnimationRows.Add(
     "sparkle`t$tingleSparkleAnimationIndex`t$tingleSparkleAnimation`tinteractionAnimations.s:interaction84Animations")
+
+# The upgrade's wait has a separate $84:$04 child at Link's captured Y/X.
+$tingleUpgradeHelperSource = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+$tingleGlowGraphic = $interactionGraphics['132:4']
+$tingleGlowAnimation = Resolve-NpcAnimation 0x84 $tingleGlowGraphic.DefaultAnimation
+$tingleGlowHeaderSource = Read-ImportText (
+    Join-Path $Disassembly 'data\ages\objectGfxHeaders.s')
+$tingleGlowHeader = [regex]::Match($tingleGlowHeaderSource,
+    '(?m)/\* \$3a \*/ m_ObjectGfxHeader (?<sprite>spr_link), \$00, \$(?<offset>[0-9a-f]{4})')
+if ($tingleUpgradeHelperSource -notmatch
+        '(?ms)^tingle_createGlowAroundLink:\s+ldbc INTERAC_SPARKLE,\$04\s+call objectCreateInteraction\s+ret nz\s+ld l,Interaction.counter1\s+ld \(hl\),120\s+ld a,\(w1Link.yh\)\s+ld l,Interaction.yh\s+ldi \(hl\),a\s+inc l\s+ld a,\(w1Link.xh\)\s+ld \(hl\),a\s+ret' -or
+    $tingleScriptSource -notmatch
+        'asm15 scriptHelp.tingle_createGlowAroundLink\s+wait 120\s+giveitem TREASURE_OBJECT_SEED_SATCHEL_UPGRADE' -or
+    $tingleSparkleSource -notmatch
+        '(?ms)^@runSubid04:\s+@animateAndFlickerAndDeleteWhenCounter1Zero:\s+call interactionDecCounter1\s+jp z,interactionDelete\s+@runSubid08:\s+@animateAndFlicker:\s+call interactionAnimate\s+ld a,\(wFrameCounter\)\s+@flicker:\s+rrca\s+jp c,objectSetInvisible\s+jp objectSetVisible' -or
+    $tingleGlowGraphic.Gfx -ne 0x3a -or $tingleGlowGraphic.TileBase -ne 0 -or
+    $tingleGlowGraphic.Palette -ne 0 -or $tingleGlowGraphic.DefaultAnimation -ne 0 -or
+    [string]::IsNullOrWhiteSpace($tingleGlowAnimation) -or
+    -not $tingleGlowHeader.Success -or $tingleGlowHeader.Groups['offset'].Value -ne '1c00') {
+    throw 'scriptHelper.s:tingle_createGlowAroundLink / sparkle.s:$84:$04 graphics, flicker, or lifetime contract changed.'
+}
+$tingleGlowRows = @(
+    "# id`tsubid`tlifetime`tsprite`tsource-offset`ttile-base`tpalette`tanimation`tsource",
+    "84`t04`t120`t$($tingleGlowHeader.Groups['sprite'].Value)`t$($tingleGlowHeader.Groups['offset'].Value)`t$($tingleGlowGraphic.TileBase)`t$($tingleGlowGraphic.Palette)`t$tingleGlowAnimation`tscripts/ages/scriptHelper.s:tingle_createGlowAroundLink;object_code/ages/interactions/sparkle.s:@runSubid04;interactionData.s:interaction84SubidData;objectGfxHeaders.s:$3a"
+)
 
 $tingleTextRows = [Collections.Generic.List[string]]::new()
 $tingleTextRows.Add("# text-id`tutf8-base64`tsource")
@@ -1970,6 +2039,35 @@ function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
 }
 
 $dungeonMechanicRows = [Collections.Generic.List[string]]::new()
+$nuunNative = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+if ($switchSource -notmatch '(?s)ld a,\(wActiveGroup\).*?or a.*?jr z,@flipOverworldSwitch.*?@flipOverworldSwitch:.*?ld a,TILEINDEX_OVERWORLD_SWITCH_ON.*?call setTile.*?ld b,>wRoomLayout.*?xor a.*?ld \(bc\),a.*?getThisRoomFlags.*?set 6,\(hl\).*?jp partDelete') {
+    throw 'switch.s:PART_SWITCH overworld one-shot tile/flag/delete contract changed.'
+}
+if ($nuunNative -notmatch '(?s)interaction6b_subid0f:.*?and \$40.*?PART_SWITCH.*?ld \(hl\),\$01.*?wSwitchState.*?ld a,\$81.*?set 6,\(hl\).*?interaction6b_bridgeToNuunSimpleScript.*?interactionSetSimpleScript.*?dec a.*?ret.*?interactionRunSimpleScript' -or
+    $bank0Source -notmatch '(?s)interactionRunSimpleScript:.*?@command1:.*?Interaction.counter1.*?xor a.*?@command2:.*?call playSound.*?@command3:.*?scf.*?@command4:.*?setInterleavedTile') {
+    throw 'miscellaneous1.s:$6b:$0f / bank0.s simple-script native contract changed.'
+}
+$nuunCommandRows = [Collections.Generic.List[string]]::new()
+$nuunCommandRows.Add("# order`topcode`ta`tb`tc`td`tsource")
+$nuunOpcode = @{ ss_end = 0; ss_wait = 1; ss_playsound = 2; ss_settile = 3; ss_setinterleavedtile = 4 }
+$nuunOperandCounts = @(0, 1, 1, 2, 4)
+foreach ($node in Read-AssemblyMacroInvocations (Join-Path $Disassembly 'scripts\ages\scripts.s') 'interaction6b_bridgeToNuunSimpleScript') {
+    if (-not $nuunOpcode.ContainsKey($node.Name)) { throw "Unknown Nuun simple command $($node.Name)." }
+    $opcode = $nuunOpcode[$node.Name]
+    if ($node.Operands.Count -ne $nuunOperandCounts[$opcode]) { throw "Invalid Nuun operands for $($node.Name)." }
+    $nuunOperands = @(0, 0, 0, 0)
+    for ($i = 0; $i -lt $node.Operands.Count; $i++) {
+        $nuunOperands[$i] = switch ($node.Operands[$i]) {
+            'SND_DOORCLOSE' { 0x70 }
+            'SND_SOLVEPUZZLE' { 0x4d }
+            default { Convert-AssemblyInteger $_ }
+        }
+    }
+    $order = $nuunCommandRows.Count - 1
+    $nuunCommandRows.Add("$order`t$opcode`t$($nuunOperands[0])`t$($nuunOperands[1])`t$($nuunOperands[2])`t$($nuunOperands[3])`tscripts/ages/scripts.s:interaction6b_bridgeToNuunSimpleScript/$order")
+}
+if ($nuunCommandRows.Count -ne 21) { throw 'Expected 20 Nuun bridge simple commands.' }
+Write-GeneratedTable((Join-Path $destination 'objects\nuun_bridge_commands.tsv'), $nuunCommandRows)
 $dungeonMechanicRows.Add("# group`troom`torder`tid`tsubid`tposition`tparameter`ttrigger-predicate`tcount-source-complete")
 $specializedEnemyFallingKeyRooms = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::Ordinal)
@@ -2019,17 +2117,20 @@ foreach ($line in $mainObjectLines) {
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             ($id -eq 0x23 -and $subid -le 0x07) -or
             ($id -eq 0x24 -and $subid -eq 0x02) -or
+            ($id -eq 0x6b -and $subid -eq 0x0f) -or
             $dungeonScriptPredicate -ne '' -or
             ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17)))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
-            $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20) {
+            $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20 -or $id -eq 0x6b) {
                 ($a -band 0xf0) -bor (($b -shr 4) -band 0x0f)
             } else {
                 $a
             }
             $parameter = if ($id -eq 0x12 -or $id -eq 0x13) {
                 0
+            } elseif ($id -eq 0x6b) {
+                1
             } elseif ($id -eq 0x20) {
                 if ($dungeonScriptPredicate -eq 'exact') { 1 } else { 0 }
             } else {
@@ -2094,7 +2195,8 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 229 -or
+if ($dungeonMechanicRows.Count -ne 230 -or
+    -not ($dungeonMechanicRows -contains "0`t54`t0`t6b`t0f`t68`t01`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "2`t9e`t0`tdc`t12`t13`t0c`tnone`t1") -or
     $sourceEnemyFallingKeyCount -ne 4 -or
     $enemyFallingKeyCount -ne 2 -or
@@ -2144,7 +2246,7 @@ if ($dungeonMechanicRows.Count -ne 229 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 228 reusable dungeon mechanics including room 2:9e's bridge controller; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 229 reusable mechanics including room 0:54's Nuun bridge controller; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2341,6 +2443,7 @@ $dungeonMechanicConstantRows = @(
     "bridge-spawner-wait`t8"
     "bridge-spawner-half-tile`t110"
     "bridge-spawner-full-tile`t109"
+    "overworld-switch-on`t158"
     "pushable-block`t29"
     "push-delay`t30"
     "solve-wait`t8"
@@ -4496,9 +4599,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 61 -or
-    $npcImplementationCounts['specialized-native'] -ne 86 -or
-    $npcImplementationCounts['event-owned'] -ne 22 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 214 -or
+    $npcImplementationCounts['specialized-native'] -ne 89 -or
+    $npcImplementationCounts['event-owned'] -ne 36 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 197 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5621,6 +5724,11 @@ Add-NpcGlobalVisibility 0x49 0x0b -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'forestFa
 Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_GOT_FLUTE' $false 'forestFairy.s:forestFairy_subid10'
 Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $false 'forestFairy.s:forestFairy_subid10'
 Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_COMPANION_LOST_IN_FOREST' $true 'forestFairy.s:forestFairy_subid10'
+foreach ($subid in @(0x0e,0x0f)) {
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_GOT_FLUTE' $false 'forestFairy.s:forestFairy_subid0e'
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $false 'forestFairy.s:forestFairy_subid0e'
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_COMPANION_LOST_IN_FOREST' $true 'forestFairy.s:forestFairy_subid0e'
+}
 
 Add-NpcGlobalVisibility 0x8b 0x02 -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'goronElder.s:@subid2'
 Add-NpcGlobalVisibility 0x72 0x00 -1 0 'GLOBALFLAG_MOBLINS_KEEP_DESTROYED' $true 'kingMoblinDefeated.s:@subid0State0'
@@ -5893,8 +6001,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 345) {
-    throw "Expected 344 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 351) {
+    throw "Expected 350 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
@@ -6379,6 +6487,7 @@ Write-GeneratedTable(
     $companionBarrierRows)
 $tinglePath = Join-Path $destination "objects\tingle.tsv"
 Write-GeneratedTable($tinglePath, $tingleRows)
+Write-GeneratedTable((Join-Path $destination "objects\tingle_upgrade_glow.tsv"), $tingleGlowRows)
 $tingleAnimationPath = Join-Path $destination "objects\tingle_animations.tsv"
 Write-GeneratedTable($tingleAnimationPath, $tingleAnimationRows)
 $tingleTextPath = Join-Path $destination "objects\tingle_texts.tsv"

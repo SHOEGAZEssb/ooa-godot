@@ -112,6 +112,15 @@ static void RunSourceModelTests(string root)
     Assert(escaped, "repository accepted a path outside its root");
 
     string unknownPath = Path.Combine(root, "unknown.s");
+    string carpenterPath = Path.Combine(root, "carpenter.s");
+    File.WriteAllText(carpenterPath,
+        "carpenter:\n  checkabutton\n@hasntReturnedToBossYet\n  showtextlowindex <TX_230c\nnext:\n",
+        new UTF8Encoding(false));
+    AssemblySourceFile carpenter = repository.Open(carpenterPath);
+    Assert(carpenter.RequireUniqueLabel("@hasntReturnedToBossYet").IsLocal &&
+        carpenter.GetLabelBlockNodes("carpenter").Count(node => node.Kind == AssemblyNodeKind.MacroInvocation) == 2 &&
+        carpenter.GetLabelBlockNodes("@hasntReturnedToBossYet").Single().Name == "showtextlowindex",
+        "colonless carpenter local label lost its source scope or became a script opcode");
     File.WriteAllText(unknownPath, "#odd syntax\n", new UTF8Encoding(false));
     AssemblySourceFile unknown = repository.Open(unknownPath);
     Assert(unknown.Nodes[0].Kind == AssemblyNodeKind.Unrecognized,

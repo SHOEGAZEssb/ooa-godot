@@ -12,6 +12,17 @@ Groups `6` and `7` retain side-scrolling identity while their source tilesets
 and placed objects alias groups `4` and `5`. Dungeon neighbors come from
 imported floor layouts, never room-ID arithmetic.
 
+Present room pack `$7f` selects Nuun Highlands terrain from the saved animal
+companion. The expanded assets retain the room's tileset and identity while
+selecting layout group `$00` for Ricky, `$01` for Dimitri, or `$03` for Moosh
+(also the unassigned fallback). Room caches distinguish these layout variants,
+and destination preloads resolve them through `RoomSession` before scrolling.
+For this room pack, ordered object conditions use companion ID minus `$0b`.
+An unassigned companion retains the standard underwater/layout-swap condition
+modifier, even though its terrain follows the fallback layout.
+An object condition spans subsequent opcode runs until the next condition or
+pointer/end boundary; a new enemy flag byte does not reset it.
+
 Gameplay positions remain original room/world coordinates. Camera and
 transition offsets are presentation. Preserve byte and 8.8 fractional state
 through movement and transitions where the source does.
@@ -96,6 +107,12 @@ and companions retain only source-specific probe order and debris/interaction
 creation. Likewise, bracelet-carried objects share the parent item's held,
 release, lateral throw, gravity, and bounce arithmetic while their object
 handlers retain landing and destruction states.
+
+Seed Shooter terrain collision uses imported collision-set tables for
+unconditional passability, directional cliffs, and tiles that activate seeds
+without bouncing. Each seed owns the source byte elevation and last-tile cache;
+diagonal probes predict elevation while only the current tile commits it.
+Room coordinates and collision remain independent of camera presentation.
 
 `RoomEntityManager` creates entities, preserves original update order, routes
 contacts, and owns their lifetime. Shared combat, terrain, and interaction

@@ -53,6 +53,9 @@ internal sealed class RoomEntityFactory(
     Action<int, int, Vector2> spawnDiggingEnemy,
     Action<IRoomEntity?, int> registerEnemySlot)
 {
+    private readonly ZoraFireDatabase _zoraFire = new();
+    private readonly WaterfallWarpDatabase _waterfallWarps = new();
+    private readonly CarpenterDatabase _carpenters = new();
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
@@ -162,6 +165,10 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext)
     {
         int activeGroup = group;
+        foreach (var waterfall in _waterfallWarps.Records)
+            if (waterfall.Group == group && waterfall.Room == room.Id && saveData is not null)
+                yield return new WaterfallWarpRoomEntity(waterfall, saveData, runtimeState,
+                    () => CompanionRuntimeState.IsActive(runtimeState, CompanionRuntimeState.DimitriId), roomWarpRequested);
         bool companionSlotActive = CompanionRuntimeState.AnyActive(runtimeState);
         bool rickySpawnerActive = !companionSlotActive &&
             saveData is not null &&
@@ -656,7 +663,23 @@ internal sealed class RoomEntityFactory(
         IReadOnlyList<NpcRecord> roomNpcs =
             familyState.ResolveRoomNpcs(
                 group, room.Id, saveData, runtimeState);
-        if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
+        if (group == 0 && roomNpcs.Any(record => record.Id == 0x9a))
+        {
+            if (room.Id == 0x25 && saveData?.HasGlobalFlag(_carpenters.Constant("bridge-flag")) == true)
+            {
+                for (int x = 0; x < 3; x++)
+                for (int y = 5; y <= 6; y++)
+                    room.SetPositionTileAndCollision(new Vector2(x * 16 + 8, y * 16 + 8),
+                        (byte)_carpenters.Constant(y == 5 ? "bridge-top" : "bridge-bottom"), null, animationTick());
+            }
+            foreach (NpcRecord record in roomNpcs)
+            {
+                RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
+                yield return new CarpenterRoomEntity(CreateNpcCharacter(record), _carpenters,
+                    runtimeState, saveData, room, animationTick());
+            }
+        }
+        else if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
         {
             foreach (IRoomEntity entity in CreateBlackTowerNpcs(
                 room, roomNpcs, placementContext))
@@ -1590,6 +1613,10 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext,
         LightableTorchState? lightableTorchState)
     {
+        if (record.Id == 0x6b && record.SubId == 0x0f)
+            return new NuunBridgeRoomEntity(record, room,
+                saveData ?? throw new InvalidOperationException("INTERAC $6b:$0f requires live save state."),
+                runtimeState, animationTick, roomTileChanged, soundRequested);
         if (record.Id == 0xdc && record.SubId == 0x12)
         {
             return new OrbBridgeControllerRoomEntity(record,
@@ -1731,7 +1758,7 @@ internal sealed class RoomEntityFactory(
         {
             return new DungeonSwitchRoomEntity(
                 record, room, _dungeonMechanics, runtimeState,
-                animationTick, roomTileChanged, soundRequested);
+                animationTick, roomTileChanged, soundRequested, saveData);
         }
         if (record.Id == 0x09)
         {
@@ -1963,6 +1990,29 @@ internal sealed class RoomEntityFactory(
                 octorok.Initialize(octorokRecord, room, position, random);
                 return new OctorokRoomEntity(
                     octorok, combatSource, soundRequested);
+
+            case EnemyHandlerKind.RiverZora:
+                var zora = new RiverZoraCharacter
+                {
+                    Name = $"RiverZora_{source.Order}_{instance}", ZIndex = 10
+                };
+                zora.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
+                return new RiverZoraRoomEntity(zora, combatSource, soundRequested,
+                    () => new Vector2(0, OracleRoomData.StatusBarHeight) - worldToScreen(Vector2.Zero));
+
+            case EnemyHandlerKind.GopongaFlower:
+                var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = 10 };
+                flower.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), position, random);
+                return new GopongaFlowerRoomEntity(flower, combatSource, soundRequested);
+
+            case EnemyHandlerKind.BuzzBlob:
+                var buzzBlob = new BuzzBlobCharacter
+                {
+                    Name = $"BuzzBlob_{source.Order}_{instance}", ZIndex = 10
+                };
+                buzzBlob.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
+                return new BuzzBlobRoomEntity(buzzBlob, combatSource, soundRequested,
+                    (id, _, origin) => roomEntityDialogueRequested(id, enemies.CukemanText(id), origin));
 
             case EnemyHandlerKind.Stalfos:
                 if (!enemies.TryGetStalfosDefinition(
@@ -2379,9 +2429,15 @@ internal sealed class RoomEntityFactory(
 
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
+        DungeonSwitchSpawn switchPart => new DungeonSwitchRoomEntity(switchPart.Record,
+            room, _dungeonMechanics, runtimeState, animationTick, roomTileChanged,
+            soundRequested, saveData),
+        TimedSparkleSpawn sparkle => new TimedSparkleRoomEntity(sparkle),
         BridgeSpawnerSpawn bridge => new BridgeSpawnerRoomEntity(bridge, room,
             _dungeonMechanics, animationTick, roomTileChanged, soundRequested),
         OctorokRockSpawn rock => CreateRock(rock, room),
+        ZoraFireSpawn fire => new ZoraFireRoomEntity(new ZoraFireProjectile(
+            fire, _zoraFire, worldToScreen) { Name = "ZoraFire", ZIndex = 10 }),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),
         ArmosSpawn armos => CreateArmos(armos, room),
@@ -2831,6 +2887,9 @@ internal sealed class RoomEntityFactory(
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (record is { Id: 0x49, SubId: >= 0x0e and <= 0x10 })
+            return new ForestHintFairyRoomEntity(CreateNpcCharacter(record));
 
         if (record is { Group: 1, Room: 0xba, Id: 0xc4, SubId: 0x04 })
         {
@@ -4575,6 +4634,10 @@ internal sealed class RoomEntityFactory(
         int stateModifier = (room.TilesetFlags & 0x40) != 0 ? 1 : 0;
         if (saveData?.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlagLayoutSwap) == true)
             stateModifier++;
+        // roomInitialization.s:calculateRoomStateModifier uses the selected
+        // companion for pack $7f, with the standard branch for value $00.
+        int companion = saveData?.ReadWramByte(0xc610) ?? 0;
+        if (room.IsCompanionRegion && companion != 0) stateModifier = companion - 0x0b;
         return (record.ConditionMask & (1 << stateModifier)) != 0;
     }
 

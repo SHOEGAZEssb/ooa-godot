@@ -244,6 +244,9 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         EnemySwordResponse expected =
             (Handler, collisionMode) switch
         {
+            (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.GopongaFlower, 0x23) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.BuzzBlob, 0x1b) => EnemySwordResponse.ElectricShock,
             (EnemyHandlerKind.FlyingTile, 0x3c) =>
                 EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.Thwomp, 0x28) =>
@@ -278,6 +281,7 @@ internal readonly record struct EnemyShieldBumpResponse(
 
 internal enum EnemySwordResponse
 {
+    ElectricShock,
     Knockback,
     Armored,
     NoKnockback,

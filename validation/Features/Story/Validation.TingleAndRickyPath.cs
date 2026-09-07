@@ -494,100 +494,143 @@ public sealed partial class ValidationRoot
             "Ricky crossing below room 0:89's tutorial marker did not set " +
             "wCompanionTutorialTextShown bit $00 while retaining the barrier.");
 
-        _dialogue.Close();
-        CompanionRuntimeState.Clear(
-            _runtimeState, CompanionRuntimeState.RickyId);
-        CompanionRuntimeState.ForgetRemembered(_runtimeState);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 1, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 2, 1);
-        LoadValidationRoom(0, 0x79);
-        TingleRoomEntity upgradeTingle =
-            _entities.Entities<TingleRoomEntity>().Single();
-        StepRoomEventFrames(1);
-        var upgradeHitSpawns = new List<RoomEntitySpawn>();
-        upgradeTingle.ApplySwordHit(
-            new Rect2(
-                upgradeTingle.Npc.Position - new Vector2(4, 4),
-                new Vector2(8, 8)),
-            upgradeTingle.Npc.Position,
-            1,
-            EnemyKnockbackStrength.Normal,
-            upgradeHitSpawns);
-        StepRoomEventFrames(1 + tingleRecord.FallWait);
-        int upgradeFallUpdates = 0;
-        while (!upgradeTingle.Grounded && upgradeFallUpdates < 100)
+        void ValidateUpgrade(bool cancelGlow)
         {
+            _dialogue.Close();
+            _saveData.SetGlobalFlag(tingleRecord.UpgradeFlag, false);
+            CompanionRuntimeState.Clear(
+                _runtimeState, CompanionRuntimeState.RickyId);
+            CompanionRuntimeState.ForgetRemembered(_runtimeState);
+            if (_inventory.SeedSatchelLevel == 0)
+                _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 1, 1);
+            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 2, 1);
+            LoadValidationRoom(0, 0x79);
+            TingleRoomEntity upgradeTingle =
+                _entities.Entities<TingleRoomEntity>().Single();
             StepRoomEventFrames(1);
-            upgradeFallUpdates++;
-        }
-        FailIf(
-            !upgradeTingle.Grounded || !upgradeTingle.HasEnoughSeedTypes ||
-            _inventory.SeedSatchelLevel != 1,
-            "Tingle did not snapshot three obtained seed types with a level-1 Satchel.");
+            var upgradeHitSpawns = new List<RoomEntitySpawn>();
+            upgradeTingle.ApplySwordHit(
+                new Rect2(
+                    upgradeTingle.Npc.Position - new Vector2(4, 4),
+                    new Vector2(8, 8)),
+                upgradeTingle.Npc.Position,
+                1,
+                EnemyKnockbackStrength.Normal,
+                upgradeHitSpawns);
+            StepRoomEventFrames(1 + tingleRecord.FallWait);
+            int upgradeFallUpdates = 0;
+            while (!upgradeTingle.Grounded && upgradeFallUpdates < 100)
+            {
+                StepRoomEventFrames(1);
+                upgradeFallUpdates++;
+            }
+            FailIf(
+                !upgradeTingle.Grounded || !upgradeTingle.HasEnoughSeedTypes ||
+                _inventory.SeedSatchelLevel != 1,
+                "Tingle did not snapshot three obtained seed types with a level-1 Satchel.");
 
-        TingleEvent upgradeEvent = _roomEvents.Tingle;
-        FailIf(
-            !upgradeEvent.TryInteractNpc(upgradeTingle.Npc) ||
-            upgradeEvent.Stage != TingleEventStage.SatchelPrompt ||
-            !_dialogue.ChoiceActive ||
-            _dialogue.CurrentMessage !=
-                DialogueBox.PlainText(tingleDatabase.Text(0x1e06)),
-            "The chart-owned, three-seed-type path did not open TX_1e06.");
-        _dialogue.SubmitChoiceForValidation(0);
-        StepRoomEventFrames(1);
-        FailIf(
-            upgradeEvent.Stage != TingleEventStage.UpgradeAcceptedText ||
-            !_saveData.HasGlobalFlag(tingleRecord.UpgradeFlag) ||
-            _dialogue.CurrentMessage !=
-                DialogueBox.PlainText(tingleDatabase.Text(0x1e07)),
-            "Accepting Tingle's Satchel offer did not set global flag $46 and show TX_1e07.");
-        _dialogue.Close();
-        StepRoomEventFrames(1);
-        FailIf(
-            upgradeEvent.Stage != TingleEventStage.UpgradeAnnouncement ||
-            !upgradeTingle.KoolooActive ||
-            _dialogue.CurrentMessage !=
-                DialogueBox.PlainText(tingleDatabase.Text(0x1e0c)),
-            "The Satchel path did not pair animation $03 with TX_1e0c.");
-        _dialogue.Close();
-        StepRoomEventFrames(1);
-        int upgradeKoolooUpdates = 0;
-        while (upgradeEvent.Stage != TingleEventStage.UpgradeGlowWait &&
-            upgradeKoolooUpdates < 200)
-        {
+            TingleEvent upgradeEvent = _roomEvents.Tingle;
+            FailIf(
+                !upgradeEvent.TryInteractNpc(upgradeTingle.Npc) ||
+                upgradeEvent.Stage != TingleEventStage.SatchelPrompt ||
+                !_dialogue.ChoiceActive ||
+                _dialogue.CurrentMessage !=
+                    DialogueBox.PlainText(tingleDatabase.Text(0x1e06)),
+                "The chart-owned, three-seed-type path did not open TX_1e06.");
+            _dialogue.SubmitChoiceForValidation(0);
             StepRoomEventFrames(1);
-            upgradeKoolooUpdates++;
+            FailIf(
+                upgradeEvent.Stage != TingleEventStage.UpgradeAcceptedText ||
+                !_saveData.HasGlobalFlag(tingleRecord.UpgradeFlag) ||
+                _dialogue.CurrentMessage !=
+                    DialogueBox.PlainText(tingleDatabase.Text(0x1e07)),
+                "Accepting Tingle's Satchel offer did not set global flag $46 and show TX_1e07.");
+            _dialogue.Close();
+            StepRoomEventFrames(1);
+            FailIf(
+                upgradeEvent.Stage != TingleEventStage.UpgradeAnnouncement ||
+                !upgradeTingle.KoolooActive ||
+                _dialogue.CurrentMessage !=
+                    DialogueBox.PlainText(tingleDatabase.Text(0x1e0c)),
+                "The Satchel path did not pair animation $03 with TX_1e0c.");
+            _dialogue.Close();
+            StepRoomEventFrames(1);
+            int upgradeKoolooUpdates = 0;
+            while (upgradeEvent.Stage != TingleEventStage.UpgradeGlowWait &&
+                upgradeKoolooUpdates < 200)
+            {
+                StepRoomEventFrames(1);
+                upgradeKoolooUpdates++;
+            }
+            FailIf(
+                upgradeEvent.Stage != TingleEventStage.UpgradeGlowWait ||
+                upgradeEvent.Counter != tingleRecord.UpgradeGlowWait,
+                "The Satchel animation did not install the exact wait 120.");
+            TimedSparkleRoomEntity glow = _entities.Entities<TimedSparkleRoomEntity>().Single();
+            Vector2 glowPosition = _player.Position.Floor();
+            FailIf(glow.Position != glowPosition || !glow.Visible ||
+                glow.RemainingUpdates != 120 || glow.AnimationFrame != 0 ||
+                tingleDatabase.UpgradeGlowVisual.SourceOffset != 0x1c00 ||
+                glow.CurrentTexture.GetSize() != new Vector2(48, 48) ||
+                glow.TextureOffset != new Vector2(-24, -24) ||
+                glow.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+                !glow.CurrentTexture.GetImage().GetUsedRect().HasArea(),
+                "Room 0:79 must initialize visible $84:$04 at Link's Y/X, above Link, without consuming counter1.");
+            if (cancelGlow)
+            {
+                StepRoomEventFrames(10);
+                upgradeEvent.Cancel();
+                StepRoomEventFrames(1);
+                FailIf(_entities.Entities<TimedSparkleRoomEntity>().Count != 0 ||
+                    _inventory.SeedSatchelLevel != 1,
+                    "Cancelling Tingle's upgrade must remove $84:$04 without granting the Satchel.");
+                LoadValidationRoom(0, 0x89);
+                LoadValidationRoom(0, 0x79);
+                FailIf(_entities.Entities<TimedSparkleRoomEntity>().Count != 0,
+                    "Tingle's cancelled $84:$04 glow leaked across room re-entry.");
+                return;
+            }
+            ulong firstGlowPixels = OracleGraphicsCache.PixelHash(glow.CurrentTexture.GetImage());
+            for (int elapsed = 1; elapsed < 120; elapsed++)
+            {
+                StepRoomEventFrames(1);
+                FailIf(glow.RemainingUpdates != 120 - elapsed ||
+                    glow.Position != glowPosition || glow.AnimationFrame != (elapsed / 4) % 2 ||
+                    glow.Visible != ((_entities.FrameCounter & 1) == 0),
+                    $"Room 0:79 $84:$04 lost stationary position, four-update animation, global flicker, or counter1 at update ${elapsed:x2}.");
+                if (elapsed == 4)
+                    FailIf(OracleGraphicsCache.PixelHash(glow.CurrentTexture.GetImage()) == firstGlowPixels,
+                        "Room 0:79 $84:$04 animation did not render distinct source OAM frames.");
+            }
+            FailIf(
+                upgradeEvent.Counter != 1 || _inventory.SeedSatchelLevel != 1,
+                "Tingle granted the Satchel upgrade before all 120 glow updates elapsed.");
+            StepRoomEventFrames(1);
+            GroundTreasurePickup satchelUpgrade =
+                _entities.Entities<GroundTreasurePickup>().Single();
+            FailIf(
+                upgradeEvent.Stage != TingleEventStage.UpgradeReward ||
+                _inventory.SeedSatchelLevel != 2 || !satchelUpgrade.Held ||
+                !_dialogue.IsOpen || _entities.Entities<TimedSparkleRoomEntity>().Count != 0,
+                "Tingle did not grant TREASURE_OBJECT_SEED_SATCHEL_UPGRADE after wait 120.");
+            _dialogue.Close();
+            _interactions.Update(1.0 / 60.0, _player);
+            StepRoomEventFrames(1);
+            FailIf(
+                upgradeEvent.Stage != TingleEventStage.Inactive ||
+                _inventory.EmberSeeds != 0x50 ||
+                _inventory.ScentSeeds != 0x50 ||
+                _inventory.PegasusSeeds != 0x50,
+                "refillSeedSatchel did not refill each obtained type to level-2 capacity.");
         }
-        FailIf(
-            upgradeEvent.Stage != TingleEventStage.UpgradeGlowWait ||
-            upgradeEvent.Counter != tingleRecord.UpgradeGlowWait,
-            "The Satchel animation did not install the exact wait 120.");
-        StepRoomEventFrames(tingleRecord.UpgradeGlowWait - 1);
-        FailIf(
-            upgradeEvent.Counter != 1 || _inventory.SeedSatchelLevel != 1,
-            "Tingle granted the Satchel upgrade before all 120 glow updates elapsed.");
-        StepRoomEventFrames(1);
-        GroundTreasurePickup satchelUpgrade =
-            _entities.Entities<GroundTreasurePickup>().Single();
-        FailIf(
-            upgradeEvent.Stage != TingleEventStage.UpgradeReward ||
-            _inventory.SeedSatchelLevel != 2 || !satchelUpgrade.Held ||
-            !_dialogue.IsOpen,
-            "Tingle did not grant TREASURE_OBJECT_SEED_SATCHEL_UPGRADE after wait 120.");
-        _dialogue.Close();
-        _interactions.Update(1.0 / 60.0, _player);
-        StepRoomEventFrames(1);
-        FailIf(
-            upgradeEvent.Stage != TingleEventStage.Inactive ||
-            _inventory.EmberSeeds != 0x50 ||
-            _inventory.ScentSeeds != 0x50 ||
-            _inventory.PegasusSeeds != 0x50,
-            "refillSeedSatchel did not refill each obtained type to level-2 capacity.");
+        ValidateUpgrade(cancelGlow: true);
+        ValidateUpgrade(cancelGlow: false);
 
         GD.Print(
             "Validated rooms 0:79/0:89 Tingle `$c8:$00 + balloon `$44, " +
-            "three `$84:$00 kooloo sparkles, friend/chart/Satchel/kooloo/" +
+            "three `$84:$00 kooloo sparkles, the `$84:$04 pre-upgrade glow's " +
+            "source OAM, four-update animation, global flicker and 120-update lifetime, friend/chart/Satchel/kooloo/" +
             "Ricky-departure script paths, companion " +
             "tutorials `$d0:$01/$00, and source-ordered `$71:$02 lower-Y barrier.");
     }

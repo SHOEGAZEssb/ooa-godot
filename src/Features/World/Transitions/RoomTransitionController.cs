@@ -184,6 +184,7 @@ public sealed class RoomTransitionController
 
     public bool CheckTileWarp(Player player)
     {
+        if (_entities.WarpTilesDisabled) return false;
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 linkPosition = OracleObjectMath.ToPixelPosition(player.Position);
         Vector2 standingPoint = linkPosition + new Vector2(0, 4);
@@ -1083,6 +1084,21 @@ public sealed class RoomTransitionController
         // boundary instead of surviving under the destination tilemap.
         WarpDestinationLoading?.Invoke();
         Warp warp = _pendingWarp;
+        // Full room loading retains the mounted animal slot. Update its room
+        // and packed destination before the factory reconstitutes that slot.
+        if (_entities.PlayerRidingObject && CompanionRuntimeState.AnyActive(_entities.RuntimeState))
+        {
+            ActiveCompanion companion = CompanionRuntimeState.Read(_entities.RuntimeState);
+            if (companion.Id is CompanionRuntimeState.RickyId or CompanionRuntimeState.DimitriId or CompanionRuntimeState.MooshId)
+            {
+                Vector2 destination = new((warp.DestinationPosition & 15) * 16 + 8,
+                    (warp.DestinationPosition >> 4) * 16 + 8);
+                if (warp.DestinationTransition == 0x0e) destination.X -= 8;
+                CompanionRuntimeState.Update(_entities.RuntimeState, companion.Id, warp.DestinationRoom,
+                    destination, companion.Direction);
+                CompanionRuntimeState.SetLastAnimalMountPosition(_entities.RuntimeState, destination);
+            }
+        }
         OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
         if (_timeWarp)
         {

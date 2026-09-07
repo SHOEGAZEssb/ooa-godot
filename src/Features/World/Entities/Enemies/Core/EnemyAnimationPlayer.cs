@@ -18,6 +18,9 @@ internal sealed class EnemyAnimationPlayer
     private int _animationIndex;
     private int _frameIndex;
     private int _frameCounter;
+    private IReadOnlyDictionary<int, Color[]>? _overridePalette;
+    private readonly Dictionary<(int Animation, int Frame, int Palette), Texture2D> _overrideTextures = new();
+    private int _damagePalette;
 
     public EnemyAnimationPlayer(Node2D entity, int animationCount)
     {
@@ -33,10 +36,31 @@ internal sealed class EnemyAnimationPlayer
     public int AnimationIndex => _animationIndex;
     public int FrameIndex => _frameIndex;
     public int CurrentParameter => CurrentFrame.Parameter;
-    public Texture2D CurrentTexture => CurrentFrame.Texture;
+    public Texture2D CurrentTexture => _overridePalette is not null
+        ? OverrideTexture(_basePalette) : CurrentFrame.Texture;
     public Vector2 CurrentOffset => CurrentFrame.Offset;
     public Texture2D DamageTexture =>
-        CurrentFrame.DamageTexture ?? CurrentFrame.Texture;
+        _overridePalette is not null ? OverrideTexture(_damagePalette) : CurrentFrame.DamageTexture ?? CurrentFrame.Texture;
+
+    internal void SetPaletteOverride(IReadOnlyDictionary<int, Color[]>? palette)
+    {
+        if (!ReferenceEquals(_overridePalette, palette))
+        {
+            _overridePalette = palette;
+            _overrideTextures.Clear();
+        }
+        _entity.QueueRedraw();
+    }
+    private Texture2D OverrideTexture(int palette)
+    {
+        var key = (_animationIndex, _frameIndex, palette);
+        if (!_overrideTextures.TryGetValue(key, out Texture2D? texture))
+        {
+            texture = CurrentFrame.RenderPalette(palette, _overridePalette!);
+            _overrideTextures.Add(key, texture);
+        }
+        return texture;
+    }
     public bool HasFrames => _animations[_animationIndex].Count > 0;
 
     private EnemyAnimationPlayerAnimationFrame CurrentFrame => _animations[_animationIndex][_frameIndex];
@@ -66,6 +90,7 @@ internal sealed class EnemyAnimationPlayer
                 $"rows, got {animationSourceOffsets.Count}.");
         }
         _basePalette = palette;
+        _damagePalette = damagePalette ?? palette;
         for (int index = 0; index < encodedAnimations.Count; index++)
         {
             AnimationDefinition definition =
@@ -215,13 +240,19 @@ internal sealed class EnemyAnimationPlayer
                     variantTextures,
                     offset,
                     frame.Duration,
-                    frame.Parameter));
+                    frame.Parameter,
+                    (baseSlot, colors) => positionedOam
+                        ? NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(source, frame.EncodedOam,
+                            tileBase, baseSlot, colors, sourceGrayscaleInverted, sourceOffset).Texture
+                        : NpcCharacter.BuildOamTextureWithPaletteOverrides(source, frame.EncodedOam, tileBase,
+                            baseSlot, colors, sourceGrayscaleInverted, sourceOffset)));
             }
         }
     }
 
     public Texture2D CurrentTextureForPalette(int palette)
     {
+        if (_overridePalette is not null) return OverrideTexture(palette);
         if (palette == _basePalette)
             return CurrentFrame.Texture;
         if (CurrentFrame.PaletteVariants is not null &&
@@ -278,4 +309,5 @@ internal sealed record EnemyAnimationPlayerAnimationFrame(
     IReadOnlyDictionary<int, Texture2D>? PaletteVariants,
     Vector2 Offset,
     int Duration,
-    int Parameter);
+    int Parameter,
+    Func<int, IReadOnlyDictionary<int, Color[]>, Texture2D> RenderPalette);

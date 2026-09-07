@@ -52,6 +52,10 @@ internal sealed class EnemyBehaviorTables
     internal ZolBehaviorProfile Zol { get; }
     internal OctorokBehaviorProfile Octorok { get; }
     internal LeeverBehaviorProfile Leever { get; }
+    internal RiverZoraBehaviorProfile RiverZora { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> GopongaFlower { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> GopongaFlowerCollisionEffects { get; }
+    internal BuzzBlobBehaviorProfile BuzzBlob { get; }
     internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
@@ -319,6 +323,15 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "octorok", "state-profile", 2);
         Octorok = new(values[0].Value, values[1].Value, values);
 
+        values = TakeValues(groups, "river-zora", "state-profile", 7);
+        GopongaFlower = TakeValues(groups, "goponga-flower", "state-profile", 5);
+        GopongaFlowerCollisionEffects = TakeValues(groups, "goponga-flower", "collision-effects", 32);
+        RiverZora = new(values[0].Value, values[1].Value, values[2].Value,
+            values[3].Value, values[4].Value, values[5].Value, values[6].Value);
+        values = TakeValues(groups, "buzzblob", "state-profile", 7);
+        BuzzBlob = new(values[0].Value, values[1].Value, values[2].Value,
+            values[3].Value, values[4].Value, values[5].Value, values[6].Value);
+
         values = TakeValues(groups, "leever", "state-profile", 6);
         EnemyBehaviorValue[] leeverUndergroundCounters = TakeValues(
             groups, "leever", "underground-counters", 4);
@@ -581,10 +594,10 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 644 || groups.Count != 0)
+        if (table.Rows.Count != 695 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 644 rows and no " +
+                $"Enemy behavior table contract expected 695 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

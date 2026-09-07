@@ -557,7 +557,7 @@ internal static partial class AssemblySourceParser
         int Line);
 
     [GeneratedRegex(
-        @"^(?<name>[A-Za-z_@.][A-Za-z0-9_@.#?]*):(?<tail>.*)$",
+        @"^(?:(?<name>[A-Za-z_@.][A-Za-z0-9_@.#?]*):(?<tail>.*)|(?<name>@[A-Za-z0-9_@.#?]+))$",
         RegexOptions.CultureInvariant)]
     private static partial Regex LabelRegex();
 

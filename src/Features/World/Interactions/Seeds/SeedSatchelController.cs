@@ -220,7 +220,7 @@ internal readonly record struct SeedShooterRecord(
     int PostShotWait,
     int Sound,
     Vector2I[] Offsets,
-    int[] NonBounceDungeonTiles,
+    byte[][] NonBounceTiles,
     byte[][] ItemPassableTiles,
     string WeaponSprite,
     int WeaponVramTileBase,
@@ -238,7 +238,7 @@ internal readonly record struct SeedShooterRecord(
                 GeneratedTableKeySemantics.Unique,
                 ["item", "subid", "speed-raw", "bounces", "aim-lockout",
                     "post-shot-wait", "sound", "offsets",
-                    "non-bounce-dungeon-tiles", "item-passable-tiles",
+                    "non-bounce-tiles", "item-passable-tiles",
                     "weapon-sprite", "weapon-vram-tile-base",
                     "weapon-palette", "weapon-source-grayscale-inverted",
                     "weapon-oam", "source"],
@@ -259,9 +259,7 @@ internal readonly record struct SeedShooterRecord(
                 }
                 return new Vector2I(x, y);
             });
-        int[] nonBounce = System.Array.ConvertAll(
-            row.RequiredString(8).Split(','), value =>
-                System.Convert.ToInt32(value, 16));
+        byte[][] nonBounce = ParseItemPassableTiles(row.RequiredString(8), row, 8);
         byte[][] passableTiles = ParseItemPassableTiles(
             row.RequiredString(9), row);
         string[] weaponOam = row.RequiredString(14).Split('|');
@@ -276,6 +274,9 @@ internal readonly record struct SeedShooterRecord(
             record.SpeedRaw != 0x78 || record.Bounces != 3 ||
             record.AimLockout != 16 || record.PostShotWait != 12 ||
             record.Sound != 0xcb || offsets.Length != 8 ||
+            record.NonBounceTiles.Length != 6 ||
+            record.NonBounceTiles[0].Length != 9 ||
+            record.NonBounceTiles[2].Length != 2 ||
             record.ItemPassableTiles.Length != 6 ||
             record.ItemPassableTiles[0].Length != 2 ||
             record.ItemPassableTiles[1].Length != 3 ||
@@ -304,13 +305,17 @@ internal readonly record struct SeedShooterRecord(
                 room.GetMetatile(point)) >= 0;
     }
 
+    internal bool DoesNotBounce(OracleRoomData room, byte tile) =>
+        System.Array.IndexOf(NonBounceTiles[room.ActiveCollisions], tile) >= 0;
+
     private static byte[][] ParseItemPassableTiles(
         string encoded,
-        GeneratedTableRow row)
+        GeneratedTableRow row,
+        int column = 9)
     {
         string[] groups = encoded.Split(';');
         if (groups.Length != 6)
-            throw row.Invalid(9, "six collision-set tile lists");
+            throw row.Invalid(column, "six collision-set tile lists");
         var result = new byte[groups.Length][];
         for (int index = 0; index < groups.Length; index++)
         {
@@ -320,7 +325,7 @@ internal readonly record struct SeedShooterRecord(
                 collisionSet != index)
             {
                 throw row.Invalid(
-                    9, "ordered collision-set:tile-list entries");
+                    column, "ordered collision-set:tile-list entries");
             }
             if (pair[1].Length == 0)
             {
@@ -334,7 +339,7 @@ internal readonly record struct SeedShooterRecord(
                 if (!byte.TryParse(
                         tiles[tileIndex], out result[index][tileIndex]))
                 {
-                    throw row.Invalid(9, "decimal byte tile lists");
+                    throw row.Invalid(column, "decimal byte tile lists");
                 }
             }
         }

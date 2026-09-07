@@ -1012,7 +1012,7 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 228 || switchRecordCount != 7 ||
+            database.RecordCount != 229 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -2016,7 +2016,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 228 imported enemy-clear-key/chest/switch/button/" +
+        GD.Print("Validated all 229 imported enemy-clear-key/chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

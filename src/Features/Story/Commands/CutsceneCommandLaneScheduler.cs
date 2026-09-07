@@ -31,16 +31,19 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
 
     public CutsceneCommandRunner StartLane(
         string name,
-        IReadOnlyList<CutsceneCommand> commands)
+        IReadOnlyList<CutsceneCommand> commands,
+        ICutsceneCommandHost? laneHost = null,
+        int firstCommand = 0,
+        Action? beforeAdvance = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("A cutscene lane name cannot be empty.", nameof(name));
         if (_byName.ContainsKey(name))
             throw new InvalidOperationException($"Cutscene lane '{name}' is already registered.");
 
-        var runner = new CutsceneCommandRunner(host);
-        runner.Start(commands);
-        Lane lane = new Lane(name, runner);
+        var runner = new CutsceneCommandRunner(laneHost ?? host);
+        runner.Start(commands, firstCommand);
+        Lane lane = new Lane(name, runner, beforeAdvance);
         _lanes.Add(lane);
         _byName.Add(name, lane);
         return runner;
@@ -53,7 +56,10 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
         foreach (Lane lane in _lanes)
         {
             if (lane.Runner.Active)
+            {
+                lane.BeforeAdvance?.Invoke();
                 lane.Runner.AdvanceFrame();
+            }
         }
     }
 
@@ -66,4 +72,4 @@ internal sealed class CutsceneCommandLaneScheduler(ICutsceneCommandHost host)
     }
 }
 
-internal sealed record Lane(string Name, CutsceneCommandRunner Runner);
+internal sealed record Lane(string Name, CutsceneCommandRunner Runner, Action? BeforeAdvance);
