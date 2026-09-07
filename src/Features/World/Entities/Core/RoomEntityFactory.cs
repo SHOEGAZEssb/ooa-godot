@@ -1590,6 +1590,13 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext,
         LightableTorchState? lightableTorchState)
     {
+        if (record.Id == 0xdc && record.SubId == 0x12)
+        {
+            return new OrbBridgeControllerRoomEntity(record,
+                saveData ?? throw new InvalidOperationException(
+                    $"Room {group:x1}:{room.Id:x2} $dc:$12 requires live save state."),
+                runtimeState, soundRequested, _dungeonMechanics.SolveSound);
+        }
         if (record.Id == 0x03)
         {
             return new DungeonOrbRoomEntity(
@@ -2372,6 +2379,8 @@ internal sealed class RoomEntityFactory(
 
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
+        BridgeSpawnerSpawn bridge => new BridgeSpawnerRoomEntity(bridge, room,
+            _dungeonMechanics, animationTick, roomTileChanged, soundRequested),
         OctorokRockSpawn rock => CreateRock(rock, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),

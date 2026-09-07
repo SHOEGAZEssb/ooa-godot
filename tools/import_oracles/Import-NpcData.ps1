@@ -1896,6 +1896,26 @@ if ($torchObjectDataSource -notmatch
 }
 $extendableBridgeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\extendableBridge.s')
+$caveBridgeSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$bridgeSpawnerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\bridgeSpawner.s')
+$caveBridgeTileSource = Read-ImportText (
+    Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
+if ($caveBridgeTileSource -notmatch
+    '(?ms)^tileReplacement_group2Map9e:\s+xor a\s+ld \(wToggleBlocksState\),a\s+call getThisRoomFlags\s+and \$40\s+ret z\s+ld hl,wRoomLayout\+\$13\s+ld a,\$6d\s+call set3Bytes\s+inc l\s+jp set3Bytes' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_HORIZONTAL_BRIDGE\s+\$6d\b' -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_HORIZONTAL_BRIDGE_LEFT\s+\$6e\b') {
+    throw 'roomSpecificTileChanges.s:tileReplacement_group2Map9e or horizontal bridge tile constants changed.'
+}
+$caveBridgeMatch = [regex]::Match($caveBridgeSource,
+    '(?ms)^interactiondc_subid12:\s+call getThisRoomFlags\s+and \$40\s+jp nz,interactionDelete\s+ld a,\(wToggleBlocksState\)\s+or a\s+ret z\s+call getFreePartSlot\s+ret nz\s+ld \(hl\),PART_BRIDGE_SPAWNER\s+ld l,Part.counter2\s+ld \(hl\),\$(?<count>[0-9a-f]{2})\s+ld l,Part.angle\s+ld \(hl\),\$01\s+ld l,Part.yh\s+ld \(hl\),\$(?<position>[0-9a-f]{2})\s+call getThisRoomFlags\s+set 6,\(hl\)\s+ld a,SND_SOLVEPUZZLE\s+call playSound\s+jp interactionDelete')
+if (-not $caveBridgeMatch.Success -or $bridgeSpawnerSource -notmatch
+    '(?s)call z,@state0.*?call partCommon_decCounter1IfNonzero.*?rrca.*?setTileInRoomLayoutBuffer.*?call setTile.*?SND_DOORCLOSE.*?ld \(hl\),\$08.*?dec \(hl\).*?jp z,partDelete.*?rrca.*?ret c.*?@tileValues:.*?TILEINDEX_HORIZONTAL_BRIDGE_LEFT,\s+TILEINDEX_HORIZONTAL_BRIDGE.*?@directionVals:\s+\.db \$f0 \$01 \$10 \$ff.*?@state0:.*?ld \(hl\),\$08') {
+    throw 'miscellaneous2.s:interactiondc_subid12 / common/parts/bridgeSpawner.s native contract changed.'
+}
+$caveBridgeCount = [Convert]::ToInt32($caveBridgeMatch.Groups['count'].Value, 16)
+$caveBridgePosition = [Convert]::ToInt32($caveBridgeMatch.Groups['position'].Value, 16)
 $rotatableSeedThingSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\rotatableSeedThing.s')
 $respawnableBushSource = Read-ImportText (
@@ -2045,6 +2065,9 @@ foreach ($line in $mainObjectLines) {
             }
             if ($id -eq 0x23) { $extendableBridgeCount++ }
         }
+    } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$12\s*$') {
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tdc`t12`t$($caveBridgePosition.ToString('x2'))`t$($caveBridgeCount.ToString('x2'))`tnone`t1")
     } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
@@ -2071,7 +2094,8 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 228 -or
+if ($dungeonMechanicRows.Count -ne 229 -or
+    -not ($dungeonMechanicRows -contains "2`t9e`t0`tdc`t12`t13`t0c`tnone`t1") -or
     $sourceEnemyFallingKeyCount -ne 4 -or
     $enemyFallingKeyCount -ne 2 -or
     $enemyClearChestCount -ne 12 -or
@@ -2120,7 +2144,7 @@ if ($dungeonMechanicRows.Count -ne 228 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 229 reusable dungeon mechanics including room 4:4b's push-trigger/falling-key pair and room 4:4e's bridges, orbs, switch, rotating seed bouncer, and respawnable Scent Seed bushes; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 228 reusable dungeon mechanics including room 2:9e's bridge controller; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2314,6 +2338,9 @@ if ($dungeonEventTilePatternRows.Count -ne 54 -or
 
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
+    "bridge-spawner-wait`t8"
+    "bridge-spawner-half-tile`t110"
+    "bridge-spawner-full-tile`t109"
     "pushable-block`t29"
     "push-delay`t30"
     "solve-wait`t8"

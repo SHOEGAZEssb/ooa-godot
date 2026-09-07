@@ -1461,7 +1461,8 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     private int EntityPhase(IRoomEntity entity) =>
-        _enemySlots.ContainsKey(entity) ? 0 : entity is ItemDropRoomEntity ? 1 : 2;
+        _enemySlots.ContainsKey(entity) ? 0 :
+        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity ? 1 : 2;
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {

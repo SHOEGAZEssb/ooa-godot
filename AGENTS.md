@@ -5,6 +5,7 @@
 This repository reconstructs *The Legend of Zelda: Oracle of Ages* in Godot
 4.7.1/.NET. The target is the supported clean US game, not a reinterpretation.
 
+Always go for 1:1 fidelity using the disassembly.
 When behavior is uncertain, use evidence in this order:
 
 1. Executed behavior in the clean US ROM.

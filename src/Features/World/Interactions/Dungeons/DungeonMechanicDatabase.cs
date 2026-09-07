@@ -35,6 +35,9 @@ internal sealed class DungeonMechanicDatabase
     internal int SolveSound => Constant("solve-sound");
     internal int DoorSound => Constant("door-sound");
     internal int BridgeStepWait => Constant("bridge-step-wait");
+    internal int BridgeSpawnerWait => Constant("bridge-spawner-wait");
+    internal int BridgeSpawnerHalfTile => Constant("bridge-spawner-half-tile");
+    internal int BridgeSpawnerFullTile => Constant("bridge-spawner-full-tile");
     internal int BridgeFirstTile => Constant("bridge-first-tile");
     internal int BridgeTileCount => Constant("bridge-tile-count");
     internal int ButtonTile => Constant("button-tile");
@@ -132,7 +135,8 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0xc7) ||
+            if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0xc7 or 0xdc) ||
+                record.Id == 0xdc && (record.SubId != 0x12 || record.Parameter == 0) ||
                 record.Id == 0x03 && record.SubId > 0x07 ||
                 record.Id == 0x12 && record.SubId is not (0x01 or 0x02) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
@@ -225,7 +229,9 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 227 || _constants.Count != 71 || _texts.Count != 2 ||
+        if (RecordCount != 228 || _constants.Count != 74 || _texts.Count != 2 ||
+            BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
+            BridgeSpawnerFullTile != 0x6d ||
             room08.Count != 2 ||
             room08[0] != new DungeonMechanicDatabaseRecord(
                 4, 0x08, 0, 0x20, 0x00, 0x57, 0x01,
