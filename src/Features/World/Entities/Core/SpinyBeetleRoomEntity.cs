@@ -42,7 +42,9 @@ internal sealed class SpinyBeetleRoomEntity
 
     public override void HandleLinkContact(Player player)
     {
-        Entity.RegisterLinkContact(player.Position);
+        if (!player.EnemyContactHeightOverlaps(CollisionZ))
+            return;
+        Entity.RegisterLinkContact(player.EnemyContactPosition);
         base.HandleLinkContact(player);
     }
 

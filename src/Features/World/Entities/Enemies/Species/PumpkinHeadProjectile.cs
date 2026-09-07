@@ -7,7 +7,6 @@ namespace oracleofages;
 /// <summary>PART_PUMPKIN_HEAD_PROJECTILE $42.</summary>
 internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
 {
-    private const int LinkCollisionRadius = 6;
     private readonly PumpkinProjectileBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.PumpkinProjectile;
     private readonly EnemyAnimationPlayer _animation;
@@ -71,10 +70,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
             Visible = false;
             return;
         }
-        if (Mathf.Abs(player.Position.X - Position.X) <
-                _behavior.CollisionRadiusX + LinkCollisionRadius &&
-            Mathf.Abs(player.Position.Y - Position.Y) <
-                _behavior.CollisionRadiusY + LinkCollisionRadius)
+        if (player.OverlapsEnemyCollision(CollisionBounds))
         {
             player.ApplyEnemyContactDamage(
                 Position, _behavior.DamageQuarters);

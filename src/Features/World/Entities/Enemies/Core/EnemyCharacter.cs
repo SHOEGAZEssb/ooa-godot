@@ -288,8 +288,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 
     public bool OverlapsLink(Vector2 linkPosition) =>
         !IsDead && CollisionEnabled &&
-        Mathf.Abs(linkPosition.X - Position.X) < _collisionRadiusX + 6 &&
-        Mathf.Abs(linkPosition.Y - Position.Y) < _collisionRadiusY + 6;
+        Player.EnemyCollisionOverlaps(linkPosition, CollisionBounds);
 
     /// <returns>
     /// True when the enemy's handler must return after applying its shared

@@ -7887,6 +7887,12 @@ if ($raftInteractionSource -notmatch '(?ms)^interactionCodee6:.*?@subid0:.*?wDim
     throw 'INTERAC_RAFT or SPECIALOBJECT_RAFT source contract changed.'
 }
 $raftGraphic = $interactionGraphics['230:0']
+if ($raftInteractionSource -notmatch '(?ms)@mountedRaft:.*?ld a,\$05\s+ld \(wInstrumentsDisabledCounter\),a\s+call @checkLinkWithinRange\s+ret nc' -or
+    $raftInteractionSource -notmatch '(?ms)@subid2:.*?jp objectSetVisible83' -or
+    $raftSpecialSource -notmatch '(?ms)@state0:.*?ld l,SpecialObject.counter1\s+ld \(hl\),\$0c' -or
+    $raftSpecialAnimations -notmatch '(?ms)^animationData1a1ef:\s*\.db \$0c \$00 \$00\s*\.db \$0c \$01 \$04\s*m_AnimationLoop animationData1a1ef\s*animationData1a1f7:\s*\.db \$0c \$02 \$00\s*\.db \$0c \$03 \$04') {
+    throw 'INTERAC_RAFT $e6 inner mount radius/instrument lock/priority or SPECIALOBJECT_RAFT $13 counters/animation changed.'
+}
 $raftWaitingAnimations = @(0..1 | ForEach-Object {
     Resolve-NpcAnimation 0xe6 $_
 })
@@ -7919,7 +7925,11 @@ $raftRows = @(
         'mainData.s:group1MapA9ObjectData;interactionCodee6;specialObjectCode_raft') -join "`t")
 )
 Write-CutsceneGeneratedTable(
-    (Join-Path $destination 'cutscenes\raft.tsv'), $raftRows)
+    (Join-Path $destination 'cutscenes\raft.tsv'), @(
+        $raftRows[0] + "`tinner-radius`tinstrument-lock`tdismount-wait"
+        $raftRows[1] + "`t05`t05`t0c"
+        $raftRows[2] + "`t05`t05`t0c"
+    ))
 Copy-GeneratedFile 'gfx\common\spr_raft.png' 'gfx\spr_raft.png'
 
 # Past ocean room $1:$a8 contains INTERAC_RAFTWRECK_CUTSCENE $9b:$00.
@@ -10055,9 +10065,14 @@ $forestTextRows.Add("# text-id`ttext-base64`tsource")
 foreach ($id in @((0x1120..0x1147) + (0x0038..0x003a) + (0x0069..0x006b))) {
     $text = $allTexts[$id]
     if ($null -eq $text) { throw "Missing forest text TX_$($id.ToString('x4'))" }
-    if ($id -eq 0x1121) { $text += ' ' + $allTexts[0x1122] }
-    foreach ($pair in @(@(0x1137,0x1138), @(0x113e,0x113f), @(0x1145,0x1146))) {
-        if ($id -eq $pair[0]) { $text += ' ' + $allTexts[$pair[1]] }
+    foreach ($pair in @(@(0x1121,0x1122), @(0x1137,0x1138), @(0x113e,0x113f), @(0x1145,0x1146))) {
+        if ($id -ne $pair[0]) { continue }
+        if ($allTextFallthroughIds[$id] -ne $pair[1] -or !$text.EndsWith('\n')) {
+            throw "Forest TX_$($id.ToString('x4')) lost its trailing newline/fallthrough."
+        }
+        # The unterminated record already supplies the line break. Normalize
+        # that control before joining, without inserting a printable spacer.
+        $text = $text.Substring(0, $text.Length - 2) + "`n" + $allTexts[$pair[1]]
     }
     foreach ($tail in @(0x1138,0x113f,0x1146)) {
         $text = $text.Replace(('\jump(TX_{0:x4})' -f $tail), $allTexts[$tail])
@@ -10462,7 +10477,12 @@ function Resolve-CarpenterText([int]$id) {
         if (!$text.Contains('\call(TX_2300)')) { throw "Carpenter TX_$($id.ToString('x4')) lost its TX_2300 call." }
         $text = $text.Replace('\call(TX_2300)', [string]$allTexts[0x2300])
     }
-    if ($id -eq 0x2304) { $text += "`n" + [string]$allTexts[0x2305] }
+    # TX_2304 has no terminator and already ends in the explicit \n control.
+    # Physical fallthrough into TX_2305 inserts no additional text byte.
+    if ($id -eq 0x2304) {
+        if (!$text.EndsWith('\n')) { throw 'Carpenter TX_2304 lost its trailing newline control.' }
+        $text = $text.Substring(0, $text.Length - 2) + "`n" + [string]$allTexts[0x2305]
+    }
     if (!$text -or $text -match '\\(?:call|jump)\(') { throw "Unresolved carpenter TX_$($id.ToString('x4'))" }
     return $text
 }

@@ -14,4 +14,5 @@ internal interface IPlayerRestriction
     bool DisablesScreenTransitions => false;
     bool DisablesWarpTiles => false;
     bool DisablesPlayerContact => false;
+    bool DisablesCompanion => false;
 }

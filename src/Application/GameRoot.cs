@@ -532,6 +532,10 @@ public partial class GameRoot : Node2D
             return;
         }
 
+        // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
+        // remains in the later interaction pass until it allocates that slot.
+        if (!IsTransitioning && !_harp.IsPlaying)
+            _entities.UpdateRaftBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (Link), followed by
         // item parents. Link's former physics/process split is therefore
         // replayed here before enemies, parts, and interactions.
@@ -665,6 +669,7 @@ public partial class GameRoot : Node2D
             animationTick: () => (long)_animationTicks,
             treasures: _treasures,
             rooms: _rooms);
+        _entities.DisplayedHealthSource = () => _statusBar.DisplayedHealth;
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound,

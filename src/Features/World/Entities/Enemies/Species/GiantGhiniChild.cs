@@ -158,7 +158,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
 
     internal void HandleLinkContact(Player player)
     {
-        if (_state != ChildState.Charging || !OverlapsLink(player.Position))
+        if (_state != ChildState.Charging || !OverlapsLink(player.EnemyContactPosition))
             return;
         _state = ChildState.Attached;
         _counter = 120;

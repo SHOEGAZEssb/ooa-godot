@@ -40,6 +40,8 @@ internal sealed class FlyingTileRoomEntity
 
     public override void HandleLinkContact(Player player)
     {
+        if (!player.EnemyContactHeightOverlaps(CollisionZ))
+            return;
         if (player.IsUsingShield &&
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {

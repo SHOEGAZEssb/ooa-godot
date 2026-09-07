@@ -191,6 +191,7 @@ internal sealed class EnemyHandlerRegistry
         "arm-mimic" => EnemyHandlerKind.ArmMimic,
         "flying-tile" => EnemyHandlerKind.FlyingTile,
         "vine-sprout" => EnemyHandlerKind.VineSprout,
+        "great-fairy" => EnemyHandlerKind.GreatFairy,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
         _ => throw row.Invalid(column, "a registered enemy handler")
@@ -239,7 +240,7 @@ internal sealed record EnemyHandlerDescriptor(
 
     internal bool SupportsCombatSource =>
         Classification != EnemyHandlerClassification.DeliberatelyUnsupported &&
-        Handler is not (EnemyHandlerKind.VineSprout or
+        Handler is not (EnemyHandlerKind.VineSprout or EnemyHandlerKind.GreatFairy or
             EnemyHandlerKind.BabyCucco or EnemyHandlerKind.Cucco);
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
@@ -343,6 +344,7 @@ internal enum EnemyHandlerKind
     ArmMimic,
     FlyingTile,
     VineSprout,
+    GreatFairy,
     MakuSproutMaskedMoblin
 }
 

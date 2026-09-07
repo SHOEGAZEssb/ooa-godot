@@ -224,6 +224,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
         RunIsolatedValidation(ValidateRickyRiding);
         RunIsolatedValidation(ValidateCompanionWaitingFidelity);
+        RunIsolatedValidation(ValidateMountedCompanionHurtbox);
         RunIsolatedValidation(ValidateMooshCliffFidelity);
         RunIsolatedValidation(ValidateCompanionAttackFidelity);
         RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
@@ -238,6 +239,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom197RalphAfterRafton);
         RunIsolatedValidation(ValidateRooms21eAnd21fRafton);
         RunIsolatedValidation(ValidateRaft);
+        RunIsolatedValidation(ValidateRaftFidelity);
         RunIsolatedValidation(ValidateRaftwreckCutscene);
         RunIsolatedValidation(ValidateTokayTheftCutscene);
         RunIsolatedValidation(ValidateTokayIslandInteractions);
@@ -370,6 +372,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGameOverRestart);
         RunIsolatedValidation(ValidateSaveAndQuitToTitle);
         RunIsolatedValidation(ValidateRoom083Interactions);
+        RunIsolatedValidation(ValidateFountainFairies);
         RunIsolatedValidation(ValidateDebugSavestates);
         RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
         RunIsolatedValidation(ValidateWingDungeon);

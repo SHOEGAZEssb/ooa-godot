@@ -344,7 +344,7 @@ $commonEnemySpecs = @(
     @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x4a, 0x01), @(0x4d, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
-    @(0x52, 0x00), @(0x52, 0x02)
+    @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00)
 )
 $cukemanTexts = [Collections.Generic.List[string]]::new()
 Write-GeneratedBytes((Join-Path $destination 'metadata\electric_shock_bg_palette.bin'),
@@ -384,7 +384,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 36 -or
+if ($commonEnemyRows.Count -ne 37 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1414,6 +1414,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '34:00' = 'zol'
     '34:01' = 'zol'
     '36:00' = 'cucco'
+    '38:00' = 'great-fairy'
     '3e:00' = 'peahat'
     '41:00' = 'crow'
     '43:00' = 'gel'
@@ -1432,7 +1433,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 46 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 47 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1503,9 +1504,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 476 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 481 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 345) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 340) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -4090,3 +4091,50 @@ $legacyFairyVelocityPath =
 if (Test-Path -LiteralPath $legacyFairyVelocityPath) {
     Remove-Item -LiteralPath $legacyFairyVelocityPath -Force
 }
+
+# ENEMY_GREAT_FAIRY $38 is a shared fountain actor, despite its enemy dispatch.
+# Preserve source text and PART_GREAT_FAIRY_HEART $30 graphics independently
+# of INTERAC_GREAT_FAIRY $d5 (the linked-game and sea-cleaning cutscenes).
+$fountainSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\greatFairy.s')
+$fountainHeartSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\greatFairyHeart.s')
+foreach ($pattern in @(
+    'greatFairy_state_uninitialized:.*?Enemy.zh\s+ld \(hl\),\$f0',
+    'greatFairy_state1:.*?greatFairy_createPuff.*?Enemy.counter1\s+ld \(hl\),\$11.*?MUS_FAIRY_FOUNTAIN',
+    'greatFairy_state2:.*?Object.animParameter.*?bit 7,\(hl\).*?greatFairy_state3:',
+    'greatFairy_state3:.*?\$80.*?wMenuDisabled.*?DISABLE_COMPANION\|DISABLE_LINK.*?wDisabledObjects.*?wLinkHealth.*?\$04.*?TX_4100.*?ld a,30.*?\$08.*?TX_4105',
+    'greatFairy_state4:.*?\$0c.*?\$09.*?greatFairy_state5:.*?\$0c.*?greatFairy_spawnCirclingHeart.*?ld \(hl\),30',
+    'greatFairy_state6:.*?ecom_decCounter1.*?TREASURE_HEART_REFILL.*?MAX_LINK_HEALTH.*?greatFairy_state7:.*?Enemy.var31.*?ld \(hl\),30',
+    'greatFairy_state8:.*?ecom_decCounter1.*?ld \(hl\),60.*?wDisabledObjects.*?wMenuDisabled.*?SND_FAIRYCUTSCENE.*?greatFairy_state9:.*?ecom_decCounter1.*?enemyDelete.*?bit 0,\(hl\)',
+    'greatFairy_checkLinkApproached:.*?checkLinkVulnerable.*?sub \$10\s+cp \$21.*?add \$18\s+cp \$31',
+    'greatFairy_updateZPosition:.*?dec \(hl\).*?and \$07.*?and \$18.*?sub \$02.*?bit 5,\(hl\).*?cpl\s+inc a.*?sub \$10',
+    'greatFairy_playSoundEvery8Frames:.*?and \$07.*?SND_FAIRY_HEAL'
+)) {
+    if ($fountainSource -notmatch "(?s)$pattern") { throw "greatFairy.s: source state contract changed: $pattern" }
+}
+if ($fountainHeartSource -notmatch '(?s)ld \(hl\),\$03.*?ld a,\$20.*?objectSetPositionInCircleArc.*?partCommon_decCounter1IfNonzero.*?ld \(hl\),\$03.*?dec a\s+and \$1f.*?wLinkMaxHealth.*?wDisplayedHearts.*?ld a,\$31.*?dec \(hl\).*?partDelete') {
+    throw 'greatFairyHeart.s: orbit, counter, or displayed-health gate changed.'
+}
+$fountainTexts = [Collections.Generic.List[string]]::new()
+$fountainTexts.Add("# text-id`ttext-base64`tsource")
+foreach ($textId in @(0x4100, 0x4105)) {
+    if (-not $allTexts.ContainsKey($textId)) { throw "Missing Great Fairy text $textId." }
+    $fountainTexts.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))`tgreatFairy.s:greatFairy_state3")
+}
+Write-GeneratedTable((Join-Path $destination 'objects\great_fairy_text.tsv'), $fountainTexts)
+$heartData = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x30]
+$heartBytes = @($heartData.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($heartBytes -join ',') -ne '120,0,0,0,1,2,5,0') { throw 'PART_GREAT_FAIRY_HEART $30 data changed.' }
+$heartAnimationTables = Read-AssemblyDwTables (Join-Path $Disassembly 'data\ages\partAnimations.s') 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
+$heartAnimationLabel = $heartAnimationTables['part30Animations'][0]
+$heartFrameBody = Get-AssemblyLabelBody $partAnimationSource $heartAnimationLabel
+if ($heartFrameBody -notmatch '\.db \$7f \$00 \$00') { throw 'Great Fairy heart initial OAM frame changed.' }
+$heartOamTables = Read-AssemblyDwTables (Join-Path $Disassembly 'data\ages\partAnimations.s') 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
+$heartOamLabel = $heartOamTables['part30OamDataPointers'][0]
+$heartAnimation = "127@$(Resolve-Oam $partOamSource $heartOamLabel)"
+$heartSprite = $gfxNames[$heartBytes[0]]
+Copy-EnemySprite $heartSprite
+$heartInverted = [int](Get-EnemySpriteSourceGrayscaleInverted $heartSprite)
+Write-GeneratedTable((Join-Path $destination 'effects\great_fairy_heart.tsv'), @(
+    "# sprite`ttile-base`tpalette`tinverted`tanimation`tsource"
+    "$heartSprite`t$($heartBytes[5])`t$($heartBytes[6])`t$heartInverted`t$heartAnimation`tpartData.s:PART_GREAT_FAIRY_HEART"
+))

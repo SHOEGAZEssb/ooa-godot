@@ -15,6 +15,8 @@ public interface IPlayerWorld
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
     bool PlayerContactDisabled => false;
+    Vector2? MountedCompanionPosition => null;
+    Vector2? MountedRaftPosition => null;
     bool BombParentActive => false;
     bool SideScrolling { get; }
     bool Underwater => false;

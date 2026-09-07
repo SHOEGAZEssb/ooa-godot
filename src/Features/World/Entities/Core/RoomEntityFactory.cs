@@ -51,9 +51,11 @@ internal sealed class RoomEntityFactory(
     RoomSession? rooms,
     Func<bool> maplePresent,
     Action<int, int, Vector2> spawnDiggingEnemy,
-    Action<IRoomEntity?, int> registerEnemySlot)
+    Action<IRoomEntity?, int> registerEnemySlot,
+    Func<int> displayedHealth)
 {
     private readonly ZoraFireDatabase _zoraFire = new();
+    private readonly FountainFairyDatabase _fountainFairies = new();
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
     private readonly CarpenterDatabase _carpenters = new();
     private readonly Room148PickaxeDatabase _room148 = new();
@@ -317,7 +319,8 @@ internal sealed class RoomEntityFactory(
         // interaction whenever w1Companion.id is SPECIALOBJECT_RAFT. During
         // scrolling that live owner still names the outgoing room, so this
         // guard must precede destination-room placement creation.
-        if (!raftCreated && !companionSlotActive && saveData is not null)
+        if (!raftCreated && !CompanionRuntimeState.IsActive(
+                runtimeState, CompanionRuntimeState.RaftId) && saveData is not null)
         {
             foreach (RaftPlacement placement in
                 _raft.GetPlacements(activeGroup, room.Id))
@@ -326,7 +329,8 @@ internal sealed class RoomEntityFactory(
                 {
                     0 => (saveData.ReadWramByte(
                             _raft.Behavior.DimitriStateAddress) &
-                            _raft.Behavior.DimitriMask) != 0,
+                            _raft.Behavior.DimitriMask) != 0 &&
+                        saveData.HasGlobalFlag(_raft.Behavior.ChangedRoomsFlag),
                     1 => saveData.HasGlobalFlag(
                         _raft.Behavior.ChangedRoomsFlag),
                     _ => throw new InvalidOperationException(
@@ -1873,6 +1877,13 @@ internal sealed class RoomEntityFactory(
         if (!handler.SupportsOrderedConstruction)
             return null;
 
+        if (handler.Handler == EnemyHandlerKind.GreatFairy)
+        {
+            return new FountainFairyRoomEntity(enemies.ImportedEnemy(0x38),
+                _fountainFairies, position, soundRequested, roomEntityDialogueRequested,
+                () => soundRequested(OracleSoundEngine.MusFairyFountain), displayedHealth);
+        }
+
         if (handler.Handler == EnemyHandlerKind.VineSprout)
         {
             if (saveData is null)
@@ -2467,6 +2478,8 @@ internal sealed class RoomEntityFactory(
             animationTick),
         EnemySmallKeyRewardSpawn key => CreateEnemySmallKeyReward(key.Request),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
+        FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(),
+        FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => CreateGel(gel, room),
         CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),

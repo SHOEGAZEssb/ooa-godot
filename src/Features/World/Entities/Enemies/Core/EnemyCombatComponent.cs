@@ -36,7 +36,7 @@ internal sealed class EnemyCombatComponent(
             takeBurnHit,
             player =>
             {
-                if (overlapsLink(player.Position))
+                if (overlapsLink(player.EnemyContactPosition))
                     player.ApplyEnemyContactDamage(contactOrigin(), damageQuarters);
             },
             createDeathPuff,

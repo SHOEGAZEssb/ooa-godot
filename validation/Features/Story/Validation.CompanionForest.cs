@@ -24,6 +24,15 @@ public sealed partial class ValidationRoot
                 $"Room 0:34 did not clear forest scratch ${address:x4}.");
 
         var data = new CompanionForestDatabase();
+        // Unterminated source records supply their own newline; their next
+        // record starts at column zero, with no added blank line or space.
+        foreach (var boundary in new[] { (0x1137, 6), (0x113e, 9), (0x1145, 9) })
+        {
+            _dialogue.ShowMessage(data.Text(boundary.Item1), _player.Position.Y);
+            FailIf(_dialogue.GlyphCodeForValidation(1, boundary.Item2, 0) != 'P',
+                $"TX_{boundary.Item1:x4} flute instructions did not start at column zero after fallthrough.");
+            _dialogue.Close();
+        }
         foreach (int companion in new[] { 0x0b, 0x0c, 0x0d })
         {
             _inventory.AssignAnimalCompanion(companion);
@@ -58,6 +67,8 @@ public sealed partial class ValidationRoot
                     {
                         FailIf(!_dialogue.CurrentMessage.Contains(description),
                             $"Room 0:34 selected the wrong description for companion ${companion:x2}.");
+                        FailIf(_dialogue.GlyphCodeForValidation(0, 2, 0) != description[0],
+                            "TX_1121 -> TX_1122 inserted whitespace before the companion description.");
                         _dialogue.SubmitChoiceForValidation(choices++ == 0 ? 1 : 0);
                     }
                     else _dialogue.Close();

@@ -373,8 +373,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             return;
         Vector2 center = _state == BossState.HeadExposed ? _ghostPosition : Position;
         float radiusX = _state == BossState.HeadExposed ? 6 : _bodyRadiusX;
-        if (Mathf.Abs(player.Position.X - center.X) < radiusX + 6 &&
-            Mathf.Abs(player.Position.Y - center.Y) < 12)
+        if (player.OverlapsEnemyCollision(new Rect2(
+                center - new Vector2(radiusX, 6), new Vector2(radiusX * 2, 12))))
         {
             player.ApplyEnemyContactDamage(center, damage);
         }

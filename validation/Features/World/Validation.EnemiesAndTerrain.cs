@@ -1294,27 +1294,27 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 476 ||
+                EnemyHandlerClassification.OrderedImplemented) != 481 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 345 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 340 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 702 ||
+                EnemyHandlerClassification.OrderedImplemented) != 707 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 459 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 454 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 46 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 47 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 77 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 76 ||
             combatSourceRows != 467 ||
             combatSourceFlags.Count != 106 ||
             expectedCombat.Count != 39 ||
@@ -4279,9 +4279,9 @@ public sealed partial class ValidationRoot
 
         FailIf(
             auditedCombatKeys.Count != 39 ||
-            auditedNonCombatKeys.Count != 7,
+            auditedNonCombatKeys.Count != 8,
             "The shield audit did not cover all 39 implemented combat " +
-            "enemy keys and 7 deliberately non-combat implemented keys.");
+            "enemy keys and 8 deliberately non-combat implemented keys.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
             database, 0, 0x74, 0x09, 0x00)[0];

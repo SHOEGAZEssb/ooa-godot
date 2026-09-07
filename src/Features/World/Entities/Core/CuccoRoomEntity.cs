@@ -65,7 +65,7 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
 
     public void HandleLinkContact(Player player)
     {
-        if (Entity.IsGiant && Entity.OverlapsLink(player.Position))
+        if (Entity.IsGiant && player.EnemyContactHeightOverlaps(0) && Entity.OverlapsLink(player.EnemyContactPosition))
         {
             player.ApplyEnemyContactDamage(
                 Entity.Position, Entity.Record.DamageQuarters);

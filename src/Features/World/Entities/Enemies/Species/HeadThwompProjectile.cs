@@ -10,7 +10,6 @@ namespace oracleofages;
 internal sealed partial class HeadThwompProjectile
     : TransitionOffsetNode2D, IHostileProjectile
 {
-    private const int LinkRadius = 6;
     private static readonly int[] FireballSpeeds =
         [0x0f, 0x19, 0x23, 0x2d];
     private readonly HeadThwompProjectileKind _kind;
@@ -257,10 +256,7 @@ internal sealed partial class HeadThwompProjectile
             Finish();
             return;
         }
-        Rect2 linkBounds = new(
-            player.Position - Vector2.One * LinkRadius,
-            Vector2.One * (LinkRadius * 2));
-        if (!CollisionBounds.Intersects(linkBounds))
+        if (!player.OverlapsEnemyCollision(CollisionBounds, _zFixed >> 8))
             return;
         player.ApplyEnemyContactDamage(
             DrawPosition,

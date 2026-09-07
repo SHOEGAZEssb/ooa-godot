@@ -74,10 +74,7 @@ internal sealed class HostileProjectileLifecycle
             return;
         }
 
-        Rect2 linkBounds = new(
-            player.Position - Vector2.One * 6,
-            Vector2.One * 12);
-        if (CollisionBounds.Intersects(linkBounds))
+        if (player.OverlapsEnemyCollision(CollisionBounds, ZFixed >> 8))
         {
             player.ApplyEnemyContactDamage(
                 _entity.Position,

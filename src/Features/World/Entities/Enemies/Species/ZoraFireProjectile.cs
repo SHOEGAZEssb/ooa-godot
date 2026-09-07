@@ -46,7 +46,7 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
         // updates retain the ordinary part collision window.
         if (frame.Player.TryBlockWithShield(CollisionBounds) ||
             frame.Player.AcceptsRoomEntityContact &&
-            CollisionBounds.Intersects(new Rect2(frame.Player.Position - Vector2.One * 6, Vector2.One * 12)) &&
+            frame.Player.OverlapsEnemyCollision(CollisionBounds) &&
             frame.Player.ApplyEnemyContactDamage(Position, _data.Damage, RingDamageSource.OctorokProjectile))
         {
             Finished = true;

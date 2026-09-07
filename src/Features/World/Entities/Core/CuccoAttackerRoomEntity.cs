@@ -18,7 +18,7 @@ internal sealed class CuccoAttackerRoomEntity(
 
     public void HandleLinkContact(Player player)
     {
-        if (Entity.OverlapsLink(player.Position))
+        if (player.EnemyContactHeightOverlaps(0) && Entity.OverlapsLink(player.EnemyContactPosition))
             player.ApplyEnemyContactDamage(Entity.Position, 4);
     }
 }

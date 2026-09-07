@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 35 ||
+        if (_importedDefinitions.Count != 36 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -876,6 +876,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x33),
         EnemyHandlerKind.Cucco =>
             HasImportedDefinition(descriptor, 0x36),
+        EnemyHandlerKind.GreatFairy =>
+            HasImportedDefinition(descriptor, 0x38),
         EnemyHandlerKind.Zol =>
             descriptor.Id == 0x34 &&
             _zolDefinitions.ContainsKey(descriptor.SubId),

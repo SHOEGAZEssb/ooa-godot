@@ -134,6 +134,7 @@ public partial class Player : Node2D
     private bool _companionJumpAnimationDeferred;
     private bool _companionRideControlled;
     private bool _raftRideControlled;
+    private int _instrumentsDisabledCounter;
     private bool _forcedRoomEntryMovement;
     private bool _spinnerControlled;
     private int _minecartJumpAngle = 0xff;
@@ -439,6 +440,39 @@ public partial class Player : Node2D
     internal bool AcceptsRoomEntityContact =>
         !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
+    // collisionEffects.s:@checkHitLink uses wLinkObjectIndex ($d1 while
+    // mounted), not the offset riding-Link sprite at w1Link ($d0).
+    internal Vector2 EnemyContactPosition => _companionRideControlled
+        ? _world.MountedCompanionPosition ?? throw new InvalidOperationException(
+            "collisionEffects.s:@checkHitLink requires the mounted wLinkObjectIndex=$d1 companion owner.")
+        : _raftRideControlled
+            ? _world.MountedRaftPosition ?? throw new InvalidOperationException(
+                "SPECIALOBJECT_RAFT $13 requires the mounted wLinkObjectIndex=$d1 owner.")
+            : Position;
+
+    internal bool EnemyContactHeightOverlaps(int enemyZ) =>
+        !(_companionRideControlled || _raftRideControlled) || RoomEntityManager.ObjectCollisionZOverlaps(
+            enemyZ, _companionRideZFixed >> 8, 7);
+
+    internal bool OverlapsEnemyCollision(Rect2 bounds, int enemyZ = 0)
+    {
+        if (!AcceptsRoomEntityContact || !EnemyContactHeightOverlaps(enemyZ))
+            return false;
+        if (!_companionRideControlled && !_raftRideControlled)
+            return bounds.Intersects(new Rect2(Position - Vector2.One * 6, Vector2.One * 12));
+        return EnemyCollisionOverlaps(EnemyContactPosition, bounds);
+    }
+
+    internal static bool EnemyCollisionOverlaps(Vector2 position, Rect2 bounds)
+    {
+        // bank0.s:checkObjectsCollidedFromVariables adds the radii and
+        // compares unsigned bytes: the negative edge is included, positive excluded.
+        Vector2 center = bounds.GetCenter();
+        int radiusX = (int)(bounds.Size.X / 2) + 6;
+        int radiusY = (int)(bounds.Size.Y / 2) + 6;
+        return ((Mathf.FloorToInt(position.X) - Mathf.FloorToInt(center.X) + radiusX) & 0xff) < radiusX * 2 &&
+            ((Mathf.FloorToInt(position.Y) - Mathf.FloorToInt(center.Y) + radiusY) & 0xff) < radiusY * 2;
+    }
     // commonCode.s:companionTryToMount requires ordinary, vulnerable Link,
     // with no swimming, grabbing or airborne state.
     internal bool CanMountCompanion =>
@@ -532,11 +566,21 @@ public partial class Player : Node2D
     internal bool CompanionJumpActive => _companionJumpControlled;
     internal bool CompanionRideActive => _companionRideControlled;
     internal bool RaftRideActive => _raftRideControlled;
+    internal bool RaftRespawning => _drowning || _fallingInHole || _floorDoorRespawnCounter != 0;
     internal IntroSpriteFrame? CutsceneSpriteFrame => _cutsceneSpriteFrame;
-    internal int RaftKnockbackAngle =>
-        _raftRideControlled && _enemyKnockbackFrames > 0.0f
-            ? AngleForVector(_enemyKnockbackDirection)
-            : 0xff;
+    internal bool RaftMovementImmobilized => _world.MovementDisabled || _braceletActionPose.HasValue ||
+        IsUsingItem && !SwordAllowsMovement;
+
+    internal int AdvanceRaftKnockback()
+    {
+        if (!_raftRideControlled || _enemyKnockbackFrames <= 0)
+            return 0xff;
+        // SPECIALOBJECT_RAFT decrements Link's counter and still moves on zero.
+        _enemyKnockbackFrames = Mathf.Max(0, _enemyKnockbackFrames - 1);
+        return OracleObjectMovement.Shared.RelativeAngle(Vector2.Zero, _enemyKnockbackDirection);
+    }
+
+    internal void DisableInstruments(int frames) => _instrumentsDisabledCounter = frames;
     internal Vector2 CompanionRideTextureOffset =>
         _companionRideTextureOffset;
     internal int CompanionRideZFixed => _companionRideZFixed;
@@ -585,6 +629,14 @@ public partial class Player : Node2D
     {
         _lastSafePosition = position;
         _localRespawnFacing = _facing;
+    }
+
+    internal void SetLocalRespawnPosition(Vector2 position, Vector2I direction)
+    {
+        _lastSafePosition = position;
+        _localRespawnFacing = direction == Vector2I.Up ? Facing.Up :
+            direction == Vector2I.Right ? Facing.Right :
+            direction == Vector2I.Down ? Facing.Down : Facing.Left;
     }
 
     /// <summary>
@@ -1288,7 +1340,7 @@ public partial class Player : Node2D
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, EnemyKnockbackFrames);
         _swordCollisionKnockback = false;
-        _enemyKnockbackDirection = Position - sourcePosition;
+        _enemyKnockbackDirection = EnemyContactPosition - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
         {
             _enemyKnockbackDirection = -(Vector2)FacingVector;
@@ -1296,7 +1348,7 @@ public partial class Player : Node2D
         else
         {
             int angle = OracleObjectMovement.Shared.RelativeAngle(
-                sourcePosition, Position);
+                sourcePosition, EnemyContactPosition);
             _enemyKnockbackDirection =
                 OracleObjectMovement.Shared.Direction(angle);
         }
@@ -1516,6 +1568,8 @@ public partial class Player : Node2D
             AdvancePhysics(ApplicationFixedUpdateScheduler.UpdateDelta);
         if (IsProcessing())
             AdvanceItems(ApplicationFixedUpdateScheduler.UpdateDelta);
+        if (_instrumentsDisabledCounter > 0)
+            _instrumentsDisabledCounter--;
     }
 
     private void AdvancePhysics(double delta)
@@ -1653,7 +1707,12 @@ public partial class Player : Node2D
                 Input.IsActionPressed("attack"),
                 Input.IsActionPressed("item"));
             float frameDelta = (float)delta * 60.0f;
-            if (_world.SideScrolling)
+            if (_raftRideControlled)
+            {
+                // The raft owns both the counter and movement; ordinary Link
+                // recoil must not add a second SPEED_140 displacement.
+            }
+            else if (_world.SideScrolling)
             {
                 int decrement = _sideScrollAirborne ? 2 : 1;
                 float nextCounter = _enemyKnockbackFrames - decrement;
@@ -1738,6 +1797,10 @@ public partial class Player : Node2D
         Vector2 movementStart = _precisePosition;
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
+        if (_raftRideControlled &&
+            (Input.IsActionPressed("move_left") && Input.IsActionPressed("move_right") ||
+             Input.IsActionPressed("move_up") && Input.IsActionPressed("move_down")))
+            input = Vector2.Zero;
         if (_world.MovementDisabled &&
             !_minecartRideControlled && !_companionRideControlled &&
             !_raftRideControlled)
@@ -1786,6 +1849,8 @@ public partial class Player : Node2D
             Input.IsActionJustPressed("item");
         if (_world.UpdateBomb(this, input, itemButtonJustPressed))
         {
+            if (_raftRideControlled && input.LengthSquared() > 0.01f)
+                UpdateFacing(input);
             _walking = false;
             _pushing = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -1809,6 +1874,8 @@ public partial class Player : Node2D
                 this, input, primaryPressed, secondaryPressed,
                 DirectionalInputJustPressed()))
         {
+            if (_raftRideControlled && input.LengthSquared() > 0.01f)
+                UpdateFacing(input);
             _walking = false;
             _pushing = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -1876,8 +1943,7 @@ public partial class Player : Node2D
             else if (!_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemSeedSatchel)
                 StartSeedSatchelAction(input);
-            else if (!_raftRideControlled &&
-                _inventory.EquippedA == InventoryState.ItemShooter &&
+            else if (_inventory.EquippedA == InventoryState.ItemShooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: true, input))
                 return;
             else if (!_minecartRideControlled && !_raftRideControlled &&
@@ -1939,8 +2005,7 @@ public partial class Player : Node2D
             {
                 StartSeedSatchelAction(input);
             }
-            else if (!_raftRideControlled &&
-                !_world.Underwater &&
+            else if (!_world.Underwater &&
                 _inventory.EquippedB == InventoryState.ItemShooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: false, input))
             {
@@ -4163,13 +4228,15 @@ public partial class Player : Node2D
         int animationParameter,
         Vector2 screenOffset)
     {
-        _precisePosition = position + screenOffset +
+        Vector2 fraction = _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+        _precisePosition = OracleObjectMath.ToPixelPosition(position) + fraction +
             new Vector2(0, animationParameter == 0 ? -5 : -6);
-        _facing = (Facing)direction;
+        // func_410d @ridingRaft copies only position, leaving Link's own
+        // direction (including item turning) independent of the raft animation.
         _raftRideControlled = true;
         _walking = false;
         _pushing = false;
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition) + screenOffset;
         QueueRedraw();
     }
 
@@ -6057,7 +6124,8 @@ public partial class Player : Node2D
 
     private void StartHarpAction(bool flute = false)
     {
-        if (IsUsingItem || !IsGroundedForFloorButton ||
+        if (_instrumentsDisabledCounter != 0 || _raftRideControlled ||
+            IsUsingItem || !IsGroundedForFloorButton ||
             _pullingIntoHole || _drowning || _fallingInHole)
         {
             return;
@@ -6282,9 +6350,9 @@ public partial class Player : Node2D
                     _linkItems.Constants.SwordSwingFrames)
                 {
                     // swordParent state 6 deletes the sword when Link's main
-                    // object is SPECIALOBJECT_MINECART. The swing is usable,
+                    // object is the minecart or raft. The swing is usable,
                     // but cannot be held or charged during the ride.
-                    if (!buttonHeld || _minecartRideControlled)
+                    if (!buttonHeld || _minecartRideControlled || _raftRideControlled)
                     {
                         CancelSwordAttack();
                         return;
@@ -6295,6 +6363,11 @@ public partial class Player : Node2D
                 break;
 
             case SwordActionState.Held:
+                if (_raftRideControlled)
+                {
+                    CancelSwordAttack();
+                    return;
+                }
                 if (ApplySwordCollision())
                 {
                     TriggerSwordPoke(returnsToHeld: false);
@@ -6341,7 +6414,7 @@ public partial class Player : Node2D
                 if (_swordStateFrame <
                     _linkItems.Constants.SwordPokeFrames)
                     break;
-                if (_swordPokeReturnsToHeld && buttonHeld)
+                if (_swordPokeReturnsToHeld && buttonHeld && !_raftRideControlled)
                     EnterSwordHeldState();
                 else
                     CancelSwordAttack();

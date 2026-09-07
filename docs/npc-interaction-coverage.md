@@ -70,6 +70,11 @@ classified records and 161 specialized rows.
 
 ### Important partial and deferred boundaries
 
+- September 7, 2026: shared fountain fairy `ENEMY_GREAT_FAIRY $38:$00`
+  is **I** in `2:6e`, `2:df`, `2:f8`, `3:3f`, and `3:f6`, covered by
+  `ValidateFountainFairies`. These five enemy-stream character placements add
+  no `NpcRecord` rows; the snapshot remains **130 I / 56 P / 197 D**, total
+  **383** across **212 NPC rooms**.
 - September 7, 2026: Nuun Highlands' nine companion-specific carpenter rows
   are **I**. `ValidateNuunHighlands` covers all three searches, departure and
   return flags, the boss warp, bridge completion, and both search-exit choices.
@@ -428,12 +433,14 @@ well as record selection.
 | `2:3f` | [P] `$48:$05/v$00` tokay |
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
+| `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:7e` | [D] `$46:$01/v$00` shopkeeper |
 | `2:a0` | [D] `$ab:$10/v$00` zora<br>[D] `$ab:$14/v$00` zora |
 | `2:b1` | [D] `$ab:$13/v$00` zora |
 | `2:d1` | [D] `$ab:$1b/v$00` zora |
 | `2:d7` | [D] `$ab:$12/v$00` zora |
 | `2:de` | [P] `$48:$0d/v$00` tokay |
+| `2:df` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
@@ -446,12 +453,14 @@ well as record selection.
 | `2:f5` | [D] `$5a:$00/v$00` oldZora |
 | `2:f6` | [D] `$66:$0f/v$00` goron |
 | `2:f7` | [D] `$66:$07/v$00` goron |
+| `2:f8` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:fb` | [D] `$66:$0e/v$03` goron |
 | `2:fd` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
 | `2:ff` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$04` goron<br>[D] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
 | `3:1f` | [D] `$66:$0a/v$00` goron |
 | `3:2e` | [D] `$66:$0e/v$04` goron |
 | `3:3e` | [D] `$66:$0b/v$00` goron |
+| `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
 | `3:5f` | [D] `$66:$0e/v$06` goron |
 | `3:6e` | [D] `$bf:$06/v$00` symmetryNpc |
@@ -478,6 +487,7 @@ well as record selection.
 | `3:eb` | [P] `$bf:$02/v$00` symmetryNpc |
 | `3:ec` | [P] `$bf:$02/v$00` symmetryNpc |
 | `3:ed` | [D] `$5f:$80/v$00` syrup |
+| `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:f7` | [D] `$e3:$08/v$00` knowItAllBird<br>[D] `$e3:$09/v$00` knowItAllBird<br>[D] `$e3:$06/v$00` knowItAllBird<br>[D] `$e3:$07/v$00` knowItAllBird<br>[D] `$e3:$04/v$00` knowItAllBird<br>[D] `$e3:$05/v$00` knowItAllBird<br>[D] `$e3:$02/v$00` knowItAllBird<br>[D] `$e3:$03/v$00` knowItAllBird<br>[D] `$e3:$00/v$00` knowItAllBird<br>[D] `$e3:$01/v$00` knowItAllBird |
 | `3:f8` | [D] `$cc:$00/v$00` plen<br>[D] `$3d:$05/v$00` oldLady |
 | `3:fa` | [D] `$29:$00/v$00` adlar |

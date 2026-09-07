@@ -28,7 +28,8 @@ internal sealed class RaftDatabase
                     "waiting-horizontal", "mounted-palette",
                     "mounted-vertical", "mounted-horizontal",
                     "mounted-vertical-offsets", "mounted-horizontal-offsets",
-                    "valid-tiles", "source"
+                    "valid-tiles", "source", "inner-radius", "instrument-lock",
+                    "dismount-wait"
                 ],
                 ["group", "room"],
                 headerRequired: true));
@@ -55,7 +56,8 @@ internal sealed class RaftDatabase
                         Convert.ToInt32(value, 16)).ToArray()
                 ],
                 row.RequiredString(27).Split(',').Select(value =>
-                    Convert.ToInt32(value, 16)).ToArray());
+                    Convert.ToInt32(value, 16)).ToArray(),
+                row.HexByte(29), row.HexByte(30), row.HexByte(31));
             if (behavior.HasValue &&
                 (behavior.Value.InteractionId != parsed.InteractionId ||
                  behavior.Value.SpecialObjectId != parsed.SpecialObjectId ||
@@ -86,6 +88,7 @@ internal sealed class RaftDatabase
                 ChangedRoomsFlag: 0x26, DimitriStateAddress: 0xc647,
                 DimitriMask: 0x40, PastTilesetMask: 0x80,
                 MountRadius: 9, Speed: 0x23, KnockbackSpeed: 0x28,
+                InnerMountRadius: 5, InstrumentLockFrames: 5, DismountWaitFrames: 12,
                 DismountCollision: 0x18, DismountDelay: 4,
                 DismountWalkFrames: 14,
                 Sprite: "spr_raft", WaitingTileBase: 0,
@@ -123,4 +126,7 @@ internal readonly record struct RaftBehavior(
     int MountedPalette,
     string[] MountedAnimations,
     int[][] MountedSourceOffsets,
-    int[] ValidTiles);
+    int[] ValidTiles,
+    int InnerMountRadius,
+    int InstrumentLockFrames,
+    int DismountWaitFrames);

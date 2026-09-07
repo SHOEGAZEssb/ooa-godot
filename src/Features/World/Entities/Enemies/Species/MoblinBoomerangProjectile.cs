@@ -104,8 +104,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             }
             Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
         }
-        if (Mathf.Abs(player.Position.X - Position.X) < 8 &&
-            Mathf.Abs(player.Position.Y - Position.Y) < 8)
+        if (player.OverlapsEnemyCollision(CollisionBounds))
         {
             player.ApplyEnemyContactDamage(
                 Position, _behavior.DamageQuarters);

@@ -68,6 +68,12 @@ public sealed partial class ValidationRoot
         AwaitText(0x2304);
         FailIf(!_dialogue.ChoiceActive || !Text(0x2304).Contains(Text(0x2305), StringComparison.Ordinal),
             "Unterminated TX_2304 did not fall through into TX_2305 and its explanation choice.");
+        // TX_2304's explicit newline is the sole separator at the physical
+        // fallthrough: the fourth rendered line must begin TX_2305 directly.
+        FailIf(_dialogue.GlyphCodeForValidation(0, 2, 0) != 'b' ||
+            _dialogue.GlyphCodeForValidation(0, 3, 0) != 'I' ||
+            _dialogue.GlyphCodeForValidation(0, 4, 0) != 'a',
+            "TX_2304 -> TX_2305 inserted an empty line between 'be off, then!' and 'If you can get'.");
         _dialogue.SubmitChoiceForValidation(1);
         AwaitText(0x2305);
         _dialogue.SubmitChoiceForValidation(1);

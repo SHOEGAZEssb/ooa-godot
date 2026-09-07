@@ -36,6 +36,8 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool PlayerContactDisabled => _entities.PlayerContactDisabled;
+    public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
+    public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
     public int SeedShooterAngle => _seedSatchel.ShooterAngle;

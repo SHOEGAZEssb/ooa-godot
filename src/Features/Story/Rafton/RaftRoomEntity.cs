@@ -20,8 +20,9 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     ];
     private static readonly Vector2[] LinkCollisionSamples =
     [
-        new(-3, -5), new(4, -5), new(-3, 6), new(4, 6),
-        new(-5, -3), new(-5, 4), new(6, -3), new(6, 4)
+        // link.s:calculateAdjacentWallsBitset's cumulative Y/X offsets.
+        new(-3, -3), new(2, -3), new(-3, 7), new(2, 7),
+        new(-5, 0), new(-5, 5), new(4, 0), new(4, 5)
     ];
     private static readonly Vector2[] DismountOffsets =
     [new(0, -9), new(8, -3), new(0, 8), new(-9, -3)];
@@ -43,6 +44,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     private int _forcedWalkCounter;
     private RaftPhase _phase;
     private bool _cutsceneControlled;
+    private bool _supportsLink;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -50,14 +52,19 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     public bool DisablesItems => false;
     public bool DisablesMovement => false;
     public bool DisablesMenus => _phase == RaftPhase.Dismounting;
+    public bool DisablesRingTransformations => _phase is RaftPhase.Mounting or RaftPhase.Riding;
+    internal bool UsesSpecialObjectSlot => _phase is RaftPhase.Mounting or RaftPhase.Riding or RaftPhase.Dismounting;
     public bool LinkRiding => _phase == RaftPhase.Riding;
+    bool IPlayerRideableRoomEntity.LinkRiding => _supportsLink ||
+        _phase is RaftPhase.Mounting or RaftPhase.Riding or RaftPhase.Dismounting;
     public bool ControlsPlayerScreenTransition => LinkRiding;
     public bool BypassesScreenTransitionInputGate => false;
     public Vector2 ScreenTransitionPosition => _precisePosition;
     internal int Direction => _direction;
     internal int Angle => _angle;
     internal Vector2 PrecisePosition => _precisePosition;
-    internal int AnimationIndex => LinkRiding
+    private bool UsesMountedAnimation => _phase is RaftPhase.Riding or RaftPhase.Dismounting;
+    internal int AnimationIndex => UsesMountedAnimation
         ? _mountedAnimation.AnimationIndex
         : _waitingAnimation.AnimationIndex;
 
@@ -76,6 +83,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         _direction = spawn.Direction;
         _phase = spawn.Riding ? RaftPhase.Riding : RaftPhase.Waiting;
         _dismountCounter = behavior.DismountDelay;
+        _stateCounter = behavior.DismountWaitFrames;
 
         Image image = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{behavior.Sprite}.png");
@@ -90,17 +98,18 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             animationSourceOffsets: behavior.MountedSourceOffsets);
         SetDirectionAnimation();
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        ZIndex = LinkRiding
-            ? NpcCharacter.BehindLinkZIndex
-            : Player.NormalZIndex;
+        // interactionCodee6 uses visible $83; func_410d @ridingRaft uses
+        // $c3. Both select source priority $03, below Link's $c1.
+        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
         Visible = true;
         Name = $"Raft_{_group:x1}_{_roomId:x2}";
     }
 
     public void UpdatePlayerForcedMovement(Player player)
     {
-        if (LinkRiding)
+        if (LinkRiding && !player.RaftRespawning)
         {
+            Visible = true;
             player.SetRaftRidePosition(
                 _precisePosition, _direction,
                 _mountedAnimation.CurrentParameter, Vector2.Zero);
@@ -124,6 +133,18 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             case RaftPhase.Waiting:
                 UpdateWaiting(frame.Player);
                 break;
+            case RaftPhase.Mounting:
+                // The interaction allocates w1Companion after the special-object
+                // pass. State $00 initializes it on the following update.
+                _phase = RaftPhase.Riding;
+                _stateCounter = _behavior.DismountWaitFrames;
+                _dismountCounter = 0;
+                _dismountAngle = 0;
+                _mountedAnimation.SetAnimation(0);
+                ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                frame.Player.BeginRaftRide(_precisePosition, _direction);
+                SavePosition(frame.Player);
+                break;
             case RaftPhase.Riding:
                 UpdateRiding(frame.Player);
                 break;
@@ -133,12 +154,14 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                     frame.Player.SetLocalRespawnPosition(
                         OracleObjectMath.ToPixelPosition(
                             frame.Player.PrecisePosition));
-                    _phase = RaftPhase.RecreateInteraction;
+                    // State $02 falls through to $03 on its zero update;
+                    // the replacement interaction initializes later that pass.
+                    CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
+                    _phase = RaftPhase.Waiting;
+                    _supportsLink = false;
+                    ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                    SetDirectionAnimation();
                 }
-                break;
-            case RaftPhase.RecreateInteraction:
-                _phase = RaftPhase.Waiting;
-                SetDirectionAnimation();
                 break;
             case RaftPhase.Wrecked:
                 break;
@@ -152,29 +175,29 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateWaiting(Player player)
     {
+        _supportsLink = false;
         _waitingAnimation.Advance();
-        int dx = Math.Abs(Mathf.FloorToInt(player.PrecisePosition.X) -
-            Mathf.FloorToInt(_precisePosition.X));
-        int dy = Math.Abs(Mathf.FloorToInt(player.PrecisePosition.Y + 5) -
-            Mathf.FloorToInt(_precisePosition.Y));
+        int dx = Math.Abs((Mathf.FloorToInt(player.PrecisePosition.X) & 0xff) -
+            (Mathf.FloorToInt(_precisePosition.X) & 0xff));
+        int dy = Math.Abs(((Mathf.FloorToInt(player.PrecisePosition.Y) + 5) & 0xff) -
+            (Mathf.FloorToInt(_precisePosition.Y) & 0xff));
         if (dx >= _behavior.MountRadius || dy >= _behavior.MountRadius)
             return;
         if (player.TopDownAirborne &&
-            (player.TopDownAirZ < -3 || player.TopDownAirSpeedZ < 0))
+            ((player.TopDownAirZ & 0xff) < 0xfd || player.TopDownAirSpeedZ < 0))
         {
             return;
         }
 
-        _phase = RaftPhase.Riding;
-        _stateCounter = 12;
-        _angle = _direction * 8;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
-        SetDirectionAnimation();
+        _supportsLink = true;
+        player.DisableInstruments(_behavior.InstrumentLockFrames);
+        if (dx >= _behavior.InnerMountRadius || dy >= _behavior.InnerMountRadius)
+            return;
+
+        _phase = RaftPhase.Mounting;
         CompanionRuntimeState.Begin(
             _runtime, CompanionRuntimeState.RaftId, _roomId,
             _precisePosition, _direction);
-        SavePosition(player);
-        player.BeginRaftRide(_precisePosition, _direction);
     }
 
     private void UpdateRiding(Player player)
@@ -185,10 +208,25 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        int angle = AngleForInput(Input.GetVector(
+        if (player.RaftRespawning)
+        {
+            // @respawning writes only yh/xh and hides the raft while Link's
+            // LINK_STATE_RESPAWNING handler owns his position and animation.
+            Vector2 fraction = _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+            _precisePosition = OracleObjectMath.ToPixelPosition(player.LocalRespawnPosition) + fraction;
+            CompanionRuntimeState.Update(_runtime, CompanionRuntimeState.RaftId,
+                _roomId, _precisePosition, _direction);
+            Visible = false;
+            return;
+        }
+
+        // updateGameKeysPressed rejects any opposite directional pair, even
+        // when a third key is held; vector cancellation would move on that axis.
+        bool oppositeKeys = Input.IsActionPressed("move_left") && Input.IsActionPressed("move_right") ||
+            Input.IsActionPressed("move_up") && Input.IsActionPressed("move_down");
+        int angle = player.IsDying || oppositeKeys ? 0xff : AngleForInput(Input.GetVector(
             "move_left", "move_right", "move_up", "move_down"));
-        _angle = angle;
-        int newDirection = DirectionForAngle(angle, _direction);
+        int newDirection = CompanionMovement.DirectionForAngle(angle, _direction);
         if (newDirection != _direction)
         {
             _direction = newDirection;
@@ -199,19 +237,19 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             _mountedAnimation.Advance();
         }
 
-        int knockbackAngle = player.RaftKnockbackAngle;
+        int knockbackAngle = player.AdvanceRaftKnockback();
         if (knockbackAngle != 0xff)
         {
             ApplyMovement(
                 _behavior.KnockbackSpeed, knockbackAngle,
                 CalculateRaftWalls());
             ResetDismount();
-            SavePosition(player);
             SynchronizeRide(player);
             return;
         }
 
-        if (angle == 0xff)
+        _angle = angle;
+        if (angle == 0xff || player.RaftMovementImmobilized)
         {
             ResetDismount();
             SynchronizeRide(player);
@@ -224,7 +262,6 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         if (_precisePosition != before)
         {
             ResetDismount();
-            SavePosition(player);
             SynchronizeRide(player);
             return;
         }
@@ -235,7 +272,8 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             SynchronizeRide(player);
             return;
         }
-        if (--_dismountCounter != 0)
+        _dismountCounter = (_dismountCounter - 1) & 0xff;
+        if (_dismountCounter != 0)
         {
             SynchronizeRide(player);
             return;
@@ -249,23 +287,21 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     private bool TryDismount(Player player)
     {
-        if ((_dismountAngle & 7) != 0)
-            return false;
-        int direction = (_dismountAngle >> 3) & 3;
-        Vector2 destination = _precisePosition + DismountOffsets[direction];
+        // @positionUnchanged decrements e from angle to direction. Diagonal
+        // input uses the retained cardinal facing, without a cardinal-only gate.
+        int direction = _direction;
+        Vector2 destination = OracleObjectMath.ToPixelPosition(_precisePosition) + DismountOffsets[direction];
         if (!CanDismountAt(destination))
             return false;
 
         _direction = direction;
+        _angle = direction * 8;
         _phase = RaftPhase.Dismounting;
-        _stateCounter = 12;
         _forcedWalkCounter = _behavior.DismountWalkFrames;
         Vector2I movement = DirectionVector(direction);
         player.EndRaftRide(player.PrecisePosition, direction);
         player.BeginForcedRoomEntryMovement(movement);
         SavePosition(player);
-        CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
-        ZIndex = Player.NormalZIndex;
         return true;
     }
 
@@ -301,8 +337,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         if (!LinkRiding)
             throw new InvalidOperationException("Raftwreck requires Link to be riding the raft.");
         _cutsceneControlled = true;
-        _precisePosition = position;
-        Position = OracleObjectMath.ToPixelPosition(position);
+        CopyRaftwreckPosition(position);
         SynchronizeRide(player);
     }
 
@@ -310,10 +345,20 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     {
         if (!_cutsceneControlled)
             throw new InvalidOperationException("Raftwreck does not own this raft.");
-        _precisePosition = position;
+        CopyRaftwreckPosition(position);
         _direction = direction;
-        Position = OracleObjectMath.ToPixelPosition(position);
+        // The cutscene's setLinkDirection writes both wLinkObjectIndex and
+        // w1Link; ordinary func_410d position synchronization does not.
+        player.Face(DirectionVector(direction));
         SynchronizeRide(player);
+    }
+
+    private void CopyRaftwreckPosition(Vector2 position)
+    {
+        // interactionCode9b copies only yh/xh from its moving controller.
+        Vector2 fraction = _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+        _precisePosition = OracleObjectMath.ToPixelPosition(position) + fraction;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
     internal void FinishRaftwreck(Player player)
@@ -322,6 +367,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
         player.EndRaftRide(_precisePosition, _direction);
         _phase = RaftPhase.Wrecked;
+        _supportsLink = false;
     }
 
     internal void CancelRaftwreckControl(Player player)
@@ -338,7 +384,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, pixels);
         CompanionRuntimeState.Remember(
             _runtime, CompanionRuntimeState.RaftId, _group, _roomId, pixels);
-        player.SetLocalRespawnPosition(pixels);
+        player.SetLocalRespawnPosition(pixels, DirectionVector(_direction));
     }
 
     private int CalculateRaftWalls()
@@ -346,9 +392,10 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         int walls = 0;
         for (int index = 0; index < RaftCollisionSamples.Length; index++)
         {
-            Vector2 point = _precisePosition + RaftCollisionSamples[index];
+            Vector2 point = OracleObjectMath.ToPixelPosition(_precisePosition) + RaftCollisionSamples[index];
             if (point.X >= 0 && point.X < _room.Width &&
                 point.Y >= 0 && point.Y < _room.Height &&
+                _room.GetMetatile(point) != 0 &&
                 Array.IndexOf(_behavior.ValidTiles, _room.GetMetatile(point)) < 0)
             {
                 walls |= 1 << (7 - index);
@@ -378,7 +425,8 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyMovement(int speed, int angle, int walls)
     {
-        int movementAngle = AdjustAngleForTileEdge(angle, walls) ?? angle;
+        int? adjustedAngle = AdjustAngleForTileEdge(angle, walls);
+        int movementAngle = adjustedAngle ?? angle;
         int[] masks =
         [
             0xcf,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,
@@ -386,7 +434,9 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             0x3f,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,
             0xfc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc
         ];
-        int blocked = walls & masks[movementAngle];
+        // specialObjectUpdatePositionGivenVelocity clears e after a successful
+        // @tileEdgeAdjust; the original wall mask no longer suppresses either axis.
+        int blocked = adjustedAngle.HasValue ? 0 : walls & masks[movementAngle];
         Vector2 candidate = _precisePosition;
         OracleObjectMovement.Shared.ApplySpeed(ref candidate, speed, movementAngle);
         Vector2 delta = candidate - _precisePosition;
@@ -432,13 +482,13 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     private void SetDirectionAnimation()
     {
         int index = _direction & 1;
-        if (LinkRiding) _mountedAnimation.SetAnimation(index);
+        if (UsesMountedAnimation) _mountedAnimation.SetAnimation(index);
         else _waitingAnimation.SetAnimation(index);
     }
 
     public override void _Draw()
     {
-        EnemyAnimationPlayer animation = LinkRiding
+        EnemyAnimationPlayer animation = UsesMountedAnimation
             ? _mountedAnimation
             : _waitingAnimation;
         DrawTexture(animation.CurrentTexture,
@@ -451,8 +501,8 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     public void SetScreenTransitionBoundaryCoordinate(
         bool horizontal, int coordinate, Player player)
     {
-        if (horizontal) _precisePosition.X = coordinate;
-        else _precisePosition.Y = coordinate;
+        if (horizontal) _precisePosition.X += coordinate - Mathf.Floor(_precisePosition.X);
+        else _precisePosition.Y += coordinate - Mathf.Floor(_precisePosition.Y);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         SynchronizeRide(player);
     }
@@ -479,7 +529,11 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         _roomId = _room.Id;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        SavePosition(player);
+        // finishScrollingTransition writes local respawn and last mount point,
+        // but does not overwrite wRememberedCompanion until a later dismount.
+        Vector2 pixels = OracleObjectMath.ToPixelPosition(position);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, pixels);
+        player.SetLocalRespawnPosition(pixels, DirectionVector(_direction));
         SynchronizeRide(player);
     }
 
@@ -495,9 +549,6 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         };
     }
 
-    private static int DirectionForAngle(int angle, int fallback) =>
-        angle == 0xff ? fallback : ((angle + 4) >> 3) & 3;
-
     private static Vector2I DirectionVector(int direction) => direction switch
     {
         0 => Vector2I.Up, 1 => Vector2I.Right,
@@ -506,7 +557,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     };
 }
 
-internal enum RaftPhase { Waiting, Riding, Dismounting, RecreateInteraction, Wrecked }
+internal enum RaftPhase { Waiting, Mounting, Riding, Dismounting, Wrecked }
 
 internal sealed record RaftSpawn(
     Vector2 Position, int Direction, int Group, int Room, bool Riding = false)

@@ -15,6 +15,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly Dictionary<IRoomEntity, int> _enemySlots = new();
     private readonly HashSet<int> _reservedEnemySlots = new();
     private readonly HashSet<IRoomEntity> _updatedEntitiesThisFrame = new();
+    private readonly HashSet<IRoomEntity> _specialObjectsUpdatedBeforePlayer = new();
 
     private void RegisterEnemySlot(IRoomEntity? entity, int slot)
     {
@@ -137,6 +138,8 @@ public sealed class RoomEntityManager : IDisposable
         static position => position;
     internal Func<bool> TextActiveSource { get; set; } =
         static () => false;
+    internal Func<int> DisplayedHealthSource { get; set; } =
+        static () => throw new InvalidOperationException("ENEMY_GREAT_FAIRY $38 requires the status-bar health owner.");
     internal Func<int> PlayingInstrumentSource { get; set; } =
         static () => 0;
 
@@ -285,6 +288,10 @@ public sealed class RoomEntityManager : IDisposable
             static restriction => restriction.DisablesScreenTransitions);
     internal bool WarpTilesDisabled => HasPlayerRestriction(static restriction => restriction.DisablesWarpTiles);
     internal bool PlayerContactDisabled => HasPlayerRestriction(static restriction => restriction.DisablesPlayerContact);
+    internal Vector2? MountedCompanionPosition => _activeEntities
+        .FirstOrDefault(entity => entity is IForestCompanion { LinkRiding: true })?.Node.Position;
+    internal Vector2? MountedRaftPosition => _activeEntities.OfType<RaftRoomEntity>()
+        .FirstOrDefault(raft => raft.LinkRiding)?.PrecisePosition;
 
     public RoomEntityManager(
         Node worldRoot,
@@ -348,7 +355,8 @@ public sealed class RoomEntityManager : IDisposable
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
             position => WorldToScreen(position), _animationTick, rooms,
-            MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot);
+            MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot,
+            () => DisplayedHealthSource());
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -474,6 +482,23 @@ public sealed class RoomEntityManager : IDisposable
         _screenTransitionFrameAccumulator = 0.0;
     }
 
+    internal void UpdateRaftBeforePlayer(Player player)
+    {
+        _specialObjectsUpdatedBeforePlayer.Clear();
+        if (_screenTransitionActive || TextActiveSource() || RoomEntityFreezeActive() ||
+            player.ElectricShockActive ||
+            HasPlayerRestriction(static restriction => restriction.DisablesCompanion))
+            return;
+        var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
+        foreach (RaftRoomEntity raft in _activeEntities.OfType<RaftRoomEntity>())
+        {
+            if (!raft.UsesSpecialObjectSlot)
+                continue;
+            raft.UpdateFrame(frame, _pendingSpawns);
+            _specialObjectsUpdatedBeforePlayer.Add(raft);
+        }
+    }
+
     public void Update(double delta, Player player)
     {
         // The original engine freezes both enabled $02 outgoing objects and
@@ -567,7 +592,8 @@ public sealed class RoomEntityManager : IDisposable
                 .Where(entity => EntityPhase(entity) == phase)
                 .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
             {
-                if (_updatedEntitiesThisFrame.Contains(entity))
+                if (_updatedEntitiesThisFrame.Contains(entity) ||
+                    _specialObjectsUpdatedBeforePlayer.Contains(entity))
                     continue;
                 if (player.ElectricShockActive && entity is IPlayerRideableRoomEntity)
                     continue;
@@ -580,6 +606,11 @@ public sealed class RoomEntityManager : IDisposable
                     continue;
                 }
                 if (textActive && !UpdatesDuringDialogue(entity))
+                    continue;
+                // DISABLE_COMPANION freezes the shared special-object slot,
+                // independently of the enemy/part/interaction update masks.
+                if (entity is IForestCompanion or MinecartRoomEntity or RaftRoomEntity &&
+                    HasPlayerRestriction(static restriction => restriction.DisablesCompanion))
                     continue;
                 if (roomEntityFreezeActive &&
                     !UpdatesDuringRoomEntityFreeze(entity))
@@ -606,6 +637,7 @@ public sealed class RoomEntityManager : IDisposable
             // specialObjects.s clears this after the companion update;
             // native interaction events publish the next update's lock.
             CompanionRuntimeState.SetMountingLock(_runtimeState, 0);
+            _specialObjectsUpdatedBeforePlayer.Clear();
             anyButtonJustPressed = false;
         }
 
@@ -1246,6 +1278,7 @@ public sealed class RoomEntityManager : IDisposable
 
     public void Clear()
     {
+        _specialObjectsUpdatedBeforePlayer.Clear();
         _preShockBackgroundPalettes = null;
         _activeObjectPaletteOverride = null;
         ClearEntities(_outgoingEntities);
@@ -1504,7 +1537,8 @@ public sealed class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity ? 1 : 2;
+        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity
+            or FountainFairyHeartRoomEntity ? 1 : 2;
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {

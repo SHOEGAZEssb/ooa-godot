@@ -75,9 +75,27 @@ public sealed partial class ValidationRoot
             "INTERAC_RAFT did not initialize direction&1 animation $00.");
 
         _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _player.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        for (int update = 0; update < 8; update++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+            FailIf(
+                !_player.TopDownAirborne || raft.LinkRiding ||
+                raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+                raft.ZIndex >= _player.ZIndex,
+                "Room 1:a7 INTERAC_RAFT $e6 must remain at source priority " +
+                "$03 beneath Link during the ascending Feather jump.");
+            _player.AdvanceTopDownAirUpdateForValidation();
+        }
+        _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(raft.LinkRiding || _player.RaftRideActive,
+            "INTERAC_RAFT $e6 ran SPECIALOBJECT_RAFT $13 state $00 in the allocation update.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             !raft.LinkRiding || !_player.RaftRideActive ||
+            raft.ZIndex >= _player.ZIndex ||
             !CompanionRuntimeState.IsActive(
                 _entities.RuntimeState, CompanionRuntimeState.RaftId),
             "INTERAC_RAFT did not promote to SPECIALOBJECT_RAFT $13.");
@@ -100,6 +118,26 @@ public sealed partial class ValidationRoot
             "SPECIALOBJECT_RAFT did not apply SPEED_e0 left movement and " +
             "select direction&1 animation $01.");
 
+        Input.ActionPress("move_up");
+        for (int update = 0; update < 60 && raft.LinkRiding; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        Input.ActionRelease("move_up");
+        FailIf(raft.LinkRiding || raft.ZIndex >= _player.ZIndex,
+            "Room 1:a7 SPECIALOBJECT_RAFT $13 must stay beneath Link " +
+            "while dismounting onto the dock.");
+        for (int update = 0; update < 12; update++)
+        {
+            _entities.Update(1.0 / 60.0, _player);
+        }
+        FailIf(raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex,
+            "Dismounted INTERAC_RAFT $e6:$02 did not restore source priority $03.");
+        _player.EndForcedRoomEntryMovement();
+        _player.WarpTo(raft.PrecisePosition + new Vector2(0, -5), recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player);
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(!raft.LinkRiding,
+            "Room 1:a7 INTERAC_RAFT $e6:$02 could not be remounted.");
+
         // Destination object parsing occurs while the outgoing mounted raft
         // still owns w1Companion. Its active room byte therefore differs from
         // the destination, but both placed $e6 subids must still delete.
@@ -118,8 +156,10 @@ public sealed partial class ValidationRoot
             _entities.RuntimeState, CompanionRuntimeState.RaftId);
         LoadValidationRoom(1, 0xa7);
         FailIf(
-            _entities.Entities<RaftRoomEntity>().Single().LinkRiding,
-            "Remembered raft incorrectly reloaded as an active mounted object.");
+            _entities.Entities<RaftRoomEntity>().Single().LinkRiding ||
+            _entities.Entities<RaftRoomEntity>().Single().ZIndex !=
+                NpcCharacter.FixedLowPriorityZIndex,
+            "Remembered INTERAC_RAFT $e6 must reload waiting at source priority $03.");
 
         _saveData.WriteWramByte(behavior.DimitriStateAddress, 0);
         LoadValidationRoom(1, 0xa9);
@@ -174,6 +214,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             raftwreck.CenterCounter != 0x20 || raftwreck.Direction != 3 ||
+            _player.FacingVector != Vector2I.Left ||
             raftwreck.PrecisePosition != new Vector2(0x60, record.InitialY) ||
             raft.AnimationIndex != mountedAnimation,
             "Raftwreck substate 0 did not choose DIR_LEFT at x=$60, install " +

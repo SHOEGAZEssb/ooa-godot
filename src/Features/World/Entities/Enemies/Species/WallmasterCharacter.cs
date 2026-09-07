@@ -149,7 +149,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
     internal bool HandleLinkContact(Player player)
     {
         if (_grabbedPlayer is not null || !CollisionEnabled ||
-            !OverlapsLink(player.Position))
+            !OverlapsLink(player.EnemyContactPosition))
         {
             return false;
         }

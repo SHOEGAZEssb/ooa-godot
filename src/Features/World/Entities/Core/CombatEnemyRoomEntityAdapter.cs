@@ -45,6 +45,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     }
     public virtual void HandleLinkContact(Player player)
     {
+        if (!player.EnemyContactHeightOverlaps(CollisionZ))
+            return;
         if (_seedBurning && FreezesDuringSeedBurn)
             return;
 

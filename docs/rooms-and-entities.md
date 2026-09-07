@@ -133,11 +133,20 @@ and explicitly unsupported placements; deletion releases the slot independently
 of the later death-puff room-count decrement.
 
 The live `w1Companion` slot has one runtime owner shared by rideable animal
-companions and the minecart. A mounted owner, rather than Link, supplies the
+companions, the minecart, and the raft. A mounted owner, rather than Link, supplies the
 screen-transition position and transfers from the outgoing entity set after
 scrolling. Dismount writes the separate live remembered-companion fields;
 their disk-backed copy changes only when the death-respawn checkpoint is
 recorded, matching the original save boundary.
+
+The raft's waiting interaction supplies terrain support before its smaller
+mounting window allocates the special-object slot. Allocation occurs in the
+interaction pass; the next update runs the raft before Link and his parent
+items. The later entity pass must not advance it a second time. Link keeps
+his own facing and fractional coordinates while the raft supplies the mounted
+collision center and high-byte position offset. Scrolling updates the local
+respawn and last mount point without changing the remembered raft position;
+mounting and dismounting own that separate write.
 
 Waiting companions retain their native animation and hazard updates. Hazard
 recovery preserves whether Link was mounted; an unmounted animal cannot take
@@ -151,8 +160,13 @@ Mounted-animal Link presentation is not an independent Link animation. The
 `w1Companion.animParameter` every update and uses the companion direction for
 facing. `func_410d` supplies a companion-specific object offset: Ricky uses
 `$0000`, so Link and Ricky share exact XYZ coordinates and their OAM layouts
-compose the visible pair; Moosh uses `-$0e` vertically and `-$10`
-horizontally.
+compose the visible pair; Moosh uses a Y offset of `-$0e` when facing
+vertically and `-$10` when facing horizontally.
+Enemy contact follows `wLinkObjectIndex`: mounted animals supply the collision
+center with `$06` radii on both axes, independently of riding-Link's offset.
+The enemy/part Z minus riding-Link Z must fall in the unsigned-byte window
+`[-$07, +$06]`. XY overlap likewise preserves the included negative edge and
+excluded positive edge of the original summed-radius comparison.
 Runtime companion animation order therefore remains authoritative for both
 sprites, and the mounted companion owns A/B before Link's ordinary equipped
 items can create a conflicting pose. A cutscene response pose is not

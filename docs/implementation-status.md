@@ -66,6 +66,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   destination continues into the first Tokay theft cutscene with the imported
   washed-up Link animation, exact item-loss cadence, thief movement and exits,
   completion flag, respawn update, music restoration, and input release.
+- Shared fairy fountains support appearance, proximity-triggered dialogue,
+  full-health dismissal, eight circling hearts, health-display completion,
+  and departure, with fresh actors on room re-entry.
 - Non-dungeon Tokay Island NPCs and interactions are partial: ordinary island dialogue,
   stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
   trading hut, and past/present Wild Tokay gameplay with imported patterns and

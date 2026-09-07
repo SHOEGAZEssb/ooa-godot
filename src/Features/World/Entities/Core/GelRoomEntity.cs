@@ -35,7 +35,7 @@ internal sealed class GelRoomEntity
             gel.TakeSwordHit,
             player =>
             {
-                if (gel.OverlapsLink(player.Position))
+                if (gel.OverlapsLink(player.EnemyContactPosition))
                     gel.AttachToLink(player.Position);
             },
             () => gel.IsDead && !gel.DiedInHazard
