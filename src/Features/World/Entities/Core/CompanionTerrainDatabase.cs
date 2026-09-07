@@ -4,13 +4,26 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class DimitriNativeDatabase
+internal sealed class CompanionTerrainDatabase
 {
     private readonly Dictionary<string, List<Vector2>> _probes = new();
     internal int[] CollisionMasks { get; } = new int[16];
     internal IReadOnlyList<Vector2> Probes(string kind) => _probes[kind];
 
-    internal DimitriNativeDatabase()
+    internal bool IsSolid(OracleRoomData room, Vector2 sample, bool swimming = false)
+    {
+        if (sample.X < 0 || sample.Y < 0 || sample.X >= room.Width || sample.Y >= room.Height) return false;
+        int tile = room.GetMetatile(sample);
+        if (swimming && tile >= 0xfe) return false;
+        if (tile is 0xd5 or 0xd6) return true;
+        int collision = tile == 0xd4 ? 3 : room.GetTerrainInfo(sample).Collision;
+        int x = Mathf.FloorToInt(sample.X) & 15, y = Mathf.FloorToInt(sample.Y) & 15;
+        if (collision < 0x10) return (collision & (1 << ((y < 8 ? 2 : 0) + (x < 8 ? 1 : 0)))) != 0;
+        int kind = collision & 15;
+        return (CollisionMasks[kind] & (1 << ((kind < 8 ? x : y) >> 1))) != 0;
+    }
+
+    internal CompanionTerrainDatabase()
     {
         foreach (var row in GeneratedTable.Load("res://assets/oracle/cutscenes/dimitri_native_probes.tsv",
             new GeneratedTableSchema("Dimitri native probes", GeneratedTableKeySemantics.Ordered,

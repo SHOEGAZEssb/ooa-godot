@@ -437,8 +437,14 @@ public partial class Player : Node2D
         !_sideScrollAirborne && !_topDownAirborne &&
         !TopDownSwimming && !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
-        !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
+        !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
+    // commonCode.s:companionTryToMount requires ordinary, vulnerable Link,
+    // with no swimming, grabbing or airborne state.
+    internal bool CanMountCompanion =>
+        _activeTransformation == 0 && !IsDying && IsGroundedForFloorButton &&
+        AcceptsRoomEntityContact && !IsCarryingObject && !_braceletLiftCollisionsDisabled &&
+        _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 && !_world.RidingObject;
     internal bool CanAcceptShieldCollision =>
         IsUsingShield && AcceptsRoomEntityContact &&
         !_braceletLiftCollisionsDisabled && !IsDying &&

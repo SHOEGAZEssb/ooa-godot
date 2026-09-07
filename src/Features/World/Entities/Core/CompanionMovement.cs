@@ -5,6 +5,15 @@ namespace oracleofages;
 
 internal static class CompanionMovement
 {
+    internal static int FacingWallMask(int angle, int walls)
+    {
+        if (angle == 0xff) return 0;
+        int mask = 0;
+        if (angle is not (8 or 0x18)) mask |= ((angle >> 3) & 3) == 0 ? 0xc0 : 0x30;
+        if ((angle & 15) != 0) mask |= (angle & 0x10) == 0 ? 3 : 0x0c;
+        return walls & mask;
+    }
+
     // specialObjectUpdatePosition: adjust an angle at a single blocked corner,
     // then suppress axes using the collision probes at the current position.
     internal static void ApplySpeed(ref Vector2 position, int speed, int angle, int walls)

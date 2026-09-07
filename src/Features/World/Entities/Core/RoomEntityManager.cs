@@ -284,6 +284,7 @@ public sealed class RoomEntityManager : IDisposable
         => HasPlayerRestriction(
             static restriction => restriction.DisablesScreenTransitions);
     internal bool WarpTilesDisabled => HasPlayerRestriction(static restriction => restriction.DisablesWarpTiles);
+    internal bool PlayerContactDisabled => HasPlayerRestriction(static restriction => restriction.DisablesPlayerContact);
 
     public RoomEntityManager(
         Node worldRoot,

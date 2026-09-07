@@ -189,9 +189,11 @@ public sealed partial class ValidationRoot
             _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.ReturningToLand || dimitri.Direction != 3 || !dimitri.InWater,
             "Thrown Dimitri did not enter state $0b facing the saved throw origin.");
+        _sound.ClearPlayRequestAudit();
         for (int update = 0; update < 180 && dimitri.Phase == DimitriPhase.ReturningToLand; update++)
             _entities.Update(1.0 / 60.0, _player);
-        FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.InWater || dimitri.ZFixed != 0,
+        FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.InWater || dimitri.ZFixed != 0 ||
+            dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(0x88) == 0,
             "Dimitri did not swim back to land and become mountable after the throw.");
         _bracelet.Interrupt(_player, discard: true);
         GD.Print("Validated thrown Dimitri water detection, cardinal return angle and autonomous return to land.");

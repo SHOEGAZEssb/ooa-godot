@@ -773,6 +773,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             companion.ChargeCounter != 40 ||
+            companion.DisablesPlayerContact ||
             companion.ChargePaletteActive ||
             companion.MooshTexturePixelHash !=
                 companion.NormalMooshTexturePixelHash ||
@@ -793,6 +794,7 @@ public sealed partial class ValidationRoot
             sawRestoredPalette |= !expectedChargePalette;
             FailIf(
                 companion.ChargePaletteActive != expectedChargePalette ||
+                !companion.DisablesPlayerContact ||
                 (companion.MooshTexturePixelHash !=
                     companion.NormalMooshTexturePixelHash) !=
                         expectedChargePalette ||
@@ -822,6 +824,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             companion.Phase != MooshCompanionPhase.StompRecovery ||
+            (_saveData.ReadWramByte(0xc649) & 0x20) == 0 ||
             _sound.PlayRequestsFor(record.StompSound) != stompSounds + 1 ||
             _entities.ScreenShakeCounter <= 0 ||
             _entities.Entities<MooshStompAttackRoomEntity>().Count != 1,
@@ -833,7 +836,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
         }
         FailIf(
-            companion.Phase != MooshCompanionPhase.Riding,
+            companion.Phase != MooshCompanionPhase.Riding || companion.DisablesPlayerContact,
             "Moosh's charged-stomp animation did not terminate on its imported " +
             "animation-parameter bit 7.");
 

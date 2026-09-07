@@ -41,7 +41,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private CompanionHazard _hazard;
     private bool _hazardMounted;
     private DimitriPhase _phase;
-    private readonly DimitriNativeDatabase _native = new();
+    private readonly CompanionTerrainDatabase _native = new();
     private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
     private readonly BombRecord _throwing = new BombDatabase().Data;
     private readonly LedgeJumpDatabase _ledges = new();
@@ -220,8 +220,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 CheckHazard();
                 if (_phase == DimitriPhase.Hazard) break;
                 UpdateWater();
-                if (!CompanionRuntimeState.MountingDisabled(_runtime) && !player.TopDownAirborne && !player.IsDying && !player.IsDrowning &&
-                    !player.IsFallingInHole && Distance(player.Position) < 9)
+                if (!CompanionRuntimeState.MountingDisabled(_runtime) && player.CanMountCompanion && Distance(player.Position) < 9)
                     _phase = DimitriPhase.Mounting;
                 break;
             case DimitriPhase.Mounting:
@@ -318,11 +317,12 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 break;
             case DimitriPhase.ReturningToLand:
                 if (!OracleObjectMath.UpdateSpeedZ(ref _carried.ZFixed, ref _carried.SpeedZ, 0x40)) break;
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
                 ApplySpeed(0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();
                 UpdateWater();
-                if (_water == 0) { _phase = DimitriPhase.Waiting; SetAnimation(0x1c); }
+                if (_water == 0) _phase = DimitriPhase.Waiting;
                 break;
             case DimitriPhase.CliffJump:
                 if (_counter > 0)
@@ -344,6 +344,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 SetAnimation(0);
                 break;
             case DimitriPhase.FluteEntering:
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
                 ApplySpeed(_water == 0 ? 0x1e : 0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();
@@ -380,6 +381,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 _phase = DimitriPhase.Leaving;
                 break;
             case DimitriPhase.Leaving:
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
                 ApplySpeed(_water == 0 ? 0x1e : 0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();

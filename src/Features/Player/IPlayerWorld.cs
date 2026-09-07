@@ -14,6 +14,7 @@ public interface IPlayerWorld
     bool MovementDisabled { get; }
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
+    bool PlayerContactDisabled => false;
     bool BombParentActive => false;
     bool SideScrolling { get; }
     bool Underwater => false;

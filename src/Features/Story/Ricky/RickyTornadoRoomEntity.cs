@@ -87,7 +87,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
             spawns);
         if (_precisePosition.X < 0 || _precisePosition.X >= _room.Width ||
             _precisePosition.Y < 0 || _precisePosition.Y >= _room.Height ||
-            _room.IsSolid(_precisePosition))
+            (_room.GetTerrainInfo(_precisePosition).Collision & 0x0f) == 0x0f)
         {
             Finished = true;
             Visible = false;

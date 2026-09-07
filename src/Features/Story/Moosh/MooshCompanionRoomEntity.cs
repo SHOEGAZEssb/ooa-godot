@@ -52,7 +52,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _flutePending;
     private int _fluteCounter;
 
-    private void UpdateFluteEntrance()
+    private void UpdateFluteEntrance(ICollection<RoomEntitySpawn> spawns)
     {
         if (_flutePending)
         {
@@ -63,11 +63,11 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _animation.Advance();
-        Vector2 next = _precisePosition;
-        OracleObjectMovement.Shared.ApplySpeed(ref next, 0x1e, _angle);
-        if (_precisePosition.X < 0 && next.X > 128) next.X -= 256;
-        if (_precisePosition.Y < 0 && next.Y > 128) next.Y -= 256;
-        _precisePosition += ResolveMovement(next - _precisePosition);
+        Vector2 before = _precisePosition;
+        CompanionMovement.ApplySpeed(ref _precisePosition, 0x1e, _angle, AdjacentWalls());
+        if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
+        if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
+        if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
         Vector2 offset = _direction switch
         {
             0 => new(0, -8), 1 => new(8, 0), 2 => new(0, 8), _ => new(-8, 0)
@@ -98,6 +98,12 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private readonly Func<bool> _dialogueOpen;
     private readonly Action<int> _screenShakeRequested;
     private readonly EnemyAnimationPlayer _animation;
+    private readonly CompanionTerrainDatabase _terrain = new();
+    private readonly LedgeJumpDatabase _ledges = new();
+    private readonly Func<OracleRoomData, CompanionAttackTileBreaker> _createTileBreaker;
+    private CompanionAttackTileBreaker _tileBreaker;
+    private int _cliffCounter;
+    private int _cliffWalls;
     private readonly Texture2D[] _linkTextures;
     private readonly Texture2D[] _chargeLinkTextures;
     private readonly Texture2D[] _damageLinkTextures;
@@ -116,6 +122,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private int _chargeCounter;
     private int _waterHoverCounter;
     private CompanionHazard _hazard;
+    private bool _hazardMounted;
+    private bool _stompContactDisabled;
     private bool _airborneInitialized;
     private bool _mountStarted;
     private bool _attackPressed;
@@ -136,6 +144,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     public bool DisablesSword => GoodbyeRestrictsPlayer ||
         LinkRiding || _phase == MooshCompanionPhase.Mounting;
     public bool DisablesItems => DisablesSword;
+    public bool DisablesPlayerContact => LinkRiding && _stompContactDisabled;
     public bool DisablesMovement => DisablesSword;
     public bool DisablesMenus => GoodbyeRestrictsPlayer;
     public bool DisablesScreenTransitions => _phase is
@@ -153,8 +162,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         MooshCompanionPhase.HoveringOverWater or
         MooshCompanionPhase.Charging or
         MooshCompanionPhase.Falling or
-        MooshCompanionPhase.StompRecovery or
-        MooshCompanionPhase.HazardFalling ||
+        MooshCompanionPhase.StompRecovery ||
+        _phase == MooshCompanionPhase.CliffJump ||
+        (_phase == MooshCompanionPhase.HazardFalling && _hazardMounted) ||
         (_phase == MooshCompanionPhase.Dismounting &&
             !_dismountInitialized);
     public bool ControlsPlayerScreenTransition => LinkRiding;
@@ -202,7 +212,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Action<int> playSound,
         Action<int, string, Vector2> dialogueRequested,
         Func<bool> dialogueOpen,
-        Action<int> screenShakeRequested)
+        Action<int> screenShakeRequested,
+        Func<OracleRoomData, CompanionAttackTileBreaker> createTileBreaker)
     {
         _record = database.Record;
         _visual = database.Visual;
@@ -214,6 +225,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _dialogueOpen = dialogueOpen;
         _screenShakeRequested = screenShakeRequested;
         _room = room;
+        _createTileBreaker = createTileBreaker;
+        _tileBreaker = createTileBreaker(room);
         _group = spawn.Group;
         _roomId = spawn.Room;
         _precisePosition = spawn.Position;
@@ -301,7 +314,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _chargePaletteActive = false;
 
-        if (_fluteEntrance) UpdateFluteEntrance();
+        if (_fluteEntrance) UpdateFluteEntrance(spawns);
         else switch (_phase)
         {
             case MooshCompanionPhase.Waiting:
@@ -311,13 +324,16 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
                 UpdateMounting(frame.Player);
                 break;
             case MooshCompanionPhase.Riding:
-                UpdateRiding(frame.Player);
+                UpdateRiding(frame.Player, spawns);
+                break;
+            case MooshCompanionPhase.CliffJump:
+                UpdateCliffJump();
                 break;
             case MooshCompanionPhase.Airborne:
                 UpdateAirborne(frame.Player, spawns);
                 break;
             case MooshCompanionPhase.HoveringOverWater:
-                UpdateHoveringOverWater(frame.Player);
+                UpdateHoveringOverWater(frame.Player, spawns);
                 break;
             case MooshCompanionPhase.Charging:
                 UpdateCharging(frame.Player, frame.Counter);
@@ -379,11 +395,14 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void UpdateWaiting(Player player)
     {
-        if (_forestWaiting) { _animation.Advance(); return; }
-        if (CompanionRuntimeState.MountingDisabled(_runtime) || player.TopDownAirborne || player.IsDying ||
-            player.IsDrowning || player.IsFallingInHole ||
+        _animation.Advance();
+        if (_forestWaiting) return;
+        if (CompanionRuntimeState.MountingDisabled(_runtime) || !player.CanMountCompanion ||
             !LinkWithinMountDistance(player))
         {
+            // mooshState1 falls through to hazards only outside the mount
+            // radius; a rejected mount returns from companionTryToMount.
+            if (!LinkWithinMountDistance(player)) TryBeginHazard();
             return;
         }
         _phase = MooshCompanionPhase.Mounting;
@@ -414,8 +433,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         SynchronizePlayer(player, Vector2.Zero, finishMount: true);
     }
 
-    private void UpdateRiding(Player player)
+    private void UpdateRiding(Player player, ICollection<RoomEntitySpawn> spawns)
     {
+        if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x10)) return;
         if (TryBeginHazard())
             return;
         if (_attackJustPressed)
@@ -430,8 +450,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             TryBeginDismount(player);
             return;
         }
-        UpdateRidingMovement();
-        TryBeginHazard();
+        UpdateRidingMovement(spawns);
     }
 
     private void UpdateAirborne(
@@ -455,7 +474,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         if (TryBeginWaterHover(spawns))
             return;
-        UpdateAirborneMovement();
+        UpdateAirborneMovement(spawns);
         bool movingUp = _speedZ < 0;
         if (!movingUp)
         {
@@ -496,7 +515,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         if (OracleObjectMath.UpdateSpeedZ(
                 ref _zFixed, ref _speedZ, 0x10))
         {
-            LandNormally();
+            BreakGroundTile(spawns);
+            LandAndCheckGround(spawns);
             return;
         }
     }
@@ -517,7 +537,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         return true;
     }
 
-    private void UpdateHoveringOverWater(Player player)
+    private void UpdateHoveringOverWater(Player player, ICollection<RoomEntitySpawn> spawns)
     {
         _ = player;
         if (_waterHoverCounter > 0)
@@ -534,7 +554,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
                 ref _zFixed, ref _speedZ, 0x10))
         {
             _waterHoverCounter = 0;
-            LandNormally();
+            LandAndCheckGround(spawns);
         }
     }
 
@@ -549,6 +569,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             _chargeCounter++;
             if (_chargeCounter == 40)
                 _playSound(_record.ChargeSound);
+            // State $08:$02 returns immediately at 40; collision bit 7 is
+            // first cleared at 41 and stays clear until recovery or a hazard.
+            if (_chargeCounter > 40) _stompContactDisabled = true;
             if (_chargeCounter < 120)
                 return;
         }
@@ -569,13 +592,15 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         if (_chargeCounter < 40)
         {
-            LandNormally();
+            LandAndCheckGround(spawns);
             return;
         }
         if (TryBeginHazard())
             return;
 
         _phase = MooshCompanionPhase.StompRecovery;
+        if (_saveData is not null)
+            _saveData.WriteWramByte(0xc649, (byte)(_saveData.ReadWramByte(0xc649) | 0x20));
         _screenShakeRequested(0x0f);
         _playSound(OracleSoundEngine.SndCtrlStopSfx);
         _playSound(_record.StompSound);
@@ -748,6 +773,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void LandNormally(bool checkHazards = true)
     {
+        _stompContactDisabled = false;
         _phase = MooshCompanionPhase.Riding;
         _zFixed = 0;
         _speedZ = 0;
@@ -758,11 +784,21 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             TryBeginHazard();
     }
 
+    private void LandAndCheckGround(ICollection<RoomEntitySpawn> spawns)
+    {
+        LandNormally(checkHazards: false);
+        BreakGroundTile(spawns);
+        if (!TryBeginHazard()) UpdateDirectionAndAnimation(0x13);
+    }
+
     private bool TryBeginHazard()
     {
+        if (_zFixed != 0) return false;
         if (!CompanionHazard.TryCreate(
                 _room, _precisePosition, out _hazard))
             return false;
+        _hazardMounted = LinkRiding;
+        _stompContactDisabled = false;
         _phase = MooshCompanionPhase.HazardFalling;
         _zFixed = 0;
         _speedZ = 0;
@@ -788,12 +824,12 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             player, _runtime, CanRespawnAt);
         _precisePosition = respawn;
         _hazard = default;
-        _phase = MooshCompanionPhase.Riding;
+        _phase = _hazardMounted ? MooshCompanionPhase.Riding : MooshCompanionPhase.Waiting;
         _angle = 0xff;
         _chargeCounter = 0;
         _airborneInitialized = false;
-        player.ApplyCompanionHazardDamage(completedHazard);
-        SetAnimation(0x13 + _direction);
+        if (_hazardMounted) player.ApplyCompanionHazardDamage(completedHazard);
+        SetAnimation((_hazardMounted ? 0x13 : 1) + _direction);
     }
 
     private bool CanRespawnAt(Vector2 position) =>
@@ -801,7 +837,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _room.GetTerrainInfo(position + new Vector2(0, 5)).Hazard ==
             HazardType.None;
 
-    private void UpdateRidingMovement()
+    private void UpdateRidingMovement(ICollection<RoomEntitySpawn> spawns)
     {
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
@@ -822,11 +858,13 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        ApplyMovement();
-        UpdateDirectionAndAnimation(0x13);
+        if (TryStartCliffJump()) return;
+        ApplyMovement(spawns);
+        BreakGroundTile(spawns);
+        if (!TryBeginHazard()) UpdateDirectionAndAnimation(0x13);
     }
 
-    private void UpdateAirborneMovement()
+    private void UpdateAirborneMovement(ICollection<RoomEntitySpawn> spawns)
     {
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
@@ -836,17 +874,65 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _angle = angle;
-        ApplyMovement();
+        ApplyMovement(spawns);
     }
 
-    private void ApplyMovement()
+    private void ApplyMovement(ICollection<RoomEntitySpawn> spawns)
     {
-        Vector2 candidate = _precisePosition;
-        OracleObjectMovement.Shared.ApplySpeed(ref candidate, 0x28, _angle);
-        Vector2 movement = candidate - _precisePosition;
-        Vector2 resolved = ResolveMovement(movement);
-        _precisePosition += resolved;
+        CompanionMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, AdjacentWalls());
+        if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
+    }
 
+    private void BreakGroundTile(ICollection<RoomEntitySpawn> spawns) =>
+        _tileBreaker.TryBreak(_precisePosition + new Vector2(0, 5),
+            BreakableTileDatabase.SourceCompanionMovement, spawns);
+
+    private int AdjacentWalls()
+    {
+        int walls = 0;
+        for (int index = 0; index < CollisionSamples.Length; index++)
+        {
+            Vector2 point = _precisePosition + CollisionSamples[index];
+            if (_terrain.IsSolid(_room, point))
+                walls |= 1 << (7 - index);
+        }
+        return walls;
+    }
+
+    private bool TryStartCliffJump()
+    {
+        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
+        byte tile = _room.GetMetatile(_precisePosition + _terrain.Probes("cliff")[_direction]);
+        if (tile == 0xd4 ? _angle != 0x10 : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
+        _phase = MooshCompanionPhase.CliffJump;
+        _speedZ = -0x2c0;
+        _cliffCounter = 0x14;
+        _cliffWalls = 0;
+        return true;
+    }
+
+    private void UpdateCliffJump()
+    {
+        if (_cliffCounter > 0)
+        {
+            if (--_cliffCounter == 0)
+            {
+                _playSound(_record.JumpSound);
+                SetAnimation(0x09 + _direction);
+            }
+            return;
+        }
+        _animation.Advance();
+        OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, 0x50, _angle);
+        OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
+        int away = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, AdjacentWalls());
+        if (away != 0) _cliffWalls = away;
+        else if (_cliffWalls != 0)
+        {
+            // mooshState7 resumes state $05 without resetting the falling arc.
+            _phase = MooshCompanionPhase.Riding;
+            SetAnimation(0x13 + _direction);
+        }
     }
 
     void ICompanionBarrierTarget.ClampToLowerY(int y)
@@ -871,21 +957,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         SetAnimation(animationBase + _direction);
     }
 
-    private Vector2 ResolveMovement(Vector2 movement)
-    {
-        if (movement == Vector2.Zero)
-            return movement;
-        if (CanOccupy(_precisePosition + movement))
-            return movement;
-        Vector2 x = new(movement.X, 0);
-        if (x.X != 0 && CanOccupy(_precisePosition + x))
-            return x;
-        Vector2 y = new(0, movement.Y);
-        if (y.Y != 0 && CanOccupy(_precisePosition + y))
-            return y;
-        return Vector2.Zero;
-    }
-
     private bool CanOccupy(Vector2 position)
     {
         foreach (Vector2 sampleOffset in CollisionSamples)
@@ -896,7 +967,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             {
                 continue;
             }
-            if (_room.IsSolid(sample))
+            if (_terrain.IsSolid(_room, sample))
                 return false;
         }
         return true;
@@ -1014,6 +1085,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
                 "Moosh finished scrolling without a destination.");
         _transitionDestination = null;
         _room = destination;
+        _tileBreaker = _createTileBreaker(destination);
         _roomId = destination.Id;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -1104,7 +1176,8 @@ internal enum MooshCompanionPhase
     GoodbyeInitializing,
     GoodbyeDialogue,
     GoodbyeFlight,
-    GoodbyeFinished
+    GoodbyeFinished,
+    CliffJump
 }
 
 internal sealed record MooshCompanionSpawn(

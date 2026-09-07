@@ -286,10 +286,20 @@ public sealed partial class ValidationRoot
         _player.WarpTo(arrived, recordSafe: false);
         for (int frame = 0; frame < 100 && !summoned.LinkRiding; frame++)
         {
-            _player.AdvanceApplicationUpdate();
-            _entities.Update(1.0 / 60.0, _player);
+            // The suite shares one host frame. Do not replay another case's
+            // Godot just-pressed A edge and start a second flute during mounting.
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: [], justPressed: [], movement: Vector2.Zero));
+            try
+            {
+                _player.AdvanceApplicationUpdate();
+                _entities.Update(1.0 / 60.0, _player);
+            }
+            finally { Input.EndOriginalUpdate(); }
         }
-        FailIf(!summoned.LinkRiding, $"Companion ${companion:x2} could not be mounted after the flute call.");
+        FailIf(!summoned.LinkRiding, $"Companion ${companion:x2} could not be mounted after the flute call: " +
+            $"canMount={_player.CanMountCompanion}, invincibility={_player.InvincibilityFrames}, " +
+            $"swimming={_player.TopDownSwimming}, carrying={_player.IsCarryingObject}, " +
+            $"airborne={_player.TopDownAirborne}, Link={_player.Position}, animal={node.Position}, health={_player.HealthQuarters}.");
     }
 
     private void ValidateForestHintFairies()

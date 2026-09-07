@@ -2638,7 +2638,8 @@ internal sealed class RoomEntityFactory(
             soundRequested,
             roomEntityDialogueRequested,
             dialogueOpen,
-            screenShakeRequested);
+            screenShakeRequested,
+            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination));
 
     private MooshHoverExclamationRoomEntity CreateMooshHoverExclamation(
         MooshHoverExclamationSpawn spawn)

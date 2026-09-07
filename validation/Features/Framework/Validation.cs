@@ -223,6 +223,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom025Carpenters);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
         RunIsolatedValidation(ValidateRickyRiding);
+        RunIsolatedValidation(ValidateCompanionWaitingFidelity);
+        RunIsolatedValidation(ValidateMooshCliffFidelity);
+        RunIsolatedValidation(ValidateCompanionAttackFidelity);
         RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);

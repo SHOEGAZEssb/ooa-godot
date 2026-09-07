@@ -139,6 +139,13 @@ scrolling. Dismount writes the separate live remembered-companion fields;
 their disk-backed copy changes only when the death-respawn checkpoint is
 recorded, matching the original save boundary.
 
+Waiting companions retain their native animation and hazard updates. Hazard
+recovery preserves whether Link was mounted; an unmounted animal cannot take
+over Link or apply riding damage. Mounting uses the shared ordinary-Link
+vulnerability, swimming, grabbing, airborne, and mount-lock gates.
+Companion contact restrictions are read through the entity restriction owner,
+including Moosh's charged-stomp protection through its recovery animation.
+
 Mounted-animal Link presentation is not an independent Link animation. The
 `SPECIALOBJECT_LINK_RIDING_ANIMAL` owner copies the low six bits of
 `w1Companion.animParameter` every update and uses the companion direction for

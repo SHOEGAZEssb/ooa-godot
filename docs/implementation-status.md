@@ -50,7 +50,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
 - Moosh's rescue and mountable-companion core: exact ride visuals, movement,
-  hover/charged stomp and charge flash, collision-safe dismount/remount memory,
+  cliff descent, ground-contact tile breaking, hover/charged stomp and charge
+  flash, collision-safe dismount/remount memory,
   source-timed warning hover and water/hole hazard respawn, and single-owner
   scrolling retention, including room `0:5b`'s one-time flutter tutorial.
 - Ricky's room `0:6a` glove handoff and mountable-companion core: source-loaded

@@ -56,6 +56,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Math.Abs(center.X - Position.X) < 12 && Math.Abs(center.Y - Position.Y) < 8;
 
     private bool _fluteEntrance;
+    private bool _hazardMounted;
     private bool _flutePending;
     private int _fluteHops;
 
@@ -180,9 +181,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         RickyCompanionPhase.JumpingUpCliff or
         RickyCompanionPhase.JumpingOverHole or
         RickyCompanionPhase.JumpingDownCliff or
-        RickyCompanionPhase.HazardFalling or
         RickyCompanionPhase.Punching or
         RickyCompanionPhase.Charging ||
+        (_phase == RickyCompanionPhase.HazardFalling && _hazardMounted) ||
         (_phase == RickyCompanionPhase.Dismounting &&
             !_dismountInitialized);
     public bool ControlsPlayerScreenTransition => LinkRiding;
@@ -411,8 +412,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             else OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
             return;
         }
-        if (!CompanionRuntimeState.MountingDisabled(_runtime) && !player.TopDownAirborne && !player.IsDying &&
-            !player.IsDrowning && !player.IsFallingInHole &&
+        if (!CompanionRuntimeState.MountingDisabled(_runtime) && player.CanMountCompanion &&
             LinkWithinMountDistance(player.PrecisePosition))
         {
             _phase = RickyCompanionPhase.Mounting;
@@ -434,7 +434,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         {
             OracleObjectMath.UpdateSpeedZ(
                 ref _zFixed, ref _speedZ, _record.JumpGravity);
+            return;
         }
+        TryBeginHazard();
     }
 
     internal void StopAtCarpenterSearchBoundary()
@@ -889,15 +891,14 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
         int angle = CompanionMovement.AngleForInput(input);
-        if (angle != 0xff)
+        if (angle != 0xff && angle != _angle)
         {
             _angle = angle;
             SetDirectionAnimation(_behavior.ChargeAnimation, animate: true);
         }
-        else
-        {
-            _animation.Advance();
-        }
+        // rickyState8 advances once unconditionally, in addition to the
+        // direction helper on an exact angle change.
+        _animation.Advance();
 
         if (!_attackPressed)
         {
@@ -1360,6 +1361,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                 _room, _precisePosition, out _hazard))
             return false;
         _screenTransitionsDisabled = true;
+        _hazardMounted = LinkRiding;
         _phase = RickyCompanionPhase.HazardFalling;
         _zFixed = 0;
         _speedZ = 0;
@@ -1386,11 +1388,11 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _precisePosition = respawn;
         _hazard = default;
         _screenTransitionsDisabled = false;
-        _phase = RickyCompanionPhase.Riding;
+        _phase = _hazardMounted ? RickyCompanionPhase.Riding : RickyCompanionPhase.Waiting;
         _angle = 0xff;
         _hopCounter = _behavior.HopDelay;
-        player.ApplyCompanionHazardDamage(completedHazard);
-        SetAnimation(_behavior.CancelAnimation + _direction);
+        if (_hazardMounted) player.ApplyCompanionHazardDamage(completedHazard);
+        SetAnimation((_hazardMounted ? _behavior.CancelAnimation : 1) + _direction);
     }
 
     private bool CanRespawnAt(Vector2 position) =>

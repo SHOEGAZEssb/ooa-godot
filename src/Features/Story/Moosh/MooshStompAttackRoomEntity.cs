@@ -30,6 +30,7 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
     private readonly Action<int> _playSound;
     private readonly Func<int, int?> _decideBreakableDrop;
     private int _counter = 0x14;
+    private bool _initialized;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -65,14 +66,18 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        _ = frame;
         if (Finished)
             return;
+
+        Position = OracleObjectMath.ToPixelPosition(frame.Player.Position + new Vector2(0, 16));
 
         var hitbox = new Rect2(
             Position - new Vector2(24, 24),
             new Vector2(48, 48));
         _applyHit(hitbox, 0, 7, 7);
+        // ITEM_28 state 0 loads attributes and position, then returns without
+        // tile probes or decrementing its newly initialized $14 counter.
+        if (!_initialized) { _initialized = true; return; }
         foreach (Vector2 offset in BreakOffsets)
             TryBreakTile(Position + offset, spawns);
         if (--_counter == 0)
