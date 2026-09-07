@@ -65,6 +65,10 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
                 $"{_context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
         }
         _stage = WingDungeonCollapseStage.AwaitingRockLift;
+        // interactiondc_subid02 writes its nonzero interaction page to this
+        // boolean gate even while the trigger tile is still covered by a rock.
+        _context.Entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
     }
 
     internal void RestoreCollapsedEntrance(int group, OracleRoomData room)

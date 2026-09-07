@@ -264,6 +264,8 @@ public sealed partial class ValidationRoot
             rescue.Signal != 0,
             "Room 0:6c did not preserve its source-order Ghinis, `$67:$00 Moosh " +
             "preset, visuals, or controller initialization.");
+        FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 1,
+            "companionScript_subid00 did not set the room-local $ccde digging restriction.");
 
         StepRoomEventFrames(1);
         FailIf(

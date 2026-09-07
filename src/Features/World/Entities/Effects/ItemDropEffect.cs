@@ -64,6 +64,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private Action<int> _soundRequested = static _ => { };
     private int _collectionSound;
     private bool _swordCollectionPending;
+    private Func<bool>? _maplePresent;
+    private Action<int, int, Vector2>? _spawnEnemy;
+    private int _var03;
 
     public int SubId { get; private set; }
     public bool Finished { get; private set; }
@@ -97,7 +100,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         Action<int>? soundRequested = null,
         int collectionSound = 0,
         ItemDropDatabase? itemDrops = null,
-        OracleRandom? random = null)
+        OracleRandom? random = null,
+        Func<bool>? maplePresent = null,
+        Action<int, int, Vector2>? spawnEnemy = null)
     {
         if (angle is < 0 or >= 0x20)
             throw new ArgumentOutOfRangeException(nameof(angle));
@@ -114,6 +119,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             (ushort)Mathf.FloorToInt(position.Y * 256.0f));
         _room = room;
         _random = random;
+        _maplePresent = maplePresent;
+        _spawnEnemy = spawnEnemy;
+        // decideItemDropForBrokenTile is the only Ages producer of $0f:
+        // drop tables $89/$8a set var03=$02, then the shovel increments it.
+        _var03 = (subId == ItemDropDatabase.OneHundredRupeesOrEnemy ? 2 : 0) + (dugUp ? 1 : 0);
         _angle = angle;
         _speed = dugUp && subId != 0 ? DugUpSpeed : 0;
         _fairyPosition =
@@ -122,6 +132,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         _collectionSound = collectionSound;
         _speedZ = InitialSpeedZ;
         _state = DropState.Initializing;
+        Visible = false;
         _texture = BuildTexture(visual);
         _flippedTexture = subId == ItemDropDatabase.Fairy
             ? BuildTexture(visual, flipX: true)
@@ -164,6 +175,27 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         }
         if (_state == DropState.Initializing)
         {
+            // partCode01@state0 checks Maple before consuming any RNG. The
+            // enemy branch uses this same byte, then deletes the part even
+            // when digging is forbidden or every enemy slot is occupied.
+            if (_maplePresent?.Invoke() == true)
+            {
+                FinishWithoutCollection();
+                return;
+            }
+            if (SubId == ItemDropDatabase.OneHundredRupeesOrEnemy)
+            {
+                if (_random is null || _spawnEnemy is null)
+                    throw new InvalidOperationException("PART_ITEM_DROP:$0f requires the shared RNG and itemDrop_spawnEnemy owner.");
+                int roll = _random.Next().Value;
+                if (roll < 0xe0)
+                {
+                    _spawnEnemy(roll, _var03, OracleObjectMath.ToPixelPosition(Position));
+                    FinishWithoutCollection();
+                    return;
+                }
+            }
+            Visible = true; // itemDrop_initGfx -> objectSetVisiblec1
             if (IsSideScrolling())
             {
                 // State 0 increments Part.state twice in a side-scrolling

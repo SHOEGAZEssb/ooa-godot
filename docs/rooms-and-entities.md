@@ -107,6 +107,14 @@ then interactions. Item collisions resolve in the item phase, so a landed
 Scent Seed publishes its target before compatible enemies update, and its
 zero-counter update removes that target before the same enemy pass.
 
+Random breakable drops retain their unresolved part subid until the part's
+first update. That update checks Maple before drawing RNG, then applies the
+room-local digging restriction and shared enemy-slot allocation. A successful
+enemy allocation counts toward room completion and starts updating in the
+next enemy pass. Slot reservations include source-placed noncombat controllers
+and explicitly unsupported placements; deletion releases the slot independently
+of the later death-puff room-count decrement.
+
 The live `w1Companion` slot has one runtime owner shared by rideable animal
 companions and the minecart. A mounted owner, rather than Link, supplies the
 screen-transition position and transfers from the outgoing entity set after

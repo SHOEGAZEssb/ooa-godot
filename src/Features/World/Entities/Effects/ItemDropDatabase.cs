@@ -123,14 +123,8 @@ public sealed class ItemDropDatabase
         InventoryState? inventory = null,
         OracleSaveData? saveData = null)
     {
-        int? subId = DecideDrop(
+        return DecideDrop(
             0x80 | (dropType & 0x0f), random, inventory, saveData);
-        if (subId != OneHundredRupeesOrEnemy)
-            return subId;
-
-        // PART_ITEM_DROP:$0f consumes one more global RNG value. Values below
-        // $e0 create a rope or beetle, which are not runtime-supported yet.
-        return random.Next().Value >= 0xe0 ? OneHundredRupeesOrEnemy : null;
     }
 
     internal int? ChooseDrop(

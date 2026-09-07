@@ -337,7 +337,8 @@ $commonEnemySprites = @{
 }
 $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
-    @(0x10, 0x00), @(0x13, 0x00),
+    @(0x10, 0x00), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
+    @(0x51, 0x02), @(0x51, 0x03),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
@@ -371,7 +372,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 28 -or
+if ($commonEnemyRows.Count -ne 32 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -2606,6 +2607,35 @@ if (-not $itemDropPartData.Success -or
 }
 $itemDropBaseTile = [Convert]::ToInt32($itemDropPartData.Groups['tile'].Value, 16)
 $itemDropCodeSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\itemDrop.s')
+$diggingSourcePath = Join-Path $Disassembly 'object_code\common\parts\itemDrop.s'
+$diggingEnemyNames = @(Read-AssemblyDataDirectives $diggingSourcePath '@enemiesToSpawn' '.db' |
+    ForEach-Object { $_.Operands })
+if (($diggingEnemyNames -join ',') -ne
+    'ENEMY_ROPE,ENEMY_ROPE,ENEMY_ROPE,ENEMY_BEETLE,ENEMY_BEETLE,ENEMY_BEETLE,ENEMY_BEETLE,ENEMY_BEETLE' -or
+    $itemDropCodeSource -notmatch 'call getRandomNumber_noPreserveVars\s+cp \$e0\s+jp c,itemDrop_spawnEnemy' -or
+    $itemDropCodeSource -notmatch '(?s)itemDrop_spawnEnemy:\s+ld c,a\s+ld a,\(wDiggingUpEnemiesForbidden\)\s+or a\s+jr nz,@delete' -or
+    $itemDropCodeSource -notmatch 'call getFreeEnemySlot\s+jr nz,@delete\s+ld \(hl\),b\s+call objectCopyPosition\s+ld e,Part.var03\s+ld a,\(de\)\s+ld l,Enemy.subid\s+ld \(hl\),a') {
+    throw 'object_code/common/parts/itemDrop.s: itemDrop_spawnEnemy selection or allocation contract changed.'
+}
+$diggingRows = [Collections.Generic.List[string]]::new()
+$diggingRows.Add("# index`tenemy-id`tcollision-mode`tshield-l1`tshield-l2`tshield-l3`tsource")
+for ($index = 0; $index -lt 8; $index++) {
+    $id = if ($diggingEnemyNames[$index] -eq 'ENEMY_ROPE') { 0x10 } else { 0x51 }
+    $collision = (Get-EnemyDefinition $id).Collision
+    $offset = ($collision -band 0x7f) * 0x20
+    $diggingRows.Add("$index`t$($id.ToString('x2'))`t$($collision.ToString('x2'))`t" +
+        "$($enemyCollisionTableValues[$offset + 1].ToString('x2'))`t" +
+        "$($enemyCollisionTableValues[$offset + 2].ToString('x2'))`t" +
+        "$($enemyCollisionTableValues[$offset + 3].ToString('x2'))`t" +
+        "object_code/common/parts/itemDrop.s:itemDrop_spawnEnemy@enemiesToSpawn+$index")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\digging_enemies.tsv'), $diggingRows)
+$beetlePath = Join-Path $Disassembly 'object_code\common\enemies\beetle.s'
+$beetleCounters = @(Read-AssemblyLiteralValues $beetlePath '@counter1Vals')
+if (($beetleCounters -join ',') -ne '15,30,30,60,60,60,90,90') {
+    throw 'object_code/common/enemies/beetle.s:beetle_chooseRandomAngleAndCounter1@counter1Vals changed.'
+}
+Write-GeneratedBytes((Join-Path $destination 'metadata\beetle_counters.bin'), ([byte[]]$beetleCounters))
 $itemDropMovementSource = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
 $itemDropState0 = [regex]::Match(
     $itemDropCodeSource,

@@ -48,7 +48,10 @@ internal sealed class RoomEntityFactory(
     Action<int> horizontalScreenShakeRequested,
     Func<Vector2, Vector2> worldToScreen,
     Func<long> animationTick,
-    RoomSession? rooms)
+    RoomSession? rooms,
+    Func<bool> maplePresent,
+    Action<int, int, Vector2> spawnDiggingEnemy,
+    Action<IRoomEntity?, int> registerEnemySlot)
 {
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
@@ -865,11 +868,13 @@ internal sealed class RoomEntityFactory(
                             room, source.Flags, reservations, placementContext,
                             out Vector2 position))
                         {
+                            enemySlots--;
                             continue;
                         }
                         IRoomEntity? entity = CreateOrderedEnemy(
                             randomHandler, source, room, position, instance,
                             killableEnemyIndex, placementContext);
+                        registerEnemySlot(entity, enemySlots - 1);
                         if (entity is not null)
                             yield return entity;
                     }
@@ -893,6 +898,7 @@ internal sealed class RoomEntityFactory(
                     IRoomEntity? fixedEntity = CreateOrderedEnemy(
                         fixedHandler, source, room, fixedPosition, 0,
                         fixedKillableEnemyIndex, placementContext);
+                    registerEnemySlot(fixedEntity, enemySlots - 1);
                     if (fixedEntity is not null)
                         yield return fixedEntity;
                     break;
@@ -900,7 +906,7 @@ internal sealed class RoomEntityFactory(
                 case EnemyObjectSlotPolicy.ParameterEnemy:
                     _ = resolution.RequireEnemyHandler(source);
                     if (enemySlots < 16)
-                        enemySlots++;
+                        registerEnemySlot(null, enemySlots++);
                     break;
 
                 case EnemyObjectSlotPolicy.ItemDrop:
@@ -924,8 +930,10 @@ internal sealed class RoomEntityFactory(
                             room,
                             inventory,
                             saveData);
-                        yield return new ItemDropProducerRoomEntity(
+                        var producerEntity = new ItemDropProducerRoomEntity(
                             producer, itemKillableEnemyIndex);
+                        registerEnemySlot(producerEntity, enemySlots - 1);
+                        yield return producerEntity;
                     }
                     break;
 
@@ -2048,7 +2056,7 @@ internal sealed class RoomEntityFactory(
                     Name = $"Rope_{source.Order}_{instance}",
                     ZIndex = 10
                 };
-                rope.Initialize(ropeRecord, room, position, random);
+                rope.Initialize(ropeRecord, room, position, random, soundRequested);
                 return new RopeRoomEntity(
                     rope, combatSource, soundRequested);
 
@@ -4253,8 +4261,23 @@ internal sealed class RoomEntityFactory(
         drop.Initialize(
             spawn.SubId, spawn.Position, room, itemDrops.GetVisual(spawn.SubId),
             spawn.Angle, spawn.DugUp, soundRequested, collectionSound,
-            itemDrops, random);
+            itemDrops, random, maplePresent, spawnDiggingEnemy);
         return drop;
+    }
+
+    internal IRoomEntity CreateDiggingEnemy(EnemyCombatSourceDescriptor source,
+        Vector2 position, OracleRoomData room, byte[] beetleCounters)
+    {
+        ImportedEnemyDefinition record = enemies.ImportedEnemy(source.Id, source.SubId);
+        if (source.Id == 0x10)
+        {
+            var rope = new RopeCharacter { Name = $"DugRope_{source.SubId:x2}", ZIndex = 10 };
+            rope.Initialize(record, room, position, random, soundRequested);
+            return new RopeRoomEntity(rope, source, soundRequested);
+        }
+        var beetle = new BeetleCharacter { Name = $"DugBeetle_{source.SubId:x2}", ZIndex = 10 };
+        beetle.Initialize(record, room, position, random, beetleCounters, soundRequested);
+        return new BeetleRoomEntity(beetle, source, soundRequested);
     }
 
     private static IRoomEntity CreateCutsceneNpc(CutsceneNpcSpawn spawn)

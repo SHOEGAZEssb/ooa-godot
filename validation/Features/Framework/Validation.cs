@@ -292,6 +292,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateStalfos);
         RunIsolatedValidation(ValidateZolsAndGels);
         RunIsolatedValidation(ValidateItemDrops);
+        RunIsolatedValidation(ValidateDiggingEnemies);
         RunIsolatedValidation(ValidateTimePortals);
         RunIsolatedValidation(ValidateEnterPastEvent);
         RunIsolatedValidation(ValidateCrescentIslandPastStairs);

@@ -5988,7 +5988,11 @@ public sealed partial class ValidationRoot
         int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
         _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
         var drop = new ItemDropEffect();
-        drop.Initialize(subId, position, _currentRoom, visual);
+        var rupeeRandom = new OracleRandom();
+        SetDiggingRoll(rupeeRandom, 0xe0);
+        drop.Initialize(subId, position, _currentRoom, visual,
+            random: rupeeRandom, spawnEnemy: (_, _, _) =>
+                throw new System.InvalidOperationException("Rupee validation selected an enemy."));
         for (int frame = 1; frame <= 36; frame++)
             drop.UpdateFrame(_player, frame);
         _player.WarpTo(position, recordSafe: false);

@@ -305,6 +305,7 @@ internal enum EnemyHandlerClassification
 
 internal enum EnemyHandlerKind
 {
+    Beetle,
     None,
     Octorok,
     BoomerangMoblin,

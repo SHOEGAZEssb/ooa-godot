@@ -35,7 +35,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   source-placed normal-water dive transitions, side-view Flippers swimming,
   common treasure transactions, and many ring effects.
 - A growing shared enemy and interaction roster with deterministic placement,
-  combat, drops, projectiles, and native object behavior.
+  combat, drops, projectiles, and native object behavior, including random
+  digging spawns with Rope/Beetle launch behavior and room restrictions.
 - Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
   end to end, including their principal rooms, puzzles, side-view passages,
   minibosses, bosses, rewards, and Essences.

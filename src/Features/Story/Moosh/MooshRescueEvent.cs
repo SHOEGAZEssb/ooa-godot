@@ -104,6 +104,9 @@ internal sealed class MooshRescueEvent :
         SpawnMoosh();
         _stage = MooshRescueStage.Running;
         _screenTransitionsDisabled = true;
+        // companionScript_subid00 leaves this room-local gate set until loading.
+        _context.Entities.RuntimeState.SetWramByte(
+            OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
         _lanes.StartLane(Ghini0, _database.Ghini0);
         _lanes.StartLane(Ghini1, _database.Ghini1);
         _lanes.StartLane(Ghini2, _database.Ghini2);

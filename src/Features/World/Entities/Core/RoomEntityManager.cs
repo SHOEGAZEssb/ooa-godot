@@ -11,6 +11,38 @@ namespace oracleofages;
 /// </summary>
 public sealed class RoomEntityManager : IDisposable
 {
+    private readonly DiggingEnemyDatabase _diggingEnemies = new();
+    private readonly Dictionary<IRoomEntity, int> _enemySlots = new();
+    private readonly HashSet<int> _reservedEnemySlots = new();
+    private readonly HashSet<IRoomEntity> _updatedEntitiesThisFrame = new();
+
+    private void RegisterEnemySlot(IRoomEntity? entity, int slot)
+    {
+        if (slot is < 0 or >= 16 || !_reservedEnemySlots.Add(slot))
+            throw new InvalidOperationException($"getFreeEnemySlot: duplicate or invalid enemy slot ${slot:x2}.");
+        if (entity is not null)
+            _enemySlots.Add(entity, slot);
+    }
+
+    private bool MaplePresent() => _activeEntities.Any(
+        entity => entity is MapleEncounterRoomEntity { Finished: false });
+
+    private void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
+    {
+        if (_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0)
+            return;
+        for (int slot = 0; slot < 16; slot++)
+        {
+            if (_reservedEnemySlots.Contains(slot))
+                continue;
+            IRoomEntity entity = _factory.CreateDiggingEnemy(
+                _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
+                _diggingEnemies.BeetleCounters);
+            RegisterEnemySlot(entity, slot);
+            AddEntity(entity);
+            return;
+        }
+    }
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
@@ -282,7 +314,8 @@ public sealed class RoomEntityManager : IDisposable
             () => TextActiveSource(),
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
-            position => WorldToScreen(position), _animationTick, rooms);
+            position => WorldToScreen(position), _animationTick, rooms,
+            MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -434,6 +467,7 @@ public sealed class RoomEntityManager : IDisposable
         _enemyFrameAccumulator += delta * 60.0;
         while (_enemyFrameAccumulator >= 1.0)
         {
+            _updatedEntitiesThisFrame.Clear();
             roomEntityFreezeActive = RoomEntityFreezeActive();
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
@@ -491,10 +525,24 @@ public sealed class RoomEntityManager : IDisposable
             ProcessSpawns(frame);
             frame = frame with { ScentSeedTarget = ActiveScentSeedTarget() };
 
-            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            // updateEnemies precedes updateParts, which precedes interactions.
+            // Build each phase's snapshot at its boundary: an enemy-created
+            // drop runs this update, a part-created enemy starts next update.
+            for (int phase = 0; phase < 3; phase++)
+            foreach (IRoomEntity entity in _activeEntities
+                .Where(entity => EntityPhase(entity) == phase)
+                .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
             {
+                if (_updatedEntitiesThisFrame.Contains(entity))
+                    continue;
                 if (entity is ISeedProjectileRoomEntity)
                     continue;
+                if (entity is IRoomEntityLifetime { Finished: true })
+                {
+                    if (phase == 0 && _enemySlots.Remove(entity, out int finishedSlot))
+                        _reservedEnemySlots.Remove(finishedSlot);
+                    continue;
+                }
                 if (textActive && !UpdatesDuringDialogue(entity))
                     continue;
                 if (roomEntityFreezeActive &&
@@ -510,8 +558,12 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     SynchronizeEnemyFrameCounter(entity, frame.Counter);
                     fixedEntity.UpdateFrame(frame, _pendingSpawns);
+                    _updatedEntitiesThisFrame.Add(entity);
                 }
                 ProcessSpawns(frame);
+                if (phase == 0 && entity is IRoomEntityLifetime { Finished: true } &&
+                    _enemySlots.Remove(entity, out int releasedSlot))
+                    _reservedEnemySlots.Remove(releasedSlot);
             }
             ProcessSpawns(frame);
             UpdateScreenShake();
@@ -1157,6 +1209,8 @@ public sealed class RoomEntityManager : IDisposable
     {
         ClearEntities(_outgoingEntities);
         ClearEntities(_activeEntities);
+        _enemySlots.Clear();
+        _reservedEnemySlots.Clear();
         _pendingSpawns.Clear();
         _pendingRoomWarp = null;
         _screenTransitionActive = false;
@@ -1175,6 +1229,8 @@ public sealed class RoomEntityManager : IDisposable
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        _enemySlots.Clear();
+        _reservedEnemySlots.Clear();
         // loadTilesetAndRoomLayout runs the common tile substitutions before
         // parseObjectData. Layout shutters $78-$7f can exist only in that
         // layout and therefore must be opened before placed entities are read.
@@ -1334,6 +1390,18 @@ public sealed class RoomEntityManager : IDisposable
 
     private IRoomEntity AddEntity(IRoomEntity entity)
     {
+        // Children created by enemy handlers also occupy the shared pool.
+        // Placed entities and itemDrop_spawnEnemy already registered their slot.
+        if (entity.Node is EnemyCharacter && entity is IRoomEnemyCounterEntity &&
+            !_enemySlots.ContainsKey(entity))
+        {
+            for (int slot = 0; slot < 16; slot++)
+            {
+                if (_reservedEnemySlots.Contains(slot)) continue;
+                RegisterEnemySlot(entity, slot);
+                break;
+            }
+        }
         if (entity is INpcTalkLifecycle lifecycle &&
             !_npcTalkLifecycles.TryAdd(lifecycle.TalkNpc, lifecycle))
         {
@@ -1382,13 +1450,18 @@ public sealed class RoomEntityManager : IDisposable
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
             IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
-            if (spawn.UpdateThisFrame && frame.HasValue && entity is IFixedRoomEntity fixedEntity)
+            if (spawn.UpdateThisFrame && entity is not ItemDropRoomEntity &&
+                frame.HasValue && entity is IFixedRoomEntity fixedEntity)
             {
                 SynchronizeEnemyFrameCounter(entity, frame.Value.Counter);
                 fixedEntity.UpdateFrame(frame.Value, _pendingSpawns);
+                _updatedEntitiesThisFrame.Add(entity);
             }
         }
     }
+
+    private int EntityPhase(IRoomEntity entity) =>
+        _enemySlots.ContainsKey(entity) ? 0 : entity is ItemDropRoomEntity ? 1 : 2;
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {
@@ -1591,6 +1664,8 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        if (_enemySlots.Remove(entity, out int enemySlot))
+            _reservedEnemySlots.Remove(enemySlot);
         if (entity is INpcTalkLifecycle lifecycle &&
             _npcTalkLifecycles.TryGetValue(
                 lifecycle.TalkNpc, out INpcTalkLifecycle? registered) &&

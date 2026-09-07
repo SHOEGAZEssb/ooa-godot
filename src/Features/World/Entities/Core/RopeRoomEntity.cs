@@ -21,9 +21,11 @@ internal sealed class RopeRoomEntity
                 rope.TakeBurnHit,
                 rope.ApplySwordKnockback,
                 soundRequested,
-                EnemySwordResponse.Knockback))
+                EnemySwordResponse.Knockback),
+            collisionZ: () => rope.ZFixed >> 8)
     { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget);
+        Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget,
+            OracleObjectMovement.Shared.RelativeAngle(Vector2.Zero, frame.Player.FacingVector) / 8);
 }

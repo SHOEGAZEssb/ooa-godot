@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 6, 2026. It is an implementation inventory, not a
+interactions as of September 7, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -70,6 +70,11 @@ classified records and 158 specialized rows.
 
 ### Important partial and deferred boundaries
 
+- September 7, 2026: Moosh's rescue retains its source room-local digging-enemy
+  restriction through departure. The three `0:6c` Ghini rows remain **I**;
+  snapshot totals remain **113 I / 56 P / 214 D**, with **22 event-owned** rows.
+  The non-character `0:83` collapse controller also supplies that restriction
+  and remains outside the NPC denominator.
 - September 6, 2026: Dimitri's forest controllers `$71:$08-$0c` now supply the
   entry trigger, rescue, flute reward and persistent departure flag. Shared
   fairy `$49:$03/$04` movement preserves arrival/circle/departure signals and
@@ -213,7 +218,7 @@ classified records and 158 specialized rows.
   input-locked post-fight A-button fear sequence, source-directed response
   facing, SND_CLINK exclamation, `wMooshState` bit `$20`, the first-meeting
   left-facing special-object force-mount, final `TX_2205`, and `$71:$02`
-  lower-Y restriction. The shared live-companion
+  lower-Y restriction and room-local digging-enemy prohibition. The shared live-companion
   owner retains one Moosh while mounted or dismounted, including destination
   preload during ordinary screen scrolling, exact companion-owned ride
   graphics and A/B input, SPEED_100 movement, hover/charge-flash/ITEM_28 stomp
@@ -304,7 +309,7 @@ well as record selection.
 | `0:58` | [I] `$41:$04/v$00` miscMan |
 | `0:5a` | [I] `$39:$02/v$00` monkey<br>[I] `$39:$03/v$00` monkey |
 | `0:5d` | [I] `$cb:$00/v$00` linkedGameGhini |
-| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
+| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh<br>rescue retains the room-local digging restriction |
 | `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
 | `0:67` | [D] `$41:$03/v$00` miscMan |
@@ -321,7 +326,7 @@ well as record selection.
 | `0:80` | [D] `$49:$06/v$00` forestFairy |
 | `0:81` | [D] `$49:$0d/v$00` forestFairy<br>Dimitri's separate `$71:$09` controller and dynamically spawned `$49:$03` rescue fairy are implemented; the positioned `$49:$0d` record remains deferred. |
 | `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[D] `$49:$0e/v$00` forestFairy<br>[D] `$49:$0f/v$00` forestFairy<br>[D] `$49:$10/v$00` forestFairy |
-| `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse |
+| `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse, including its digging restriction |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |

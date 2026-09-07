@@ -315,6 +315,8 @@ public sealed partial class ValidationRoot
                 _currentRoom.GetMetatile(rock) != 0xc3 ||
                 collapse.Stage != WingDungeonCollapseStage.AwaitingRockLift,
                 "Room 0:83 did not arm $dc:$02 over its source $c3 rock.");
+            FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) == 0,
+                "Room 0:83 $dc:$02 did not forbid digging enemies while awaiting the rock lift.");
 
             _player.WarpTo(rock + Vector2.Left * 10, recordSafe: false);
             _player.Face(Vector2I.Right);
