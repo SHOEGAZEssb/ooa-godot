@@ -502,6 +502,15 @@ Write-GeneratedTable(
     (Join-Path $destination 'menu\inventory_essence_cursors.tsv'),
     $essenceCursorRows)
 
+$inventoryOamRows = [Collections.Generic.List[string]]::new()
+$inventoryOamRows.Add(
+    '# layout`tpart`ty`tx`ttile`tattributes`tsource-label`talias-of`tsource')
+Add-MenuOamRows $inventoryOamRows 'maku-seed' `
+    'inventoryMenuDrawSprites' '@makuSeedSprite'
+Write-GeneratedTable(
+    (Join-Path $destination 'menu\inventory_oam.tsv'),
+    $inventoryOamRows)
+
 $fileOamRows = [Collections.Generic.List[string]]::new()
 $fileOamRows.Add(
     '# layout`tpart`ty`tx`ttile`tattributes`tsource-label`talias-of`tsource')

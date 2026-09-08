@@ -3235,13 +3235,14 @@ public sealed partial class ValidationRoot
             screen.ItemSubmenuHeight != 4,
             "Two-seed Satchel submenu reached input before source update 15.");
         menu.UpdateItemSubmenuForValidation(HarpFrame);
+        FailIf(!screen.ItemSubmenuReady,
+            "Two-seed Satchel submenu did not finish substate 1 on source update 15.");
+        screen.UpdateInventoryText(HarpFrame);
         FailIf(
-            !screen.ItemSubmenuReady ||
             screen.ActiveTextKey != _treasures
                 .GetButtonDisplay(TreasureDatabase.TreasureEmberSeeds, inventory)
                 .TextLow,
-            "Two-seed Satchel submenu was not ready with Ember text on " +
-            "source update 15.");
+            "Two-seed Satchel submenu did not select Ember text on the following substate-2 update.");
 
         int moveRequests =
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);

@@ -12,6 +12,7 @@ public sealed class InventoryState
     public const int ItemShield = 0x01;
     public const int ItemBomb = 0x03;
     public const int ItemSword = 0x05;
+    public const int ItemBiggoronSword = 0x0c;
     public const int ItemShooter = 0x0f;
     public const int ItemFlute = 0x0e;
     public const int ItemHarp = 0x11;
@@ -434,8 +435,9 @@ public sealed class InventoryState
 
     public bool EquipRingAt(int index)
     {
+        if (index < 0 || index >= RingBoxCapacity) return false;
         int ring = RingAt(index);
-        if (ring == 0xff)
+        if (ring == 0xff && ActiveRing == 0xff)
             return false;
         ActiveRing = ActiveRing == ring ? 0xff : ring;
         NotifyChanged();
@@ -469,10 +471,38 @@ public sealed class InventoryState
             return;
 
         int buttonSlot = isA ? 1 : 0;
+        // bank2.s:inventoryMenuState1@equipItem: the two-handed sword
+        // vacates the selected slot first, then stores B before A.
+        if (_inventoryStorage[storageIndex] == ItemBiggoronSword)
+        {
+            _inventoryStorage[storageIndex] = (byte)GetInventorySlot(buttonSlot);
+            SetInventorySlot(buttonSlot, ItemNone);
+            StoreInFirstBlankSlot(EquippedB);
+            StoreInFirstBlankSlot(EquippedA);
+            EquippedB = EquippedA = ItemBiggoronSword;
+            NotifyChanged();
+            return;
+        }
+        if (GetInventorySlot(buttonSlot) == ItemBiggoronSword)
+        {
+            EquippedB = EquippedA = ItemNone;
+            SetInventorySlot(buttonSlot, ItemBiggoronSword);
+        }
         int oldButtonItem = GetInventorySlot(buttonSlot);
         SetInventorySlot(buttonSlot, _inventoryStorage[storageIndex]);
         _inventoryStorage[storageIndex] = (byte)oldButtonItem;
         NotifyChanged();
+    }
+
+    private void StoreInFirstBlankSlot(int item)
+    {
+        if (item == ItemNone) return;
+        int slot = Array.IndexOf(_inventoryStorage, (byte)ItemNone);
+        if (slot < 0)
+            throw new InvalidOperationException(
+                "inventoryMenuState1@putItemInFirstBlankSlot: no storage for " +
+                $"item ${item:x2} while equipping ITEM_BIGGORON_SWORD $0c.");
+        _inventoryStorage[slot] = (byte)item;
     }
 
     public void GiveTreasure(TreasureObjectRecord treasureObject)
@@ -1152,7 +1182,20 @@ public sealed class InventoryState
 
         int empty = FindInventoryItem(ItemNone);
         if (empty >= 0)
+        {
             SetInventorySlot(empty, item);
+            // treasureAndDrops.s:addTreasureToInventory handles a newly
+            // awarded Biggoron sword in either button by moving the other
+            // button's old item to the first available slot.
+            if (item == ItemBiggoronSword && empty < 2)
+            {
+                int other = empty ^ 1;
+                int displaced = GetInventorySlot(other);
+                SetInventorySlot(other, item);
+                if (displaced != ItemNone)
+                    AddTreasureToInventory(displaced);
+            }
+        }
     }
 
     private int FindInventoryItem(int item)

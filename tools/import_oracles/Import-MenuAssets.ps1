@@ -139,6 +139,11 @@ foreach ($animationSheet in 1..3) {
 }
 Copy-GeneratedFile "gfx_compressible\common\map_hud_normal.bin" "hud\map_hud_normal.bin"
 Copy-GeneratedFile "gfx_compressible\common\flg_hud_normal.bin" "hud\flg_hud_normal.bin"
+foreach ($layout in @('extra_hearts', 'biggoron_sword')) {
+    Copy-GeneratedFile "gfx_compressible\common\map_hud_${layout}.bin" "hud\map_hud_${layout}.bin"
+    Copy-GeneratedFile "gfx_compressible\common\flg_hud_${layout}.bin" "hud\flg_hud_${layout}.bin"
+}
+Copy-GeneratedFile "gfx_compressible\common\spr_biggoron_sword_icon.png" "hud\spr_biggoron_sword_icon.png"
 
 # The map menu swaps in a complete 20x18 background tilemap. Preserve the
 # original VRAM-source pieces separately: the runtime composes them at their

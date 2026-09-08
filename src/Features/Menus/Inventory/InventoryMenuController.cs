@@ -27,6 +27,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private bool _saveSelectionDelay;
     private bool _gameOver;
     private int _saveDelayElapsed;
+    private int _repeatKeys;
+    private int _repeatCounter;
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
@@ -86,6 +88,14 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
         if (!_lifecycle.IsOpenFor(this))
         {
+            // menuStateFadeIntoMenu upgrades an ordinary inventory request
+            // to MENU_SAVEQUIT if both buttons become held during fade-out.
+            if (_lifecycle.CurrentPhase == Phase.OpeningFadeOut &&
+                _openMenu == OpenMenu.Inventory &&
+                Input.IsActionPressed("inventory") && Input.IsActionPressed("map"))
+            {
+                _openMenu = OpenMenu.SaveQuit;
+            }
             _lifecycle.Update(this, delta);
             return;
         }
@@ -146,13 +156,19 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (_screen.PageTransitionActive)
         {
+            bool pending = _screen.PageTransitionPending;
             _screen.UpdatePageTransition(delta);
+            if (pending && !_screen.PageTransitionPending)
+                _playSound(OracleSoundEngine.SndOpenMenu);
             return;
         }
         if (_screen.ItemSubmenuActive)
         {
+            bool wasReady = _screen.ItemSubmenuReady;
             _screen.UpdateItemSubmenu(delta);
-            if (!_screen.ItemSubmenuReady)
+            // State 2/substate 1 draws the completed panel and returns;
+            // substate 2 cannot consume input until the following update.
+            if (!wasReady)
                 return;
             _screen.UpdateInventoryText(delta);
             if (Input.IsActionJustPressed("inventory") ||
@@ -162,9 +178,10 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
                 ConfirmItemSubmenu();
                 return;
             }
-            if (Input.IsActionJustPressed("move_right"))
+            int submenuDirections = DirectionInputWithAutofire();
+            if ((submenuDirections & 1) != 0)
                 MoveItemSubmenu(1);
-            else if (Input.IsActionJustPressed("move_left"))
+            else if ((submenuDirections & 2) != 0)
                 MoveItemSubmenu(-1);
             return;
         }
@@ -179,20 +196,32 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             BeginNextSubscreen();
             return;
         }
-        if (Input.IsActionJustPressed("attack"))
+        if (_screen.Subscreen == InventorySubscreen.Items)
+        {
+            // inventoryMenuState1@subscreen0 tests B before A.
+            if (Input.IsActionJustPressed("item"))
+            {
+                EquipToB();
+                return;
+            }
+            if (Input.IsActionJustPressed("attack"))
+            {
+                EquipToA();
+                return;
+            }
+        }
+        else if (Input.IsActionJustPressed("attack"))
         {
             if (_screen.SaveAndQuitSelected)
+            {
                 OpenSaveMenuFromInventory();
-            else if (_screen.Subscreen == InventorySubscreen.SecondaryItems)
+                return;
+            }
+            if (_screen.Subscreen == InventorySubscreen.SecondaryItems)
+            {
                 EquipSelectedRing();
-            else
-                EquipToA();
-            return;
-        }
-        if (Input.IsActionJustPressed("item"))
-        {
-            EquipToB();
-            return;
+                return;
+            }
         }
         HandleDirectionInput();
     }
@@ -286,13 +315,12 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     private bool BeginNextSubscreen()
     {
-        if (_screen.PageTransitionActive)
+        if (_screen.PageTransitionActive || _screen.ItemSubmenuActive)
             return false;
 
-        // inventoryMenuState3 starts SND_OPENMENU ($54) on the update that
-        // advances wInventorySubmenu and begins the horizontal page scroll.
+        // The Select edge selects state 3. Its next dispatch starts the
+        // scroll and requests SND_OPENMENU ($54).
         _screen.BeginNextSubscreen();
-        _playSound(OracleSoundEngine.SndOpenMenu);
         return true;
     }
 
@@ -302,6 +330,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             throw new InvalidOperationException(
                 "MENU_INVENTORY attempted to open MENU_SAVEQUIT outside its active state.");
         _screen.Close();
+        _playSound(OracleSoundEngine.SndSelectItem);
         _gameOver = false;
         _saveScreen.Open();
         _openMenu = OpenMenu.SaveQuit;
@@ -368,14 +397,40 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     private void HandleDirectionInput()
     {
-        if (Input.IsActionJustPressed("move_right"))
+        int directions = DirectionInputWithAutofire();
+        if ((directions & 1) != 0)
             MoveCursor(Vector2I.Right);
-        else if (Input.IsActionJustPressed("move_left"))
+        else if ((directions & 2) != 0)
             MoveCursor(Vector2I.Left);
-        else if (Input.IsActionJustPressed("move_up"))
+        else if ((directions & 4) != 0)
             MoveCursor(Vector2I.Up);
-        else if (Input.IsActionJustPressed("move_down"))
+        else if ((directions & 8) != 0)
             MoveCursor(Vector2I.Down);
+    }
+
+    private int DirectionInputWithAutofire()
+    {
+        int held = 0, pressed = 0;
+        ReadDirection("move_right", 1);
+        ReadDirection("move_left", 2);
+        ReadDirection("move_up", 4);
+        ReadDirection("move_down", 8);
+        // bank0.s:getInputWithAutofire advances only when called by a
+        // direction handler, retaining the count across non-direction states.
+        if ((_repeatKeys & held) == 0) _repeatCounter = 0;
+        else if (++_repeatCounter >= 0x28)
+        {
+            _repeatCounter = (_repeatCounter & 0x1f) | 0x80;
+            if ((_repeatCounter & 3) == 0) pressed = held;
+        }
+        _repeatKeys = held;
+        return pressed;
+
+        void ReadDirection(string action, int bit)
+        {
+            if (Input.IsActionPressed(action)) held |= bit;
+            if (Input.IsActionJustPressed(action)) pressed |= bit;
+        }
     }
 
     private bool MoveCursor(Vector2I direction)
@@ -426,7 +481,13 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private void BeginClosing() => _lifecycle.BeginClosing(this);
+    private void BeginClosing()
+    {
+        // bank2.s:closeMenu suppresses SND_CLOSEMENU only for MENU_SAVEQUIT.
+        if (_openMenu == OpenMenu.Inventory)
+            _playSound(OracleSoundEngine.SndCloseMenu);
+        _lifecycle.BeginClosing(this);
+    }
 
     private void ResetSaveDelay()
     {

@@ -26,6 +26,7 @@ public partial class Hud : Node2D
     private Color _hiddenStatusBarFade = new(0, 0, 0, 0);
 
     public int Rupees { get; set; }
+    internal Texture2D Background => _background;
     public int HealthQuarters { get; set; } = 12;
     public int MaxHealthQuarters { get; set; } = 12;
     public int EquippedB { get; set; }
@@ -71,6 +72,12 @@ public partial class Hud : Node2D
         if (_treasures == null || _inventory == null)
             return;
 
+        if (EquippedB == InventoryState.ItemBiggoronSword)
+        {
+            StatusBarLayout.DrawBiggoronSword(this);
+            return;
+        }
+
         // wInventoryB is the left button slot in original RAM; wInventoryA is
         // the right slot. Item sprites are drawn over the tilemap status bar.
         DisplayRecord equippedB =
@@ -82,11 +89,13 @@ public partial class Hud : Node2D
             new Vector2(EquippedB == InventoryState.ItemHarp ? 16 : 8, 0));
         DrawItemIcon(
             equippedA,
-            new Vector2(EquippedA == InventoryState.ItemHarp ? 56 : 48, 0));
+            new Vector2((EquippedA == InventoryState.ItemHarp ? 56 : 48) +
+                8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 0));
         // drawTreasureExtraTiles writes attribute $80. Nonzero BG pixels
         // therefore have priority over the overlapping equipped-item OAM.
         DrawItemExtra(equippedB, new Vector2(16, 8));
-        DrawItemExtra(equippedA, new Vector2(56, 8));
+        DrawItemExtra(equippedA, new Vector2(56 +
+            8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 8));
     }
 
     public void Refresh()
@@ -136,7 +145,7 @@ public partial class Hud : Node2D
         Image partialHearts = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/gfx_partial_hearts.png");
         byte[] map = BuildStatusMap();
-        byte[] flags = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/hud/flg_hud_normal.bin");
+        byte[] flags = StatusBarLayout.ReadMap(MaxHealthQuarters, EquippedB, true);
         if (flags.Length != 64)
             throw new InvalidOperationException("Normal HUD maps must contain 64 bytes.");
 
@@ -150,7 +159,8 @@ public partial class Hud : Node2D
                 _hudTiles,
                 partialHearts,
                 HealthQuarters % 4,
-                DungeonKeyDisplayActive && mapOffset == 0x0a ? _keyTile : null,
+                DungeonKeyDisplayActive && mapOffset == 0x0a +
+                    StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters) ? _keyTile : null,
                 map[mapOffset],
                 flags[mapOffset],
                 column * 8,
@@ -161,12 +171,12 @@ public partial class Hud : Node2D
 
     private byte[] BuildStatusMap()
     {
-        byte[] map = Godot.FileAccess.GetFileAsBytes(
-            "res://assets/oracle/hud/map_hud_normal.bin");
+        byte[] map = StatusBarLayout.ReadMap(MaxHealthQuarters, EquippedB);
         if (map.Length != 64)
             throw new InvalidOperationException("Normal HUD map must contain 64 bytes.");
 
-        map[0x0a] = 0x04;
+        int offset = StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters);
+        map[0x0a + offset] = 0x04;
         // updateStatusBar_body writes the displayed rupee digits at $2a-$2c
         // independently of the dungeon-only key field at $0a-$0c.
         WriteRupeeDigits(map);
@@ -174,8 +184,8 @@ public partial class Hud : Node2D
         {
             // A real dungeon dynamically replaces HUD tile $04 with gfx_key,
             // then writes the X and current-dungeon key digit alongside it.
-            map[0x0b] = 0x1b;
-            map[0x0c] = (byte)(0x10 + Mathf.Clamp(
+            map[0x0b + offset] = 0x1b;
+            map[0x0c + offset] = (byte)(0x10 + Mathf.Clamp(
                 _inventory?.GetDungeonSmallKeys(DungeonIndex) ?? 0, 0, 9));
         }
         WriteHearts(map);
@@ -185,26 +195,15 @@ public partial class Hud : Node2D
     private void WriteRupeeDigits(byte[] map)
     {
         int value = Mathf.Clamp(Rupees, 0, 999);
-        map[0x2a] = (byte)(0x10 + value / 100);
-        map[0x2b] = (byte)(0x10 + value / 10 % 10);
-        map[0x2c] = (byte)(0x10 + value % 10);
+        int offset = StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters);
+        map[0x2a + offset] = (byte)(0x10 + value / 100);
+        map[0x2b + offset] = (byte)(0x10 + value / 10 % 10);
+        map[0x2c + offset] = (byte)(0x10 + value % 10);
     }
 
     private void WriteHearts(byte[] map)
     {
-        int containers = Mathf.Clamp((MaxHealthQuarters + 3) / 4, 0, 7);
-        int fullHearts = Mathf.Clamp(HealthQuarters / 4, 0, containers);
-        int partialQuarters = Mathf.Clamp(HealthQuarters % 4, 0, 3);
-        int position = 0x0d;
-
-        for (int heart = 0; heart < containers; heart++)
-        {
-            map[position + heart] = heart < fullHearts ? (byte)0x0a
-                : heart == fullHearts && partialQuarters > 0 ? (byte)0x0b
-                : (byte)0x09;
-        }
-        for (int heart = containers; heart < 7; heart++)
-            map[position + heart] = 0x00;
+        StatusBarLayout.WriteHearts(map, MaxHealthQuarters, HealthQuarters);
     }
 
     private static void DrawHudTile(

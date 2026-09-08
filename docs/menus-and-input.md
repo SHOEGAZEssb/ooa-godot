@@ -60,6 +60,15 @@ cursor transitions, state changes, modal phases, and update timing. Apply Game
 Boy OAM offsets, signed byte wrap, and hardware coordinate biases at the
 rendering boundary instead of baking corrected coordinates into imported data.
 
+Inventory retains the gameplay HUD's displayed health, rupees, and dungeon
+context through the existing status-bar owner. Its middle tilemap scrolls
+between subscreens while the HUD and text bar stay fixed. The shared HUD layout
+rules include two heart rows, the compressed layout above fourteen hearts, and
+the two-button Biggoron sword display. Inventory cursor positions survive
+closing; initialization resets only the source-defined essence/right-column
+fields. Direction repeat advances on calls to the original direction handler,
+and submenu initialization cannot consume the following input state early.
+
 ## Input contract
 
 - The active modal exclusively consumes its controls; gameplay underneath does

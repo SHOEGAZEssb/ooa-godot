@@ -367,7 +367,7 @@ public partial class GameRoot : Node2D
         _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound);
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
-            () => _rooms.ActiveGroup is 1 or 3);
+            () => (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0, _hud);
         _ringMenuScreen.Initialize(_inventory);
         _debugFlagScreen.Initialize(
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
@@ -520,7 +520,14 @@ public partial class GameRoot : Node2D
         if (_mainMenu is not null)
             return;
         if (_inventoryMenu.IsActive)
+        {
+            if (_inventoryScreen.Visible)
+            {
+                _statusBar.Update(delta);
+                _inventoryScreen.QueueRedraw();
+            }
             return;
+        }
         _mapMenu.Update(delta);
         if (_mapMenu.IsActive)
             return;

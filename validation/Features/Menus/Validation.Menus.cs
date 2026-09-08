@@ -1761,9 +1761,12 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 1 ||
             _inventory.EquippedA != InventoryState.ItemNone ||
             _inventory.StorageItemAt(0) != InventoryState.ItemSword ||
-            _inventoryScreen.ActiveTextKey != 0x23 ||
-            _inventoryScreen.VisibleTextForValidation != "  Wooden Sword  ",
-            "Pressing A on empty storage slot 0 did not unequip the sword or center TX_0923.");
+            _inventoryScreen.ActiveTextKey != 0 ||
+            _inventoryScreen.VisibleTextForValidation != new string(' ', 16),
+            "@finalizeEquip did not unequip the sword and clear text through func_02_55b2.");
+        _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
+        FailIf(_inventoryScreen.VisibleTextForValidation != "  Wooden Sword  ",
+            "The following inventory update did not center TX_0923.");
         for (int update = 0; update < 40; update++)
             _inventoryScreen.UpdateInventoryText(1.0 / 60.0);
         FailIf(
@@ -1829,14 +1832,16 @@ public sealed partial class ValidationRoot
         int tabSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
         FailIf(
             !_inventoryMenu.BeginNextSubscreenForValidation() ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
-            "The first inventory tab switch did not request SND_OPENMENU $54.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests,
+            "The Select edge must defer SND_OPENMENU $54 to state 3's first dispatch.");
+        _inventoryMenu.Update(1.0 / 60.0);
+        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
+            "inventoryMenuState3 did not request SND_OPENMENU $54 on its first dispatch.");
         FailIf(
             _inventoryMenu.BeginNextSubscreenForValidation() ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
             "An in-progress inventory tab scroll replayed SND_OPENMENU $54.");
-        for (int frame = 0; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
+        for (int frame = 1; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
             _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
         FailIf(
             !_inventoryScreen.PageTransitionActive ||
@@ -1871,10 +1876,10 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_inventoryMenu.BeginNextSubscreenForValidation() ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 2,
-            "The second inventory tab switch did not request SND_OPENMENU $54.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
+            "The second Select edge must defer SND_OPENMENU $54.");
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
-            _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
+            _inventoryMenu.Update(1.0 / 60.0);
         FailIf(
             _inventoryScreen.Subscreen != InventorySubscreen.EssencesAndSave ||
             _inventory.Essences != 0 || _inventoryScreen.ActiveTextKey != 0 ||

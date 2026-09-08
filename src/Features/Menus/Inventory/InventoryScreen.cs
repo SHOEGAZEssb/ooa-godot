@@ -57,6 +57,7 @@ public partial class InventoryScreen : Node2D
     private TreasureDatabase _treasures = null!;
     private MenuPresentationDatabase _layouts = null!;
     private InventoryState _inventory = null!;
+    private Hud? _statusBar;
     private Func<bool> _isPast = null!;
     private int _itemCursor;
     private int _secondaryCursor;
@@ -65,7 +66,8 @@ public partial class InventoryScreen : Node2D
     private bool _rightSide;
     private InventorySubscreen _subscreen;
     private InventorySubscreen _nextSubscreen;
-    private float _pageScrollFrame;
+    private int _pageScrollFrame;
+    private readonly FixedUpdateAccumulator _pageScrollUpdates = new();
     private readonly FixedUpdateAccumulator _inventoryTextUpdates = new();
     private readonly FixedUpdateAccumulator _itemSubmenuUpdates = new();
     private readonly int[] _inventoryTextWindow = new int[InventoryTextColumns];
@@ -94,7 +96,8 @@ public partial class InventoryScreen : Node2D
         _ => _rightSide ? 0x80 | _rightCursor : _essenceCursor
     };
     public InventorySubscreen Subscreen => _subscreen;
-    public bool PageTransitionActive => _pageScrollFrame > 0.0f;
+    public bool PageTransitionActive => _pageScrollFrame != 0;
+    internal bool PageTransitionPending => _pageScrollFrame < 0;
     public bool ItemSubmenuActive => _itemSubmenuActive;
     public bool ItemSubmenuReady => _itemSubmenuReady;
     internal int ItemSubmenuIndex => _itemSubmenuIndex;
@@ -287,13 +290,15 @@ public partial class InventoryScreen : Node2D
         };
     }
 
-    public void Initialize(TreasureDatabase treasures, InventoryState inventory, Func<bool>? isPast = null)
+    public void Initialize(TreasureDatabase treasures, InventoryState inventory, Func<bool>? isPast = null,
+        Hud? statusBar = null)
     {
         if (_inventory is not null)
             _inventory.Changed -= OnInventoryChanged;
         _treasures = treasures;
         _layouts = MenuPresentationDatabase.Shared;
         _inventory = inventory;
+        _statusBar = statusBar;
         _isPast = isPast ?? (() => false);
         _inventory.Changed += OnInventoryChanged;
     }
@@ -306,13 +311,13 @@ public partial class InventoryScreen : Node2D
 
     public void Open()
     {
-        _itemCursor = 0;
-        _secondaryCursor = 0;
-        _essenceCursor = 0;
+        // inventoryMenuState0 preserves $cbd0/$cbd1 and the right-side
+        // bit (and low essence bits) of $cbd2 across menu openings.
+        if (!_rightSide)
+            _essenceCursor = 0;
         _rightCursor = 0;
-        _rightSide = false;
         _subscreen = InventorySubscreen.Items;
-        _pageScrollFrame = 0.0f;
+        _pageScrollFrame = 0;
         ResetItemSubmenu();
         _inventoryTextKey = -1;
         SetInventoryText(0);
@@ -324,7 +329,7 @@ public partial class InventoryScreen : Node2D
     public void Close()
     {
         Visible = false;
-        _pageScrollFrame = 0.0f;
+        _pageScrollFrame = 0;
         ResetItemSubmenu();
     }
 
@@ -333,8 +338,8 @@ public partial class InventoryScreen : Node2D
         if (PageTransitionActive || ItemSubmenuActive)
             return;
         _nextSubscreen = (InventorySubscreen)(((int)_subscreen + 1) % 3);
-        _pageScrollFrame = float.Epsilon;
-        SetInventoryText(0);
+        _pageScrollFrame = -1;
+        _pageScrollUpdates.Reset();
         QueueRedraw();
     }
 
@@ -342,11 +347,14 @@ public partial class InventoryScreen : Node2D
     {
         if (!PageTransitionActive)
             return;
-        _pageScrollFrame += (float)(delta * 60.0);
+        int updates = _pageScrollUpdates.Consume(delta);
+        if (updates == 0) return;
+        if (PageTransitionPending) SetInventoryText(0);
+        _pageScrollFrame = Math.Max(0, _pageScrollFrame) + updates;
         if (_pageScrollFrame >= PageScrollUpdates)
         {
             _subscreen = _nextSubscreen;
-            _pageScrollFrame = 0.0f;
+            _pageScrollFrame = 0;
         }
         QueueRedraw();
     }
@@ -390,7 +398,7 @@ public partial class InventoryScreen : Node2D
         if (TryBeginItemSubmenu(isA: true))
             return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: true);
-        RefreshSelectedText();
+        SetInventoryText(0);
         QueueRedraw();
         return true;
     }
@@ -402,7 +410,7 @@ public partial class InventoryScreen : Node2D
         if (TryBeginItemSubmenu(isA: false))
             return false;
         _inventory.SwapStorageSlotWithButton(_itemCursor, isA: false);
-        RefreshSelectedText();
+        SetInventoryText(0);
         QueueRedraw();
         return true;
     }
@@ -424,10 +432,12 @@ public partial class InventoryScreen : Node2D
         if (PageTransitionActive)
         {
             float pixels = Math.Min(OracleRoomData.ViewportWidth,
-                MathF.Ceiling(_pageScrollFrame) * PageScrollPixelsPerUpdate);
+                Math.Max(0, _pageScrollFrame) * PageScrollPixelsPerUpdate);
             DrawSubscreen(_subscreen, new Vector2(-pixels, 0), drawCursor: false);
-            DrawSubscreen(_nextSubscreen,
-                new Vector2(OracleRoomData.ViewportWidth - pixels, 0), drawCursor: false);
+            if (!PageTransitionPending)
+                DrawSubscreen(_nextSubscreen,
+                    new Vector2(Math.Max(0, 152 - pixels), 0), drawCursor: false);
+            DrawFixedStatusAndText();
             return;
         }
         DrawSubscreen(
@@ -436,23 +446,44 @@ public partial class InventoryScreen : Node2D
             drawCursor: !ItemSubmenuActive);
         if (ItemSubmenuActive)
             DrawItemSubmenu();
+        DrawFixedStatusAndText();
+    }
+
+    private void DrawFixedStatusAndText()
+    {
+        // Gfx register state $03 switches at scanline $0f and $75. The
+        // HUD and text bar retain their fixed screen coordinates while only
+        // the middle tilemap scrolls through wGfxRegs2.SCX/WINX.
+        if (_statusBar is not null)
+            DrawTexture(_statusBar.Background, Vector2.Zero);
+        else
+            DrawTextureRectRegion(_backgrounds[(int)_subscreen], new Rect2(0, 0, 160, 16),
+                new Rect2(0, 0, 160, 16));
+        DrawTextureRectRegion(_backgrounds[(int)_subscreen], new Rect2(0, 118, 160, 26),
+            new Rect2(0, 118, 160, 26));
+        DrawInventoryText(Vector2.Zero);
+        if (_inventory.EquippedB == InventoryState.ItemBiggoronSword)
+            StatusBarLayout.DrawBiggoronSword(this);
+        else
+        {
+            DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedB, _inventory),
+                new Vector2(
+                    _inventory.EquippedB == InventoryState.ItemHarp ? 16 : 8,
+                    0),
+                spritePalette: true);
+            DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedA, _inventory),
+                new Vector2(
+                    (_inventory.EquippedA == InventoryState.ItemHarp ? 56 : 48) +
+                        8 * StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters),
+                    0),
+                spritePalette: true);
+        }
     }
 
     private void DrawSubscreen(InventorySubscreen page, Vector2 drawOffset, bool drawCursor)
     {
-        DrawTexture(_backgrounds[(int)page], drawOffset);
-        DrawInventoryText(drawOffset);
-        DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedB, _inventory),
-            new Vector2(
-                _inventory.EquippedB == InventoryState.ItemHarp ? 16 : 8,
-                0) + drawOffset,
-            spritePalette: true);
-        DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedA, _inventory),
-            new Vector2(
-                _inventory.EquippedA == InventoryState.ItemHarp ? 56 : 48,
-                0) + drawOffset,
-            spritePalette: true);
-
+        DrawTextureRectRegion(_backgrounds[(int)page], new Rect2(drawOffset + new Vector2(0, 16),
+            new Vector2(160, 102)), new Rect2(0, 16, 160, 102));
         switch (page)
         {
             case InventorySubscreen.Items:
@@ -472,7 +503,19 @@ public partial class InventoryScreen : Node2D
                 break;
             case InventorySubscreen.SecondaryItems:
                 DrawPassiveTreasures(drawOffset);
-                DrawRings(drawOffset);
+                DrawRings(drawOffset, drawCursor);
+                if (_inventory.HasTreasure(0x36))
+                {
+                    // Earlier OAM entries win over later ones; the first
+                    // two cells are the Maku Seed's foreground mask.
+                    for (int index = _layouts.InventoryMakuSeed.Count - 1; index >= 0; index--)
+                    {
+                        MenuOamPart part = _layouts.InventoryMakuSeed[index];
+                        DrawRawOamTile((part.Attributes >> 3) & 1, part.Tile, part.Attributes & 7,
+                            new Vector2(0x68 + part.X - 8, 0x20 + part.Y - 16) + drawOffset,
+                            (part.Attributes & 0x20) != 0);
+                    }
+                }
                 if (drawCursor)
                     DrawSecondaryCursor();
                 break;
@@ -568,7 +611,6 @@ public partial class InventoryScreen : Node2D
             else
             {
                 _itemSubmenuReady = true;
-                RefreshSelectedText();
                 break;
             }
         }
@@ -614,7 +656,7 @@ public partial class InventoryScreen : Node2D
         _inventory.SwapStorageSlotWithButton(
             _itemCursor, _itemSubmenuEquipToA);
         ResetItemSubmenu();
-        RefreshSelectedText();
+        SetInventoryText(0);
         QueueRedraw();
         return true;
     }
@@ -667,7 +709,6 @@ public partial class InventoryScreen : Node2D
         _itemSubmenuHeight = 1;
         _itemSubmenuOpenUpdate = 0;
         _itemSubmenuUpdates.Reset();
-        SetInventoryText(0);
         QueueRedraw();
         return true;
     }
@@ -963,7 +1004,7 @@ public partial class InventoryScreen : Node2D
         _ => (char)glyph
     };
 
-    private void DrawRings(Vector2 drawOffset)
+    private void DrawRings(Vector2 drawOffset, bool drawEquippedMarker)
     {
         if (_inventory.RingBoxCapacity == 0)
             return;
@@ -974,7 +1015,7 @@ public partial class InventoryScreen : Node2D
             if (ring == 0xff)
                 continue;
             DrawRingGraphic(ring, Slot(0x184 + index * 3) + drawOffset);
-            if (ring == _inventory.ActiveRing)
+            if (drawEquippedMarker && ring == _inventory.ActiveRing)
                 DrawRawOamTile(0, 0xec, 4, new Vector2(38 + index * 24, 94) + drawOffset);
         }
     }
@@ -1043,7 +1084,10 @@ public partial class InventoryScreen : Node2D
         }
         int next = _secondaryCursor + direction.Y * 5;
         if (next < 0)
-            next += 15;
+        {
+            int ringSlot = 16 + _secondaryCursor;
+            next = ringSlot < total ? ringSlot : _secondaryCursor + 10;
+        }
         else if (next >= 15)
         {
             if (capacity == 0)
@@ -1107,8 +1151,8 @@ public partial class InventoryScreen : Node2D
     {
         byte[] map = new byte[TilemapStride * ScreenRows];
         byte[] flags = new byte[TilemapStride * ScreenRows];
-        Overlay(map, ReadBytes("res://assets/oracle/hud/map_hud_normal.bin", 64), 0x000);
-        Overlay(flags, ReadBytes("res://assets/oracle/hud/flg_hud_normal.bin", 64), 0x000);
+        Overlay(map, StatusBarLayout.ReadMap(_inventory.MaxHealthQuarters, _inventory.EquippedB), 0x000);
+        Overlay(flags, StatusBarLayout.ReadMap(_inventory.MaxHealthQuarters, _inventory.EquippedB, true), 0x000);
         switch (page)
         {
             case 0:
@@ -1125,6 +1169,10 @@ public partial class InventoryScreen : Node2D
             case 2:
                 Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_3.bin", 416), 0x040);
                 Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_3.bin", 416), 0x040);
+                // inventorySubscreen2_drawTreasures writes the numerator
+                // alongside the heart-piece graphic at w4TileMap+$14f.
+                if (_inventory.HeartPieces != 0)
+                    map[0x14f] = (byte)(0x10 + _inventory.HeartPieces);
                 for (int essence = 0;
                     essence < _layouts.EssenceTiles.Count;
                     essence++)
@@ -1142,7 +1190,7 @@ public partial class InventoryScreen : Node2D
         }
         Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_textbar.bin", 96), 0x1e0);
         Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_textbar.bin", 96), 0x1e0);
-        map[0x0a] = 0x04;
+        map[0x0a + StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters)] = 0x04;
         WriteRupeeDigits(map);
         WriteHearts(map);
 
@@ -1176,21 +1224,15 @@ public partial class InventoryScreen : Node2D
     private void WriteRupeeDigits(byte[] map)
     {
         int value = Math.Clamp(_inventory.Rupees, 0, 999);
-        map[0x2a] = (byte)(0x10 + value / 100);
-        map[0x2b] = (byte)(0x10 + value / 10 % 10);
-        map[0x2c] = (byte)(0x10 + value % 10);
+        int offset = StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters);
+        map[0x2a + offset] = (byte)(0x10 + value / 100);
+        map[0x2b + offset] = (byte)(0x10 + value / 10 % 10);
+        map[0x2c + offset] = (byte)(0x10 + value % 10);
     }
 
     private void WriteHearts(byte[] map)
     {
-        int containers = Math.Clamp((_inventory.MaxHealthQuarters + 3) / 4, 0, 7);
-        int fullHearts = Math.Clamp(_inventory.HealthQuarters / 4, 0, containers);
-        int partial = Math.Clamp(_inventory.HealthQuarters % 4, 0, 3);
-        for (int heart = 0; heart < containers; heart++)
-            map[0x0d + heart] = heart < fullHearts ? (byte)0x0a
-                : heart == fullHearts && partial > 0 ? (byte)0x0b : (byte)0x09;
-        for (int heart = containers; heart < 7; heart++)
-            map[0x0d + heart] = 0;
+        StatusBarLayout.WriteHearts(map, _inventory.MaxHealthQuarters, _inventory.HealthQuarters);
     }
 
     private void DrawHudTileToImage(Image output, byte tile, byte flags, int x, int y)
@@ -1436,7 +1478,12 @@ public partial class InventoryScreen : Node2D
         }
     }
 
-    private void OnInventoryChanged() => QueueRedraw();
+    private void OnInventoryChanged()
+    {
+        if (Visible && _backgrounds is not null)
+            _backgrounds = new[] { BuildBackgroundTexture(0), BuildBackgroundTexture(1), BuildBackgroundTexture(2) };
+        QueueRedraw();
+    }
 
     private void DrawRawOamTile(int bank, int tile, int palette, Vector2 position, bool flipX = false)
     {

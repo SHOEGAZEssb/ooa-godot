@@ -149,7 +149,9 @@ public sealed class TreasureDatabase
                 table, out IReadOnlyList<DisplayRecord> records) ||
             index < 0 || index >= records.Count)
         {
-            return DisplayRecord.Empty;
+            throw new InvalidOperationException(
+                $"treasureAndDrops.s:loadTreasureDisplayData selected unsupported " +
+                $"{table} row ${index:x2}.");
         }
         return records[index];
     }

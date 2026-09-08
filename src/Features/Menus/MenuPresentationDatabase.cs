@@ -16,6 +16,10 @@ internal sealed class MenuPresentationDatabase
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _ringOam =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _inventoryOam =
+        new(StringComparer.Ordinal);
+
+    internal IReadOnlyList<MenuOamPart> InventoryMakuSeed => _inventoryOam["maku-seed"];
 
     public static MenuPresentationDatabase Shared => LazyShared.Value;
 
@@ -73,6 +77,9 @@ internal sealed class MenuPresentationDatabase
                 ["list-box-marker"] = 1
             });
         RingBoxOffsets = LoadRingBoxOffsets();
+        LoadOamLayouts(
+            "res://assets/oracle/menu/inventory_oam.tsv", "inventory OAM", _inventoryOam,
+            new Dictionary<string, int>(StringComparer.Ordinal) { ["maku-seed"] = 4 });
     }
 
     public IReadOnlyList<MenuOamPart> FileOam(string layout) =>
