@@ -21,22 +21,43 @@ or cache histories to production classes.
 
 ## Run validations
 
-Build first, then pass project arguments after `--`:
+Build first, then run the complete suite with the standard eight workers:
 
 ```powershell
 dotnet build
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1
 ```
 
 Run one exact registered method while developing:
 
 ```powershell
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
 ```
 
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
+
+Eight workers is the launcher default. Override it with `-Workers` (1–64).
+For a serial run when debugging:
+
+```powershell
+& $godot --headless --path . --quit-after 10 -- --validate
+```
+
+The launcher uses separate headless Godot processes; each keeps scene-tree,
+input, RNG, and static cache access on its own main thread. The runner partitions
+the ordered scenario registrations round-robin with `--validate-shard=INDEX/COUNT`
+(one-based). Sharding cannot be combined with `--validate-only`. No separate
+scenario list needs maintenance. Save regressions use unique temporary paths,
+and each worker has separate engine and console logs in the printed temporary
+directory. Build once before launching; do not rebuild or import during a run.
+
+`-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
+(default 600 seconds). The launcher fails on a worker error, timeout, missing
+completion marker, or incomplete scenario count, and stops remaining processes
+on exit. A successful parallel run covers the complete suite and satisfies the
+full-suite handoff check. The serial command remains available for debugging.
 
 Importer/parser/schema changes also require:
 
@@ -48,7 +69,7 @@ Handoff checks:
 
 ```powershell
 dotnet build
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1
 git diff --check
 git status --short
 ```

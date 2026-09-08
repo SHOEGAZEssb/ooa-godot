@@ -38,8 +38,9 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 5. Implement the smallest general rule supported by the source. Do not add a
    room exception unless the original has one.
 6. Add or extend a focused headless regression.
-7. Build, run the full suite, and update only documentation whose durable
-   contract or high-level coverage changed.
+7. Build, run the full suite through `tools/validate_parallel.ps1` with eight
+   workers, and update only documentation whose durable contract or high-level
+   coverage changed.
 
 Use `rg` or `rg --files` for searches and `apply_patch` for edits.
 
@@ -104,8 +105,7 @@ owner.
 & .\tools\verify_oracle_import.ps1
 dotnet build
 
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1
 
 git diff --check
 git status --short
@@ -114,14 +114,24 @@ git status --short
 Run the importer only when import code or generated inputs changed.
 `verify_oracle_import.ps1` is required for parser, stage-boundary, schema, or
 determinism changes. The build must have zero warnings and errors.
+Agents must always run the full suite through `tools/validate_parallel.ps1`
+using its eight-worker default unless the user explicitly requests a different
+worker count. Build once before launching workers. A serial full-suite run does
+not replace the required parallel run; use serial runs only for additional
+debugging.
 
 For a focused validation during development:
 
 ```powershell
+$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
 ```
 
-Run the complete suite before handoff.
+Before every handoff involving repository changes, run
+`& .\tools\validate_parallel.ps1` and require success from all workers and the
+complete registered scenario count. Focused validations do not replace this
+check. If the parallel run fails or cannot complete, report the failure rather
+than treating a focused or serial run as sufficient.
 
 ## Documentation rule
 

@@ -12,6 +12,9 @@ public sealed partial class ValidationRoot : GameRoot
     private int _neutralInputFrames;
     private int _executedValidationCount;
     private string? _validationFilter;
+    private int _validationOrdinal;
+    private int _shardIndex;
+    private int _shardCount = 1;
     private ValidationCutsceneTrace? _enterPastCommandTrace;
     private ValidationCombatEffectAudit _combatEffectAudit = null!;
 
@@ -58,6 +61,25 @@ public sealed partial class ValidationRoot : GameRoot
     {
         try
         {
+            foreach (string argument in OS.GetCmdlineUserArgs())
+            {
+                const string prefix = "--validate-shard=";
+                if (!argument.StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                string[] parts = argument[prefix.Length..].Split('/');
+                if (parts.Length != 2 ||
+                    !int.TryParse(parts[0], out int index) ||
+                    !int.TryParse(parts[1], out int count) ||
+                    count < 1 || index < 1 || index > count)
+                {
+                    throw new InvalidOperationException(
+                        "Expected --validate-shard=INDEX/COUNT with 1 <= INDEX <= COUNT.");
+                }
+                _shardIndex = index - 1;
+                _shardCount = count;
+                FailIf(_validationFilter is not null,
+                    "--validate-shard cannot be combined with --validate-only.");
+            }
             ValidateAll();
             GetTree().Quit(0);
         }
@@ -99,6 +121,12 @@ public sealed partial class ValidationRoot : GameRoot
 
     private void RunIsolatedValidation(Action validation)
     {
+        // Partition the authoritative registration stream, preserving its order
+        // within each process. Godot objects and static observers stay on that
+        // process's main thread.
+        if (_validationOrdinal++ % _shardCount != _shardIndex)
+            return;
+
         if (_validationFilter is not null &&
             !string.Equals(
                 validation.Method.Name,
@@ -395,7 +423,11 @@ public sealed partial class ValidationRoot : GameRoot
                 $"No validation method named '{_validationFilter}' was registered.");
         }
         GD.Print(_validationFilter is null
-            ? "Validated all gameplay and world-data scenarios."
+            ? (_shardCount == 1
+                ? "Validated all gameplay and world-data scenarios."
+                : $"Validated gameplay and world-data shard {_shardIndex + 1}/{_shardCount}.")
             : $"Validated isolated scenario {_validationFilter}.");
+        GD.Print($"VALIDATION_COMPLETE shard={_shardIndex + 1}/{_shardCount} " +
+            $"executed={_executedValidationCount} registered={_validationOrdinal}");
     }
 }

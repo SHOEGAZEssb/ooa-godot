@@ -56,11 +56,12 @@ checkpoint progression. For a side-scrolling dungeon room, name its source
 group (`4` or `5`); the development loader performs the retail active-group
 switch to `6` or `7`.
 
-Run all headless validations or one exact registered method:
+After building, run all headless validations with the standard eight workers,
+or one exact registered method:
 
 ```powershell
 $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1
 & $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
 ```
 
