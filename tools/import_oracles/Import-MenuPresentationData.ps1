@@ -179,6 +179,41 @@ Write-GeneratedTable(
     (Join-Path $destination 'menu\map_icons.tsv'),
     $mapIconRows)
 
+$mapOamRows = [Collections.Generic.List[string]]::new()
+$mapOamRows.Add('# layout`tpart`ty`tx`ttile`tattributes`tsource-label`talias-of`tsource')
+foreach ($entry in @(
+    @('arrow', 'mapMenu_drawArrow', '@sprite'),
+    @('cursor', 'mapMenu_drawCursor', '@sprite'),
+    @('portal', 'mapMenu_drawTimePortal', '@portalSprite'),
+    @('warp', 'mapMenu_drawWarpSites', '@spriteData'),
+    @('floor-cursor', 'dungeonMap_drawFloorCursor', '@cursorOamData'),
+    @('boss-floor', 'dungeonMap_drawBossSymbolForFloor', '@bossSymbolOamData'),
+    @('link-map', 'dungeonMap_drawLinkIcons', '@linkOnMapOamData'),
+    @('link-floor', 'dungeonMap_drawLinkIcons', '@linkOnFloorListOamData'),
+    @('dungeon-cursor', 'dungeonMap_drawCursor', '@cursorSprites'),
+    @('up', 'dungeonMap_drawArrows', '@upArrow'),
+    @('down', 'dungeonMap_drawArrows', '@downArrow'),
+    @('map', 'dungeonMap_drawItemSprites', '@mapSprite'),
+    @('compass', 'dungeonMap_drawItemSprites', '@compassSprite'),
+    @('boss-key', 'dungeonMap_drawItemSprites', '@bossKeySprite'),
+    @('small-key', 'dungeonMap_drawItemSprites', '@smallKeySprite'),
+    @('border1', 'mapIconBorderOamTable', '@entry1'),
+    @('border2', 'mapIconBorderOamTable', '@entry2'),
+    @('border3', 'mapIconBorderOamTable', '@entry3'),
+    @('border4', 'mapIconBorderOamTable', '@entry4')
+)) {
+    Add-MenuOamRows $mapOamRows $entry[0] $entry[1] $entry[2]
+}
+Write-GeneratedTable((Join-Path $destination 'menu\map_oam.tsv'), $mapOamRows)
+
+$symbols = @(Read-AssemblyLiteralValues $menuBank2Path 'dungeonMapSymbolPositions')
+$floorNames = @(Read-AssemblyLiteralValues $menuBank2Path 'dungeonMapFloorNameTiles')
+if ($symbols.Count -ne 28 -or $floorNames.Count -ne 22) {
+    throw 'bank2.s: dungeonMapSymbolPositions/floor names no longer contain 14/11 rows.'
+}
+Write-GeneratedBytes((Join-Path $destination 'menu\dungeon_symbols.bin'), ([byte[]]$symbols))
+Write-GeneratedBytes((Join-Path $destination 'menu\dungeon_floor_names.bin'), ([byte[]]$floorNames))
+
 $floorOffsets = @(Read-AssemblyLiteralValues `
     $menuBank2Path 'dungeonMapFloorListStartPositions')
 if ($floorOffsets.Count -ne 14) {

@@ -4,6 +4,39 @@
 # flags, but the table bytes and TX strings come directly from the disassembly.
 $mapDataPath = Join-Path $Disassembly 'data\ages\mapTextAndPopups.s'
 
+# updateTilesetFlagsForIndoorRoomInAltWorld ORs the source bit into
+# TILESETFLAG_PAST; the retained minimap group is not an era selector.
+$altWorldPath = Join-Path $Disassembly 'data\ages\roomsInAltWorld.s'
+$altWorldBytes = [Collections.Generic.List[byte]]::new()
+$altWorldLabels = @(Read-AssemblyLabels $altWorldPath | Where-Object { $_.Name -match '^roomsInAltWorldGroup[0-7]$' })
+for ($group = 0; $group -lt 8; $group++) {
+    $before = $altWorldBytes.Count
+    $labelIndex = 0
+    while ($labelIndex -lt $altWorldLabels.Count -and $altWorldLabels[$labelIndex].Name -ne "roomsInAltWorldGroup$group") { $labelIndex++ }
+    $altRows = @()
+    # Adjacent global labels are aliases (groups $00/$01, $04/$06, $05/$07).
+    while ($labelIndex -lt $altWorldLabels.Count -and $altRows.Count -eq 0) {
+        $altRows = @(Read-AssemblyMacroInvocations $altWorldPath $altWorldLabels[$labelIndex].Name 'dbrev')
+        $labelIndex++
+    }
+    foreach ($node in $altRows) {
+        foreach ($operand in $node.Operands) {
+            if ($operand -notmatch '^%[01]{8}$') {
+                throw "$altWorldPath`:$($node.Line): expected an eight-bit dbrev operand, got '$operand'."
+            }
+            $value = 0
+            for ($bit = 0; $bit -lt 8; $bit++) {
+                if ($operand[$bit + 1] -eq '1') { $value = $value -bor (1 -shl $bit) }
+            }
+            $altWorldBytes.Add([byte]$value)
+        }
+    }
+    if ($altWorldBytes.Count - $before -ne 32) {
+        throw "$altWorldPath`:roomsInAltWorldGroup$group did not contain 32 dbrev bytes."
+    }
+}
+Write-GeneratedBytes((Join-Path $destination 'metadata\rooms_in_alt_world.bin'), $altWorldBytes.ToArray())
+
 function Read-MinimapPopups([string]$label) {
     $result = @{}
     foreach ($node in Read-AssemblyDataDirectives `

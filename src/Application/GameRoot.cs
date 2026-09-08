@@ -528,8 +528,9 @@ public partial class GameRoot : Node2D
             }
             return;
         }
+        bool mapOwnedFrame = _mapMenu.IsActive;
         _mapMenu.Update(delta);
-        if (_mapMenu.IsActive)
+        if (mapOwnedFrame || _mapMenu.IsActive)
             return;
         // MENU_KIDNAME is a gameplay-owned file-menu screen in the original.
         // Keep servicing its controller while freezing the room beneath it.
@@ -831,13 +832,12 @@ public partial class GameRoot : Node2D
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
-            FastTravelFromMap, _sound.PlaySound);
+            FastTravelFromMap, _sound.PlaySound, _sound.SetMusicVolume);
         _mapMenu.ConfigureGale(_rooms,
             target => _transitions.ApplyWarp(_player, new Warp(
                 _rooms.ActiveGroup, _rooms.CurrentRoom.Id, 0, 0, 0,
                 _rooms.ActiveGroup, target.Room, target.Position, 0, 5)),
-            () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y),
-            _sound.SetMusicVolume);
+            () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y));
         _entities.GaleMenuRequested += _mapMenu.OpenGale;
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
@@ -849,6 +849,7 @@ public partial class GameRoot : Node2D
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);
+        _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
             _treasures, _roomEvents.VasuShop.Database, _sound.PlaySound);

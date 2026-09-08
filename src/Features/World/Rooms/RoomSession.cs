@@ -141,10 +141,22 @@ public sealed class RoomSession
     private void MarkRoomVisited(int group, int room)
     {
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
-        // wMinimapGroup/wMinimapRoom retain the exterior position while Link
-        // is inside a house or cave, so preserve the most recently entered
-        // present/past overworld room in the save image.
-        if (group is 0 or 1)
+        // bank1.s:loadDungeonLayout_b01 and checkUpdateDungeonMinimap.
+        // Side-view rooms retain the preceding top-down floor/cell.
+        byte flags = CurrentRoom.TilesetFlags;
+        int dungeon = CurrentDungeonIndex;
+        if ((flags & 0x20) == 0 && dungeon >= 0 &&
+            DungeonMaps.GetDungeon(dungeon).TryGetRoom(room, out DungeonCell cell))
+        {
+            _saveData.WriteWramByte(0xc662 + dungeon,
+                (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)));
+            if ((flags & 0x10) == 0 && (flags & 0x09) != 0)
+            {
+                _saveData.WriteWramByte(0xc63c, (byte)(cell.Y * 8 + cell.X));
+                _saveData.WriteWramByte(0xc63d, (byte)cell.Floor);
+            }
+        }
+        if ((flags & 0x30) == 0 && (flags & 0x09) != 0)
             _saveData.SetMinimapLocation(group, room);
     }
 

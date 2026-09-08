@@ -15,6 +15,7 @@ public sealed class OracleWorldData
 
     private readonly byte[] _tilesetMetadata;
     private readonly byte[] _presentRoomPacks;
+    private readonly byte[] _roomsInAltWorld;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
     private readonly Dictionary<(int Group, int Room, int DataGroup, int LayoutGroup), OracleRoomData> _rooms = new();
     private readonly Dictionary<int, Image> _graphics = new();
@@ -32,6 +33,7 @@ public sealed class OracleWorldData
     {
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
         _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
+        _roomsInAltWorld = ReadBytes("res://assets/oracle/metadata/rooms_in_alt_world.bin", 256);
         Color[] commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
         Color[,] textboxBgPalette1 = LoadPaletteSet(
@@ -91,6 +93,10 @@ public sealed class OracleWorldData
         int animationGroup = _tilesetMetadata[metadataOffset + 4];
         int activeCollisions = _tilesetMetadata[metadataOffset + 6];
         byte tilesetFlags = _tilesetMetadata[metadataOffset + 7];
+        // bank2.s:updateTilesetFlagsForIndoorRoomInAltWorld skips group $00,
+        // and only sets (never clears) TILESETFLAG_PAST for flagged rooms.
+        if (group != 0 && (_roomsInAltWorld[group * 32 + room / 8] & (1 << (room & 7))) != 0)
+            tilesetFlags |= 0x80;
         string roomPath = GetRoomPath(layoutGroup, room);
 
         if (!_graphics.TryGetValue(tileset, out Image? graphics))

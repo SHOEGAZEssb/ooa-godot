@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameSceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
@@ -11,6 +11,9 @@
 [ext_resource type="Script" path="res://src/Features/Development/DebugFlagScreen.cs" id="9_debug_flags"]
 [ext_resource type="Script" path="res://src/Features/Menus/Inventory/RingMenuScreen.cs" id="10_ring_menu"]
 [ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_palette_fade"]
+blend_mode = 1
 
 [node name="Gameplay" type="Node2D"]
 script = ExtResource("1_gameplay")
@@ -93,6 +96,7 @@ script = ExtResource("10_ring_menu")
 
 [node name="MenuFade" type="ColorRect" parent="Interface"]
 unique_name_in_owner = true
+material = SubResource("CanvasItemMaterial_palette_fade")
 offset_right = 160.0
 offset_bottom = 144.0
 mouse_filter = 2

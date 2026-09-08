@@ -14,6 +14,8 @@ The common fast fade lasts 11 original updates in each direction. The screen
 swap occurs at full white. A menu-to-menu switch may retain ownership while
 white; it must not briefly resume gameplay between screens. Timing-critical
 fades use the fixed-update controller, not a generic tween.
+The white fade adds and saturates integer 5-bit color-channel offsets using
+the source speed and an additive scene material; it does not interpolate RGB.
 
 `GameplayPauseController` provides an exclusive, owner-checked lease. It saves
 the exact processing/input state it suspends and restores that state on
@@ -60,6 +62,14 @@ cursor transitions, state changes, modal phases, and update timing. Apply Game
 Boy OAM offsets, signed byte wrap, and hardware coordinate biases at the
 rendering boundary instead of baking corrected coordinates into imported data.
 
+Map mode follows the effective tileset flags, including the imported indoor-era
+bit table. Room entry maintains the saved minimap position and dungeon visited
+floor mask; side-view rooms retain the preceding top-down cell. Floor visibility
+reads that mask independently of individual room visit flags. Dungeon scrolling
+copies an 18-row window through source-ordered floors and their blank separators,
+moving one tile per update and consuming a final zero-counter update. Sprite
+overlap follows source OAM order, while marker phase uses the application clock.
+
 Inventory retains the gameplay HUD's displayed health, rupees, and dungeon
 context through the existing status-bar owner. Its middle tilemap scrolls
 between subscreens while the HUD and text bar stay fixed. The shared HUD layout
@@ -83,6 +93,9 @@ and submenu initialization cannot consume the following input state early.
 - Accepted and rejected navigation, selection, and opening actions request
   their original sounds at the traced update, not at an approximate visual
   moment.
+- Map and inventory direction handlers share the retained autofire counter.
+  Opening fades may transfer a held Start/Select chord to Save/Quit while keeping
+  the same pause lease and fade progress. Closing map fades retain their last OAM.
 - Presentation-only animation may use `AnimationPlayer`; original counters may
   not.
 

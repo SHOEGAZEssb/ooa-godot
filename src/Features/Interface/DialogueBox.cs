@@ -334,9 +334,10 @@ public partial class DialogueBox : Node2D
         string message,
         DialogueScreenContext screen,
         int initialChoice = 0,
-        int? textPosition = null)
+        int? textPosition = null,
+        int textboxFlags = 0)
     {
-        ShowMessage(message, screen, textPosition);
+        ShowMessage(message, screen, textPosition, textboxFlags);
         _choiceActive = true;
         _selectedChoice = Math.Max(0, initialChoice);
     }

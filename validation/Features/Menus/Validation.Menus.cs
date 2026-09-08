@@ -1311,6 +1311,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateMapScreen()
     {
+        int mapFrame = 0;
+        _mapScreen.Initialize(_rooms, _inventory, () => mapFrame);
         FailIf(
             !Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f),
             "The map menu must use the 11-update fast palette fade.");
@@ -1451,8 +1453,10 @@ public sealed partial class ValidationRoot
             $"SND_MENU_MOVE $84 requests; got {_mapScreen.CursorRoom:x2}.");
 
         FailIf(!_mapScreen.LocationArrowVisible, "The map location arrow was hidden on frame 0.");
+        mapFrame = 32;
         _mapScreen.Update(32.0 / 60.0);
         FailIf(_mapScreen.LocationArrowVisible, "The map location arrow did not toggle after 32 updates.");
+        mapFrame = 64;
         _mapScreen.Update(32.0 / 60.0);
         FailIf(!_mapScreen.LocationArrowVisible, "The map location arrow did not restore after 64 updates.");
         _mapMenu.CloseImmediatelyForValidation();
@@ -1518,8 +1522,10 @@ public sealed partial class ValidationRoot
             _mapScreen.DisplayedDungeonFloor != 1 || _mapScreen.DungeonTileAt(6, 1) != 0x83,
             "Dungeon 02's map/compass did not reveal its imported boss room and floor mask.");
         mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        FailIf(!_mapMenu.NavigateForValidation(Vector2I.Down),
+            "Dungeon 02 did not accept the downward scroll.");
+        for (int frame = 0; frame < 11; frame++) _mapMenu.Update(1.0 / 60.0);
         FailIf(
-            !_mapMenu.NavigateForValidation(Vector2I.Down) ||
             _mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1,
             "Dungeon 02's floor navigation did not reveal room 30 on floor 0 " +
@@ -1536,6 +1542,9 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(4, 0x30, oldRoom30Flags);
         _mapScreen.Initialize(_rooms, _inventory);
         LoadValidationRoom(4, 0x09);
+        // Seed the debug browser's start cell explicitly; normal dungeon room
+        // entry now correctly writes wMinimapGroup/wMinimapRoom.
+        _saveData.SetMinimapLocation(1, 0x11);
 
         _mapMenu.OpenDebugImmediatelyForValidation();
         FailIf(

@@ -401,6 +401,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDungeonKeyDoors);
         RunIsolatedValidation(ValidateSpiritsGrave);
         RunIsolatedValidation(ValidateMapScreen);
+        RunIsolatedValidation(ValidateMapDisassemblyFidelity);
         RunIsolatedValidation(ValidateLynnaShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);

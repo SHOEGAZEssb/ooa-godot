@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using static oracleofages.OracleGraphicsData;
 using static oracleofages.OracleTileRenderer;
 
@@ -56,8 +57,14 @@ public partial class MapScreen : Node2D
     private readonly bool[] _interiorRoomDungeon = new bool[0x100];
     private int _dungeonIndex = -1;
     private int _dungeonFloor;
+    private int _dungeonScrollY;
+    private int _scrollTimer;
+    private int _scrollDirection;
+    private bool _dungeonFlicker;
+    private int _currentMapRoom;
     private DungeonCell _dungeonLinkCell;
-    private double _frameCounter;
+    private Func<int> _frameCounterSource = () => (int)(Input.TimingFrame & 0xff);
+    private int _frameCounter;
     private double _popupFrameAccumulator;
     private int _popupState;
     private int _popupTimer;
@@ -67,15 +74,19 @@ public partial class MapScreen : Node2D
     private int _popup2;
     private Vector2 _popupPosition;
     private byte[] _dungeonMapTiles = Array.Empty<byte>();
+    private readonly List<MapSprite> _sprites = new();
 
     public MapMode Mode { get; private set; }
     public int CursorRoom => _cursorRoom;
     public int InteriorGroup => _interiorGroup;
     public int DisplayedDungeonFloor => _dungeonFloor;
     public bool DebugFastTravel { get; private set; }
-    public bool LocationArrowVisible => (((int)_frameCounter >> 5) & 1) == 0;
+    public bool LocationArrowVisible => ((_frameCounter >> 5) & 1) == 0;
     internal int PopupSize => _popupSize;
     internal int PopupPrimary => _popup1;
+    internal int PopupAlternate => _popupAlternate;
+    internal int DungeonScrollY => _dungeonScrollY;
+    internal bool IsScrolling => _scrollTimer != 0;
     internal ulong PopupIconPixelHashForValidation(int iconIndex)
     {
         if (iconIndex < 0 || iconIndex >= _layouts.MapIcons.Count)
@@ -132,28 +143,31 @@ public partial class MapScreen : Node2D
             "res://assets/oracle/inventory/palette_sprites.bin", 6, 0);
     }
 
-    public void Initialize(RoomSession rooms, InventoryState inventory)
+    public void Initialize(RoomSession rooms, InventoryState inventory, Func<int>? frameCounter = null)
     {
         _rooms = rooms;
         _inventory = inventory;
         _mapData = new MapDataDatabase();
         _layouts = MenuPresentationDatabase.Shared;
         _presentation = new MapPresentationState(rooms.SaveData, inventory);
+        _frameCounterSource = frameCounter ?? (() => (int)(Input.TimingFrame & 0xff));
     }
 
     public void Open(bool debugFastTravel = false)
     {
-        _frameCounter = 0.0;
+        _frameCounter = _frameCounterSource();
         _popupFrameAccumulator = 0.0;
         _popupState = 0;
         _popupTimer = 0;
         _popupSize = 0;
         _popupAlternate = 0;
+        _scrollTimer = 0;
+        _dungeonFlicker = false;
         _popupPosition = new Vector2(-1, -1);
         DebugFastTravel = debugFastTravel;
         if (debugFastTravel)
         {
-            MapMode mode = _rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present;
+            MapMode mode = (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0 ? MapMode.Past : MapMode.Present;
             _cursorRoom = _rooms.MinimapRoom;
             Array.Fill(_interiorCursors, _cursorRoom);
             if (_rooms.ActiveGroup is >= FirstInteriorGroup and <= LastInteriorGroup)
@@ -165,11 +179,13 @@ public partial class MapScreen : Node2D
         }
 
         int dungeon = _rooms.World.GetDungeonIndex(_rooms.ActiveGroup, _rooms.CurrentRoom.Id);
-        if (dungeon >= 0)
+        if ((_rooms.CurrentRoom.TilesetFlags & 0x18) == 0x08)
             PrepareDungeon(dungeon);
         else
             PrepareOverworld(revealAll: false);
         Visible = true;
+        // mapMenu_state0 draws sprites once before starting its fade-in.
+        if (Mode != MapMode.Dungeon) UpdatePopupAnimation();
         QueueRedraw();
     }
 
@@ -221,7 +237,7 @@ public partial class MapScreen : Node2D
     {
         if (!Visible)
             return;
-        _frameCounter += delta * 60.0;
+        _frameCounter = _frameCounterSource();
         _popupFrameAccumulator += delta * 60.0;
         while (_popupFrameAccumulator >= 1.0)
         {
@@ -231,21 +247,36 @@ public partial class MapScreen : Node2D
         QueueRedraw();
     }
 
-    public bool HandleDirectionInput()
+    internal bool HandleDirectionInput(int pressed)
     {
-        if (Input.IsActionJustPressed("move_right"))
+        if (IsScrolling) return false;
+        // dungeonMap_scrollingState0 gives Down priority, ignoring horizontal keys.
+        if (Mode == MapMode.Dungeon)
+            return (pressed & 8) != 0 ? Navigate(Vector2I.Down) :
+                (pressed & 4) != 0 && Navigate(Vector2I.Up);
+        if ((pressed & 1) != 0)
             return Navigate(Vector2I.Right);
-        else if (Input.IsActionJustPressed("move_left"))
+        else if ((pressed & 2) != 0)
             return Navigate(Vector2I.Left);
-        else if (Input.IsActionJustPressed("move_up"))
+        else if ((pressed & 4) != 0)
             return Navigate(Vector2I.Up);
-        else if (Input.IsActionJustPressed("move_down"))
+        else if ((pressed & 8) != 0)
             return Navigate(Vector2I.Down);
         return false;
     }
 
+    internal void AdvanceDungeonInput()
+    {
+        if (Mode != MapMode.Dungeon) return;
+        if ((_frameCounterSource() & 0x1f) == 0) _dungeonFlicker = !_dungeonFlicker;
+        if (_scrollTimer == 0 || --_scrollTimer == 0) return;
+        _dungeonScrollY += _scrollDirection;
+        RebuildDungeonBackground(_rooms.DungeonMaps.GetDungeon(_dungeonIndex));
+    }
+
     internal bool Navigate(Vector2I direction)
     {
+        if (IsScrolling) return false;
         if (Mode == MapMode.Interior)
             return MoveInteriorCursor(direction);
         if (Mode != MapMode.Dungeon)
@@ -318,6 +349,7 @@ public partial class MapScreen : Node2D
     {
         if (!Visible || _background == null)
             return;
+        _sprites.Clear();
         DrawTexture(_background, Vector2.Zero);
         if (Mode == MapMode.Dungeon)
             DrawDungeonMarkers();
@@ -325,16 +357,21 @@ public partial class MapScreen : Node2D
             DrawInteriorBrowser();
         else
             DrawOverworldMarkers();
+        Vector2[] positions = new Vector2[_sprites.Count];
+        for (int i = 0; i < positions.Length; i++) positions[i] = _sprites[i].Position;
+        ushort[] scanlines = SelectOamScanlines(positions);
+        for (int i = 0; i < _sprites.Count; i++) RenderMapSprite(_sprites[i], scanlines[i]);
     }
 
     private void PrepareOverworld(bool revealAll, MapMode? forcedMode = null)
     {
-        Mode = forcedMode ?? (_rooms.MinimapGroup == 1 ? MapMode.Past : MapMode.Present);
+        Mode = forcedMode ?? ((_rooms.CurrentRoom.TilesetFlags & 0x80) != 0 ? MapMode.Past : MapMode.Present);
         _dungeonIndex = -1;
+        _currentMapRoom = (_rooms.CurrentRoom.TilesetFlags & 0x02) != 0 ? 0x38 : _rooms.MinimapRoom;
         if (!DebugFastTravel)
-            _cursorRoom = _rooms.MinimapRoom;
-        if ((_cursorRoom & 0x0f) >= OverworldWidth ||
-            ((_cursorRoom >> 4) & 0x0f) >= OverworldHeight)
+            _cursorRoom = _currentMapRoom;
+        if (DebugFastTravel && ((_cursorRoom & 0x0f) >= OverworldWidth ||
+            ((_cursorRoom >> 4) & 0x0f) >= OverworldHeight))
             _cursorRoom = 0x00;
         byte[] map = ReadBytes($"res://assets/oracle/map/map_{Mode.ToString().ToLowerInvariant()}.bin", 576);
         byte[] flags = ReadBytes($"res://assets/oracle/map/flags_{Mode.ToString().ToLowerInvariant()}.bin", 576);
@@ -379,10 +416,17 @@ public partial class MapScreen : Node2D
         Mode = MapMode.Dungeon;
         _dungeonIndex = dungeon;
         DungeonInfo info = _rooms.DungeonMaps.GetDungeon(dungeon);
-        if (!info.TryGetRoom(_rooms.CurrentRoom.Id, out _dungeonLinkCell))
+        bool sideView = (_rooms.CurrentRoom.TilesetFlags & 0x20) != 0;
+        if (!info.TryGetRoom(_rooms.CurrentRoom.Id, out DungeonCell activeCell) && !sideView)
             throw new InvalidOperationException(
                 $"Dungeon {dungeon:x2} does not place room {_rooms.CurrentRoom.Id:x2} on its floor map.");
-        _dungeonFloor = _dungeonLinkCell.Floor;
+        int position = _rooms.SaveData.MinimapDungeonPosition;
+        if (_rooms.ActiveGroup == 5 && _rooms.CurrentRoom.Id == 0xf5) position = 0x13;
+        _dungeonLinkCell = new DungeonCell(_rooms.SaveData.MinimapDungeonFloor,
+            position & 7, position >> 3, _rooms.MinimapRoom, 0);
+        _dungeonFloor = sideView
+            ? _dungeonLinkCell.Floor : activeCell.Floor;
+        _dungeonScrollY = (info.FloorCount - 1 - _dungeonFloor) * 10;
         _cursorRoom = _rooms.CurrentRoom.Id;
         RebuildDungeonBackground(info);
     }
@@ -395,8 +439,9 @@ public partial class MapScreen : Node2D
         {
             if (CanViewFloor(info, floor))
             {
+                _scrollDirection = -direction;
+                _scrollTimer = Math.Abs(floor - _dungeonFloor) * 10 + 1;
                 _dungeonFloor = floor;
-                RebuildDungeonBackground(info);
                 QueueRedraw();
                 return true;
             }
@@ -405,18 +450,9 @@ public partial class MapScreen : Node2D
         return false;
     }
 
-    private bool IsFloorVisited(DungeonInfo info, int floor)
-    {
-        foreach (DungeonCell cell in info.Cells)
-        {
-            if (cell.Floor == floor && _rooms.HasVisited(info.Group, cell.Room))
-                return true;
-        }
-        return false;
-    }
-
     private bool CanViewFloor(DungeonInfo info, int floor) =>
-        _inventory.HasDungeonMap(info.Index) || IsFloorVisited(info, floor) ||
+        _inventory.HasDungeonMap(info.Index) ||
+        (_rooms.SaveData.DungeonVisitedFloors(info.Index) & (1 << floor)) != 0 ||
         (_inventory.HasDungeonCompass(info.Index) &&
             (info.CompassFloors & (1 << floor)) != 0);
 
@@ -426,16 +462,26 @@ public partial class MapScreen : Node2D
         byte[] flags = ReadBytes("res://assets/oracle/map/flags_dungeon.bin", 576);
         DrawFloorList(map, flags, info);
         DrawSmallKeyCount(map, flags, info.Index);
-        bool canViewFloor = CanViewFloor(info, _dungeonFloor);
-        for (int y = 0; y < 8; y++)
+        // dungeonMap_generateScrollableTilemap: five blank rows, then each
+        // floor from top to bottom separated by two rows. updateScroll copies
+        // all 18 screen rows, including portions of neighboring floors.
+        for (int y = 0; y < 18; y++)
         for (int x = 0; x < 8; x++)
         {
-            int offset = (5 + y) * TilemapStride + 10 + x;
-            if (!canViewFloor ||
-                !info.TryGetCell(_dungeonFloor, x, y, out DungeonCell cell))
+            int offset = y * TilemapStride + 10 + x;
+            int sourceY = y + _dungeonScrollY - 5;
+            int floor = sourceY < 0 ? -1 : info.FloorCount - 1 - sourceY / 10;
+            if (floor < 0 || floor >= info.FloorCount || sourceY % 10 >= 8 ||
+                !CanViewFloor(info, floor))
+            {
+                map[offset] = 0xad;
+                flags[offset] = 0;
+                continue;
+            }
+            if (!info.TryGetCell(floor, x, sourceY % 10, out DungeonCell cell) || cell.Room == 0)
             {
                 map[offset] = 0xac;
-                flags[offset] = 0x00;
+                flags[offset] = 5;
                 continue;
             }
             byte roomFlags = _rooms.SaveData.GetRoomFlags(info.Group, cell.Room);
@@ -445,7 +491,7 @@ public partial class MapScreen : Node2D
             if (hidden)
             {
                 map[offset] = 0xac;
-                flags[offset] = 0x00;
+                flags[offset] = 0x05;
             }
             else if (compassTile != 0)
             {
@@ -454,7 +500,7 @@ public partial class MapScreen : Node2D
             }
             else if (visited)
             {
-                map[offset] = (byte)(0xb0 + (cell.Properties & 0x0f));
+                map[offset] = (byte)(0xb0 + ((roomFlags | cell.Properties) & 0x0f));
                 flags[offset] = 0x05;
             }
             else if (_inventory.HasDungeonMap(info.Index))
@@ -465,7 +511,7 @@ public partial class MapScreen : Node2D
             else
             {
                 map[offset] = 0xac;
-                flags[offset] = 0x00;
+                flags[offset] = 0x05;
             }
         }
         _dungeonMapTiles = map;
@@ -486,11 +532,9 @@ public partial class MapScreen : Node2D
                 offset += TilemapStride;
                 continue;
             }
-            int name = Mathf.Clamp(info.BaseFloor + floor, 0, 10);
-            byte first = name < 3 ? (byte)0x9b : (byte)0x80;
-            byte second = (byte)(name < 3 ? 0x93 - name : 0x91 + name - 3);
-            map[offset] = first;
-            map[offset + 1] = second;
+            int name = info.BaseFloor + floor;
+            map[offset] = _layouts.DungeonFloorNames[name * 2];
+            map[offset + 1] = _layouts.DungeonFloorNames[name * 2 + 1];
             map[offset + 2] = 0x9c;
             map[offset + 4] = 0xaa;
             map[offset + 5] = 0xab;
@@ -518,12 +562,12 @@ public partial class MapScreen : Node2D
         if (keys <= 0)
             return;
         map[0x225] = 0x9a;
-        map[0x226] = (byte)(0x90 + Math.Min(keys, 9));
-        flags[0x225] = flags[0x226] = 0x02;
+        map[0x226] = unchecked((byte)(0x90 + keys));
     }
 
     internal byte DungeonTileAt(int x, int y) =>
         _dungeonMapTiles[(5 + y) * TilemapStride + 10 + x];
+    internal byte DungeonScreenTileAt(int x, int y) => _dungeonMapTiles[y * TilemapStride + x];
 
 
     private Texture2D BuildBackground(byte[] map, byte[] flags, Image? blurb = null)
@@ -574,35 +618,19 @@ public partial class MapScreen : Node2D
 
     private void DrawOverworldMarkers()
     {
-        foreach (int room in _galeRooms)
-            DrawMapSprite(0x10 + (((int)_frameCounter & 0x18) >> 2), 7,
-                OverworldCellPosition(room) + new Vector2(0, -4));
-        DrawPopup();
-        Vector2 cursor = OverworldCellPosition(_cursorRoom);
-        DrawMapSprite(0x88, 6, cursor + new Vector2(-4, -4));
-        DrawMapSprite(0x88, 6, cursor + new Vector2(4, -4), flipX: true);
-        if (LocationArrowVisible)
-        {
-            int currentGroup = Mode == MapMode.Past ? 1 : 0;
-            if (_rooms.MinimapGroup == currentGroup)
-            {
-                Vector2 current = OverworldCellPosition(_rooms.MinimapRoom);
-                DrawMapSprite(
-                    0x0e,
-                    LocationArrowAttributes & 0x07,
-                    current + new Vector2(0, -10),
-                    (LocationArrowAttributes & 0x20) != 0,
-                    (LocationArrowAttributes & 0x40) != 0);
-            }
-        }
-
+        for (int i = _galeRooms.Length - 1; i >= 0; i--)
+            DrawMapOam("warp", OverworldCellPosition(_galeRooms[i]), (_frameCounter & 0x18) >> 2);
         int portalGroup = Mode == MapMode.Past ? 1 : 0;
         if (_galeRooms.Length == 0 && _presentation.TryGetTimePortalRoom(portalGroup, out int portalRoom))
         {
-            int portalFrame = (((int)_frameCounter >> 3) & 0x03) * 2;
-            DrawMapSprite(0x18 + portalFrame, 7,
-                OverworldCellPosition(portalRoom) + new Vector2(0, -4));
+            int portalFrame = ((_frameCounter >> 3) & 0x03) * 2;
+            DrawMapOam("portal", OverworldCellPosition(portalRoom), portalFrame);
         }
+        // Reverse the source's OAM submission order: earlier GBC sprites win.
+        DrawMapOam("cursor", OverworldCellPosition(_cursorRoom));
+        if (LocationArrowVisible)
+            DrawMapOam("arrow", OverworldCellPosition(_currentMapRoom));
+        DrawPopup();
     }
 
     private void DrawInteriorBrowser()
@@ -658,58 +686,38 @@ public partial class MapScreen : Node2D
 
     private void DrawDungeonMarkers()
     {
-        DrawDungeonItemSprites();
-        Vector2 cell = new(10 * 8 + _dungeonLinkCell.X * 8, 5 * 8 + _dungeonLinkCell.Y * 8);
-        if (_dungeonLinkCell.Floor == _dungeonFloor && !LocationArrowVisible)
-        {
-            // dungeonMap_getLinkIconPosition advances one tile before
-            // converting to OAM Y. After the hardware's 16-pixel OBJ bias,
-            // the 8x16 Link icon begins eight pixels above its room cell.
-            DrawMapSprite(0x80, 0, DungeonLinkIconPosition);
-        }
-        else if (_dungeonLinkCell.Floor == _dungeonFloor)
-        {
-            DrawMapSprite(0x88, 4, cell + new Vector2(-4, -4));
-            DrawMapSprite(0x88, 4, cell + new Vector2(4, -4), flipX: true);
-        }
-
         DungeonInfo info = _rooms.DungeonMaps.GetDungeon(_dungeonIndex);
-        int symbolY = GetDungeonSymbolY(info.Index);
+        int symbolY = _layouts.DungeonSymbols[info.Index * 2];
         int selectedFloorIndex = info.FloorCount - 1 - _dungeonFloor;
-        DrawMapSprite(0x84, 4, new Vector2(22, symbolY + selectedFloorIndex * 8 - 16));
-        int linkFloorIndex = info.FloorCount - 1 - _dungeonLinkCell.Floor;
-        DrawMapSprite(0x80, 0, new Vector2(36, symbolY + linkFloorIndex * 8 - 16));
-
+        DrawMapOam("floor-cursor", new Vector2(0, symbolY + selectedFloorIndex * 8));
         if (_inventory.HasDungeonCompass(_dungeonIndex))
+            DrawMapOam("boss-floor", new Vector2(0, _layouts.DungeonSymbols[info.Index * 2 + 1]));
+        if (!IsScrolling)
         {
-            int bossY = GetDungeonBossSymbolY(info.Index);
-            DrawMapSprite(0x82, 5, new Vector2(48, bossY - 16));
+            if (CanSelectFloor(info, _dungeonFloor - 1)) DrawMapOam("down", Vector2.Zero);
+            if (CanSelectFloor(info, _dungeonFloor + 1)) DrawMapOam("up", Vector2.Zero);
+            // Source cursor is fixed even when a different floor is selected.
+            if (!_dungeonFlicker)
+                DrawMapOam("dungeon-cursor", new Vector2(_dungeonLinkCell.X * 8, _dungeonLinkCell.Y * 8));
         }
-        if (CanSelectFloor(info, _dungeonFloor + 1))
-            DrawMapSprite(0x86, 5, new Vector2(108, 20));
-        if (CanSelectFloor(info, _dungeonFloor - 1))
-            DrawMapSprite(0x86, 5, new Vector2(108, 108), flipY: true);
+        int linkFloorIndex = info.FloorCount - 1 - _dungeonLinkCell.Floor;
+        DrawMapOam("link-floor", new Vector2(0, symbolY + linkFloorIndex * 8));
+        int linkY = linkFloorIndex * 10 + 5 + _dungeonLinkCell.Y - _dungeonScrollY;
+        if (_dungeonFlicker && linkY is >= 0 and < 18)
+            DrawMapOam("link-map", new Vector2(_dungeonLinkCell.X * 8, (linkY + 1) * 8));
+        DrawDungeonItemSprites();
     }
 
     private void DrawDungeonItemSprites()
     {
         if (_inventory.HasDungeonMap(_dungeonIndex))
-        {
-            DrawMapSprite(0x00, 3, new Vector2(8, 110));
-            DrawMapSprite(0x02, 3, new Vector2(16, 110));
-        }
+            DrawMapOam("map", Vector2.Zero);
         if (_inventory.HasDungeonCompass(_dungeonIndex))
-        {
-            DrawMapSprite(0x04, 1, new Vector2(32, 110));
-            DrawMapSprite(0x06, 1, new Vector2(40, 110));
-        }
+            DrawMapOam("compass", Vector2.Zero);
         if (_inventory.HasDungeonBossKey(_dungeonIndex))
-        {
-            DrawMapSprite(0x08, 5, new Vector2(8, 128));
-            DrawMapSprite(0x0a, 5, new Vector2(16, 128));
-        }
+            DrawMapOam("boss-key", Vector2.Zero);
         if (_inventory.GetDungeonSmallKeys(_dungeonIndex) > 0)
-            DrawMapSprite(0x0c, 5, new Vector2(32, 128));
+            DrawMapOam("small-key", Vector2.Zero);
     }
 
     private bool CanSelectFloor(DungeonInfo info, int floor)
@@ -734,20 +742,6 @@ public partial class MapScreen : Node2D
             OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight, false, Image.Format.Rgba8);
         image.Fill(Color.Color8(24, 40, 48));
         return ImageTexture.CreateFromImage(image);
-    }
-
-    private static int GetDungeonSymbolY(int dungeon)
-    {
-        int[] positions = { 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50,
-            0x48, 0x40, 0x48, 0x48, 0x48, 0x50, 0x50 };
-        return dungeon < positions.Length ? positions[dungeon] : 0x50;
-    }
-
-    private static int GetDungeonBossSymbolY(int dungeon)
-    {
-        int[] positions = { 0x00, 0x50, 0x50, 0x58, 0x58, 0x50, 0x00,
-            0x50, 0x58, 0x48, 0x48, 0x48, 0x50, 0x00 };
-        return dungeon < positions.Length ? positions[dungeon] : 0x00;
     }
 
     private void ApplyOverworldTileSubstitutions(byte[] map, byte[] flags)
@@ -875,7 +869,7 @@ public partial class MapScreen : Node2D
                 {
                     _popupState = 3;
                     _popupTimer = 1;
-                    return;
+                    goto case 3;
                 }
                 if (--_popupTimer > 0)
                     return;
@@ -893,7 +887,7 @@ public partial class MapScreen : Node2D
                 {
                     _popupState = 3;
                     _popupTimer = 1;
-                    return;
+                    goto case 3;
                 }
                 if (--_popupTimer > 0)
                     return;
@@ -933,8 +927,11 @@ public partial class MapScreen : Node2D
             if (iconIndex > 0 && iconIndex < _layouts.MapIcons.Count)
             {
                 MapIconLayout icon = _layouts.MapIcons[iconIndex];
-                DrawMapIconPart(icon.Left);
-                DrawMapIconPart(icon.Right);
+                if (icon.SpriteCount != 0)
+                {
+                    DrawMapIconPart(icon.Right);
+                    DrawMapIconPart(icon.Left);
+                }
             }
         }
     }
@@ -975,32 +972,53 @@ public partial class MapScreen : Node2D
 
     private void DrawPopupBorder()
     {
-        if (_popupSize == 1)
+        if (_popupSize > 0)
+            DrawMapOam($"border{_popupSize}", _popupPosition + new Vector2(16, 16));
+    }
+
+    private void DrawMapOam(string layout, Vector2 offset, int tileOffset = 0)
+    {
+        var parts = _layouts.MapOam(layout);
+        for (int index = parts.Count - 1; index >= 0; index--)
         {
-            DrawMapSprite(0x00, 6, _popupPosition + new Vector2(12, 8));
-            return;
+            MenuOamPart part = parts[index];
+            DrawMapSprite(part.Tile + tileOffset, part.Attributes & 7,
+                new Vector2(((int)offset.X + part.X) & 0xff,
+                    ((int)offset.Y + part.Y) & 0xff) - new Vector2(8, 16),
+                (part.Attributes & 0x20) != 0, (part.Attributes & 0x40) != 0);
         }
-        if (_popupSize == 2)
-        {
-            DrawMapSprite(0x02, 6, _popupPosition + new Vector2(8, 8));
-            DrawMapSprite(0x02, 6, _popupPosition + new Vector2(16, 8), flipX: true);
-            return;
-        }
-        int corner = _popupSize == 3 ? 0x04 : 0x08;
-        int edge = _popupSize == 3 ? 0x06 : 0x0a;
-        DrawMapSprite(corner, 6, _popupPosition);
-        DrawMapSprite(edge, 6, _popupPosition + new Vector2(8, 0));
-        DrawMapSprite(edge, 6, _popupPosition + new Vector2(16, 0), flipX: true);
-        DrawMapSprite(corner, 6, _popupPosition + new Vector2(24, 0), flipX: true);
-        DrawMapSprite(corner, 6, _popupPosition + new Vector2(0, 16), flipY: true);
-        DrawMapSprite(edge, 6, _popupPosition + new Vector2(8, 16), flipY: true);
-        DrawMapSprite(edge, 6, _popupPosition + new Vector2(16, 16), true, true);
-        DrawMapSprite(corner, 6, _popupPosition + new Vector2(24, 16), true, true);
     }
 
     private void DrawMapSprite(int tile, int palette, Vector2 position,
-        bool flipX = false, bool flipY = false)
+        bool flipX = false, bool flipY = false) =>
+        _sprites.Add(new MapSprite(tile, palette, position, flipX, flipY));
+
+    // Sprites are queued in painter order (reverse of original OAM order).
+    // The PPU selects at most ten sprites by Y on each scanline, even when
+    // a selected sprite is horizontally offscreen or has transparent pixels.
+    internal static ushort[] SelectOamScanlines(IReadOnlyList<Vector2> positions)
     {
+        var result = new ushort[positions.Count];
+        Span<int> counts = stackalloc int[144];
+        counts.Clear();
+        for (int i = positions.Count - 1; i >= Math.Max(0, positions.Count - 40); i--)
+        for (int y = 0; y < 16; y++)
+        {
+            int line = (int)positions[i].Y + y;
+            if (line is >= 0 and < 144 && counts[line]++ < 10)
+                result[i] |= (ushort)(1 << y);
+        }
+        return result;
+    }
+
+    private readonly record struct MapSprite(int Tile, int Palette, Vector2 Position, bool FlipX, bool FlipY);
+
+    private void RenderMapSprite(MapSprite sprite, ushort scanlines)
+    {
+        int tile = sprite.Tile;
+        int palette = sprite.Palette;
+        Vector2 position = sprite.Position;
+        bool flipX = sprite.FlipX, flipY = sprite.FlipY;
         Image source;
         int sourceTile;
         bool deinterleavedSprite;
@@ -1022,6 +1040,7 @@ public partial class MapScreen : Node2D
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
+            if ((scanlines & (1 << y)) == 0) continue;
             int spriteY = flipY ? 15 - y : y;
             int readX;
             int readY;

@@ -98,7 +98,7 @@ public sealed partial class ValidationRoot
         lifecycle.Update(inventory, 0.5 / 60.0);
         FailIf(
             lifecycle.FadeUpdate != 1 ||
-            !Mathf.IsEqualApprox(fade.Color.A, 1.0f / OracleMenuLifecycle.FastFadeUpdates),
+            !Mathf.IsEqualApprox(fade.Color.A, 3.0f / 31),
             "The fixed-update menu fade did not consume two half-updates as one update.");
 
         for (int update = 1; update < OracleMenuLifecycle.FastFadeUpdates - 1; update++)

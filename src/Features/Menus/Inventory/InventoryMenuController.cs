@@ -27,8 +27,6 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private bool _saveSelectionDelay;
     private bool _gameOver;
     private int _saveDelayElapsed;
-    private int _repeatKeys;
-    private int _repeatCounter;
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
@@ -113,6 +111,14 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         }
 
         UpdateSaveInput();
+    }
+
+    internal void TakeOverMapOpening(MapMenuController map)
+    {
+        _openMenu = OpenMenu.SaveQuit;
+        _gameOver = false;
+        ResetSaveDelay();
+        _lifecycle.TransferOpening(map, this);
     }
 
     internal void BeginOpeningForValidation() => BeginOpening(openSaveMenu: false);
@@ -408,30 +414,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             MoveCursor(Vector2I.Down);
     }
 
-    private int DirectionInputWithAutofire()
-    {
-        int held = 0, pressed = 0;
-        ReadDirection("move_right", 1);
-        ReadDirection("move_left", 2);
-        ReadDirection("move_up", 4);
-        ReadDirection("move_down", 8);
-        // bank0.s:getInputWithAutofire advances only when called by a
-        // direction handler, retaining the count across non-direction states.
-        if ((_repeatKeys & held) == 0) _repeatCounter = 0;
-        else if (++_repeatCounter >= 0x28)
-        {
-            _repeatCounter = (_repeatCounter & 0x1f) | 0x80;
-            if ((_repeatCounter & 3) == 0) pressed = held;
-        }
-        _repeatKeys = held;
-        return pressed;
-
-        void ReadDirection(string action, int bit)
-        {
-            if (Input.IsActionPressed(action)) held |= bit;
-            if (Input.IsActionJustPressed(action)) pressed |= bit;
-        }
-    }
+    private int DirectionInputWithAutofire() => _lifecycle.DirectionInputWithAutofire();
 
     private bool MoveCursor(Vector2I direction)
     {

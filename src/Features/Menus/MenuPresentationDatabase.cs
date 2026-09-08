@@ -18,6 +18,13 @@ internal sealed class MenuPresentationDatabase
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _inventoryOam =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _mapOam =
+        new(StringComparer.Ordinal);
+    internal IReadOnlyList<MenuOamPart> MapOam(string layout) => _mapOam[layout];
+    internal byte[] DungeonSymbols { get; } = OracleGraphicsData.ReadBytes(
+        "res://assets/oracle/menu/dungeon_symbols.bin", 28);
+    internal byte[] DungeonFloorNames { get; } = OracleGraphicsData.ReadBytes(
+        "res://assets/oracle/menu/dungeon_floor_names.bin", 22);
 
     internal IReadOnlyList<MenuOamPart> InventoryMakuSeed => _inventoryOam["maku-seed"];
 
@@ -38,6 +45,15 @@ internal sealed class MenuPresentationDatabase
     public MenuPresentationDatabase()
     {
         MapIcons = LoadMapIcons();
+        LoadOamLayouts("res://assets/oracle/menu/map_oam.tsv", "map OAM", _mapOam,
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["arrow"] = 1, ["cursor"] = 2, ["portal"] = 1, ["warp"] = 1,
+                ["floor-cursor"] = 1, ["boss-floor"] = 1, ["link-map"] = 1,
+                ["link-floor"] = 1, ["dungeon-cursor"] = 2, ["up"] = 1, ["down"] = 1,
+                ["map"] = 2, ["compass"] = 2, ["boss-key"] = 2, ["small-key"] = 1,
+                ["border1"] = 1, ["border2"] = 2, ["border3"] = 8, ["border4"] = 8
+            });
         DungeonFloorLists = LoadDungeonFloorLists();
         DungeonBlurbs = LoadDungeonBlurbs();
         InventoryItemSlots = LoadTilePositions(

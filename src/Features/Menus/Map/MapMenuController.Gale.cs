@@ -10,7 +10,6 @@ public sealed partial class MapMenuController
     private RoomSession? _galeRooms;
     private Action<GaleTreeWarp>? _galeWarp;
     private Action? _galeCancel;
-    private Action<int>? _galeMusicVolume;
     private bool _gale;
     private bool _galeTravel;
     private int _galeIndex;
@@ -18,12 +17,11 @@ public sealed partial class MapMenuController
     internal int GaleIndex => _galeIndex;
     internal int GaleState => _galeState;
 
-    internal void ConfigureGale(RoomSession rooms, Action<GaleTreeWarp> warp, Action cancel, Action<int> musicVolume)
+    internal void ConfigureGale(RoomSession rooms, Action<GaleTreeWarp> warp, Action cancel)
     {
         _galeRooms = rooms;
         _galeWarp = warp;
         _galeCancel = cancel;
-        _galeMusicVolume = musicVolume;
     }
 
     internal void OpenGale()
@@ -65,7 +63,8 @@ public sealed partial class MapMenuController
     {
         _galeState = cancel ? 3 : 2;
         MapText text = _screen.GalePrompt(cancel);
-        _dialogue.ShowChoiceMessage(text.Message, _screen.SelectedMarkerY, textPosition: text.Position);
+        _dialogue.ShowChoiceMessage(text.Message, DialogueScreenContext.FullScreen(_screen.SelectedMarkerY),
+            textPosition: _screen.CursorRoom < 0x80 ? 3 : 0, textboxFlags: 0x09);
     }
 
     private void UpdateGaleInput()
@@ -76,7 +75,7 @@ public sealed partial class MapMenuController
             if (_galeState == 2 ? choice == 0 : choice != 0)
             {
                 _galeTravel = _galeState == 2;
-                if (_galeTravel) _galeMusicVolume!(3);
+                if (_galeTravel) _setMusicVolume(3);
                 BeginClosing();
             }
             else _galeState = 1;
@@ -85,7 +84,12 @@ public sealed partial class MapMenuController
         if (_dialogue.BlocksPlayerInput) return;
         if (Input.IsActionJustPressed("item")) PromptGale(cancel: true);
         else if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory")) PromptGale(cancel: false);
-        else if (Input.IsActionJustPressed("move_right") || Input.IsActionJustPressed("move_down")) MoveGale(1);
-        else if (Input.IsActionJustPressed("move_left") || Input.IsActionJustPressed("move_up")) MoveGale(-1);
+        else
+        {
+            int directions = _lifecycle.DirectionInputWithAutofire();
+            if ((directions & 1) != 0) MoveGale(1);
+            else if ((directions & 6) != 0) MoveGale(-1);
+            else if ((directions & 8) != 0) MoveGale(1);
+        }
     }
 }

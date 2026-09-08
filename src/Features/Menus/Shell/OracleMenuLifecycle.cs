@@ -18,6 +18,33 @@ internal sealed class OracleMenuLifecycle
     private readonly FixedUpdateAccumulator _updates = new();
     private IOracleMenuLifecycleClient? _owner;
     private PauseLease? _pauseLease;
+    private int _repeatKeys;
+    private int _repeatCounter;
+
+    internal int DirectionInputWithAutofire()
+    {
+        int held = 0, pressed = 0;
+        Read("move_right", 1);
+        Read("move_left", 2);
+        Read("move_up", 4);
+        Read("move_down", 8);
+        // bank0.s:getInputWithAutofire retains these bytes across menus.
+        // It advances only when a menu calls its direction handler.
+        if ((_repeatKeys & held) == 0) _repeatCounter = 0;
+        else if (++_repeatCounter >= 0x28)
+        {
+            _repeatCounter = (_repeatCounter & 0x1f) | 0x80;
+            if ((_repeatCounter & 3) == 0) pressed = held;
+        }
+        _repeatKeys = held;
+        return pressed;
+
+        void Read(string action, int bit)
+        {
+            if (Input.IsActionPressed(action)) held |= bit;
+            if (Input.IsActionJustPressed(action)) pressed |= bit;
+        }
+    }
 
     internal Phase CurrentPhase { get; private set; }
     internal int FadeUpdate => _fade.Update;
@@ -75,6 +102,16 @@ internal sealed class OracleMenuLifecycle
         CurrentPhase = Phase.ClosingFadeOut;
         _updates.Reset();
         _fade.Begin(Direction.ToWhite, client.ClosingFadeUpdates);
+    }
+
+    internal void TransferOpening(IOracleMenuLifecycleClient from, IOracleMenuLifecycleClient to)
+    {
+        RequireOwner(from);
+        if (CurrentPhase != Phase.OpeningFadeOut || _pauseLease is null)
+            throw new InvalidOperationException("Menu opening can transfer only before reaching white.");
+        _pauseLease.Transfer(to);
+        _owner = to;
+        from.LifecycleClosed();
     }
 
     /// <summary>

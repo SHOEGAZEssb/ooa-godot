@@ -79,6 +79,9 @@ public sealed class OracleSaveData
 
     public int MinimapGroup => ReadWramByte(0xc63a);
     public int MinimapRoom => ReadWramByte(0xc63b);
+    public int MinimapDungeonPosition => ReadWramByte(0xc63c);
+    public int MinimapDungeonFloor => ReadWramByte(0xc63d);
+    public byte DungeonVisitedFloors(int dungeon) => ReadWramByte(0xc662 + dungeon);
     public int TimePortalGroup => ReadWramByte(0xc63e);
     public int TimePortalRoom => ReadWramByte(0xc63f);
     public int TimePortalPosition => ReadWramByte(0xc640);

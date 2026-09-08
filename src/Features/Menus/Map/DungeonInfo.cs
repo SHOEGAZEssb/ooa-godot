@@ -33,7 +33,9 @@ public sealed class DungeonInfo
 
     internal void AddCell(DungeonCell cell)
     {
-        _roomCells[cell.Room] = cell;
+        // findActiveRoomInDungeonLayout scans bottom floor first and returns
+        // the first occurrence, including rooms repeated on multiple floors.
+        _roomCells.TryAdd(cell.Room, cell);
         _positionCells[(cell.Floor, cell.X, cell.Y)] = cell;
     }
 
