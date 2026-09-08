@@ -43,13 +43,13 @@ public sealed class SeedSatchelController
 
     public int TryUse(Player player)
     {
-        if (_entities.HasActiveSeedProjectile ||
+        int seedItem = TreasureDatabase.TreasureEmberSeeds +
+            _inventory.SatchelSelectedSeeds;
+        if (_entities.HasActiveSeed(seedItem, SeedLaunchKind.Satchel) ||
             !_inventory.HasSelectedSatchelSeed())
         {
             return 0;
         }
-        int seedItem = TreasureDatabase.TreasureEmberSeeds +
-            _inventory.SatchelSelectedSeeds;
         if (!_database.TryGet(seedItem, out SeedRecord record))
         {
             GD.PushError(
@@ -59,7 +59,8 @@ public sealed class SeedSatchelController
         }
 
         _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-            player.Position, player.FacingVector, record, _rooms.ActiveGroup));
+            player.Position, player.FacingVector, record, _rooms.ActiveGroup,
+            LinkZFixed: seedItem == 0x23 ? player.GaleZFixed : 0));
         if (!_inventory.TryConsumeSelectedSatchelSeed(out int consumed) ||
             consumed != seedItem)
         {
@@ -74,7 +75,7 @@ public sealed class SeedSatchelController
         bool primaryButton,
         Vector2 movementInput)
     {
-        if (_shooterActive || _entities.HasActiveSeedProjectile ||
+        if (_shooterActive ||
             !_inventory.HasSelectedShooterSeed())
         {
             return false;
@@ -126,6 +127,13 @@ public sealed class SeedSatchelController
 
     private void FireShooter(Player player)
     {
+        // parentItemCode_shooter checks wIsSeedShooterInUse on release,
+        // independently of the selected child ID and Satchel subid $00.
+        if (_entities.HasActiveShooterSeed)
+        {
+            ClearShooter();
+            return;
+        }
         int seedItem = TreasureDatabase.TreasureEmberSeeds +
             _inventory.ShooterSelectedSeeds;
         if (!_database.TryGet(seedItem, out SeedRecord record))
@@ -142,7 +150,8 @@ public sealed class SeedSatchelController
             record,
             _rooms.ActiveGroup,
             SeedLaunchKind.Shooter,
-            _shooterAngle));
+            _shooterAngle,
+            seedItem == 0x23 ? player.GaleZFixed : 0));
         if (!_inventory.TryConsumeSelectedShooterSeed(out int consumed) ||
             consumed != seedItem)
         {

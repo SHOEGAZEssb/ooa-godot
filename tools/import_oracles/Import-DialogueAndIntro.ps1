@@ -368,6 +368,9 @@ $spinDurations = @(0..($introSpinGraphics.Count - 1) | ForEach-Object { '04' })
 Add-LinkIntroSpriteRows 'link-spin' $spinDurations $introSpinGraphics
 Add-LinkIntroSpriteRows 'link-vanish' $introVanishDurations $introVanishGraphics
 Add-LinkIntroSpriteRows 'link-arrival' $introArrivalDurations $introArrivalGraphics
+$galeFrames = @(Read-IntroAnimation 'animationData19e8f')
+if ($galeFrames.Count -ne 8) { throw 'LINK_ANIM_MODE_GALE $03 must contain eight frames.' }
+Add-LinkIntroSpriteRows 'link-gale' @($galeFrames | ForEach-Object Duration) @($galeFrames | ForEach-Object Graphic) $true
 $harpDurations = @($harpFrames | Select-Object -First 13 |
     ForEach-Object Duration)
 $harpGraphics = @($harpFrames | Select-Object -First 13 |
@@ -429,8 +432,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 59) {
-    throw "Expected 58 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 67) {
+    throw "Expected 66 shared Link/intro sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

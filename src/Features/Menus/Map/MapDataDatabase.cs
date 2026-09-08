@@ -25,6 +25,8 @@ public sealed class MapDataDatabase
     public int GetPopupByte(int group, int room) =>
         _cells.TryGetValue((group, room), out MapCell cell) ? cell.Popup : 0;
 
+    internal MapText GetText(int id) => _texts[id];
+
     public int GetTreePopup(int group, int room) =>
         _treePopups.TryGetValue((group, room), out int popup) ? popup : 0;
 

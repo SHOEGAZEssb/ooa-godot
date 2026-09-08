@@ -33,6 +33,12 @@ releases menu ownership, so its script waits do not run behind the menu.
 
 ## Screen-space boundaries
 
+The Gale Seed menu shares the map presentation and menu lifecycle. It selects
+only visited destinations from the imported ordered tree table, including the
+present scent tree's planting flag. Confirming a destination transfers at white
+to the room transition owner; canceling restores Link's falling state in the
+existing room. Neither path uses development fast travel.
+
 Full-screen menus and their fade use 160 by 144 screen space, including the
 HUD. A room-warp fade covers only the gameplay field at y=16-143. Ordinary room
 dialogue starts with field-relative positions and adds the 16-pixel display

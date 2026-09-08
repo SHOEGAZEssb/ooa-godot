@@ -49,6 +49,7 @@ public partial class MapScreen : Node2D
     private Color[,] _spritePalette = null!;
     private Color[,] _dungeonSpritePalette = null!;
     private int _cursorRoom;
+    private int[] _galeRooms = [];
     private int _interiorGroup = FirstInteriorGroup;
     private readonly int[] _interiorCursors = new int[LastInteriorGroup - FirstInteriorGroup + 1];
     private readonly bool[] _interiorRoomAvailable = new bool[0x100];
@@ -174,6 +175,7 @@ public partial class MapScreen : Node2D
 
     public void Close()
     {
+        _galeRooms = [];
         DebugFastTravel = false;
         Visible = false;
     }
@@ -267,6 +269,22 @@ public partial class MapScreen : Node2D
         LoadPopupData();
         QueueRedraw();
         return true;
+    }
+
+    internal void SelectGaleDestination(int room, int[] destinations)
+    {
+        _galeRooms = destinations;
+        _cursorRoom = room;
+        LoadPopupData();
+        QueueRedraw();
+    }
+
+    internal MapText GalePrompt(bool cancel)
+    {
+        MapText prompt = _mapData.GetText(cancel ? 0x0301 : 0x0300);
+        if (!cancel && TryGetSelectedAreaText(out MapText area))
+            prompt = prompt with { Message = prompt.Message.Replace("\\call(0xfd)", area.Message) };
+        return prompt;
     }
 
     internal bool MoveInteriorCursor(Vector2I direction)
@@ -556,6 +574,9 @@ public partial class MapScreen : Node2D
 
     private void DrawOverworldMarkers()
     {
+        foreach (int room in _galeRooms)
+            DrawMapSprite(0x10 + (((int)_frameCounter & 0x18) >> 2), 7,
+                OverworldCellPosition(room) + new Vector2(0, -4));
         DrawPopup();
         Vector2 cursor = OverworldCellPosition(_cursorRoom);
         DrawMapSprite(0x88, 6, cursor + new Vector2(-4, -4));
@@ -576,7 +597,7 @@ public partial class MapScreen : Node2D
         }
 
         int portalGroup = Mode == MapMode.Past ? 1 : 0;
-        if (_presentation.TryGetTimePortalRoom(portalGroup, out int portalRoom))
+        if (_galeRooms.Length == 0 && _presentation.TryGetTimePortalRoom(portalGroup, out int portalRoom))
         {
             int portalFrame = (((int)_frameCounter >> 3) & 0x03) * 2;
             DrawMapSprite(0x18 + portalFrame, 7,

@@ -151,7 +151,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
 
     public override void _Draw()
     {
-        DrawSetTransform(Vector2.Down * Z);
+        DrawSetTransform(GaleCollisionDisabled ? Vector2.Zero : Vector2.Down * Z);
         base._Draw();
         DrawSetTransform(Vector2.Zero);
     }

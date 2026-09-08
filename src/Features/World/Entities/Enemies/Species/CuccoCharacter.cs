@@ -244,7 +244,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         return true;
     }
 
-    internal bool TakeHit()
+    internal bool TakeHit(int damage = 2)
     {
         if (!CollisionEnabled || InvincibilityCounter != 0)
             return false;
@@ -256,11 +256,11 @@ internal partial class CuccoCharacter : EnemyCharacter
             // Ages applies the sword's damage first: health $02 reaches zero
             // and collisionType bit 7 is cleared. enemyCode3b then increments
             // var30 and restores health to $40, but never restores collisions.
-            // The Giant Cucco consequently accepts exactly one sword hit and
-            // remains forever in state $0a with var30=$01.
-            _hitCount = 1;
+            // Gale uses item damage $ff (one unit), so it does not trigger
+            // that two-damage sword bug while health is $02.
+            _hitCount = (_hitCount + 1) & 0xff;
+            _giantCollisionDisabled = Health <= damage;
             Health = _giantBehavior.PostHitHealth;
-            _giantCollisionDisabled = true;
             _state = CuccoState.Runaway;
         }
         else

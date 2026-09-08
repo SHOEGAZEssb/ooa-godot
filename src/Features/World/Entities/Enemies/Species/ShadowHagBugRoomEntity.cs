@@ -7,6 +7,7 @@ namespace oracleofages;
 internal sealed class ShadowHagBugRoomEntity
     : CombatEnemyRoomEntityAdapter<ShadowHagBug>, IFixedRoomEntity
 {
+    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.Shared.EnemyMode(Entity.Record.Id);
     internal ShadowHagBugRoomEntity(
         ShadowHagBug bug,
         Action<int> soundRequested)
@@ -37,7 +38,8 @@ internal sealed class ShadowHagBugRoomEntity
                 killableEnemyIndex: 0,
                 completedOutcome: () =>
                     RoomEnemyOutcome.SilentDeletion(
-                        decrementsRoomCount: false)))
+                        decrementsRoomCount: false)),
+            collisionZ: () => bug.ZFixed >> 8)
     { }
 
     public void UpdateFrame(

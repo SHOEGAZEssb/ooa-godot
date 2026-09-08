@@ -30,7 +30,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   hazards, chests, drops, push blocks, and breakable-object interactions.
 - Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
   eight-direction Seed Shooter aiming and three-bounce projectiles, Mystery
-  Seed/Owl behavior, level-1 Roc's Feather, Harp/time-portal
+  Seed/Owl behavior, Gale Seed tornadoes and visited-tree travel,
+  level-1 Roc's Feather, Harp/time-portal
   foundations, source-timed top-down Flippers swimming/normal-water diving,
   source-placed normal-water dive transitions, side-view Flippers swimming,
   common treasure transactions, and many ring effects.
@@ -118,7 +119,7 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   terrain-specific cliff states.
 - Several active items and upgrades, including top-down Mermaid Suit movement
   and remaining deep-water transitions, other terrain-specific Link states,
-  Roc's Cape continuation, active Pegasus/Gale Seed behavior, and
+  Roc's Cape continuation, active Pegasus Seed behavior, and
   remaining grabbable-object species.
 - Unimplemented or partial ring consumers whose base gameplay systems do not
   yet exist.

@@ -6,7 +6,7 @@ namespace oracleofages;
 
 /// <summary>
 /// Shared Satchel-thrown seed child for ITEM_EMBER_SEED ($20),
-/// ITEM_SCENT_SEED ($21), and ITEM_MYSTERY_SEED ($24), subid $00. State and
+/// ITEM_SCENT_SEED ($21), ITEM_GALE_SEED ($23), and ITEM_MYSTERY_SEED ($24). State and
 /// animation advances happen on original 60 Hz updates, including the
 /// setup-only first update.
 /// </summary>
@@ -102,7 +102,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         int mysteryEffect = 0,
         Action<ObjectFellInHoleKind>? objectFellInHole = null,
         SeedLaunchKind launchKind = SeedLaunchKind.Satchel,
-        int angle = 0)
+        int angle = 0,
+        int linkZFixed = 0)
     {
         _record = record;
         _room = room;
@@ -137,7 +138,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 ? _shooter.Offsets[angle]
                 : record.Offset(direction));
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        _zFixed = record.InitialZ << 8;
+        _zFixed = ((launchKind == SeedLaunchKind.Shooter ? -2 : record.InitialZ) << 8) + linkZFixed;
         _speedZ = launchKind == SeedLaunchKind.Shooter ? 0 : record.SpeedZ;
         _collisionEnabled = true;
 
@@ -169,6 +170,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             record.CollisionEffectTileBase,
             record.CollisionEffectPalette,
             _flyingFrames);
+        if (record.SeedItem == 0x23)
+            InitializeGaleTextures(flameSource);
         Visible = false;
         QueueRedraw();
     }
@@ -183,6 +186,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (Finished)
             return;
         ElapsedFrames++;
+        if (_state == EmberState.Gale)
+        {
+            UpdateGale();
+            return;
+        }
         if (_state == EmberState.Initializing)
         {
             _state = EmberState.Flying;
@@ -256,6 +264,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             case 0x21:
                 BeginScent();
                 break;
+            case 0x23:
+                TryBreakTile(spawns);
+                BeginGale(landed: true);
+                break;
             case 0x24:
                 BeginMystery();
                 break;
@@ -268,17 +280,19 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal void OnCollision(
         SeedHitResult result,
         ISeedBurnTarget? burnTarget = null,
-        ISeedBounceTarget? bounceTarget = null)
+        ISeedBounceTarget? bounceTarget = null,
+        ICollection<RoomEntitySpawn>? spawns = null)
     {
         if (!CollisionEnabled || result == SeedHitResult.None)
             return;
-        if (result == SeedHitResult.Bounce)
+        bool wall = result == SeedHitResult.Bounce;
+        if (wall)
         {
             if (bounceTarget is null)
                 throw new ArgumentNullException(nameof(bounceTarget));
             if (_launchKind == SeedLaunchKind.Shooter)
             {
-                BounceFrom(bounceTarget);
+                BounceFrom(bounceTarget, spawns);
                 return;
             }
 
@@ -290,6 +304,14 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (result == SeedHitResult.Consume)
         {
             Finish();
+            return;
+        }
+        if (_record.SeedItem == 0x23)
+        {
+            AdvanceAnimation();
+            if (wall) TryBreakTile(spawns ?? throw new InvalidOperationException("Gale reflector activation requires the item-phase spawn collector."));
+            BeginGale(landed: false, wall: wall);
+            _galeCollisionPending = true;
             return;
         }
         if (_record.SeedItem == 0x24)
@@ -338,6 +360,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         Texture2D texture = _state switch
         {
+            EmberState.Gale => _galeTextures[_galePalette & 3][_frameIndex],
             EmberState.Burning or EmberState.Mystery or EmberState.Scent =>
                 _effectTextures[_frameIndex],
             EmberState.Dissipating => _collisionEffectTextures[_frameIndex],
@@ -498,7 +521,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     {
         if (_breakables.TryBreak(
                 _room,
-                BreakableTileDatabase.SourceEmberSeed,
+                _record.SeedItem == 0x23 ? 0x0d : BreakableTileDatabase.SourceEmberSeed,
                 Position,
                 _saveData,
                 _group,
@@ -541,7 +564,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         byte tile = _room.GetMetatile(_precisePosition);
         if (_shooter.DoesNotBounce(_room, tile))
         {
-            ActivateShooterSeed();
+            ActivateShooterSeed(spawns);
             return;
         }
 
@@ -579,7 +602,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _bouncesRemaining--;
         if (_bouncesRemaining == 0)
         {
-            ActivateShooterSeed();
+            ActivateShooterSeed(spawns);
             return;
         }
         if (hitX && hitY)
@@ -601,7 +624,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         OracleObjectMovement.Shared.ApplySpeed(
             ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
 
-    private void BounceFrom(ISeedBounceTarget target)
+    private void BounceFrom(ISeedBounceTarget target, ICollection<RoomEntitySpawn>? spawns)
     {
         if (ReferenceEquals(_lastBounceTarget, target))
             return;
@@ -621,7 +644,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _bouncesRemaining--;
         if (_bouncesRemaining == 0)
         {
-            ActivateShooterSeed();
+            ActivateShooterSeed(spawns);
             return;
         }
 
@@ -638,7 +661,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
     }
 
-    private void ActivateShooterSeed()
+    private void ActivateShooterSeed(ICollection<RoomEntitySpawn>? spawns = null)
     {
         _collisionEnabled = false;
         // @seedCollidedWithWall performs exactly one itemAnimate call. The
@@ -651,6 +674,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 break;
             case 0x21:
                 BeginDissipating();
+                break;
+            case 0x23:
+                TryBreakTile(spawns ?? throw new InvalidOperationException("Gale wall activation requires the item-phase spawn collector."));
+                BeginGale(landed: false, wall: true);
                 break;
             case 0x24:
                 BeginMystery();
@@ -730,6 +757,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     {
         0x20 => ObjectFellInHoleKind.EmberSeed,
         0x21 => ObjectFellInHoleKind.ScentSeed,
+        0x23 => ObjectFellInHoleKind.GaleSeed,
         0x24 => ObjectFellInHoleKind.MysterySeed,
         _ => throw new InvalidOperationException(
             $"Unsupported hole reaction for ITEM ${_record.SeedItem:x2}.")
@@ -762,5 +790,6 @@ internal enum EmberState
     Mystery,
     Scent,
     Dissipating,
+    Gale,
     Finished
 }

@@ -8,8 +8,32 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
         cucco, cucco.SetTransitionDrawOffset),
         IFixedRoomEntity, IBraceletInteractableRoomEntity,
         ISwordHittableRoomEntity, ISeedHittableRoomEntity,
-        ILinkContactEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity
+        ILinkContactEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
+        IGaleSeedTarget, IRoomEnemyOutcomeSource
 {
+    private readonly GaleSeedEnemyMotion _gale = new(cucco);
+    private bool _outcomeTaken;
+    public bool GaleCaught => _gale.Active;
+    public bool TryCatchGale(Rect2 hitbox, int seedZ, System.Func<byte> random)
+    {
+        if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
+            !hitbox.Intersects(Entity.CollisionBounds) ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(Entity.Z, seedZ, 7)) return false;
+        if (Entity.IsGiant)
+            return Entity.TakeHit(damage: 1);
+        // ENABLE_US_BUGFIXES keeps collision $9e in the ordinary state-$05
+        // dispatch instead of sending the caught Cucco through cucco_attacked.
+        _gale.Begin(hitbox.GetCenter(), Entity.Z, random);
+        return true;
+    }
+    public void UpdateGale(int cameraY) => _gale.Update(cameraY);
+    public bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)
+    {
+        outcome = RoomEnemyOutcome.SilentDeletion(true);
+        if (!Finished || !GaleCaught || _outcomeTaken) return false;
+        _outcomeTaken = true;
+        return true;
+    }
     public bool Finished => Entity.IsDead;
     public bool CountsAsEnemy => !Finished;
 

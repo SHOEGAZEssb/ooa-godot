@@ -899,6 +899,52 @@ $seedRows.Add(
     "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_SCENT_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_SCENT_SEEDS'].ToString('x2'))`tspr_common_items`t$($scentData.Groups['tile'].Value)`t$($scentData.Groups['palette'].Value)`t$($scentAttributes.Groups['collision'].Value)`t$(($scentRadius -shr 4) -band 0x0f)`t$($scentRadius -band 0x0f)`t$($scentAttributes.Groups['damage'].Value)`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($scentLandedTile.ToString('x2'))`t$($scentLandedFlags.ToString('x2'))`t$scentLandedCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_SCENT_SEED'].ToString('x2'))`t$encodedScentFlyingAnimation`t$($scentCollisionTile.ToString('x2'))`t$($scentCollisionFlags.ToString('x2'))`t$scentCollisionCounter`t$($soundIds['SND_PIRATE_BELL'].ToString('x2'))`t$encodedScentLandedAnimation`tobject_code/common/items/seeds.s:itemCode21")
 $seedRows.Add(
     "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_MYSTERY_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_MYSTERY_SEEDS'].ToString('x2'))`tspr_common_items`t$($mysteryData.Groups['tile'].Value)`t$($mysteryData.Groups['palette'].Value)`t$($mysteryAttributes.Groups['collision'].Value)`t$radiusY`t$radiusX`t$($mysteryAttributes.Groups['damage'].Value)`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($mysteryEffectTile.ToString('x2'))`t$($mysteryEffectFlags.ToString('x2'))`t$mysteryEffectCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$encodedMysteryAnimation`t$($mysteryEffectTile.ToString('x2'))`t$($mysteryEffectFlags.ToString('x2'))`t$mysteryEffectCounter`t$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$encodedMysteryAnimation`tobject_code/common/items/seeds.s:itemCode24")
+# ITEM_GALE_SEED retains animation 0 across all three activation paths.
+$galeContracts = @(
+    @{ Pattern = '(?ms)cp ITEM_GALE_SEED.*?ld l,Item.zh.*?add \$f8.*?ld \(hl\),\$ff'; Name = 'stationary Satchel initialization' },
+    @{ Pattern = '(?ms)^galeSeedUpdateAnimationAndCounter:.*?call galeSeedUpdateAnimation.*?call itemDecCounter1.*?cp \$14'; Name = 'counter1 expiration and flicker' },
+    @{ Pattern = '(?ms)^galeSeedUpdateAnimation:.*?call itemAnimate.*?and \$03.*?inc a\s+and \$0b'; Name = 'palette cycle' },
+    @{ Pattern = '(?ms)^galeSeedTryToWarpLink:.*?call galeSeedUpdateAnimation.*?wWarpsDisabled.*?wLinkObjectIndex.*?wLinkGrabState2.*?and \$f0\s+cp \$40.*?checkLinkVulnerableAndIDZero.*?objectCheckCollidedWithLink.*?ld a,\$3c.*?LINK_STATE_SPINNING_FROM_GALE'; Name = 'capture predicates and 60-update hold' },
+    @{ Pattern = '(?ms)@substate2:.*?ld l,Item.zh\s+dec \(hl\)\s+dec \(hl\)\s+bit 7,\(hl\).*?CUTSCENE_IN_GALE_SEED_MENU.*?ld a,\$05\s+call openMenu.*?@substate3:.*?call itemDecCounter2'; Name = 'ascent, menu handoff and indoor byte wrap' }
+)
+foreach ($contract in $galeContracts) {
+    if ($seedCodeSource -notmatch $contract.Pattern) { throw "ITEM_GALE_SEED $23 changed its $($contract.Name): object_code/common/items/seeds.s." }
+}
+$galeMenuSource = Read-ImportText (Join-Path $Disassembly 'code\bank2.s')
+if ($galeMenuSource -notmatch '(?ms)^galeSeedMenu_addOffsetToWarpIndex:.*?and \$07.*?getTreeWarpDataIndex.*?mapMenu_checkRoomVisited' -or
+    $galeMenuSource -notmatch '(?ms)^getWarpTreeData:.*?pastTreeWarps.*?wTilesetFlags.*?presentTreeWarps.*?wPresentRoomFlags\+\$ac.*?ld a,\$03' -or
+    $galeMenuSource -notmatch '(?ms)^galeSeedMenu_state2:.*?wWarpDestGroup.*?wWarpDestRoom.*?wWarpDestPos.*?ld a,\$05.*?wWarpTransition.*?ld a,\$03.*?wWarpTransition2.*?fadeoutToWhite') {
+    throw 'MENU_GALE_SEED selection or destination handoff changed: code/bank2.s.'
+}
+$galePointers = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\itemAnimations.s') 'item23OamDataPointers' '.dw' | ForEach-Object { $_.Operands[0] })
+$galeAnimationBlock = [regex]::Match($itemAnimationsSource,
+    '(?ms)^itemAnimation1e840:\s*(?<body>.*?)(?=^itemAnimation1e84b:)')
+if ($galePointers.Count -ne 3 -or -not $galeAnimationBlock.Success -or
+    $seedCodeSource -notmatch '(?ms)@galeLanded:.*?ld a,\$25.*?@galeCollidedWithWall:.*?ld a,\$26' -or
+    $seedCodeSource -notmatch '(?ms)\.db \$09 \$28 \$32 SND_GALE_SEED.*?\.db \$09 \$28 \$b4 SND_GALE_SEED\s+\.db \$09 \$28 \$1e SND_GALE_SEED') {
+    throw 'ITEM_GALE_SEED $23 animation or activation table changed.'
+}
+$galeAnimation = (Convert-ItemAnimationBlock -body $galeAnimationBlock.Groups['body'].Value -oamLabels $galePointers -name 'ITEM_GALE_SEED') + '~1'
+$galeItemData = Read-ImportText (Join-Path $Disassembly 'data\ages\itemData.s')
+$galeAttributes = Read-ImportText (Join-Path $Disassembly 'data\ages\itemAttributes.s')
+if ($galeItemData -notmatch '\.db \$78 \$18 \$01 ; \$23: ITEM_GALE_SEED' -or
+    $galeAttributes -notmatch '\.db \$9e \$44 \$ff \$00 ; \$23: ITEM_GALE_SEED') {
+    throw 'ITEM_GALE_SEED $23 attributes changed.'
+}
+$seedRows.Add("19`t23`t23`tspr_common_items`t18`t01`t9e`t4`t4`tff`t-8`t-32`t28`t00`t0`t0`t0`t0`t0`t0`t0`t0`t8`tspr_common_sprites`t28`t09`t180`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_GALE_SEED'].ToString('x2'))`t$galeAnimation`t28`t09`t50`t$($soundIds['SND_GALE_SEED'].ToString('x2'))`t$galeAnimation`tobject_code/common/items/seeds.s:itemCode23/@data")
+$treeRows = [Collections.Generic.List[string]]::new()
+$treeRows.Add('# era`tindex`troom`tposition`tpopup`tsource')
+foreach ($era in 0, 1) {
+    $label = if ($era -eq 0) { 'presentTreeWarps' } else { 'pastTreeWarps' }
+    $entries = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\treeWarps.s') $label '.db')
+    if ($entries.Count -ne $(if ($era -eq 0) { 9 } else { 8 })) { throw "$label has an unexpected length." }
+    for ($i = 0; $i -lt $entries.Count; $i++) {
+        $values = @($entries[$i].Operands | ForEach-Object { (Convert-AssemblyInteger $_).ToString('x2') })
+        if ($values.Count -ne 3) { throw "$label entry $i must have three bytes." }
+        $treeRows.Add("$era`t$i`t$($values -join "`t")`tdata/ages/treeWarps.s:$label+$i")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\gale_tree_warps.tsv'), $treeRows)
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows)

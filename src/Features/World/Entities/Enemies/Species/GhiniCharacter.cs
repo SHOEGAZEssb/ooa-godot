@@ -80,7 +80,7 @@ internal partial class GhiniCharacter : EnemyCharacter
     {
         if (IsDead || !Visible)
             return;
-        DrawSetTransform(Vector2.Up * 2.0f);
+        DrawSetTransform(GaleCollisionDisabled ? Vector2.Zero : Vector2.Up * 2.0f);
         base._Draw();
         DrawSetTransform(Vector2.Zero);
     }

@@ -4059,8 +4059,9 @@ internal sealed class RoomEntityFactory(
                     : null,
             mysteryEffect,
             objectFellInHole,
-            spawn.LaunchKind,
-            spawn.Angle);
+              spawn.LaunchKind,
+              spawn.Angle,
+              spawn.LinkZFixed);
         return new EmberSeedRoomEntity(seed);
     }
 
@@ -4971,7 +4972,8 @@ internal sealed record EmberSeedSpawn(
     SeedRecord Record,
     int Group,
     SeedLaunchKind LaunchKind = SeedLaunchKind.Satchel,
-    int Angle = 0)
+    int Angle = 0,
+    int LinkZFixed = 0)
     : RoomEntitySpawn;
 
 internal enum SeedLaunchKind

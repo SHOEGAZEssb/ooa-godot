@@ -291,6 +291,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeedSatchel);
         RunIsolatedValidation(ValidateSeedShooter);
         RunIsolatedValidation(ValidateScentSeed);
+        RunIsolatedValidation(ValidateGaleSeeds);
+        RunIsolatedValidation(ValidateGaleSeedTutorial);
         RunIsolatedValidation(ValidateHarp);
         RunIsolatedValidation(ValidateSeedTrees);
         RunIsolatedValidation(ValidateRoom180OwlStatue);

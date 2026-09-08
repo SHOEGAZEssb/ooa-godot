@@ -207,6 +207,12 @@ public sealed class RoomEntityManager : IDisposable
             return false;
         }
     }
+    internal bool HasActiveSeed(int item, SeedLaunchKind launch) =>
+        _activeEntities.OfType<EmberSeedRoomEntity>().Any(seed =>
+            !seed.Finished && seed.SeedItem == item && seed.LaunchKind == launch);
+    internal bool HasActiveShooterSeed =>
+        _activeEntities.OfType<EmberSeedRoomEntity>().Any(seed =>
+            !seed.Finished && seed.LaunchKind == SeedLaunchKind.Shooter);
     internal int ActiveBombCount
     {
         get
@@ -221,6 +227,7 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
     internal byte NextRandomValue() => _random.Next().Value;
+    internal event Action? GaleMenuRequested;
 
     internal bool PushBlockPermittedByColoredCube(byte tile)
     {
@@ -577,6 +584,8 @@ public sealed class RoomEntityManager : IDisposable
                     continue;
                 }
                 fixedSeed.UpdateFrame(frame, _pendingSpawns);
+                if (entity.Node is EmberSeedEffect { GaleMenuRequested: true })
+                    GaleMenuRequested?.Invoke();
                 ProcessSpawns(frame);
             }
             if (!textActive && !roomEntityFreezeActive)
@@ -615,6 +624,11 @@ public sealed class RoomEntityManager : IDisposable
                 if (roomEntityFreezeActive &&
                     !UpdatesDuringRoomEntityFreeze(entity))
                     continue;
+                if (entity is IGaleSeedTarget { GaleCaught: true } gale)
+                {
+                    gale.UpdateGale(-(int)WorldToScreen(Vector2.Zero).Y);
+                    continue;
+                }
                 if (entity is ISeedBurnTarget
                     {
                         IsSeedBurning: true,
@@ -955,11 +969,13 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
                 if (target is not ISeedHittableRoomEntity hittable ||
-                    (target is ISeedPreMovementCollisionTarget) != preMovement)
+                    (seed.SeedItem == 0x23 || target is ISeedPreMovementCollisionTarget) != preMovement)
                 {
                     continue;
                 }
-                SeedHitResult result =
+                SeedHitResult result = seed.SeedItem == 0x23 && target is IGaleSeedTarget gale &&
+                    gale.TryCatchGale(seed.CollisionBounds, seed.CollisionZ, NextRandomValue)
+                    ? SeedHitResult.Activate :
                     target is ISeedHeightAwareHittableRoomEntity heightAware
                         ? heightAware.ApplySeedHitAtHeight(
                             seed.CollisionBounds,
@@ -990,7 +1006,8 @@ public sealed class RoomEntityManager : IDisposable
                 seed.OnCollision(
                     result,
                     result == SeedHitResult.Ignite ? hittable as ISeedBurnTarget : null,
-                    bounceTarget);
+                    bounceTarget,
+                    _pendingSpawns);
                 break;
             }
         }

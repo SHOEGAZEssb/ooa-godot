@@ -7,7 +7,7 @@ namespace oracleofages;
 /// load state, fast palette fade, and gameplay pause are owned by
 /// OracleMenuLifecycle.
 /// </summary>
-public sealed class MapMenuController : IOracleMenuLifecycleClient
+public sealed partial class MapMenuController : IOracleMenuLifecycleClient
 {
     public const float FastFadeFrames = OracleMenuLifecycle.FastFadeUpdates;
 
@@ -25,7 +25,9 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this);
-    string IOracleMenuLifecycleClient.MenuName => "MENU_MAP";
+    string IOracleMenuLifecycleClient.MenuName => _gale ? "MENU_GALE_SEED" : "MENU_MAP";
+    bool IOracleMenuLifecycleClient.CompletesClosingAtWhite => _gale && _galeTravel;
+    int IOracleMenuLifecycleClient.ClosingFadeUpdates => _gale && _galeTravel ? 32 : OracleMenuLifecycle.FastFadeUpdates;
 
     internal MapMenuController(
         MapScreen screen,
@@ -65,6 +67,11 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
             return;
         }
 
+        if (_gale)
+        {
+            UpdateGaleInput();
+            return;
+        }
         if (_dialogue.BlocksPlayerInput)
             return;
         if (_debugFastTravel && Input.IsActionJustPressed("debug_map_travel"))
@@ -143,17 +150,29 @@ public sealed class MapMenuController : IOracleMenuLifecycleClient
         // fade reaches white, immediately before loading MENU_MAP.
         _playSound(OracleSoundEngine.SndOpenMenu);
         _screen.Open(_debugFastTravel);
+        if (_gale)
+        {
+            _galeMusicVolume!(2);
+            RefreshGaleSelection();
+        }
     }
 
     void IOracleMenuLifecycleClient.CloseAtWhite()
     {
         _screen.Close();
+        if (_gale && _galeTravel) _galeWarp!(_galeDatabase!.Get(_galeRooms!, _galeIndex));
         if (_travelPending)
             _fastTravel(_travelGroup, _travelRoom);
     }
 
     void IOracleMenuLifecycleClient.LifecycleClosed()
     {
+        if (_gale)
+        {
+            _galeMusicVolume!(3);
+            if (!_galeTravel) _galeCancel!();
+        }
+        _gale = false;
         _debugFastTravel = false;
         _travelPending = false;
     }

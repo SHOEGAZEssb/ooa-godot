@@ -9,6 +9,7 @@ internal sealed class ShadowHagBossRoomEntity
         IScreenTransitionPreloadRoomEntity
 {
     private readonly BossEntryMovement _entryMovement;
+    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.Shared.EnemyMode(Entity.Record.Id);
     private bool _initialized;
 
     internal ShadowHagBossRoomEntity(

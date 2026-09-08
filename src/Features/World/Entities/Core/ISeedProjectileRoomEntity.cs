@@ -14,5 +14,6 @@ internal interface ISeedProjectileRoomEntity
     void OnCollision(
         SeedHitResult result,
         ISeedBurnTarget? burnTarget,
-        ISeedBounceTarget? bounceTarget);
+        ISeedBounceTarget? bounceTarget,
+        ICollection<RoomEntitySpawn> spawns);
 }

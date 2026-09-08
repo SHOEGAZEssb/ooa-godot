@@ -438,12 +438,12 @@ public partial class Player : Node2D
         !_sideScrollAirborne && !_topDownAirborne &&
         !TopDownSwimming && !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
-        !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
+        !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
     // objectCheckCollidedWithLink accepts signed Z in [-7,6]. Ordinary feather
     // jumps do not set the high wLinkInAir bit in checkLinkCollisionsEnabled.
     internal bool AcceptsGroundInteractionContact =>
-        !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
+        !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
         !TopDownDiving && !IsUsingHarp &&
         (!_topDownAirborne || ((TopDownAirZ + 7) & 0xff) < 14);
     // collisionEffects.s:@checkHitLink uses wLinkObjectIndex ($d1 while
@@ -853,6 +853,7 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        if (GaleActive) EndGale();
         if (ElectricShockActive)
         {
             _electricShockPending = false;
@@ -1210,6 +1211,7 @@ public partial class Player : Node2D
 
     public void BeginRoomWarpTransition()
     {
+        if (GaleActive) EndGale();
         _cutsceneControlled = false;
         _walking = false;
         ClearShieldParent();
@@ -1580,6 +1582,11 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta)
     {
+        if (GaleActive)
+        {
+            AdvanceGale();
+            return;
+        }
         if (ElectricShockActive)
         {
             if (_electricShockPending)
@@ -2909,7 +2916,7 @@ public partial class Player : Node2D
 
     private void AdvanceItems(double delta)
     {
-        if (ElectricShockActive) return;
+        if (ElectricShockActive || GaleActive) return;
         if (_enemyInvincibilityFrames != 0.0f)
         {
             float frameDelta = (float)delta * 60.0f;

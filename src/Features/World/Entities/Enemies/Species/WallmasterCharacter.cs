@@ -146,6 +146,13 @@ internal partial class WallmasterCharacter : EnemyCharacter
         HideAndReset(_behavior.ResetDelayFrames);
     }
 
+    internal override void FinishGale()
+    {
+        // wallmaster_state_galeSeed clears the spawner's child pointer but
+        // unlike @dead does not decrement its remaining-hand count.
+        HideAndReset(_behavior.ResetDelayFrames);
+    }
+
     internal bool HandleLinkContact(Player player)
     {
         if (_grabbedPlayer is not null || !CollisionEnabled ||
@@ -190,7 +197,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
     {
         if (!_active || IsDead)
             return;
-        DrawSetTransform(new Vector2(0, _zFixed >> 8));
+        DrawSetTransform(new Vector2(0, GaleCollisionDisabled ? 0 : _zFixed >> 8));
         base._Draw();
         DrawSetTransform(Vector2.Zero);
     }

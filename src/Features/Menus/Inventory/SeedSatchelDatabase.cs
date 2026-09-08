@@ -6,7 +6,7 @@ namespace oracleofages;
 
 /// <summary>
 /// Imported ITEM_SEED_SATCHEL parent/seed-child data for the supported active
-/// Ember, Scent, and Mystery children. Unsupported children are rejected
+/// Ember, Scent, Gale, and Mystery children. Unsupported children are rejected
 /// before a seed is consumed.
 /// </summary>
 public sealed class SeedSatchelDatabase
@@ -52,14 +52,14 @@ public sealed class SeedSatchelDatabase
                 row.HexByte(31), row.UnsignedDecimal(32), row.HexByte(33),
                 row.RequiredString(34), row.RequiredString(35)));
         }
-        if (_records.Count != 3 ||
+        if (_records.Count != 4 ||
             !_records.ContainsKey(0x20) ||
             !_records.ContainsKey(0x21) ||
-            !_records.ContainsKey(0x24))
+            !_records.ContainsKey(0x23) || !_records.ContainsKey(0x24))
         {
             throw new InvalidOperationException(
                 "Expected imported ITEM_EMBER_SEED ($20), " +
-                "ITEM_SCENT_SEED ($21), and " +
+                "ITEM_SCENT_SEED ($21), ITEM_GALE_SEED ($23), and " +
                 "ITEM_MYSTERY_SEED ($24) records.");
         }
     }
@@ -69,6 +69,7 @@ public sealed class SeedSatchelDatabase
 
     public SeedRecord Ember => _records[0x20];
     public SeedRecord Scent => _records[0x21];
+    public SeedRecord Gale => _records[0x23];
     public SeedRecord Mystery => _records[0x24];
 }
 

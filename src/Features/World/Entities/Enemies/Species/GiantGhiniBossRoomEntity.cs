@@ -9,6 +9,7 @@ internal sealed class GiantGhiniBossRoomEntity
         IPlayerRestriction, IPlayerForcedMovement
 {
     private readonly BossEntryMovement _entryMovement;
+    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.Shared.EnemyMode(Entity.Record.Id);
     private bool _initialized;
 
     public GiantGhiniBossRoomEntity(GiantGhiniBoss boss, Vector2I entryDirection)

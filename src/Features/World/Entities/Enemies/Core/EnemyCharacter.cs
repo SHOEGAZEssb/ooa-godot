@@ -33,6 +33,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private EnemyHazardEffectRequest? _pendingHazardEffect;
 
     public bool IsDead { get; protected set; }
+    internal int GaleDrawZ { get; set; }
+    internal bool GaleCollisionDisabled { get; set; }
+    internal virtual void FinishGale() => Finish();
     public bool DiedInHazard { get; protected set; }
     public HazardType DeathHazard { get; protected set; }
     internal int Health { get; set; }
@@ -53,7 +56,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     protected bool DrawsDamagePalette =>
         InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0;
     internal virtual bool CollisionEnabled =>
-        !IsDead && !_pendingKnockbackDeath && !_hazardActive && Visible;
+        !GaleCollisionDisabled && !IsDead && !_pendingKnockbackDeath && !_hazardActive && Visible;
     public virtual Rect2 CollisionBounds => new(
         Position - new Vector2(_collisionRadiusX, _collisionRadiusY),
         new Vector2(_collisionRadiusX * 2, _collisionRadiusY * 2));
@@ -526,7 +529,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             return;
         DrawTexture(
             CurrentDrawTexture,
-            AnimationDrawOffset + TransitionDrawOffset);
+            (GaleCollisionDisabled ? _animation.CurrentOffset + new Vector2(0, GaleDrawZ) : AnimationDrawOffset) + TransitionDrawOffset);
     }
 
     protected bool ApplyDamage(int damage, int invincibilityFrames)

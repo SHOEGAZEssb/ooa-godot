@@ -16,11 +16,15 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     internal bool IsFlamePart => Entity.State == EmberState.Burning;
     public Vector2? ScentTarget => Entity.ScentTarget;
     public Rect2 CollisionBounds => Entity.CollisionBounds;
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.GalePlayer = frame.Player;
         Entity.UpdateFrame(frame.Counter, spawns);
+    }
     public void OnCollision(
         SeedHitResult result,
         ISeedBurnTarget? burnTarget,
-        ISeedBounceTarget? bounceTarget) =>
-        Entity.OnCollision(result, burnTarget, bounceTarget);
+        ISeedBounceTarget? bounceTarget,
+        ICollection<RoomEntitySpawn> spawns) =>
+        Entity.OnCollision(result, burnTarget, bounceTarget, spawns);
 }

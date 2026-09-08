@@ -35,6 +35,9 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
+    public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
+        _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0 ||
+        _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
     public bool PlayerContactDisabled => _entities.PlayerContactDisabled;
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;

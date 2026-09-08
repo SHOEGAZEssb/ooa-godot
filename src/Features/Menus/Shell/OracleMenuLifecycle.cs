@@ -74,7 +74,7 @@ internal sealed class OracleMenuLifecycle
         RequireOpenOwner(client);
         CurrentPhase = Phase.ClosingFadeOut;
         _updates.Reset();
-        _fade.Begin(Direction.ToWhite);
+        _fade.Begin(Direction.ToWhite, client.ClosingFadeUpdates);
     }
 
     /// <summary>
@@ -137,6 +137,11 @@ internal sealed class OracleMenuLifecycle
                     if (!_fade.AdvanceOneUpdate())
                         break;
                     client.CloseAtWhite();
+                    if (client.CompletesClosingAtWhite)
+                    {
+                        FinishClosing(client);
+                        break;
+                    }
                     CurrentPhase = Phase.ClosingFadeIn;
                     _fade.Begin(Direction.FromWhite);
                     break;

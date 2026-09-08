@@ -1584,6 +1584,24 @@ if ($enemyCollisionRows.Count -ne 256 -or
         "$($enemyCollisionRows.Count) / $($enemyCollisionTableValues.Count)."
 }
 
+$galeCollisionRows = [Collections.Generic.List[string]]::new()
+$galeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')
+if ($galeCollisionCode -notmatch '(?ms)^collisionEffect29:.*?ld \(hl\),\$9e.*?Enemy.state.*?ld \(hl\),\$05.*?Enemy.counter2.*?ld \(hl\),\$1e.*?Enemy.speed.*?ld \(hl\),\$05.*?Enemy.speedZ.*?ld \(hl\),\$00.*?ld \(hl\),\$fa.*?call getRandomNumber\s+and \$18' -or
+    $enemyCommonCodeSource -notmatch '(?ms)^ecom_galeSeedEffect:.*?call ecom_decCounter2.*?and \$03.*?call objectApplySpeed\s+ld c,\$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?@oscillationX:\s+\.db \$fe \$02 \$02 \$fe') {
+    throw 'Gale collision $29 or shared enemy shake/ascent changed.'
+}
+$galeCollisionRows.Add('# mode`teffect`tsource')
+for ($mode = 0; $mode -lt 0x80; $mode++) {
+    $galeOffset = $mode * 0x20 + 0x1e
+    $galeCollisionRows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$galeOffset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($galeOffset.ToString('x4'))")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\gale_collision_effects.tsv'), $galeCollisionRows)
+$galeModeRows = [Collections.Generic.List[string]]::new()
+$galeModeRows.Add('# id`tmode`tsource')
+for ($id = 0; $id -lt 0x80; $id++) {
+    $galeModeRows.Add("$($id.ToString('x2'))`t$(($enemyCollisionModes[$id] -band 0x7f).ToString('x2'))`tdata/ages/enemyData.s:enemyData+$((4 * $id).ToString('x4'))")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\gale_enemy_modes.tsv'), $galeModeRows)
 $enemyHandlerRows = [Collections.Generic.List[string]]::new()
 $enemyHandlerRows.Add(
     "# id`tsubid`tcollision-mode`tclassification`thandler`tenemy-name`tsource`t" +

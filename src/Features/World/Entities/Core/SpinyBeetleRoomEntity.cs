@@ -11,6 +11,8 @@ internal sealed class SpinyBeetleRoomEntity
     private readonly Action<int> _soundRequested;
     // spinyBeetle.s uses ENEMY_BEAMOS's active-collision mask under a rock.
     public override int DimitriCollisionType => Entity.CoverProtects && Entity.Record.SubId >= 2 ? 0x16 : base.DimitriCollisionType;
+    protected override int GaleCollisionMode => Entity.CoverProtects
+        ? Entity.Record.SubId < 2 ? 0x40 : 0x52 : base.GaleCollisionMode;
 
     public SpinyBeetleRoomEntity(
         SpinyBeetleCharacter beetle,

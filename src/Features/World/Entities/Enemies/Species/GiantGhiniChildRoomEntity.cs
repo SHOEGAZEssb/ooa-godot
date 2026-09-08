@@ -8,6 +8,7 @@ internal sealed class GiantGhiniChildRoomEntity
     : CombatEnemyRoomEntityAdapter<GiantGhiniChild>, IFixedRoomEntity,
         IPlayerRestriction
 {
+    protected override int GaleCollisionMode => GaleSeedCollisionDatabase.Shared.EnemyMode(Entity.Record.Id);
     public GiantGhiniChildRoomEntity(
         GiantGhiniChild child,
         Action<int> soundRequested)

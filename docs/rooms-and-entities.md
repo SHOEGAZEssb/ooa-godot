@@ -114,6 +114,12 @@ without bouncing. Each seed owns the source byte elevation and last-tile cache;
 diagonal probes predict elevation while only the current tile commits it.
 Room coordinates and collision remain independent of camera presentation.
 
+Gale Seed capture stays in the item phase; Link owns his spinning pose and
+input lock, the map menu owns destination selection, and the transition owner
+performs the falling arrival. Enemy gale motion uses the imported collision
+mode table and shared RNG. Its silent deletion does not run ordinary enemy
+death drops or kill counters; native spawners retain their completion policy.
+
 `RoomEntityManager` creates entities, preserves original update order, routes
 contacts, and owns their lifetime. Shared combat, terrain, and interaction
 controllers operate through explicit capabilities. Species or native-object

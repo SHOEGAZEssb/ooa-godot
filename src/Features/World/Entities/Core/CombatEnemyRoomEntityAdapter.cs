@@ -14,11 +14,29 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
-        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget
+        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget
     where T : EnemyCharacter
 {
     private bool _seedBurning;
     private bool _completedOutcomeTaken;
+    private readonly GaleSeedEnemyMotion _gale = new(entity);
+    public bool GaleCaught => _gale.Active;
+    protected virtual int GaleCollisionMode => DimitriCollisionMode;
+
+    public bool TryCatchGale(Rect2 hitbox, int seedZ, Func<byte> random)
+    {
+        if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
+            !combatDescriptor.Combat.Intersects(hitbox) ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, seedZ, 7)) return false;
+        int effect = GaleSeedCollisionDatabase.Shared.Effect(GaleCollisionMode);
+        if (effect == 0x20) return true;
+        if (effect != 0x29) return false;
+        _seedBurning = false;
+        _gale.Begin(hitbox.GetCenter(), CollisionZ, random);
+        return true;
+    }
+
+    public void UpdateGale(int cameraY) => _gale.Update(cameraY);
 
     public bool Finished => combatDescriptor.Combat.Finished;
     public bool CountsAsEnemy =>
@@ -47,7 +65,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     {
         if (!player.EnemyContactHeightOverlaps(CollisionZ))
             return;
-        if (_seedBurning && FreezesDuringSeedBurn)
+        if (GaleCaught || _seedBurning && FreezesDuringSeedBurn)
             return;
 
         if (player.IsUsingShield &&
@@ -169,7 +187,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         }
 
         _completedOutcomeTaken = true;
-        outcome = combatDescriptor.CompletedOutcome(Entity);
+        outcome = GaleCaught ? RoomEnemyOutcome.SilentDeletion(combatDescriptor.CountsAsEnemy)
+            : combatDescriptor.CompletedOutcome(Entity);
         return true;
     }
 

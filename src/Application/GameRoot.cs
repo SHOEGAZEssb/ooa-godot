@@ -811,7 +811,7 @@ public partial class GameRoot : Node2D
             LoadDebugRoom, FindSpawn,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !InventoryMenuOpen && !RingMenuOpen &&
-                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_interactions.GameplayMenuActive &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive);
@@ -820,17 +820,24 @@ public partial class GameRoot : Node2D
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
             () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
-                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             FastTravelFromMap, _sound.PlaySound);
+        _mapMenu.ConfigureGale(_rooms,
+            target => _transitions.ApplyWarp(_player, new Warp(
+                _rooms.ActiveGroup, _rooms.CurrentRoom.Id, 0, 0, 0,
+                _rooms.ActiveGroup, target.Room, target.Position, 0, 5)),
+            () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y),
+            _sound.SetMusicVolume);
+        _entities.GaleMenuRequested += _mapMenu.OpenGale;
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
             () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
@@ -845,7 +852,7 @@ public partial class GameRoot : Node2D
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !InventoryMenuOpen && !_player.IsDying &&
+                !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
                 !_roomEvents.Active && !_roomEvents.MenusDisabled,
             _inventory, RefreshDebugCompanionLayout);
     }
@@ -914,7 +921,7 @@ public partial class GameRoot : Node2D
         !DebugFlagMenuOpen &&
         !_interactions.GameplayMenuActive &&
         !_gameplayPause.IsLeased &&
-        !_player.IsDying &&
+        !_player.GaleActive && !_player.IsDying &&
         !_player.IsUsingHarp &&
         !_roomEvents.Active &&
         !_roomEvents.MenusDisabled &&
