@@ -62,6 +62,11 @@ fields. Every imported treasure variable/mode must have a checked
 implementation or fail at startup with the treasure ID and source data. Unknown
 values never default to zero or silently discard a write.
 
+The modified disassembly's cross-game item fields are not retail save fields.
+Check those bindings against the clean US ROM: seed selection has its own
+inventory bytes, and Ages Boomerang/Feather ownership does not use upgrade
+levels. Inventory writes must never alias the present room-flag table.
+
 One grant, loss, purchase, ring operation, or other item mutation is one
 transaction. Internal byte changes complete before observers receive one
 notification, so the HUD and menus never see a partial state. Saved values are

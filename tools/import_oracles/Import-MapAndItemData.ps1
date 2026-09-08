@@ -1442,6 +1442,7 @@ Write-GeneratedTable(
 # inventory variables from original treasure IDs and parameters.
 $behaviourRows = [Collections.Generic.List[string]]::new()
 $behaviourRows.Add("# treasure-id`tvariable`tmode`tsound")
+$behaviourMusicIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'MUS_'
 $behaviourSource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureCollectionBehaviours.s")
 $currentBehaviourTreasure = -1
 $behaviourFields = @()
@@ -1463,7 +1464,24 @@ foreach ($line in $behaviourSource) {
     if ($variable.StartsWith('<')) { $variable = $variable.Substring(1) }
     $mode = Convert-AsmByte $behaviourFields[1]
     if ($mode -lt 0) { throw "Could not parse treasure behaviour mode '$($behaviourFields[1])'." }
-    $behaviourRows.Add("$($currentBehaviourTreasure.ToString('x2'))`t$variable`t$($mode.ToString('x2'))`t$($behaviourFields[2])")
+    $sound = $behaviourFields[2]
+    # hack-base adds Seasons item levels to Ages. The supported clean US
+    # treasureCollectionBehaviourTable has no auxiliary write for these IDs.
+    if ($currentBehaviourTreasure -in 0x06, 0x07, 0x08, 0x13, 0x17) {
+        $variable = '$00'
+        $mode = 0
+        if ($currentBehaviourTreasure -eq 0x07) { $sound = 'SND_NONE' }
+    }
+    $romBehaviourOffset = 0xfec09 + $currentBehaviourTreasure * 3
+    $soundValue = if ($sound -eq 'SND_NONE') { 0 }
+        elseif ($sound.StartsWith('MUS_')) { $behaviourMusicIds[$sound] }
+        else { $soundIds[$sound] }
+    if ($romBytes[$romBehaviourOffset + 1] -ne $mode -or
+        $romBytes[$romBehaviourOffset + 2] -ne $soundValue -or
+        ($variable -eq '$00' -and $romBytes[$romBehaviourOffset] -ne 0)) {
+        throw "Clean US treasureCollectionBehaviourTable disagrees with treasure `$$($currentBehaviourTreasure.ToString('x2'))."
+    }
+    $behaviourRows.Add("$($currentBehaviourTreasure.ToString('x2'))`t$variable`t$($mode.ToString('x2'))`t$sound")
     $currentBehaviourTreasure = -1
     $behaviourFields = @()
 }
@@ -1536,6 +1554,13 @@ Write-GeneratedTable(
 # Export the item icon rows used by loadTreasureDisplayData. Runtime code only
 # consumes a subset today, but keeping all rows makes the inventory foundation
 # data-driven for later menu/equipment slices.
+# The clean US display table indexes selected seeds at $c6c4/$c6c5.
+# hack-base relocated these symbols; do not derive save offsets from its
+# modified RAM section or the stale comments near wShortSecretIndex.
+if ([BitConverter]::ToString($romBytes, 0xfed41, 3) -ne '19-C4-01' -or
+    [BitConverter]::ToString($romBytes, 0xfed53, 3) -ne '0F-C5-07') {
+    throw 'Clean US treasureDisplayData1 selected-seed addresses changed.'
+}
 $displayRows = [Collections.Generic.List[string]]::new()
 $displayRows.Add("# table`tindex`ttreasure-id`tleft-sprite`tleft-palette`tright-sprite`tright-palette`textra-mode`ttext-low")
 $displaySource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureDisplayData.s")

@@ -58,6 +58,8 @@ internal sealed class RoomEntityFactory(
     private readonly FountainFairyDatabase _fountainFairies = new();
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
     private readonly CarpenterDatabase _carpenters = new();
+    private readonly SymmetryDatabase _symmetry = new();
+    private readonly TuniNutDatabase _tuniNut = new();
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
     private readonly MakuSproutRoomDatabase _makuSproutRoom = new();
@@ -681,6 +683,18 @@ internal sealed class RoomEntityFactory(
                 RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
                 yield return new CarpenterRoomEntity(CreateNpcCharacter(record), _carpenters,
                     runtimeState, saveData, room, animationTick());
+            }
+        }
+        else if (roomNpcs.Any(record => record.Id == 0xbf))
+        {
+            if (group == _tuniNut.Constant("group") && room.Id == _tuniNut.Constant("room"))
+                yield return new TuniNutRoomEntity(_tuniNut, _symmetry, inventory, saveData, room);
+            foreach (NpcRecord record in roomNpcs)
+            {
+                RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
+                if (record.Id != 0xbf)
+                    throw new InvalidOperationException($"symmetryNpc.s: unexpected NPC ${record.Id:x2}:${record.SubId:x2} in room ${group:x}:${room.Id:x2}.");
+                yield return new SymmetryRoomEntity(CreateNpcCharacter(record), _symmetry, saveData);
             }
         }
         else if (group == 4 && room.Id is 0xe0 or 0xe1 or 0xe2 or 0xe7 or 0xe8)
@@ -2084,6 +2098,20 @@ internal sealed class RoomEntityFactory(
                 leever.Initialize(leeverRecord, room, position, random);
                 return new LeeverRoomEntity(
                     leever, combatSource, soundRequested);
+
+            case EnemyHandlerKind.ArrowDarknut:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition darknutRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var darknut = new ArrowDarknutCharacter { Name = $"ArrowDarknut_{source.Order}_{instance}", ZIndex = 10 };
+                darknut.Initialize(darknutRecord, room, position, random);
+                return new ArrowDarknutRoomEntity(darknut, combatSource, soundRequested);
+
+            case EnemyHandlerKind.PodobooTower:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition towerRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var tower = new PodobooTowerCharacter { Name = $"PodobooTower_{source.Order}_{instance}", ZIndex = 10 };
+                tower.Initialize(towerRecord, position, random);
+                return new PodobooTowerRoomEntity(tower, combatSource, soundRequested);
 
             case EnemyHandlerKind.ArrowMoblin:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -4256,7 +4284,7 @@ internal sealed class RoomEntityFactory(
         soundRequested(OracleSoundEngine.SndKillEnemy);
         return new DeathPuffRoomEntity(
             puff, itemDrops, random, inventory, saveData,
-            spawn.DecrementsRoomCount);
+            spawn.DecrementsRoomCount, spawn.DropsItem);
     }
 
     private IRoomEntity CreateBossDeathExplosion(BossDeathExplosionSpawn spawn)

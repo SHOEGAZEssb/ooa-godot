@@ -5,6 +5,29 @@
 $enemyDataPath = Join-Path $Disassembly "data\ages\enemyData.s"
 $enemyDataSource = Read-ImportText $enemyDataPath
 $enemyDataRows = @{}
+$enemySubidRows = @{}
+$enemySubidAliases = [Collections.Generic.List[string]]::new()
+foreach ($node in Read-AssemblyNodes $enemyDataPath) {
+    if ($node.Kind -eq 'Label') {
+        if ($node.Name -notmatch '^enemy[0-9a-f]{2}SubidData$') {
+            $enemySubidAliases.Clear()
+        } else {
+            if ($enemySubidAliases.Count -gt 0 -and $enemySubidRows.ContainsKey($enemySubidAliases[0])) {
+                $enemySubidAliases.Clear()
+            }
+            $enemySubidAliases.Add($node.Name)
+        }
+    } elseif ($node.Kind -eq 'MacroInvocation' -and $node.Name -eq 'm_EnemySubidData') {
+        foreach ($alias in $enemySubidAliases) {
+            if (-not $enemySubidRows.ContainsKey($alias)) {
+                $enemySubidRows[$alias] = [Collections.Generic.List[object]]::new()
+            }
+            $enemySubidRows[$alias].Add($node)
+        }
+    } elseif ($node.Kind -eq 'MacroInvocation' -and $node.Name -eq 'm_EnemySubidDataEnd') {
+        $enemySubidAliases.Clear()
+    }
+}
 foreach ($node in Read-AssemblyMacroInvocations $enemyDataPath '' 'm_EnemyData') {
     if ($node.Comment -match '^0x(?<id>[0-9a-f]{2})$') {
         $enemyDataRows[[Convert]::ToInt32($Matches['id'], 16)] = $node
@@ -232,8 +255,10 @@ function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
     $row = $enemyDataRows[$id]
     if ($row.Operands.Count -lt 4) {
         $subidTable = $row.Operands[2]
-        $rows = @(Read-AssemblyMacroInvocations `
-            $enemyDataPath $subidTable 'm_EnemySubidData')
+        if (-not $enemySubidRows.ContainsKey($subidTable)) {
+            throw "Enemy `$$hex has an unresolved subid table: $subidTable."
+        }
+        $rows = $enemySubidRows[$subidTable]
         if ($subid -ge $rows.Count) {
             throw "Enemy `$$hex subid `$$($subid.ToString('x2')) has no data row."
         }
@@ -336,6 +361,7 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x21, 0x00), @(0x21, 0x01), @(0x2d, 0x00),
     @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
     @(0x10, 0x00), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
@@ -384,7 +410,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 37 -or
+if ($commonEnemyRows.Count -ne 40 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1394,6 +1420,9 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '0b:01' = 'leever'
     '25:00' = 'goponga-flower'
     '0c:00' = 'arrow-moblin'
+    '21:00' = 'arrow-darknut'
+    '21:01' = 'arrow-darknut'
+    '2d:00' = 'podoboo-tower'
     '10:00' = 'rope'
     '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
@@ -1433,7 +1462,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 47 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 50 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1504,9 +1533,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 481 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 516 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 340) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 305) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3341,6 +3370,23 @@ Add-EnemyBehaviorProfile 'arrow-moblin' 'state-profile' `
     @(0x14, 0x30, 0x3f, 0x08) `
     'object_code/common/enemies/arrowDarknut.s:state-entry-operands'
 
+if ($arrowDarknutCodeSource -notmatch '(?ms)^arrowDarknut_chooseAngle:\s+call getRandomNumber_noPreserveVars\s+and \$03\s+jp z,ecom_updateCardinalAngleTowardTarget\s+jp ecom_setRandomCardinalAngle') {
+    throw 'arrowDarknut.s:arrowDarknut_chooseAngle changed.'
+}
+Add-EnemyBehaviorProfile 'arrow-darknut' 'direction-mask' @(3) 'object_code/common/enemies/arrowDarknut.s:arrowDarknut_chooseAngle'
+Add-EnemyBehaviorProfile 'arrow-darknut' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x20 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0400'
+$podobooCode = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/podobooTower.s')
+$podobooCounters = @([regex]::Matches($podobooCode, 'ld \(hl\),(60|150|180)\b') | ForEach-Object { [int]$_.Groups[1].Value })
+if (($podobooCounters -join ',') -ne '60,150,180,150,60,180,60' -or
+    $podobooCode -notmatch 'cp \$b4' -or
+    $podobooCode -notmatch '(?ms)@decCounter2Every4Frames:\s+ld a,\(wFrameCounter\)\s+and \$03' -or
+    $podobooCode -notmatch '(?ms)@data:\s+\.db \$06 \$04 \$00\s+\.db \$08 \$04 \$f9\s+\.db \$0b \$04 \$f7\s+\.db \$0f \$04 \$f4\s+\.db \$12 \$04 \$f2') {
+    throw 'podobooTower.s: emergence counters, firing threshold, or collision radii changed.'
+}
+Add-EnemyBehaviorProfile 'podoboo-tower' 'state-profile' @(60,150,180,0xb4,3) 'object_code/common/enemies/podobooTower.s:states8-D'
+Add-EnemyBehaviorProfile 'podoboo-tower' 'radii' @(6,4,0,8,4,0xf9,11,4,0xf7,15,4,0xf4,18,4,0xf2) 'object_code/common/enemies/podobooTower.s:@data'
+Add-EnemyBehaviorProfile 'podoboo-tower' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x0f * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$01e0'
+
 $babyCuccoCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\babyCucco.s')
 if ($babyCuccoCodeSource -notmatch
@@ -4076,8 +4122,8 @@ Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
 
-if ($enemyBehaviorRows.Count -ne 696) {
-    throw "Expected 695 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 781) {
+    throw "Expected 780 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

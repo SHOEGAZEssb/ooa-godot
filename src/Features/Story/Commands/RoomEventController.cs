@@ -46,6 +46,7 @@ public sealed class RoomEventController
     private readonly RickyGlovesEvent _rickyGloves;
     private readonly TingleEvent _tingle;
     private readonly CarpenterEvent _carpenters;
+    private readonly SymmetryEvent _symmetry;
     private readonly MooshRescueEvent _mooshRescue;
     private readonly ImpaIntroEvent _impa;
     private readonly NayruIntroEvent _nayru;
@@ -148,6 +149,7 @@ public sealed class RoomEventController
         _rickyGloves = new RickyGlovesEvent(_context);
         _tingle = new TingleEvent(_context);
         _carpenters = new CarpenterEvent(_context);
+        _symmetry = new SymmetryEvent(_context);
         _mooshRescue = new MooshRescueEvent(_context);
         _impa = new ImpaIntroEvent(_context);
         _nayru = new NayruIntroEvent(_context, _impa);
@@ -189,6 +191,7 @@ public sealed class RoomEventController
             _rickyGloves,
             _tingle,
             _carpenters,
+            _symmetry,
             _mooshRescue,
             _makuSproutRescue,
             _dekuForestSoldier,
@@ -239,6 +242,9 @@ public sealed class RoomEventController
         };
         _interactionHandlers =
         [
+            NpcInteractionHandler.ForNpc(
+                "symmetryNpc.s:scriptTable",
+                (target, _) => _symmetry.TryInteractNpc(target.Npc)),
             NpcInteractionHandler.ForNpc(
                 "carpenter.s:room025Scripts",
                 (target, _) => _carpenters.TryInteractNpc(target.Npc)),
@@ -386,6 +392,7 @@ public sealed class RoomEventController
     internal RickyGlovesEvent RickyGloves => _rickyGloves;
     internal TingleEvent Tingle => _tingle;
     internal CarpenterEvent Carpenters => _carpenters;
+    internal SymmetryEvent Symmetry => _symmetry;
     internal MooshRescueEvent MooshRescue => _mooshRescue;
     internal ImpaIntroEvent Impa => _impa;
     internal NayruIntroEvent Nayru => _nayru;
@@ -426,20 +433,25 @@ public sealed class RoomEventController
         _toiletHand.OnObjectFellInHole(kind);
     internal void SetRingMenuOpener(Func<RingMenuMode, Action, bool> opener) =>
         _vasuShop.SetRingMenuOpener(opener);
-    internal void SetSecretMenuOpener(Func<int, Action<bool>, bool> opener) =>
+    internal void SetSecretMenuOpener(Func<int, Action<bool>, bool> opener)
+    {
         _wildTokayGame.SetSecretMenuOpener(opener);
+        _symmetry.OpenSecretMenu = opener;
+    }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         _graveyardGate.CanTrigger(group, room);
     internal void TriggerOverworldKeyhole(int group, int room) =>
         _graveyardGate.Trigger(group, room);
     internal bool ScreenTransitionsDisabled =>
         _carpenters.BlocksGameplay ||
+        _symmetry.BlocksGameplay ||
         _makuSproutRescue.ScreenTransitionsDisabled ||
         _fairiesWoods.ScreenTransitionsDisabled ||
         _mooshRescue.ScreenTransitionsDisabled ||
         _wildTokayGame.ScreenTransitionsDisabled;
     internal bool MenusDisabled =>
         _carpenters.MenusDisabled ||
+        _symmetry.BlocksGameplay ||
         _companionForest.MenusDisabled ||
         _shootingGallery.MenusDisabled ||
         _ralphAfterCheval.MenusDisabled ||

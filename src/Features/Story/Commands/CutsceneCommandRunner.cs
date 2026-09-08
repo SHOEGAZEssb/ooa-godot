@@ -82,6 +82,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 CutsceneTradeItemBranchCommand branch => branch.TargetCommand,
                 CutsceneTextOptionBranchCommand branch => branch.TargetCommand,
                 CutsceneBranchCommand branch => branch.TargetCommand,
+                CutsceneBranchYieldCommand branch => branch.TargetCommand,
                 CutsceneCallCommand call => call.TargetCommand,
                 _ => -1
             };
@@ -90,7 +91,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     CutsceneRoomFlagBranchCommand or
                     CutsceneTradeItemBranchCommand or
                     CutsceneTextOptionBranchCommand or
-                    CutsceneBranchCommand or CutsceneCallCommand &&
+                    CutsceneBranchCommand or CutsceneBranchYieldCommand or CutsceneCallCommand &&
                 (target < 0 || target >= commands.Count))
             {
                 throw new InvalidOperationException(
@@ -341,6 +342,12 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
             case CutsceneBranchCommand branch:
                 _nextInstruction = branch.TargetCommand;
                 return CommandResult.Continue;
+
+            case CutsceneBranchYieldCommand branch:
+                // Ages scriptCmd_jump relocates an in-buffer target, leaving
+                // carry clear; interactionRunScript resumes next update.
+                _nextInstruction = branch.TargetCommand;
+                return CommandResult.Yield;
 
             case CutsceneCallCommand call:
                 _returns.Push(_instruction + 1);
@@ -672,7 +679,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 command is CutsceneMemoryBranchCommand or
                     CutsceneMemoryBranchYieldOnMissCommand or
                     CutsceneMemoryJumpTableCommand or
-                    CutsceneTradeItemBranchCommand or CutsceneBranchCommand or
+                    CutsceneTradeItemBranchCommand or CutsceneBranchCommand or CutsceneBranchYieldCommand or
                     CutsceneCallCommand or CutsceneReturnCommand
                 ? _nextInstruction >= 0 ? _nextInstruction : _instruction + 1
                 : -1));

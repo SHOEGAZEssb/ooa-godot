@@ -36,15 +36,11 @@ public sealed class InventoryState
     private const int EmberSeedsAddress = 0xc6b9;
     private const int UnappraisedRingCountAddress = 0xc6cd;
     private const int RingsAppraisedAddress = 0xc6ce;
-    private const int MagnetGlovePolarityAddress = 0xc6f0;
     private const int ShortSecretIndexAddress = 0xc6fb;
-    private const int SlingshotLevelAddress = 0xc6ff;
-    private const int BoomerangLevelAddress = 0xc700;
-    private const int FeatherLevelAddress = 0xc701;
-    private const int ObtainedSeasonsAddress = 0xc702;
-    private const int SatchelSelectedSeedsAddress = 0xc703;
-    private const int ShooterSelectedSeedsAddress = 0xc704;
-    private const int SlingshotSelectedSeedsAddress = 0xc705;
+    // Clean US treasureDisplayData1, not hack-base's relocated RAM symbols.
+    // $c700 onward belongs exclusively to the present room-flag table.
+    private const int SatchelSelectedSeedsAddress = 0xc6c4;
+    private const int ShooterSelectedSeedsAddress = 0xc6c5;
     private const int UnappraisedRingCapacity = 0x40;
 
     private static readonly int[] RupeeValues =
@@ -69,12 +65,8 @@ public sealed class InventoryState
     private byte _upgradesObtained;
     private int _dummyC608;
     private int _shortSecretIndex;
-    private int _boomerangLevel;
-    private int _featherLevel;
-    private int _slingshotLevel;
     private int _satchelSelectedSeeds;
     private int _shooterSelectedSeeds;
-    private int _slingshotSelectedSeeds;
 
     public event Action? Changed;
     public event Action? HealthChanged;
@@ -93,13 +85,13 @@ public sealed class InventoryState
     public int ShieldLevel { get; private set; }
     public int BraceletLevel { get; private set; }
     public int SwitchHookLevel { get; private set; }
-    public int BoomerangLevel => _boomerangLevel;
-    public int FeatherLevel => _featherLevel;
-    public int SlingshotLevel => _slingshotLevel;
+    public int BoomerangLevel => HasTreasure(TreasureDatabase.TreasureBoomerang) ? 1 : 0;
+    public int FeatherLevel => HasTreasure(TreasureDatabase.TreasureFeather) ? 1 : 0;
+    public int SlingshotLevel => 0;
     public int SeedSatchelLevel { get; private set; }
     public int SatchelSelectedSeeds => _satchelSelectedSeeds;
     public int ShooterSelectedSeeds => _shooterSelectedSeeds;
-    public int SlingshotSelectedSeeds => _slingshotSelectedSeeds;
+    public int SlingshotSelectedSeeds => 0;
     public int SelectedHarpSong { get; private set; }
     public int Bombchus { get; private set; }
     public int EmberSeeds { get; private set; }
@@ -122,8 +114,8 @@ public sealed class InventoryState
     public int AnimalCompanion { get; private set; }
     public int FluteIcon => _saveData?.ReadWramByte(0xc6b5) ?? 0;
     public int RememberedCompanionId { get; private set; }
-    public int ObtainedSeasons { get; private set; }
-    public int MagnetGlovePolarity { get; private set; }
+    public int ObtainedSeasons => 0;
+    public int MagnetGlovePolarity => 0;
     public int UnappraisedRingCount => CountUnappraisedRings();
     public bool IsRingActive(RingId ring) => ActiveRing == (int)ring;
 
@@ -402,8 +394,7 @@ public sealed class InventoryState
             TreasureVariable.ShooterSelectedSeeds, seeds);
 
     public void SelectSlingshotSeeds(int seeds) =>
-        SetSelectedSeeds(ref _slingshotSelectedSeeds,
-            TreasureVariable.SlingshotSelectedSeeds, seeds);
+        throw new NotSupportedException("TREASURE_SLINGSHOT $13 has no selected-seed state in clean US Ages.");
 
     public void SelectHarpSong(int song)
     {
@@ -925,15 +916,9 @@ public sealed class InventoryState
         ActiveRing = _saveData.ReadWramByte(0xc6cb);
         RingBoxLevel = _saveData.ReadWramByte(0xc6cc);
         RingsAppraised = _saveData.ReadWramByte(RingsAppraisedAddress);
-        MagnetGlovePolarity = _saveData.ReadWramByte(MagnetGlovePolarityAddress);
         _shortSecretIndex = _saveData.ReadWramByte(ShortSecretIndexAddress);
-        _slingshotLevel = _saveData.ReadWramByte(SlingshotLevelAddress);
-        _boomerangLevel = _saveData.ReadWramByte(BoomerangLevelAddress);
-        _featherLevel = _saveData.ReadWramByte(FeatherLevelAddress);
-        ObtainedSeasons = _saveData.ReadWramByte(ObtainedSeasonsAddress);
         _satchelSelectedSeeds = _saveData.ReadWramByte(SatchelSelectedSeedsAddress);
         _shooterSelectedSeeds = _saveData.ReadWramByte(ShooterSelectedSeedsAddress);
-        _slingshotSelectedSeeds = _saveData.ReadWramByte(SlingshotSelectedSeedsAddress);
     }
 
     private void NotifyChanged()
@@ -1292,13 +1277,13 @@ public sealed class InventoryState
         TreasureVariable.Slates => Slates,
         TreasureVariable.RingBoxLevel => RingBoxLevel,
         TreasureVariable.ObtainedSeasons => ObtainedSeasons,
-        TreasureVariable.BoomerangLevel => _boomerangLevel,
+        TreasureVariable.BoomerangLevel => BoomerangLevel,
         TreasureVariable.MagnetGlovePolarity => MagnetGlovePolarity,
-        TreasureVariable.SlingshotLevel => _slingshotLevel,
-        TreasureVariable.FeatherLevel => _featherLevel,
+        TreasureVariable.SlingshotLevel => SlingshotLevel,
+        TreasureVariable.FeatherLevel => FeatherLevel,
         TreasureVariable.SatchelSelectedSeeds => _satchelSelectedSeeds,
         TreasureVariable.ShooterSelectedSeeds => _shooterSelectedSeeds,
-        TreasureVariable.SlingshotSelectedSeeds => _slingshotSelectedSeeds,
+        TreasureVariable.SlingshotSelectedSeeds => SlingshotSelectedSeeds,
         _ => throw new InvalidOperationException(
             $"Treasure WRAM variable {variable} is not a scalar binding.")
     };
@@ -1392,21 +1377,6 @@ public sealed class InventoryState
             case TreasureVariable.RingBoxLevel:
                 RingBoxLevel = byteValue;
                 break;
-            case TreasureVariable.ObtainedSeasons:
-                ObtainedSeasons = byteValue;
-                break;
-            case TreasureVariable.BoomerangLevel:
-                _boomerangLevel = byteValue;
-                break;
-            case TreasureVariable.MagnetGlovePolarity:
-                MagnetGlovePolarity = byteValue;
-                break;
-            case TreasureVariable.SlingshotLevel:
-                _slingshotLevel = byteValue;
-                break;
-            case TreasureVariable.FeatherLevel:
-                _featherLevel = byteValue;
-                break;
             default:
                 throw new InvalidOperationException(
                     $"Treasure WRAM variable {variable} is not a writable scalar binding.");
@@ -1494,14 +1464,8 @@ public sealed class InventoryState
             TreasureVariable.DummyC608 or
             TreasureVariable.AnimalCompanion or
             TreasureVariable.RememberedCompanionId or
-            TreasureVariable.ObtainedSeasons or
-            TreasureVariable.BoomerangLevel or
-            TreasureVariable.MagnetGlovePolarity or
-            TreasureVariable.SlingshotLevel or
-            TreasureVariable.FeatherLevel or
             TreasureVariable.SatchelSelectedSeeds or
-            TreasureVariable.ShooterSelectedSeeds or
-            TreasureVariable.SlingshotSelectedSeeds)
+            TreasureVariable.ShooterSelectedSeeds)
         {
             _dirtyAuxiliaryVariables.Add(variable);
         }
@@ -1519,30 +1483,10 @@ public sealed class InventoryState
             TreasureVariable.RememberedCompanionId,
             RememberedCompanionIdAddress,
             RememberedCompanionId);
-        MagnetGlovePolarity = PersistAuxiliaryVariable(
-            TreasureVariable.MagnetGlovePolarity,
-            MagnetGlovePolarityAddress,
-            MagnetGlovePolarity);
         _shortSecretIndex = PersistAuxiliaryVariable(
             TreasureVariable.ShortSecretIndex,
             ShortSecretIndexAddress,
             _shortSecretIndex);
-        _slingshotLevel = PersistAuxiliaryVariable(
-            TreasureVariable.SlingshotLevel,
-            SlingshotLevelAddress,
-            _slingshotLevel);
-        _boomerangLevel = PersistAuxiliaryVariable(
-            TreasureVariable.BoomerangLevel,
-            BoomerangLevelAddress,
-            _boomerangLevel);
-        _featherLevel = PersistAuxiliaryVariable(
-            TreasureVariable.FeatherLevel,
-            FeatherLevelAddress,
-            _featherLevel);
-        ObtainedSeasons = PersistAuxiliaryVariable(
-            TreasureVariable.ObtainedSeasons,
-            ObtainedSeasonsAddress,
-            ObtainedSeasons);
         _satchelSelectedSeeds = PersistAuxiliaryVariable(
             TreasureVariable.SatchelSelectedSeeds,
             SatchelSelectedSeedsAddress,
@@ -1551,10 +1495,6 @@ public sealed class InventoryState
             TreasureVariable.ShooterSelectedSeeds,
             ShooterSelectedSeedsAddress,
             _shooterSelectedSeeds);
-        _slingshotSelectedSeeds = PersistAuxiliaryVariable(
-            TreasureVariable.SlingshotSelectedSeeds,
-            SlingshotSelectedSeedsAddress,
-            _slingshotSelectedSeeds);
 
     }
 

@@ -139,6 +139,8 @@ internal static class CutsceneCommandCatalog
                 Decimal(path, physicalLine, "arg1", arg1)),
             "scriptjump" => new CutsceneBranchCommand(
                 source, Decimal(path, physicalLine, "arg0", arg0)),
+            "scriptjumpyield" => new CutsceneBranchYieldCommand(
+                source, Decimal(path, physicalLine, "arg0", arg0)),
             "callscript" => new CutsceneCallCommand(
                 source, Decimal(path, physicalLine, "arg0", arg0)),
             "return" => new CutsceneReturnCommand(source),
@@ -607,6 +609,11 @@ internal sealed record CutsceneCallCommand(
     : CutsceneCommand(Source);
 
 internal sealed record CutsceneBranchCommand(
+    CutsceneCommandSource Source,
+    int TargetCommand)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneBranchYieldCommand(
     CutsceneCommandSource Source,
     int TargetCommand)
     : CutsceneCommand(Source);

@@ -129,7 +129,8 @@ internal sealed class EnemyCombatDescriptor
         Func<Vector2>? deathPuffPosition = null,
         Func<bool>? deathPuffAllowed = null,
         Func<RoomEnemyOutcome>? completedOutcome = null,
-        int acceptedHitSound = OracleSoundEngine.SndDamageEnemy)
+        int acceptedHitSound = OracleSoundEngine.SndDamageEnemy,
+        bool dropsItem = true)
     {
         var combat = EnemyCombatComponent.WithContactDamage(
             () => enemy.IsDead,
@@ -145,7 +146,8 @@ internal sealed class EnemyCombatDescriptor
                 (deathPuffAllowed?.Invoke() ?? true)
                     ? new EnemyDeathPuffSpawn(
                         deathPuffPosition?.Invoke() ?? enemy.Position,
-                        EnemyId: source.Id)
+                        EnemyId: source.Id,
+                        DropsItem: dropsItem)
                     : null,
             (sourcePosition, strength) =>
             {
@@ -245,6 +247,8 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             (Handler, collisionMode) switch
         {
             (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.PodobooTower, 0x0f) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.ArrowDarknut, 0x20) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.GopongaFlower, 0x23) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.BuzzBlob, 0x1b) => EnemySwordResponse.ElectricShock,
             (EnemyHandlerKind.FlyingTile, 0x3c) =>

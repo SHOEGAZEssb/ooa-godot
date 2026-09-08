@@ -440,6 +440,12 @@ public partial class Player : Node2D
     internal bool AcceptsRoomEntityContact =>
         !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !IsUsingHarp;
+    // objectCheckCollidedWithLink accepts signed Z in [-7,6]. Ordinary feather
+    // jumps do not set the high wLinkInAir bit in checkLinkCollisionsEnabled.
+    internal bool AcceptsGroundInteractionContact =>
+        !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
+        !TopDownDiving && !IsUsingHarp &&
+        (!_topDownAirborne || ((TopDownAirZ + 7) & 0xff) < 14);
     // collisionEffects.s:@checkHitLink uses wLinkObjectIndex ($d1 while
     // mounted), not the offset riding-Link sprite at w1Link ($d0).
     internal Vector2 EnemyContactPosition => _companionRideControlled

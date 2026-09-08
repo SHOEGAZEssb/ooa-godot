@@ -26,6 +26,11 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
     internal int Angle => _angle;
     internal int MoveCycles => _moveCycles;
     internal int ScentAttractionCounter => _scentAttraction.Counter;
+    protected virtual bool FollowsScentSeeds => true;
+    protected virtual bool SupportsRecord(ImportedEnemyDefinition record) =>
+        record.SubId == 0 && record.Id is 0x0c or 0x22;
+    protected virtual int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
+        random.NextCardinalAngle();
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -33,12 +38,11 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
-        if (record.SubId != 0 ||
-            record.Id is not (0x0c or 0x22))
+        if (!SupportsRecord(record))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(record),
-                $"Only the shared arrow Moblin/Shrouded Stalfos handler is implemented, got " +
+                $"{GetType().Name} cannot initialize " +
                 $"${record.Id:x2}:${record.SubId:x2}.");
         }
 
@@ -53,6 +57,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
+        RestartAnimation(0);
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
@@ -71,7 +76,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         if (CheckHazards())
             return -1;
 
-        if (_state != ArrowMoblinState.Uninitialized &&
+        if (FollowsScentSeeds && _state != ArrowMoblinState.Uninitialized &&
             scentSeedTarget is { } scentPosition)
         {
             _state = ArrowMoblinState.FollowingScentSeed;
@@ -123,7 +128,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
                 // moblin_state_9 consumes the direction RNG first, then the
                 // movement-duration RNG. var30 starts at zero, so the first
                 // completed route is an eligible firing cycle.
-                _angle = _random.NextCardinalAngle();
+                _angle = ChooseRouteAngle(_random, linkPosition);
                 BeginMoving();
                 _moveCycles++;
                 int towardLink =
@@ -145,7 +150,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         _counter = _behavior.MoveCounterBase +
             (_random.Next().Value & _behavior.MoveCounterMask);
         _state = ArrowMoblinState.Moving;
-        RestartAnimation((_angle & 0x18) >> 3);
+        // ecom_updateAnimationFromAngle preserves the clock for the same direction.
+        SetAnimation((_angle & 0x18) >> 3);
     }
 }
 

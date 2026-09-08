@@ -470,7 +470,10 @@ public sealed partial class ValidationRoot
     {
         using var harness = new MapleValidationHarness(
             this, group: 0, room: 0x01);
-        harness.Load();
+        // Exercise reward RNG in isolation; room $0:$01 also contains three
+        // Arrow Darknuts whose native route changes consume the shared RNG.
+        harness.Load(); // Retain the source room-parse RNG before isolating the parts.
+        harness.Manager.LoadCutsceneRoom(0, harness.Rooms.CurrentRoom, includeTimePortals: false);
         var database = new MapleEventDatabase();
 
         int swordRupeesBefore = harness.Inventory.Rupees;

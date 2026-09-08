@@ -37,7 +37,8 @@ internal sealed record EnemyDeathPuffSpawn(
     Vector2 Position,
     bool HighKnockback = false,
     int EnemyId = -1,
-    bool DecrementsRoomCount = false)
+    bool DecrementsRoomCount = false,
+    bool DropsItem = true)
     : RoomEntitySpawn;
 
 internal sealed record MoblinBoomerangSpawn(

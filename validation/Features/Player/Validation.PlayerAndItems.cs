@@ -527,12 +527,12 @@ public sealed partial class ValidationRoot
         const float SpeedC0DiagonalComponent = 135.0f / 256.0f;
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
-        save.WriteWramByte(0xc701, 0x01);
         var inventory = new InventoryState(_treasures, save);
         var world = new ValidationRingPlayerWorld
         {
             ActiveTerrain = NormalMovementTerrain()
         };
+        inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
         var player = new Player { Name = "TopDownMovementValidationPlayer" };
         AddChild(player);
         player.Initialize(

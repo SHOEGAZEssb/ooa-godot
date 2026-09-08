@@ -13,6 +13,7 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     public int CollisionZ => Entity.CollisionZ;
     public int SeedItem => Entity.SeedItem;
     internal SeedLaunchKind LaunchKind => Entity.LaunchKind;
+    internal bool IsFlamePart => Entity.State == EmberState.Burning;
     public Vector2? ScentTarget => Entity.ScentTarget;
     public Rect2 CollisionBounds => Entity.CollisionBounds;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>

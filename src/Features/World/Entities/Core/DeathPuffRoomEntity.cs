@@ -10,7 +10,8 @@ internal sealed class DeathPuffRoomEntity(
     OracleRandom random,
     InventoryState? inventory,
     OracleSaveData? saveData,
-    bool decrementsRoomCount)
+    bool decrementsRoomCount,
+    bool dropsItem = true)
     : RoomEntityAdapter<EnemyDeathPuffEffect>(puff, puff.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
         IRoomEnemyOutcomeSource
@@ -38,6 +39,7 @@ internal sealed class DeathPuffRoomEntity(
 
     public void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
+        if (!dropsItem) return;
         int? subId = itemDrops.DecideDrop(
             Entity.EnemyId, random, inventory, saveData);
         if (subId.HasValue)

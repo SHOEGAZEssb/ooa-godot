@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 130 | Traced and covered by the current named NPC/event scenarios. |
-| **P** | 56 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 197 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **I** | 141 | Traced and covered by the current named NPC/event scenarios. |
+| **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
+| **D** | 193 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,12 +63,18 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 61 ordinary, 89 specialized,
-36 event-owned, and 197 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 89 specialized,
+47 event-owned, and 193 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
 classified records and 161 specialized rows.
 
 ### Important partial and deferred boundaries
+
+- September 8, 2026: Symmetry Village's eleven `$bf` records remain **I**,
+  covered by `ValidateSymmetryNpcs` and `ValidateSymmetrySecrets`.
+  `ValidateTuniNutPlacement` covers the separate `$b1` restoration interaction.
+  `ValidateSymmetryFidelity` covers copied-script jump cadence and placement entry.
+  The snapshot is **141 I / 49 P / 193 D**, with **47 event-owned** rows.
 
 - September 7, 2026: shared fountain fairy `ENEMY_GREAT_FAIRY $38:$00`
   is **I** in `2:6e`, `2:df`, `2:f8`, `3:3f`, and `3:f6`, covered by
@@ -302,7 +308,7 @@ classified records and 161 specialized rows.
 - Zora `$ab`, King Zora `$9c`, Old Zora `$5a`, and Jabu-Jabu child `$ba`.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
-- Symmetry City `$bf`, carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
+- Carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
   Fairy `$83`, Syrup `$5f`, and
   the remaining shopkeeper variants `$46`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
@@ -371,7 +377,7 @@ well as record selection.
 | `0:bd` | [P] `$48:$12/v$00` tokay |
 | `0:cd` | [P] `$48:$13/v$00` tokay |
 | `0:dd` | [P] `$48:$14/v$00` tokay |
-| `1:03` | [P] `$bf:$0c/v$00` symmetryNpc |
+| `1:03` | [I] `$bf:$0c/v$00` symmetryNpc |
 | `1:05` | [D] `$40:$0d/v$02` soldier |
 | `1:06` | [D] `$40:$0d/v$03` soldier<br>[D] `$40:$0d/v$04` soldier |
 | `1:07` | [D] `$40:$0d/v$05` soldier |
@@ -463,11 +469,11 @@ well as record selection.
 | `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
 | `3:5f` | [D] `$66:$0e/v$06` goron |
-| `3:6e` | [D] `$bf:$06/v$00` symmetryNpc |
-| `3:6f` | [D] `$bf:$07/v$00` symmetryNpc |
-| `3:7e` | [P] `$bf:$0a/v$00` symmetryNpc |
-| `3:7f` | [P] `$bf:$0b/v$00` symmetryNpc |
-| `3:8e` | [P] `$bf:$04/v$00` symmetryNpc |
+| `3:6e` | [I] `$bf:$06/v$00` symmetryNpc (copied-script cadence covered) |
+| `3:6f` | [I] `$bf:$07/v$00` symmetryNpc (copied-script cadence covered) |
+| `3:7e` | [I] `$bf:$0a/v$00` symmetryNpc |
+| `3:7f` | [I] `$bf:$0b/v$00` symmetryNpc |
+| `3:8e` | [I] `$bf:$04/v$00` symmetryNpc |
 | `3:8f` | [D] `$9d:$00/v$00` tokkey |
 | `3:90` | [D] `$ba:$00/v$00` childJabu |
 | `3:9e` | [I] `$36:$0b/v$00` nayru<br>[I] `$ad:$07/v$00` zelda<br>[I] `$4f:$00/v$00` impaNpc<br>[I] `$4f:$00/v$01` impaNpc<br>[I] `$4f:$00/v$02` impaNpc<br>[I] `$4f:$00/v$05` impaNpc<br>[I] `$4f:$00/v$09` impaNpc<br>[I] `$4f:$00/v$0a` impaNpc<br>[I] `$4f:$00/v$0b` impaNpc<br>[I] `$4f:$00/v$0d` impaNpc<br>[I] `$4f:$00/v$0e` impaNpc |
@@ -483,9 +489,9 @@ well as record selection.
 | `3:e3` | [D] `$ab:$15/v$00` zora |
 | `3:e7` | [D] `$30:$01/v$00` shootingGallery<br>[D] `$8b:$02/v$00` goronElder |
 | `3:e9` | [D] `$2e:$00/v$00` oldManWithRupees |
-| `3:ea` | [P] `$bf:$00/v$00` symmetryNpc |
-| `3:eb` | [P] `$bf:$02/v$00` symmetryNpc |
-| `3:ec` | [P] `$bf:$02/v$00` symmetryNpc |
+| `3:ea` | [I] `$bf:$00/v$00` symmetryNpc |
+| `3:eb` | [I] `$bf:$02/v$00` symmetryNpc |
+| `3:ec` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ed` | [D] `$5f:$80/v$00` syrup |
 | `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:f7` | [D] `$e3:$08/v$00` knowItAllBird<br>[D] `$e3:$09/v$00` knowItAllBird<br>[D] `$e3:$06/v$00` knowItAllBird<br>[D] `$e3:$07/v$00` knowItAllBird<br>[D] `$e3:$04/v$00` knowItAllBird<br>[D] `$e3:$05/v$00` knowItAllBird<br>[D] `$e3:$02/v$00` knowItAllBird<br>[D] `$e3:$03/v$00` knowItAllBird<br>[D] `$e3:$00/v$00` knowItAllBird<br>[D] `$e3:$01/v$00` knowItAllBird |
@@ -539,7 +545,7 @@ well as record selection.
 | `5:e9` | [P] `$48:$1d/v$00` tokay |
 | `5:ec` | [D] `$52:$03/v$00` oldMan<br>[D] `$52:$04/v$00` oldMan<br>[D] `$52:$05/v$00` oldMan<br>[D] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
-| `5:f6` | [D] `$bf:$08/v$00` symmetryNpc<br>[D] `$bf:$09/v$00` symmetryNpc |
+| `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc; copied-script cadence and `$b1` entry covered |
 | `5:f8` | [D] `$c3:$00/v$00` pirateCaptain<br>[P] `$c4:$00/v$00` pirate<br>[P] `$c4:$01/v$00` pirate<br>[P] `$c4:$02/v$00` pirate<br>[P] `$c4:$03/v$00` pirate |
 
 ## Maintenance

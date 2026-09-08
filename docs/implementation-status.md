@@ -49,6 +49,11 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
+- Symmetry Village residents, the sisters' request and postgame ring-box secret,
+  the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
+  with persistent present-day village restoration.
+- Red and blue Arrow Darknuts on the paths around Symmetry Village, and
+  Podoboo Towers in its ruined present, including restoration-based removal.
 - Moosh's rescue and mountable-companion core: exact ride visuals, movement,
   cliff descent, ground-contact tile breaking, hover/charged stomp and charge
   flash, collision-safe dismount/remount memory,

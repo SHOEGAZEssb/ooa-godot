@@ -43,6 +43,11 @@ internal sealed class EnemyBehaviorTables
     internal ProjectileBounceBehaviorProfile ProjectileBounce { get; }
     internal KeeseStateBehaviorProfile KeeseState { get; }
     internal ArrowMoblinBehaviorProfile ArrowMoblin { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutDirectionMask { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> ArrowDarknutCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTower { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerRadii { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PodobooTowerCollisionEffects { get; }
     internal BabyCuccoBehaviorProfile BabyCucco { get; }
     internal CuccoBehaviorProfile Cucco { get; }
     internal GiantCuccoBehaviorProfile GiantCucco { get; }
@@ -325,6 +330,11 @@ internal sealed class EnemyBehaviorTables
 
         values = TakeValues(groups, "river-zora", "state-profile", 7);
         GopongaFlower = TakeValues(groups, "goponga-flower", "state-profile", 5);
+        ArrowDarknutDirectionMask = TakeValues(groups, "arrow-darknut", "direction-mask", 1);
+        ArrowDarknutCollisionEffects = TakeValues(groups, "arrow-darknut", "collision-effects", 32);
+        PodobooTower = TakeValues(groups, "podoboo-tower", "state-profile", 5);
+        PodobooTowerRadii = TakeValues(groups, "podoboo-tower", "radii", 15);
+        PodobooTowerCollisionEffects = TakeValues(groups, "podoboo-tower", "collision-effects", 32);
         GopongaFlowerCollisionEffects = TakeValues(groups, "goponga-flower", "collision-effects", 32);
         RiverZora = new(values[0].Value, values[1].Value, values[2].Value,
             values[3].Value, values[4].Value, values[5].Value, values[6].Value);
@@ -594,10 +604,10 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 695 || groups.Count != 0)
+        if (table.Rows.Count != 780 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 695 rows and no " +
+                $"Enemy behavior table contract expected 780 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

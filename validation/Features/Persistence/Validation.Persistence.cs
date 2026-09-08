@@ -490,8 +490,8 @@ public sealed partial class ValidationRoot
         inventory.GiveTreasure(Reward(0x15, 0x00));
         FailIf(
             inventory.Bombchus != 0x10 || inventory.AnimalCompanion != 0x0c ||
-            inventory.RememberedCompanionId != 0x07 || inventory.ObtainedSeasons != 0x04 ||
-            inventory.MagnetGlovePolarity != 0x01 ||
+            inventory.RememberedCompanionId != 0x07 || inventory.ObtainedSeasons != 0 ||
+            inventory.MagnetGlovePolarity != 0 ||
             save.ReadWramByte(0xc6fb) != 0x23,
             "An imported typed WRAM binding did not execute or persist its collection mode.");
 
@@ -500,20 +500,19 @@ public sealed partial class ValidationRoot
         inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSlingshot, 1));
         inventory.SelectSatchelSeeds(2);
         inventory.SelectShooterSeeds(3);
-        inventory.SelectSlingshotSeeds(4);
         inventory.GiveTreasure(Reward(0x60, 0));
         FailIf(
-            save.ReadWramByte(0xc700) != 1 || save.ReadWramByte(0xc701) != 1 ||
-            save.ReadWramByte(0xc6ff) != 1 || save.ReadWramByte(0xc703) != 2 ||
-            save.ReadWramByte(0xc704) != 3 || save.ReadWramByte(0xc705) != 4 ||
+            save.ReadWramByte(0xc700) != 0 || save.ReadWramByte(0xc701) != 0 ||
+            save.ReadWramByte(0xc6ff) != 0 || save.ReadWramByte(0xc6c4) != 2 ||
+            save.ReadWramByte(0xc6c5) != 3 || save.ReadWramByte(0xc705) != 0 ||
             !inventory.HasUpgrade(0) || !inventory.HasTreasure(0x60),
             "Item levels, selected seeds, or transient wUpgradesObtained were not updated.");
 
-        // These linked-item bytes alias the first room-flag bytes in the original layout.
-        // An unrelated inventory update must consume the live byte instead of restoring a stale copy.
+        // Clean US Ages has no Boomerang/Feather level byte. Room flags
+        // must neither receive inventory writes nor be interpreted as levels.
         save.SetRoomFlag(0, 0x00, 0x80);
         inventory.GiveTreasure(Reward(0x20, 0x01));
-        FailIf(save.ReadWramByte(0xc700) != 0x81, "Inventory persistence clobbered aliased room flag 0:00.");
+        FailIf(save.ReadWramByte(0xc700) != 0x80, "Inventory persistence clobbered room flag $0:$00.");
 
         FailIf(
             !OracleSaveData.TryDeserialize(save.Serialize(), out OracleSaveData? restoredSave),
@@ -522,9 +521,9 @@ public sealed partial class ValidationRoot
         FailIf(
             restored.SeedSatchelLevel != 2 || restored.EmberSeeds != 0x36 ||
             restored.ScentSeeds != 0x09 || restored.Bombchus != 0x10 ||
-            restored.BoomerangLevel != 0x81 || restored.FeatherLevel != 1 ||
-            restored.SlingshotLevel != 1 || restored.SatchelSelectedSeeds != 2 ||
-            restored.ShooterSelectedSeeds != 3 || restored.SlingshotSelectedSeeds != 4,
+            restored.BoomerangLevel != 1 || restored.FeatherLevel != 1 ||
+            restored.SlingshotLevel != 0 || restored.SatchelSelectedSeeds != 2 ||
+            restored.ShooterSelectedSeeds != 3 || restored.SlingshotSelectedSeeds != 0,
             "Typed treasure variables were lost across the `$550-byte save round trip.");
 
         OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
@@ -551,7 +550,7 @@ public sealed partial class ValidationRoot
             "A full unappraised-ring list did not replace a duplicate like mode `$09.");
 
         GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
-            "mode `$09 ring storage, linked item/selection aliases, transient upgrade bits, " +
+            "mode `$09 ring storage, clean US item/selection bindings, transient upgrade bits, " +
             "atomic callback-time treasure snapshots, and save persistence.");
     }
 

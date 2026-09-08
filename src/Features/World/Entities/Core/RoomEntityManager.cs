@@ -1276,6 +1276,22 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
+    internal void ClearPhysicalPlayerItems()
+    {
+        // bank0.s:clearAllItemsAndPutLinkOnGround clears the physical Item
+        // slots without collision, explosion, loot, or ordinary finish effects.
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        {
+            // Ember's free flame / attached burning-enemy phase represents a
+            // Part slot; clearing Items must not strand its burn target.
+            if (entity is EmberSeedRoomEntity { IsFlamePart: true }) continue;
+            if (entity is not (IPlayerProjectileRoomEntity or ISeedProjectileRoomEntity or BombRoomEntity))
+                continue;
+            _activeEntities.Remove(entity);
+            FreeEntity(entity);
+        }
+    }
+
     public void Clear()
     {
         _specialObjectsUpdatedBeforePlayer.Clear();

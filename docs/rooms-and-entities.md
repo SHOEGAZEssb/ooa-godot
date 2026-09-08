@@ -132,6 +132,11 @@ next enemy pass. Slot reservations include source-placed noncombat controllers
 and explicitly unsupported placements; deletion releases the slot independently
 of the later death-puff room-count decrement.
 
+Enemy death puffs carry the source's room-count and item-drop policies
+independently. A no-drop puff skips drop selection entirely, including its
+RNG consumption; an uncounted defeat leaves the room counter and recent-defeat
+mark unchanged while still advancing the global kill counters.
+
 The live `w1Companion` slot has one runtime owner shared by rideable animal
 companions, the minecart, and the raft. A mounted owner, rather than Link, supplies the
 screen-transition position and transfers from the outgoing entity set after

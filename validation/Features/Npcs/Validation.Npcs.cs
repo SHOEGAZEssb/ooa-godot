@@ -419,6 +419,7 @@ public sealed partial class ValidationRoot
             ["cutscenes/companion_forest_text.tsv|\\call(0xfe)"] = 1,
             ["cutscenes/companion_forest_text.tsv|\\call(0xff)"] = 3,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
+            ["cutscenes/symmetry_commands.tsv|\\secret1"] = 1,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
             ["map/texts.tsv|\\jump(TX_0560)"] = 1,
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
@@ -527,10 +528,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 61,
+                [NpcImplementationClassification.OrdinaryGeneric] = 54,
                 [NpcImplementationClassification.SpecializedNative] = 161,
-                [NpcImplementationClassification.EventOwned] = 36,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 197
+                [NpcImplementationClassification.EventOwned] = 47,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 193
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -543,7 +544,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "61 ordinary, 161 specialized, 27 event-owned, and 206 " +
+            "54 ordinary, 161 specialized, 47 event-owned, and 193 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -778,6 +779,7 @@ public sealed partial class ValidationRoot
         string[] expectedSources =
         [
             "blossom.s:MENU_KIDNAME",
+            "symmetryNpc.s:scriptTable",
             "carpenter.s:room025Scripts",
             "forestFairy.s:forestFairy_discovered",
             "shopkeeper.s:lynnaShop:npc",

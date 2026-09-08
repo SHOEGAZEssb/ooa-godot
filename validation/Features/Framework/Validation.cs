@@ -221,6 +221,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom05bCompanionTutorial);
         RunIsolatedValidation(ValidateRooms079And089Interactions);
         RunIsolatedValidation(ValidateRoom025Carpenters);
+        RunIsolatedValidation(ValidateSymmetryNpcs);
+        RunIsolatedValidation(ValidateSymmetrySecrets);
+        RunIsolatedValidation(ValidateTuniNutPlacement);
+        RunIsolatedValidation(ValidateSymmetryFidelity);
+        RunIsolatedValidation(ValidateSymmetryDungeonEntrance);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
         RunIsolatedValidation(ValidateRickyRiding);
         RunIsolatedValidation(ValidateCompanionWaitingFidelity);
@@ -307,6 +312,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateScentSeedAttraction);
         RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
+        RunIsolatedValidation(ValidateSymmetryEnemies);
+        RunIsolatedValidation(ValidateArrowDarknuts);
+        RunIsolatedValidation(ValidatePodobooTowers);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);
         RunIsolatedValidation(ValidateEnemyShieldBumps);
         RunIsolatedValidation(ValidateEnemySwordKnockback);

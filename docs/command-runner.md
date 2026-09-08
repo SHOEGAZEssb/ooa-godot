@@ -34,6 +34,11 @@ opcode, and bad operand or actor. Do not emit scene paths or transient node
 names; actors use stable semantic IDs which the host binds to current runtime
 objects.
 
+Preserve the script's execution location when normalizing jumps. In Ages,
+`scriptCmd_jump` yields after relocating a target within the copied
+`wBigBuffer` script, while its ordinary ROM jump continues dispatch. These
+use distinct typed branch commands even when their destination is identical.
+
 ## Fixed-update semantics
 
 Every command returns an explicit source-equivalent result:

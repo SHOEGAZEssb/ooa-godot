@@ -21,6 +21,7 @@ internal sealed class EnemyAnimationPlayer
     private IReadOnlyDictionary<int, Color[]>? _overridePalette;
     private readonly Dictionary<(int Animation, int Frame, int Palette), Texture2D> _overrideTextures = new();
     private int _damagePalette;
+    private bool _parameterConsumed;
 
     public EnemyAnimationPlayer(Node2D entity, int animationCount)
     {
@@ -35,7 +36,13 @@ internal sealed class EnemyAnimationPlayer
 
     public int AnimationIndex => _animationIndex;
     public int FrameIndex => _frameIndex;
-    public int CurrentParameter => CurrentFrame.Parameter;
+    public int CurrentParameter => _parameterConsumed ? 0 : CurrentFrame.Parameter;
+    internal int ConsumeParameter()
+    {
+        int parameter = CurrentParameter;
+        _parameterConsumed = true;
+        return parameter;
+    }
     public Texture2D CurrentTexture => _overridePalette is not null
         ? OverrideTexture(_basePalette) : CurrentFrame.Texture;
     public Vector2 CurrentOffset => CurrentFrame.Offset;
@@ -267,6 +274,7 @@ internal sealed class EnemyAnimationPlayer
 
     public void SetAnimation(int index)
     {
+        _parameterConsumed = false;
         _animationIndex = index;
         _frameIndex = 0;
         _frameCounter = _animations[index].Count > 0
@@ -289,6 +297,7 @@ internal sealed class EnemyAnimationPlayer
         if (_frameCounter > 0)
             return;
         _frameIndex++;
+        _parameterConsumed = false;
         if (_frameIndex >= animation.Count)
             _frameIndex = _loopStarts[_animationIndex];
         _frameCounter = animation[_frameIndex].Duration;

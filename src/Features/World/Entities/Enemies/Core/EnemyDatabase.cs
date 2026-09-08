@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 36 ||
+        if (_importedDefinitions.Count != 39 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -821,6 +821,8 @@ public sealed class EnemyDatabase
     {
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
+        EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),
+        EnemyHandlerKind.PodobooTower => HasImportedDefinition(descriptor, 0x2d),
         EnemyHandlerKind.BuzzBlob => HasImportedDefinition(descriptor, 0x18),
         EnemyHandlerKind.Octorok =>
             descriptor.Id == 0x09 &&
