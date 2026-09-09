@@ -1312,6 +1312,14 @@ public sealed partial class ValidationRoot
     private void ValidateMapScreen()
     {
         int mapFrame = 0;
+        // Synchronous scenarios share one Godot host frame, so released actions
+        // can retain just-pressed edges. Every simulated update owns its input.
+        void TickMap()
+        {
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot([], [], Vector2.Zero));
+            try { _mapMenu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
         _mapScreen.Initialize(_rooms, _inventory, () => mapFrame);
         FailIf(
             !Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f),
@@ -1420,20 +1428,20 @@ public sealed partial class ValidationRoot
             "MENU_MAP played SND_OPENMENU $54 before its opening fade.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
-            _mapMenu.Update(1.0 / 60.0);
+            TickMap();
             FailIf(
                 _mapScreen.Visible ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests,
                 "MENU_MAP appeared or played SND_OPENMENU $54 before full white.");
         }
-        _mapMenu.Update(1.0 / 60.0);
+        TickMap();
         FailIf(
             !_mapScreen.Visible ||
             _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1,
             "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
-            _mapMenu.Update(1.0 / 60.0);
+            TickMap();
         FailIf(
             _mapScreen.Mode != MapMode.Present || _mapScreen.CursorRoom != 0x11,
             $"Present map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
@@ -1524,12 +1532,25 @@ public sealed partial class ValidationRoot
         mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         FailIf(!_mapMenu.NavigateForValidation(Vector2I.Down),
             "Dungeon 02 did not accept the downward scroll.");
-        for (int frame = 0; frame < 11; frame++) _mapMenu.Update(1.0 / 60.0);
+        // dungeonMap_scrollingState1 moves ten rows, then unlocks on zero.
+        for (int frame = 1; frame <= 11; frame++)
+        {
+            TickMap();
+            FailIf(!_mapMenu.IsOpen || _mapScreen.DungeonScrollY != System.Math.Min(frame, 10) ||
+                _mapScreen.IsScrolling != (frame < 11),
+                $"Dungeon $02 floor scroll update ${frame:x2}: " +
+                $"open={_mapMenu.IsOpen}, scrollY={_mapScreen.DungeonScrollY}, " +
+                $"scrolling={_mapScreen.IsScrolling}.");
+        }
         FailIf(
             _mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1,
             "Dungeon 02's floor navigation did not reveal room 30 on floor 0 " +
-            "and request SND_MENU_MOVE $84.");
+            $"and request SND_MENU_MOVE $84: floor=${_mapScreen.DisplayedDungeonFloor:x2}, " +
+            $"tile=${_mapScreen.DungeonTileAt(5, 1):x2}, scrollY={_mapScreen.DungeonScrollY}, " +
+            $"scrolling={_mapScreen.IsScrolling}, open={_mapMenu.IsOpen}, " +
+            $"dialogue={_dialogue.BlocksPlayerInput}, " +
+            $"move requests={_sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) - mapMoveRequests}.");
         FailIf(
             _mapMenu.NavigateForValidation(Vector2I.Down) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1,
@@ -1602,17 +1623,17 @@ public sealed partial class ValidationRoot
             "Debug map rejected the valid interior target 4:0f.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
-            _mapMenu.Update(1.0 / 60.0);
+            TickMap();
             FailIf(
                 _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x09,
                 "Debug fast travel loaded before the fade reached white.");
         }
-        _mapMenu.Update(1.0 / 60.0);
+        TickMap();
         FailIf(
             _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x0f,
             "Debug map fast travel did not load interior room 4:0f at full white.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
-            _mapMenu.Update(1.0 / 60.0);
+            TickMap();
         FailIf(
             _mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
             "Debug fast travel did not restore gameplay processing.");
