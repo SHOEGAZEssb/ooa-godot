@@ -447,6 +447,14 @@ public partial class Player : Node2D
         !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
         !TopDownDiving && !IsUsingHarp &&
         (!_topDownAirborne || ((TopDownAirZ + 7) & 0xff) < 14);
+    internal bool OverlapsTimePortalHeight => !IsDying && !IsCarryingObject &&
+        !_braceletLiftCollisionsDisabled &&
+        _braceletActionPose is not (BraceletActionPose.Pull or BraceletActionPose.PullStrain) &&
+        ((!_topDownAirborne && _ledgeJumpState == LedgeJumpState.None) ||
+            _topDownAirborne && ((TopDownAirZ + 7) & 0xff) < 14);
+    internal bool AcceptsTimePortalContact => AcceptsGroundInteractionContact &&
+        OverlapsTimePortalHeight && !_world.RidingObject;
+    internal bool TimeWarpPassesNpcs => _world.TimeWarpPassesNpcs;
     // collisionEffects.s:@checkHitLink uses wLinkObjectIndex ($d1 while
     // mounted), not the offset riding-Link sprite at w1Link ($d0).
     internal Vector2 EnemyContactPosition => _companionRideControlled
@@ -1220,15 +1228,25 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    public void BeginTimeWarpTransition(Vector2 portalPosition)
+    public void BeginTimeWarpTransition(Vector2 portalPosition, bool portalContact = true)
     {
         // interactionBeginTimewarp copies the portal position into w1Link and
         // writes DIR_DOWN before disabling Link. Clear pose state at the same
         // handoff so a pushing or item animation cannot survive underneath the
         // time-warp beam.
+        Vector2 precisePosition = _precisePosition;
+        float invincibility = _enemyInvincibilityFrames;
         WarpTo(portalPosition, recordSafe: false);
         BeginRoomWarpTransition();
-        _facing = Facing.Down;
+        if (portalContact)
+            _facing = Facing.Down;
+        else
+        {
+            // harpFluteParent calls putLinkOnGround, which selects the walk
+            // animation without changing direction, XY fractions or damage state.
+            _precisePosition = precisePosition;
+            _enemyInvincibilityFrames = invincibility;
+        }
         _pushing = false;
         ResetLinkWalkAnimation();
         _lastMovementInput = Vector2.Zero;

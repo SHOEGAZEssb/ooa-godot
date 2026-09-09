@@ -443,6 +443,53 @@ Copy-GeneratedFile `
 $portalPath = Join-Path $destination 'objects\timePortals.tsv'
 Write-CutsceneGeneratedTable($portalPath, $portalRows)
 
+# $dc:$03/$04 run before the $e1 spawners. They reveal a portal only after
+# the covered tile becomes standard ground, and persist each spot separately.
+$portalRevealSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous2.s')
+$portalRevealTiles = Read-ImportText (
+    Join-Path $Disassembly 'constants\common\tileIndices.s')
+if ($portalRevealTiles -notmatch '(?m)^\.define TILEINDEX_OVERWORLD_STANDARD_GROUND\s+\$3a\b' -or
+    $portalRevealTiles -notmatch '(?m)^\.define TILEINDEX_PORTAL_SPOT\s+\$d7\b') {
+    throw 'interactiondc_subid3And4_state1 ground $3a / portal spot $d7 constants changed.'
+}
+foreach ($variant in @(@('03', '02'), @('04', '04'))) {
+    $subid = $variant[0]
+    $mask = $variant[1]
+    if ($portalRevealSource -notmatch "(?ms)^interactiondc_subid${subid}:\s+call checkInteractionState\s+jr nz,interactiondc_subid3And4_state1\s+@state0:\s+call getThisRoomFlags\s+and \`$$mask\s+jp nz,interactionDelete\s+ld e,Interaction.var03\s+ld a,\`$$mask\s+ld \(de\),a\s+jp interactionIncState") {
+        throw "miscellaneous2.s:interactiondc_subid$subid portal reveal initialization changed."
+    }
+}
+if ($portalRevealSource -notmatch '(?ms)^interactiondc_subid3And4_state1:\s+call objectGetTileAtPosition\s+cp TILEINDEX_OVERWORLD_STANDARD_GROUND\s+ret nz\s+ld a,TILEINDEX_PORTAL_SPOT\s+ld c,l\s+call setTile\s+call getThisRoomFlags\s+ld e,Interaction.var03\s+ld a,\(de\)\s+or \(hl\)\s+ld \(hl\),a\s+ld a,SND_SOLVEPUZZLE\s+call playSound\s+jp interactionDelete') {
+    throw 'miscellaneous2.s:interactiondc_subid3And4_state1 portal reveal behavior changed.'
+}
+$portalRevealRows = [Collections.Generic.List[string]]::new()
+$portalRevealRows.Add("# group`troom`torder`tsubid`ty`tx`troom-flag`tsource")
+$portalRevealGroup = -1
+$portalRevealRoom = -1
+$portalRevealOrder = 0
+foreach ($node in (Read-AssemblyNodes (Join-Path $Disassembly 'objects\ages\mainData.s'))) {
+    if ($node.Code -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
+        $portalRevealGroup = [int]$Matches['group']
+        $portalRevealRoom = [Convert]::ToInt32($Matches['room'], 16)
+        $portalRevealOrder = 0
+        continue
+    }
+    if ($portalRevealGroup -lt 0 -or $node.Code -notmatch '^\s*obj_(?!End)') { continue }
+    if ($node.Code -match '^\s*obj_Interaction\s+\$dc\s+\$(?<subid>03|04)\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s*$') {
+        $subid = $Matches['subid']
+        $mask = if ($subid -eq '03') { '02' } else { '04' }
+        $portalRevealRows.Add("$portalRevealGroup`t$($portalRevealRoom.ToString('x2'))`t$portalRevealOrder`t$subid`t$($Matches['y'])`t$($Matches['x'])`t$mask`tmiscellaneous2.s:interactiondc_subid$subid")
+    }
+    $portalRevealOrder++
+}
+if ($portalRevealRows.Count -ne 3 -or
+    $portalRevealRows[1] -ne "0`t13`t0`t03`t48`t28`t02`tmiscellaneous2.s:interactiondc_subid03" -or
+    $portalRevealRows[2] -ne "0`t13`t1`t04`t48`t78`t04`tmiscellaneous2.s:interactiondc_subid04") {
+    throw 'Expected the two ordered $dc:$03/$04 portal reveal placements in room 0:13.'
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'objects\portal_reveals.tsv'), $portalRevealRows)
+
 # Direct Tune of Currents/Ages warps create INTERAC_TIMEPORTAL ($de) at the
 # arrival position. Unlike the placed $e1 spawner, it uses common sprites,
 # remains visible, cycles OBJ palettes, and is restored from wPortalPos when
@@ -502,6 +549,51 @@ $temporaryPortalRows = @(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\temporaryTimePortal.tsv'),
     $temporaryPortalRows)
+
+# CUTSCENE_TIMEWARP uses INTERAC_TIMEWARP ($dd), PART_TIMEWARP_ANIMATION
+# Arrival rejection is a separate Link state machine, including the original
+# dbrev room bitset and the Mermaid Suit exception (not ordinary swimming).
+$timeWarpLandingRows = @("# kind`tkey`tvalue`tsource")
+$invalidWarpPath = Join-Path $Disassembly 'data\ages\tile_properties\timewarpInvalidTiles.s'
+$invalidWarpNodes = @(Read-AssemblyDataDirectives $invalidWarpPath 'invalidTimewarpTileList' '.db')
+foreach ($node in $invalidWarpNodes) {
+    if ($node.Operands.Count -eq 1 -and $node.Operands[0] -eq '$00') { continue }
+    if ($node.Operands.Count -ne 2 -or $node.Operands[0] -notmatch '^\$[0-9a-f]{2}$' -or
+        $node.Operands[1] -notmatch '^\$0[01]$') {
+        throw "$($node.Path):$($node.Line): unsupported invalidTimewarpTileList row."
+    }
+    $timeWarpLandingRows += "tile`t$($node.Operands[0].Substring(1))`t$($node.Operands[1].Substring(1))`ttimewarpInvalidTiles.s:invalidTimewarpTileList:$($node.Line)"
+}
+if ($invalidWarpNodes.Count -ne 11) { throw 'invalidTimewarpTileList must have ten pairs and a terminator.' }
+$timeWarpCutscenePath = Join-Path $Disassembly 'code\ages\cutscenes\miscCutscenes.s'
+$strangeForceIndex = 0
+foreach ($node in Read-AssemblyMacroInvocations $timeWarpCutscenePath '@sentBackByStrangeForceTable' 'dbrev') {
+    foreach ($operand in $node.Operands) {
+        if ($operand -notmatch '^%[01]{8}$') { throw "$($node.Path):$($node.Line): malformed strange-force dbrev byte." }
+        foreach ($bit in $operand.Substring(1).ToCharArray()) {
+            if ($bit -eq '1') {
+                $timeWarpLandingRows += "room`t$($strangeForceIndex.ToString('x2'))`t01`tmiscCutscenes.s:@sentBackByStrangeForceTable:$($node.Line)"
+            }
+            $strangeForceIndex++
+        }
+    }
+}
+if ($strangeForceIndex -ne 256) { throw 'Timewarp strange-force table must contain 256 room bits.' }
+if (-not $allTexts.ContainsKey(0x5112)) { throw 'Timewarp TX_5112 was not decoded.' }
+$timeWarpLandingRows += "text`t5112`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5112])))`tlink.s:warpTransition6"
+# Native NPC initialization publishes occupied metatiles independently of
+# ordinary Link collision rectangles. Retain handler identity for the owner.
+foreach ($path in Get-ChildItem (Join-Path $Disassembly 'object_code\ages\interactions') -File -Filter '*.s' | Sort-Object Name) {
+    $nodes = @(Read-AssemblyNodes $path.FullName)
+    $mark = @($nodes | Where-Object { $_.Operands -contains 'objectMarkSolidPosition' } | Select-Object -First 1)
+    if ($mark.Count -eq 0) { continue }
+    $handler = @($nodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -match '^interactionCode[0-9a-f]{2}(?:_body)?$' } | Select-Object -First 1)
+    if ($handler.Count -ne 1 -or $handler[0].Name -notmatch '^interactionCode(?<id>[0-9a-f]{2})(?:_body)?$') {
+        throw "$($path.FullName): objectMarkSolidPosition has no interaction handler identity."
+    }
+    $timeWarpLandingRows += "solid-npc`t$($Matches['id'])`t01`t$($path.Name):$($mark[0].Line):objectMarkSolidPosition"
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'objects\timewarp_landing.tsv'), $timeWarpLandingRows)
 
 # CUTSCENE_TIMEWARP uses INTERAC_TIMEWARP ($dd), PART_TIMEWARP_ANIMATION
 # ($2b), and INTERAC_SPARKLE ($84:$01) after a portal spawner transfers Link

@@ -18,14 +18,17 @@ public partial class TimePortal : TransitionOffsetNode2D
     private OracleSaveData? _save;
     private Func<int> _playingInstrument = static () => 0;
     private Action<int> _playSound = static _ => { };
+    private Func<bool> _menuDisabled = static () => false;
     private bool _startsActive;
     private bool _linkWasOutside;
     private TimePortalState _state;
     private bool _ranActiveUpdate;
+    private int _temporaryState;
 
     public PortalRecord Record { get; private set; }
     public bool Entered { get; private set; }
-    public bool Active => _state == TimePortalState.Active;
+    internal bool Expired { get; private set; }
+    public bool Active => !Entered && !Expired && _state == TimePortalState.Active;
     public bool Temporary { get; private set; }
     internal bool Awakening => _state == TimePortalState.AwaitSongEnd;
     internal int CurrentFrame => _frame;
@@ -62,10 +65,14 @@ public partial class TimePortal : TransitionOffsetNode2D
     internal void InitializeTemporary(
         TemporaryPortalVisualRecord visual,
         OracleRoomData room,
-        Vector2 position)
+        Vector2 position,
+        OracleSaveData? save = null,
+        Func<bool>? menuDisabled = null)
     {
         _room = room;
         Temporary = true;
+        _save = save;
+        _menuDisabled = menuDisabled ?? (static () => false);
         Position = position;
         _palette = visual.Palette;
         _contactRadius = visual.ContactRadius;
@@ -78,13 +85,42 @@ public partial class TimePortal : TransitionOffsetNode2D
             throw new InvalidOperationException(
                 "Temporary time portal has invalid animation data.");
         _state = TimePortalState.Active;
-        _ranActiveUpdate = true;
         Visible = true;
         QueueRedraw();
     }
 
-    internal void UpdateFrame(int frameCounter)
+    internal void UpdateFrame(int frameCounter, Player? player = null)
     {
+        if (Entered || Expired) return;
+        if (Temporary && _menuDisabled())
+        {
+            Visible = false;
+            return;
+        }
+        if (Temporary && player is not null)
+        {
+            Visible = true;
+            bool overlaps = player.OverlapsTimePortalHeight && Overlaps(player.EnemyContactPosition);
+            if (_temporaryState == 0)
+            {
+                _temporaryState = overlaps ? 1 : 2;
+                _linkWasOutside = !overlaps;
+                return;
+            }
+            if (_temporaryState == 1 && !overlaps)
+            {
+                _temporaryState = 2;
+                _linkWasOutside = true;
+                return;
+            }
+            if (_temporaryState == 2 && _save is not null &&
+                _save.TimePortalPosition != _room.GetPackedPosition(Position))
+            {
+                Expired = true;
+                Visible = false;
+                return;
+            }
+        }
         if (_state == TimePortalState.AwaitPortalTile)
         {
             TryInitializePlaced();
@@ -164,10 +200,7 @@ public partial class TimePortal : TransitionOffsetNode2D
     {
         if (!Active || !_ranActiveUpdate || Entered)
             return false;
-        Vector2 delta = linkPosition - Position;
-        bool overlaps =
-            Mathf.Abs(delta.X) < _contactRadius &&
-            Mathf.Abs(delta.Y) < _contactRadius;
+        bool overlaps = Overlaps(linkPosition);
         if (!overlaps)
         {
             _linkWasOutside = true;
@@ -177,9 +210,18 @@ public partial class TimePortal : TransitionOffsetNode2D
         // state waits for Link to leave before accepting a fresh collision.
         if (!_linkWasOutside)
             return false;
+        if (!Temporary && (Record.SubId & 0x40) != 0)
+            _save?.SetRoomFlag(Record.Group, Record.Room, 0x02);
         Entered = true;
         Visible = false;
         return true;
+    }
+
+    private bool Overlaps(Vector2 position)
+    {
+        Vector2 delta = position - Position;
+        return ((Mathf.FloorToInt(delta.X) + (int)_contactRadius) & 0xff) < _contactRadius * 2 &&
+            ((Mathf.FloorToInt(delta.Y) + (int)_contactRadius) & 0xff) < _contactRadius * 2;
     }
 
     public override void _Draw()

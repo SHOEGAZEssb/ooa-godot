@@ -28,6 +28,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdateElectricShockPresentation(int counter) =>
         _entities.UpdateElectricShockPresentation(counter);
     public bool IsTransitioning => _transitions.IsTransitioning;
+    public bool TimeWarpPassesNpcs => _transitions.TimeWarpDestinationActive;
     public bool ScreenScrolling => _transitions.ScrollActive;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
@@ -38,7 +39,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
         _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
-    public bool PlayerContactDisabled => _entities.PlayerContactDisabled;
+    public bool PlayerContactDisabled => _transitions.TimeWarpActive || _entities.PlayerContactDisabled;
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;

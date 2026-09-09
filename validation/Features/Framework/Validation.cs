@@ -365,6 +365,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemDrops);
         RunIsolatedValidation(ValidateDiggingEnemies);
         RunIsolatedValidation(ValidateTimePortals);
+        RunIsolatedValidation(ValidateTimeWarpLandingFidelity);
+        RunIsolatedValidation(ValidateTimePortalContactFidelity);
+        RunIsolatedValidation(ValidateHiddenPortalSpots);
         RunIsolatedValidation(ValidateEnterPastEvent);
         RunIsolatedValidation(ValidateCrescentIslandPastStairs);
         RunIsolatedValidation(ValidateRoom5ccDiveWarp);

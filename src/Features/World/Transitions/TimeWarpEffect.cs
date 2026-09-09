@@ -145,11 +145,14 @@ public partial class TimeWarpEffect : Node2D
     {
         _globalFrame = globalFrame;
         _sourceExpandedThisFrame = false;
+        // Parts run before interactions. A particle allocated by $dd:$00
+        // cannot move until the next part pass.
+        UpdateParticles();
         UpdatePrimary();
         UpdateBeam();
-        UpdateParticles();
-        UpdateTrail();
+        SpawnParticles();
         UpdateSparkles();
+        UpdateTrail();
         QueueEffectRedraw();
     }
 
@@ -351,7 +354,7 @@ public partial class TimeWarpEffect : Node2D
         _beam = new Animator(_beamLoop, loop: true);
     }
 
-    private void UpdateParticles()
+    private void SpawnParticles()
     {
         if (_source && _primaryExpanded && !_primaryContracting && _primary is not null)
         {
@@ -369,12 +372,16 @@ public partial class TimeWarpEffect : Node2D
                 }
             }
         }
+    }
 
+    private void UpdateParticles()
+    {
         for (int index = _particles.Count - 1; index >= 0; index--)
         {
             Particle particle = _particles[index];
             particle.PrecisePosition.Y -= particle.SpeedFixed / 256.0f;
-            if (OracleObjectMath.ToPixelPosition(particle.PrecisePosition).Y <= -5)
+            if (OracleObjectMath.ToPixelPosition(particle.PrecisePosition).Y <= -5 ||
+                _beamContracting && (particle.SubId & 2) != 0)
                 _particles.RemoveAt(index);
         }
     }
@@ -400,7 +407,7 @@ public partial class TimeWarpEffect : Node2D
             return;
 
         _trailPosition.Y -= 4;
-        if (_trailPosition.Y <= -5)
+        if (_trailPosition.Y < 0)
         {
             _trailMoving = false;
             return;
@@ -411,7 +418,9 @@ public partial class TimeWarpEffect : Node2D
         _trailSparkleCounter = 6;
         _sparkles.Add(new Sparkle(
             _trailPosition,
-            new Animator(_sparkle.Take(4).ToList())));
+            // $84:$01 tests animParameter before animating. Its terminal
+            // $ff frame remains visible until the following update deletes it.
+            new Animator(_sparkle)));
         SparkleSpawnCount++;
     }
 

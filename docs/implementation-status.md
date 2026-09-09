@@ -31,8 +31,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
   eight-direction Seed Shooter aiming and three-bounce projectiles, Mystery
   Seed/Owl behavior, Gale Seed tornadoes and visited-tree travel,
-  level-1 Roc's Feather, Harp/time-portal
-  foundations, source-timed top-down Flippers swimming/normal-water diving,
+  level-1 Roc's Feather, Harp songs and time travel with temporary return
+  portals, obstructed-arrival returns and strange-force restrictions,
+  source-timed top-down Flippers swimming/normal-water diving,
   source-placed normal-water dive transitions, side-view Flippers swimming,
   common treasure transactions, and many ring effects.
 - A growing shared enemy and interaction roster with deterministic placement,

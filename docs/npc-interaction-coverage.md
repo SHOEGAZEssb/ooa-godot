@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 7, 2026. It is an implementation inventory, not a
+interactions as of September 9, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -69,6 +69,13 @@ rows. Including the family table, the typed runtime database contains 455
 classified records and 161 specialized rows.
 
 ### Important partial and deferred boundaries
+
+- September 9, 2026: supported NPC handlers that mark solid positions now
+  prevent time travel onto their occupied metatiles; Link passes through NPCs
+  while the destination arrival runs. `ValidateTimeWarpLandingFidelity`
+  covers `$3f:$01` in `0:45`, including its game-progress gate and rejected
+  arrival. Classifications and totals remain **141 I / 49 P / 193 D**, with
+  **47 event-owned** rows. Suppressed NPC records remain outside this coverage.
 
 - September 8, 2026: Symmetry Village's eleven `$bf` records remain **I**,
   covered by `ValidateSymmetryNpcs` and `ValidateSymmetrySecrets`.
@@ -340,7 +347,7 @@ well as record selection.
 | `0:38` | [P] `$87:$00/v$00` makuTree |
 | `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
-| `0:45` | [I] `$3f:$01/v$00` boy2 |
+| `0:45` | [I] `$3f:$01/v$00` boy2, including its occupied timewarp landing tile |
 | `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
 | `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
 | `0:50` | [D] `$83:$00/v$00` bombUpgradeFairy |

@@ -7,6 +7,7 @@ public interface IPlayerWorld
 {
     int FrameCounter { get; }
     bool IsTransitioning { get; }
+    bool TimeWarpPassesNpcs => false;
     bool ScreenScrolling { get; }
     bool DialogueOpen { get; }
     bool SwordDisabled { get; }

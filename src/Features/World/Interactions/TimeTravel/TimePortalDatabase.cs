@@ -8,12 +8,36 @@ public sealed class TimePortalDatabase
 {
 
     private readonly Lookup<int, PortalRecord> _byRoom = new();
+    private readonly Lookup<int, PortalRevealRecord> _revealsByRoom = new();
+    internal IReadOnlyList<PortalRevealRecord> GetRoomReveals(int group, int room) =>
+        _revealsByRoom.ValuesOrEmpty(MakeKey(group, room));
     public TemporaryPortalVisualRecord TemporaryVisual { get; }
     internal IReadOnlyDictionary<byte, byte> EntryTileReplacements { get; }
     internal IReadOnlyDictionary<byte, byte> ReturnTileReplacements { get; }
 
     public TimePortalDatabase()
     {
+        GeneratedTable reveals = GeneratedTable.Load(
+            "res://assets/oracle/objects/portal_reveals.tsv",
+            new GeneratedTableSchema(
+                "portal reveals", GeneratedTableKeySemantics.Grouped,
+                ["group", "room", "order", "subid", "y", "x", "room-flag", "source"],
+                ["group", "room"], headerRequired: true));
+        foreach (GeneratedTableRow row in reveals.Rows)
+        {
+            var record = new PortalRevealRecord(
+                row.Decimal(0, 0, 7), row.HexByte(1), row.UnsignedDecimal(2),
+                row.HexByte(3), row.HexByte(4), row.HexByte(5),
+                (byte)row.HexByte(6), row.RequiredString(7));
+            if (record.SubId is not (0x03 or 0x04) ||
+                record.RoomFlag != (record.SubId == 0x03 ? 0x02 : 0x04))
+                throw new InvalidOperationException($"{record.Source}: invalid $dc:${record.SubId:x2} portal reveal flag ${record.RoomFlag:x2}.");
+            var records = _revealsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
+            if (records.Count != 0 && records[^1].Order >= record.Order)
+                throw new InvalidOperationException($"{record.Source}: portal reveals are not in source object order.");
+            records.Add(record);
+        }
+
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/objects/timePortals.tsv",
             new GeneratedTableSchema(

@@ -829,6 +829,14 @@ internal sealed class RoomEntityFactory(
                 groundTreasureCollected);
         }
 
+        // $dc:$03/$04 precede both $e1 portals in the source object stream.
+        // Keep their state-0 updates separate from creation and from reveal.
+        if (saveData is not null)
+        {
+            foreach (PortalRevealRecord record in timePortals.GetRoomReveals(group, room.Id))
+                yield return new PortalRevealRoomEntity(
+                    record, room, saveData, soundRequested, roomTileChanged, animationTick);
+        }
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
             yield return portal;
 
@@ -4681,7 +4689,7 @@ internal sealed class RoomEntityFactory(
     {
         foreach (PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
         {
-            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = 8 };
+            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = NpcCharacter.BehindLinkZIndex };
             portal.InitializePlaced(
                 record,
                 room,
@@ -4709,9 +4717,10 @@ internal sealed class RoomEntityFactory(
         var portal = new TimePortal
         {
             Name = "TemporaryTimePortal",
-            ZIndex = 8
+            ZIndex = NpcCharacter.BehindLinkZIndex
         };
-        portal.InitializeTemporary(timePortals.TemporaryVisual, room, position);
+        portal.InitializeTemporary(timePortals.TemporaryVisual, room, position, saveData,
+            () => runtimeState.ReadWramByte(0xcde0) != 0);
         return new TimePortalRoomEntity(portal, portalEntered);
     }
 

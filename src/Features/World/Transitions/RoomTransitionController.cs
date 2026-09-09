@@ -51,6 +51,7 @@ public sealed class RoomTransitionController
     private readonly OracleSoundEngine _sound;
     private readonly TimePortalDatabase _timePortals;
     private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
+    private readonly TimeWarpLandingDatabase _timeWarpLanding = new();
     private readonly EraInfoDatabase _eraInfo = new();
     private readonly FairiesWoodsScramblerDatabase _fairiesWoodsScrambler = new();
     private readonly ScreenTransitionGraphicsDatabase _scrollGraphics = new();
@@ -98,7 +99,11 @@ public sealed class RoomTransitionController
     private int _timeWarpAppliedDissolveStep = -1;
     private double _timeWarpTickAccumulator;
     private bool _timeWarpUsesIndoorBeamPalette;
-    private bool _createTimePortalAtDestination;
+    private bool TimeWarpCreatesPortal => _entities.RuntimeState.ReadWramByte(0xcddc) == 0;
+    private byte _timeWarpDestinationFlags;
+    private bool _timeWarpArrivalRejected;
+    private OracleRoomData? _timeWarpSourceRoom;
+    private bool _timeWarpSourcePositionOccupied;
     private TimeWarpEffect? _timeWarpEffect;
     private readonly List<TimeWarpEffect> _continuingTimeWarpEffects = new();
     private readonly Dictionary<CanvasItem, Material?> _dissolvedItems = new();
@@ -127,6 +132,11 @@ public sealed class RoomTransitionController
     internal Func<bool> AllScreenTransitionsDisabledSource { get; set; } =
         static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
+    internal bool TimeWarpDestinationActive => TimeWarpActive && _warpPhase is
+        WarpPhase.TimeWarpArrivalFadeIn or WarpPhase.TimeWarpArrivalWait or
+        WarpPhase.TimeWarpArrivalEffect or WarpPhase.TimeWarpArrivalFlicker or
+        WarpPhase.TimeWarpRejectedFlicker or WarpPhase.TimeWarpRejectedEffect or
+        WarpPhase.TimeWarpRejectedWait or WarpPhase.TimeWarpReturnFadeOut;
     internal int TimeWarpPhaseFrame => _timeWarpPhaseFrame;
     internal int TimeWarpDissolveStep => _timeWarpDissolveStep;
     internal int TimeWarpDissolveBufferStep => _timeWarpDissolveBufferStep;
@@ -192,8 +202,8 @@ public sealed class RoomTransitionController
 
     internal void UpdateWarpAndEffects(double delta)
     {
-        UpdateWarp(delta);
         UpdateContinuingTimeWarpEffects();
+        UpdateWarp(delta);
         // updateAllObjects calls updateCamera once after Link and the other
         // objects. Ordinary gameplay receives that sample from GameRoot's
         // post-object pass; active warps do not reach that pass, so retain the
@@ -817,6 +827,8 @@ public sealed class RoomTransitionController
         if (clearExistingPortal)
             _rooms.SaveData.ClearTimePortalLocation();
         int position = _rooms.CurrentRoom.GetPackedPosition(portalPosition);
+        _timeWarpSourceRoom = _rooms.CurrentRoom;
+        _timeWarpSourcePositionOccupied = _entities.TimeWarpPositionOccupied(_timeWarpLanding, position);
         _pendingWarp = new Warp(
             _rooms.ActiveGroup, _rooms.CurrentRoom.Id, position, 0, 0,
             destinationGroup, _rooms.CurrentRoom.Id, position, 0, 6);
@@ -837,13 +849,17 @@ public sealed class RoomTransitionController
         // it after the era swap.
         _timeWarpUsesIndoorBeamPalette =
             (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0;
-        _createTimePortalAtDestination = createDestinationPortal;
+        _entities.RuntimeState.SetWramByte(0xcddc,
+            createDestinationPortal ? (byte)0 : (byte)(position + 1));
+        _entities.RuntimeState.SetWramByte(0xcde0,
+            createDestinationPortal ? (byte)0x5b : (byte)(position + 1));
+        _timeWarpArrivalRejected = false;
         _destinationWalk = false;
         _dialogue.Close();
         // interactionBeginTimewarp copies the portal's position into w1Link,
         // forces DIR_DOWN, and calls restartSound before CUTSCENE_TIMEWARP is
         // serviced on the next update.
-        player.BeginTimeWarpTransition(portalPosition);
+        player.BeginTimeWarpTransition(portalPosition, portalContact: !createDestinationPortal);
         _sound.RestartSound();
         _roomView.SetBackgroundFade(Colors.Black, 0.0f);
         ClearRoomLoadColumnReveal();
@@ -863,7 +879,7 @@ public sealed class RoomTransitionController
         _pendingWarp = warp;
         _suppressDestinationMusic = suppressDestinationMusic;
         _timeWarp = false;
-        _createTimePortalAtDestination = false;
+        _entities.RuntimeState.SetWramByte(0xcddc, 0);
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
@@ -1014,8 +1030,17 @@ public sealed class RoomTransitionController
 
     private void AdvanceTimeWarpFrame()
     {
-        _timeWarpGlobalFrame = (_timeWarpGlobalFrame + 1) & 0xff;
+        bool destinationUpdate = TimeWarpDestinationActive;
+        bool enemiesDisabled = _warpPhase is WarpPhase.TimeWarpInitialize or
+            WarpPhase.TimeWarpArrivalFadeIn or WarpPhase.TimeWarpReturnFadeOut ||
+            _warpPhase == WarpPhase.TimeWarpDissolve &&
+                TimeWarpInitializeFrames + _timeWarpPhaseFrame < FastPaletteFadeFrames;
+        _timeWarpGlobalFrame = (_entities.FrameCounter + 1) & 0xff;
         _timeWarpPhaseFrame++;
+        if (_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) == 1 ||
+            _warpPhase == WarpPhase.TimeWarpReturnFadeOut &&
+            _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) == 2)
+            _roomView.SetHorizontalWave(0xff, _timeWarpGlobalFrame);
 
         switch (_warpPhase)
         {
@@ -1072,6 +1097,11 @@ public sealed class RoomTransitionController
                     // through the object-gfx masking and source expansion,
                     // then disappears at this exact 120-count handoff.
                     _player.Visible = false;
+                    if (_timeWarpSourcePositionOccupied)
+                        _pendingWarp = _pendingWarp with
+                        {
+                            DestinationPosition = _rooms.CurrentRoom.GetPackedPosition(_player.Position)
+                        };
                     _timeWarpEffect?.BeginSourceTrail();
                     _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
                     SetTimeWarpPhase(WarpPhase.TimeWarpSourceTrail);
@@ -1132,6 +1162,11 @@ public sealed class RoomTransitionController
                 if (_timeWarpPhaseFrame >= TimeWarpArrivalWaitFrames)
                 {
                     SpawnTimeWarpEffect(source: false);
+                    _timeWarpArrivalRejected =
+                        _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) == 1 ||
+                        !_timeWarpLanding.CanStandOnTile(_rooms.CurrentRoom, _player.Position,
+                            _player.Inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit)) ||
+                        _entities.TimeWarpPositionOccupied(_timeWarpLanding, _pendingWarp.DestinationPosition);
                     SetTimeWarpPhase(WarpPhase.TimeWarpArrivalEffect);
                 }
                 break;
@@ -1142,7 +1177,8 @@ public sealed class RoomTransitionController
                 {
                     _player.Visible = true;
                     _sound.PlaySound(OracleSoundEngine.SndTimewarpCompleted);
-                    SetTimeWarpPhase(WarpPhase.TimeWarpArrivalFlicker);
+                    SetTimeWarpPhase(_timeWarpArrivalRejected
+                        ? WarpPhase.TimeWarpRejectedFlicker : WarpPhase.TimeWarpArrivalFlicker);
                 }
                 break;
 
@@ -1154,6 +1190,66 @@ public sealed class RoomTransitionController
                 if (_timeWarpPhaseFrame >= TimeWarpArrivalFlickerFrames)
                     FinishWarp();
                 break;
+
+            case WarpPhase.TimeWarpRejectedFlicker:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                _player.Visible = (_timeWarpGlobalFrame & 3) != 0;
+                if (_timeWarpPhaseFrame >= 0x78)
+                {
+                    SpawnTimeWarpEffect(source: false);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpRejectedEffect);
+                }
+                break;
+
+            case WarpPhase.TimeWarpRejectedEffect:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                _player.Visible = (_timeWarpGlobalFrame & 3) != 0;
+                if (_timeWarpPhaseFrame >= 0x10)
+                {
+                    _player.Visible = false;
+                    SetTimeWarpPhase(WarpPhase.TimeWarpRejectedWait);
+                }
+                break;
+
+            case WarpPhase.TimeWarpRejectedWait:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                if (_timeWarpPhaseFrame >= 0x14)
+                {
+                    // warpTransition6 substate 7 returns through a direct
+                    // white fade, without replaying CUTSCENE_TIMEWARP.
+                    int packed = _rooms.CurrentRoom.GetPackedPosition(_player.Position);
+                    if ((_timeWarpDestinationFlags & 0x10) == 0)
+                        _rooms.SaveData.SetRoomFlag(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, 0x10, false);
+                    _pendingWarp = new Warp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, packed, 0, 0,
+                        _rooms.ActiveGroup ^ 1, _rooms.CurrentRoom.Id, packed, 0, 6);
+                    _entities.RuntimeState.SetWramByte(0xcddc, (byte)(packed + 1));
+                    _entities.RuntimeState.SetWramByte(0xcddf, (byte)(packed + 1));
+                    byte strangeForce = _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress);
+                    if (strangeForce != 0)
+                        _entities.RuntimeState.SetWramByte(OracleRuntimeState.SentBackByStrangeForceAddress, (byte)(strangeForce + 1));
+                    _sound.PlaySound(OracleSoundEngine.SndTimewarpCompleted);
+                    SetTimeWarpPhase(WarpPhase.TimeWarpReturnFadeOut);
+                }
+                break;
+
+            case WarpPhase.TimeWarpReturnFadeOut:
+                _timeWarpEffect?.AdvanceFrame(_timeWarpGlobalFrame);
+                SetFade(_timeWarpPhaseFrame / WarpFadeMaximumOffset);
+                if (_timeWarpPhaseFrame >= WarpFadeFrames)
+                    LoadWarpDestination();
+                break;
+        }
+        // Room loading clears wDisabledObjects. During destination Link's
+        // substate machine, other objects keep animating and consuming RNG;
+        // wMenuDisabled/checkLinkCollisionsEnabled still prevent contact.
+        if (TimeWarpActive)
+        {
+            if (destinationUpdate)
+                _entities.Update(1.0 / 60.0, _player, timeWarpArrival: true,
+                    enemiesDisabled: enemiesDisabled);
+            else
+                _entities.UpdateTimeWarpSource(_player, interactionsDisabled: TimeWarpCreatesPortal,
+                    enemiesDisabled: !TimeWarpCreatesPortal || enemiesDisabled);
         }
     }
 
@@ -1165,6 +1261,7 @@ public sealed class RoomTransitionController
 
     private void LoadWarpDestination()
     {
+        _roomView.ClearHorizontalWave();
         if (_timeWarp)
         {
             _timeWarpEffect?.StopImmediately();
@@ -1179,6 +1276,13 @@ public sealed class RoomTransitionController
         // boundary instead of surviving under the destination tilemap.
         WarpDestinationLoading?.Invoke();
         Warp warp = _pendingWarp;
+        if (_timeWarp)
+        {
+            _timeWarpDestinationFlags = _rooms.SaveData.GetRoomFlags(warp.DestinationGroup, warp.DestinationRoom);
+            if (_entities.RuntimeState.ReadWramByte(0xcddf) == 0 &&
+                _timeWarpLanding.SentBackByStrangeForce(_rooms.CurrentRoom.Id))
+                _entities.RuntimeState.SetWramByte(OracleRuntimeState.SentBackByStrangeForceAddress, 1);
+        }
         // Full room loading retains the mounted animal slot. Update its room
         // and packed destination before the factory reconstitutes that slot.
         if (_entities.PlayerRidingObject && CompanionRuntimeState.AnyActive(_entities.RuntimeState))
@@ -1194,18 +1298,27 @@ public sealed class RoomTransitionController
                 CompanionRuntimeState.SetLastAnimalMountPosition(_entities.RuntimeState, destination);
             }
         }
-        OracleRoomData room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
-        if (_timeWarp)
+        bool returningThroughTime = _timeWarp && _entities.RuntimeState.ReadWramByte(0xcddf) != 0;
+        OracleRoomData room;
+        if (returningThroughTime)
         {
-            if (_createTimePortalAtDestination)
-            {
-                _timePortals.ApplyEntryTileReplacement(
-                    room, warp.DestinationPosition, _entities.FrameCounter);
-            }
-            else
+            // func_131f restores the saved source layout, collision bytes and
+            // tilemap from banks 2/6, preserving unsaved cuts and dug tiles.
+            room = _timeWarpSourceRoom ?? throw new InvalidOperationException(
+                "warpTransition6 return has no saved source room layout.");
+            _rooms.SetLoadedRoom(warp.DestinationGroup, room);
+        }
+        else
+            room = _rooms.Load(warp.DestinationGroup, warp.DestinationRoom);
+        if (_timeWarp && !returningThroughTime)
+        {
+            _timePortals.ApplyEntryTileReplacement(
+                room, warp.DestinationPosition, _entities.FrameCounter);
+            int returnTile = _entities.RuntimeState.ReadWramByte(0xcddc);
+            if (returnTile != 0)
             {
                 _timePortals.ApplyReturnTileReplacement(
-                    room, warp.DestinationPosition, _entities.FrameCounter);
+                    room, returnTile - 1, _entities.FrameCounter);
             }
         }
         _roomView.SetRoom(room.Texture);
@@ -1227,9 +1340,17 @@ public sealed class RoomTransitionController
         // the same transient last-eight-room suppression as scrolling.
         if (_rooms.CurrentDungeonIndex < 0)
             _entities.ClearRecentEnemyDefeats();
-        _entities.LoadRoom(
-            _rooms.ActiveGroup, room,
-            EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
+        if (_timeWarp && _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) == 1)
+        {
+            // initializeRoom returns before object parsing, Maple, companions,
+            // and room code. Only INTERAC_SCREEN_DISTORTION $7c is created.
+            _entities.LoadCutsceneRoom(_rooms.ActiveGroup, room, includeTimePortals: false);
+            _sound.PlaySound(OracleSoundEngine.SndWarpStart);
+        }
+        else
+            _entities.LoadRoom(
+                _rooms.ActiveGroup, room,
+                EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
         CheckDisplayEraInfoAfterFullRoomLoad();
 
         Vector2 spawn;
@@ -1391,7 +1512,7 @@ public sealed class RoomTransitionController
             EndTimeWarpDissolve();
             _roomView.ClearBackgroundFade();
             _hud.Visible = true;
-            if (_createTimePortalAtDestination)
+            if (TimeWarpCreatesPortal)
             {
                 int packed = _pendingWarp.DestinationPosition;
                 Vector2 position = new(
@@ -1403,11 +1524,18 @@ public sealed class RoomTransitionController
                     packed);
                 _entities.SpawnTemporaryTimePortal(position);
             }
+            if (_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) != 0)
+                _dialogue.ShowMessage(_timeWarpLanding.StrangeForceText, _player.Position.Y);
+            _entities.RuntimeState.SetWramByte(OracleRuntimeState.SentBackByStrangeForceAddress, 0);
+            _entities.RuntimeState.SetWramByte(0xcddf, 0);
+            _entities.RuntimeState.SetWramByte(0xcde0, 0);
+            _player.ApplyInteractionInvincibility(0x78); // signed byte $88
         }
         _destinationWalk = false;
         _destinationFall = false;
         _timeWarp = false;
-        _createTimePortalAtDestination = false;
+        _entities.RuntimeState.SetWramByte(0xcddc, 0);
+        _timeWarpSourceRoom = null;
         _warpActive = false;
         _warpPhase = WarpPhase.None;
         _player.Visible = true;
@@ -1692,5 +1820,9 @@ internal enum WarpPhase
     TimeWarpArrivalFadeIn,
     TimeWarpArrivalWait,
     TimeWarpArrivalEffect,
-    TimeWarpArrivalFlicker
+    TimeWarpArrivalFlicker,
+    TimeWarpRejectedFlicker,
+    TimeWarpRejectedEffect,
+    TimeWarpRejectedWait,
+    TimeWarpReturnFadeOut
 }

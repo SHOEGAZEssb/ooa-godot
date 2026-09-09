@@ -48,6 +48,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
     public NpcRecord BaseRecord => _baseRecord;
     public NpcRecord Record { get; private set; }
+    // objectMarkSolidPosition is an initialization reservation, not a moving
+    // collision rectangle. State-selected positions can explicitly relocate it.
+    internal Vector2 TimeWarpSolidPosition { get; private set; }
     public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
     public int TextId => Record.TextId;
@@ -162,6 +165,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _collisionRadiusX = CollisionRadius;
         RebuildFacingAnimations();
         Position = new Vector2(record.X, record.Y);
+        TimeWarpSolidPosition = Position;
         QueueRedraw();
     }
 
@@ -193,6 +197,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         float collisionRadiusY,
         float collisionRadiusX)
     {
+        if (player.TimeWarpPassesNpcs) return false;
         Vector2 link = player.Position;
         float radiusY = collisionRadiusY + LinkCollisionRadius;
         float radiusX = collisionRadiusX + LinkCollisionRadius;
@@ -232,6 +237,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
     internal void SetStatePosition(Vector2 position)
     {
+        TimeWarpSolidPosition = position;
         if (Position == position)
             return;
         Position = position;

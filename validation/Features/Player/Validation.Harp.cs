@@ -129,11 +129,14 @@ public sealed partial class ValidationRoot
             (_currentRoom.TilesetFlags & 0x7e) != 0,
             "Canonical past room 1:06 is no longer a valid Currents screen.");
         _inventory.SelectHarpSong(2);
+        PlaceLinkOnSharedHarpLanding();
+        _player.Face(Vector2I.Left);
         Vector2 currentsPosition = _player.Position;
         int currentsPacked = _currentRoom.GetPackedPosition(currentsPosition);
         PlaySelectedHarpSong();
         FailIf(
-            !_transitions.TimeWarpActive,
+            !_transitions.TimeWarpActive || _player.FacingVector != Vector2I.Left ||
+            _harp.ActiveMusicNoteCount == 0,
             "Tune of Currents in the past did not trigger CUTSCENE_TIMEWARP.");
         FinishTimeWarp();
         TimePortal currentsReturn = _entities.Entities<TimePortal>()
@@ -166,6 +169,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x06);
         _inventory.SelectHarpSong(3);
+        PlaceLinkOnSharedHarpLanding();
         PlaySelectedHarpSong();
         FailIf(!_transitions.TimeWarpActive, "Tune of Ages did not time-warp from the present.");
         FinishTimeWarp();
@@ -460,9 +464,27 @@ public sealed partial class ValidationRoot
 
     private void FinishTimeWarp()
     {
-        for (int update = 0; update < 600 && IsTransitioning; update++)
+        for (int update = 0; update < 1000 && IsTransitioning; update++)
             UpdateRoomWarpTransition(HarpFrame);
         FailIf(IsTransitioning, "Harp time warp did not finish within its source timing bound.");
+    }
+
+    private void PlaceLinkOnSharedHarpLanding()
+    {
+        var landing = new TimeWarpLandingDatabase();
+        OracleRoomData destination = _rooms.GetRoom(_activeGroup ^ 1, _currentRoom.Id);
+        for (int y = 1; y < 7; y++)
+        for (int x = 1; x < 9; x++)
+        {
+            Vector2 point = PackedPoint(y * 16 + x);
+            if (landing.CanStandOnTile(_currentRoom, point, false) &&
+                landing.CanStandOnTile(destination, point, false))
+            {
+                _player.WarpTo(point, recordSafe: false);
+                return;
+            }
+        }
+        throw new InvalidOperationException("Room $06 lacks a shared safe Harp landing.");
     }
 
     private static Vector2 PackedPoint(int packed) => new(

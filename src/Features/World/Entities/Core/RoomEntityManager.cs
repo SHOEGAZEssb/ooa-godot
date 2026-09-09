@@ -492,6 +492,44 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     public void Update(double delta, Player player)
+        => Update(delta, player, timeWarpArrival: false);
+
+    internal void AdvanceFrozenRoomFrame() =>
+        _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
+
+    internal void UpdateTimeWarpSource(Player player, bool interactionsDisabled, bool enemiesDisabled)
+    {
+        _updatedEntitiesThisFrame.Clear();
+        AdvanceFrozenRoomFrame();
+        var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
+        // Portal entry uses $81, permitting interactions; direct Harp uses
+        // $5b, restricting interactions to their always-update handlers.
+        // $5b leaves DISABLE_ENEMIES clear; updateEnemies additionally waits
+        // for wPaletteThread_mode to clear. Both entry masks disable parts.
+        for (int phase = 0; phase < 3; phase++)
+        foreach (IRoomEntity entity in _activeEntities
+            .Where(entity => EntityPhase(entity) == phase)
+            .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
+        {
+            if (_updatedEntitiesThisFrame.Contains(entity) ||
+                entity is IRoomEntityLifetime { Finished: true } ||
+                entity is ISeedProjectileRoomEntity ||
+                phase == 0 && enemiesDisabled ||
+                phase == 1 && !UpdatesDuringDialogue(entity) ||
+                phase == 2 && interactionsDisabled && !UpdatesDuringDialogue(entity))
+                continue;
+            if (entity is IFixedRoomEntity fixedEntity)
+            {
+                SynchronizeEnemyFrameCounter(entity, frame.Counter);
+                fixedEntity.UpdateFrame(frame, _pendingSpawns);
+                _updatedEntitiesThisFrame.Add(entity);
+            }
+            ProcessSpawns(frame);
+        }
+        RemoveFinishedEntities(frame);
+    }
+
+    internal void Update(double delta, Player player, bool timeWarpArrival, bool enemiesDisabled = false)
     {
         // The original engine freezes both enabled $02 outgoing objects and
         // enabled $01 destination objects until scrolling has completed,
@@ -529,7 +567,7 @@ public sealed class RoomEntityManager : IDisposable
                     !(player.ElectricShockActive && entity is IPlayerRideableRoomEntity) &&
                     (!roomEntityFreezeActive ||
                      UpdatesDuringRoomEntityFreeze(entity)) &&
-                    entity is IPlayerForcedMovement forcedMovement)
+                    !timeWarpArrival && entity is IPlayerForcedMovement forcedMovement)
                 {
                     forcedMovement.UpdatePlayerForcedMovement(player);
                 }
@@ -586,6 +624,8 @@ public sealed class RoomEntityManager : IDisposable
                 .Where(entity => EntityPhase(entity) == phase)
                 .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
             {
+                if (phase == 0 && enemiesDisabled)
+                    continue;
                 if (_updatedEntitiesThisFrame.Contains(entity) ||
                     _specialObjectsUpdatedBeforePlayer.Contains(entity))
                     continue;
@@ -642,10 +682,11 @@ public sealed class RoomEntityManager : IDisposable
 
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (!textActive &&
+            if (!timeWarpArrival && !textActive &&
                 !RoomEntityFreezeActive() &&
                 !_linkCollisionsAndMenuDisabled &&
-                player.AcceptsRoomEntityContact &&
+                (player.AcceptsRoomEntityContact ||
+                    entity is TimePortalRoomEntity && player.AcceptsTimePortalContact) &&
                 entity is ILinkContactEntity contactEntity)
             {
                 contactEntity.HandleLinkContact(player);
@@ -700,6 +741,18 @@ public sealed class RoomEntityManager : IDisposable
             if (entity is IRoomBlocker blocker && blocker.BlocksLink(linkCenter))
                 return true;
         }
+        return false;
+    }
+
+    internal bool TimeWarpPositionOccupied(TimeWarpLandingDatabase database, int packedPosition)
+    {
+        // objectMarkSolidPosition reserves the whole short-position metatile,
+        // independently of an NPC's collision radius or facing.
+        foreach (IRoomEntity entity in _activeEntities)
+            if (entity.Node is NpcCharacter { Active: true } npc &&
+                database.MarksSolidPosition(npc.BaseRecord) &&
+                _roomForActiveEntities.GetPackedPosition(npc.TimeWarpSolidPosition) == packedPosition)
+                return true;
         return false;
     }
 

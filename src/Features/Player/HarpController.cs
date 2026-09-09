@@ -140,7 +140,6 @@ public sealed class HarpController
                     $"ITEM_HARP completed unsupported song ${song:x2}.");
         }
 
-        ClearNotes();
         _transitions.ApplyHarpTimeWarp(player, player.Position);
     }
 
@@ -211,18 +210,6 @@ public sealed class HarpController
         }
     }
 
-    private void ClearNotes()
-    {
-        foreach (PlayableHarpMusicNoteState note in _notes)
-        {
-            if (GodotObject.IsInstanceValid(note.Actor) &&
-                !note.Actor.IsQueuedForDeletion())
-            {
-                note.Actor.SetActive(false);
-            }
-        }
-        _notes.Clear();
-    }
 }
 
 internal sealed class PlayableHarpMusicNoteState(

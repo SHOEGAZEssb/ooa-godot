@@ -57,6 +57,17 @@ it. Dungeon floor-stair lookup owns its separate sound before the direct fade.
 Warps, scrolls, time travel, and development direct loads are different entry
 contexts and require explicit coverage.
 
+Time travel retains its source interaction update mask, then resumes room
+objects during the destination Link state machine while contact and NPC
+pushing remain disabled. Its object clock stays continuous across the era
+change. Landing checks use the imported invalid-tile and restricted-room
+tables, the original paired wall probes, and NPC short-position reservations.
+A failed arrival runs the separate return sequence, restores the source's live
+terrain, preserves existing destination visit flags, and does not create a
+return portal. Restricted-room arrival skips ordinary object parsing and its
+RNG consumption. Successful completion updates Link's local hazard respawn;
+it does not change the death-respawn checkpoint.
+
 Scrolling has separate setup, motion, offscreen row-loading, and cleanup
 updates. Clean-US unique-graphics header entry counts are imported from the
 ROM because the expanded-tileset disassembly removes those loads. Their
