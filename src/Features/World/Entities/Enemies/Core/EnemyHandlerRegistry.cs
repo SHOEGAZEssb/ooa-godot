@@ -13,6 +13,8 @@ internal sealed class EnemyHandlerRegistry
     private readonly Dictionary<(int Id, int SubId), EnemyHandlerDescriptor>
         _handlers = new();
 
+    internal IEnumerable<EnemyHandlerDescriptor> Handlers => _handlers.Values;
+
     internal EnemyHandlerRegistry(
         IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
     {

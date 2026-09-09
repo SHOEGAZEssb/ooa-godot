@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameSceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://src/Features/Development/DebugFlagScreen.cs" id="9_debug_flags"]
 [ext_resource type="Script" path="res://src/Features/Menus/Inventory/RingMenuScreen.cs" id="10_ring_menu"]
 [ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
+[ext_resource type="Script" path="res://src/Features/Development/DebugObjectSpawnerScreen.cs" id="12_debug_spawner"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_palette_fade"]
 blend_mode = 1
@@ -110,6 +111,83 @@ z_index = 110
 layout_mode = 3
 anchors_preset = 0
 script = ExtResource("9_debug_flags")
+
+[node name="DebugObjectSpawnerScreen" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+z_index = 110
+script = ExtResource("12_debug_spawner")
+
+[node name="Background" type="ColorRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_right = 160.0
+offset_bottom = 128.0
+mouse_filter = 2
+color = Color(0.027, 0.063, 0.098, 0.97)
+
+[node name="Text" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 2.0
+offset_right = 157.0
+offset_bottom = 92.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.878, 0.941, 0.91, 1)
+theme_override_font_sizes/font_size = 7
+theme_override_constants/line_spacing = -3
+clip_text = true
+
+[node name="Status" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 106.0
+offset_right = 157.0
+offset_bottom = 126.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 7
+theme_override_constants/line_spacing = -3
+autowrap_mode = 3
+clip_text = true
+max_lines_visible = 2
+
+[node name="PreviewBackground" type="ColorRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 119.0
+offset_top = 60.0
+offset_right = 157.0
+offset_bottom = 96.0
+mouse_filter = 2
+color = Color(0.09, 0.15, 0.20, 1)
+
+[node name="Preview" type="TextureRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 122.0
+offset_top = 62.0
+offset_right = 154.0
+offset_bottom = 94.0
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NoPreview" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 119.0
+offset_top = 60.0
+offset_right = 157.0
+offset_bottom = 96.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 6
+text = "NO IMAGE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Help" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 95.0
+offset_right = 157.0
+offset_bottom = 105.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 7
+text = "8px steps; M/Tab: next 10 objects"
 
 [node name="RoomDebug" type="Label" parent="Interface"]
 unique_name_in_owner = true

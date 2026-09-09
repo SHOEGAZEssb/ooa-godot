@@ -1519,6 +1519,26 @@ Write-GeneratedTable(
 
 # Preserve the common giveTreasure lookup data so the runtime can update
 # inventory variables from original treasure IDs and parameters.
+# giveTreasure_body grants at most one additional item through @giveTreasure,
+# without recursively applying the extra-items table. Read the clean-US table
+# directly; its Bomb Flower row also sets ownership of lower-half treasure $58.
+$extraTreasureBytes = [byte[]]@(0x19, 0x20, 0x20, 0x2a, 0x29, 0x40,
+    0x49, 0x58, 0x00, 0x25, 0x11, 0x01, 0x00)
+$extraTreasureRows = [Collections.Generic.List[string]]::new()
+$extraTreasureRows.Add("# treasure-id`tadditional-treasure-id`tparameter")
+for ($index = 0; $index -lt $extraTreasureBytes.Length; $index++) {
+    if ($romBytes[0xfc53a + $index] -ne $extraTreasureBytes[$index]) {
+        throw 'Clean US giveTreasure_body:@extraItemsToAddTable signature changed at $3f:$453a.'
+    }
+}
+for ($index = 0; $index -lt $extraTreasureBytes.Length - 1; $index += 3) {
+    $offset = 0xfc53a + $index
+    $extraTreasureRows.Add(
+        "$($romBytes[$offset].ToString('x2'))`t$($romBytes[$offset + 1].ToString('x2'))`t$($romBytes[$offset + 2].ToString('x2'))")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\treasure_extra_items.tsv'), $extraTreasureRows)
+
 $behaviourRows = [Collections.Generic.List[string]]::new()
 $behaviourRows.Add("# treasure-id`tvariable`tmode`tsound")
 $behaviourMusicIds = Read-ConstantIds (Join-Path $Disassembly 'constants\common\music.s') 'MUS_'

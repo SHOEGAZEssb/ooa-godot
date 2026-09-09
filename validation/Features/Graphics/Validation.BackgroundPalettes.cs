@@ -4,6 +4,63 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateSymmetryHouseExitPalette()
+    {
+        LoadValidationRoom(1, 0x13);
+        Color[,] expected = _rooms.World.BackgroundPalettes.Capture();
+        Vector2I sample = new(0, 0);
+        Color expectedPixel = _currentRoom.GetRenderedPixelForValidation(sample);
+
+        foreach (bool placed in new[] { false, true })
+        for (int visit = 0; visit < 2; visit++)
+        {
+            _saveData.SetGlobalFlag(0x29, placed);
+            LoadValidationRoom(5, 0xf6);
+            _player.WarpTo(new Vector2(0x78, _currentRoom.Height + 2));
+            CheckRoomExit(_player);
+            FailIf(!IsTransitioning || _activeGroup != 5 || _currentRoom.Id != 0xf6,
+                "Room 5:F6 did not begin its bottom-exit walk.");
+            UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+            FailIf(_activeGroup != 1 || _currentRoom.Id != 0x13 || !IsTransitioning,
+                "Room 5:F6 did not load 1:13 after its exit walk.");
+
+            AssertDestinationPalette();
+            UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+            FailIf(IsTransitioning, "Room 5:F6 -> 1:13 did not finish its arrival fade.");
+            AssertDestinationPalette();
+
+            void AssertDestinationPalette()
+            {
+                for (int palette = 2; palette < 8; palette++)
+                for (int shade = 0; shade < 4; shade++)
+                {
+                    Color actual = _currentRoom.ResolveBackgroundPaletteColor(palette, shade);
+                    FailIf(!actual.IsEqualApprox(expected[palette, shade]),
+                        $"Room 5:F6 -> 1:13 replaced BG{palette} shade {shade}: " +
+                        $"expected {expected[palette, shade]}, got {actual}; " +
+                        $"Tuni Nut placed={placed}, visit={visit}.");
+                }
+                FailIf(!_currentRoom.GetRenderedPixelForValidation(sample).IsEqualApprox(expectedPixel),
+                    "Room 1:13's rendered background retained room 5:F6's palette after exit.");
+            }
+        }
+
+        // Cancellation within the same room must still undo active darkening.
+        _saveData.SetGlobalFlag(0x29, false);
+        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 2);
+        LoadValidationRoom(5, 0xf6);
+        _player.WarpTo(new Vector2(0x78, 0x30));
+        StepRoomEventFrames(3);
+        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset is not < 0,
+            "Room 5:F6's Tuni Nut placement did not start darkening.");
+        _roomEvents.Symmetry.Cancel();
+        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset != 0 || _roomEvents.Symmetry.BlocksGameplay,
+            "Cancelling Tuni Nut placement within 5:F6 retained darkening or input control.");
+
+        GD.Print("Validated 5:F6 -> 1:13 palette and rendered color through exit/fade, " +
+            "cached re-entry before/after Tuni Nut placement, and same-room cancellation.");
+    }
+
     private void ValidateBackgroundPaletteState()
     {
         LoadValidationRoom(5, 0x0b);

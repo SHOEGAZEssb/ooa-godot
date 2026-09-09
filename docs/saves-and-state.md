@@ -67,6 +67,12 @@ Check those bindings against the clean US ROM: seed selection has its own
 inventory bytes, and Ages Boomerang/Feather ownership does not use upgrade
 levels. Inventory writes must never alias the present room-flag table.
 
+Upgrade flags at `$cca8` belong to `OracleRuntimeState`. Inventory reads that
+shared byte, so debug savestates retain it while retail saves do not. The
+original treasure-loss routine clears the regular ownership bit without
+clearing this separate upgrade byte. Additional treasure grants follow the
+imported clean-US table once, in source order, within the same transaction.
+
 One grant, loss, purchase, ring operation, or other item mutation is one
 transaction. Internal byte changes complete before observers receive one
 notification, so the HUD and menus never see a partial state. Saved values are

@@ -2454,6 +2454,44 @@ internal sealed class RoomEntityFactory(
         }
     }
 
+    internal IRoomEntity? CreateDebugEnemy(
+        int id, int subId, OracleRoomData room, Vector2 position, out string error)
+    {
+        string origin = $"Debug enemy ${id:x2}:${subId:x2}";
+        EnemyHandlerDescriptor? handler = enemies.EnemyHandlers.Handlers
+            .FirstOrDefault(value => value.Id == id && value.SubId == subId);
+        if (handler is null || !handler.SupportsOrderedConstruction ||
+            !handler.SupportsCombatSource)
+        {
+            error = $"{origin} has no standalone combat factory. " +
+                (handler?.Source ?? "No imported handler.");
+            return null;
+        }
+
+        // Debug allocation bypasses parseObjectData and its placement RNG.
+        // objectLoading.s:decEnemyCounterIfApplicable uses flags bit $02;
+        // index $00 also leaves the source room's recent-defeat bits alone.
+        var source = new RoomObjectRecord(
+            rooms!.ActiveGroup, room.Id, 0, RoomObjectKind.FixedEnemy,
+            id, subId, 0x02, 1, (int)position.Y, (int)position.X, 0, 0xff)
+        {
+            SourceOverride = $"{origin} via {handler.Source}"
+        };
+        if (handler.Handler == EnemyHandlerKind.Wallmaster)
+        {
+            // Check room metadata before allocating a node or consuming RNG.
+            try { _ = ResolveWallmasterDestination(source); }
+            catch (InvalidOperationException exception)
+            {
+                error = $"{origin}: {exception.Message}";
+                return null;
+            }
+        }
+        error = string.Empty;
+        return CreateOrderedEnemy(handler, source, room, position, 0, 0,
+            EnemyPlacementContext.Unrestricted);
+    }
+
     private static InvalidOperationException MissingEnemyDefinition(
         EnemyHandlerDescriptor handler,
         RoomObjectRecord source) => new(

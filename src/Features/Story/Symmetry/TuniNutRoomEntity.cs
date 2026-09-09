@@ -172,9 +172,13 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         State = 4;
         Visible = true;
     }
-    internal void Cancel()
+    internal void Cancel(OracleRoomData currentRoom)
     {
-        _room.SetTemporaryBackgroundPaletteOffset(0);
+        // loadTilesetGraphics installs the destination palette before room
+        // events retire the outgoing $b1. Its cleanup must not write the old
+        // tileset into those shared BG slots (5:F6 -> 1:13).
+        if (ReferenceEquals(_room, currentRoom))
+            _room.SetTemporaryBackgroundPaletteOffset(0);
         _paletteDirection = 0;
     }
     public bool BlocksLink(Vector2 center) => State == 4 && Player.EnemyCollisionOverlaps(center,

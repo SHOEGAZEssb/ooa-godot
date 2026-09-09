@@ -86,9 +86,24 @@ Development-only controls:
 | F1 | Edit live flags, linked state, items, and appraised rings |
 | F2 | Toggle Link collision |
 | F3 | Arrange a normal Maple encounter |
+| F4 | Spawn enemies and item drops at room coordinates |
 | V | Warp to the configured debug room (default `4:11`) |
 | Shift + 0-9 | Save a debug savestate |
 | 0-9 | Load a debug savestate |
+
+The F4 spawner pauses gameplay. Up/down selects a field; left/right changes
+the category, object ID/sub-ID variant, or coordinate (in eight-pixel steps).
+M/Tab advances ten objects for faster browsing.
+The sprite preview uses imported OAM and palettes without creating an actor or
+advancing gameplay. Entries without imported preview graphics show `NO IMAGE`.
+Coordinates start at Link's room position, including in large rooms. A/Z creates
+one object per press; B/X or F4 closes the menu. The enemy list uses imported
+names and classifications; entries without a standalone combat handler report
+that limitation. NPCs, bosses, and room-event controllers are outside this tool's
+scope. Enemy creation uses the shared 16-slot allocator and normal AI/RNG, with
+room-completion counting and placed-enemy defeat bits disabled. Drops use their
+normal collection behavior. Spawned objects are transient and disappear on room
+reload; their ordinary gameplay effects can still change live state.
 
 Override the V target with `--debug-warp-group=` and
 `--debug-warp-room=`. Debug tools mutate live state and do not bypass the

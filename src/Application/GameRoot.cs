@@ -40,6 +40,7 @@ public partial class GameRoot : Node2D
     internal RingMenuController _ringMenu = null!;
     internal SecretEntryController _secretEntry = null!;
     internal DebugFlagMenuController _debugFlagMenu = null!;
+    internal DebugObjectSpawnerController _debugObjectSpawner = null!;
     internal GameplayPauseController _gameplayPause = null!;
     internal OracleMenuLifecycle _menuLifecycle = null!;
     internal FrontendIntroController? _frontendIntro;
@@ -346,7 +347,7 @@ public partial class GameRoot : Node2D
             _saveData,
             countAsRoomEntry: !useDebugSavestate);
         _inventory = new InventoryState(
-            _treasures, _saveData, () => _rooms.CurrentDungeonIndex);
+            _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
         _rooms.RoomChanged += ApplyRoomMusic;
         PackedScene gameplayScene = ResourceLoader.Load<PackedScene>(
             GameSceneGraph.ScenePath, string.Empty, ResourceLoader.CacheMode.Reuse) ??
@@ -502,6 +503,8 @@ public partial class GameRoot : Node2D
             return;
 
         _debugCollision.Update();
+        if (_debugObjectSpawner.Update())
+            return;
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
@@ -676,8 +679,9 @@ public partial class GameRoot : Node2D
     private void CreateControllers()
     {
         var timePortals = new TimePortalDatabase();
+        var enemies = new EnemyDatabase();
         _entities = new RoomEntityManager(
-            _scene.WorldRoot, new NpcDatabase(), new EnemyDatabase(),
+            _scene.WorldRoot, new NpcDatabase(), enemies,
             new ItemDropDatabase(), timePortals, _random, _saveData,
             runtimeState: _runtimeState,
             inventory: _inventory,
@@ -870,6 +874,14 @@ public partial class GameRoot : Node2D
                 !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
                 !_roomEvents.Active && !_roomEvents.MenusDisabled,
             _inventory, RefreshDebugCompanionLayout);
+        _scene.DebugObjectSpawnerScreen.Initialize(enemies);
+        _debugObjectSpawner = new DebugObjectSpawnerController(
+            _scene.DebugObjectSpawnerScreen, _rooms, _entities, _player, _gameplayPause,
+            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
+                !InventoryMenuOpen && !_player.GaleActive && !_player.IsDying &&
+                !_player.IsUsingHarp && !_player.ElectricShockActive &&
+                !_roomEvents.Active && !_roomEvents.MenusDisabled &&
+                !_entities.PlayerMenusDisabled && !_interactions.GameplayMenuActive);
     }
 
     internal void UpdateAnimatedTiles(double delta)

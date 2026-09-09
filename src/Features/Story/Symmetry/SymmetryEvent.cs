@@ -47,7 +47,7 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     }
     public void Cancel()
     {
-        _nut?.Cancel();
+        _nut?.Cancel(Context.Rooms.CurrentRoom);
         _nut = null;
         foreach (var actor in _actors) actor.Cancel();
         _actors.Clear();

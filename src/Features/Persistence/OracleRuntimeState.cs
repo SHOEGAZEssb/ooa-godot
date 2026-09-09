@@ -20,6 +20,7 @@ public sealed class OracleRuntimeState
     public const int SentBackByStrangeForceAddress = 0xcdde;
     public const int DiggingUpEnemiesForbiddenAddress = 0xccde;
     public const int WarpsDisabledAddress = 0xcc6e;
+    internal const int UpgradesObtainedAddress = 0xcca8;
     internal const int SeedTreeRefillLocationCount = 16;
     internal const int SeedTreeRefillRoomsPerLocation = 8;
 

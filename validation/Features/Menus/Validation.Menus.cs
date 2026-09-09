@@ -1212,6 +1212,8 @@ public sealed partial class ValidationRoot
         _animationTicks = 1234.5;
         const int runtimeAddress = 0xc123;
         _runtimeState.SetWramByte(runtimeAddress, 0xab);
+        _inventory.GiveTreasure(0x60, 0);
+        _inventory.GiveTreasure(0x67, 7);
         _random.Next();
         _random.Next();
         bool savedFlag =
@@ -1268,6 +1270,9 @@ public sealed partial class ValidationRoot
 
         OracleRandomState restoredRandom = _random.CaptureState();
         RoomEntityManagerState restoredEntities = _entities.CaptureDebugState();
+        FailIf(!_inventory.HasUpgrade(0) || !_inventory.HasUpgrade(7) ||
+            _runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) != 0x81,
+            "Debug savestate restore lost shared $cca8 upgrade flags for treasures $60/$67.");
         FailIf(
             _rooms.ActiveGroup != 4 ||
             _rooms.CurrentRoom.Id != 0x09 ||

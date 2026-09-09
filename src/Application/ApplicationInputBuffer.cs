@@ -25,7 +25,8 @@ internal sealed class ApplicationInputBuffer
         "debug_room_warp",
         "debug_collision",
         "debug_flags",
-        "debug_maple"
+        "debug_maple",
+        "debug_object_spawner"
     };
 
     private readonly HashSet<string> _pressed = new(StringComparer.Ordinal);

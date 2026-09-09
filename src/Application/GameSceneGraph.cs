@@ -27,6 +27,7 @@ public partial class GameSceneGraph : Node2D
     public SaveQuitScreen SaveQuitScreen { get; private set; } = null!;
     public RingMenuScreen RingMenuScreen { get; private set; } = null!;
     public DebugFlagScreen DebugFlagScreen { get; private set; } = null!;
+    public DebugObjectSpawnerScreen DebugObjectSpawnerScreen { get; private set; } = null!;
     public ColorRect MenuFade { get; private set; } = null!;
 
     public override void _Ready()
@@ -46,6 +47,7 @@ public partial class GameSceneGraph : Node2D
         SaveQuitScreen = Unique<SaveQuitScreen>("SaveQuitScreen");
         RingMenuScreen = Unique<RingMenuScreen>("RingMenuScreen");
         DebugFlagScreen = Unique<DebugFlagScreen>("DebugFlagScreen");
+        DebugObjectSpawnerScreen = Unique<DebugObjectSpawnerScreen>("DebugObjectSpawnerScreen");
         MenuFade = Unique<ColorRect>("MenuFade");
 
         if (WorldRoot.GetParent() != this || InterfaceLayer.GetParent() != this ||
@@ -58,6 +60,7 @@ public partial class GameSceneGraph : Node2D
             SaveQuitScreen.GetParent() != InterfaceLayer ||
             RingMenuScreen.GetParent() != InterfaceLayer ||
             DebugFlagScreen.GetParent() != InterfaceLayer ||
+            DebugObjectSpawnerScreen.GetParent() != InterfaceLayer ||
             MenuFade.GetParent() != InterfaceLayer)
         {
             throw new InvalidOperationException(

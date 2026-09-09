@@ -52,6 +52,7 @@ public sealed class InventoryState
 
     private readonly TreasureDatabase _treasures;
     private readonly OracleSaveData? _saveData;
+    private readonly OracleRuntimeState _runtimeState;
     private readonly Func<int> _currentDungeonIndex;
     private readonly byte[] _obtainedTreasureFlags = new byte[16];
     private readonly byte[] _inventoryStorage = new byte[InventoryCapacity];
@@ -63,7 +64,6 @@ public sealed class InventoryState
     private readonly byte[] _ringsObtained = new byte[RingsObtainedByteCount];
     private readonly byte[] _unappraisedRings = new byte[UnappraisedRingCapacity];
     private readonly HashSet<TreasureVariable> _dirtyAuxiliaryVariables = new();
-    private byte _upgradesObtained;
     private int _dummyC608;
     private int _shortSecretIndex;
     private int _satchelSelectedSeeds;
@@ -139,10 +139,12 @@ public sealed class InventoryState
     public InventoryState(
         TreasureDatabase treasures,
         OracleSaveData? saveData = null,
-        Func<int>? currentDungeonIndex = null)
+        Func<int>? currentDungeonIndex = null,
+        OracleRuntimeState? runtimeState = null)
     {
         _treasures = treasures;
         _saveData = saveData;
+        _runtimeState = runtimeState ?? new OracleRuntimeState();
         _currentDungeonIndex = currentDungeonIndex ?? (() => -1);
         if (_saveData is null)
             ApplyStandardGameInitialVariables();
@@ -313,7 +315,8 @@ public sealed class InventoryState
     }
 
     public bool HasUpgrade(int bit) =>
-        bit is >= 0 and < 8 && (_upgradesObtained & (1 << bit)) != 0;
+        bit is >= 0 and < 8 &&
+        (_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) & (1 << bit)) != 0;
 
     internal int LevelForInventoryDisplay(int treasure) => treasure switch
     {
@@ -530,6 +533,17 @@ public sealed class InventoryState
             return;
         }
 
+        if (treasureObject.TreasureId is >= 0x60 and < 0x68)
+        {
+            // The debug toggle explicitly edits upgrade state; the original
+            // loseTreasure_helper deliberately leaves this byte alone.
+            _runtimeState.SetWramByte(OracleRuntimeState.UpgradesObtainedAddress,
+                (byte)(_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) &
+                    ~(1 << (treasureObject.TreasureId & 7))));
+            ClearTreasureFlag(treasureObject.TreasureId);
+            NotifyChanged();
+            return;
+        }
         _ = LoseTreasure(treasureObject.TreasureId);
     }
 
@@ -541,21 +555,21 @@ public sealed class InventoryState
     /// </summary>
     internal bool LoseTreasure(int treasure)
     {
-        if (!HasTreasure(treasure))
+        if (treasure is < 0 or >= 0x80)
+            return false;
+        int slot = treasure is > 0 and < NumInventoryItems ? FindInventoryItem(treasure) : -1;
+        bool obtained = (_obtainedTreasureFlags[treasure >> 3] & (1 << (treasure & 7))) != 0;
+        if (!obtained && slot < 0)
             return false;
 
         using (_saveData?.BeginMutation())
         {
             ClearTreasureFlag(treasure);
-            if (treasure is >= 0x60 and < 0x68)
-                _upgradesObtained &= (byte)~(1 << (treasure & 7));
+            // loseTreasure_helper only unsets wObtainedTreasureFlags, even
+            // for $60-$67. It never clears transient wUpgradesObtained.
 
-            if (treasure is >= 0 and < NumInventoryItems)
-            {
-                int slot = FindInventoryItem(treasure);
-                if (slot >= 0)
-                    SetInventorySlot(slot, ItemNone);
-            }
+            if (slot >= 0)
+                SetInventorySlot(slot, ItemNone);
             NotifyChanged();
         }
         return true;
@@ -1023,27 +1037,11 @@ public sealed class InventoryState
     {
         using (_saveData?.BeginMutation())
         {
-            if (treasure == TreasureDatabase.TreasureSeedSatchel)
-            {
-                GiveTreasureCore(treasure, parameter);
-                GiveTreasureCore(TreasureDatabase.TreasureEmberSeeds, 0x20);
-            }
-            else if (treasure == TreasureDatabase.TreasureHeartContainer)
-            {
-                GiveTreasureCore(treasure, parameter);
-                GiveTreasureCore(TreasureDatabase.TreasureHeartRefill, 0x40);
-            }
-            else if (treasure == TreasureDatabase.TreasureTuneOfEchoes)
-            {
-                // @extraItemsToAddTable grants TREASURE_HARP parameter $01;
-                // its normal Set behavior selects the newly learned tune.
-                GiveTreasureCore(treasure, parameter);
-                GiveTreasureCore(TreasureDatabase.TreasureHarp, 0x01);
-            }
-            else
-            {
-                GiveTreasureCore(treasure, parameter);
-            }
+            GiveTreasureCore(treasure, parameter);
+            // The source invokes @giveTreasure once for the extra item;
+            // it does not recursively apply @extraItemsToAddTable.
+            if (_treasures.TryGetExtraItem(treasure, out var extra))
+                GiveTreasureCore(extra.TreasureId, extra.Parameter);
             NotifyChanged();
         }
     }
@@ -1122,7 +1120,9 @@ public sealed class InventoryState
                 SetVariable(variable, GetVariable(variable) + parameter);
                 return;
             case CollectionMode.SetUpgradeBit:
-                _upgradesObtained |= (byte)(1 << (parameter & 7));
+                _runtimeState.SetWramByte(OracleRuntimeState.UpgradesObtainedAddress,
+                    (byte)(_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) |
+                        (1 << (parameter & 7))));
                 return;
             case CollectionMode.AddCapped:
                 AddCapped(variable, parameter, bcd: false);

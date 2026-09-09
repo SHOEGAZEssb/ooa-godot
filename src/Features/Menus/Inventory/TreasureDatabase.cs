@@ -43,6 +43,7 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<int, GashaMaturityRecord> _gashaMaturity = new();
+    private readonly Dictionary<int, ExtraTreasureRecord> _extraItems = new();
     private readonly Lookup<string, DisplayRecord> _displayRows =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
@@ -56,6 +57,7 @@ public sealed class TreasureDatabase
         LoadObjects();
         LoadObjectVisuals();
         LoadBehaviours();
+        LoadExtraItems();
         LoadGashaMaturity();
         LoadDisplayRows();
         LoadInventoryTexts();
@@ -80,6 +82,31 @@ public sealed class TreasureDatabase
         if (!_gashaMaturity.TryGetValue(treasureId, out GashaMaturityRecord record))
             return 0;
         return record.ParameterAmount ? parameter : record.Amount;
+    }
+
+    internal bool TryGetExtraItem(int treasureId, out ExtraTreasureRecord extra) =>
+        _extraItems.TryGetValue(treasureId, out extra);
+
+    private void LoadExtraItems()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/metadata/treasure_extra_items.tsv",
+            new GeneratedTableSchema(
+                "giveTreasure_body:@extraItemsToAddTable",
+                GeneratedTableKeySemantics.Unique,
+                ["treasure-id", "additional-treasure-id", "parameter"],
+                ["treasure-id"], headerRequired: true));
+        foreach (GeneratedTableRow row in table.Rows)
+        {
+            int treasure = row.HexByte(0);
+            int additional = row.HexByte(1);
+            _ = GetBehaviour(treasure);
+            _ = GetBehaviour(additional);
+            _extraItems.Add(treasure, new ExtraTreasureRecord(additional, row.HexByte(2)));
+        }
+        if (_extraItems.Count != 4)
+            throw new InvalidOperationException(
+                "giveTreasure_body:@extraItemsToAddTable must contain four clean-US rows.");
     }
 
     public DisplayRecord GetButtonDisplay(int itemId, InventoryState inventory)
@@ -456,6 +483,8 @@ public sealed class TreasureDatabase
 }
 
 internal readonly record struct GashaMaturityRecord(int TreasureId, bool ParameterAmount, int Amount);
+
+internal readonly record struct ExtraTreasureRecord(int TreasureId, int Parameter);
 
 public readonly record struct DisplayRecord(int TreasureId, int LeftSprite, int LeftPalette, int RightSprite, int RightPalette, int ExtraMode, int TextLow)
 {

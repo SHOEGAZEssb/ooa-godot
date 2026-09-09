@@ -207,6 +207,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCompanionWallMasks);
         RunIsolatedValidation(ValidateBackgroundPaletteState);
         RunIsolatedValidation(ValidateDebugFlagMenu);
+        RunIsolatedValidation(ValidateDebugObjectSpawner);
+        RunIsolatedValidation(ValidateDebugObjectPreviews);
         RunIsolatedValidation(ValidateDebugCollision);
         RunIsolatedValidation(ValidateDebugRoomWarp);
         RunIsolatedValidation(ValidateDebugMapleShortcut);
@@ -259,6 +261,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSymmetryNpcs);
         RunIsolatedValidation(ValidateSymmetrySecrets);
         RunIsolatedValidation(ValidateTuniNutPlacement);
+        RunIsolatedValidation(ValidateSymmetryHouseExitPalette);
         RunIsolatedValidation(ValidateSymmetryFidelity);
         RunIsolatedValidation(ValidateSymmetryDungeonEntrance);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
@@ -421,6 +424,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom083Interactions);
         RunIsolatedValidation(ValidateFountainFairies);
         RunIsolatedValidation(ValidateDebugSavestates);
+        RunIsolatedValidation(ValidateInventoryFlagIsolation);
         RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
         RunIsolatedValidation(ValidateWingDungeon);
         RunIsolatedValidation(ValidateHeadThwompFidelity);

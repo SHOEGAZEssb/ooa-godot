@@ -1194,6 +1194,52 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
+    internal bool TrySpawnDebugEnemy(int id, int subId, Vector2 position, out string error)
+    {
+        if (!CanSpawnDebugObject(position, out error))
+            return false;
+        int slot = Enumerable.Range(0, 16).FirstOrDefault(
+            candidate => !_reservedEnemySlots.Contains(candidate), -1);
+        if (slot < 0)
+        {
+            error = $"Enemy ${id:x2}:${subId:x2}: all $10 enemy slots are occupied.";
+            return false;
+        }
+        IRoomEntity? entity = _factory.CreateDebugEnemy(
+            id, subId, _roomForActiveEntities, position, out error);
+        if (entity is null)
+            return false;
+        RegisterEnemySlot(entity, slot);
+        AddEntity(entity);
+        return true;
+    }
+
+    internal bool TrySpawnDebugItemDrop(int subId, Vector2 position, out string error)
+    {
+        if (!CanSpawnDebugObject(position, out error))
+            return false;
+        if (!ItemDropDatabase.IsRuntimeSupported(subId))
+        {
+            error = $"PART_ITEM_DROP ${subId:x2} has no supported runtime handler.";
+            return false;
+        }
+        Spawn(new ItemDropSpawn(subId, position));
+        return true;
+    }
+
+    private bool CanSpawnDebugObject(Vector2 position, out string error)
+    {
+        error = string.Empty;
+        if (_disposed || _screenTransitionActive || _roomForActiveEntities is null)
+            error = "Wait for an active room with no transition.";
+        else if (!float.IsFinite(position.X) || !float.IsFinite(position.Y) ||
+            position.X != MathF.Truncate(position.X) || position.Y != MathF.Truncate(position.Y) ||
+            position.X < 0 || position.Y < 0 ||
+            position.X >= _roomForActiveEntities.Width || position.Y >= _roomForActiveEntities.Height)
+            error = "Spawn coordinates must be whole pixels inside the playable room.";
+        return error.Length == 0;
+    }
+
     internal Node2D Spawn(RoomEntitySpawn spawn) =>
         AddEntity(_factory.Create(spawn, _roomForActiveEntities)).Node;
 

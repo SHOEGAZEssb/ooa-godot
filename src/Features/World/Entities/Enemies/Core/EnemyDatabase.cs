@@ -965,12 +965,13 @@ public readonly record struct RoomObjectRecord(
     int PackedPosition,
     int ConditionMask)
 {
+    internal string? SourceOverride { get; init; }
     public string Source =>
-        Id == 0x62
+        SourceOverride ?? (Id == 0x62
             ? $"objects/ages/mainData.s:" +
                 $"group{Group:x1}Map{Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
             : $"objects/ages/enemyData.s:" +
-                $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]";
+                $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]");
 }
 
 public enum RoomObjectKind
