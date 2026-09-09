@@ -53,7 +53,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   traced story slices through and around the first two dungeons.
 - Symmetry Village residents, the sisters' request and postgame ring-box secret,
   the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
-  with persistent present-day village restoration.
+  with persistent present-day village restoration. The unrestored past has
+  volcanic tremors, rumbling, erupting rocks, and lava-waterfall impacts.
 - Red and blue Arrow Darknuts on the paths around Symmetry Village, and
   Podoboo Towers in its ruined present, including restoration-based removal.
 - Moosh's rescue and mountable-companion core: exact ride visuals, movement,

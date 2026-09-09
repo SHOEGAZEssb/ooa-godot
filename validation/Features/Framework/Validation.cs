@@ -264,6 +264,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSymmetryHouseExitPalette);
         RunIsolatedValidation(ValidateSymmetryFidelity);
         RunIsolatedValidation(ValidateSymmetryDungeonEntrance);
+        RunIsolatedValidation(ValidateVolcanoEruption);
+        RunIsolatedValidation(ValidateVolcanoRockLifecycle);
+        RunIsolatedValidation(ValidateVolcanoShakeRng);
+        RunIsolatedValidation(ValidateVolcanoRumblePauses);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
         RunIsolatedValidation(ValidateRickyRiding);
         RunIsolatedValidation(ValidateCompanionWaitingFidelity);

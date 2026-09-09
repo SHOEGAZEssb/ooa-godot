@@ -396,6 +396,8 @@ public sealed partial class ValidationRoot
     {
         using var harness = new MapleValidationHarness(
             this, group: 1, room: 0x02);
+        // Isolate Maple's RNG and horizontal shake from $dc:$05's tremors.
+        harness.Save.SetGlobalFlag(0x29);
         harness.Inventory.GiveTreasure(
             TreasureDatabase.TreasureSword, 1);
         harness.Inventory.GiveTreasure(

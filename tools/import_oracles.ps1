@@ -127,6 +127,9 @@ $stageContracts = @(
         -functionInputs @('Read-PaletteBytes') `
         -functionOutputs @(
             'Copy-EnemySprite', 'Get-EnemyDefinition', 'Resolve-Oam')
+    New-ImportStageContract 'volcano' 'Import-VolcanoData.ps1' `
+        -inputs @('mainObjectLines', 'globalFlagValues', 'soundIds', 'partOamSource') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-Oam')
     New-ImportStageContract 'seed-trees' 'Import-SeedTreeData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'mainObjectLines', 'partAnimationSource',

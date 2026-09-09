@@ -52,8 +52,13 @@ internal sealed class RoomEntityFactory(
     Func<bool> maplePresent,
     Action<int, int, Vector2> spawnDiggingEnemy,
     Action<IRoomEntity?, int> registerEnemySlot,
-    Func<int> displayedHealth)
+    Func<int> displayedHealth,
+    Action<int, int, int> setScreenShake,
+    Func<bool> screenIsShaking,
+    Action<int> setScreenShakeMagnitude,
+    Func<bool> freePartSlotAvailable)
 {
+    private readonly VolcanoDatabase _volcano = new();
     private readonly ZoraFireDatabase _zoraFire = new();
     private readonly FountainFairyDatabase _fountainFairies = new();
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
@@ -618,6 +623,12 @@ internal sealed class RoomEntityFactory(
                 yield return mechanicEntity;
         }
 
+        if (!spawnMaple)
+        {
+            foreach (VolcanoPlacement record in _volcano.Placements(group, room.Id))
+                yield return CreateVolcanoController(record, room);
+        }
+
         if (saveData is not null)
         {
             // Room 3:9e places its watcher after Impa, Nayru, and Zelda.
@@ -881,6 +892,10 @@ internal sealed class RoomEntityFactory(
                 horizontalScreenShakeRequested,
                 roomMusicRequested);
             yield return new MapleEncounterRoomEntity(maple);
+            // checkAndSpawnMaple allocates its interaction before parseObjectData.
+            // The placed $dc:$05 must therefore consume its RNG after Maple.
+            foreach (VolcanoPlacement record in _volcano.Placements(group, room.Id))
+                yield return CreateVolcanoController(record, room);
 
             // checkAndSpawnMaple writes wcc85=$01. checkSkipPointer then
             // suppresses this room's entire enemy/item-drop pointer while
@@ -2529,6 +2544,9 @@ internal sealed class RoomEntityFactory(
         BridgeSpawnerSpawn bridge => new BridgeSpawnerRoomEntity(bridge, room,
             _dungeonMechanics, animationTick, roomTileChanged, soundRequested),
         OctorokRockSpawn rock => CreateRock(rock, room),
+        VolcanoHandlerSpawn volcano => CreateVolcanoController(volcano.Placement, room),
+        VolcanoRockSpawn rock => new VolcanoRockRoomEntity(new VolcanoRock(
+            rock.Position, _volcano, room, random, soundRequested, worldToScreen)),
         ZoraFireSpawn fire => new ZoraFireRoomEntity(new ZoraFireProjectile(
             fire, _zoraFire, worldToScreen) { Name = "ZoraFire", ZIndex = 10 }),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
@@ -2911,6 +2929,10 @@ internal sealed class RoomEntityFactory(
             new HeadThwompProjectile(
                 spawn, visual, impactVisual, room, random, soundRequested));
     }
+
+    private VolcanoRoomEntity CreateVolcanoController(VolcanoPlacement record, OracleRoomData room) =>
+        new(record, _volcano, room, saveData, random, soundRequested, setScreenShake,
+            screenIsShaking, setScreenShakeMagnitude, freePartSlotAvailable);
 
     private IRoomEntity CreateHeadThwompBoulder(OracleRoomData room) =>
         new HostileProjectileRoomEntity<HeadThwompBoulder>(

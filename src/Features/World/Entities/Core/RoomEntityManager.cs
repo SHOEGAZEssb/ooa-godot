@@ -86,6 +86,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
+    private readonly Dictionary<IRoomEntity, int> _partSlots = new();
     private readonly Dictionary<NpcCharacter, INpcTalkLifecycle>
         _npcTalkLifecycles = new(ReferenceEqualityComparer.Instance);
     private Warp? _pendingRoomWarp;
@@ -96,6 +97,7 @@ public sealed class RoomEntityManager : IDisposable
     private int _enemyFrameCounter;
     private int _screenShakeCounter;
     private int _horizontalScreenShakeCounter;
+    private int _screenShakeMagnitude;
     private bool _linkCollisionsAndMenuDisabled;
     private bool _disposed;
     private Color[,]? _preShockBackgroundPalettes;
@@ -348,7 +350,10 @@ public sealed class RoomEntityManager : IDisposable
             BeginHorizontalScreenShake,
             position => WorldToScreen(position), _animationTick, rooms,
             MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot,
-            () => DisplayedHealthSource());
+            () => DisplayedHealthSource(), SetScreenShake,
+            () => _screenShakeCounter != 0 || _horizontalScreenShakeCounter != 0,
+            magnitude => _screenShakeMagnitude = magnitude,
+            () => FindFreePartSlot() >= 0);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -432,6 +437,7 @@ public sealed class RoomEntityManager : IDisposable
         ClearEntities(_outgoingEntities);
         _outgoingEntities.AddRange(_activeEntities);
         _activeEntities.Clear();
+        _partSlots.Clear();
         _screenTransitionActive = true;
         _screenTransitionFrameAccumulator = 0.0;
         _roomForActiveEntities = room;
@@ -622,7 +628,8 @@ public sealed class RoomEntityManager : IDisposable
             for (int phase = 0; phase < 3; phase++)
             foreach (IRoomEntity entity in _activeEntities
                 .Where(entity => EntityPhase(entity) == phase)
-                .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
+                .OrderBy(entity => phase == 1 ? _partSlots.GetValueOrDefault(entity, 16) :
+                    _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
             {
                 if (phase == 0 && enemiesDisabled)
                     continue;
@@ -1409,6 +1416,7 @@ public sealed class RoomEntityManager : IDisposable
         _screenTransitionFrameAccumulator = 0.0;
         _screenShakeCounter = 0;
         _horizontalScreenShakeCounter = 0;
+        _screenShakeMagnitude = 0;
         _linkCollisionsAndMenuDisabled = false;
         ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
@@ -1474,6 +1482,7 @@ public sealed class RoomEntityManager : IDisposable
         if (updates <= 0)
             throw new ArgumentOutOfRangeException(nameof(updates));
         _screenShakeCounter = updates;
+        _horizontalScreenShakeCounter = updates;
     }
 
     private void BeginHorizontalScreenShake(int updates)
@@ -1489,18 +1498,37 @@ public sealed class RoomEntityManager : IDisposable
     private void EnableLinkCollisionsAndMenu() =>
         _linkCollisionsAndMenuDisabled = false;
 
+    internal void SetScreenShake(int y, int x, int magnitude)
+    {
+        if ((uint)y > 255 || (uint)x > 255 || (uint)magnitude > 2)
+            throw new ArgumentOutOfRangeException(nameof(magnitude));
+        _screenShakeCounter = y;
+        _horizontalScreenShakeCounter = x;
+        _screenShakeMagnitude = magnitude;
+        if (y == 0 && x == 0) ScreenShakeChanged?.Invoke(Vector2.Zero);
+    }
+
     private void UpdateScreenShake()
     {
         if (_screenShakeCounter == 0 &&
             _horizontalScreenShakeCounter == 0)
+        {
+            ScreenShakeChanged?.Invoke(Vector2.Zero);
             return;
-        int[] amounts = { -2, -1, 1, 2 };
+        }
+        // bank1.updateScreenShake: one shared RNG draw per active axis, Y first.
+        int[] amounts = _screenShakeMagnitude switch
+        {
+            0 => [-2, -1, 1, 2],
+            1 => [-1, -1, 1, 1],
+            2 => [-3, -3, 3, 3],
+            _ => throw new InvalidOperationException("Invalid wScreenShakeMagnitude.")
+        };
         int y = 0;
         int x = 0;
         if (_screenShakeCounter != 0)
         {
             y = amounts[_random.Next().Value & 3];
-            x = amounts[_random.Next().Value & 3];
             _screenShakeCounter--;
         }
         if (_horizontalScreenShakeCounter != 0)
@@ -1510,9 +1538,6 @@ public sealed class RoomEntityManager : IDisposable
         }
         Vector2 offset = new(x, y);
         ScreenShakeChanged?.Invoke(offset);
-        if (_screenShakeCounter == 0 &&
-            _horizontalScreenShakeCounter == 0)
-            ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
     internal int RoomEnemyCount => CountRoomEnemies();
@@ -1581,6 +1606,12 @@ public sealed class RoomEntityManager : IDisposable
 
     private IRoomEntity AddEntity(IRoomEntity entity)
     {
+        if (EntityPhase(entity) == 1)
+        {
+            int slot = FindFreePartSlot();
+            if (slot >= 0) _partSlots.Add(entity, slot);
+            if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
+        }
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.
@@ -1655,7 +1686,27 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity
-            or FountainFairyHeartRoomEntity ? 1 : 2;
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity ? 1 : 2;
+
+    private int FindFreePartSlot()
+    {
+        // getFreePartSlot scans $d0..$df in ascending order. Retain holes:
+        // source slot parity controls each falling part's terrain shadow.
+        for (int slot = 0; slot < 16; slot++)
+        {
+            bool occupied = false;
+            foreach (var pair in _partSlots)
+            {
+                if (pair.Value == slot && pair.Key is not IRoomEntityLifetime { Finished: true })
+                {
+                    occupied = true;
+                    break;
+                }
+            }
+            if (!occupied) return slot;
+        }
+        return -1;
+    }
 
     private void PrepareIncomingEntitiesForScreenTransition()
     {
@@ -1858,6 +1909,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        _partSlots.Remove(entity);
         if (_enemySlots.Remove(entity, out int enemySlot))
             _reservedEnemySlots.Remove(enemySlot);
         if (entity is INpcTalkLifecycle lifecycle &&
