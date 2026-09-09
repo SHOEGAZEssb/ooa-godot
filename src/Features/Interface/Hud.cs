@@ -15,7 +15,6 @@ public partial class Hud : Node2D
 
     private Texture2D _background = null!;
     private Image _hudTiles = null!;
-    private Image _keyTile = null!;
     private Image _itemIcons1 = null!;
     private Image _itemIcons2 = null!;
     private Image _itemIcons3 = null!;
@@ -37,7 +36,6 @@ public partial class Hud : Node2D
     public override void _Ready()
     {
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
-        _keyTile = LoadPng("res://assets/oracle/gfx/gfx_key.png");
         _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
         _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
@@ -72,12 +70,25 @@ public partial class Hud : Node2D
         if (_treasures == null || _inventory == null)
             return;
 
+        DrawEquippedItems();
+    }
+
+    internal Image ComposeImage()
+    {
+        Image result = _background.GetImage();
+        DrawEquippedItems(result);
+        return result;
+    }
+
+    private void DrawEquippedItems(Image? output = null)
+    {
+        if (_treasures is null || _inventory is null)
+            return;
         if (EquippedB == InventoryState.ItemBiggoronSword)
         {
-            StatusBarLayout.DrawBiggoronSword(this);
+            StatusBarLayout.DrawBiggoronSword(this, output: output);
             return;
         }
-
         // wInventoryB is the left button slot in original RAM; wInventoryA is
         // the right slot. Item sprites are drawn over the tilemap status bar.
         DisplayRecord equippedB =
@@ -86,16 +97,16 @@ public partial class Hud : Node2D
             _treasures.GetButtonDisplay(EquippedA, _inventory);
         DrawItemIcon(
             equippedB,
-            new Vector2(EquippedB == InventoryState.ItemHarp ? 16 : 8, 0));
+            new Vector2(EquippedB == InventoryState.ItemHarp ? 16 : 8, 0), output);
         DrawItemIcon(
             equippedA,
             new Vector2((EquippedA == InventoryState.ItemHarp ? 56 : 48) +
-                8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 0));
+                8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 0), output);
         // drawTreasureExtraTiles writes attribute $80. Nonzero BG pixels
         // therefore have priority over the overlapping equipped-item OAM.
-        DrawItemExtra(equippedB, new Vector2(16, 8));
+        DrawItemExtra(equippedB, new Vector2(16, 8), output);
         DrawItemExtra(equippedA, new Vector2(56 +
-            8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 8));
+            8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 8), output);
     }
 
     public void Refresh()
@@ -142,8 +153,6 @@ public partial class Hud : Node2D
 
     private Texture2D BuildBackgroundTexture()
     {
-        Image partialHearts = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/gfx_partial_hearts.png");
         byte[] map = BuildStatusMap();
         byte[] flags = StatusBarLayout.ReadMap(MaxHealthQuarters, EquippedB, true);
         if (flags.Length != 64)
@@ -157,10 +166,6 @@ public partial class Hud : Node2D
             DrawHudTile(
                 output,
                 _hudTiles,
-                partialHearts,
-                HealthQuarters % 4,
-                DungeonKeyDisplayActive && mapOffset == 0x0a +
-                    StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters) ? _keyTile : null,
                 map[mapOffset],
                 flags[mapOffset],
                 column * 8,
@@ -176,14 +181,14 @@ public partial class Hud : Node2D
             throw new InvalidOperationException("Normal HUD map must contain 64 bytes.");
 
         int offset = StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters);
-        map[0x0a + offset] = 0x04;
+        map[0x0a + offset] = 0x09;
         // updateStatusBar_body writes the displayed rupee digits at $2a-$2c
         // independently of the dungeon-only key field at $0a-$0c.
         WriteRupeeDigits(map);
         if (DungeonKeyDisplayActive)
         {
-            // A real dungeon dynamically replaces HUD tile $04 with gfx_key,
-            // then writes the X and current-dungeon key digit alongside it.
+            // Clean Ages keeps both graphics resident: rupee $09, key $0a.
+            map[0x0a + offset] = 0x0a;
             map[0x0b + offset] = 0x1b;
             map[0x0c + offset] = (byte)(0x10 + Mathf.Clamp(
                 _inventory?.GetDungeonSmallKeys(DungeonIndex) ?? 0, 0, 9));
@@ -209,25 +214,13 @@ public partial class Hud : Node2D
     private static void DrawHudTile(
         Image output,
         Image source,
-        Image partialHearts,
-        int partialQuarters,
-        Image? tileOverride,
         byte tile,
         byte flags,
         int destinationX,
         int destinationY)
     {
-        Image tileSource = tileOverride ?? source;
-        int tileX = tileOverride is null ? tile % 16 * 8 : 0;
-        int tileY = tileOverride is null ? tile / 16 * 8 : 0;
-        if (tileOverride is null && tile == 0x0b && partialQuarters is >= 1 and <= 3)
-        {
-            // updateStatusBar_body dynamically loads one of the first three
-            // tiles from gfx_partial_hearts into HUD tile $0b.
-            tileSource = partialHearts;
-            tileX = (partialQuarters - 1) * 8;
-            tileY = 0;
-        }
+        int tileX = tile % 16 * 8;
+        int tileY = tile / 16 * 8;
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
 
@@ -236,46 +229,46 @@ public partial class Hud : Node2D
         {
             int readX = tileX + (flipX ? 7 - x : x);
             int readY = tileY + (flipY ? 7 - y : y);
-            Color sourceColor = tileSource.GetPixel(readX, readY);
+            Color sourceColor = source.GetPixel(readX, readY);
             int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
             output.SetPixel(destinationX + x, destinationY + y, HudPalette[shade]);
         }
     }
 
-    private void DrawItemIcon(DisplayRecord display, Vector2 position)
+    private void DrawItemIcon(DisplayRecord display, Vector2 position, Image? output)
     {
         if (!display.HasIcon)
             return;
 
         DrawItemSprite(display.LeftSprite,
             ItemIconAtlas.EquippedLeftPalette(display.LeftSprite, display.LeftPalette),
-            position);
+            position, output);
         if (display.RightSprite != 0)
-            DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0));
+            DrawItemSprite(display.RightSprite, display.RightPalette, position + new Vector2(8, 0), output);
     }
 
-    private void DrawItemExtra(DisplayRecord display, Vector2 position)
+    private void DrawItemExtra(DisplayRecord display, Vector2 position, Image? output)
     {
         if (_inventory == null)
             return;
 
-        if (display.ExtraMode == 5)
+        if (display.ExtraMode == 2)
         {
             DrawHudOverlayTile(
-                0x0c, position + new Vector2(-8, -8), priorityOnly: true);
+                0x1c, position + new Vector2(-8, -8), output, priorityOnly: true);
             DrawHudOverlayTile(
-                0x0e, position + new Vector2(0, -8), priorityOnly: true);
+                0x1e, position + new Vector2(0, -8), output, priorityOnly: true);
             DrawHudOverlayTile(
-                0x0d, position + new Vector2(-8, 0), priorityOnly: true);
-            DrawHudOverlayTile(0x0f, position, priorityOnly: true);
+                0x1d, position + new Vector2(-8, 0), output, priorityOnly: true);
+            DrawHudOverlayTile(0x1f, position, output, priorityOnly: true);
             return;
         }
 
         if (display.ExtraMode == 1)
         {
             int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
-            DrawHudOverlayTile(0x10 + ((amount >> 4) & 0x0f), position);
-            DrawHudOverlayTile(0x10 + (amount & 0x0f), position + new Vector2(8, 0));
+            DrawHudOverlayTile(0x10 + ((amount >> 4) & 0x0f), position, output);
+            DrawHudOverlayTile(0x10 + (amount & 0x0f), position + new Vector2(8, 0), output);
             return;
         }
 
@@ -287,13 +280,14 @@ public partial class Hud : Node2D
 
         // updateStatusBar uses drawTreasureExtraTiles with c=$80. Palette 0
         // matches the tan HUD and bit 7 places nonzero BG pixels above item OAM.
-        DrawHudOverlayTile(0x1a, position);
-        DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0));
+        DrawHudOverlayTile(0x1a, position, output);
+        DrawHudOverlayTile(0x10 + (level & 0x0f), position + new Vector2(8, 0), output);
     }
 
     private void DrawHudOverlayTile(
         int tile,
         Vector2 position,
+        Image? output,
         bool priorityOnly = false)
     {
         int sourceX = tile % 16 * 8;
@@ -306,8 +300,7 @@ public partial class Hud : Node2D
                 Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
             if (!priorityOnly || shade != 0)
             {
-                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                    HudPalette[shade]);
+                DrawPixel(output, position + new Vector2(x, y), HudPalette[shade]);
             }
         }
     }
@@ -363,7 +356,7 @@ public partial class Hud : Node2D
     internal ulong ItemIconShadeHashForValidation(int sprite)
     {
         if (!ItemIconAtlas.Select(
-                sprite, _itemIcons1, _itemIcons2, _itemIcons3,
+                ItemIconAtlas.EquippedSprite(sprite), _itemIcons1, _itemIcons2, _itemIcons3,
                 out Image source, out int cell))
         {
             return 0;
@@ -371,10 +364,10 @@ public partial class Hud : Node2D
         return ItemIconAtlas.DecodedCellHash(source, cell);
     }
 
-    private void DrawItemSprite(int sprite, int palette, Vector2 position)
+    private void DrawItemSprite(int sprite, int palette, Vector2 position, Image? output)
     {
         if (!ItemIconAtlas.Select(
-            sprite, _itemIcons1, _itemIcons2, _itemIcons3,
+            ItemIconAtlas.EquippedSprite(sprite), _itemIcons1, _itemIcons2, _itemIcons3,
             out Image source, out int cell))
         {
             return;
@@ -387,9 +380,16 @@ public partial class Hud : Node2D
             int shade = ItemIconAtlas.ShadeFromPng(
                 source.GetPixel(cell * 8 + x, y), out bool transparent);
             if (!transparent)
-                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                    _itemPalettes[palette, shade]);
+                DrawPixel(output, position + new Vector2(x, y), _itemPalettes[palette, shade]);
         }
+    }
+
+    private void DrawPixel(Image? output, Vector2 position, Color color)
+    {
+        if (output is null)
+            DrawRect(new Rect2(position, Vector2.One), color);
+        else
+            output.SetPixel((int)position.X, (int)position.Y, color);
     }
 
     // paletteData48e0, background palette 0 used by the status bar.

@@ -121,15 +121,10 @@ public sealed class TreasureDatabase
             TreasureSword => GetDisplay("treasureDisplayData_sword", Math.Max(0, inventory.SwordLevel - 1)),
             TreasureBracelet => GetDisplay("treasureDisplayData_bracelet", Math.Max(0, inventory.BraceletLevel - 1)),
             TreasureSwitchHook => GetDisplay("treasureDisplayData_switchHook", Math.Max(0, inventory.SwitchHookLevel - 1)),
-            TreasureBoomerang => GetDisplay("treasureDisplayData_boomerang", Math.Max(0, inventory.BoomerangLevel - 1)),
-            TreasureFeather => GetDisplay("treasureDisplayData_feather", Math.Max(0, inventory.FeatherLevel - 1)),
             TreasureSeedSatchel => GetDisplay("treasureDisplayData_satchel", inventory.SatchelSelectedSeeds),
             TreasureShooter => GetDisplay("treasureDisplayData_shooter", inventory.ShooterSelectedSeeds),
             TreasureHarp => GetDisplay("treasureDisplayData_harp", inventory.SelectedHarpSong),
             InventoryState.ItemFlute => GetDisplay("treasureDisplayData_flute", inventory.FluteIcon),
-            TreasureSlingshot when inventory.SlingshotLevel == 2 =>
-                GetDisplay("treasureDisplayData_hyperSlingshot", inventory.SlingshotSelectedSeeds),
-            TreasureSlingshot => GetDisplay("treasureDisplayData_slingshot", inventory.SlingshotSelectedSeeds),
             TreasureTradeItem => GetDisplay("treasureDisplayData_trade", inventory.TradeItem),
             TreasureTuniNut => GetDisplay("treasureDisplayData_tuniNut", inventory.TuniNutState),
             _ => GetDisplay("treasureDisplayData_standard", itemId)
@@ -152,8 +147,6 @@ public sealed class TreasureDatabase
             TreasureSword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
             TreasureBracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
             TreasureSwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),
-            TreasureBoomerang when parameter > 0 => GetDisplay("treasureDisplayData_boomerang", level),
-            TreasureFeather when parameter > 0 => GetDisplay("treasureDisplayData_feather", level),
             _ => GetButtonDisplay(treasureId, inventory)
         };
     }

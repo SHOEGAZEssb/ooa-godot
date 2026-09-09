@@ -2268,9 +2268,9 @@ public sealed partial class ValidationRoot
         FailIf(
             !ItemIconAtlas.Select(0x99, icons1, icons2, icons3, out Image bracelet, out int braceletCell) ||
             bracelet != icons2 || braceletCell != 9 ||
-            !ItemIconAtlas.Select(0xaf, icons1, icons2, icons3, out Image glove, out int gloveCell) ||
-            glove != icons3 || gloveCell != 15,
-            "Display `$99/`$af no longer resolve to item icon sheets 2:9 and 3:15.");
+            !ItemIconAtlas.Select(0x98, icons1, icons2, icons3, out Image glove, out int gloveCell) ||
+            glove != icons2 || gloveCell != 8,
+            "Display $99/$98 no longer resolve to item icon sheets 2:9 and 2:8.");
 
         Color[,] palettes = ItemIconAtlas.LoadStandardSpritePalettes();
         FailIf(
@@ -2303,7 +2303,7 @@ public sealed partial class ValidationRoot
             equippedBackgroundShade != 3 ||
             ItemIconAtlas.EquippedLeftPalette(0x80, 0x05) != 0x03 ||
             ItemIconAtlas.EquippedLeftPalette(0x86, 0x05) != 0x05 ||
-            ItemIconAtlas.EquippedLeftPalette(0x8a, 0x05) != 0x03 ||
+            ItemIconAtlas.EquippedLeftPalette(0x81, 0x05) != 0x03 ||
             _inventoryScreen.EquippedItemIconShadeHashForValidation(0x80) !=
                 expectedEquippedSatchelHash ||
             _hud.ItemIconShadeHashForValidation(0x80) != expectedEquippedSatchelHash,

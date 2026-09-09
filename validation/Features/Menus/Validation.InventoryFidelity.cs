@@ -145,7 +145,7 @@ public partial class ValidationRoot
             int columns = max > 56 ? 8 : 7;
             int lastHeart = max / 4 - 1;
             int lastOffset = 0x0d + (max > 56 ? -1 : 0) + lastHeart / columns * 32 + lastHeart % columns;
-            FailIf(map[lastOffset] != 0x0b,
+            FailIf(map[lastOffset] != 0x0e,
                 $"drawHeartDisplay lost the final partial heart at max health ${max:x2}.");
         }
 

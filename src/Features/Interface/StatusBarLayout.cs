@@ -7,7 +7,7 @@ namespace oracleofages;
 // Shared by the gameplay HUD and the status bar retained in inventory.
 internal static class StatusBarLayout
 {
-    internal static void DrawBiggoronSword(Node2D canvas, Vector2 offset = default)
+    internal static void DrawBiggoronSword(Node2D canvas, Vector2 offset = default, Image? output = null)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/hud/spr_biggoron_sword_icon.png");
@@ -19,7 +19,13 @@ internal static class StatusBarLayout
         {
             int shade = ItemIconAtlas.ShadeFromPng(source.GetPixel(x, y), out bool transparent);
             if (!transparent)
-                canvas.DrawRect(new Rect2(offset + new Vector2(16 + x, y), Vector2.One), palette[3, shade]);
+            {
+                Vector2 position = offset + new Vector2(16 + x, y);
+                if (output is null)
+                    canvas.DrawRect(new Rect2(position, Vector2.One), palette[3, shade]);
+                else
+                    output.SetPixel((int)position.X, (int)position.Y, palette[3, shade]);
+            }
         }
     }
 
@@ -47,8 +53,8 @@ internal static class StatusBarLayout
         {
             int heart = row * columns + column;
             map[start + row * 32 + column] = heart >= containers ? (byte)0
-                : heart < full ? (byte)0x0a
-                : heart == full && (health & 3) != 0 ? (byte)0x0b : (byte)0x09;
+                : heart < full ? (byte)0x0f
+                : heart == full && (health & 3) != 0 ? (byte)(0x0b + (health & 3)) : (byte)0x0b;
         }
     }
 }

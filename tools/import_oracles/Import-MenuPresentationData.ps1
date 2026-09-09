@@ -542,6 +542,12 @@ $inventoryOamRows.Add(
     '# layout`tpart`ty`tx`ttile`tattributes`tsource-label`talias-of`tsource')
 Add-MenuOamRows $inventoryOamRows 'maku-seed' `
     'inventoryMenuDrawSprites' '@makuSeedSprite'
+for ($song = 0; $song -lt 4; $song++) {
+    # inventoryMenuDrawHarpSprites indexes seedAndHarpSpriteTable+4.
+    # Song $00 deliberately selects the mystery-seed entry, not a song pair.
+    Add-MenuOamRows $inventoryOamRows "harp-$song" `
+        'seedAndHarpSpriteTable' "@sprite$($song + 4)"
+}
 Write-GeneratedTable(
     (Join-Path $destination 'menu\inventory_oam.tsv'),
     $inventoryOamRows)

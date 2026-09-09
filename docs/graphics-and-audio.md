@@ -92,6 +92,16 @@ Gameplay UI, dialogue, and menu presentation use shared tile/OAM composition
 helpers with their imported layouts and palettes. A feature should provide
 source-specific data, not copy pixel-decoding loops.
 
+Inventory display records and item/HUD graphics are recovered from the checked
+clean US ROM because hack-base rearranges the icon sheets and changes display
+modes. Keep equipped-item graphics selection separate from inventory OAM:
+the equipped Harp uses the small song pair, while stored items and the song
+picker use the original OAM table and large song pair. Harp background tiles
+retain their nonzero-pixel priority over those sprites.
+Restore a shared sheet together with every consumer's tile indices and dynamic
+tile replacements. Validate composed screens as well as individual sheets;
+correct source pixels alone cannot detect a mismatched runtime tile layout.
+
 ## Audio determinism and lifecycle
 
 `OracleSoundEngine` is persistent across gameplay scenes and advances once per

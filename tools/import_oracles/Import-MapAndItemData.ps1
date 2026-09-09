@@ -1650,71 +1650,29 @@ Write-GeneratedTable(
     (Join-Path $destination "metadata\treasure_objects.tsv"),
     $treasureObjectRows)
 
-# Export the item icon rows used by loadTreasureDisplayData. Runtime code only
-# consumes a subset today, but keeping all rows makes the inventory foundation
-# data-driven for later menu/equipment slices.
-# The clean US display table indexes selected seeds at $c6c4/$c6c5.
-# hack-base relocated these symbols; do not derive save offsets from its
-# modified RAM section or the stale comments near wShortSecretIndex.
-if ([BitConverter]::ToString($romBytes, 0xfed41, 3) -ne '19-C4-01' -or
-    [BitConverter]::ToString($romBytes, 0xfed53, 3) -ne '0F-C5-07') {
-    throw 'Clean US treasureDisplayData1 selected-seed addresses changed.'
-}
-$displayRows = [Collections.Generic.List[string]]::new()
-$displayRows.Add("# table`tindex`ttreasure-id`tleft-sprite`tleft-palette`tright-sprite`tright-palette`textra-mode`ttext-low")
-$displaySource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureDisplayData.s")
-$displayTable = ''
-$displayIndex = 0
-foreach ($line in $displaySource) {
-    if ($line -match '^(treasureDisplayData_[A-Za-z0-9]+):') {
-        $displayTable = $Matches[1]
-        $displayIndex = 0
-        continue
+# loadTreasureDisplayData: table 1 at $3f:$6d41 selects table 2 at $6d62.
+# Level-table pointers are biased by -7; preserve all seven original bytes.
+# No CROSSITEMS-only tables belong to the clean Ages presentation boundary.
+$rows = [Collections.Generic.List[string]]::new()
+$rows.Add("# table`tindex`ttreasure-id`tleft-sprite`tleft-palette`tright-sprite`tright-palette`textra-mode`ttext-low")
+$tables = @(
+    @('standard', 96, 0), @('satchel', 5, 0), @('sword', 3, 7),
+    @('shield', 3, 7), @('bracelet', 2, 7), @('trade', 13, 0),
+    @('flute', 4, 0), @('shooter', 5, 0), @('harp', 4, 0),
+    @('tuniNut', 3, 0), @('switchHook', 2, 7))
+for ($table = 0; $table -lt $tables.Count; $table++) {
+    $spec = $tables[$table]
+    $pointer = [BitConverter]::ToUInt16($romBytes, 0xfed62 + $table * 2) + $spec[2]
+    if ($pointer -lt 0x6d78 -or $pointer + $spec[1] * 7 -gt 0x714c) {
+        throw "clean-US treasureDisplayData2 table $table points outside display data."
     }
-    if (-not $displayTable -or $line -notmatch '^\s*\.db\s+(?<values>[^;]+)') {
-        continue
-    }
-    $values = @($Matches['values'].Split(',') | ForEach-Object { $_.Trim() })
-    if ($values.Count -ne 7) { continue }
-    $treasure = Resolve-TreasureId $values[0] $treasureIds
-    $leftSprite = Convert-AsmByte $values[1]
-    $leftPalette = Convert-AsmByte $values[2]
-    $rightSprite = Convert-AsmByte $values[3]
-    $rightPalette = Convert-AsmByte $values[4]
-    $extraMode = Convert-AsmByte $values[5]
-    $textMatch = [regex]::Match($values[6], '<(?<name>TX_[A-Za-z0-9_]+)')
-    if (-not $textMatch.Success -or
-        -not $allTextIdsByName.ContainsKey($textMatch.Groups['name'].Value)) {
-        throw "Could not resolve inventory text symbol '$($values[6])' in row '$line'."
-    }
-    $textId = $allTextIdsByName[$textMatch.Groups['name'].Value]
-    if (($textId -band 0xff00) -ne 0x0900) {
-        throw "Inventory display row '$line' resolved outside text group `$09."
-    }
-    $textLow = $textId -band 0xff
-    if ($leftSprite -lt 0 -or $leftPalette -lt 0 -or $rightSprite -lt 0 -or
-        $rightPalette -lt 0 -or $extraMode -lt 0) {
-        throw "Could not parse treasure display row '$line'."
-    }
-    $displayRows.Add("$displayTable`t$displayIndex`t$($treasure.ToString('x2'))`t$($leftSprite.ToString('x2'))`t$($leftPalette.ToString('x2'))`t$($rightSprite.ToString('x2'))`t$($rightPalette.ToString('x2'))`t$($extraMode.ToString('x2'))`t$($textLow.ToString('x2'))")
-    $displayIndex++
-}
-if (($displayRows | Where-Object { $_ -match '^treasureDisplayData_sword\t0\t05\t90\t' }).Count -ne 1) {
-    throw "Could not export the level-1 sword display icon row."
-}
-$expectedShieldDisplayRows = @(
-    "treasureDisplayData_shield`t0`t01`t93`t00`t00`t00`t00`t20"
-    "treasureDisplayData_shield`t1`t01`t94`t05`t00`t00`t00`t21"
-    "treasureDisplayData_shield`t2`t01`t95`t04`t00`t00`t00`t22"
-)
-foreach ($expectedRow in $expectedShieldDisplayRows) {
-    if (-not $displayRows.Contains($expectedRow)) {
-        throw "Could not export exact shield display row '$expectedRow'."
+    for ($index = 0; $index -lt $spec[1]; $index++) {
+        $offset = 0xf8000 + $pointer + $index * 7
+        $values = @($romBytes[$offset..($offset + 6)] | ForEach-Object { $_.ToString('x2') })
+        $rows.Add("treasureDisplayData_$($spec[0])`t$index`t$($values -join "`t")")
     }
 }
-Write-GeneratedTable(
-    (Join-Path $destination "metadata\treasure_display.tsv"),
-    $displayRows)
+Write-GeneratedTable((Join-Path $destination 'metadata/treasure_display.tsv'), $rows)
 
 # showItemText2 reads normal inventory labels from TX_09XX. Ring slots set bit
 # 7 and substitute TX_3040+ring and TX_3080+ring into TX_30c1; export that

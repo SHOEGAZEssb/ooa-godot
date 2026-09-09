@@ -27,6 +27,7 @@ internal sealed class MenuPresentationDatabase
         "res://assets/oracle/menu/dungeon_floor_names.bin", 22);
 
     internal IReadOnlyList<MenuOamPart> InventoryMakuSeed => _inventoryOam["maku-seed"];
+    internal IReadOnlyList<MenuOamPart> InventoryHarp(int song) => _inventoryOam[$"harp-{song}"];
 
     public static MenuPresentationDatabase Shared => LazyShared.Value;
 
@@ -96,7 +97,11 @@ internal sealed class MenuPresentationDatabase
         RingBoxOffsets = LoadRingBoxOffsets();
         LoadOamLayouts(
             "res://assets/oracle/menu/inventory_oam.tsv", "inventory OAM", _inventoryOam,
-            new Dictionary<string, int>(StringComparer.Ordinal) { ["maku-seed"] = 4 });
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["maku-seed"] = 4, ["harp-0"] = 1, ["harp-1"] = 2,
+                ["harp-2"] = 2, ["harp-3"] = 2
+            });
     }
 
     public IReadOnlyList<MenuOamPart> FileOam(string layout) =>

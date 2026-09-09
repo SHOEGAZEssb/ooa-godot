@@ -470,7 +470,7 @@ public sealed partial class ValidationRoot
             "Room 4:0a did not consume one dungeon key, set both directional flags, " +
             "and begin its still-solid interleaved/key-sprite frame.");
         FailIf(
-            _hud.StatusMapTileForValidation(0x0a) != 0x04 ||
+            _hud.StatusMapTileForValidation(0x0a) != 0x0a ||
             _hud.StatusMapTileForValidation(0x0b) != 0x1b ||
             _hud.StatusMapTileForValidation(0x0c) !=
                 0x10 + _inventory.GetDungeonSmallKeys(dungeon) ||

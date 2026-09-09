@@ -484,7 +484,7 @@ public partial class MainMenuScreen : Node2D
             int quarters = Math.Clamp(health - heart * 4, 0, 4);
             if (quarters is > 0 and < 4)
                 DrawTexture(_erasePartialHearts[quarters - 1], position);
-            else DrawHudTile(quarters == 4 ? 0x0a : 0x09, position);
+            else DrawHudTile(quarters == 4 ? 0x0f : 0x0b, position);
         }
     }
 

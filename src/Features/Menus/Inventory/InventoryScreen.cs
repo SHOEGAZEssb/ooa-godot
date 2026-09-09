@@ -33,7 +33,6 @@ public partial class InventoryScreen : Node2D
 
     private Texture2D[] _backgrounds = null!;
     private Image _hudTiles = null!;
-    private Image _partialHearts = null!;
     private Image _inventoryHud1 = null!;
     private Image _presentPastSymbols = null!;
     private Image _questItems5 = null!;
@@ -130,11 +129,9 @@ public partial class InventoryScreen : Node2D
         QuantityOverlayForValidation(int item)
     {
         DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
-        if (display.ExtraMode != 1)
+        if (!TryGetQuantityTiles(display, out int symbol, out int digit))
             return null;
-        int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
-        return (0x10 + ((amount >> 4) & 0x0f), 0x10 + (amount & 0x0f),
-            0x07, new Vector2(8, 8));
+        return (symbol, digit, 0x07, new Vector2(8, 8));
     }
     internal ulong StoredItemIconSheet1HashForValidation =>
         OracleGraphicsCache.PixelHash(_itemIcons1);
@@ -143,7 +140,7 @@ public partial class InventoryScreen : Node2D
     internal ulong EquippedItemIconShadeHashForValidation(int sprite)
     {
         if (!ItemIconAtlas.Select(
-                sprite, _equippedItemIcons1, _itemIcons2, _itemIcons3,
+                ItemIconAtlas.EquippedSprite(sprite), _equippedItemIcons1, _itemIcons2, _itemIcons3,
                 out Image source, out int cell))
         {
             return 0;
@@ -242,7 +239,6 @@ public partial class InventoryScreen : Node2D
     public override void _Ready()
     {
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
-        _partialHearts = LoadPng("res://assets/oracle/gfx/gfx_partial_hearts.png");
         _inventoryHud1 = LoadPng("res://assets/oracle/inventory/gfx_inventory_hud_1.png");
         _presentPastSymbols = LoadPng("res://assets/oracle/inventory/spr_present_past_symbols.png");
         _questItems5 = LoadPng("res://assets/oracle/inventory/spr_quest_items_5.png");
@@ -754,11 +750,7 @@ public partial class InventoryScreen : Node2D
             int option = _itemSubmenuOptions[index];
             if (_itemSubmenuKind == ItemSubmenuKind.HarpSongs)
             {
-                DrawTreasure(
-                    _treasures.GetHarpSongDisplay(option),
-                    new Vector2(baseX, targetY + 4),
-                    spritePalette: true,
-                    drawEquippedExtra: false);
+                DrawHarpSong(option, new Vector2(baseX, targetY));
                 continue;
             }
 
@@ -1190,7 +1182,7 @@ public partial class InventoryScreen : Node2D
         }
         Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_textbar.bin", 96), 0x1e0);
         Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_textbar.bin", 96), 0x1e0);
-        map[0x0a + StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters)] = 0x04;
+        map[0x0a + StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters)] = 0x09;
         WriteRupeeDigits(map);
         WriteHearts(map);
 
@@ -1239,11 +1231,6 @@ public partial class InventoryScreen : Node2D
     {
         Image source = _hudTiles;
         int sourceTile = tile;
-        if (tile == 0x0b && _inventory.HealthQuarters % 4 is >= 1 and <= 3)
-        {
-            source = _partialHearts;
-            sourceTile = _inventory.HealthQuarters % 4 - 1;
-        }
         DrawTileToImage(output, source, sourceTile, flags, _bgPalette, x, y,
             interleaved: false, spriteEncoding: false);
     }
@@ -1267,17 +1254,17 @@ public partial class InventoryScreen : Node2D
             return;
         if (spritePalette)
         {
-            DrawLogicalOamSprite(display.LeftSprite,
+            DrawLogicalOamSprite(ItemIconAtlas.EquippedSprite(display.LeftSprite),
                 ItemIconAtlas.EquippedLeftPalette(display.LeftSprite, display.LeftPalette),
                 position);
             if (display.RightSprite != 0)
-                DrawLogicalOamSprite(display.RightSprite, display.RightPalette & 7, position + new Vector2(8, 0));
+                DrawLogicalOamSprite(ItemIconAtlas.EquippedSprite(display.RightSprite), display.RightPalette & 7, position + new Vector2(8, 0));
             if (drawEquippedExtra)
             {
                 // updateStatusBar shifts only the Harp's OAM cells. Its
                 // four fixed BG cells remain at the ordinary button origin.
                 Vector2 extraPosition = position + new Vector2(
-                    display.ExtraMode == 5 ? 0 : 8,
+                    display.ExtraMode == 2 ? 0 : 8,
                     8);
                 DrawTreasureLevel(display, extraPosition, equipped: true);
             }
@@ -1294,16 +1281,7 @@ public partial class InventoryScreen : Node2D
 
     private void DrawStoredHarpSprite(Vector2 position)
     {
-        DisplayRecord display =
-            _treasures.GetHarpSongDisplay(_inventory.SelectedHarpSong);
-        DrawLogicalOamSprite(
-            display.LeftSprite,
-            display.LeftPalette & 7,
-            position + new Vector2(10, 0));
-        DrawLogicalOamSprite(
-            display.RightSprite,
-            display.RightPalette & 7,
-            position + new Vector2(18, 0));
+        DrawHarpSong(_inventory.SelectedHarpSong, position + new Vector2(10, -4));
 
         // The stored Harp is the inventory's one composite BG/OAM item.
         // Its BG priority tiles mask the nonzero portions of the song sprite.
@@ -1316,23 +1294,31 @@ public partial class InventoryScreen : Node2D
             0x1f, 0x84, position + new Vector2(8, 8), priorityOnly: true);
     }
 
+    private void DrawHarpSong(int song, Vector2 position)
+    {
+        foreach (MenuOamPart part in _layouts.InventoryHarp(song))
+            DrawRawOamTile((part.Attributes >> 3) & 1, part.Tile,
+                part.Attributes & 7, position + new Vector2(part.X - 8, part.Y - 16),
+                flipX: (part.Attributes & 0x20) != 0);
+    }
+
     private void DrawTreasureLevel(
         DisplayRecord display,
         Vector2 position,
         bool equipped)
     {
-        if (display.ExtraMode == 5)
+        if (display.ExtraMode == 2)
         {
             if (equipped)
             {
                 DrawHudBackgroundTile(
-                    0x0c, position + new Vector2(-8, -8), priorityOnly: true);
+                    0x1c, position + new Vector2(-8, -8), priorityOnly: true);
                 DrawHudBackgroundTile(
-                    0x0e, position + new Vector2(0, -8), priorityOnly: true);
+                    0x1e, position + new Vector2(0, -8), priorityOnly: true);
                 DrawHudBackgroundTile(
-                    0x0d, position + new Vector2(-8, 0), priorityOnly: true);
+                    0x1d, position + new Vector2(-8, 0), priorityOnly: true);
                 DrawHudBackgroundTile(
-                    0x0f, position, priorityOnly: true);
+                    0x1f, position, priorityOnly: true);
             }
             else
             {
@@ -1347,11 +1333,8 @@ public partial class InventoryScreen : Node2D
             return;
         }
 
-        if (display.ExtraMode == 1)
+        if (TryGetQuantityTiles(display, out int tens, out int ones))
         {
-            int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
-            int tens = 0x10 + ((amount >> 4) & 0x0f);
-            int ones = 0x10 + (amount & 0x0f);
             if (equipped)
             {
                 DrawHudBackgroundTile(tens, position);
@@ -1391,6 +1374,16 @@ public partial class InventoryScreen : Node2D
             ? _inventory.LevelForInventoryDisplay(display.TreasureId)
             : 0;
         return level > 0;
+    }
+
+    private bool TryGetQuantityTiles(DisplayRecord display, out int symbol, out int digit)
+    {
+        // drawTreasureExtraTiles @val04 takes only the slate count's low nibble.
+        int amount = display.ExtraMode == 4 ? _inventory.Slates
+            : _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+        symbol = display.ExtraMode == 4 ? 0x1b : 0x10 + ((amount >> 4) & 0x0f);
+        digit = 0x10 + (amount & 0x0f);
+        return display.ExtraMode is 1 or 4;
     }
 
     private void DrawLogicalBackgroundSprite(int sprite, int flags, Vector2 position)

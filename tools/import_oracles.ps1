@@ -153,9 +153,12 @@ $stageContracts = @(
             'Read-PaletteBytes', 'Resolve-Oam')
     New-ImportStageContract 'wing-dungeon' 'Import-WingDungeon.ps1' `
         -inputs @('allTexts', 'mainObjectSource')
-    New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1'
+    New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
+        -functionOutputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
         -inputs @('globalFlagValues')
+    New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `
+        -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'manifest' 'Write-GeneratedTableManifest.ps1'
 )
 
