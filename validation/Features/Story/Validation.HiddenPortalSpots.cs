@@ -83,6 +83,7 @@ public sealed partial class ValidationRoot
         PlaySelectedHarpSong(validateNoteSides: false);
         FailIf(_entities.Entities<TimePortal>().Any(portal => !portal.Awakening),
             "The revealed 0:13 portals did not both observe Tune of Echoes after the reveal handlers.");
+        _harp.BeginObjectUpdate(); // Resume the next Link/item/interaction update.
         Step();
         FailIf(_entities.Entities<TimePortal>().Any(portal => !portal.Active),
             "Room 0:13's revealed portal markers could not activate after Tune of Echoes.");

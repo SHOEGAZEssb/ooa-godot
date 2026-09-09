@@ -262,6 +262,9 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         throw new InvalidOperationException(
             $"Maku Tree actor '{actor}' cannot use movement animation ${angle:x2}.");
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireMakuTree(actor).InitializeCollisionRadii();
+
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,

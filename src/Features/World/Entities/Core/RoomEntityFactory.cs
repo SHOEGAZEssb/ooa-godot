@@ -87,6 +87,7 @@ internal sealed class RoomEntityFactory(
     private readonly ShootingGalleryEventDatabase _shootingGallery = new();
     private readonly ComedianEventDatabase _comedian = new();
     private readonly MaskSalesmanEventDatabase _maskSalesman = new();
+    private readonly DumbbellManEventDatabase _dumbbellMan = new();
     private readonly ChevalEventDatabase _cheval = new();
     private readonly RalphAfterChevalEventDatabase _ralphAfterCheval = new();
     private readonly RalphAfterRaftonEventDatabase _ralphAfterRafton = new();
@@ -968,9 +969,17 @@ internal sealed class RoomEntityFactory(
                     break;
 
                 case EnemyObjectSlotPolicy.ParameterEnemy:
-                    _ = resolution.RequireEnemyHandler(source);
-                    if (enemySlots < 16)
-                        registerEnemySlot(null, enemySlots++);
+                    EnemyHandlerDescriptor parameterHandler = resolution.RequireEnemyHandler(source);
+                    if (enemySlots >= 16)
+                        break;
+                    // objectDataOp9 allocates a counted enemy but never checks
+                    // recent defeats, advances the killable index, or reserves a tile.
+                    IRoomEntity? parameterEntity = CreateOrderedEnemy(
+                        parameterHandler, source, room, new Vector2(source.X, source.Y),
+                        0, 0, placementContext);
+                    registerEnemySlot(parameterEntity, enemySlots++);
+                    if (parameterEntity is not null)
+                        yield return parameterEntity;
                     break;
 
                 case EnemyObjectSlotPolicy.ItemDrop:
@@ -2002,6 +2011,16 @@ internal sealed class RoomEntityFactory(
 
         switch (handler.Handler)
         {
+            case EnemyHandlerKind.CheepCheep:
+                var cheepCheep = new CheepCheepCharacter
+                {
+                    Name = $"CheepCheep_{source.Order}_{instance}",
+                    ZIndex = 10
+                };
+                cheepCheep.Initialize(enemies.ImportedEnemy(source.Id, source.SubId),
+                    room, position, source.Var03);
+                return new CheepCheepRoomEntity(cheepCheep, combatSource, soundRequested);
+
             case EnemyHandlerKind.Keese:
                 if (!enemies.TryGetKeeseDefinition(
                     source, out EnemyDatabaseEnemyRecord keeseRecord))
@@ -3151,6 +3170,21 @@ internal sealed class RoomEntityFactory(
             };
             comedian.InitializeComedian(record, _comedian.Record);
             return new ComedianRoomEntity(comedian);
+        }
+        if (record.Id == 0x9d && record.SubId == 0)
+            return new TokkeyRoomEntity(CreateNpcCharacter(record));
+        if (record.Group == _dumbbellMan.Record.Group &&
+            record.Room == _dumbbellMan.Record.Room &&
+            record.Id == _dumbbellMan.Record.InteractionId &&
+            record.SubId == _dumbbellMan.Record.SubId)
+        {
+            var man = new DumbbellManCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            man.InitializeDumbbellMan(record, _dumbbellMan.Record);
+            return new DumbbellManRoomEntity(man);
         }
         if (record.Group == _maskSalesman.Record.Group &&
             record.Room == _maskSalesman.Record.Room &&
@@ -4808,6 +4842,7 @@ internal sealed class RoomEntityFactory(
             {
                 case EnemyObjectSlotPolicy.RandomEnemy:
                 case EnemyObjectSlotPolicy.FixedEnemy:
+                case EnemyObjectSlotPolicy.ParameterEnemy:
                     if (!resolution
                         .RequireEnemyHandler(source)
                         .CompletesDungeonEnemyCount)
@@ -4816,8 +4851,6 @@ internal sealed class RoomEntityFactory(
                     }
                     break;
 
-                case EnemyObjectSlotPolicy.ParameterEnemy:
-                    return false;
             }
         }
         return true;

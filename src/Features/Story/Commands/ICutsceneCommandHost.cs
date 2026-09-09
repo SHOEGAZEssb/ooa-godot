@@ -30,6 +30,7 @@ internal interface ICutsceneCommandHost
     void SetActorAnimation(string actor, int animation, string encodedAnimation);
     void SetActorMovementAnimation(string actor, int angle, string encodedAnimation);
     void SetActorCollisionRadii(string actor, int radiusY, int radiusX);
+    void InitializeActorCollisionRadii(string actor);
     void SetActorButtonSensitive(string actor);
     void MoveActorAtSpeed(string actor, int speed, int angle);
     void SetActorZ(string actor, int zFixed);

@@ -385,7 +385,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 return CommandResult.Continue;
 
             case CutsceneInitCollisionsCommand collisions:
-                host.SetActorCollisionRadii(collisions.Actor, 6, 6);
+                host.InitializeActorCollisionRadii(collisions.Actor);
                 host.SetActorButtonSensitive(collisions.Actor);
                 return CommandResult.Continue;
 

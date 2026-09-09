@@ -66,6 +66,11 @@ registers dialogue or script interaction through the central interaction
 router. It does not directly scan input, own a room-wide sequence, or duplicate
 save state.
 
+Collision initialization and explicit radius changes are separate operations.
+The Ages `initcollisions` opcode initializes both radii to `$06` only when the
+actor's Y radius is zero; otherwise it preserves both existing radii. Entering
+a generic conversation script must therefore retain a custom interaction range.
+
 If an interaction classified as specialized reaches the generic path, fail
 with group, room, interaction ID/subid, and source context. A placeholder actor
 must never silently stand in for an unsupported native behavior.

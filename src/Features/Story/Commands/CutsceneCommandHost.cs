@@ -72,6 +72,8 @@ internal abstract class CutsceneCommandHost : RoomEventHost, ICutsceneCommandHos
         throw UnsupportedCommand($"set actor '{actor}' collision radii");
     public virtual void SetActorButtonSensitive(string actor) =>
         throw UnsupportedCommand($"set actor '{actor}' A-button sensitivity");
+    public virtual void InitializeActorCollisionRadii(string actor) =>
+        throw UnsupportedCommand($"initialize actor '{actor}' collision radii");
     public virtual void MoveActorAtSpeed(string actor, int speed, int angle) =>
         throw UnsupportedCommand($"move actor '{actor}'");
     public virtual void SetActorZ(string actor, int zFixed) =>

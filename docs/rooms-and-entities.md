@@ -107,6 +107,11 @@ game RNG and the original 256 calls. Do not use `Random.Shared`, a per-enemy
 generator, sorted collections, or a separate placement pass. Destination
 preload and re-entry must consume RNG only when the original does.
 
+Parameterized enemy opcode `$09` retains its `var03` byte in the ordered
+stream. It allocates a counted enemy without reserving a tile, advancing the
+killable-enemy index, or consulting recent defeats. Its species handler owns
+the parameter's meaning; it is separate from placement flags.
+
 When adding an object kind, trace:
 
 - pointer/table aliases and surrounding source order;

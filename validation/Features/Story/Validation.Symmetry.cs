@@ -273,6 +273,82 @@ public sealed partial class ValidationRoot
             "Placed Tuni Nut did not reconstruct from the saved global flag on re-entry.");
     }
 
+    private void ValidateSymmetryNutHandoff()
+    {
+        var quest = _roomEvents.Get<SymmetryEvent>();
+        var data = quest.Database;
+        foreach (int room in new[] { 0x6f, 0x6e })
+        foreach (bool batched in new[] { false, true })
+        {
+            _inventory.LoseTreasure(TreasureDatabase.TreasureTuniNut);
+            _saveData.SetGlobalFlag(data.Constant("sister-flag"));
+            _saveData.SetGlobalFlag(data.Constant("brother-flag"));
+            _saveData.SetGlobalFlag(data.Constant("placed-flag"), false);
+            _saveData.SetRoomFlag(3, room, 0x40, false);
+            LoadValidationRoom(3, room);
+            _player.WarpTo(new Vector2(0x50, 0x68), recordSafe: false);
+            var scheduler = new ApplicationFixedUpdateScheduler();
+            void Step(int frames)
+            {
+                // GameRoot updates the room event before the shared reward owner.
+                void Tick()
+                {
+                    StepRoomEventFrames(1);
+                    _interactions.Update(1.0 / 60.0, _player);
+                }
+                if (batched) scheduler.Advance(frames / 60.0, Tick);
+                else for (int i = 0; i < frames; i++) scheduler.Advance(1.0 / 60.0, Tick);
+            }
+            void AwaitText(int text)
+            {
+                for (int i = 0; i < 150 && !_dialogue.IsOpen; i++) Step(1);
+                string expected = DialogueBox.PlainText(data.Commands.OfType<CutsceneShowTextCommand>()
+                    .First(c => c.TextId == text).Message);
+                FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != expected,
+                    $"Symmetry $3:${room:x2} expected TX_{text:x4} during nut handoff.");
+            }
+            Step(8);
+            var npc = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0xbf);
+            FailIf(!quest.TryInteractNpc(npc), $"Symmetry $3:${room:x2} rejected the nut request.");
+            AwaitText(0x2d02);
+            _dialogue.Close();
+            AwaitText(0x2d04);
+            _dialogue.SubmitChoiceForValidation(0);
+            AwaitText(0x2d05);
+            _dialogue.Close();
+            for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut); i++) Step(1);
+            var reward = _interactions.GroundTreasureForValidation;
+            FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) || _inventory.TuniNutState != 0 ||
+                !_dialogue.IsOpen || reward is null || !reward.Held || !_player.IsHoldingItemTwoHands,
+                $"Symmetry $3:${room:x2} did not present broken Tuni Nut $4c:$00.");
+            Step(8);
+            FailIf(reward!.Finished || !quest.BlocksGameplay,
+                $"Symmetry $3:${room:x2} finished the nut handoff before its textbox closed.");
+            _dialogue.Close();
+            Step(1);
+            FailIf(_interactions.DialogueOpen || _interactions.GroundTreasureForValidation is not null ||
+                !reward.Finished || _player.IsHoldingItemTwoHands || _player.CutsceneControlled || quest.BlocksGameplay,
+                $"Symmetry $3:${room:x2} retained dialogue/input ownership after closing the Tuni Nut $4c:$00 message.");
+            Step(8);
+            FailIf(_dialogue.IsOpen || !quest.TryInteractNpc(npc),
+                $"Symmetry $3:${room:x2} did not return to waiting for another conversation.");
+            AwaitText(0x2d08);
+            _dialogue.Close();
+            Step(8);
+            LoadValidationRoom(0, 0x56);
+            LoadValidationRoom(3, room);
+            Step(8);
+            npc = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0xbf);
+            FailIf(!quest.TryInteractNpc(npc), $"Returning to Symmetry $3:${room:x2} retained the reward lock.");
+            AwaitText(0x2d08);
+            FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0,
+                $"Symmetry $3:${room:x2} awarded a duplicate Tuni Nut $4c:$00 on re-entry.");
+            _dialogue.Close();
+            Step(8);
+        }
+        GD.Print("Validated both Symmetry brothers' Tuni Nut textbox completion, shared reward ownership, repeat dialogue and re-entry with split/batched updates.");
+    }
+
     private void ValidateSymmetryNpcs()
     {
         var quest = _roomEvents.Get<SymmetryEvent>();

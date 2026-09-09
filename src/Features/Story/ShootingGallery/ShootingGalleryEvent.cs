@@ -238,6 +238,9 @@ internal sealed class ShootingGalleryEvent :
             _context.ShowDialogue(resolved);
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireKeeper(actor).InitializeCollisionRadii();
+
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,

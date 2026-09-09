@@ -1265,7 +1265,9 @@ public sealed partial class ValidationRoot
                         resolution.SlotPolicy !=
                             EnemyObjectSlotPolicy.ParameterEnemy ||
                         handler.Classification !=
-                            EnemyHandlerClassification.DeliberatelyUnsupported,
+                            EnemyHandlerClassification.OrderedImplemented ||
+                        handler.Handler != EnemyHandlerKind.CheepCheep ||
+                        source.Var03 == 0,
                         $"{source.Source} lost its classified parameter-enemy " +
                         "slot policy.");
                 }
@@ -1311,13 +1313,13 @@ public sealed partial class ValidationRoot
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 50 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 52 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 73 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 71 ||
             combatSourceRows != 502 ||
             combatSourceFlags.Count != 115 ||
             expectedCombat.Count != 42 ||

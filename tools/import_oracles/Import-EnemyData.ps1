@@ -362,6 +362,7 @@ $commonEnemySprites = @{
 }
 $commonEnemySpecs = @(
     @(0x21, 0x00), @(0x21, 0x01), @(0x2d, 0x00),
+    @(0x2c, 0x00), @(0x2c, 0x01),
     @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
     @(0x10, 0x00), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
@@ -410,7 +411,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 40 -or
+if ($commonEnemyRows.Count -ne 42 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1081,7 +1082,7 @@ $crowDefinitionRows.Add(
 # respective object slots without reserving a tile.
 $orderedObjectRows = [Collections.Generic.List[string]]::new()
 $orderedObjectRows.Add(
-    "# group`troom`torder`tkind`tid`tsubid`tflags`tcount`ty`tx`tpacked-position`tcondition-mask")
+    "# group`troom`torder`tkind`tid`tsubid`tflags`tcount`ty`tx`tpacked-position`tcondition-mask`tvar03")
 $orderedAliases = [Collections.Generic.List[object]]::new()
 $orderedActiveCondition = 'ff'
 $orderedActiveOpcode = ''
@@ -1207,7 +1208,7 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly 'objects\ages\enemyDa
             (([Convert]::ToInt32($Matches['x'], 16) -shr 4) -band 0x0f)
         foreach ($alias in $orderedAliases) {
             $orderedObjectRows.Add(
-                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tB`t$($Matches['id'])`t$($Matches['subid'])`t00`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`t$orderedActiveCondition")
+                "$($alias.Group)`t$($alias.Room)`t$($alias.Order)`tB`t$($Matches['id'])`t$($Matches['subid'])`t00`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`t$orderedActiveCondition`t$($Matches['var03'])")
             $alias.Order = [int]$alias.Order + 1
         }
         continue
@@ -1401,6 +1402,12 @@ Write-GeneratedTable(
 Write-GeneratedTable(
     (Join-Path $destination 'objects\crows.tsv'),
     $crowDefinitionRows)
+# Only opcode $09 writes var03; ordinary allocations leave the byte zero.
+for ($index = 1; $index -lt $orderedObjectRows.Count; $index++) {
+    if (($orderedObjectRows[$index] -split "`t").Count -eq 12) {
+        $orderedObjectRows[$index] += "`t00"
+    }
+}
 Write-GeneratedTable(
     (Join-Path $destination 'objects\enemy_object_stream.tsv'),
     $orderedObjectRows)
@@ -1435,6 +1442,8 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '22:00' = 'arrow-moblin'
     '23:00' = 'pols-voice'
     '28:00' = 'wallmaster'
+    '2c:00' = 'cheep-cheep'
+    '2c:01' = 'cheep-cheep'
     '2f:00' = 'thwomp'
     '31:00' = 'stalfos'
     '32:00' = 'keese'
@@ -1462,7 +1471,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 50 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 52 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -4027,6 +4036,21 @@ Add-EnemyBehaviorProfile 'whisp' 'state-profile' `
 Add-EnemyBehaviorProfile 'thwomp' 'state-profile' `
     @(0x14, 0x30, 60, 0x80, 0x20, 0x13, 3) `
     'object_code/common/enemies/thwomp.s:state-entry-operands'
+$cheepCheepSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\cheepCheep.s')
+if ($cheepCheepSource -notmatch
+        '(?ms)^cheepCheep_state_uninitialized:\s+ld a,SPEED_80' -or
+    $cheepCheepSource -notmatch
+        '(?ms)^cheepCheep_state9:\s+call ecom_decCounter1\s+jr nz,\+\+\s+ld \(hl\),60.*?call objectApplySpeed' -or
+    $cheepCheepSource -notmatch
+        '(?ms)^cheepCheep_stateA:.*?xor \$10.*?xor \$01' -or
+    ([regex]::Matches($cheepCheepSource,
+        '(?ms)ld l,Enemy.var03\s+ld a,\(hl\)\s+add a\s+ld \(hl\),a')).Count -ne 2) {
+    throw 'object_code/common/enemies/cheepCheep.s: patrol operands changed.'
+}
+Add-EnemyBehaviorProfile 'cheep-cheep' 'state-profile' `
+    @(0x14, 60) `
+    'object_code/common/enemies/cheepCheep.s:state-entry-operands'
 Add-EnemyBehaviorProfile 'peahat' 'state-profile' `
     @(0x7f, 0x80, 5, 0x1e, 180, 180, 210, 210, 240, 240, 0, 0) `
     'object_code/common/enemies/peahat.s:state-entry-operands'
@@ -4140,8 +4164,8 @@ Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
 
-if ($enemyBehaviorRows.Count -ne 781) {
-    throw "Expected 780 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 783) {
+    throw "Expected 782 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

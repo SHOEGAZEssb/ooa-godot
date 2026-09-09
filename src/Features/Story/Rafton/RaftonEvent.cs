@@ -226,6 +226,9 @@ internal sealed class RaftonEvent :
         RequireScriptActor(actor).SetDirection(1);
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireScriptActor(actor).InitializeCollisionRadii();
+
     public override void SetActorCollisionRadii(
         string actor,
         int radiusY,

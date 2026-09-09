@@ -83,6 +83,7 @@ internal sealed class EnemyBehaviorTables
     internal SparkBehaviorProfile Spark { get; }
     internal WhispBehaviorProfile Whisp { get; }
     internal ThwompBehaviorProfile Thwomp { get; }
+    internal CheepCheepBehaviorProfile CheepCheep { get; }
     internal PeahatBehaviorProfile Peahat { get; }
     internal SwordEnemyBehaviorProfile SwordEnemy { get; }
     internal ColorChangingGelBehaviorProfile ColorChangingGel { get; }
@@ -536,6 +537,8 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "whisp", "state-profile", 1);
         Whisp = new(values[0].Value, values);
 
+        values = TakeValues(groups, "cheep-cheep", "state-profile", 2);
+        CheepCheep = new(values[0].Value, values[1].Value, values);
         values = TakeValues(groups, "thwomp", "state-profile", 7);
         Thwomp = new(
             values[0].Value,
@@ -604,10 +607,10 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 780 || groups.Count != 0)
+        if (table.Rows.Count != 782 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 780 rows and no " +
+                $"Enemy behavior table contract expected 782 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

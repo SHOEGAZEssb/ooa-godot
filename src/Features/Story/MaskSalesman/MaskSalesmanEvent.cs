@@ -107,6 +107,9 @@ internal sealed class MaskSalesmanEvent :
         RequireScriptActor(actor).SetScriptAnimation(encodedAnimation);
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireScriptActor(actor).InitializeCollisionRadii();
+
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,

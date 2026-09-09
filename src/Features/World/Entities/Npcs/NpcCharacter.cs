@@ -228,6 +228,14 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _collisionRadiusX = radiusX;
     }
 
+    internal void InitializeCollisionRadii()
+    {
+        // Ages scriptCmd_initNpcHitbox ($eb) preserves both radii when Y
+        // is already nonzero. The macro comment describes Seasons instead.
+        if (_collisionRadiusY == 0)
+            SetCollisionRadii(6, 6);
+    }
+
     /// <summary>
     /// Mirrors objectAddToAButtonSensitiveObjectList for scripts whose pressed-A
     /// byte is their interaction trigger instead of an ordinary NPC text ID.

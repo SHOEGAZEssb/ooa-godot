@@ -79,6 +79,9 @@ internal sealed class ChevalEvent :
         Context.ShowDialogue(message);
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireScriptActor(actor).InitializeCollisionRadii();
+
     public override void SetActorCollisionRadii(
         string actor,
         int radiusY,

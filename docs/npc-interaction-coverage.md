@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 141 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 143 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 193 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 191 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,12 +63,29 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 89 specialized,
-47 event-owned, and 193 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 91 specialized,
+47 event-owned, and 191 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
-classified records and 161 specialized rows.
+classified records and 163 specialized rows.
 
 ### Important partial and deferred boundaries
+
+- September 9, 2026: Tokkey `$9d:$00` in `3:8f` is **I**, covered by
+  `ValidateRoom38fTokkey`, including repeat conversations across the table,
+  complete positioned dialogue, and natural harp completion before recognition.
+  The snapshot remains **143 I / 49 P / 191 D**, with
+  **91 specialized** and **47 event-owned** positioned rows.
+
+- September 9, 2026: the Symmetry brothers in `3:6e` and `3:6f` remain **I**.
+  `ValidateSymmetryNutHandoff` covers reward dialogue completion and return to
+  conversation for both brothers. Totals remain **142 I / 49 P / 192 D**,
+  with **47 event-owned** positioned rows.
+
+- September 9, 2026: room `2:e8`'s Dumbbell Man `$51:$00` is **I**.
+  `ValidateRoom2e8DumbbellMan` covers the complete Dumbbell-for-Cheesy-Mustache
+  trade, dialogue and copied-script timing, persistent lifting animation,
+  re-entry and cancellation. The snapshot is **142 I / 49 P / 192 D**,
+  with **90 specialized** and **47 event-owned** positioned rows.
 
 - September 9, 2026: supported NPC handlers that mark solid positions now
   prevent time travel onto their occupied metatiles; Link passes through NPCs
@@ -458,7 +475,7 @@ well as record selection.
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
-| `2:e8` | [D] `$51:$00/v$00` dumbellMan |
+| `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [D] `$66:$00/v$00` goron |
@@ -476,12 +493,12 @@ well as record selection.
 | `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
 | `3:5f` | [D] `$66:$0e/v$06` goron |
-| `3:6e` | [I] `$bf:$06/v$00` symmetryNpc (copied-script cadence covered) |
-| `3:6f` | [I] `$bf:$07/v$00` symmetryNpc (copied-script cadence covered) |
+| `3:6e` | [I] `$bf:$06/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
+| `3:6f` | [I] `$bf:$07/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
 | `3:7e` | [I] `$bf:$0a/v$00` symmetryNpc |
 | `3:7f` | [I] `$bf:$0b/v$00` symmetryNpc |
 | `3:8e` | [I] `$bf:$04/v$00` symmetryNpc |
-| `3:8f` | [D] `$9d:$00/v$00` tokkey |
+| `3:8f` | [I] `$9d:$00/v$00` tokkey |
 | `3:90` | [D] `$ba:$00/v$00` childJabu |
 | `3:9e` | [I] `$36:$0b/v$00` nayru<br>[I] `$ad:$07/v$00` zelda<br>[I] `$4f:$00/v$00` impaNpc<br>[I] `$4f:$00/v$01` impaNpc<br>[I] `$4f:$00/v$02` impaNpc<br>[I] `$4f:$00/v$05` impaNpc<br>[I] `$4f:$00/v$09` impaNpc<br>[I] `$4f:$00/v$0a` impaNpc<br>[I] `$4f:$00/v$0b` impaNpc<br>[I] `$4f:$00/v$0d` impaNpc<br>[I] `$4f:$00/v$0e` impaNpc |
 | `3:a0` | [D] `$ab:$17/v$00` zora |

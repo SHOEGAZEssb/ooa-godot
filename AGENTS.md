@@ -44,6 +44,29 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 
 Use `rg` or `rg --files` for searches and `apply_patch` for edits.
 
+## Evidence and regression requirements
+
+- Trace each behavior gate through its callers and the code that writes or
+  clears its inputs. Include object-update eligibility, collision/input masks,
+  and the lifetime of shared signals across update phases. A variable name or
+  a check in the target handler alone does not establish when it can run.
+- Follow data control flow beyond named labels. For dialogue, resolve calls,
+  jumps, aliases, missing terminators and fallthrough, and preserve position,
+  page and formatting commands through import and presentation.
+- Derive regression expectations independently from ROM behavior or traced
+  source. Comparing runtime output only with the generated data it consumes
+  cannot detect an incomplete or incorrect import. Assert source-derived
+  content, boundaries and side effects as well.
+- For behavior spanning systems, exercise the actual gameplay update loop.
+  Check before, during, on completion, after completion and cancellation;
+  compare individual updates with multiple updates in one host frame. Direct
+  event stepping alone cannot verify a player/item/interaction handoff.
+- Interaction regressions must approach through the room's actual collision
+  geometry and repeat the action after completion. Teleporting Link inside a
+  solid obstacle or NPC hitbox cannot establish that a conversation is reachable.
+- Report what was actually verified and any unresolved paths. Passing a build
+  or the full suite does not by itself establish parity with the original.
+
 ## Non-negotiable implementation rules
 
 - Preserve original object/table order, global RNG consumption, integer and

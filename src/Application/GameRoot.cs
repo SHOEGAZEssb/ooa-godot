@@ -551,6 +551,7 @@ public partial class GameRoot : Node2D
         // item parents. Link's former physics/process split is therefore
         // replayed here before enemies, parts, and interactions.
         bool scrollOwnedUpdate = _transitions.ScrollActive;
+        _harp.BeginObjectUpdate();
         _player.AdvanceApplicationUpdate();
         if (!IsTransitioning)
         {
@@ -798,7 +799,7 @@ public partial class GameRoot : Node2D
             _sound.PlaySound);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
-        _entities.PlayingInstrumentSource = () => _harp.PlayingSong;
+        _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;
         _terrain = new TerrainController(
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
             _collision.AdjacentWallsBitset, _sound.PlaySound);

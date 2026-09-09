@@ -61,7 +61,8 @@ public sealed partial class ValidationRoot
         PlaySelectedHarpSong(validateNoteSides: true);
         FailIf(
             _player.IsUsingHarp || _player.HarpPoseActive ||
-            _harp.PlayingSong != 0 || !dormant.Awakening || dormant.Active ||
+            _harp.PlayingSong != 0 || _entities.PlayingInstrumentSource() != 1 ||
+            !dormant.Awakening || dormant.Active ||
             !_saveData.HasRoomFlag(
                 0, 0xcd, OracleSaveData.RoomFlagPortalSpotDiscovered) ||
             _entities.RandomCalls != randomBefore + 8 ||
@@ -72,6 +73,7 @@ public sealed partial class ValidationRoot
             "Tune of Echoes did not run its 260-update/8-note parent, " +
             "mark the dormant portal, and finish without TX_5110.");
         _player.WarpTo(dormant.Position, recordSafe: false);
+        _harp.BeginObjectUpdate(); // Link clears the preceding parent's instrument byte.
         _entities.Update(HarpFrame, _player);
         _harp.Update(HarpFrame);
         FailIf(

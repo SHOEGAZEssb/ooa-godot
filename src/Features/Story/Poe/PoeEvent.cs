@@ -164,6 +164,9 @@ internal sealed class PoeEvent :
         RequirePoe(actor).SetScriptAnimation(encodedAnimation);
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequirePoe(actor).InitializeCollisionRadii();
+
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor,
         int radiusY,

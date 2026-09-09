@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 39 ||
+        if (_importedDefinitions.Count != 41 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -487,7 +487,7 @@ public sealed class EnemyDatabase
                 GeneratedTableKeySemantics.Grouped,
                 [
                     "group", "room", "order", "kind", "id", "subid", "flags", "count",
-                    "y", "x", "packed-position", "condition-mask"
+                    "y", "x", "packed-position", "condition-mask", "var03"
                 ],
                 ["group", "room"],
                 headerRequired: true));
@@ -506,7 +506,7 @@ public sealed class EnemyDatabase
                 row.HexByteOrSentinel(8, "-1", -1),
                 row.HexByteOrSentinel(9, "-1", -1),
                 row.HexByteOrSentinel(10, "-1", -1),
-                row.HexByte(11));
+                row.HexByte(11)) { Var03 = row.HexByte(12) };
             List<RoomObjectRecord> roomRecords =
                 _roomObjectsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
             if (roomRecords.Count != record.Order)
@@ -819,6 +819,7 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
         EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),
@@ -965,6 +966,7 @@ public readonly record struct RoomObjectRecord(
     int PackedPosition,
     int ConditionMask)
 {
+    public int Var03 { get; init; }
     internal string? SourceOverride { get; init; }
     public string Source =>
         SourceOverride ?? (Id == 0x62

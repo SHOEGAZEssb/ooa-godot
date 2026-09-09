@@ -63,14 +63,6 @@ internal sealed class EnemyHandlerRegistry
                     continue;
                 EnemyHandlerDescriptor descriptor = ResolveHandler(source);
                 usedKeys.Add((descriptor.Id, descriptor.SubId));
-                if (source.Kind == RoomObjectKind.ParameterEnemy &&
-                    descriptor.Classification ==
-                        EnemyHandlerClassification.OrderedImplemented)
-                {
-                    throw new InvalidOperationException(
-                        $"{source.Source} uses parameter-enemy placement for " +
-                        $"ordered handler '{descriptor.Handler}'.");
-                }
             }
         }
         if (usedKeys.Count != _handlers.Count)
@@ -176,6 +168,7 @@ internal sealed class EnemyHandlerRegistry
         "spark" => EnemyHandlerKind.Spark,
         "whisp" => EnemyHandlerKind.Whisp,
         "sand-crab" => EnemyHandlerKind.SandCrab,
+        "cheep-cheep" => EnemyHandlerKind.CheepCheep,
         "thwomp" => EnemyHandlerKind.Thwomp,
         "peahat" => EnemyHandlerKind.Peahat,
         "color-changing-gel" => EnemyHandlerKind.ColorChangingGel,
@@ -331,6 +324,7 @@ internal enum EnemyHandlerKind
     Spark,
     Whisp,
     SandCrab,
+    CheepCheep,
     Thwomp,
     Peahat,
     ColorChangingGel,

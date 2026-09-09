@@ -125,6 +125,9 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         return true;
     }
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        RequireActor(actor).InitializeCollisionRadii();
+
     public override void SetActorCollisionRadii(
         string actor,
         int radiusY,

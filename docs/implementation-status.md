@@ -77,6 +77,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Shared fairy fountains support appearance, proximity-triggered dialogue,
   full-health dismissal, eight circling hearts, health-display completion,
   and departure, with fresh actors on room re-entry.
+- Tokkey teaches the Tune of Currents through his conversation, harp-position
+  check, dance and response song, with persistent completion on return visits.
 - Non-dungeon Tokay Island NPCs and interactions are partial: ordinary island dialogue,
   stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
   trading hut, and past/present Wild Tokay gameplay with imported patterns and
@@ -109,6 +111,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   enemies, the full carpenter search and bridge completion, search cancellation,
   waterfall tutorials, and Dimitri's waterfall cave round trip. Goponga Flowers
   and red Leevers use the shared enemy dispatcher and imported behavior data.
+- Side-view Cheep Cheeps support horizontal and vertical patrols, imported
+  travel distances, timed reversals, combat, and room re-entry.
 - Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
   sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
   departure. Postgame secret entry and return-secret generation remain partial.

@@ -261,6 +261,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRooms079And089Interactions);
         RunIsolatedValidation(ValidateRoom025Carpenters);
         RunIsolatedValidation(ValidateSymmetryNpcs);
+        RunIsolatedValidation(ValidateSymmetryNutHandoff);
         RunIsolatedValidation(ValidateSymmetrySecrets);
         RunIsolatedValidation(ValidateTuniNutPlacement);
         RunIsolatedValidation(ValidateSymmetryHouseExitPalette);
@@ -322,6 +323,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateForestHintFairies);
         RunIsolatedValidation(ValidateTokayIslandWorldObjects);
         RunIsolatedValidation(ValidateRoom2e6MaskSalesman);
+        RunIsolatedValidation(ValidateRoom2e8DumbbellMan);
+        RunIsolatedValidation(ValidateRoom38fTokkey);
         RunIsolatedValidation(ValidateRoom2f3DepressedBoy);
         RunIsolatedValidation(ValidateNayruIntroCutscene);
         RunIsolatedValidation(ValidateRalphPortalDepartureEvent);
@@ -359,6 +362,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateSymmetryEnemies);
+        RunIsolatedValidation(ValidateCheepCheeps);
         RunIsolatedValidation(ValidateArrowDarknuts);
         RunIsolatedValidation(ValidatePodobooTowers);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);

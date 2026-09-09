@@ -320,6 +320,9 @@ internal sealed class MakuSproutRescueEvent :
         string actor, int angle, string encodedAnimation) =>
         Actor(actor).SetScriptAnimation(encodedAnimation);
 
+    public override void InitializeActorCollisionRadii(string actor) =>
+        Actor(actor).InitializeCollisionRadii();
+
     void ICutsceneCommandHost.SetActorCollisionRadii(
         string actor, int radiusY, int radiusX) =>
         Actor(actor).SetCollisionRadii(radiusY, radiusX);

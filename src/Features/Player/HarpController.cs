@@ -24,6 +24,11 @@ public sealed class HarpController
     private int _noteSerial;
 
     internal int PlayingSong { get; private set; }
+    // ITEM_HARP restores Link's collisionType before deleting its parent.
+    // wLinkPlayingInstrument remains readable by the later interaction pass.
+    private int _completedInstrument;
+    internal int PlayingInstrument => IsPlaying ? PlayingSong : _completedInstrument;
+    internal void BeginObjectUpdate() => _completedInstrument = 0;
     internal bool IsPlaying => PlayingSong != 0 || _emptySongPlaying;
     internal HarpItemDatabase Database => _database;
     internal int NoteSpawnCount => _noteSerial;
@@ -96,12 +101,14 @@ public sealed class HarpController
             return;
         if (_fluteIcon is int icon)
         {
+            _completedInstrument = PlayingSong;
             PlayingSong = 0;
             _fluteIcon = null;
             new CompanionFluteSpawner(_rooms, _entities, _fluteData!,
                 _interactions.ShowRoomInteractionMessage).Call(player, icon);
             return;
         }
+        _completedInstrument = PlayingSong;
         PlayingSong = 0;
         _emptySongPlaying = false;
 
@@ -145,6 +152,7 @@ public sealed class HarpController
 
     internal void Cancel()
     {
+        _completedInstrument = 0;
         PlayingSong = 0;
         _emptySongPlaying = false;
         _fluteIcon = null;

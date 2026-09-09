@@ -12,7 +12,6 @@ internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommand
     private int _secretResult;
     private string _secret = string.Empty;
     private int _generation;
-    private GroundTreasurePickup? _treasure;
     public RoomEventContext Context => _owner.Context;
     internal NpcCharacter Npc { get; }
     internal bool ButtonSensitive { get; private set; }
@@ -35,11 +34,6 @@ internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommand
             _listensForNut = false;
             _runner.Start(_owner.Database.Commands, _owner.Database.Entry(0x0d));
         }
-        if (!DialogueOpen && _treasure is not null)
-        {
-            _treasure.Finish(Context.Player);
-            _treasure = null;
-        }
         _runner.AdvanceFrame();
         Npc.AnimateAsNpcOneUpdate(Context.Player);
     }
@@ -47,11 +41,12 @@ internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommand
     {
         _generation++;
         _runner.Clear();
-        _treasure?.Finish(Context.Player);
-        _treasure = null;
         Npc.SetScriptButtonSensitive(false);
     }
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Symmetry";
+    public override void InitializeActorCollisionRadii(string actor) =>
+        Npc.InitializeCollisionRadii();
+
     public override void SetActorCollisionRadii(string actor, int radiusY, int radiusX) => Npc.SetCollisionRadii(radiusY, radiusX);
     public override void SetActorButtonSensitive(string actor)
     {
@@ -111,7 +106,9 @@ internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommand
             _ => throw UnsupportedCommand($"give symmetry treasure ${treasureId:x2}:${parameter:x2}")
         };
         var item = Context.Treasures.GetObject(name);
-        _treasure = Context.GrantScriptTreasure(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id,
+        // treasure.s:@setLinkAnimationAndDeleteIfTextClosed owns the held-item
+        // completion. GrantScriptTreasure registers that with InteractionController.
+        Context.GrantScriptTreasure(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id,
             treasureId, parameter, name, "scriptHelper.s:symmetryNpc", objectParameter: item.Parameter);
     }
     public override void RunNativeHandler(string handler)
