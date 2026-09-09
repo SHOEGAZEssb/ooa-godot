@@ -6900,12 +6900,12 @@ public sealed partial class ValidationRoot
             _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll,
             "Link's ledge state advanced while wScrollMode froze destination gameplay.");
 
-        for (int frame = 0; frame < 31; frame++)
+        for (int frame = 0; frame < 38; frame++)
             UpdateScrollingTransition(1.0 / 60.0);
         FailIf(
             !_scrollTransitionActive ||
             _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll,
-            "The ledge scroll ended before the original 32 transition updates.");
+            "The ledge scroll ended before setup, 32 motion updates, and cleanup completed.");
         UpdateScrollingTransition(1.0 / 60.0);
         FailIf(
             _scrollTransitionActive ||

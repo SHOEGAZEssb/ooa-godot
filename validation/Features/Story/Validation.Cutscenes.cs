@@ -1175,8 +1175,8 @@ public sealed partial class ValidationRoot
             "The simulated Up input did not begin the 0:7a -> 0:6a scroll.");
         int impaScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
         FailIf(
-            impaScrollFrames != 32,
-            $"The 0:7a -> 0:6a vertical scroll took {impaScrollFrames} updates, expected 32.");
+            impaScrollFrames != 39,
+            $"The 0:7a -> 0:6a vertical scroll took {impaScrollFrames} updates, expected 39 including the retained-$05 graphics check.");
 
         NpcCharacter impa = impaEvent.Actor!;
         System.Collections.Generic.IReadOnlyList<NpcCharacter> octoroks =
@@ -1371,7 +1371,7 @@ public sealed partial class ValidationRoot
             !impaEvent.Following,
             "Following Impa was not transferred into room 0:6b with the original " +
             "screen offset and a retired outgoing rendering copy.");
-        for (int frame = 0; frame < 40; frame++)
+        for (int frame = 0; frame < 48; frame++)
         {
             UpdateScrollingTransition(1.0 / 60.0);
             _roomEvents.Update(1.0 / 60.0);
@@ -1388,7 +1388,7 @@ public sealed partial class ValidationRoot
                 $"expected {expectedImpa}, got {incomingImpa.Position}, " +
                 $"outgoing visible={outgoingImpaVisible}.");
         }
-        FailIf(IsTransitioning, "The Impa right scroll did not finish in 40 updates.");
+        FailIf(IsTransitioning, "The Impa right scroll did not finish in 48 updates.");
         FailIf(
             incomingImpa.Position != _player.Position + Vector2.Left * 16,
             "resetFollowingLinkObjectPosition did not place Impa 16 pixels behind " +
@@ -1420,7 +1420,7 @@ public sealed partial class ValidationRoot
             !returningFollower.Active || returningImpas.Count(npc => npc.Active) != 1 ||
             !impaEvent.Following,
             "Returning to room 0:6a retained both the completed placed Impa and her follower.");
-        for (int frame = 0; frame < 40; frame++)
+        for (int frame = 0; frame < 49; frame++)
         {
             UpdateScrollingTransition(1.0 / 60.0);
             _roomEvents.Update(1.0 / 60.0);
@@ -1437,7 +1437,7 @@ public sealed partial class ValidationRoot
                 $"expected {expectedImpa}, got {returningFollower.Position}, " +
                 $"outgoing visible={outgoingImpaVisible}.");
         }
-        FailIf(IsTransitioning, "The Impa left scroll did not finish in 40 updates.");
+        FailIf(IsTransitioning, "The Impa left scroll did not finish in 49 updates.");
         FailIf(
             returningFollower.Position != _player.Position + Vector2.Right * 16,
             "resetFollowingLinkObjectPosition did not place Impa 16 pixels behind " +
@@ -1473,7 +1473,7 @@ public sealed partial class ValidationRoot
             nayruIntro.ActorRegistry.Count != 0 || !impaEvent.Following ||
             outgoingGathering.Count != 7 || outgoingGathering.Any(actor => !actor.Active),
             "Leaving room 0:39 did not retain all seven dynamic audience actors in the outgoing scroll set.");
-        UpdateScrollingTransition(1.0 / 60.0);
+        ValidateLinkScrollsForOneTransitionFrame();
         FailIf(
             outgoingGathering.Any(actor => actor.TransitionDrawOffset != Vector2.Left * 4),
             "Room 0:39's dynamic audience did not move with the outgoing room texture.");
@@ -2302,8 +2302,8 @@ public sealed partial class ValidationRoot
             UpdateRoomWarpTransition(1.0 / 60.0);
         Color nearWhiteGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
         FailIf(
-            _currentRoom.TilesetId != 0x22 || _warpFade.Color.A <= 0.9f ||
-            _warpFade.Color.A >= 1.0f || !GateMatchesExpected(nearWhiteGate),
+            _currentRoom.TilesetId != 0x22 || _warpFade.Color.A != 1.0f ||
+            !GateMatchesExpected(nearWhiteGate),
             $"The $83 delayed fade did not retain the old layout and cutscene palette " +
             $"for 124 updates (tileset={_currentRoom.TilesetId:x2}, " +
             $"alpha={_warpFade.Color.A}, gate={nearWhiteGate}).");
@@ -4185,8 +4185,8 @@ public sealed partial class ValidationRoot
 
         int ralphScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
         FailIf(
-            ralphScrollFrames != 40,
-            $"The 0:38 -> 0:39 horizontal scroll took {ralphScrollFrames} updates, expected 40.");
+            ralphScrollFrames != 48,
+            $"The 0:38 -> 0:39 horizontal scroll took {ralphScrollFrames} updates, expected 48 including post-scroll unique graphics.");
         FailIf(
             !_player.CutsceneControlled || ralphEvent.Counter != 40,
             "Ralph's destination event fast-forwarded instead of installing its full " +

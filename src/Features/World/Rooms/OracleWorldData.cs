@@ -84,6 +84,7 @@ public sealed class OracleWorldData
             if (cached.TilesetId == tileset)
             {
                 _loadingPaletteRoom = cached;
+                cached.SetLiveGraphics(null, false);
                 cached.LoadTilesetPalette();
                 return cached;
             }
@@ -129,7 +130,12 @@ public sealed class OracleWorldData
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
             graphics, _hudGraphics, mappings, palette, BackgroundPalettes,
-            _animations) { IsCompanionRegion = group == 0 && _presentRoomPacks[room] == 0x7f };
+            _animations)
+        {
+            IsCompanionRegion = group == 0 && _presentRoomPacks[room] == 0x7f,
+            TilesetPaletteId = _tilesetMetadata[metadataOffset + 2],
+            LoadsUniqueGraphicsAfterScroll = (GetRoomTilesetByte(dataGroup, room) & 0x80) != 0
+        };
         _rooms.Add(key, result);
         _loadingPaletteRoom = result;
         result.LoadTilesetPalette();
@@ -137,13 +143,16 @@ public sealed class OracleWorldData
     }
 
     public int GetTilesetId(int group, int room)
+        => GetRoomTilesetByte(group, room) & 0x7f;
+
+    private int GetRoomTilesetByte(int group, int room)
     {
         if (!_groupTilesets.TryGetValue(group, out byte[]? roomTilesets))
         {
             roomTilesets = ReadBytes($"res://assets/oracle/groups/group{group}Tilesets.bin", 256);
             _groupTilesets.Add(group, roomTilesets);
         }
-        return roomTilesets[room] & 0x7f;
+        return roomTilesets[room];
     }
 
     internal void SetCurrentPaletteRoom(OracleRoomData room)

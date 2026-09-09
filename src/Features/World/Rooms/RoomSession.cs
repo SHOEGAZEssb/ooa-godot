@@ -175,16 +175,10 @@ public sealed class RoomSession
         if (dungeon >= 0)
             return DungeonMaps.TryGetNeighbor(dungeon, sourceRoom, direction, out room);
 
-        int x = sourceRoom & 0x0f;
-        int y = (sourceRoom >> 4) & 0x0f;
-        x += direction.X;
-        y += direction.Y;
-        if (x < 0 || x > 15 || y < 0 || y > 15)
-        {
-            room = -1;
-            return false;
-        }
-        room = (y << 4) | x;
+        // updateActiveRoom adds the signed direction byte to wActiveRoom.
+        // Outdoor boundary restrictions belong to screenTransitionState2;
+        // forced transitions and indoor maps still use byte wraparound.
+        room = (sourceRoom + direction.Y * 16 + direction.X) & 0xff;
         return true;
     }
 }

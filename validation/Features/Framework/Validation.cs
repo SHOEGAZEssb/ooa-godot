@@ -210,6 +210,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDebugMapleShortcut);
         RunIsolatedValidation(ValidateDeathRespawnCheckpoints);
         RunIsolatedValidation(ValidateStartupTransitionFromRoom011);
+        RunIsolatedValidation(ValidateScreenTransitionSourceBoundaries);
+        RunIsolatedValidation(ValidateScreenTransitionSourceTiming);
+        RunIsolatedValidation(ValidateScreenTransitionRendering);
+        RunIsolatedValidation(ValidateRoomTransitionSounds);
+        RunIsolatedValidation(ValidateScreenTransitionGraphicsPayloads);
         RunIsolatedValidation(ValidateSymmetryTransitionFromRoom022);
         RunIsolatedValidation(ValidateSigns);
         RunIsolatedValidation(ValidateNpcImplementationManifest);

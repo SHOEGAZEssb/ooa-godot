@@ -52,6 +52,18 @@ rooms, dialogue, and palette effects. Source palette writes update those slots
 at their original boundary and rerender affected presentation without replacing
 logical room data.
 
+Scrolling room tilemaps share one mutable BG tile buffer captured from the
+outgoing room, including its last animation and scripted tile uploads.
+`RoomTransitionController` schedules clean-ROM unique graphics entries through
+its transition renderer; each entry replaces only its addressed VRAM range.
+Both room textures resolve those live bytes and the same background palette
+slots. Imported smooth palette routes blend RGB5 components with integer
+arithmetic and publish the original alternating-half updates together at the
+hardware refresh boundary. Preloading a destination must not visibly install
+its complete graphics or palette. The finisher restores the destination
+palette and resumes animation over the uploaded tile buffer; a full room load
+replaces that buffer. Cached source graphics remain immutable.
+
 Electric shock keeps its update counter with Link. Its presentation captures
 and restores the live background slots, while enemy animation palette overrides
 select separately cached OAM textures without changing animation clocks or

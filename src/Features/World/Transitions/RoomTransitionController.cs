@@ -53,6 +53,10 @@ public sealed class RoomTransitionController
     private readonly TimeWarpEffectDatabase _timeWarpEffects = new();
     private readonly EraInfoDatabase _eraInfo = new();
     private readonly FairiesWoodsScramblerDatabase _fairiesWoodsScrambler = new();
+    private readonly ScreenTransitionGraphicsDatabase _scrollGraphics = new();
+    private readonly ScreenTransitionPaletteDatabase _scrollPalettes = new();
+    private ScreenTransitionRenderer? _scrollRenderer;
+    private int _loadedUniqueGraphics;
 
     private bool _scrollActive;
     private Vector2I _scrollDirection;
@@ -63,6 +67,10 @@ public sealed class RoomTransitionController
     private float _scrollDistance;
     private float _scrollFrame;
     private int _scrollFrames;
+    private int _scrollTotalFrames;
+    private int _scrollSetupFrames;
+    private int _scrollCleanupFrames;
+    private double _scrollTickAccumulator;
     private int _screenTransitionDelay;
     private IPlayerScreenTransitionRoomEntity? _scrollPlayerOwner;
 
@@ -74,6 +82,7 @@ public sealed class RoomTransitionController
     private WarpPhase _warpPhase;
     private Warp _pendingWarp;
     private float _warpFrame;
+    private double _warpTickAccumulator;
     private float _warpFadeOutFrames = WarpFadeFrames;
     private bool _roomLoadColumnReveal;
     private int _roomLoadRevealLoadedColumns;
@@ -109,6 +118,7 @@ public sealed class RoomTransitionController
         _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
     public int ScrollFrames => _scrollFrames;
+    internal int ScrollTotalFrames => _scrollTotalFrames;
     internal int ScreenTransitionDelay => _screenTransitionDelay;
     internal int ActiveWarpDestinationPosition =>
         _warpActive ? _pendingWarp.DestinationPosition : -1;
@@ -156,6 +166,11 @@ public sealed class RoomTransitionController
         _deathRespawnPoints = deathRespawnPoints;
         _sound = sound;
         _timePortals = timePortals;
+        ResetLoadedScrollGraphics();
+        _rooms.RoomChanged += (_, _) =>
+        {
+            if (!_scrollActive) ResetLoadedScrollGraphics();
+        };
 
         if (_timeWarpEffects.DissolveFrames != TimeWarpDissolveFrames ||
             _timeWarpEffects.SourceEffectFrames != TimeWarpSourceEffectFrames ||
@@ -171,8 +186,13 @@ public sealed class RoomTransitionController
 
     public void Update(double delta)
     {
-        UpdateWarp(delta);
+        UpdateWarpAndEffects(delta);
         UpdateScroll(delta);
+    }
+
+    internal void UpdateWarpAndEffects(double delta)
+    {
+        UpdateWarp(delta);
         UpdateContinuingTimeWarpEffects();
         // updateAllObjects calls updateCamera once after Link and the other
         // objects. Ordinary gameplay receives that sample from GameRoot's
@@ -184,6 +204,7 @@ public sealed class RoomTransitionController
 
     public bool CheckTileWarp(Player player)
     {
+        if (_warpActive || _scrollActive) return false;
         if (_entities.WarpTilesDisabled) return false;
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 linkPosition = OracleObjectMath.ToPixelPosition(player.Position);
@@ -284,7 +305,8 @@ public sealed class RoomTransitionController
             DestinationRoom: destination.Room,
             DestinationPosition: packedPosition,
             DestinationParameter: 0,
-            DestinationTransition: 0);
+            DestinationTransition: 0,
+            DirectFadeOut: true);
         return true;
     }
 
@@ -346,126 +368,103 @@ public sealed class RoomTransitionController
     {
         if (IsTransitioning)
             return;
-
         if (player.DelaysOrdinaryScreenTransition)
             _screenTransitionDelay = 4;
 
         OracleRoomData room = _rooms.CurrentRoom;
-        IPlayerScreenTransitionRoomEntity? transitionOwner =
+        IPlayerScreenTransitionRoomEntity? owner =
             _entities.PlayerScreenTransitionOwner;
-        Vector2 position =
-            transitionOwner?.ScreenTransitionPosition ?? player.Position;
-        // screenTransitionState2 compares w1Link.yh/xh. The fractional byte is
-        // retained when the high byte is clamped to the boundary, but it must
-        // not by itself retrigger the edge check while Ricky's hop is landing.
-        Vector2 pixelPosition = OracleObjectMath.ToPixelPosition(position);
-        Vector2I direction = pixelPosition.Y <= 5 ? Vector2I.Up
-            : pixelPosition.Y > room.Height - 7 ? Vector2I.Down
-            : pixelPosition.X <= 5 ? Vector2I.Left
-            : pixelPosition.X > room.Width - 6 ? Vector2I.Right
-            : Vector2I.Zero;
-        if (direction == Vector2I.Zero)
-            return;
+        Vector2 pixel = OracleObjectMath.ToPixelPosition(
+            owner?.ScreenTransitionPosition ?? player.PrecisePosition);
+        Vector2I vertical = pixel.Y <= 5 ? Vector2I.Up
+            : pixel.Y > room.Height - 7 ? Vector2I.Down : Vector2I.Zero;
+        Vector2I horizontal = pixel.X <= 5 ? Vector2I.Left
+            : pixel.X > room.Width - 6 ? Vector2I.Right : Vector2I.Zero;
 
-        // A few modal games confine Link to their active room even at an
-        // explicit edge warp. Keep this separate from the original
-        // wDisableScreenTransitions gate below, whose forced-warps-bypass
-        // behavior remains authoritative for ordinary encounters.
-        if (AllScreenTransitionsDisabledSource())
-        {
-            bool horizontalBoundary = direction.X != 0;
-            int lockedBoundary =
-                direction == Vector2I.Up || direction == Vector2I.Left
-                    ? 6
-                    : horizontalBoundary ? room.Width - 6 : room.Height - 7;
-            if (transitionOwner is null)
-            {
-                player.SetScreenTransitionBoundaryCoordinate(
-                    horizontalBoundary, lockedBoundary);
-            }
-            else
-            {
-                transitionOwner.SetScreenTransitionBoundaryCoordinate(
-                    horizontalBoundary, lockedBoundary, player);
-            }
-            return;
-        }
-
-        // checkWarpsSidescrolling raises a forced transition direction. Forced
-        // transitions bypass the ordinary delay, input, knockback, hazard, and
-        // wDisableScreenTransitions checks in screenTransitionState2.
-        if (_warps.TryGetEdgeWarp(
-            _rooms.ActiveGroup, room.Id, direction, pixelPosition,
-            new Vector2(room.Width, room.Height), out Warp warp))
+        // checkScreenEdgeWarps runs independently of ordinary edge gates.
+        if (!AllScreenTransitionsDisabledSource() &&
+            vertical != Vector2I.Zero &&
+            _warps.TryGetEdgeWarp(
+                _rooms.ActiveGroup, room.Id, vertical, pixel,
+                new Vector2(room.Width, room.Height), out Warp warp))
         {
             _screenTransitionDelay = 0;
             ApplyWarp(player, warp);
             return;
         }
 
-        // screenTransitionState2 writes Link's boundary coordinate before
-        // checking wDisableScreenTransitions. This prevents Link from walking
-        // past the current screen while an encounter such as Maple is active.
-        bool horizontal = direction.X != 0;
-        int boundary = direction == Vector2I.Up || direction == Vector2I.Left
-            ? 6
-            : horizontal ? room.Width - 6 : room.Height - 7;
-        if (transitionOwner is null)
-        {
-            player.SetScreenTransitionBoundaryCoordinate(
-                horizontal, boundary);
-        }
-        else
-        {
-            transitionOwner.SetScreenTransitionBoundaryCoordinate(
-                horizontal, boundary, player);
-        }
-        if (ScreenTransitionsDisabledSource())
-            return;
-
-        if (_screenTransitionDelay != 0)
-        {
-            _screenTransitionDelay--;
-            return;
-        }
-        // SPECIALOBJECT_MINECART is checked immediately after the delay in
-        // screenTransitionState2. It bypasses Link's angle, knockback, and
-        // terrain-hazard gates because wLinkObjectIndex points at the cart.
-        // screenTransitionState2 checks SPECIALOBJECT_MINECART before Link's
-        // angle gate. Animal companions own Link's position but are not the
-        // minecart, so releasing or reversing the input during a locked hop
-        // must not start a scroll as soon as the landing clears
-        // wDisableScreenTransitions.
-        if ((transitionOwner is null ||
-                !transitionOwner.BypassesScreenTransitionInputGate) &&
-            (player.RejectsOrdinaryScreenTransition ||
-                !player.IsMovingTowardScreenEdge(direction)))
-        {
-            return;
-        }
-        if (transitionOwner is null)
-        {
-            HazardType hazard = room.GetTerrainInfo(
-                player.Position + new Vector2(0, 5)).Hazard;
-            if (hazard is HazardType.Hole or HazardType.Lava)
-                return;
-            if (hazard == HazardType.Water &&
-                !player.Inventory.HasTreasure(
-                    TreasureDatabase.TreasureFlippers))
-            {
-                return;
-            }
-        }
-        // checkWarpsSidescrolling changes which warp sources are consulted; it
-        // does not bypass screenTransitionState2. Side-view groups $06/$07
-        // therefore still use the active dungeon layout for ordinary open
-        // edges such as Wing Dungeon $29 -> $2a.
-        if (!TryGetScreenTransitionDestination(direction, out int targetId) ||
+        // screenTransitionState2 always returns from its Y check to check X.
+        // Both coordinates clamp, both checks can decrement the delay, and a
+        // successful horizontal check overwrites a successful vertical request.
+        Vector2I direction = Vector2I.Zero;
+        if (vertical != Vector2I.Zero &&
+            CheckOrdinaryScreenBoundary(player, owner, room, vertical))
+            direction = vertical;
+        if (horizontal != Vector2I.Zero &&
+            CheckOrdinaryScreenBoundary(player, owner, room, horizontal))
+            direction = horizontal;
+        if (direction == Vector2I.Zero ||
+            !TryGetScreenTransitionDestination(direction, out int targetId) ||
             !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
             return;
 
         BeginScroll(player, direction, targetId);
         _hud.Refresh();
+    }
+
+    private bool CheckOrdinaryScreenBoundary(
+        Player player, IPlayerScreenTransitionRoomEntity? owner,
+        OracleRoomData room, Vector2I direction)
+    {
+        bool horizontal = direction.X != 0;
+        int boundary = direction == Vector2I.Up || direction == Vector2I.Left
+            ? 6 : horizontal ? room.Width - 6 : room.Height - 7;
+        if (owner is null)
+            player.SetScreenTransitionBoundaryCoordinate(horizontal, boundary);
+        else
+            owner.SetScreenTransitionBoundaryCoordinate(horizontal, boundary, player);
+        if (AllScreenTransitionsDisabledSource() ||
+            ScreenTransitionsDisabledSource())
+            return false;
+        if (_screenTransitionDelay != 0)
+        {
+            _screenTransitionDelay--;
+            return false;
+        }
+        // SPECIALOBJECT_MINECART jumps directly to @startTransition, before
+        // angle, overworld boundary, and hazard checks.
+        if (owner?.BypassesScreenTransitionInputGate == true)
+            return true;
+        if (player.RejectsOrdinaryScreenTransition ||
+            (!player.ScreenTransitionTerrainMotion &&
+             !player.IsMovingTowardScreenEdge(direction)))
+            return false;
+
+        // Ages forbids outdoor map wrap except through the top edge.
+        if ((room.TilesetFlags & 0x01) != 0 &&
+            ((direction == Vector2I.Right && (room.Id & 0x0f) == 0x0f) ||
+             (direction == Vector2I.Down && room.Id >= 0xf0) ||
+             (direction == Vector2I.Left && (room.Id & 0x0f) == 0)))
+            return false;
+
+        // TILESETFLAG_UNDERWATER and the raft's wcc92 bit 3 skip hazards.
+        // checkLinkIsOverHazard also returns zero for SPECIALOBJECT_DIMITRI.
+        if ((room.TilesetFlags & 0x40) != 0 || player.RaftRideActive ||
+            owner is DimitriCompanionRoomEntity)
+            return true;
+        Vector2 position = OracleObjectMath.ToPixelPosition(
+            owner?.ScreenTransitionPosition ?? player.PrecisePosition);
+        TerrainInfo terrain = room.GetTerrainInfo(position + new Vector2(0, 5));
+        if (terrain.Hazard is HazardType.Hole or HazardType.Lava)
+            return false;
+        if (terrain.Hazard != HazardType.Water)
+            return true;
+        // @checkCanTransitionOverWater rejects ridden animals before checking
+        // equipment; $fc requires Mermaid Suit even when Flippers are owned.
+        return owner is null &&
+            (player.Inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) ||
+             (terrain.Tile != 0xfc &&
+              player.Inventory.HasTreasure(TreasureDatabase.TreasureFlippers)));
     }
 
     public bool HasNeighborFor(Vector2 point)
@@ -532,6 +531,8 @@ public sealed class RoomTransitionController
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
         OracleRoomData source = _rooms.CurrentRoom;
+        Image sourceGraphics = source.CaptureLiveGraphics();
+        Color[,] sourceColors = source.BackgroundPalettes.Capture();
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
         IPlayerScreenTransitionRoomEntity? transitionOwner =
             _entities.PlayerScreenTransitionOwner;
@@ -555,7 +556,31 @@ public sealed class RoomTransitionController
         _scrollLinkStart = start;
         _scrollDistance = direction.X != 0 ? OracleRoomData.ViewportWidth : OracleRoomData.ViewportHeight;
         _scrollFrame = 0.0f;
+        // State 3, state 5 substate 0, row initialization, and the first
+        // offscreen row draw precede transitionUpdateScrollAndLinkPosition.
+        _scrollSetupFrames = 4;
+        // State 3 draws the destination's offscreen rows, then advances to
+        // state 5 on a separate update; state 5 owns the actual finisher.
+        _scrollCleanupFrames = 2 + (direction.X != 0
+            ? (target.Width - OracleRoomData.ViewportWidth) / 8
+            : (target.Height - OracleRoomData.ViewportHeight) / 8);
+        (int unique, int entries) = _scrollGraphics.ForTileset(target.TilesetId);
+        if (target.LoadsUniqueGraphicsAfterScroll) unique |= 0x80;
+        bool uploadGraphics = unique != 0 && unique != _loadedUniqueGraphics;
+        if (unique != 0)
+        {
+            int updates = unique == _loadedUniqueGraphics ? 1 : entries;
+            if ((unique & 0x80) == 0)
+                _scrollSetupFrames += updates;
+            else
+                // The last post-scroll graphics update falls through into
+                // state 5 instead of consuming a separate finisher update.
+                _scrollCleanupFrames += updates - 1;
+            _loadedUniqueGraphics = unique;
+        }
+        _scrollTickAccumulator = 0;
         _scrollFrames = Mathf.Max(1, Mathf.RoundToInt(_scrollDistance / 4.0f));
+        _scrollTotalFrames = _scrollSetupFrames + _scrollFrames + _scrollCleanupFrames;
         _scrollLinkStep = direction == Vector2I.Up ? new Vector2(0.0f, -0.5f)
             : direction == Vector2I.Right ? new Vector2(0.375f, 0.0f)
             : direction == Vector2I.Down ? new Vector2(0.0f, 0.5f)
@@ -575,6 +600,18 @@ public sealed class RoomTransitionController
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
             target.GetPackedPosition(transitionEnd));
+        int beforeGraphics = _scrollSetupFrames - 4;
+        int uploadStart = target.LoadsUniqueGraphicsAfterScroll
+            ? _scrollTotalFrames - entries + 1 : 2;
+        (byte[] Source, byte[] Destination)? smooth = null;
+        bool paletteRoutePresent = _scrollPalettes.TryGet(
+            _rooms.ActiveGroup, targetId, direction, _rooms.SaveData, out var paletteRoute);
+        if ((target.TilesetFlags & 0x01) != 0 && source.TilesetPaletteId != target.TilesetPaletteId && paletteRoutePresent)
+            smooth = paletteRoute;
+        _scrollRenderer = new ScreenTransitionRenderer(source, target, sourceGraphics, sourceColors,
+            uploadGraphics ? _scrollGraphics.Uploads(unique) : Array.Empty<ScreenGraphicsUpload>(),
+            uploadStart, beforeGraphics > 0 && !paletteRoutePresent ? beforeGraphics + 1 : -1,
+            _scrollSetupFrames - 2, smooth);
         _scrollPlayerOwner = transitionOwner;
         _scrollPlayerOwner?.BeginScreenTransition(target);
         // Destination interaction state 0 runs during room parsing. It may
@@ -602,9 +639,41 @@ public sealed class RoomTransitionController
 
     public void UpdateScroll(double delta)
     {
+        _scrollTickAccumulator += delta * 60.0;
+        while (_scrollActive && _scrollTickAccumulator + 0.000001 >= 1.0)
+        {
+            _scrollTickAccumulator -= 1.0;
+            AdvanceScrollUpdate();
+        }
+        if (!_scrollActive)
+            _scrollTickAccumulator = 0;
+    }
+
+    private void ResetLoadedScrollGraphics()
+    {
+        _loadedUniqueGraphics = _scrollGraphics.ForTileset(_rooms.CurrentRoom.TilesetId).Unique |
+            (_rooms.CurrentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
+    }
+
+    private void AdvanceScrollUpdate()
+    {
         if (!_scrollActive)
             return;
-        _scrollFrame = Mathf.Min(_scrollFrames, _scrollFrame + (float)delta * 60.0f);
+        _scrollRenderer?.Advance();
+        if (_scrollSetupFrames > 0)
+        {
+            _scrollSetupFrames--;
+            return;
+        }
+        if (_scrollFrame == _scrollFrames)
+        {
+            if (--_scrollCleanupFrames > 0)
+                return;
+        }
+        else
+        {
+            _scrollFrame++;
+        }
         Vector2 linkPosition = _scrollLinkStart + _scrollLinkStep * _scrollFrame;
         float scrollPixels = Mathf.Min(Mathf.Floor(_scrollFrame) * 4.0f, _scrollDistance);
         Vector2 screenScroll = new(_scrollDirection.X * scrollPixels, _scrollDirection.Y * scrollPixels);
@@ -620,10 +689,13 @@ public sealed class RoomTransitionController
             _scrollPlayerOwner.SetScreenTransitionPosition(
                 linkPosition, -screenScroll, _player);
         }
-        if (_scrollFrame < _scrollFrames)
+        if (_scrollFrame < _scrollFrames || _scrollCleanupFrames > 0)
             return;
 
         _scrollActive = false;
+        _scrollRenderer?.Finish();
+        _scrollRenderer = null;
+        _player.DisableInstruments(8);
         _roomView.FinishTransition();
         Vector2 destinationPosition =
             linkPosition + _scrollFinishOffset;
@@ -699,7 +771,8 @@ public sealed class RoomTransitionController
                 DestinationRoom: destination.Room,
                 DestinationPosition: packedPosition,
                 DestinationParameter: 0,
-                DestinationTransition: 5),
+                DestinationTransition: 5,
+                DirectFadeOut: true),
             delayedFadeOut: false);
     }
 
@@ -794,13 +867,14 @@ public sealed class RoomTransitionController
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
+        _warpTickAccumulator = 0;
         ClearRoomLoadColumnReveal();
         _roomLoadColumnReveal =
             !delayedFadeOut && UsesRoomLoadColumnReveal(warp);
         _destinationWalk = false;
         _destinationFall = false;
         player.BeginRoomWarpTransition();
-        if (delayedFadeOut || forceFadeOut)
+        if (delayedFadeOut || forceFadeOut || warp.DirectFadeOut)
         {
             _warpPhase = WarpPhase.FadeOut;
             SetFade(0.0f);
@@ -809,15 +883,23 @@ public sealed class RoomTransitionController
         switch (warp.SourceTransition)
         {
             case 2:
+                // link.s warpTransition2: request $6e once on source
+                // initialization, before the fade or destination load.
+                _sound.PlaySound(OracleSoundEngine.SndEnterCave);
                 _warpPhase = WarpPhase.FadeOut;
                 SetFade(0.0f);
                 break;
             case 3:
+                _sound.PlaySound(OracleSoundEngine.SndEnterCave);
                 _warpPhase = WarpPhase.LeaveScreen;
                 _warpWalkStart = player.Position;
                 _warpWalkEnd = player.Position + (Vector2)player.FacingVector * WarpLeaveFrames;
                 player.BeginRoomWarpWalk(player.Position, player.FacingVector);
                 break;
+            case 4:
+                // warpTransition4's source branch; destination $84 is silent.
+                _sound.PlaySound(OracleSoundEngine.SndEnterCave);
+                goto default;
             default:
                 SetFade(1.0f);
                 LoadWarpDestination();
@@ -846,13 +928,26 @@ public sealed class RoomTransitionController
             return;
         }
 
-        _warpFrame += (float)delta * 60.0f;
+        _warpTickAccumulator += delta * 60.0;
+        while (_warpActive && _warpTickAccumulator + 0.000001 >= 1.0)
+        {
+            _warpTickAccumulator -= 1.0;
+            AdvanceWarpUpdate();
+        }
+        if (!_warpActive) _warpTickAccumulator = 0;
+    }
+
+    private void AdvanceWarpUpdate()
+    {
+        const double delta = 1.0 / 60.0;
+        _warpFrame++;
         switch (_warpPhase)
         {
             case WarpPhase.FadeOut:
                 SetFade(_warpFadeOutFrames == WarpFadeFrames
                     ? _warpFrame / WarpFadeMaximumOffset
-                    : _warpFrame / _warpFadeOutFrames);
+                    : (1 + Mathf.Floor((_warpFrame - 1) / 4)) /
+                        WarpFadeMaximumOffset);
                 if (_warpFrame >= _warpFadeOutFrames)
                 {
                     SetFade(1.0f);

@@ -547,13 +547,14 @@ public partial class GameRoot : Node2D
         // updateAllObjects begins with updateSpecialObjects (Link), followed by
         // item parents. Link's former physics/process split is therefore
         // replayed here before enemies, parts, and interactions.
+        bool scrollOwnedUpdate = _transitions.ScrollActive;
         _player.AdvanceApplicationUpdate();
         if (!IsTransitioning)
         {
             _pushBlocks.Advance(delta);
             _keyDoors.Advance(delta);
         }
-        _transitions.Update(delta);
+        _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
             _deathRespawnPoints.Update();
@@ -580,7 +581,13 @@ public partial class GameRoot : Node2D
             _roomEvents.Update(delta);
             _interactions.Update(delta, _player);
         }
-        UpdatePostObjectPlayerState();
+        // The source screen-transition handler follows updateAllObjects.
+        // In particular, the final scroll update still freezes destination
+        // entities and room events; ordinary updates resume next tick.
+        if (scrollOwnedUpdate)
+            _transitions.UpdateScroll(delta);
+        else
+            UpdatePostObjectPlayerState();
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);

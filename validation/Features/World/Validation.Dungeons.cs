@@ -930,6 +930,7 @@ public sealed partial class ValidationRoot
                 SourceRoom: 0x24,
                 SourcePosition: 0x57,
                 SourceTransition: 2,
+                DirectFadeOut: true,
                 DestinationGroup: 4,
                 DestinationRoom: 0x18,
                 DestinationPosition: 0x57,

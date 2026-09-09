@@ -209,5 +209,11 @@ public sealed class PlayerWorld : IPlayerWorld
         _transitions.DeactivateWarpAtPlayerPosition(player);
     public bool CheckTileWarp(Player player) =>
         !RidingObject && _transitions.CheckTileWarp(player);
-    public void CheckRoomExit(Player player) => _transitions.CheckRoomExit(player);
+    public void CheckRoomExit(Player player)
+    {
+        // The application samples screenTransitionState2 once, after objects.
+        // Standalone player updates retain this route for their host.
+        if (!player.ApplicationUpdateOwned)
+            _transitions.CheckRoomExit(player);
+    }
 }

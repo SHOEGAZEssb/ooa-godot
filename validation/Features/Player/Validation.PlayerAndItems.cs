@@ -2069,12 +2069,12 @@ public sealed partial class ValidationRoot
             "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
         player.BeginScrollingTransition(player.Position, Vector2I.Right);
         FailIf(
-            player.IsUsingShield || player.ShieldGraphicsIndex != 0x69,
+            player.IsUsingShield || player.ShieldGraphicsIndex != 0x68,
             "wScrollMode $08 did not lower the shield while retaining its parent item.");
         player.FinishScrollingTransition(player.Position);
         player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
         FailIf(
-            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x71 ||
+            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
             world.Sounds.Count(sound => sound == OracleSoundEngine.SndShield) != 1,
             "The retained shield parent did not resume silently after scrolling.");
 

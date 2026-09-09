@@ -179,6 +179,8 @@ public sealed class WarpDatabase
     }
 }
 
+// DirectFadeOut represents a direct wWarpTransition2=$03 write, bypassing
+// Link's source handler (and its sound), rather than a TRANSITION_SRC_FADEOUT.
 public readonly record struct Warp(
     int SourceGroup,
     int SourceRoom,
@@ -190,7 +192,8 @@ public readonly record struct Warp(
     int DestinationPosition,
     int DestinationParameter,
     int DestinationTransition,
-    bool SourceFallback = false);
+    bool SourceFallback = false,
+    bool DirectFadeOut = false);
 
 internal readonly record struct DiveWarp(
     int SourceGroup,
@@ -234,6 +237,7 @@ internal readonly record struct DiveWarp(
             DestinationRoom,
             DestinationPosition,
             DestinationParameter: 0,
-            DestinationTransition);
+            DestinationTransition,
+            DirectFadeOut: true);
     }
 }

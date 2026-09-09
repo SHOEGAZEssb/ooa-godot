@@ -8,6 +8,132 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateScreenTransitionSourceBoundaries()
+    {
+        LoadValidationRoom(0, 0x11);
+        _player.WarpTo(new Vector2(4.75f, 4.25f));
+        _player.UpdatePushingState(Vector2.Left);
+        // Clear both corner probes so the test exercises axis order, not a pit.
+        _currentRoom.SetPositionTileAndCollision(new Vector2(6, 11), 0x3a, 0, 0);
+        CheckRoomExit(_player);
+        FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x10 ||
+            _transitions.ScrollDirection != Vector2I.Left ||
+            _player.PrecisePosition != new Vector2(6.75f, 6.25f),
+            "Room 0:11 corner did not clamp Y then accept the X exit with both fractions retained.");
+        FinishActiveScrollingTransitionForValidation();
+
+        foreach ((int source, Vector2I direction, int expected) in new[]
+        {
+            (0x00, Vector2I.Up, 0xf0), (0x0f, Vector2I.Right, 0x10),
+            (0xff, Vector2I.Down, 0x0f), (0x00, Vector2I.Left, 0xff)
+        })
+        {
+            FailIf(!_rooms.TryGetNeighbor(2, source, direction, out int actual) || actual != expected,
+                $"updateActiveRoom byte addition from 2:{source:x2} {direction} gave ${actual:x2}, expected ${expected:x2}.");
+        }
+
+        foreach ((byte tile, bool flippers, bool mermaid, bool allowed) in new[]
+        {
+            ((byte)0xfa, false, false, false), ((byte)0xfa, true, false, true),
+            ((byte)0xfc, true, false, false), ((byte)0xfc, false, true, true),
+            ((byte)0xf3, true, true, false)
+        })
+        {
+            LoadValidationRoom(0, 0x11);
+            _inventory.LoseTreasure(TreasureDatabase.TreasureFlippers);
+            _inventory.LoseTreasure(TreasureDatabase.TreasureMermaidSuit);
+            if (flippers) _inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
+            if (mermaid) _inventory.GiveTreasure(TreasureDatabase.TreasureMermaidSuit, 0);
+            _player.WarpTo(new Vector2(155, 56));
+            _player.UpdatePushingState(Vector2.Right);
+            _currentRoom.SetPositionTileAndCollision(new Vector2(154, 61), tile, 0, 0);
+            CheckRoomExit(_player);
+            FailIf(_transitions.ScrollActive != allowed,
+                $"Room 0:11 tile ${tile:x2}, flippers={flippers}, mermaid={mermaid}: expected transition={allowed}.");
+            FinishActiveScrollingTransitionForValidation();
+        }
+
+        LoadValidationRoom(4, 0x04);
+        _player.WarpTo(new Vector2(120, 6.25f));
+        _player.UpdatePushingState(Vector2.Zero);
+        _currentRoom.SetPositionTileAndCollision(new Vector2(120, 11), 0x54, 0, 0);
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x03,
+            "Room 4:04 up conveyor $54 did not bypass the input-angle gate into 4:03: " +
+            $"position={_player.PrecisePosition}, terrainMotion={_player.ScreenTransitionTerrainMotion}, " +
+            $"applicationOwned={_player.ApplicationUpdateOwned}, terrain={_terrain.GetTerrainInfo(_player.Position)}.");
+        FinishActiveScrollingTransitionForValidation();
+
+        LoadValidationRoom(0, 0x11);
+        _transitions.ApplyWarpWithDelayedFadeOut(_player,
+            new Warp(0, 0x11, -1, 0, 2, 0, 0x12, 0x44, 0, 0));
+        for (int tick = 1; tick < 125; tick++)
+        {
+            _transitions.UpdateWarp(1.0 / 60.0);
+            float alpha = Math.Min(31, (tick + 3) / 4) / 31.0f;
+            FailIf(_currentRoom.Id != 0x11 || !Mathf.IsEqualApprox(_warpFade.Color.A, alpha),
+                $"fadeoutToWhiteWithDelay(4) update {tick} expected alpha={alpha} before the room load.");
+        }
+        // Carry a batched update through both the load and the fade-in.
+        _transitions.UpdateWarp(33.0 / 60.0);
+        FailIf(_transitions.IsTransitioning || _currentRoom.Id != 0x12,
+            "A batched warp dropped updates at the room-load phase boundary.");
+    }
+
+    private void ValidateScreenTransitionSourceTiming()
+    {
+        foreach (bool large in new[] { false, true })
+        foreach (Vector2I direction in new[] { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left })
+        {
+            LoadValidationRoom(large ? 4 : 0, large ? 0x07 : 0x11);
+            int width = _currentRoom.Width;
+            int height = _currentRoom.Height;
+            Vector2 start = new(
+                direction.X < 0 ? 6.75f : direction.X > 0 ? width - 5.25f : 80.75f,
+                direction.Y < 0 ? 6.25f : direction.Y > 0 ? height - 6.75f : 64.25f);
+            _player.WarpTo(start);
+            _player.Face(Vector2I.Down);
+            _transitions.BeginScroll(_player, direction, large ? 0x03 : 0x12);
+            int motion = direction.X == 0 ? 32 : 40;
+            // 0:11 -> 0:12 changes unique header $09 -> $08 (three entries
+            // before motion). The dungeon pair has UNIQUE_GFXH_NONE.
+            int setup = large ? 4 : 7;
+            int cleanup = 2 + (direction.X == 0 ? (height - 128) / 8 : (width - 160) / 8);
+            FailIf(_transitions.ScrollTotalFrames != setup + motion + cleanup,
+                "The imported unique graphics wait did not compose with source scroll timing.");
+            Vector2 step = new(direction.X * 0.375f, direction.Y * 0.5f);
+            for (int tick = 1; tick <= setup + motion + cleanup; tick++)
+            {
+                UpdateScrollingTransition(1.0 / 60.0);
+                int moved = Math.Clamp(tick - setup, 0, motion);
+                bool finished = tick == setup + motion + cleanup;
+                Vector2 expected = start + step * moved;
+                if (finished) expected -= new Vector2(direction.X * width, direction.Y * height);
+                FailIf(_player.PrecisePosition != expected ||
+                    _transitions.ScrollActive == finished || _player.FacingVector != Vector2I.Down,
+                    $"{(large ? "Large" : "Small")} scroll {direction} update {tick}: expected {expected}, active={!finished}; got {_player.PrecisePosition}, active={_transitions.ScrollActive}.");
+            }
+            Vector2 singleUpdateResult = _player.PrecisePosition;
+            LoadValidationRoom(large ? 4 : 0, large ? 0x07 : 0x11);
+            _player.WarpTo(start);
+            _player.Face(Vector2I.Down);
+            _transitions.BeginScroll(_player, direction, large ? 0x03 : 0x12);
+            UpdateScrollingTransition((setup + motion + cleanup) / 60.0);
+            FailIf(_transitions.ScrollActive || _player.PrecisePosition != singleUpdateResult,
+                "Batched scrolling lost a source update or coordinate fraction.");
+        }
+
+        LoadValidationRoom(0, 0x11);
+        _player.WarpTo(new Vector2(80, 64));
+        FailIf(!_player.ApplyEnemyContactDamage(new Vector2(72, 64), 1),
+            "Could not arrange retained Link damage state for the scroll finisher.");
+        float invincibility = _player.InvincibilityFrames;
+        _transitions.BeginScroll(_player, Vector2I.Up, 0x01);
+        UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
+        FailIf(_player.InvincibilityFrames != invincibility,
+            "finishScrollingTransition reset damage invincibility like a full warp.");
+    }
+
     private void LoadValidationRoom(int group, int room)
     {
         LoadDebugRoom(group, room);
@@ -119,6 +245,7 @@ public sealed partial class ValidationRoot
         const int sourcePosition = 0x12;
         Vector2 sourceCenter = new(0x28, 0x18);
         LoadValidationRoom(sourceGroup, sourceRoom);
+        _sound.ClearPlayRequestAudit();
 
         var warps = new WarpDatabase();
         FailIf(
@@ -189,6 +316,8 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         FailIf(IsTransitioning,
             "Room 5:cc/$12 did not finish destination transition `$01.");
+        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != 0,
+            "INTERAC_SPECIAL_WARP's direct fade added a cave-entry sound to diving.");
 
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
         SplashEffect? arrivalSplash = _terrain.ActiveSplash;
@@ -440,7 +569,7 @@ public sealed partial class ValidationRoot
             past.Position != new Vector2(0xb0, 0x0a) ||
             _entities.OutgoingEntities<EraInfoDisplay>().SingleOrDefault() != past,
             "The era display's native always-update bit did not advance during scrolling.");
-        for (int update = 1; update < 40; update++)
+        for (int update = 1; update < 80 && _transitions.ScrollActive; update++)
         {
             _transitions.UpdateScroll(1.0 / 60.0);
             _entities.Update(1.0 / 60.0, _player);
@@ -765,7 +894,9 @@ public sealed partial class ValidationRoot
             "Animated tiles advanced during a room transition.");
 
         Vector2 position = _player.Position;
-        UpdateScrollingTransition(1.0 / 60.0);
+        // Wait through setup and any imported pre-scroll unique graphics.
+        for (int update = 0; update < 10 && _player.Position == position; update++)
+            UpdateScrollingTransition(1.0 / 60.0);
         Vector2 moved = _player.Position - position;
         Vector2 scrollDirection = -(Vector2)_scrollTransitionDirection;
         FailIf(moved.Dot(scrollDirection) <= 0.0f, "Link did not scroll with the screen transition.");

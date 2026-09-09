@@ -250,6 +250,7 @@ public partial class Player : Node2D
     private bool _shieldParentInitialized;
     private bool _usingShield;
     private Vector2 _lastMovementInput;
+    private bool _screenTransitionTerrainMotion;
     private bool _walking;
     private bool _pushing;
     private bool _pullingIntoHole;
@@ -544,8 +545,9 @@ public partial class Player : Node2D
     internal bool DelaysOrdinaryScreenTransition =>
         _sideScrollAirborne || _topDownAirborne;
     internal bool RejectsOrdinaryScreenTransition =>
-        _enemyKnockbackFrames > 0.0f || _drowning || _fallingInHole ||
+        _enemyKnockbackFrames > 0.0f || _drowning || _fallingInHole || _pullingIntoHole ||
         _sideScrollInstantRespawnCounter != 0 || SideScrollSquished;
+    internal bool ScreenTransitionTerrainMotion => _screenTransitionTerrainMotion;
     internal bool IsMovingTowardScreenEdge(Vector2I direction)
     {
         int angle = _world.SideScrolling
@@ -853,6 +855,7 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        _screenTransitionTerrainMotion = false;
         if (GaleActive) EndGale();
         if (ElectricShockActive)
         {
@@ -1171,10 +1174,9 @@ public partial class Player : Node2D
     {
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        // wScrollMode $08 freezes the active parent item, while the scrolling
-        // transition moves Link without changing his parent-item-locked direction.
-        if (!IsUsingItem)
-            Face(direction);
+        // transitionUpdateScrollAndLinkPosition changes coordinates only.
+        // Facing also survives conveyor/diagonal entries, independently of
+        // the direction in which the screen itself scrolls.
         // updateItems clears wUsingShield before returning for wScrollMode
         // $08, but leaves the parent item allocated until scrolling ends.
         SuspendShield();
@@ -1193,16 +1195,14 @@ public partial class Player : Node2D
     {
         bool resumeLedgeJump =
             _ledgeJumpState == LedgeJumpState.WaitingForScroll;
-        bool preserveTopDownSwimming = TopDownSwimming;
-        bool preserveSideScrollSwimming = SideScrollSwimming;
-        WarpTo(
-            position,
-            recordSafe: !resumeLedgeJump,
-            preserveSword: true,
-            preserveShield: true,
-            preserveLedgeJump: resumeLedgeJump,
-            preserveTopDownSwimming: preserveTopDownSwimming,
-            preserveSideScrollSwimming: preserveSideScrollSwimming);
+        // finishScrollingTransition offsets coordinate high bytes and writes
+        // the local respawn. It does not perform a full warp reset: damage
+        // invincibility, carried items, swimming and parent-item state survive.
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        _sideScrollYFixed = Mathf.FloorToInt(position.Y * 256.0f);
+        if (!resumeLedgeJump)
+            SetLocalRespawnPosition(position);
         if (resumeLedgeJump)
             _world.ResumeLedgeHopAfterScroll(this);
         _walking = false;
@@ -1582,6 +1582,9 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta)
     {
+        // updateSpecialObjects clears wcc92 before this update's terrain
+        // handler can publish a conveyor/current displacement.
+        _screenTransitionTerrainMotion = false;
         if (GaleActive)
         {
             AdvanceGale();
@@ -2111,6 +2114,7 @@ public partial class Player : Node2D
         Vector2 terrainPush = _world.GetTerrainPush(Position) * (float)delta;
         if (terrainPush != Vector2.Zero)
         {
+            _screenTransitionTerrainMotion = true;
             TryMove(terrainPush, allowWallSlide: false);
         }
 

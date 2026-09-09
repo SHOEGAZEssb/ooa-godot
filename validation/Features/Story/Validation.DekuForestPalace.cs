@@ -173,10 +173,10 @@ public sealed partial class ValidationRoot
                 if (!scrollStillActive)
                 {
                     FailIf(
-                        scrollingUpdates != _transitions.ScrollFrames ||
+                        scrollingUpdates != _transitions.ScrollTotalFrames ||
                         Fixed(linkAfterTransitionUpdate.Y) != 0x7684,
                         "The palace north scroll did not retain the original " +
-                        "32-update camera handoff and Link destination position " +
+                        "graphics/setup/cleanup handoff (32 motion updates) and Link destination position " +
                         "$76.$84.");
                     completedScrolls++;
                     scrollingGuard = null;

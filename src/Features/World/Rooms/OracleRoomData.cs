@@ -22,6 +22,10 @@ public sealed class OracleRoomData
     public int ActiveCollisions { get; }
     public byte TilesetFlags { get; }
     internal bool IsCompanionRegion { get; init; }
+    internal bool LoadsUniqueGraphicsAfterScroll { get; init; }
+    internal int TilesetPaletteId { get; init; }
+    private Image? _liveGraphics;
+    private bool _freezeGraphicsOverrides;
     public int WidthInTiles { get; }
     public int HeightInTiles { get; }
     public int Width => WidthInTiles * MetatileSize;
@@ -259,21 +263,7 @@ public sealed class OracleRoomData
                 ? _mappings[mappingOffset + 4 + quarter]
                 : mappingOverride[4 + quarter];
             int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
-            Image tileSource = _source;
-            int sourceTile = sourceIndex;
-            if (_dynamicBackgroundTiles.TryGetValue(
-                    sourceIndex, out DynamicBackgroundTile dynamicTile))
-            {
-                tileSource = dynamicTile.Source;
-                sourceTile = dynamicTile.Tile;
-            }
-            else if (_animations.TryGetOverride(
-                         _activeAnimationHeaders, sourceIndex,
-                         out Image overrideSource, out int overrideTile))
-            {
-                tileSource = overrideSource;
-                sourceTile = overrideTile;
-            }
+            ResolveBackgroundGraphics(_activeAnimationHeaders, sourceIndex, out Image tileSource, out int sourceTile);
 
             int sourceColumns = tileSource.GetWidth() / 8;
             int sourceX = sourceTile % sourceColumns * 8;
@@ -1060,20 +1050,7 @@ public sealed class OracleRoomData
                     ? _mappings[mappingOffset + 4 + quarter]
                     : mappingOverride[4 + quarter];
                 int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
-                Image tileSource = _source;
-                int sourceTile = sourceIndex;
-                if (_dynamicBackgroundTiles.TryGetValue(
-                    sourceIndex, out DynamicBackgroundTile dynamicTile))
-                {
-                    tileSource = dynamicTile.Source;
-                    sourceTile = dynamicTile.Tile;
-                }
-                else if (_animations.TryGetOverride(
-                    activeHeaders, sourceIndex, out Image overrideSource, out int overrideTile))
-                {
-                    tileSource = overrideSource;
-                    sourceTile = overrideTile;
-                }
+                ResolveBackgroundGraphics(activeHeaders, sourceIndex, out Image tileSource, out int sourceTile);
                 int sourceColumns = tileSource.GetWidth() / 8;
                 int sourceX = (sourceTile % sourceColumns) * 8;
                 int sourceY = (sourceTile / sourceColumns) * 8;
@@ -1137,6 +1114,45 @@ public sealed class OracleRoomData
         _temporaryBackgroundPaletteOffset = null;
         _backgroundPalettes.LoadTileset(_tilesetPalette);
         RedrawForPaletteChange();
+    }
+
+    internal void SetLiveGraphics(Image? graphics, bool freezeOverrides)
+    {
+        _liveGraphics = graphics;
+        _freezeGraphicsOverrides = freezeOverrides;
+        RedrawForPaletteChange();
+    }
+
+    // Capture the actual frozen tile bytes, including animation and scripted
+    // uploads already present when scrolling starts. Never mutate cached art.
+    internal Image CaptureLiveGraphics()
+    {
+        Image output = Image.CreateEmpty(128, 128, false, Image.Format.Rgba8);
+        for (int tile = 0; tile < 256; tile++)
+        {
+            ResolveBackgroundGraphics(_activeAnimationHeaders, tile, out Image source, out int sourceTile);
+            int columns = source.GetWidth() / 8;
+            output.BlitRect(source, new Rect2I(sourceTile % columns * 8, sourceTile / columns * 8, 8, 8),
+                new Vector2I(tile % 16 * 8, tile / 16 * 8));
+        }
+        return output;
+    }
+
+    private void ResolveBackgroundGraphics(int[] headers, int tile, out Image source, out int sourceTile)
+    {
+        source = _liveGraphics ?? _source;
+        sourceTile = tile;
+        if (_freezeGraphicsOverrides) return;
+        if (_dynamicBackgroundTiles.TryGetValue(tile, out DynamicBackgroundTile dynamicTile))
+        {
+            source = dynamicTile.Source;
+            sourceTile = dynamicTile.Tile;
+        }
+        else if (_animations.TryGetOverride(headers, tile, out Image animation, out int animationTile))
+        {
+            source = animation;
+            sourceTile = animationTile;
+        }
     }
 
     internal void RedrawForPaletteChange()

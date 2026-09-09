@@ -50,8 +50,21 @@ During a scrolling transition:
 
 Do not treat preload as room entry. Entry counters, RNG, events, music,
 checkpoints, and persistent mutations occur only at their traced boundary.
+Warp requests also distinguish Link's source-transition handler from a direct
+scripted fade. Source handlers own the entrance sound; a direct write to
+`wWarpTransition2` bypasses that sound. Destination entry handlers do not replay
+it. Dungeon floor-stair lookup owns its separate sound before the direct fade.
 Warps, scrolls, time travel, and development direct loads are different entry
 contexts and require explicit coverage.
+
+Scrolling has separate setup, motion, offscreen row-loading, and cleanup
+updates. Clean-US unique-graphics header entry counts are imported from the
+ROM because the expanded-tileset disassembly removes those loads. Their
+before/after-scroll selector and retained loaded-header identity determine
+the extra wait. Link retains his facing, fractional coordinates, parent items,
+and damage state; the finisher changes coordinates and the local respawn
+without performing a full-warp reset. Live edge checks run once after the
+object pass, and destination gameplay resumes after the finishing update.
 
 Tile-warp activation uses imported tile behavior and the original position
 windows, not a generic full-metatile overlap. Screen edges use imported warp

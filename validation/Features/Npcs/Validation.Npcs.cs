@@ -720,7 +720,7 @@ public sealed partial class ValidationRoot
             Vector2.Down * OracleRoomData.ViewportHeight),
             "The room 0:58 NPC was not staged one screen below the outgoing room.");
 
-        UpdateScrollingTransition(1.0 / 60.0);
+        ValidateLinkScrollsForOneTransitionFrame();
         foreach (NpcCharacter outgoingNpc in _entities.OutgoingEntities<NpcCharacter>())
         {
             FailIf(

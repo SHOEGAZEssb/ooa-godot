@@ -91,7 +91,10 @@ internal sealed class MinibossPortalRoomEntity :
             destinationRoom,
             _data.PortalPosition,
             _data.PortalDestinationParameter,
-            _data.PortalDestinationTransition));
+            _data.PortalDestinationTransition,
+            // Writes wWarpTransition2=$03 directly after SND_TELEPORT;
+            // Link never runs warpTransition2's SND_ENTERCAVE.
+            DirectFadeOut: true));
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(

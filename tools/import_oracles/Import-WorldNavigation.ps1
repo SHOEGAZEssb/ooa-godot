@@ -1,3 +1,139 @@
+# The expanded-tileset disassembly deletes unique graphics entries, but the
+# supported clean US ROM retains tilesetData ($04:$4f9c), the header pointer
+# table ($04:$5b28), and loadUniqueGfxHeader's pointer operand ($00:$3783).
+# Preserve the original entry counts for screenTransitionState3/4/5 timing.
+function Expand-TransitionGraphics([byte[]]$rom, [int]$address, [int]$tiles, [int]$mode) {
+    # decompressGraphics / tools/common.py:decompressGfxData. Header modes
+    # select raw bytes, short/long dictionary references, or common-byte masks.
+    $output = [Collections.Generic.List[byte]]::new()
+    $length = $tiles * 16
+    if ($mode -eq 0) { return [byte[]]$rom[$address..($address + $length - 1)] }
+    if ($mode -eq 2) {
+        foreach ($tile in 1..$tiles) {
+            $mask1 = $rom[$address++]; $mask2 = $rom[$address++]
+            if (($mask1 -bor $mask2) -eq 0) {
+                foreach ($i in 1..16) { $output.Add($rom[$address++]) }
+            } else {
+                $common = $rom[$address++]
+                foreach ($mask in @($mask1, $mask2)) {
+                    foreach ($bit in 7..0) {
+                        if (($mask -band (1 -shl $bit)) -ne 0) { $output.Add($common) }
+                        else { $output.Add($rom[$address++]) }
+                    }
+                }
+            }
+        }
+    } elseif ($mode -eq 1 -or $mode -eq 3) {
+        while ($output.Count -lt $length) {
+            $flags = $rom[$address++]
+            foreach ($bit in 7..0) {
+                if ($output.Count -ge $length) { break }
+                if (($flags -band (1 -shl $bit)) -eq 0) { $output.Add($rom[$address++]); continue }
+                $first = $rom[$address++]
+                if ($mode -eq 1) {
+                    $distance = ($first -band 0x1f) + 1
+                    $count = ($first -shr 5) + 1
+                    if (($first -band 0xe0) -eq 0) { $count = $rom[$address++] }
+                } else {
+                    $second = $rom[$address++]
+                    $distance = $first + (([int]$second -band 7) -shl 8) + 1
+                    $count = ($second -shr 3) + 2
+                    if (($second -band 0xf8) -eq 0) { $count = $rom[$address++] }
+                }
+                if ($count -eq 0) { $count = 256 }
+                foreach ($i in 1..$count) {
+                    $index = $output.Count - $distance
+                    $output.Add($(if ($index -lt 0) { 0 } else { $output[$index] }))
+                }
+            }
+        }
+    } else { throw "Unsupported decompressGraphics mode $mode." }
+    if ($output.Count -ne $length) { throw 'Unique graphics decompression length mismatch.' }
+    return $output.ToArray()
+}
+
+function Read-TransitionPalette([string]$label) {
+    $nodes = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/paletteData.s') $label 'm_RGB16')
+    if ($nodes.Count -lt 24) { throw "$label must contain six BG palettes." }
+    $bytes = [Collections.Generic.List[byte]]::new()
+    foreach ($node in $nodes[0..23]) {
+        foreach ($operand in $node.Operands) {
+            $value = Convert-AssemblyInteger $operand
+            if ($value -lt 0 -or $value -gt 31) { throw "Invalid RGB5 component in $label." }
+            $bytes.Add([byte]$value)
+        }
+    }
+    return ([BitConverter]::ToString($bytes.ToArray())).Replace('-', '')
+}
+
+$paletteRows = [Collections.Generic.List[string]]::new()
+$paletteRows.Add("# group`troom`tdirection`tsource-rgb5`tdestination-rgb5`tsource")
+$directions = @{ DIR_UP = 0; DIR_RIGHT = 1; DIR_DOWN = 2; DIR_LEFT = 3 }
+foreach ($group in 0..2) {
+    foreach ($node in Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/paletteTransitions.s') "paletteTransitionGroup$group" 'dbbww') {
+        if ($node.Operands.Count -ne 4 -or -not $directions.ContainsKey($node.Operands[0])) { throw 'Invalid paletteTransitionData row.' }
+        $room = Convert-AssemblyInteger $node.Operands[1]
+        $from = Read-TransitionPalette $node.Operands[2]
+        $to = Read-TransitionPalette $node.Operands[3]
+        $paletteRows.Add(("{0}`t{1:x2}`t{2}`t{3}`t{4}`tpaletteTransitions.s:{5}->{6}" -f
+            $group, $room, $directions[$node.Operands[0]], $from, $to, $node.Operands[2], $node.Operands[3]))
+    }
+}
+if ($paletteRows.Count -ne 22) { throw 'Expected 21 Ages smooth palette routes.' }
+Write-GeneratedTable((Join-Path $destination 'metadata/screen_transition_palettes.tsv'), $paletteRows)
+
+$uploadRows = [Collections.Generic.List[string]]::new()
+$uploadRows.Add("# unique-gfx`torder`tvram-address`ttiles`tpalette-header`tdata`tsource")
+foreach ($uniqueId in 0..20) {
+    $pointer = [BitConverter]::ToUInt16($romBytes, 0x11b28 + $uniqueId * 2)
+    $order = 0
+    do {
+        $entry = 0xc000 + $pointer
+        $bankMode = $romBytes[$entry]
+        if ($bankMode -eq 0) {
+            $uploadRows.Add(("{0:x2}`t{1}`t0000`t0`t{2:x2}`t-`tclean-US:uniqueGfxHeader{0:x2}" -f $uniqueId, $order, $romBytes[$entry + 1]))
+            break
+        }
+        $address = ([int]$romBytes[$entry + 3] -shl 8) -bor ($romBytes[$entry + 4] -band 0xf0)
+        $tiles = ($romBytes[$entry + 5] -band 0x7f) + 1
+        if (($romBytes[$entry + 4] -band 0x0f) -ne 1 -or $address -lt 0x8800 -or $address + $tiles * 16 -gt 0x9800) { throw 'Unique graphics upload is outside BG bank 1.' }
+        $source = (($bankMode -band 0x3f) * 0x4000) + (([int]$romBytes[$entry + 1] -band 0x3f) -shl 8) + $romBytes[$entry + 2]
+        $data = Expand-TransitionGraphics $romBytes $source $tiles ($bankMode -shr 6)
+        $uploadRows.Add(("{0:x2}`t{1}`t{2:x4}`t{3}`t-`t{4}`tclean-US:uniqueGfxHeader{0:x2}@{5:x4}" -f
+            $uniqueId, $order, $address, $tiles, ([BitConverter]::ToString($data)).Replace('-', ''), $pointer))
+        $more = $romBytes[$entry + 5] -band 0x80
+        $pointer += 6; $order++
+    } while ($more -ne 0)
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/screen_transition_uploads.tsv'), $uploadRows)
+
+if ([BitConverter]::ToString($romBytes, 0x10f9c, 8) -ne '0F-01-01-40-10-00-00-00' -or
+    [BitConverter]::ToString($romBytes, 0x3783, 3) -ne '21-28-5B') {
+    throw 'Clean-US screen-transition tileset/header table signatures changed.'
+}
+$scrollGraphicsRows = [Collections.Generic.List[string]]::new()
+$scrollGraphicsRows.Add("# tileset`tunique-gfx`tentries`tsource")
+foreach ($tilesetId in 0..102) {
+    $unique = [int]$romBytes[0x10f9c + $tilesetId * 8 + 2]
+    if ($unique -ge 0x15) { throw "tilesetData[$tilesetId] has invalid unique header $unique." }
+    $pointer = [BitConverter]::ToUInt16($romBytes, 0x11b28 + $unique * 2)
+    $entries = 0
+    do {
+        if ($pointer -lt 0x4000 -or $pointer -gt 0x7ffa -or $entries -ge 16) {
+            throw "Invalid clean-US uniqueGfxHeader $($unique.ToString('x2')) at $($pointer.ToString('x4'))."
+        }
+        $entry = 0xc000 + $pointer
+        $entries++
+        if ($romBytes[$entry] -eq 0) { break } # terminal palette header
+        $continuation = $romBytes[$entry + 5] -band 0x80
+        $pointer += 6
+    } while ($continuation -ne 0)
+    $scrollGraphicsRows.Add(("{0:x2}`t{1:x2}`t{2}`tclean-US:tilesetData/uniqueGfxHeader{1:x2}" -f
+        $tilesetId, $unique, $entries))
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata/screen_transition_graphics.tsv'), $scrollGraphicsRows)
+
 # Resolve warp source indices to their destination records. A source position
 # of '*' is a standard whole-room tile warp; nonzero edge masks are the four
 # screen corners described by m_StandardWarp's first parameter. Pointed warp
