@@ -1,16 +1,19 @@
 $ErrorActionPreference = "Stop"
 $project = Split-Path $importRoot -Parent
-$destination = Join-Path $project "assets\oracle"
+$destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
+    $OutputDirectory)
 
 if (-not (Test-Path -LiteralPath $Disassembly -PathType Container)) {
     throw "Disassembly root not found: $Disassembly"
 }
 
 $importerProject = Join-Path $project 'tools\OracleImporter\OracleImporter.csproj'
-$importerBuildOutput = @(
-    & dotnet build $importerProject --nologo --verbosity quiet 2>&1)
-if ($LASTEXITCODE -ne 0) {
-    throw "Could not build the importer source host:`n$($importerBuildOutput -join "`n")"
+if (-not $SkipBuild) {
+    $importerBuildOutput = @(
+        & dotnet build $importerProject --nologo --verbosity quiet 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not build the importer source host:`n$($importerBuildOutput -join "`n")"
+    }
 }
 $importerHost = Join-Path $project `
     'tools\OracleImporter\bin\Debug\net8.0\OracleOfAges.Importer.dll'

@@ -91,8 +91,21 @@ table branch.
 & .\tools\verify_oracle_import.ps1
 ```
 
-The verification script runs ownership checks, importer tests, and two-import
-byte parity. Finish with the normal build and full headless suite from
+The verification script runs ownership checks and importer tests, builds the
+importer once, then checks byte parity using two concurrent import processes.
+One refreshes `assets/oracle/`; the other writes to a fresh temporary directory.
+Stages remain ordered within each process, with separate source hosts and caches.
+Existing non-generated files in `assets/oracle/` must not be present (Godot
+`.import` metadata is ignored), since they would fail parity with a fresh import.
+Use `-Workers 1` to check two consecutive imports into `assets/oracle/` instead.
+`-TimeoutSeconds` defaults to 600 per worker batch. Failures retain logs and
+manifests at the printed temporary path; successful runs clean them up.
+
+The importer itself accepts `-OutputDirectory` for isolated output and
+`-SkipBuild` when the Debug importer host has already been built. Normal imports
+still build the host and write to `assets/oracle/` by default.
+
+Finish with the normal build and full headless suite from
 [Validation](validation.md).
 
 ## Disassembly starting points

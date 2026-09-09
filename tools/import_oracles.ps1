@@ -1,6 +1,8 @@
 param(
     [string]$Disassembly = "C:\msys64\home\timst\oracles-disasm",
-    [string]$Rom = (Join-Path $PSScriptRoot "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc")
+    [string]$Rom = (Join-Path $PSScriptRoot "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc"),
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\assets\oracle'),
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
