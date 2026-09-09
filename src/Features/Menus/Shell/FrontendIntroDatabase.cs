@@ -112,6 +112,9 @@ internal sealed class FrontendIntroDatabase
         RequireSequenceCount("temple-background-animation", 1);
         RequireSequenceCount("triforce-position", 3);
         RequireSequenceCount("triforce-motion", 3);
+        RequireSequenceCount("triforce-timing", 12);
+        RequireSequenceCount("temple-link-z-0", 8);
+        RequireSequenceCount("temple-link-z-1", 8);
         RequireSequenceCount("temple-wave-sine", 32);
         RequireSequenceCount("title-size", 8);
         RequireSequenceCount("bird-position", 8);
@@ -184,7 +187,7 @@ internal sealed class FrontendIntroDatabase
             "horse-5", "horse-6", "triforce", "triforce-glow",
             "tree-branches", "cloud-0", "cloud-1", "cloud-2", "cloud-3",
             "bird-0", "bird-1", "temple-link-walk", "temple-link-rise",
-            "temple-link-fall"
+            "temple-link-fall", "temple-orb"
         ];
         if (_animations.Count != expected.Length ||
             expected.Any(key => !_animations.ContainsKey(key)))

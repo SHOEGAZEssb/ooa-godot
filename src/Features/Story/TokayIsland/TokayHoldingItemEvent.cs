@@ -5,26 +5,22 @@ namespace oracleofages;
 /// <summary>
 /// tokayHoldingItemScript for INTERAC_TOKAY $48:$06-$0a.
 /// </summary>
-internal sealed class TokayHoldingItemEvent : IRoomEvent
+internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private TokayHoldingItemStage _stage;
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
     private int _counter;
-    private bool _inputLocked;
 
     internal TokayHoldingItemEvent(
         RoomEventContext context,
         TokayInteractionDatabase database)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokayHoldingItemStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokayHoldingItemStage Stage => _stage;
 
     internal bool TryInteractNpc(NpcCharacter npc)
@@ -37,7 +33,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
 
         _actor = npc;
         ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
-        bool returned = _context.Rooms.SaveData.HasRoomFlag(
+        bool returned = Context.Rooms.SaveData.HasRoomFlag(
             npc.Record.Group, npc.Record.Room, OracleSaveData.RoomFlag40);
         if (returned)
         {
@@ -56,7 +52,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
     {
         var actor = _actor as TokayCharacter;
         UpdateScript();
-        actor?.RunNativeUpdate(_context.Player);
+        actor?.RunNativeUpdate(Context.Player);
     }
 
     private void UpdateScript()
@@ -87,7 +83,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -112,7 +108,7 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
     public void Cancel()
     {
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
-        _reward?.Finish(_context.Player);
+        _reward?.Finish(Context.Player);
         _reward = null;
         UnlockInput();
         _actor = null;
@@ -125,45 +121,24 @@ internal sealed class TokayHoldingItemEvent : IRoomEvent
         TokayHoldingItemCharacter actor = _actor as TokayHoldingItemCharacter ??
             throw new InvalidOperationException(
                 "tokayHoldingItemScript lost its actor.");
-        TokayHeldItemRecord item = _database.HeldItem(actor.Record.SubId);
-        actor.SetScriptAnimation(_database.Animation(0x02));
+        TokayHeldItemRecord item = Interactions.HeldItem(actor.Record.SubId);
+        actor.SetScriptAnimation(Interactions.Animation(0x02));
         // writeobjectbyte Interaction.var3b,$01 deletes the related accessory
         // before tokayGiveItemToLink creates the treasure interaction.
         actor.RemoveHeldItem();
         actor.SetFacingDirection(Godot.Vector2I.Down);
         actor.NativeAnimation = TokayAnimationMode.FaceLink;
         if (item.Treasure == TreasureDatabase.TreasureSeedSatchel)
-            _context.Inventory.PrepareReturnedTokaySeedSatchel();
-        _reward = _context.GrantScriptTreasure(
-            _context.Rooms.ActiveGroup,
-            _context.Rooms.CurrentRoom.Id,
+            Context.Inventory.PrepareReturnedTokaySeedSatchel();
+        _reward = Context.GrantScriptTreasure(
+            Context.Rooms.ActiveGroup,
+            Context.Rooms.CurrentRoom.Id,
             item.Treasure,
             item.GrantSubId,
             item.GrantObject,
             "scripts/ages:tokayGiveItemToLink",
             objectParameter: item.GrantParameter);
         _stage = TokayHoldingItemStage.Reward;
-    }
-
-    private void SetCurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.SetRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
     }
 
     private void FinishInteraction()

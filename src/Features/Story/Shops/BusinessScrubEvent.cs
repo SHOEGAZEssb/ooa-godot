@@ -6,9 +6,10 @@ namespace oracleofages;
 /// <summary>
 /// Native INTERAC_BUSINESS_SCRUB $ce:$00/$03 shield purchases.
 /// </summary>
-internal sealed class BusinessScrubEvent : IRoomEvent
+internal sealed class BusinessScrubEvent : RoomEventHost, IRoomEvent
 {
     private readonly RoomEventContext _context;
+    protected override RoomEventContext EventContext => _context;
     private readonly BusinessScrubDatabase _database = new();
     private NpcCharacter? _scrub;
     private BusinessScrubEventStage _stage;
@@ -88,15 +89,8 @@ internal sealed class BusinessScrubEvent : IRoomEvent
         ShowResult(_database.SuccessText);
     }
 
-    private int TakeChoice()
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "Business Scrub prompt closed without a text-option result.");
-        }
-        return choice;
-    }
+    private int TakeChoice() =>
+        RequireDialogueChoice("Business Scrub prompt closed without a text-option result.");
 
     private void ShowResult(int textId)
     {

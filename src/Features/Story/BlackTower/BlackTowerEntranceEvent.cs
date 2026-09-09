@@ -30,9 +30,6 @@ internal sealed class BlackTowerEntranceEvent :
     private int _simulatedDirectFrames;
     private int _simulatedTailPhase;
     private int _simulatedTailFrames;
-    private Vector2 _fadeOriginalSize;
-    private Vector2 _fadeOriginalPosition;
-    private int _fadeOriginalZIndex;
     private bool _explanationPending;
 
     public BlackTowerEntranceEvent(RoomEventContext context)
@@ -170,13 +167,7 @@ internal sealed class BlackTowerEntranceEvent :
             throw new InvalidOperationException("Black Tower explanation is already active.");
         _screen = new BlackTowerExplanationScreen(_database);
         _context.InterfaceLayer.AddChild(_screen);
-        _fadeOriginalSize = _context.Fade.Size;
-        _fadeOriginalPosition = _context.Fade.Position;
-        _fadeOriginalZIndex = _context.Fade.ZIndex;
-        _context.Fade.Position = Vector2.Zero;
-        _context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
-        _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
+        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _context.Hud.Visible = false;
         _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
         _fadeFrame = 0;
@@ -238,9 +229,7 @@ internal sealed class BlackTowerEntranceEvent :
         _screen.QueueFree();
         _screen = null;
         _context.Hud.Visible = true;
-        _context.Fade.Position = _fadeOriginalPosition;
-        _context.Fade.Size = _fadeOriginalSize;
-        _context.Fade.ZIndex = _fadeOriginalZIndex;
+        ReleaseFullScreenFade(restoreColor: false);
     }
 
     private void AdvanceSimulatedInput()
@@ -302,11 +291,11 @@ internal sealed class BlackTowerEntranceEvent :
     bool ICutsceneCommandHost.GateOpen(string gate) =>
         gate == "palette-fade-done"
             ? !_context.Transitions.IsTransitioning
-            : throw Unsupported($"read gate '{gate}'");
+            : throw UnsupportedCommand($"read gate '{gate}'");
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
         if (textId is not (0x1003 or 0x1006))
-            throw Unsupported($"show TX_{textId:x4}");
+            throw UnsupportedCommand($"show TX_{textId:x4}");
         _context.ShowDialogue(message);
     }
 
@@ -330,7 +319,7 @@ internal sealed class BlackTowerEntranceEvent :
         string actor, int address, int value)
     {
         if (address != 0x38 || value is not (0 or 1))
-            throw Unsupported($"write {actor}.${address:x2}=${value:x2}");
+            throw UnsupportedCommand($"write {actor}.${address:x2}=${value:x2}");
         NpcCharacter guard = RequireGuard(actor);
         if (value == 1)
         {
@@ -361,17 +350,17 @@ internal sealed class BlackTowerEntranceEvent :
                 _simulatedTailFrames = 0;
                 return;
             default:
-                throw Unsupported($"write '{binding}'=${value:x2}");
+                throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         }
     }
 
     void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        throw Unsupported($"set global flag ${flag:x2}");
+        throw UnsupportedCommand($"set global flag ${flag:x2}");
 
     void ICutsceneCommandHost.OrRoomFlag(int flag)
     {
         if (flag is not (OracleSaveData.RoomFlag40 or OracleSaveData.RoomFlag80))
-            throw Unsupported($"OR room flag ${flag:x2}");
+            throw UnsupportedCommand($"OR room flag ${flag:x2}");
         _context.Rooms.SaveData.SetRoomFlag(
             _record.Group, _record.Room, (byte)flag);
     }
@@ -403,7 +392,7 @@ internal sealed class BlackTowerEntranceEvent :
                 }
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -418,12 +407,10 @@ internal sealed class BlackTowerEntranceEvent :
     private NpcCharacter RequireGuard(string actor)
     {
         if (actor != "Guard" || _guard is null)
-            throw Unsupported($"resolve actor '{actor}'");
+            throw UnsupportedCommand($"resolve actor '{actor}'");
         return _guard;
     }
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum BlackTowerEntranceEventEventStage

@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             !essence.SwirlActive ||
-            _roomEvents.DungeonEssence.Counter != 360 ||
+            _roomEvents.Get<DungeonEssenceEvent>().Counter != 360 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1,
             "Echoing Howl did not begin the common 360-update inward-energy " +
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             !_transitions.IsTransitioning || essence.SwirlActive ||
-            _roomEvents.DungeonEssence.TracksEssence ||
+            _roomEvents.Get<DungeonEssenceEvent>().TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,

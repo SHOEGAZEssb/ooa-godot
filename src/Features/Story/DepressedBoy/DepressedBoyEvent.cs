@@ -115,15 +115,8 @@ internal sealed class DepressedBoyEvent :
             Context.Inventory.TradeItem == value;
     }
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!Context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "boySubid07Script text-option branch has no completed choice result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("boySubid07Script text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

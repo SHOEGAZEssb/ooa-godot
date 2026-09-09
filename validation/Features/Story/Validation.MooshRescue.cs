@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             new(-3, -5), new(4, -5), new(-3, 8), new(4, 8),
             new(-5, -3), new(-5, 6), new(6, -3), new(6, 6)
         ];
-        MooshRescueEvent rescue = _roomEvents.MooshRescue;
+        MooshRescueEvent rescue = _roomEvents.Get<MooshRescueEvent>();
         MooshRescueEventDatabase database = rescue.Database;
         MooshRescueEventRecord record = database.Record;
 

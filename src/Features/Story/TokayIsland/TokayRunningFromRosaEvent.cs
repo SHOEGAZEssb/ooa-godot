@@ -7,16 +7,13 @@ namespace oracleofages;
 /// <summary>
 /// tokayRunningFromRosaScript for INTERAC_TOKAY $48:$0b.
 /// </summary>
-internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
+internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private TokayRunningFromRosaStage _stage;
     private TokayRunningFromRosaStage _nextStage;
     private NpcCharacter? _actor;
     private Vector2 _moveDirection;
     private int _counter;
-    private bool _inputLocked;
     private readonly TokayNativeDatabase _native = new();
     private Vector2 _position;
     private int _z;
@@ -25,13 +22,12 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
     internal TokayRunningFromRosaEvent(
         RoomEventContext context,
         TokayInteractionDatabase database)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokayRunningFromRosaStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokayRunningFromRosaStage Stage => _stage;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -39,10 +35,10 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
 
     public void Start(OracleRoomData room)
     {
-        if (!Matches(_context.Rooms.ActiveGroup, room))
+        if (!Matches(Context.Rooms.ActiveGroup, room))
             throw new InvalidOperationException(
                 $"tokayRunningFromRosaScript cannot start in " +
-                $"{_context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
+                $"{Context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
         _actor = FindActor() ?? throw new InvalidOperationException(
             "tokayRunningFromRosaScript lost INTERAC_TOKAY $48:$0b on room entry.");
         ((TokayCharacter)_actor).ScriptOwnsNativeUpdate = true;
@@ -66,7 +62,7 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
             return;
         if (_stage == TokayRunningFromRosaStage.LinkTriggerWait)
         {
-            if (Mathf.FloorToInt(_context.Player.Position.Y) == 0x50)
+            if (Mathf.FloorToInt(Context.Player.Position.Y) == 0x50)
             {
                 LockInput();
                 BeginWait(30, TokayRunningFromRosaStage.FirstText);
@@ -96,7 +92,7 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
                 EnterStage(_nextStage);
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -144,7 +140,7 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
             case TokayRunningFromRosaStage.Jump:
                 _speedZ = -0x1c0;
                 _z = 0;
-                _context.Sound.PlaySound(_database.SoundJump);
+                Context.Sound.PlaySound(Interactions.SoundJump);
                 _stage = TokayRunningFromRosaStage.Jumping;
                 // setzspeed and the first asm15 objectUpdateSpeedZ share this pass.
                 OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, 0x20);
@@ -162,9 +158,9 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
                 BeginActorMove(Vector2.Left, 43, TokayRunningFromRosaStage.Done);
                 break;
             case TokayRunningFromRosaStage.Done:
-                _context.Rooms.SaveData.SetRoomFlag(
-                    _context.Rooms.ActiveGroup,
-                    _context.Rooms.CurrentRoom.Id,
+                Context.Rooms.SaveData.SetRoomFlag(
+                    Context.Rooms.ActiveGroup,
+                    Context.Rooms.CurrentRoom.Id,
                     OracleSaveData.RoomFlag80);
                 _actor?.SetActive(false);
                 FinishInteraction();
@@ -195,25 +191,8 @@ internal sealed class TokayRunningFromRosaEvent : IRoomEntryEvent
     }
 
     private NpcCharacter? FindActor() =>
-        _context.Entities.Entities<NpcCharacter>()
+        Context.Entities.Entities<NpcCharacter>()
             .FirstOrDefault(npc => npc.Record is { Id: 0x48, SubId: 0x0b });
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
-    }
 
     private void FinishInteraction()
     {

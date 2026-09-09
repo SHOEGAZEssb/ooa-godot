@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
         const int tradeObtainedMask =
             1 << (TreasureDatabase.TreasureTradeItem & 7);
 
-        MaskSalesmanEvent maskEvent = _roomEvents.MaskSalesman;
+        MaskSalesmanEvent maskEvent = _roomEvents.Get<MaskSalesmanEvent>();
         MaskSalesmanEventDatabase database = maskEvent.Database;
         MaskSalesmanEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);

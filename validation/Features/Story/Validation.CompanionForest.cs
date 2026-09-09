@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x34);
         FailIf(_inventory.AnimalCompanion != 0x0d || _saveData.ReadWramByte(0xc610) != 0x0d ||
             _inventory.HasTreasure(0x0e) != hadFlute || _saveData.HasGlobalFlag(0x1d) ||
-            _roomEvents.CompanionForest.HasState,
+            _roomEvents.Get<CompanionForestEvent>().HasState,
             "Room 0:34 must assign Moosh without a flute and clear CAN_BUY_FLUTE before its progress guard.");
         for (int address = 0xcfd0; address < 0xcfe0; address++)
             FailIf(_entities.RuntimeState.ReadWramByte(address) != 0,
@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
             _transitions.BeginScroll(_player, Vector2I.Left, 0x34);
             for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
             {
-                FailIf(_dialogue.IsOpen || _roomEvents.CompanionForest.Flights.Count != 0,
+                FailIf(_dialogue.IsOpen || _roomEvents.Get<CompanionForestEvent>().Flights.Count != 0,
                     "Room 0:34 fairy advanced during scrolling.");
                 _transitions.UpdateScroll(1.0 / 60.0);
                 _entities.Update(1.0 / 60.0, _player);
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
             }
             _player.WarpTo(new Vector2(0x50, 0x48), recordSafe: false);
             StepRoomEventFrames(1);
-            FailIf(_roomEvents.CompanionForest.Flights.Count != 0, "Room 0:34 triggered at Link.xh == $50.");
+            FailIf(_roomEvents.Get<CompanionForestEvent>().Flights.Count != 0, "Room 0:34 triggered at Link.xh == $50.");
             _player.WarpTo(new Vector2(0x4f, 0x48), recordSafe: false);
             int choices = 0;
             int messages = 0;
@@ -77,10 +77,10 @@ public sealed partial class ValidationRoot
             }
             FailIf(messages != 4 || choices != 2 || !_saveData.HasGlobalFlag(0x42) ||
                 _saveData.HasGlobalFlag(0x2b) || !_saveData.HasRoomFlag(0, 0x34, 0x40) ||
-                _inventory.AnimalCompanion != companion || _roomEvents.CompanionForest.MenusDisabled,
+                _inventory.AnimalCompanion != companion || _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
                 $"Room 0:34 failed its fairy dialogue/departure for companion ${companion:x2}.");
             LoadValidationRoom(0, 0x34);
-            FailIf(_roomEvents.CompanionForest.HasState, "Completed room 0:34 introduction restarted.");
+            FailIf(_roomEvents.Get<CompanionForestEvent>().HasState, "Completed room 0:34 introduction restarted.");
         }
         GD.Print("Validated room 0:34 default assignment, all companion descriptions, fairy sequence and persistent flags.");
     }
@@ -125,10 +125,10 @@ public sealed partial class ValidationRoot
             if (_dialogue.IsOpen)
             {
                 messages.Add(_dialogue.CurrentMessage);
-                var frozen = _roomEvents.CompanionForest.Flights.Select(flight =>
+                var frozen = _roomEvents.Get<CompanionForestEvent>().Flights.Select(flight =>
                     (flight.XFixed, flight.YFixed, flight.Angle, flight.Counter1, flight.Counter2)).ToArray();
                 for (int paused = 0; paused < 12; paused++) _roomEvents.Update(1.0 / 60.0);
-                FailIf(!frozen.SequenceEqual(_roomEvents.CompanionForest.Flights.Select(flight =>
+                FailIf(!frozen.SequenceEqual(_roomEvents.Get<CompanionForestEvent>().Flights.Select(flight =>
                     (flight.XFixed, flight.YFixed, flight.Angle, flight.Counter1, flight.Counter2))),
                     "Companion forest fairy movement advanced while text was active.");
                 if (_saveData.ReadWramByte(0xc6b5) == companion - 0x0a && _player.IsHoldingItemTwoHands)
@@ -149,14 +149,14 @@ public sealed partial class ValidationRoot
         }
         FailIf(!_saveData.HasGlobalFlag(0x24) || !_saveData.HasGlobalFlag(0x23) ||
             _rooms.CurrentRoom.Id != 0x63 || !reward,
-            $"Forest rescue/flute handoff failed: room 0:{_rooms.CurrentRoom.Id:x2}, command {_roomEvents.CompanionForest.Instruction}, signal {_roomEvents.CompanionForest.Signal}, messages {messages.Count}.");
+            $"Forest rescue/flute handoff failed: room 0:{_rooms.CurrentRoom.Id:x2}, command {_roomEvents.Get<CompanionForestEvent>().Instruction}, signal {_roomEvents.Get<CompanionForestEvent>().Signal}, messages {messages.Count}.");
         for (int update = 0; update < 180 && !_saveData.HasGlobalFlag(0x2b); update++)
         {
             if (_dialogue.IsOpen) _dialogue.Close();
             _player.AdvanceApplicationUpdate(); StepRoomEventFrames(1);
         }
         FailIf(!_saveData.HasGlobalFlag(0x2b) || !_player.CompanionRideActive ||
-            _roomEvents.CompanionForest.MenusDisabled,
+            _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
             "Dimitri flute script did not wait for mounting before unscrambling the forest and releasing menus.");
         var text = new CompanionForestDatabase();
         int shift = (companion - 0x0b) * 7;
@@ -176,7 +176,7 @@ public sealed partial class ValidationRoot
             foreach (int room in new[] { 0x63, 0x81, 0x82 })
             {
                 LoadValidationRoom(0, room);
-                FailIf(_roomEvents.CompanionForest.HasState ||
+                FailIf(_roomEvents.Get<CompanionForestEvent>().HasState ||
                     _entities.Entities<NpcCharacter>().Any(npc => npc.Active && npc.Record.Id == 0x49),
                     $"Completed forest quest restarted an interaction in room 0:{room:x2}.");
             }
@@ -362,12 +362,12 @@ public sealed partial class ValidationRoot
         _transitions.BeginScroll(_player, Vector2I.Down, 0x73);
         FinishForestScroll();
         int guideTexts = 0;
-        for (int frame = 0; frame < 1000 && _roomEvents.CompanionForest.HasState; frame++)
+        for (int frame = 0; frame < 1000 && _roomEvents.Get<CompanionForestEvent>().HasState; frame++)
         {
             if (_dialogue.IsOpen) { guideTexts++; _dialogue.Close(); }
             StepRoomEventFrames(1);
         }
-        FailIf(guideTexts != 1 || _roomEvents.CompanionForest.MenusDisabled, "Forest guide failed to lead Link into the search.");
+        FailIf(guideTexts != 1 || _roomEvents.Get<CompanionForestEvent>().MenusDisabled, "Forest guide failed to lead Link into the search.");
         LoadValidationRoom(0, 0x82);
         var hints = _entities.Entities<NpcCharacter>().Where(npc => npc.Active && npc.Record.Id == 0x49).ToArray();
         FailIf(hints.Length != 3 || !hints.Select(npc => npc.Record.TextId).SequenceEqual(new[] { 0x1127, 0x1128, 0x1129 }),
@@ -399,13 +399,13 @@ public sealed partial class ValidationRoot
         _saveData.SetGlobalFlag(0x42, false);
         _saveData.SetGlobalFlag(0x2b);
         LoadValidationRoom(0, 0x34);
-        FailIf(_roomEvents.CompanionForest.HasState, "Forest $71:$08 triggered without a leftward scroll.");
+        FailIf(_roomEvents.Get<CompanionForestEvent>().HasState, "Forest $71:$08 triggered without a leftward scroll.");
         LoadValidationRoom(0, 0x35);
         _player.WarpTo(new Vector2(1, 0x48), recordSafe: false);
         _transitions.BeginScroll(_player, Vector2I.Left, 0x34);
         for (int frame = 0; frame < 60 && _transitions.ScrollActive; frame++)
         {
-            FailIf(_dialogue.IsOpen || _roomEvents.CompanionForest.Flights.Count != 0,
+            FailIf(_dialogue.IsOpen || _roomEvents.Get<CompanionForestEvent>().Flights.Count != 0,
                 "Forest $71:$08 began dialogue or flight during scrolling.");
             _transitions.UpdateScroll(1.0 / 60.0);
             _entities.Update(1.0 / 60.0, _player);
@@ -413,24 +413,24 @@ public sealed partial class ValidationRoot
         }
         _player.WarpTo(new Vector2(0x50, 0x48), recordSafe: false);
         StepRoomEventFrames(1);
-        FailIf(_dialogue.IsOpen || _roomEvents.CompanionForest.Flights.Count != 0,
+        FailIf(_dialogue.IsOpen || _roomEvents.Get<CompanionForestEvent>().Flights.Count != 0,
             "Forest introduction ignored the Link.xh < $50 trigger.");
         _player.WarpTo(new Vector2(0x4f, 0x48), recordSafe: false);
         StepRoomEventFrames(1);
-        FailIf(_roomEvents.CompanionForest.Flights.Count != 1,
+        FailIf(_roomEvents.Get<CompanionForestEvent>().Flights.Count != 1,
             "Forest introduction did not spawn fairy $49:$03 preset $0f.");
         // Exercise the native circular flight separately from the text command
         // stream: $20 angle steps, two updates each, then one signal increment.
-        var flight = _roomEvents.CompanionForest.Flights.Single();
+        var flight = _roomEvents.Get<CompanionForestEvent>().Flights.Single();
         for (int frame = 0; frame < 500 && flight.Stage != (int)FairyFlightStage.Circle; frame++)
             flight.UpdateFrame(frame);
-        FailIf(flight.Stage != (int)FairyFlightStage.Circle || _roomEvents.CompanionForest.Signal != 1,
+        FailIf(flight.Stage != (int)FairyFlightStage.Circle || _roomEvents.Get<CompanionForestEvent>().Signal != 1,
             "Forest fairy did not signal arrival before beginning its circle.");
         for (int frame = 0; frame < 63; frame++) flight.UpdateFrame(frame);
-        FailIf(_roomEvents.CompanionForest.Signal != 1,
+        FailIf(_roomEvents.Get<CompanionForestEvent>().Signal != 1,
             "Forest fairy circle completed before its 64th update.");
         flight.UpdateFrame(63);
-        FailIf(_roomEvents.CompanionForest.Signal != 2 || flight.Stage != (int)FairyFlightStage.WaitForSignal,
+        FailIf(_roomEvents.Get<CompanionForestEvent>().Signal != 2 || flight.Stage != (int)FairyFlightStage.WaitForSignal,
             "Forest fairy circle did not signal exactly on update 64.");
         int choices = 0;
         for (int frame = 0; frame < 600 && !_saveData.HasGlobalFlag(0x42); frame++)
@@ -446,8 +446,8 @@ public sealed partial class ValidationRoot
         FailIf(choices != 2 || !_saveData.HasGlobalFlag(0x42) || _saveData.HasGlobalFlag(0x2b) ||
             !_saveData.HasRoomFlag(0, 0x34, 0x40),
             "Forest introduction failed its repeat-choice loop or persistent lost/scrambled flags.");
-        _roomEvents.CompanionForest.Cancel();
-        FailIf(_roomEvents.CompanionForest.HasState || _roomEvents.CompanionForest.MenusDisabled,
+        _roomEvents.Get<CompanionForestEvent>().Cancel();
+        FailIf(_roomEvents.Get<CompanionForestEvent>().HasState || _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
             "Cancelling forest introduction retained actors, effects or menu ownership.");
         LoadValidationRoom(0, 0x63);
         _player.WarpTo(new Vector2(0x48, 0x7f), recordSafe: false);
@@ -460,7 +460,7 @@ public sealed partial class ValidationRoot
             _roomEvents.Update(1.0 / 60.0);
         }
         int guideTexts = 0;
-        for (int frame = 0; frame < 700 && _roomEvents.CompanionForest.HasState; frame++)
+        for (int frame = 0; frame < 700 && _roomEvents.Get<CompanionForestEvent>().HasState; frame++)
         {
             if (_dialogue.IsOpen)
             {
@@ -471,7 +471,7 @@ public sealed partial class ValidationRoot
             }
             StepRoomEventFrames(1);
         }
-        FailIf(guideTexts != 1 || _roomEvents.CompanionForest.HasState || _roomEvents.CompanionForest.MenusDisabled,
+        FailIf(guideTexts != 1 || _roomEvents.Get<CompanionForestEvent>().HasState || _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
             "Forest guide did not wait for its fairy to depart before releasing control.");
         GD.Print("Validated forest entry direction, scrolling/text freeze, Link coordinate guard, 64-update circle and cancellation.");
     }

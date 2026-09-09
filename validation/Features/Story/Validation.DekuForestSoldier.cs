@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         const int room = 0x81;
         const int mysterySeeds = 0x24;
         DekuForestSoldierEvent roomEvent =
-            _roomEvents.DekuForestSoldier;
+            _roomEvents.Get<DekuForestSoldierEvent>();
         DekuForestSoldierEventRecord record =
             new DekuForestSoldierEventDatabase().Record;
 

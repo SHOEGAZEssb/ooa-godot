@@ -101,13 +101,13 @@ internal sealed class GraveyardGateEvent :
     void ICutsceneCommandHost.SetInputEnabled(bool enabled)
     {
         if (!enabled)
-            throw Unsupported("disable input from the command stream");
+            throw UnsupportedCommand("disable input from the command stream");
         _context.Player.EndCutsceneControl();
         _inputEnabled = true;
     }
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.SetMusic(int music)
     {
@@ -116,7 +116,7 @@ internal sealed class GraveyardGateEvent :
         else if (music == 0xff)
             _context.Sound.PlayRoomMusic(_record.Group, _record.Room);
         else
-            throw Unsupported($"set music ${music:x2}");
+            throw UnsupportedCommand($"set music ${music:x2}");
     }
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
@@ -130,7 +130,7 @@ internal sealed class GraveyardGateEvent :
                 RemoveGateTiles2();
                 return;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -204,8 +204,6 @@ internal sealed class GraveyardGateEvent :
         (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
         (packed >> 4) * OracleRoomData.MetatileSize + 8);
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum GraveyardGateEventEventStage

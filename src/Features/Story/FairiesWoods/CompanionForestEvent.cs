@@ -33,7 +33,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     public bool HasState => _waitingForTrigger || _runner.Active || _flights.Count != 0 ||
         (_sparkles?.Count ?? 0) != 0 || _exclamationCounter != 0 || _giveFlutePending;
     public bool BlocksGameplay => InputLeaseHeld;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
     internal int Instruction => _runner.Instruction;
     internal int Signal => _context.Entities.RuntimeState.ReadWramByte(0xcfd2);
     internal IReadOnlyList<ForestFairyFlight> Flights => _flights;

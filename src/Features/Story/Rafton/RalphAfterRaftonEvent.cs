@@ -49,7 +49,7 @@ internal sealed class RalphAfterRaftonEvent :
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int ScriptCounter => _runner.Counter;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;

@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureDatabase.TreasureTradeItem, 2);
         LoadValidationRoom(2, 0x3f);
         TokayCharacter cook = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x05);
-        TokayCookEvent cooking = _roomEvents.TokayCook;
+        TokayCookEvent cooking = _roomEvents.Get<TokayCookEvent>();
         FailIf(!cooking.TryInteractNpc(cook), "Cook $48:$05 did not accept A.");
         _dialogue.Close();
         StepRoomEventFrames(31);
@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0xcb);
         NpcCharacter rosa = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x68);
         TokayAttachedVisualRoomEntity shovel = _entities.Entities<TokayAttachedVisualRoomEntity>().Single();
-        RosaShovelEvent digging = _roomEvents.RosaShovel;
+        RosaShovelEvent digging = _roomEvents.Get<RosaShovelEvent>();
         FailIf(shovel.FollowParent || shovel.ParentOffset != new Vector2(0x48, 0x38) ||
             !digging.TryInteractNpc(rosa), "Rosa did not initialize her stationary shovel.");
         _dialogue.Close();
@@ -108,17 +108,17 @@ public sealed partial class ValidationRoot
         FailIf(escape.FacingVector != Vector2I.Down,
             "Rosa escape did not turn down between its separate 30-update waits.");
         StepRoomEventFrames(30);
-        FailIf(_roomEvents.TokayRunningFromRosa.Stage != TokayRunningFromRosaStage.Jumping,
+        FailIf(_roomEvents.Get<TokayRunningFromRosaEvent>().Stage != TokayRunningFromRosaStage.Jumping,
             "Rosa escape did not start its native -$01c0 jump after both waits.");
-        for (int frame = 0; frame < 300 && _roomEvents.TokayRunningFromRosa.HasState; frame++)
+        for (int frame = 0; frame < 300 && _roomEvents.Get<TokayRunningFromRosaEvent>().HasState; frame++)
         {
             if (_dialogue.IsOpen) _dialogue.Close();
             StepRoomEventFrames(1);
         }
-        FailIf(_roomEvents.TokayRunningFromRosa.HasState ||
+        FailIf(_roomEvents.Get<TokayRunningFromRosaEvent>().HasState ||
             !_saveData.HasRoomFlag(1, 0xbb, OracleSaveData.RoomFlag80),
             "Rosa escape did not finish its remaining source moves and room flag.");
-        _roomEvents.TokayRunningFromRosa.Cancel();
+        _roomEvents.Get<TokayRunningFromRosaEvent>().Cancel();
         LoadValidationRoom(1, 0xcb);
         FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0,
             "Room loading retained the previous room's digging restriction.");
@@ -149,10 +149,10 @@ public sealed partial class ValidationRoot
             "Vine reaction added a jump sound or lost TX_0a6a.");
         _dialogue.Close();
         StepRoomEventFrames(1);
-        FailIf(vine.FacingVector != Vector2I.Down || !_roomEvents.TokayVineExplanation.TryInteractNpc(vine) ||
+        FailIf(vine.FacingVector != Vector2I.Down || !_roomEvents.Get<TokayVineExplanationEvent>().TryInteractNpc(vine) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a6b)),
             "Vine repeat did not require A and select TX_0a6b.");
-        _roomEvents.TokayVineExplanation.Cancel();
+        _roomEvents.Get<TokayVineExplanationEvent>().Cancel();
         _dialogue.Close();
 
         foreach (int level in new[] { 1, 2 })
@@ -161,15 +161,15 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureDatabase.TreasureShield, level);
             LoadValidationRoom(5, 0xe9);
             TokayCharacter holder = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x1d);
-            FailIf(holder.Accessory is null || !_roomEvents.TokayShieldUpgrade.TryInteractNpc(holder),
+            FailIf(holder.Accessory is null || !_roomEvents.Get<TokayShieldUpgradeEvent>().TryInteractNpc(holder),
                 $"Shield Tokay did not hold level ${level:x2}.");
             _dialogue.Close();
             StepRoomEventFrames(31);
             FailIf(!_saveData.HasRoomFlag(5, 0xe9, OracleSaveData.RoomFlag40) ||
                 !holder.Accessory!.Retired || !_dialogue.IsOpen ||
-                _roomEvents.TokayShieldUpgrade.Stage != TokayShieldUpgradeStage.Reward,
+                _roomEvents.Get<TokayShieldUpgradeEvent>().Stage != TokayShieldUpgradeStage.Reward,
                 "Shield handoff delayed bit $40 until after reward text or retained its accessory.");
-            _roomEvents.TokayShieldUpgrade.Cancel();
+            _roomEvents.Get<TokayShieldUpgradeEvent>().Cancel();
             _dialogue.Close();
         }
 
@@ -181,10 +181,10 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(5, 0xca);
         TokayHoldingItemCharacter returned = _entities.Entities<TokayHoldingItemCharacter>().Single();
         _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        FailIf(returned.ReturnedItemDialogue != 0x0a0c || !_roomEvents.TokayHoldingItem.TryInteractNpc(returned) ||
+        FailIf(returned.ReturnedItemDialogue != 0x0a0c || !_roomEvents.Get<TokayHoldingItemEvent>().TryInteractNpc(returned) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a0c)),
             "Returned holder recomputed its initialization snapshot without leaving.");
-        _roomEvents.TokayHoldingItem.Cancel();
+        _roomEvents.Get<TokayHoldingItemEvent>().Cancel();
         _dialogue.Close();
         LoadValidationRoom(5, 0xca);
         returned = _entities.Entities<TokayHoldingItemCharacter>().Single();
@@ -207,7 +207,7 @@ public sealed partial class ValidationRoot
             FailIf(scrub.Offer.Price != price || scrub.Offer.Parameter != level,
                 $"Business Scrub $ce:$00 in 1:{room:x2} lost its level ${level:x2} offer.");
             _inventory.AddRupees(999 - _inventory.Rupees);
-            FailIf(!_roomEvents.BusinessScrub.TryInteractNpc(scrub.Npc) ||
+            FailIf(!_roomEvents.Get<BusinessScrubEvent>().TryInteractNpc(scrub.Npc) ||
                 !_dialogue.CurrentMessage.Contains(price.ToString(), StringComparison.Ordinal),
                 "Island Business Scrub did not show its initialized price.");
             _dialogue.SubmitChoiceForValidation(0);
@@ -217,7 +217,7 @@ public sealed partial class ValidationRoot
                 "Island Business Scrub did not restore the priced shield and charge its BCD offer.");
             _dialogue.Close();
             StepRoomEventFrames(1);
-            FailIf(scrub.Talking || _roomEvents.BusinessScrub.HasState,
+            FailIf(scrub.Talking || _roomEvents.Get<BusinessScrubEvent>().HasState,
                 "Island Business Scrub did not return to its native idle after result text.");
         }
 

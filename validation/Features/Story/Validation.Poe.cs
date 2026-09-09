@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         const int tradeObtainedMask =
             1 << (TreasureDatabase.TreasureTradeItem & 7);
 
-        PoeEvent poeEvent = _roomEvents.Poe;
+        PoeEvent poeEvent = _roomEvents.Get<PoeEvent>();
         PoeEventDatabase database = poeEvent.Database;
         PoeEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
@@ -363,7 +363,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateRoom22ePoe()
     {
-        PoeEvent poeEvent = _roomEvents.Poe;
+        PoeEvent poeEvent = _roomEvents.Get<PoeEvent>();
         PoeEventDatabase database = poeEvent.Database;
         PoeEventRecord record = database.Record;
         int group = record.TombGroup;

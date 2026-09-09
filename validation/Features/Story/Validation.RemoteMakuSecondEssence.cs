@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         const int group = 1;
         const int room = 0x83;
         RemoteMakuSecondEssenceEvent cutscene =
-            _roomEvents.RemoteMakuSecondEssence;
+            _roomEvents.Get<RemoteMakuSecondEssenceEvent>();
         RemoteMakuEventRecord record = cutscene.Database.Record;
         var text = (CutsceneShowTextVariantsCommand)
             cutscene.Database.Commands[10];

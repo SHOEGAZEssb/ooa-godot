@@ -31,7 +31,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
 
     public bool HasState => _active;
     public bool BlocksGameplay => _active;
-    internal bool MenusDisabled => _active;
+    public bool MenusDisabled => _active;
     internal TokayTheftEventDatabase Database => _database;
     internal int ScriptCounter => _scriptCounter;
     internal int LinkFrame => _linkFrame;

@@ -35,11 +35,6 @@ internal sealed class ShootingGalleryEvent :
     private bool _equipsSaved;
     private ShootingGalleryFadeDirection _fadeDirection;
     private int _fadeCounter;
-    private bool _ownsFade;
-    private Vector2 _originalFadePosition;
-    private Vector2 _originalFadeSize;
-    private int _originalFadeZ;
-    private Color _originalFadeColor;
 
     internal ShootingGalleryEvent(RoomEventContext context)
     {
@@ -50,7 +45,7 @@ internal sealed class ShootingGalleryEvent :
 
     public bool HasState => _room is not null;
     public bool BlocksGameplay => _linkDisabled;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
     internal ShootingGallerySession? Session => _session;
     internal ShootingGalleryGameController? Controller => _controller;
     internal int CurrentCommandIndex =>
@@ -188,7 +183,7 @@ internal sealed class ShootingGalleryEvent :
         if (gate != PaletteFadeGate ||
             _fadeDirection == ShootingGalleryFadeDirection.None)
         {
-            throw Unsupported($"read gate '{gate}'");
+            throw UnsupportedCommand($"read gate '{gate}'");
         }
 
         _fadeCounter++;
@@ -219,15 +214,8 @@ internal sealed class ShootingGalleryEvent :
     int ICutsceneCommandHost.ReadMemory(string binding) =>
         ReadScriptMemory(binding);
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "Shooting-gallery choice closed without a text-option result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("Shooting-gallery choice closed without a text-option result.") == value;
 
     bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
     {
@@ -275,7 +263,7 @@ internal sealed class ShootingGalleryEvent :
         RequireKeeper(actor);
         if (address != 0x31 || value != 0)
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"write actor '{actor}' byte ${address:x2}=${value:x2}");
         }
         _buttonPressed = false;
@@ -298,7 +286,7 @@ internal sealed class ShootingGalleryEvent :
         }
         else
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"give treasure ${treasureId:x2}:${parameter:x2}");
         }
 
@@ -315,7 +303,7 @@ internal sealed class ShootingGalleryEvent :
     void ICutsceneCommandHost.SetMusic(int music)
     {
         if (music != _record.MinigameMusic)
-            throw Unsupported($"set music ${music:x2}");
+            throw UnsupportedCommand($"set music ${music:x2}");
         _context.Sound.PlayMusicIfChanged(music);
     }
 
@@ -402,7 +390,7 @@ internal sealed class ShootingGalleryEvent :
                 _context.Inventory.Heal(4);
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -442,7 +430,7 @@ internal sealed class ShootingGalleryEvent :
         "CanBuyFlute" => _context.Rooms.SaveData.HasGlobalFlag(
             _record.CanBuyFluteFlag) ? 1 : 0,
         "FinalRound" => RequireSession().Round == _record.Rounds ? 1 : 0,
-        _ => throw Unsupported($"read memory binding '{binding}'")
+        _ => throw UnsupportedCommand($"read memory binding '{binding}'")
     };
 
     private void DisableLinkAndMenus()
@@ -575,7 +563,7 @@ internal sealed class ShootingGalleryEvent :
 
     private void BeginFade(ShootingGalleryFadeDirection direction)
     {
-        OwnFadePresentation();
+        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _fadeDirection = direction;
         _fadeCounter = 0;
         _context.Fade.Color = new Color(
@@ -585,37 +573,13 @@ internal sealed class ShootingGalleryEvent :
             direction == ShootingGalleryFadeDirection.Out ? 0.0f : 1.0f);
     }
 
-    private void OwnFadePresentation()
-    {
-        if (_ownsFade)
-            return;
-        _ownsFade = true;
-        _originalFadePosition = _context.Fade.Position;
-        _originalFadeSize = _context.Fade.Size;
-        _originalFadeZ = _context.Fade.ZIndex;
-        _originalFadeColor = _context.Fade.Color;
-        _context.Fade.Position = Vector2.Zero;
-        _context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth,
-            OracleRoomData.ScreenHeight);
-        _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
-    }
-
     private void RestoreFadePresentation()
     {
         _fadeDirection = ShootingGalleryFadeDirection.None;
         _fadeCounter = 0;
-        if (!_ownsFade)
-            return;
-        _context.Fade.Position = _originalFadePosition;
-        _context.Fade.Size = _originalFadeSize;
-        _context.Fade.ZIndex = _originalFadeZ;
-        _context.Fade.Color = _originalFadeColor;
-        _ownsFade = false;
+        ReleaseFullScreenFade();
     }
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum ShootingGalleryScriptKind

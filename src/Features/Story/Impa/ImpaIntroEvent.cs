@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class ImpaIntroEvent :
     CutsceneCommandHost,
-    IRoomEvent,
+    IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
 {
@@ -107,6 +107,33 @@ internal sealed class ImpaIntroEvent :
 
     public bool MatchesEncounter(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;
+
+    public bool Matches(int group, OracleRoomData room) =>
+        MatchesEncounter(group, room) || MatchesHelp(group, room) || MatchesStone(group, room);
+
+    public void Start(OracleRoomData room)
+    {
+        int group = _context.Rooms.ActiveGroup;
+        if (MatchesEncounter(group, room))
+            StartEncounter(room);
+        else if (MatchesHelp(group, room))
+            StartHelp();
+        else if (MatchesStone(group, room))
+            StartStoneRoom();
+    }
+
+    internal bool TryTransferToRoom(int group, OracleRoomData room)
+    {
+        if (!CanTransferFollowing)
+            return false;
+        SuppressPlacedActorIfCompleted(group, room);
+        TransferFollowingActor(group, room);
+        if (MatchesStone(group, room))
+            StartStoneRoom();
+        else
+            LeaveStoneRoom();
+        return true;
+    }
 
     public bool MatchesHelp(int group, OracleRoomData room) =>
         group == _helpRecord.Group && room.Id == _helpRecord.Room;
@@ -909,14 +936,6 @@ internal sealed class ImpaIntroEvent :
             (byte)stone.FinalCollision,
             _context.AnimationTick());
         _context.RoomView.QueueRedraw();
-    }
-
-    private static Vector2I DirectionToward(Vector2 origin, Vector2 target)
-    {
-        int angle = (OracleObjectMovement.Shared.RelativeAngle(
-            origin, target) + 4) & 0x18;
-        Vector2 direction = OracleObjectMath.CardinalVector(angle);
-        return new Vector2I(Mathf.RoundToInt(direction.X), Mathf.RoundToInt(direction.Y));
     }
 
     internal void UpdateHelpFrame(bool upPressed)

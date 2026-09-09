@@ -167,15 +167,8 @@ internal sealed class ToiletHandEvent :
             Context.Inventory.TradeItem == value;
     }
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!Context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "toiletHandScript text-option branch has no completed choice.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("toiletHandScript text-option branch has no completed choice.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

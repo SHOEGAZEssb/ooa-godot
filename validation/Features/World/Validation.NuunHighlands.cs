@@ -9,7 +9,7 @@ public partial class ValidationRoot
     private void ValidateNuunHighlands()
     {
         var data = new CarpenterDatabase();
-        var quest = _roomEvents.Carpenters;
+        var quest = _roomEvents.Get<CarpenterEvent>();
         int[] rooms = [0x16, 0x17, 0x26, 0x27, 0x35, 0x36, 0x37];
         _saveData.SetLinkedGame(false);
         _saveData.SetGlobalFlag(data.Constant("bridge-flag"), false);

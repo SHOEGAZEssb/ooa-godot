@@ -289,9 +289,9 @@ public sealed partial class ValidationRoot
         int makuMapTextBefore = _saveData.MakuMapTextPresent;
         bool linkedBefore = _saveData.IsLinkedGame;
         WingDungeonCollapseEvent collapse =
-            _roomEvents.WingDungeonCollapse;
+            _roomEvents.Get<WingDungeonCollapseEvent>();
         RemoteMakuWingDungeonEvent remoteMaku =
-            _roomEvents.RemoteMakuWingDungeon;
+            _roomEvents.Get<RemoteMakuWingDungeonEvent>();
         BraceletDatabaseRecord braceletData = new BraceletDatabase().Data;
         Vector2 rock = new(0x38, 0x48);
 
@@ -605,7 +605,7 @@ public sealed partial class ValidationRoot
     private void AssertRoom083FinalFacade()
     {
         WingDungeonCollapseRecord record =
-            _roomEvents.WingDungeonCollapse.Record;
+            _roomEvents.Get<WingDungeonCollapseEvent>().Record;
         int index = 0;
         for (int y = 0; y < record.FacadeHeight; y++)
         for (int x = 0; x < record.FacadeWidth; x++)

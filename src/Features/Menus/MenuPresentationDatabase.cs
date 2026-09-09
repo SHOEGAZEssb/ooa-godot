@@ -79,7 +79,8 @@ internal sealed class MenuPresentationDatabase
                 ["name-lower-option-cursor"] = 2,
                 ["name-entry-cursor"] = 1,
                 ["secret-entry-cursor"] = 1,
-                ["save-quit-acorn"] = 1
+                ["save-quit-acorn"] = 1,
+                ["hero-file"] = 2
             });
         LoadOamLayouts(
             "res://assets/oracle/menu/ring_oam.tsv",

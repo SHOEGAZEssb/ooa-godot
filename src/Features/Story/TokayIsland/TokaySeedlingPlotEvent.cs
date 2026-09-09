@@ -6,10 +6,8 @@ namespace oracleofages;
 /// <summary>
 /// tokayAtSeedlingPlotScript for INTERAC_TOKAY $48:$11.
 /// </summary>
-internal sealed class TokaySeedlingPlotEvent : IRoomEvent
+internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private readonly TokaySeedlingPlotDatabase _plotDatabase;
     private readonly TokaySeedlingPlotRecord _record;
     private TokaySeedlingPlotStage _stage;
@@ -18,21 +16,19 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
     private int _moveAngle;
     private Vector2 _precisePosition;
     private Vector2I _towardDirection;
-    private bool _inputLocked;
 
     internal TokaySeedlingPlotEvent(
         RoomEventContext context,
         TokayInteractionDatabase database,
         TokaySeedlingPlotDatabase plotDatabase)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
         _plotDatabase = plotDatabase;
         _record = plotDatabase.Record;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokaySeedlingPlotStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokaySeedlingPlotStage Stage => _stage;
     internal int Counter => _counter;
     internal int MoveAngle => _moveAngle;
@@ -46,13 +42,13 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
         FaceActorTowardLink();
         if (CurrentRoomFlag(checked((byte)_record.RoomFlag)))
         {
-            Show(_context.Inventory.HasTreasure(_database.TreasureScentSeeds)
+            Show(Context.Inventory.HasTreasure(Interactions.TreasureScentSeeds)
                 ? 0x0a44
                 : 0x0a43);
             _stage = TokaySeedlingPlotStage.DialogueOnly;
             return true;
         }
-        if (!_context.Inventory.HasTreasure(_database.TreasureScentSeedling))
+        if (!Context.Inventory.HasTreasure(Interactions.TreasureScentSeedling))
         {
             Show(0x0a40);
             _stage = TokaySeedlingPlotStage.DialogueOnly;
@@ -88,7 +84,7 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -160,15 +156,15 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
     {
         NpcCharacter actor = RequireActor();
         actor.SetFacingDirection(_towardDirection);
-        _context.Inventory.LoseTreasure(_database.TreasureScentSeedling);
-        OracleSaveData save = _context.Rooms.SaveData;
-        int room = _context.Rooms.CurrentRoom.Id;
+        Context.Inventory.LoseTreasure(Interactions.TreasureScentSeedling);
+        OracleSaveData save = Context.Rooms.SaveData;
+        int room = Context.Rooms.CurrentRoom.Id;
         save.SetRoomFlag(_record.Group, room, checked((byte)_record.RoomFlag));
         save.SetRoomFlag(
             _record.Group - 1, room, checked((byte)_record.RoomFlag));
-        _context.Entities.Spawn<TokaySeedlingDecorationRoomEntity>(
+        Context.Entities.Spawn<TokaySeedlingDecorationRoomEntity>(
             new TokaySeedlingDecorationSpawn(_record));
-        _context.Sound.PlaySound(_database.SoundGetSeed);
+        Context.Sound.PlaySound(Interactions.SoundGetSeed);
         _counter = _record.DoneWait;
         _stage = TokaySeedlingPlotStage.DoneTextWait;
     }
@@ -179,7 +175,7 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
 
     private int CardinalAngleTowardLink(NpcCharacter actor) =>
         (OracleObjectMovement.Shared.RelativeAngle(
-            actor.Position, _context.Player.Position) + 0x04) & 0x18;
+            actor.Position, Context.Player.Position) + 0x04) & 0x18;
 
     private static Vector2I Direction(int angle) =>
         new(
@@ -190,27 +186,6 @@ internal sealed class TokaySeedlingPlotEvent : IRoomEvent
     {
         NpcCharacter actor = RequireActor();
         actor.SetFacingDirection(Direction(CardinalAngleTowardLink(actor)));
-    }
-
-    private bool CurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.HasRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
     }
 
     private void FinishInteraction()

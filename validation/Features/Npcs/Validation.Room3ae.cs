@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 3;
         const int room = 0xae;
-        HarpOfAgesEvent harpEvent = _roomEvents.HarpOfAges;
+        HarpOfAgesEvent harpEvent = _roomEvents.Get<HarpOfAgesEvent>();
         HarpOfAgesEventDatabase database = harpEvent.Database;
         HarpOfAgesEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);

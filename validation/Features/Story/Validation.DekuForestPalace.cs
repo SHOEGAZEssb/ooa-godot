@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 1;
         const int mysterySeeds = 0x24;
-        DekuForestPalaceEvent palace = _roomEvents.DekuForestPalace;
+        DekuForestPalaceEvent palace = _roomEvents.Get<DekuForestPalaceEvent>();
         var database = new DekuForestPalaceEventDatabase();
         DekuForestPalaceEventRecord record = database.Record;
         CutsceneShowTextCommand[] palaceTextCommands =

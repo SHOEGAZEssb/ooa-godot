@@ -21,10 +21,6 @@ internal abstract class RemoteMakuEvent :
     private RemoteMakuConfettiEffect? _confetti;
     private int _textboxFlags;
     private int _dontUpdateStatusBar;
-    private Vector2 _fadeOriginalPosition;
-    private Vector2 _fadeOriginalSize;
-    private int _fadeOriginalZIndex;
-    private bool _fadePresentationOwned;
 
     protected RemoteMakuEvent(
         RoomEventContext context,
@@ -101,7 +97,7 @@ internal abstract class RemoteMakuEvent :
     private void SpawnConfetti(RemoteMakuConfettiKind kind)
     {
         if (_database.Record.ConfettiKind != kind)
-            throw Unsupported($"spawn {kind} confetti");
+            throw UnsupportedCommand($"spawn {kind} confetti");
         RemoveConfetti();
         Vector2 cameraOrigin = Context.RoomCamera.Position - new Vector2(
             OracleRoomData.ViewportWidth / 2.0f,
@@ -127,30 +123,10 @@ internal abstract class RemoteMakuEvent :
         _confetti = null;
     }
 
-    private void OwnFullScreenFade()
-    {
-        if (_fadePresentationOwned)
-            return;
-        _fadePresentationOwned = true;
-        _fadeOriginalPosition = Context.Fade.Position;
-        _fadeOriginalSize = Context.Fade.Size;
-        _fadeOriginalZIndex = Context.Fade.ZIndex;
-        Context.Fade.Position = Vector2.Zero;
-        Context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth,
-            OracleRoomData.ScreenHeight);
-        Context.Fade.ZIndex = Context.Hud.ZIndex + 1;
-    }
-
     private void RestoreFadePresentation()
     {
         Context.Fade.Color = new Color(1, 1, 1, 0);
-        if (!_fadePresentationOwned)
-            return;
-        Context.Fade.Position = _fadeOriginalPosition;
-        Context.Fade.Size = _fadeOriginalSize;
-        Context.Fade.ZIndex = _fadeOriginalZIndex;
-        _fadePresentationOwned = false;
+        ReleaseFullScreenFade(restoreColor: false);
     }
 
     private bool UpdatePaletteFade(
@@ -169,11 +145,11 @@ internal abstract class RemoteMakuEvent :
                 Context.Hud.SetHiddenStatusBarFade(Colors.Black, progress);
                 break;
             case "FadeInWhite":
-                OwnFullScreenFade();
+                CaptureFullScreenFade(Context.Hud.ZIndex + 1);
                 Context.Fade.Color = new Color(1, 1, 1, 1.0f - progress);
                 break;
             default:
-                throw Unsupported($"update native handler '{handler}'");
+                throw UnsupportedCommand($"update native handler '{handler}'");
         }
 
         if (commandUpdate + 1 < frames)
@@ -186,7 +162,7 @@ internal abstract class RemoteMakuEvent :
     RoomEventContext ICutsceneCommandHost.Context => Context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) => false;
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -195,7 +171,7 @@ internal abstract class RemoteMakuEvent :
             ? record.LinkedTextId
             : record.StandardTextId;
         if (textId != expectedText)
-            throw Unsupported($"show text TX_{textId:x4}");
+            throw UnsupportedCommand($"show text TX_{textId:x4}");
         int mapText = Context.Rooms.SaveData.IsLinkedGame
             ? record.LinkedMapText
             : record.StandardMapText;
@@ -217,7 +193,7 @@ internal abstract class RemoteMakuEvent :
                 _dontUpdateStatusBar = value;
                 break;
             default:
-                throw Unsupported($"write '{binding}'=${value:x2}");
+                throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         }
     }
 
@@ -225,7 +201,7 @@ internal abstract class RemoteMakuEvent :
     {
         RemoteMakuEventRecord record = _database.Record;
         if (music != record.Music)
-            throw Unsupported($"set music ${music:x2}");
+            throw UnsupportedCommand($"set music ${music:x2}");
         Context.Sound.PlaySound(music);
     }
 
@@ -233,7 +209,7 @@ internal abstract class RemoteMakuEvent :
     {
         RemoteMakuEventRecord record = _database.Record;
         if (flag != record.RoomFlag)
-            throw Unsupported($"set room flag ${flag:x2}");
+            throw UnsupportedCommand($"set room flag ${flag:x2}");
         Context.Rooms.SaveData.SetRoomFlag(
             record.Group,
             record.Room,
@@ -269,7 +245,7 @@ internal abstract class RemoteMakuEvent :
                     Context.Rooms.SaveData.MakuTreeState + 1));
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -281,7 +257,7 @@ internal abstract class RemoteMakuEvent :
         string payload)
     {
         if (actor is not null || !string.IsNullOrEmpty(payload))
-            throw Unsupported($"update native handler '{handler}' payload");
+            throw UnsupportedCommand($"update native handler '{handler}' payload");
         return UpdatePaletteFade(handler, commandUpdate, frames);
     }
 
@@ -294,8 +270,6 @@ internal abstract class RemoteMakuEvent :
             RemoveConfetti();
     }
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum RemoteMakuEventStage

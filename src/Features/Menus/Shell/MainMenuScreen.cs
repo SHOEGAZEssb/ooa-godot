@@ -37,6 +37,9 @@ public partial class MainMenuScreen : Node2D
     private Texture2D _nameKeyboardGlyphFont = null!;
     private Texture2D[] _fileHudTileTextures = null!;
     private Texture2D[] _eraseHudTileTextures = null!;
+    private Texture2D[] _erasePartialHearts = null!;
+    private int? _eraseHealth;
+    private int _copySource = -1;
     private Image _hudTiles = null!;
     private Image _titleSprites = null!;
     private Image _fileSprites = null!;
@@ -70,6 +73,8 @@ public partial class MainMenuScreen : Node2D
     public string EnteredName => new string(_enteredName).TrimEnd(' ');
     public bool SaveErrorVisible { get; private set; }
     internal int WhiteFadeOffset { get; private set; }
+    internal bool TitleBlinkVisible => _titleBlink;
+    internal int? EraseHealth => _eraseHealth;
 
     public override void _Ready()
     {
@@ -113,6 +118,8 @@ public partial class MainMenuScreen : Node2D
         _nameKeyboardGlyphFont = BuildFontTexture(_fileSpritePalette[1, 2]);
         _fileHudTileTextures = BuildHudTileTextures(_fileBgPalette);
         _eraseHudTileTextures = BuildHudTileTextures(_eraseBgPalette);
+        _erasePartialHearts = BuildHudTileTextures(_eraseBgPalette,
+            LoadPng("res://assets/oracle/gfx/gfx_partial_hearts.png"));
         _title = BuildTitleTexture();
         _fileMenu = BuildFileMenuTexture();
         _copyMenu = BuildCopyMenuTexture();
@@ -184,7 +191,7 @@ public partial class MainMenuScreen : Node2D
         _fadeMaterial.SetShaderParameter("fade_offset", WhiteFadeOffset);
         QueueRedraw();
     }
-    public void ShowFileSelect() { CurrentPage = Page.FileSelect; Cursor = 0; Choice = 0; QueueRedraw(); }
+    public void ShowFileSelect() { CurrentPage = Page.FileSelect; Cursor = 0; Choice = 0; _eraseHealth = null; QueueRedraw(); }
     public void ShowNewFileOptions(int slot) { CurrentPage = Page.NewFileOptions; SelectedSlot = slot; Cursor = 0; QueueRedraw(); }
     public void ShowNameEntry(int slot) => ShowNameEntry(slot, string.Empty);
 
@@ -222,11 +229,21 @@ public partial class MainMenuScreen : Node2D
         QueueRedraw();
         return alreadySelected;
     }
+    internal bool SelectNameOkay()
+    {
+        bool alreadySelected = NameCursor >= 0x50 && _nameLowerChoice == 2;
+        // textInput_start selects $5a; horizontal navigation to OK selects
+        // $56 instead. Preserve that column when moving back into the grid.
+        NameCursor = 0x5a;
+        _nameLowerChoice = 2;
+        QueueRedraw();
+        return alreadySelected;
+    }
     public void ShowTextSpeed(int slot, int speed) { CurrentPage = Page.TextSpeed; SelectedSlot = slot; Cursor = slot; TextSpeed = Math.Clamp(speed, 0, 4); QueueRedraw(); }
-    public void ShowCopySource() { CurrentPage = Page.CopySource; Cursor = 0; QueueRedraw(); }
-    public void ShowCopyDestination(int source) { CurrentPage = Page.CopyDestination; Cursor = (source + 1) % 3; QueueRedraw(); }
+    public void ShowCopySource() { CurrentPage = Page.CopySource; Cursor = 3; Choice = 0; QueueRedraw(); }
+    public void ShowCopyDestination(int source) { CurrentPage = Page.CopyDestination; _copySource = source; Cursor = source == 0 ? 1 : 0; Choice = 0; QueueRedraw(); }
     public void ShowCopyConfirm(int destination) { CurrentPage = Page.CopyConfirm; SelectedSlot = destination; Choice = 0; QueueRedraw(); }
-    public void ShowEraseSelect() { CurrentPage = Page.EraseSelect; Cursor = 0; QueueRedraw(); }
+    public void ShowEraseSelect() { CurrentPage = Page.EraseSelect; Cursor = 3; Choice = 0; QueueRedraw(); }
     public void ShowEraseConfirm(int slot) { CurrentPage = Page.EraseConfirm; SelectedSlot = slot; Choice = 0; QueueRedraw(); }
     public void ShowNotice(string text) { CurrentPage = Page.Notice; _notice = text; QueueRedraw(); }
     public void ShowSaveError()
@@ -240,6 +257,7 @@ public partial class MainMenuScreen : Node2D
     public void SetChoice(int choice) { Choice = choice; QueueRedraw(); }
     public void SetSelectedSlot(int slot) => SelectedSlot = slot;
     public void SetTextSpeed(int speed) { TextSpeed = speed; QueueRedraw(); }
+    internal void SetEraseHealth(int quarters) { _eraseHealth = quarters; QueueRedraw(); }
 
     public void AppendNameCharacter(char character)
     {
@@ -378,7 +396,7 @@ public partial class MainMenuScreen : Node2D
             DrawSelectedFileActor();
 
         Vector2 cursor = Cursor < 3
-            ? new Vector2(8, 52 + Cursor * 24)
+            ? new Vector2(CurrentPage == Page.CopyDestination ? 80 : 8, 52 + Cursor * 24)
             : new Vector2(Choice == 0 ? 34 : 90, 122);
         DrawAcorn(cursor);
     }
@@ -393,7 +411,9 @@ public partial class MainMenuScreen : Node2D
             // Saves created by development builds predating the menu have no
             // encoded name. Keep them visibly selectable without rewriting them.
             string name = save.LinkName.Length > 0 ? save.LinkName : "LINK";
-            DrawText(name, new Vector2(24, 48 + slot * 24), _fileFont);
+            bool copySource = CurrentPage is Page.CopyDestination or Page.CopyConfirm && slot == _copySource;
+            DrawText(name, new Vector2(24, 48 + slot * 24),
+                copySource ? _nameKeyboardGlyphFont : _fileFont);
         }
     }
 
@@ -410,7 +430,12 @@ public partial class MainMenuScreen : Node2D
             return;
         }
 
-        if (save.IsCompleted)
+        if ((save.ReadWramByte(0xc613) & 1) != 0)
+            foreach (MenuOamPart part in MenuPresentationDatabase.Shared.FileOam("hero-file"))
+                DrawFileOamPart(part, Vector2.Zero);
+
+        // fileSelectDrawLink checks the linked flag before completion.
+        if (save.IsCompleted && !save.IsLinkedGame)
         {
             DrawLinkPart(_actorFrame ? 0x02 : 0x00, 0x58, _actorFrame ? 0x20 : 0x00);
             DrawLinkPart(_actorFrame ? 0x00 : 0x02, 0x60, _actorFrame ? 0x20 : 0x00);
@@ -450,11 +475,16 @@ public partial class MainMenuScreen : Node2D
 
         int hearts = Math.Clamp(save.MaxHealthQuarters / 4, 0, 20);
         int heartsPerRow = save.MaxHealthQuarters >= 14 * 4 + 1 ? 8 : 7;
+        int health = _eraseHealth ?? save.MaxHealthQuarters;
         for (int heart = 0; heart < hearts; heart++)
         {
-            DrawHudTile(0x0a, new Vector2(
+            Vector2 position = new(
                 80 + heart % heartsPerRow * 8,
-                80 + heart / heartsPerRow * 8));
+                80 + heart / heartsPerRow * 8);
+            int quarters = Math.Clamp(health - heart * 4, 0, 4);
+            if (quarters is > 0 and < 4)
+                DrawTexture(_erasePartialHearts[quarters - 1], position);
+            else DrawHudTile(quarters == 4 ? 0x0a : 0x09, position);
         }
     }
 
@@ -535,7 +565,7 @@ public partial class MainMenuScreen : Node2D
             if (_slots[SelectedSlot] is OracleSaveData selected)
                 DrawFileSummary(selected);
         }
-        DrawAcorn(new Vector2(8, 52 + SelectedSlot * 24));
+        DrawAcorn(new Vector2(CurrentPage == Page.CopyConfirm ? 80 : 8, 52 + SelectedSlot * 24));
         DrawAcorn(new Vector2(Choice == 0 ? 34 : 90, 122));
     }
 
@@ -571,10 +601,11 @@ public partial class MainMenuScreen : Node2D
             ? _eraseHudTileTextures
             : _fileHudTileTextures;
 
-    private Texture2D[] BuildHudTileTextures(Color[,] palette)
+    private Texture2D[] BuildHudTileTextures(Color[,] palette, Image? source = null)
     {
-        int columns = _hudTiles.GetWidth() / 8;
-        int count = columns * (_hudTiles.GetHeight() / 8);
+        source ??= _hudTiles;
+        int columns = source.GetWidth() / 8;
+        int count = columns * (source.GetHeight() / 8);
         var textures = new Texture2D[count];
         for (int tile = 0; tile < count; tile++)
         {
@@ -582,7 +613,7 @@ public partial class MainMenuScreen : Node2D
             for (int y = 0; y < 8; y++)
             for (int x = 0; x < 8; x++)
             {
-                Color pixel = _hudTiles.GetPixel(
+                Color pixel = source.GetPixel(
                     tile % columns * 8 + x, tile / columns * 8 + y);
                 output.SetPixel(x, y, palette[6, Shade(pixel)]);
             }

@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x20);
             LoadValidationRoom(0, 0xaa);
             NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
-            FailIf(!_roomEvents.TokayDimitri.TryInteractNpc(first), "Tokay $48:$0f refused the Ember Seed trade.");
+            FailIf(!_roomEvents.Get<TokayDimitriEvent>().TryInteractNpc(first), "Tokay $48:$0f refused the Ember Seed trade.");
             _dialogue.Close();
             StepRoomEventFrames(1);
             FailIf(!_dialogue.ChoiceActive, "Tokay Ember Seed trade did not offer TX_0a20.");
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
         BeginDeparture();
         NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
         NpcCharacter second = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x10 });
-        FailIf(_roomEvents.TokayDimitri.Stage != TokayDimitriStage.Departing ||
+        FailIf(_roomEvents.Get<TokayDimitriEvent>().Stage != TokayDimitriStage.Departing ||
             first.Position != new Vector2(0x18, 0x48) || second.Position != new Vector2(0x38, 0x58) ||
             !first.Visible || !second.Visible || (_saveData.ReadWramByte(0xc647) & 2) != 0,
             "Closing TX_0a25 must initialize both moveleft counters without moving/deleting actors or completing the rescue.");
@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
             "Tokay $48:$0f moved/deleted on counter2's zero update.");
         StepRoomEventFrames(1);
         FailIf(first.Active || !second.Active || second.Position.X != 0x16 ||
-            _roomEvents.TokayDimitri.MenusDisabled || !_player.CutsceneControlled ||
+            _roomEvents.Get<TokayDimitriEvent>().MenusDisabled || !_player.CutsceneControlled ||
             (_saveData.ReadWramByte(0xc647) & 2) != 0,
             "First Tokay scriptend must delete only $48:$0f and enable menus while $48:$10 continues.");
         StepRoomEventFrames(14);
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
         FailIf(!second.Active || (_saveData.ReadWramByte(0xc647) & 2) != 0,
             "Tokay $48:$10 completed the rescue on counter2's zero update.");
         StepRoomEventFrames(1);
-        FailIf(second.Active || _roomEvents.TokayDimitri.Stage != TokayDimitriStage.Inactive || _player.CutsceneControlled ||
+        FailIf(second.Active || _roomEvents.Get<TokayDimitriEvent>().Stage != TokayDimitriStage.Inactive || _player.CutsceneControlled ||
             (_saveData.ReadWramByte(0xc647) & 2) == 0,
             "Second Tokay scriptend did not set wDimitriState bit 1, delete $48:$10, and release Link.");
         LoadValidationRoom(0, 0xaa);
@@ -69,8 +69,8 @@ public sealed partial class ValidationRoot
 
         BeginDeparture();
         StepRoomEventFrames(4);
-        _roomEvents.TokayDimitri.Cancel();
-        FailIf(_roomEvents.TokayDimitri.HasState || _player.CutsceneControlled ||
+        _roomEvents.Get<TokayDimitriEvent>().Cancel();
+        FailIf(_roomEvents.Get<TokayDimitriEvent>().HasState || _player.CutsceneControlled ||
             (_saveData.ReadWramByte(0xc647) & 2) != 0 ||
             _entities.Entities<TokayRescueEmberRoomEntity>().Any(effect => !effect.Finished),
             "Cancelling a partial Tokay departure retained input ownership or marked the rescue complete.");
@@ -148,7 +148,7 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x20);
         LoadValidationRoom(0, 0xaa);
         NpcCharacter tokay = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
-        FailIf(!_roomEvents.TokayDimitri.TryInteractNpc(tokay), "Tokay Ember Seed effect test could not start the trade.");
+        FailIf(!_roomEvents.Get<TokayDimitriEvent>().TryInteractNpc(tokay), "Tokay Ember Seed effect test could not start the trade.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         _dialogue.SubmitChoiceForValidation(0);
@@ -208,7 +208,7 @@ public sealed partial class ValidationRoot
         standalone.UpdateNative(false);
         for (int frame = 0; frame < 58; frame++) standalone.UpdateNative(true);
         FailIf(!standalone.Finished, "Tokay $8f flame timer froze under wTextIsActive.");
-        _roomEvents.TokayDimitri.Cancel();
+        _roomEvents.Get<TokayDimitriEvent>().Cancel();
         GD.Print("Validated Tokay rescue $8f seed graphics/arc, ordered spawn updates, dialogue landing gate, " +
             "animated 58-update flames, always-update behavior, and room-owned cleanup.");
     }

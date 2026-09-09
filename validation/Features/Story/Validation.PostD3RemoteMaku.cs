@@ -8,9 +8,9 @@ public sealed partial class ValidationRoot
     {
         const int group = 0;
         const int room = 0xba;
-        PostD3RemoteMakuEvent postD3 = _roomEvents.PostD3RemoteMaku;
+        PostD3RemoteMakuEvent postD3 = _roomEvents.Get<PostD3RemoteMakuEvent>();
         RemoteMakuThirdEssenceEvent remote =
-            _roomEvents.RemoteMakuThirdEssence;
+            _roomEvents.Get<RemoteMakuThirdEssenceEvent>();
         PostD3RemoteMakuRecord record = postD3.Database.Record;
         RemoteMakuEventRecord remoteRecord = remote.Database.Record;
         var remoteText = (CutsceneShowTextVariantsCommand)

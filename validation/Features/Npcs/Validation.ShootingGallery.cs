@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
             int originalA = _inventory.EquippedA;
 
             LoadValidationRoom(group, roomId);
-            ShootingGalleryEvent gallery = _roomEvents.ShootingGallery;
+            ShootingGalleryEvent gallery = _roomEvents.Get<ShootingGalleryEvent>();
             ShootingGalleryCharacter keeper =
                 _entities.Entities<ShootingGalleryCharacter>().Single();
             FailIf(

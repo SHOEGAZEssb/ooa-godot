@@ -5,26 +5,22 @@ namespace oracleofages;
 /// <summary>
 /// tokayWithShieldUpgradeScript for INTERAC_TOKAY $48:$1d.
 /// </summary>
-internal sealed class TokayShieldUpgradeEvent : IRoomEvent
+internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private TokayShieldUpgradeStage _stage;
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
     private int _counter;
-    private bool _inputLocked;
 
     internal TokayShieldUpgradeEvent(
         RoomEventContext context,
         TokayInteractionDatabase database)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokayShieldUpgradeStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokayShieldUpgradeStage Stage => _stage;
 
     internal bool TryInteractNpc(NpcCharacter npc)
@@ -50,7 +46,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
     {
         var actor = _actor as TokayCharacter;
         UpdateScript();
-        actor?.RunNativeUpdate(_context.Player);
+        actor?.RunNativeUpdate(Context.Player);
     }
 
     private void UpdateScript()
@@ -82,7 +78,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -104,7 +100,7 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
     public void Cancel()
     {
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
-        _reward?.Finish(_context.Player);
+        _reward?.Finish(Context.Player);
         _reward = null;
         UnlockInput();
         _actor = null;
@@ -114,17 +110,17 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
 
     private void GiveShieldUpgrade()
     {
-        int parameter = _context.Inventory.ShieldLevel < 2 ? 1 : 2;
-        _actor?.SetScriptAnimation(_database.Animation(0x02));
+        int parameter = Context.Inventory.ShieldLevel < 2 ? 1 : 2;
+        _actor?.SetScriptAnimation(Interactions.Animation(0x02));
         if (_actor is TokayCharacter tokay)
         {
             if (tokay.Accessory is { } accessory) accessory.Retired = true;
             tokay.SetFacingDirection(Godot.Vector2I.Down);
             tokay.NativeAnimation = TokayAnimationMode.FaceLink;
         }
-        _reward = _context.GrantScriptTreasure(
-            _context.Rooms.ActiveGroup,
-            _context.Rooms.CurrentRoom.Id,
+        _reward = Context.GrantScriptTreasure(
+            Context.Rooms.ActiveGroup,
+            Context.Rooms.CurrentRoom.Id,
             TreasureDatabase.TreasureShield,
             parameter,
             $"TREASURE_OBJECT_SHIELD_{parameter:x2}",
@@ -132,31 +128,6 @@ internal sealed class TokayShieldUpgradeEvent : IRoomEvent
             objectParameter: parameter + 1);
         SetCurrentRoomFlag(OracleSaveData.RoomFlag40);
         _stage = TokayShieldUpgradeStage.Reward;
-    }
-
-    private bool CurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.HasRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void SetCurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.SetRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
     }
 
     private void FinishInteraction()

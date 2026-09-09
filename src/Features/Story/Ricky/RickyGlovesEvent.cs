@@ -35,7 +35,7 @@ internal sealed class RickyGlovesEvent :
     RoomEventContext ICutsceneCommandHost.Context => Context;
     internal RickyGlovesEventDatabase Database => _database;
     internal NpcCharacter? RickyActor => _placedActor;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
 
     public bool Matches(int group, OracleRoomData room) =>
         !CompanionRuntimeState.AnyActive(Context.Entities.RuntimeState) &&

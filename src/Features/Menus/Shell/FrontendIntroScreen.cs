@@ -235,7 +235,7 @@ internal partial class FrontendIntroScreen : Node2D
         DrawAnimated(
             "horse-6", _horseFarSprites, 0, _horseSpritePalette,
             0x80 - _controller.HorseScrollY, _controller.HorseBirdX,
-            _controller.HorseAnimationClock);
+            _controller.HorseBirdAnimationClock);
     }
 
     private void DrawHorseFront()
@@ -406,7 +406,7 @@ internal partial class FrontendIntroScreen : Node2D
                 int y = unchecked((byte)((yFixed >> 8) -
                     _controller.TempleCameraY));
                 int x = unchecked((byte)(xFixed >> 8));
-                if (subid + 1 == glowCounter)
+                if (_controller.TempleAnimationClock != 0 && subid + 1 == glowCounter)
                 {
                     DrawAnimated(
                         "triforce-glow", _triforceGlowSprites, 0,
@@ -421,9 +421,17 @@ internal partial class FrontendIntroScreen : Node2D
 
         if (_controller.TempleLinkVisible &&
             (!_controller.TempleLinkBlinking ||
-                (_controller.FrameCounter & 1) != 0))
+                (_controller.TempleLinkBlinkFrame & 1) != 0))
         {
             DrawTempleLink();
+        }
+        if (_controller.TempleOrbVisible &&
+            (_controller.TempleOrbClock == 0 || (_controller.FrameCounter & 1) == 0))
+        {
+            DrawAnimated("temple-orb", _linkSprites, 0, _templeSpritePalette,
+                (_controller.TempleLinkY + _controller.TempleLinkZ -
+                    _controller.TempleCameraY) & 0xff,
+                0x50, _controller.TempleOrbClock);
         }
     }
 
@@ -445,7 +453,7 @@ internal partial class FrontendIntroScreen : Node2D
 
     private void DrawTempleLink()
     {
-        int rawY = unchecked((byte)(_controller.TempleLinkY -
+        int rawY = unchecked((byte)(_controller.TempleLinkY + _controller.TempleLinkZ -
             _controller.TempleCameraY));
         string animation = _controller.TempleLinkAnimation switch
         {

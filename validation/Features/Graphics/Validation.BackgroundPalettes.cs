@@ -53,8 +53,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(3);
         FailIf(_currentRoom.TemporaryBackgroundPaletteOffset is not < 0,
             "Room 5:F6's Tuni Nut placement did not start darkening.");
-        _roomEvents.Symmetry.Cancel();
-        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset != 0 || _roomEvents.Symmetry.BlocksGameplay,
+        _roomEvents.Get<SymmetryEvent>().Cancel();
+        FailIf(_currentRoom.TemporaryBackgroundPaletteOffset != 0 || _roomEvents.Get<SymmetryEvent>().BlocksGameplay,
             "Cancelling Tuni Nut placement within 5:F6 retained darkening or input control.");
 
         GD.Print("Validated 5:F6 -> 1:13 palette and rendered color through exit/fade, " +

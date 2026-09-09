@@ -56,15 +56,8 @@ internal sealed class MakuTreeSavedEvent :
     bool ICutsceneCommandHost.RoomFlagSet(int flag) =>
         (Context.Rooms.SaveData.GetRoomFlags(_record.Group, _record.Room) & flag) != 0;
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!Context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "Saved Maku Tree text-option branch has no completed choice result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("Saved Maku Tree text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

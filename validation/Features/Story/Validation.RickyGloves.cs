@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom06aRickyGloves()
     {
-        RickyGlovesEvent rickyEvent = _roomEvents.RickyGloves;
+        RickyGlovesEvent rickyEvent = _roomEvents.Get<RickyGlovesEvent>();
         RickyGlovesEventDatabase database = rickyEvent.Database;
         RickyGlovesEventRecord record = database.Record;
         bool originalImpaCompleted = _saveData.HasRoomFlag(

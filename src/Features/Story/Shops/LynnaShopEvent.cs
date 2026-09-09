@@ -7,10 +7,11 @@ namespace oracleofages;
 /// Native $2:$5e shop flow: lift/return stock, $46:$00 purchase scripts,
 /// already-full and rupee checks, item grants, and theft prevention.
 /// </summary>
-internal sealed class LynnaShopEvent : IRoomEvent
+internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
 {
 
     private readonly RoomEventContext _context;
+    protected override RoomEventContext EventContext => _context;
     private readonly LynnaShopDatabase _database = new();
     private LynnaShopItem? _item;
     private NpcCharacter? _shopkeeper;
@@ -350,13 +351,8 @@ internal sealed class LynnaShopEvent : IRoomEvent
 
     private bool DialogueClosed() => !_context.DialogueOpen;
 
-    private int TakeChoice()
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-            throw new InvalidOperationException(
-                "Lynna shop prompt closed without a text-option result.");
-        return choice;
-    }
+    private int TakeChoice() =>
+        RequireDialogueChoice("Lynna shop prompt closed without a text-option result.");
 
     private void ShowText(int textId) =>
         _context.ShowDialogue(_database.Text(textId), _database.TextboxPosition);

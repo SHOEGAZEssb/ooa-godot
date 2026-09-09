@@ -6,14 +6,11 @@ namespace oracleofages;
 /// <summary>
 /// tokayCookScript for INTERAC_TOKAY $48:$05.
 /// </summary>
-internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEvent
+internal sealed class TokayCookEvent : TokayScriptEvent, IRoomEvent, IUpdatesDuringDialogueRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private TokayCookStage _stage;
     private GroundTreasurePickup? _reward;
     private int _counter;
-    private bool _inputLocked;
     private readonly TokayNativeDatabase _native = new();
     private TokayCharacter? _actor;
     private bool _jumping;
@@ -28,13 +25,12 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
     internal TokayCookEvent(
         RoomEventContext context,
         TokayInteractionDatabase database)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokayCookStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokayCookStage Stage => _stage;
 
     internal bool TryInteractNpc(NpcCharacter npc)
@@ -86,7 +82,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -130,7 +126,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
 
     public void Cancel()
     {
-        _reward?.Finish(_context.Player);
+        _reward?.Finish(Context.Player);
         _reward = null;
         UnlockInput();
         _counter = 0;
@@ -147,7 +143,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
                 _stage = _choice == 0 ? TokayCookStage.AcceptedText : TokayCookStage.Declined;
                 break;
             case TokayCookStage.CheckWait:
-                if (_context.Inventory.TradeItem != 2)
+                if (Context.Inventory.TradeItem != 2)
                 {
                     Show(0x0a09);
                     _stage = TokayCookStage.WrongItem;
@@ -179,10 +175,10 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
                 _stage = TokayCookStage.BeforeRewardText;
                 break;
             case TokayCookStage.GiveWait:
-                _context.Inventory.LoseTreasure(TreasureDatabase.TreasureTradeItem);
-                _reward = _context.GrantScriptTreasure(
-                    _context.Rooms.ActiveGroup,
-                    _context.Rooms.CurrentRoom.Id,
+                Context.Inventory.LoseTreasure(TreasureDatabase.TreasureTradeItem);
+                _reward = Context.GrantScriptTreasure(
+                    Context.Rooms.ActiveGroup,
+                    Context.Rooms.CurrentRoom.Id,
                     TreasureDatabase.TreasureTradeItem,
                     3,
                     "TREASURE_OBJECT_TRADEITEM_03",
@@ -202,41 +198,8 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
         _stage = stage;
     }
 
-    private bool CurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.HasRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void SetCurrentRoomFlag(byte flag) =>
-        _context.Rooms.SaveData.SetRoomFlag(
-            _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, flag);
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void ShowChoice(int textId) =>
-        _context.ShowChoiceDialogue(_database.Text(textId));
-
-    private int TakeChoice()
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-            throw new InvalidOperationException(
-                "tokayCookScript prompt closed without a text-option result.");
-        return choice;
-    }
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
-    }
+    private int TakeChoice() =>
+        RequireDialogueChoice("tokayCookScript prompt closed without a text-option result.");
 
     private void FinishInteraction()
     {
@@ -266,7 +229,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
         if (_actor is not { } actor) return;
         if (!_jumping)
         {
-            actor.FaceLinkAndAnimateOneUpdate(_context.Player);
+            actor.FaceLinkAndAnimateOneUpdate(Context.Player);
             return;
         }
         if (_jumpState is 0 or 2)
@@ -275,7 +238,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
             _speedZ = _native.CookPaths[_jumpIndex].SpeedZ;
             _awayFromStart = true;
             _jumpState = 1;
-            _context.Sound.PlaySound(_database.SoundJump);
+            Context.Sound.PlaySound(Interactions.SoundJump);
         }
         else
         {
@@ -294,7 +257,7 @@ internal sealed class TokayCookEvent : IRoomEvent, IUpdatesDuringDialogueRoomEve
         }
         actor.SetStatePosition(OracleObjectMath.ToPixelPosition(_position));
         actor.SetScriptDrawOffset(new Vector2(0, _z >> 8));
-        actor.AnimateAndUpdateDrawPriorityOneUpdate(_context.Player);
+        actor.AnimateAndUpdateDrawPriorityOneUpdate(Context.Player);
     }
 }
 

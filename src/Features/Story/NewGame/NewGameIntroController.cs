@@ -50,15 +50,6 @@ public sealed class NewGameIntroController
         if (CurrentStage == Stage.Complete)
             return;
 
-        if (CurrentStage == Stage.Dialogue)
-        {
-            AdvanceDialogueClock(delta);
-            if (!_screen.Dialogue.IsOpen)
-                _timeline.AdvanceFrame();
-            UpdateScreen();
-            return;
-        }
-
         _tickAccumulator += delta * 60.0;
         while (_tickAccumulator >= 1.0 && CurrentStage != Stage.Complete)
         {
@@ -70,7 +61,7 @@ public sealed class NewGameIntroController
     private void AdvanceOneFrame()
     {
         _clock++;
-        if (CurrentStage == Stage.WaitingForVoice)
+        if (CurrentStage is Stage.WaitingForVoice or Stage.Dialogue)
             _motionClock++;
         _timeline.AdvanceFrame();
         if (CurrentStage == Stage.Complete)
@@ -126,17 +117,6 @@ public sealed class NewGameIntroController
         // TX_1213 closes, immediately before creating the glowing orb.
         _sound.PlaySound(OracleSoundEngine.SndFairyCutscene);
         SetStage(Stage.Vanishing);
-    }
-
-    private void AdvanceDialogueClock(double delta)
-    {
-        _tickAccumulator += delta * 60.0;
-        while (_tickAccumulator >= 1.0)
-        {
-            _tickAccumulator -= 1.0;
-            _clock++;
-            _motionClock++;
-        }
     }
 
     private void UpdateScreen()

@@ -230,7 +230,10 @@ public sealed partial class ValidationRoot
             !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
                 screen.EraseDeathTileBackgroundColorForValidation),
             "Erase selection did not swap the file background and HUD tiles to PALH_06.");
+        FailIf(menu.Cursor != 3, "fileSelectMode4 did not initialize on Quit ($03).");
         menu.Back();
+        FailIf(menu.CurrentPage != Page.EraseSelect, "Erase file selection incorrectly handled B.");
+        menu.Accept();
         FailIf(
             menu.CurrentPage != Page.FileSelect ||
             !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
@@ -315,6 +318,13 @@ public sealed partial class ValidationRoot
         copyMenu.Accept();
         copyMenu.Move(Vector2I.Right);
         copyMenu.Accept();
+        FailIf(stored[1] is null, "Erase deleted the file before its heart-drain updates.");
+        for (int frame = 0; frame < 24; frame++) copyMenu.Update(1.0 / 60.0);
+        FailIf(stored[1] is null || copyScreen.EraseHealth != 0,
+            "Erase did not drain twelve quarter-heart units on alternate updates before deletion.");
+        copyMenu.Update(1.0 / 60.0);
+        FailIf(stored[1] is null, "Erase skipped its final zero-health counter boundary.");
+        copyMenu.Update(1.0 / 60.0);
         FailIf(stored[1] is not null, "Erase confirmation did not clear the selected file slot.");
 
         bool startedAfterFailure = false;
@@ -338,6 +348,84 @@ public sealed partial class ValidationRoot
         FailIf(
             failureScreen.SaveErrorVisible || failureMenu.CurrentPage != Page.TextSpeed,
             "The file-select save error was not dismissible and retryable.");
+
+        var inputSounds = new List<int>();
+        var inputMenu = new MainMenuController(copyScreen, (_, _) => { },
+            slot => stored[slot], (slot, save) => { stored[slot] = save; return SaveResult.Succeeded; },
+            slot => stored[slot] = null, inputSounds.Add, startAtFileSelect: true);
+        void Tick(string[] pressed, string[]? held = null)
+        {
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(held ?? pressed, pressed, Vector2.Zero));
+            try { inputMenu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
+        Tick(["move_down", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect || inputMenu.Cursor != 1,
+            "fileSelectUpdateInput did not consume Down before A on a file row.");
+        Tick(["attack"]);
+        Tick(["move_down", "move_up", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.NewFileOptions || inputMenu.Cursor != 1,
+            "fileSelectMode5 did not prioritize Down over Up and A.");
+        Tick(["map"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect,
+            "New-file options did not accept Select as Back.");
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        Tick(["attack"]);
+        Tick(["inventory"]);
+        FailIf(inputMenu.CurrentPage != Page.NameEntry || copyScreen.NameCursor != 0x5a,
+            "Name Start did not select OK at $5a without submitting.");
+        Tick(["inventory"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect || stored[1] is not null,
+            "A second Start on a blank name did not return without creating a file.");
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        Tick(["attack"]);
+        Tick(["move_right", "attack"]);
+        FailIf(copyScreen.NameCursor != 1 || copyScreen.EnteredName.Length != 0,
+            "runTextInput did not prioritize Right over A.");
+        for (int frame = 0; frame < 39; frame++) Tick([], ["move_right"]);
+        FailIf(copyScreen.NameCursor != 1, "Name autofire began before its $28-update hold.");
+        Tick([], ["move_right"]);
+        FailIf(copyScreen.NameCursor != 2, "Name autofire missed the $28-update boundary.");
+        Tick(["map"]);
+        FailIf(inputSounds[^1] != OracleSoundEngine.SndSelectItem || copyScreen.NameCursor != 2,
+            "US name Select must make the selection sound without changing the keyboard.");
+        Tick(["attack"]);
+        Tick(["inventory"]);
+        Tick(["inventory"]);
+        FailIf(stored[1]?.LinkName != "C" || inputMenu.Cursor != 0,
+            "Name creation did not retain the selected glyph or reset file selection to $00.");
+        Tick(["attack"]);
+        Tick(["move_right", "move_left", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.TextSpeed || copyScreen.TextSpeed != 4,
+            "Text speed did not prioritize Right over Left and A.");
+        Tick(["map", "move_right", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect, "Text speed did not prioritize Select as Back.");
+        copyScreen.SetCursor(3);
+        Tick(["move_right"]);
+        Tick(["move_right"]);
+        FailIf(copyScreen.Choice != 1, "Right toggled Copy/Erase instead of selecting Erase.");
+        Tick(["move_left"]);
+        Tick(["attack"]);
+        FailIf(inputMenu.Cursor != 3, "Copy did not initialize on Quit.");
+        copyScreen.SetCursor(2);
+        Tick(["attack"]);
+        FailIf(inputSounds[^1] != OracleSoundEngine.SndError ||
+            inputSounds[^2] != OracleSoundEngine.SndSelectItem,
+            "An empty copy source did not request SELECTITEM then ERROR.");
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        FailIf(inputMenu.Cursor != 0, "Copy source $01 did not start destination selection at $00.");
+        Tick(["move_down"]);
+        FailIf(inputMenu.Cursor != 2, "Copy destination failed to skip source $01.");
+        Tick(["attack"]);
+        Tick(["item"]);
+        FailIf(inputMenu.CurrentPage != Page.CopyDestination || inputMenu.Cursor != 2,
+            "Canceling copy confirmation lost its destination cursor.");
+        Tick(["item"]);
+        FailIf(inputMenu.CurrentPage != Page.CopySource || inputMenu.Cursor != 1,
+            "Canceling copy destination lost its source cursor.");
 
         screen.QueueFree();
         copyScreen.QueueFree();
@@ -580,10 +668,12 @@ public sealed partial class ValidationRoot
             "Start was not enabled at the Capcom completion boundary, or RNG advanced.");
         ExpectTransition(FrontendIntroStage.Horse, 1, 1, "horse initialization");
         FailIf(
-            !intro.InputsEnabled || sounds.Count != 1 ||
+            !intro.InputsEnabled || intro.FrameCounter != 0 || sounds.Count != 1 ||
             sounds[0] != OracleSoundEngine.MusIntro1,
             "The horse scene did not enable skipping and request MUS_INTRO_1.");
         ExpectTransition(FrontendIntroStage.Horse, 2, 350, "sunset");
+        FailIf(intro.HorseBirdAnimationClock != 1,
+            "Horse-scene bird animation was not gated by the palette thread until its clear update.");
         ExpectTransition(FrontendIntroStage.Horse, 3, 432, "ground reveal");
         ExpectTransition(FrontendIntroStage.Horse, 4, 126, "ground pause");
         ExpectTransition(FrontendIntroStage.Horse, 5, 288, "front-facing ride");
@@ -683,24 +773,34 @@ public sealed partial class ValidationRoot
             2,
             597 - stationaryTempleUpdates,
             "remaining simulated input");
-        ExpectTransition(FrontendIntroStage.Temple, 3, 737, "Triforce sequence");
+        FailIf(intro.TempleLinkY != 0x3f || intro.TriforceMotionClock != 3,
+            "Link did not stop at Y $3f while Triforce interactions began during the final input records.");
+        // Center: 60+180+60+80 with its two fallthroughs; Link observes the
+        // signal next tick, waits 120+180+60, then the handler observes Link.
+        ExpectTransition(FrontendIntroStage.Temple, 3, 738, "Triforce and Link signal handoffs");
         FailIf(
-            intro.TempleLinkAnimation != 4,
+            intro.TempleLinkAnimation != 4 || intro.TempleLinkZ == 0,
             "Temple Link did not switch to source animation $04 for the rise.");
         ExpectTransition(FrontendIntroStage.Temple, 4, 32, "temple fade-out");
         FailIf(
             !intro.TempleWaveActive || intro.TempleWaveClock != 1,
             "The temple wave did not execute its state-3 fallthrough update.");
-        ExpectTransition(FrontendIntroStage.Temple, 5, 32, "temple fade-in");
+        for (int update = 0; update < 32; update++) intro.AdvanceOneOriginalUpdate();
+        FailIf(intro.State != 4 || titleScreen.WhiteFadeOffset != 0,
+            "Fade-in must display offset $00 before its palette thread reports completion.");
+        ExpectTransition(FrontendIntroStage.Temple, 5, 1, "fade-in underflow completion");
         ExpectTransition(FrontendIntroStage.Temple, 6, 120, "wave hold");
         ExpectTransition(FrontendIntroStage.Temple, 7, 14, "screen flash remainder");
         FailIf(
             intro.TempleLinkAnimation != 5 ||
             intro.TempleLinkAnimationClock != 0 ||
-            intro.TempleLinkBlinking,
+            intro.TempleLinkBlinking || !intro.TempleOrbVisible || intro.TempleOrbClock != 0,
             "Temple Link did not load source animation $05 before the " +
             "alternating-frame fall visibility began.");
-        ExpectTransition(FrontendIntroStage.Temple, 8, 64, "Link fall");
+        for (int update = 0; update < 61; update++) intro.AdvanceOneOriginalUpdate();
+        FailIf(intro.State != 7 || intro.TempleOrbVisible || !intro.TempleLinkVisible,
+            "The vanishing orb must be deleted at signal $07 before the handler clears Link.");
+        ExpectTransition(FrontendIntroStage.Temple, 8, 1, "Link fall handoff after 62 updates");
         ExpectTransition(FrontendIntroStage.Temple, 9, 60, "first temple wait");
         ExpectTransition(FrontendIntroStage.Temple, 10, 60, "second temple wait");
         ExpectTransition(FrontendIntroStage.PreTitle, 0, 32, "temple fade-out");
@@ -716,8 +816,10 @@ public sealed partial class ValidationRoot
             !intro.Birds.Select(bird => bird.Subid)
                 .SequenceEqual(Enumerable.Range(0, 8).Reverse()),
             "Pre-title birds did not retain their source slot/update order 7..0.");
-        ExpectTransition(FrontendIntroStage.PreTitle, 3, 17, "title reveal");
+        ExpectTransition(FrontendIntroStage.PreTitle, 3, 16, "title reveal on the reset intro clock");
         ExpectTransition(FrontendIntroStage.Title, 1, 14, "pre-title flash/title init");
+        FailIf(titleScreen.TitleBlinkVisible,
+            "PRESS START was visible at initialization despite counter $0960 bit $20.");
 
         int[] expectedSounds =
         [

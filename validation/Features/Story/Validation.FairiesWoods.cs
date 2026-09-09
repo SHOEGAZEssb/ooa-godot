@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFairiesWoodsSequence()
     {
-        FairiesWoodsEvent fairies = _roomEvents.FairiesWoods;
+        FairiesWoodsEvent fairies = _roomEvents.Get<FairiesWoodsEvent>();
         ValidateFairiesWoodsImportedData(fairies.Database);
         ValidateFairiesWoodsRelativeAngles();
 
@@ -681,7 +681,7 @@ public sealed partial class ValidationRoot
             discovered.Count != expectedCount,
             $"Room $0:$82 did not restore {expectedCount} discovered fairies.");
         FailIf(
-            !_roomEvents.FairiesWoods.TryInteractNpc(discovered[0]) ||
+            !_roomEvents.Get<FairiesWoodsEvent>().TryInteractNpc(discovered[0]) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(
                 fairies.Database.Text(textId).Message),

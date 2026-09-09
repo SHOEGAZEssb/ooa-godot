@@ -31,7 +31,7 @@ internal sealed class RalphAfterChevalEvent :
     internal RalphAfterChevalEventDatabase Database => _database;
     internal int Substate => _substate;
     internal bool FacingBit => _facingBit;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;

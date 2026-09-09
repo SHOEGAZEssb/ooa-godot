@@ -9,9 +9,10 @@ namespace oracleofages;
 /// input UI exists; choosing that branch follows the script's invalid-secret
 /// result without inventing clone-only password state.
 /// </summary>
-internal sealed class TingleEvent : IRoomEvent
+internal sealed class TingleEvent : RoomEventHost, IRoomEvent
 {
     private readonly RoomEventContext _context;
+    protected override RoomEventContext EventContext => _context;
     private readonly TingleDatabase _database = new();
     private readonly TingleRecord _record;
     private TingleRoomEntity? _actor;
@@ -317,12 +318,8 @@ internal sealed class TingleEvent : IRoomEvent
     private void ShowChoice(int textId) =>
         _context.ShowChoiceDialogue(_database.Text(textId));
 
-    private int TakeChoice()
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-            throw new InvalidOperationException("Tingle prompt closed without a choice result.");
-        return choice;
-    }
+    private int TakeChoice() =>
+        RequireDialogueChoice("Tingle prompt closed without a choice result.");
 
     private TingleRoomEntity RequireActor() =>
         _actor ?? throw new InvalidOperationException("Tingle interaction lost its actor.");

@@ -127,6 +127,7 @@ public sealed partial class ValidationRoot
         FailIf(
             intro.CurrentStage != Stage.Vanishing ||
             intro.StageFrame != 0 ||
+            !screen.OrbVisible ||
             _sound.LastPlayRequestForValidation() !=
                 OracleSoundEngine.SndFairyCutscene ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
@@ -141,7 +142,7 @@ public sealed partial class ValidationRoot
             intro.Update(1.0 / 60.0);
         FailIf(
             intro.CurrentStage != Stage.Vanishing ||
-            intro.StageFrame != intro.TotalVanishFrames - 1,
+            intro.StageFrame != intro.TotalVanishFrames - 1 || screen.OrbVisible,
             "Link's original vanish animation ended early.");
         intro.Update(1.0 / 60.0);
         FailIf(
@@ -232,6 +233,19 @@ public sealed partial class ValidationRoot
         _player.Face(previousFacing);
 
         screen.QueueFree();
+        var batchedScreen = new NewGameIntroScreen { Name = "BatchedNewGameIntroValidation" };
+        AddChild(batchedScreen);
+        var batched = new NewGameIntroController(batchedScreen, () => { }, _sound);
+        // Crossing the dialogue boundary must still perform one object update
+        // per original tick, including the tick which creates the new orb.
+        batched.Update(6.1);
+        FailIf(batched.CurrentStage != Stage.Dialogue || !batchedScreen.Dialogue.IsOpen,
+            "A batched new-game update failed to stop at TX_1213.");
+        batchedScreen.Dialogue.Close();
+        batched.Update(3.0 / 60.0);
+        FailIf(batched.CurrentStage != Stage.Vanishing || batched.StageFrame != 2,
+            "A batched TX_1213 closure advanced the vanish timeline only once.");
+        batchedScreen.QueueFree();
         GD.Print("Validated CUTSCENE_PREGAME_INTRO frame-96 top entrance, interleaved 8x16 OBJ cells, " +
             "hardware OAM priority, cumulative descend/hover Z tables, $0d/$06 blue-orb OAM and palette 4, " +
             "300/60 waits, TX_1213, 62-update vanish handoff, 60-update black hold, 65-update white-fade wait, " +
@@ -548,10 +562,10 @@ public sealed partial class ValidationRoot
         FailIf(
             IsTransitioning || !_player.Visible ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1 ||
-            !_player.CutsceneControlled || !_roomEvents.EnterPast.HasState ||
-            _roomEvents.EnterPast.Stage != EnterPastEventEventStage.PreJumpWait ||
-            _roomEvents.EnterPast.Counter !=
-                _roomEvents.EnterPast.Record.ExpectedArrivalCounter,
+            !_player.CutsceneControlled || !_roomEvents.Get<EnterPastEvent>().HasState ||
+            _roomEvents.Get<EnterPastEvent>().Stage != EnterPastEventEventStage.PreJumpWait ||
+            _roomEvents.Get<EnterPastEvent>().Counter !=
+                _roomEvents.Get<EnterPastEvent>().Record.ExpectedArrivalCounter,
             "The 30-update arrival flicker did not hand off to the partially elapsed " +
             "room 1:39 first-arrival script.");
 
@@ -567,7 +581,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateGraveyardGhostKidsCutscene()
     {
-        GraveyardGhostKidsEvent ghostKids = _roomEvents.GraveyardGhostKids;
+        GraveyardGhostKidsEvent ghostKids = _roomEvents.Get<GraveyardGhostKidsEvent>();
         GraveyardGhostKidsEventDatabaseEventRecord record = ghostKids.Record;
         bool originalRoomFlag = _saveData.HasRoomFlag(
             record.Group, record.Room, (byte)record.RoomFlag);
@@ -875,7 +889,7 @@ public sealed partial class ValidationRoot
             "The standalone first-past fixture did not complete the " +
             $"0:39 -> 1:39 time warp in {transitionFrames} updates.");
 
-        EnterPastEvent enterPast = _roomEvents.EnterPast;
+        EnterPastEvent enterPast = _roomEvents.Get<EnterPastEvent>();
         EnterPastEventRecord record = enterPast.Record;
         NpcCharacter villager = _npcNodes.Find(npc =>
             npc.Record.Id == record.InteractionId && npc.Record.SubId == record.SubId) ??
@@ -1128,8 +1142,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateImpaIntroEncounter()
     {
-        ImpaIntroEvent impaEvent = _roomEvents.Impa;
-        NayruIntroEvent nayruIntro = _roomEvents.Nayru;
+        ImpaIntroEvent impaEvent = _roomEvents.Get<ImpaIntroEvent>();
+        NayruIntroEvent nayruIntro = _roomEvents.Get<NayruIntroEvent>();
         ValidationCutsceneTrace encounterTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = encounterTrace;
         _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
@@ -2131,7 +2145,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateMakuTreeDisappearanceCutscene()
     {
-        MakuTreeDisappearanceEvent makuEvent = _roomEvents.MakuTree;
+        MakuTreeDisappearanceEvent makuEvent = _roomEvents.Get<MakuTreeDisappearanceEvent>();
         MakuTreeCutsceneDatabase makuDatabase = makuEvent.Database;
         MakuTreeCutsceneRecord makuRecord = makuDatabase.Record;
         ValidationCutsceneTrace commandTrace = new ValidationCutsceneTrace();
@@ -2413,7 +2427,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 1;
         const int roomId = 0x38;
-        MakuSproutRescueEvent rescue = _roomEvents.MakuSproutRescue;
+        MakuSproutRescueEvent rescue = _roomEvents.Get<MakuSproutRescueEvent>();
         MakuSproutRescueDatabase database = rescue.Database;
         MakuSproutRescueDatabaseEventRecord record = database.Record;
         var roomDatabase = new MakuSproutRoomDatabase();
@@ -2874,7 +2888,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 0;
         const int room = 0x38;
-        MakuTreeSavedEvent savedEvent = _roomEvents.MakuTreeSaved;
+        MakuTreeSavedEvent savedEvent = _roomEvents.Get<MakuTreeSavedEvent>();
         MakuTreeSavedDatabase database = savedEvent.Database;
         SavedEventRecord record = database.Record;
         int originalState = _saveData.MakuTreeState;
@@ -3140,7 +3154,7 @@ public sealed partial class ValidationRoot
         const int tradeObtainedMask =
             1 << (TreasureDatabase.TreasureTradeItem & 7);
 
-        ComedianEvent comedianEvent = _roomEvents.Comedian;
+        ComedianEvent comedianEvent = _roomEvents.Get<ComedianEvent>();
         ComedianEventDatabase database = comedianEvent.Database;
         ComedianEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
@@ -3401,7 +3415,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateNayruIntroCutscene()
     {
-        NayruIntroEvent nayruIntro = _roomEvents.Nayru;
+        NayruIntroEvent nayruIntro = _roomEvents.Get<NayruIntroEvent>();
         ValidationCutsceneTrace nayruTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = nayruTrace;
         const int group = 0;
@@ -4154,7 +4168,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateRalphPortalDepartureEvent()
     {
-        RalphPortalEvent ralphEvent = _roomEvents.Ralph;
+        RalphPortalEvent ralphEvent = _roomEvents.Get<RalphPortalEvent>();
         ValidationCutsceneTrace commandTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = commandTrace;
         _sound.ClearPlayRequestAudit();

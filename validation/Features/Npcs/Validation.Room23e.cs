@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         const int tradeObtainedMask =
             1 << (TreasureDatabase.TreasureTradeItem & 7);
 
-        ToiletHandEvent toiletEvent = _roomEvents.ToiletHand;
+        ToiletHandEvent toiletEvent = _roomEvents.Get<ToiletHandEvent>();
         ToiletHandEventDatabase database = toiletEvent.Database;
         ToiletHandEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);

@@ -565,8 +565,10 @@ Add-MenuOamRows $fileOamRows 'secret-entry-cursor' `
     'drawSecretInputCursors' '@textInputCursorSprite'
 Add-MenuOamRows $fileOamRows 'save-quit-acorn' `
     'saveQuitMenu_drawSprites' '@acornSprite'
-if ($fileOamRows.Count -ne 26) {
-    throw "Expected 25 file/save OAM parts, got $($fileOamRows.Count - 1)."
+Add-MenuOamRows $fileOamRows 'hero-file' `
+    'fileSelectDrawLink' '@spritesb'
+if ($fileOamRows.Count -ne 28) {
+    throw "Expected 27 file/save OAM parts, got $($fileOamRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'menu\file_oam.tsv'),
@@ -905,6 +907,16 @@ foreach ($animation in 0..1) {
 Add-FrontendLinkAnimation 'temple-link-walk' 0
 Add-FrontendLinkAnimation 'temple-link-rise' 4
 Add-FrontendLinkAnimation 'temple-link-fall' 5
+# INTERAC_SPARKLE $06: header $3a at spr_link+$1c00, tile $14,
+# palette 4, animation 2. Keep the subid dispatch checked at import time.
+$templeSparkleRows = @(Read-AssemblyMacroInvocations `
+    $frontendInteractionDataPath 'interaction84SubidData' 'm_InteractionSubidData')
+if ($templeSparkleRows.Count -ne 16 -or
+    ($templeSparkleRows[6].Operands -join ',') -ine '$3a,$14,$42') {
+    throw 'Temple INTERAC_SPARKLE $06 no longer resolves to $3a/$14/$42.'
+}
+Add-FrontendInteractionAnimation `
+    'temple-orb' 'interactiondeAnimations' 2 'interaction84OamDataPointers' 4 0x1d4 $true
 if ($frontendAnimationRows.Count -lt 50) {
     throw "Expected at least 49 frontend animation frames, got $($frontendAnimationRows.Count - 1)."
 }
@@ -948,6 +960,23 @@ $triforceTimingData = @(Read-AssemblyDataDirectives `
     ForEach-Object { Convert-AssemblyInteger $_ })
 if ($triforceTimingData.Count -ne 12) {
     throw "Expected 12 Triforce timing bytes, got $($triforceTimingData.Count)."
+}
+for ($index = 0; $index -lt $triforceTimingData.Count; $index++) {
+    $frontendSequenceRows.Add(
+        "triforce-timing`t$index`t$($triforceTimingData[$index])`t0`tages.s:data_5951")
+}
+$templeLinkSource = Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s'
+foreach ($oscillation in 0..1) {
+    $deltas = @(Read-AssemblyDataDirectives `
+        $templeLinkSource "linkCutscene_zOscillation$oscillation" '.db' |
+        ForEach-Object { $_.Operands } |
+        ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($deltas.Count -ne 8) { throw "Expected eight Link Z deltas for table $oscillation." }
+    for ($index = 0; $index -lt $deltas.Count; $index++) {
+        $frontendSequenceRows.Add(
+            "temple-link-z-$oscillation`t$index`t$($deltas[$index])`t0`t" +
+            "object_code/ages/specialObjects/linkInCutscene.s:linkCutscene_zOscillation$oscillation")
+    }
 }
 # introCinematic_inTemple_state0 spawns subids 2, 1, 0 at X $30, $50,
 # $70 respectively. The interaction dispatch then selects data_5951 indices
@@ -1210,7 +1239,7 @@ $frontendTimingRows = @(
     "triforce-link-rise`t360`tbank3f.data_5951:indices 4,5,7",
     "temple-wave-hold`t120`tcode/bank3Cutscenes.s:introCinematic_inTemple_state4",
     "temple-flash`t15`tcode/bank3Cutscenes.s:screenFlashingData@data0",
-    "temple-link-fall`t64`tdata/ages/specialObjectAnimationData.s:linkCutscene0",
+    "temple-link-fall`t62`tdata/ages/specialObjectAnimationData.s:linkCutscene0/60 animation + 2 observer updates",
     "temple-wait`t60`tbank3f.data_5951:indices 8-9",
     "tree-scroll-step`t3`tcode/bank3Cutscenes.s:introCinematic_preTitlescreen_state0",
     "tree-scroll-count`t232`tcode/bank3Cutscenes.s:introCinematic_preTitlescreen_updateScrollingTree",

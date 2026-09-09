@@ -21,6 +21,10 @@ public partial class NewGameIntroScreen : Node2D
     private int _stageFrame;
     private bool _vanishing;
     private bool _linkVisible = true;
+    internal bool OrbVisible => _vanishing
+        ? _stageFrame < _record.VanishDurations[0] + _record.VanishDurations[1] +
+            _record.VanishDurations[2] + 1 && (_stageFrame == 0 || (_clock & 1) == 0)
+        : _linkVisible && (_clock & 1) == 0;
 
     public DialogueBox Dialogue { get; private set; } = null!;
 
@@ -84,7 +88,9 @@ public partial class NewGameIntroScreen : Node2D
         // Priority $80 puts both INTERAC_SPARKLE subids over Link's priority
         // $81. Their even-update flicker exposes Link on alternating frames,
         // which makes him appear contained within the orb.
-        if ((_clock & 1) == 0)
+        // Initialization sets visible unconditionally. Subid $06 is deleted
+        // as soon as Link signals $07, before the handler clears Link next tick.
+        if (OrbVisible)
         {
             if (_vanishing)
                 _renderer.DrawScreenFrame(

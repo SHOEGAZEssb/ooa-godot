@@ -25,6 +25,7 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
         _database = database;
     }
 
+    public bool MenusDisabled => BlocksGameplay;
     public bool HasState => _active || _awaitingApproach;
     public bool BlocksGameplay => _active;
     public bool Matches(int group, OracleRoomData room) => group == 0 && room.Id == 0xbb;

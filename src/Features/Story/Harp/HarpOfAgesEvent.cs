@@ -35,10 +35,6 @@ internal sealed class HarpOfAgesEvent :
     private bool _nayruAnimationEnabled = true;
     private bool _harpCollected;
     private Vector2 _harpPosition;
-    private Vector2 _fadeOriginalPosition;
-    private Vector2 _fadeOriginalSize;
-    private int _fadeOriginalZIndex;
-    private bool _fadePresentationOwned;
 
     internal HarpOfAgesEvent(RoomEventContext context)
     {
@@ -87,7 +83,7 @@ internal sealed class HarpOfAgesEvent :
         if (treasure.TreasureId != record.HarpTreasure ||
             treasure.SubId != 0 || treasure.Parameter != 0)
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"{record.HarpObject} no longer represents " +
                 $"treasure ${record.HarpTreasure:x2}:$00");
         }
@@ -190,7 +186,7 @@ internal sealed class HarpOfAgesEvent :
                 return;
 
             default:
-                throw Unsupported($"update stage {_stage}");
+                throw UnsupportedCommand($"update stage {_stage}");
         }
     }
 
@@ -256,7 +252,7 @@ internal sealed class HarpOfAgesEvent :
         if (!_context.Rooms.SaveData.HasRoomFlag(
             record.Group, record.Room, (byte)record.RoomFlag))
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 "begin the pickup cutscene before ROOMFLAG_ITEM was set");
         }
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
@@ -408,7 +404,7 @@ internal sealed class HarpOfAgesEvent :
     {
         HarpOfAgesEventRecord record = _database.Record;
         if (frames != record.SongNativeFrames)
-            throw Unsupported($"play a {frames}-update response song");
+            throw UnsupportedCommand($"play a {frames}-update response song");
         if (commandUpdate == 0)
             return false; // state 0
         if (commandUpdate < record.SongInitialDelay)
@@ -452,7 +448,7 @@ internal sealed class HarpOfAgesEvent :
         _context.RoomView.ClearBackgroundFade();
         _nayru?.SetActive(false);
         _stageCounter = 0;
-        OwnFullScreenFade();
+        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _context.Fade.Color = Colors.White;
         _stage = HarpOfAgesEventStage.FadeInTail;
     }
@@ -472,30 +468,10 @@ internal sealed class HarpOfAgesEvent :
         _stage = HarpOfAgesEventStage.Inactive;
     }
 
-    private void OwnFullScreenFade()
-    {
-        if (_fadePresentationOwned)
-            return;
-        _fadePresentationOwned = true;
-        _fadeOriginalPosition = _context.Fade.Position;
-        _fadeOriginalSize = _context.Fade.Size;
-        _fadeOriginalZIndex = _context.Fade.ZIndex;
-        _context.Fade.Position = Vector2.Zero;
-        _context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth,
-            OracleRoomData.ScreenHeight);
-        _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
-    }
-
     private void RestoreFadePresentation()
     {
         _context.Fade.Color = new Color(1, 1, 1, 0);
-        if (!_fadePresentationOwned)
-            return;
-        _context.Fade.Position = _fadeOriginalPosition;
-        _context.Fade.Size = _fadeOriginalSize;
-        _context.Fade.ZIndex = _fadeOriginalZIndex;
-        _fadePresentationOwned = false;
+        ReleaseFullScreenFade(restoreColor: false);
     }
 
     RoomEventContext ICutsceneCommandHost.Context => _context;
@@ -504,12 +480,12 @@ internal sealed class HarpOfAgesEvent :
         actor.Value == "Nayru";
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
         if (textId is not (0x1d10 or 0x1d11))
-            throw Unsupported($"show text TX_{textId:x4}");
+            throw UnsupportedCommand($"show text TX_{textId:x4}");
         _context.ShowDialogue(message, textboxFlags: _textboxFlags);
     }
 
@@ -521,7 +497,7 @@ internal sealed class HarpOfAgesEvent :
         if (actor != "Nayru" || _nayru is null ||
             encodedAnimation != _database.Visual("Nayru").Animation(animation))
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"set actor '{actor}' animation ${animation:x2}");
         }
         _nayru.SetScriptAnimation(encodedAnimation);
@@ -537,7 +513,7 @@ internal sealed class HarpOfAgesEvent :
         if (actor != "Nayru" || address != 0x08 ||
             value is not (0x02 or 0x07))
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"write actor '{actor}' byte ${address:x2}=${value:x2}");
         }
         _nayruDirection = value;
@@ -548,7 +524,7 @@ internal sealed class HarpOfAgesEvent :
         if (binding != "TextboxFlags" ||
             value != _database.Record.TextboxFlags)
         {
-            throw Unsupported($"write '{binding}'=${value:x2}");
+            throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         }
         _textboxFlags = value;
     }
@@ -557,7 +533,7 @@ internal sealed class HarpOfAgesEvent :
     {
         HarpOfAgesEventRecord record = _database.Record;
         if (treasureId != record.EchoesTreasure || parameter != 0)
-            throw Unsupported($"give treasure ${treasureId:x2}:${parameter:x2}");
+            throw UnsupportedCommand($"give treasure ${treasureId:x2}:${parameter:x2}");
         _echoReward = _context.GrantScriptTreasure(
             record.Group,
             record.Room,
@@ -571,7 +547,7 @@ internal sealed class HarpOfAgesEvent :
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {
         if (handler != "ToggleNayruAnimation")
-            throw Unsupported($"run native handler '{handler}'");
+            throw UnsupportedCommand($"run native handler '{handler}'");
         _nayruAnimationEnabled = !_nayruAnimationEnabled;
     }
 
@@ -586,15 +562,13 @@ internal sealed class HarpOfAgesEvent :
             actor is not null ||
             !string.IsNullOrEmpty(payload))
         {
-            throw Unsupported($"update native handler '{handler}'");
+            throw UnsupportedCommand($"update native handler '{handler}'");
         }
         return UpdatePlayHarpSong(commandUpdate, frames);
     }
 
     void ICutsceneCommandHost.ScriptEnded() => BeginFadeInTail();
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal sealed class HarpMusicNoteState(

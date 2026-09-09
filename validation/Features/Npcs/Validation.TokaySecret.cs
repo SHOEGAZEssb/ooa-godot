@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
         _saveData.SetGlobalFlag(database.DoneSecretFlag, value: false);
         LoadValidationRoom(2, 0xe5);
         NpcCharacter manager = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.SubId == 0x19);
-        WildTokayGameEvent game = _roomEvents.WildTokayGame;
+        WildTokayGameEvent game = _roomEvents.Get<WildTokayGameEvent>();
         FailIf(!game.TryInteractNpc(manager), "Present Tokay manager did not accept A.");
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(20);

@@ -35,15 +35,9 @@ internal sealed class FairiesWoodsEvent :
     private int _hideRoomIndex;
     private int _completionCounter;
     private int _forcedLeftCounter;
-    private bool _inputLocked;
     private bool _screenTransitionsDisabled;
     private Vector2 _savedLinkPosition;
     private Vector2I _savedLinkFacing;
-    private Vector2 _originalFadePosition;
-    private Vector2 _originalFadeSize;
-    private int _originalFadeZ;
-    private Color _originalFadeColor;
-    private bool _ownsFade;
     private bool _ownsPlayerVisibility;
     private bool _originalPlayerVisible;
 
@@ -59,8 +53,8 @@ internal sealed class FairiesWoodsEvent :
         _stage != FairiesWoodsStage.Inactive ||
         _forcedLeftCounter != 0 ||
         (_sparkles?.Count ?? 0) != 0;
-    public bool BlocksGameplay => _inputLocked || _forcedLeftCounter != 0;
-    internal bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
+    public bool BlocksGameplay => InputLocked || _forcedLeftCounter != 0;
+    public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     internal FairiesWoodsStage Stage => _stage;
     internal int FoundFairies => Found;
     internal int SignalValue => Signal;
@@ -90,6 +84,14 @@ internal sealed class FairiesWoodsEvent :
         // search hints $0e-$10 have their own imported predicates and owner.
         for (int subId = 0; subId < 0x0e; subId++)
             _context.DeactivateNpcs(0x49, subId);
+    }
+
+    public void ReleaseOutgoingActors(int group, OracleRoomData room)
+    {
+        // Dynamic $49:$01 actors remain visible in the outgoing scroll set.
+        // RoomEntityManager retires them after the camera handoff.
+        if (HasState && _context.Entities.ScreenTransitionActive)
+            Cancel(deactivateDiscoveredActors: false);
     }
 
     public void Start(OracleRoomData room)
@@ -145,7 +147,7 @@ internal sealed class FairiesWoodsEvent :
                     {
                         _context.Player.Face(entryDirection);
                     }
-                    LockInput();
+                    LockInput(onlyIfUnlocked: true);
                     Active = 1;
                     _scriptKind = FairyScriptKind.Intro;
                     _runner.Start(_database.IntroCommands);
@@ -195,7 +197,7 @@ internal sealed class FairiesWoodsEvent :
                 break;
 
             case FairiesWoodsStage.CompletionShowInitial:
-                OwnFullScreenFade();
+                CaptureFullScreenFade(zIndex: 48);
                 SetFadeAlpha(0.0f);
                 ShowText(0x110a);
                 _stage = FairiesWoodsStage.CompletionWaitInitial;
@@ -303,14 +305,14 @@ internal sealed class FairiesWoodsEvent :
             }
         }
         _discovered.Clear();
-        if (_inputLocked || _forcedLeftCounter != 0)
+        if (InputLocked || _forcedLeftCounter != 0)
             _context.Player.EndCutsceneControl();
-        _inputLocked = false;
+        InputLocked = false;
         _screenTransitionsDisabled = false;
         _forcedLeftCounter = 0;
         _stage = FairiesWoodsStage.Inactive;
         RestorePlayerVisibility();
-        RestoreFade();
+        ReleaseFullScreenFade();
         if (_sparkles is not null)
         {
             _sparkles.QueueFree();
@@ -378,7 +380,7 @@ internal sealed class FairiesWoodsEvent :
         _hiddenCounter = unchecked((byte)(_hiddenCounter - 1));
         if (_hiddenCounter != 0 || !LinkIsVulnerable())
             return;
-        LockInput();
+        LockInput(onlyIfUnlocked: true);
         _screenTransitionsDisabled = true;
         _stage = FairiesWoodsStage.HiddenSpawn;
     }
@@ -424,9 +426,9 @@ internal sealed class FairiesWoodsEvent :
     {
         _savedLinkPosition = _context.Player.Position;
         _savedLinkFacing = _context.Player.FacingVector;
-        LockInput();
+        LockInput(onlyIfUnlocked: true);
         CapturePlayerVisibility();
-        OwnFullScreenFade();
+        CaptureFullScreenFade(zIndex: 48);
         _fadeCounter = 0;
         _hideRoomIndex = 0;
         _stage = FairiesWoodsStage.HidingFadeOut;
@@ -487,7 +489,7 @@ internal sealed class FairiesWoodsEvent :
                 _record.NormalFadeIn))
             return;
         UnlockInput();
-        RestoreFade();
+        ReleaseFullScreenFade();
         ShowText(0x1104);
         _stage = FairiesWoodsStage.SearchRoom;
     }
@@ -518,7 +520,7 @@ internal sealed class FairiesWoodsEvent :
 
     private void BeginCompletion()
     {
-        LockInput();
+        LockInput(onlyIfUnlocked: true);
         _context.Player.Face(Vector2I.Up);
         _stage = FairiesWoodsStage.CompletionShowInitial;
     }
@@ -537,7 +539,7 @@ internal sealed class FairiesWoodsEvent :
         _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
         _context.Rooms.SaveData.SetGlobalFlag(_record.UnscrambledFlag);
         UnlockInput();
-        RestoreFade();
+        ReleaseFullScreenFade();
         _stage = FairiesWoodsStage.Inactive;
     }
 
@@ -648,7 +650,7 @@ internal sealed class FairiesWoodsEvent :
             return;
         _context.Player.AdvanceCutsceneInput(Vector2I.Left);
         _forcedLeftCounter--;
-        if (_forcedLeftCounter == 0 && !_inputLocked)
+        if (_forcedLeftCounter == 0 && !InputLocked)
             _context.Player.EndCutsceneControl();
     }
 
@@ -670,22 +672,6 @@ internal sealed class FairiesWoodsEvent :
         !_context.Player.IsFallingInHole &&
         !_context.DialogueOpen &&
         !_context.Player.CutsceneControlled;
-
-    private void LockInput()
-    {
-        if (_inputLocked)
-            return;
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
-    }
 
     private bool UpdateFadeOut(int speed, int expectedUpdates)
     {
@@ -716,37 +702,10 @@ internal sealed class FairiesWoodsEvent :
         return complete;
     }
 
-    private void OwnFullScreenFade()
-    {
-        if (_ownsFade)
-            return;
-        _ownsFade = true;
-        _originalFadePosition = _context.Fade.Position;
-        _originalFadeSize = _context.Fade.Size;
-        _originalFadeZ = _context.Fade.ZIndex;
-        _originalFadeColor = _context.Fade.Color;
-        _context.Fade.Position = Vector2.Zero;
-        _context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth,
-            OracleRoomData.ScreenHeight);
-        _context.Fade.ZIndex = 48;
-    }
-
     private void SetFadeAlpha(float alpha)
     {
-        OwnFullScreenFade();
+        CaptureFullScreenFade(zIndex: 48);
         _context.Fade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0, 1));
-    }
-
-    private void RestoreFade()
-    {
-        if (!_ownsFade)
-            return;
-        _context.Fade.Position = _originalFadePosition;
-        _context.Fade.Size = _originalFadeSize;
-        _context.Fade.ZIndex = _originalFadeZ;
-        _context.Fade.Color = _originalFadeColor;
-        _ownsFade = false;
     }
 
     private void CapturePlayerVisibility()
@@ -830,11 +789,11 @@ internal sealed class FairiesWoodsEvent :
         if (enabled)
             UnlockInput();
         else
-            LockInput();
+            LockInput(onlyIfUnlocked: true);
     }
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         ReadScriptMemory(binding) == value;
@@ -842,15 +801,8 @@ internal sealed class FairiesWoodsEvent :
     int ICutsceneCommandHost.ReadMemory(string binding) =>
         ReadScriptMemory(binding);
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "Fairies' Woods exit choice has no completed result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("Fairies' Woods exit choice has no completed result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -872,7 +824,7 @@ internal sealed class FairiesWoodsEvent :
             radiusY != _record.ExitRadiusY ||
             radiusX != _record.ExitRadiusX)
         {
-            throw Unsupported(
+            throw UnsupportedCommand(
                 $"set actor '{actor}' collision ${radiusY:x2}/${radiusX:x2}");
         }
     }
@@ -880,13 +832,13 @@ internal sealed class FairiesWoodsEvent :
     void ICutsceneCommandHost.SetActorButtonSensitive(string actor)
     {
         if (actor != "FairyExit")
-            throw Unsupported($"make actor '{actor}' button sensitive");
+            throw UnsupportedCommand($"make actor '{actor}' button sensitive");
     }
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {
         if (binding != "FairySignal")
-            throw Unsupported($"write '{binding}'=${value:x2}");
+            throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         Signal = (byte)value;
     }
 
@@ -910,7 +862,7 @@ internal sealed class FairiesWoodsEvent :
                 _forcedLeftCounter = 8;
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -926,7 +878,7 @@ internal sealed class FairiesWoodsEvent :
             frames != 1 ||
             !string.IsNullOrEmpty(payload))
         {
-            throw Unsupported($"update native handler '{handler}'");
+            throw UnsupportedCommand($"update native handler '{handler}'");
         }
         _ = commandUpdate;
         return ExitCollision();
@@ -949,17 +901,15 @@ internal sealed class FairiesWoodsEvent :
                 _stage = FairiesWoodsStage.Inactive;
                 break;
             default:
-                throw Unsupported("end an unowned script");
+                throw UnsupportedCommand("end an unowned script");
         }
     }
 
     private int ReadScriptMemory(string binding) =>
         binding == "FairySignal"
             ? Signal
-            : throw Unsupported($"read '{binding}'");
+            : throw UnsupportedCommand($"read '{binding}'");
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum FairiesWoodsStage

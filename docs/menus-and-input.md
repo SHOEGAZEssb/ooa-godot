@@ -117,6 +117,18 @@ enters title initialization in the same original update; at the title it
 requests `SND_SELECTITEM $56` followed by `SNDCTRL_FAST_FADEOUT $fa`, completes
 the source fade, and only then transfers ownership to file select.
 
+Frontend palette counters retain the source endpoint rules: an ordinary white
+fade-out completes in 32 updates, while fade-in completes in 33. Delayed fades
+take their first step on update one and then use the refill divisor. Cinematic
+dispatch runs before Link and interaction updates; movement, hover, glow, and
+terminal animation signals must preserve that order while scene timers run.
+
+File-menu substates keep their own button priorities. Name entry uses the
+original direction autofire and two-step Start selection of OK. Copy skips
+the source file and retains cursors when backing up. Erase drains a display
+copy of the heart count before requesting deletion; its animation never
+rewrites the saved health bytes.
+
 ## Adding or changing a menu
 
 1. Trace the original screen state, input order, counters, fades, OAM/tilemap

@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSymmetryFidelity()
     {
-        var commands = _roomEvents.Symmetry.Database.Commands;
+        var commands = _roomEvents.Get<SymmetryEvent>().Database.Commands;
         var jumps = commands.OfType<CutsceneBranchYieldCommand>().ToArray();
         FailIf(jumps.Length == 0 || jumps.Any(j => !j.Source.Label.StartsWith("symmetryNpcSubid", StringComparison.Ordinal)),
             "Symmetry helper scripts lost their wBigBuffer jump classification.");
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
                 $"{jump.Source} did not yield at its relocated target.");
         }
 
-        var quest = _roomEvents.Symmetry;
+        var quest = _roomEvents.Get<SymmetryEvent>();
         _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"), false);
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"), false);
         _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 2);
@@ -119,7 +119,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSymmetrySecrets()
     {
-        var quest = _roomEvents.Symmetry;
+        var quest = _roomEvents.Get<SymmetryEvent>();
         var commands = quest.Database.Commands;
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"));
         _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"));
@@ -147,7 +147,7 @@ public sealed partial class ValidationRoot
         foreach (int level in new[] { 0, 1, 2, 3 })
         {
             ReinitializeGameplayForValidation();
-            quest = _roomEvents.Symmetry;
+            quest = _roomEvents.Get<SymmetryEvent>();
             _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"));
             _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"));
             _saveData.SetGlobalFlag(0x6d, false);
@@ -217,7 +217,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateTuniNutPlacement()
     {
-        var quest = _roomEvents.Symmetry;
+        var quest = _roomEvents.Get<SymmetryEvent>();
         int placedFlag = quest.Database.Constant("placed-flag");
         _saveData.SetGlobalFlag(placedFlag, false);
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"), false);
@@ -275,7 +275,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSymmetryNpcs()
     {
-        var quest = _roomEvents.Symmetry;
+        var quest = _roomEvents.Get<SymmetryEvent>();
         var data = quest.Database;
         foreach (string flag in new[] { "placed-flag", "sister-flag", "brother-flag", "finished-flag" })
             _saveData.SetGlobalFlag(data.Constant(flag), false);

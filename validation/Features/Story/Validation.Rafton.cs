@@ -176,7 +176,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateRaftwreckCutscene()
     {
-        RaftwreckEvent raftwreck = _roomEvents.Raftwreck;
+        RaftwreckEvent raftwreck = _roomEvents.Get<RaftwreckEvent>();
         RaftwreckEventRecord record = raftwreck.Database.Record;
         FailIf(
             record is not
@@ -332,7 +332,7 @@ public sealed partial class ValidationRoot
                 $"visible palette offsets on update {update + 1}.");
         }
         UpdateRoomWarpTransition(1.0 / 60.0);
-        TokayTheftEvent tokayTheft = _roomEvents.TokayTheft;
+        TokayTheftEvent tokayTheft = _roomEvents.Get<TokayTheftEvent>();
         IntroSpriteFrame arrivalFrame = tokayTheft.Database.LinkFrames[0];
         FailIf(_rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xaa ||
             !tokayTheft.HasState || tokayTheft.ActiveThiefCount != 5 ||
@@ -364,7 +364,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateTokayTheftCutscene()
     {
-        TokayTheftEvent tokay = _roomEvents.TokayTheft;
+        TokayTheftEvent tokay = _roomEvents.Get<TokayTheftEvent>();
         TokayTheftEventRecord record = tokay.Database.Record;
         FailIf(record is not
             {
@@ -489,7 +489,7 @@ public sealed partial class ValidationRoot
         const int tradeItemAddress = 0xc6c0;
         const int obtainedTreasureBase = 0xc69a;
 
-        RaftonEvent raftonEvent = _roomEvents.Rafton;
+        RaftonEvent raftonEvent = _roomEvents.Get<RaftonEvent>();
         RaftonEventDatabase database = raftonEvent.Database;
         RaftonEventRecord record = database.Record;
         const string firstRightRoomDialogue =

@@ -522,7 +522,7 @@ internal sealed class PreBlackTowerEvent :
         actor.Value is "Ralph" or "Impa" or "Nayru" or "Zelda";
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) => binding switch
     {
@@ -533,7 +533,7 @@ internal sealed class PreBlackTowerEvent :
         _ when binding.StartsWith("SharedBit", StringComparison.Ordinal) &&
             int.TryParse(binding.AsSpan("SharedBit".Length), out int bit) =>
                 ((_sharedBits >> bit) & 1) == value,
-        _ => throw Unsupported($"read '{binding}'=${value:x2}")
+        _ => throw UnsupportedCommand($"read '{binding}'=${value:x2}")
     };
 
     void ICutsceneCommandHost.ShowText(int textId, string message) =>
@@ -578,14 +578,14 @@ internal sealed class PreBlackTowerEvent :
                 _sharedBits ^= value;
                 break;
             default:
-                throw Unsupported($"write '{binding}'=${value:x2}");
+                throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         }
     }
 
     void ICutsceneCommandHost.SetGlobalFlag(int flag)
     {
         if (flag != _record.RalphEnteredFlag)
-            throw Unsupported($"set global flag ${flag:x2}");
+            throw UnsupportedCommand($"set global flag ${flag:x2}");
         _context.Rooms.SaveData.SetGlobalFlag(flag);
     }
 
@@ -603,7 +603,7 @@ internal sealed class PreBlackTowerEvent :
                 BeginImpaJump();
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -668,8 +668,6 @@ internal sealed class PreBlackTowerEvent :
             $"Unsupported pre-Black Tower Link direction ${value:x2}.")
     };
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 
 }
 

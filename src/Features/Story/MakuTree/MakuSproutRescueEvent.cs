@@ -51,7 +51,7 @@ internal sealed class MakuSproutRescueEvent :
 
     public bool HasState => _stage is MakuSproutRescueEventEventStage.Running or MakuSproutRescueEventEventStage.NpcLoop;
     public bool BlocksGameplay => HasState && !_inputEnabled;
-    internal bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
+    public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     internal MakuSproutRescueEventEventStage Stage => _stage;
     internal int CutsceneState => _cutsceneState;
     internal MakuSproutRescueDatabase Database => _database;
@@ -277,21 +277,8 @@ internal sealed class MakuSproutRescueEvent :
         "Sprout" when _sprout is not null => _sprout,
         "MoblinLeft" when _leftMoblin is not null => _leftMoblin,
         "MoblinRight" when _rightMoblin is not null => _rightMoblin,
-        _ => throw Unsupported($"resolve actor '{name}'")
+        _ => throw UnsupportedCommand($"resolve actor '{name}'")
     };
-
-    private static Vector2I DirectionToward(Vector2 origin, Vector2 target)
-    {
-        int angle = (OracleObjectMovement.Shared.RelativeAngle(
-            origin, target) + 4) & 0x18;
-        return angle switch
-        {
-            0 => Vector2I.Up,
-            8 => Vector2I.Right,
-            16 => Vector2I.Down,
-            _ => Vector2I.Left
-        };
-    }
 
     RoomEventContext ICutsceneCommandHost.Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
@@ -307,7 +294,7 @@ internal sealed class MakuSproutRescueEvent :
     }
 
     bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw Unsupported($"read gate '{gate}'");
+        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         binding switch
@@ -317,7 +304,7 @@ internal sealed class MakuSproutRescueEvent :
             "RoomEnemyCount" => _context.Entities.RoomEnemyCount == value,
             "PlayerMoveComplete" => (_playerMoveComplete ? 1 : 0) == value,
             "RoomGateOpen" => (_gateOpen ? 1 : 0) == value,
-            _ => throw Unsupported($"read '{binding}'=${value:x2}")
+            _ => throw UnsupportedCommand($"read '{binding}'=${value:x2}")
         };
 
     void ICutsceneCommandHost.ShowText(int textId, string message) =>
@@ -340,7 +327,7 @@ internal sealed class MakuSproutRescueEvent :
     void ICutsceneCommandHost.SetActorButtonSensitive(string actor)
     {
         if (actor != "Sprout")
-            throw Unsupported($"set {actor} A-button sensitivity");
+            throw UnsupportedCommand($"set {actor} A-button sensitivity");
         _buttonSensitive = true;
         ConfigureSavedSprout(Actor(actor));
     }
@@ -364,7 +351,7 @@ internal sealed class MakuSproutRescueEvent :
         string actor, int address, int value)
     {
         if (address != 0x3f || value is not (0 or 1))
-            throw Unsupported($"write {actor}.${address:x2}=${value:x2}");
+            throw UnsupportedCommand($"write {actor}.${address:x2}=${value:x2}");
         Actor(actor).SetAnimationRate(value == 0 ? 1.0f : 0.0f);
     }
 
@@ -385,7 +372,7 @@ internal sealed class MakuSproutRescueEvent :
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {
         if (binding != "CutsceneState")
-            throw Unsupported($"write '{binding}'=${value:x2}");
+            throw UnsupportedCommand($"write '{binding}'=${value:x2}");
         _cutsceneState = value;
     }
 
@@ -475,7 +462,7 @@ internal sealed class MakuSproutRescueEvent :
                 SpawnMaskedMoblin(ref _rightMoblin);
                 break;
             default:
-                throw Unsupported($"run native handler '{handler}'");
+                throw UnsupportedCommand($"run native handler '{handler}'");
         }
     }
 
@@ -503,7 +490,7 @@ internal sealed class MakuSproutRescueEvent :
                 return p.X < 0x14 || p.X >= 0x98 || p.Y < 0x22 || p.Y >= 0x76;
             }
             default:
-                throw Unsupported($"update native handler '{handler}'");
+                throw UnsupportedCommand($"update native handler '{handler}'");
         }
     }
 
@@ -553,7 +540,7 @@ internal sealed class MakuSproutRescueEvent :
     private void SpawnMaskedMoblin(ref NpcCharacter? actor)
     {
         if (actor is null)
-            throw Unsupported("replace missing scripted Moblin");
+            throw UnsupportedCommand("replace missing scripted Moblin");
         Vector2 position = actor.Position;
         actor.SetActive(false);
         actor = null;
@@ -561,8 +548,6 @@ internal sealed class MakuSproutRescueEvent :
             new MaskedMoblinSpawn(position));
     }
 
-    private InvalidOperationException Unsupported(string operation) =>
-        UnsupportedCommand(operation);
 }
 
 internal enum MakuSproutRescueEventEventStage

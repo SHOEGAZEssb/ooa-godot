@@ -577,11 +577,11 @@ public partial class GameRoot : Node2D
         // transition controller advances only its imported warp interactions.
         if (_transitions.TimeWarpActive)
         {
-            _roomEvents.UpdateDuringTimeWarp(delta);
+            _roomEvents.UpdateDuringTimeWarpFrame();
         }
         else
         {
-            _roomEvents.Update(delta);
+            _roomEvents.UpdateFrame();
             _interactions.Update(delta, _player);
         }
         // The source screen-transition handler follows updateAllObjects.
@@ -761,7 +761,7 @@ public partial class GameRoot : Node2D
             _roomEvents.ScreenTransitionsDisabled ||
             _entities.ScreenTransitionsDisabled;
         _transitions.AllScreenTransitionsDisabledSource = () =>
-            _roomEvents.WildTokayGame.ScreenTransitionsDisabled;
+            _roomEvents.AllScreenTransitionsDisabled;
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
@@ -863,7 +863,7 @@ public partial class GameRoot : Node2D
         _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
-            _treasures, _roomEvents.VasuShop.Database, _sound.PlaySound);
+            _treasures, _roomEvents.Get<VasuShopEvent>().Database, _sound.PlaySound);
         _roomEvents.SetRingMenuOpener(_ringMenu.Open);
         _secretEntry = new SecretEntryController(
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _sound.PlaySound);
@@ -1259,30 +1259,6 @@ public partial class GameRoot : Node2D
     internal void RefreshRoomObjects() => _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom);
     internal void UpdateRoomCamera() => _transitions.ResetCamera();
     internal Vector2 WorldToScreen(Vector2 position) => _transitions.WorldToScreen(position);
-    internal void UpdateRoomWarpTransition(double delta)
-    {
-        // Validation often advances several nominal frames at once. The live
-        // time-warp controller deliberately processes at most one vblank step
-        // per rendered call, so preserve that call boundary in bulk checks.
-        const double frame = 1.0 / 60.0;
-        while (_transitions.TimeWarpActive && delta > frame + 0.000001)
-        {
-            _transitions.UpdateWarp(frame);
-            if (_transitions.TimeWarpActive)
-                _roomEvents.UpdateDuringTimeWarp(frame);
-            else
-                _roomEvents.Update(frame);
-            delta -= frame;
-        }
-        if (delta > 0.000001)
-        {
-            _transitions.UpdateWarp(delta);
-            if (_transitions.TimeWarpActive)
-                _roomEvents.UpdateDuringTimeWarp(delta);
-            else
-                _roomEvents.Update(delta);
-        }
-    }
     internal void UpdateScrollingTransition(double delta) => _transitions.UpdateScroll(delta);
 }
 

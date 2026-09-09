@@ -7,16 +7,13 @@ namespace oracleofages;
 /// <summary>
 /// rosa_subid00Script for INTERAC_ROSA $68:$00 in linked room $1:$cb.
 /// </summary>
-internal sealed class RosaShovelEvent : IRoomEvent
+internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _database;
     private RosaShovelStage _stage;
     private RosaShovelStage _nextStage;
     private NpcCharacter? _actor;
     private GroundTreasurePickup? _reward;
     private int _counter;
-    private bool _inputLocked;
     private readonly TokayNativeDatabase _native = new();
     private Vector2 _position;
     private TokayAttachedVisualRoomEntity? _shovel;
@@ -25,13 +22,12 @@ internal sealed class RosaShovelEvent : IRoomEvent
     internal RosaShovelEvent(
         RoomEventContext context,
         TokayInteractionDatabase database)
+        : base(context, database)
     {
-        _context = context;
-        _database = database;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != RosaShovelStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal RosaShovelStage Stage => _stage;
 
     internal bool TryInteractNpc(NpcCharacter npc)
@@ -43,10 +39,10 @@ internal sealed class RosaShovelEvent : IRoomEvent
         }
 
         _actor = npc;
-        _nativeActor = _context.Entities.EntityAdapters<RosaNpcRoomEntity>().Single();
+        _nativeActor = Context.Entities.EntityAdapters<RosaNpcRoomEntity>().Single();
         _nativeActor.ScriptOwnsNativeUpdate = true;
-        _shovel = _context.Entities.Entities<TokayAttachedVisualRoomEntity>().FirstOrDefault();
-        if (_context.Rooms.SaveData.HasRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40))
+        _shovel = Context.Entities.Entities<TokayAttachedVisualRoomEntity>().FirstOrDefault();
+        if (Context.Rooms.SaveData.HasRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40))
         {
             Show(0x1c12);
             _stage = RosaShovelStage.DialogueOnly;
@@ -64,7 +60,7 @@ internal sealed class RosaShovelEvent : IRoomEvent
     {
         var native = _nativeActor;
         UpdateScript();
-        native?.RunNativeUpdate(_context.Player);
+        native?.RunNativeUpdate(Context.Player);
     }
 
     private void UpdateScript()
@@ -104,7 +100,7 @@ internal sealed class RosaShovelEvent : IRoomEvent
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -133,7 +129,7 @@ internal sealed class RosaShovelEvent : IRoomEvent
     {
         if (_nativeActor is not null) _nativeActor.ScriptOwnsNativeUpdate = false;
         _nativeActor = null;
-        _reward?.Finish(_context.Player);
+        _reward?.Finish(Context.Player);
         _reward = null;
         UnlockInput();
         _actor = null;
@@ -173,7 +169,7 @@ internal sealed class RosaShovelEvent : IRoomEvent
                 _stage = RosaShovelStage.SecondTextWait;
                 break;
             case RosaShovelStage.Done:
-                _context.Rooms.SaveData.SetRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40);
+                Context.Rooms.SaveData.SetRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40);
                 FinishInteraction();
                 break;
             case RosaShovelStage.SecondText:
@@ -181,9 +177,9 @@ internal sealed class RosaShovelEvent : IRoomEvent
                 break;
             case RosaShovelStage.Give:
                 if (_shovel is { } shovel) shovel.Retired = true;
-                _reward = _context.GrantScriptTreasure(
-                    _context.Rooms.ActiveGroup,
-                    _context.Rooms.CurrentRoom.Id,
+                _reward = Context.GrantScriptTreasure(
+                    Context.Rooms.ActiveGroup,
+                    Context.Rooms.CurrentRoom.Id,
                     TreasureDatabase.TreasureShovel,
                     1,
                     "TREASURE_OBJECT_SHOVEL_01",
@@ -197,29 +193,8 @@ internal sealed class RosaShovelEvent : IRoomEvent
         }
     }
 
-    private void FaceActorToLink(NpcCharacter actor)
-    {
-        int angle = OracleObjectMovement.Shared.RelativeAngle(actor.Position, _context.Player.Position);
-        Vector2 direction = OracleObjectMath.StrictCardinalVector((angle + 4) & 0x18);
-        actor.SetFacingDirection(new Vector2I((int)direction.X, (int)direction.Y));
-    }
-
-    private void Show(int textId) =>
-        _context.ShowDialogue(_database.Text(textId));
-
-    private void LockInput()
-    {
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
-    }
+    private void FaceActorToLink(NpcCharacter actor) =>
+        actor.SetFacingDirection(DirectionToward(actor.Position, Context.Player.Position));
 
     private void FinishInteraction()
     {

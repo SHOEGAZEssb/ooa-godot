@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         const int roomId = 0x5c;
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         OverworldKeyholeDatabase database = _keyholes.Database;
-        GraveyardGateEvent gate = _roomEvents.GraveyardGate;
+        GraveyardGateEvent gate = _roomEvents.Get<GraveyardGateEvent>();
         FailIf(
             database.Count != 6 || database.TileCount != 3 ||
             !database.TryGet(group, roomId, out OverworldKeyholeDatabaseRecord keyhole) ||

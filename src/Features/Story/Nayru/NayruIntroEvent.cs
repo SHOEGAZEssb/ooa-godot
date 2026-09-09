@@ -35,9 +35,6 @@ internal sealed class NayruIntroEvent :
     private NayruStage _nayruStage;
     private OracleRoomData? _nayruRoom;
     private NayruSingingScreen? _nayruSingingScreen;
-    private Vector2 _nayruFadePositionBeforeSinging;
-    private Vector2 _nayruFadeSizeBeforeSinging;
-    private bool _nayruSingingOwnsFullScreenFade;
     private int _nayruAudienceMask;
     private int _nayruSingingElapsed;
     private int _nayruSingingScrollCounter;
@@ -284,6 +281,22 @@ internal sealed class NayruIntroEvent :
             UpdateNayruTalkingBirdHop(talk, npc);
     }
 
+    public bool OwnsUpdatesOf(IRoomEvent other) => ReferenceEquals(other, _impaEvent);
+
+    public void ReleaseOutgoingActors(int group, OracleRoomData room)
+    {
+        // $6b:$01 rebuilds its dynamic list on entry. Release the outgoing
+        // list before following Impa transfers; the scroll owns its nodes.
+        if (HasState && !Matches(group, room))
+            Cancel(deactivateActors: false);
+    }
+
+    private void UpdateFollowingImpa()
+    {
+        if (CrowdActive && _impaEvent.Following)
+            _impaEvent.UpdateFollower();
+    }
+
     public void UpdateFrame()
     {
         if (!_nayruMusicInitialized)
@@ -378,6 +391,7 @@ internal sealed class NayruIntroEvent :
                 UpdateNayruTimeline();
                 break;
         }
+        UpdateFollowingImpa();
     }
 
     public void UpdateDuringDialogueFrame()
@@ -414,6 +428,7 @@ internal sealed class NayruIntroEvent :
             bird.AnimateAsNpcOneUpdate(_player);
             UpdateNayruTalkingBirdHop(state, bird);
         }
+        UpdateFollowingImpa();
     }
 
     private void UpdateNayruAudienceTalks()
@@ -486,12 +501,7 @@ internal sealed class NayruIntroEvent :
         _context.Sound.PlaySound(OracleSoundEngine.SndCloseMenu);
         _nayruSingingScreen = new NayruSingingScreen(_nayruDatabase);
         _nayruInterfaceLayer.AddChild(_nayruSingingScreen);
-        _nayruFadePositionBeforeSinging = _nayruFade.Position;
-        _nayruFadeSizeBeforeSinging = _nayruFade.Size;
-        _nayruSingingOwnsFullScreenFade = true;
-        _nayruFade.Position = Vector2.Zero;
-        _nayruFade.Size = new Vector2(
-            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
+        CaptureFullScreenFade();
         _nayruHud.Visible = false;
         _nayruFade.Color = Colors.White;
         _counter = (int)InventoryMenuController.FastFadeFrames;
@@ -542,14 +552,7 @@ internal sealed class NayruIntroEvent :
         _nayruStage = NayruStage.SingingFadeOut;
     }
 
-    private void RestoreFadeAfterSinging()
-    {
-        if (!_nayruSingingOwnsFullScreenFade)
-            return;
-        _nayruFade.Position = _nayruFadePositionBeforeSinging;
-        _nayruFade.Size = _nayruFadeSizeBeforeSinging;
-        _nayruSingingOwnsFullScreenFade = false;
-    }
+    private void RestoreFadeAfterSinging() => ReleaseFullScreenFade(restoreColor: false);
 
     private void BuildNayruScript() =>
         _commandRunner.Start(_nayruDatabase.Commands);

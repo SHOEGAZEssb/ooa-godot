@@ -45,7 +45,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
 
     public bool HasState => _active;
     public bool BlocksGameplay => HasState;
-    internal bool MenusDisabled => HasState;
+    public bool MenusDisabled => HasState;
     internal int FlashFrame => _flashFrame;
     internal int FlashPhase => _flashPhase;
     internal int CenterCounter => _centerCounter;

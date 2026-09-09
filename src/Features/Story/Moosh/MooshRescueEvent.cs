@@ -48,7 +48,7 @@ internal sealed class MooshRescueEvent :
     public bool BlocksGameplay => InputLeaseHeld;
     protected override RoomEventContext InputContext => _context;
     RoomEventContext ICutsceneCommandHost.Context => _context;
-    internal bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
+    public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     // The source gate reads wLinkObjectIndex == >w1Companion. That remains
     // true while Moosh is airborne, charging, falling, or recovering too;
     // it is not a test for the grounded riding state alone.
@@ -473,18 +473,6 @@ internal sealed class MooshRescueEvent :
     {
         // Each placed interaction deletes itself independently. The companion
         // lane has already transferred its actor into w1Companion ownership.
-    }
-
-    private static Vector2I DirectionToward(Vector2 origin, Vector2 target)
-    {
-        int angle = (OracleObjectMovement.Shared.RelativeAngle(origin, target) + 4) & 0x18;
-        return angle switch
-        {
-            0 => Vector2I.Up,
-            8 => Vector2I.Right,
-            16 => Vector2I.Down,
-            _ => Vector2I.Left
-        };
     }
 
     private void FaceMooshTowardLink()

@@ -1,35 +1,15 @@
-using System;
-
 namespace oracleofages;
 
 /// <summary>
 /// Room-entry owner for present-day INTERAC_REMOTE_MAKU_CUTSCENE
 /// $8a:$00/v$02 in room 0:3a after obtaining the Harp of Ages.
 /// </summary>
-internal sealed class RemoteMakuHarpEvent :
-    RemoteMakuEvent,
-    IRoomEntryEvent
+internal sealed class RemoteMakuHarpEvent(RoomEventContext context) :
+    RemoteMakuEntryEvent<RemoteMakuHarpDatabase>(context, new RemoteMakuHarpDatabase())
 {
-    private readonly RemoteMakuHarpDatabase _database;
-
-    internal RemoteMakuHarpEvent(RoomEventContext context)
-        : this(context, new RemoteMakuHarpDatabase())
+    public override bool Matches(int group, OracleRoomData room)
     {
-    }
-
-    private RemoteMakuHarpEvent(
-        RoomEventContext context,
-        RemoteMakuHarpDatabase database)
-        : base(context, database)
-    {
-        _database = database;
-    }
-
-    internal RemoteMakuHarpDatabase Database => _database;
-
-    public bool Matches(int group, OracleRoomData room)
-    {
-        RemoteMakuEventRecord record = _database.Record;
+        RemoteMakuEventRecord record = Database.Record;
         OracleSaveData save = Context.Rooms.SaveData;
         return group == record.Group &&
             room.Id == record.Room &&
@@ -38,16 +18,5 @@ internal sealed class RemoteMakuHarpEvent :
                 record.Group,
                 record.Room,
                 (byte)record.RoomFlag);
-    }
-
-    public void Start(OracleRoomData room)
-    {
-        if (!Matches(Context.Rooms.ActiveGroup, room))
-        {
-            throw new InvalidOperationException(
-                $"Room {Context.Rooms.ActiveGroup:x}:{room.Id:x2} cannot " +
-                "start the post-Harp remote Maku event.");
-        }
-        Begin();
     }
 }

@@ -25,6 +25,7 @@ internal sealed class FrontendIntroController
     private bool _templeInputDone;
     private int _fadeUpdate;
     private int _fadeDuration;
+    private int _fadeDivisor;
     private bool _fadeToWhite;
     private int _restartStep;
     private int _groundStepCounter;
@@ -37,7 +38,9 @@ internal sealed class FrontendIntroController
     private int _titleRevealIndex;
     private int _flashCounter;
     private int _triforceCounter;
-    private bool _energySoundPlayed;
+    private int _triforceSubstate;
+    private int _templeLinkSubstate;
+    private int _templeLinkCounter;
     private ushort _horseFrontYFixed;
     private ushort _horseFrontXFixed;
     private ushort _horseBirdXFixed;
@@ -66,6 +69,7 @@ internal sealed class FrontendIntroController
     internal int HorseFrontY => _horseFrontYFixed >> 8;
     internal int HorseFrontX => _horseFrontXFixed >> 8;
     internal int HorseBirdX => _horseBirdXFixed >> 8;
+    internal int HorseBirdAnimationClock { get; private set; }
     internal int CastleScrollX { get; private set; }
     internal int CastleActorY { get; private set; }
     internal int CastleActorX => _castleActorXFixed >> 8;
@@ -77,9 +81,14 @@ internal sealed class FrontendIntroController
     internal bool CastleHorseAnimationStopped { get; private set; }
     internal int TempleCameraY { get; private set; }
     internal int TempleLinkY { get; private set; }
+    internal int TempleLinkZ { get; private set; }
+    internal bool TempleOrbVisible { get; private set; }
+    internal int TempleOrbClock { get; private set; }
     internal int TempleLinkAnimation { get; private set; }
     internal int TempleLinkAnimationClock { get; private set; }
     internal bool TempleLinkBlinking { get; private set; }
+    internal int TempleLinkBlinkFrame => TempleLinkAnimation == 5 &&
+        Counter == 1 ? FrameCounter - 1 : FrameCounter;
     internal int TempleAnimationClock { get; private set; }
     internal int TempleBackgroundAnimationGroup { get; private set; }
     internal long TempleBackgroundAnimationTick { get; private set; }
@@ -226,6 +235,8 @@ internal sealed class FrontendIntroController
         {
             case 0:
                 _screen.Scene = FrontendIntroScene.HorseFar;
+                // The original clears wOamEnd..$d000, including $cbb7.
+                FrameCounter = 0;
                 HorseAnimationClock = 0;
                 Counter = _data.Timing("horse-sunset");
                 BlackBarPixels = 0;
@@ -235,6 +246,7 @@ internal sealed class FrontendIntroController
                 HorseMountainScrollX = 0;
                 HorseSpritePalette = 0;
                 _horseBirdXFixed = 0xc800;
+                HorseBirdAnimationClock = 0;
                 _playSound(OracleSoundEngine.MusIntro1);
                 BeginFade(
                     toWhite: false,
@@ -248,6 +260,7 @@ internal sealed class FrontendIntroController
                     break;
                 _fadeDuration = 0;
                 SetWhiteFade(0.0f);
+                AdvanceInitialHorseObjects();
                 _groundStepCounter = _data.Timing("horse-ground-step");
                 State = 2;
                 break;
@@ -446,6 +459,7 @@ internal sealed class FrontendIntroController
         // Subid $06 moves only after the slow palette thread is cleared.
         if (_fadeDuration != 0)
             return;
+        HorseBirdAnimationClock++;
         OracleObjectVelocity velocity = OracleObjectSpeedTable.Shared.Get(0x0f, 0x1a);
         _horseBirdXFixed = unchecked((ushort)(_horseBirdXFixed + velocity.XFixed));
     }
@@ -475,16 +489,6 @@ internal sealed class FrontendIntroController
     private void RunTemple()
     {
         TempleAnimationClock++;
-        if (TempleLinkVisible)
-        {
-            // linkCutscene0 resets animation $00 instead of advancing it while
-            // wLinkAngle has its stopped value. That includes the fade before
-            // simulated input begins, not only explicit $00 input records.
-            if (TempleLinkAnimation == 0 && !TempleLinkIsWalking())
-                TempleLinkAnimationClock = 0;
-            else
-                TempleLinkAnimationClock++;
-        }
         switch (State)
         {
             case 0:
@@ -498,6 +502,10 @@ internal sealed class FrontendIntroController
                 TempleWaveClock = 0;
                 TempleCameraY = 0x70;
                 TempleLinkY = 0xd0;
+                TempleLinkZ = 0;
+                TempleOrbVisible = false;
+                TempleOrbClock = 0;
+                _templeLinkSubstate = _triforceSubstate = 0;
                 TempleLinkVisible = true;
                 TempleLinkAnimation = 0;
                 TempleLinkAnimationClock = 0;
@@ -521,13 +529,14 @@ internal sealed class FrontendIntroController
                 }
                 if (_templeInputDone)
                 {
+                    UpdateTempleCamera();
                     State = 2;
                     break;
                 }
+                UpdateTempleCamera();
                 AdvanceTempleInput();
                 break;
             case 2:
-                AdvanceTriforceSequence();
                 if (TriforceState != 3)
                     break;
                 BeginFade(toWhite: true);
@@ -551,6 +560,7 @@ internal sealed class FrontendIntroController
                     break;
                 _flashCounter = 1;
                 FlashWhite = true;
+                TempleWaveClock++; // State 5 falls through to state 6's wave update.
                 State = 6;
                 break;
             case 6:
@@ -559,8 +569,12 @@ internal sealed class FrontendIntroController
             case 7:
                 TempleLinkBlinking = true;
                 if (--Counter != 0)
+                {
+                    if (Counter == 1) TempleOrbVisible = false;
                     break;
+                }
                 TempleLinkVisible = false;
+                TempleOrbVisible = false;
                 TempleLinkBlinking = false;
                 Counter = _data.Timing("temple-wait");
                 State = 8;
@@ -587,6 +601,10 @@ internal sealed class FrontendIntroController
             default:
                 throw InvalidState();
         }
+        // intro_cinematic dispatches the cutscene, then Link, then interactions.
+        // Their counters run while simulated input and palette fades continue.
+        AdvanceTempleLink();
+        AdvanceTriforceSequence();
         if (TriforceState != 0)
             TriforceMotionClock++;
         if (TempleWaveActive)
@@ -610,25 +628,23 @@ internal sealed class FrontendIntroController
         }
 
         bool up = _templeInput[_templeInputIndex].B != 0;
-        if (up)
+        if (up && _templeLinkSubstate == 0)
         {
             TempleLinkY = unchecked((byte)(TempleLinkY - 1));
             if (TempleLinkY < 0x40 && TriforceState == 0)
             {
                 TriforceState = 1;
-                _triforceCounter = _data.Timing("triforce-converge");
-                _energySoundPlayed = false;
+                _templeLinkSubstate = 1;
                 _playSound(OracleSoundEngine.SndDropEssence);
             }
+            else TempleLinkAnimationClock++;
         }
-        else
+        else if (_templeLinkSubstate == 0)
         {
             // linkCutscene0 resets animation $00 whenever wLinkAngle retains
             // its stopped value with bit 7 set.
             TempleLinkAnimationClock = 0;
         }
-        UpdateTempleCamera();
-
         _templeInputRemaining--;
         if (_templeInputRemaining == 0)
         {
@@ -637,13 +653,6 @@ internal sealed class FrontendIntroController
                 _templeInputDone = true;
         }
     }
-
-    private bool TempleLinkIsWalking() =>
-        State == 1 &&
-        Counter == 0 &&
-        !_templeInputDone &&
-        _templeInputIndex < _templeInput.Length &&
-        _templeInput[_templeInputIndex].B != 0;
 
     private void UpdateTempleCamera()
     {
@@ -655,28 +664,94 @@ internal sealed class FrontendIntroController
 
     private void AdvanceTriforceSequence()
     {
-        if (TriforceState is not (1 or 2))
+        if (TriforceState != 1) return;
+        // Center-piece substates in introSpriteTriforceSubid. The first two
+        // transitions fall through and decrement the new counter immediately.
+        if (_triforceSubstate == 0)
+        {
+            _triforceCounter = TriforceTiming(0);
+            _triforceSubstate = 1;
+        }
+        if (--_triforceCounter != 0) return;
+        switch (_triforceSubstate)
+        {
+            case 1:
+                _triforceSubstate = 2;
+                _triforceCounter = TriforceTiming(1) - 1;
+                break;
+            case 2:
+                _triforceSubstate = 3;
+                _triforceCounter = TriforceTiming(2);
+                break;
+            case 3:
+                _triforceSubstate = 4;
+                _triforceCounter = TriforceTiming(3);
+                _playSound(OracleSoundEngine.SndEnergyThing);
+                break;
+            case 4:
+                _triforceSubstate = 5;
+                TriforceState = 2;
+                _playSound(OracleSoundEngine.SndAquamentusHover);
+                break;
+        }
+    }
+
+    private int TriforceTiming(int index) => _data.Sequence("triforce-timing")[index].A;
+
+    private void AdvanceTempleLink()
+    {
+        if (!TempleLinkVisible) return;
+        if (TempleLinkAnimation == 5)
+        {
+            // The terminal parameter is observed one update after animation
+            // reaches it; preserve that update's last OAM visibility.
+            if (TempleLinkAnimationClock < _data.Timing("temple-link-fall") - 2)
+                TempleLinkAnimationClock++;
+            if (TempleOrbVisible) TempleOrbClock++;
             return;
-        if (TriforceState == 1 && !_energySoundPlayed &&
-            _triforceCounter == _data.Timing("triforce-converge") - 300)
-        {
-            _energySoundPlayed = true;
-            _playSound(OracleSoundEngine.SndEnergyThing);
         }
-        if (--_triforceCounter != 0)
-            return;
-        if (TriforceState == 1)
+        switch (_templeLinkSubstate)
         {
-            TriforceState = 2;
-            _triforceCounter = _data.Timing("triforce-link-rise");
-            TempleLinkAnimation = 4;
-            TempleLinkAnimationClock = 0;
-            _playSound(OracleSoundEngine.SndAquamentusHover);
+            case 1:
+                if (TriforceState != 2) return;
+                _templeLinkSubstate = 2;
+                _templeLinkCounter = TriforceTiming(4);
+                TempleLinkAnimation = 4;
+                TempleLinkAnimationClock = 0;
+                return;
+            case 2:
+                if (--_templeLinkCounter != 0) { TempleLinkAnimationClock++; return; }
+                _templeLinkSubstate = 3;
+                _templeLinkCounter = TriforceTiming(5);
+                return;
+            case 3:
+                if (--_templeLinkCounter == 0)
+                {
+                    _templeLinkSubstate = 4;
+                    _templeLinkCounter = TriforceTiming(7);
+                }
+                OscillateTempleLink(0);
+                return;
+            case 4:
+                if (--_templeLinkCounter == 0)
+                {
+                    TriforceState = 3;
+                    _templeLinkSubstate = 5;
+                }
+                OscillateTempleLink(1);
+                return;
+            case 5:
+                OscillateTempleLink(1);
+                return;
         }
-        else
-        {
-            TriforceState = 3;
-        }
+    }
+
+    private void OscillateTempleLink(int table)
+    {
+        if ((FrameCounter & 7) == 0)
+            TempleLinkZ = (TempleLinkZ +
+                _data.Sequence($"temple-link-z-{table}")[(FrameCounter & 0x38) >> 3].A) & 0xff;
+        TempleLinkAnimationClock++;
     }
 
     private void AdvanceTempleFlash()
@@ -698,7 +773,9 @@ internal sealed class FrontendIntroController
         _playSound(OracleSoundEngine.SndFairyCutscene);
         Counter = _data.Timing("temple-link-fall");
         TempleLinkAnimation = 5;
-        TempleLinkAnimationClock = 0;
+        TempleLinkAnimationClock = -1; // The trailing object dispatch installs frame 0.
+        TempleOrbClock = -1;
+        TempleOrbVisible = true;
         TempleLinkBlinking = false;
         State = 7;
     }
@@ -880,7 +957,7 @@ internal sealed class FrontendIntroController
                 _restartSound();
                 ShowTitle();
                 Counter = _data.Timing("title-idle");
-                _titleScreen.SetTitleBlink(true);
+                _titleScreen.SetTitleBlink((Counter & 0x20) == 0);
                 _playSound(OracleSoundEngine.MusTitlescreen);
                 State = 1;
                 break;
@@ -946,7 +1023,10 @@ internal sealed class FrontendIntroController
     {
         _fadeToWhite = toWhite;
         _fadeUpdate = 0;
-        _fadeDuration = _data.Timing("palette-fade") * divisor;
+        _fadeDivisor = divisor;
+        // Delay counter starts at 1, then refills with the divisor. Fade-out
+        // stops at offset $20; fade-in stops on underflow after offset $00.
+        _fadeDuration = (_data.Timing("palette-fade") - (toWhite ? 1 : 0)) * divisor + 1;
         SetWhiteFade(toWhite ? 0.0f : 1.0f);
     }
 
@@ -955,8 +1035,8 @@ internal sealed class FrontendIntroController
         if (_fadeDuration == 0)
             return true;
         _fadeUpdate = Math.Min(_fadeDuration, _fadeUpdate + 1);
-        float progress = _fadeUpdate / (float)_fadeDuration;
-        SetWhiteFade(_fadeToWhite ? progress : 1.0f - progress);
+        int step = (_fadeUpdate - 1) / _fadeDivisor + 1;
+        SetWhiteFade((_fadeToWhite ? step : Math.Max(0, 32 - step)) / 32.0f);
         if (_fadeUpdate != _fadeDuration)
             return false;
         _fadeDuration = 0;

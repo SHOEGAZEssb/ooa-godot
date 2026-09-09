@@ -8,30 +8,26 @@ namespace oracleofages;
 /// reward lifecycle. The physical stock remains owned by room entities.
 /// </summary>
 internal sealed class TokayTradingEvent :
-    IRoomEvent, IUpdatesDuringDialogueRoomEvent
+    TokayScriptEvent, IRoomEvent, IUpdatesDuringDialogueRoomEvent
 {
-    private readonly RoomEventContext _context;
-    private readonly TokayInteractionDatabase _interactions;
     private readonly TokayShopDatabase _shop;
     private TokayTradingStage _stage;
     private TokayShopItem? _shopItem;
     private GroundTreasurePickup? _reward;
     private bool _refreshShopItemsNextUpdate;
-    private bool _inputLocked;
     private bool _braceletPurchased;
 
     internal TokayTradingEvent(
         RoomEventContext context,
         TokayInteractionDatabase interactions,
         TokayShopDatabase shop)
+        : base(context, interactions)
     {
-        _context = context;
-        _interactions = interactions;
         _shop = shop;
     }
 
+    public bool MenusDisabled => HasState;
     public bool HasState => _stage != TokayTradingStage.Inactive;
-    public bool BlocksGameplay => _inputLocked;
     internal TokayTradingStage Stage => _stage;
 
     internal bool TryInteractNpc(NpcCharacter npc)
@@ -40,7 +36,7 @@ internal sealed class TokayTradingEvent :
             return false;
 
         ShowDialogueOnly(
-            _context.Entities.Entities<TokayShopItem>().Any(item => !item.Removed)
+            Context.Entities.Entities<TokayShopItem>().Any(item => !item.Removed)
                 ? 0x0a37
                 : 0x0a38);
         return true;
@@ -49,14 +45,14 @@ internal sealed class TokayTradingEvent :
     internal bool TryInteractPlayer(Player player)
     {
         if (HasState ||
-            _context.Rooms.ActiveGroup != _shop.Group ||
-            _context.Rooms.CurrentRoom.Id != _shop.Room)
+            Context.Rooms.ActiveGroup != _shop.Group ||
+            Context.Rooms.CurrentRoom.Id != _shop.Room)
         {
             return false;
         }
 
         TokayShopItem? candidate = null;
-        foreach (TokayShopItem item in _context.Entities.Entities<TokayShopItem>())
+        foreach (TokayShopItem item in Context.Entities.Entities<TokayShopItem>())
         {
             if (!item.CanInteract(player))
                 continue;
@@ -67,7 +63,7 @@ internal sealed class TokayTradingEvent :
             return false;
 
         _shopItem = candidate;
-        LockInput();
+        LockInput(onlyIfUnlocked: true);
         BeginShopItem(candidate);
         return true;
     }
@@ -92,7 +88,7 @@ internal sealed class TokayTradingEvent :
             }
             return;
         }
-        if (_context.DialogueOpen)
+        if (Context.DialogueOpen)
             return;
 
         switch (_stage)
@@ -117,7 +113,7 @@ internal sealed class TokayTradingEvent :
 
     public void Cancel()
     {
-        _reward?.Finish(_context.Player);
+        _reward?.Finish(Context.Player);
         _reward = null;
         _refreshShopItemsNextUpdate = false;
         _braceletPurchased = false;
@@ -133,7 +129,7 @@ internal sealed class TokayTradingEvent :
             case 0:
                 if (OffersSeeds(0x24))
                     ShowChoice(0x0a2b);
-                else if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
+                else if (Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
                     ShowChoice(0x0a2c);
                 else
                     ShowChoice(0x0a27);
@@ -141,7 +137,7 @@ internal sealed class TokayTradingEvent :
             case 1:
                 if (OffersSeeds(0x21))
                     ShowChoice(0x0a32);
-                else if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
+                else if (Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
                     ShowChoice(0x0a33);
                 else
                     ShowChoice(0x0a30);
@@ -163,8 +159,8 @@ internal sealed class TokayTradingEvent :
     }
 
     private bool OffersSeeds(int treasure) =>
-        _context.Inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
-        _context.Inventory.HasTreasure(treasure);
+        Context.Inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
+        Context.Inventory.HasTreasure(treasure);
 
     private void ResolveShopChoice(bool returnTextClosed = false)
     {
@@ -175,9 +171,9 @@ internal sealed class TokayTradingEvent :
             bool firstDecline = item.SubId switch
             {
                 0 => OffersSeeds(0x24) ||
-                    _context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
+                    Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
                 1 => OffersSeeds(0x21) ||
-                    _context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
+                    Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
                 >= 4 => true,
                 _ => false
             };
@@ -186,7 +182,7 @@ internal sealed class TokayTradingEvent :
             return;
         }
 
-        InventoryState inventory = _context.Inventory;
+        InventoryState inventory = Context.Inventory;
         bool returningItem = item.SubId is 2 or 3 ||
             (item.SubId is 0 or 1 && !OffersSeeds(item.SubId == 0 ? 0x24 : 0x21) &&
              !inventory.HasTreasure(TreasureDatabase.TreasureShovel));
@@ -269,7 +265,7 @@ internal sealed class TokayTradingEvent :
 
         int objectParameter = ShopRewardObjectParameter(giveTreasure, parameter);
         TreasureObjectRecord rewardObject =
-            _context.Treasures.GetObject(objectName);
+            Context.Treasures.GetObject(objectName);
         if (rewardObject.TreasureId != giveTreasure ||
             rewardObject.SubId != parameter ||
             rewardObject.Parameter != objectParameter)
@@ -290,15 +286,15 @@ internal sealed class TokayTradingEvent :
             inventory.LoseTreasure(loseTreasure);
         if (globalFlag >= 0)
         {
-            _context.Rooms.SaveData.SetGlobalFlag(globalFlag);
+            Context.Rooms.SaveData.SetGlobalFlag(globalFlag);
             item.Remove();
         }
         if (giveTreasure == TreasureDatabase.TreasureShield)
             item.Remove();
         _braceletPurchased = globalFlag == _shop.BoughtBraceletFlag;
-        _reward = _context.GrantScriptTreasure(
-            _context.Rooms.ActiveGroup,
-            _context.Rooms.CurrentRoom.Id,
+        _reward = Context.GrantScriptTreasure(
+            Context.Rooms.ActiveGroup,
+            Context.Rooms.CurrentRoom.Id,
             giveTreasure,
             parameter,
             objectName,
@@ -333,7 +329,7 @@ internal sealed class TokayTradingEvent :
         // still active.
         _refreshShopItemsNextUpdate = false;
         foreach (TokayShopItem item in
-            _context.Entities.Entities<TokayShopItem>())
+            Context.Entities.Entities<TokayShopItem>())
         {
             RefreshShopItem(item);
         }
@@ -348,7 +344,7 @@ internal sealed class TokayTradingEvent :
         int treasure;
         if (item.OriginalSubId == 0)
         {
-            subId = _context.Inventory.HasTreasure(TreasureDatabase.TreasureFeather)
+            subId = Context.Inventory.HasTreasure(TreasureDatabase.TreasureFeather)
                 ? 2
                 : 0;
             treasure = subId == 2
@@ -357,7 +353,7 @@ internal sealed class TokayTradingEvent :
         }
         else if (item.OriginalSubId == 1)
         {
-            subId = _context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet)
+            subId = Context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet)
                 ? 3
                 : 1;
             treasure = subId == 3
@@ -367,7 +363,7 @@ internal sealed class TokayTradingEvent :
         else
         {
             subId = Math.Clamp(
-                4 + Math.Max(0, _context.Inventory.ShieldLevel - 1), 4, 6);
+                4 + Math.Max(0, Context.Inventory.ShieldLevel - 1), 4, 6);
             treasure = TreasureDatabase.TreasureShield;
         }
 
@@ -388,35 +384,8 @@ internal sealed class TokayTradingEvent :
         _stage = TokayTradingStage.DialogueOnly;
     }
 
-    private void Show(int textId) =>
-        _context.ShowDialogue(_interactions.Text(textId));
-
-    private void ShowChoice(int textId) =>
-        _context.ShowChoiceDialogue(_interactions.Text(textId));
-
-    private int TakeChoice()
-    {
-        if (!_context.TryTakeDialogueChoice(out int choice))
-            throw new InvalidOperationException(
-                "Tokay trading prompt closed without a text-option result.");
-        return choice;
-    }
-
-    private void LockInput()
-    {
-        if (_inputLocked)
-            return;
-        _context.Player.BeginCutsceneControl();
-        _inputLocked = true;
-    }
-
-    private void UnlockInput()
-    {
-        if (!_inputLocked)
-            return;
-        _context.Player.EndCutsceneControl();
-        _inputLocked = false;
-    }
+    private int TakeChoice() =>
+        RequireDialogueChoice("Tokay trading prompt closed without a text-option result.");
 
     private void FinishInteraction()
     {

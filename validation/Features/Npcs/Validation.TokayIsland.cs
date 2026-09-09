@@ -622,16 +622,16 @@ public sealed partial class ValidationRoot
             }.Resolve(treasures);
         }
 
-        TokayHoldingItemEvent holdingItem = _roomEvents.TokayHoldingItem;
-        RosaShovelEvent rosaShovel = _roomEvents.RosaShovel;
-        TokayTradingEvent trading = _roomEvents.TokayTrading;
-        WildTokayGameEvent wildTokay = _roomEvents.WildTokayGame;
+        TokayHoldingItemEvent holdingItem = _roomEvents.Get<TokayHoldingItemEvent>();
+        RosaShovelEvent rosaShovel = _roomEvents.Get<RosaShovelEvent>();
+        TokayTradingEvent trading = _roomEvents.Get<TokayTradingEvent>();
+        WildTokayGameEvent wildTokay = _roomEvents.Get<WildTokayGameEvent>();
 
         // Room 1:ac's source script faces Link, flips away, installs
         // applyspeed $10, applies SPEED_100 only while counter2 remains
         // nonzero after DEC, flips back, plants, and spawns $80:$04.
         TokaySeedlingPlotRecord seedlingRecord = seedlingDatabase.Record;
-        TokaySeedlingPlotEvent seedlingPlot = _roomEvents.TokaySeedlingPlot;
+        TokaySeedlingPlotEvent seedlingPlot = _roomEvents.Get<TokaySeedlingPlotEvent>();
         _saveData.SetRoomFlag(
             seedlingRecord.Group,
             seedlingRecord.Room,

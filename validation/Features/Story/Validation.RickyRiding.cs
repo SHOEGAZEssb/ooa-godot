@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateRickyRiding()
     {
         RickyGlovesEventDatabase database =
-            _roomEvents.RickyGloves.Database;
+            _roomEvents.Get<RickyGlovesEvent>().Database;
         RickyGlovesEventRecord record = database.Record;
         RickyCompanionBehaviorRecord behavior = database.Behavior;
 

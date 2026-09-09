@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom025Carpenters()
     {
-        CarpenterEvent quest = _roomEvents.Carpenters;
+        CarpenterEvent quest = _roomEvents.Get<CarpenterEvent>();
         CarpenterDatabase data = quest.Database;
         _saveData.SetLinkedGame(false);
         foreach (string flag in new[] { "bridge-flag", "flute-flag", "talked-flag", "zelda-flag" })

@@ -1,23 +1,16 @@
-using Godot;
-using System;
-
 namespace oracleofages;
 
 internal interface IRoomEvent
 {
     bool HasState { get; }
     bool BlocksGameplay { get; }
+    bool MenusDisabled => false;
+    bool ScreenTransitionsDisabled => false;
+    bool AllScreenTransitionsDisabled => false;
+    // Composite sequences own their children's dispatch, including reduced
+    // dialogue passes. Retained state alone must never silently lose updates.
+    bool OwnsUpdatesOf(IRoomEvent other) => false;
+    void ReleaseOutgoingActors(int group, OracleRoomData room) { }
     void UpdateFrame();
     void Cancel();
-}
-
-/// <summary>
-/// Reduced room-event counterpart to the original textbox update paths.
-/// Event-owned actors otherwise receive no handler call while wTextIsActive
-/// is nonzero; implementations expose only enabled-bit-7 objects or work
-/// owned by a source handler outside the ordinary object dispatchers.
-/// </summary>
-internal interface IUpdatesDuringDialogueRoomEvent
-{
-    void UpdateDuringDialogueFrame();
 }

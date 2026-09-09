@@ -9,7 +9,7 @@ namespace oracleofages;
 /// and the direct black-screen return to the palace entrance.
 /// </summary>
 internal sealed class DekuForestPalaceEvent :
-    CutsceneCommandHost,
+    InteractiveCutsceneCommandHost,
     IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
@@ -47,7 +47,7 @@ internal sealed class DekuForestPalaceEvent :
     private int _rewardCounter;
     private int _rewardZFixed;
     private int _rewardSpeedZ;
-    private bool _inputHeld;
+    protected override RoomEventContext InputContext => _context;
     private bool _menusDisabled;
     private bool _fadeCompleted;
     private bool _returnRequested;
@@ -64,7 +64,7 @@ internal sealed class DekuForestPalaceEvent :
     public bool HasState => _stage != DekuForestPalaceStage.Inactive;
     public bool BlocksGameplay => _stage is not
         (DekuForestPalaceStage.Inactive or DekuForestPalaceStage.GenericGuards);
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
     internal DekuForestPalaceStage Stage => _stage;
     internal int Signal => _signal;
     internal bool DirectExit => _directExit;
@@ -76,6 +76,14 @@ internal sealed class DekuForestPalaceEvent :
          id == _record.CorridorRoom1 ||
          id == _record.CorridorRoom2 ||
          id == _record.ThroneRoom);
+
+    public void ReleaseOutgoingActors(int group, OracleRoomData room)
+    {
+        // The northward escort restarts per room, but its outgoing enabled-$02
+        // interactions remain frozen and visible for the complete scroll.
+        if (HasState && _context.Entities.ScreenTransitionActive)
+            Cancel(deactivateActors: false);
+    }
 
     public void Start(OracleRoomData room)
     {
@@ -170,9 +178,7 @@ internal sealed class DekuForestPalaceEvent :
         bool restoreFade =
             _stage == DekuForestPalaceStage.Exit ||
             _stage == DekuForestPalaceStage.Throne && _signal == 0x07;
-        if (_inputHeld)
-            _context.Player.EndCutsceneControl();
-        _inputHeld = false;
+        ReleaseInputControl();
 
         foreach (NpcCharacter actor in _actors.Values)
         {
@@ -215,17 +221,6 @@ internal sealed class DekuForestPalaceEvent :
 
     public override bool HasActorBinding(CutsceneActorId actor) =>
         _actors.ContainsKey(actor.Value);
-
-    public override void SetInputEnabled(bool enabled)
-    {
-        if (enabled == !_inputHeld)
-            return;
-        _inputHeld = !enabled;
-        if (enabled)
-            _context.Player.EndCutsceneControl();
-        else
-            _context.Player.BeginCutsceneControl();
-    }
 
     public override void SetMenuEnabled(bool enabled)
     {

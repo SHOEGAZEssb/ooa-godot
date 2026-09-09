@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         const int group = 2;
         const int roomId = 0x0f;
 
-        ChevalEvent chevalEvent = _roomEvents.Cheval;
+        ChevalEvent chevalEvent = _roomEvents.Get<ChevalEvent>();
         ChevalEventDatabase database = chevalEvent.Database;
         ChevalEventRecord record = database.Record;
         bool originalTalked =

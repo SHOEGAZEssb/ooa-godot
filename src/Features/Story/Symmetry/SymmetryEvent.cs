@@ -14,6 +14,8 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     private readonly List<SymmetryScriptHost> _actors = new();
     private TuniNutRoomEntity? _nut;
     internal Func<int, Action<bool>, bool>? OpenSecretMenu { get; set; }
+    public bool MenusDisabled => BlocksGameplay;
+    public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool HasState => _actors.Count != 0;
     public bool BlocksGameplay => InputLeaseHeld;
 

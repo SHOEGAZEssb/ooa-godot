@@ -26,6 +26,13 @@ public sealed class MainMenuController
     private FadeDestination _fadeDestination;
     private OracleSaveData? _pendingSave;
     private int _pendingSlot;
+    private int _repeatKeys;
+    private int _repeatCounter;
+    private int _eraseTimer;
+    private int _eraseHealth;
+    private bool _erasing;
+    private static readonly string[] ButtonActions =
+        ["attack", "item", "map", "inventory", "move_right", "move_left", "move_up", "move_down"];
 
     public bool IsActive { get; private set; } = true;
     internal Page CurrentPage => _screen.CurrentPage;
@@ -99,21 +106,115 @@ public sealed class MainMenuController
         _menuTicks += delta * 60.0;
         _screen.SetActorFrame((((int)_menuTicks >> 4) & 1) != 0);
 
-        Vector2I movement = Vector2I.Zero;
-        if (Input.IsActionJustPressed("move_up")) movement = Vector2I.Up;
-        else if (Input.IsActionJustPressed("move_down")) movement = Vector2I.Down;
-        else if (Input.IsActionJustPressed("move_left")) movement = Vector2I.Left;
-        else if (Input.IsActionJustPressed("move_right")) movement = Vector2I.Right;
-        if (movement != Vector2I.Zero)
-            Move(movement);
+        if (_erasing)
+        {
+            // bank2.s:fileSelectMode4 @mode3 owns its own counter, separate
+            // from wTmpcbb6 (the animated Link's clock).
+            _eraseTimer = (_eraseTimer - 1) & 0xff;
+            if ((_eraseTimer & 1) != 0) return;
+            if (_eraseHealth == 0)
+            {
+                _erase(_screen.SelectedSlot);
+                _erasing = false;
+                OpenFileSelect();
+                return;
+            }
+            _screen.SetEraseHealth(--_eraseHealth);
+            if ((_eraseHealth & 3) == 0)
+                _playSound?.Invoke(OracleSoundEngine.SndGainHeart);
+            return;
+        }
 
-        if (Input.IsActionJustPressed("item"))
-            Back();
-        else if (Input.IsActionJustPressed("inventory") &&
-            _screen.CurrentPage == Page.NameEntry)
-            CommitNameEntry();
-        else if (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory"))
-            Accept();
+        int pressed = 0, held = 0;
+        for (int bit = 0; bit < ButtonActions.Length; bit++)
+        {
+            if (Input.IsActionJustPressed(ButtonActions[bit])) pressed |= 1 << bit;
+            if (Input.IsActionPressed(ButtonActions[bit])) held |= 1 << bit;
+        }
+        DispatchInput(pressed, held);
+    }
+
+    private void DispatchInput(int pressed, int held)
+    {
+        // These are distinct bank2.s dispatchers, with different priorities.
+        // Navigation consumes the update even at a clamped endpoint.
+        switch (_screen.CurrentPage)
+        {
+            case Page.NameEntry:
+                UpdateNameInput(pressed, held);
+                return;
+            case Page.NewFileOptions:
+                if ((pressed & 0x80) != 0) Move(Vector2I.Down);
+                else if ((pressed & 0x40) != 0) Move(Vector2I.Up);
+                else if ((pressed & 0x06) != 0) Back();
+                else if ((pressed & 0x09) != 0) Accept();
+                return;
+            case Page.TextSpeed:
+                if ((pressed & 0x06) != 0) Back();
+                else if ((pressed & 0x10) != 0) Move(Vector2I.Right);
+                else if ((pressed & 0x20) != 0) Move(Vector2I.Left);
+                else if ((pressed & 0x09) != 0) Accept();
+                return;
+            case Page.CopyDestination:
+            case Page.CopyConfirm:
+            case Page.EraseConfirm:
+                if ((pressed & 0x02) != 0) { Back(); return; }
+                break;
+            case Page.Notice:
+                if ((pressed & 0x02) != 0) Back();
+                else if ((pressed & 0x09) != 0) Accept();
+                return;
+        }
+        if (_screen.CurrentPage is not (Page.CopyConfirm or Page.EraseConfirm))
+        {
+            bool moved = (pressed & 0xc0) != 0;
+            if (moved) Move((pressed & 0x40) != 0 ? Vector2I.Up : Vector2I.Down);
+            else if ((pressed & 0x09) != 0) { Accept(); return; }
+            // fileSelectMode1 alone falls through to the bottom-row handler
+            // after fileSelectUpdateInput, including a vertical move to Quit.
+            if (_screen.CurrentPage != Page.FileSelect || _screen.Cursor != 3) return;
+        }
+        if (_screen.CurrentPage is Page.CopyConfirm or Page.EraseConfirm ||
+            (_screen.CurrentPage == Page.FileSelect && _screen.Cursor == 3))
+        {
+            if ((pressed & 0x20) != 0) { Move(Vector2I.Left); return; }
+            if ((pressed & 0x10) != 0) { Move(Vector2I.Right); return; }
+        }
+        if ((pressed & 0x09) != 0) Accept();
+    }
+
+    private void UpdateNameInput(int pressed, int held)
+    {
+        // bank0.s:getInputWithAutofire, then bank2.s:runTextInput's
+        // highest-set-bit dispatch (Down, Up, Left, Right, Start, Select, B, A).
+        int directions = held & 0xf0;
+        if ((_repeatKeys & directions) == 0) _repeatCounter = 0;
+        else if (++_repeatCounter >= 0x28)
+        {
+            _repeatCounter = (_repeatCounter & 0x1f) | 0x80;
+            if ((_repeatCounter & 3) == 0) pressed = held;
+        }
+        _repeatKeys = directions;
+        if (pressed == 0) return;
+        int button = 7;
+        while ((pressed & (1 << button)) == 0) button--;
+        if (button >= 4)
+        {
+            _screen.MoveNameCursor(button switch
+            {
+                7 => Vector2I.Down, 6 => Vector2I.Up,
+                5 => Vector2I.Left, _ => Vector2I.Right
+            });
+            _playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+        }
+        else if (button == 1) Back();
+        else if (button == 0) Accept();
+        else
+        {
+            _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+            // US Select deliberately only makes the selection sound.
+            if (button == 3 && _screen.SelectNameOkay()) CommitNameEntry();
+        }
     }
 
     internal void OpenFileSelect()
@@ -142,10 +243,15 @@ public sealed class MainMenuController
             case Page.CopyDestination:
             case Page.EraseSelect:
                 if (direction.Y != 0)
-                    _screen.SetCursor((_screen.Cursor + direction.Y + 4) & 3);
+                {
+                    int next = (_screen.Cursor + direction.Y + 4) & 3;
+                    if (_screen.CurrentPage == Page.CopyDestination && next == _sourceSlot)
+                        next = (next + direction.Y + 4) & 3;
+                    _screen.SetCursor(next);
+                }
                 else if (_screen.Cursor == 3 && direction.X != 0 &&
                     _screen.CurrentPage == Page.FileSelect)
-                    _screen.SetChoice(_screen.Choice ^ 1);
+                    _screen.SetChoice(direction.X < 0 ? 0 : 1);
                 break;
             case Page.NewFileOptions:
                 if (direction.Y != 0)
@@ -160,8 +266,8 @@ public sealed class MainMenuController
                 break;
             case Page.CopyConfirm:
             case Page.EraseConfirm:
-                if (direction.X != 0 || direction.Y != 0)
-                    _screen.SetChoice(_screen.Choice ^ 1);
+                if (direction.X != 0)
+                    _screen.SetChoice(direction.X < 0 ? 0 : 1);
                 break;
         }
         if (_screen.Cursor != cursor || _screen.Choice != choice ||
@@ -173,12 +279,14 @@ public sealed class MainMenuController
 
     internal void Accept()
     {
+        if (_erasing) return;
         if (_screen.SaveErrorVisible)
         {
             _screen.ClearSaveError();
             return;
         }
-        _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+        if (_screen.CurrentPage != Page.EraseConfirm)
+            _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
         switch (_screen.CurrentPage)
         {
             case Page.FileSelect:
@@ -186,7 +294,10 @@ public sealed class MainMenuController
                 break;
             case Page.NewFileOptions:
                 if (_screen.Cursor == 0)
+                {
+                    _repeatKeys = _repeatCounter = 0;
                     _screen.ShowNameEntry(_screen.SelectedSlot);
+                }
                 else
                     _screen.ShowNotice(_screen.Cursor == 1
                         ? "SECRET ENTRY\nIS NOT YET SUPPORTED"
@@ -217,13 +328,17 @@ public sealed class MainMenuController
             case Page.EraseSelect:
                 if (_screen.Cursor == 3)
                     OpenFileSelect();
-                else if (_slots[_screen.Cursor] is not null)
+                else
                     _screen.ShowEraseConfirm(_screen.Cursor);
                 break;
             case Page.EraseConfirm:
                 if (_screen.Choice == 1)
-                    _erase(_screen.SelectedSlot);
-                OpenFileSelect();
+                {
+                    _erasing = true;
+                    _eraseHealth = _slots[_screen.SelectedSlot]?.MaxHealthQuarters ?? 0;
+                    _screen.SetEraseHealth(_eraseHealth);
+                }
+                else OpenFileSelect();
                 break;
             case Page.Notice:
                 _screen.ShowNewFileOptions(_screen.SelectedSlot);
@@ -233,6 +348,7 @@ public sealed class MainMenuController
 
     internal void Back()
     {
+        if (_erasing) return;
         if (_screen.SaveErrorVisible)
         {
             _screen.ClearSaveError();
@@ -241,22 +357,32 @@ public sealed class MainMenuController
         switch (_screen.CurrentPage)
         {
             case Page.NewFileOptions:
-            case Page.TextSpeed:
-            case Page.CopySource:
-            case Page.EraseSelect:
                 OpenFileSelect();
                 break;
+            case Page.TextSpeed:
+                // @textSpeedMenu_checkInput decrements only the substate;
+                // it does not reinitialize the selected file cursor.
+                _screen.ShowFileSelect();
+                _screen.SetCursor(_screen.SelectedSlot);
+                break;
             case Page.NameEntry:
+                _playSound?.Invoke(OracleSoundEngine.SndClink);
                 _screen.DeleteNameCharacter();
                 break;
             case Page.CopyDestination:
+                _playSound?.Invoke(OracleSoundEngine.SndClink);
                 _screen.ShowCopySource();
+                _screen.SetCursor(_sourceSlot);
                 break;
             case Page.CopyConfirm:
+                _playSound?.Invoke(OracleSoundEngine.SndClink);
                 _screen.ShowCopyDestination(_sourceSlot);
+                _screen.SetCursor(_screen.SelectedSlot);
                 break;
             case Page.EraseConfirm:
+                _playSound?.Invoke(OracleSoundEngine.SndClink);
                 _screen.ShowEraseSelect();
+                _screen.SetCursor(_screen.SelectedSlot);
                 break;
             case Page.Notice:
                 _screen.ShowNewFileOptions(_screen.SelectedSlot);
@@ -303,14 +429,16 @@ public sealed class MainMenuController
     private void CommitNameEntry()
     {
         if (_screen.EnteredName.Length == 0)
+        {
+            OpenFileSelect();
             return;
+        }
 
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         save.SetLinkName(_screen.EnteredName);
         if (!TrySave(_screen.SelectedSlot, save))
             return;
         OpenFileSelect();
-        _screen.SetCursor(_screen.SelectedSlot);
     }
 
     private void StartSelectedFile()
@@ -333,7 +461,10 @@ public sealed class MainMenuController
             return;
         }
         if (_slots[_screen.Cursor] is null)
+        {
+            _playSound?.Invoke(OracleSoundEngine.SndError);
             return;
+        }
         _sourceSlot = _screen.Cursor;
         _screen.ShowCopyDestination(_sourceSlot);
     }
@@ -342,7 +473,7 @@ public sealed class MainMenuController
     {
         if (_screen.Cursor == 3)
         {
-            _screen.ShowCopySource();
+            Back();
             return;
         }
         if (_screen.Cursor == _sourceSlot)

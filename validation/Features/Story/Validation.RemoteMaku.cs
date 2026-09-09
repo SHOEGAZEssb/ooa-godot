@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         const int group = 0;
         const int room = 0x8d;
         RemoteMakuFirstEssenceEvent cutscene =
-            _roomEvents.RemoteMakuFirstEssence;
+            _roomEvents.Get<RemoteMakuFirstEssenceEvent>();
         RemoteMakuEventRecord record = cutscene.Database.Record;
         byte originalEssences = _saveData.ReadWramByte(0xc6bf);
         int originalMakuState = _saveData.MakuTreeState;
@@ -315,7 +315,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 0;
         const int room = 0x3a;
-        RemoteMakuHarpEvent cutscene = _roomEvents.RemoteMakuHarp;
+        RemoteMakuHarpEvent cutscene = _roomEvents.Get<RemoteMakuHarpEvent>();
         RemoteMakuEventRecord record = cutscene.Database.Record;
         var text = (CutsceneShowTextVariantsCommand)
             cutscene.Database.Commands[10];

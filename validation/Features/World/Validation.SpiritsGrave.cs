@@ -1825,7 +1825,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             !_transitions.IsTransitioning || essence.SwirlActive ||
-            _roomEvents.DungeonEssence.TracksEssence ||
+            _roomEvents.Get<DungeonEssenceEvent>().TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||

@@ -96,7 +96,7 @@ internal sealed class RaftonEvent :
 
         if (!_rightRoom && rafton.Active)
             AdvanceLeftNativeAnimation(rafton);
-        UpdateExclamation();
+        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
     }
 
     public void UpdateDuringDialogueFrame()
@@ -109,7 +109,7 @@ internal sealed class RaftonEvent :
             else
                 AdvanceLeftNativeAnimation(rafton);
         }
-        UpdateExclamation();
+        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
     }
 
     public override int ReadMemory(string binding)
@@ -344,7 +344,7 @@ internal sealed class RaftonEvent :
 
     protected override void ResetEventState()
     {
-        RetireExclamation();
+        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         _precisePosition = Vector2.Zero;
         _rightRoom = false;
         _d3EssenceObtained = false;
@@ -398,33 +398,5 @@ internal sealed class RaftonEvent :
         Context.Sound.PlaySound(_record.ClinkSound);
     }
 
-    private void UpdateExclamation()
-    {
-        if (_exclamation is null)
-            return;
-        if (_exclamationFresh)
-        {
-            _exclamationFresh = false;
-            return;
-        }
-        if (_exclamationCounter <= 1)
-        {
-            RetireExclamation();
-            return;
-        }
-        _exclamationCounter--;
-        _exclamation.AdvanceAnimationUpdates(1);
-    }
 
-    private void RetireExclamation()
-    {
-        if (_exclamation is not null &&
-            GodotObject.IsInstanceValid(_exclamation))
-        {
-            _exclamation.SetActive(false);
-        }
-        _exclamation = null;
-        _exclamationCounter = 0;
-        _exclamationFresh = false;
-    }
 }

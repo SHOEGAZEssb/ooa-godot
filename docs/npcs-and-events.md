@@ -89,8 +89,17 @@ rescanning a changed collection halfway through an interaction.
 ## Room events
 
 `RoomEventController` owns sequences whose original mechanism coordinates
-several systems. Events use explicit entry predicates and priority; they do not
-poll every room from unrelated controllers.
+several systems. A single ordered registration defines entry precedence and
+typed event lookup. A-button routes retain their separate source order.
+Events receive one fixed tick from the application scheduler; bulk stepping
+belongs to validation.
+
+Retained state does not implicitly grant exclusive update priority. A composite
+event explicitly owns its children's dispatch, including dialogue updates;
+uncoordinated active owners fail with room and event diagnostics. Events expose
+their own menu and transition restrictions, which the controller aggregates
+independently of update ownership. Ordinary and all-transition restrictions
+remain distinct.
 
 An event owns:
 
@@ -104,6 +113,14 @@ Event boundaries follow the original interaction/script, not a map area. Only
 actors coordinated by one source sequence share an event owner; independent
 dialogues, trades, room-entry scripts, and minigames remain separate even when
 they reuse one imported database or live in adjacent rooms.
+
+Shared event bases hold repeated context operations and source-family contracts.
+Full-screen fade capture is idempotent; each caller specifies whether it owns
+the layer and whether cleanup restores the captured color. Input helpers retain
+the difference between repeating disable-input side effects and acquiring a
+lock only once. Base extraction must preserve each caller's native update slot,
+initialization update, counter boundary, and cancellation order. Command hosts
+remain default-deny; inheriting a helper does not enable a script capability.
 
 Ordinary destination events remain frozen during scrolling. Clear runners,
 release input, detach registrations, and remove transient actors on cancellation

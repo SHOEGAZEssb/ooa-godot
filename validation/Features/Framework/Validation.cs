@@ -189,6 +189,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOracleObjectMath);
         RunIsolatedValidation(ValidateOracleRandom);
         RunIsolatedValidation(ValidateRoomEventTimeline);
+        RunIsolatedValidation(ValidateRoomEventScheduling);
+        RunIsolatedValidation(ValidateSharedRoomEventHosts);
         RunIsolatedValidation(ValidateCutsceneCommandSchema);
         RunIsolatedValidation(ValidateCutsceneDefaultDeny);
         RunIsolatedValidation(ValidateSaveDataFoundation);

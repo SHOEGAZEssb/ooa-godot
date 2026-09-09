@@ -38,7 +38,7 @@ internal sealed class DekuForestSoldierEvent :
 
     public bool HasState => _runner.Active;
     public bool BlocksGameplay => _triggered;
-    internal bool MenusDisabled => _menusDisabled;
+    public bool MenusDisabled => _menusDisabled;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;
@@ -88,7 +88,7 @@ internal sealed class DekuForestSoldierEvent :
         _soldier.AdvanceAnimationUpdates(animationUpdates);
 
         _runner.AdvanceFrame();
-        UpdateExclamation();
+        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         if (_warpRequested)
             ApplyWarp();
     }
@@ -104,7 +104,7 @@ internal sealed class DekuForestSoldierEvent :
         {
             _soldier.SetActive(false);
         }
-        RetireExclamation();
+        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         _soldier = null;
         _runner.Clear();
         _triggered = false;
@@ -280,45 +280,14 @@ internal sealed class DekuForestSoldierEvent :
         _context.Sound.PlaySound(_record.ClinkSound);
     }
 
-    private void UpdateExclamation()
-    {
-        if (_exclamation is null)
-            return;
-        if (_exclamationFresh)
-        {
-            // INTERAC_EXCLAMATION_MARK state 0 initializes and reveals the
-            // object without decrementing counter1 or animating it.
-            _exclamationFresh = false;
-            return;
-        }
-        if (_exclamationCounter <= 1)
-        {
-            RetireExclamation();
-            return;
-        }
 
-        _exclamationCounter--;
-        _exclamation.AdvanceAnimationUpdates(1);
-    }
-
-    private void RetireExclamation()
-    {
-        if (_exclamation is not null &&
-            GodotObject.IsInstanceValid(_exclamation))
-        {
-            _exclamation.SetActive(false);
-        }
-        _exclamation = null;
-        _exclamationCounter = 0;
-        _exclamationFresh = false;
-    }
 
     private void ApplyWarp()
     {
         _warpRequested = false;
         _triggered = false;
         _menusDisabled = false;
-        RetireExclamation();
+        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         if (_soldier is not null &&
             GodotObject.IsInstanceValid(_soldier))
         {

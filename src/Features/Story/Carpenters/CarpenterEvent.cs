@@ -6,7 +6,7 @@ using System.Linq;
 namespace oracleofages;
 
 /// <summary>Room $0:$25's independently scheduled INTERAC_CARPENTER scripts.</summary>
-internal sealed class CarpenterEvent : CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
+internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
 {
     public RoomEventContext Context { get; }
@@ -14,13 +14,14 @@ internal sealed class CarpenterEvent : CutsceneCommandHost, IRoomEntryEvent, ICu
     private readonly CutsceneCommandLaneScheduler _lanes;
     private readonly List<CarpenterScriptHost> _actors = new();
     private CarpenterRoomEntity? _blocker;
-    private bool _inputHeld;
+    protected override RoomEventContext InputContext => Context;
     private bool _exitController;
     private bool _exitChoice;
     private int _mountLock;
+    public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool HasState { get; private set; }
-    public bool BlocksGameplay => _inputHeld;
-    internal bool MenusDisabled { get; private set; }
+    public bool BlocksGameplay => InputLeaseHeld;
+    public bool MenusDisabled { get; private set; }
 
     public CarpenterEvent(RoomEventContext context)
     {
@@ -104,14 +105,9 @@ internal sealed class CarpenterEvent : CutsceneCommandHost, IRoomEntryEvent, ICu
 
     public override void SetInputEnabled(bool enabled)
     {
-        if (_inputHeld == !enabled) return;
-        _inputHeld = !enabled;
-        if (enabled) Context.Player.EndCutsceneControl();
-        else
-        {
-            Context.Player.BeginCutsceneControl();
-            MenusDisabled = true;
-        }
+        if (InputLeaseHeld == !enabled) return;
+        base.SetInputEnabled(enabled);
+        if (!enabled) MenusDisabled = true;
     }
     public override void SetMenuEnabled(bool enabled) => MenusDisabled = !enabled;
 

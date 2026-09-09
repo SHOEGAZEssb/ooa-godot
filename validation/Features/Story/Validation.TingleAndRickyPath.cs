@@ -259,7 +259,7 @@ public sealed partial class ValidationRoot
             "children did not retire on their source animation parameters " +
             $"after 36 updates (actual={koolooCleanupUpdates}).");
 
-        TingleEvent tingleEvent = _roomEvents.Tingle;
+        TingleEvent tingleEvent = _roomEvents.Get<TingleEvent>();
         FailIf(
             !ReferenceEquals(tingleEvent.Actor, tingleEntity) ||
             !tingleEvent.TryInteractNpc(tingleEntity.Npc) ||
@@ -530,7 +530,7 @@ public sealed partial class ValidationRoot
                 _inventory.SeedSatchelLevel != 1,
                 "Tingle did not snapshot three obtained seed types with a level-1 Satchel.");
 
-            TingleEvent upgradeEvent = _roomEvents.Tingle;
+            TingleEvent upgradeEvent = _roomEvents.Get<TingleEvent>();
             FailIf(
                 !upgradeEvent.TryInteractNpc(upgradeTingle.Npc) ||
                 upgradeEvent.Stage != TingleEventStage.SatchelPrompt ||

@@ -88,15 +88,8 @@ internal sealed class ComedianEvent :
             Context.Inventory.TradeItem == value;
     }
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!Context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "comedianScript text-option branch has no completed choice result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("comedianScript text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

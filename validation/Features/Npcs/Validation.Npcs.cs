@@ -2127,7 +2127,7 @@ public sealed partial class ValidationRoot
         RemoveChild(validationRoot);
         validationRoot.QueueFree();
 
-        PreBlackTowerEvent roomEvent = _roomEvents.PreBlackTower;
+        PreBlackTowerEvent roomEvent = _roomEvents.Get<PreBlackTowerEvent>();
         ValidationCutsceneTrace trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         SetTreasure(_saveData, TreasureDatabase.TreasureMakuSeed, value: true);
@@ -2206,7 +2206,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 1;
         const int roomId = 0x76;
-        BlackTowerDoorwayEvent doorway = _roomEvents.BlackTowerDoorway;
+        BlackTowerDoorwayEvent doorway = _roomEvents.Get<BlackTowerDoorwayEvent>();
         BlackTowerDoorwayEventDatabaseRecord record = doorway.Database.Data;
         FailIf(
             record is not
@@ -2424,7 +2424,7 @@ public sealed partial class ValidationRoot
         SetTreasure(_saveData, TreasureDatabase.TreasureBombs, value: false);
         LoadValidationRoom(group, roomId);
 
-        LynnaShopEvent shop = _roomEvents.LynnaShop;
+        LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
         List<LynnaShopItem> products = _entities.Entities<LynnaShopItem>();
         NpcCharacter shopkeeper = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: 0x46, SubId: 0x00 });
@@ -2581,7 +2581,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 2;
         const int roomId = 0xee;
-        VasuShopEvent shop = _roomEvents.VasuShop;
+        VasuShopEvent shop = _roomEvents.Get<VasuShopEvent>();
         VasuShopDatabase database = shop.Database;
 
         _saveData.SetGlobalFlag(database.GlobalObtainedRingBox, value: false);
@@ -3152,7 +3152,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlag80, value: false);
         LoadValidationRoom(group, roomId);
-        BlackTowerEntranceEvent roomEvent = _roomEvents.BlackTowerEntrance;
+        BlackTowerEntranceEvent roomEvent = _roomEvents.Get<BlackTowerEntranceEvent>();
         ValidationCutsceneTrace trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         NpcCharacter guard = _entities.Entities<NpcCharacter>().Single(npc =>

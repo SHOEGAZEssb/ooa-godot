@@ -78,15 +78,8 @@ internal sealed class MaskSalesmanEvent :
             Context.Inventory.TradeItem == value;
     }
 
-    bool ICutsceneCommandHost.TextOptionEquals(int value)
-    {
-        if (!Context.TryTakeDialogueChoice(out int choice))
-        {
-            throw new InvalidOperationException(
-                "maskSalesmanScript text-option branch has no completed choice result.");
-        }
-        return choice == value;
-    }
+    bool ICutsceneCommandHost.TextOptionEquals(int value) =>
+        RequireDialogueChoice("maskSalesmanScript text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

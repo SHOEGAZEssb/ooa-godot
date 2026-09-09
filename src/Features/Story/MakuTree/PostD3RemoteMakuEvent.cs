@@ -9,11 +9,12 @@ namespace oracleofages;
 /// remote Maku interaction $8a:$00/v$04.
 /// </summary>
 internal sealed class PostD3RemoteMakuEvent :
-    IRoomEntryEvent,
+    RoomEventHost, IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     IRoomEventDialogueContext
 {
     private readonly RoomEventContext _context;
+    protected override RoomEventContext EventContext => _context;
     private readonly PostD3RemoteMakuDatabase _database = new();
     private readonly BlackTowerEntranceEventDatabase _towerDatabase = new();
     private readonly RemoteMakuThirdEssenceEvent _remoteMaku;
@@ -25,10 +26,6 @@ internal sealed class PostD3RemoteMakuEvent :
     private NpcCharacter? _ambi;
     private NpcCharacter? _nayru;
     private BlackTowerExplanationScreen? _towerScreen;
-    private Vector2 _fadeOriginalPosition;
-    private Vector2 _fadeOriginalSize;
-    private int _fadeOriginalZIndex;
-    private bool _ownsFade;
 
     internal PostD3RemoteMakuEvent(
         RoomEventContext context,
@@ -359,28 +356,14 @@ internal sealed class PostD3RemoteMakuEvent :
 
     private void OwnFade()
     {
-        if (_ownsFade)
-            return;
-        _ownsFade = true;
-        _fadeOriginalPosition = _context.Fade.Position;
-        _fadeOriginalSize = _context.Fade.Size;
-        _fadeOriginalZIndex = _context.Fade.ZIndex;
-        _context.Fade.Position = Vector2.Zero;
-        _context.Fade.Size = new Vector2(
-            OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
-        _context.Fade.ZIndex = _context.Hud.ZIndex + 1;
-        SetWhiteFade(0.0f);
+        if (CaptureFullScreenFade(_context.Hud.ZIndex + 1))
+            SetWhiteFade(0.0f);
     }
 
     private void RestoreFade()
     {
         SetWhiteFade(0.0f);
-        if (!_ownsFade)
-            return;
-        _context.Fade.Position = _fadeOriginalPosition;
-        _context.Fade.Size = _fadeOriginalSize;
-        _context.Fade.ZIndex = _fadeOriginalZIndex;
-        _ownsFade = false;
+        ReleaseFullScreenFade(restoreColor: false);
     }
 
     private void RemoveTowerScreen()

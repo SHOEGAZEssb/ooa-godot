@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         const int group = 1;
         const int roomId = 0x97;
 
-        RalphAfterRaftonEvent roomEvent = _roomEvents.RalphAfterRafton;
+        RalphAfterRaftonEvent roomEvent = _roomEvents.Get<RalphAfterRaftonEvent>();
         RalphAfterRaftonEventDatabase database = roomEvent.Database;
         RalphAfterRaftonEventRecord record = database.Record;
         bool originalRequired =
