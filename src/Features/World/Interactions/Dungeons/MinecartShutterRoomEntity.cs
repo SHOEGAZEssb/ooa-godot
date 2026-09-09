@@ -27,7 +27,6 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
     public Node2D Node => this;
     public bool Finished { get; private set; }
     internal int PackedPosition { get; }
-    internal int ClosedTile => _closedTile;
     internal MinecartShutterState State => _state;
 
     internal MinecartShutterRoomEntity(

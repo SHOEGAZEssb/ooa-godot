@@ -25,7 +25,6 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
     public bool Finished { get; private set; }
     internal int State => _state;
     internal CompanionBarrierRecord Record => _record;
-    internal ICompanionBarrierTarget? Target => _target;
 
     internal CompanionBarrierRoomEntity(
         CompanionBarrierRecord record,

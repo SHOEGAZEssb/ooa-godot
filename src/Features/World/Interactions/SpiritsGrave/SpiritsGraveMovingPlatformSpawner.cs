@@ -15,8 +15,6 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
-    internal int State => _state;
-    internal int Counter => _counter;
 
     internal SpiritsGraveMovingPlatformSpawner(
         Func<int, bool> triggerActive,

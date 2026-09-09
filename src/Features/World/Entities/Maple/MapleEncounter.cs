@@ -74,11 +74,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal int DropPattern => _dropPattern;
     internal int Angle => _angle;
     internal int TargetAngle => _targetAngle;
-    internal int ZFixed => _zFixed;
-    internal int SpeedZ => _speedZ;
-    internal int Counter => _counter;
     internal int AnimationIndex => _animation.AnimationIndex;
-    internal int AnimationFrame => _animation.FrameIndex;
     internal Texture2D CurrentTexture => _animation.CurrentTexture;
     internal Texture2D ShadowTexture => _shadowTexture;
     internal Vector2 ShadowOffset => _shadowOffset;

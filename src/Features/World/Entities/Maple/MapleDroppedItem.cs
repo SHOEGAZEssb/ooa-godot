@@ -34,9 +34,6 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
     internal int ItemIndex => _record.Index;
     internal int Slot { get; private set; }
     internal int ZFixed => _zFixed;
-    internal int SpeedZ => _speedZ;
-    internal int SpeedRaw => _speedRaw;
-    internal int Angle => _angle;
     internal MapleDroppedItemState State => _state;
     internal bool Finished { get; private set; }
     internal bool CanMapleTarget =>

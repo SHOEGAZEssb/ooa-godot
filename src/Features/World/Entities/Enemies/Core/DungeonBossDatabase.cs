@@ -63,7 +63,7 @@ internal sealed class DungeonBossDatabase
             ImportedEnemyDefinition record = new(
                 row.HexByte(0),
                 row.HexByte(1),
-                SplitRequired(row, 2, ','),
+                row.SplitRequired(2, ','),
                 row.UnsignedDecimal(3),
                 row.UnsignedDecimal(4),
                 row.Boolean01(5),
@@ -71,7 +71,7 @@ internal sealed class DungeonBossDatabase
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
                 row.UnsignedDecimal(9),
-                SplitDecoded(row, 10));
+                row.EncodedAnimations(10));
             if (!_enemies.TryAdd((record.Id, record.SubId), record))
             {
                 throw row.Invalid(0, "a unique dungeon boss ID/subid");
@@ -151,27 +151,4 @@ internal sealed class DungeonBossDatabase
         }
     }
 
-    private static string[] SplitRequired(
-        GeneratedTableRow row,
-        int column,
-        char separator)
-    {
-        string[] values = row.RequiredString(column).Split(
-            separator,
-            StringSplitOptions.RemoveEmptyEntries |
-            StringSplitOptions.TrimEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more values");
-        return values;
-    }
-
-    private static string[] SplitDecoded(GeneratedTableRow row, int column)
-    {
-        string[] values = row.Base64Utf8(column).Split(
-            '\n',
-            StringSplitOptions.RemoveEmptyEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more encoded animations");
-        return values;
-    }
 }

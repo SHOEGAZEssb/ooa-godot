@@ -23,7 +23,6 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
     private Action<int> _playSound = null!;
 
     internal override bool Finished { get; private protected set; }
-    internal int InteractionId => _record.InteractionId;
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame =>
         Math.Min(_animationFrame, _record.Animation.Count - 1);

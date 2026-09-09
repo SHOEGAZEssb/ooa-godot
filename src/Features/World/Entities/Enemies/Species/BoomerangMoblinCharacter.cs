@@ -18,8 +18,6 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BoomerangMoblinCharacterMoblinState State => _state;
-    internal int Counter => _counter;
-    internal int Angle => _angle;
     internal int ScentAttractionCounter => _scentAttraction.Counter;
 
     internal void Initialize(

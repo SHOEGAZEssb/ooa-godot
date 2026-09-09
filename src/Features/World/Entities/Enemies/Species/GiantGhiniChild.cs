@@ -19,7 +19,6 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ChildState State => _state;
-    internal int Counter => _counter;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && _state is ChildState.SpawnDelay or
             ChildState.Charging or ChildState.Attached;

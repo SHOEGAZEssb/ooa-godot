@@ -48,7 +48,6 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         InteractionState.Disappearing;
     internal bool Finished => State == InteractionState.Finished;
     internal int RewardType { get; private set; } = -1;
-    internal int ZFixed => _zFixed;
     internal int DisappearancePhase => _disappearancePhase;
 
     internal void Initialize(

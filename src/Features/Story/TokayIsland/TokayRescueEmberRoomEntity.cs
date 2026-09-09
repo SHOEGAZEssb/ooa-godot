@@ -14,7 +14,6 @@ internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2
     internal int Phase { get; private set; }
     internal int Counter { get; private set; }
     internal int ZFixed => _zFixed;
-    internal int AnimationFrame => _flame.FrameIndex;
     internal Texture2D CurrentTexture => (Phase == 3 ? _flame : _seed).CurrentTexture;
     public Node2D Node => this;
     public bool Finished => Phase == 4;

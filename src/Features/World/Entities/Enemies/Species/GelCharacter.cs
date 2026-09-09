@@ -19,7 +19,6 @@ public partial class GelCharacter : EnemyCharacter
     public bool IsAttached => !IsDead && _state == GelState.Attached;
     internal GelDefinition Definition { get; private set; }
     internal GelState State => _state;
-    internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;

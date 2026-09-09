@@ -17,8 +17,6 @@ internal partial class ThwompCharacter : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ThwompState State => _state;
-    internal int Counter => _counter;
-    internal int SpeedYFixed => _speedYFixed;
     internal int ArmoredAttackerKnockbackFrames(
         EnemyKnockbackStrength strength) => strength switch
         {

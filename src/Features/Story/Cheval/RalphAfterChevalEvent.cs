@@ -29,7 +29,6 @@ internal sealed class RalphAfterChevalEvent :
     }
 
     internal RalphAfterChevalEventDatabase Database => _database;
-    internal RalphAfterChevalCharacter? Actor => ScriptActor;
     internal int Substate => _substate;
     internal bool FacingBit => _facingBit;
     internal bool MenusDisabled => _menusDisabled;

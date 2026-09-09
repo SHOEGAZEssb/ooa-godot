@@ -23,8 +23,6 @@ internal sealed class LynnaShopEvent : IRoomEvent
     public bool HasState => _stage != LynnaShopEventEventStage.Inactive;
     public bool BlocksGameplay => HasState && _stage != LynnaShopEventEventStage.Holding;
     internal LynnaShopEventEventStage Stage => _stage;
-    internal LynnaShopDatabase Database => _database;
-    internal int Counter => _counter;
 
     public bool TryInteractPlayer(Player player)
     {

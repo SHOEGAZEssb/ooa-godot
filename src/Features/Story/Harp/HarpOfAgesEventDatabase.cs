@@ -71,7 +71,7 @@ internal sealed class HarpOfAgesEventDatabase
         LoadVisuals();
         Commands = CutsceneCommandCatalog.Load(
             Root + "harp_of_ages_commands.tsv");
-        MusicNote = LoadMusicNote();
+        MusicNote = new SharedEffectDatabase().Effect("MusicNote");
         LinkHarpFrames =
             new NewGameIntroDatabase().SpriteFrames("link-harp");
         Validate();
@@ -114,41 +114,6 @@ internal sealed class HarpOfAgesEventDatabase
             if (!_visuals.TryAdd(visual.Key, visual))
                 throw row.Invalid(0, "a unique room 3:ae visual key");
         }
-    }
-
-    private static EffectRecord LoadMusicNote()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            Root + "nayru_intro_effects.tsv",
-            new GeneratedTableSchema(
-                "shared Nayru effects",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "name", "sprite", "tile-base", "palette", "duration",
-                    "speed", "angle", "sway", "velocity-x-fixed",
-                    "velocity-y-fixed", "animation"
-                ],
-                ["name"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            if (row.RequiredString(0) != "MusicNote")
-                continue;
-            return new EffectRecord(
-                "MusicNote",
-                row.RequiredString(1),
-                row.UnsignedDecimal(2),
-                row.UnsignedDecimal(3),
-                row.UnsignedDecimal(4),
-                row.FiniteFloat(5),
-                row.Decimal(6),
-                row.Boolean01(7),
-                row.Decimal(8),
-                row.Decimal(9),
-                row.RequiredString(10));
-        }
-        throw new InvalidOperationException(
-            "The shared Nayru effect table has no MusicNote record.");
     }
 
     private void Validate()

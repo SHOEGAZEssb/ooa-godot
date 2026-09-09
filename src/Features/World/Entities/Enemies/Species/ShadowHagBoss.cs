@@ -46,7 +46,6 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     internal ShadowHagState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
-    internal int Angle => _angle;
     internal int BugsAlive => _bugsAlive;
     internal bool IntroActive => _introActive;
     internal bool Defeated => _dying || IsDead;

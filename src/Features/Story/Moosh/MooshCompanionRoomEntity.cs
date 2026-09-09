@@ -184,7 +184,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     internal int WaterHoverCounter => _waterHoverCounter;
     internal int FlapCount => _flapCount;
     internal int AnimationIndex => _animation.AnimationIndex;
-    internal int AnimationParameter => _animation.CurrentParameter;
     internal int LinkAnimationParameter => _animation.CurrentParameter & 0x3f;
     internal bool ChargePaletteActive => _chargePaletteActive;
     internal HazardType Hazard => _hazard.Type;
@@ -264,7 +263,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             paletteVariants: [2]);
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
-            LoadLinkFrames(visual);
+            CompanionLinkFrames.Load(
+                visual.LinkSprite, visual.LinkPalette,
+                visual.LinkFrames, visual.LinkSourceOffsets);
         SetAnimation(_goodbye?.InitialAnimation ??
             (_phase == MooshCompanionPhase.Riding
                 ? 0x13 + _direction
@@ -1107,57 +1108,6 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             ? _chargeLinkTextures[parameter]
             : _linkTextures[parameter];
 
-    private static (
-        Texture2D[] Textures,
-        Texture2D[] ChargeTextures,
-        Texture2D[] DamageTextures,
-        Vector2[] Offsets) LoadLinkFrames(MooshCompanionVisualRecord visual)
-    {
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.LinkSprite}.png");
-        var textures = new Texture2D[visual.LinkFrames.Length];
-        var chargeTextures = new Texture2D[visual.LinkFrames.Length];
-        var damageTextures = new Texture2D[visual.LinkFrames.Length];
-        var offsets = new Vector2[visual.LinkFrames.Length];
-        for (int index = 0; index < visual.LinkFrames.Length; index++)
-        {
-            AnimationFrameDefinition frame =
-                OracleGraphicsCache.GetAnimationDefinition(
-                    visual.LinkFrames[index]).Frames[0];
-            (textures[index], offsets[index]) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    paletteOverride: null,
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            (damageTextures[index], Vector2 damageOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    NpcCharacter.GetStandardSpritePalette(5),
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            (chargeTextures[index], Vector2 chargeOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    NpcCharacter.GetStandardSpritePalette(2),
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            if (damageOffset != offsets[index] ||
-                chargeOffset != offsets[index])
-                throw new InvalidOperationException(
-                    "Moosh Link palette variant changed the OAM origin.");
-        }
-        return (textures, chargeTextures, damageTextures, offsets);
-    }
 }
 
 internal enum MooshCompanionPhase

@@ -1046,21 +1046,10 @@ internal sealed class RoomEntityFactory(
                     _spiritsGrave.Constant("solve-sound"),
                     _spiritsGrave.Constant("light-torch-sound"));
             case DungeonObjectKind.ColoredCube:
-                return new ColoredCubeRoomEntity(
-                    record, _dungeonVisuals.Visual("colored-cube"), room,
-                    _dungeonInteractions,
-                    RequireColoredCubePuzzle(puzzle, record),
-                    _dungeonVisuals.CubePalettes,
-                    soundRequested, roomTileChanged, animationTick);
             case DungeonObjectKind.CubeFlame:
-                return new ColoredCubeFlameRoomEntity(
-                    record, _dungeonVisuals.Visual("cube-flame"),
-                    RequireColoredCubePuzzle(puzzle, record));
             case DungeonObjectKind.CubeLightSensor:
             case DungeonObjectKind.CubeTriggerSensor:
-                return new ColoredCubeSensorRoomEntity(
-                    record, room, RequireColoredCubePuzzle(puzzle, record),
-                    setTrigger, soundRequested);
+                return CreateColoredCubeInteraction(record, room, puzzle);
             case DungeonObjectKind.GiantGhini:
                 var giantGhini = new GiantGhiniBoss
                 {
@@ -1108,6 +1097,36 @@ internal sealed class RoomEntityFactory(
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(record), record, "Unsupported Spirit's Grave object.");
+        }
+    }
+
+    private IRoomEntity CreateColoredCubeInteraction(
+        DungeonObjectRecord record,
+        OracleRoomData room,
+        ColoredCubePuzzleState? puzzle)
+    {
+        // INTERAC_COLORED_CUBE and its sensors share their source dispatch across dungeons.
+        switch (record.Kind)
+        {
+            case DungeonObjectKind.ColoredCube:
+                return new ColoredCubeRoomEntity(
+                    record, _dungeonVisuals.Visual("colored-cube"), room,
+                    _dungeonInteractions,
+                    RequireColoredCubePuzzle(puzzle, record),
+                    _dungeonVisuals.CubePalettes,
+                    soundRequested, roomTileChanged, animationTick);
+            case DungeonObjectKind.CubeFlame:
+                return new ColoredCubeFlameRoomEntity(
+                    record, _dungeonVisuals.Visual("cube-flame"),
+                    RequireColoredCubePuzzle(puzzle, record));
+            case DungeonObjectKind.CubeLightSensor:
+            case DungeonObjectKind.CubeTriggerSensor:
+                return new ColoredCubeSensorRoomEntity(
+                    record, room, RequireColoredCubePuzzle(puzzle, record),
+                    setTrigger, soundRequested);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(record), record,
+                    "Unsupported colored-cube interaction.");
         }
     }
 
@@ -1194,20 +1213,9 @@ internal sealed class RoomEntityFactory(
                     room, _dungeonInteractions, soundRequested,
                     roomTileChanged, animationTick);
             case DungeonObjectKind.ColoredCube:
-                return new ColoredCubeRoomEntity(
-                    record, _dungeonVisuals.Visual("colored-cube"), room,
-                    _dungeonInteractions,
-                    RequireColoredCubePuzzle(puzzle, record),
-                    _dungeonVisuals.CubePalettes,
-                    soundRequested, roomTileChanged, animationTick);
             case DungeonObjectKind.CubeFlame:
-                return new ColoredCubeFlameRoomEntity(
-                    record, _dungeonVisuals.Visual("cube-flame"),
-                    RequireColoredCubePuzzle(puzzle, record));
             case DungeonObjectKind.CubeLightSensor:
-                return new ColoredCubeSensorRoomEntity(
-                    record, room, RequireColoredCubePuzzle(puzzle, record),
-                    setTrigger, soundRequested);
+                return CreateColoredCubeInteraction(record, room, puzzle);
             case DungeonObjectKind.CubeSwitchSensor:
             case DungeonObjectKind.RedFloorTrigger:
             case DungeonObjectKind.FloorSwitchBit:

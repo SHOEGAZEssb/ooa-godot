@@ -333,7 +333,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 _animation.Advance();
                 ApplySpeed(0x50, collide: false);
                 OracleObjectMath.UpdateSpeedZ(ref _carried.ZFixed, ref _carried.SpeedZ, 0x40);
-                int away = FacingWallMask((_angle + 0x10) & 0x1f, AdjacentWalls());
+                int away = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, AdjacentWalls());
                 if (away != 0) _cliffWalls = away;
                 else if (_cliffWalls != 0) { _phase = DimitriPhase.Riding; SetAnimation(0); }
                 break;
@@ -509,18 +509,9 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         return walls;
     }
 
-    private static int FacingWallMask(int angle, int walls)
-    {
-        if (angle == 0xff) return 0;
-        int mask = 0;
-        if (angle is not (8 or 0x18)) mask |= ((angle >> 3) & 3) == 0 ? 0xc0 : 0x30;
-        if ((angle & 15) != 0) mask |= (angle & 0x10) == 0 ? 3 : 0x0c;
-        return walls & mask;
-    }
-
     private bool TryStartCliffJump()
     {
-        if ((_angle & 0xe7) != 0 || FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
+        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
         byte tile = _room.GetMetatile(_precisePosition + _native.Probes("cliff")[_direction]);
         if (tile == 0xd4 ? _angle != 0x10 : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = DimitriPhase.CliffJump;
@@ -536,7 +527,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         {
             // wcc67 prevents the Bracelet parent from throwing toward a wall.
             int angle = CompanionMovement.AngleForInput(releaseDirection);
-            if (FacingWallMask(angle, AdjacentWalls()) != 0) return false;
+            if (CompanionMovement.FacingWallMask(angle, AdjacentWalls()) != 0) return false;
             ReleaseCarried(player, releaseDirection);
             return true;
         }
@@ -607,7 +598,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     {
         CheckHazard();
         if (_phase == DimitriPhase.Hazard) return;
-        bool stopped = FacingWallMask(CompanionMovement.AngleForInput(_carried.Direction), AdjacentWalls()) != 0;
+        bool stopped = CompanionMovement.FacingWallMask(CompanionMovement.AngleForInput(_carried.Direction), AdjacentWalls()) != 0;
         // dimitriState2Substate2 deliberately tests group zero, not room size.
         float maxX = _group == 0 ? 155 : 239, maxY = _group == 0 ? 122 : 168;
         if (_precisePosition.Y < 8) { _precisePosition.Y = 16; stopped = true; }

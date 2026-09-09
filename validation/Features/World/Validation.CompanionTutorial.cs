@@ -6,6 +6,28 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private static void ValidateCompanionWallMasks()
+    {
+        // commonCode.s:specialObjectCheckFacingWall, including its original
+        // vertical-mask selection for angles $19-$1f.
+        int[] masks =
+        [
+            0xc0, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3,
+            0x03, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33,
+            0x30, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c,
+            0x0c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c
+        ];
+        for (int walls = 0; walls <= 0xff; walls++)
+        {
+            FailIf(CompanionMovement.FacingWallMask(0xff, walls) != 0,
+                $"Idle companion angle $ff collided with wall mask ${walls:x2}.");
+            for (int angle = 0; angle < masks.Length; angle++)
+                FailIf(CompanionMovement.FacingWallMask(angle, walls) != (walls & masks[angle]),
+                    $"Companion angle ${angle:x2} selected the wrong walls from ${walls:x2}.");
+        }
+        GD.Print("Validated all companion direction and adjacent-wall bitmask combinations.");
+    }
+
     private void ValidateRoom05bCompanionTutorial()
     {
         const int group = 0;

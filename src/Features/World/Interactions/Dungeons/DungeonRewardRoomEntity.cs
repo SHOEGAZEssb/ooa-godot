@@ -17,7 +17,6 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
-    internal int Counter => _counter;
 
     internal DungeonRewardRoomEntity(
         DungeonObjectRecord record,

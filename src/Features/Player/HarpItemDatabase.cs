@@ -52,7 +52,7 @@ internal sealed class HarpItemDatabase
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(value => Convert.ToInt32(value, 16))
             .ToArray();
-        MusicNote = LoadMusicNote();
+        MusicNote = new SharedEffectDatabase().Effect("MusicNote");
         LinkFrames = new NewGameIntroDatabase().SpriteFrames("link-harp-item");
         Validate();
     }
@@ -83,41 +83,6 @@ internal sealed class HarpItemDatabase
             elapsed -= LinkFrames[index].Duration;
         }
         return LinkAnimationParameters[^1];
-    }
-
-    private static EffectRecord LoadMusicNote()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/nayru_intro_effects.tsv",
-            new GeneratedTableSchema(
-                "shared Harp music-note effect",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "name", "sprite", "tile-base", "palette", "duration",
-                    "speed", "angle", "sway", "velocity-x-fixed",
-                    "velocity-y-fixed", "animation"
-                ],
-                ["name"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            if (row.RequiredString(0) != "MusicNote")
-                continue;
-            return new EffectRecord(
-                "MusicNote",
-                row.RequiredString(1),
-                row.UnsignedDecimal(2),
-                row.UnsignedDecimal(3),
-                row.UnsignedDecimal(4),
-                row.FiniteFloat(5),
-                row.Decimal(6),
-                row.Boolean01(7),
-                row.Decimal(8),
-                row.Decimal(9),
-                row.RequiredString(10));
-        }
-        throw new InvalidOperationException(
-            "The shared effect table has no ITEM_HARP MusicNote record.");
     }
 
     private void Validate()

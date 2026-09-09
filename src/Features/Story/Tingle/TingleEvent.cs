@@ -31,7 +31,6 @@ internal sealed class TingleEvent : IRoomEvent
     public bool BlocksGameplay => HasState;
     internal TingleEventStage Stage => _stage;
     internal TingleRoomEntity? Actor => _actor;
-    internal TingleDatabase Database => _database;
     internal int Counter => _counter;
 
     internal void OnRoomLoaded(int group, OracleRoomData room)

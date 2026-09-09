@@ -34,7 +34,6 @@ internal sealed class DepressedBoyEvent :
     internal int DanceCounter => _danceCounter;
     internal int DanceIndex => _danceIndex;
     internal bool DanceComplete => _danceComplete;
-    internal bool InputDisabled => InputLeaseHeld;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;

@@ -41,7 +41,6 @@ internal sealed class RalphAfterRaftonEvent :
     public bool HasState => _active;
     public bool BlocksGameplay => InputLeaseHeld;
     internal RalphAfterRaftonEventDatabase Database => _database;
-    internal RalphAfterRaftonCharacter? Actor => _ralph;
     internal int Substate => _substate;
     internal int Counter => _counter;
     internal int NativeDirection => _nativeDirection;

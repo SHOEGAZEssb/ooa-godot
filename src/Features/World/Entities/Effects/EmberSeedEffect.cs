@@ -160,16 +160,15 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             $"res://assets/oracle/gfx/{record.Sprite}.png");
         Image flameSource = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.FlameSprite}.png");
-        _flyingTextures = BuildTextures(
-            flyingSource, record.TileBase, record.Palette, _flyingFrames);
-        _effectTextures = BuildTextures(
-            flameSource, record.FlameTileBase, record.FlamePalette,
-            _effectFrames);
-        _collisionEffectTextures = BuildTextures(
+        _flyingTextures = OracleGraphicsCache.BuildAnimationTextures(
+            flyingSource, _flyingFrames, record.TileBase, record.Palette);
+        _effectTextures = OracleGraphicsCache.BuildAnimationTextures(
+            flameSource, _effectFrames, record.FlameTileBase, record.FlamePalette);
+        _collisionEffectTextures = OracleGraphicsCache.BuildAnimationTextures(
             flameSource,
+            _flyingFrames,
             record.CollisionEffectTileBase,
-            record.CollisionEffectPalette,
-            _flyingFrames);
+            record.CollisionEffectPalette);
         if (record.SeedItem == 0x23)
             InitializeGaleTextures(flameSource);
         Visible = false;
@@ -736,21 +735,6 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (_frameIndex >= _frames.Length)
             _frameIndex = Math.Clamp(_loopStart, 0, _frames.Length - 1);
         _frameCounter = _frames[_frameIndex].Duration;
-    }
-
-    private static Texture2D[] BuildTextures(
-        Image source,
-        int tileBase,
-        int palette,
-        AnimationFrameDefinition[] frames)
-    {
-        var result = new Texture2D[frames.Length];
-        for (int index = 0; index < frames.Length; index++)
-        {
-            result[index] = NpcCharacter.BuildOamTexture(
-                source, frames[index].EncodedOam, tileBase, palette);
-        }
-        return result;
     }
 
     private ObjectFellInHoleKind SeedHoleKind() => _record.SeedItem switch

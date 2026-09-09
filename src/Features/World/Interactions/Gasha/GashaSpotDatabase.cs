@@ -374,7 +374,6 @@ internal readonly record struct SpotRecord(int Group, int Room, int SubId, int Y
 {
     internal Vector2 Position => new(X, Y);
     internal Vector2 TreeTopLeft => new(X, Y - 16);
-    internal int PackedPosition => (Y & 0xf0) | (X >> 4);
 }
 
 internal readonly record struct RewardRecord(int Type, int TreasureId, int Parameter, int TextId, GashaSpotDatabaseVisualRecord Visual);

@@ -99,7 +99,6 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _state is not (BossState.Dying or BossState.Dead);
     internal int BodyHealth => _bodyHealth;
     internal int GhostHealth => _ghostHealth;
-    internal int Counter => _counter;
     internal int Angle => _angle;
     internal int BodyPalette => _bodyPalette;
     internal int GhostPalette => _ghostPalette;
@@ -359,9 +358,6 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         }
         return true;
     }
-
-    internal bool ApplyBurnHit(int damage) =>
-        ApplySwordHit(CollisionBounds, Position, damage);
 
     internal void HandleLinkContact(Player player, int damage)
     {

@@ -46,6 +46,19 @@ internal abstract class RemoteMakuEvent :
     internal RemoteMakuConfettiEffect? Confetti => _confetti;
     internal RemoteMakuEventRecord Record => _database.Record;
 
+    protected bool MatchesEssenceRoom(int group, OracleRoomData room)
+    {
+        RemoteMakuEventRecord record = _database.Record;
+        OracleSaveData save = Context.Rooms.SaveData;
+        return group == record.Group &&
+            room.Id == record.Room &&
+            (save.ReadWramByte(0xc6bf) & record.EssenceMask) != 0 &&
+            !save.HasRoomFlag(
+                record.Group,
+                record.Room,
+                (byte)record.RoomFlag);
+    }
+
     protected void Begin()
     {
         Cancel();

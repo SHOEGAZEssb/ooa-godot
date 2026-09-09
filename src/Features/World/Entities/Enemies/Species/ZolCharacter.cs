@@ -21,11 +21,9 @@ public partial class ZolCharacter : EnemyCharacter
     internal ZolState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
-    internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;
     internal override bool CollisionEnabled =>
         _collisionEnabled && base.CollisionEnabled;
-    internal int CurrentAnimationFrame => AnimationFrame;
     protected override bool DrawsAnimation => !IsDead && Visible;
     protected override Vector2 AnimationDrawOffset =>
         new(-16, -16 + (_verticalMotion.ZFixed >> 8));

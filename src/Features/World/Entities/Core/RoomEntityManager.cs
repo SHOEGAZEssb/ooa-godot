@@ -192,21 +192,6 @@ public sealed class RoomEntityManager : IDisposable
             return owner;
         }
     }
-    internal bool HasActiveSeedProjectile
-    {
-        get
-        {
-            foreach (IRoomEntity entity in _activeEntities)
-            {
-                if (entity is ISeedProjectileRoomEntity &&
-                    entity is not IRoomEntityLifetime { Finished: true })
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
     internal bool HasActiveSeed(int item, SeedLaunchKind launch) =>
         _activeEntities.OfType<EmberSeedRoomEntity>().Any(seed =>
             !seed.Finished && seed.SeedItem == item && seed.LaunchKind == launch);

@@ -45,7 +45,6 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     internal int Substate => _substate;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
-    internal int Angle => _angle;
     internal int Speed => _speed;
     internal int ZFixed => _zFixed;
     internal int DirtCounter => _dirtCounter;

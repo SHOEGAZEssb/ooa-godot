@@ -12,8 +12,6 @@ internal sealed partial class SubterrorDirtEffect : FixedEffectNode2D
     private bool _initialized;
 
     internal override bool Finished { get; private protected set; }
-    internal int AnimationFrame => _animation.FrameIndex;
-    internal int AnimationParameter => _animation.CurrentParameter;
     internal Texture2D CurrentAnimationTexture => _animation.CurrentTexture;
 
     internal void Initialize(

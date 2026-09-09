@@ -19,9 +19,6 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
 
     public Node2D Node => this;
     bool IPlayerRideableRoomEntity.LinkRiding => _linkRiding;
-    internal int Angle => _angle;
-    internal int Counter => _counter;
-    internal Vector2 PrecisePosition => _precisePosition;
 
     internal CircularSideScrollPlatformRoomEntity(
         DungeonObjectRecord record,

@@ -53,7 +53,6 @@ internal sealed partial class HeadThwompBoulder
 
     internal bool Breaking => _breaking;
     internal int SpeedYFixed => _speedYFixed;
-    internal int AnimationFrameIndex => ActiveAnimation.FrameIndex;
     internal Texture2D CurrentTexture => ActiveAnimation.CurrentTexture;
 
     private EnemyAnimationPlayer ActiveAnimation =>

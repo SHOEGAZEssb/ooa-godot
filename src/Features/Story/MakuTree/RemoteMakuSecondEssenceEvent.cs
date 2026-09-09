@@ -27,18 +27,8 @@ internal sealed class RemoteMakuSecondEssenceEvent :
 
     internal RemoteMakuSecondEssenceDatabase Database => _database;
 
-    public bool Matches(int group, OracleRoomData room)
-    {
-        RemoteMakuEventRecord record = _database.Record;
-        OracleSaveData save = Context.Rooms.SaveData;
-        return group == record.Group &&
-            room.Id == record.Room &&
-            (save.ReadWramByte(0xc6bf) & record.EssenceMask) != 0 &&
-            !save.HasRoomFlag(
-                record.Group,
-                record.Room,
-                (byte)record.RoomFlag);
-    }
+    public bool Matches(int group, OracleRoomData room) =>
+        MatchesEssenceRoom(group, room);
 
     public void Start(OracleRoomData room)
     {

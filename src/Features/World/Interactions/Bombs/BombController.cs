@@ -24,7 +24,6 @@ public sealed class BombController
 
     internal BombParentState State => _state;
     internal BombEffect? Bomb => _bomb;
-    internal int Counter => _counter;
     internal bool Active => _state != BombParentState.Idle;
 
     public BombController(

@@ -26,7 +26,6 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BabyCuccoState State => _state;
-    internal int Angle => _angle;
     internal int ZFixed => _carried.ZFixed;
     internal int SpeedZ => _carried.SpeedZ;
     internal Vector2I ThrowDirection => _carried.Direction;

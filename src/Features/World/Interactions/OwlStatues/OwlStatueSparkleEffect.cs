@@ -13,8 +13,6 @@ internal sealed partial class OwlStatueSparkleEffect : FixedEffectNode2D
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
-    internal int AnimationFrame => _animation.FrameIndex;
-    internal int AnimationParameter => _animation.CurrentParameter;
 
     internal void Initialize(
         Vector2 position,

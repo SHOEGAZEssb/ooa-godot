@@ -203,6 +203,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateGraphicsCache);
+        RunIsolatedValidation(ValidateNpcPaletteRebuildOffsets);
+        RunIsolatedValidation(ValidateCompanionWallMasks);
         RunIsolatedValidation(ValidateBackgroundPaletteState);
         RunIsolatedValidation(ValidateDebugFlagMenu);
         RunIsolatedValidation(ValidateDebugCollision);

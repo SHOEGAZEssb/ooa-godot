@@ -97,6 +97,53 @@ internal sealed class GeneratedTableRow
         }
     }
 
+    public string[] SplitRequired(
+        int column,
+        char separator)
+    {
+        string[] values = RequiredString(column).Split(
+            separator,
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        if (values.Length == 0)
+            throw Invalid(column, "one or more values");
+        return values;
+    }
+
+    public string[] EncodedAnimations(int column)
+    {
+        string[] values = Base64Utf8(column).Split(
+            '\n',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (values.Length == 0)
+            throw Invalid(column, "one or more encoded animations");
+        return values;
+    }
+
+    public Vector2[] Offsets(int column)
+    {
+        string[] values = RequiredString(column).Split(
+            ';',
+            StringSplitOptions.RemoveEmptyEntries |
+            StringSplitOptions.TrimEntries);
+        var offsets = new Vector2[values.Length];
+        for (int index = 0; index < values.Length; index++)
+        {
+            string[] pair = values[index].Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries);
+            if (pair.Length != 2 ||
+                !int.TryParse(pair[0], out int x) ||
+                !int.TryParse(pair[1], out int y))
+            {
+                throw Invalid(column, "semicolon-separated x,y pairs");
+            }
+            offsets[index] = new Vector2(x, y);
+        }
+        return offsets;
+    }
+
     public InvalidOperationException Invalid(int column, string expected) =>
         Error(column, Field(column), expected);
 

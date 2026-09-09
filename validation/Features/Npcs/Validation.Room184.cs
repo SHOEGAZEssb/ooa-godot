@@ -10,47 +10,15 @@ public sealed partial class ValidationRoot
     private void ValidateRoom184StoneRabbitsAndSoldier()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Room184StoneRabbitValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            1, 0x84, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Room184StoneRabbitValidation", 1, 0x84);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
         RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
-        var database = new StoneRabbitDatabase();
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
 
-        static string PlainWords(string message) => string.Join(
-            " ",
-            DialogueBox.PlainText(message).Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
+        var database = new StoneRabbitDatabase();
 
         void SetEssences(byte value)
         {
@@ -269,9 +237,7 @@ public sealed partial class ValidationRoot
             "Room 1:84 re-entry did not retain suppressed rabbit placement " +
             "records, the surviving soldier, source order, and one room RNG buffer.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated room 1:84's three D7-to-Veran stone rabbits and " +
             "soldier $40:$01: source order, exact positions, animation $06, " +

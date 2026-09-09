@@ -1866,8 +1866,6 @@ $soundSource = Read-ImportLines (
     Join-Path $Disassembly 'constants\common\music.s')
 $linkAnimationSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
-$linkOamSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\specialObjectOamData.s')
 
 # Export the bitwise tile types and fixed 8.8 Link physics used by
 # linkState01_sidescroll. These are not ordinary TerrainType values: a tile can
@@ -2402,28 +2400,7 @@ for ($frame = 0; $frame -lt 2; $frame++) {
             throw ('LINK_ANIM_MODE_SWIM graphic ${0:x2} references unsupported OAM ${1:x2}.' -f $graphic, $oamIndex)
         }
         $oamLabel = $linkOamLabels[$oamIndex]
-        $oamBlock = [regex]::Match(
-            $linkOamSource,
-            "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
-        $oamDirectives = @([regex]::Matches(
-            $oamBlock.Groups['body'].Value,
-            '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
-        $oamParts = [Collections.Generic.List[int]]::new()
-        foreach ($oamDirective in $oamDirectives) {
-            foreach ($field in @('y', 'x', 'tile', 'flags')) {
-                $oamParts.Add([Convert]::ToInt32(
-                    $oamDirective.Groups[$field].Value, 16))
-            }
-        }
-        if (-not $oamBlock.Success -or ($oamParts.Count % 4) -ne 0) {
-            throw "Could not parse special-object OAM label $oamLabel."
-        }
-        $encodedParts = [Collections.Generic.List[string]]::new()
-        for ($part = 0; $part -lt $oamParts.Count; $part += 4) {
-            $encodedParts.Add(
-                "$($oamParts[$part]),$($oamParts[$part + 1]),$($oamParts[$part + 2]),$($oamParts[$part + 3])")
-        }
-        $encodedOam = $encodedParts -join ';'
+        $encodedOam = Read-SpecialObjectOamComposition $oamIndex
         if ($encodedOam -ne $topDownSwimExpectedOam[$oamIndex] -or
             $size -notin @(2, 4)) {
             throw ('LINK_ANIM_MODE_SWIM graphic ${0:x2} OAM or source size changed.' -f $graphic)
@@ -2461,28 +2438,7 @@ for ($frame = 0; $frame -lt 2; $frame++) {
         throw ('LINK_ANIM_MODE_DIVE graphic ${0:x2} references unsupported OAM ${1:x2}.' -f $graphic, $oamIndex)
     }
     $oamLabel = $linkOamLabels[$oamIndex]
-    $oamBlock = [regex]::Match(
-        $linkOamSource,
-        "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
-    $oamDirectives = @([regex]::Matches(
-        $oamBlock.Groups['body'].Value,
-        '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
-    $oamParts = [Collections.Generic.List[int]]::new()
-    foreach ($oamDirective in $oamDirectives) {
-        foreach ($field in @('y', 'x', 'tile', 'flags')) {
-            $oamParts.Add([Convert]::ToInt32(
-                $oamDirective.Groups[$field].Value, 16))
-        }
-    }
-    if (-not $oamBlock.Success -or ($oamParts.Count % 4) -ne 0) {
-        throw "Could not parse special-object OAM label $oamLabel."
-    }
-    $encodedParts = [Collections.Generic.List[string]]::new()
-    for ($part = 0; $part -lt $oamParts.Count; $part += 4) {
-        $encodedParts.Add(
-            "$($oamParts[$part]),$($oamParts[$part + 1]),$($oamParts[$part + 2]),$($oamParts[$part + 3])")
-    }
-    $encodedOam = $encodedParts -join ';'
+    $encodedOam = Read-SpecialObjectOamComposition $oamIndex
     if ($encodedOam -ne $topDownSwimExpectedOam[0x12] -or $size -ne 2) {
         throw ('LINK_ANIM_MODE_DIVE graphic ${0:x2} OAM or source size changed.' -f $graphic)
     }
@@ -2535,20 +2491,8 @@ foreach ($mode in $sideScrollSwimModes) {
                 throw ('LINK_ANIM_MODE_{0} graphic ${1:x2} references unsupported OAM ${2:x2}.' -f $mode.Name.ToUpperInvariant(), $graphic, $oamIndex)
             }
             $oamLabel = $linkOamLabels[$oamIndex]
-            $oamBlock = [regex]::Match(
-                $linkOamSource,
-                "(?ms)^$([regex]::Escape($oamLabel)):\s*(?<body>.*?)(?=^\S)")
-            $oamDirectives = @([regex]::Matches(
-                $oamBlock.Groups['body'].Value,
-                '(?m)^\s*\.db \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2})\s*$'))
-            $encodedParts = [Collections.Generic.List[string]]::new()
-            foreach ($oamDirective in $oamDirectives) {
-                $encodedParts.Add(
-                    "$([Convert]::ToInt32($oamDirective.Groups['y'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['x'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['tile'].Value, 16)),$([Convert]::ToInt32($oamDirective.Groups['flags'].Value, 16))")
-            }
-            $encodedOam = $encodedParts -join ';'
-            if (-not $oamBlock.Success -or
-                $encodedOam -ne $sideScrollSwimExpectedOam[$oamIndex] -or
+            $encodedOam = Read-SpecialObjectOamComposition $oamIndex
+            if ($encodedOam -ne $sideScrollSwimExpectedOam[$oamIndex] -or
                 $size -ne 4) {
                 throw ('LINK_ANIM_MODE_{0} graphic ${1:x2} OAM or source size changed.' -f $mode.Name.ToUpperInvariant(), $graphic)
             }

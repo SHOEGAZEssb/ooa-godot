@@ -90,7 +90,6 @@ internal sealed class NpcInteractionScriptController
         _pastBipin.Treasure;
     internal GroundTreasurePickup? PostmanTreasure =>
         _postman.Treasure;
-    internal LinkedGameNpcScriptHost Linked => _linked;
     internal PastBipinScriptHost PastBipin => _pastBipin;
     internal HardhatShovelScriptHost Hardhat => _hardhat;
     internal PostmanScriptHost Postman => _postman;

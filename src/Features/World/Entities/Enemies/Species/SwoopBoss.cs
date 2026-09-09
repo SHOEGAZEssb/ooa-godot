@@ -38,10 +38,8 @@ internal sealed partial class SwoopBoss : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SwoopState State => _state;
-    internal int Counter => _counter;
     internal int ZFixed => _zFixed;
     internal bool IntroActive => _introActive;
-    internal bool Defeated => _dying || IsDead;
     protected override Vector2 AnimationDrawOffset => new(-16, -16);
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && !_dying &&

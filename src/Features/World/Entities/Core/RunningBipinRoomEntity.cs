@@ -24,8 +24,6 @@ internal sealed class RunningBipinRoomEntity
         _animation = data.InitialAnimation;
     }
 
-    internal int Angle => _angle;
-    internal Vector2 PrecisePosition => _precisePosition;
     public NpcCharacter Npc => Entity;
 
     public void Update(double delta, Player player) =>

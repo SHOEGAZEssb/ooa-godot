@@ -10,46 +10,13 @@ public sealed partial class ValidationRoot
     private void ValidateRoom173SoldierPair()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Room173SoldierValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            1, 0x73, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Room173SoldierValidation", 1, 0x73);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
         RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
-
-        static string PlainWords(string message) => string.Join(
-            " ",
-            DialogueBox.PlainText(message).Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x72));
         NpcCharacter earlySoldier =
@@ -194,9 +161,7 @@ public sealed partial class ValidationRoot
             "Room 1:73 finished-game re-entry did not retain the suppressed " +
             "var03-$01 soldier record.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated rooms 1:72/1:73 paired soldier $40:$00 placements, " +
             "GLOBALFLAG_0b swap, TX_5900/TX_5901 dialogue, solidity, talkability, " +

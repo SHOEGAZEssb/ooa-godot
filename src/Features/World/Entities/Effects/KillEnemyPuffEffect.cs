@@ -19,7 +19,6 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     public bool Finished { get; private set; }
     internal int ElapsedFrames { get; private set; }
     internal int DurationFrames { get; private set; }
-    internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
 
     internal void Initialize(Vector2 position)
     {

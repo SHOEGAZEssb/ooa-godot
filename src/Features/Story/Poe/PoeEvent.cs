@@ -31,10 +31,8 @@ internal sealed class PoeEvent :
     public bool HasState => _runner.Active;
     public bool BlocksGameplay => InputLeaseHeld;
     protected override RoomEventContext InputContext => _context;
-    internal PoeCharacter? Actor => _poe;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
-    internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int Counter => _runner.Counter;
     internal bool ButtonSensitive => _buttonSensitive;
     internal bool InputDisabled => InputLeaseHeld;

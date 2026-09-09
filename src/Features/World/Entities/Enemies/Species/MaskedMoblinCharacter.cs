@@ -19,9 +19,6 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
     private int _moveCycles;
 
     public MaskedMoblinRecord Record => _record;
-    internal MoblinState State => _state;
-    internal int Counter => _counter;
-    internal int Angle => _angle;
 
     internal void Initialize(
         MaskedMoblinRecord record,

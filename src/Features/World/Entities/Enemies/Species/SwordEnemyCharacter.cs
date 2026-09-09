@@ -25,7 +25,6 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SwordEnemyState State => _state;
-    internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int ScentAttractionCounter => _scentAttraction.Counter;

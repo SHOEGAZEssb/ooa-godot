@@ -28,8 +28,6 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
 
     internal SeedOnTreeState State { get; private set; }
     internal int Index { get; private set; }
-    internal int SeedType => _type.Type;
-    internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
     internal int Angle => _angle;
     internal bool CollisionEnabled => _collisionEnabled;

@@ -62,7 +62,7 @@ internal sealed class TingleDatabase
             row.UnsignedDecimal(8), row.UnsignedDecimal(9),
             row.Decimal(10, short.MinValue, -1), row.UnsignedDecimal(11),
             row.HexByte(12), row.HexByte(13), row.HexByte(14),
-            ParseOffsets(row, 15), row.RequiredString(16),
+            row.Offsets(15), row.RequiredString(16),
             row.UnsignedDecimal(17), row.UnsignedDecimal(18),
             row.UnsignedDecimal(19),
             row.UnsignedDecimal(20), row.UnsignedDecimal(21),
@@ -170,29 +170,6 @@ internal sealed class TingleDatabase
         Record.KoolooSparklePalette,
         Animation("sparkle", Record.KoolooSparkleAnimation));
 
-    private static Vector2[] ParseOffsets(GeneratedTableRow row, int column)
-    {
-        string[] values = row.RequiredString(column).Split(
-            ';',
-            StringSplitOptions.RemoveEmptyEntries |
-            StringSplitOptions.TrimEntries);
-        var offsets = new Vector2[values.Length];
-        for (int index = 0; index < values.Length; index++)
-        {
-            string[] pair = values[index].Split(
-                ',',
-                StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries);
-            if (pair.Length != 2 ||
-                !int.TryParse(pair[0], out int x) ||
-                !int.TryParse(pair[1], out int y))
-            {
-                throw row.Invalid(column, "semicolon-separated x,y pairs");
-            }
-            offsets[index] = new Vector2(x, y);
-        }
-        return offsets;
-    }
 }
 
 internal readonly record struct TingleBalloonExplosionVisual(

@@ -51,7 +51,6 @@ internal sealed class ShootingGalleryEvent :
     public bool HasState => _room is not null;
     public bool BlocksGameplay => _linkDisabled;
     internal bool MenusDisabled => _menusDisabled;
-    internal ShootingGalleryEventDatabase Database => _database;
     internal ShootingGallerySession? Session => _session;
     internal ShootingGalleryGameController? Controller => _controller;
     internal int CurrentCommandIndex =>

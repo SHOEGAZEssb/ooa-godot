@@ -14,7 +14,6 @@ internal partial class GhiniCharacter : EnemyCharacter
     private GhiniState _state;
 
     internal ImportedEnemyDefinition Record { get; private set; }
-    internal int Counter => _counter;
     internal int Angle => _angle;
     internal GhiniState State => _state;
 

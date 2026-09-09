@@ -21,8 +21,6 @@ internal sealed class TransformedLinkDatabase
         Texture2D>
         _textures = new();
 
-    internal IReadOnlyCollection<FrameRecord> Records => _records.Values;
-
     internal TransformedLinkDatabase(
         string path = "res://assets/oracle/metadata/transformed_link.tsv")
     {

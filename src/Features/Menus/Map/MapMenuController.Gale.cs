@@ -14,7 +14,6 @@ public sealed partial class MapMenuController
     private bool _galeTravel;
     private int _galeIndex;
     private int _galeState;
-    internal int GaleIndex => _galeIndex;
     internal int GaleState => _galeState;
 
     internal void ConfigureGale(RoomSession rooms, Action<GaleTreeWarp> warp, Action cancel)

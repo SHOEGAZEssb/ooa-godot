@@ -11,9 +11,6 @@ internal sealed class BossEntryMovement(Vector2I direction)
     private bool _initialized;
     private int _counter;
 
-    internal int Counter => _counter;
-    internal bool Active => _armed;
-
     internal void Arm()
     {
         if (direction == Vector2I.Zero)

@@ -46,14 +46,11 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
     public bool HasState => _active;
     public bool BlocksGameplay => HasState;
     internal bool MenusDisabled => HasState;
-    internal int State => _state;
-    internal int Counter => _runner.Counter;
     internal int FlashFrame => _flashFrame;
     internal int FlashPhase => _flashPhase;
     internal int CenterCounter => _centerCounter;
     internal Vector2 PrecisePosition => _position;
     internal int Direction => _direction;
-    internal int PaletteOffset => _paletteOffset;
     internal RaftwreckEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>

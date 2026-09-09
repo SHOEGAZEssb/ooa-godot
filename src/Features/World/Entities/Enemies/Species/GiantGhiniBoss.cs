@@ -33,12 +33,10 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal GiantGhiniBossBossState State => _state;
-    internal int Counter => _counter;
     internal int ChildrenAlive => _childrenAlive;
     internal bool Defeated => _dying || IsDead;
     internal bool DrawEnabled =>
         CollisionEnabled || _state == GiantGhiniBossBossState.IntroFlicker || _dying;
-    internal float Z => _z;
     protected override int SwordInvincibilityFrames => 0x20;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && !_dying &&

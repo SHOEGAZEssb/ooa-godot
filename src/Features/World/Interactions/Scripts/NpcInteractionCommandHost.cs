@@ -57,7 +57,6 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int Counter => _runner.Counter;
-    internal bool ButtonSensitive => _buttonSensitive;
     internal bool InputDisabled => _inputLeaseHeld;
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;

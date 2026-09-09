@@ -217,8 +217,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _animation.CurrentTexture.GetImage());
     internal ulong LinkTexturePixelHash => OracleGraphicsCache.PixelHash(
         CurrentLinkTexture(LinkAnimationParameter).GetImage());
-    internal ulong NormalLinkTexturePixelHash => OracleGraphicsCache.PixelHash(
-        _linkTextures[LinkAnimationParameter].GetImage());
     internal bool ChargeLinkTextureSelected =>
         ReferenceEquals(
             CurrentLinkTexture(LinkAnimationParameter),
@@ -276,7 +274,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             animationSourceOffsets: _visual.AnimationSourceOffsets);
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
-            LoadLinkFrames(_visual);
+            CompanionLinkFrames.Load(
+                _visual.LinkSprite, _visual.LinkPalette,
+                _visual.LinkFrames, _visual.LinkSourceOffsets);
 
         int initialAnimation = spawn.ForceMount
             ? _record.InitialAnimation
@@ -690,7 +690,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if ((_angle & 0x07) != 0)
             return false;
-        int towardWall = FacingWallMask(_angle, walls);
+        int towardWall = CompanionMovement.FacingWallMask(_angle, walls);
         if (towardWall is not (0x03 or 0x0c or 0x30))
             return false;
 
@@ -760,7 +760,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _animation.Advance();
         ApplyCompanionMovement(_airborneSpeed);
         int walls = CalculateAdjacentWallsBitset();
-        if (FacingWallMask(_angle, walls) != 0)
+        if (CompanionMovement.FacingWallMask(_angle, walls) != 0)
             StopUntilLanded(spawns);
     }
 
@@ -780,7 +780,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _behavior.HopGravity);
         int walls = CalculateAdjacentWallsBitset();
-        int movingAway = FacingWallMask((_angle + 0x10) & 0x1f, walls);
+        int movingAway = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, walls);
         if (movingAway != 0)
         {
             _wallCrossingMask = movingAway;
@@ -1075,10 +1075,10 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                 // both probes hit, rickySetJumpSpeed therefore retains $10 and
                 // the cliff jump travels straight down, not down-left.
                 _angle = _behavior.DepartureWallProbeAngle;
-                if (FacingWallMask(_angle, _tingleDepartureWalls) != 0)
+                if (CompanionMovement.FacingWallMask(_angle, _tingleDepartureWalls) != 0)
                 {
                     _angle = _behavior.DepartureExitAngle;
-                    if (FacingWallMask(_angle, _tingleDepartureWalls) != 0)
+                    if (CompanionMovement.FacingWallMask(_angle, _tingleDepartureWalls) != 0)
                     {
                         _speedZ = _behavior.LongJumpSpeedZ;
                         _tingleDepartureCounter = _behavior.LongJumpDelay;
@@ -1218,29 +1218,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         ApplyCompanionMovement(speed, walls);
     }
 
-    private void ApplyCompanionMovement(int speed, int walls)
-    {
-        if (_angle == 0xff)
-            return;
-        int movementAngle = AdjustAngleForTileEdge(_angle, walls) ?? _angle;
-        int[] bitsToCheck =
-        [
-            0xcf, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3,
-            0xf3, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33,
-            0x3f, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c,
-            0xfc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc
-        ];
-        int blocked = walls & bitsToCheck[movementAngle];
-        Vector2 candidate = _precisePosition;
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref candidate, speed, movementAngle);
-        Vector2 movement = candidate - _precisePosition;
-        if ((blocked & 0xf0) != 0)
-            movement.Y = 0;
-        if ((blocked & 0x0f) != 0)
-            movement.X = 0;
-        _precisePosition += movement;
-    }
+    private void ApplyCompanionMovement(int speed, int walls) =>
+        CompanionMovement.ApplySpeed(ref _precisePosition, speed, _angle, walls);
 
     private int CalculateAdjacentWallsBitset()
     {
@@ -1288,53 +1267,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         int axisPosition = collisionKind < 8 ? inTileX : inTileY;
         return (_behavior.CompanionCollisionMasks[collisionKind] &
             (1 << (axisPosition >> 1))) != 0;
-    }
-
-    private static int FacingWallMask(int angle, int walls)
-    {
-        if (angle == 0xff)
-            return 0;
-        int mask = 0;
-        if (angle is not (0x08 or 0x18))
-            mask |= ((angle >> 3) & 0x03) == 0 ? 0xc0 : 0x30;
-        if ((angle & 0x0f) != 0)
-            mask |= (angle & 0x10) == 0 ? 0x03 : 0x0c;
-        return walls & mask;
-    }
-
-    private static int? AdjustAngleForTileEdge(int angle, int walls)
-    {
-        int[] table =
-        [
-            0x80, 0x80, 0x01, 0x02, 0x02, 0x02, 0x03, 0x24,
-            0x24, 0x24, 0x05, 0x06, 0x06, 0x06, 0x07, 0x48,
-            0x48, 0x48, 0x09, 0x0a, 0x0a, 0x0a, 0x0b, 0x1c,
-            0x1c, 0x1c, 0x0d, 0x0e, 0x0e, 0x0e, 0x0f, 0x80
-        ];
-        int entry = table[angle];
-        if ((entry & 0x03) != 0)
-            return null;
-        if ((entry & 0x80) != 0)
-        {
-            if ((walls & 0xc3) == 0x80) return 0x08;
-            if ((walls & 0xcc) == 0x40) return 0x18;
-            return null;
-        }
-        if ((entry & 0x40) != 0)
-        {
-            if ((walls & 0x33) == 0x20) return 0x08;
-            if ((walls & 0x3c) == 0x10) return 0x18;
-            return null;
-        }
-        if ((entry & 0x20) != 0)
-        {
-            if ((walls & 0xc3) == 0x01) return 0x00;
-            if ((walls & 0x33) == 0x02) return 0x10;
-            return null;
-        }
-        if ((walls & 0xcc) == 0x04) return 0x00;
-        if ((walls & 0x3c) == 0x08) return 0x10;
-        return null;
     }
 
     private bool CanOccupy(Vector2 position)
@@ -1549,59 +1481,6 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             ? _chargeLinkTextures[parameter]
             : _linkTextures[parameter];
 
-    private static (
-        Texture2D[] Textures,
-        Texture2D[] ChargeTextures,
-        Texture2D[] DamageTextures,
-        Vector2[] Offsets) LoadLinkFrames(RickyCompanionVisualRecord visual)
-    {
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.LinkSprite}.png");
-        var textures = new Texture2D[visual.LinkFrames.Length];
-        var chargeTextures = new Texture2D[visual.LinkFrames.Length];
-        var damageTextures = new Texture2D[visual.LinkFrames.Length];
-        var offsets = new Vector2[visual.LinkFrames.Length];
-        for (int index = 0; index < visual.LinkFrames.Length; index++)
-        {
-            AnimationFrameDefinition frame =
-                OracleGraphicsCache.GetAnimationDefinition(
-                    visual.LinkFrames[index]).Frames[0];
-            (textures[index], offsets[index]) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    paletteOverride: null,
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            (damageTextures[index], Vector2 damageOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    NpcCharacter.GetStandardSpritePalette(5),
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            (chargeTextures[index], Vector2 chargeOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source,
-                    frame.EncodedOam,
-                    0,
-                    visual.LinkPalette,
-                    NpcCharacter.GetStandardSpritePalette(2),
-                    sourceGrayscaleInverted: true,
-                    sourceOffset: visual.LinkSourceOffsets[index]);
-            if (damageOffset != offsets[index] ||
-                chargeOffset != offsets[index])
-            {
-                throw new InvalidOperationException(
-                    "Ricky Link damage palette changed the OAM origin.");
-            }
-        }
-        return (textures, chargeTextures, damageTextures, offsets);
-    }
 }
 
 internal enum RickyCompanionPhase

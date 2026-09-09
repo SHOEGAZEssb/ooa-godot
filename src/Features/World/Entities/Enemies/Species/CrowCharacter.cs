@@ -35,8 +35,6 @@ public partial class CrowCharacter : EnemyCharacter
     internal int Z => _z;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && _collisionEnabled;
-    internal int CurrentAnimation => AnimationIndex;
-    internal int CurrentAnimationFrame => AnimationFrame;
     internal Vector2 PrecisePosition => _precisePosition;
     protected override bool DrawsAnimation => !IsDead && Visible;
     protected override Vector2 AnimationDrawOffset => new(-16, -16 + _z);

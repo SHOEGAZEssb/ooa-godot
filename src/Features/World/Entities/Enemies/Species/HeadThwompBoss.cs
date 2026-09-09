@@ -44,8 +44,6 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal HeadThwompState State => _state;
     internal int Direction => _direction;
-    internal int Counter => _counter;
-    internal bool Defeated => _dying || IsDead;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && !_dying;
 

@@ -18,7 +18,6 @@ internal sealed partial class DungeonTilePatternFallingKeyRoomEntity : Node2D,
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
-    internal IReadOnlyList<DungeonTilePatternRecord> Pattern => _pattern;
 
     internal DungeonTilePatternFallingKeyRoomEntity(
         DungeonMechanicDatabaseRecord record,

@@ -125,9 +125,9 @@ public partial class BombEffect : TransitionOffsetNode2D
             $"res://assets/oracle/gfx/{record.Sprite}.png");
         Image explosionSource = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.ExplosionSprite}.png");
-        _fuseTextures = BuildTextures(
+        _fuseTextures = OracleGraphicsCache.BuildAnimationTextures(
             fuseSource, _fuseFrames, record.TileBase, record.Palette);
-        _explosionTextures = BuildTextures(
+        _explosionTextures = OracleGraphicsCache.BuildAnimationTextures(
             explosionSource,
             _explosionFrames,
             record.ExplosionTileBase,
@@ -725,21 +725,6 @@ public partial class BombEffect : TransitionOffsetNode2D
         : direction == Vector2I.Down ? 0x10
         : direction == Vector2I.Left ? 0x18
         : throw new ArgumentOutOfRangeException(nameof(direction));
-
-    private static Texture2D[] BuildTextures(
-        Image source,
-        AnimationFrameDefinition[] frames,
-        int tileBase,
-        int palette)
-    {
-        var result = new Texture2D[frames.Length];
-        for (int index = 0; index < frames.Length; index++)
-        {
-            result[index] = NpcCharacter.BuildOamTexture(
-                source, frames[index].EncodedOam, tileBase, palette);
-        }
-        return result;
-    }
 
 }
 

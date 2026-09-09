@@ -41,6 +41,10 @@ an actor animation selects cached definitions; it does not rebuild textures.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,
 palette results, and hashes from real generated data.
 
+Rebuilding scripted NPC textures for a palette or grayscale change preserves
+per-frame graphics offsets, the current frame, and its remaining update count.
+Selecting a new script animation explicitly resets that animation clock.
+
 Partial-load Link frames encode absolute source tile indices, which can exceed
 one byte. Renderers clear only the 8-by-16 pairing bit; they must not truncate
 the index or overlap its high bits with palette fields in cache keys.

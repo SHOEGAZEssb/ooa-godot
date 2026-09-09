@@ -62,8 +62,6 @@ internal sealed class FairiesWoodsEvent :
     public bool BlocksGameplay => _inputLocked || _forcedLeftCounter != 0;
     internal bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     internal FairiesWoodsStage Stage => _stage;
-    internal int CurrentCommandIndex =>
-        _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int FoundFairies => Found;
     internal int SignalValue => Signal;
     internal int HiddenCounter => _hiddenCounter;

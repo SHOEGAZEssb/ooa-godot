@@ -128,9 +128,6 @@ public sealed class NpcVisibilityRuleDatabase
         return set == rule.ExpectedSet;
     }
 
-    internal static int GetGameProgress1(OracleSaveData save) =>
-        NpcStoryState.GetGameProgress1(save);
-
     internal static int GetGameProgress2(OracleSaveData save) =>
         NpcStoryState.GetGameProgress2(save);
 }

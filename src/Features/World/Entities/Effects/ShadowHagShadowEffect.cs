@@ -17,7 +17,6 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
 
     internal override bool Finished { get; private protected set; }
     internal ShadowHagShadowState State => _state;
-    internal int Counter1 => _counter1;
     internal int Angle => _angle;
 
     internal void Initialize(

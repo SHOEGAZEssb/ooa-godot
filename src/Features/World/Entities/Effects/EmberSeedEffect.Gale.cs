@@ -20,8 +20,8 @@ public partial class EmberSeedEffect
     {
         _galeTextures = new Texture2D[4][];
         for (int palette = 0; palette < 4; palette++)
-            _galeTextures[palette] = BuildTextures(source,
-                _record.FlameTileBase, palette, _effectFrames);
+            _galeTextures[palette] = OracleGraphicsCache.BuildAnimationTextures(
+                source, _effectFrames, _record.FlameTileBase, palette);
     }
 
     private void BeginGale(bool landed, bool wall = false)

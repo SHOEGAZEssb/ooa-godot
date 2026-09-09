@@ -27,7 +27,6 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
     private bool _immune;
 
     internal ImportedEnemyDefinition Record { get; private set; }
-    internal ColorChangingGelState State => _state;
     internal int Color => _color;
     internal int ZHigh => _zFixed >> 8;
     internal override Texture2D CurrentDrawTexture =>

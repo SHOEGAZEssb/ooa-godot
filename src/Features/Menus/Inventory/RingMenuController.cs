@@ -35,8 +35,6 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         : "MENU_RING_LIST";
 
     internal bool IsActive => _lifecycle.IsOwnedBy(this);
-    internal RingMenuMode Mode => _mode;
-    internal int Delay => _delay;
 
     internal RingMenuController(
         RingMenuScreen screen,

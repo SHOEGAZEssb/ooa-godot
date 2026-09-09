@@ -18,7 +18,6 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
     internal bool Leaving => _leaving;
     internal bool MovementCounterActive => _movementCounterActive;
-    internal Vector2 PrecisePosition => _precisePosition;
 
     internal void InitializePostman(NpcRecord record)
     {

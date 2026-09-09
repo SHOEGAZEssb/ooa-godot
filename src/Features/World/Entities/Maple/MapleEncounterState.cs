@@ -15,7 +15,6 @@ internal sealed class MapleEncounterState
     internal int LinkScore { get; set; }
     internal bool ObjectsDisabled { get; set; }
     internal int NextSlot { get; private set; }
-    internal IReadOnlyList<MapleDroppedItem> Items => _items;
 
     internal int AllocateSlot() => NextSlot++;
 

@@ -44,7 +44,6 @@ internal partial class CuccoCharacter : EnemyCharacter
     internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal int Z => _carried.ZFixed >> 8;
-    internal int ZFixed => _carried.ZFixed;
     internal int SpeedZ => _carried.SpeedZ;
     internal int HitCount => _hitCount;
     internal int RevengeCounter => _revengeCounter;

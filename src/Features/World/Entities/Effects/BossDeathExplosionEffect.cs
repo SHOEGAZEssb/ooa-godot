@@ -21,7 +21,6 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 
     public bool Finished { get; private set; }
     internal int BossId { get; private set; }
-    internal int AnimationFrame => Math.Min(_frame, _animation.Count - 1);
     internal int AnimationDuration { get; private set; }
     internal Vector2 CurrentTextureSize => _animation[_frame].Texture.GetSize();
     internal Vector2 CurrentDrawOffset => _animation[_frame].Offset;

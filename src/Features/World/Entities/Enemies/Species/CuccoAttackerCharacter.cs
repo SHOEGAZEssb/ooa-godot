@@ -22,7 +22,6 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter
 
     internal CuccoAttackerState State => _state;
     internal int Counter => _counter;
-    internal int Angle => _angle;
     internal int Speed => _speed;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && _state != CuccoAttackerState.Uninitialized;

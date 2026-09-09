@@ -58,7 +58,7 @@ internal sealed class OwlStatueDatabase
                 row.UnsignedDecimal(16),
                 row.UnsignedDecimal(17),
                 row.UnsignedDecimal(18),
-                ParseOffsets(row, 19),
+                row.Offsets(19),
                 new OwlStatueSparkleRecord(
                     row.RequiredString(20),
                     row.HexByte(21),
@@ -103,29 +103,6 @@ internal sealed class OwlStatueDatabase
             : throw new KeyNotFoundException(
                 $"PART_OWL_STATUE subid ${subId:x2} was not imported.");
 
-    private static Vector2[] ParseOffsets(GeneratedTableRow row, int column)
-    {
-        string[] values = row.RequiredString(column).Split(
-            ';',
-            StringSplitOptions.RemoveEmptyEntries |
-            StringSplitOptions.TrimEntries);
-        var offsets = new Vector2[values.Length];
-        for (int index = 0; index < values.Length; index++)
-        {
-            string[] pair = values[index].Split(
-                ',',
-                StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries);
-            if (pair.Length != 2 ||
-                !int.TryParse(pair[0], out int x) ||
-                !int.TryParse(pair[1], out int y))
-            {
-                throw row.Invalid(column, "semicolon-separated x,y pairs");
-            }
-            offsets[index] = new Vector2(x, y);
-        }
-        return offsets;
-    }
 }
 
 internal readonly record struct OwlStatueRecord(

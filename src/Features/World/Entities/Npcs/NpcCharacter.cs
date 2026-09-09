@@ -504,17 +504,21 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _scriptAnimationSourceOffsets = frameSourceOffsets is null
             ? null
             : (int[])frameSourceOffsets.Clone();
-        _scriptAnimation.Clear();
-        _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
-        _scriptAnimation.AddRange(BuildPositionedAnimation(
-            _sourceImage, encodedAnimation, Record.TileBase, Record.Palette,
-            _graphicsSourceOffset,
-            _paletteOverride, _sourceGrayscaleInverted,
-            _scriptAnimationSourceOffsets));
-        _scriptAnimationActive = _scriptAnimation.Count > 0;
+        RebuildScriptAnimation();
         _animationFrame = 0;
         _animationTicks = 0.0;
         QueueRedraw();
+    }
+
+    private void RebuildScriptAnimation()
+    {
+        _scriptAnimation.Clear();
+        _scriptAnimationLoopStart = AnimationLoopStart(_scriptAnimationSource);
+        _scriptAnimation.AddRange(BuildPositionedAnimation(
+            _sourceImage, _scriptAnimationSource, Record.TileBase, Record.Palette,
+            _graphicsSourceOffset, _paletteOverride, _sourceGrayscaleInverted,
+            _scriptAnimationSourceOffsets));
+        _scriptAnimationActive = _scriptAnimation.Count > 0;
     }
 
     internal void SetFacingDirection(Vector2I direction)
@@ -578,19 +582,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (_scriptAnimationActive &&
             !string.IsNullOrEmpty(_scriptAnimationSource))
         {
-            string encodedAnimation = _scriptAnimationSource;
-            _scriptAnimation.Clear();
-            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
-            _scriptAnimation.AddRange(BuildPositionedAnimation(
-                _sourceImage,
-                encodedAnimation,
-                Record.TileBase,
-                Record.Palette,
-                _graphicsSourceOffset,
-                _paletteOverride,
-                _sourceGrayscaleInverted,
-                _scriptAnimationSourceOffsets));
-            _scriptAnimationActive = _scriptAnimation.Count > 0;
+            RebuildScriptAnimation();
         }
         _animationFrame = CurrentAnimation.Count == 0
             ? 0
@@ -637,18 +629,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         RebuildFacingAnimations();
         if (!string.IsNullOrEmpty(_scriptAnimationSource))
         {
-            string encodedAnimation = _scriptAnimationSource;
-            _scriptAnimation.Clear();
-            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
-            _scriptAnimation.AddRange(BuildPositionedAnimation(
-                _sourceImage,
-                encodedAnimation,
-                Record.TileBase,
-                Record.Palette,
-                _graphicsSourceOffset,
-                _paletteOverride,
-                _sourceGrayscaleInverted));
-            _scriptAnimationActive = _scriptAnimation.Count > 0;
+            RebuildScriptAnimation();
         }
         QueueRedraw();
     }
@@ -712,18 +693,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         RebuildFacingAnimations();
         if (_scriptAnimationActive && !string.IsNullOrEmpty(_scriptAnimationSource))
         {
-            string encodedAnimation = _scriptAnimationSource;
-            _scriptAnimation.Clear();
-            _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
-            _scriptAnimation.AddRange(BuildPositionedAnimation(
-                _sourceImage,
-                encodedAnimation,
-                Record.TileBase,
-                Record.Palette,
-                _graphicsSourceOffset,
-                _paletteOverride,
-                _sourceGrayscaleInverted));
-            _scriptAnimationActive = _scriptAnimation.Count > 0;
+            RebuildScriptAnimation();
             _animationFrame = _scriptAnimation.Count == 0
                 ? 0
                 : Math.Min(frame, _scriptAnimation.Count - 1);
@@ -743,18 +713,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
         int frame = _animationFrame;
         double ticks = _animationTicks;
-        string encodedAnimation = _scriptAnimationSource;
-        _scriptAnimation.Clear();
-        _scriptAnimationLoopStart = AnimationLoopStart(encodedAnimation);
-        _scriptAnimation.AddRange(BuildPositionedAnimation(
-            _sourceImage,
-            encodedAnimation,
-            Record.TileBase,
-            Record.Palette,
-            _graphicsSourceOffset,
-            _paletteOverride,
-            _sourceGrayscaleInverted));
-        _scriptAnimationActive = _scriptAnimation.Count > 0;
+        RebuildScriptAnimation();
         _animationFrame = _scriptAnimation.Count == 0
             ? 0
             : Math.Min(frame, _scriptAnimation.Count - 1);

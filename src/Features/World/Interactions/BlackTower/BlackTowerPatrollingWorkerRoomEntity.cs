@@ -38,8 +38,6 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
         StartLeg(0);
     }
 
-    internal Vector2 PrecisePosition => _precisePosition;
-    internal int Direction => _direction;
     public NpcCharacter TalkNpc => Entity;
     public bool DisablesSword => _talking || _postTalkWait > 0;
     public bool DisablesMovement => DisablesSword;

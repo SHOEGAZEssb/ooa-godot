@@ -46,11 +46,11 @@ internal sealed class DungeonInteractionVisualDatabase
         {
             DungeonInteractionVisual record = new(
                 row.RequiredString(0),
-                SplitRequired(row, 1, ','),
+                row.SplitRequired(1, ','),
                 row.UnsignedDecimal(2),
                 row.UnsignedDecimal(3),
                 row.Boolean01(4),
-                SplitDecoded(row, 5));
+                row.EncodedAnimations(5));
             if (!_visuals.TryAdd(record.Key, record))
             {
                 throw row.Invalid(
@@ -125,29 +125,6 @@ internal sealed class DungeonInteractionVisualDatabase
         }
     }
 
-    private static string[] SplitRequired(
-        GeneratedTableRow row,
-        int column,
-        char separator)
-    {
-        string[] values = row.RequiredString(column).Split(
-            separator,
-            StringSplitOptions.RemoveEmptyEntries |
-            StringSplitOptions.TrimEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more values");
-        return values;
-    }
-
-    private static string[] SplitDecoded(GeneratedTableRow row, int column)
-    {
-        string[] values = row.Base64Utf8(column).Split(
-            '\n',
-            StringSplitOptions.RemoveEmptyEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more encoded animations");
-        return values;
-    }
 }
 
 internal readonly record struct DungeonInteractionVisual(

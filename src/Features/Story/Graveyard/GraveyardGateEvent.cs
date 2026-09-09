@@ -33,9 +33,7 @@ internal sealed class GraveyardGateEvent :
     internal int Counter => _runner.Counter;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
-    internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int ShakeCounter => _shakeCounter;
-    internal GraveyardGateEventDatabaseEventRecord Record => _record;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room &&

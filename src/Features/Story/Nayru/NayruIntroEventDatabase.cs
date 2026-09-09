@@ -13,7 +13,7 @@ public sealed class NayruIntroEventDatabase
 {
     private readonly Dictionary<int, TextRecord> _texts = new();
     private readonly Dictionary<string, ActorRecord> _actors = new();
-    private readonly Dictionary<string, EffectRecord> _effects = new();
+    private readonly SharedEffectDatabase _effects = new();
     private readonly Dictionary<string, FleeRecord> _flee = new();
     private readonly Dictionary<int, VignetteRecord> _vignettes = new();
     private readonly List<VignetteMonkeyRecord> _vignetteMonkeys = new();
@@ -193,37 +193,6 @@ public sealed class NayruIntroEventDatabase
             throw new InvalidOperationException(
                 $"Expected five initial Nayru audience escape records, got {_flee.Count}.");
 
-        GeneratedTable effectTable = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/nayru_intro_effects.tsv",
-            new GeneratedTableSchema(
-                "initial Nayru effects",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "name", "sprite", "tile-base", "palette", "duration", "speed", "angle",
-                    "sway", "velocity-x-fixed", "velocity-y-fixed", "animation"
-                ],
-                ["name"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in effectTable.Rows)
-        {
-            EffectRecord effect = new EffectRecord(
-                row.RequiredString(0),
-                row.RequiredString(1),
-                row.UnsignedDecimal(2),
-                row.UnsignedDecimal(3),
-                row.UnsignedDecimal(4),
-                row.FiniteFloat(5),
-                row.Decimal(6),
-                row.Boolean01(7),
-                row.Decimal(8),
-                row.Decimal(9),
-                row.RequiredString(10));
-            _effects.Add(effect.Name, effect);
-        }
-        if (_effects.Count != 2)
-            throw new InvalidOperationException(
-                $"Expected 2 initial Nayru cutscene effect templates, got {_effects.Count}.");
-
         GeneratedTable textTable = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/nayru_intro_text.tsv",
             new GeneratedTableSchema(
@@ -294,11 +263,7 @@ public sealed class NayruIntroEventDatabase
         : throw new InvalidOperationException(
             $"Initial Nayru cutscene text TX_{id:x4} was not imported.");
 
-    public EffectRecord Effect(string name) =>
-        _effects.TryGetValue(name, out EffectRecord effect)
-            ? effect
-            : throw new InvalidOperationException(
-                $"Unknown initial Nayru cutscene effect '{name}'.");
+    public EffectRecord Effect(string name) => _effects.Effect(name);
 
     public FleeRecord Flee(string actor) => _flee.TryGetValue(actor, out FleeRecord record)
         ? record
@@ -351,11 +316,6 @@ public readonly record struct SingingOamRecord(int Y, int X, int Tile, int Flags
 public readonly record struct NayruIntroEventDatabaseEventRecord(int Group, int Room, int IntroFlag, int CompletionRoomFlag, int BearRoomFlag, int TriggerX, int TriggerY, int BearDelayFrames, int BearMoveSpeed, int PostBearTextFrames, int SingingFrames, int SingingSkipWindow, int SingingScrollPeriod, int SingingScrollSteps, int PossessionFadeHoldFrames, int PortalPosition, int PortalTile, int VignetteCount, int NpcJumpSpeedZ, int NpcJumpGravity, int DarkFadeFrames, int WhiteFadeOutFrames, int WhiteFadeInFrames, int NayruAscentSpeedZ, int NayruTransferZ, int NayruLandingDelay, int NayruFallSpeedZ, int NayruFallGravity);
 
 public readonly record struct FleeRecord(string Actor, int Delay, int Angle, int SpeedRaw, int WaitJumpSpeedZ, int WaitGravity, bool RepeatWaitJump, int EscapeJumpSpeedZ, int EscapeGravity, bool RepeatEscapeJump, bool WaitForLanding, int WaitAnimation, int EscapeAnimation);
-
-public readonly record struct EffectRecord(string Name, string SpriteName, int TileBase, int Palette, int Duration, float Speed, int Angle, bool Sway, int VelocityXFixed, int VelocityYFixed, string Animation)
-{
-    public NpcRecord ToNpcRecord(int group, int room, int y, int x) => new(group, room, 0, 0, y, x, 0, 0, SpriteName, TileBase, Palette, 0, false, Animation, Animation, Animation, Animation, string.Empty, NpcImplementationClassification.EventOwned);
-}
 
 public readonly record struct ActorRecord(int Index, int Id, int SubId, int Y, int X, int Var03, string Name, string SpriteName, int TileBase, int Palette, int DefaultAnimation, string[] Animations, int InitialAnimation, string ExtraSprite)
 {

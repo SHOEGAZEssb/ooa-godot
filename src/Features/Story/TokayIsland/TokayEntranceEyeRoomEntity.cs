@@ -13,7 +13,6 @@ internal sealed partial class TokayEntranceEyeRoomEntity : TransitionOffsetNode2
 
     public Node2D Node => this;
     internal TokayEntranceEyeRecord Record { get; }
-    internal int AnimationFrame => _animation.FrameIndex;
 
     internal TokayEntranceEyeRoomEntity(TokayEntranceEyeRecord record)
     {

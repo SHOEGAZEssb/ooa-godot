@@ -20,7 +20,6 @@ internal sealed partial class ShootingGalleryTargetDebris
 
     internal bool Finished { get; private set; }
     internal int Counter => _counter;
-    internal int Angle => _angle;
     internal int Palette { get; private set; }
 
     internal void Initialize(

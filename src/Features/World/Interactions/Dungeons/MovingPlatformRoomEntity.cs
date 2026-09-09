@@ -20,7 +20,6 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
 
     public Node2D Node => this;
     internal int Script => _script;
-    internal int Counter => _counter;
     internal bool LinkRiding => _linkRiding;
     internal Vector2 CollisionRadii => _collisionRadii;
     internal Vector2 PrecisePosition => _precisePosition;

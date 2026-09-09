@@ -23,7 +23,6 @@ internal partial class SeedTreeController : TransitionOffsetNode2D
     private bool _childCollected;
     private bool _noSatchelMessageClaimed;
 
-    internal SeedTreePlacementRecord Record => _record;
     internal bool Finished { get; private set; }
     internal bool HasActiveSeeds => !Finished;
     internal Vector2 TreeCenter { get; private set; }

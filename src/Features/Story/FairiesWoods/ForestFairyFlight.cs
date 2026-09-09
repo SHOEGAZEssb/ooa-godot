@@ -34,7 +34,6 @@ internal sealed class ForestFairyFlight
     internal bool Active { get; private set; } = true;
     internal int PresetIndex => _presetIndex;
     internal int Angle => _angle;
-    internal int Direction => _direction;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
     internal int SparkleCounter => _sparkleCounter;

@@ -10,40 +10,15 @@ public sealed partial class ValidationRoot
     private void ValidateRoom22fPostman()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Room22fPostmanValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            2, 0x2f, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Room22fPostmanValidation", 2, 0x2f);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
+        InventoryState inventory = fixture.Inventory;
         RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
+
         var scriptDatabase = new NpcInteractionScriptDatabase();
         string Text(int textId) => scriptDatabase.Postman
             .OfType<CutsceneShowTextCommand>()
@@ -249,7 +224,7 @@ public sealed partial class ValidationRoot
         GroundTreasurePickup heldStationery =
             interactions.PostmanTreasureForValidation!;
         TreasureObjectRecord stationery =
-            treasures.GetObject("TREASURE_OBJECT_TRADEITEM_01");
+            fixture.Treasures.GetObject("TREASURE_OBJECT_TRADEITEM_01");
         FailIf(
             !inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
             inventory.TradeItem != 1 ||
@@ -348,9 +323,7 @@ public sealed partial class ValidationRoot
             "Room flag $20 did not keep the completed Postman hidden and " +
             "non-interactive on re-entry.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated room 2:2f Postman TX_0b03-$0b06 branches, Poe Clock " +
             "choice, SPEED_200 $1d/$39 departure, Stationery grant, room " +

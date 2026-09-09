@@ -17,7 +17,6 @@ internal partial class LeeverCharacter : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal LeeverState State => _state;
     internal int Counter => _counter;
-    internal int Angle => _angle;
     internal override bool CollisionEnabled =>
         _collisionEnabled && base.CollisionEnabled;
 

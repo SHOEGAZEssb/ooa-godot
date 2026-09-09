@@ -33,7 +33,6 @@ internal sealed class RaftonEvent :
     }
 
     internal RaftonEventDatabase Database => _database;
-    internal RaftonCharacter? Actor => ScriptActor;
     internal int Behaviour => _behaviour;
     internal int LoadedTextId => _loadedTextId;
 

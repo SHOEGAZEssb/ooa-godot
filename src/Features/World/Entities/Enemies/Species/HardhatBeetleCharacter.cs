@@ -18,7 +18,6 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal bool Initialized => _initialized;
     internal int Angle => _angle;
-    internal int SpeedRaw => _behavior.SpeedRaw;
 
     internal void Initialize(
         ImportedEnemyDefinition record,

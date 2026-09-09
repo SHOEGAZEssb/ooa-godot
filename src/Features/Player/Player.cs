@@ -2551,15 +2551,8 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    internal void AdvanceSpinnerExit(Vector2I direction)
-    {
-        _walking = true;
-        Face(direction);
-        _precisePosition += (Vector2)direction;
-        AdvanceLinkWalkAnimation();
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        QueueRedraw();
-    }
+    internal void AdvanceSpinnerExit(Vector2I direction) =>
+        AdvanceForcedRoomEntryMovement(direction);
 
     internal void EndSpinnerControl()
     {

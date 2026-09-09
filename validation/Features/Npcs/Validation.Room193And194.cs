@@ -10,46 +10,13 @@ public sealed partial class ValidationRoot
     private void ValidateRooms193And194NpcInteractions()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Rooms193And194NpcValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            1, 0x93, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Rooms193And194NpcValidation", 1, 0x93);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
         RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
-
-        static string PlainWords(string message) => string.Join(
-            " ",
-            DialogueBox.PlainText(message).Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
 
         void SetEssences(byte value)
         {
@@ -319,9 +286,7 @@ public sealed partial class ValidationRoot
             "Room 1:94 finished-game re-entry did not retain the suppressed " +
             "past-guy record and one room-parse RNG buffer.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated rooms 1:93/1:94: source-ordered mustache man, soldier, " +
             "and past guy; exact positions/visuals; TX_0f00/TX_0f01, " +

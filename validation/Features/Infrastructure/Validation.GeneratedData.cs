@@ -133,6 +133,28 @@ public sealed partial class ValidationRoot
             "expects 2");
 
         int manifestEntries = GeneratedTableManifest.EntryCount;
+        var listSchema = new GeneratedTableSchema(
+            "list fields", GeneratedTableKeySemantics.Ordered,
+            ["values", "unused"], headerRequired: true);
+        GeneratedTableRow ListRow(string value) => GeneratedTable.ParseForValidation(
+            path, "# values\tunused\n" + value + "\t\n", listSchema).Rows[0];
+        string[] names = ListRow(" second, ,first,second ").SplitRequired(0, ',');
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(" first \n\nsecond\n"));
+        string[] animations = ListRow(encoded).EncodedAnimations(0);
+        Vector2[] offsets = ListRow(" -8,12 ; ; 16,-4 ").Offsets(0);
+        FailIf(
+            names.Length != 3 || names[0] != "second" || names[1] != "first" || names[2] != "second" ||
+            animations.Length != 2 || animations[0] != " first " || animations[1] != "second" ||
+            offsets.Length != 2 || offsets[0] != new Vector2(-8, 12) || offsets[1] != new Vector2(16, -4),
+            "Shared list readers changed ordering, duplicates, whitespace, or signed x,y offsets.");
+        ExpectGeneratedTableFailure(() => ListRow(" , , ").SplitRequired(0, ','),
+            path + ":2", "column 'values'", "one or more values");
+        ExpectGeneratedTableFailure(() => ListRow("Cg==").EncodedAnimations(0),
+            path + ":2", "one or more encoded animations");
+        ExpectGeneratedTableFailure(() => ListRow("?").EncodedAnimations(0),
+            path + ":2", "valid base64");
+        ExpectGeneratedTableFailure(() => ListRow("1,2,3").Offsets(0),
+            path + ":2", "semicolon-separated x,y pairs");
         FailIf(manifestEntries <= 0, "The generated-table manifest is empty.");
         GD.Print($"Validated shared generated-table schemas, named diagnostics, unique/grouped/" +
             $"aliased/repeated ordering, and {manifestEntries} manifest versions/counts/SHA-256 hashes.");

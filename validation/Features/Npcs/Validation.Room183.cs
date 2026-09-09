@@ -10,52 +10,20 @@ public sealed partial class ValidationRoot
     private void ValidateRoom183MiscManAndDrops()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Room183MiscManAndDropsValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            1, 0x83, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Room183MiscManAndDropsValidation", 1, 0x83);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
+        InventoryState inventory = fixture.Inventory;
+        RoomEntityManager manager = fixture.Manager;
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
         inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x04);
         inventory.GiveTreasure(
             TreasureDatabase.TreasureEmberSeeds +
                 ItemDropDatabase.MysterySeeds -
                 ItemDropDatabase.EmberSeeds,
             0x20);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
-        RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
-
-        static string PlainWords(string message) => string.Join(
-            " ",
-            DialogueBox.PlainText(message).Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
 
         var enemyData = new EnemyDatabase();
         IReadOnlyList<RoomObjectRecord> objects =
@@ -251,7 +219,7 @@ public sealed partial class ValidationRoot
         {
             byte tile = rooms.CurrentRoom.GetMetatile(producer.Position);
             rooms.CurrentRoom.SetPositionTileAndCollision(
-                producer.Position, (byte)(tile ^ 1), null, tick);
+                producer.Position, (byte)(tile ^ 1), null, fixture.Tick);
         }
         manager.Update(frame, _player);
         List<ItemDropEffect> drops = manager.Entities<ItemDropEffect>();
@@ -316,9 +284,7 @@ public sealed partial class ValidationRoot
             "Room 1:83 post-palace re-entry did not retain its suppressed " +
             "NPC record, four producers, and one room-parse RNG buffer.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated room 1:83 misc man $41:$00 placement, TX_2606, " +
             "Link-facing animation $02, collision/talkability, textbox " +

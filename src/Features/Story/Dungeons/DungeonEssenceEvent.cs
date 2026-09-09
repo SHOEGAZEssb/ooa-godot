@@ -23,7 +23,6 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
 
     public bool HasState => _phase != DungeonEssenceEventPhase.Inactive;
     public bool BlocksGameplay => HasState;
-    internal int CurrentPhase => (int)_phase;
     internal int Counter => _counter;
     internal bool TracksEssence => _essence is not null;
 

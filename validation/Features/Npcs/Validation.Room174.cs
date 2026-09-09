@@ -10,46 +10,13 @@ public sealed partial class ValidationRoot
     private void ValidateRoom174PastOldLady()
     {
         const double frame = 1.0 / 60.0;
-        var root = new Node { Name = "Room174PastOldLadyValidation" };
-        var worldRoot = new Node { Name = "World" };
-        var interfaceLayer = new Node { Name = "Interface" };
-        var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
-        root.AddChild(worldRoot);
-        root.AddChild(interfaceLayer);
-        root.AddChild(roomView);
-        root.AddChild(dialogue);
-        AddChild(root);
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        long tick = 0;
-        var rooms = new RoomSession(
-            1, 0x74, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
-        var inventory = new InventoryState(
-            treasures, save, () => rooms.CurrentDungeonIndex);
-        var sounds = new List<int>();
-        using var fixture = RoomEntityValidationFixture.ForRoot(
-            worldRoot, new()
-            {
-                SaveData = save,
-                Inventory = inventory,
-                Treasures = treasures,
-                Rooms = rooms
-            });
+        using var fixture = new NpcInteractionValidationFixture(
+            this, "Room174PastOldLadyValidation", 1, 0x74);
+        OracleSaveData save = fixture.Save;
+        RoomSession rooms = fixture.Rooms;
         RoomEntityManager manager = fixture.Manager;
-        manager.SoundRequested += sounds.Add;
-        var interactions = new InteractionController(
-            rooms, manager, new SignDatabase(), new ChestDatabase(),
-            treasures, dialogue, worldRoot, roomView,
-            static position => position, () => tick, inventory,
-            interfaceLayer, sounds.Add);
-
-        static string PlainWords(string message) => string.Join(
-            " ",
-            DialogueBox.PlainText(message).Split(
-                (char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
+        InteractionController interactions = fixture.Interactions;
+        DialogueBox dialogue = fixture.Dialogue;
 
         manager.LoadRoom(1, rooms.CurrentRoom);
         NpcCharacter oldLady =
@@ -177,9 +144,7 @@ public sealed partial class ValidationRoot
             "Room 1:74 finished-game re-entry did not retain the suppressed " +
             "old-lady placement record.");
 
-        manager.Clear();
-        RemoveChild(root);
-        root.QueueFree();
+        fixture.Dispose();
         GD.Print(
             "Validated room 1:74 past old lady $45:$00 placement, TX_180a, " +
             "palette $03, fixed animation $04 cadence, solidity, talkability, " +

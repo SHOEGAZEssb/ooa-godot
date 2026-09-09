@@ -31,8 +31,6 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
     internal int ThrowSpeedRaw => _carried.SpeedRaw;
     internal Vector2I ThrowDirection => _carried.Direction;
     internal int BounceCount { get; private set; }
-    internal Rect2 CollisionBounds =>
-        new(Position - new Vector2(8, 8), new Vector2(16, 16));
 
     internal void Initialize(
         WildTokayMeatDatabase database,

@@ -26,6 +26,21 @@ internal static class OracleGraphicsCache
     internal static void SetObserver(IOracleGraphicsCacheObserver? observer) =>
         _observer = observer;
 
+    internal static Texture2D[] BuildAnimationTextures(
+        Image source,
+        AnimationFrameDefinition[] frames,
+        int tileBase,
+        int palette)
+    {
+        var result = new Texture2D[frames.Length];
+        for (int index = 0; index < frames.Length; index++)
+        {
+            result[index] = NpcCharacter.BuildOamTexture(
+                source, frames[index].EncodedOam, tileBase, palette);
+        }
+        return result;
+    }
+
     internal static Image LoadImage(string path)
     {
         if (SourceImages.TryGetValue(path, out Image? cached))

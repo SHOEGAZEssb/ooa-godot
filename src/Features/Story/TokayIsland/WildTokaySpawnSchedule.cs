@@ -19,7 +19,6 @@ internal sealed class WildTokaySpawnSchedule
 
     internal int CyclesRemaining => _cyclesRemaining;
     internal int Slot => _slot;
-    internal int RandomIndex => _randomIndex;
 
     internal WildTokaySpawnSchedule(
         WildTokayGameDatabase database,

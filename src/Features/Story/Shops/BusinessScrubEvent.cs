@@ -20,7 +20,6 @@ internal sealed class BusinessScrubEvent : IRoomEvent
     public bool HasState => _stage != BusinessScrubEventStage.Inactive;
     public bool BlocksGameplay => HasState;
     internal BusinessScrubEventStage Stage => _stage;
-    internal BusinessScrubDatabase Database => _database;
 
     public bool TryInteractNpc(NpcCharacter npc)
     {

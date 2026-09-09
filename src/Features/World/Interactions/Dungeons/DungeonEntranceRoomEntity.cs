@@ -37,7 +37,6 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     }
 
     public bool Finished { get; private set; }
-    internal bool Initialized => _initialized;
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns) =>

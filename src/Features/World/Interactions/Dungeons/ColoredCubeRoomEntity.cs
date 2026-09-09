@@ -36,7 +36,6 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
     public bool Finished { get; private set; }
     public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
     internal int Orientation => _orientation;
-    internal int PushCounter => _pushCounter;
     internal bool Moving => _moving;
 
     internal ColoredCubeRoomEntity(

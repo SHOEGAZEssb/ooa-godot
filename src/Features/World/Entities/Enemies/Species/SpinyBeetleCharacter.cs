@@ -38,7 +38,6 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SpinyBeetleState State => _state;
     internal int Counter1 => _counter1;
-    internal int Counter2 => _counter2;
     internal int Angle => _angle;
     internal bool ParentVisible => _parentVisible;
     internal bool CoverProtects => _coverProtects;

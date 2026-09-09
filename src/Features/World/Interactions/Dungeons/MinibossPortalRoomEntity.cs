@@ -35,8 +35,6 @@ internal sealed class MinibossPortalRoomEntity :
     }
 
     public bool Finished { get; private set; }
-    internal PortalState State => _state;
-    internal int Counter => _counter;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

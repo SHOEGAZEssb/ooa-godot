@@ -21,8 +21,6 @@ internal sealed class RemoteMakuWingDungeonEvent : RemoteMakuEvent
         _database = database;
     }
 
-    internal RemoteMakuWingDungeonDatabase Database => _database;
-
     internal bool StartWarning()
     {
         RemoteMakuEventRecord record = _database.Record;

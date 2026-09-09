@@ -83,23 +83,10 @@ internal sealed class RaftwreckEventDatabase
                 effect.RequiredString(4), effect.UnsignedDecimal(5)))
             .ToDictionary(effect => effect.SubId);
 
-        GeneratedTableRow lightning = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/nayru_intro_effects.tsv",
-            new GeneratedTableSchema(
-                "PART_LIGHTNING visuals",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "name", "sprite", "tile-base", "palette", "duration",
-                    "speed", "angle", "sway", "velocity-x-fixed",
-                    "velocity-y-fixed", "animation"
-                ],
-                ["name"],
-                headerRequired: true)).Rows.Single(row =>
-                    row.RequiredString(0) == "Lightning");
+        EffectRecord lightning = new SharedEffectDatabase().Effect("Lightning");
         Lightning = new RaftwreckEffectRecord(
-            1, lightning.RequiredString(1), lightning.UnsignedDecimal(2),
-            lightning.UnsignedDecimal(3), lightning.RequiredString(10),
-            lightning.UnsignedDecimal(4));
+            1, lightning.SpriteName, lightning.TileBase,
+            lightning.Palette, lightning.Animation, lightning.Duration);
         Validate();
     }
 

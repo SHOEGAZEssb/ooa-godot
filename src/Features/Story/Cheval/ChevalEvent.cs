@@ -21,7 +21,6 @@ internal sealed class ChevalEvent :
     }
 
     internal ChevalEventDatabase Database => _database;
-    internal ChevalCharacter? Actor => ScriptActor;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;

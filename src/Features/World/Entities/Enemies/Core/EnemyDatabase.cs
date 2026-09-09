@@ -62,7 +62,7 @@ public sealed class EnemyDatabase
             ImportedEnemyDefinition record = new ImportedEnemyDefinition(
                 row.HexByte(0),
                 row.HexByte(1),
-                SplitRequired(row, 2, ','),
+                row.SplitRequired(2, ','),
                 row.UnsignedDecimal(3),
                 row.UnsignedDecimal(4),
                 row.Boolean01(5),
@@ -70,7 +70,7 @@ public sealed class EnemyDatabase
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
                 row.UnsignedDecimal(9),
-                SplitDecoded(row, 10));
+                row.EncodedAnimations(10));
             if (!_importedDefinitions.TryAdd((record.Id, record.SubId), record))
             {
                 throw new InvalidOperationException(
@@ -230,11 +230,11 @@ public sealed class EnemyDatabase
         }
         GeneratedTableRow boomerang = table.Rows[0];
         MoblinBoomerang = new EnemyProjectileVisualRecord(
-            SplitRequired(boomerang, 0, ','),
+            boomerang.SplitRequired(0, ','),
             boomerang.UnsignedDecimal(1),
             boomerang.UnsignedDecimal(2),
             boomerang.Boolean01(3),
-            SplitDecoded(boomerang, 4));
+            boomerang.EncodedAnimations(4));
         if (MoblinBoomerang is not
             {
                 Sprites: ["spr_projectiles_1"],
@@ -906,29 +906,6 @@ public sealed class EnemyDatabase
         _importedDefinitions.ContainsKey((descriptor.Id, descriptor.SubId));
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
-
-    private static string[] SplitRequired(
-        GeneratedTableRow row,
-        int column,
-        char separator)
-    {
-        string[] values = row.RequiredString(column).Split(
-            separator,
-            StringSplitOptions.RemoveEmptyEntries |
-            StringSplitOptions.TrimEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more values");
-        return values;
-    }
-
-    private static string[] SplitDecoded(GeneratedTableRow row, int column)
-    {
-        string[] values = row.Base64Utf8(column).Split(
-            '\n', StringSplitOptions.RemoveEmptyEntries);
-        if (values.Length == 0)
-            throw row.Invalid(column, "one or more encoded animations");
-        return values;
-    }
 
     private static RoomObjectKind ParseRoomObjectKind(
         GeneratedTableRow row,

@@ -14,7 +14,6 @@ internal sealed partial class TokaySeedlingDecorationRoomEntity :
 
     public Node2D Node => this;
     internal TokaySeedlingPlotRecord Record { get; }
-    internal int AnimationFrame => _animation.FrameIndex;
     internal int OpaquePixels => _animation.HasFrames
         ? CountOpaquePixels(_animation.CurrentTexture.GetImage())
         : 0;
