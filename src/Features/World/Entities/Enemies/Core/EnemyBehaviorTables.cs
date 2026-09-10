@@ -86,6 +86,12 @@ internal sealed class EnemyBehaviorTables
     internal CheepCheepBehaviorProfile CheepCheep { get; }
     internal PeahatBehaviorProfile Peahat { get; }
     internal SwordEnemyBehaviorProfile SwordEnemy { get; }
+    internal TektiteBehaviorProfile Tektite { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyAngleAnimations { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyBlockingBits { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> EnemySwordOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> EnemySwordRadii { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> EnemySwordCollisionEffects { get; }
     internal ColorChangingGelBehaviorProfile ColorChangingGel { get; }
     internal FlyingTileBehaviorProfile FlyingTile { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FlyingTileCollisionEffects { get; }
@@ -561,6 +567,17 @@ internal sealed class EnemyBehaviorTables
                 static value => value.Value),
             values);
 
+        values = TakeValues(groups, "tektite", "state-profile", 7);
+        EnemyBehaviorValue[] smallLeap = TakeValues(groups, "tektite", "smallLeap", 2);
+        EnemyBehaviorValue[] bigLeap = TakeValues(groups, "tektite", "bigLeap", 2);
+        Tektite = new(values[0].Value, values[1].Value, values[2].Value,
+            values[3].Value, values[4].Value, values[5].Value, values[6].Value,
+            smallLeap[0].Value, smallLeap[1].Value, bigLeap[0].Value, bigLeap[1].Value);
+        SwordEnemyAngleAnimations = TakeValues(groups, "sword-enemy", "angle-to-animation", 32);
+        SwordEnemyBlockingBits = TakeValues(groups, "sword-enemy", "blocking-angle-bits", 16);
+        EnemySwordOffsets = TakeValues(groups, "enemy-sword", "offsets", 16);
+        EnemySwordRadii = TakeValues(groups, "enemy-sword", "radii", 4);
+        EnemySwordCollisionEffects = TakeValues(groups, "enemy-sword", "collision-effects", 32);
         values = TakeValues(groups, "sword-enemy", "state-profile", 12);
         SwordEnemy = new(
             values[0].Value,
@@ -607,10 +624,10 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 782 || groups.Count != 0)
+        if (table.Rows.Count != 893 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 782 rows and no " +
+                $"Enemy behavior table contract expected 893 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

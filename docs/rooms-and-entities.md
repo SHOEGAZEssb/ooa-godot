@@ -27,6 +27,14 @@ Gameplay positions remain original room/world coordinates. Camera and
 transition offsets are presentation. Preserve byte and 8.8 fractional state
 through movement and transitions where the source does.
 
+Side-view water state is owned by Link. Its terrain probes sample the current
+position and eight pixels below it; `wLastActiveTileType` names the latter
+probe, not a previous update. Swimming input, parent-item movement locks, and
+the resulting velocity run in the original order. Water alone does not select
+Mermaid Suit item graphics: the per-update equipment/tileset signal controls
+that choice when the parent animation initializes. Swimming bubbles belong to
+the later interaction pass, including their separate shared-RNG consumption.
+
 The ordinary large-room camera moves each origin component by one high-byte
 pixel per original update toward its clamped focus target. Textboxes hold that
 position. Only traced room-load/reset paths place the camera at its target
@@ -56,6 +64,10 @@ scripted fade. Source handlers own the entrance sound; a direct write to
 it. Dungeon floor-stair lookup owns its separate sound before the direct fade.
 Warps, scrolls, time travel, and development direct loads are different entry
 contexts and require explicit coverage.
+
+Vertical edge warps carry the crossed edge's direction into the source
+transition. The exit handler sets Link's facing and movement from that value;
+his incoming swim, attack, or ladder facing is not the transition direction.
 
 Time travel retains its source interaction update mask, then resumes room
 objects during the destination Link state machine while contact and NPC
@@ -158,6 +170,12 @@ Ordinary gameplay preserves the source category order: items, enemies, parts,
 then interactions. Item collisions resolve in the item phase, so a landed
 Scent Seed publishes its target before compatible enemies update, and its
 zero-counter update removes that target before the same enemy pass.
+
+Sword-enemy blades occupy the shared part pool. Their enemy remains in state
+zero if allocation fails. The enemy pass publishes its guarding collision
+mode; the following part pass positions the invisible blade and transfers
+pending blade recoil to its parent. Collision tests in the next item pass
+consume that published state rather than recomputing facing during the hit.
 
 Random breakable drops retain their unresolved part subid until the part's
 first update. That update checks Maple before drawing RNG, then applies the

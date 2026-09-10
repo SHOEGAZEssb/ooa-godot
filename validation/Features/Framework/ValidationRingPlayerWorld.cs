@@ -31,6 +31,8 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public int SwordBeamCalls { get; private set; }
     public int LastSwordBeamDirection { get; private set; } = -1;
     public List<int> Sounds { get; } = new();
+    public List<Vector2> SwimBubbles { get; } = new();
+    public void SpawnSideScrollBubble(Vector2 position) => SwimBubbles.Add(position);
     public List<(Vector2 Position, HazardType Hazard)> DrowningSplashes { get; } =
         new();
 

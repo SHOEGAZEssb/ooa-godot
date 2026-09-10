@@ -1007,6 +1007,8 @@ public sealed class OracleRoomData
     {
         return activeCollisions switch
         {
+            // hazardCollisionTable@sidescrolling; also used by bubble $91.
+            3 when tile is >= 0x1a and <= 0x1f => HazardType.Water,
             0 or 4 => tile switch
             {
                 0xfa or 0xfc or 0xfe or 0xff or 0xe0 or 0xe1 or 0xe2 or 0xe3 or 0xe9 => HazardType.Water,

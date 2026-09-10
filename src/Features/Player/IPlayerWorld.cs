@@ -82,6 +82,7 @@ public interface IPlayerWorld
     void BeginLedgeScreenTransition(Player player);
     void ResumeLedgeHopAfterScroll(Player player);
     void SpawnDrowningSplash(Vector2 position, HazardType hazard);
+    void SpawnSideScrollBubble(Vector2 position);
     void BeginFallDownHoleWarp(Player player, int packedPosition) =>
         throw new NotSupportedException(
             "This player world does not support dungeon warphole descents.");

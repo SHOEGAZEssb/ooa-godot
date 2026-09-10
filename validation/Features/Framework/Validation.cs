@@ -355,6 +355,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSpikedBeetles);
         RunIsolatedValidation(ValidateKeese);
         RunIsolatedValidation(ValidatePeahat);
+        RunIsolatedValidation(ValidateTektiteSourceBehavior);
+        RunIsolatedValidation(ValidateSwordMaskedMoblinSourceBehavior);
+        RunIsolatedValidation(ValidateRoom060Enemies);
+        RunIsolatedValidation(ValidateRoom060EnemyCombat);
         RunIsolatedValidation(ValidateGraveyardCrowsAndDropProducers);
         RunIsolatedValidation(ValidateOctoroks);
         RunIsolatedValidation(ValidateRoom043Enemies);
@@ -388,6 +392,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateLinkTopDownMovement);
         RunIsolatedValidation(ValidateLinkTopDownSwimming);
         RunIsolatedValidation(ValidateLinkSideScrollSwimming);
+        RunIsolatedValidation(ValidateSideScrollSwimmingGameplay);
+        RunIsolatedValidation(ValidateSideScrollSwimmingExits);
+        RunIsolatedValidation(ValidateSideScrollSwimmingBubbles);
+        RunIsolatedValidation(ValidateSideScrollSwimmingKinematics);
         RunIsolatedValidation(ValidateLinkTerrainEffects);
         RunIsolatedValidation(ValidateHealth);
         RunIsolatedValidation(ValidatePlayerDamageAndDeath);

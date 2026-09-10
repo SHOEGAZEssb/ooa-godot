@@ -1340,9 +1340,10 @@ public sealed partial class ValidationRoot
                 "The side-view Flippers burst did not return to SPEED_80 " +
                 "after its exact acceleration/deceleration counters.");
 
-            int[] nonSwordPrimaryItems =
+            int[] swimBurstPrimaryItems =
             [
                 InventoryState.ItemNone,
+                InventoryState.ItemSword,
                 InventoryState.ItemShield,
                 InventoryState.ItemBomb,
                 InventoryState.ItemHarp,
@@ -1351,7 +1352,7 @@ public sealed partial class ValidationRoot
                 InventoryState.ItemFeather,
                 InventoryState.ItemSeedSatchel
             ];
-            foreach (int item in nonSwordPrimaryItems)
+            foreach (int item in swimBurstPrimaryItems)
             {
                 flippersInventory.SetScriptedEquippedItems(
                     InventoryState.ItemNone,
@@ -1384,19 +1385,20 @@ public sealed partial class ValidationRoot
             }
 
             flippersInventory.SetScriptedEquippedItems(
-                InventoryState.ItemNone,
-                InventoryState.ItemSword);
+                InventoryState.ItemSword,
+                InventoryState.ItemNone);
             int swordSwimSoundCount = flippersWorld.Sounds.Count(
                 sound => sound == OracleSoundEngine.SndLinkSwim);
             Vector2 swordStart = flippersPlayer.PrecisePosition;
-            Input.ActionRelease("attack");
-            Input.ActionPress("attack");
+            Input.ActionRelease("item");
+            Input.ActionPress("item");
             flippersPlayer._PhysicsProcess(UpdateDelta);
-            Input.ActionRelease("attack");
+            Input.ActionRelease("item");
             FailIf(
-                flippersInventory.EquippedA != InventoryState.ItemSword ||
+                flippersInventory.EquippedB != InventoryState.ItemSword ||
                 !flippersPlayer.SideScrollSwimming ||
                 !flippersPlayer.UsesSideScrollSwimmingSwordPose ||
+                flippersPlayer.SwordUsesUnderwaterAnimation ||
                 flippersPlayer.SwordState != SwordActionState.Swing ||
                 flippersPlayer.SwordStateFrame != 0 ||
                 flippersPlayer.GetSwordHitbox().Size == Vector2.Zero ||
@@ -1408,9 +1410,9 @@ public sealed partial class ValidationRoot
                 flippersWorld.Sounds.Count(
                     sound => sound == OracleSoundEngine.SndLinkSwim) !=
                     swordSwimSoundCount,
-                "An A-button ITEM_SWORD press while side-view swimming " +
+                "A B-button ITEM_SWORD press while side-view swimming " +
                 "started Flippers momentum/SND_LINK_SWIM, moved Link, or " +
-                "failed to retain the sword child and underwater draw path.");
+                "failed to select the ordinary $22 sword body with Flippers.");
 
             flippersPlayer.AdvanceSwordForValidation(
                 17,
@@ -1489,6 +1491,9 @@ public sealed partial class ValidationRoot
                 mermaidPlayer.SideScrollSwimAnimationCounter != 9,
                 "TREASURE_MERMAID_SUIT `$4a did not select the source " +
                 "side-view Mermaid animation after the Flippers gate.");
+            mermaidPlayer.StartSwordAttack();
+            FailIf(!mermaidPlayer.SwordUsesUnderwaterAnimation,
+                "Mermaid Suit side-view water did not latch sword animation $2d.");
 
             flippersWorld.SideScrollTerrain = default;
             int splashCount = flippersWorld.DrowningSplashes.Count;
@@ -1504,6 +1509,7 @@ public sealed partial class ValidationRoot
         finally
         {
             Input.ActionRelease("attack");
+            Input.ActionRelease("item");
             flippersPlayer.Free();
             noFlippersPlayer.Free();
             mermaidPlayer.Free();
@@ -1513,8 +1519,8 @@ public sealed partial class ValidationRoot
             "Validated room 7:07 side-view swimming: tileset `$5c/flags " +
             "`$30 and water `$1b, TREASURE_FLIPPERS `$2e entry/movement, " +
             "forced horizontal facing, exact 9/9 Flippers and Mermaid " +
-            "graphics, underwater sword composition with immobilized " +
-            "A-button burst suppression, shared A burst across every other " +
+            "graphics, equipment-dependent sword composition with immobilized " +
+            "B-button sword use, shared A burst across every " +
             "equipped item, water-to-water " +
             "scroll retention, water exit, and no-Flippers drowning.");
     }

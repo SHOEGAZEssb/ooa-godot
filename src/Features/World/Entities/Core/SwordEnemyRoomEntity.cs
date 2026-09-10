@@ -4,106 +4,54 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class SwordEnemyRoomEntity
-    : CombatEnemyRoomEntityAdapter<SwordEnemyCharacter>, IFixedRoomEntity,
-        ISwordAttackerKnockbackRoomEntity,
-        ILinkSwordStateAwareRoomEntity
+internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordEnemyCharacter>,
+    IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity,
+    IItemCollisionHittableRoomEntity
 {
-    private int _swordPartInvincibilityCounter;
-    private int _pendingAttackerKnockbackFrames;
-    private SwordActionState _linkSwordState = SwordActionState.Swing;
-    private int _linkSwordLevel = 1;
+    private readonly Func<bool> _freePartSlot;
+    private SwordActionState _swordState;
+    private int _swordLevel;
 
-    internal SwordEnemyRoomEntity(
-        SwordEnemyCharacter enemy,
-        EnemyCombatSourceDescriptor combatSource,
-        Action<int> soundRequested)
-        : base(
-            enemy,
-            enemy.SetTransitionDrawOffset,
-            EnemyCombatDescriptor.WithContactDamage(
-                combatSource,
-                enemy,
-                enemy.Record.DamageQuarters,
-                enemy.TakeSwordHit,
-                enemy.TakeBurnHit,
-                enemy.ApplySwordKnockback,
-                soundRequested,
-                EnemySwordResponse.Knockback))
-    { }
+    internal SwordEnemyRoomEntity(SwordEnemyCharacter enemy, EnemyCombatSourceDescriptor source,
+        Action<int> soundRequested, Func<bool> freePartSlot)
+        : base(enemy, enemy.SetTransitionDrawOffset,
+            EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
+                enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
+                soundRequested, EnemySwordResponse.Knockback)) => _freePartSlot = freePartSlot;
 
-    public void UpdateFrame(
-        RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns)
+    protected override int GaleCollisionMode => Entity.SwordBlocking ? 0x55 : base.GaleCollisionMode;
+
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (_swordPartInvincibilityCounter > 0)
-            _swordPartInvincibilityCounter--;
-        Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget);
+        bool initializing = Entity.State == SwordEnemyState.Uninitialized;
+        Entity.UpdateFrame(frame.Player.EnemyContactPosition, frame.ScentSeedTarget,
+            swordSlotAvailable: !initializing || _freePartSlot());
+        if (initializing && Entity.State != SwordEnemyState.Uninitialized)
+            spawns.Add(new EnemySwordSpawn(Entity, CombatDescriptor.RequestSound, () => !IsSeedBurning));
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        bool initializing = Entity.State == SwordEnemyState.Uninitialized;
+        ScreenTransitionPresentation result = Entity.PrepareForScreenTransition(!initializing || _freePartSlot());
+        if (initializing && Entity.State != SwordEnemyState.Uninitialized)
+            spawns.Add(new EnemySwordSpawn(Entity, CombatDescriptor.RequestSound, () => !IsSeedBurning));
+        return result;
     }
 
     public void SetLinkSwordState(SwordActionState state, int swordLevel)
-    {
-        _linkSwordState = state;
-        _linkSwordLevel = swordLevel;
-    }
+    { _swordState = state; _swordLevel = swordLevel; }
 
-    public override bool ApplySwordHit(
-        Rect2 hitbox,
-        Vector2 sourcePosition,
-        int damage,
-        EnemyKnockbackStrength knockbackStrength,
-        ICollection<RoomEntitySpawn> spawns)
-    {
-        if (!Entity.BlocksSwordFrom(sourcePosition))
-        {
-            return base.ApplySwordHit(
-                hitbox,
-                sourcePosition,
-                damage,
-                knockbackStrength,
-                spawns);
-        }
-        // ENEMYCOLLISION_STALFOS_BLOCKED_WITH_SWORD maps Link's sword rows to
-        // effect $00: the enemy body silently ignores the hit. The separate,
-        // invisible PART_ENEMY_SWORD $1d owns the clink and Link recoil.
-        if (!Entity.CollisionEnabled ||
-            _linkSwordState == SwordActionState.Spin ||
-            _swordPartInvincibilityCounter != 0 ||
-            !Entity.EnemySwordCollisionBounds.Intersects(hitbox))
-        {
-            return false;
-        }
+    public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
+        EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
+        // The blocked body still accepts ITEMCOLLISION_L2_SPIN_SWORD $08.
+        (!Entity.SwordBlocking || _swordState == SwordActionState.Spin && _swordLevel >= 2) &&
+        base.ApplySwordHit(hitbox, sourcePosition, damage, strength, spawns);
 
-        int attackerKnockbackFrames =
-            _linkSwordState is SwordActionState.Held or
-                SwordActionState.Charged ||
-            _linkSwordLevel >= 3
-                ? 6
-                : 8;
-        // COLLISIONEFFECT_$32/$33 applies LINKDMG_$34/$38 to ITEM_SWORD
-        // (6/8 knockback updates), but ENEMYDMG_$48/$4c to PART_ENEMY_SWORD
-        // starts its signed invincibility counter at $f7/$f5. The part's
-        // standard update increments that counter through zero, keeping the
-        // blade unavailable for 9/11 updates. Reusing Link's shorter recoil
-        // counter lets one uninterrupted swing clink a second time.
-        _swordPartInvincibilityCounter = attackerKnockbackFrames + 3;
-        _pendingAttackerKnockbackFrames = attackerKnockbackFrames;
-        spawns.Add(new EnemyClinkSpawn(
-            CollisionMidpoint(
-                Entity.EnemySwordPosition,
-                hitbox.GetCenter())));
-        return true;
-    }
-
-    public bool TryGetSwordAttackerKnockback(
-        EnemyKnockbackStrength strength,
-        out SwordAttackerKnockback response)
-    {
-        int frames = _pendingAttackerKnockbackFrames;
-        _pendingAttackerKnockbackFrames = 0;
-        response = new SwordAttackerKnockback(
-            Entity.EnemySwordPosition,
-            frames);
-        return frames != 0;
-    }
+    public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox,
+        Vector2 sourcePosition, int damage, ICollection<RoomEntitySpawn> spawns) =>
+        (collision != RoomEntityItemCollision.ExpertPunch || !Entity.SwordBlocking) &&
+        base.ApplySwordHit(hitbox, sourcePosition, damage,
+            collision is RoomEntityItemCollision.Bomb or RoomEntityItemCollision.ExpertPunch
+                ? EnemyKnockbackStrength.High : EnemyKnockbackStrength.Normal, spawns);
 }

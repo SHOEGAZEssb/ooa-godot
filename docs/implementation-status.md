@@ -34,12 +34,14 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   level-1 Roc's Feather, Harp songs and time travel with temporary return
   portals, obstructed-arrival returns and strange-force restrictions,
   source-timed top-down Flippers swimming/normal-water diving,
-  source-placed normal-water dive transitions, side-view Flippers swimming,
+  source-placed normal-water dive transitions, side-view Flippers and Mermaid
+  Suit swimming with equipment-dependent sword poses and swimming bubbles,
   common treasure transactions, and many ring effects.
 - A growing shared enemy and interaction roster with deterministic placement,
   combat, drops, projectiles, and native object behavior, including random
   digging spawns with Rope/Beetle launch behavior and room restrictions,
-  River Zora surfacing/fireballs, and Buzz Blob electric shock and Cukeman form.
+  River Zora surfacing/fireballs, Buzz Blob electric shock and Cukeman form,
+  Tektite leaps, and both sword Masked Moblin variants with separate blade parts.
 - Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
   end to end, including their principal rooms, puzzles, side-view passages,
   minibosses, bosses, rewards, and Essences.

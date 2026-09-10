@@ -159,7 +159,13 @@ public sealed class WarpDatabase
         {
             if ((candidate.EdgeMask & preferredBit) != 0)
             {
-                warp = candidate;
+                // findScreenEdgeWarpSource copies the vertical screen
+                // direction into wWarpTransition bit 6, independently of
+                // Link's facing (swimmers normally face left or right).
+                warp = candidate with
+                {
+                    SourceParameter = direction == Vector2I.Down ? 4 : 0
+                };
                 return true;
             }
         }
@@ -193,7 +199,8 @@ public readonly record struct Warp(
     int DestinationParameter,
     int DestinationTransition,
     bool SourceFallback = false,
-    bool DirectFadeOut = false);
+    bool DirectFadeOut = false,
+    int SourceParameter = 0);
 
 internal readonly record struct DiveWarp(
     int SourceGroup,

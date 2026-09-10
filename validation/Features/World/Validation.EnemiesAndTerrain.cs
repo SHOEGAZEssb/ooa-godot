@@ -1183,6 +1183,9 @@ public sealed partial class ValidationRoot
             [(0x23, 0x00)] = (0xa1, EnemySwordResponse.Bump),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
             [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
+            [(0x30, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x30, 0x01)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x30, 0x02)] = (0x91, EnemySwordResponse.Knockback),
             [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
             [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),
@@ -1193,6 +1196,7 @@ public sealed partial class ValidationRoot
             [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
             [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
             [(0x49, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x4a, 0x00)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump),
             [(0x4e, 0x00)] = (0xb9, EnemySwordResponse.Knockback),
@@ -1299,30 +1303,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 516 ||
+                EnemyHandlerClassification.OrderedImplemented) != 551 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 305 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 270 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 756 ||
+                EnemyHandlerClassification.OrderedImplemented) != 809 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 405 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 352 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 52 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 56 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 71 ||
-            combatSourceRows != 502 ||
-            combatSourceFlags.Count != 115 ||
-            expectedCombat.Count != 42 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 67 ||
+            combatSourceRows != 537 ||
+            combatSourceFlags.Count != 125 ||
+            expectedCombat.Count != 46 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -1373,7 +1377,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 821-row implementation " +
-            "classification, 502-row/115-flag typed combat descriptors, " +
+            "classification, 537-row/125-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -3633,11 +3637,12 @@ public sealed partial class ValidationRoot
         SwordEnemyCharacter sword =
             _entities.Entities<SwordEnemyCharacter>()[0];
         Vector2 diagonalTarget = sword.Position + new Vector2(64, 32);
+        int initialSwordScentCounter = sword.ScentAttractionCounter;
         for (int frame = 0; frame < 16; frame++)
             sword.UpdateFrame(_player.Position, diagonalTarget);
         FailIf(
             sword.State != SwordEnemyState.FollowingScentSeed ||
-            sword.ScentAttractionCounter != 0xf0 ||
+            sword.ScentAttractionCounter != ((initialSwordScentCounter - 16) & 0xff) ||
             (sword.Angle & 0x07) == 0,
             "The shared sword-enemy handler cardinalized its diagonal scent " +
             "angle or missed the 16-update refresh.");
@@ -4284,9 +4289,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 42 ||
+            auditedCombatKeys.Count != 46 ||
             auditedNonCombatKeys.Count != 8,
-            "The shield audit did not cover all 42 implemented combat " +
+            "The shield audit did not cover all 46 implemented combat " +
             "enemy keys and 8 deliberately non-combat implemented keys.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(

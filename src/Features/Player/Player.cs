@@ -170,7 +170,9 @@ public partial class Player : Node2D
     private bool _sideScrollSwimMermaidAnimation;
     private int _sideScrollMermaidImpulseCounter;
     private int _sideScrollBubbleCounter;
-    private SideScrollTileType _sideScrollPreviousActiveType;
+    private bool _sideScrollDrownRespawnPending;
+    private bool _swordUnderwaterAnimation;
+    private bool _swimmingSwordUpdatedInPhysics;
     private string? _rocsCapeButtonAction;
     private bool _sideScrollReducedGravity;
     private int _sideScrollInstantRespawnCounter;
@@ -344,6 +346,8 @@ public partial class Player : Node2D
         IsAttacking && (_sideScrollAirborne || _topDownAirborne);
     internal bool UsesSideScrollSwimmingSwordPose =>
         IsAttacking && SideScrollSwimming;
+    internal bool SwordUsesUnderwaterAnimation =>
+        _swordState == SwordActionState.Swing && _swordUnderwaterAnimation;
     internal bool AirborneLinkUsesJumpAnimation =>
         _airborneLinkAnimationMode == AirborneLinkAnimationMode.Jump;
     internal int AirborneLinkBodyFrame => _airborneLinkAnimationMode switch
@@ -440,12 +444,14 @@ public partial class Player : Node2D
         !TopDownSwimming && !_drowning && !_fallingInHole;
     internal bool AcceptsRoomEntityContact =>
         !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
-        !TopDownDiving && !IsUsingHarp;
+        !TopDownDiving && !SideScrollDrowningCollisionsDisabled && !IsUsingHarp;
+    private bool SideScrollDrowningCollisionsDisabled =>
+        _sideScrollSwimmingState == 3 && _drownTime > 0;
     // objectCheckCollidedWithLink accepts signed Z in [-7,6]. Ordinary feather
     // jumps do not set the high wLinkInAir bit in checkLinkCollisionsEnabled.
     internal bool AcceptsGroundInteractionContact =>
         !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
-        !TopDownDiving && !IsUsingHarp &&
+        !TopDownDiving && !SideScrollDrowningCollisionsDisabled && !IsUsingHarp &&
         (!_topDownAirborne || ((TopDownAirZ + 7) & 0xff) < 14);
     internal bool OverlapsTimePortalHeight => !IsDying && !IsCarryingObject &&
         !_braceletLiftCollisionsDisabled &&
@@ -468,6 +474,9 @@ public partial class Player : Node2D
     internal bool EnemyContactHeightOverlaps(int enemyZ) =>
         !(_companionRideControlled || _raftRideControlled) || RoomEntityManager.ObjectCollisionZOverlaps(
             enemyZ, _companionRideZFixed >> 8, 7);
+
+    internal int EnemyContactZ => _companionRideControlled || _raftRideControlled
+        ? _companionRideZFixed >> 8 : _topDownAirborne ? TopDownAirZ : 0;
 
     internal bool OverlapsEnemyCollision(Rect2 bounds, int enemyZ = 0)
     {
@@ -1600,6 +1609,7 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta)
     {
+        _swimmingSwordUpdatedInPhysics = false;
         // updateSpecialObjects clears wcc92 before this update's terrain
         // handler can publish a conveyor/current displacement.
         _screenTransitionTerrainMotion = false;
@@ -1772,7 +1782,9 @@ public partial class Player : Node2D
                 UpdateSideScrollMovement(
                     delta,
                     sideInput,
-                    movementAllowed: _sideScrollAirborne);
+                    // linkState01_sidescroll applies recoil first, then
+                    // state 2 still swims unless wLinkImmobilized is set.
+                    movementAllowed: _sideScrollAirborne || SideScrollSwimming);
             }
             else
             {
@@ -1831,7 +1843,7 @@ public partial class Player : Node2D
         Vector2 movementStart = _precisePosition;
         Vector2 input = Input.GetVector(
             "move_left", "move_right", "move_up", "move_down");
-        if (_raftRideControlled &&
+        if ((_raftRideControlled || _world.SideScrolling) &&
             (Input.IsActionPressed("move_left") && Input.IsActionPressed("move_right") ||
              Input.IsActionPressed("move_up") && Input.IsActionPressed("move_down")))
             input = Vector2.Zero;
@@ -1841,6 +1853,19 @@ public partial class Player : Node2D
             input = Vector2.Zero;
         Vector2 previousMovementInput = _lastMovementInput;
         _lastMovementInput = input;
+
+        if (_world.SideScrolling && SideScrollSwimming)
+        {
+            // checkUseItems updates the existing parent before swimming state
+            // 2 reads wLinkImmobilized. The terminal sword update therefore
+            // releases movement immediately; a newly initialized parent keeps
+            // its first graphic for all three source updates.
+            _swimmingSwordUpdatedInPhysics = true;
+            if (_world.SwordDisabled)
+                CancelSwordAttack();
+            else if (IsAttacking)
+                AdvanceSwordFrame(IsSwordButtonHeld(), input);
+        }
 
         if (_companionRideControlled)
         {
@@ -1870,9 +1895,9 @@ public partial class Player : Node2D
         bool primaryItemInputSuppressed =
             _world.SideScrolling &&
             !_world.Underwater &&
-            _sideScrollSwimmingState == 2 &&
-            !_sideScrollSwimMermaidAnimation &&
-            _inventory.EquippedA != InventoryState.ItemSword;
+            (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
+                SideScrollTileType.Water) != 0 &&
+            !_inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit);
         bool primaryPressed =
             Input.IsActionPressed("attack") &&
             !primaryItemInputSuppressed;
@@ -1956,10 +1981,9 @@ public partial class Player : Node2D
             if (primaryItemInputSuppressed)
             {
                 // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
-                // swimming with Flippers in an ordinary side-view map, that
-                // physical edge starts the short burst instead of reaching an
-                // equipped A parent item. TILESETFLAG_UNDERWATER instead uses
-                // checkUseItems' A-only underwater path.
+                // swimming with Flippers, checkUseItems checks only B,
+                // including when A holds ITEM_SWORD. var2f bit 7 enables
+                // both buttons for the Mermaid Suit or underwater tilesets.
             }
             else if (_world.ItemUsageDisabled)
             {
@@ -1984,7 +2008,8 @@ public partial class Player : Node2D
                 _inventory.EquippedA is InventoryState.ItemHarp or InventoryState.ItemFlute)
                 StartHarpAction(_inventory.EquippedA == InventoryState.ItemFlute);
         }
-        else if (_activeTransformation == 0 &&
+        if (_activeTransformation == 0 &&
+            (primaryItemInputSuppressed || !Input.IsActionJustPressed("attack")) &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
             if (!_minecartRideControlled && !_raftRideControlled &&
@@ -2970,7 +2995,7 @@ public partial class Player : Node2D
             return;
         }
 
-        if (IsAttacking)
+        if (IsAttacking && !_swimmingSwordUpdatedInPhysics)
         {
             _swordFrameAccumulator += delta * 60.0;
             while (_swordFrameAccumulator + 0.000001 >= 1.0 && IsAttacking)
@@ -3502,7 +3527,7 @@ public partial class Player : Node2D
             if (_sideScrollSwimmingState == 0)
             {
                 _sideScrollSwimmingState = 1;
-                _world.SpawnDrowningSplash(Position, HazardType.Water);
+                _world.SpawnDrowningSplash(OracleObjectMath.ToPixelPosition(_precisePosition) + new Vector2(0, -3), HazardType.Water);
             }
             AdvanceSideScrollSwimming(
                 input,
@@ -3510,29 +3535,27 @@ public partial class Player : Node2D
                 attackJustPressed,
                 directionJustPressed,
                 parameters);
-            _sideScrollPreviousActiveType = terrain.ActiveType;
             return;
         }
 
         if (_sideScrollSwimmingState != 0)
         {
             bool surfacedFromWaterLadder =
-                _sideScrollPreviousActiveType ==
+                // Despite its name, sidescrollUpdateActiveTile writes the
+                // CURRENT y+$08 probe to wLastActiveTileType.
+                terrain.BelowType ==
                 (SideScrollTileType.Ladder | SideScrollTileType.Water);
             _sideScrollSwimmingState = 0;
-            _sideScrollSwimBurstState = 0;
-            _sideScrollSwimBurstCounter = 0;
-            _sideScrollSwimAnimationFrame = 0;
-            _sideScrollSwimAnimationCounter = 0;
-            _sideScrollSwimMermaidAnimation = false;
             if (!surfacedFromWaterLadder)
             {
-                BeginSideScrollAirborne(
-                    jumped: false,
-                    parameters,
-                    parameters.WaterExitSpeedZ);
+                // The hop writes wLinkInAir=$02 directly, bypassing the
+                // jump initializer: retain swimming speed and animation.
+                _sideScrollAirborne = true;
+                _airborneLinkAnimationMode = AirborneLinkAnimationMode.SideScrollSwim;
+                _sideScrollSpeedZ = parameters.WaterExitSpeedZ;
+                _sideScrollReducedGravity = false;
                 _sideScrollAngle = AngleForVector(input);
-                _world.SpawnDrowningSplash(Position, HazardType.Water);
+                _world.SpawnDrowningSplash(OracleObjectMath.ToPixelPosition(_precisePosition) + new Vector2(0, -3), HazardType.Water);
             }
         }
 
@@ -3541,7 +3564,6 @@ public partial class Player : Node2D
         {
             AdvanceSideScrollAirborne(
                 input, movementAllowed, terrain, walls, parameters);
-            _sideScrollPreviousActiveType = terrain.ActiveType;
             return;
         }
 
@@ -3553,20 +3575,17 @@ public partial class Player : Node2D
             BeginSideScrollAirborne(jumped: false, parameters);
             AdvanceSideScrollAirborne(
                 input, movementAllowed, terrain, walls, parameters);
-            _sideScrollPreviousActiveType = terrain.ActiveType;
             return;
         }
 
         if (_enemyKnockbackFrames > 0.0f)
         {
-            _sideScrollPreviousActiveType = terrain.ActiveType;
             return;
         }
         if (terrain.ActiveTile == parameters.SpikeTile)
             ApplySideScrollSpikeDamage();
         AdvanceGroundedSideScroll(
             input, movementAllowed, terrain, parameters);
-        _sideScrollPreviousActiveType = terrain.ActiveType;
     }
 
     private void AdvanceGroundedSideScroll(
@@ -3764,9 +3783,11 @@ public partial class Player : Node2D
 
         int horizontalAngle =
             SideScrollHorizontalAngle(_sideScrollAngle);
+        _sideScrollAngle = horizontalAngle;
         if (horizontalAngle < 0x80 && _sideScrollSpeedRaw != 0)
         {
-            if (!IsUsingItem)
+            if (!IsUsingItem &&
+                _airborneLinkAnimationMode != AirborneLinkAnimationMode.SideScrollSwim)
                 UpdateFacingFromSideScrollAngle(horizontalAngle);
             ApplySideScrollVelocity(
                 _sideScrollSpeedRaw,
@@ -4794,6 +4815,11 @@ public partial class Player : Node2D
     private void AdvanceSideScrollAirAnimation(
         SideScrollPlayerParameters parameters)
     {
+        if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.SideScrollSwim)
+        {
+            AdvanceSideScrollSwimAnimation();
+            return;
+        }
         if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.Walk)
         {
             AdvanceLinkWalkAnimation();
@@ -4821,6 +4847,7 @@ public partial class Player : Node2D
         SideScrollPlayerParameters parameters)
     {
         _sideScrollAirborne = false;
+        _sideScrollClimbing = false;
         _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
         ResetLinkWalkAnimation();
         _sideScrollSpeedZ = 0;
@@ -4843,8 +4870,9 @@ public partial class Player : Node2D
             _sideScrollTargetSpeedRaw = swimSpeed;
             _sideScrollVelocityCounter =
                 sharedSwimmingParameters.VelocityInterval;
-            _sideScrollVelocityInterval = 0;
-            _sideScrollTerrainMode = -1;
+            // linkSetSwimmingSpeed leaves var13/var36 intact (including an
+            // ice/mermaid velocity interval) and clears the Flippers burst.
+            _sideScrollSwimBurstState = 0;
             if (!_inventory.HasTreasure(TreasureDatabase.TreasureFlippers))
             {
                 _sideScrollSwimmingState = 3;
@@ -4867,9 +4895,13 @@ public partial class Player : Node2D
         if (_sideScrollSwimmingState == 3)
             return;
 
-        if (movementAllowed)
+        if (movementAllowed && !_world.MovementDisabled)
         {
             int inputAngle = AngleForVector(input);
+            // State 2 turns from wLinkAngle BEFORE the Flippers burst's
+            // eight convergence calls, not from the lagging object angle.
+            UpdateFacingFromSideScrollAngle(inputAngle);
+            _facing = (Facing)((int)_facing | 1);
             bool mermaidSuit = _inventory.HasTreasure(
                 TreasureDatabase.TreasureMermaidSuit);
             if (mermaidSuit)
@@ -4892,14 +4924,8 @@ public partial class Player : Node2D
                     _sideScrollSpeedRaw,
                     _sideScrollAngle,
                     allowWallSlide: true);
-                UpdateFacingFromSideScrollAngle(_sideScrollAngle);
                 _walking = inputAngle < 0x80;
             }
-            // linkUpdateSwimming_sidescroll sets direction bit 0 after
-            // applying the movement angle. Idle/direct-vertical swimmers
-            // therefore retain their current half but still display either
-            // DIR_RIGHT or DIR_LEFT.
-            _facing = (Facing)((int)_facing | 1);
             _sideScrollYFixed =
                 Mathf.FloorToInt(_precisePosition.Y * 256.0f);
         }
@@ -4908,11 +4934,11 @@ public partial class Player : Node2D
             (_sideScrollBubbleCounter - 1) & 0xff;
         if ((_sideScrollBubbleCounter & 0x80) != 0)
         {
-            // linkUpdateSwimming_sidescroll consumes the shared RNG before
-            // creating INTERAC_BUBBLE $91. Bubble rendering is independent of
-            // movement, but the RNG call is gameplay-observable.
+            // Link consumes the interval draw now. INTERAC_BUBBLE $91:$00
+            // consumes its separate turn-direction draw in the later pass.
             _sideScrollBubbleCounter =
                 (_random.Next().Value & 0x1f) + 50;
+            _world.SpawnSideScrollBubble(_precisePosition);
         }
         AdvanceSideScrollSwimAnimation();
     }
@@ -5176,6 +5202,8 @@ public partial class Player : Node2D
         if (speed <= 0)
         {
             speedRaw = 0;
+            // func_5933 stores l ($12) in var12 when speed reaches zero.
+            velocityCounter = 0x12;
             angle = 0xff;
             return;
         }
@@ -5344,8 +5372,8 @@ public partial class Player : Node2D
         _sideScrollSwimMermaidAnimation = false;
         _sideScrollMermaidImpulseCounter = 0;
         _sideScrollBubbleCounter = 0;
+        _sideScrollDrownRespawnPending = false;
         _sideScrollSquishVertical = false;
-        _sideScrollPreviousActiveType = SideScrollTileType.None;
         _rocsCapeButtonAction = null;
         _sideScrollReducedGravity = false;
         _sideScrollAnimationPhase = 0;
@@ -5821,6 +5849,19 @@ public partial class Player : Node2D
 
     private void UpdateDrowning(float delta)
     {
+        if (_sideScrollDrownRespawnPending)
+        {
+            // linkUpdateDrowning only switches to LINK_STATE_RESPAWNING.
+            // Its parameter-$02 initializer runs on the following update,
+            // before the two invisible counter updates begin.
+            _sideScrollDrownRespawnPending = false;
+            _drownRespawning = true;
+            _drownInvisibleTime = DrownInvisibleDuration;
+            MoveToLocalHazardRespawn();
+            Visible = false;
+            QueueRedraw();
+            return;
+        }
         if (!_drownRespawning)
         {
             _drownTime += delta;
@@ -5832,6 +5873,12 @@ public partial class Player : Node2D
 
             delta = _drownTime - DrownAnimationDuration;
             _drownTime = DrownAnimationDuration;
+            if (_sideScrollSwimmingState == 3)
+            {
+                _sideScrollDrownRespawnPending = true;
+                QueueRedraw();
+                return;
+            }
             _drownRespawning = true;
             _drownInvisibleTime = DrownInvisibleDuration;
             MoveToLocalHazardRespawn();
@@ -6077,6 +6124,14 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _swordState = SwordActionState.Swing;
+        // updateSpecialObjects seeds var2f bit 7 from the tileset;
+        // linkState01_sidescroll also sets it for Mermaid Suit water.
+        // parentItemLoadAnimationAndIncState latches mode $22/$2d here.
+        _swordUnderwaterAnimation = !_raftRideControlled &&
+            (_world.Underwater || _world.SideScrolling &&
+                _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+                (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
+                    SideScrollTileType.Water) != 0);
         _swordStateFrame = 0;
         _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
         _swordFrameAccumulator = 0.0;
@@ -6105,6 +6160,7 @@ public partial class Player : Node2D
     {
         bool changed = IsAttacking;
         _swordState = SwordActionState.None;
+        _swordUnderwaterAnimation = false;
         _swordStateFrame = 0;
         _swordChargeCounter = 0;
         _swordFrameAccumulator = 0.0;
@@ -6662,10 +6718,8 @@ public partial class Player : Node2D
                 _swordState == SwordActionState.Spin || phase == 3
                     ? 1
                     : phase;
-            bool underwaterSwing =
-                SideScrollSwimming && _swordState == SwordActionState.Swing;
             DrawTextureRectRegion(
-                underwaterSwing
+                SwordUsesUnderwaterAnimation
                     ? DamagePaletteActive
                         ? _damageUnderwaterAttackTexture
                         : _underwaterAttackTexture
@@ -6706,6 +6760,11 @@ public partial class Player : Node2D
 
     private void DrawAirborneLinkBody(Vector2 drawOffset)
     {
+        if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.SideScrollSwim)
+        {
+            DrawSideScrollSwimmingBody(drawOffset);
+            return;
+        }
         if (_airborneLinkAnimationMode == AirborneLinkAnimationMode.Walk)
         {
             DrawWalkLinkBody(_linkWalkAnimationFrame, drawOffset);
@@ -7668,7 +7727,8 @@ internal enum AirborneLinkAnimationMode
 {
     None,
     Walk,
-    Jump
+    Jump,
+    SideScrollSwim
 }
 
 internal enum Facing

@@ -6,6 +6,7 @@ $enemyDataPath = Join-Path $Disassembly "data\ages\enemyData.s"
 $enemyDataSource = Read-ImportText $enemyDataPath
 $enemyDataRows = @{}
 $enemySubidRows = @{}
+$terminatedEnemySubidTables = [Collections.Generic.HashSet[string]]::new()
 $enemySubidAliases = [Collections.Generic.List[string]]::new()
 foreach ($node in Read-AssemblyNodes $enemyDataPath) {
     if ($node.Kind -eq 'Label') {
@@ -25,6 +26,7 @@ foreach ($node in Read-AssemblyNodes $enemyDataPath) {
             $enemySubidRows[$alias].Add($node)
         }
     } elseif ($node.Kind -eq 'MacroInvocation' -and $node.Name -eq 'm_EnemySubidDataEnd') {
+        foreach ($alias in $enemySubidAliases) { [void]$terminatedEnemySubidTables.Add($alias) }
         $enemySubidAliases.Clear()
     }
 }
@@ -255,15 +257,18 @@ function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
     $row = $enemyDataRows[$id]
     if ($row.Operands.Count -lt 4) {
         $subidTable = $row.Operands[2]
-        if (-not $enemySubidRows.ContainsKey($subidTable)) {
+        if (-not $enemySubidRows.ContainsKey($subidTable) -or
+            -not $terminatedEnemySubidTables.Contains($subidTable)) {
             throw "Enemy `$$hex has an unresolved subid table: $subidTable."
         }
         $rows = $enemySubidRows[$subidTable]
-        if ($subid -ge $rows.Count) {
-            throw "Enemy `$$hex subid `$$($subid.ToString('x2')) has no data row."
-        }
-        $extra = (Convert-AssemblyInteger $rows[$subid].Operands[0]) -band 0x7f
-        $flags = Convert-AssemblyInteger $rows[$subid].Operands[1]
+        # enemyLoadGraphicsAndProperties stops at m_EnemySubidDataEnd's
+        # cleared continuation bit. Higher subids reuse that last row
+        # (notably ENEMY_TEKTITE $30:$02 uses $01's blue graphics/health).
+        if ($rows.Count -eq 0) { throw "Enemy `$$hex has an empty subid table." }
+        $rowIndex = [Math]::Min($subid, $rows.Count - 1)
+        $extra = (Convert-AssemblyInteger $rows[$rowIndex].Operands[0]) -band 0x7f
+        $flags = Convert-AssemblyInteger $rows[$rowIndex].Operands[1]
     } else {
         $extra = (Convert-AssemblyInteger $row.Operands[2]) -band 0x7f
         $flags = Convert-AssemblyInteger $row.Operands[3]
@@ -370,7 +375,8 @@ $commonEnemySpecs = @(
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
-    @(0x4a, 0x01), @(0x4d, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
+    @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
+    @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
     @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00)
 )
 $cukemanTexts = [Collections.Generic.List[string]]::new()
@@ -411,7 +417,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 42 -or
+if ($commonEnemyRows.Count -ne 46 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -471,7 +477,7 @@ if ($commonEnemyRows.Count -ne 42 -or
     }).Count -ne 2 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^(13|19|22|2f|3e|47|49|4a)\t'
-    }).Count -ne 8
+    }).Count -ne 9
     ) {
     throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
 }
@@ -1445,6 +1451,9 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '2c:00' = 'cheep-cheep'
     '2c:01' = 'cheep-cheep'
     '2f:00' = 'thwomp'
+    '30:00' = 'tektite'
+    '30:01' = 'tektite'
+    '30:02' = 'tektite'
     '31:00' = 'stalfos'
     '32:00' = 'keese'
     '32:01' = 'keese'
@@ -1458,6 +1467,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '43:00' = 'gel'
     '47:00' = 'color-changing-gel'
     '49:00' = 'sword-enemy'
+    '4a:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
     '4e:00' = 'arm-mimic'
@@ -1471,7 +1481,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 52 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 56 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1542,9 +1552,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 516 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 551 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 305) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 270) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -4057,6 +4067,67 @@ Add-EnemyBehaviorProfile 'peahat' 'state-profile' `
 Add-EnemyBehaviorProfile 'sword-enemy' 'state-profile' `
     @(0x14, 0x19, 0x10, 0x60, 0x28, 0x50, 0x3f, 7, 3, 0x14, 0x10, 0x0c) `
     'object_code/common/enemies/swordEnemies.s:state-entry-operands'
+
+$tektiteSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\tektite.s')
+if ($tektiteSource -notmatch
+        '(?ms)^@state_uninitialized:.*?bit 0,\(hl\).*?ld \(hl\),90.*?ld \(hl\),45.*?and \$7f\s+inc a.*?ld a,SPEED_140' -or
+    $tektiteSource -notmatch
+        '(?ms)^@state8:.*?and \$7f.*?add \(hl\).*?ld \(hl\),\$18.*?ld a,\$01.*?^@state9:.*?ld a,\$02' -or
+    $tektiteSource -notmatch
+        '(?ms)^@stateA:.*?and \$07.*?@smallLeap.*?@bigLeap.*?ecom_updateAngleTowardTarget.*?SND_ENEMY_JUMP.*?objectSetVisiblec1' -or
+    $tektiteSource -notmatch
+        '(?ms)^@stateB:\s+call ecom_bounceOffScreenBoundary.*?objectUpdateSpeedZ_paramC\s+jp nz,ecom_applyVelocityForSideviewEnemy.*?^@gotoState8:.*?and \$7f.*?add \(hl\).*?objectSetVisiblec2') {
+    throw 'object_code/common/enemies/tektite.s: state/counter/jump operands changed.'
+}
+Add-EnemyBehaviorProfile 'tektite' 'state-profile' `
+    @(90, 45, 0x7f, 0x18, 0x32, 7, 0x8f) `
+    'object_code/common/enemies/tektite.s:state-entry-operands'
+foreach ($leap in @('smallLeap', 'bigLeap')) {
+    $match = [regex]::Match($tektiteSource,
+        ('(?m)^@' + [regex]::Escape($leap) +
+            ':\s+dwb\s+\$(?<speed>[0-9a-f]{4}),\s*\$(?<gravity>[0-9a-f]{2})'))
+    if (-not $match.Success) { throw "tektite.s:@$leap is not a speedZ/gravity row." }
+    $speedZ = [Convert]::ToInt32($match.Groups['speed'].Value, 16)
+    if ($speedZ -ge 0x8000) { $speedZ -= 0x10000 }
+    Add-EnemyBehaviorProfile 'tektite' $leap `
+        @($speedZ, [Convert]::ToInt32($match.Groups['gravity'].Value, 16)) `
+        "object_code/common/enemies/tektite.s:@$leap"
+}
+
+$angleBody = [regex]::Match($enemyCommonCodeSource,
+    '(?ms)^ecom_updateAnimationFromAngle:.*?^@angleToAnimIndex:(?<body>.*?)(?=^;;)').Groups['body'].Value
+$angleValues = @([regex]::Matches($angleBody, '\$([0-9a-f]{2})') | ForEach-Object {
+    [Convert]::ToInt32($_.Groups[1].Value, 16)
+})
+if ($angleValues.Count -ne 32) { throw 'ecom_updateAnimationFromAngle:@angleToAnimIndex changed.' }
+Add-EnemyBehaviorProfile 'sword-enemy' 'angle-to-animation' $angleValues `
+    'object_code/common/enemies/commonCode.s:ecom_updateAnimationFromAngle@angleToAnimIndex'
+$blockingBody = [regex]::Match($wingEnemySources.sword,
+    '(?ms)^@angleBits:(?<body>.*?)(?=^;;)').Groups['body'].Value
+$blockingValues = @([regex]::Matches($blockingBody, '\$([0-9a-f]{2})') | ForEach-Object {
+    [Convert]::ToInt32($_.Groups[1].Value, 16)
+})
+if ($blockingValues.Count -ne 16) { throw 'swordEnemies.s:@angleBits changed.' }
+Add-EnemyBehaviorProfile 'sword-enemy' 'blocking-angle-bits' $blockingValues `
+    'object_code/common/enemies/swordEnemies.s:@angleBits'
+$enemySwordSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\parts\enemySword.s')
+foreach ($spec in @(@('offsets', 'table_524d', 16), @('radii', 'table_525d', 4))) {
+    $body = [regex]::Match($enemySwordSource,
+        "(?ms)^@$($spec[1]):(?<body>.*?)(?=^@[a-zA-Z_])").Groups['body'].Value
+    $values = @([regex]::Matches($body, '\$([0-9a-f]{2})') | ForEach-Object {
+        $value = [Convert]::ToInt32($_.Groups[1].Value, 16)
+        if ($value -ge 0x80) { $value -= 0x100 }
+        $value
+    })
+    if ($values.Count -ne $spec[2]) { throw "enemySword.s:@$($spec[1]) changed." }
+    Add-EnemyBehaviorProfile 'enemy-sword' $spec[0] $values `
+        "object_code/common/parts/enemySword.s:@$($spec[1])"
+}
+Add-EnemyBehaviorProfile 'enemy-sword' 'collision-effects' `
+    @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x70 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0e00'
 Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
@@ -4164,8 +4235,8 @@ Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
 
-if ($enemyBehaviorRows.Count -ne 783) {
-    throw "Expected 782 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 894) {
+    throw "Expected 893 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

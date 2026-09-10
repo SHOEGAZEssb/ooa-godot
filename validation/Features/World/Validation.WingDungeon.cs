@@ -1626,6 +1626,17 @@ public sealed partial class ValidationRoot
         Step();
         SwordEnemyCharacter swordEnemy =
             _entities.Entities<SwordEnemyCharacter>()[0];
+        // Collision mode is published by the enemy pass using Link's live
+        // position. Passing a hypothetical source to ApplySwordHit cannot
+        // change the already-published guarding mode.
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            _player.WarpTo(swordEnemy.Position + OracleObjectMath.CardinalVector(
+                swordEnemy.AnimationIndex * 8) * 16, recordSafe: false);
+            Step();
+            if (swordEnemy.SwordBlocking) break;
+        }
+        FailIf(!swordEnemy.SwordBlocking, "Sword Stalfos did not publish its guarded collision mode before the item pass.");
         Vector2 blockingSource = swordEnemy.Position +
             OracleObjectMath.CardinalVector(
                 (swordEnemy.Angle + 4) & 0x18) * 16.0f;
@@ -1738,6 +1749,8 @@ public sealed partial class ValidationRoot
         Vector2 rearSource = swordEnemy.Position -
             OracleObjectMath.CardinalVector(
                 (swordEnemy.Angle + 4) & 0x18) * 16.0f;
+        _player.WarpTo(rearSource, recordSafe: false);
+        Step();
         swordEnemyHealth = swordEnemy.Health;
         FailIf(
             !_entities.ApplySwordHit(

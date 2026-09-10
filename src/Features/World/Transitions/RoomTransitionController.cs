@@ -906,11 +906,13 @@ public sealed class RoomTransitionController
                 SetFade(0.0f);
                 break;
             case 3:
+                Vector2I leaveDirection = (warp.SourceParameter & 4) != 0
+                    ? Vector2I.Down : Vector2I.Up;
                 _sound.PlaySound(OracleSoundEngine.SndEnterCave);
                 _warpPhase = WarpPhase.LeaveScreen;
                 _warpWalkStart = player.Position;
-                _warpWalkEnd = player.Position + (Vector2)player.FacingVector * WarpLeaveFrames;
-                player.BeginRoomWarpWalk(player.Position, player.FacingVector);
+                _warpWalkEnd = player.Position + (Vector2)leaveDirection * (WarpLeaveFrames - 1);
+                player.BeginRoomWarpWalk(player.Position, leaveDirection);
                 break;
             case 4:
                 // warpTransition4's source branch; destination $84 is silent.
@@ -971,9 +973,11 @@ public sealed class RoomTransitionController
                 }
                 break;
             case WarpPhase.LeaveScreen:
-                float leaveFrame = Mathf.Min(_warpFrame, WarpLeaveFrames);
+                // warpTransition3 decrements $10 before moving; its zero
+                // update requests the load without a sixteenth displacement.
+                float leaveFrame = Mathf.Min(_warpFrame, WarpLeaveFrames - 1);
                 _player.SetRoomWarpWalkPosition(
-                    _warpWalkStart.Lerp(_warpWalkEnd, leaveFrame / WarpLeaveFrames), delta);
+                    _warpWalkStart.Lerp(_warpWalkEnd, leaveFrame / (WarpLeaveFrames - 1)), delta);
                 if (_warpFrame >= WarpLeaveFrames)
                 {
                     SetFade(_roomLoadColumnReveal ? 0.0f : 1.0f);

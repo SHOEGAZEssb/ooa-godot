@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 41 ||
+        if (_importedDefinitions.Count != 45 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -853,6 +853,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x4f),
         EnemyHandlerKind.Thwomp =>
             HasImportedDefinition(descriptor, 0x2f),
+        EnemyHandlerKind.Tektite =>
+            HasImportedDefinition(descriptor, 0x30),
         EnemyHandlerKind.Peahat =>
             HasImportedDefinition(descriptor, 0x3e),
         EnemyHandlerKind.ColorChangingGel =>

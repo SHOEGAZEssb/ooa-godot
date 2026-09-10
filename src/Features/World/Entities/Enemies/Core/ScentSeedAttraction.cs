@@ -4,7 +4,7 @@ namespace oracleofages;
 
 /// <summary>
 /// Shared ecom_updateAngleToScentSeed counter. Enemy.var3d is a wrapping byte:
-/// it starts at zero and refreshes the target angle every 16 attraction
+/// its owner supplies the initial byte and it refreshes the target angle every 16 attraction
 /// updates, while each species retains ownership of movement and exit state.
 /// </summary>
 internal sealed class ScentSeedAttraction
@@ -14,6 +14,8 @@ internal sealed class ScentSeedAttraction
     private int _counter;
 
     internal int Counter => _counter;
+
+    internal void Initialize(int counter) => _counter = counter & 0xff;
 
     internal int UpdateAngle(
         Vector2 enemyPosition,

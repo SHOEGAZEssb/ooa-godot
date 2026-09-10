@@ -1820,6 +1820,26 @@ $fallDownHoleRows = @(
     "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t15`t$fallDownHoleAnimation"
 )
 
+# Link's side-view swimming counter creates INTERAC_BUBBLE $91:$00.
+# Its state-0 RNG draw belongs to the later interaction pass, not Link.
+$swimBubbleSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\interactions\bubble.s')
+$swimBubbleGraphic = $interactionGraphics['145:0']
+$swimBubbleAnimation = Resolve-NpcAnimation 0x91 0
+if (-not $swimBubbleGraphic -or
+    $swimBubbleGraphic.Gfx -ne 0 -or
+    $swimBubbleGraphic.TileBase -ne 0x16 -or
+    $swimBubbleGraphic.Palette -ne 1 -or
+    $swimBubbleSource -notmatch '(?ms)^@@state0:.*?call @checkDelete.*?call interactionInitGraphics.*?ld \(hl\),SPEED_80.*?ld a,\$04.*?inc a.*?call getRandomNumber\s+and \$01.*?and TILESETFLAG_SIDESCROLL\s+jp nz,objectSetVisible83' -or
+    $swimBubbleSource -notmatch '(?ms)^@@state1:.*?call @checkDelete.*?call objectApplySpeed.*?cp \$f0.*?call interactionDecCounter1.*?ld \(hl\),\$04.*?ld \(hl\),\$08.*?cpl\s+inc a.*?and \$1f' -or
+    $swimBubbleSource -notmatch '(?ms)^@@sidescrolling:\s*;[^\r\n]*\s*call objectGetTileAtPosition\s+ld hl,hazardCollisionTable\s+call lookupCollisionTable\s+ccf\s+ret') {
+    throw 'INTERAC_BUBBLE $91:$00 side-view graphics, water gate, RNG, or 4/5/8 turning contract changed.'
+}
+Write-GeneratedTable((Join-Path $destination 'effects\side_scroll_bubble.tsv'), @(
+    "# tile-base`tpalette`tspeed-raw`tturn-counter`tinitial-turns`tturns`tanimation`tsource"
+    "$($swimBubbleGraphic.TileBase)`t$($swimBubbleGraphic.Palette)`t20`t4`t5`t8`t$swimBubbleAnimation`tobject_code/common/interactions/bubble.s:interactionCode91@subid00"
+))
+
 $keyDoorOpenTiles = @{}
 foreach ($entry in [regex]::Matches(
     $standardTileSubstitutionSource,

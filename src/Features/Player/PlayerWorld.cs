@@ -204,6 +204,8 @@ public sealed class PlayerWorld : IPlayerWorld
         _terrain.ResumeLedgeHopAfterScroll(player);
     public void SpawnDrowningSplash(Vector2 position, HazardType hazard) =>
         _terrain.SpawnSplash(position, hazard);
+    public void SpawnSideScrollBubble(Vector2 position) =>
+        _entities.Spawn(new SideScrollBubbleSpawn(position));
     public void BeginFallDownHoleWarp(Player player, int packedPosition) =>
         _transitions.ApplyDungeonHoleWarp(player, packedPosition);
     public void DeactivateWarpAtPlayerPosition(Player player) =>

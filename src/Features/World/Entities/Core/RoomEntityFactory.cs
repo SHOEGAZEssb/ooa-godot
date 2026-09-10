@@ -2313,6 +2313,13 @@ internal sealed class RoomEntityFactory(
                 return new PeahatRoomEntity(
                     peahat, combatSource, soundRequested);
 
+            case EnemyHandlerKind.Tektite:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition tektiteRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var tektite = new TektiteCharacter { Name = $"Tektite_{source.Order}_{instance}", ZIndex = 10 };
+                tektite.Initialize(tektiteRecord, room, position, random, soundRequested);
+                return new TektiteRoomEntity(tektite, combatSource, soundRequested);
+
             case EnemyHandlerKind.ColorChangingGel:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition colorGelRecord))
@@ -2349,7 +2356,7 @@ internal sealed class RoomEntityFactory(
                 swordEnemy.Initialize(
                     swordEnemyRecord, room, position, random);
                 return new SwordEnemyRoomEntity(
-                    swordEnemy, combatSource, soundRequested);
+                    swordEnemy, combatSource, soundRequested, freePartSlotAvailable);
 
             case EnemyHandlerKind.Ghini:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -2597,6 +2604,7 @@ internal sealed class RoomEntityFactory(
             animationTick),
         EnemySmallKeyRewardSpawn key => CreateEnemySmallKeyReward(key.Request),
         EnemyArrowSpawn arrow => CreateEnemyArrow(arrow, room),
+        EnemySwordSpawn sword => new EnemySwordRoomEntity(sword.Parent, sword.SoundRequested, sword.ParentCollisionAllowed),
         FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(),
         FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
@@ -2630,6 +2638,7 @@ internal sealed class RoomEntityFactory(
         TokaySeedlingDecorationSpawn seedling =>
             new TokaySeedlingDecorationRoomEntity(seedling.Record),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
+        SideScrollBubbleSpawn bubble => new SideScrollBubbleRoomEntity(bubble.Position, room, random),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),

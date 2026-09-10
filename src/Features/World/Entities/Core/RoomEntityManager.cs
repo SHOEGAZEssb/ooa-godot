@@ -1686,7 +1686,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity ? 1 : 2;
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or EnemySwordRoomEntity ? 1 : 2;
 
     private int FindFreePartSlot()
     {
