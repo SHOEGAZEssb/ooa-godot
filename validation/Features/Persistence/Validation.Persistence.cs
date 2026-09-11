@@ -137,7 +137,23 @@ public sealed partial class ValidationRoot
 
     private void ValidateSaveAndQuitToTitle()
     {
+        // The suite runs synchronously in one Godot host frame. Each simulated
+        // update must own its input, including neutral updates after an error.
+        static void TickSaveMenu(InventoryMenuController menu, string? action = null)
+        {
+            string[] actions = action is null ? [] : [action];
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(actions, actions, Vector2.Zero));
+            try { menu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
+
         GameSceneGraph gameplayScene = _scene;
+        // Reproduce a released B edge left by an earlier synchronous scenario.
+        Input.ActionPress("item");
+        Input.ActionRelease("item");
+        FailIf(
+            Godot.Input.IsActionPressed("item") || !Godot.Input.IsActionJustPressed("item"),
+            "The save-error regression did not arrange a released native B edge.");
         bool quitAfterFailure = false;
         var failedMenu = new InventoryMenuController(
             _inventoryScreen,
@@ -151,18 +167,36 @@ public sealed partial class ValidationRoot
         failedMenu.OpenSaveImmediatelyForValidation();
         _saveQuitScreen.Move(1);
         _saveQuitScreen.Move(1);
-        failedMenu.SelectSaveOptionForValidation();
-        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames; frame++)
-            failedMenu.Update(1.0 / 60.0);
-        FailIf(
-            !_saveQuitScreen.SaveErrorVisible ||
-            failedMenu.LastSaveError != "validation failure" ||
-            !failedMenu.SaveMenuOpen || quitAfterFailure,
-            "A failed Save and Quit did not remain open with a surfaced retryable error.");
-        failedMenu.SelectSaveOptionForValidation();
-        FailIf(
-            _saveQuitScreen.SaveErrorVisible || !failedMenu.SaveMenuOpen,
-            "The Save and Quit failure could not be dismissed for retry.");
+        int failedAttempts = 0;
+        foreach (string dismissAction in new[] { "attack", "item", "inventory" })
+        {
+            TickSaveMenu(failedMenu, "attack");
+            failedAttempts++;
+            for (int frame = 0; frame <= InventoryMenuController.SaveSelectionDelayFrames; frame++)
+            {
+                FailIf(
+                    !_saveQuitScreen.SaveErrorVisible ||
+                    failedMenu.LastSaveError != "validation failure" ||
+                    !failedMenu.SaveMenuOpen || quitAfterFailure ||
+                    failedMenu.SaveRequests != failedAttempts || failedMenu.QuitRequests != 0 ||
+                    _saveQuitScreen.Cursor != 2 || _saveQuitScreen.DelayCounter != 0,
+                    $"Save and Quit failure {failedAttempts}, neutral update {frame}: " +
+                    $"visible={_saveQuitScreen.SaveErrorVisible}, error={failedMenu.LastSaveError}, " +
+                    $"open={failedMenu.SaveMenuOpen}, saves={failedMenu.SaveRequests}, " +
+                    $"quits={failedMenu.QuitRequests}, cursor={_saveQuitScreen.Cursor}, " +
+                    $"delay={_saveQuitScreen.DelayCounter}, quit={quitAfterFailure}.");
+                if (frame < InventoryMenuController.SaveSelectionDelayFrames)
+                    TickSaveMenu(failedMenu);
+            }
+            TickSaveMenu(failedMenu, dismissAction);
+            TickSaveMenu(failedMenu);
+            FailIf(
+                _saveQuitScreen.SaveErrorVisible || !failedMenu.SaveMenuOpen ||
+                failedMenu.SaveRequests != failedAttempts || quitAfterFailure ||
+                _saveQuitScreen.Cursor != 2 || _saveQuitScreen.DelayCounter != 0,
+                $"The Save and Quit error's {dismissAction} dismissal saved, closed, " +
+                "or failed to leave the same selection ready for retry.");
+        }
         failedMenu.CloseImmediatelyForValidation();
 
         _inventoryMenu.OpenSaveImmediatelyForValidation();
@@ -170,9 +204,14 @@ public sealed partial class ValidationRoot
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
         int saveWrites = _saveWriteRequests;
-        _inventoryMenu.SelectSaveOptionForValidation();
-        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames; frame++)
-            _inventoryMenu.Update(1.0 / 60.0);
+        TickSaveMenu(_inventoryMenu, "attack");
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
+            TickSaveMenu(_inventoryMenu);
+        FailIf(
+            !_inventoryMenu.SaveMenuOpen || _inventoryMenu.QuitRequests != 0 ||
+            _saveQuitScreen.DelayCounter != 1 || gameplayScene.IsQueuedForDeletion(),
+            "Save and Quit left gameplay before the original $1e-update delay expired.");
+        TickSaveMenu(_inventoryMenu);
         FailIf(
             _inventoryMenu.SaveRequests != saveRequests + 1 ||
             _saveWriteRequests != saveWrites + 1 ||
@@ -188,7 +227,8 @@ public sealed partial class ValidationRoot
             _mainMenuScreen.GetParent() != this,
             "Save and Quit did not save, free the gameplay scene as one lifecycle unit, " +
             "preserve application audio, and return to the frontend title after 30 updates.");
-        GD.Print("Validated retryable Save and Quit failure handling, successful persistence " +
+        GD.Print("Validated Save and Quit input isolation from released native B edges, " +
+            "A/B/Start error dismissal and repeated retries, successful persistence " +
             "request, one-root gameplay cleanup, persistent application audio, and return to " +
             "the frontend title after 30 updates.");
     }

@@ -101,8 +101,7 @@ Write-GeneratedTable(
 # repeating group/room IDs, so shared routines automatically expand to every
 # room that calls them. Transient switch, water, and encounter state is kept
 # out until its owning runtime systems exist. The save-backed vine positions
-# are imported below with the six Tokay Island present-room routines that read
-# them.
+# are imported below with the Tokay Island and Talus Peaks routines that read them.
 $roomTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
 $tileChangeJumpBlock = [regex]::Match(
@@ -325,6 +324,70 @@ foreach ($spec in $tokayVineSpecs) {
     }
 }
 
+# Talus Peaks uses one sprout ($62:$01), selecting either $22 or $27.
+# Unlike replaceVineTiles, these routines write only the selected column.
+# Verify every instruction and branch through the shared assembly model before
+# emitting the existing conditional/set operations; an extra opcode must fail.
+$talusVineSpecs = @(
+    @{ Label = 'tileReplacement_group0Map61'; Branch = '@vine';
+       Miss = 'jp nz,setTileToWitheredVine';
+       Left = @('01:56', '02:d5', '03:4d', '11:61', '12:d6', '13:5d', '22:8d');
+       Right = @('06:4d', '07:d5', '08:55', '16:5d', '17:d6', '18:60', '27:8d') },
+    @{ Label = 'tileReplacement_group0Map51'; Branch = '@vines'; Miss = 'ret nz';
+       Left = @('71:46', '72:d4', '73:5c');
+       Right = @('76:5b', '77:d4', '78:45') }
+)
+foreach ($spec in $talusVineSpecs) {
+    $expected = [Collections.Generic.List[string]]::new()
+    foreach ($instruction in @('ld bc,$0122', 'call getVinePosition',
+        "jr z,$($spec.Branch)1", 'ld bc,$0127', 'call getVinePosition', $spec.Miss)) {
+        $expected.Add($instruction)
+    }
+    # The second-position branch falls through; the first jumps past it.
+    foreach ($branch in @(@{ Id = 2; Writes = $spec.Right }, @{ Id = 1; Writes = $spec.Left })) {
+        $expected.Add("$($spec.Branch)$($branch.Id):")
+        $previousPosition = -1
+        foreach ($write in $branch.Writes) {
+            $positionText, $tileText = $write.Split(':')
+            $position = [Convert]::ToInt32($positionText, 16)
+            if ($previousPosition -lt 0) {
+                $expected.Add('ld hl,wRoomLayout + $' + $positionText)
+            }
+            elseif ($position -eq $previousPosition + 1) {
+                $expected.Add('inc l')
+            }
+            else {
+                $expected.Add('ld l,$' + $positionText)
+            }
+            $expected.Add('ld (hl),$' + $tileText)
+            $previousPosition = $position
+        }
+        $expected.Add('ret')
+    }
+    $nodes = @(Read-AssemblyLabelNodes `
+        (Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s') $spec.Label |
+        Where-Object { $_.Kind -notin 'Blank', 'Comment' })
+    if ($nodes.Count -ne $expected.Count) {
+        throw "roomSpecificTileChanges.s:$($spec.Label) instruction/label count changed."
+    }
+    for ($index = 0; $index -lt $nodes.Count; $index++) {
+        if (($nodes[$index].Code -replace '\s', '') -cne
+            ($expected[$index] -replace '\s', '')) {
+            throw "roomSpecificTileChanges.s:$($spec.Label):$($nodes[$index].Line) " +
+                "expected '$($expected[$index])', found '$($nodes[$index].Code)'."
+        }
+    }
+    Add-RoomTileChangeRule $spec.Label 'wram_mask_eq:c8f1:ff:22' `
+        ('set:' + ($spec.Left -join ','))
+    Add-RoomTileChangeRule $spec.Label 'wram_mask_eq:c8f1:ff:27' `
+        ('set:' + ($spec.Right -join ','))
+    if ($spec.Miss -eq 'jp nz,setTileToWitheredVine') {
+        Add-RoomTileChangeRule $spec.Label `
+            'wram_mask_ne:c8f1:ff:22,wram_mask_ne:c8f1:ff:27' `
+            'set_wram_position_if_clear:c8f1:8c'
+    }
+}
+
 # Essence-backed changes.
 Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'essence_set:4' `
     'set:06:b0,07:b0,08:b0,09:b0,16:ef,19:ef,26:ef,29:ef,36:b4,37:b2,38:b2,39:b2'
@@ -355,8 +418,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was neither imported nor deferred."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 42) {
-    throw "Expected 34 flag-backed and 42 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 44) {
+    throw "Expected 34 flag-backed and 44 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'

@@ -90,6 +90,12 @@ scenario. Immutable resource caches may remain keyed across scenarios, but
 observers and audit state reset. Save-store checks use an isolated temporary
 directory and never touch player slots.
 
+Synchronous scenarios share a Godot host frame. Releasing a native action does
+not expire its just-pressed edge, so direct controller updates must use an
+explicit `ApplicationInputSnapshot`, including neutral updates. Pair
+`Input.BeginOriginalUpdate` with `Input.EndOriginalUpdate` in `finally`; tests
+using the application scheduler supply samples through its input buffer.
+
 Use shared fixtures to construct production owners with normal dependencies.
 Options should describe only exceptional inputs needed by the scenario. The
 fixture owns cleanup and disposal.
