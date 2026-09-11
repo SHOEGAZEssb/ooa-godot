@@ -84,7 +84,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             throw new InvalidOperationException(
                 $"Room 1:aa instantiated {_thieves.Count} of 5 Tokay thieves.");
 
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _active = true;
         _initializing = true;
         _scriptStage = ScriptStage.InitialWait;
@@ -161,7 +161,8 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _context.Player.SetCutsceneDrawZFixed(0);
         _context.Player.SetCutsceneSpriteFrame(null);
         if (releaseControl)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void AdvanceTheft()
@@ -397,7 +398,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             Mathf.Clamp(Mathf.FloorToInt(_context.Player.Position.Y), 0, 0xff),
             Mathf.Clamp(Mathf.FloorToInt(_context.Player.Position.X), 0, 0xff));
         _context.Player.SetCutsceneDrawZFixed(0);
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _active = false;
     }
 

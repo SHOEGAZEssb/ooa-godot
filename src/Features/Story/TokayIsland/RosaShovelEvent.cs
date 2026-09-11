@@ -49,7 +49,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
             return true;
         }
 
-        LockInput();
+        EventResources.LockInput();
         FaceActorToLink(npc);
         Show(0x1c10);
         _stage = RosaShovelStage.FirstText;
@@ -131,7 +131,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
         _nativeActor = null;
         _reward?.Finish(Context.Player);
         _reward = null;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _stage = RosaShovelStage.Inactive;
@@ -194,13 +194,13 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
     }
 
     private void FaceActorToLink(NpcCharacter actor) =>
-        actor.SetFacingDirection(DirectionToward(actor.Position, Context.Player.Position));
+        actor.SetFacingDirection(RoomEventResources.DirectionToward(actor.Position, Context.Player.Position));
 
     private void FinishInteraction()
     {
         if (_nativeActor is not null) _nativeActor.ScriptOwnsNativeUpdate = false;
         _nativeActor = null;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = RosaShovelStage.Inactive;
     }

@@ -32,7 +32,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             return;
         _essence = essence;
         _phase = DungeonEssenceEventPhase.AwaitingHeldPose;
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _context.Player.Face(Vector2I.Up);
         _context.RoomView.SetBackgroundFade(Colors.Black, 0.35f);
         _context.Sound.PlaySound(OracleSoundEngine.SndDropEssence);
@@ -120,11 +120,12 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
         _phase = DungeonEssenceEventPhase.Inactive;
         _counter = 0;
         _context.RoomView.ClearBackgroundFade();
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void Finish()
     {
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
         _context.Transitions.ApplyWarpWithDelayedFadeOut(
             _context.Player,

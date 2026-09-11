@@ -10,7 +10,7 @@ namespace oracleofages;
 /// map state, and native $62 confetti behavior.
 /// </summary>
 internal abstract class RemoteMakuEvent :
-    CutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
@@ -31,7 +31,7 @@ internal abstract class RemoteMakuEvent :
         _runner = new CutsceneCommandRunner(this);
     }
 
-    protected RoomEventContext Context { get; }
+    public override RoomEventContext Context { get; }
     public bool HasState => _stage != RemoteMakuEventStage.Inactive;
     public bool BlocksGameplay => _stage == RemoteMakuEventStage.Running;
     internal RemoteMakuEventStage Stage => _stage;
@@ -84,7 +84,7 @@ internal abstract class RemoteMakuEvent :
     public virtual void Cancel()
     {
         _runner.Clear();
-        Context.Player.EndCutsceneControl();
+        Context.Player.EndCutsceneControl(this);
         Context.Hud.ShowStatusBar();
         Context.RoomView.ClearBackgroundFade();
         RestoreFadePresentation();
@@ -126,7 +126,7 @@ internal abstract class RemoteMakuEvent :
     private void RestoreFadePresentation()
     {
         Context.Fade.Color = new Color(1, 1, 1, 0);
-        ReleaseFullScreenFade(restoreColor: false);
+        EventResources.ReleaseFullScreenFade(restoreColor: false);
     }
 
     private bool UpdatePaletteFade(
@@ -145,7 +145,7 @@ internal abstract class RemoteMakuEvent :
                 Context.Hud.SetHiddenStatusBarFade(Colors.Black, progress);
                 break;
             case "FadeInWhite":
-                CaptureFullScreenFade(Context.Hud.ZIndex + 1);
+                EventResources.CaptureFullScreenFade(Context.Hud.ZIndex + 1);
                 Context.Fade.Color = new Color(1, 1, 1, 1.0f - progress);
                 break;
             default:
@@ -159,10 +159,7 @@ internal abstract class RemoteMakuEvent :
         return true;
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => Context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) => false;
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

@@ -89,7 +89,7 @@ internal sealed class ComedianEvent :
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("comedianScript text-option branch has no completed choice result.") == value;
+        EventResources.RequireDialogueChoice("comedianScript text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

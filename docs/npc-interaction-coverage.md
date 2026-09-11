@@ -70,6 +70,16 @@ classified records and 163 specialized rows.
 
 ### Important partial and deferred boundaries
 
+- September 11, 2026: room `2:3f`'s cook `$48:$05` remains **P**, now executing
+  the imported trade script with native movement during dialogue, source waits,
+  declined/missing-item branches, reward and repeat conversation, re-entry,
+  death gating, and airborne cancellation covered by `ValidateTokayNativeFidelity`.
+  Room `2:e6`'s Mask Salesman remains **I**, including fixed-position trade texts.
+  Room `0:39`'s intro retains native orchestration and imports Ghost Veran's
+  emergence/departure lane with source-derived fixed-point movement checks.
+  These changes add no positioned records: **143 I / 49 P / 191 D**, with
+  **91 specialized** and **47 event-owned** rows, remain unchanged.
+
 - September 9, 2026: Tokkey `$9d:$00` in `3:8f` is **I**, covered by
   `ValidateRoom38fTokkey`, including repeat conversations across the table,
   complete positioned dialogue, and natural harp completion before recognition.
@@ -362,7 +372,7 @@ well as record selection.
 | `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
 | `0:37` | [I] `$9a:$c4/v$00` carpenter |
 | `0:38` | [P] `$87:$00/v$00` makuTree |
-| `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
+| `0:39` | [I] `$37:$0d/v$00` ralph (intro includes an imported Ghost Veran lane)<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2, including its occupied timewarp landing tile |
 | `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
@@ -460,7 +470,7 @@ well as record selection.
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |
-| `2:3f` | [P] `$48:$05/v$00` tokay |
+| `2:3f` | [P] `$48:$05/v$00` tokay (imported cook trade script and native jump path) |
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
@@ -473,7 +483,7 @@ well as record selection.
 | `2:df` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
-| `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
+| `2:e6` | [I] `$5c:$00/v$00` maskSalesman (positioned trade dialogue) |
 | `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |

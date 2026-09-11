@@ -2142,7 +2142,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0x75);
         _player.WarpTo(new Vector2(0x50, 0x10));
         FailIf(
-            roomEvent.Stage != PreBlackTowerEventEventStage.RalphUnlinkedNative ||
+            roomEvent.Stage != PreBlackTowerEventStage.RalphUnlinkedNative ||
             !_player.CutsceneControlled,
             "Unlinked room 1:75 did not begin Ralph's native entrance choreography.");
 
@@ -2176,7 +2176,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0x75);
         _player.WarpTo(new Vector2(0x50, 0x20));
         FailIf(
-            roomEvent.Stage != PreBlackTowerEventEventStage.Linked ||
+            roomEvent.Stage != PreBlackTowerEventStage.Linked ||
             !_player.CutsceneControlled || roomEvent.SharedSignal != 0,
             "Linked room 1:75 did not start its four ordered actor lanes at signal $00.");
         for (int frame = 0; frame < 1600 && roomEvent.HasState; frame++)
@@ -2239,7 +2239,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 _currentRoom.GetOriginalMetatile(firstDoorTile) != firstTile ||
                 _currentRoom.GetOriginalMetatile(secondDoorTile) != secondTile ||
-                doorway.Stage != BlackTowerDoorwayEventEventStage.Initialize,
+                doorway.Stage != BlackTowerDoorwayEventStage.Initialize,
                 $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not load its expected entrance layout or $dc:$10 initializer.");
             var doorwayPixelsBefore = new Color[0x20 * 0x10];
             for (int pixelY = 0x40; pixelY < 0x50; pixelY++)
@@ -2256,7 +2256,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 _currentRoom.GetMetatile(firstDoorTile) != 0x00 ||
                 _currentRoom.GetMetatile(secondDoorTile) != 0x00 ||
-                doorway.Stage != BlackTowerDoorwayEventEventStage.WaitForExit ||
+                doorway.Stage != BlackTowerDoorwayEventStage.WaitForExit ||
                 _transitions.IsTransitioning,
                 "Room 1:76 state 0 did not clear $44/$45 and retain an initially overlapping Link in state 1.");
             for (int pixelY = 0x40; pixelY < 0x50; pixelY++)
@@ -2273,7 +2273,7 @@ public sealed partial class ValidationRoot
 
             StepRoomEventFrames(1);
             FailIf(
-                doorway.Stage != BlackTowerDoorwayEventEventStage.WaitForExit ||
+                doorway.Stage != BlackTowerDoorwayEventStage.WaitForExit ||
                 _transitions.IsTransitioning,
                 "Room 1:76 state 1 warped before Link left the entrance rectangle.");
 
@@ -2284,7 +2284,7 @@ public sealed partial class ValidationRoot
                 record.Y));
             StepRoomEventFrames(1);
             FailIf(
-                doorway.Stage != BlackTowerDoorwayEventEventStage.Armed ||
+                doorway.Stage != BlackTowerDoorwayEventStage.Armed ||
                 _transitions.IsTransitioning,
                 "Room 1:76 did not use the original strict combined collision-radius boundary.");
 
@@ -2294,7 +2294,7 @@ public sealed partial class ValidationRoot
             _dialogue.ShowMessage("Doorway vulnerability gate", record.Y);
             StepRoomEventFrames(1);
             FailIf(
-                doorway.Stage != BlackTowerDoorwayEventEventStage.Armed ||
+                doorway.Stage != BlackTowerDoorwayEventStage.Armed ||
                 _transitions.IsTransitioning,
                 "Room 1:76 ignored checkLinkVulnerable's active-text gate.");
             _dialogue.Close();
@@ -2452,7 +2452,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !shop.TryInteractNpc(shopkeeper) ||
-            shop.Stage != LynnaShopEventEventStage.ShopkeeperText ||
+            shop.Stage != LynnaShopEventStage.ShopkeeperText ||
             !_dialogue.CurrentMessage.StartsWith("Welcome, sir!", StringComparison.Ordinal),
             "Lynna shopkeeper did not run the empty-handed TX_0e00 welcome script.");
         _dialogue.Close();
@@ -2469,7 +2469,7 @@ public sealed partial class ValidationRoot
             !_playerWorld.TryInteract(_player),
             "PlayerWorld's normal A-button interaction route did not accept shop stock.");
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.Holding ||
+            shop.Stage != LynnaShopEventStage.Holding ||
             !hearts.Held || !_player.IsCarryingObject ||
             _player.IsHoldingItemTwoHands ||
             hearts.Position != _player.Position + new Vector2(0, -13),
@@ -2488,20 +2488,20 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         StepRoomEventFrames(1);
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.TheftDown ||
+            shop.Stage != LynnaShopEventStage.TheftDown ||
             _player.Position.Y != database.TheftLinkY || !_player.CutsceneControlled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) == 0,
             "Crossing shop Y=$69 with held stock did not clamp Link and start theft prevention.");
         StepRoomEventFrames(4 + 12);
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.TheftText ||
+            shop.Stage != LynnaShopEventStage.TheftText ||
             shopkeeper.Position != shopkeeperStart + new Vector2(-24, 8) ||
             !_dialogue.CurrentMessage.StartsWith("Hey! Don't just", StringComparison.Ordinal),
             "Shopkeeper did not complete the SPEED_200 down-8/left-24 theft approach.");
         _dialogue.Close();
         StepRoomEventFrames(1 + 12 + 4);
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.Holding ||
+            shop.Stage != LynnaShopEventStage.Holding ||
             shopkeeper.Position != shopkeeperStart || _player.CutsceneControlled || !hearts.Held,
             "Shopkeeper theft script did not return right-24/up-8 and restore Link's held item.");
 
@@ -2524,7 +2524,7 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.PurchaseRejected ||
+            shop.Stage != LynnaShopEventStage.PurchaseRejected ||
             !_dialogue.CurrentMessage.StartsWith("You have it.", StringComparison.Ordinal),
             "Full-health 3-Hearts purchase did not select shopkeeperCantBuy TX_0e05.");
         _dialogue.Close();
@@ -2550,7 +2550,7 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
         FailIf(
-            shop.Stage != LynnaShopEventEventStage.ItemText ||
+            shop.Stage != LynnaShopEventStage.ItemText ||
             _inventory.Rupees != purchaseRupees - 10 ||
             _inventory.HealthQuarters != Math.Min(
                 _inventory.MaxHealthQuarters, damagedHealth + 12) ||
@@ -3164,7 +3164,7 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         FailIf(
             !_interactions.TryInteract(_player) ||
-            roomEvent.Stage != BlackTowerEntranceEventEventStage.FirstScript,
+            roomEvent.Stage != BlackTowerEntranceEventStage.FirstScript,
             "A-button contact did not start hardhatWorkerSubid02Script's first lane.");
 
         bool sawExplanation = false;
@@ -3198,14 +3198,14 @@ public sealed partial class ValidationRoot
                     "Black Tower stage-0 screen, full-screen fade priority, hidden HUD, or MUS_DISASTER presentation was missing.");
             }
             if (roomEvent.Stage ==
-                    BlackTowerEntranceEventEventStage.ExplanationDialogue &&
+                    BlackTowerEntranceEventStage.ExplanationDialogue &&
                 _dialogue.IsOpen)
             {
                 sawExplanationText =
                     _dialogue.CurrentMessage == DialogueBox.PlainText(
                         roomEvent.Database.Record.ExplanationText);
             }
-            if (roomEvent.Stage == BlackTowerEntranceEventEventStage.Aftermath)
+            if (roomEvent.Stage == BlackTowerEntranceEventStage.Aftermath)
             {
                 FailIf(
                     !sawAftermath &&

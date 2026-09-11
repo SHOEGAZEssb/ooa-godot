@@ -152,7 +152,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         RestoreFadePresentation();
         RestoreGameTiles();
         RestoreInventory();
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _wildSchedule.Clear();
@@ -170,7 +170,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         }
         _present = false;
         PreparePrize();
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         Show(0x0a10);
         _stage = WildTokayGameStage.PastManagerPrizeIntro;
     }
@@ -189,7 +189,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             ShowReturnSecret(0x0a53);
             return;
         }
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         if (!save.HasGlobalFlag(_database.BeganSecretFlag))
         {
             ShowChoice(0x0a45);
@@ -225,7 +225,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
                 BeginWait(_present ? 40 : 20, WildTokayGameStage.Begin);
                 break;
             case WildTokayGameStage.StartText:
-                UnlockInput();
+                EventResources.UnlockInput();
                 SpawnMeat();
                 Context.Sound.PlaySound(_database.SoundWhistle);
                 _wildSpawnCounter = _database.GameSpawnDelay;
@@ -455,7 +455,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             if (_present && statue.Record is { Id: 0x48, SubId: >= 0x1a and <= 0x1c })
                 statue.SetActive(false);
         }
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         BeginWait(_database.GameStartDelay, WildTokayGameStage.FadeIn);
     }
 
@@ -467,7 +467,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
 
     private void BeginFade(WildTokayGameStage stage)
     {
-        CaptureFullScreenFade(Context.Hud.ZIndex + 1);
+        EventResources.CaptureFullScreenFade(Context.Hud.ZIndex + 1);
         _fadeCounter = 0;
         _stage = stage;
         Context.Fade.Color = new Color(
@@ -518,7 +518,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
     private void RestoreFadePresentation()
     {
         _fadeCounter = 0;
-        ReleaseFullScreenFade();
+        EventResources.ReleaseFullScreenFade();
     }
 
     private void UpdateGame()
@@ -786,7 +786,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
     private void EndRound(bool won)
     {
         _won = won;
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         Context.Sound.PlaySound(won ? _database.SoundSuccess : _database.SoundError);
         BeginWait(30, WildTokayGameStage.ResultText);
     }
@@ -862,7 +862,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             else
             {
                 _prizePrepared = false;
-                UnlockInput();
+                EventResources.UnlockInput();
                 FinishInteraction();
                 return;
             }
@@ -997,7 +997,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
     }
 
     private int TakeChoice() =>
-        RequireDialogueChoice("Wild Tokay prompt closed without a text-option result.");
+        EventResources.RequireDialogueChoice("Wild Tokay prompt closed without a text-option result.");
 
     private void FinishInteraction()
     {
@@ -1007,7 +1007,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             PreparePrize();
         RemovePrizeAccessory();
         RestoreFadePresentation();
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = WildTokayGameStage.Inactive;
     }

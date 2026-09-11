@@ -9,7 +9,7 @@ namespace oracleofages;
 /// scenes in past room $75. Actor lanes retain original placement order.
 /// </summary>
 internal sealed class PreBlackTowerEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;
@@ -25,7 +25,7 @@ internal sealed class PreBlackTowerEvent :
         new(StringComparer.Ordinal);
     private readonly List<TimedEffect> _effects = new();
 
-    private PreBlackTowerEventEventStage _stage;
+    private PreBlackTowerEventStage _stage;
     private int _sharedSignal;
     private int _sharedBits;
     private int _ralphSubstate;
@@ -61,9 +61,9 @@ internal sealed class PreBlackTowerEvent :
         }
     }
 
-    public bool HasState => _stage != PreBlackTowerEventEventStage.Inactive;
-    public bool BlocksGameplay => _stage is not PreBlackTowerEventEventStage.Inactive and not PreBlackTowerEventEventStage.WaitingForImpa;
-    internal PreBlackTowerEventEventStage Stage => _stage;
+    public bool HasState => _stage != PreBlackTowerEventStage.Inactive;
+    public bool BlocksGameplay => _stage is not PreBlackTowerEventStage.Inactive and not PreBlackTowerEventStage.WaitingForImpa;
+    internal PreBlackTowerEventStage Stage => _stage;
     internal int SharedSignal => _sharedSignal;
     internal int RalphSubstate => _ralphSubstate;
     internal int ImpaSubstate => _impaSubstate;
@@ -113,12 +113,12 @@ internal sealed class PreBlackTowerEvent :
             "INTERAC_IMPA_IN_CUTSCENE");
         if (ralph.Active)
         {
-            _context.Player.BeginCutsceneControl();
-            _stage = PreBlackTowerEventEventStage.RalphUnlinkedNative;
+            _context.Player.BeginCutsceneControl(owner: this);
+            _stage = PreBlackTowerEventStage.RalphUnlinkedNative;
         }
         else if (_context.Rooms.SaveData.HasGlobalFlag(_record.RalphEnteredFlag))
         {
-            _stage = PreBlackTowerEventEventStage.WaitingForImpa;
+            _stage = PreBlackTowerEventStage.WaitingForImpa;
         }
     }
 
@@ -127,22 +127,22 @@ internal sealed class PreBlackTowerEvent :
         UpdateEffects();
         switch (_stage)
         {
-            case PreBlackTowerEventEventStage.RalphUnlinkedNative:
+            case PreBlackTowerEventStage.RalphUnlinkedNative:
                 UpdateUnlinkedRalphNative();
                 break;
-            case PreBlackTowerEventEventStage.RalphUnlinkedScript:
+            case PreBlackTowerEventStage.RalphUnlinkedScript:
                 _ralphRunner.AdvanceFrame();
                 if (!_ralphRunner.Active)
                     FinishUnlinkedRalph();
                 break;
-            case PreBlackTowerEventEventStage.WaitingForImpa:
+            case PreBlackTowerEventStage.WaitingForImpa:
                 if (_context.Player.Position.Y >= 0x60)
                     StartUnlinkedImpa();
                 break;
-            case PreBlackTowerEventEventStage.ImpaUnlinked:
+            case PreBlackTowerEventStage.ImpaUnlinked:
                 UpdateUnlinkedImpa();
                 break;
-            case PreBlackTowerEventEventStage.Linked:
+            case PreBlackTowerEventStage.Linked:
                 UpdateLinked();
                 break;
         }
@@ -159,7 +159,7 @@ internal sealed class PreBlackTowerEvent :
         _effects.Clear();
         _actors.Clear();
         _precisePositions.Clear();
-        _stage = PreBlackTowerEventEventStage.Inactive;
+        _stage = PreBlackTowerEventStage.Inactive;
         _sharedSignal = 0;
         _sharedBits = 0;
         _ralphSubstate = 0;
@@ -176,12 +176,13 @@ internal sealed class PreBlackTowerEvent :
         _impaEnded = false;
         _nayruEnded = false;
         _zeldaEnded = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void StartLinked()
     {
-        _stage = PreBlackTowerEventEventStage.Linked;
-        _context.Player.BeginCutsceneControl();
+        _stage = PreBlackTowerEventStage.Linked;
+        _context.Player.BeginCutsceneControl(owner: this);
         _actors["Ralph"].Position = new Vector2(0x50, _actors["Ralph"].Position.Y);
         _precisePositions["Ralph"] = _actors["Ralph"].Position;
         _sharedSignal = 0;
@@ -317,7 +318,7 @@ internal sealed class PreBlackTowerEvent :
                     // Ralph's native substate $00 wrote SPEED_180 before the
                     // script lane became active.
                     _ralphRunner.SetInitialMotionRegisters("Ralph", 0x3c, 0x10);
-                    _stage = PreBlackTowerEventEventStage.RalphUnlinkedScript;
+                    _stage = PreBlackTowerEventStage.RalphUnlinkedScript;
                 }
                 break;
         }
@@ -326,18 +327,18 @@ internal sealed class PreBlackTowerEvent :
     private void FinishUnlinkedRalph()
     {
         _actors["Ralph"].SetActive(false);
-        _context.Player.EndCutsceneControl();
-        _stage = PreBlackTowerEventEventStage.WaitingForImpa;
+        _context.Player.EndCutsceneControl(this);
+        _stage = PreBlackTowerEventStage.WaitingForImpa;
     }
 
     private void StartUnlinkedImpa()
     {
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _sharedBits = 0;
         _impaSubstate = 1;
         _impaVar38 = 0;
         _impaRunner.Start(_database.ImpaUnlinked);
-        _stage = PreBlackTowerEventEventStage.ImpaUnlinked;
+        _stage = PreBlackTowerEventStage.ImpaUnlinked;
     }
 
     private void UpdateUnlinkedImpa()
@@ -446,8 +447,8 @@ internal sealed class PreBlackTowerEvent :
     private void FinishEvent()
     {
         _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
-        _context.Player.EndCutsceneControl();
-        _stage = PreBlackTowerEventEventStage.Inactive;
+        _context.Player.EndCutsceneControl(this);
+        _stage = PreBlackTowerEventStage.Inactive;
     }
 
     private NpcCharacter Register(
@@ -517,12 +518,9 @@ internal sealed class PreBlackTowerEvent :
         }
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Ralph" or "Impa" or "Nayru" or "Zelda";
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) => binding switch
     {
@@ -668,10 +666,9 @@ internal sealed class PreBlackTowerEvent :
             $"Unsupported pre-Black Tower Link direction ${value:x2}.")
     };
 
-
 }
 
-internal enum PreBlackTowerEventEventStage
+internal enum PreBlackTowerEventStage
 {
     Inactive,
     RalphUnlinkedNative,

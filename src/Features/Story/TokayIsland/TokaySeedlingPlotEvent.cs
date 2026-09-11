@@ -55,7 +55,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
             return true;
         }
 
-        LockInput();
+        EventResources.LockInput();
         Show(0x0a40);
         _stage = TokaySeedlingPlotStage.Intro;
         return true;
@@ -114,7 +114,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
 
     public void Cancel()
     {
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _moveAngle = 0;
@@ -191,7 +191,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
     private void FinishInteraction()
     {
         _actor?.SetFacingDirection(Vector2I.Down);
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = TokaySeedlingPlotStage.Inactive;
     }

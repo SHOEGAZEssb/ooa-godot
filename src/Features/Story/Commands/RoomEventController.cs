@@ -329,6 +329,5 @@ public sealed class RoomEventController
     {
         foreach (IRoomEvent roomEvent in _eventsByPriority)
             roomEvent.Cancel();
-        _context.Player.EndCutsceneControl();
     }
 }

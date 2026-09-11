@@ -144,7 +144,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
     public void AdvanceFrame()
     {
-        if (!Active || host.DialogueOpen)
+        if (!Active || host.ScriptExecutionBlocked)
             return;
 
         _scriptUpdates++;
@@ -400,6 +400,10 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
             case CutsceneSetAngleCommand angle:
                 _angles[angle.Actor] = angle.Angle;
+                return CommandResult.Yield;
+
+            case CutsceneSetCoordinatesCommand coordinates:
+                host.SetActorCoordinates(coordinates.Actor, coordinates.Y, coordinates.X);
                 return CommandResult.Yield;
 
             case CutsceneApplySpeedCommand movement:

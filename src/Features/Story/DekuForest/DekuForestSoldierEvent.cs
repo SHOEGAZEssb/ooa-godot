@@ -8,7 +8,7 @@ namespace oracleofages;
 /// Link obtains the Mystery Seeds.
 /// </summary>
 internal sealed class DekuForestSoldierEvent :
-    CutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
@@ -88,7 +88,7 @@ internal sealed class DekuForestSoldierEvent :
         _soldier.AdvanceAnimationUpdates(animationUpdates);
 
         _runner.AdvanceFrame();
-        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         if (_warpRequested)
             ApplyWarp();
     }
@@ -98,22 +98,23 @@ internal sealed class DekuForestSoldierEvent :
     public void Cancel()
     {
         if (_triggered)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         if (_soldier is not null &&
             GodotObject.IsInstanceValid(_soldier))
         {
             _soldier.SetActive(false);
         }
-        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         _soldier = null;
         _runner.Clear();
         _triggered = false;
         _menusDisabled = false;
         _warpRequested = false;
         _precisePosition = Vector2.Zero;
+        _context.Player.EndCutsceneControl(this);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
 
     public override bool HasActorBinding(CutsceneActorId actor) =>
         actor.Value == SoldierActor;
@@ -231,7 +232,7 @@ internal sealed class DekuForestSoldierEvent :
                 return;
 
             case "DropLinkHeldItem":
-                _context.Player.BeginCutsceneControl();
+                _context.Player.BeginCutsceneControl(owner: this);
                 _triggered = true;
                 return;
 
@@ -287,7 +288,7 @@ internal sealed class DekuForestSoldierEvent :
         _warpRequested = false;
         _triggered = false;
         _menusDisabled = false;
-        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         if (_soldier is not null &&
             GodotObject.IsInstanceValid(_soldier))
         {

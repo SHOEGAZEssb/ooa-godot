@@ -372,7 +372,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<CutsceneCommandSchemaEntry> entries =
             CutsceneCommandSchema.Entries;
         FailIf(
-            entries.Count != 53 ||
+            entries.Count != 54 ||
             entries.Select(entry => entry.CommandType)
                 .Distinct()
                 .Count() != entries.Count ||
@@ -381,7 +381,7 @@ public sealed partial class ValidationRoot
             entries.Count(entry =>
                 entry.CommandType == typeof(CutsceneCheckTextCommand)) != 1,
             "The cutscene command schema no longer declares exactly one entry " +
-            "for each of the 53 typed command records.");
+            "for each of the 54 typed command records.");
 
         var source = new CutsceneCommandSource(
             "validation/command-schema.tsv",
@@ -456,7 +456,7 @@ public sealed partial class ValidationRoot
         }
 
         GD.Print(
-            "Validated 53-entry cutscene command schema coverage, normalized " +
+            "Validated 54-entry cutscene command schema coverage, normalized " +
             "field shapes, actor enumeration, and runner result contracts.");
     }
 
@@ -654,28 +654,22 @@ public sealed partial class ValidationRoot
 
     private static void ValidateRoomEventTimeline()
     {
-        var timeline = new RoomEventTimelineQueue<ValidationTimelineStep>();
-        timeline.Enqueue(new ValidationTimelineStep(2));
-        timeline.Enqueue(new ValidationTimelineStep(0));
+        var timeline = new RoomEventTimeline();
         var observedCounters = new List<int>();
-        bool Update(ValidationTimelineStep step)
-        {
-            observedCounters.Add(step.Counter);
-            return --step.Counter == 0;
-        }
-
+        timeline.Wait(2, observedCounters.Add);
+        timeline.Wait(0, observedCounters.Add);
         FailIf(
-            !timeline.AdvanceFrame(Update) ||
-            !timeline.AdvanceFrame(Update) ||
-            !timeline.AdvanceFrame(Update) ||
-            timeline.AdvanceFrame(Update) ||
-            !observedCounters.SequenceEqual(new[] { 2, 1, 1 }),
+            !timeline.AdvanceFrame() ||
+            !timeline.AdvanceFrame() ||
+            !timeline.AdvanceFrame() ||
+            timeline.AdvanceFrame() ||
+            !observedCounters.SequenceEqual(new[] { 1, 0, 0 }),
             "Room-event timeline duration clamping or one-step update cadence regressed.");
 
-        timeline.Enqueue(new ValidationTimelineStep(3));
-        timeline.AdvanceFrame(Update);
+        timeline.Wait(3);
+        timeline.AdvanceFrame();
         timeline.Clear();
-        FailIf(timeline.AdvanceFrame(Update), "Room-event timeline clear retained active work.");
+        FailIf(timeline.AdvanceFrame(), "Room-event timeline clear retained active work.");
 
         static CutsceneCommandSource CommandSource(
             string script,

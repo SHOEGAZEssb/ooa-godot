@@ -8,4 +8,7 @@
     <AssemblyName>OracleOfAges.Importer</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Features/Story/Commands/CutsceneFieldShape.cs" Link="CutsceneFieldShape.cs" />
+  </ItemGroup>
 </Project>

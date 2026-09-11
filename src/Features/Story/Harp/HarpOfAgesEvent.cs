@@ -10,7 +10,7 @@ namespace oracleofages;
 /// nayruScript07 runs through the typed command runner.
 /// </summary>
 internal sealed class HarpOfAgesEvent :
-    CutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
@@ -196,7 +196,7 @@ internal sealed class HarpOfAgesEvent :
     {
         _runner.Clear();
         _context.Player.EndHarpPose();
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Hud.ShowStatusBar();
         _context.RoomView.ClearBackgroundFade();
         RestoreFadePresentation();
@@ -218,6 +218,7 @@ internal sealed class HarpOfAgesEvent :
         _harpCollected = false;
         _harpPosition = Vector2.Zero;
         _stage = HarpOfAgesEventStage.Inactive;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void OnGroundTreasureCollected(
@@ -256,7 +257,7 @@ internal sealed class HarpOfAgesEvent :
                 "begin the pickup cutscene before ROOMFLAG_ITEM was set");
         }
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _stage = HarpOfAgesEventStage.AwaitingTextOpen;
     }
 
@@ -440,7 +441,7 @@ internal sealed class HarpOfAgesEvent :
     private void BeginFadeInTail()
     {
         _context.Player.EndHarpPose();
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Sound.PlayRoomMusic(
             _database.Record.Group,
             _database.Record.Room);
@@ -448,7 +449,7 @@ internal sealed class HarpOfAgesEvent :
         _context.RoomView.ClearBackgroundFade();
         _nayru?.SetActive(false);
         _stageCounter = 0;
-        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
+        EventResources.CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _context.Fade.Color = Colors.White;
         _stage = HarpOfAgesEventStage.FadeInTail;
     }
@@ -471,16 +472,13 @@ internal sealed class HarpOfAgesEvent :
     private void RestoreFadePresentation()
     {
         _context.Fade.Color = new Color(1, 1, 1, 0);
-        ReleaseFullScreenFade(restoreColor: false);
+        EventResources.ReleaseFullScreenFade(restoreColor: false);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
 
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Nayru";
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

@@ -116,7 +116,7 @@ internal sealed class DepressedBoyEvent :
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("boySubid07Script text-option branch has no completed choice result.") == value;
+        EventResources.RequireDialogueChoice("boySubid07Script text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

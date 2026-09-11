@@ -23,49 +23,7 @@ public sealed partial class ValidationRoot
             WildTokayGameEvent.CanParticipantCatch(new Vector2(40, 40), new Vector2(51, 40)),
             "Wild Tokay catching no longer matches inclusive $0a byte-axis checks.");
 
-        _saveData.SetRoomFlag(2, 0x3f, OracleSaveData.RoomFlagItem, value: false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTradeItem, 2);
-        LoadValidationRoom(2, 0x3f);
-        TokayCharacter cook = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x05);
-        TokayCookEvent cooking = _roomEvents.Get<TokayCookEvent>();
-        FailIf(!cooking.TryInteractNpc(cook), "Cook $48:$05 did not accept A.");
-        _dialogue.Close();
-        StepRoomEventFrames(31);
-        FailIf(cooking.Stage != TokayCookStage.Prompt, "Cook did not wait 30 before the trade prompt.");
-        _dialogue.SubmitChoiceForValidation(0);
-        StepRoomEventFrames(30);
-        FailIf(_dialogue.IsOpen || cooking.Stage != TokayCookStage.ChoiceWait,
-            "Cook resolved the choice before its 30-update wait.");
-        StepRoomEventFrames(1);
-        for (int text = 0x0a02; text <= 0x0a04; text++)
-        {
-            FailIf(_dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(text)),
-                $"Cook skipped TX_{text:x4}.");
-            _dialogue.Close();
-            StepRoomEventFrames(31);
-        }
-        FailIf(cooking.Stage != TokayCookStage.JumpText || !_dialogue.IsOpen,
-            "Cook did not start its native jumps with TX_0a05.");
-        Vector2 start = cook.Position;
-        int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
-        StepRoomEventFrames(10);
-        FailIf(cook.Position == start || !_dialogue.IsOpen,
-            "Cook stopped its native jump while TX_0a05 was open.");
-        StepRoomEventFrames(500);
-        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndJump) < jumpSounds + 6,
-            "Cook did not repeat the six source jump paths during long text.");
-        _dialogue.Close();
-        for (int frame = 0; frame < 600 && cooking.Stage == TokayCookStage.JumpText; frame++)
-            StepRoomEventFrames(1);
-        FailIf(cooking.Stage != TokayCookStage.CookingWait || cook.Position != new Vector2(0x48, 0x28),
-            "Cook did not wait for its native return signal at $48,$28.");
-        StepRoomEventFrames(39);
-        FailIf(_dialogue.IsOpen, "Cook skipped the 40-update return wait.");
-        StepRoomEventFrames(1);
-        FailIf(_dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a06)),
-            "Cook did not resume with TX_0a06 after returning.");
-        cooking.Cancel();
-        _dialogue.Close();
+        ValidateTokayCookScript();
 
         _saveData.SetRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetLinkedGame(linked: true);

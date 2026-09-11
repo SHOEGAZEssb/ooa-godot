@@ -9,12 +9,13 @@ namespace oracleofages;
 /// remote Maku interaction $8a:$00/v$04.
 /// </summary>
 internal sealed class PostD3RemoteMakuEvent :
-    RoomEventHost, IRoomEntryEvent,
+    IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     IRoomEventDialogueContext
 {
     private readonly RoomEventContext _context;
-    protected override RoomEventContext EventContext => _context;
+    private RoomEventResources? _resources;
+    private RoomEventResources EventResources => _resources ??= new(_context, this);
     private readonly PostD3RemoteMakuDatabase _database = new();
     private readonly BlackTowerEntranceEventDatabase _towerDatabase = new();
     private readonly RemoteMakuThirdEssenceEvent _remoteMaku;
@@ -76,7 +77,7 @@ internal sealed class PostD3RemoteMakuEvent :
         }
         Cancel();
         OwnFade();
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _counter = _database.Record.InitialWait;
         _stage = PostD3RemoteMakuStage.InitialWait;
     }
@@ -210,12 +211,13 @@ internal sealed class PostD3RemoteMakuEvent :
         _context.Hud.Visible = true;
         RestoreFade();
         if (controlled)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         _stage = PostD3RemoteMakuStage.Inactive;
         _counter = 0;
         _fadeFrame = 0;
         _initialFlashCounter = 0;
         _towerFlashCounter = 0;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void UpdateInitialFlash()
@@ -356,14 +358,14 @@ internal sealed class PostD3RemoteMakuEvent :
 
     private void OwnFade()
     {
-        if (CaptureFullScreenFade(_context.Hud.ZIndex + 1))
+        if (EventResources.CaptureFullScreenFade(_context.Hud.ZIndex + 1))
             SetWhiteFade(0.0f);
     }
 
     private void RestoreFade()
     {
         SetWhiteFade(0.0f);
-        ReleaseFullScreenFade(restoreColor: false);
+        EventResources.ReleaseFullScreenFade(restoreColor: false);
     }
 
     private void RemoveTowerScreen()

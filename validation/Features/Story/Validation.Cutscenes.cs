@@ -568,9 +568,9 @@ public sealed partial class ValidationRoot
             IsTransitioning || !_player.Visible ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1 ||
             !_player.CutsceneControlled || !_roomEvents.Get<EnterPastEvent>().HasState ||
-            _roomEvents.Get<EnterPastEvent>().Stage != EnterPastEventEventStage.PreJumpWait ||
+            ValidationEnterPastState.Stage(_roomEvents.Get<EnterPastEvent>()) != EnterPastEventStage.PreJumpWait ||
             _roomEvents.Get<EnterPastEvent>().Counter !=
-                _roomEvents.Get<EnterPastEvent>().Record.ExpectedArrivalCounter,
+                33,
             "The 30-update arrival flicker did not hand off to the partially elapsed " +
             "room 1:39 first-arrival script.");
 
@@ -870,6 +870,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnterPastEvent()
     {
+        ValidateTimeTravelCommandImports();
         _saveData.SetGlobalFlag(
             OracleSaveData.GlobalFlagEnterPastCutsceneDone,
             value: false);
@@ -896,6 +897,10 @@ public sealed partial class ValidationRoot
 
         EnterPastEvent enterPast = _roomEvents.Get<EnterPastEvent>();
         EnterPastEventRecord record = enterPast.Record;
+        var commands = new EnterPastEventDatabase().Commands;
+        var textCommand = (CutsceneShowTextCommand)commands[6];
+        var downCommand = (CutsceneMoveCommand)commands[9];
+        var rightCommand = (CutsceneMoveCommand)commands[10];
         NpcCharacter villager = _npcNodes.Find(npc =>
             npc.Record.Id == record.InteractionId && npc.Record.SubId == record.SubId) ??
             throw new InvalidOperationException(
@@ -903,39 +908,31 @@ public sealed partial class ValidationRoot
 
         FailIf(
             _activeGroup != record.Group || _currentRoom.Id != record.Room ||
-            record.IntroWaitFrames != 100 || record.PreJumpWaitFrames != 40 ||
-            record.PostJumpWaitFrames != 30 || record.PostTextWaitFrames != 30 ||
-            record.JumpSpeedZ != -0x200 || record.JumpGravity != 0x30 ||
-            record.FastSpeed != 0x28 || record.SlowSpeed != 0x14 ||
-            record.FirstDownCounter != 0x11 || record.RightCounter != 0x11 ||
-            record.SecondDownCounter != 0x09 || record.SlowDownCounter != 0x21 ||
-            record.FinalDownCounter != 0x39 || record.TextId != 0x1622 ||
-            record.JumpSound != OracleSoundEngine.SndJump ||
             record.GlobalFlag != OracleSaveData.GlobalFlagEnterPastCutsceneDone ||
             !enterPast.HasState || enterPast.Completed ||
-            enterPast.Stage != EnterPastEventEventStage.PreJumpWait ||
-            enterPast.Counter != record.ExpectedArrivalCounter ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PreJumpWait ||
+            enterPast.Counter != 33 ||
             villager.Position != new Vector2(0x18, 0x28) || !villager.Active ||
             !_player.CutsceneControlled,
             "The portal handoff did not preserve the imported first-arrival actor, " +
             "script values, initial position, or wait overlap.");
 
         _sound.ClearPlayRequestAudit();
-        StepRoomEventFrames(record.ExpectedArrivalCounter - 1);
+        StepRoomEventFrames(33 - 1);
         FailIf(
-            enterPast.Counter != 1 || enterPast.Stage != EnterPastEventEventStage.PreJumpWait ||
-            enterPast.ZFixed != 0 || _sound.PlayRequestsFor(record.JumpSound) != 0,
+            enterPast.Counter != 1 || ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PreJumpWait ||
+            enterPast.ZFixed != 0 || _sound.PlayRequestsFor(0x53) != 0,
             "The remaining pre-jump wait ended early after the time-warp arrival.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.BeginJump ||
-            _sound.PlayRequestsFor(record.JumpSound) != 0,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.BeginJump ||
+            _sound.PlayRequestsFor(0x53) != 0,
             "wait 40 did not return to jumpAndWaitUntilLanded on its zero update.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.Jump ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.Jump ||
             enterPast.ZFixed != -0x200 || villager.ScriptDrawOffset.Y != -2 ||
-            _sound.PlayRequestsFor(record.JumpSound) != 1,
+            _sound.PlayRequestsFor(0x53) != 1,
             "beginJump did not apply speedZ -$0200 and SND_JUMP $53 on its own update.");
         StepRoomEventFrames(21);
         FailIf(
@@ -943,12 +940,12 @@ public sealed partial class ValidationRoot
             "The villager jump diverged before its 23rd $30-gravity update.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.InstallPostJumpWait ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.InstallPostJumpWait ||
             enterPast.ZFixed != 0 || villager.ScriptDrawOffset != Vector2.Zero,
             "The villager did not land on the 23rd gravity update.");
 
         StepRoomEventFrames(1);
-        StepRoomEventFrames(record.PostJumpWaitFrames - 1);
+        StepRoomEventFrames(30 - 1);
         FailIf(enterPast.Counter != 1 || _dialogue.IsOpen, "The post-jump wait ended early.");
         StepRoomEventFrames(1);
         const string expectedText =
@@ -956,30 +953,30 @@ public sealed partial class ValidationRoot
             "Ever since that\ngirl Nayru came,\nthere's been all\nsorts o' weird\ngoings on!";
         FailIf(
             !_dialogue.IsOpen || _dialogue.CurrentMessage != expectedText ||
-            !record.Text.Contains("\\stop", StringComparison.Ordinal) ||
-            !record.Text.Contains("\\col(3)Nayru\\col(0)", StringComparison.Ordinal),
+            !textCommand.Message.Contains("\\stop", StringComparison.Ordinal) ||
+            !textCommand.Message.Contains("\\col(3)Nayru\\col(0)", StringComparison.Ordinal),
             "TX_1622 did not retain its stop command, blue Nayru span, and exact text.");
 
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.PostTextWait ||
-            enterPast.Counter != record.PostTextWaitFrames,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PostTextWait ||
+            enterPast.Counter != 30,
             "The script did not install its post-text wait on the first update after closing TX_1622.");
-        StepRoomEventFrames(record.PostTextWaitFrames - 1);
+        StepRoomEventFrames(30 - 1);
         FailIf(
             enterPast.Counter != 1 || villager.Position != new Vector2(0x18, 0x28),
             "The post-text wait or stationary position ended early.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.StartFirstDown,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.StartFirstDown,
             "setspeed SPEED_100 lost its script-command update.");
 
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.FirstDown ||
-            enterPast.Counter != record.FirstDownCounter ||
-            villager.CurrentScriptAnimationSource != record.DownAnimation,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.FirstDown ||
+            enterPast.Counter != 0x11 ||
+            villager.CurrentScriptAnimationSource != downCommand.EncodedAnimation,
             "movedown $11 did not install its counter and down animation.");
         StepRoomEventFrames(6);
         FailIf(
@@ -997,75 +994,75 @@ public sealed partial class ValidationRoot
             "movedown $11 did not move exactly 16 pixels.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.FirstDown ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.FirstDown ||
             enterPast.CurrentCommandIndex != 10 || enterPast.CurrentCommandUpdates != 0 ||
             enterPast.Counter != 0 ||
-            villager.CurrentScriptAnimationSource != record.DownAnimation,
+            villager.CurrentScriptAnimationSource != downCommand.EncodedAnimation,
             "movedown $11's counter2-zero update incorrectly dispatched moveright.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.Right ||
-            enterPast.Counter != record.RightCounter ||
-            villager.CurrentScriptAnimationSource != record.RightAnimation,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.Right ||
+            enterPast.Counter != 0x11 ||
+            villager.CurrentScriptAnimationSource != rightCommand.EncodedAnimation,
             "moveright $11 did not start on the update after counter2 reached zero.");
-        StepRoomEventFrames(record.RightCounter - 1);
+        StepRoomEventFrames(0x11 - 1);
         FailIf(
             villager.Position != new Vector2(0x28, 0x38) || enterPast.Counter != 1,
             "moveright $11 did not move exactly 16 pixels.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.Right ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.Right ||
             enterPast.CurrentCommandIndex != 11 || enterPast.CurrentCommandUpdates != 0 ||
             enterPast.Counter != 0 ||
-            villager.CurrentScriptAnimationSource != record.RightAnimation,
+            villager.CurrentScriptAnimationSource != rightCommand.EncodedAnimation,
             "moveright $11's counter2-zero update incorrectly dispatched movedown.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.SecondDown ||
-            enterPast.Counter != record.SecondDownCounter ||
-            villager.CurrentScriptAnimationSource != record.DownAnimation,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.SecondDown ||
+            enterPast.Counter != 0x09 ||
+            villager.CurrentScriptAnimationSource != downCommand.EncodedAnimation,
             "movedown $09 did not start on the update after counter2 reached zero.");
-        StepRoomEventFrames(record.SecondDownCounter - 1);
+        StepRoomEventFrames(0x09 - 1);
         FailIf(
             villager.Position != new Vector2(0x28, 0x40) || enterPast.Counter != 1,
             "movedown $09 did not move exactly eight pixels.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.StartSlowDown ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.StartSlowDown ||
             enterPast.CurrentCommandIndex != 12 || enterPast.CurrentCommandUpdates != 0 ||
             enterPast.Counter != 0,
             "movedown $09's counter2-zero update incorrectly dispatched SPEED_080.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.StartSlowDown ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.StartSlowDown ||
             enterPast.CurrentCommandIndex != 13 || enterPast.CurrentCommandUpdates != 0,
             "setspeed SPEED_080 lost its script-command update.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.SlowDown ||
-            enterPast.Counter != record.SlowDownCounter,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.SlowDown ||
+            enterPast.Counter != 0x21,
             "applyspeed $21 lost its script-command update.");
-        StepRoomEventFrames(record.SlowDownCounter - 1);
+        StepRoomEventFrames(0x21 - 1);
         FailIf(
             villager.Position != new Vector2(0x28, 0x50) || enterPast.Counter != 1,
             "SPEED_080 applyspeed $21 did not move exactly 16 pixels.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.StartFinalDown ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.StartFinalDown ||
             enterPast.CurrentCommandIndex != 14 || enterPast.CurrentCommandUpdates != 0 ||
             enterPast.Counter != 0,
             "applyspeed $21's counter2-zero update incorrectly dispatched SPEED_100.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.StartFinalDown ||
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.StartFinalDown ||
             enterPast.CurrentCommandIndex != 15 || enterPast.CurrentCommandUpdates != 0,
             "The final SPEED_100 command lost its own update.");
         StepRoomEventFrames(1);
         FailIf(
-            enterPast.Stage != EnterPastEventEventStage.FinalDown ||
-            enterPast.Counter != record.FinalDownCounter,
+            ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.FinalDown ||
+            enterPast.Counter != 0x39,
             "The final applyspeed $39 lost its command update.");
-        StepRoomEventFrames(record.FinalDownCounter - 1);
+        StepRoomEventFrames(0x39 - 1);
         FailIf(
             villager.Position != new Vector2(0x28, 0x88) || enterPast.Counter != 1 ||
             enterPast.Completed || !villager.Active,
@@ -1081,7 +1078,7 @@ public sealed partial class ValidationRoot
             enterPast.HasState || !enterPast.Completed || villager.Active ||
             _player.CutsceneControlled ||
             !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagEnterPastCutsceneDone) ||
-            _sound.PlayRequestsFor(record.JumpSound) != 1,
+            _sound.PlayRequestsFor(0x53) != 1,
             "The first-past-arrival script did not set flag $41, delete the villager, and restore input.");
 
         LoadValidationRoom(record.Group, record.Room);
@@ -2465,7 +2462,7 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         LoadValidationRoom(group, roomId);
         FailIf(
-            !rescue.HasState || rescue.Stage != MakuSproutRescueEventEventStage.Running,
+            !rescue.HasState || rescue.Stage != MakuSproutRescueEventStage.Running,
             "Room 1:38 did not start the unsaved Maku Sprout rescue at state $01.");
 
         MakuSproutRescueDatabaseActorRecord sproutActor = database.Actors["Sprout"];
@@ -2579,7 +2576,7 @@ public sealed partial class ValidationRoot
             (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
             (packed >> 4) * OracleRoomData.MetatileSize + 8);
         FailIf(
-            rescue.HasState || rescue.Stage != MakuSproutRescueEventEventStage.Completed ||
+            rescue.HasState || rescue.Stage != MakuSproutRescueEventStage.Completed ||
             !movedToTrigger || !killedFirst || !killedSecond || !movedToEdge ||
             !sawUpFacingMakuDialogue || !sawBottomExitDialogue ||
             requiredTextIds.Any(id => !textIds.Contains(id)) ||
@@ -3506,7 +3503,7 @@ public sealed partial class ValidationRoot
             _currentRoom.GetMetatile(portalPoint) != 0x3a,
             "Room 0:39 did not create the pre-intro $6b:$01 audience while retaining Link control.");
         var nayruDatabase = new NayruIntroEventDatabase();
-        NayruIntroEventDatabaseEventRecord nayruEvent = nayruDatabase.Event;
+        NayruIntroEventRecord nayruEvent = nayruDatabase.Event;
         FailIf(
             nayruEvent.BearMoveSpeed != 0x14 ||
             nayruEvent.NpcJumpSpeedZ != -0x200 || nayruEvent.NpcJumpGravity != 0x30 ||
@@ -3751,6 +3748,11 @@ public sealed partial class ValidationRoot
             "The 600-update singing screen did not replay SND_CLOSEMENU and enter the room script.");
 
         int scriptFrames = 0;
+        ValidateNayruGhostImport(nayruDatabase);
+        int ghostUpwardMoves = 0;
+        int ghostDownwardMoves = 0;
+        int ghostInitialRiseMoves = 0;
+        bool ghostInitialRiseZero = false;
         int observedVignettes = 0;
         int ralphFallFrames = 0;
         bool sawStaticFallenRalph = false;
@@ -3949,7 +3951,31 @@ public sealed partial class ValidationRoot
             }
             if (_dialogue.IsOpen)
                 _dialogue.Close();
-            StepRoomEventFrames(1);
+            NayruGhostScriptHost ghostScript = nayruIntro.GhostScript;
+            CutsceneCommand? ghostCommand = ghostScript.Runner.CurrentCommand;
+            int ghostCounter = ghostScript.Runner.Counter;
+            int ghostUpdates = ghostScript.Runner.CurrentCommandUpdates;
+            Vector2 ghostPosition = ghostScript.PrecisePosition;
+            bool initialRise = nayruIntro.CommandRunner.CurrentCommand?.Source.Script == "runVeranGhostSubid0";
+            int riseUpdate = nayruIntro.CommandRunner.CurrentCommandUpdates;
+            Vector2 risePosition = riseUpdate == 0 && initialRise
+                ? OracleObjectPosition.FromPixels(currentActors["GhostVeran"].Position).PrecisePosition
+                : nayruIntro.GhostRisePosition;
+            StepGameplayUpdates(1, Vector2.Zero);
+            if (initialRise)
+            {
+                Vector2 expected = risePosition;
+                if (riseUpdate < 89)
+                {
+                    expected += Vector2.Up * 0.25f;
+                    ghostInitialRiseMoves++;
+                }
+                else ghostInitialRiseZero = true;
+                FailIf(nayruIntro.GhostRisePosition != expected,
+                    $"Ghost native rise update {riseUpdate}: expected {expected}, got {nayruIntro.GhostRisePosition}.");
+            }
+            CheckNayruGhostUpdate(ghostScript, ghostCommand, ghostCounter, ghostUpdates,
+                ghostPosition, ref ghostUpwardMoves, ref ghostDownwardMoves);
             scriptFrames++;
 
             int newVignettes = visitedVignettes & ~observedVignettes;
@@ -3988,7 +4014,8 @@ public sealed partial class ValidationRoot
             }
         }
         CutsceneCommandTraceEntry[] nayruStarts = nayruTrace.Entries
-            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started)
+            .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started &&
+                entry.Source.Label != "ghostVeranSubid1Script_part2")
             .ToArray();
         int importedTranslateCount = nayruDatabase.Commands
             .Count(command => command is CutsceneTranslateCommand or
@@ -4075,7 +4102,8 @@ public sealed partial class ValidationRoot
             !nayruTrace.Saw("PossessionSway") ||
             !nayruTrace.Saw("PossessionBlink") ||
             !nayruTrace.Saw("PossessionMovementSync") ||
-            !nayruTrace.Saw("GhostEmergence") ||
+            ghostUpwardMoves != 68 || ghostDownwardMoves != 34 ||
+            ghostInitialRiseMoves != 89 || !ghostInitialRiseZero ||
             !nayruTrace.Saw("RalphSwordSpacing") ||
             !nayruTrace.Saw("AftermathLinkWalk") ||
             !movementFacingShown || !vignetteDetailShown ||
@@ -4108,7 +4136,7 @@ public sealed partial class ValidationRoot
             $"possession={nayruTrace.Saw("PossessionSway")}/" +
             $"{nayruTrace.Saw("PossessionBlink")}/" +
             $"{nayruTrace.Saw("PossessionMovementSync")}/" +
-            $"{nayruTrace.Saw("GhostEmergence")}, " +
+            $"ghostMoves={ghostUpwardMoves}/{ghostDownwardMoves}, " +
             $"swordSpace={nayruTrace.Saw("RalphSwordSpacing")}, " +
             $"moveFacing={movementFacingShown}, vignette={vignetteDetailShown}, " +
             $"hud={sawHudDuringVignetteSequence}/{hudHiddenDuringVignetteSequence}, " +

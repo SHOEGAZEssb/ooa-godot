@@ -8,8 +8,7 @@ namespace oracleofages;
 internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
-    public RoomEventContext Context { get; }
-    protected override RoomEventContext InputContext => Context;
+    public override RoomEventContext Context { get; }
     internal SymmetryDatabase Database { get; } = new();
     private readonly List<SymmetryScriptHost> _actors = new();
     private TuniNutRoomEntity? _nut;
@@ -17,7 +16,7 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     public bool MenusDisabled => BlocksGameplay;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool HasState => _actors.Count != 0;
-    public bool BlocksGameplay => InputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
 
     public SymmetryEvent(RoomEventContext context) => Context = context;
     public bool Matches(int group, OracleRoomData room) => Context.Entities.EntityAdapters<SymmetryRoomEntity>().Any();

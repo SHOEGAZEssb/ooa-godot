@@ -9,7 +9,7 @@ namespace oracleofages;
 /// spawned native controller owns the ten pitches.
 /// </summary>
 internal sealed class ShootingGalleryEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private const string ActorName = "GalleryKeeper";
     private const string PaletteFadeGate = "PaletteFade";
@@ -147,7 +147,7 @@ internal sealed class ShootingGalleryEvent :
         if (_equipsSaved)
             RestoreEquips();
         if (_linkDisabled)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         RestoreFadePresentation();
         _keeper?.SetScriptButtonSensitive(false);
         _runner.Clear();
@@ -163,9 +163,10 @@ internal sealed class ShootingGalleryEvent :
         _retryPending = false;
         _condition = 0;
         _equipsSaved = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
 
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == ActorName;
@@ -215,7 +216,7 @@ internal sealed class ShootingGalleryEvent :
         ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("Shooting-gallery choice closed without a text-option result.") == value;
+        EventResources.RequireDialogueChoice("Shooting-gallery choice closed without a text-option result.") == value;
 
     bool ICutsceneCommandHost.TryConsumeActorButton(CutsceneActorId actor)
     {
@@ -439,7 +440,7 @@ internal sealed class ShootingGalleryEvent :
     private void DisableLinkAndMenus()
     {
         if (!_linkDisabled)
-            _context.Player.BeginCutsceneControl();
+            _context.Player.BeginCutsceneControl(owner: this);
         _linkDisabled = true;
         _menusDisabled = true;
     }
@@ -447,7 +448,7 @@ internal sealed class ShootingGalleryEvent :
     private void EnableLinkAndMenus()
     {
         if (_linkDisabled)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         _linkDisabled = false;
         _menusDisabled = false;
     }
@@ -455,7 +456,7 @@ internal sealed class ShootingGalleryEvent :
     private void EnableLinkKeepMenusDisabled()
     {
         if (_linkDisabled)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         _linkDisabled = false;
         _menusDisabled = true;
     }
@@ -566,7 +567,7 @@ internal sealed class ShootingGalleryEvent :
 
     private void BeginFade(ShootingGalleryFadeDirection direction)
     {
-        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
+        EventResources.CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _fadeDirection = direction;
         _fadeCounter = 0;
         _context.Fade.Color = new Color(
@@ -580,7 +581,7 @@ internal sealed class ShootingGalleryEvent :
     {
         _fadeDirection = ShootingGalleryFadeDirection.None;
         _fadeCounter = 0;
-        ReleaseFullScreenFade();
+        EventResources.ReleaseFullScreenFade();
     }
 
 }

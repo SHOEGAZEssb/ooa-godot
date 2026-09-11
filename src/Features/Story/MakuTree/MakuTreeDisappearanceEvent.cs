@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>Runs the one-shot Maku Tree disappearance in room $0:$38.</summary>
-internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEntryEvent,
+internal sealed class MakuTreeDisappearanceEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     private const string MakuTreeActor = "MakuTree";
@@ -79,7 +79,7 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         // Freeze its generic animation path so this event can reproduce the
         // original interactionRunScript -> interactionAnimate ordering.
         _makuTree.SetAnimationRate(0.0f);
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _runner.Start(_database.Commands);
     }
 
@@ -141,6 +141,7 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         _runner.Clear();
         _paletteCycling = false;
         _finishPending = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void AdvanceSimulatedInput()
@@ -167,7 +168,7 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         // It does not reload the tileset palette first, so PALH_8f must remain
         // on the unswapped room until the fade reaches white and reloads it.
         _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         // makuTreeDisappearingCutsceneHandler sets GLOBALFLAG_0c and room bit
         // 0. The preceding typed native command has already reproduced the
         // interaction script's incMakuTreeState call.
@@ -192,13 +193,13 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         _context.Transitions.ApplyWarpWithDelayedFadeOut(_context.Player, warp);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
+    public override void SetInputEnabled(bool enabled) =>
+        throw UnsupportedCommand($"set input enabled={enabled}");
+    public override void SetGlobalFlag(int flag) =>
+        throw UnsupportedCommand($"set global flag ${flag:x2}");
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "MakuTree";
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"Maku Tree script does not support setting input enabled={enabled}.");
 
     void ICutsceneCommandHost.SetMenuEnabled(bool enabled)
     {
@@ -212,10 +213,6 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         // active so simulated input owns Link while this script is running.
     }
 
-    void ICutsceneCommandHost.SetDisabledObjects(int value) =>
-        throw new InvalidOperationException(
-            $"Maku Tree script does not support wDisabledObjects=${value:x2}.");
-
     bool ICutsceneCommandHost.GateOpen(string gate)
     {
         if (gate != PaletteFadeDoneGate)
@@ -226,10 +223,6 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         // checkpalettefadedone exactly as the original interaction does.
         return !_context.Transitions.IsTransitioning;
     }
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"Maku Tree script cannot read '{binding}'=${value:x2}.");
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -255,13 +248,6 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         string encodedAnimation) =>
         RequireMakuTree(actor).SetScriptAnimation(encodedAnimation);
 
-    void ICutsceneCommandHost.SetActorMovementAnimation(
-        string actor,
-        int angle,
-        string encodedAnimation) =>
-        throw new InvalidOperationException(
-            $"Maku Tree actor '{actor}' cannot use movement animation ${angle:x2}.");
-
     public override void InitializeActorCollisionRadii(string actor) =>
         RequireMakuTree(actor).InitializeCollisionRadii();
 
@@ -278,14 +264,6 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
         // but actor validation keeps malformed imported records from passing.
         _ = RequireMakuTree(actor);
     }
-
-    void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle) =>
-        throw new InvalidOperationException(
-            $"Maku Tree actor '{actor}' cannot move at ${speed:x2}/${angle:x2}.");
-
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw new InvalidOperationException(
-            $"Maku Tree actor '{actor}' cannot set Z to ${zFixed:x4}.");
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireMakuTree(actor).Visible = visible;
@@ -305,14 +283,6 @@ internal sealed class MakuTreeDisappearanceEvent : CutsceneCommandHost, IRoomEnt
                     $"Maku Tree script cannot write '{binding}'=${value:x2}.");
         }
     }
-
-    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"Maku Tree script cannot directly set global flag ${flag:x2}.");
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"Maku Tree script cannot OR room flag ${flag:x2}.");
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {

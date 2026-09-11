@@ -48,7 +48,7 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
             OracleSaveData.RoomFlag40);
         if (!explained && _awaitingApproach)
             return false;
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         int angle = OracleObjectMovement.Shared.RelativeAngle(_actor.Position, _context.Player.Position);
         Vector2 facing = OracleObjectMath.StrictCardinalVector((angle + 4) & 0x18);
         _actor.SetFacingDirection(new Vector2I((int)facing.X, (int)facing.Y));
@@ -99,19 +99,20 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
         if (_active && !_context.DialogueOpen)
         {
             _actor?.SetFacingDirection(Vector2I.Down);
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
             _active = false;
         }
     }
 
     public void Cancel()
     {
-        if (_active) _context.Player.EndCutsceneControl();
+        if (_active) _context.Player.EndCutsceneControl(this);
         if (_effect is { } effect) effect.Retired = true;
         _effect = null;
         _active = false;
         _awaitingApproach = false;
         _counter = 0;
         _actor = null;
+        _context.Player.EndCutsceneControl(this);
     }
 }

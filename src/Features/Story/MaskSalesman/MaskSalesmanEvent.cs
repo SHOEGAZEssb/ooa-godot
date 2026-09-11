@@ -79,9 +79,12 @@ internal sealed class MaskSalesmanEvent :
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("maskSalesmanScript text-option branch has no completed choice result.") == value;
+        EventResources.RequireDialogueChoice("maskSalesmanScript text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
+        => ShowText(textId, message, null);
+
+    public override void ShowText(int textId, string message, int? textboxPosition)
     {
         if (textId != 0x0b45 && textId is < 0x0b0d or > 0x0b15)
         {
@@ -89,9 +92,9 @@ internal sealed class MaskSalesmanEvent :
                 $"maskSalesmanScript requested unknown TX_{textId:x4}.");
         }
         if (textId == 0x0b10)
-            Context.ShowChoiceDialogue(message);
+            Context.ShowChoiceDialogue(message, textboxPosition: textboxPosition);
         else
-            Context.ShowDialogue(message);
+            Context.ShowDialogue(message, textboxPosition);
     }
 
     void ICutsceneCommandHost.SetActorAnimation(

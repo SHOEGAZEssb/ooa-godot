@@ -8,26 +8,6 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    // Feed explicit host samples to the actual application scheduler and
-    // complete gameplay loop. Godot's native just-pressed flags otherwise
-    // persist across synchronous validation calls within one host frame.
-    private void StepSwimmingGameplay(int updates, Vector2 movement,
-        string[]? held = null, string[]? pressed = null, bool batched = false)
-    {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot)
-            .GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot)
-            .GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        Action advance = typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!
-            .CreateDelegate<Action>(this);
-        input.CaptureForValidation(held ?? [], pressed ?? [], movement);
-        if (batched)
-            scheduler.Advance(updates / 60.0, advance);
-        else
-            for (int i = 0; i < updates; i++) scheduler.Advance(1.0 / 60.0, advance);
-    }
-
     private void PrepareSwimmingRoom(int room = 0x05, bool mermaid = false)
     {
         ReinitializeGameplayForValidation();
@@ -42,7 +22,7 @@ public sealed partial class ValidationRoot
         FailIf(_rooms.CurrentRoom.GetMetatile(_player.Position) != 0x1b ||
             _collision.Collides(_player.Position),
             "Room 7:05 swimming fixture is not in its reachable water shaft.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.SideScrollSwimmingState != 2,
             "Room 7:05 did not enter swimming through the gameplay update.");
     }
@@ -52,38 +32,38 @@ public sealed partial class ValidationRoot
         PrepareSwimmingRoom();
         _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
         Vector2 start = _player.PrecisePosition;
-        StepSwimmingGameplay(1, Vector2.Up, ["move_up", "attack"], ["move_up", "attack"]);
+        StepGameplayUpdates(1, Vector2.Up, ["move_up", "attack"], ["move_up", "attack"]);
         FailIf(_player.IsAttacking || _player.SideScrollSwimBurstState != 1 ||
             _player.SideScrollSwimBurstCounter != 0x0c || _player.FacingVector != Vector2I.Left,
             "Room 7:05 Flippers A+Up with sword equipped did not use the swim burst and retain horizontal facing.");
-        StepSwimmingGameplay(24, Vector2.Up, ["move_up"]);
+        StepGameplayUpdates(24, Vector2.Up, ["move_up"]);
         FailIf(_player.SideScrollSwimBurstState != 0 || _player.IsAttacking,
             "Room 7:05 A-button Flippers burst did not complete after 25 updates.");
 
         PrepareSwimmingRoom();
         _inventory.SetScriptedEquippedItems(InventoryState.ItemSword, InventoryState.ItemNone);
         start = _player.PrecisePosition;
-        StepSwimmingGameplay(1, Vector2.Up, ["move_up", "item"], ["move_up", "item"]);
+        StepGameplayUpdates(1, Vector2.Up, ["move_up", "item"], ["move_up", "item"]);
         FailIf(!_player.IsAttacking || _player.SwordUsesUnderwaterAnimation ||
             _player.PrecisePosition != start || _player.FacingVector != Vector2I.Up ||
             _player.GetSwordHitbox().Size == Vector2.Zero,
             "Room 7:05 B sword with Flippers did not select normal $22 graphics, lock movement, and keep the sword's upward facing.");
-        StepSwimmingGameplay(16, Vector2.Up, ["move_up", "item"]);
+        StepGameplayUpdates(16, Vector2.Up, ["move_up", "item"]);
         FailIf(_player.SwordState != SwordActionState.Swing || _player.PrecisePosition != start,
             "Room 7:05 sword released its movement lock before the 17-update animation ended.");
-        StepSwimmingGameplay(1, Vector2.Up, ["move_up", "item"]);
+        StepGameplayUpdates(1, Vector2.Up, ["move_up", "item"]);
         FailIf(_player.SwordState != SwordActionState.Held ||
             _player.FacingVector != Vector2I.Right || _player.PrecisePosition.Y >= start.Y,
             "Room 7:05 held sword did not release movement and restore the swim body on the terminal update.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.IsAttacking, "Room 7:05 B release left a held sword active.");
-        StepSwimmingGameplay(1, Vector2.Zero, ["item"], ["item"]);
+        StepGameplayUpdates(1, Vector2.Zero, ["item"], ["item"]);
         FailIf(_player.SwordState != SwordActionState.Swing || _player.SwordUsesUnderwaterAnimation,
             "Room 7:05 repeated B attack lost the Flippers sword animation.");
 
         PrepareSwimmingRoom(mermaid: true);
         _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
-        StepSwimmingGameplay(1, Vector2.Zero, ["attack"], ["attack"]);
+        StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
         FailIf(!_player.SwordUsesUnderwaterAnimation || _player.SideScrollSwimBurstState != 0,
             "Room 7:05 Mermaid Suit A sword did not use animation $2d without a Flippers burst.");
 
@@ -91,8 +71,8 @@ public sealed partial class ValidationRoot
         {
             PrepareSwimmingRoom(mermaid: mermaid);
             _inventory.SetScriptedEquippedItems(InventoryState.ItemSword, InventoryState.ItemNone);
-            StepSwimmingGameplay(19, Vector2.Up, ["move_up", "item"], ["move_up", "item"], batched);
-            StepSwimmingGameplay(25, Vector2.Zero, batched: batched);
+            StepGameplayUpdates(19, Vector2.Up, ["move_up", "item"], ["move_up", "item"], batched);
+            StepGameplayUpdates(25, Vector2.Zero, batched: batched);
             return $"{_player.PrecisePosition}:{_player.SideScrollAngle}:{_player.SideScrollSpeedRaw}:" +
                 $"{_player.SideScrollSwimAnimationFrame}:{_player.SideScrollSwimAnimationCounter}:" +
                 $"{_player.SwordState}:{_entities.RandomCalls}:" +
@@ -104,11 +84,11 @@ public sealed partial class ValidationRoot
                 $"Room 7:05 swim/sword/bubble gameplay differs between individual and batched updates (Mermaid={mermaid}).");
 
         PrepareSwimmingRoom();
-        StepSwimmingGameplay(1, Vector2.Right, ["move_right"], ["move_right"]);
+        StepGameplayUpdates(1, Vector2.Right, ["move_right"], ["move_right"]);
         Vector2 recoilStart = _player.PrecisePosition;
         FailIf(!_player.ApplyEnemyContactDamage(_player.Position + new Vector2(16, 0), 2),
             "Room 7:05 swimming recoil fixture did not accept contact damage.");
-        StepSwimmingGameplay(1, Vector2.Right, ["move_right"]);
+        StepGameplayUpdates(1, Vector2.Right, ["move_right"]);
         FailIf(_player.PrecisePosition != recoilStart + new Vector2(-0.75f, 0) ||
             !_player.SideScrollSwimming || _player.SideScrollSpeedRaw != 0x14,
             "Room 7:05 recoil did not combine leftward SPEED_140 with rightward SPEED_80 swimming in source order.");
@@ -119,22 +99,22 @@ public sealed partial class ValidationRoot
         _player.WarpTo(safe);
         _player.WarpTo(new Vector2(40, 56), recordSafe: false);
         int health = _inventory.HealthQuarters;
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!_player.IsDrowning, "Room 7:05 without Flippers failed to enter swimming state $03.");
         FailIf(!_player.AcceptsRoomEntityContact,
             "Side-view water entry disabled collisions before the first linkUpdateDrowning update.");
-        StepSwimmingGameplay(22, Vector2.Zero);
+        StepGameplayUpdates(22, Vector2.Zero);
         FailIf(_player.Position != new Vector2(40, 56) || _inventory.HealthQuarters != health,
             "Side-view drowning moved or damaged Link before the next-update respawn initializer.");
         FailIf(_player.AcceptsRoomEntityContact || _player.AcceptsGroundInteractionContact,
             "linkUpdateDrowning did not disable enemy and interaction collision eligibility.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.Position != safe || _player.Visible || _inventory.HealthQuarters != health,
             "Side-view drowning did not enter its two-update invisible respawn after animation completion.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.Visible || _inventory.HealthQuarters != health,
             "Side-view drowning applied damage before its invisible counter reached zero.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         // linkApplyDamage halves damageToApply=$fc: two quarter-hearts.
         FailIf(!_player.Visible || _inventory.HealthQuarters != health - 2 || _player.SideScrollSwimming,
             $"Side-view drowning zero update: visible={_player.Visible}, health={_inventory.HealthQuarters}/{health - 2}, swimming={_player.SideScrollSwimmingState}.");
@@ -153,7 +133,7 @@ public sealed partial class ValidationRoot
             {
                 // Mermaid Suit uses strokes on fresh directional edges.
                 bool release = mermaid && i % 12 == 11;
-                StepSwimmingGameplay(1, release ? Vector2.Zero : Vector2.Up,
+                StepGameplayUpdates(1, release ? Vector2.Zero : Vector2.Up,
                     release ? [] : ["move_up"],
                     i == 0 || mermaid && i % 12 == 0 ? ["move_up"] : []);
             }
@@ -163,16 +143,16 @@ public sealed partial class ValidationRoot
             float exitX = _player.PrecisePosition.X;
             float exitY = _player.PrecisePosition.Y;
             // The update that began the warp also runs its first controller tick.
-            StepSwimmingGameplay(13, Vector2.Zero);
+            StepGameplayUpdates(13, Vector2.Zero);
             FailIf(_activeGroup != 7 || _rooms.CurrentRoom.Id != 0x05 ||
                 _player.PrecisePosition.X != exitX || _player.PrecisePosition.Y != exitY - 13,
                 "Room 7:05 source exit drifted horizontally or lost its SPEED_100 update count.");
-            for (int i = 0; i < 90 && IsTransitioning; i++) StepSwimmingGameplay(1, Vector2.Zero);
+            for (int i = 0; i < 90 && IsTransitioning; i++) StepGameplayUpdates(1, Vector2.Zero);
             FailIf(IsTransitioning || _activeGroup != 5 || _rooms.CurrentRoom.Id != 0xcc ||
                 _player.Position != new Vector2(0x28, 0x18) || _player.SideScrollSwimming,
                 $"Room 7:05 exit did not finish at source destination 5:cc/$12: {_activeGroup:x1}:{_rooms.CurrentRoom.Id:x2} {_player.Position}.");
             Vector2 destination = _player.Position;
-            StepSwimmingGameplay(1, Vector2.Zero);
+            StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_player.PrecisePosition != destination,
                 "The first 5:cc destination update retained side-view swim momentum or exit walking.");
         }
@@ -183,7 +163,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(24, 152));
         _player.Face(Vector2I.Left);
         for (int i = 0; i < 40 && !IsTransitioning; i++)
-            StepSwimmingGameplay(1, Vector2.Down, ["move_down"]);
+            StepGameplayUpdates(1, Vector2.Down, ["move_down"]);
         FailIf(!IsTransitioning || _player.FacingVector != Vector2I.Down,
             "Room 6:27 lower ladder exit did not derive DOWN from the edge warp.");
         GD.Print("Validated actual 7:05 underwater top exits with both equipment/facing states, arrival cleanup and 6:27 downward edge direction.");
@@ -193,21 +173,21 @@ public sealed partial class ValidationRoot
     {
         PrepareSwimmingRoom();
         int calls = _entities.RandomCalls;
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         var bubble = _entities.Entities<SideScrollBubbleRoomEntity>().Single();
         FailIf(_entities.RandomCalls != calls + 2 || bubble.Position != _player.Position ||
             bubble.Angle != 0 || bubble.TurnCounter != 4 || bubble.TurnsRemaining != 5,
             "Room 7:05 bubble did not consume Link's interval draw before the interaction's direction draw, or moved during initialization.");
         Vector2 start = bubble.PrecisePosition;
-        StepSwimmingGameplay(3, Vector2.Zero);
+        StepGameplayUpdates(3, Vector2.Zero);
         FailIf(bubble.PrecisePosition != start + new Vector2(0, -1.5f) ||
             bubble.Angle != 0 || bubble.TurnCounter != 1,
             "INTERAC_BUBBLE $91:$00 did not apply three exact SPEED_80/$00 displacements before turning.");
-        StepSwimmingGameplay(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(bubble.Angle is not (1 or 0x1f) || bubble.TurnCounter != 4 || bubble.TurnsRemaining != 4,
             "INTERAC_BUBBLE $91:$00 did not turn on update four.");
         int firstAngle = bubble.Angle;
-        StepSwimmingGameplay(16, Vector2.Zero);
+        StepGameplayUpdates(16, Vector2.Zero);
         FailIf(bubble.TurnsRemaining != 8 || bubble.Angle != (firstAngle == 1 ? 3 : 0x1d),
             "INTERAC_BUBBLE $91:$00 did not reverse before its fifth angle addition.");
 

@@ -6,7 +6,7 @@ using System.Linq;
 namespace oracleofages;
 
 /// <summary>Runs INTERAC_RAFTWRECK_CUTSCENE $9b:$00 in room $1:$a8.</summary>
-internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
+internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     ICutsceneCommandHost
 {
     private const string Actor = "Raftwreck";
@@ -70,7 +70,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
             .SingleOrDefault(entity => entity.LinkRiding);
         float ownerX = _raft?.PrecisePosition.X ?? _context.Player.PrecisePosition.X;
         _position = new Vector2(Mathf.Floor(ownerX), _database.Record.InitialY);
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _active = true;
         _initializing = true;
     }
@@ -127,7 +127,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
         if (releaseControl)
         {
             _raft?.CancelRaftwreckControl(_context.Player);
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         }
         _room?.ClearTemporaryBackgroundPalette(_context.AnimationTick());
         _room = null;
@@ -147,6 +147,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
         if (_ownsFlashFade)
             _context.Fade.Color = new Color(1, 1, 1, 0);
         _ownsFlashFade = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void Initialize()
@@ -273,7 +274,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
             _context.Player.SetRaftwreckCutscenePosition(_position, _direction);
         else
             _raft.FinishRaftwreck(_context.Player);
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         Warp warp = new(
             record.Group, record.Room, -1, 0, 0,
             record.Group, record.DestinationRoom, record.DestinationPosition,
@@ -506,7 +507,7 @@ internal sealed class RaftwreckEvent : CutsceneCommandHost, IRoomEntryEvent,
         _interactionEffects.RemoveAt(index);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == Actor;
     bool ICutsceneCommandHost.GateOpen(string gate) => gate == "PaletteFade"

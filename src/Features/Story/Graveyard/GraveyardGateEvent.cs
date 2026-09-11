@@ -9,16 +9,15 @@ namespace oracleofages;
 /// until that signal arrives.
 /// </summary>
 internal sealed class GraveyardGateEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;
     private readonly GraveyardGateEventDatabase _database = new();
     private readonly GraveyardGateEventDatabaseEventRecord _record;
     private readonly CutsceneCommandRunner _runner;
-    private GraveyardGateEventEventStage _stage;
+    private GraveyardGateEventStage _stage;
     private int _shakeCounter;
-    private bool _inputEnabled = true;
 
     internal GraveyardGateEvent(RoomEventContext context)
     {
@@ -27,9 +26,9 @@ internal sealed class GraveyardGateEvent :
         _runner = new CutsceneCommandRunner(this);
     }
 
-    public bool HasState => _stage is GraveyardGateEventEventStage.WaitingForKeyhole or GraveyardGateEventEventStage.Running;
-    public bool BlocksGameplay => _stage == GraveyardGateEventEventStage.Running;
-    internal GraveyardGateEventEventStage Stage => _stage;
+    public bool HasState => _stage is GraveyardGateEventStage.WaitingForKeyhole or GraveyardGateEventStage.Running;
+    public bool BlocksGameplay => _stage == GraveyardGateEventStage.Running;
+    internal GraveyardGateEventStage Stage => _stage;
     internal int Counter => _runner.Counter;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
@@ -48,17 +47,17 @@ internal sealed class GraveyardGateEvent :
                 $"Graveyard gate event cannot start in " +
                 $"{_context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
         }
-        _stage = GraveyardGateEventEventStage.WaitingForKeyhole;
+        _stage = GraveyardGateEventStage.WaitingForKeyhole;
     }
 
     internal bool CanTrigger(int group, int room) =>
         group == _record.Group && room == _record.Room &&
-        _stage == GraveyardGateEventEventStage.WaitingForKeyhole;
+        _stage == GraveyardGateEventStage.WaitingForKeyhole;
 
     internal void RetireCompletedControllerOnRoomLoad()
     {
-        if (_stage == GraveyardGateEventEventStage.Completed)
-            _stage = GraveyardGateEventEventStage.Inactive;
+        if (_stage == GraveyardGateEventStage.Completed)
+            _stage = GraveyardGateEventStage.Inactive;
     }
 
     internal void Trigger(int group, int room)
@@ -69,16 +68,14 @@ internal sealed class GraveyardGateEvent :
             throw new InvalidOperationException(
                 $"Room {group:x}:{room:x2} cannot trigger interactiondcSubid01Script.");
         }
-
-        _inputEnabled = false;
-        _context.Player.BeginCutsceneControl();
-        _stage = GraveyardGateEventEventStage.Running;
+        _context.Player.BeginCutsceneControl(owner: this);
+        _stage = GraveyardGateEventStage.Running;
         _runner.Start(_database.Commands);
     }
 
     public void UpdateFrame()
     {
-        if (_stage != GraveyardGateEventEventStage.Running)
+        if (_stage != GraveyardGateEventStage.Running)
             return;
         _runner.AdvanceFrame();
         UpdateScreenShake();
@@ -87,27 +84,23 @@ internal sealed class GraveyardGateEvent :
     public void Cancel()
     {
         _runner.Clear();
-        if (!_inputEnabled)
-            _context.Player.EndCutsceneControl();
+        if (EventResources.InputLocked)
+            _context.Player.EndCutsceneControl(this);
         _context.RoomCamera.Offset = Vector2.Zero;
-        _stage = GraveyardGateEventEventStage.Inactive;
+        _stage = GraveyardGateEventStage.Inactive;
         _shakeCounter = 0;
-        _inputEnabled = true;
+        _context.Player.EndCutsceneControl(this);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) => false;
 
     void ICutsceneCommandHost.SetInputEnabled(bool enabled)
     {
         if (!enabled)
             throw UnsupportedCommand("disable input from the command stream");
-        _context.Player.EndCutsceneControl();
-        _inputEnabled = true;
+        _context.Player.EndCutsceneControl(this);
     }
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     void ICutsceneCommandHost.SetMusic(int music)
     {
@@ -138,7 +131,7 @@ internal sealed class GraveyardGateEvent :
     {
         _context.RoomCamera.Offset = Vector2.Zero;
         _shakeCounter = 0;
-        _stage = GraveyardGateEventEventStage.Completed;
+        _stage = GraveyardGateEventStage.Completed;
     }
 
     private void RemoveGateTiles1()
@@ -206,7 +199,7 @@ internal sealed class GraveyardGateEvent :
 
 }
 
-internal enum GraveyardGateEventEventStage
+internal enum GraveyardGateEventStage
 {
     Inactive,
     WaitingForKeyhole,

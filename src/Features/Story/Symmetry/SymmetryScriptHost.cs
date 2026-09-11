@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace oracleofages;
 
-internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommandHost
+internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCommandHost
 {
     private readonly SymmetryEvent _owner;
     private readonly CutsceneCommandRunner _runner;
@@ -12,7 +12,7 @@ internal sealed class SymmetryScriptHost : CutsceneCommandHost, ICutsceneCommand
     private int _secretResult;
     private string _secret = string.Empty;
     private int _generation;
-    public RoomEventContext Context => _owner.Context;
+    public override RoomEventContext Context => _owner.Context;
     internal NpcCharacter Npc { get; }
     internal bool ButtonSensitive { get; private set; }
     internal bool ButtonPressed { get; set; }

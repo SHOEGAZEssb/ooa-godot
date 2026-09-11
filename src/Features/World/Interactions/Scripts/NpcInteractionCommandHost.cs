@@ -11,14 +11,11 @@ namespace oracleofages;
 /// </summary>
 internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 {
-    private readonly string _actorName;
+    private readonly ScriptActorBinding<NpcCharacter> _binding;
     private readonly CutsceneCommandRunner _runner;
-    private NpcCharacter? _actor;
     private NpcInteractionTarget? _interactionTarget;
     private Player? _player;
-    private bool _buttonSensitive;
-    private bool _buttonPressed;
-    private bool _inputLeaseHeld;
+    private bool InputControlHeld => _player?.IsCutsceneControlOwner(this) == true;
     private ICutsceneCommandTraceSink? _traceSink;
 
     protected NpcInteractionCommandHost(
@@ -28,7 +25,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         DialogueBox dialogue,
         IReadOnlyList<CutsceneCommand> commands)
     {
-        _actorName = actorName;
+        _binding = new(actorName);
         Rooms = rooms;
         Entities = entities;
         Dialogue = dialogue;
@@ -40,16 +37,16 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     protected RoomEntityManager Entities { get; }
     protected DialogueBox Dialogue { get; }
     protected IReadOnlyList<CutsceneCommand> Commands { get; }
-    protected NpcCharacter ScriptActor => _actor ??
-        throw new InvalidOperationException(
-            $"{GetType().Name} has no active {_actorName} actor.");
+    protected NpcCharacter ScriptActor => _binding.Actor ??
+        throw new InvalidOperationException($"{GetType().Name} has no active actor.");
     protected Player ScriptPlayer => _player ??
         throw new InvalidOperationException(
             $"{GetType().Name} has no active Link binding.");
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => _inputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
     public override bool DialogueOpen => Dialogue.IsOpen;
+    public override bool ScriptExecutionBlocked => DialogueOpen || _player?.IsDying == true;
     public override bool IsLinkedGame => Rooms.SaveData.IsLinkedGame;
     public override int FrameCounter => Entities.FrameCounter;
     public override ICutsceneCommandTraceSink? TraceSink => _traceSink;
@@ -57,7 +54,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int Counter => _runner.Counter;
-    internal bool InputDisabled => _inputLeaseHeld;
+    internal bool InputDisabled => InputControlHeld;
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;
 
@@ -69,18 +66,16 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
         if (!MatchesAndPrepare(npc))
             return false;
 
-        if (_runner.Active && !ReferenceEquals(_actor, npc))
+        if (_runner.Active && !ReferenceEquals(_binding.Actor, npc))
             Cancel();
         if (!_runner.Active)
             Start(target);
-        if (!_buttonSensitive || _inputLeaseHeld ||
-            !ReferenceEquals(_actor, npc))
+        if (InputControlHeld || !_binding.QueueButton(npc))
         {
             return false;
         }
 
         _player = player;
-        _buttonPressed = true;
         // Link's A-button probe and interactionRunScript belong to the same
         // original update. Consume the queued press at that boundary.
         _runner.AdvanceFrame();
@@ -99,30 +94,22 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     public void Cancel()
     {
         ResetHostState();
-        if (_inputLeaseHeld && _player is not null)
-            _player.EndCutsceneControl();
+        if (InputControlHeld && _player is not null)
+            _player.EndCutsceneControl(this);
         _interactionTarget?.Cancel();
-        if (_actor is not null)
-            _actor.SetScriptButtonSensitive(false);
-        _actor = null;
+        _binding.Clear();
         _interactionTarget = null;
         _player = null;
-        _buttonSensitive = false;
-        _buttonPressed = false;
-        _inputLeaseHeld = false;
         _runner.Clear();
     }
 
     public override bool HasActorBinding(CutsceneActorId actor) =>
-        actor.Value == _actorName;
+        _binding.Matches(actor);
 
     public override bool TryConsumeActorButton(CutsceneActorId actor)
     {
         RequireActor(actor.Value);
-        if (!_buttonPressed)
-            return false;
-        _buttonPressed = false;
-        return true;
+        return _binding.ConsumeButton();
     }
 
     public override void InitializeActorCollisionRadii(string actor) =>
@@ -136,27 +123,25 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     public override void SetActorButtonSensitive(string actor)
     {
-        RequireActor(actor).SetScriptButtonSensitive(true);
-        _buttonSensitive = true;
+        _ = RequireActor(actor);
+        _binding.EnableButton();
     }
 
     public override void SetInputEnabled(bool enabled)
     {
         if (enabled)
         {
-            if (_inputLeaseHeld)
+            if (InputControlHeld)
             {
-                ScriptPlayer.EndCutsceneControl();
-                _inputLeaseHeld = false;
+                ScriptPlayer.EndCutsceneControl(this);
             }
             EndTalkLifecycle();
             return;
         }
 
-        if (_inputLeaseHeld)
+        if (InputControlHeld)
             return;
-        ScriptPlayer.BeginCutsceneControl();
-        _inputLeaseHeld = true;
+        ScriptPlayer.BeginCutsceneControl(owner: this);
     }
 
     public override bool TextOptionEquals(int value)
@@ -185,16 +170,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     {
     }
 
-    protected NpcCharacter RequireActor(string actor)
-    {
-        if (actor != _actorName)
-        {
-            throw new InvalidOperationException(
-                $"{GetType().Name} cannot bind command actor '{actor}'; " +
-                $"expected '{_actorName}'.");
-        }
-        return ScriptActor;
-    }
+    protected NpcCharacter RequireActor(string actor) => _binding.Require(actor);
 
     protected void ShowDialogue(string message, bool choice, int initialChoice = 0)
     {
@@ -219,12 +195,9 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     private void Start(NpcInteractionTarget target)
     {
         NpcCharacter npc = target.Npc;
-        _actor = npc;
+        _binding.Bind(npc);
         _interactionTarget = target;
         _player = null;
-        _buttonSensitive = false;
-        _buttonPressed = false;
-        _inputLeaseHeld = false;
         target.Begin();
         _runner.Start(Commands);
         // Run initialization through the first checkabutton exactly once.

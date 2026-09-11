@@ -9,18 +9,17 @@ namespace oracleofages;
 internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
 {
-    public RoomEventContext Context { get; }
+    public override RoomEventContext Context { get; }
     internal CarpenterDatabase Database { get; } = new();
     private readonly CutsceneCommandLaneScheduler _lanes;
     private readonly List<CarpenterScriptHost> _actors = new();
     private CarpenterRoomEntity? _blocker;
-    protected override RoomEventContext InputContext => Context;
     private bool _exitController;
     private bool _exitChoice;
     private int _mountLock;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool HasState { get; private set; }
-    public bool BlocksGameplay => InputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled { get; private set; }
 
     public CarpenterEvent(RoomEventContext context)
@@ -105,7 +104,7 @@ internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntr
 
     public override void SetInputEnabled(bool enabled)
     {
-        if (InputLeaseHeld == !enabled) return;
+        if (InputControlHeld == !enabled) return;
         base.SetInputEnabled(enabled);
         if (!enabled) MenusDisabled = true;
     }

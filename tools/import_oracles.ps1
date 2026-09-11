@@ -106,17 +106,96 @@ $stageContracts = @(
             'allTexts', 'gfxNames', 'interactionAnimationSource',
             'interactionGraphics', 'mainObjectSource',
             'npcAnimationDefinitions', 'npcAnimationTables', 'npcOamBlocks')
-    New-ImportStageContract 'cutscenes' 'Import-CutsceneData.ps1' `
-        -inputs @(
-            'allTextFallthroughIds', 'allTextPositions', 'allTexts', 'gfxNames',
-            'globalFlagValues',
-            'interactionAnimationSource', 'interactionGraphics',
-            'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
-            'nayruScriptSource', 'npcAnimationTables', 'npcRows',
-            'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords',
-            'treasureObjectSource', 'soundIds', 'treasureIds') `
-        -functionInputs @(
-            'Export-PaletteBlock', 'Read-PaletteBytes', 'Resolve-NpcAnimation')
+    New-ImportStageContract 'cutscene-commands' 'Import-CutsceneData.ps1' `
+        -inputs @('assemblySourceHost') `
+        -outputs @('cutsceneCommandHeader', 'generatedCutsceneCommandStreams') `
+        -functionInputs @('Invoke-AssemblySourceHost') `
+        -functionOutputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Test-GeneratedCutsceneCommandStreams', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-normalization' 'Convert-CutsceneCommands.ps1' `
+        -inputs @('cutsceneCommandHeader') `
+        -functionInputs @('New-CutsceneCommandRow') `
+        -functionOutputs @('ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'cutscene-portals' 'Import-TimePortalData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionAnimationSource', 'interactionGraphics', 'mainObjectLines', 'npcAnimationTables', 'soundIds', 'treasureIds') `
+        -functionInputs @('Read-PaletteBytes', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-maku-tree' 'Import-MakuTreeData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords', 'treasureObjectSource') `
+        -outputs @('makuStopSound', 'objectGfxSource') `
+        -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-ralph-portal' 'Import-RalphPortalData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'npcRows') `
+        -outputs @('globalFlagSource', 'ralphScriptSource', 'speedMatch', 'speedSource') `
+        -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-deku-forest' 'Import-DekuForestData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'paletteDataSource', 'soundIds', 'speedSource', 'treasureIds', 'treasureObjectRecords') `
+        -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-enter-past' 'Import-EnterPastData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'globalFlagSource', 'npcRows', 'ralphScriptSource', 'speedMatch', 'speedSource') `
+        -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-graveyard-story' 'Import-GraveyardStoryData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'mainObjectSource', 'npcRows', 'speedSource') `
+        -functionInputs @('Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-impa' 'Import-ImpaCutsceneData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectLines', 'npcRows', 'paletteDataSource', 'speedSource') `
+        -functionInputs @('Export-PaletteBlock', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable') `
+        -functionOutputs @('Resolve-ObjectSpeed', 'Resolve-SoundConstant')
+    New-ImportStageContract 'cutscene-vocabulary' 'Import-CutsceneVocabulary.ps1' `
+        -outputs @('cutsceneCommandSchemas') `
+        -functionInputs @('Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-nayru' 'Import-NayruCutsceneData.ps1' `
+        -inputs @('nayruCutsceneSource', 'nayruScriptSource', 'speedSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-black-tower' 'Import-BlackTowerData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionGraphics') `
+        -outputs @('blackTowerCutsceneSource', 'musicConstantSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Export-PaletteBlock', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-maku-rescue' 'Import-MakuRescueData.ps1' `
+        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'paletteHeaderSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Export-PaletteBlock', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-dungeon-story' 'Import-DungeonStoryData.ps1' `
+        -inputs @('allTexts', 'blackTowerCutsceneSource', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'treasureIds') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-harp-story' 'Import-HarpStoryData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'objectGfxSource', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-trade-dialogue' 'Import-TradeDialogueData.ps1' `
+        -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'treasureObjectRecords') `
+        -outputs @('musicSource', 'roomFlagSource', 'tradeItemSource') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-npc-scripts' 'Import-NpcScriptData.ps1' `
+        -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-trade-quest' 'Import-TradeQuestData.ps1' `
+        -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-ralph-quests' 'Import-RalphQuestData.ps1' `
+        -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicConstantSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-rafton' 'Import-RaftonData.ps1' `
+        -inputs @('allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'roomFlagSource', 'speedSource', 'tradeItemSource', 'treasureObjectRecords') `
+        -outputs @('raftObjectSource') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-tokay-theft' 'Import-TokayTheftData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'raftObjectSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-tokay-cook' 'Import-TokayCookData.ps1' `
+        -inputs @('allTexts', 'allTextPositions') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-shooting-gallery' 'Import-ShootingGalleryData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'treasureIds') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-companions' 'Import-CompanionData.ps1' `
+        -inputs @('allTextFallthroughIds', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-carpenters' 'Import-CarpenterData.ps1' `
+        -inputs @('allTexts', 'globalFlagValues') `
+        -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-symmetry' 'Import-SymmetryData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'makuStopSound', 'soundIds', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-validation' 'Validate-CutsceneData.ps1' `
+        -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
+        -functionInputs @('Test-GeneratedCutsceneCommandStreams')
     New-ImportStageContract 'enemies' 'Import-EnemyData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'paletteHeaderSource') `
         -outputs @(

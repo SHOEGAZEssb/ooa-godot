@@ -96,7 +96,7 @@ internal sealed class RaftonEvent :
 
         if (!_rightRoom && rafton.Active)
             AdvanceLeftNativeAnimation(rafton);
-        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
     }
 
     public void UpdateDuringDialogueFrame()
@@ -109,7 +109,7 @@ internal sealed class RaftonEvent :
             else
                 AdvanceLeftNativeAnimation(rafton);
         }
-        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
     }
 
     public override int ReadMemory(string binding)
@@ -347,7 +347,7 @@ internal sealed class RaftonEvent :
 
     protected override void ResetEventState()
     {
-        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         _precisePosition = Vector2.Zero;
         _rightRoom = false;
         _d3EssenceObtained = false;

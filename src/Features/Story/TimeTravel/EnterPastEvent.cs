@@ -5,7 +5,7 @@ namespace oracleofages;
 
 /// <summary>Runs the one-shot first arrival in past room $1:$39.</summary>
 internal sealed class EnterPastEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private const string VillagerActor = "Villager";
@@ -26,18 +26,12 @@ internal sealed class EnterPastEvent :
             throw new InvalidOperationException(
                 $"Enter-past event uses global flag ${_record.GlobalFlag:x2}, expected $41.");
         }
-        if (_record.JumpSound != OracleSoundEngine.SndJump)
-        {
-            throw new InvalidOperationException(
-                $"Enter-past event uses jump sound ${_record.JumpSound:x2}, expected $53.");
-        }
     }
 
     public bool HasState => _runner.Active;
     public bool BlocksGameplay => HasState;
     internal bool Completed =>
         _context.Rooms.SaveData.HasGlobalFlag(_record.GlobalFlag);
-    internal EnterPastEventEventStage Stage => ResolveStage();
     internal int Counter => _runner.Counter;
     internal int ZFixed => _runner.ZFixed;
     internal int CurrentCommandIndex => _runner.CurrentCommand?.Source.CommandIndex ?? -1;
@@ -85,7 +79,7 @@ internal sealed class EnterPastEvent :
         // counter2 is nonzero.
         int animationUpdates = 1;
         int speed = _runner.ActorSpeed(VillagerActor);
-        if (_runner.Counter != 0 && speed >= _record.FastSpeed)
+        if (_runner.Counter != 0 && speed >= _record.AnimationDoubleSpeed)
             animationUpdates++;
         _villager.AdvanceAnimationUpdates(animationUpdates);
         _villager.PreventPlayerPassing(_context.Player);
@@ -101,15 +95,12 @@ internal sealed class EnterPastEvent :
         }
         _villager = null;
         ResetState();
+        _context.Player.EndCutsceneControl(this);
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Villager";
-
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"villagerSubid0dScript does not support setting menu enabled={enabled}.");
 
     void ICutsceneCommandHost.SetDisabledObjects(int value)
     {
@@ -118,28 +109,12 @@ internal sealed class EnterPastEvent :
             throw new InvalidOperationException(
                 $"villagerSubid0dScript requested unsupported wDisabledObjects ${value:x2}.");
         }
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         RequireVillager(VillagerActor).SetAnimationRate(0.0f);
     }
 
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"villagerSubid0dScript does not support gate '{gate}'.");
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"villagerSubid0dScript cannot read '{binding}'=${value:x2}.");
-
-    void ICutsceneCommandHost.ShowText(int textId, string message)
-    {
-        if (textId != _record.TextId)
-        {
-            throw new InvalidOperationException(
-                $"Enter-past command stream requested TX_{textId:x4}, " +
-                $"expected TX_{_record.TextId:x4}.");
-        }
+    public override void ShowText(int textId, string message) =>
         _context.ShowDialogue(message);
-    }
 
     void ICutsceneCommandHost.SetActorAnimation(
         string actor,
@@ -159,10 +134,6 @@ internal sealed class EnterPastEvent :
         int radiusX) =>
         RequireVillager(actor).SetCollisionRadii(radiusY, radiusX);
 
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw new InvalidOperationException(
-            $"Enter-past command actor '{actor}' cannot become A-button sensitive.");
-
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         RequireVillager(actor).Position =
@@ -175,18 +146,6 @@ internal sealed class EnterPastEvent :
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireVillager(actor).Visible = visible;
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"villagerSubid0dScript cannot write '{binding}'=${value:x2}.");
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"villagerSubid0dScript cannot OR room flag ${flag:x2}.");
-
-    void ICutsceneCommandHost.RunNativeHandler(string handler) =>
-        throw new InvalidOperationException(
-            $"Unknown first-past-arrival native script handler '{handler}'.");
 
     void ICutsceneCommandHost.ScriptEnded()
     {
@@ -201,60 +160,9 @@ internal sealed class EnterPastEvent :
         return _villager;
     }
 
-    private EnterPastEventEventStage ResolveStage()
-    {
-        if (!_runner.Active)
-            return EnterPastEventEventStage.Inactive;
-        if (_context.DialogueOpen)
-            return EnterPastEventEventStage.Dialogue;
-
-        int updates = _runner.CurrentCommandUpdates;
-        return _runner.CurrentCommand?.Source.CommandIndex switch
-        {
-            0 => EnterPastEventEventStage.Begin,
-            1 => updates == 0 ? EnterPastEventEventStage.InstallIntroWait : EnterPastEventEventStage.IntroWait,
-            2 or 3 => EnterPastEventEventStage.PreJumpWait,
-            4 => updates <= 1 ? EnterPastEventEventStage.BeginJump : EnterPastEventEventStage.Jump,
-            5 => updates == 0 ? EnterPastEventEventStage.InstallPostJumpWait : EnterPastEventEventStage.PostJumpWait,
-            6 => EnterPastEventEventStage.Dialogue,
-            7 => EnterPastEventEventStage.PostTextWait,
-            8 => EnterPastEventEventStage.StartFirstDown,
-            9 => updates == 0 ? EnterPastEventEventStage.StartFirstDown : EnterPastEventEventStage.FirstDown,
-            10 => updates == 0 ? EnterPastEventEventStage.FirstDown : EnterPastEventEventStage.Right,
-            11 => updates == 0 ? EnterPastEventEventStage.Right : EnterPastEventEventStage.SecondDown,
-            12 or 13 => updates == 0 ? EnterPastEventEventStage.StartSlowDown : EnterPastEventEventStage.SlowDown,
-            14 or 15 => updates == 0 ? EnterPastEventEventStage.StartFinalDown : EnterPastEventEventStage.FinalDown,
-            16 or 17 or 18 => EnterPastEventEventStage.FinalDown,
-            _ => EnterPastEventEventStage.Inactive
-        };
-    }
-
     private void ResetState()
     {
         _runner.Clear();
         _precisePosition = Vector2.Zero;
     }
-}
-
-internal enum EnterPastEventEventStage
-{
-    Inactive,
-    Begin,
-    InstallIntroWait,
-    IntroWait,
-    PreJumpWait,
-    BeginJump,
-    Jump,
-    InstallPostJumpWait,
-    PostJumpWait,
-    Dialogue,
-    PostTextWait,
-    StartFirstDown,
-    FirstDown,
-    Right,
-    SecondDown,
-    StartSlowDown,
-    SlowDown,
-    StartFinalDown,
-    FinalDown
 }

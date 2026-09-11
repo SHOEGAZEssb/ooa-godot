@@ -5,7 +5,7 @@ namespace oracleofages;
 
 /// <summary>Runs Ralph's one-shot portal departure in room $0:$39.</summary>
 internal sealed class RalphPortalEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
     private readonly RoomEventContext _context;
     private readonly RalphPortalEventDatabase _database = new();
@@ -86,39 +86,15 @@ internal sealed class RalphPortalEvent :
         _runner.Clear();
         _waitingForScroll = false;
         _flickering = false;
+        EventResources.UnlockInput();
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Ralph";
 
-    void ICutsceneCommandHost.SetMenuEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"Ralph's command stream does not support setting menu enabled={enabled}.");
-
-    void ICutsceneCommandHost.SetDisabledObjects(int value)
-    {
-        throw new InvalidOperationException(
-            $"Ralph's command stream does not support setdisabledobjects ${value:x2}.");
-    }
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"Ralph's command stream does not support gate '{gate}'.");
-
-    bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"Ralph's command stream cannot read '{binding}'=${value:x2}.");
-
-    void ICutsceneCommandHost.ShowText(int textId, string message)
-    {
-        if (textId != _record.TextId)
-        {
-            throw new InvalidOperationException(
-                $"Ralph command stream requested TX_{textId:x4}, expected TX_{_record.TextId:x4}.");
-        }
+    public override void ShowText(int textId, string message) =>
         _context.ShowDialogue(message);
-    }
 
     void ICutsceneCommandHost.SetActorAnimation(
         string actor,
@@ -139,10 +115,6 @@ internal sealed class RalphPortalEvent :
         int radiusY,
         int radiusX) =>
         RequireRalph(actor).SetCollisionRadii(radiusY, radiusX);
-
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw new InvalidOperationException(
-            $"Ralph's command actor '{actor}' cannot become A-button sensitive.");
 
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
@@ -173,20 +145,12 @@ internal sealed class RalphPortalEvent :
         int value)
     {
         RequireRalph(actor);
-        if (address != 0x3f || value != _record.FlickerFrames)
+        if (address != 0x3f)
         {
             throw new InvalidOperationException(
                 $"Ralph's command stream cannot write ${address:x2}=${value:x2}.");
         }
     }
-
-    void ICutsceneCommandHost.WriteMemory(string binding, int value) =>
-        throw new InvalidOperationException(
-            $"Ralph's command stream cannot write '{binding}'=${value:x2}.");
-
-    void ICutsceneCommandHost.OrRoomFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"Ralph's command stream cannot OR room flag ${flag:x2}.");
 
     void ICutsceneCommandHost.RunNativeHandler(string handler)
     {

@@ -72,7 +72,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
             return true;
         }
 
-        LockInput();
+        EventResources.LockInput();
         FaceActorToLink(npc);
         Show(0x0a1f);
         _stage = TokayDimitriStage.TradeIntro;
@@ -100,7 +100,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
             return;
         if (_stage == TokayDimitriStage.PendingIntro)
         {
-            LockInput();
+            EventResources.LockInput();
             _actor!.SetFacingDirection(Vector2I.Down);
             Show(0x0a1d);
             _stage = TokayDimitriStage.IntroFirstText;
@@ -185,7 +185,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
                 tokay.NativeAnimation = TokayAnimationMode.Animate;
                 tokay.SetFacingDirection(subid == 0x0f ? Vector2I.Right : Vector2I.Up);
             }
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         ClearDeparture();
@@ -290,10 +290,10 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
             .FirstOrDefault(npc => npc.Record.Id == 0x48 && npc.Record.SubId == subId);
 
     private void FaceActorToLink(NpcCharacter actor) =>
-        actor.SetFacingDirection(DirectionToward(actor.Position, Context.Player.Position));
+        actor.SetFacingDirection(RoomEventResources.DirectionToward(actor.Position, Context.Player.Position));
 
     private int TakeChoice() =>
-        RequireDialogueChoice("tokayWithDimitri1Script prompt closed without a text-option result.");
+        EventResources.RequireDialogueChoice("tokayWithDimitri1Script prompt closed without a text-option result.");
 
     private void FinishInteraction()
     {
@@ -305,7 +305,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
                 tokay.NativeAnimation = TokayAnimationMode.Animate;
             }
         }
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         ClearDeparture();
         _stage = TokayDimitriStage.Inactive;

@@ -36,10 +36,9 @@ internal sealed class RalphAfterRaftonEvent :
         _runner = new CutsceneCommandRunner(this);
     }
 
-    public RoomEventContext Context => _context;
-    protected override RoomEventContext InputContext => _context;
+    public override RoomEventContext Context => _context;
     public bool HasState => _active;
-    public bool BlocksGameplay => InputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
     internal RalphAfterRaftonEventDatabase Database => _database;
     internal int Substate => _substate;
     internal int Counter => _counter;
@@ -258,7 +257,7 @@ internal sealed class RalphAfterRaftonEvent :
     {
         if (!_context.Rooms.SaveData.HasRoomFlag(
                 _record.Group, _record.Room, (byte)_record.RoomFlag) ||
-            InputLeaseHeld || _menusDisabled)
+            InputControlHeld || _menusDisabled)
         {
             throw new InvalidOperationException(
                 "Ralph-after-Rafton script ended before restoring input/menu state.");

@@ -6,12 +6,13 @@ namespace oracleofages;
 /// concrete script owner.
 /// </summary>
 internal abstract class TokayScriptEvent(
-    RoomEventContext context, TokayInteractionDatabase interactions) : RoomEventHost
+    RoomEventContext context, TokayInteractionDatabase interactions)
 {
     protected RoomEventContext Context { get; } = context;
     protected TokayInteractionDatabase Interactions { get; } = interactions;
-    protected override RoomEventContext EventContext => Context;
-    public bool BlocksGameplay => InputLocked;
+    private RoomEventResources? _resources;
+    protected RoomEventResources EventResources => _resources ??= new(Context, this);
+    public bool BlocksGameplay => EventResources.InputLocked;
 
     protected void Show(int textId) => Context.ShowDialogue(Interactions.Text(textId));
     protected void ShowChoice(int textId) => Context.ShowChoiceDialogue(Interactions.Text(textId));

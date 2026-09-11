@@ -4,36 +4,22 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal abstract class CutsceneCommandHost : RoomEventHost, ICutsceneCommandHost
+internal abstract class CutsceneCommandHost : ICutsceneCommandHost
 {
     private CutsceneCommandSource? _activeSource;
 
-    protected override RoomEventContext EventContext =>
-        ((ICutsceneCommandHost)this).Context;
-
-    RoomEventContext ICutsceneCommandHost.Context =>
-        throw UnsupportedCommand("provide a room-event context");
-    public virtual bool DialogueOpen =>
-        ((ICutsceneCommandHost)this).Context.DialogueOpen;
-    public virtual bool IsLinkedGame =>
-        ((ICutsceneCommandHost)this).Context.Rooms.SaveData.IsLinkedGame;
-    public virtual int FrameCounter =>
-        ((ICutsceneCommandHost)this).Context.Entities.FrameCounter;
-    public virtual ICutsceneCommandTraceSink? TraceSink =>
-        ((ICutsceneCommandHost)this).Context.CommandTraceSink;
+    public virtual bool DialogueOpen => throw UnsupportedCommand("read dialogue state");
+    public virtual bool ScriptExecutionBlocked => DialogueOpen;
+    public virtual bool IsLinkedGame => throw UnsupportedCommand("read linked-game state");
+    public virtual int FrameCounter => throw UnsupportedCommand("read the frame counter");
+    public virtual ICutsceneCommandTraceSink? TraceSink => null;
 
     public void SetActiveCommandSource(CutsceneCommandSource? source) =>
         _activeSource = source;
 
     public virtual bool HasActorBinding(CutsceneActorId actor) => false;
-    public virtual void SetInputEnabled(bool enabled)
-    {
-        Player player = ((ICutsceneCommandHost)this).Context.Player;
-        if (enabled)
-            player.EndCutsceneControl();
-        else
-            player.BeginCutsceneControl();
-    }
+    public virtual void SetInputEnabled(bool enabled) =>
+        throw UnsupportedCommand($"set input enabled={enabled}");
     public virtual void SetMenuEnabled(bool enabled) =>
         throw UnsupportedCommand($"set menu enabled={enabled}");
     public virtual void SetDisabledObjects(int value) =>
@@ -57,8 +43,12 @@ internal abstract class CutsceneCommandHost : RoomEventHost, ICutsceneCommandHos
     public virtual void ShowText(
         int textId,
         string message,
-        int? textboxPosition) =>
+        int? textboxPosition)
+    {
+        if (textboxPosition is int position)
+            throw UnsupportedCommand($"show text ${textId:x4} at position ${position:x2}");
         ((ICutsceneCommandHost)this).ShowText(textId, message);
+    }
     public virtual void ShowLoadedText() =>
         throw UnsupportedCommand("show the loaded text");
     public virtual void SetActorAnimation(
@@ -76,6 +66,8 @@ internal abstract class CutsceneCommandHost : RoomEventHost, ICutsceneCommandHos
         throw UnsupportedCommand($"initialize actor '{actor}' collision radii");
     public virtual void MoveActorAtSpeed(string actor, int speed, int angle) =>
         throw UnsupportedCommand($"move actor '{actor}'");
+    public virtual void SetActorCoordinates(string actor, int y, int x) =>
+        throw UnsupportedCommand($"set actor '{actor}' coordinates ${y:x2}/${x:x2}");
     public virtual void SetActorZ(string actor, int zFixed) =>
         throw UnsupportedCommand($"set actor '{actor}' Z");
     public virtual void SetActorVisible(string actor, bool visible) =>
@@ -99,11 +91,11 @@ internal abstract class CutsceneCommandHost : RoomEventHost, ICutsceneCommandHos
     public virtual void GiveItem(int treasureId, int parameter) =>
         throw UnsupportedCommand($"give treasure ${treasureId:x2}:${parameter:x2}");
     public virtual void PlaySound(int sound) =>
-        ((ICutsceneCommandHost)this).Context.Sound.PlaySound(sound);
+        throw UnsupportedCommand($"play sound ${sound:x2}");
     public virtual void SetMusic(int music) =>
         throw UnsupportedCommand($"set music ${music:x2}");
     public virtual void SetGlobalFlag(int flag) =>
-        ((ICutsceneCommandHost)this).Context.Rooms.SaveData.SetGlobalFlag(flag);
+        throw UnsupportedCommand($"set global flag ${flag:x2}");
     public virtual void OrRoomFlag(int flag) =>
         throw UnsupportedCommand($"OR room flag ${flag:x2}");
     public virtual void RunNativeHandler(string handler) =>

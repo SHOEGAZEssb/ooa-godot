@@ -5,8 +5,8 @@ namespace oracleofages;
 
 internal interface ICutsceneCommandHost
 {
-    RoomEventContext Context { get; }
     bool DialogueOpen { get; }
+    bool ScriptExecutionBlocked { get; }
     bool IsLinkedGame { get; }
     int FrameCounter { get; }
     ICutsceneCommandTraceSink? TraceSink { get; }
@@ -24,8 +24,7 @@ internal interface ICutsceneCommandHost
     bool TextOptionEquals(int value);
     bool TryConsumeActorButton(CutsceneActorId actor);
     void ShowText(int textId, string message);
-    void ShowText(int textId, string message, int? textboxPosition) =>
-        ShowText(textId, message);
+    void ShowText(int textId, string message, int? textboxPosition);
     void ShowLoadedText();
     void SetActorAnimation(string actor, int animation, string encodedAnimation);
     void SetActorMovementAnimation(string actor, int angle, string encodedAnimation);
@@ -33,6 +32,7 @@ internal interface ICutsceneCommandHost
     void InitializeActorCollisionRadii(string actor);
     void SetActorButtonSensitive(string actor);
     void MoveActorAtSpeed(string actor, int speed, int angle);
+    void SetActorCoordinates(string actor, int y, int x);
     void SetActorZ(string actor, int zFixed);
     void SetActorVisible(string actor, bool visible);
     void WriteObjectByte(string actor, int address, int value);

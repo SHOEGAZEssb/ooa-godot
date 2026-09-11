@@ -45,9 +45,8 @@ internal sealed class MooshRescueEvent :
     }
 
     public bool HasState => _stage == MooshRescueStage.Running;
-    public bool BlocksGameplay => InputLeaseHeld;
-    protected override RoomEventContext InputContext => _context;
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public bool BlocksGameplay => InputControlHeld;
+    public override RoomEventContext Context => _context;
     public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     // The source gate reads wLinkObjectIndex == >w1Companion. That remains
     // true while Moosh is airborne, charging, falling, or recovering too;
@@ -478,7 +477,7 @@ internal sealed class MooshRescueEvent :
     private void FaceMooshTowardLink()
     {
         NpcCharacter moosh = Actor(Moosh);
-        Vector2I direction = DirectionToward(
+        Vector2I direction = RoomEventResources.DirectionToward(
             moosh.Position, _context.Player.Position);
         moosh.SetFacingDirection(direction);
 

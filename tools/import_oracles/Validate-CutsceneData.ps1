@@ -1,0 +1,1 @@
+Test-GeneratedCutsceneCommandStreams $generatedCutsceneCommandStreams $cutsceneCommandSchemas

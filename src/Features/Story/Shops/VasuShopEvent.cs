@@ -9,11 +9,12 @@ namespace oracleofages;
 /// menus, and no-cable serial timeout are supported. The linked-secret menu
 /// remains an explicit Game Link subsystem boundary.
 /// </summary>
-internal sealed class VasuShopEvent : RoomEventHost, IRoomEvent
+internal sealed class VasuShopEvent : IRoomEvent
 {
 
     private readonly RoomEventContext _context;
-    protected override RoomEventContext EventContext => _context;
+    private RoomEventResources? _resources;
+    private RoomEventResources EventResources => _resources ??= new(_context, this);
     private readonly VasuShopDatabase _database = new();
     private NpcCharacter? _npc;
     private GroundTreasurePickup? _reward;
@@ -695,7 +696,7 @@ internal sealed class VasuShopEvent : RoomEventHost, IRoomEvent
     private bool DialogueClosed() => !_context.DialogueOpen;
 
     private int TakeChoice() =>
-        RequireDialogueChoice($"Vasu Jewelers stage {_stage} closed without a text-option result.");
+        EventResources.RequireDialogueChoice($"Vasu Jewelers stage {_stage} closed without a text-option result.");
 
     private void ShowText(int textId) =>
         _context.ShowDialogue(_database.Text(textId), _database.TextboxPosition);

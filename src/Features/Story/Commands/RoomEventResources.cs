@@ -4,36 +4,31 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Shared context operations for native events and command hosts. This base
+/// Resources shared by native events and room command hosts. This owner
 /// owns no update loop, command capabilities, counters, or completion policy.
 /// </summary>
-internal abstract class RoomEventHost
+internal sealed class RoomEventResources(RoomEventContext context, object owner)
 {
-    protected abstract RoomEventContext EventContext { get; }
-    protected bool InputLocked { get; set; }
+    public bool InputLocked => context.Player.IsCutsceneControlOwner(owner);
     private bool _ownsFullScreenFade;
     private Vector2 _fadePosition;
     private Vector2 _fadeSize;
     private int? _fadeZIndex;
     private Color _fadeColor;
 
-    protected void LockInput(bool onlyIfUnlocked = false)
+    public void LockInput(bool onlyIfUnlocked = false, bool interruptBracelet = true)
     {
         if (onlyIfUnlocked && InputLocked)
             return;
-        EventContext.Player.BeginCutsceneControl();
-        InputLocked = true;
+        context.Player.BeginCutsceneControl(interruptBracelet, owner);
     }
 
-    protected void UnlockInput()
+    public void UnlockInput()
     {
-        if (!InputLocked)
-            return;
-        EventContext.Player.EndCutsceneControl();
-        InputLocked = false;
+        context.Player.EndCutsceneControl(owner);
     }
 
-    protected static Vector2I DirectionToward(Vector2 origin, Vector2 target)
+    public static Vector2I DirectionToward(Vector2 origin, Vector2 target)
     {
         int angle = (OracleObjectMovement.Shared.RelativeAngle(origin, target) + 4) & 0x18;
         return angle switch
@@ -47,7 +42,7 @@ internal abstract class RoomEventHost
 
     // INTERAC_EXCLAMATION_MARK $9f state 0 reveals without decrementing or
     // animating. Its finite state-1 lifetime advances at the owner's slot.
-    protected static void UpdateExclamation(ref NpcCharacter? actor, ref bool fresh, ref int counter)
+    public static void UpdateExclamation(ref NpcCharacter? actor, ref bool fresh, ref int counter)
     {
         if (actor is null)
             return;
@@ -65,7 +60,7 @@ internal abstract class RoomEventHost
         actor.AdvanceAnimationUpdates(1);
     }
 
-    protected static void RetireExclamation(ref NpcCharacter? actor, ref bool fresh, ref int counter)
+    public static void RetireExclamation(ref NpcCharacter? actor, ref bool fresh, ref int counter)
     {
         if (actor is not null &&
             GodotObject.IsInstanceValid(actor))
@@ -77,21 +72,21 @@ internal abstract class RoomEventHost
         fresh = false;
     }
 
-    protected int RequireDialogueChoice(string errorMessage)
+    public int RequireDialogueChoice(string errorMessage)
     {
-        if (!EventContext.TryTakeDialogueChoice(out int choice))
+        if (!context.TryTakeDialogueChoice(out int choice))
             throw new InvalidOperationException(errorMessage);
         return choice;
     }
 
     // Capture once: repeated fade phases must not overwrite the room's
     // presentation with the already-expanded full-screen rectangle.
-    protected bool CaptureFullScreenFade(int? zIndex = null)
+    public bool CaptureFullScreenFade(int? zIndex = null)
     {
         if (_ownsFullScreenFade)
             return false;
         _ownsFullScreenFade = true;
-        ColorRect fade = EventContext.Fade;
+        ColorRect fade = context.Fade;
         _fadePosition = fade.Position;
         _fadeSize = fade.Size;
         _fadeZIndex = zIndex.HasValue ? fade.ZIndex : null;
@@ -105,11 +100,11 @@ internal abstract class RoomEventHost
 
     // Some native paths explicitly clear to transparent white even when no
     // rectangle was captured. Their caller owns that write and passes false.
-    protected void ReleaseFullScreenFade(bool restoreColor = true)
+    public void ReleaseFullScreenFade(bool restoreColor = true)
     {
         if (!_ownsFullScreenFade)
             return;
-        ColorRect fade = EventContext.Fade;
+        ColorRect fade = context.Fade;
         fade.Position = _fadePosition;
         fade.Size = _fadeSize;
         if (_fadeZIndex is int layer)

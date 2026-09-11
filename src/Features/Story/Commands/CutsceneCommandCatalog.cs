@@ -156,6 +156,10 @@ internal static class CutsceneCommandCatalog
                 source,
                 Required(path, physicalLine, "actor", actor),
                 Hex(path, physicalLine, "arg0", arg0)),
+            "setcoords" => new CutsceneSetCoordinatesCommand(
+                source, Required(path, physicalLine, "actor", actor),
+                Hex(path, physicalLine, "arg0", arg0),
+                Hex(path, physicalLine, "arg1", arg1)),
             "move" => new CutsceneMoveCommand(
                 source,
                 Required(path, physicalLine, "actor", actor),

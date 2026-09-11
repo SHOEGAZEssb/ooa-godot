@@ -12,7 +12,7 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
     private readonly RoomEventContext _context;
     private readonly BlackTowerDoorwayEventDatabase _database = new();
     private readonly BlackTowerDoorwayEventDatabaseRecord _record;
-    private BlackTowerDoorwayEventEventStage _stage;
+    private BlackTowerDoorwayEventStage _stage;
 
     public BlackTowerDoorwayEvent(RoomEventContext context)
     {
@@ -20,9 +20,9 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
         _record = _database.Data;
     }
 
-    public bool HasState => _stage != BlackTowerDoorwayEventEventStage.Inactive;
+    public bool HasState => _stage != BlackTowerDoorwayEventStage.Inactive;
     public bool BlocksGameplay => false;
-    internal BlackTowerDoorwayEventEventStage Stage => _stage;
+    internal BlackTowerDoorwayEventStage Stage => _stage;
     internal BlackTowerDoorwayEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -34,28 +34,28 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
         // RoomEntitiesLoaded fires before a destination warp places Link.
         // Defer state 0 so its initial overlap test observes the final spawn,
         // as the original interaction update does.
-        _stage = BlackTowerDoorwayEventEventStage.Initialize;
+        _stage = BlackTowerDoorwayEventStage.Initialize;
     }
 
     public void UpdateFrame()
     {
         switch (_stage)
         {
-            case BlackTowerDoorwayEventEventStage.Initialize:
+            case BlackTowerDoorwayEventStage.Initialize:
                 Initialize();
                 break;
-            case BlackTowerDoorwayEventEventStage.WaitForExit:
+            case BlackTowerDoorwayEventStage.WaitForExit:
                 if (!TouchesLink())
-                    _stage = BlackTowerDoorwayEventEventStage.Armed;
+                    _stage = BlackTowerDoorwayEventStage.Armed;
                 break;
-            case BlackTowerDoorwayEventEventStage.Armed:
+            case BlackTowerDoorwayEventStage.Armed:
                 if (TouchesLink() && LinkIsVulnerable())
                     EnterTower();
                 break;
         }
     }
 
-    public void Cancel() => _stage = BlackTowerDoorwayEventEventStage.Inactive;
+    public void Cancel() => _stage = BlackTowerDoorwayEventStage.Inactive;
 
     private void Initialize()
     {
@@ -70,7 +70,7 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
         // State 0 always increments once and increments a second time when
         // Link is not touching. A spawn already inside therefore waits for an
         // exit; any other entry starts armed.
-        _stage = TouchesLink() ? BlackTowerDoorwayEventEventStage.WaitForExit : BlackTowerDoorwayEventEventStage.Armed;
+        _stage = TouchesLink() ? BlackTowerDoorwayEventStage.WaitForExit : BlackTowerDoorwayEventStage.Armed;
     }
 
     private bool TouchesLink()
@@ -116,7 +116,7 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
             destinationParameter,
             destinationTransition);
 
-        _stage = BlackTowerDoorwayEventEventStage.Inactive;
+        _stage = BlackTowerDoorwayEventStage.Inactive;
         _context.Sound.PlaySound(_record.Sound);
         _context.Transitions.ApplyWarp(_context.Player, warp);
     }
@@ -126,7 +126,7 @@ internal sealed class BlackTowerDoorwayEvent : IRoomEntryEvent
         (position >> 4) * OracleRoomData.MetatileSize + 8);
 }
 
-internal enum BlackTowerDoorwayEventEventStage
+internal enum BlackTowerDoorwayEventStage
 {
     Inactive,
     Initialize,

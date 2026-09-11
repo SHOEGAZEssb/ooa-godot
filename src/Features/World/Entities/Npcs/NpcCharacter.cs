@@ -242,6 +242,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     /// </summary>
     internal void SetScriptButtonSensitive(bool sensitive) =>
         _scriptButtonSensitive = sensitive;
+    internal bool ScriptButtonSensitive => _scriptButtonSensitive;
 
     internal void SetStatePosition(Vector2 position)
     {

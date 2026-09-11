@@ -29,13 +29,12 @@ internal sealed class PoeEvent :
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => InputLeaseHeld;
-    protected override RoomEventContext InputContext => _context;
+    public bool BlocksGameplay => InputControlHeld;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
     internal bool ButtonSensitive => _buttonSensitive;
-    internal bool InputDisabled => InputLeaseHeld;
+    internal bool InputDisabled => InputControlHeld;
     internal PoeEventDatabase Database => _database;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -103,7 +102,7 @@ internal sealed class PoeEvent :
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
+        if (!_runner.Active || !_buttonSensitive || InputControlHeld ||
             _poe?.Disappearing != false || !ReferenceEquals(npc, _poe))
         {
             return false;
@@ -122,7 +121,7 @@ internal sealed class PoeEvent :
         ResetState();
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == ActorName;
 

@@ -32,7 +32,6 @@ internal sealed class RickyGlovesEvent :
         _record = _database.Record;
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => Context;
     internal RickyGlovesEventDatabase Database => _database;
     internal NpcCharacter? RickyActor => _placedActor;
     public bool MenusDisabled => _menusDisabled;

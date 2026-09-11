@@ -119,13 +119,18 @@ actors coordinated by one source sequence share an event owner; independent
 dialogues, trades, room-entry scripts, and minigames remain separate even when
 they reuse one imported database or live in adjacent rooms.
 
-Shared event bases hold repeated context operations and source-family contracts.
+Native events compose room resources; command hosts separately bind room services
+or entity services. The interpreter interface does not require a room context.
 Full-screen fade capture is idempotent; each caller specifies whether it owns
 the layer and whether cleanup restores the captured color. Input helpers retain
 the difference between repeating disable-input side effects and acquiring a
-lock only once. Base extraction must preserve each caller's native update slot,
+lock only once. Player owns the current control owner: a later source write
+transfers cleanup responsibility, and cancelling the former owner cannot
+release the successor's control. Each event releases its own resources even
+when cancelled directly; controller cancellation supplies no blanket unlock.
+Shared helpers must preserve each caller's native update slot,
 initialization update, counter boundary, and cancellation order. Command hosts
-remain default-deny; inheriting a helper does not enable a script capability.
+remain default-deny; composing resources does not expose script operations.
 
 Ordinary destination events remain frozen during scrolling. Clear runners,
 release input, detach registrations, and remove transient actors on cancellation
@@ -140,7 +145,8 @@ to script commands.
 
 1. Build the evidence packet and select the original owner.
 2. Extend `Import-NpcData.ps1` for ordinary/state-derived actor data or
-   `Import-CutsceneData.ps1` for actual script/event records.
+   the owning cutscene family stage for actual script/event records. Stage
+   inputs, outputs, and shared functions are declared in `import_oracles.ps1`.
 3. Add strict runtime loading; reject unsupported classifications and operands.
 4. Implement the smallest ordinary entity, linked owner, native entity, or room
    event that preserves update order.

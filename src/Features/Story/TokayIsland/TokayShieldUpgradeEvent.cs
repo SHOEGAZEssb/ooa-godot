@@ -30,7 +30,7 @@ internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
 
         _actor = npc;
         ((TokayCharacter)npc).ScriptOwnsNativeUpdate = true;
-        LockInput();
+        EventResources.LockInput();
         if (CurrentRoomFlag(OracleSaveData.RoomFlag40))
         {
             Show(0x0a69);
@@ -102,7 +102,7 @@ internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         _reward?.Finish(Context.Player);
         _reward = null;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _stage = TokayShieldUpgradeStage.Inactive;
@@ -133,7 +133,7 @@ internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
     private void FinishInteraction()
     {
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = TokayShieldUpgradeStage.Inactive;
     }

@@ -308,15 +308,15 @@ public sealed partial class ValidationRoot
                 "Sword/audio fixture must stand on clear room 0:$38 geometry at ($88,$28).");
             _sound.RestartSound();
             ValidationSoundRequestAudit audit = _sound.AttachPlayRequestAudit();
-            StepSwimmingGameplay(1, Vector2.Zero, ["attack"], ["attack"], batchGameplay);
+            StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batchGameplay);
             FailIf(!_player.IsAttacking || audit.Requests.Count == 0 ||
                 !Enumerable.Range(0, 8).Any(i => _sound.Channel(i).Active),
                 "The actual gameplay loop must consume sword input, enqueue its source sound and execute the first note in the same update: " +
                 $"batch={batchGameplay}, position={_player.Position}, attacking={_player.IsAttacking}, sounds={string.Join(',', audit.Requests)}, swordLevel={_inventory.SwordLevel}, dialogue={_dialogue.IsOpen}, event={_roomEvents.Active}, swordDisabled={_entities.PlayerSwordDisabled}, physics={_player.IsPhysicsProcessing()}.");
-            StepSwimmingGameplay(40, Vector2.Zero, batched: batchGameplay);
+            StepGameplayUpdates(40, Vector2.Zero, batched: batchGameplay);
             FailIf(_player.IsAttacking, "Sword action must complete before its sound re-entry check.");
             int requests = audit.Requests.Count;
-            StepSwimmingGameplay(1, Vector2.Zero, ["attack"], ["attack"], batchGameplay);
+            StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batchGameplay);
             FailIf(!_player.IsAttacking || audit.Requests.Count <= requests,
                 "A completed sword action must be able to request another sound through the gameplay loop.");
             int[] trace = audit.Requests.Concat(Enumerable.Range(0, 8)

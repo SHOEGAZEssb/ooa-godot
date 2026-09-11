@@ -223,7 +223,7 @@ internal sealed class RalphAfterChevalEvent :
     {
         if (!Context.Rooms.SaveData.HasRoomFlag(
                 _record.Group, _record.Room, (byte)_record.RoomFlag) ||
-            InputLeaseHeld || _menusDisabled)
+            InputControlHeld || _menusDisabled)
         {
             throw new InvalidOperationException(
                 "Ralph-after-Cheval script ended before restoring input/menu state.");

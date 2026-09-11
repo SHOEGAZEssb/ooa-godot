@@ -9,7 +9,7 @@ namespace oracleofages;
 /// owners, dynamic masked-Moblin combat, and the four-step opening gate.
 /// </summary>
 internal sealed class MakuSproutRescueEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
 {
 
     private readonly RoomEventContext _context;
@@ -24,10 +24,9 @@ internal sealed class MakuSproutRescueEvent :
     private NpcCharacter? _sprout;
     private NpcCharacter? _leftMoblin;
     private NpcCharacter? _rightMoblin;
-    private MakuSproutRescueEventEventStage _stage;
+    private MakuSproutRescueEventStage _stage;
     private int _cutsceneState;
     private int _moblinSync;
-    private bool _inputEnabled;
     private bool _buttonSensitive;
     private bool _screenTransitionsDisabled;
     private bool _playerMoveComplete;
@@ -49,10 +48,10 @@ internal sealed class MakuSproutRescueEvent :
         _rightRunner = new CutsceneCommandRunner(this);
     }
 
-    public bool HasState => _stage is MakuSproutRescueEventEventStage.Running or MakuSproutRescueEventEventStage.NpcLoop;
-    public bool BlocksGameplay => HasState && !_inputEnabled;
+    public bool HasState => _stage is MakuSproutRescueEventStage.Running or MakuSproutRescueEventStage.NpcLoop;
+    public bool BlocksGameplay => HasState && EventResources.InputLocked;
     public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
-    internal MakuSproutRescueEventEventStage Stage => _stage;
+    internal MakuSproutRescueEventStage Stage => _stage;
     internal int CutsceneState => _cutsceneState;
     internal MakuSproutRescueDatabase Database => _database;
 
@@ -73,8 +72,7 @@ internal sealed class MakuSproutRescueEvent :
             "INTERAC_MAKU_SPROUT");
         _objectPositions["Sprout"] =
             OracleObjectMovement.Shared.PositionFromPixels(_sprout.Position);
-        _stage = MakuSproutRescueEventEventStage.Running;
-        _inputEnabled = true;
+        _stage = MakuSproutRescueEventStage.Running;
         _sproutRunner.Start(_database.Sprout);
 
         // CUTSCENE_LOADING_ROOM continues updating interactions beneath a
@@ -128,7 +126,7 @@ internal sealed class MakuSproutRescueEvent :
         if (_controllerEnded)
         {
             _controllerEnded = false;
-            _stage = MakuSproutRescueEventEventStage.Completed;
+            _stage = MakuSproutRescueEventStage.Completed;
             _sprout = null;
         }
     }
@@ -139,17 +137,16 @@ internal sealed class MakuSproutRescueEvent :
         _controllerRunner.Clear();
         _leftRunner.Clear();
         _rightRunner.Clear();
-        if (!_inputEnabled)
-            _context.Player.EndCutsceneControl();
+        if (EventResources.InputLocked)
+            _context.Player.EndCutsceneControl(this);
         _context.RoomCamera.Offset = Vector2.Zero;
         _sprout = null;
         _leftMoblin = null;
         _rightMoblin = null;
         _objectPositions.Clear();
-        _stage = MakuSproutRescueEventEventStage.Inactive;
+        _stage = MakuSproutRescueEventStage.Inactive;
         _cutsceneState = 0;
         _moblinSync = 0;
-        _inputEnabled = true;
         _buttonSensitive = false;
         _screenTransitionsDisabled = false;
         _playerMoveComplete = false;
@@ -159,6 +156,7 @@ internal sealed class MakuSproutRescueEvent :
         _gatePhase = 0;
         _gateCounter = 0;
         _shakeCounter = 0;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void ConfigureSavedSprout(NpcCharacter sprout)
@@ -280,21 +278,17 @@ internal sealed class MakuSproutRescueEvent :
         _ => throw UnsupportedCommand($"resolve actor '{name}'")
     };
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value is "Sprout" or "MoblinLeft" or "MoblinRight";
 
     void ICutsceneCommandHost.SetInputEnabled(bool enabled)
     {
-        _inputEnabled = enabled;
         if (enabled)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         else
-            _context.Player.BeginCutsceneControl();
+            _context.Player.BeginCutsceneControl(owner: this);
     }
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         binding switch
@@ -442,14 +436,14 @@ internal sealed class MakuSproutRescueEvent :
                 _screenTransitionsDisabled = false;
                 break;
             case "EnterNpcLoop":
-                _stage = MakuSproutRescueEventEventStage.NpcLoop;
+                _stage = MakuSproutRescueEventStage.NpcLoop;
                 break;
             case "FaceMoblinLeft":
-                Actor("MoblinLeft").SetFacingDirection(DirectionToward(
+                Actor("MoblinLeft").SetFacingDirection(RoomEventResources.DirectionToward(
                     Actor("MoblinLeft").Position, _context.Player.Position));
                 break;
             case "FaceMoblinRight":
-                Actor("MoblinRight").SetFacingDirection(DirectionToward(
+                Actor("MoblinRight").SetFacingDirection(RoomEventResources.DirectionToward(
                     Actor("MoblinRight").Position, _context.Player.Position));
                 break;
             case "AddMoblinSync":
@@ -510,7 +504,7 @@ internal sealed class MakuSproutRescueEvent :
         if (commandUpdate == 0)
         {
             _playerMoveComplete = false;
-            _context.Player.BeginCutsceneControl();
+            _context.Player.BeginCutsceneControl(owner: this);
             return false;
         }
         Vector2 position = _context.Player.Position;
@@ -532,7 +526,7 @@ internal sealed class MakuSproutRescueEvent :
             // zero-distance Y=$38 waypoint before seeing $ff. That waypoint
             // deliberately changes Link's direction to DIR_UP.
             _context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Up);
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
             _playerMoveComplete = true;
             return true;
         }
@@ -553,7 +547,7 @@ internal sealed class MakuSproutRescueEvent :
 
 }
 
-internal enum MakuSproutRescueEventEventStage
+internal enum MakuSproutRescueEventStage
 {
     Inactive,
     Running,

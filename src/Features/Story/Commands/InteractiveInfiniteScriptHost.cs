@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -13,80 +12,63 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     where TActor : NpcCharacter
 {
     private readonly RoomEventContext _context;
-    private readonly string _actorName;
+    private readonly ScriptActorBinding<TActor> _binding;
     private readonly CutsceneCommandRunner _runner;
-    private TActor? _actor;
-    private bool _buttonSensitive;
-    private bool _buttonPressed;
+    private readonly CutsceneActorId _actorId;
 
     protected InteractiveInfiniteScriptHost(
         RoomEventContext context,
         string actorName)
     {
         _context = context;
-        _actorName = actorName;
+        _binding = new(actorName);
+        _actorId = new(actorName);
         _runner = new CutsceneCommandRunner(this);
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => InputLeaseHeld;
-    public RoomEventContext Context => _context;
-    protected override RoomEventContext InputContext => _context;
-    protected TActor? ScriptActor => _actor;
-    protected bool PendingActorButton => _buttonPressed;
-    protected int ScriptActorSpeed => _runner.ActorSpeed(new(_actorName));
+    public bool BlocksGameplay => InputControlHeld;
+    public override RoomEventContext Context => _context;
+    protected TActor? ScriptActor => _binding.Actor;
+    protected bool PendingActorButton => _binding.ButtonPending;
+    protected int ScriptActorSpeed => _runner.ActorSpeed(_actorId);
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
-    internal bool ButtonSensitive => _buttonSensitive;
+    internal bool ButtonSensitive => _binding.ButtonSensitive;
 
     public abstract void UpdateFrame();
 
-    public bool TryInteractNpc(NpcCharacter npc)
-    {
-        if (!_runner.Active || !_buttonSensitive || InputLeaseHeld ||
-            !ReferenceEquals(npc, _actor))
-        {
-            return false;
-        }
-
-        _buttonPressed = true;
-        return true;
-    }
+    public bool TryInteractNpc(NpcCharacter npc) =>
+        _runner.Active && !InputControlHeld && _binding.QueueButton(npc);
 
     public void Cancel()
     {
         ReleaseInputControl();
-        if (_actor is not null)
+        if (_binding.Actor is { } actor)
         {
-            _actor.SetScriptButtonSensitive(false);
-            _actor.SetAnimationRate(1.0f);
+            ReleaseScriptActor(actor);
+            actor.SetAnimationRate(1.0f);
         }
 
-        _actor = null;
-        _buttonSensitive = false;
-        _buttonPressed = false;
+        _binding.Clear();
         _runner.Clear();
         ResetEventState();
     }
 
     public sealed override bool HasActorBinding(CutsceneActorId actor) =>
-        actor.Value == _actorName;
+        _binding.Matches(actor);
 
     public sealed override bool TryConsumeActorButton(CutsceneActorId actor)
     {
         _ = RequireScriptActor(actor.Value);
-        if (!_buttonPressed)
-            return false;
-
-        _buttonPressed = false;
-        return true;
+        return _binding.ConsumeButton();
     }
 
     public sealed override void SetActorButtonSensitive(string actor)
     {
-        RequireScriptActor(actor).SetScriptButtonSensitive(true);
-        _buttonSensitive = true;
+        _ = RequireScriptActor(actor);
+        _binding.EnableButton();
     }
 
     public sealed override void SetActorVisible(string actor, bool visible) =>
@@ -98,9 +80,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
         int initialScriptUpdates = 0)
     {
         _runner.Clear();
-        _actor = actor;
-        _buttonSensitive = false;
-        _buttonPressed = false;
+        _binding.Bind(actor);
         ReleaseInputControl();
         _runner.Start(commands);
 
@@ -114,28 +94,17 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     /// Registers the actor when native state-0 code installs A-button
     /// sensitivity before entering the imported script stream.
     /// </summary>
-    protected void SetInitialActorButtonSensitive()
-    {
-        TActor actor = _actor ?? throw new InvalidOperationException(
-            $"{_actorName} has no actor for native A-button registration.");
-        actor.SetScriptButtonSensitive(true);
-        _buttonSensitive = true;
-    }
+    protected void SetInitialActorButtonSensitive() => _binding.EnableButton();
 
-    protected void ClearPendingActorButton() => _buttonPressed = false;
+    protected void ClearPendingActorButton() => _binding.ClearPendingButton();
 
-    protected TActor RequireScriptActor(string actor)
-    {
-        if (actor != _actorName || _actor is null)
-        {
-            throw new InvalidOperationException(
-                $"Unknown {_actorName} command actor '{actor}'.");
-        }
-
-        return _actor;
-    }
+    protected TActor RequireScriptActor(string actor) => _binding.Require(actor);
 
     protected virtual void ResetEventState()
+    {
+    }
+
+    protected virtual void ReleaseScriptActor(TActor actor)
     {
     }
 }

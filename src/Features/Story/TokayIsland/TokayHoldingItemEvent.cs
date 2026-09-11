@@ -42,7 +42,7 @@ internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
             return true;
         }
 
-        LockInput();
+        EventResources.LockInput();
         Show(npc.Record.SubId == 0x07 ? 0x0a0a : 0x0a0b);
         _stage = TokayHoldingItemStage.Intro;
         return true;
@@ -110,7 +110,7 @@ internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         _reward?.Finish(Context.Player);
         _reward = null;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _stage = TokayHoldingItemStage.Inactive;
@@ -144,7 +144,7 @@ internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
     private void FinishInteraction()
     {
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = TokayHoldingItemStage.Inactive;
     }

@@ -1,24 +1,16 @@
 namespace oracleofages;
 
-internal abstract class InteractiveCutsceneCommandHost : CutsceneCommandHost
+internal abstract class InteractiveCutsceneCommandHost : RoomCutsceneCommandHost
 {
-    protected abstract RoomEventContext InputContext { get; }
-    protected bool InputLeaseHeld => InputLocked;
+    protected bool InputControlHeld => EventResources.InputLocked;
 
     public override void SetInputEnabled(bool enabled)
     {
-        if (enabled == !InputLeaseHeld)
-            return;
-        InputLocked = !enabled;
         if (enabled)
-            InputContext.Player.EndCutsceneControl();
+            EventResources.UnlockInput();
         else
-            InputContext.Player.BeginCutsceneControl();
+            EventResources.LockInput(onlyIfUnlocked: true);
     }
 
-    protected void ReleaseInputControl()
-    {
-        if (InputLeaseHeld)
-            SetInputEnabled(enabled: true);
-    }
+    protected void ReleaseInputControl() => EventResources.UnlockInput();
 }

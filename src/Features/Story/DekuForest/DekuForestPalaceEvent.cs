@@ -47,7 +47,6 @@ internal sealed class DekuForestPalaceEvent :
     private int _rewardCounter;
     private int _rewardZFixed;
     private int _rewardSpeedZ;
-    protected override RoomEventContext InputContext => _context;
     private bool _menusDisabled;
     private bool _fadeCompleted;
     private bool _returnRequested;
@@ -217,7 +216,7 @@ internal sealed class DekuForestPalaceEvent :
             RestoreFade();
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
 
     public override bool HasActorBinding(CutsceneActorId actor) =>
         _actors.ContainsKey(actor.Value);

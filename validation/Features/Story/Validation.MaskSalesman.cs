@@ -125,6 +125,18 @@ public sealed partial class ValidationRoot
         _roomEvents.CommandTraceSink = trace;
         LoadValidationRoom(group, room);
 
+        // TX_0b11..TX_0b15 explicitly select position $02. Put Link low so
+        // automatic placement would choose the top and cannot mask a dropped operand.
+        _player.WarpTo(new Vector2(0x48, 0x68));
+        for (int textId = 0x0b11; textId <= 0x0b15; textId++)
+        {
+            CutsceneShowTextCommand text = Text(textId);
+            FailIf(text.TextboxPosition != 2, $"TX_{textId:x4} lost source textbox position $02.");
+            maskEvent.ShowText(textId, text.Message, text.TextboxPosition);
+            FailIf(_dialogue.Position.Y != 96, $"TX_{textId:x4} ignored its imported lower textbox position.");
+            _dialogue.Close();
+        }
+
         MaskSalesmanCharacter salesman = Salesman();
         FailIf(
             salesman.Record is not { Id: 0x5c, SubId: 0x00 } ||

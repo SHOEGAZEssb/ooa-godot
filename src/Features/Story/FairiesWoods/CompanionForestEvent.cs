@@ -28,11 +28,10 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     private int _exclamationCounter;
 
     internal CompanionForestEvent(RoomEventContext context) { _context = context; _runner = new(this); }
-    protected override RoomEventContext InputContext => _context;
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
     public bool HasState => _waitingForTrigger || _runner.Active || _flights.Count != 0 ||
         (_sparkles?.Count ?? 0) != 0 || _exclamationCounter != 0 || _giveFlutePending;
-    public bool BlocksGameplay => InputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
     public bool MenusDisabled => _menusDisabled;
     internal int Instruction => _runner.Instruction;
     internal int Signal => _context.Entities.RuntimeState.ReadWramByte(0xcfd2);

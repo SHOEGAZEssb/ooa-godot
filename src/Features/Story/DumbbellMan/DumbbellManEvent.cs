@@ -79,7 +79,7 @@ internal sealed class DumbbellManEvent :
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("dumbbellManScript text-option branch has no completed choice result.") == value;
+        EventResources.RequireDialogueChoice("dumbbellManScript text-option branch has no completed choice result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

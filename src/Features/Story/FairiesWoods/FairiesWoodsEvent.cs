@@ -10,7 +10,7 @@ namespace oracleofages;
 /// ordinary forest room changes and is reset only by room $0:$93 or quitting.
 /// </summary>
 internal sealed class FairiesWoodsEvent :
-    CutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     ICutsceneCommandHost,
     IUpdatesDuringDialogueRoomEvent
@@ -35,6 +35,7 @@ internal sealed class FairiesWoodsEvent :
     private int _hideRoomIndex;
     private int _completionCounter;
     private int _forcedLeftCounter;
+    private readonly object _forcedMovementOwner = new();
     private bool _screenTransitionsDisabled;
     private Vector2 _savedLinkPosition;
     private Vector2I _savedLinkFacing;
@@ -53,7 +54,7 @@ internal sealed class FairiesWoodsEvent :
         _stage != FairiesWoodsStage.Inactive ||
         _forcedLeftCounter != 0 ||
         (_sparkles?.Count ?? 0) != 0;
-    public bool BlocksGameplay => InputLocked || _forcedLeftCounter != 0;
+    public bool BlocksGameplay => EventResources.InputLocked || _forcedLeftCounter != 0;
     public bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
     internal FairiesWoodsStage Stage => _stage;
     internal int FoundFairies => Found;
@@ -147,7 +148,7 @@ internal sealed class FairiesWoodsEvent :
                     {
                         _context.Player.Face(entryDirection);
                     }
-                    LockInput(onlyIfUnlocked: true);
+                    EventResources.LockInput(onlyIfUnlocked: true);
                     Active = 1;
                     _scriptKind = FairyScriptKind.Intro;
                     _runner.Start(_database.IntroCommands);
@@ -197,7 +198,7 @@ internal sealed class FairiesWoodsEvent :
                 break;
 
             case FairiesWoodsStage.CompletionShowInitial:
-                CaptureFullScreenFade(zIndex: 48);
+                EventResources.CaptureFullScreenFade(zIndex: 48);
                 SetFadeAlpha(0.0f);
                 ShowText(0x110a);
                 _stage = FairiesWoodsStage.CompletionWaitInitial;
@@ -305,19 +306,19 @@ internal sealed class FairiesWoodsEvent :
             }
         }
         _discovered.Clear();
-        if (InputLocked || _forcedLeftCounter != 0)
-            _context.Player.EndCutsceneControl();
-        InputLocked = false;
+        EventResources.UnlockInput();
+        _context.Player.EndCutsceneControl(_forcedMovementOwner);
         _screenTransitionsDisabled = false;
         _forcedLeftCounter = 0;
         _stage = FairiesWoodsStage.Inactive;
         RestorePlayerVisibility();
-        ReleaseFullScreenFade();
+        EventResources.ReleaseFullScreenFade();
         if (_sparkles is not null)
         {
             _sparkles.QueueFree();
             _sparkles = null;
         }
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void StartMainRoom()
@@ -380,7 +381,7 @@ internal sealed class FairiesWoodsEvent :
         _hiddenCounter = unchecked((byte)(_hiddenCounter - 1));
         if (_hiddenCounter != 0 || !LinkIsVulnerable())
             return;
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         _screenTransitionsDisabled = true;
         _stage = FairiesWoodsStage.HiddenSpawn;
     }
@@ -402,7 +403,7 @@ internal sealed class FairiesWoodsEvent :
         _screenTransitionsDisabled = false;
         if (Found != 7)
         {
-            UnlockInput();
+            EventResources.UnlockInput();
             _stage = FairiesWoodsStage.Inactive;
             return;
         }
@@ -426,9 +427,9 @@ internal sealed class FairiesWoodsEvent :
     {
         _savedLinkPosition = _context.Player.Position;
         _savedLinkFacing = _context.Player.FacingVector;
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         CapturePlayerVisibility();
-        CaptureFullScreenFade(zIndex: 48);
+        EventResources.CaptureFullScreenFade(zIndex: 48);
         _fadeCounter = 0;
         _hideRoomIndex = 0;
         _stage = FairiesWoodsStage.HidingFadeOut;
@@ -488,8 +489,8 @@ internal sealed class FairiesWoodsEvent :
                 refill: 1,
                 _record.NormalFadeIn))
             return;
-        UnlockInput();
-        ReleaseFullScreenFade();
+        EventResources.UnlockInput();
+        EventResources.ReleaseFullScreenFade();
         ShowText(0x1104);
         _stage = FairiesWoodsStage.SearchRoom;
     }
@@ -520,7 +521,7 @@ internal sealed class FairiesWoodsEvent :
 
     private void BeginCompletion()
     {
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         _context.Player.Face(Vector2I.Up);
         _stage = FairiesWoodsStage.CompletionShowInitial;
     }
@@ -538,8 +539,8 @@ internal sealed class FairiesWoodsEvent :
     {
         _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
         _context.Rooms.SaveData.SetGlobalFlag(_record.UnscrambledFlag);
-        UnlockInput();
-        ReleaseFullScreenFade();
+        EventResources.UnlockInput();
+        EventResources.ReleaseFullScreenFade();
         _stage = FairiesWoodsStage.Inactive;
     }
 
@@ -650,8 +651,8 @@ internal sealed class FairiesWoodsEvent :
             return;
         _context.Player.AdvanceCutsceneInput(Vector2I.Left);
         _forcedLeftCounter--;
-        if (_forcedLeftCounter == 0 && !InputLocked)
-            _context.Player.EndCutsceneControl();
+        if (_forcedLeftCounter == 0)
+            _context.Player.EndCutsceneControl(_forcedMovementOwner);
     }
 
     private bool ExitCollision()
@@ -704,7 +705,7 @@ internal sealed class FairiesWoodsEvent :
 
     private void SetFadeAlpha(float alpha)
     {
-        CaptureFullScreenFade(zIndex: 48);
+        EventResources.CaptureFullScreenFade(zIndex: 48);
         _context.Fade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0, 1));
     }
 
@@ -779,7 +780,7 @@ internal sealed class FairiesWoodsEvent :
         (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
         (packed >> 4) * OracleRoomData.MetatileSize + 8);
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
 
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "FairyExit";
@@ -787,13 +788,10 @@ internal sealed class FairiesWoodsEvent :
     void ICutsceneCommandHost.SetInputEnabled(bool enabled)
     {
         if (enabled)
-            UnlockInput();
+            EventResources.UnlockInput();
         else
-            LockInput(onlyIfUnlocked: true);
+            EventResources.LockInput(onlyIfUnlocked: true);
     }
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw UnsupportedCommand($"read gate '{gate}'");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         ReadScriptMemory(binding) == value;
@@ -802,7 +800,7 @@ internal sealed class FairiesWoodsEvent :
         ReadScriptMemory(binding);
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("Fairies' Woods exit choice has no completed result.") == value;
+        EventResources.RequireDialogueChoice("Fairies' Woods exit choice has no completed result.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {
@@ -857,7 +855,7 @@ internal sealed class FairiesWoodsEvent :
                 break;
             case "MoveLinkBackLeft":
                 if (!_context.Player.CutsceneControlled)
-                    _context.Player.BeginCutsceneControl();
+                    _context.Player.BeginCutsceneControl(owner: _forcedMovementOwner);
                 _context.Player.Face(Vector2I.Left);
                 _forcedLeftCounter = 8;
                 break;

@@ -18,8 +18,9 @@ public sealed class NayruIntroEventDatabase
     private readonly Dictionary<int, VignetteRecord> _vignettes = new();
     private readonly List<VignetteMonkeyRecord> _vignetteMonkeys = new();
 
-    public NayruIntroEventDatabaseEventRecord Event { get; }
+    public NayruIntroEventRecord Event { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
+    internal IReadOnlyList<CutsceneCommand> GhostCommands { get; }
     public IReadOnlyList<SingingOamRecord> SingingOam { get; }
     public Color[,] SingingBackgroundPalettes { get; }
     public Color[,] SingingSpritePalettes { get; }
@@ -47,7 +48,7 @@ public sealed class NayruIntroEventDatabase
                     "nayru-landing-delay", "nayru-fall-speed-z", "nayru-fall-gravity"
                 ],
                 headerRequired: true)).SingleRow();
-        Event = new NayruIntroEventDatabaseEventRecord(
+        Event = new NayruIntroEventRecord(
             eventRow.Decimal(0, 0, 7),
             eventRow.HexByte(1),
             eventRow.HexByte(2),
@@ -78,11 +79,12 @@ public sealed class NayruIntroEventDatabase
             eventRow.Decimal(27));
         Commands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
-        if (Commands.Count != 235 || Commands[^1] is not CutsceneEndCommand)
+        GhostCommands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/nayru_ghost_commands.tsv");
+        if (Commands[^1] is not CutsceneEndCommand || GhostCommands[^1] is not CutsceneEndCommand)
         {
             throw new InvalidOperationException(
-                $"Initial Nayru command stream should contain 235 records ending in scriptend, " +
-                $"got {Commands.Count}.");
+                "Initial Nayru command streams must terminate in scriptend.");
         }
 
         GeneratedTable actorTable = GeneratedTable.Load(
@@ -313,11 +315,66 @@ public readonly record struct TextRecord(int Id, int TextboxPosition, string Mes
 
 public readonly record struct SingingOamRecord(int Y, int X, int Tile, int Flags);
 
-public readonly record struct NayruIntroEventDatabaseEventRecord(int Group, int Room, int IntroFlag, int CompletionRoomFlag, int BearRoomFlag, int TriggerX, int TriggerY, int BearDelayFrames, int BearMoveSpeed, int PostBearTextFrames, int SingingFrames, int SingingSkipWindow, int SingingScrollPeriod, int SingingScrollSteps, int PossessionFadeHoldFrames, int PortalPosition, int PortalTile, int VignetteCount, int NpcJumpSpeedZ, int NpcJumpGravity, int DarkFadeFrames, int WhiteFadeOutFrames, int WhiteFadeInFrames, int NayruAscentSpeedZ, int NayruTransferZ, int NayruLandingDelay, int NayruFallSpeedZ, int NayruFallGravity);
+public readonly record struct NayruIntroEventRecord(
+    int Group,
+    int Room,
+    int IntroFlag,
+    int CompletionRoomFlag,
+    int BearRoomFlag,
+    int TriggerX,
+    int TriggerY,
+    int BearDelayFrames,
+    int BearMoveSpeed,
+    int PostBearTextFrames,
+    int SingingFrames,
+    int SingingSkipWindow,
+    int SingingScrollPeriod,
+    int SingingScrollSteps,
+    int PossessionFadeHoldFrames,
+    int PortalPosition,
+    int PortalTile,
+    int VignetteCount,
+    int NpcJumpSpeedZ,
+    int NpcJumpGravity,
+    int DarkFadeFrames,
+    int WhiteFadeOutFrames,
+    int WhiteFadeInFrames,
+    int NayruAscentSpeedZ,
+    int NayruTransferZ,
+    int NayruLandingDelay,
+    int NayruFallSpeedZ,
+    int NayruFallGravity);
 
-public readonly record struct FleeRecord(string Actor, int Delay, int Angle, int SpeedRaw, int WaitJumpSpeedZ, int WaitGravity, bool RepeatWaitJump, int EscapeJumpSpeedZ, int EscapeGravity, bool RepeatEscapeJump, bool WaitForLanding, int WaitAnimation, int EscapeAnimation);
+public readonly record struct FleeRecord(
+    string Actor,
+    int Delay,
+    int Angle,
+    int SpeedRaw,
+    int WaitJumpSpeedZ,
+    int WaitGravity,
+    bool RepeatWaitJump,
+    int EscapeJumpSpeedZ,
+    int EscapeGravity,
+    bool RepeatEscapeJump,
+    bool WaitForLanding,
+    int WaitAnimation,
+    int EscapeAnimation);
 
-public readonly record struct ActorRecord(int Index, int Id, int SubId, int Y, int X, int Var03, string Name, string SpriteName, int TileBase, int Palette, int DefaultAnimation, string[] Animations, int InitialAnimation, string ExtraSprite)
+public readonly record struct ActorRecord(
+    int Index,
+    int Id,
+    int SubId,
+    int Y,
+    int X,
+    int Var03,
+    string Name,
+    string SpriteName,
+    int TileBase,
+    int Palette,
+    int DefaultAnimation,
+    string[] Animations,
+    int InitialAnimation,
+    string ExtraSprite)
 {
     public string Animation(int index)
     {

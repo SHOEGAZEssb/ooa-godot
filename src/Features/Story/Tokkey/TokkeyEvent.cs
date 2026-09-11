@@ -30,11 +30,10 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         _runner = new(this);
     }
 
-    public RoomEventContext Context { get; }
-    protected override RoomEventContext InputContext => Context;
+    public override RoomEventContext Context { get; }
     internal TokkeyDatabase Database { get; } = new();
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => InputLeaseHeld;
+    public bool BlocksGameplay => InputControlHeld;
     internal int State { get; private set; }
     internal int Counter => _runner.Counter;
     internal int CommandIndex => _runner.Instruction;
@@ -78,7 +77,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
                 // On the completion update, the parent has restored Link's
                 // collisions while wLinkPlayingInstrument still contains $01.
                 Player link = Context.Player;
-                if (InputLeaseHeld || link.IsDying || link.GaleActive ||
+                if (InputControlHeld || link.IsDying || link.GaleActive ||
                     link.ElectricShockActive || !link.OverlapsTimePortalHeight)
                     return;
                 int tile = ((int)link.Position.Y & 0xf0) | (((int)link.Position.X >> 4) & 0x0f);
@@ -121,14 +120,14 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         }
         // INTERAC_PLAY_HARP_SONG and effects occupy later interaction slots.
         UpdateSong();
-        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         UpdateNotes();
     }
 
     public void UpdateDuringDialogueFrame()
     {
         // $9f/$a0 set Interaction.enabled bit 7; Tokkey and $c5 do not.
-        UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         UpdateNotes();
     }
 
@@ -141,7 +140,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!HasState || !_buttonSensitive || InputLeaseHeld || !ReferenceEquals(npc, _actor)) return false;
+        if (!HasState || !_buttonSensitive || InputControlHeld || !ReferenceEquals(npc, _actor)) return false;
         _buttonPressed = true;
         return true;
     }
@@ -151,7 +150,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         ReleaseInputControl();
         if (_songUpdate >= 0) Context.Player.EndHarpPose();
         _songUpdate = -1;
-        RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
         foreach (var note in _notes) note.Actor.SetActive(false);
         _notes.Clear();
         _actor?.SetScriptButtonSensitive(false);

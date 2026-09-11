@@ -60,6 +60,15 @@ internal static class Program
                     : utf8.GetString(Convert.FromBase64String(request[(separator + 1)..]));
                 switch (command)
                 {
+                    case "CUTSCENE_SCALAR":
+                    {
+                        int delimiter = payload.IndexOf('\0');
+                        if (delimiter < 0)
+                            throw new InvalidDataException("CUTSCENE_SCALAR requires shape and value.");
+                        WriteSuccess(oracleofages.CutsceneFieldShape.IsValid(
+                            payload[..delimiter], payload[(delimiter + 1)..]) ? "1" : "0", utf8);
+                        break;
+                    }
                     case "TEXT":
                         WriteSuccess(repository.GetText(payload), utf8);
                         break;

@@ -168,7 +168,7 @@ internal sealed class ToiletHandEvent :
     }
 
     bool ICutsceneCommandHost.TextOptionEquals(int value) =>
-        RequireDialogueChoice("toiletHandScript text-option branch has no completed choice.") == value;
+        EventResources.RequireDialogueChoice("toiletHandScript text-option branch has no completed choice.") == value;
 
     void ICutsceneCommandHost.ShowText(int textId, string message)
     {

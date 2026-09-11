@@ -9,7 +9,7 @@ namespace oracleofages;
 /// following-Link behavior that persists across scrolling room transitions.
 /// </summary>
 internal sealed class ImpaIntroEvent :
-    CutsceneCommandHost,
+    RoomCutsceneCommandHost,
     IRoomEntryEvent,
     IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
@@ -192,7 +192,7 @@ internal sealed class ImpaIntroEvent :
         _followRoom = room;
         _stage = ImpaIntroEventStage.LinkInitialize;
         _counter = 0;
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _encounterRunner.Start(_database.EncounterCommands);
     }
 
@@ -357,6 +357,7 @@ internal sealed class ImpaIntroEvent :
         _stoneMoveCounter = 0;
         _waitingNpcInitialized = false;
         _context.Player.SetCutscenePushing(false);
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void UpdateEncounterFrame()
@@ -657,8 +658,8 @@ internal sealed class ImpaIntroEvent :
         // when the stone reaction begins. The high-level event remains in its
         // retained Following stage so the same Impa actor can resume later.
         _followingLinkObjectActive = false;
-        _context.Player.BeginCutsceneControl();
-        _context.Player.Face(DirectionToward(_context.Player.Position,
+        _context.Player.BeginCutsceneControl(owner: this);
+        _context.Player.Face(RoomEventResources.DirectionToward(_context.Player.Position,
             new Vector2(stone.TargetX, stone.TargetY)));
         // Substate $01 updates Impa's priority before detecting Link at
         // Y<$58/X<$78. Substates $02-$0a never update it again, so retain that
@@ -666,7 +667,7 @@ internal sealed class ImpaIntroEvent :
         // toward her.
         Actor!.SetFixedDrawPriority(Actor.ZIndex);
         Actor!.SetBlocksLink(false);
-        Actor.SetFacingDirection(DirectionToward(
+        Actor.SetFacingDirection(RoomEventResources.DirectionToward(
             Actor.Position, new Vector2(stone.TargetX, stone.TargetY)));
         _precisePosition = Actor.Position;
         _jumpZFixed = 0;
@@ -748,7 +749,7 @@ internal sealed class ImpaIntroEvent :
 
     private void BeginWaitingForStonePush()
     {
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Player.Face(Vector2I.Up);
         // The completed move-away script is already on animation $01. Setting
         // impaScript_waitForRockToBeMoved does not reset that animation, and
@@ -851,7 +852,7 @@ internal sealed class ImpaIntroEvent :
         Actor.SetFixedDrawPriority(Actor.ZIndex);
         Actor.SetBlocksLink(false);
         _waitingNpcInitialized = false;
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _context.Player.Face(_pushedRight ? Vector2I.Right : Vector2I.Left);
         _context.Player.SetCutscenePushing(true);
         _stoneStage = StoneStage.PushStarted;
@@ -945,7 +946,7 @@ internal sealed class ImpaIntroEvent :
             case HelpStage.WaitingAtEdge:
                 if (!upPressed || _context.Player.Position.Y >= _helpRecord.EdgeY)
                     return;
-                _context.Player.BeginCutsceneControl();
+                _context.Player.BeginCutsceneControl(owner: this);
                 _helpStage = HelpStage.Script;
                 _helpRunner.Start(_database.HelpCommands);
                 _helpRunner.AdvanceFrame();
@@ -964,7 +965,7 @@ internal sealed class ImpaIntroEvent :
                 if (_counter == 0)
                 {
                     _helpStage = HelpStage.None;
-                    _context.Player.EndCutsceneControl();
+                    _context.Player.EndCutsceneControl(this);
                 }
                 break;
         }
@@ -1021,13 +1022,13 @@ internal sealed class ImpaIntroEvent :
         }
     }
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
+    public override void SetInputEnabled(bool enabled) =>
+        throw UnsupportedCommand($"set input enabled={enabled}");
+    public override void SetGlobalFlag(int flag) =>
+        throw UnsupportedCommand($"set global flag ${flag:x2}");
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Impa";
-
-    void ICutsceneCommandHost.SetInputEnabled(bool enabled) =>
-        throw new InvalidOperationException(
-            $"impaScript0 does not set input enabled={enabled}.");
 
     void ICutsceneCommandHost.SetMenuEnabled(bool enabled)
     {
@@ -1036,7 +1037,7 @@ internal sealed class ImpaIntroEvent :
             throw new InvalidOperationException(
                 $"The active Impa command stream cannot set menu enabled={enabled}.");
         }
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
     }
 
     void ICutsceneCommandHost.SetDisabledObjects(int value)
@@ -1047,12 +1048,8 @@ internal sealed class ImpaIntroEvent :
                 $"The active Impa command stream cannot set wDisabledObjects=${value:x2}.");
         }
         if (value == 0x01)
-            _context.Player.BeginCutsceneControl();
+            _context.Player.BeginCutsceneControl(owner: this);
     }
-
-    bool ICutsceneCommandHost.GateOpen(string gate) =>
-        throw new InvalidOperationException(
-            $"impaScript0 does not support named gate '{gate}'.");
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value)
     {
@@ -1154,10 +1151,6 @@ internal sealed class ImpaIntroEvent :
         int radiusX) =>
         RequireImpaCommandActor(actor).SetCollisionRadii(radiusY, radiusX);
 
-    void ICutsceneCommandHost.SetActorButtonSensitive(string actor) =>
-        throw new InvalidOperationException(
-            $"impaScript0 actor '{actor}' cannot become A-button sensitive.");
-
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         if (_stonePostPushRunner.Active)
@@ -1185,10 +1178,6 @@ internal sealed class ImpaIntroEvent :
                 ref _precisePosition, speed, angle);
     }
 
-    void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>
-        throw new InvalidOperationException(
-            $"impaScript0 actor '{actor}' cannot set Z to ${zFixed:x4}.");
-
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
         RequireImpaCommandActor(actor).Visible = visible;
 
@@ -1213,10 +1202,6 @@ internal sealed class ImpaIntroEvent :
         throw new InvalidOperationException(
             $"The active Impa command stream cannot write '{binding}'=${value:x2}.");
     }
-
-    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        throw new InvalidOperationException(
-            $"impaScript0 cannot set global flag ${flag:x2}.");
 
     void ICutsceneCommandHost.OrRoomFlag(int flag)
     {
@@ -1288,7 +1273,7 @@ internal sealed class ImpaIntroEvent :
                     "impaScript_rockJustMoved ended before writing cfd0=$07.");
             }
             _context.Player.SetCutscenePushing(false);
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
             _context.Player.Face(Vector2I.Down);
             Actor!.SetDialogue(0, string.Empty, canFace: false);
             BeginFollowing();
@@ -1302,7 +1287,7 @@ internal sealed class ImpaIntroEvent :
             throw new InvalidOperationException(
                 "impaScript0 ended before setting room flag $40.");
         }
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Player.Face(Vector2I.Up);
         BeginFollowing();
     }

@@ -116,7 +116,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
         }
 
         _context.Player.Face(Vector2I.Right);
-        _context.Player.BeginCutsceneControl(interruptBracelet: false);
+        _context.Player.BeginCutsceneControl(interruptBracelet: false, owner: this);
         _context.Player.ResetEnemyInvincibility();
         _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
         _counter = _record.PickupWait;
@@ -209,7 +209,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
     public void Cancel()
     {
         if (BlocksGameplay)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         if (_exclamation is not null)
             _exclamation.SetActive(false);
         _exclamation = null;
@@ -218,6 +218,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
         _phase = 0;
         _dustCounter = 0;
         _dustSpawnCounter = 0;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void BeginPreCollapseShake()
@@ -321,7 +322,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
 
     private void Finish()
     {
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _context.Sound.PlayRoomMusic(_record.Group, _record.Room);
         _stage = WingDungeonCollapseStage.Completed;
         _startRemoteMakuWarning();

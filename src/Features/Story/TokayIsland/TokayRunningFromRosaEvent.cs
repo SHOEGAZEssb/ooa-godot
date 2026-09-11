@@ -64,7 +64,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
         {
             if (Mathf.FloorToInt(Context.Player.Position.Y) == 0x50)
             {
-                LockInput();
+                EventResources.LockInput();
                 BeginWait(30, TokayRunningFromRosaStage.FirstText);
             }
             return;
@@ -116,7 +116,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
             actor.ScriptOwnsNativeUpdate = false;
             actor.SetScriptDrawOffset(Vector2.Zero);
         }
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _counter = 0;
         _stage = TokayRunningFromRosaStage.Inactive;
@@ -196,7 +196,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
 
     private void FinishInteraction()
     {
-        UnlockInput();
+        EventResources.UnlockInput();
         _actor = null;
         _stage = TokayRunningFromRosaStage.Inactive;
     }

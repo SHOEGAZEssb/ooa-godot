@@ -8,7 +8,7 @@ namespace oracleofages;
 /// room $1:$86. Room bits $40/$80 select the return and completed phases.
 /// </summary>
 internal sealed class BlackTowerEntranceEvent :
-    CutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost, IRoomEventDialogueContext
+    RoomCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost, IRoomEventDialogueContext
 {
     public DialogueScreenContext? DialogueScreen => _screen is null ? null :
         _context.DialogueScreens.ClearedLink(0x09, _record.ScreenOffsetY);
@@ -20,7 +20,7 @@ internal sealed class BlackTowerEntranceEvent :
     private readonly CutsceneCommandRunner _runner;
     private NpcCharacter? _guard;
     private BlackTowerExplanationScreen? _screen;
-    private BlackTowerEntranceEventEventStage _stage;
+    private BlackTowerEntranceEventStage _stage;
     private Vector2 _guardPrecisePosition;
     private int _storedPackedPosition;
     private int _storedDirection;
@@ -39,9 +39,9 @@ internal sealed class BlackTowerEntranceEvent :
         _runner = new CutsceneCommandRunner(this);
     }
 
-    public bool HasState => _stage != BlackTowerEntranceEventEventStage.Inactive;
+    public bool HasState => _stage != BlackTowerEntranceEventStage.Inactive;
     public bool BlocksGameplay => HasState;
-    internal BlackTowerEntranceEventEventStage Stage => _stage;
+    internal BlackTowerEntranceEventStage Stage => _stage;
     internal BlackTowerExplanationScreen? Screen => _screen;
     internal BlackTowerEntranceEventDatabase Database => _database;
 
@@ -77,7 +77,7 @@ internal sealed class BlackTowerEntranceEvent :
             return true;
         }
 
-        _stage = BlackTowerEntranceEventEventStage.FirstScript;
+        _stage = BlackTowerEntranceEventStage.FirstScript;
         _runner.Start(_database.First);
         return true;
     }
@@ -86,7 +86,7 @@ internal sealed class BlackTowerEntranceEvent :
     {
         switch (_stage)
         {
-            case BlackTowerEntranceEventEventStage.FirstScript:
+            case BlackTowerEntranceEventStage.FirstScript:
                 if (_explanationPending)
                 {
                     _explanationPending = false;
@@ -97,38 +97,38 @@ internal sealed class BlackTowerEntranceEvent :
                     _runner.AdvanceFrame();
                 }
                 break;
-            case BlackTowerEntranceEventEventStage.ExplanationFadeIn:
+            case BlackTowerEntranceEventStage.ExplanationFadeIn:
                 UpdateExplanationEffects();
                 _fadeFrame++;
                 SetWhiteFade(1.0f - _fadeFrame / (float)FadeFrames);
                 if (_fadeFrame >= FadeFrames)
                 {
                     _phaseCounter--;
-                    _stage = BlackTowerEntranceEventEventStage.ExplanationIntroWait;
+                    _stage = BlackTowerEntranceEventStage.ExplanationIntroWait;
                 }
                 break;
-            case BlackTowerEntranceEventEventStage.ExplanationIntroWait:
+            case BlackTowerEntranceEventStage.ExplanationIntroWait:
                 UpdateExplanationEffects();
                 if (--_phaseCounter <= 0)
                 {
                     _context.ShowDialogue(_record.ExplanationText);
-                    _stage = BlackTowerEntranceEventEventStage.ExplanationDialogue;
+                    _stage = BlackTowerEntranceEventStage.ExplanationDialogue;
                 }
                 break;
-            case BlackTowerEntranceEventEventStage.ExplanationDialogue:
+            case BlackTowerEntranceEventStage.ExplanationDialogue:
                 UpdateExplanationEffects();
                 if (!_context.DialogueOpen)
                 {
                     _phaseCounter = _record.PostWait;
-                    _stage = BlackTowerEntranceEventEventStage.ExplanationPostWait;
+                    _stage = BlackTowerEntranceEventStage.ExplanationPostWait;
                 }
                 break;
-            case BlackTowerEntranceEventEventStage.ExplanationPostWait:
+            case BlackTowerEntranceEventStage.ExplanationPostWait:
                 UpdateExplanationEffects();
                 if (--_phaseCounter <= 0)
                     ReturnToRoom();
                 break;
-            case BlackTowerEntranceEventEventStage.Aftermath:
+            case BlackTowerEntranceEventStage.Aftermath:
                 AdvanceSimulatedInput();
                 _runner.AdvanceFrame();
                 break;
@@ -143,7 +143,7 @@ internal sealed class BlackTowerEntranceEvent :
         if (ownedPresentation && !_context.Transitions.IsTransitioning)
             SetWhiteFade(0.0f);
         _guard = null;
-        _stage = BlackTowerEntranceEventEventStage.Inactive;
+        _stage = BlackTowerEntranceEventStage.Inactive;
         _phaseCounter = 0;
         _fadeFrame = 0;
         _flashCounter = 0;
@@ -151,12 +151,13 @@ internal sealed class BlackTowerEntranceEvent :
         _simulatedTailPhase = 0;
         _simulatedTailFrames = 0;
         _explanationPending = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void StartAftermath()
     {
-        _context.Player.BeginCutsceneControl();
-        _stage = BlackTowerEntranceEventEventStage.Aftermath;
+        _context.Player.BeginCutsceneControl(owner: this);
+        _stage = BlackTowerEntranceEventStage.Aftermath;
         _guardPrecisePosition = _guard!.Position;
         _runner.Start(_database.Aftermath);
     }
@@ -167,14 +168,14 @@ internal sealed class BlackTowerEntranceEvent :
             throw new InvalidOperationException("Black Tower explanation is already active.");
         _screen = new BlackTowerExplanationScreen(_database);
         _context.InterfaceLayer.AddChild(_screen);
-        CaptureFullScreenFade(_context.Hud.ZIndex + 1);
+        EventResources.CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _context.Hud.Visible = false;
         _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
         _fadeFrame = 0;
         _phaseCounter = _record.IntroWait;
         _flashCounter = 0;
         SetWhiteFade(1.0f);
-        _stage = BlackTowerEntranceEventEventStage.ExplanationFadeIn;
+        _stage = BlackTowerEntranceEventStage.ExplanationFadeIn;
     }
 
     private void UpdateExplanationEffects()
@@ -229,7 +230,7 @@ internal sealed class BlackTowerEntranceEvent :
         _screen.QueueFree();
         _screen = null;
         _context.Hud.Visible = true;
-        ReleaseFullScreenFade(restoreColor: false);
+        EventResources.ReleaseFullScreenFade(restoreColor: false);
     }
 
     private void AdvanceSimulatedInput()
@@ -284,7 +285,9 @@ internal sealed class BlackTowerEntranceEvent :
         direction == Vector2I.Right ? 1 :
         direction == Vector2I.Down ? 2 : 3;
 
-    RoomEventContext ICutsceneCommandHost.Context => _context;
+    public override RoomEventContext Context => _context;
+    public override void SetGlobalFlag(int flag) =>
+        throw UnsupportedCommand($"set global flag ${flag:x2}");
     bool ICutsceneCommandHost.HasActorBinding(CutsceneActorId actor) =>
         actor.Value == "Guard";
 
@@ -354,9 +357,6 @@ internal sealed class BlackTowerEntranceEvent :
         }
     }
 
-    void ICutsceneCommandHost.SetGlobalFlag(int flag) =>
-        throw UnsupportedCommand($"set global flag ${flag:x2}");
-
     void ICutsceneCommandHost.OrRoomFlag(int flag)
     {
         if (flag is not (OracleSaveData.RoomFlag40 or OracleSaveData.RoomFlag80))
@@ -398,10 +398,10 @@ internal sealed class BlackTowerEntranceEvent :
 
     void ICutsceneCommandHost.ScriptEnded()
     {
-        if (_stage == BlackTowerEntranceEventEventStage.Aftermath)
-            _stage = BlackTowerEntranceEventEventStage.Inactive;
-        else if (_stage == BlackTowerEntranceEventEventStage.FirstScript && !_explanationPending)
-            _stage = BlackTowerEntranceEventEventStage.Inactive;
+        if (_stage == BlackTowerEntranceEventStage.Aftermath)
+            _stage = BlackTowerEntranceEventStage.Inactive;
+        else if (_stage == BlackTowerEntranceEventStage.FirstScript && !_explanationPending)
+            _stage = BlackTowerEntranceEventStage.Inactive;
     }
 
     private NpcCharacter RequireGuard(string actor)
@@ -413,7 +413,7 @@ internal sealed class BlackTowerEntranceEvent :
 
 }
 
-internal enum BlackTowerEntranceEventEventStage
+internal enum BlackTowerEntranceEventStage
 {
     Inactive,
     FirstScript,

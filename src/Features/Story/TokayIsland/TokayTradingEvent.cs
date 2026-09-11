@@ -63,7 +63,7 @@ internal sealed class TokayTradingEvent :
             return false;
 
         _shopItem = candidate;
-        LockInput(onlyIfUnlocked: true);
+        EventResources.LockInput(onlyIfUnlocked: true);
         BeginShopItem(candidate);
         return true;
     }
@@ -117,7 +117,7 @@ internal sealed class TokayTradingEvent :
         _reward = null;
         _refreshShopItemsNextUpdate = false;
         _braceletPurchased = false;
-        UnlockInput();
+        EventResources.UnlockInput();
         _shopItem = null;
         _stage = TokayTradingStage.Inactive;
     }
@@ -385,11 +385,11 @@ internal sealed class TokayTradingEvent :
     }
 
     private int TakeChoice() =>
-        RequireDialogueChoice("Tokay trading prompt closed without a text-option result.");
+        EventResources.RequireDialogueChoice("Tokay trading prompt closed without a text-option result.");
 
     private void FinishInteraction()
     {
-        UnlockInput();
+        EventResources.UnlockInput();
         _shopItem = null;
         _stage = TokayTradingStage.Inactive;
     }

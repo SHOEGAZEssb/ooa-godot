@@ -84,7 +84,7 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         };
         _signal = 0;
         _active = true;
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
     }
 
     public void UpdateFrame()
@@ -106,14 +106,14 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
 
         _context.Rooms.SaveData.SetRoomFlag(
             _record.Group, _record.Room, (byte)_record.RoomFlag);
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _active = false;
     }
 
     public void Cancel()
     {
         if (_active)
-            _context.Player.EndCutsceneControl();
+            _context.Player.EndCutsceneControl(this);
         RestoreActor(_red);
         RestoreActor(_green);
         RestoreActor(_blue);
@@ -122,6 +122,7 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         _blue = null;
         _signal = 0;
         _active = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void UpdateRed(ChildLane lane)

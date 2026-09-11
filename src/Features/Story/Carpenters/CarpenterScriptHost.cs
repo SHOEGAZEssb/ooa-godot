@@ -4,9 +4,9 @@ using System;
 namespace oracleofages;
 
 internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEntity entity)
-    : CutsceneCommandHost, ICutsceneCommandHost
+    : RoomCutsceneCommandHost, ICutsceneCommandHost
 {
-    public RoomEventContext Context => owner.Context;
+    public override RoomEventContext Context => owner.Context;
     public NpcCharacter Npc => entity.Npc;
     internal CutsceneCommandRunner Runner { get; set; } = null!;
     internal bool ButtonSensitive { get; private set; }

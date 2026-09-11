@@ -261,6 +261,7 @@ public partial class Player : Node2D
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
     private bool _cutsceneControlled;
+    private object? _cutsceneControlOwner;
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
     private int? _scriptedLinkAnimationMode;
@@ -1230,6 +1231,7 @@ public partial class Player : Node2D
     {
         if (GaleActive) EndGale();
         _cutsceneControlled = false;
+        _cutsceneControlOwner = null;
         _walking = false;
         ClearShieldParent();
         CancelSwordAttack();
@@ -2301,11 +2303,12 @@ public partial class Player : Node2D
         _deathAnimationCounter = duration;
     }
 
-    internal void BeginCutsceneControl(bool interruptBracelet = true)
+    internal void BeginCutsceneControl(bool interruptBracelet = true, object? owner = null)
     {
         if (interruptBracelet)
             InterruptCarriedItems(discard: true);
         _cutsceneControlled = true;
+        _cutsceneControlOwner = owner;
         ClearShieldParent();
         _walking = false;
         _pushing = false;
@@ -2315,6 +2318,8 @@ public partial class Player : Node2D
     }
 
     internal bool CutsceneControlled => _cutsceneControlled;
+    internal bool IsCutsceneControlOwner(object owner) =>
+        _cutsceneControlled && ReferenceEquals(_cutsceneControlOwner, owner);
     internal bool Walking => _walking;
 
     internal void PutOnGroundForScript()
@@ -2941,9 +2946,12 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    internal void EndCutsceneControl()
+    internal void EndCutsceneControl(object? owner = null)
     {
+        if (owner is not null && !IsCutsceneControlOwner(owner))
+            return;
         _cutsceneControlled = false;
+        _cutsceneControlOwner = null;
         _walking = false;
         QueueRedraw();
     }

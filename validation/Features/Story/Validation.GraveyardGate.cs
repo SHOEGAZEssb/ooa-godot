@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _inventory.HasTreasure(TreasureDatabase.TreasureGraveyardKey) ||
             room.ActiveCollisions != 0 || At(0x44) != 0xec ||
-            gate.Stage != GraveyardGateEventEventStage.WaitingForKeyhole ||
+            gate.Stage != GraveyardGateEventStage.WaitingForKeyhole ||
             gate.BlocksGameplay || _roomEvents.Active,
             "Room 0:5c did not arm its nonblocking $dc:$01 controller around keyhole tile $ec.");
 
@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 9; frame++)
             Push();
         FailIf(
-            gate.Stage != GraveyardGateEventEventStage.WaitingForKeyhole ||
+            gate.Stage != GraveyardGateEventStage.WaitingForKeyhole ||
             _keyholes.RemainingPushFrames != 2 ||
             _entities.Entities<OverworldKeyUseEffect>().Count != 0,
             "The owned Graveyard Key triggered before the tenth continuous push update.");
@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_inventory.HasTreasure(TreasureDatabase.TreasureGraveyardKey) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
-            gate.Stage != GraveyardGateEventEventStage.Running ||
+            gate.Stage != GraveyardGateEventStage.Running ||
             !_roomEvents.Active || !_player.CutsceneControlled ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 0 ||
@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
             "The solve cue did not yield once before enabling Link input.");
         StepGate();
         FailIf(
-            gate.Stage != GraveyardGateEventEventStage.Completed ||
+            gate.Stage != GraveyardGateEventStage.Completed ||
             gate.HasState || _roomEvents.Active || _player.CutsceneControlled,
             "interactiondcSubid01Script did not enable input and end after the solve cue.");
 
@@ -193,7 +193,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(new Vector2(0x38, 0x48)) != 0x3a ||
             room.GetMetatile(new Vector2(0x48, 0x48)) != 0x3a ||
             room.GetMetatile(new Vector2(0x58, 0x48)) != 0x3a ||
-            gate.Stage != GraveyardGateEventEventStage.Inactive,
+            gate.Stage != GraveyardGateEventStage.Inactive,
             "Room 0:5c did not apply its persistent flag-$80 gate substitutions " +
             $"on re-entry: $34=${room.GetMetatile(new Vector2(0x48, 0x38)):x2}, " +
             $"$43=${room.GetMetatile(new Vector2(0x38, 0x48)):x2}, " +

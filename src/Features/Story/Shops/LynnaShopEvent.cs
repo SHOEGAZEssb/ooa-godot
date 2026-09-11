@@ -7,29 +7,30 @@ namespace oracleofages;
 /// Native $2:$5e shop flow: lift/return stock, $46:$00 purchase scripts,
 /// already-full and rupee checks, item grants, and theft prevention.
 /// </summary>
-internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
+internal sealed class LynnaShopEvent : IRoomEvent
 {
 
     private readonly RoomEventContext _context;
-    protected override RoomEventContext EventContext => _context;
+    private RoomEventResources? _resources;
+    private RoomEventResources EventResources => _resources ??= new(_context, this);
     private readonly LynnaShopDatabase _database = new();
     private LynnaShopItem? _item;
     private NpcCharacter? _shopkeeper;
-    private LynnaShopEventEventStage _stage;
+    private LynnaShopEventStage _stage;
     private int _counter;
     private bool _cannotBuy;
 
     public LynnaShopEvent(RoomEventContext context) => _context = context;
 
-    public bool HasState => _stage != LynnaShopEventEventStage.Inactive;
-    public bool BlocksGameplay => HasState && _stage != LynnaShopEventEventStage.Holding;
-    internal LynnaShopEventEventStage Stage => _stage;
+    public bool HasState => _stage != LynnaShopEventStage.Inactive;
+    public bool BlocksGameplay => HasState && _stage != LynnaShopEventStage.Holding;
+    internal LynnaShopEventStage Stage => _stage;
 
     public bool TryInteractPlayer(Player player)
     {
         if (!MatchesCurrentRoom())
             return false;
-        if (_stage == LynnaShopEventEventStage.Holding)
+        if (_stage == LynnaShopEventStage.Holding)
         {
             if (_item is null)
                 throw new InvalidOperationException("Lynna shop lost its held item.");
@@ -39,7 +40,7 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
             // consume it even away from the shelf so Link cannot use an item.
             return true;
         }
-        if (_stage != LynnaShopEventEventStage.Inactive)
+        if (_stage != LynnaShopEventStage.Inactive)
             return true;
 
         LynnaShopItem? candidate = null;
@@ -61,14 +62,14 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
 
         _item = candidate;
         candidate.Pickup(player);
-        _stage = LynnaShopEventEventStage.Holding;
+        _stage = LynnaShopEventStage.Holding;
         return true;
     }
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
         if (!MatchesCurrentRoom() || npc.Record is not { Id: 0x46, SubId: 0x00 } ||
-            _stage is not (LynnaShopEventEventStage.Inactive or LynnaShopEventEventStage.Holding))
+            _stage is not (LynnaShopEventStage.Inactive or LynnaShopEventStage.Holding))
         {
             return false;
         }
@@ -76,18 +77,18 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
         _shopkeeper = npc;
         npc.SetScriptButtonSensitive(false);
         FaceShopkeeperTowardPlayer();
-        if (_stage == LynnaShopEventEventStage.Holding)
+        if (_stage == LynnaShopEventStage.Holding)
         {
             if (_item is null)
                 throw new InvalidOperationException("Lynna shop lost its held product.");
             _cannotBuy = CannotBuy(_item.Record);
             ShowChoice(_item.Record.PromptTextId, _item.Record.Price);
-            _stage = LynnaShopEventEventStage.PurchasePrompt;
+            _stage = LynnaShopEventStage.PurchasePrompt;
         }
         else
         {
             ShowText(HasAvailableStock() ? 0x0e00 : 0x0e26);
-            _stage = LynnaShopEventEventStage.ShopkeeperText;
+            _stage = LynnaShopEventStage.ShopkeeperText;
         }
         return true;
     }
@@ -96,57 +97,57 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
     {
         switch (_stage)
         {
-            case LynnaShopEventEventStage.Holding:
+            case LynnaShopEventStage.Holding:
                 if (_item is null)
                     throw new InvalidOperationException("Lynna shop lost its held product.");
                 if (_context.Player.Position.Y > _database.TheftLinkY)
                     BeginTheftPrevention();
                 break;
 
-            case LynnaShopEventEventStage.ShopkeeperText:
+            case LynnaShopEventStage.ShopkeeperText:
                 if (DialogueClosed())
                     FinishShopkeeperTalk();
                 break;
 
-            case LynnaShopEventEventStage.PurchasePrompt:
+            case LynnaShopEventStage.PurchasePrompt:
                 if (DialogueClosed())
                     ResolvePurchase(TakeChoice());
                 break;
 
-            case LynnaShopEventEventStage.PurchaseRejected:
+            case LynnaShopEventStage.PurchaseRejected:
                 if (DialogueClosed())
                     ReturnHeldItem();
                 break;
 
-            case LynnaShopEventEventStage.ItemText:
+            case LynnaShopEventStage.ItemText:
                 if (DialogueClosed())
                     FinishPurchase();
                 break;
 
-            case LynnaShopEventEventStage.TheftDown:
+            case LynnaShopEventStage.TheftDown:
                 if (MoveShopkeeper(Vector2.Down, 2))
-                    BeginTheftMove(LynnaShopEventEventStage.TheftLeft, Vector2I.Left, 12);
+                    BeginTheftMove(LynnaShopEventStage.TheftLeft, Vector2I.Left, 12);
                 break;
 
-            case LynnaShopEventEventStage.TheftLeft:
+            case LynnaShopEventStage.TheftLeft:
                 if (MoveShopkeeper(Vector2.Left, 2))
                 {
                     ShowText(0x0e07);
-                    _stage = LynnaShopEventEventStage.TheftText;
+                    _stage = LynnaShopEventStage.TheftText;
                 }
                 break;
 
-            case LynnaShopEventEventStage.TheftText:
+            case LynnaShopEventStage.TheftText:
                 if (DialogueClosed())
-                    BeginTheftMove(LynnaShopEventEventStage.TheftRight, Vector2I.Right, 12);
+                    BeginTheftMove(LynnaShopEventStage.TheftRight, Vector2I.Right, 12);
                 break;
 
-            case LynnaShopEventEventStage.TheftRight:
+            case LynnaShopEventStage.TheftRight:
                 if (MoveShopkeeper(Vector2.Right, 2))
-                    BeginTheftMove(LynnaShopEventEventStage.TheftUp, Vector2I.Up, 4);
+                    BeginTheftMove(LynnaShopEventStage.TheftUp, Vector2I.Up, 4);
                 break;
 
-            case LynnaShopEventEventStage.TheftUp:
+            case LynnaShopEventStage.TheftUp:
                 if (MoveShopkeeper(Vector2.Up, 2))
                     FinishTheftPrevention();
                 break;
@@ -164,12 +165,13 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
             _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 3));
             _shopkeeper.SetScriptButtonSensitive(true);
         }
-        _context.Player.EndCutsceneControl();
+        _context.Player.EndCutsceneControl(this);
         _item = null;
         _shopkeeper = null;
-        _stage = LynnaShopEventEventStage.Inactive;
+        _stage = LynnaShopEventStage.Inactive;
         _counter = 0;
         _cannotBuy = false;
+        _context.Player.EndCutsceneControl(this);
     }
 
     private void ResolvePurchase(int choice)
@@ -184,13 +186,13 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
         if (_cannotBuy)
         {
             ShowText(0x0e05);
-            _stage = LynnaShopEventEventStage.PurchaseRejected;
+            _stage = LynnaShopEventStage.PurchaseRejected;
             return;
         }
         if (_context.Inventory.Rupees < _item.Record.Price)
         {
             ShowText(0x0e06);
-            _stage = LynnaShopEventEventStage.PurchaseRejected;
+            _stage = LynnaShopEventStage.PurchaseRejected;
             return;
         }
 
@@ -212,7 +214,7 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
         if (sound != 0)
             _context.Sound.PlaySound(sound);
         _context.ShowDialogue(treasure.Message, _database.TextboxPosition);
-        _stage = LynnaShopEventEventStage.ItemText;
+        _stage = LynnaShopEventStage.ItemText;
     }
 
     private bool CannotBuy(ItemRecord item) => item.SubId switch
@@ -263,7 +265,7 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
             _shopkeeper.SetScriptButtonSensitive(true);
         }
         _shopkeeper = null;
-        _stage = LynnaShopEventEventStage.Inactive;
+        _stage = LynnaShopEventStage.Inactive;
         _cannotBuy = false;
     }
 
@@ -290,13 +292,13 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
             _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusY);
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: false, coordinate: _database.TheftLinkY);
-        _context.Player.BeginCutsceneControl();
+        _context.Player.BeginCutsceneControl(owner: this);
         _context.Sound.PlaySound(OracleSoundEngine.SndClink);
-        BeginTheftMove(LynnaShopEventEventStage.TheftDown, Vector2I.Down, 4);
+        BeginTheftMove(LynnaShopEventStage.TheftDown, Vector2I.Down, 4);
     }
 
     private void BeginTheftMove(
-        LynnaShopEventEventStage stage,
+        LynnaShopEventStage stage,
         Vector2I direction,
         int counter)
     {
@@ -323,8 +325,8 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
         _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 3));
         _shopkeeper.SetScriptButtonSensitive(true);
         _shopkeeper = null;
-        _context.Player.EndCutsceneControl();
-        _stage = LynnaShopEventEventStage.Holding;
+        _context.Player.EndCutsceneControl(this);
+        _stage = LynnaShopEventStage.Holding;
     }
 
     private void FaceShopkeeperTowardPlayer()
@@ -352,7 +354,7 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
     private bool DialogueClosed() => !_context.DialogueOpen;
 
     private int TakeChoice() =>
-        RequireDialogueChoice("Lynna shop prompt closed without a text-option result.");
+        EventResources.RequireDialogueChoice("Lynna shop prompt closed without a text-option result.");
 
     private void ShowText(int textId) =>
         _context.ShowDialogue(_database.Text(textId), _database.TextboxPosition);
@@ -364,7 +366,7 @@ internal sealed class LynnaShopEvent : RoomEventHost, IRoomEvent
             textboxPosition: _database.TextboxPosition);
 }
 
-internal enum LynnaShopEventEventStage
+internal enum LynnaShopEventStage
 {
     Inactive,
     Holding,
