@@ -54,6 +54,23 @@ Write-GeneratedTable(
     (Join-Path $soundDestination 'conditional_room_music.tsv'),
     $conditionalRoomMusicRows)
 
+# checkPlayRoomMusic replaces the assigned present-Symmetry track while
+# present room $03 flag bit 0 is clear. GLOBALFLAG_TUNI_NUT_PLACED is not the
+# predicate consumed here; preserve the exact room byte and mask.
+$roomMusicCode = Read-ImportText (Join-Path $Disassembly 'code\bank1.s')
+if ($roomMusicCode -notmatch
+    '(?ms)ld a,\(wActiveMusic2\)\s+cp MUS_SYMMETRY_PRESENT\s+jr nz,\+\+\s+ld a,\(wActiveGroup\)\s+or a\s+jr nz,\+\+\s+ld a,\(wPresentRoomFlags\+\$03\)\s+bit 0,a\s+jr nz,\+\+\s+ld a, MUS_SADNESS\s+ld \(wActiveMusic2\),a' -or
+    $musicConstantSource -notmatch '(?m)^\s*MUS_SYMMETRY_PRESENT\s+db\s*;\s*\$24' -or
+    $musicConstantSource -notmatch '(?m)^\s*MUS_SADNESS\s+db\s*;\s*\$1f') {
+    throw 'code/bank1.s:checkPlayRoomMusic present-Symmetry room-flag music override changed.'
+}
+$assignmentMusicRows = [Collections.Generic.List[string]]::new()
+$assignmentMusicRows.Add('# group`tassigned-music`tflag-group`tflag-room`tclear-flag-mask`tmusic`tsource')
+$assignmentMusicRows.Add("0`t24`t0`t03`t01`t1f`tcode/bank1.s:checkPlayRoomMusic")
+Write-GeneratedTable(
+    (Join-Path $soundDestination 'room_flag_music.tsv'),
+    $assignmentMusicRows)
+
 # Expand the source waveform table by its explicit indices. The table's source
 # order is intentionally unrelated to the waveform IDs used by duty commands.
 $waveformSource = Read-ImportText (Join-Path $Disassembly 'audio\common\waveforms.s')

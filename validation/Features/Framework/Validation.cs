@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunValidation();
     }
 
-    private void RunValidation()
+    private async void RunValidation()
     {
         try
         {
@@ -81,6 +81,12 @@ public sealed partial class ValidationRoot : GameRoot
                     "--validate-shard cannot be combined with --validate-only.");
             }
             ValidateAll();
+            // AudioStreamPlayer.Stop queues its native playback for the
+            // AudioServer mixer/update handoff. Let those engine phases run
+            // before quitting a suite that creates and tears down output.
+            _scene.ProcessMode = ProcessModeEnum.Disabled;
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             GetTree().Quit(0);
         }
         catch (Exception exception)
@@ -204,6 +210,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMainMenu);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateSoundEngine);
+        RunIsolatedValidation(ValidateSoundDriverControls);
+        RunIsolatedValidation(ValidateSoundDriverHandoffs);
+        RunIsolatedValidation(ValidateSoundApuTiming);
+        RunIsolatedValidation(ValidateSoundDriverCatalog);
+        RunIsolatedValidation(ValidateSoundApplicationBatching);
         RunIsolatedValidation(ValidateGraphicsCache);
         RunIsolatedValidation(ValidateNpcPaletteRebuildOffsets);
         RunIsolatedValidation(ValidateCompanionWallMasks);

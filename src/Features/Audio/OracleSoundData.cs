@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 namespace oracleofages;
 
@@ -26,6 +27,7 @@ public sealed class OracleSoundData
         "res://assets/oracle/audio/room_music.bin", 6 * 256);
     private readonly ConditionalRoomMusicRule[] _conditionalRoomMusic =
         LoadConditionalRoomMusic();
+    private readonly RoomFlagMusicRule[] _roomFlagMusic = LoadRoomFlagMusic();
     private readonly byte[] _waveforms = LoadExact(
         "res://assets/oracle/audio/waveforms.bin", WaveformCount * 16);
     private readonly byte[] _noise = LoadExact(
@@ -34,6 +36,17 @@ public sealed class OracleSoundData
         "res://assets/oracle/audio/frequencies.bin", FrequencyCount * 2);
     private readonly byte[] _envelopeDelays = LoadExact(
         "res://assets/oracle/audio/envelope_delays.bin", 16 * 8);
+
+    public OracleSoundData()
+    {
+        // Executable driver entries and WRAM layout are a clean-US contract.
+        // Import-AudioData already retains this complete bank from the ROM
+        // checked by the import entry point; never execute another revision.
+        string digest = Convert.ToHexString(SHA256.HashData(_sound.AsSpan(0, BankSize)));
+        if (digest != "6BB47CDEF9823B11B924030F7731545457214A4B8292A20B5EC27D8A59EE4CF2")
+            throw new InvalidOperationException(
+                "code/audio.s: imported sound driver bank $39 differs from the supported clean US ROM.");
+    }
 
     public IReadOnlyList<ChannelStart> ChannelsFor(int soundId)
     {
@@ -79,8 +92,15 @@ public sealed class OracleSoundData
                 save.HasGlobalFlag(rule.RequiredGlobalFlag) &&
                 !save.HasRoomFlag(group, room, rule.ClearRoomFlagMask))
             {
-                return rule.Music;
+                assignedMusic = rule.Music;
+                break;
             }
+        }
+        foreach (RoomFlagMusicRule rule in _roomFlagMusic)
+        {
+            if (rule.Group == group && rule.AssignedMusic == assignedMusic &&
+                !save.HasRoomFlag(rule.FlagGroup, rule.FlagRoom, rule.ClearFlagMask))
+                return rule.Music;
         }
         return assignedMusic;
     }
@@ -112,7 +132,8 @@ public sealed class OracleSoundData
     public ushort FrequencyRegisterByIndex(int index)
     {
         if ((uint)index >= FrequencyCount)
-            return 0;
+            throw new ArgumentOutOfRangeException(nameof(index),
+                $"soundFrequencyTable: note index ${index:x2} is outside the named table.");
         return (ushort)(_frequencies[index * 2] | (_frequencies[index * 2 + 1] << 8));
     }
 
@@ -136,7 +157,8 @@ public sealed class OracleSoundData
     public float WaveSample(int waveform, int sample)
     {
         if ((uint)waveform >= WaveformCount)
-            waveform = 0;
+            throw new ArgumentOutOfRangeException(nameof(waveform),
+                $"audio/common/waveforms.s: waveform ${waveform:x2} is outside $00-$2d.");
         int packed = _waveforms[waveform * 16 + ((sample & 31) >> 1)];
         int value = (sample & 1) == 0 ? packed >> 4 : packed & 0x0f;
         return (value - 7.5f) / 7.5f;
@@ -214,6 +236,23 @@ public sealed class OracleSoundData
         int RequiredGlobalFlag,
         byte ClearRoomFlagMask,
         string Source);
+
+    private static RoomFlagMusicRule[] LoadRoomFlagMusic()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            "res://assets/oracle/audio/room_flag_music.tsv",
+            new GeneratedTableSchema("room-flag music overrides", GeneratedTableKeySemantics.Unique,
+                ["group", "assigned-music", "flag-group", "flag-room", "clear-flag-mask", "music", "source"],
+                ["group", "assigned-music"], headerRequired: true));
+        var rules = new List<RoomFlagMusicRule>();
+        foreach (GeneratedTableRow row in table.Rows)
+            rules.Add(new RoomFlagMusicRule(row.Decimal(0, 0, 7), row.HexByte(1),
+                row.Decimal(2, 0, 7), row.HexByte(3), (byte)row.HexByte(4), row.HexByte(5), row.RequiredString(6)));
+        return rules.ToArray();
+    }
+
+    private readonly record struct RoomFlagMusicRule(
+        int Group, int AssignedMusic, int FlagGroup, int FlagRoom, byte ClearFlagMask, int Music, string Source);
 }
 
 public readonly record struct NoiseRecord(byte Note, byte Envelope, byte Frequency);

@@ -909,9 +909,9 @@ public sealed partial class ValidationRoot
         FailIf(
             sound.ActiveMusic != OracleSoundEngine.MusTitlescreen ||
             !square1.Active || square1.DutyOrWaveform != 2 || square1.Volume != 8 ||
-            square1.CurrentFrequencyRegister != 0x0642 || square1.WaitFrames != 0x17 ||
-            !square2.Active || square2.CurrentFrequencyRegister != 0x06e7 ||
-            square2.WaitFrames != 0x17 || !wave.Active || wave.Gate ||
+            sound.Apu.Frequency(0) != 0x0642 || square1.WaitFrames != 0x17 ||
+            !square2.Active || sound.Apu.Frequency(1) != 0x06e7 ||
+            square2.WaitFrames != 0x17 || !wave.Active || !wave.WaveRest ||
             wave.WaitFrames != 0x23 || sound.Channel(6).Active,
             "MUS_TITLESCREEN did not execute its original first square/wave/noise commands.");
 
@@ -921,9 +921,9 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 44; update++)
             sound.Tick();
         FailIf(
-            !square1.Active || !square1.Gate || square1.WaitFrames != 0x0f ||
-            square1.OutputVolume != 2 || square1.EnvelopePeriod != 1 ||
-            square1.EnvelopeDirection != -1,
+            !square1.Active || !sound.Apu.Voice(0).Enabled || square1.WaitFrames != 0x0f ||
+            (sound.Apu.Register(0xff12) >> 4) != 2 || (sound.Apu.Register(0xff12) & 7) != 1 ||
+            (sound.Apu.Register(0xff12) & 8) != 0,
             "MUS_TITLESCREEN channel 0 rest did not install its period-1 square release.");
 
         sound.PlaySound(OracleSoundEngine.SndOpenMenu);
@@ -931,40 +931,40 @@ public sealed partial class ValidationRoot
         ChannelState openMenuHigh = sound.Channel(2);
         ChannelState openMenuLow = sound.Channel(3);
         FailIf(
-            !openMenuHigh.Active || !openMenuHigh.Gate || openMenuHigh.Priority != 1 ||
+            !openMenuHigh.Active || !sound.Apu.Voice(0).Enabled || openMenuHigh.Priority != 1 ||
             openMenuHigh.DutyOrWaveform != 1 || openMenuHigh.Volume != 15 ||
-            openMenuHigh.OutputVolume != 1 || openMenuHigh.Envelope != 3 ||
+            (sound.Apu.Register(0xff12) >> 4) != 1 || openMenuHigh.Envelope != 3 ||
             openMenuHigh.PitchSlide != 0x23 ||
-            openMenuHigh.CurrentFrequencyRegister != 0x0416 || openMenuHigh.WaitFrames != 0x15 ||
-            !openMenuLow.Active || !openMenuLow.Gate || openMenuLow.Priority != 1 ||
+            sound.Apu.Frequency(0) != 0x0416 || openMenuHigh.WaitFrames != 0x15 ||
+            !openMenuLow.Active || !sound.Apu.Voice(1).Enabled || openMenuLow.Priority != 1 ||
             openMenuLow.DutyOrWaveform != 2 || openMenuLow.Volume != 15 ||
-            openMenuLow.OutputVolume != 1 || openMenuLow.Envelope != 3 ||
+            (sound.Apu.Register(0xff17) >> 4) != 1 || openMenuLow.Envelope != 3 ||
             openMenuLow.PitchSlide != 0x2c ||
-            openMenuLow.CurrentFrequencyRegister != 0x002d || openMenuLow.WaitFrames != 0x15,
+            sound.Apu.Frequency(1) != 0x002d || openMenuLow.WaitFrames != 0x15,
             "SND_OPENMENU did not start its paired C3/C2 square-channel sweep.");
 
         sound.PlaySound(OracleSoundEngine.SndDamageLink);
         sound.Tick();
         ChannelState linkVoice = sound.Channel(5);
         FailIf(
-            !linkVoice.Active || !linkVoice.Gate || linkVoice.Priority != 1 ||
+            !linkVoice.Active || !sound.Apu.Voice(2).Enabled || linkVoice.Priority != 1 ||
             linkVoice.DutyOrWaveform != 0x2d || linkVoice.PitchShift != -3 ||
-            linkVoice.CurrentFrequencyRegister != 0x050f || linkVoice.WaitFrames != 0,
+            sound.Apu.Frequency(2) != 0x050f || linkVoice.WaitFrames != 0,
             "SND_DAMAGE_LINK did not start its shifted F2 wave-channel cry: " +
-            $"active={linkVoice.Active}, gate={linkVoice.Gate}, priority={linkVoice.Priority}, " +
+            $"active={linkVoice.Active}, gate={sound.Apu.Voice(2).Enabled}, priority={linkVoice.Priority}, " +
             $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
-            $"frequency=${linkVoice.CurrentFrequencyRegister:x4}, wait={linkVoice.WaitFrames}.");
+            $"frequency=${sound.Apu.Frequency(2):x4}, wait={linkVoice.WaitFrames}.");
 
         sound.PlaySound(OracleSoundEngine.SndLinkFall);
         sound.Tick();
         FailIf(
-            !linkVoice.Active || !linkVoice.Gate || linkVoice.Priority != 1 ||
+            !linkVoice.Active || !sound.Apu.Voice(2).Enabled || linkVoice.Priority != 1 ||
             linkVoice.DutyOrWaveform != 0x03 || linkVoice.PitchShift != 0 ||
-            linkVoice.CurrentFrequencyRegister != 0x07c1 || linkVoice.WaitFrames != 1,
+            sound.Apu.Frequency(2) != 0x07c1 || linkVoice.WaitFrames != 1,
             "SND_LINK_FALL did not start its two-update C6 wave-channel descent: " +
-            $"active={linkVoice.Active}, gate={linkVoice.Gate}, priority={linkVoice.Priority}, " +
+            $"active={linkVoice.Active}, gate={sound.Apu.Voice(2).Enabled}, priority={linkVoice.Priority}, " +
             $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
-            $"frequency=${linkVoice.CurrentFrequencyRegister:x4}, wait={linkVoice.WaitFrames}.");
+            $"frequency=${sound.Apu.Frequency(2):x4}, wait={linkVoice.WaitFrames}.");
 
         sound.PlaySound(OracleSoundEngine.SndMenuMove);
         sound.Tick();
@@ -972,8 +972,8 @@ public sealed partial class ValidationRoot
         FailIf(
             !sfxSquare.Active || sfxSquare.Priority != 1 ||
             sfxSquare.DutyOrWaveform != 3 || !sfxSquare.RawFrequencyMode ||
-            sfxSquare.RawEnvelope != 0xd9 ||
-            sfxSquare.CurrentFrequencyRegister != 0x07a0 ||
+            sfxSquare.RawDuty != 0xd9 ||
+            sound.Apu.Frequency(0) != 0x07a0 ||
             sfxSquare.WaitFrames != 2,
             "SND_MENU_MOVE did not execute its raw-frequency $07a0/$03 command.");
 
@@ -981,10 +981,10 @@ public sealed partial class ValidationRoot
         sound.Tick();
         ChannelState rawNoise = sound.Channel(7);
         FailIf(
-            !rawNoise.Active || !rawNoise.Gate || rawNoise.Priority != 1 ||
-            rawNoise.RawEnvelope != 0x20 || rawNoise.OutputVolume != 2 ||
-            rawNoise.EnvelopePeriod != 0 || rawNoise.NoiseRegister != 0x47 ||
-            rawNoise.NoiseTriggerPending || rawNoise.WaitFrames != 0,
+            !rawNoise.Active || !sound.Apu.Voice(3).Enabled || rawNoise.Priority != 1 ||
+            sound.Apu.Register(0xff21) != 0x20 || (sound.Apu.Register(0xff21) >> 4) != 2 ||
+            (sound.Apu.Register(0xff21) & 7) != 0 || sound.Apu.Register(0xff22) != 0x47 ||
+            sound.Driver.ReadState(0xc01c) != 0 || rawNoise.WaitFrames != 0,
             "SND_SWORDSLASH did not retrigger CH4 from its raw NR42/NR43 pair.");
 
         sound.PlaySound(OracleSoundEngine.SndMakuDisappear);
@@ -994,13 +994,13 @@ public sealed partial class ValidationRoot
         FailIf(
             !makuPulse.Active || makuPulse.Priority != 1 ||
             makuPulse.DutyOrWaveform != 2 || makuPulse.Volume != 3 ||
-            makuPulse.OutputVolume != 3 ||
-            makuPulse.CurrentFrequencyRegister != 0x002d ||
+            (sound.Apu.Register(0xff12) >> 4) != 3 ||
+            sound.Apu.Frequency(0) != 0x002d ||
             makuPulse.WaitFrames != 0x1b ||
-            !makuNoise.Active || !makuNoise.Gate || makuNoise.Priority != 1 ||
-            makuNoise.RawEnvelope != 0xf0 || makuNoise.OutputVolume != 15 ||
-            makuNoise.EnvelopePeriod != 0 || makuNoise.NoiseRegister != 0x75 ||
-            makuNoise.NoiseTriggerPending || makuNoise.WaitFrames != 0x1b,
+            !makuNoise.Active || !sound.Apu.Voice(3).Enabled || makuNoise.Priority != 1 ||
+            sound.Apu.Register(0xff21) != 0xf0 || (sound.Apu.Register(0xff21) >> 4) != 15 ||
+            (sound.Apu.Register(0xff21) & 7) != 0 || sound.Apu.Register(0xff22) != 0x75 ||
+            sound.Driver.ReadState(0xc01c) != 0 || makuNoise.WaitFrames != 0x1b,
             "SND_MAKUDISAPPEAR did not start its low C2 pulse and raw $f0/$75 CH4 block.");
 
         sound.PlaySound(0x4c);
@@ -1016,6 +1016,7 @@ public sealed partial class ValidationRoot
             "Low-priority SND_MENU_MOVE replaced SND_GETITEM's square channel.");
 
         sound.PlaySound(OracleSoundEngine.SndCtrlStopSfx);
+        sound.Tick();
         FailIf(
             new[] { 2, 3, 5, 7 }.Any(channel => sound.Channel(channel).Active),
             "SNDCTRL_STOPSFX did not release all SFX channels.");

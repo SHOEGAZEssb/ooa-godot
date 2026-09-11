@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
                     if (!trembling && update - lastRumbleUpdate > 60)
                     {
                         FailIf(sound.Channel(2).Active || sound.Channel(7).Active ||
-                            sound.Channel(2).Gate || sound.Channel(7).Gate,
+                            sound.Apu.Voice(0).Volume != 0 || sound.Apu.Voice(3).Volume != 0,
                             "$dc:$05 quiet period retained audible SND_RUMBLE after its 60-update tail.");
                         silentUpdates++;
                     }

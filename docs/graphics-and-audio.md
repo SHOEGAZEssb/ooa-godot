@@ -104,10 +104,25 @@ correct source pixels alone cannot detect a mismatched runtime tile layout.
 
 ## Audio determinism and lifecycle
 
-`OracleSoundEngine` is persistent across gameplay scenes and advances once per
-original 60 Hz update. Generated sound data supplies music/SFX descriptors and
-channel programs. The engine owns square, wave, and noise channels, priority,
-music/SFX replacement, envelopes, fades, vibrato, pitch, and master volume.
+`OracleSoundEngine` is persistent across gameplay scenes. Requests enter the
+original 16-byte ring; each 60 Hz application boundary applies the pending
+music volume, drains requests in order, then advances the driver. Restarting
+sound clears the queue while retaining the source driver's volume, fade and
+disable state.
+
+The generated sound-bank image already contains the clean US driver as well
+as its tables and channel programs. A bounded interpreter executes its sound
+entry points, banked-read trampoline, and private sound WRAM/HRAM. The driver
+bank is hash-checked before execution; unsupported instructions, memory access,
+and banks fail with original source addresses. Production never loads a ROM or
+disassembly file. Logical channel views read that memory without mirroring it.
+
+Eight logical programs share four physical CGB voices. Register writes control
+handoffs, note lengths, waveform RAM, DAC gates, and envelopes; ending an SFX
+does not automatically restore a separately saved music voice. The APU keeps
+clocking while the driver is disabled. PCM is generated during each original
+update, including intermediate updates in a batched host frame. Only the output
+queue may discard samples to bound latency after a host stall.
 
 Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source
@@ -117,6 +132,10 @@ audio RNG changes later gameplay.
 The production engine retains real sequencer and channel state, not last-call
 or request-count audit fields. Validation attaches an observer for ordered
 requests and inspects sequencer state when required.
+
+Driver regressions include independent clean-ROM execution fixtures, alongside
+source-derived register, hardware-clock and gameplay-update checks. This
+distinguishes correct sequencing from merely consuming the same imported data.
 
 On shutdown, stop generated playback, detach buffers and signals, and release
 references. Headless validation must not leave an

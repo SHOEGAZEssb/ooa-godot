@@ -131,11 +131,16 @@ public sealed partial class ValidationRoot
             _sound.LastPlayRequestForValidation() !=
                 OracleSoundEngine.SndFairyCutscene ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
-                fairySoundRequests + 1 ||
+                fairySoundRequests + 1,
+            "Closing TX_1213 did not queue SND_FAIRYCUTSCENE with the vanish timeline at frame zero.");
+        // bank0.s:timerInterrupt drains the request queue, then executes the
+        // first note. Direct intro stepping above does not run that boundary.
+        _sound.Tick();
+        FailIf(
             !_sound.Channel(fairySoundChannel.Channel).Active ||
             _sound.Channel(fairySoundChannel.Channel).Priority != fairySoundChannel.Priority ||
             _sound.Channel(fairySoundChannel.Channel).Bank != fairySoundChannel.Bank ||
-            _sound.Channel(fairySoundChannel.Channel).Offset != fairySoundChannel.Offset,
+            _sound.Channel(fairySoundChannel.Channel).Offset <= fairySoundChannel.Offset,
             "Closing TX_1213 did not start SND_FAIRYCUTSCENE and its original " +
             "channel program with the vanish timeline at frame zero.");
         for (int frame = 0; frame < intro.TotalVanishFrames - 1; frame++)
