@@ -166,6 +166,12 @@ contacts, and owns their lifetime. Shared combat, terrain, and interaction
 controllers operate through explicit capabilities. Species or native-object
 state stays with the entity that owns it in the original.
 
+Enemy terrain movement preserves the source's movement-result flag separately
+from displacement. A fast wall slide can change coordinates while reporting a
+blocked charge; small velocity components use the original high-byte carry and
+unsigned low-byte thresholds. Species consume that result to select their
+recovery state and RNG calls. Coordinate additions retain wrapping 8.8 words.
+
 Ordinary gameplay preserves the source category order: items, enemies, parts,
 then interactions. Item collisions resolve in the item phase, so a landed
 Scent Seed publishes its target before compatible enemies update, and its

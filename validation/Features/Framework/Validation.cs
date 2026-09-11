@@ -347,6 +347,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMapleEvents);
         RunIsolatedValidation(ValidateObjectSpeedTable);
         RunIsolatedValidation(ValidateEnemyBehaviorTables);
+        RunIsolatedValidation(ValidateEnemyMovementReturnFlags);
+        RunIsolatedValidation(ValidateEnemyCornerCharges);
         RunIsolatedValidation(ValidateEnemyPlacementRules);
         RunIsolatedValidation(ValidateEnemyObjectPlacementOrder);
         RunIsolatedValidation(ValidateRoom465PolsVoices);

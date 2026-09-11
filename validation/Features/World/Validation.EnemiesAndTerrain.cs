@@ -2832,6 +2832,20 @@ public sealed partial class ValidationRoot
             "The charge did not accelerate every four updates to the " +
             "SPEED_180 cap without treating counter2 as a timeout.");
 
+        // Keep the spatial fixture open to isolate ecom_decCounter2 beyond
+        // one room's traversal distance. Its 112 remaining ticks reach zero
+        // without ending the charge; subsequent ticks must not wrap to $ff.
+        for (int frame = 1; frame <= 114; frame++)
+        {
+            charger.Position = chargeStart;
+            charger.UpdateFrame(_player.Position);
+            FailIf(charger.Counter2 != Math.Max(0, 112 - frame) ||
+                charger.Speed != 60 || charger.State != SpikedBeetleState.Charging,
+                $"ENEMY_SPIKED_BEETLE $14 charge timer update {frame}: " +
+                $"expected counter=${Math.Max(0, 112 - frame):x2}/SPEED_180, " +
+                $"got counter=${charger.Counter2:x2}/speed=${charger.Speed:x2}.");
+        }
+
         _random.RestoreState(randomSnapshot);
         _player.RefillHealth();
         GD.Print(

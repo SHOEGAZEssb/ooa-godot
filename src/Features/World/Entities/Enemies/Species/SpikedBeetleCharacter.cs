@@ -154,7 +154,10 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
                 return;
 
             case SpikedBeetleState.Charging:
-                _counter2 = DecrementByte(_counter2);
+                // ecom_decCounter2 saturates at zero, unlike counter1's
+                // unconditional byte decrement. Zero is not a charge timeout.
+                if (_counter2 != 0)
+                    _counter2--;
                 if ((_counter2 & _behavior.ChargeAccelerationMask) == 0 &&
                     _speed < _behavior.ChargeMaximumSpeedRaw)
                 {
