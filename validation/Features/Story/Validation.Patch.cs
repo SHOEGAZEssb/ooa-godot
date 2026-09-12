@@ -20,10 +20,13 @@ public sealed partial class ValidationRoot
         var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
         var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         string? held = null, edge = null;
+        bool individualUpdates = false;
         void Step(int count = 1)
         {
             input.CaptureForValidation(held is null ? [] : [held], edge is null ? [] : [edge], held == "move_up" ? Vector2.Up : Vector2.Zero);
-            edge = null; scheduler.Advance(count / 60.0, update);
+            edge = null;
+            if (individualUpdates) for (int i = 0; i < count; i++) scheduler.Advance(1 / 60.0, update);
+            else scheduler.Advance(count / 60.0, update);
         }
         void PressA() { held = edge = "attack"; Step(); held = null; }
         void Close()
@@ -69,10 +72,10 @@ public sealed partial class ValidationRoot
                 "Patch's white victory fade retained completed $0f hole animations.");
         }
         NpcCharacter Actor() => _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x94 && n.Record.SubId < 2 && n.Active);
-        void ApproachAndTalk()
+        void ApproachAndTalk(bool reposition = true)
         {
             var npc = Actor();
-            _player.WarpTo(npc.Position + new Vector2(0, 48));
+            if (reposition) _player.WarpTo(npc.Position + new Vector2(0, 48));
             FailIf(_currentRoom.IsSolid(_player.Position), "Patch test starts inside solid room geometry.");
             held = edge = "move_up"; Step(40); held = null;
             Step();
@@ -119,31 +122,66 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(_player.HealthQuarters != health || _player.InvincibilityFrames != -15 || _player.KnockbackFrames != 19,
             "Harmless beetle collision $42 did not apply LINKDMG_$14: no damage, -15 invincibility, 19 knockback.");
-        _player.WarpTo(new Vector2(0x78, 0x48));
-        // Leave the switch unpressed. The real moving cart must hit the nut.
-        Until(() => patch.State == 5, 1600, "cart collision failure");
-        FailIf(!_player.CutsceneControlled, "US Patch failure did not disable Link.");
-        var explosion = _entities.Entities<InteractionExplosionEffect>().Single();
-        // INTERAC_EXPLOSION $56 uses fixed common OBJ graphics at $8001,
-        // tile base $0c, palette 2, and interaction56 animation 0. This clean-US
-        // frame fingerprint also rejects the unrelated graphics-ID-zero logo.
-        FailIf(explosion.Position != new Vector2(0x70, 0x18) || explosion.ZOffset != 0 ||
-            explosion.TextureSize != new Vector2(32, 32) || explosion.RenderedTextureOrigin != new Vector2(0x60, 8) ||
-            explosion.TexturePixelHash != 0x510f3c7716debcb4UL || explosion.AnimationFrame != 0 ||
-            explosion.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
-            $"Patch cart-hit explosion $56 has incorrect source graphics, origin or priority (pixels={explosion.TexturePixelHash:x16}).");
-        Step(124);
-        FailIf(!patch.Fading || patch.State != 5 || _inventory.TuniNutState != 1,
-            "Patch delay-$04 white fade completed before original update 125.");
-        Step();
-        FailIf(patch.Fading || patch.State != 6 || _inventory.TuniNutState != 0,
-            "Patch failure did not finish its white fade on update 125.");
-        Text("The ceremony");
-        FailIf(_inventory.TuniNutState != 0 || _entities.Entities<HardhatBeetleCharacter>().Any(), "Patch failure did not restore the broken nut and delete beetles.");
-        Close(); Until(() => patch.State == 1, 30, "retry initialization");
-        FailIf(_player.CutsceneControlled || _currentRoom.GetMetatile(new Vector2(0x98, 0x48)) != 0x44,
-            "Patch retry did not restore input and stairs.");
-        ApproachAndTalk(); Text("Welcome to"); Choice(1); Text("Then that"); Close();
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            individualUpdates = attempt == 0;
+            _player.WarpTo(new Vector2(0x78, 0x68));
+            _player.SetScriptedPosition(_player.Position + new Vector2(0.25f, 0.75f));
+            FailIf(_currentRoom.IsSolid(_player.Position), "Patch failure setup is inside solid room geometry.");
+            // Leave the switch unpressed. The real moving cart must hit the nut.
+            Until(() => patch.State == 5, 1600, "cart collision failure");
+            FailIf(!_player.CutsceneControlled, "US Patch failure did not disable Link.");
+            Vector2 crashPosition = _player.PrecisePosition;
+            Vector2 restoredPosition = new Vector2(0x78, 0x48) +
+                new Vector2(crashPosition.X - Mathf.Floor(crashPosition.X), crashPosition.Y - Mathf.Floor(crashPosition.Y));
+            FailIf(_player.Position == new Vector2(0x78, 0x48), "Patch failure setup did not distinguish the crash and return positions.");
+            var explosion = _entities.Entities<InteractionExplosionEffect>().Single();
+            // INTERAC_EXPLOSION $56 uses fixed common OBJ graphics at $8001,
+            // tile base $0c, palette 2, and interaction56 animation 0. This clean-US
+            // frame fingerprint also rejects the unrelated graphics-ID-zero logo.
+            FailIf(explosion.Position != new Vector2(0x70, 0x18) || explosion.ZOffset != 0 ||
+                explosion.TextureSize != new Vector2(32, 32) || explosion.RenderedTextureOrigin != new Vector2(0x60, 8) ||
+                explosion.TexturePixelHash != 0x510f3c7716debcb4UL || explosion.AnimationFrame != 0 ||
+                explosion.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+                $"Patch cart-hit explosion $56 has incorrect source graphics, origin or priority (pixels={explosion.TexturePixelHash:x16}).");
+            Step(124);
+            FailIf(!patch.Fading || patch.State != 5 || _inventory.TuniNutState != 1,
+                "Patch delay-$04 white fade completed before original update 125.");
+            Step();
+            FailIf(patch.Fading || patch.State != 6 || _inventory.TuniNutState != 0,
+                "Patch failure did not finish its white fade on update 125.");
+            FailIf(_player.PrecisePosition != crashPosition,
+                "Patch moved Link before patch_linkFailedMinigameScript began in state $06.");
+            Step();
+            // scriptHelper.s writes yh=$48 and xh=$78, retaining both low bytes,
+            // before TX_580c. Releasing DISABLE_LINK must retain those coordinates.
+            void CheckReturnPosition(string phase)
+            {
+                FailIf(_player.Position != new Vector2(0x78, 0x48) || _player.PrecisePosition != restoredPosition ||
+                    _player.FacingVector != Vector2I.Up,
+                    $"Patch $94:$01 {phase} lost Link's return position/facing: expected {restoredPosition}, " +
+                    $"got {_player.PrecisePosition} (display {_player.Position}), individual={individualUpdates}.");
+            }
+            CheckReturnPosition("failure fade-in");
+            Text("The ceremony");
+            CheckReturnPosition("TX_580c");
+            FailIf(_inventory.TuniNutState != 0 || _entities.Entities<HardhatBeetleCharacter>().Any(), "Patch failure did not restore the broken nut and delete beetles.");
+            Close(); Until(() => patch.State == 1, 30, "retry initialization");
+            FailIf(_player.CutsceneControlled || _currentRoom.GetMetatile(new Vector2(0x98, 0x48)) != 0x44,
+                "Patch retry did not restore input and stairs.");
+            CheckReturnPosition("control release");
+            Step(7); CheckReturnPosition("resumed gameplay");
+            // Reach Patch from the script's destination through real NPC collision,
+            // without a warp hiding a stale gameplay coordinate.
+            ApproachAndTalk(reposition: false); Text("Welcome to");
+            if (attempt == 0)
+            {
+                Choice(0); Text("Very well!"); Choice(0); Text("Let the ceremony"); Close();
+                Until(() => patch.State == 2, 30, "second failure game start");
+            }
+            else { Choice(1); Text("Then that"); Close(); }
+        }
+        individualUpdates = false;
         Step(3);
         ApproachAndTalk(); Text("Welcome to"); Choice(0); Text("Very well!"); Choice(1);
         Text("Then let me");

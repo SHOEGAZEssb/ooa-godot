@@ -452,7 +452,11 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             case "patch_moveLinkPositionAtMinigameEnd":
                 Context.Entities.ClearPhysicalPlayerItems(); Context.Player.PutOnGroundForScript();
                 Context.Player.ClearInteractionKnockback(clearInvincibility: true);
-                Context.Player.Position = new Vector2(0x78, 0x48); Context.Player.Face(Vector2I.Up); Write(0xcfd6, 1); break;
+                // scriptHelper.s writes w1Link.yh/xh, preserving the low bytes.
+                // Update Link's gameplay coordinates before releasing DISABLE_LINK.
+                Context.Player.SetScriptedCoordinateHigh(horizontal: false, 0x48);
+                Context.Player.SetScriptedCoordinateHigh(horizontal: true, 0x78);
+                Context.Player.Face(Vector2I.Up); Write(0xcfd6, 1); break;
             case "fadeoutToWhiteWithDelay:2": BeginFade(1, 2); break;
             case "fadeinFromWhiteWithDelay:2": BeginFade(-1, 2); break;
             case "fadeinFromWhiteWithDelay:4": BeginFade(-1, 4); break;
