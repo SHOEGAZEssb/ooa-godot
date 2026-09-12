@@ -343,6 +343,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom2e6MaskSalesman);
         RunIsolatedValidation(ValidateRoom2e8DumbbellMan);
         RunIsolatedValidation(ValidateRoom38fTokkey);
+        RunIsolatedValidation(ValidateRoom050BombUpgradeFairy);
         RunIsolatedValidation(ValidateRoom2f3DepressedBoy);
         RunIsolatedValidation(ValidateNayruIntroCutscene);
         RunIsolatedValidation(ValidateRalphPortalDepartureEvent);
@@ -402,6 +403,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTimeWarpLandingFidelity);
         RunIsolatedValidation(ValidateTimePortalContactFidelity);
         RunIsolatedValidation(ValidateHiddenPortalSpots);
+        RunIsolatedValidation(ValidateRoom141WaterPushblocks);
         RunIsolatedValidation(ValidateEnterPastEvent);
         RunIsolatedValidation(ValidateCrescentIslandPastStairs);
         RunIsolatedValidation(ValidateRoom5ccDiveWarp);

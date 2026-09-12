@@ -13,6 +13,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     internal const int FixedLowPriorityZIndex = 8;
     internal const int BehindLinkZIndex = 9;
     internal const int InFrontOfLinkZIndex = 11;
+    internal const int FixedHighPriorityZIndex = 12; // objectSetVisible80
 
     private readonly List<NpcCharacterAnimationFrame>[] _facingAnimations =
     {
@@ -198,12 +199,16 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         float collisionRadiusX)
     {
         if (player.TimeWarpPassesNpcs) return false;
-        Vector2 link = player.Position;
+        Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
         float radiusY = collisionRadiusY + LinkCollisionRadius;
         float radiusX = collisionRadiusX + LinkCollisionRadius;
         float differenceY = Mathf.Abs(link.Y - Position.Y);
         float differenceX = Mathf.Abs(link.X - Position.X);
-        if (differenceY >= radiusY || differenceX >= radiusX)
+        // checkObjectsCollidedFromVariables compares the unsigned byte
+        // (Link-object+radius) against radius*2: -radius is included, while
+        // +radius is excluded. This matters at slow, fractional approaches.
+        if (((int)(link.Y - Position.Y + radiusY) & 0xff) >= radiusY * 2 ||
+            ((int)(link.X - Position.X + radiusX) & 0xff) >= radiusX * 2)
             return false;
 
         // The assembly resolves the axis with less overlap. Its CP tie falls

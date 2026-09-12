@@ -118,6 +118,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-portals' 'Import-TimePortalData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionAnimationSource', 'interactionGraphics', 'mainObjectLines', 'npcAnimationTables', 'soundIds', 'treasureIds') `
         -functionInputs @('Read-PaletteBytes', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'water-pushblocks' 'Import-WaterPushblockData.ps1' `
+        -inputs @('gfxNames', 'interactionGraphics', 'soundIds') `
+        -functionInputs @('Resolve-NpcAnimation')
     New-ImportStageContract 'cutscene-maku-tree' 'Import-MakuTreeData.ps1' `
         -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords', 'treasureObjectSource') `
         -outputs @('makuStopSound', 'objectGfxSource') `
@@ -196,6 +199,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-patch' 'Import-PatchData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'soundIds', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-bomb-upgrade-fairy' 'Import-BombUpgradeFairyData.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'soundIds') `
+        -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Read-PaletteBytes', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-validation' 'Validate-CutsceneData.ps1' `
         -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Test-GeneratedCutsceneCommandStreams')

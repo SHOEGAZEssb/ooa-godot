@@ -268,6 +268,7 @@ public partial class Player : Node2D
     private int _treasureSwordSpinPending;
     internal bool TreasureSwordSpinActive => _treasureSwordSpin || _treasureSwordSpinPending != 0;
     private int? _scriptedLinkAnimationMode;
+    private Texture2D? _scriptedCollapsedTexture;
     private int _cutsceneDrawZFixed;
     private bool _carriedObjectPose;
     private BraceletActionPose? _braceletActionPose;
@@ -453,6 +454,11 @@ public partial class Player : Node2D
     internal bool PatchCollisionsEnabled => !IsDying && !GaleActive && !_world.PlayerContactDisabled &&
         !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !TopDownDiving &&
         !SideScrollDrowningCollisionsDisabled && !IsUsingHarp && !_braceletLiftCollisionsDisabled;
+    // bombUpgradeFairy.s checks Link.zh==0 before checkLinkVulnerable.
+    internal bool BombFairyVulnerable => PatchCollisionsEnabled &&
+        _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 &&
+        !_drowning && !_fallingInHole && !_pullingIntoHole &&
+        (!_topDownAirborne || TopDownAirZ == 0) && !CutsceneControlled;
     internal void ClearInteractionKnockback(bool clearInvincibility = false)
     {
         _enemyKnockbackFrames = 0;
@@ -1640,6 +1646,14 @@ public partial class Player : Node2D
         // updateSpecialObjects clears wcc92 before this update's terrain
         // handler can publish a conveyor/current displacement.
         _screenTransitionTerrainMotion = false;
+        // updateSpecialObjects clears wForceLinkPushAnimation even when
+        // DISABLE_LINK freezes Link's native state and item parents.
+        if (_world.PlayerUpdatesFrozen)
+        {
+            _pushing = false;
+            QueueRedraw();
+            return;
+        }
         if (GaleActive)
         {
             AdvanceGale();
@@ -2343,6 +2357,7 @@ public partial class Player : Node2D
     }
 
     internal bool CutsceneControlled => _cutsceneControlled;
+    internal void DropHeldItemsForScript() => InterruptCarriedItems(discard: false);
     internal bool IsCutsceneControlOwner(object owner) =>
         _cutsceneControlled && ReferenceEquals(_cutsceneControlOwner, owner);
     internal bool Walking => _walking;
@@ -2400,7 +2415,7 @@ public partial class Player : Node2D
     /// </summary>
     internal void SetScriptedLinkAnimationMode(int? mode)
     {
-        if (mode is not null and not (0x06 or 0x07 or 0x08 or 0x09 or
+        if (mode is not null and not (0x02 or 0x06 or 0x07 or 0x08 or 0x09 or
             0x0e or 0x0f or 0x1c))
         {
             throw new ArgumentOutOfRangeException(nameof(mode));
@@ -3001,6 +3016,10 @@ public partial class Player : Node2D
             QueueRedraw();
         }
 
+        // updateLinkInvincibilityCounter is outside Link's $81 state gate;
+        // item parents below it remain frozen without being cancelled.
+        if (_world.PlayerUpdatesFrozen) return;
+
         if (IsDying)
             return;
 
@@ -3418,6 +3437,8 @@ public partial class Player : Node2D
     {
         return mode switch
         {
+            0x02 => _scriptedCollapsedTexture ??= new AtlasTexture
+                { Atlas = _deathTexture, Region = new Rect2(4 * 16, 0, 16, 16) },
             0x06 => _sideScrollSquishXTexture,
             0x07 => _sideScrollSquishYTexture,
             0x08 => damagePalette

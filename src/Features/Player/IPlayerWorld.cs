@@ -13,6 +13,7 @@ public interface IPlayerWorld
     bool SwordDisabled { get; }
     bool ItemUsageDisabled { get; }
     bool MovementDisabled { get; }
+    bool PlayerUpdatesFrozen => false;
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
     bool GaleWarpDisabled => false;

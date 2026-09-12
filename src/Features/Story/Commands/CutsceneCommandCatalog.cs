@@ -125,6 +125,8 @@ internal static class CutsceneCommandCatalog
                     Decimal(path, physicalLine, "arg1", arg1)),
             "jumptablememory" => ParseMemoryJumpTable(
                 path, physicalLine, source, payload),
+            "jumptablememoryyield" => ParseMemoryJumpTable(
+                path, physicalLine, source, payload, yieldAfterJump: true),
             "jumpifroomflagset" => new CutsceneRoomFlagBranchCommand(
                 source,
                 Hex(path, physicalLine, "arg0", arg0),
@@ -227,7 +229,8 @@ internal static class CutsceneCommandCatalog
         string path,
         int physicalLine,
         CutsceneCommandSource source,
-        string payload)
+        string payload,
+        bool yieldAfterJump = false)
     {
         string[] sections = payload.Split('|');
         if (sections.Length != 2)
@@ -251,8 +254,9 @@ internal static class CutsceneCommandCatalog
             targets.Add(Decimal(
                 path, physicalLine, "jump-table target", encodedTarget));
         }
-        return new CutsceneMemoryJumpTableCommand(
-            source, binding, targets.AsReadOnly());
+        return yieldAfterJump
+            ? new CutsceneMemoryJumpTableYieldCommand(source, binding, targets.AsReadOnly())
+            : new CutsceneMemoryJumpTableCommand(source, binding, targets.AsReadOnly());
     }
 
     private static CutsceneTranslateCommand ParseTranslate(
@@ -512,11 +516,15 @@ internal sealed record CutsceneMemoryBranchYieldOnMissCommand(
     int TargetCommand)
     : CutsceneCommand(Source);
 
-internal sealed record CutsceneMemoryJumpTableCommand(
+internal record CutsceneMemoryJumpTableCommand(
     CutsceneCommandSource Source,
     string Binding,
     IReadOnlyList<int> TargetCommands)
     : CutsceneCommand(Source);
+
+internal sealed record CutsceneMemoryJumpTableYieldCommand(
+    CutsceneCommandSource Source, string Binding, IReadOnlyList<int> TargetCommands)
+    : CutsceneMemoryJumpTableCommand(Source, Binding, TargetCommands);
 
 internal sealed record CutsceneMakeAButtonSensitiveCommand(
     CutsceneCommandSource Source,

@@ -48,6 +48,9 @@ Preserve the script's execution location when normalizing jumps. In Ages,
 `scriptCmd_jump` yields after relocating a target within the copied
 `wBigBuffer` script, while its ordinary ROM jump continues dispatch. These
 use distinct typed branch commands even when their destination is identical.
+Memory-address jump tables call `scriptFunc_jump` directly and yield after
+selecting their target; conditional text-option branches call its carry-setting
+wrapper and continue. Keep these dispatch boundaries explicit in imported commands.
 
 ## Fixed-update semantics
 

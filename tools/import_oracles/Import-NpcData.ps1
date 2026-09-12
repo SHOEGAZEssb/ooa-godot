@@ -955,6 +955,7 @@ if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
 foreach ($key in @('3:be:94:00:00','5:e8:94:01:00','5:e8:94:02:00')) {
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
+[void]$eventOwnedNpcImplementationKeys.Add('0:50:83:00:00')
 
 function Resolve-NpcImplementation(
     [int]$group,
@@ -4636,8 +4637,8 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
     $npcImplementationCounts['specialized-native'] -ne 91 -or
-    $npcImplementationCounts['event-owned'] -ne 50 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 188 -or
+    $npcImplementationCounts['event-owned'] -ne 51 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 187 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

@@ -690,6 +690,31 @@ public sealed class InventoryState
         NotifyChanged();
     }
 
+    // scriptHelp.bombUpgradeFairy_giveBombUpgrade writes packed BCD capacity
+    // before giveTreasure adds/clamps the bomb count and restores ownership.
+    internal void ApplyFairyBombCapacityUpgrade(int capacity)
+    {
+        MaxBombs = capacity;
+        GiveTreasureCore(TreasureDatabase.TreasureBombs, capacity);
+        NotifyChanged();
+    }
+
+    internal void ConfiscateBombs()
+    {
+        // The helper writes $01, then calls the ordinary packed-BCD decrement.
+        Bombs = 1;
+        TryConsumeBomb();
+    }
+
+    internal bool ApplyFairyHealthPenalty()
+    {
+        if (HealthQuarters < 4) return false;
+        HealthQuarters = 4;
+        HealthChanged?.Invoke();
+        NotifyChanged();
+        return true;
+    }
+
     /// <summary>
     /// Mirrors mapleCheckLinkCanDropItem, including its original mistaken
     /// treasure-index checks and the one-rupee-to-five-rupee output bug.

@@ -322,7 +322,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                         $"${jumpIndex:x2} from '{jumpTable.Binding}'.");
                 }
                 _nextInstruction = jumpTable.TargetCommands[jumpIndex];
-                return CommandResult.Continue;
+                return jumpTable is CutsceneMemoryJumpTableYieldCommand
+                    ? CommandResult.Yield : CommandResult.Continue;
 
             case CutsceneRoomFlagBranchCommand branch:
                 if (host.RoomFlagSet(branch.Flag))

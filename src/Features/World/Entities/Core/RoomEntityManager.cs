@@ -252,6 +252,8 @@ public sealed class RoomEntityManager : IDisposable
 
     public bool PlayerSwordDisabled
         => HasPlayerRestriction(static restriction => restriction.DisablesSword);
+    internal bool PlayerUpdatesFrozen
+        => HasPlayerRestriction(static restriction => restriction.FreezesPlayerUpdates);
     public bool PlayerItemUsageDisabled
         => HasPlayerRestriction(static restriction => restriction.DisablesItems);
     public bool PlayerMovementDisabled
@@ -1815,9 +1817,13 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
-    private static bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity) =>
+    private bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity) =>
         entity is IUpdatesDuringRoomEntityFreeze ||
-        entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true };
+        entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true } ||
+        EntityPhase(entity) == 2 &&
+        entity is not (IPlayerProjectileRoomEntity or ISeedProjectileRoomEntity or BombRoomEntity or IPlayerRideableRoomEntity) &&
+        !_activeEntities.Any(candidate =>
+            candidate is IRoomEntityUpdateFreeze { FreezesRoomEntities: true, FreezesInteractions: true });
 
     private bool HasPlayerRestriction(
         Func<IPlayerRestriction, bool> predicate)

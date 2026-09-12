@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 146 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 147 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 188 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 187 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -64,11 +64,24 @@ behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
 The implementation manifest therefore contains 54 ordinary, 91 specialized,
-50 event-owned, and 188 deliberately unsupported positioned/state-derived
+51 event-owned, and 187 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
 classified records and 163 specialized rows.
 
 ### Important partial and deferred boundaries
+
+- September 12, 2026: room `0:50` `$83:$00` is implemented through its bomb
+  trigger, complete choice script, rewards, penalties, completion flag and
+  source-correct bomb sprites.
+  `ValidateRoom050BombUpgradeFairy` covers gameplay approach, repeat actions,
+  cancellation and batched updates. Snapshot: **147 I / 49 P / 187 D**;
+  manifest: **54 ordinary / 91 specialized / 51 event-owned / 187 unsupported**.
+
+- September 12, 2026: shared native NPC collision resolution now preserves
+  the source's inclusive left/top and exclusive right/bottom boundaries.
+  `ValidateRoom141WaterPushblocks` covers continuous shallow-water pushing
+  through that helper. Its `$9e` blocks and `$e1` portal have no imported NPC
+  rows; classifications remain **146 I / 49 P / 188 D**, across **212 rooms**.
 
 - September 12, 2026: Patch `$94:$00` in `3:be` and `$94:$01/$02` in
   `5:e8` are **I**, covered by `ValidatePatchRestoration`: conversations,
@@ -386,7 +399,7 @@ well as record selection.
 | `0:45` | [I] `$3f:$01/v$00` boy2, including its occupied timewarp landing tile |
 | `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
 | `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
-| `0:50` | [D] `$83:$00/v$00` bombUpgradeFairy |
+| `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy, including bomb sprite encoding and palettes |
 | `0:55` | [D] `$54:$01/v$01` mamamuDog |
 | `0:56` | [I] `$3a:$04/v$00` villager<br>[I] `$65:$00/v$00` comedian |
 | `0:57` | [I] `$41:$01/v$00` miscMan |

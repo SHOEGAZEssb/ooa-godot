@@ -46,6 +46,11 @@ immediately.
 and transition fades. `RoomEntityManager` owns the active and outgoing entity
 sets.
 
+A native object freeze can leave the interaction phase running while holding
+Link, item parents, projectiles, enemies, parts, and companions. Preserve that
+distinction from an input lock: frozen item state must resume after release,
+and ordinary interactions must still advance when their source mask allows it.
+
 During a scrolling transition:
 
 - destination data and entities may be preloaded;

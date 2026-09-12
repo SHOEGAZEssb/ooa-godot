@@ -421,6 +421,9 @@ public sealed partial class ValidationRoot
             // patch_updateTextSubstitution selects TX_5812/TX_5813 through
             // wTextSubstitutions; ValidatePatchRestoration exercises both.
             ["cutscenes/patch_commands.tsv|\\call(0xff)"] = 10,
+            // $83 captures BCD $30/$50 on entry; the gameplay regression checks
+            // the substituted reward text and inventory in both capacity routes.
+            ["cutscenes/bomb_upgrade_fairy_commands.tsv|\\num1"] = 1,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["cutscenes/symmetry_commands.tsv|\\secret1"] = 1,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
@@ -533,8 +536,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
                 [NpcImplementationClassification.SpecializedNative] = 163,
-                [NpcImplementationClassification.EventOwned] = 50,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 188
+                [NpcImplementationClassification.EventOwned] = 51,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 187
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -547,7 +550,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 163 specialized, 50 event-owned, and 188 " +
+            "54 ordinary, 163 specialized, 51 event-owned, and 187 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 

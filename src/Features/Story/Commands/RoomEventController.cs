@@ -76,6 +76,7 @@ public sealed class RoomEventController
             new CarpenterEvent(_context),
             new SymmetryEvent(_context),
             new PatchEvent(_context),
+            new BombUpgradeFairyEvent(_context),
             new MooshRescueEvent(_context),
             new MakuSproutRescueEvent(_context),
             new DekuForestSoldierEvent(_context),

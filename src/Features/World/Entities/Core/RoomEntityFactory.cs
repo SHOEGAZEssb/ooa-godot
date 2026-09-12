@@ -63,6 +63,7 @@ internal sealed class RoomEntityFactory(
     private readonly ZoraFireDatabase _zoraFire = new();
     private readonly FountainFairyDatabase _fountainFairies = new();
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
+    private readonly WaterPushblockDatabase _waterPushblocks = new();
     private readonly CarpenterDatabase _carpenters = new();
     private readonly SymmetryDatabase _symmetry = new();
     private readonly PatchDatabase _patch = new();
@@ -792,8 +793,9 @@ internal sealed class RoomEntityFactory(
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
-                        yield return new EventOwnedNpcRoomEntity(
-                            CreateNpcCharacter(record));
+                        yield return record is { Id: 0x83, SubId: 0 }
+                            ? new BombUpgradeFairyRoomEntity(CreateNpcCharacter(record))
+                            : new EventOwnedNpcRoomEntity(CreateNpcCharacter(record));
                         break;
                     case NpcImplementationClassification.DeliberatelyUnsupported:
                         break;
@@ -865,6 +867,13 @@ internal sealed class RoomEntityFactory(
         }
         foreach (IRoomEntity portal in CreateTimePortals(group, room))
             yield return portal;
+
+        // $9e follows $e1 in the water-control room's object stream. Both
+        // variants perform their complementary flag check in native state 0.
+        if (saveData is not null)
+            foreach (var record in _waterPushblocks.GetRoom(group, room.Id))
+                yield return new WaterPushblockRoomEntity(record, _waterPushblocks, room, saveData,
+                    soundRequested, () => roomMusicRequested(group, room.Id), roomTileChanged, animationTick);
 
         // The two non-leading Ages placements follow their room's supported
         // actors/portals and still precede the enemy pointer: 0:13 order 6
@@ -4229,6 +4238,10 @@ internal sealed class RoomEntityFactory(
             soundRequested,
             (position, hazard, kind) =>
             {
+                // bombs.s:bombUpdateThrowingVerticallyAndCheckDelete writes
+                // this signal for any landed hazard, after the room-boundary check.
+                if (spawn.Group == 0 && room.Id == 0x50)
+                    runtimeState.SetWramByte(0xcfc0, 1);
                 if (hazard is HazardType.Water or HazardType.Lava)
                     itemDropEnteredHazard(position, hazard);
                 else if (hazard == HazardType.Hole)

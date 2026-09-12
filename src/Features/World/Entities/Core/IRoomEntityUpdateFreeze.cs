@@ -7,4 +7,5 @@ namespace oracleofages;
 internal interface IRoomEntityUpdateFreeze
 {
     bool FreezesRoomEntities { get; }
+    bool FreezesInteractions => true;
 }

@@ -7,6 +7,7 @@ namespace oracleofages;
 internal interface IPlayerRestriction
 {
     bool DisablesSword { get; }
+    bool FreezesPlayerUpdates => false;
     bool DisablesItems => false;
     bool DisablesMovement => false;
     bool DisablesMenus => false;

@@ -29,6 +29,7 @@ $cutsceneVocabularyRows = @(
     "jumpifmemoryeq`tjumpifmemoryeq`t6`tCutsceneMemoryBranchCommand`tnone`thex`tdecimal`trequired`tcontinue`t-`tmemory-read`tConditionally branch on a WRAM binding.",
     "jumpifmemoryeqyieldonmiss`tjumpifmemoryset`t6`tCutsceneMemoryBranchYieldOnMissCommand`tnone`thex`tdecimal`trequired`tcontinue|yield`t-`tmemory-read`tBranch and continue on a normalized match; otherwise advance and yield.",
     "jumptablememory`tjumptable_objectbyte`t2+table`tCutsceneMemoryJumpTableCommand`tnone`tnone`tnone`tmemory-jump-table`tcontinue`t-`tmemory-read`tIndex a normalized branch table with a binding.",
+    "jumptablememoryyield`tjumptable_memoryaddress`t2+table`tCutsceneMemoryJumpTableYieldCommand`tnone`tnone`tnone`tmemory-jump-table`tyield`t-`tmemory-read`tRelocate the selected memory-address table target and end this update.",
     "jumpifroomflagset`tjumpifroomflagset`t4`tCutsceneRoomFlagBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`troom-flag-read`tBranch when a room flag is set.",
     "jumpiftradeitemeq`tjumpiftradeitemeq`t4`tCutsceneTradeItemBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`ttrade-item-read`tBranch when the obtained trade item matches.",
     "jumpiftextoptioneq`tjumpiftextoptioneq`t4`tCutsceneTextOptionBranchCommand`tnone`thex`tdecimal`tnone`tcontinue`t-`ttext-option-read`tBranch on the selected text option.",
