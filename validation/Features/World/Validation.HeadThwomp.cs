@@ -245,6 +245,7 @@ public sealed partial class ValidationRoot
             visuals.Visual("head-thwomp-boulder-impact"),
             boulderSounds.Add);
         using Image fallingBoulderImage = boulder.CurrentTexture.GetImage();
+        ValidateFallingBoulderPixels(fallingBoulderImage, 0);
         ulong fallingBoulderHash =
             OracleGraphicsCache.PixelHash(fallingBoulderImage);
         boulder.UpdateFrame(_player);

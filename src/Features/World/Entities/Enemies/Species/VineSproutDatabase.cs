@@ -55,6 +55,7 @@ internal sealed class VineSproutDatabase
                     CliffGroundProximity: 3,
                     CliffDebrisInteraction: 0x06
                 } ||
+            Record(1).DefaultPosition != 0x22 ||
             Record(2).DefaultPosition != 0x16 ||
             Record(3).DefaultPosition != 0x35 ||
             Record(4).DefaultPosition != 0x18 ||
@@ -66,6 +67,19 @@ internal sealed class VineSproutDatabase
     }
 
     internal bool HasSubId(int subId) => _records.ContainsKey(subId);
+
+    internal void InitializeMissingPositions(OracleSaveData save)
+    {
+        // fileManagement.initializeFile -> initializeVinePositions copies all
+        // six defaults before the first room load. Older port saves omitted
+        // this copy. Repair only zero entries: native sprout writes clamp both
+        // coordinates away from the room boundary, so $00 is never persisted.
+        for (int subId = 0; subId < _records.Count; subId++)
+        {
+            if (save.ReadWramByte(PositionAddress + subId) == 0)
+                ResetPosition(subId, save);
+        }
+    }
 
     internal VineSproutRecord Record(int subId) =>
         _records.TryGetValue(subId, out VineSproutRecord record)

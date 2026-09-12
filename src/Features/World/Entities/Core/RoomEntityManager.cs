@@ -1611,6 +1611,7 @@ public sealed class RoomEntityManager : IDisposable
             int slot = FindFreePartSlot();
             if (slot >= 0) _partSlots.Add(entity, slot);
             if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
+            if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
         }
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
@@ -1686,7 +1687,8 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or EnemySwordRoomEntity ? 1 : 2;
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity
+            or EnemySwordRoomEntity ? 1 : 2;
 
     private int FindFreePartSlot()
     {

@@ -59,6 +59,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   volcanic tremors, rumbling, erupting rocks, and lava-waterfall impacts.
 - Red and blue Arrow Darknuts on the paths around Symmetry Village, and
   Podoboo Towers in its ruined present, including restoration-based removal.
+- Falling boulders on the climb to Patch, with staggered appearances,
+  randomized bounces, contact damage, and repeating room-local cycles.
 - Moosh's rescue and mountable-companion core: exact ride visuals, movement,
   cliff descent, ground-contact tile breaking, hover/charged stomp and charge
   flash, collision-safe dismount/remount memory,

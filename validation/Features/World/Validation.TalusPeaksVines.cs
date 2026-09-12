@@ -61,6 +61,68 @@ public sealed partial class ValidationRoot
                 $"Room 0:{room.Id:x2} growth changed the saved sprout position ${seed:x2}.");
         }
 
+        // fileManagement.initializeFile calls initializeVinePositions before
+        // saving: all six defaults exist before any past sprout is parsed.
+        byte[] defaults = [0x41, 0x22, 0x16, 0x35, 0x18, 0x53];
+        OracleSaveData fresh = OracleSaveData.CreateStandardGame();
+        for (int subId = 0; subId < defaults.Length; subId++)
+            FailIf(fresh.ReadWramByte(0xc8f0 + subId) != defaults[subId],
+                $"New file wVinePositions+${subId:x2} must start at ${defaults[subId]:x2} before visiting the past.");
+
+        // Older port saves may have zero entries, including a mixture of
+        // unvisited sprouts and positions already moved by the player.
+        fresh.WriteWramByte(0xc8f0, 0);
+        fresh.WriteWramByte(address, 0x27);
+        fresh.WriteWramByte(0xc8f2, 0);
+        byte[] legacy = fresh.Serialize();
+        FailIf(!OracleSaveData.TryDeserialize(legacy, out OracleSaveData? restored),
+            "Legacy vine-position save failed to load.");
+        byte[] repaired = restored!.Serialize();
+        for (int offset = 2; offset < legacy.Length; offset++)
+        {
+            byte expected = offset switch
+            {
+                0x340 => 0x41, // $c8f0 - $c5b0
+                0x342 => 0x16,
+                _ => legacy[offset]
+            };
+            FailIf(repaired[offset] != expected,
+                $"Legacy vine repair changed save byte ${offset:x3} incorrectly.");
+        }
+
+        foreach (bool legacySave in new[] { false, true })
+        foreach (bool batched in new[] { false, true })
+        {
+            OracleSaveData firstVisit = OracleSaveData.CreateStandardGame();
+            if (legacySave)
+            {
+                firstVisit.WriteWramByte(address, 0);
+                FailIf(!OracleSaveData.TryDeserialize(firstVisit.Serialize(), out restored),
+                    "Legacy present-first save failed to load.");
+                firstVisit = restored!;
+            }
+            _saveData.RestoreFrom(firstVisit);
+            for (int visit = 0; visit < 2; visit++)
+            {
+                LoadValidationRoom(0, 0x61);
+                _player.WarpTo(Point(0x32));
+                CheckLayout(_currentRoom, 0x22);
+                Input.ActionPress("move_up");
+                try
+                {
+                    if (batched) base._Process(160 / 60.0);
+                    else for (int update = 0; update < 160; update++) base._Process(1.0 / 60.0);
+                }
+                finally { Input.ActionRelease("move_up"); }
+                FailIf(IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x51 || _player.Position.Y >= 120,
+                    $"Present-first vine climb failed on visit {visit + 1}, legacy={legacySave}, batched={batched} " +
+                    $"(room {_activeGroup:x1}:{_currentRoom.Id:x2}, Link {_player.Position}).");
+                CheckLayout(_currentRoom, 0x22);
+                FailIf(_saveData.HasRoomFlag(1, 0x61, OracleSaveData.RoomFlagVisited),
+                    "Present-first vine regression unexpectedly visited room 1:61.");
+            }
+        }
+
         // Reuse cached rooms across both branches, withered ground and a solid
         // mismatch ($01/$64): only collision-zero terrain receives tile $8c.
         foreach (byte seed in new byte[] { 0x22, 0x27, 0x32, 0x01, 0x22 })
@@ -141,6 +203,7 @@ public sealed partial class ValidationRoot
                 $"Sprout ${target:x2} vine failed a repeated climb after room re-entry.");
         }
         GD.Print("Validated Talus Peaks $62:$01 push cancellation/completion, saved positions $22/$27, " +
-            "0:61/0:51 vine tiles and collision, misaligned/solid branches, time travel, repeated climbing, and batched updates.");
+            "new/legacy save defaults, present-first 0:61/0:51 climbing, vine tiles and collision, " +
+            "misaligned/solid branches, time travel, repeated climbing, and batched updates.");
     }
 }

@@ -117,6 +117,7 @@ public sealed class OracleSaveData
     private OracleSaveData(byte[] data)
     {
         _data = data;
+        new VineSproutDatabase().InitializeMissingPositions(this);
     }
 
     public static OracleSaveData CreateStandardGame()

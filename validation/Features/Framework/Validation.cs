@@ -284,6 +284,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateVolcanoRockLifecycle);
         RunIsolatedValidation(ValidateVolcanoShakeRng);
         RunIsolatedValidation(ValidateVolcanoRumblePauses);
+        RunIsolatedValidation(ValidateFallingBoulderMotion);
+        RunIsolatedValidation(ValidateFallingBoulderRooms);
+        RunIsolatedValidation(ValidateFallingBoulderContact);
         RunIsolatedValidation(ValidateRoom06aRickyGloves);
         RunIsolatedValidation(ValidateRickyRiding);
         RunIsolatedValidation(ValidateCompanionWaitingFidelity);

@@ -205,10 +205,13 @@ $stageContracts = @(
             'zolInstanceCount') `
         -functionInputs @('Read-PaletteBytes') `
         -functionOutputs @(
-            'Copy-EnemySprite', 'Get-EnemyDefinition', 'Resolve-Oam')
+            'Copy-EnemySprite', 'Get-EnemyDefinition', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'volcano' 'Import-VolcanoData.ps1' `
         -inputs @('mainObjectLines', 'globalFlagValues', 'soundIds', 'partOamSource') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-Oam')
+    New-ImportStageContract 'falling-boulders' 'Import-FallingBoulderData.ps1' `
+        -inputs @('gfxNames', 'partOamSource') `
+        -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'seed-trees' 'Import-SeedTreeData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'mainObjectLines', 'partAnimationSource',
@@ -229,7 +232,7 @@ $stageContracts = @(
             'partAnimationSource', 'partOamSource') `
         -functionInputs @(
             'Copy-EnemySprite', 'Get-AssemblyLabelBody', 'Get-EnemyDefinition',
-            'Read-PaletteBytes', 'Resolve-Oam')
+            'Get-EnemySpriteSourceGrayscaleInverted', 'Read-PaletteBytes', 'Resolve-Oam')
     New-ImportStageContract 'wing-dungeon' 'Import-WingDungeon.ps1' `
         -inputs @('allTexts', 'mainObjectSource')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `

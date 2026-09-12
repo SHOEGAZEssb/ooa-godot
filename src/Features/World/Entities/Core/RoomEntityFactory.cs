@@ -59,6 +59,7 @@ internal sealed class RoomEntityFactory(
     Func<bool> freePartSlotAvailable)
 {
     private readonly VolcanoDatabase _volcano = new();
+    private readonly FallingBoulderDatabase _fallingBoulders = new();
     private readonly ZoraFireDatabase _zoraFire = new();
     private readonly FountainFairyDatabase _fountainFairies = new();
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
@@ -1023,6 +1024,12 @@ internal sealed class RoomEntityFactory(
                             room,
                             owlStatueMessageRequested,
                             animationTick);
+                    }
+                    else if (source.Id == 0x45)
+                    {
+                        yield return new FallingBoulderRoomEntity(new FallingBoulder(
+                            source.SubId, PointForPackedPosition(source.PackedPosition),
+                            _fallingBoulders, random, soundRequested, room, worldToScreen));
                     }
                     break;
 

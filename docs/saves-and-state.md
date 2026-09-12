@@ -46,6 +46,12 @@ the required live/runtime/RNG/room context only at stable gameplay boundaries
 and reconstruct transient actors from room data on load. They never change a
 retail slot, backup, or explicit-save count.
 
+New files initialize all vine positions from the imported defaults before room
+loading. Loading an older port save repairs only zero vine-position entries,
+which native sprout movement cannot produce; existing nonzero positions remain
+intact. This compatibility repair changes the live image and reaches disk only
+through an explicit save.
+
 ## Flags, rooms, and inventory
 
 Global and room flags retain their original bit tables and aliases. Access them

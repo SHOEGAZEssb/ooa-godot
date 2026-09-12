@@ -684,7 +684,8 @@ function Add-DungeonPartVisualRow(
 }
 
 $headThwompFireballVisual = Get-DungeonPartVisual 0x39 $true
-$headThwompBoulderVisual = Get-DungeonPartVisual 0x3b $true
+$headThwompBoulderVisual = Get-DungeonPartVisual 0x3b (
+    Get-EnemySpriteSourceGrayscaleInverted $gfxNames[0x96])
 $headThwompCircularVisual = Get-DungeonPartVisual 0x3c $true
 if ($headThwompFireballVisual.Animations.Count -ne 2 -or
     $headThwompBoulderVisual.Animations.Count -ne 2 -or
