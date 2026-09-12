@@ -5,8 +5,8 @@ namespace oracleofages;
 
 /// <summary>
 /// Four shared CGB voices, clocked even when the sound sequencer is disabled.
-/// Register semantics follow Pan Docs Audio_Registers / Audio_details (CGB-04/05).
-/// Samples integrate the digital waveform between edges before the CGB HPF.
+/// Register semantics target CGB-D/E, including its envelope-write behavior.
+/// Timed mixer edges are band-limited before sampling and the CGB HPF.
 /// </summary>
 internal sealed class OracleApu
 {
@@ -16,15 +16,19 @@ internal sealed class OracleApu
     private readonly byte[] _registers = new byte[0x30];
     private readonly OracleApuVoice[] _voices = [new(), new(), new(), new()];
     private readonly Action<Vector2>? _sampleSink;
+    private readonly OracleAudioResampler? _resampler;
     private bool _powered = true;
     private int _divider = 8192;
     private int _frameStep;
     private int _samplePhase;
-    private int _sampleClocks;
-    private double _leftArea, _rightArea, _leftCapacitor, _rightCapacitor;
+    private double _leftCapacitor, _rightCapacitor;
     internal long Clocks { get; private set; }
 
-    internal OracleApu(Action<Vector2>? sampleSink = null) => _sampleSink = sampleSink;
+    internal OracleApu(Action<Vector2>? sampleSink = null)
+    {
+        _sampleSink = sampleSink;
+        if (sampleSink is not null) _resampler = new OracleAudioResampler();
+    }
     internal OracleApuVoice Voice(int index) => _voices[index];
     internal int Register(int address) => _registers[address - 0xff10];
     internal int Frequency(int index)
@@ -90,13 +94,25 @@ internal sealed class OracleApu
             voice.Length = index == 2 ? 256 - value : 64 - (value & 63);
         else if (register == 2 && index != 2)
         {
-            // CGB envelope writes can alter a running envelope before the next
-            // trigger; notably the driver writes NR42 separately from NR44.
-            if (voice.Enabled)
+            // CGB-D/E envelope-write behavior (SameBoy Core/apu.c, _nrx2_glitch).
+            // A silent $08 envelope must stay at volume zero when changed to
+            // $20/$80 before a trigger. The older increment-then-invert rule
+            // spuriously made this volume $f, clicking on text/cursor attacks.
+            if (voice.Enabled && (value & 0xf8) != 0)
             {
-                if ((old & 7) == 0 && voice.EnvelopeRunning) voice.Volume++;
-                else if ((old & 8) == 0) voice.Volume += 2;
-                if (((old ^ value) & 8) != 0) voice.Volume = 16 - voice.Volume;
+                bool tick = voice.EnvelopeRunning && (old & 7) == 0 && (value & 7) != 0;
+                if ((old & 15) == 8 && (value & 15) == 8 && voice.EnvelopeRunning) tick = true;
+                if (((old ^ value) & 8) != 0)
+                {
+                    if ((value & 8) != 0)
+                    {
+                        voice.Volume = (old & 7) == 0 && voice.EnvelopeRunning
+                            ? voice.Volume ^ 15 : (14 - voice.Volume) & 15;
+                        tick = false;
+                    }
+                    else voice.Volume = 16 - voice.Volume;
+                }
+                if (tick) voice.Volume += (value & 8) != 0 ? 1 : -1;
                 voice.Volume &= 15;
             }
             voice.DacEnabled = (value & 0xf8) != 0;
@@ -153,11 +169,10 @@ internal sealed class OracleApu
             step = Math.Min(step, (ClockRate - _samplePhase + OracleSoundEngine.SampleRate - 1) / OracleSoundEngine.SampleRate);
             for (int i = 0; i < 4; i++)
                 if (_powered && _voices[i].Clocked) step = Math.Min(step, _voices[i].Timer);
-            if (_sampleSink is not null) Integrate(step);
+            if (_sampleSink is not null) UpdateMixer();
             clocks -= step;
             Clocks += step;
             _divider -= step;
-            _sampleClocks += step;
             _samplePhase += step * OracleSoundEngine.SampleRate;
             for (int i = 0; i < 4; i++)
             {
@@ -193,7 +208,6 @@ internal sealed class OracleApu
             {
                 _samplePhase -= ClockRate;
                 if (_sampleSink is not null) EmitSample();
-                _sampleClocks = 0;
             }
         }
     }
@@ -229,7 +243,7 @@ internal sealed class OracleApu
         return level == 0 ? 0 : voice.Sample >> (level - 1);
     }
 
-    private void Integrate(int clocks)
+    private void UpdateMixer()
     {
         double left = 0, right = 0;
         int routing = _registers[0x15], volume = _registers[0x14];
@@ -240,24 +254,24 @@ internal sealed class OracleApu
             if ((routing & (1 << i)) != 0) right += analog;
             if ((routing & (0x10 << i)) != 0) left += analog;
         }
-        _leftArea += left * (((volume >> 4) & 7) + 1) / 32 * clocks;
-        _rightArea += right * ((volume & 7) + 1) / 32 * clocks;
+        _resampler!.SetInput(left * (((volume >> 4) & 7) + 1) / 32,
+            right * ((volume & 7) + 1) / 32, _samplePhase);
     }
 
     private void EmitSample()
     {
         bool connected = false;
         foreach (OracleApuVoice voice in _voices) connected |= voice.DacEnabled;
+        Vector2 input = _resampler!.Read();
         double left = 0, right = 0;
         if (connected)
         {
-            double inputLeft = _leftArea / _sampleClocks, inputRight = _rightArea / _sampleClocks;
+            double inputLeft = input.X, inputRight = input.Y;
             left = inputLeft - _leftCapacitor;
             right = inputRight - _rightCapacitor;
             _leftCapacitor = inputLeft - left * HighPassFactor;
             _rightCapacitor = inputRight - right * HighPassFactor;
         }
         _sampleSink!(new Vector2((float)Math.Clamp(left, -1, 1), (float)Math.Clamp(right, -1, 1)));
-        _leftArea = _rightArea = 0;
     }
 }

@@ -8,6 +8,259 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateSoundShortEffects()
+    {
+        // Independently executed on SameBoy CGB-E, commit 213a12ce93d6:
+        // trigger with old NRx2, then write new NRx2 without retriggering.
+        // These intermediate volumes are absent from the driver WRAM hashes.
+        (int oldValue, int newValue, int volume)[] envelopes =
+        [
+            (0x08, 0x20, 0), (0x08, 0x80, 0), (0x20, 0xb0, 2), (0x80, 0x10, 8),
+            (0xb0, 0x08, 4), (0x08, 0x08, 1), (0x80, 0x81, 7), (0x88, 0x81, 7),
+            (0x82, 0x88, 6), (0x88, 0x89, 9), (0x10, 0x08, 14)
+        ];
+        foreach (int voice in new[] { 0, 1, 3 })
+        foreach (var entry in envelopes)
+        {
+            var apu = new OracleApu();
+            int register = 0xff10 + voice * 5;
+            apu.Write(register + 2, entry.oldValue);
+            apu.Write(register + 4, 0x80);
+            apu.Write(register + 2, entry.newValue);
+            FailIf(apu.Voice(voice).Volume != entry.volume,
+                $"CGB envelope ${register + 2:x4}: ${entry.oldValue:x2}->${entry.newValue:x2} " +
+                $"must expose volume ${entry.volume:x} before retriggering, got ${apu.Voice(voice).Volume:x}.");
+        }
+
+        var envelopeApu = new OracleApu();
+        envelopeApu.Write(0xff11, 0x80);
+        envelopeApu.Write(0xff12, 0x08);
+        envelopeApu.Write(0xff13, 0xa2);
+        envelopeApu.Write(0xff14, 0x87);
+        envelopeApu.AdvanceClocks(376 * 8);
+        envelopeApu.Write(0xff12, 0x20);
+        FailIf(envelopeApu.Voice(0).Volume != 0 || envelopeApu.DigitalOutput(0) != 0,
+            "SND_TEXT $66's NR12=$08->$20 write emitted a full-volume pulse before the note trigger.");
+        envelopeApu.Write(0xff14, 0x87);
+        FailIf(envelopeApu.Voice(0).Volume != 2,
+            "Suppressing the spurious attack must retain the actual SND_TEXT $66 volume-$2 note.");
+
+        // Clean US ROM, actual file-selection Down input in SameBoy CGB-E:
+        // channelCmdff writes NR12=$08 while volume is $1. Hardware exposes
+        // volume $e until func_42ea triggers NR14, 432 double-speed CPU clocks
+        // (216 APU clocks) later. This short release click is original behavior;
+        // a fade or treating both writes as atomic would conceal it.
+        var cursorRelease = new OracleApu();
+        cursorRelease.Write(0xff11, 0xd9);
+        cursorRelease.Write(0xff12, 0x10);
+        cursorRelease.Write(0xff13, 0xa0);
+        cursorRelease.Write(0xff14, 0xc7);
+        cursorRelease.AdvanceClocks(384); // Duty position 1 is high.
+        cursorRelease.Write(0xff12, 0x08);
+        cursorRelease.AdvanceClocks(216);
+        FailIf(cursorRelease.Voice(0).Volume != 14 || cursorRelease.DigitalOutput(0) != 14,
+            "SND_MENU_MOVE $84 must retain the clean-ROM release pulse between NR12=$08 and NR14's trigger.");
+        cursorRelease.Write(0xff14, 0xc7);
+        cursorRelease.AdvanceClocks(8192);
+        FailIf(cursorRelease.Voice(0).Volume != 0 || cursorRelease.DigitalOutput(0) != 0 ||
+            !cursorRelease.Voice(0).DacEnabled,
+            "SND_MENU_MOVE $84's release trigger must silence the pulse while leaving its DAC connected.");
+
+        var ultrasonic = new List<Vector2>();
+        var testApu = new OracleApu(ultrasonic.Add);
+        testApu.Write(0xff24, 0x77);
+        testApu.Write(0xff25, 0x11);
+        testApu.Write(0xff11, 0x80);
+        testApu.Write(0xff12, 0xf0);
+        testApu.Write(0xff13, 0xff);
+        testApu.Write(0xff14, 0x87);
+        testApu.AdvanceClocks(OracleApu.ClockRate / 10);
+        double aliasRms = Math.Sqrt(ultrasonic.Skip(1000).Average(s => (double)s.X * s.X));
+        FailIf(aliasRms > 0.0001,
+            "The 131072 Hz pulse must not alias into audible 1228 Hz noise during sample conversion.");
+
+        var audible = new List<Vector2>();
+        testApu = new OracleApu(audible.Add);
+        testApu.Write(0xff24, 0x77);
+        testApu.Write(0xff25, 0x10); // CH1 left only.
+        testApu.Write(0xff11, 0x80);
+        testApu.Write(0xff12, 0xf0);
+        testApu.Write(0xff13, 0x00);
+        testApu.Write(0xff14, 0x87); // 131072 / (2048 - $700) = 512 Hz.
+        testApu.AdvanceClocks(2 * OracleApu.ClockRate);
+        double real = 0, imaginary = 0;
+        for (int i = 0; i < 44100; i++)
+        {
+            double angle = 2 * Math.PI * 512 * i / 44100;
+            real += audible[i + 44100].X * Math.Cos(angle);
+            imaginary += audible[i + 44100].X * Math.Sin(angle);
+        }
+        double amplitude = 2 * Math.Sqrt(real * real + imaginary * imaginary) / 44100;
+        double coefficient = Math.Pow(0.998943, 4194304.0 / 44100);
+        double cosine = Math.Cos(2 * Math.PI * 512 / 44100);
+        // The 50% pulse's first Fourier coefficient is 1/pi at this mixer
+        // gain, followed by the documented discrete CGB high-pass response.
+        double expected = Math.Sqrt((2 - 2 * cosine) /
+            (1 + coefficient * coefficient - 2 * coefficient * cosine)) / Math.PI;
+        FailIf(Math.Abs(amplitude - expected) > 0.002 || audible.Any(s => s.Y != 0),
+            $"Band limiting altered audible pitch/gain or stereo routing: amplitude {amplitude}, expected {expected}.");
+
+        var data = new OracleSoundData();
+        foreach (int id in new[] { 0x66, 0x84 })
+        {
+            using var fixture = new SoundValidationFixture(data, true);
+            var sound = fixture.Sound;
+            var field = typeof(OracleSoundEngine).GetField("_samples",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var samples = (Queue<Vector2>)field.GetValue(sound)!;
+            int interval = id == 0x66 ? 4 : 12;
+            for (int update = 0; update < interval * 3; update++)
+            {
+                int position = update % interval;
+                if (position == 0) sound.PlaySound(id);
+                sound.Tick();
+                // audio/common/sfx/text.s and menuMove.s, also executed in
+                // the clean ROM via SameBoy: logical $02 uses hardware CH1.
+                int volume = id == 0x66 ? (position < 2 ? 2 : position == 2 ? 11 : 0) :
+                    position < 3 ? 8 : position < 8 ? 1 : 0;
+                int nr12 = volume == 0 ? 8 : volume << 4;
+                FailIf(sound.Apu.Voice(0).Volume != volume || sound.Apu.Register(0xff12) != nr12 ||
+                    sound.Channel(2).Active != (position < (id == 0x66 ? 3 : 8)) ||
+                    sound.Apu.Frequency(0) != (id == 0x66 ? 0x7a2 : 0x7a0),
+                    $"Sound ${id:x2} note, release, or repeated trigger diverged at update {update}.");
+                FailIf(samples.Count is < 734 or > 736 || samples.Any(s => !float.IsFinite(s.X) || !float.IsFinite(s.Y)),
+                    $"Sound ${id:x2} emitted an invalid PCM update at {update}.");
+                samples.Clear();
+            }
+        }
+
+        int[]? menuTrace = null;
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            var audit = _sound.AttachPlayRequestAudit();
+            _mainMenuScreen = new MainMenuScreen();
+            AddChild(_mainMenuScreen);
+            _mainMenu = new MainMenuController(_mainMenuScreen, (_, _) => { },
+                _ => null, (_, _) => SaveResult.Succeeded, _ => { }, _sound.PlaySound, startAtFileSelect: true);
+            StepGameplayUpdates(60, Vector2.Zero, batched: batched);
+            StepGameplayUpdates(1, Vector2.Zero, ["move_down"], ["move_down"], batched);
+            FailIf(_mainMenu.Cursor != 1 || audit.Requests[^1] != 0x84 || !_sound.Channel(2).Active,
+                "File-selection Down must start SND_MENU_MOVE $84 over MUS_FILE_SELECT $11 in the same application update.");
+            StepGameplayUpdates(8, Vector2.Zero, batched: batched);
+            FailIf(_sound.Channel(2).Active, "File-selection cursor sound did not release after its eight source updates.");
+            StepGameplayUpdates(1, Vector2.Zero, ["move_up"], ["move_up"], batched);
+            FailIf(_mainMenu.Cursor != 0 || !_sound.Channel(2).Active || _sound.ActiveMusic != 0x11,
+                "File-selection Up must retrigger the cursor sound while retaining its music.");
+            int[] trace = audit.Requests.ToArray();
+            if (menuTrace is not null) FailIf(!menuTrace.SequenceEqual(trace), "File-selection audio depends on host batching.");
+            menuTrace = trace;
+        }
+        GD.Print("Validated CGB envelope-write transients, band-limited PCM, repeated text/cursor effects, and actual file-selection audio updates.");
+    }
+
+    private void ValidateSoundOutputTiming()
+    {
+        var data = new OracleSoundData();
+        foreach (int hostRate in new[] { 60, 30, 120, 0 })
+        {
+            using var fixture = new SoundValidationFixture(data, true);
+            var sound = fixture.Sound;
+            sound.ApplicationUpdateOwned = true;
+            using var stream = new AudioStreamGenerator
+            {
+                MixRate = OracleSoundEngine.SampleRate,
+                BufferLength = OracleSoundEngine.OutputBufferLengthSeconds
+            };
+            using var playback = (AudioStreamGeneratorPlayback)stream.InstantiatePlayback();
+            var playbackField = typeof(OracleSoundEngine).GetField("_playback",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            playbackField.SetValue(sound, playback);
+            playback.Start();
+            int capacity = playback.GetFramesAvailable();
+            sound.PlaySound(OracleSoundEngine.MusOverworld);
+            var scheduler = new ApplicationFixedUpdateScheduler();
+            double mixerRate = AudioServer.GetMixRate();
+            double nextMix = 0, elapsed = 0;
+            int warmedSkips = -1;
+            double[] unevenDeltas = [1.0 / 120, 1.0 / 40, 1.0 / 60, 1.0 / 30, 1.0 / 120];
+            var field = typeof(OracleSoundEngine).GetField("_samples",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var queued = (Queue<Vector2>)field.GetValue(sound)!;
+            void AdvanceHost(double delta)
+            {
+                scheduler.Advance(delta, sound.Tick);
+                sound._Process(0);
+                // Include native and managed storage. Capacity alone does not
+                // establish latency; the old managed ring retained 250 ms.
+                int pending = capacity - playback.GetFramesAvailable() + queued.Count;
+                FailIf(pending > 2940, $"Audio retained {pending} frames, exceeding 66.7 ms of output latency.");
+                elapsed += delta;
+                while (nextMix < elapsed - 1e-9)
+                {
+                    playback.MixAudio(1, 512);
+                    nextMix += 512 / mixerRate;
+                }
+            }
+            for (int frame = 0; elapsed < 4; frame++)
+            {
+                AdvanceHost(hostRate == 0 ? unevenDeltas[frame % unevenDeltas.Length] : 1.0 / hostRate);
+                if (elapsed >= 1 && warmedSkips < 0) warmedSkips = playback.GetSkips();
+            }
+            int skips = playback.GetSkips() - warmedSkips;
+            FailIf(skips != 0 || queued.Count != 0,
+                $"Audio at {hostRate} FPS has {skips} mixer underruns or a stale PCM backlog of {queued.Count} samples.");
+
+            // A real host stall lets the mixer drain first, then batches the
+            // missed game updates. Do not keep playing all that stale PCM.
+            double stall = 0.25;
+            while (nextMix < elapsed + stall)
+            {
+                playback.MixAudio(1, 512);
+                nextMix += 512 / mixerRate;
+            }
+            AdvanceHost(stall);
+            int recoveredSkips = playback.GetSkips();
+            for (int frame = 0; frame < 120; frame++) AdvanceHost(1.0 / 60);
+            FailIf(playback.GetSkips() != recoveredSkips || queued.Count != 0,
+                "Audio did not recover without further underruns or stale samples after a 250 ms host stall.");
+            GD.Print($"Audio output at {(hostRate == 0 ? "uneven" : hostRate)} FPS: zero warmed underruns; bounded latency and stall recovery passed.");
+            playback.Stop();
+            playbackField.SetValue(sound, null);
+        }
+
+        // Exercise the actual native output join with deliberately opposite
+        // DC samples: there are no legitimate waveform edges to hide a click.
+        using var joinFixture = new SoundValidationFixture(data, true);
+        var joinSound = joinFixture.Sound;
+        joinSound.ApplicationUpdateOwned = true;
+        using var joinStream = new AudioStreamGenerator
+        {
+            MixRate = OracleSoundEngine.SampleRate,
+            BufferLength = OracleSoundEngine.OutputBufferLengthSeconds
+        };
+        using var joinPlayback = (AudioStreamGeneratorPlayback)joinStream.InstantiatePlayback();
+        var joinPlaybackField = typeof(OracleSoundEngine).GetField("_playback",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        joinPlaybackField.SetValue(joinSound, joinPlayback);
+        var samplesField = typeof(OracleSoundEngine).GetField("_samples",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var samples = (Queue<Vector2>)samplesField.GetValue(joinSound)!;
+        joinPlayback.Start();
+        for (int i = 0; i < 1470; i++) samples.Enqueue(new Vector2(0.25f, 0.25f));
+        joinSound._Process(0);
+        joinPlayback.MixAudio(1, (int)(AudioServer.GetMixRate() * 0.04));
+        for (int i = 0; i < 11025; i++) samples.Enqueue(new Vector2(-0.25f, -0.25f));
+        joinSound._Process(0);
+        Vector2[] joined = joinPlayback.MixAudio(1, (int)(AudioServer.GetMixRate() * 0.05));
+        float largestJump = joined.Zip(joined.Skip(1), (a, b) => Math.Abs(a.X - b.X)).Max();
+        FailIf(largestJump > 0.012f || !joined.Any(s => s.X < -0.24f) || joined[0].X < 0.24f,
+            $"Discarded audio must join continuously from the last submitted sample: largest step {largestJump}.");
+        joinPlayback.Stop();
+        joinPlaybackField.SetValue(joinSound, null);
+        GD.Print("Validated the native mixer across steady/batched/uneven host frames, bounded stall recovery, and a continuous PCM join.");
+    }
+
     private void ValidateSoundDriverControls()
     {
         var data = new OracleSoundData();

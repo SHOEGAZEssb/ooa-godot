@@ -187,8 +187,6 @@ public sealed partial class ValidationRoot
                 DestinationRoom: 0xaa, DestinationPosition: 0x42,
                 DestinationTransition: 3
             } || raftwreck.Database.Commands.Count != 44 ||
-            !Mathf.IsEqualApprox(
-                OracleSoundEngine.OutputBufferLengthSeconds, 0.02f) ||
             raftwreck.Database.Helper(3).Count != 5 ||
             raftwreck.Database.Helper(4).Count != 16 ||
             raftwreck.Database.Helper(5).Count != 3,

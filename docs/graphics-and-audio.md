@@ -119,10 +119,18 @@ disassembly file. Logical channel views read that memory without mirroring it.
 
 Eight logical programs share four physical CGB voices. Register writes control
 handoffs, note lengths, waveform RAM, DAC gates, and envelopes; ending an SFX
-does not automatically restore a separately saved music voice. The APU keeps
+does not automatically restore a separately saved music voice. Envelope writes
+use CGB-D/E behavior, including the intermediate volume before retriggering;
+post-update driver RAM alone cannot verify these audible transitions. Mixer
+edges are band-limited before conversion to 44100 Hz PCM so ultrasonic pulse
+harmonics cannot fold back into audible noise. The APU keeps
 clocking while the driver is disabled. PCM is generated during each original
-update, including intermediate updates in a batched host frame. Only the output
-queue may discard samples to bound latency after a host stall.
+update, including intermediate updates in a batched host frame. Output is
+submitted after the complete host-frame batch, with a small reserve for the
+independent audio mixer. Bound latency across both managed and native queues;
+buffer capacity is not the desired amount of queued audio. Only presentation
+may discard stale samples after a host stall, bridging the resulting sample
+join without resetting driver, oscillator, envelope, or filter state.
 
 Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source

@@ -9,7 +9,12 @@ public partial class OracleSoundEngine : Node
 {
     public const int UpdatesPerSecond = 60;
     public const int SampleRate = 44100;
-    internal const float OutputBufferLengthSeconds = 0.02f;
+    // Capacity must fit a 30 Hz host's two updates plus a mixer safety margin.
+    // This is storage capacity, not how far ahead we fill the playback.
+    internal const float OutputBufferLengthSeconds = 0.05f;
+    private const int OutputLeadFrames = 1024;
+    private const int MaximumQueuedOutputFrames = SampleRate / 15;
+    private const int OutputBridgeFrames = 64;
     public const int MusTitlescreen = 0x01;
     public const int MusMinigame = 0x02;
     public const int MusOverworld = 0x03;
@@ -132,6 +137,7 @@ public partial class OracleSoundEngine : Node
     private readonly ChannelState[] _channels = new ChannelState[8];
     private readonly byte[] _requests = new byte[16];
     private readonly Queue<Vector2> _samples = new();
+    private readonly Vector2[] _outputBuffer = new Vector2[MaximumQueuedOutputFrames];
     private readonly bool _enableOutput;
     private readonly bool _allowHeadlessOutput;
     private readonly ApplicationFixedUpdateScheduler _updates = new();
@@ -142,6 +148,9 @@ public partial class OracleSoundEngine : Node
     private int _requestedVolume = 3;
     private bool _volumePending;
     private long _clockOrigin, _updateCount;
+    private int _outputCapacity, _outputSkips, _bridgeRemaining;
+    private Vector2 _lastOutputSample, _bridgeStart;
+    private bool _outputDiscontinuity;
     internal bool ApplicationUpdateOwned { get; set; }
 
     public int ActiveMusic { get; private set; }
@@ -190,6 +199,9 @@ public partial class OracleSoundEngine : Node
         if (_player is not null) _player.Stream = null;
         _player = null;
         _samples.Clear();
+        _outputCapacity = _outputSkips = _bridgeRemaining = 0;
+        _lastOutputSample = _bridgeStart = Vector2.Zero;
+        _outputDiscontinuity = false;
         _requestObserver = null;
     }
 
@@ -261,22 +273,73 @@ public partial class OracleSoundEngine : Node
         // Hardware clocks are independent of driver enable/mute state.
         long target = _clockOrigin + ++_updateCount * OracleApu.ClockRate / UpdatesPerSecond;
         if (_apu.Clocks < target) _apu.AdvanceClocks(checked((int)(target - _apu.Clocks)));
-        FillAudioBuffer();
     }
 
     private void QueueSample(Vector2 sample)
     {
         // Bound latency after a host stall. This is presentation backpressure;
         // all driver and APU updates still execute, including discarded audio.
-        if (_samples.Count >= SampleRate / 4) _samples.Dequeue();
+        if (_samples.Count >= SampleRate / 4)
+        {
+            _samples.Dequeue();
+            _outputDiscontinuity = true;
+        }
         _samples.Enqueue(sample);
     }
 
     private void FillAudioBuffer()
     {
-        if (_playback is null) return;
-        int frames = Math.Min(_playback.GetFramesAvailable(), _samples.Count);
-        for (int i = 0; i < frames; i++) _playback.PushFrame(_samples.Dequeue());
+        if (_playback is null || _samples.Count == 0) return;
+        int available = _playback.GetFramesAvailable();
+        bool starting = _outputCapacity == 0;
+        if (starting) _outputCapacity = available;
+        int queued = _outputCapacity - available;
+        int skips = _playback.GetSkips();
+        bool recovering = skips != _outputSkips;
+        _outputSkips = skips;
+
+        // Godot consumes blocks on its audio thread, independently of the
+        // application update. Keep a small initial reserve instead of feeding
+        // an empty playback exactly one 60 Hz update at a time.
+        if (starting || (recovering && queued == 0))
+        {
+            int lead = Math.Min(OutputLeadFrames, available);
+            Array.Clear(_outputBuffer, 0, lead);
+            _playback.PushBuffer(_outputBuffer.AsSpan(0, lead));
+            queued += lead;
+            available -= lead;
+            _lastOutputSample = Vector2.Zero;
+        }
+
+        // Flush only after the complete host-frame batch. Count BOTH queues
+        // when bounding latency; retaining 250 ms behind a full native ring
+        // delays every subsequent effect even after the host has recovered.
+        int keep = Math.Max(0, MaximumQueuedOutputFrames - queued);
+        while (_samples.Count > keep)
+        {
+            _samples.Dequeue();
+            _outputDiscontinuity = true;
+        }
+        if (_outputDiscontinuity || recovering)
+        {
+            // Bridge only a presentation discontinuity. Ordinary APU samples
+            // and source register transitions pass through unchanged.
+            _bridgeStart = _lastOutputSample;
+            _bridgeRemaining = OutputBridgeFrames;
+            _outputDiscontinuity = false;
+        }
+        int frames = Math.Min(available, _samples.Count);
+        for (int i = 0; i < frames; i++)
+        {
+            Vector2 sample = _samples.Dequeue();
+            if (_bridgeRemaining > 0)
+            {
+                sample = _bridgeStart.Lerp(sample, 1f - _bridgeRemaining / (float)OutputBridgeFrames);
+                _bridgeRemaining--;
+            }
+            _outputBuffer[i] = _lastOutputSample = sample;
+        }
+        _playback.PushBuffer(_outputBuffer.AsSpan(0, frames));
     }
 
     internal static float ToneFrequencyForValidation(int channel, int frequencyRegister) =>

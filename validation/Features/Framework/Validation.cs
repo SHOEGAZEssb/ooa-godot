@@ -215,6 +215,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSoundApuTiming);
         RunIsolatedValidation(ValidateSoundDriverCatalog);
         RunIsolatedValidation(ValidateSoundApplicationBatching);
+        RunIsolatedValidation(ValidateSoundOutputTiming);
+        RunIsolatedValidation(ValidateSoundShortEffects);
         RunIsolatedValidation(ValidateGraphicsCache);
         RunIsolatedValidation(ValidateNpcPaletteRebuildOffsets);
         RunIsolatedValidation(ValidateCompanionWallMasks);
