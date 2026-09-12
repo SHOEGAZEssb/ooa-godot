@@ -11,7 +11,7 @@ internal sealed class GroundTreasureRoomEntity(
     : RoomEntityAdapter<GroundTreasurePickup>(
         treasure, treasure.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity, IRoomEntityLifetime,
-        IUpdatesDuringDialogueRoomEntity, IDugTileRoomEntity
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IDugTileRoomEntity
 {
     public bool Finished => Entity.Finished;
     bool IUpdatesDuringDialogueRoomEntity.UpdatesDuringDialogue =>

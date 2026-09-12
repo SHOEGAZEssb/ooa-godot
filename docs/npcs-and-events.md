@@ -137,6 +137,11 @@ release input, detach registrations, and remove transient actors on cancellation
 or room invalidation. Persistent completion is derived from authoritative save
 or room flags, never an event-local boolean.
 
+Shared minigame scratch bytes retain their original WRAM lifetime across room
+loads. Clear them only at the imported reset interaction, and keep inventory
+changes in the inventory owner. Event cancellation releases local resources;
+it does not imply the original reset or failed-game recovery path ran.
+
 Use [Command runner](command-runner.md) only for original script streams. Waits,
 text, or animation inside a native state machine are not a reason to convert it
 to script commands.

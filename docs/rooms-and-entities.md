@@ -124,6 +124,12 @@ stream. It allocates a counted enemy without reserving a tile, advancing the
 killable-enemy index, or consulting recent defeats. Its species handler owns
 the parameter's meaning; it is separate from placement flags.
 
+Enemies created by native interactions also require imported construction
+provenance in `native_enemy_spawns.tsv`. They use the shared enemy-slot allocator
+and species handler without replaying room placement or consuming placement
+RNG. Their absence from positioned object rows does not make their handler
+unused.
+
 When adding an object kind, trace:
 
 - pointer/table aliases and surrounding source order;

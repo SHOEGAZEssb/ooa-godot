@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 45 ||
+        if (_importedDefinitions.Count != 46 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -894,7 +894,7 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.Gel =>
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>
-            HasImportedDefinition(descriptor, 0x4d),
+            HasImportedDefinition(descriptor, 0x4d) || HasImportedDefinition(descriptor, 0x5f),
         EnemyHandlerKind.ArmMimic =>
             HasImportedDefinition(descriptor, 0x4e),
         EnemyHandlerKind.FlyingTile =>

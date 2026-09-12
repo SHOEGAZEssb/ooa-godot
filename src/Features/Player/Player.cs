@@ -264,6 +264,9 @@ public partial class Player : Node2D
     private object? _cutsceneControlOwner;
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
+    private bool _treasureSwordSpin;
+    private int _treasureSwordSpinPending;
+    internal bool TreasureSwordSpinActive => _treasureSwordSpin || _treasureSwordSpinPending != 0;
     private int? _scriptedLinkAnimationMode;
     private int _cutsceneDrawZFixed;
     private bool _carriedObjectPose;
@@ -446,6 +449,15 @@ public partial class Player : Node2D
     internal bool AcceptsRoomEntityContact =>
         !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !SideScrollDrowningCollisionsDisabled && !IsUsingHarp;
+    // checkLinkCollisionsEnabled has no Z test for an ordinary feather jump.
+    internal bool PatchCollisionsEnabled => !IsDying && !GaleActive && !_world.PlayerContactDisabled &&
+        !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !TopDownDiving &&
+        !SideScrollDrowningCollisionsDisabled && !IsUsingHarp && !_braceletLiftCollisionsDisabled;
+    internal void ClearInteractionKnockback(bool clearInvincibility = false)
+    {
+        _enemyKnockbackFrames = 0;
+        if (clearInvincibility) _enemyInvincibilityFrames = 0;
+    }
     private bool SideScrollDrowningCollisionsDisabled =>
         _sideScrollSwimmingState == 3 && _drownTime > 0;
     // objectCheckCollidedWithLink accepts signed Z in [-7,6]. Ordinary feather
@@ -1414,6 +1426,19 @@ public partial class Player : Node2D
             throw new InvalidOperationException(
                 "Link accepted shield recoil while collision-disabled.");
         }
+        ApplyCollisionRecoil(sourcePosition, invincibilityFrames, knockbackFrames);
+    }
+
+    internal bool TryApplyHarmlessContactRecoil(Vector2 sourcePosition)
+    {
+        if (_braceletLiftCollisionsDisabled || !AcceptsRoomEntityContact || IsDying ||
+            _enemyInvincibilityFrames != 0 || _enemyKnockbackFrames != 0) return false;
+        ApplyCollisionRecoil(sourcePosition, 0x0f, 0x13);
+        return true;
+    }
+
+    private void ApplyCollisionRecoil(Vector2 sourcePosition, int invincibilityFrames, int knockbackFrames)
+    {
         if (invincibilityFrames <= 0)
             throw new ArgumentOutOfRangeException(nameof(invincibilityFrames));
         if (knockbackFrames <= 0)
@@ -2989,7 +3014,19 @@ public partial class Player : Node2D
 
         TransferSwordCollisionKnockback();
 
-        if (_world.SwordDisabled)
+        // parentItemUsage's forced $f1 sword initializes on the first Link
+        // update and enters swordParent state 1's spin branch on the second.
+        if (_treasureSwordSpinPending != 0)
+        {
+            if (--_treasureSwordSpinPending == 0)
+            {
+                _treasureSwordSpin = true;
+                BeginSwordSpin();
+            }
+            return;
+        }
+
+        if (_world.SwordDisabled && !_treasureSwordSpin)
         {
             CancelSwordAttack();
             CancelShovelAction();
@@ -6166,6 +6203,8 @@ public partial class Player : Node2D
 
     private void CancelSwordAttack()
     {
+        _treasureSwordSpin = false;
+        _treasureSwordSpinPending = 0;
         bool changed = IsAttacking;
         _swordState = SwordActionState.None;
         _swordUnderwaterAnimation = false;
@@ -6587,6 +6626,13 @@ public partial class Player : Node2D
         _world.PlaySound(OracleSoundEngine.SndSwordSpin);
         _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
         ApplySwordCollision();
+    }
+
+    internal void BeginTreasureSwordSpin()
+    {
+        EndGetItemOneHandPose(); EndGetItemTwoHandPose();
+        CancelSwordAttack();
+        _treasureSwordSpinPending = 2;
     }
 
     private bool ApplySwordCollision()

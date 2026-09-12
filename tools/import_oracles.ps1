@@ -193,6 +193,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-symmetry' 'Import-SymmetryData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'makuStopSound', 'soundIds', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-patch' 'Import-PatchData.ps1' `
+        -inputs @('allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'soundIds', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-validation' 'Validate-CutsceneData.ps1' `
         -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Test-GeneratedCutsceneCommandStreams')

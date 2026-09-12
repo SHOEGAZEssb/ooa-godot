@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -18,6 +19,7 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal bool Initialized => _initialized;
     internal int Angle => _angle;
+    internal void DeleteForRoomEvent() => Finish();
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -25,9 +27,17 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
         Vector2 position)
     {
         Record = record;
+        Dictionary<int, Color[]>? palettes = null;
+        if (record.Id == 0x5f)
+        {
+            var source = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/harmless_beetle_palette.bin", 1, 6);
+            var colors = new Color[4];
+            for (int shade = 0; shade < 4; shade++) colors[shade] = source[6, shade];
+            palettes = new() { [6] = colors };
+        }
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromImported(record));
+            EnemyCharacterConfiguration.FromImported(record), paletteOverrides: palettes);
         _movement = new EnemyTerrainMovement(this, room);
         ConfigureSwordKnockback(
             room,

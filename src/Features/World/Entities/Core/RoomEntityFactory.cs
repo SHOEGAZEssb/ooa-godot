@@ -65,6 +65,7 @@ internal sealed class RoomEntityFactory(
     private readonly WaterfallWarpDatabase _waterfallWarps = new();
     private readonly CarpenterDatabase _carpenters = new();
     private readonly SymmetryDatabase _symmetry = new();
+    private readonly PatchDatabase _patch = new();
     private readonly TuniNutDatabase _tuniNut = new();
     private readonly Room148PickaxeDatabase _room148 = new();
     private readonly Room149FamilyDatabase _room149 = new();
@@ -176,6 +177,8 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext)
     {
         int activeGroup = group;
+        if (group == _patch.ResetGroup && room.Id == _patch.ResetRoom)
+            for (int address = 0xcfd0; address < 0xcfd8; address++) runtimeState.SetWramByte(address, 0);
         foreach (var waterfall in _waterfallWarps.Records)
             if (waterfall.Group == group && waterfall.Room == room.Id && saveData is not null)
                 yield return new WaterfallWarpRoomEntity(waterfall, saveData, runtimeState,
@@ -696,6 +699,16 @@ internal sealed class RoomEntityFactory(
                 RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
                 yield return new CarpenterRoomEntity(CreateNpcCharacter(record), _carpenters,
                     runtimeState, saveData, room, animationTick());
+            }
+        }
+        else if (roomNpcs.Any(record => record.Id == 0x94))
+        {
+            foreach (NpcRecord record in roomNpcs)
+            {
+                RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
+                if (record.Id != 0x94 || record.SubId > 2)
+                    throw new InvalidOperationException($"patch.s: unexpected room NPC ${record.Id:x2}:${record.SubId:x2}.");
+                yield return new PatchRoomEntity(CreateNpcCharacter(record));
             }
         }
         else if (roomNpcs.Any(record => record.Id == 0xbf))
@@ -2460,7 +2473,10 @@ internal sealed class RoomEntityFactory(
                 hardhatBeetle.Initialize(
                     hardhatBeetleRecord, room, position);
                 return new HardhatBeetleRoomEntity(
-                    hardhatBeetle, combatSource, soundRequested);
+                    hardhatBeetle, combatSource, soundRequested, () =>
+                    {
+                        if (source.Id == 0x5f) objectFellInHole(ObjectFellInHoleKind.HarmlessHardhatBeetle);
+                    });
 
             case EnemyHandlerKind.ArmMimic:
                 if (!enemies.TryGetImportedEnemyDefinition(
@@ -2510,10 +2526,10 @@ internal sealed class RoomEntityFactory(
         }
     }
 
-    internal IRoomEntity? CreateDebugEnemy(
-        int id, int subId, OracleRoomData room, Vector2 position, out string error)
+    internal IRoomEntity? CreateStandaloneEnemy(
+        int id, int subId, OracleRoomData room, Vector2 position, string sourceLabel, out string error)
     {
-        string origin = $"Debug enemy ${id:x2}:${subId:x2}";
+        string origin = $"{sourceLabel}: enemy ${id:x2}:${subId:x2}";
         EnemyHandlerDescriptor? handler = enemies.EnemyHandlers.Handlers
             .FirstOrDefault(value => value.Id == id && value.SubId == subId);
         if (handler is null || !handler.SupportsOrderedConstruction ||
@@ -2524,7 +2540,7 @@ internal sealed class RoomEntityFactory(
             return null;
         }
 
-        // Debug allocation bypasses parseObjectData and its placement RNG.
+        // Native allocation bypasses parseObjectData and its placement RNG.
         // objectLoading.s:decEnemyCounterIfApplicable uses flags bit $02;
         // index $00 also leaves the source room's recent-defeat bits alone.
         var source = new RoomObjectRecord(
@@ -2637,8 +2653,8 @@ internal sealed class RoomEntityFactory(
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         TingleKoolooSparkleSpawn sparkle =>
             CreateTingleKoolooSparkle(sparkle),
-        TingleBalloonExplosionSpawn explosion =>
-            CreateTingleBalloonExplosion(explosion),
+        InteractionExplosionSpawn explosion =>
+            CreateInteractionExplosion(explosion),
         WildTokayMeatSpawn => CreateWildTokayMeat(),
         TokayEntranceEyeSpawn eye =>
             new TokayEntranceEyeRoomEntity(eye.Record),
@@ -4303,22 +4319,22 @@ internal sealed class RoomEntityFactory(
             puff);
     }
 
-    private IRoomEntity CreateTingleBalloonExplosion(
-        TingleBalloonExplosionSpawn spawn)
+    private IRoomEntity CreateInteractionExplosion(
+        InteractionExplosionSpawn spawn)
     {
-        var explosion = new TingleBalloonExplosionEffect
+        var explosion = new InteractionExplosionEffect
         {
-            Name = "TingleBalloonExplosion",
+            Name = "InteractionExplosion",
             // Balloon sets var03=$01, selecting objectSetVisible81.
             ZIndex = NpcCharacter.InFrontOfLinkZIndex
         };
         explosion.Initialize(
             spawn.Position,
             spawn.ZOffset,
-            _tingle.ExplosionVisual,
+            spawn.Visual,
             soundRequested);
         return new FixedEffectRoomEntityAdapter<
-            TingleBalloonExplosionEffect>(explosion);
+            InteractionExplosionEffect>(explosion);
     }
 
     private static IRoomEntity CreateTingleKoolooSparkle(
@@ -4369,8 +4385,7 @@ internal sealed class RoomEntityFactory(
         };
         effect.Initialize(spawn.Position);
         soundRequested(OracleSoundEngine.SndFallInHole);
-        return new DialogueFixedEffectRoomEntityAdapter<FallingDownHoleEffect>(
-            effect);
+        return new FallingDownHoleRoomEntity(effect);
     }
 
     private IRoomEntity CreateDungeonKeyUse(DungeonKeyUseSpawn spawn)

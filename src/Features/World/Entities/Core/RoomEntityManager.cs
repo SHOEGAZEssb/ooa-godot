@@ -1255,6 +1255,9 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal bool TrySpawnDebugEnemy(int id, int subId, Vector2 position, out string error)
+        => TrySpawnEnemy(id, subId, position, "Debug spawn", out error);
+
+    internal bool TrySpawnEnemy(int id, int subId, Vector2 position, string source, out string error)
     {
         if (!CanSpawnDebugObject(position, out error))
             return false;
@@ -1265,8 +1268,8 @@ public sealed class RoomEntityManager : IDisposable
             error = $"Enemy ${id:x2}:${subId:x2}: all $10 enemy slots are occupied.";
             return false;
         }
-        IRoomEntity? entity = _factory.CreateDebugEnemy(
-            id, subId, _roomForActiveEntities, position, out error);
+        IRoomEntity? entity = _factory.CreateStandaloneEnemy(
+            id, subId, _roomForActiveEntities, position, source, out error);
         if (entity is null)
             return false;
         RegisterEnemySlot(entity, slot);
@@ -1989,7 +1992,7 @@ public sealed class RoomEntityManager : IDisposable
                 record.Group, record.Room, OracleSaveData.RoomFlagItem);
         }
 
-        if (record.SoundOrder == GroundTreasureSoundOrder.BehaviourThenGrab)
+        if (record.GrabMode != 3 && record.SoundOrder == GroundTreasureSoundOrder.BehaviourThenGrab)
             PlayGroundTreasureBehaviourSound(treasureObject);
 
         GroundTreasureCollected?.Invoke(treasure, player);
@@ -2000,7 +2003,7 @@ public sealed class RoomEntityManager : IDisposable
             return;
 
         treasure.BeginGranted(player);
-        if (record.SoundOrder == GroundTreasureSoundOrder.GrabThenBehaviour)
+        if (record.GrabMode != 3 && record.SoundOrder == GroundTreasureSoundOrder.GrabThenBehaviour)
             PlayGroundTreasureBehaviourSound(treasureObject);
         if (record.DialogueTiming == GroundTreasureDialogueTiming.AfterGrab)
             RequestGroundTreasureDialogue(treasure, treasureObject, player);
@@ -2135,7 +2138,8 @@ internal enum ObjectFellInHoleKind
     GaleSeed = 5,
     MysterySeed = 6,
     BraceletObject = 7,
-    PushBlock = 8
+    PushBlock = 8,
+    HarmlessHardhatBeetle = 9
 }
 
 internal sealed record EnemySplashSpawn(

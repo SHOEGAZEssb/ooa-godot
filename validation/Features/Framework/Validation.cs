@@ -274,6 +274,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRooms079And089Interactions);
         RunIsolatedValidation(ValidateRoom025Carpenters);
         RunIsolatedValidation(ValidateSymmetryNpcs);
+        RunIsolatedValidation(ValidatePatchRestoration);
         RunIsolatedValidation(ValidateSymmetryNutHandoff);
         RunIsolatedValidation(ValidateSymmetrySecrets);
         RunIsolatedValidation(ValidateTuniNutPlacement);

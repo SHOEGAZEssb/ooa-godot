@@ -418,6 +418,9 @@ public sealed partial class ValidationRoot
             ["cutscenes/companion_forest_0a.tsv|\\call(0xff)"] = 1,
             ["cutscenes/companion_forest_text.tsv|\\call(0xfe)"] = 1,
             ["cutscenes/companion_forest_text.tsv|\\call(0xff)"] = 3,
+            // patch_updateTextSubstitution selects TX_5812/TX_5813 through
+            // wTextSubstitutions; ValidatePatchRestoration exercises both.
+            ["cutscenes/patch_commands.tsv|\\call(0xff)"] = 10,
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["cutscenes/symmetry_commands.tsv|\\secret1"] = 1,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
@@ -530,8 +533,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
                 [NpcImplementationClassification.SpecializedNative] = 163,
-                [NpcImplementationClassification.EventOwned] = 47,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 191
+                [NpcImplementationClassification.EventOwned] = 50,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 188
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -544,7 +547,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 163 specialized, 47 event-owned, and 191 " +
+            "54 ordinary, 163 specialized, 50 event-owned, and 188 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -780,6 +783,7 @@ public sealed partial class ValidationRoot
         [
             "blossom.s:MENU_KIDNAME",
             "symmetryNpc.s:scriptTable",
+            "patch.s:interactionCode94",
             "carpenter.s:room025Scripts",
             "forestFairy.s:forestFairy_discovered",
             "shopkeeper.s:lynnaShop:npc",

@@ -65,6 +65,15 @@ internal sealed class EnemyHandlerRegistry
                 usedKeys.Add((descriptor.Id, descriptor.SubId));
             }
         }
+        var nativeSpawns = GeneratedTable.Load("res://assets/oracle/objects/native_enemy_spawns.tsv",
+            new GeneratedTableSchema("native enemy creation", GeneratedTableKeySemantics.Unique,
+                ["id", "subid", "source"], ["id", "subid"], headerRequired: true));
+        foreach (var row in nativeSpawns.Rows)
+        {
+            var descriptor = ResolveHandler(row.HexByte(0), row.HexByte(1), row.RequiredString(2));
+            if (!descriptor.SupportsOrderedConstruction) throw row.Invalid(0, "an implemented native enemy handler");
+            usedKeys.Add((descriptor.Id, descriptor.SubId));
+        }
         if (usedKeys.Count != _handlers.Count)
         {
             throw new InvalidOperationException(

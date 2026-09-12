@@ -75,6 +75,7 @@ public sealed class RoomEventController
             new TingleEvent(_context),
             new CarpenterEvent(_context),
             new SymmetryEvent(_context),
+            new PatchEvent(_context),
             new MooshRescueEvent(_context),
             new MakuSproutRescueEvent(_context),
             new DekuForestSoldierEvent(_context),
@@ -128,6 +129,7 @@ public sealed class RoomEventController
         [
             Npc("symmetryNpc.s:scriptTable",
                 Get<SymmetryEvent>().TryInteractNpc),
+            Npc("patch.s:interactionCode94", Get<PatchEvent>().TryInteractNpc),
             Npc("carpenter.s:room025Scripts",
                 Get<CarpenterEvent>().TryInteractNpc),
             Npc("forestFairy.s:forestFairy_discovered",

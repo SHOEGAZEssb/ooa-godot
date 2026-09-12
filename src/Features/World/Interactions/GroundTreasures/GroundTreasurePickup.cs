@@ -18,6 +18,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     private PickupState _state;
     private int _spawnSubstate;
     private int _spawnCounter;
+    private int _swordGrabState, _swordGrabCounter;
     private int _zFixed;
     private int _speedZ;
     private int _bouncesRemaining;
@@ -49,7 +50,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         Record = record;
         if (record.SpawnMode is not (0 or 2 or 5) ||
-            record.GrabMode is not (1 or 2))
+            record.GrabMode is not (1 or 2 or 3))
         {
             throw new InvalidOperationException(
                 $"Ground treasure from {record.Source} uses unsupported " +
@@ -112,6 +113,11 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         if (Finished)
             return;
+        if (_state == PickupState.Collected && Record.GrabMode == 3)
+        {
+            UpdateSwordGrab(player);
+            return;
+        }
         switch (_state)
         {
             case PickupState.Initializing:
@@ -203,7 +209,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         if (Finished)
             return;
-        if (Record.GrabMode == 1)
+        if (Record.GrabMode is 1 or 3)
             player.EndGetItemOneHandPose();
         else
             player.EndGetItemTwoHandPose();
@@ -211,6 +217,30 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         Finished = true;
         Visible = false;
         QueueRedraw();
+    }
+
+    // treasure.s:@grabMode3: the silent second sword object owns a four-update
+    // delay, the forced parent-item spin, then the raised sword until the
+    // calling interaction clears wDisabledObjects.
+    private void UpdateSwordGrab(Player player)
+    {
+        switch (_swordGrabState)
+        {
+            case 0:
+                _swordGrabState = 1; _swordGrabCounter = 4; Visible = false; return;
+            case 1:
+                if (--_swordGrabCounter != 0) return;
+                _swordGrabState = 2; player.BeginTreasureSwordSpin(); return;
+            case 2:
+                if (player.TreasureSwordSpinActive) return;
+                _swordGrabState = 3; Held = true;
+                Position = player.Position + new Vector2(-4, -14); Visible = true;
+                player.BeginGetItemOneHandPose();
+                _soundRequested(OracleSoundEngine.SndSwordObtained); return;
+            case 3:
+                if (!player.CutsceneControlled) Finish(player);
+                return;
+        }
     }
 
     public override void _Draw()

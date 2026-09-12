@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
             "source Object.zh collision window.");
 
         int explosionCount =
-            _entities.Entities<TingleBalloonExplosionEffect>().Count;
+            _entities.Entities<InteractionExplosionEffect>().Count;
         int explosionSounds =
             _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion);
         int balloonZAtHit = tingleEntity.CollisionZ;
@@ -120,13 +120,13 @@ public sealed partial class ValidationRoot
         FailIf(
             !balloonHit || tingleEntity.State != 2 ||
             tingleEntity.BalloonActive ||
-            _entities.Entities<TingleBalloonExplosionEffect>().Count !=
+            _entities.Entities<InteractionExplosionEffect>().Count !=
                 explosionCount + 1,
             "An airborne Link sword at the balloon's live Z did not increment " +
             "Tingle to state 2 and create the source-positioned explosion.");
 
-        TingleBalloonExplosionEffect balloonExplosion =
-            _entities.Entities<TingleBalloonExplosionEffect>().Single();
+        InteractionExplosionEffect balloonExplosion =
+            _entities.Entities<InteractionExplosionEffect>().Single();
         FailIf(
             balloonExplosion.Position !=
                 tingleEntity.Npc.Position + new Vector2(
@@ -188,7 +188,7 @@ public sealed partial class ValidationRoot
             fallUpdates != 25 || !tingleEntity.Grounded ||
             tingleEntity.ZFixed != 0 ||
             tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
-            _entities.Entities<TingleBalloonExplosionEffect>().Count != 0 ||
+            _entities.Entities<InteractionExplosionEffect>().Count != 0 ||
             tingleEntity.Npc.CurrentScriptAnimationSource !=
                 tingleDatabase.Animation("tingle", 1),
             $"Tingle's $10-gravity fall landed after {fallUpdates} updates " +

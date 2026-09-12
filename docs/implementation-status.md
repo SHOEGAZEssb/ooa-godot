@@ -61,6 +61,9 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   Podoboo Towers in its ruined present, including restoration-based removal.
 - Falling boulders on the climb to Patch, with staggered appearances,
   randomized bounces, contact damage, and repeating room-local cycles.
+- Patch's upstairs conversations and downstairs restoration ceremony, including
+  the switch-controlled cart, harmless beetles, failure/retry, and restored
+  Tuni Nut or sword rewards.
 - Moosh's rescue and mountable-companion core: exact ride visuals, movement,
   cliff descent, ground-contact tile breaking, hover/charged stomp and charge
   flash, collision-safe dismount/remount memory,

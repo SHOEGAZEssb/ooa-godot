@@ -174,11 +174,11 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloonActive = false;
         _balloon.SetScriptVisible(false);
         _state = 2;
-        spawns.Add(new TingleBalloonExplosionSpawn(
+        spawns.Add(new InteractionExplosionSpawn(
             _balloon.Position + new Vector2(
                 _record.ExplosionXOffset,
                 _record.ExplosionYOffset),
-            _zFixed >> 8));
+            _zFixed >> 8, _database.ExplosionVisual));
         return true;
     }
 

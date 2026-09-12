@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 9, 2026. It is an implementation inventory, not a
+interactions as of September 12, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 143 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 146 | Traced and covered by the current named NPC/event scenarios. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
-| **D** | 191 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 188 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -64,11 +64,20 @@ behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
 The implementation manifest therefore contains 54 ordinary, 91 specialized,
-47 event-owned, and 191 deliberately unsupported positioned/state-derived
+50 event-owned, and 188 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
 classified records and 163 specialized rows.
 
 ### Important partial and deferred boundaries
+
+- September 12, 2026: Patch `$94:$00` in `3:be` and `$94:$01/$02` in
+  `5:e8` are **I**, covered by `ValidatePatchRestoration`: conversations,
+  restoration ceremony, cart failure/retry, Tuni Nut and sword rewards,
+  repeated interaction, cancellation, broken-item draw priority, and cart-hit
+  explosion graphics, and continued hole-effect animation through the victory
+  fade. The snapshot is
+  **146 I / 49 P / 188 D**, with **91 specialized** and **50 event-owned**
+  positioned rows.
 
 - September 11, 2026: room `2:3f`'s cook `$48:$05` remains **P**, now executing
   the imported trade script with native movement during dialogue, source waits,
@@ -513,7 +522,7 @@ well as record selection.
 | `3:9e` | [I] `$36:$0b/v$00` nayru<br>[I] `$ad:$07/v$00` zelda<br>[I] `$4f:$00/v$00` impaNpc<br>[I] `$4f:$00/v$01` impaNpc<br>[I] `$4f:$00/v$02` impaNpc<br>[I] `$4f:$00/v$05` impaNpc<br>[I] `$4f:$00/v$09` impaNpc<br>[I] `$4f:$00/v$0a` impaNpc<br>[I] `$4f:$00/v$0b` impaNpc<br>[I] `$4f:$00/v$0d` impaNpc<br>[I] `$4f:$00/v$0e` impaNpc |
 | `3:a0` | [D] `$ab:$17/v$00` zora |
 | `3:b1` | [D] `$ab:$18/v$00` zora |
-| `3:be` | [D] `$94:$00/v$00` patch |
+| `3:be` | [I] `$94:$00/v$00` patch |
 | `3:c0` | [D] `$ab:$19/v$00` zora |
 | `3:ce` | [D] `$3b:$08/v$00` femaleVillager |
 | `3:cf` | [D] `$42:$01/v$00` mustacheMan |
@@ -575,7 +584,7 @@ well as record selection.
 | `5:e0` | [D] `$66:$0e/v$08` goron<br>[D] `$66:$0d/v$04` goron |
 | `5:e2` | [D] `$66:$0c/v$01` goron<br>[D] `$66:$0c/v$02` goron |
 | `5:e4` | [D] `$52:$00/v$00` oldMan<br>[D] `$52:$02/v$00` oldMan |
-| `5:e8` | [D] `$94:$01/v$00` patch<br>[D] `$94:$02/v$00` patch |
+| `5:e8` | [I] `$94:$01/v$00` patch<br>[I] `$94:$02/v$00` patch |
 | `5:e9` | [P] `$48:$1d/v$00` tokay |
 | `5:ec` | [D] `$52:$03/v$00` oldMan<br>[D] `$52:$04/v$00` oldMan<br>[D] `$52:$05/v$00` oldMan<br>[D] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |

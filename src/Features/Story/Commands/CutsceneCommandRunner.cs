@@ -43,7 +43,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     /// </summary>
     public void SetInitialMotionRegisters(CutsceneActorId actor, int speed, int angle)
     {
-        if (!Active || _instruction != 0 || _scriptUpdates != 0)
+        if (!Active || _scriptUpdates != 0)
         {
             throw new InvalidOperationException(
                 "Initial cutscene motion registers must be set before the first script update.");

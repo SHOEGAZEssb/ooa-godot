@@ -1331,6 +1331,14 @@ public sealed class InventoryState
             $"Treasure WRAM variable {variable} is not a scalar binding.")
     };
 
+    internal void SetRestorationItemState(TreasureVariable variable, int value)
+    {
+        if (variable is not (TreasureVariable.TuniNutState or TreasureVariable.TradeItem))
+            throw new ArgumentOutOfRangeException(nameof(variable));
+        SetVariable(variable, value);
+        NotifyChanged();
+    }
+
     private void SetVariable(TreasureVariable variable, int value)
     {
         int byteValue = value & 0xff;

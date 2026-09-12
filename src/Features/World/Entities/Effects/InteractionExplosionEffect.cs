@@ -4,10 +4,10 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_EXPLOSION $56 created by PART_TINGLE_BALLOON $44. The part sets
-/// var03=$01, so this effect uses objectSetVisible81 priority.
+/// INTERAC_EXPLOSION $56 with var03=$01 (Patch and Tingle's balloon).
+/// The creator supplies imported graphics; the shared handler owns lifetime.
 /// </summary>
-internal sealed partial class TingleBalloonExplosionEffect : FixedEffectNode2D
+internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
 {
     private EnemyAnimationPlayer _animation = null!;
     private Action<int> _playSound = null!;
@@ -30,7 +30,7 @@ internal sealed partial class TingleBalloonExplosionEffect : FixedEffectNode2D
     internal void Initialize(
         Vector2 position,
         int zOffset,
-        TingleBalloonExplosionVisual visual,
+        InteractionExplosionVisual visual,
         Action<int> playSound)
     {
         Position = position;
@@ -80,7 +80,10 @@ internal sealed partial class TingleBalloonExplosionEffect : FixedEffectNode2D
     }
 }
 
-internal sealed record TingleBalloonExplosionSpawn(
+internal sealed record InteractionExplosionSpawn(
     Vector2 Position,
-    int ZOffset)
+    int ZOffset,
+    InteractionExplosionVisual Visual)
     : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal readonly record struct InteractionExplosionVisual(string Sprite, int TileBase, int Palette, string Animation);

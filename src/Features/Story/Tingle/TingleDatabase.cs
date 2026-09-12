@@ -158,7 +158,7 @@ internal sealed class TingleDatabase
             : throw new InvalidOperationException(
                 $"Missing Tingle TX_{textId:x4}.");
 
-    internal TingleBalloonExplosionVisual ExplosionVisual => new(
+    internal InteractionExplosionVisual ExplosionVisual => new(
         Record.ExplosionSprite,
         Record.ExplosionTileBase,
         Record.ExplosionPalette,
@@ -171,12 +171,6 @@ internal sealed class TingleDatabase
         Animation("sparkle", Record.KoolooSparkleAnimation));
 
 }
-
-internal readonly record struct TingleBalloonExplosionVisual(
-    string Sprite,
-    int TileBase,
-    int Palette,
-    string Animation);
 
 internal readonly record struct TingleRecord(
     int Group,

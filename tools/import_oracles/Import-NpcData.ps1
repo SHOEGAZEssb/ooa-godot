@@ -952,6 +952,9 @@ if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
     $eventOwnedNpcImplementationKeys.Count -ne 47) {
     throw 'NPC implementation registry key counts changed.'
 }
+foreach ($key in @('3:be:94:00:00','5:e8:94:01:00','5:e8:94:02:00')) {
+    [void]$eventOwnedNpcImplementationKeys.Add($key)
+}
 
 function Resolve-NpcImplementation(
     [int]$group,
@@ -1047,6 +1050,7 @@ function New-NpcDataRow(
     } else {
         $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
     }
+    if ($id -eq 0x94 -and $subid -lt 2) { $canFace = $true }
     $downOam = Resolve-NpcAnimation $id $initialAnimation
     if ($canFace) {
         $upOam = Resolve-NpcAnimation $id ($initialAnimation - 2)
@@ -4632,8 +4636,8 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
     $npcImplementationCounts['specialized-native'] -ne 91 -or
-    $npcImplementationCounts['event-owned'] -ne 47 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 191 -or
+    $npcImplementationCounts['event-owned'] -ne 50 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 188 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

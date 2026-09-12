@@ -263,7 +263,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             (_, 0x17 or 0x1c or 0x28 or 0x29 or 0x33 or 0x58 or 0x6e) =>
                 EnemySwordResponse.NoKnockback,
             (_, 0x36 or 0x7e) => EnemySwordResponse.Knockback,
-            (_, 0x21 or 0x38) => EnemySwordResponse.Bump,
+            (_, 0x21 or 0x38 or 0x42) => EnemySwordResponse.Bump,
             _ => throw new InvalidOperationException(
                 $"{Source} resolves {Handler} ${Id:x2}:${SubId:x2} to " +
                 $"unsupported enemy collision mode ${CollisionMode:x2}.")
