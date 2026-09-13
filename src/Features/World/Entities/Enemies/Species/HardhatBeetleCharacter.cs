@@ -15,6 +15,7 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
     private EnemyTerrainMovement _movement = null!;
     private bool _initialized;
     private int _angle;
+    private bool _hookHitPending;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal bool Initialized => _initialized;
@@ -47,6 +48,15 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
 
     internal void UpdateFrame(Vector2 linkPosition)
     {
+        if (_hookHitPending)
+        {
+            // enemyCode4d checks hazards, then returns on JUST_HIT. The
+            // common post-update advances invincibility, but not recoil.
+            _hookHitPending = false;
+            if (CheckHazards()) return;
+            AdvanceInvincibilityCounter();
+            return;
+        }
         if (IsDead)
             return;
         if (BeginFrame())
@@ -75,6 +85,15 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
         _ = sourcePosition;
         _ = damage;
         return !IsDead && CollisionEnabled && InvincibilityCounter == 0;
+    }
+
+    internal bool TakeSwitchHookHit(Vector2 linkPosition)
+    {
+        if (!TakeBumpHit(linkPosition, 0)) return false;
+        // ENEMYDMG_$14: no health loss, -$15 invincibility, $0b recoil.
+        ApplySwordBump(linkPosition, EnemyKnockbackStrength.Normal);
+        _hookHitPending = true;
+        return true;
     }
 
     internal override bool TakeBurnHit(int damage)

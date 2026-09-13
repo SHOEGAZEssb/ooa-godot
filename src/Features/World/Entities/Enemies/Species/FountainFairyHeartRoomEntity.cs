@@ -36,10 +36,10 @@ internal sealed partial class FountainFairyHeartRoomEntity : TransitionOffsetNod
         if (Finished) return;
         // objectSetPositionInCircleArc multiplies the signed 8.8 SPEED_100
         // vector by $20, then adds only the wrapping high bytes to Link.
-        OracleObjectVelocity velocity = OracleObjectMovement.Shared.Velocity(0x28, Angle);
+        Vector2I offset = OracleObjectMovement.Shared.CircleArcOffset(32, Angle);
         Position = new Vector2(
-            ((int)frame.Player.Position.X + ((velocity.XFixed * 32) >> 8)) & 0xff,
-            ((int)frame.Player.Position.Y + ((velocity.YFixed * 32) >> 8)) & 0xff);
+            ((int)frame.Player.Position.X + offset.X) & 0xff,
+            ((int)frame.Player.Position.Y + offset.Y) & 0xff);
         if (--_counter == 0)
         {
             _counter = 3;

@@ -17,6 +17,7 @@ internal sealed partial class ToggleFloorRoomEntity : Node2D,
     private int _lastTilePosition;
     private int _takeoffTilePosition;
     private bool _wasAirborne;
+    private bool _initialized;
 
     public Node2D Node => this;
     internal int PendingCount => _pending.Count;
@@ -52,6 +53,13 @@ internal sealed partial class ToggleFloorRoomEntity : Node2D,
     {
         int current = LinkTilePosition(frame.Player);
         bool airborne = frame.Player.TopDownAirborne;
+        if (!_initialized)
+        {
+            _initialized = true;
+            _lastTilePosition = _takeoffTilePosition = current;
+            _wasAirborne = airborne;
+            return;
+        }
         if (!_wasAirborne && airborne)
             _takeoffTilePosition = _lastTilePosition;
 
@@ -91,10 +99,10 @@ internal sealed partial class ToggleFloorRoomEntity : Node2D,
         Vector2 point = PointFor(packedPosition);
         int first = _data.Constant("red-toggle-floor");
         int tile = _room.GetMetatile(point);
-        if (tile < first || tile >= first + 3)
-            return;
-        byte replacement = (byte)(tile + 1);
-        if (replacement == first + 3)
+        // The child does not repeat the parent's colored-tile check. A tile
+        // replaced during the jump still takes this byte increment/clamp.
+        byte replacement = unchecked((byte)(tile + 1));
+        if (replacement >= first + 3)
             replacement = (byte)first;
         _room.SetPositionTileAndCollision(
             point, replacement, null, _animationTick());

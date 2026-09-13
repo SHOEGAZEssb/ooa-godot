@@ -10,13 +10,15 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     private readonly EnemyAnimationPlayer _animation;
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private int _palette;
+    private bool _healthCleared;
+    internal void ClearHealthAndCollision() => _healthCleared = true;
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal int Angle { get; private set; }
     internal bool Finished { get; private set; }
     internal void SetPaletteOverride(IReadOnlyDictionary<int, Color[]>? palette) => _animation.SetPaletteOverride(palette);
-    internal Rect2 CollisionBounds => new(Position - new Vector2(_data.RadiusX, _data.RadiusY),
-        new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
+    internal Rect2 CollisionBounds => Finished || _healthCleared ? new(Position, Vector2.Zero) :
+        new(Position - new Vector2(_data.RadiusX, _data.RadiusY), new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
 
     internal ZoraFireProjectile(ZoraFireSpawn spawn, ZoraFireDatabase data,
         Func<Vector2, Vector2> worldToScreen)
@@ -37,9 +39,16 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
         if (Finished) return;
         if (State == 0)
         {
+            _healthCleared = false; // partLoadGraphicsAndProperties precedes state zero.
             State = 1;
             Counter = 8;
             Visible = true;
+            return;
+        }
+        if (_healthCleared)
+        {
+            Finished = true; // partCode19: jp nz,partDelete.
+            Visible = false;
             return;
         }
         // Part.collisionType starts enabled: even the eight stationary
@@ -82,7 +91,7 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
 
     internal bool Strike()
     {
-        if (Finished) return false;
+        if (Finished || _healthCleared) return false;
         Finished = true;
         Visible = false;
         return true;

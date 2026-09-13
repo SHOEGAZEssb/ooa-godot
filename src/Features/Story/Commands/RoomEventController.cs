@@ -61,6 +61,7 @@ public sealed class RoomEventController
             new DungeonEssenceEvent(_context),
             new RemoteMakuFirstEssenceEvent(_context),
             new RemoteMakuSecondEssenceEvent(_context),
+            new RemoteMakuFourthEssenceEvent(_context),
             new RemoteMakuHarpEvent(_context),
             new RemoteMakuWingDungeonEvent(_context),
             new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),

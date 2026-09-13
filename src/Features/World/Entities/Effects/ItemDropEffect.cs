@@ -64,6 +64,12 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private Action<int> _soundRequested = static _ => { };
     private int _collectionSound;
     private bool _swordCollectionPending;
+    private bool _healthCleared;
+    internal void ClearHealthAndCollision()
+    {
+        _healthCleared = true;
+        _collisionEnabled = false;
+    }
     private Func<bool>? _maplePresent;
     private Action<int, int, Vector2>? _spawnEnemy;
     private int _var03;
@@ -168,6 +174,14 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
 
         ElapsedFrames++;
+        if (_state == DropState.Initializing) _healthCleared = false;
+        if (_healthCleared)
+        {
+            // partCode01: PARTSTATUS_DEAD enters @linkCollectedItem without
+            // overlap, height or collision-enable checks.
+            Collect(player);
+            return;
+        }
         if (_swordCollectionPending)
         {
             Collect(player);
@@ -532,6 +546,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
 
     private void Collect(Player player)
     {
+        if (player.IsDying)
+        {
+            FinishWithoutCollection(); // @linkCollectedItem checks wLinkDeathTrigger first.
+            return;
+        }
         switch (SubId)
         {
             case ItemDropDatabase.Fairy:
@@ -569,6 +588,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                         : 0x05);
                 break;
             default:
+                FinishWithoutCollection(); // A zero treasure-table entry deletes the part.
                 return;
         }
 

@@ -189,6 +189,7 @@ public partial class Player : Node2D
     private int _topDownAirSpeedZ;
     private int _topDownAirAngle = 0xff;
     private int _topDownAirSpeedRaw;
+    private int _topDownAirTargetSpeedRaw;
     private int _topDownAirAnimationPhase;
     private int _topDownAirAnimationCounter;
     private bool _topDownAirborne;
@@ -230,6 +231,7 @@ public partial class Player : Node2D
     private int _currentSwordDamage;
     private bool _swordPokeReturnsToHeld;
     private bool _doubleEdgedDamagePending;
+    private bool _pendingSwordEnemyContact;
     private int _heartRingDistanceFixed;
     private int _activeTransformation;
     private int _transformationFrame;
@@ -261,6 +263,8 @@ public partial class Player : Node2D
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
     private bool _cutsceneControlled;
+    private int _forcedState08Phase;
+    private bool _forcedState08LowPriority;
     private object? _cutsceneControlOwner;
     private bool _getItemOneHandPose;
     private bool _getItemTwoHandPose;
@@ -269,6 +273,7 @@ public partial class Player : Node2D
     internal bool TreasureSwordSpinActive => _treasureSwordSpin || _treasureSwordSpinPending != 0;
     private int? _scriptedLinkAnimationMode;
     private Texture2D? _scriptedCollapsedTexture;
+    private readonly Texture2D?[] _scriptedWalkTextures = new Texture2D?[8];
     private int _cutsceneDrawZFixed;
     private bool _carriedObjectPose;
     private BraceletActionPose? _braceletActionPose;
@@ -314,15 +319,33 @@ public partial class Player : Node2D
     public bool IsAttacking => _swordState != SwordActionState.None;
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
+    public bool IsUsingSwitchHook => _world is not null && _world.SwitchHookActive;
     public bool IsUsingSeedShooter =>
         _world is not null && _world.SeedShooterActive;
     public bool IsUsingHarp => _usingHarp;
     public bool IsUsingShield => _usingShield;
     internal bool IsUsingPunch => _usingPunch;
     internal bool IsUsingExpertPunch => _usingPunch && _expertPunch;
+    private uint _startedParentItemAnimations;
+    // wLinkUsingItem1's high nibble is written only by parent animation
+    // initialization and cleared by checkUseItems. Existing parent state
+    // supplies cancellation; this mask records only starts in that update.
+    internal bool StartedItemAnimationThisUpdate =>
+        Started(InventoryState.ItemSword, IsAttacking) ||
+        Started(InventoryState.ItemShovel, IsUsingShovel) ||
+        Started(InventoryState.ItemSeedSatchel, IsUsingSeedSatchel) ||
+        Started(InventoryState.ItemShooter, IsUsingSeedShooter) ||
+        Started(InventoryState.ItemSwitchHook, IsUsingSwitchHook) ||
+        Started(0x02, IsUsingPunch);
+    private bool Started(int id, bool active) => active && (_startedParentItemAnimations & (1u << id)) != 0;
+    internal void NotifyParentItemAnimationStarted(int id)
+    {
+        if (_linkItems.ParentAnimationSignalsItemUse(id))
+            _startedParentItemAnimations |= 1u << id;
+    }
     private bool IsUsingItem =>
         IsAttacking || IsUsingShovel || IsUsingSeedSatchel ||
-        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch;
+        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -479,7 +502,16 @@ public partial class Player : Node2D
             _topDownAirborne && ((TopDownAirZ + 7) & 0xff) < 14);
     internal bool AcceptsTimePortalContact => AcceptsGroundInteractionContact &&
         OverlapsTimePortalHeight && !_world.RidingObject;
-    internal bool TimeWarpPassesNpcs => _world.TimeWarpPassesNpcs;
+    internal bool PassesNpcs => _world.PassesNpcs;
+    internal bool CanEnterMinibossPortal => PatchCollisionsEnabled && !_world.InteractionMenusDisabled &&
+        !_spinnerControlled && !_companionRideControlled && !_minecartRideControlled && !_raftRideControlled;
+
+    internal bool OverlapsMinibossPortal(Rect2 bounds) =>
+        // wLinkGrabState & $be permits wall-grab $41, but excludes lifting
+        // $c2, carrying $83, and the lever's held state.
+        !IsDying && !_braceletLiftCollisionsDisabled && !IsCarryingObject &&
+        RoomEntityManager.ObjectCollisionZOverlaps(EnemyContactZ, 0, 7) &&
+        EnemyCollisionOverlaps(EnemyContactPosition, bounds);
     // collisionEffects.s:@checkHitLink uses wLinkObjectIndex ($d1 while
     // mounted), not the offset riding-Link sprite at w1Link ($d0).
     internal Vector2 EnemyContactPosition => _companionRideControlled
@@ -604,6 +636,15 @@ public partial class Player : Node2D
     }
     internal bool TopDownAirborne => _topDownAirborne;
     internal int TopDownAirZ => _topDownAirZFixed >> 8;
+    internal int SwitchHookZFixed => _topDownAirZFixed;
+    internal void ClearSwitchHookZ() { _topDownAirZFixed = 0; QueueRedraw(); }
+    internal void SetSwitchHookPosition(Vector2 position, int zFixed)
+    {
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(position);
+        _topDownAirZFixed = zFixed;
+        QueueRedraw();
+    }
     internal int TopDownAirSpeedZ => _topDownAirSpeedZ;
     internal bool MinecartJumpActive => _minecartJumpControlled;
     internal bool MinecartRideActive => _minecartRideControlled;
@@ -877,6 +918,8 @@ public partial class Player : Node2D
         // Y priority.
         ZIndex = active
             ? AlternateTextboxPaletteZIndex
+            : _forcedState08LowPriority
+                ? NpcCharacter.BehindLinkZIndex
             : TopDownDiving
                 ? DivingZIndex
                 : NormalZIndex;
@@ -937,6 +980,9 @@ public partial class Player : Node2D
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _scriptedLinkAnimationMode = null;
+        _forcedState08Phase = 0;
+        _forcedState08LowPriority = false;
+        SetAlternateTextboxPalettePriority(false);
         _cutsceneDrawZFixed = 0;
         // Destination room events are initialized while the room's objects
         // are parsed, before the transition places Link. Preserve a frame
@@ -982,6 +1028,7 @@ public partial class Player : Node2D
         _world.InterruptBomb(this, discard);
         _world.InterruptBracelet(this, discard);
         _world.InterruptSeedShooter();
+        _world.InterruptSwitchHook(discard);
     }
 
     internal void BeginNewGameSlowFall(int initialZ)
@@ -1248,6 +1295,7 @@ public partial class Player : Node2D
     public void BeginRoomWarpTransition()
     {
         if (GaleActive) EndGale();
+        _forcedState08Phase = 0;
         _cutsceneControlled = false;
         _cutsceneControlOwner = null;
         _walking = false;
@@ -1378,7 +1426,9 @@ public partial class Player : Node2D
     internal bool ApplyEnemyContactDamage(
         Vector2 sourcePosition,
         int quarters,
-        RingDamageSource source)
+        RingDamageSource source,
+        int invincibilityFrames = EnemyInvincibilityFrames,
+        int knockbackFrames = EnemyKnockbackFrames)
     {
         if (_braceletLiftCollisionsDisabled || !AcceptsRoomEntityContact ||
             IsDying || _enemyInvincibilityFrames != 0.0f ||
@@ -1387,13 +1437,13 @@ public partial class Player : Node2D
         if (!ApplyDamage(quarters, source))
             return false;
 
-        // LINKDMG_04 selects SND_DAMAGE_LINK ($5f) when the collision is
+        // LINKDMG_00/_04 select SND_DAMAGE_LINK ($5f) when the collision is
         // accepted. Rejected contacts during Link's invincibility do not
         // enqueue another request.
         _world.PlaySound(OracleSoundEngine.SndDamageLink);
-        _enemyInvincibilityFrames = EnemyInvincibilityFrames;
+        _enemyInvincibilityFrames = invincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
-            _inventory, EnemyKnockbackFrames);
+            _inventory, knockbackFrames);
         _swordCollisionKnockback = false;
         _enemyKnockbackDirection = EnemyContactPosition - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
@@ -1445,7 +1495,7 @@ public partial class Player : Node2D
 
     private void ApplyCollisionRecoil(Vector2 sourcePosition, int invincibilityFrames, int knockbackFrames)
     {
-        if (invincibilityFrames <= 0)
+        if (invincibilityFrames < 0)
             throw new ArgumentOutOfRangeException(nameof(invincibilityFrames));
         if (knockbackFrames <= 0)
             throw new ArgumentOutOfRangeException(nameof(knockbackFrames));
@@ -1732,6 +1782,22 @@ public partial class Player : Node2D
             _floorDoorRecoveryCounter--;
             return;
         }
+        if (_forcedState08Phase != 0)
+        {
+            if (_forcedState08Phase == 1)
+                _forcedState08Phase = 2; // checkLinkForceState changes state, then returns.
+            else if (_forcedState08Phase == 2)
+            {
+                _forcedState08Phase = 3;
+                _world.ClearItemParents(this);
+                ClearShieldParent();
+                CancelSwordAttack();
+                CancelShovelAction();
+                _startedParentItemAnimations = 0;
+                SetScriptedLinkAnimationMode(0x10);
+            }
+            return;
+        }
         if (_cutsceneControlled)
             return;
         // LINK_STATE_FORCE_MOVEMENT owns Link's update. The object that
@@ -1742,6 +1808,14 @@ public partial class Player : Node2D
             _walking = true;
             _pushing = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            QueueRedraw();
+            return;
+        }
+        _startedParentItemAnimations = 0;
+        if (_world.SwitchHookExchangeActive)
+        {
+            _world.UpdateSwitchHookParent(this);
+            _walking = false;
             QueueRedraw();
             return;
         }
@@ -1778,6 +1852,11 @@ public partial class Player : Node2D
             return;
         }
 
+        // linkState01 decrements before item use and knockback. Text,
+        // scrolling, forced states, and disabled Link do not reach this call.
+        if (!_world.IsTransitioning && !_world.DialogueOpen)
+            _world.Pegasus?.AdvanceCounter();
+        _world.UpdateSwitchHookParent(this);
         if (_enemyKnockbackFrames > 0.0f)
         {
             // Damage suppresses Link's ordinary item-input path, but the
@@ -1970,6 +2049,13 @@ public partial class Player : Node2D
             QueueRedraw();
             return;
         }
+        if (IsUsingSwitchHook)
+        {
+            _walking = false;
+            _pushing = false;
+            QueueRedraw();
+            return;
+        }
         if (_world.SeedShooterActive && _world.UpdateSeedShooter(
                 this, input, primaryPressed, secondaryPressed,
                 DirectionalInputJustPressed()))
@@ -2033,6 +2119,9 @@ public partial class Player : Node2D
             }
             else if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
+            else if (!IsUsingItem && _inventory.EquippedA == InventoryState.ItemSwitchHook &&
+                _world.TryBeginSwitchHook(this, input))
+                return;
             else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedA == InventoryState.ItemShovel)
                 StartShovelAction(input);
@@ -2086,6 +2175,9 @@ public partial class Player : Node2D
                 if (_world.TryUseBracelet(this, primaryButton: false))
                     return;
             }
+            else if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemSwitchHook &&
+                _world.TryBeginSwitchHook(this, input))
+                return;
             else if (_inventory.EquippedB == InventoryState.ItemSword)
             {
                 StartSwordAttack("item", input);
@@ -2344,6 +2436,8 @@ public partial class Player : Node2D
 
     internal void BeginCutsceneControl(bool interruptBracelet = true, object? owner = null)
     {
+        _forcedState08Phase = 0;
+        _forcedState08LowPriority = false;
         if (interruptBracelet)
             InterruptCarriedItems(discard: true);
         _cutsceneControlled = true;
@@ -2357,6 +2451,17 @@ public partial class Player : Node2D
     }
 
     internal bool CutsceneControlled => _cutsceneControlled;
+    internal void RequestState08Control(object owner)
+    {
+        // setLinkForceStateToState08 only queues state08/wcc50=0. Link
+        // adopts it on his next dispatch and runs substate0 one update later.
+        _cutsceneControlled = true;
+        _cutsceneControlOwner = owner;
+        _forcedState08Phase = 1;
+        _forcedState08LowPriority = true; // Portal writes visible=$82 immediately.
+        SetAlternateTextboxPalettePriority(false);
+        QueueRedraw();
+    }
     internal void DropHeldItemsForScript() => InterruptCarriedItems(discard: false);
     internal bool IsCutsceneControlOwner(object owner) =>
         _cutsceneControlled && ReferenceEquals(_cutsceneControlOwner, owner);
@@ -2416,7 +2521,7 @@ public partial class Player : Node2D
     internal void SetScriptedLinkAnimationMode(int? mode)
     {
         if (mode is not null and not (0x02 or 0x06 or 0x07 or 0x08 or 0x09 or
-            0x0e or 0x0f or 0x1c))
+            0x0e or 0x0f or 0x10 or 0x1c))
         {
             throw new ArgumentOutOfRangeException(nameof(mode));
         }
@@ -2450,6 +2555,15 @@ public partial class Player : Node2D
     internal void BeginCarriedObjectPose()
     {
         _carriedObjectPose = true;
+        _pushing = false;
+        QueueRedraw();
+    }
+
+    internal void BeginSwitchHookPose()
+    {
+        // The maximum-priority hook parent excludes the later shield parent.
+        ClearShieldParent();
+        _walking = false;
         _pushing = false;
         QueueRedraw();
     }
@@ -2552,6 +2666,7 @@ public partial class Player : Node2D
 
     internal void BeginForcedRoomEntryMovement(Vector2I direction)
     {
+        _world.Pegasus?.Clear();
         if (direction != Vector2I.Up && direction != Vector2I.Right &&
             direction != Vector2I.Down && direction != Vector2I.Left)
         {
@@ -2655,6 +2770,18 @@ public partial class Player : Node2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         QueueRedraw();
+    }
+
+    internal bool CanBeCarriedByMovingPlatform => !IsDying && !_drowning && !_fallingInHole &&
+        !_cutsceneControlled && !_forcedRoomEntryMovement && !_spinnerControlled &&
+        _ledgeJumpState == LedgeJumpState.None && !ElectricShockActive;
+
+    internal void AdvanceInteractionVelocity(int speed, int angle)
+    {
+        // Native interactions call updateLinkPositionGivenVelocity, which applies
+        // adjacent-wall masks and cardinal edge sliding before changing Y/X.
+        Vector2 movement = OracleObjectMovement.Shared.Delta(speed, angle);
+        SetScriptedPosition(_precisePosition + _world.ResolveMovement(_precisePosition, movement, allowWallSlide: true));
     }
 
     internal void ApplyMovingPlatformDisplacement(Vector2 displacement)
@@ -2912,6 +3039,26 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = 0.0f;
     }
 
+    internal void ResetPortalDamageState()
+    {
+        // resetLinkInvincibility clears the whole collision/damage/recoil
+        // block. The portal's IPlayerRestriction owns collision eligibility.
+        ClearInteractionKnockback(clearInvincibility: true);
+        _enemyKnockbackDirection = Vector2.Zero;
+        _pendingSwordKnockbackFrames = 0;
+        _pendingSwordKnockbackDirection = Vector2.Zero;
+        _swordCollisionKnockback = false;
+    }
+
+    internal void CopyPortalPosition(Vector2 position)
+    {
+        SetScriptedCoordinateHigh(horizontal: false, OracleObjectPosition.HighByte(position.Y));
+        SetScriptedCoordinateHigh(horizontal: true, OracleObjectPosition.HighByte(position.X));
+        // objectCopyPosition copies zh too, preserving Link's low Z byte.
+        _topDownAirZFixed &= 0xff;
+        _cutsceneDrawZFixed &= 0xff;
+    }
+
     internal void SetScriptedCoordinateHigh(bool horizontal, int coordinate)
     {
         // preventObjectHFromPassingObjectD overwrites only Object.xh/yh. Keep
@@ -2991,6 +3138,9 @@ public partial class Player : Node2D
         if (owner is not null && !IsCutsceneControlOwner(owner))
             return;
         _cutsceneControlled = false;
+        _forcedState08Phase = 0;
+        _forcedState08LowPriority = false;
+        SetAlternateTextboxPalettePriority(false);
         _cutsceneControlOwner = null;
         _walking = false;
         QueueRedraw();
@@ -3030,6 +3180,14 @@ public partial class Player : Node2D
         // warps cancel the sword synchronously in BeginRoomWarpTransition.
         if (_world.IsTransitioning)
             return;
+
+        if (_forcedState08Phase != 0)
+        {
+            // Linkstate08 does not run checkUseItems (wcc63=0). Existing
+            // ITEM children still advance while disabledObjects=$01.
+            _world.AdvanceBraceletProjectile();
+            return;
+        }
 
         TransferSwordCollisionKnockback();
 
@@ -3360,12 +3518,12 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(phase * 16, (int)_facing * 16, 16, 16));
         }
-        else if (IsUsingSeedSatchel)
+        else if (IsUsingSeedSatchel || IsUsingSwitchHook)
         {
             // LINK_ANIM_MODE_21 uses graphics $b0-$b3 for eight updates.
             DrawTextureRectRegion(
                 DamagePaletteActive ? _damageAttackTexture : _attackTexture,
-                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
+                new Rect2(NormalSpriteOrigin + (IsUsingSwitchHook ? Vector2.Down * (_topDownAirZFixed >> 8) : Vector2.Zero), new Vector2(16, 16)),
                 new Rect2(16, (int)_facing * 16, 16, 16));
         }
         else if (IsUsingShield)
@@ -3453,6 +3611,8 @@ public partial class Player : Node2D
             0x0f => damagePalette
                 ? _damageGetItemTwoHandTexture
                 : _getItemTwoHandTexture,
+            0x10 => _scriptedWalkTextures[(int)_facing + (damagePalette ? 4 : 0)] ??= new AtlasTexture
+                { Atlas = damagePalette ? _damageTexture : _texture, Region = GetFrame(_facing, 0) },
             0x1c => damagePalette
                 ? _damageGetItemOneHandRightTexture
                 : _getItemOneHandRightTexture,
@@ -3678,7 +3838,7 @@ public partial class Player : Node2D
                 terrainMode: 0x08,
                 initialSpeed: 0,
                 velocityInterval: parameters.IceVelocityInterval,
-                targetSpeed: parameters.NormalSpeed,
+                targetSpeed: NormalMovementSpeed,
                 writeSpeedDirectly: false);
             UpdateSideScrollVelocity(inputAngle, inAir: false);
             // wForceIcePhysics stores $06 as a nonzero latch. It is not
@@ -3699,9 +3859,9 @@ public partial class Player : Node2D
             _sideScrollForceIcePhysics = 0;
             SetSideScrollTerrainSpeed(
                 terrainMode: 0,
-                initialSpeed: parameters.NormalSpeed,
+                initialSpeed: NormalMovementSpeed,
                 velocityInterval: 0,
-                targetSpeed: parameters.NormalSpeed,
+                targetSpeed: NormalMovementSpeed,
                 writeSpeedDirectly: true);
             _sideScrollAngle = onLadder
                 ? inputAngle
@@ -3907,7 +4067,9 @@ public partial class Player : Node2D
 
     private bool TryStartTopDownJump()
     {
-        if (_topDownAirborne || _world.RidingObject ||
+        // featherParent checks wLinkObjectIndex (mounted companion/cart),
+        // not wLinkRidingObject. A moving platform must allow jumping off.
+        if (_topDownAirborne || _companionRideControlled || _minecartRideControlled || _raftRideControlled ||
             _drowning || _fallingInHole || _pullingIntoHole ||
             IsCarryingObject || IsHoldingItemOneHand ||
             IsHoldingItemTwoHands || _inventory.FeatherLevel <= 0)
@@ -3921,10 +4083,10 @@ public partial class Player : Node2D
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = parameters.JumpSpeedZ;
         // linkUpdateInAir's @startedJump branch normalizes wActiveTileType,
-        // snapshots wLinkAngle at SPEED_100, and then advances that stored
-        // trajectory even if a later parent item immobilizes Link.
+        // snapshots wLinkAngle and the current normal/Pegasus speed. Rising movement retains it;
+        // the descending branch calls linkUpdateVelocity before movement.
         _topDownAirAngle = AngleForVector(_lastMovementInput);
-        _topDownAirSpeedRaw = NormalTopDownSpeed;
+        _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = NormalMovementSpeed;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter =
             parameters.AnimationPhaseDurations[0];
@@ -3951,7 +4113,7 @@ public partial class Player : Node2D
             _topDownAirUpdateAccumulator -= 1.0;
             AdvanceTopDownAirUpdate();
             if (_topDownAirborne)
-                AdvanceTopDownAirMomentum();
+                AdvanceTopDownAirMomentum(input);
         }
 
         if (!_topDownAirborne)
@@ -3999,7 +4161,7 @@ public partial class Player : Node2D
             _topDownAirborne = false;
             _topDownAirSpeedZ = 0;
             _topDownAirAngle = 0xff;
-            _topDownAirSpeedRaw = 0;
+            _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = 0;
             _topDownAirAnimationPhase = 0;
             _topDownAirAnimationCounter = 0;
             _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
@@ -4032,14 +4194,23 @@ public partial class Player : Node2D
         {
             AdvanceTopDownAirUpdate();
             if (_topDownAirborne)
-                AdvanceTopDownAirMomentum();
+                AdvanceTopDownAirMomentum(movementInput);
         }
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
 
-    private void AdvanceTopDownAirMomentum()
+    private void AdvanceTopDownAirMomentum(Vector2 input)
     {
+        // linkState01 calls linkUpdateVelocity after speedZ becomes nonnegative.
+        // linkUpdateInAir clears var12/var13 immediately before this call, so
+        // func_5933 performs one convergence step on each descending update.
+        if (_topDownAirSpeedZ >= 0)
+        {
+            int velocityCounter = 0;
+            UpdateConvergingVelocity(ref _topDownAirAngle, ref _topDownAirSpeedRaw,
+                _topDownAirTargetSpeedRaw, ref velocityCounter, 0, AngleForVector(input), inAir: true);
+        }
         if (_topDownAirAngle >= 0x80 || _topDownAirSpeedRaw == 0)
             return;
         ApplyTopDownObjectSpeed(
@@ -4094,6 +4265,7 @@ public partial class Player : Node2D
         int cartDirection,
         int animationParameter)
     {
+        _world.Pegasus?.Clear();
         ClearTopDownAirState();
         SetMinecartRidePosition(
             cartPosition,
@@ -4451,7 +4623,7 @@ public partial class Player : Node2D
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = 0;
         _topDownAirAngle = 0xff;
-        _topDownAirSpeedRaw = 0;
+        _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = 0;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = 0;
         _topDownAirborne = false;
@@ -4809,9 +4981,9 @@ public partial class Player : Node2D
             speedOverride ?? (jumped ? parameters.JumpSpeedZ : 0);
         SetSideScrollTerrainSpeed(
             terrainMode: 0,
-            initialSpeed: parameters.NormalSpeed,
+            initialSpeed: NormalMovementSpeed,
             velocityInterval: 0,
-            targetSpeed: parameters.NormalSpeed,
+            targetSpeed: NormalMovementSpeed,
             writeSpeedDirectly: true);
         _sideScrollAirborne = true;
         _sideScrollJumpSoundPending = jumped;
@@ -5476,10 +5648,11 @@ public partial class Player : Node2D
     }
 
     private int GetWalkAnimationFrame() =>
-        _walking ? _linkWalkAnimationFrame : 0;
+        _walking || _world.Pegasus is { Active: true } ? _linkWalkAnimationFrame : 0;
 
     private void ResetLinkWalkAnimation()
     {
+        if (_world.Pegasus is { Active: true }) { AdvanceLinkWalkAnimation(); return; }
         // animateLinkStanding forces animMode away from WALK and immediately
         // reselects it, loading animationData19f0b's two-update $54 frame.
         _linkWalkAnimationFrame = 0;
@@ -5488,6 +5661,7 @@ public partial class Player : Node2D
 
     private void AdvanceLinkWalkAnimation()
     {
+        _world.Pegasus?.AnimateWalking();
         if (--_linkWalkAnimationCounter > 0)
             return;
 
@@ -5732,11 +5906,22 @@ public partial class Player : Node2D
             _world.TryStartLedgeHop(this, _precisePosition, movement);
     }
 
+    private int NormalMovementSpeed => _world.Pegasus is { Active: true } pegasus
+        ? pegasus.NormalSpeed : NormalTopDownSpeed;
+
     private int GetTopDownMovementSpeed()
     {
         if (_world.RidingObject)
-            return NormalTopDownSpeed;
+            return NormalMovementSpeed;
         TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
+        if (_world.Pegasus is { Active: true } pegasus &&
+            _world.GetActiveTerrain(Position).Terrain.Hazard != HazardType.Hole)
+            return terrain switch
+            {
+                TerrainType.Grass or TerrainType.Puddle => pegasus.GrassSpeed,
+                TerrainType.Stairs or TerrainType.Vines => pegasus.StairsSpeed,
+                _ => pegasus.NormalSpeed
+            };
         return terrain switch
         {
             TerrainType.Grass or TerrainType.Puddle => GrassTopDownSpeed,
@@ -6190,6 +6375,7 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _swordState = SwordActionState.Swing;
+        NotifyParentItemAnimationStarted(InventoryState.ItemSword);
         // updateSpecialObjects seeds var2f bit 7 from the tileset;
         // linkState01_sidescroll also sets it for Mermaid Suit water.
         // parentItemLoadAnimationAndIncState latches mode $22/$2d here.
@@ -6224,6 +6410,7 @@ public partial class Player : Node2D
 
     private void CancelSwordAttack()
     {
+        _pendingSwordEnemyContact = false;
         _treasureSwordSpin = false;
         _treasureSwordSpinPending = 0;
         bool changed = IsAttacking;
@@ -6252,6 +6439,7 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _usingShovel = true;
+        NotifyParentItemAnimationStarted(InventoryState.ItemShovel);
         _shovelFrame = 0;
         _shovelFrameAccumulator = 0.0;
         _walking = false;
@@ -6348,6 +6536,7 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _usingPunch = true;
+        NotifyParentItemAnimationStarted(0x02);
         _expertPunch = RingEffects.UsesExpertPunch(_inventory);
         _punchFrame = 0;
         _punchDamage = _expertPunch ? 4 : 1;
@@ -6413,6 +6602,7 @@ public partial class Player : Node2D
         if (actionFrames <= 0)
             return;
         _usingSeedSatchel = true;
+        NotifyParentItemAnimationStarted(InventoryState.ItemSeedSatchel);
         _seedSatchelFrame = 0;
         _seedSatchelActionFrames = actionFrames;
         _seedSatchelFrameAccumulator = 0.0;
@@ -6488,6 +6678,17 @@ public partial class Player : Node2D
 
     private void AdvanceSwordFrame(bool buttonHeld, Vector2 movementInput)
     {
+        bool previousContact = _pendingSwordEnemyContact;
+        _pendingSwordEnemyContact = false;
+        if (previousContact)
+        {
+            ApplySwordContactRingDamage();
+            if (_swordState is SwordActionState.Held or SwordActionState.Charged)
+            {
+                TriggerSwordPoke(returnsToHeld: false);
+                return;
+            }
+        }
         switch (_swordState)
         {
             case SwordActionState.Swing:
@@ -6664,14 +6865,20 @@ public partial class Player : Node2D
         {
             return false;
         }
-        if (!_doubleEdgedDamagePending)
-            return true;
+        ApplySwordContactRingDamage();
+        return true;
+    }
+
+    internal void QueueSwordEnemyContact() => _pendingSwordEnemyContact = true;
+
+    private void ApplySwordContactRingDamage()
+    {
+        if (!_doubleEdgedDamagePending) return;
         // swordParent.s applies $f8 (four quarter-hearts) once after the first
         // accepted enemy contact, and clears var3a so later overlap frames do
         // not hurt Link again. The health >= $05 check occurs at swing start.
         ApplyUnmodifiedDamage(4);
         _doubleEdgedDamagePending = false;
-        return true;
     }
 
     private void UpdateHeartRingCounter(Vector2 movement)

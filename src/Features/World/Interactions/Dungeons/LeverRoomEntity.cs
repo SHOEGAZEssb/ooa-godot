@@ -4,15 +4,16 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_LEVER $61:$30 in room 5:bf.</summary>
-internal sealed partial class Room5bfLever : NpcCharacter,
+/// <summary>INTERAC_LEVER $61, shared upward/downward bracelet lever.</summary>
+internal sealed partial class LeverRoomEntity : NpcCharacter,
     IRoomEntity, IFixedRoomEntity, IRoomBlocker,
     IBraceletPullInteractableRoomEntity
 {
-    private readonly Room5bfLeverState _state;
-    private readonly Room5bfConstants _constants;
+    private readonly LeverState _state;
+    private readonly LeverBehavior _constants;
     private readonly Action<int> _playSound;
     private readonly int _baseY;
+    private readonly int _sign;
     private Vector2 _precisePosition;
     private bool _grabbed;
     private bool _pullRequested;
@@ -23,37 +24,30 @@ internal sealed partial class Room5bfLever : NpcCharacter,
     internal bool Grabbed => _grabbed;
     internal int PullDistance => _state.PullDistance;
     internal int BaseY => _baseY;
+    internal int DirectionSign => _sign;
 
-    internal Room5bfLever(
-        Room5bfInteractionRecord record,
-        Room5bfLeverState state,
-        Room5bfConstants constants,
+    internal LeverRoomEntity(
+        NpcRecord record,
+        LeverState state,
+        LeverBehavior constants,
         Action<int> playSound)
     {
-        if (record.Kind != Room5bfInteractionKind.Lever ||
-            record.SubId != 0x30)
-        {
-            throw new ArgumentException(
-                $"Room 5:bf lever has invalid source record " +
-                $"${record.Id:x2}:${record.SubId:x2}.", nameof(record));
-        }
-
         _state = state;
         _constants = constants;
         _playSound = playSound;
         _baseY = record.Y;
+        _sign = (record.SubId & 1) == 0 ? 1 : -1;
         _precisePosition = new Vector2(record.X, record.Y);
-        Name = "Room5bfLever";
+        Name = "Lever";
         ZIndex = BehindLinkZIndex;
-        Initialize(record.ToNpcRecord());
+        Initialize(record);
         SetCollisionRadii(constants.LeverRadiusY, constants.LeverRadiusX);
-        SetScriptAnimation(record.Animations[0]);
     }
 
     public bool TryBeginBraceletPull(Player player)
     {
         if (_grabbed || player.IsCarryingObject || player.CutsceneControlled ||
-            player.FacingVector != Vector2I.Up)
+            player.FacingVector != (_sign > 0 ? Vector2I.Up : Vector2I.Down))
         {
             return false;
         }
@@ -67,7 +61,7 @@ internal sealed partial class Room5bfLever : NpcCharacter,
             0x10 => 2,
             _ => 3
         };
-        if (direction != 0)
+        if (direction != (_sign > 0 ? 0 : 2))
             return false;
 
         Vector2 point = player.Position +
@@ -85,8 +79,10 @@ internal sealed partial class Room5bfLever : NpcCharacter,
         _pullRequested = false;
         _movedSincePause = false;
         _releasedThisUpdate = false;
+        _precisePosition = new Vector2(Position.X, Position.Y);
         player.SetScriptedPosition(new Vector2(
-            Position.X, Position.Y + _constants.LinkYOffset));
+            Position.X + player.PrecisePosition.X - Mathf.Floor(player.PrecisePosition.X),
+            Position.Y + _constants.LinkYOffset));
         player.SetBraceletActionPose(BraceletActionPose.Pull);
         return true;
     }
@@ -104,7 +100,7 @@ internal sealed partial class Room5bfLever : NpcCharacter,
             return false;
         }
 
-        _pullRequested = movementInput.Dot(Vector2.Down) > 0.5f;
+        _pullRequested = movementInput.Dot(Vector2.Down * _sign) > 0.5f;
         player.SetBraceletActionPose(_pullRequested
             ? BraceletActionPose.PullStrain
             : BraceletActionPose.Pull);
@@ -160,33 +156,28 @@ internal sealed partial class Room5bfLever : NpcCharacter,
     private void Pull(Player player)
     {
         int currentOffset =
-            Mathf.FloorToInt(Position.Y) - _baseY;
+            (Mathf.FloorToInt(Position.Y) - _baseY) * _sign;
         if (currentOffset >= _constants.LeverLength)
             return;
 
-        int oldDistance = _state.PullDistance & 0x7f;
+        int oldDistance = _state.PullDistance;
+        player.AdvanceInteractionVelocity(_constants.PullSpeed, _sign > 0 ? 0x10 : 0x00);
         Vector2 linkPrecise = player.PrecisePosition;
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref linkPrecise, _constants.PullSpeed, 0x10);
-        player.SetScriptedPosition(linkPrecise);
 
         int leverY = Mathf.FloorToInt(linkPrecise.Y) -
             _constants.LinkYOffset;
-        leverY = Math.Min(_baseY + _constants.LeverLength, leverY);
+        leverY = _sign > 0 ? Math.Min(_baseY + _constants.LeverLength, leverY)
+            : Math.Max(_baseY - _constants.LeverLength, leverY);
         float fraction = _precisePosition.Y -
             Mathf.Floor(_precisePosition.Y);
         _precisePosition = new Vector2(Position.X, leverY + fraction);
         SetStatePosition(new Vector2(Position.X, leverY));
 
-        int newDistance = leverY - _baseY;
-        bool fullyPulled = newDistance == _constants.LeverLength;
-        _state.PullDistance = fullyPulled
-            ? newDistance | 0x80
-            : newDistance;
-        if (fullyPulled)
-            _playSound(_constants.FullSound);
+        int newDistance = (leverY - _baseY) * _sign;
+        WritePullOffset(newDistance);
+        bool fullyPulled = (_state.PullDistance & 0x80) != 0;
 
-        if (newDistance == oldDistance)
+        if (_state.PullDistance == oldDistance)
             return;
         if (!_movedSincePause && !fullyPulled)
             _playSound(_constants.MoveSound);
@@ -196,17 +187,29 @@ internal sealed partial class Room5bfLever : NpcCharacter,
     private void Retract()
     {
         SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _constants.PullSpeed, 0x00));
+            ref _precisePosition, _constants.PullSpeed, _sign > 0 ? 0x00 : 0x10));
         int y = Mathf.FloorToInt(Position.Y);
-        if (y <= _baseY)
+        // The native helper runs before the retraction cap and also sets bit
+        // 7/plays OPENCHEST while an upward lever still has its full YHIGH
+        // distance during the first three fractional retraction updates.
+        WritePullOffset(Math.Abs(y - _baseY));
+        if ((y - _baseY) * _sign <= 0)
         {
             float fraction = _precisePosition.Y -
                 Mathf.Floor(_precisePosition.Y);
             _precisePosition = new Vector2(Position.X, _baseY + fraction);
             SetStatePosition(new Vector2(Position.X, _baseY));
-            _state.PullDistance = 0;
             return;
         }
-        _state.PullDistance = y - _baseY;
+    }
+
+    private void WritePullOffset(int distance)
+    {
+        if (distance == _constants.LeverLength)
+        {
+            _playSound(_constants.FullSound);
+            distance |= 0x80;
+        }
+        _state.PullDistance = distance;
     }
 }

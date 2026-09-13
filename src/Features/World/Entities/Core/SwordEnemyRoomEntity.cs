@@ -17,9 +17,9 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
         : base(enemy, enemy.SetTransitionDrawOffset,
             EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
                 enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-                soundRequested, EnemySwordResponse.Knockback)) => _freePartSlot = freePartSlot;
+                soundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8) => _freePartSlot = freePartSlot;
 
-    protected override int GaleCollisionMode => Entity.SwordBlocking ? 0x55 : base.GaleCollisionMode;
+    public override int DimitriCollisionMode => Entity.SwordBlocking ? 0x55 : base.DimitriCollisionMode;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

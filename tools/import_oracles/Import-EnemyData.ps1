@@ -204,7 +204,8 @@ $enemyAnimationFrames = Read-AssemblyAnimationDefinitions `
 
 function Resolve-EnemyAnimations(
     [int]$id,
-    [bool]$includeZeroParameters = $false
+    [bool]$includeZeroParameters = $false,
+    [int[]]$fallthroughAnimations = @()
 ) {
     $hex = $id.ToString('x2')
     $animationKey = "enemy${hex}Animations"
@@ -215,11 +216,22 @@ function Resolve-EnemyAnimations(
     }
     $pointers = $enemyOamTables[$oamKey]
     $encoded = [Collections.Generic.List[string]]::new()
+    $animationIndex = -1
     foreach ($animationLabel in $enemyAnimationTables[$animationKey]) {
+        $animationIndex++
         if (-not $enemyAnimationFrames.ContainsKey($animationLabel)) {
             throw "Enemy `$$hex animation body is missing: $animationLabel"
         }
         $definition = $enemyAnimationFrames[$animationLabel]
+        if ($animationIndex -in $fallthroughAnimations) {
+            # Some handlers stop advancing an unterminated animation on a
+            # parameter or keep a held pose. Others execute across its next
+            # label. Preserve the latter stream and its interior loop target
+            # explicitly, based on the caller's traced native animation use.
+            $complete = Read-AssemblyAnimationDefinitions `
+                $enemyAnimationPath 'enemyAnimation[0-9a-f]+(?:Loop)?'
+            $definition = $complete[$animationLabel]
+        }
         $frames = [Collections.Generic.List[string]]::new()
         $valid = $true
         foreach ($frame in $definition.Frames) {
@@ -249,7 +261,7 @@ function Resolve-EnemyAnimations(
     return @($encoded)
 }
 
-function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
+function Get-EnemyDefinition([int]$id, [int]$subid = 0, [int[]]$fallthroughAnimations = @()) {
     $hex = $id.ToString('x2')
     if (-not $enemyDataRows.ContainsKey($id)) {
         throw "Enemy data row `$$hex is missing."
@@ -291,7 +303,7 @@ function Get-EnemyDefinition([int]$id, [int]$subid = 0) {
         Damage = $damage
         DamageQuarters = $damage
         Health = $extraRow.Health
-        Animations = Resolve-EnemyAnimations $id
+        Animations = Resolve-EnemyAnimations $id $false $fallthroughAnimations
     }
 }
 
@@ -366,18 +378,23 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x39, 0x00),
+    @(0x12, 0x00),
+    @(0x0e, 0x01),
     @(0x21, 0x00), @(0x21, 0x01), @(0x2d, 0x00),
     @(0x2c, 0x00), @(0x2c, 0x01),
     @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
-    @(0x10, 0x00), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
+    @(0x10, 0x00), @(0x10, 0x01), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
     @(0x51, 0x02), @(0x51, 0x03),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
-    @(0x1a, 0x00), @(0x22, 0x00), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
+    @(0x1a, 0x00), @(0x22, 0x00), @(0x22, 0x01), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
-    @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x5f, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
+    @(0x49, 0x01), @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x5f, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
     @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00)
+    # moldorm_state1 allocates three separately initialized ENEMY objects.
+    @(0x4f, 0x01), @(0x4f, 0x02), @(0x4f, 0x03)
 )
 $cukemanTexts = [Collections.Generic.List[string]]::new()
 Write-GeneratedBytes((Join-Path $destination 'metadata\electric_shock_bg_palette.bin'),
@@ -417,7 +434,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 47 -or
+if ($commonEnemyRows.Count -ne 56 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -477,7 +494,7 @@ if ($commonEnemyRows.Count -ne 47 -or
     }).Count -ne 2 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^(13|19|22|2f|3e|47|49|4a)\t'
-    }).Count -ne 9
+    }).Count -ne 11
     ) {
     throw "Common enemy definitions no longer match the traced records:`n$($commonEnemyRows -join "`n")"
 }
@@ -565,6 +582,8 @@ if ($wingEnemySources.spark -notmatch
         '(?ms)peahat_state8:.*?ld \(hl\),\$7f.*?SPEED_20.*?peahat_state9:.*?peahat_counter1Vals:.*?\.db 180 180 210 210 240 240 0 0' -or
     $wingEnemySources.sword -notmatch
         '(?ms)swordEnemy_state_uninitialized:.*?SPEED_80.*?swordEnemy_state9:.*?ld \(hl\),\$60.*?SPEED_a0.*?swordEnemy_beginChasingLink:.*?ld \(hl\),\$10.*?@counter2Vals:\s+\.db \$14 \$10 \$0c' -or
+    $wingEnemySources.sword -notmatch
+        '(?ms)^swordEnemy_state_switchHook:.*?^@substate3:\s+ld b,\$09\s+call ecom_fallToGroundAndSetState\s+ld l,Enemy.counter1\s+ld \(hl\),\$10' -or
     $wingEnemySources.gel -notmatch
         '(?ms)colorChangingGel_state_uninitialized:.*?SPEED_140.*?ld \(hl\),150.*?colorChangingGel_state8:.*?ld \(hl\),60.*?-\$180.*?colorChangingGel_stateA:.*?ld c,\$30.*?ld \(hl\),150.*?ld \(hl\),90') {
     throw 'Wing Dungeon ordinary-enemy handler constants changed.'
@@ -858,6 +877,13 @@ $stalfosDefinitionRows.Add(
 $stalfosDefinitionRows.Add(
     "31`t00`t$stalfosSpriteName`t$($stalfosDefinition.TileBase)`t$($stalfosDefinition.Palette)`t$($stalfosDefinition.RadiusY)`t$($stalfosDefinition.RadiusX)`t$($stalfosDefinition.DamageQuarters)`t$($stalfosDefinition.Health)`t$($stalfosDefinition.SpeedRaw)`t$($stalfosAnimations -join "`t")")
 $stalfosPath = Join-Path $destination 'objects\stalfos.tsv'
+$shootingStalfos = Get-EnemyDefinition 0x31 2
+if ($shootingStalfos.Health -ne 4 -or $shootingStalfos.Palette -ne 3 -or
+    $shootingStalfos.TileBase -ne 4 -or $shootingStalfos.DamageQuarters -ne 2) {
+    throw 'Stalfos $31:$02 extra-data $0e or graphics attributes changed.'
+}
+$stalfosDefinitionRows.Add(
+    "31`t02`t$stalfosSpriteName`t$($shootingStalfos.TileBase)`t$($shootingStalfos.Palette)`t$($shootingStalfos.RadiusY)`t$($shootingStalfos.RadiusX)`t$($shootingStalfos.DamageQuarters)`t$($shootingStalfos.Health)`t20`t$($stalfosAnimations -join "`t")")
 
 # Zols (`$34) are instantiated with both random and fixed-position enemy
 # opcodes. Red Zols split into ENEMY_GEL (`$43), which also has one direct
@@ -1437,6 +1463,10 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '21:01' = 'arrow-darknut'
     '2d:00' = 'podoboo-tower'
     '10:00' = 'rope'
+    '0e:01' = 'blade-trap'
+    '12:00' = 'gibdo'
+    '39:00' = 'fire-keese'
+    '10:01' = 'rope'
     '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
@@ -1446,6 +1476,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '20:00' = 'masked-moblin'
     '20:01' = 'masked-moblin'
     '22:00' = 'arrow-moblin'
+    '22:01' = 'arrow-moblin'
     '23:00' = 'pols-voice'
     '28:00' = 'wallmaster'
     '2c:00' = 'cheep-cheep'
@@ -1455,6 +1486,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '30:01' = 'tektite'
     '30:02' = 'tektite'
     '31:00' = 'stalfos'
+    '31:02' = 'stalfos'
     '32:00' = 'keese'
     '32:01' = 'keese'
     '33:00' = 'baby-cucco'
@@ -1467,6 +1499,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '43:00' = 'gel'
     '47:00' = 'color-changing-gel'
     '49:00' = 'sword-enemy'
+    '49:01' = 'sword-enemy'
     '4a:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
     '4d:00' = 'hardhat-beetle'
@@ -1482,7 +1515,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 57 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 64 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1553,9 +1586,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 551 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 609 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 270) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 212) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1612,6 +1645,29 @@ if ($enemyCollisionRows.Count -ne 256 -or
 }
 
 $galeCollisionRows = [Collections.Generic.List[string]]::new()
+function Export-SwitchHookCollisionData {
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`teffect`tsource")
+    for ($mode = 0; $mode -lt 128; $mode++) {
+        $offset = $mode * 32 + 13
+        $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_collision_effects.tsv'), $rows)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# id`tenabled`tsource")
+    $source = Read-ImportText (Join-Path $Disassembly 'data\ages\enemyActiveCollisions.s')
+    $matches = [regex]::Matches($source, '(?m)^\s*dbrev %(?<bits>[01]{8}) %(?<items>[01]{8}) %[01]{8} %[01]{8} ; 0x(?<id>[0-9a-f]{2})\s*$')
+    if ($matches.Count -ne 128) { throw 'Expected 128 enemyActiveCollisions bitsets.' }
+    for ($id = 0; $id -lt 128; $id++) {
+        $match = $matches[$id]
+        if ([Convert]::ToInt32($match.Groups['id'].Value, 16) -ne $id) { throw 'Enemy collision masks lost their source order.' }
+        # dbrev: source characters are in item-type order, so $0d is character 5 of byte 1.
+        $enabled = $match.Groups['items'].Value[5]
+        $rows.Add("$($id.ToString('x2'))`t$enabled`tdata/ages/enemyActiveCollisions.s:enemyActiveCollisions+$((4 * $id).ToString('x4'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_enemy_collisions.tsv'), $rows)
+}
+Export-SwitchHookCollisionData
 $galeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')
 if ($galeCollisionCode -notmatch '(?ms)^collisionEffect29:.*?ld \(hl\),\$9e.*?Enemy.state.*?ld \(hl\),\$05.*?Enemy.counter2.*?ld \(hl\),\$1e.*?Enemy.speed.*?ld \(hl\),\$05.*?Enemy.speedZ.*?ld \(hl\),\$00.*?ld \(hl\),\$fa.*?call getRandomNumber\s+and \$18' -or
     $enemyCommonCodeSource -notmatch '(?ms)^ecom_galeSeedEffect:.*?call ecom_decCounter2.*?and \$03.*?call objectApplySpeed\s+ld c,\$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?@oscillationX:\s+\.db \$fe \$02 \$02 \$fe') {
@@ -1726,6 +1782,68 @@ if ($deathPuffTileBase -ne 0x0c -or $deathPuffOamFlags -ne 0x0a) {
 
 $partAnimationSource = Read-ImportText (Join-Path $Disassembly "data\ages\partAnimations.s")
 $partOamSource = Read-ImportText (Join-Path $Disassembly "data\ages\partOamData.s")
+
+$boneCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\stalfosBone.s')
+if ($partDataSource -notmatch '(?m)^\s*\.db \$9b \$86 \$22 \$fc \$40 \$0a \$02 \$00 ; \$1c' -or
+    $boneCode -notmatch '(?ms)^@state0:.*?ld \(hl\),\$3c.*?objectGetAngleTowardEnemyTarget.*?^@state1:.*?partCommon_checkTileCollisionOrOutOfBounds.*?objectApplySpeed.*?objectCheckWithinScreenBoundary.*?^@state2:.*?ld c,\$0e.*?wFrameCounter.*?rrca.*?ret c.*?partAnimate') {
+    throw 'PART_STALFOS_BONE $1c data, flight ordering or bounce animation cadence changed.'
+}
+$boneOam = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part3aOamDataPointers'),
+    '(?m)^\s*\.dw\s+(?<label>partOamData[0-9a-f]+)') | ForEach-Object { $_.Groups['label'].Value })
+$boneAnimations = @([regex]::Matches(
+    (Get-AssemblyLabelBody $partAnimationSource 'part2dAnimations'),
+    '(?m)^\s*\.dw\s+(?<label>partAnimation[0-9a-f]+)') | ForEach-Object { $_.Groups['label'].Value })
+if ($boneOam.Count -ne 4 -or $boneAnimations.Count -ne 2) { throw 'Stalfos bone animation alias tables changed.' }
+$boneFrames = [Collections.Generic.List[string]]::new()
+foreach ($frame in [regex]::Matches((Get-AssemblyLabelBody $partAnimationSource $boneAnimations[0]),
+    '(?m)^\s*\.db \$(?<duration>[0-9a-f]{2}) \$(?<offset>[0-9a-f]{2}) \$(?<param>[0-9a-f]{2})')) {
+    $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+    $index = [Convert]::ToInt32($frame.Groups['offset'].Value, 16) / 2
+    $boneFrames.Add("$duration@$(Resolve-Oam $partOamSource $boneOam[$index])")
+}
+if ($boneFrames.Count -ne 2) { throw 'Stalfos bone must have two four-update OAM frames.' }
+Write-GeneratedTable((Join-Path $destination 'effects\stalfos_bone.tsv'), @(
+    "# sprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`tspeed-raw`tanimation`tsource",
+    "$($gfxNames[0x9b])`t10`t2`t2`t2`t2`t60`t$($boneFrames -join '|')`tobject_code/common/parts/stalfosBone.s:partCode1c;data/ages/partData.s:part1c"
+))
+
+# PART_BURNING_ENEMY $12 falls through to a separately named animation loop.
+$burnPartPath = Join-Path $Disassembly 'data\ages\partAnimations.s'
+$burnTables = Read-AssemblyDwTables $burnPartPath 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
+$burnPointers = Read-AssemblyDwTables $burnPartPath 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
+$burnDefinitions = Read-AssemblyAnimationDefinitions $burnPartPath 'partAnimation[0-9a-f]+(?:Loop)?' $false
+$burnAnimation = $burnDefinitions[$burnTables['part12Animations'][0]]
+$burnOam = $burnPointers['part12OamDataPointers']
+$burnFrames = @($burnAnimation.Frames | ForEach-Object {
+    "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $burnOam[[int]($_.PointerOffset / 2)])"
+})
+$burnCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\flame.s')
+if ($burnFrames.Count -ne 6 -or $burnAnimation.LoopStart -ne 3 -or
+    $partDataSource -notmatch '(?m)^\s*\.db \$00 \$00 \$00 \$00 \$01 \$08 \$0a \$00 ; \$12' -or
+    $burnCode -notmatch '(?ms)^@state1:.*?Object.id.*?cp \(hl\).*?jr nz,@delete.*?ld c,\$10.*?objectUpdateSpeedZAndBounce.*?^@state0:.*?ld \(hl\),59.*?Enemy.health.*?ld \(hl\),\$01') {
+    throw 'PART_BURNING_ENEMY $12 animation fallthrough, target identity or health lifetime changed.'
+}
+Write-GeneratedTable((Join-Path $destination 'effects\burning_enemy.tsv'), @(
+    "# sprite`ttile-base`tpalette`tframes`tgravity`tanimation`tsource",
+    "spr_common_sprites`t8`t2`t59`t16`t$($burnFrames -join '|')~3`tobject_code/common/parts/flame.s:partCode12"
+))
+
+# PART_FIRE $20 shares the burning-enemy animation, but owns contact and a
+# separate lifetime. Its two Link profiles have different recoil counters.
+$fireCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\fire.s')
+$fireCollisionSource = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')
+if ($partDataSource -notmatch '(?m)^\s*\.db \$00 \$f1 \$55 \$fc \$40 \$08 \$0a \$00 ; \$20' -or
+    $fireCode -notmatch '(?ms)^partCode20:.*?partCommon_decCounter1IfNonzero.*?^@state0:.*?ld \(hl\),\$b4.*?objectSetVisible82' -or
+    $fireCollisionSource -notmatch '\.db \$b2 \$19 \$07 \$00 ; LINKDMG_00' -or
+    $fireCollisionSource -notmatch '\.db \$13 \$00 \$10 \$00 ; LINKDMG_28' -or
+    $fireCollisionSource -notmatch '\.db \$60 \$e4 \$00 \$00 ; ENEMYDMG_34') {
+    throw 'PART_FIRE $20 collision data or lifetime changed.'
+}
+Write-GeneratedTable((Join-Path $destination 'effects\keese_fire.tsv'), @(
+    "# sprite`ttile-base`tpalette`tframes`tradius`tdamage-quarters`tlink-invincibility`tlink-knockback`tshield-invincibility`tshield-knockback`tshield-sound`tanimation`tsource",
+    "spr_common_sprites`t8`t2`t180`t5`t2`t25`t7`t28`t16`t88`t$($burnFrames -join '|')~3`tobject_code/common/parts/fire.s:partCode20;collisionEffects.s:LINKDMG_00+LINKDMG_28+ENEMYDMG_34"
+))
 
 # PART_MOBLIN_BOOMERANG $21 belongs to the common Boomerang Moblin species,
 # not to the first dungeon. Retain its four rotating OAM frames in a shared
@@ -3629,12 +3747,68 @@ if ($ropeCodeSource -notmatch
         '(?ms)^rope_state_chargeLink:.*?ld \(hl\),SPEED_60.*?' +
         'ld \(hl\),\$40' -or
     $ropeCodeSource -notmatch
+        '(?ms)^rope_subid01:.*?^@state8:.*?and \$38\s+inc a.*?^@state9:.*?inc \(hl\).*?Enemy.speedZ\+1\s+inc \(hl\).*?SND_FALLINHOLE.*?ld c,\$08.*?ecom_setZAboveScreen.*?^@stateA:\s+ld c,\$0e.*?set 4,\(hl\).*?SND_BOMB_LAND.*?call rope_changeDirection' -or
+    $ropeCodeSource -notmatch
         '(?ms)^rope_changeDirection:.*?ldbc \$18,\$70.*?add \$70') {
     throw 'Rope state-entry behavior profile changed.'
 }
 Add-EnemyBehaviorProfile 'rope' 'state-profile' `
-    @(0x0f, 0x32, 0x0f, 0x40, 0x0a, 0x70, 0x70) `
-    'object_code/common/enemies/rope.s:subid00-state-operands'
+    @(0x0f, 0x32, 0x0f, 0x40, 0x0a, 0x70, 0x70, 0x38, 0x100, 8, 0x0e) `
+    'object_code/common/enemies/rope.s:subid00+subid01-state-operands'
+
+$fireKeeseCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\fireKeese.s')
+if ($fireKeeseCode -notmatch '(?ms)^fireKeese_state_uninitialized:.*?ld \(hl\),\$08.*?ld \(hl\),-\$1c.*?SPEED_80.*?ld bc,\$1f01' -or
+    $fireKeeseCode -notmatch '(?ms)^fireKeese_subid0_stateB:.*?ld \(hl\),91.*?SPEED_a0.*?ecom_decCounter1.*?^fireKeese_subid0_stateC:.*?ecom_decCounter1.*?and \$03.*?objectNudgeAngleTowards.*?^fireKeese_subid0_stateD:.*?sub <\(\$0040\).*?cp \$e4' -or
+    $fireKeeseCode -notmatch '(?ms)^fireKeese_stateA:.*?sub 30.*?ld a,\$05.*?ld \(hl\),-\$08.*?^fireKeese_checkForNewlyLitTorch:.*?ld b,\$16.*?cp LARGE_ROOM_HEIGHT<<4') {
+    throw 'Fire Keese subid00 motion, torch scanning or relighting operands changed.'
+}
+Add-EnemyBehaviorProfile 'fire-keese' 'state-profile' `
+    @(8, -7168, 20, 91, 25, 64, 32, 60, 30, 9, 22, 176, 240, 120, 88, 40, 30, -6, 128, 4, 2, 31) `
+    'object_code/common/enemies/fireKeese.s:subid00-state-operands'
+$fireKeeseZOffsets = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code\common\enemies\fireKeese.s') 'fireKeese_subid0_zOffsets' '.db')[0]
+$fireKeeseZValues = @($fireKeeseZOffsets.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($fireKeeseZValues -join ',') -ne '128,96,64,48,32,32') { throw 'Fire Keese dive Z offsets changed.' }
+Add-EnemyBehaviorProfile 'fire-keese' 'z-offsets' $fireKeeseZValues 'object_code/common/enemies/fireKeese.s:fireKeese_subid0_zOffsets'
+Add-EnemyBehaviorProfile 'fire-keese' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x2b * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0560'
+Add-EnemyBehaviorProfile 'keese-fire' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x71 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0e20'
+
+$gibdoCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\gibdo.s')
+if ($gibdoCode -notmatch '(?ms)^@uninitialized:.*?SPEED_80.*?^@state8:.*?ldbc \$18,\$7f.*?ld a,\$40.*?^@state9:.*?ecom_decCounter1.*?ecom_applyVelocityForSideviewEnemyNoHoles.*?^@stateA:.*?ecom_decCounter1.*?ldbc ENEMY_STALFOS,\$02.*?enemyReplaceWithID' -or
+    $gibdoCode -notmatch '(?ms)cp \$80\|ITEMCOLLISION_EMBER_SEED.*?ld \(hl\),30.*?Enemy.stunCounter.*?ld \(hl\),\$00') {
+    throw 'Gibdo walk and Ember Seed replacement operands changed.'
+}
+Add-EnemyBehaviorProfile 'gibdo' 'state-profile' @(20, 24, 127, 64, 30, 49, 2) `
+    'object_code/common/enemies/gibdo.s:enemyCode12'
+Add-EnemyBehaviorProfile 'gibdo' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x16 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$02c0'
+
+$seedActiveRows = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/enemyActiveCollisions.s') 'enemyActiveCollisions' 'dbrev')
+if ($seedActiveRows.Count -ne 128) { throw 'Native seed receivers require all128 ordered enemy collision masks.' }
+foreach ($seedReceiver in @(@('gibdo', 0x12), @('fire-keese', 0x39))) {
+    $seedBits = ($seedActiveRows[$seedReceiver[1]].Operands -join '').Replace('%', '')
+    if ($seedBits -notmatch '^[01]{32}$') { throw "Malformed seed collision mask for $($seedReceiver[0])." }
+    Add-EnemyBehaviorProfile $seedReceiver[0] 'active-collisions' @($seedBits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+        "data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$((4 * $seedReceiver[1]).ToString('x4'))"
+}
+
+$bladeTrapSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\common\enemies\bladeAndFlameTrap.s')
+if ($bladeTrapSource -notmatch
+    '(?ms)^bladeTrap_subid01:.*?ld a,SPEED_180.*?ld b,\$0d.*?bladeTrap_checkObstructionsToTarget.*?ld a,\$01.*?ecom_getTopDownAdjacentWallsBitset.*?SND_UNKNOWN5.*?^@stateA:.*?ecom_applyVelocityForTopDownEnemyNoHoles.*?LARGE_ROOM_HEIGHT/2.*?LARGE_ROOM_WIDTH/2.*?add \$07\s+cp \$0f.*?xor \$10.*?SPEED_c0.*?SND_CLINK.*?^@stateB:.*?ld \(hl\),\$10' -or
+    $bladeTrapSource -notmatch
+    '(?ms)^bladeTrap_checkObstructionsToTarget:.*?add \$04\s+cp \$09.*?add \$04\s+cp \$09.*?^@checkNextTileSolid:.*?ld a,\(de\)\s+or a\s+ret' -or
+    $bladeTrapSource -notmatch
+    '(?ms)^bladeTrap_checkLinkAligned:.*?Enemy.xh.*?hEnemyTargetX.*?ld e,\$18.*?xor \$10') {
+    throw 'Blue blade trap alignment, obstruction, center-limit or retraction source changed.'
+}
+Add-EnemyBehaviorProfile 'blade-trap' 'state-profile' `
+    @(8, 13, 0x3c, 0x1e, 0x78, 0x58, 7, 16) `
+    'object_code/common/enemies/bladeAndFlameTrap.s:subid01-state-operands'
+$bladeTrapCollisionEffects = @(0..0x1f | ForEach-Object {
+    $enemyCollisionTableValues[0x13 * 0x20 + $_]
+})
+Add-EnemyBehaviorProfile 'blade-trap' 'collision-effects' `
+    $bladeTrapCollisionEffects 'data/ages/objectCollisionTable.s:objectCollisionTable+$0260'
 
 $armosCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\armos.s')
@@ -3828,12 +4002,14 @@ $stalfosCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\stalfos.s')
 if ($stalfosCodeSource -notmatch
         '(?ms)^stalfos_moveInRandomAngle:.*?ld e,\$30.*?' +
-        'ld bc,\$1f0f.*?ld a,\$20') {
+        'ld bc,\$1f0f.*?ld a,\$20' -or
+    $stalfosCodeSource -notmatch '(?ms)^stalfos_state08:.*?and \$07.*?cp \$02.*?ld a,\$0c.*?^stalfos_state0a:.*?ld bc,-\$200.*?SPEED_140.*?^stalfos_state0b:\s+ld c,\$20.*?^stalfos_state0c:.*?PART_STALFOS_BONE' -or
+    $stalfosCodeSource -notmatch '(?ms)^stalfos_checkJumpAwayFromLink:.*?wLinkUsingItem1.*?and \$f0.*?cp \$0a.*?ld c,\$2c.*?objectCheckLinkWithinDistance') {
     throw 'Stalfos random-walk counter profile changed.'
 }
 Add-EnemyBehaviorProfile 'stalfos' 'state-profile' `
-    @(0x20, 0x30) `
-    'object_code/common/enemies/stalfos.s:stalfos_moveInRandomAngle'
+    @(0x20, 0x30, 7, -0x200, 0x20, 0x32, 0x2c) `
+    'object_code/common/enemies/stalfos.s:stalfos_moveInRandomAngle+subid02'
 
 $hardhatBeetleCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\hardhatBeetle.s')
@@ -4078,6 +4254,19 @@ Add-EnemyBehaviorProfile 'cheep-cheep' 'state-profile' `
 Add-EnemyBehaviorProfile 'peahat' 'state-profile' `
     @(0x7f, 0x80, 5, 0x1e, 180, 180, 210, 210, 240, 240, 0, 0) `
     'object_code/common/enemies/peahat.s:state-entry-operands'
+$peahatMotionTables = [regex]::Match($wingEnemySources.peahat,
+    '(?ms)^@animFrequencies:\s*(?<frequencies>.*?)^@speedVals:\s*(?<speeds>.*?)^peahat_counter1Vals:')
+$peahatFrequencies = @(Read-EnemyBehaviorValues $peahatMotionTables.Groups['frequencies'].Value)
+$peahatSpeeds = @(Read-EnemyBehaviorValues $peahatMotionTables.Groups['speeds'].Value)
+if ($peahatFrequencies.Count -ne 8 -or $peahatSpeeds.Count -ne 9 -or
+    $wingEnemySources.peahat -notmatch '(?ms)^peahat_updatePosition:.*?dec a\s+cp \$41.*?sub \$06.*?^@animate:.*?and \$f0\s+swap a.*?inc a\s+jr nz,\+\s+call enemyAnimate\s+ld b,\$00.*?ld a,\(wFrameCounter\)\s+and b\s+jp z,enemyAnimate' -or
+    $wingEnemySources.peahat -notmatch '(?ms)^enemyCode3e:\s+jr z,@normalStatus.*?cp ENEMYCOLLISION_PEAHAT\s+ret nz\s+@normalStatus:\s+call peahat_updateEnemyCollisionMode') {
+    throw 'object_code/common/enemies/peahat.s: motion tables or status/animation dispatch changed.'
+}
+Add-EnemyBehaviorValueTable 'peahat' 'animation-frequencies' $peahatFrequencies `
+    'object_code/common/enemies/peahat.s:peahat_updatePosition@animFrequencies'
+Add-EnemyBehaviorValueTable 'peahat' 'speeds' $peahatSpeeds `
+    'object_code/common/enemies/peahat.s:peahat_updatePosition@speedVals'
 Add-EnemyBehaviorProfile 'sword-enemy' 'state-profile' `
     @(0x14, 0x19, 0x10, 0x60, 0x28, 0x50, 0x3f, 7, 3, 0x14, 0x10, 0x0c) `
     'object_code/common/enemies/swordEnemies.s:state-entry-operands'
@@ -4145,6 +4334,40 @@ Add-EnemyBehaviorProfile 'enemy-sword' 'collision-effects' `
 Add-EnemyBehaviorProfile 'color-changing-gel' 'state-profile' `
     @(150, 60, 0x32, -0x180, 0x30, 90) `
     'object_code/ages/enemies/colorChangingGel.s:state-entry-operands'
+
+$gelSource = $wingEnemySources.gel
+foreach ($spec in @(@('hop-offsets', 'directionsToJump', 16, $true), @('random-colors', 'oamFlagMap', 8, $false))) {
+    $body = [regex]::Match($gelSource,
+        "(?ms)^@$($spec[1]):(?<body>.*?)(?=^;;|\z)").Groups['body'].Value
+    $values = @(Read-EnemyBehaviorValues $body $spec[3])
+    if ($values.Count -ne $spec[2]) { throw "colorChangingGel.s:@$($spec[1]) table changed." }
+    Add-EnemyBehaviorProfile 'color-changing-gel' $spec[0] $values `
+        "object_code/ages/enemies/colorChangingGel.s:@$($spec[1])"
+}
+$gelTileConstants = Read-ImportText (Join-Path $Disassembly 'constants/common/tileIndices.s')
+$gelFloorBody = [regex]::Match($gelSource,
+    '(?ms)^@floorColors:(?<body>.*?)(?=^;;)').Groups['body'].Value
+$gelFloorValues = [Collections.Generic.List[int]]::new()
+foreach ($row in [regex]::Matches($gelFloorBody,
+    '(?m)^\s*\.db\s+(?<tile>TILEINDEX_\w+)[,\s]+\$(?<color>[0-9a-f]{2})\s*$')) {
+    $constant = [regex]::Match($gelTileConstants,
+        ('(?m)^\.define\s+' + $row.Groups['tile'].Value + '\s+\$([0-9a-f]{2})\b'))
+    if (-not $constant.Success) { throw "Missing gel floor constant $($row.Groups['tile'].Value)." }
+    $gelFloorValues.Add([Convert]::ToInt32($constant.Groups[1].Value, 16))
+    $gelFloorValues.Add([Convert]::ToInt32($row.Groups['color'].Value, 16))
+}
+if ($gelFloorValues.Count -ne 12 -or $gelFloorBody -notmatch '\.db \$00' -or
+    $gelTileConstants -notmatch '(?m)^\.define TILEINDEX_SOMARIA_BLOCK\s+\$da' -or
+    $gelSource -notmatch '(?ms)^@wasDamagingAttack\s+ld \(hl\),\$f4.*?SND_DAMAGE_ENEMY' -or
+    $gelSource -notmatch '(?ms)^colorChangingGel_updateColor:.*?call ecom_decCounter2.*?pop bc\s+jr @updateImmunity.*?@updateStoredColor:\s+call @updateImmunity\s+ret z\s+pop bc' -or
+    $gelSource -notmatch '(?ms)^@updateImmunity:.*?cp TILEINDEX_SOMARIA_BLOCK\s+ret z.*?ENEMYCOLLISION_COLOR_CHANGING_GEL.*?ENEMYCOLLISION_GOHMA_GEL' -or
+    $gelSource -notmatch '(?ms)^@lookupFloorColor:.*?ret c\s+ld a,\$02') {
+    throw 'colorChangingGel.s: floor/collision/color dispatch contract changed.'
+}
+Add-EnemyBehaviorProfile 'color-changing-gel' 'floor-colors' $gelFloorValues.ToArray() `
+    'object_code/ages/enemies/colorChangingGel.s:@floorColors'
+Add-EnemyBehaviorProfile 'color-changing-gel' 'color-rules' @(0x6e, 0x35, 0xda, 12, 2) `
+    'object_code/ages/enemies/colorChangingGel.s:color-and-collision-operands'
 
 $flyingTileCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\flyingTile.s')
@@ -4249,8 +4472,8 @@ Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
 
-if ($enemyBehaviorRows.Count -ne 894) {
-    throw "Expected 893 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 1196) {
+    throw "Expected 1195 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

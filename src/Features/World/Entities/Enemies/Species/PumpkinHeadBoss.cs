@@ -650,7 +650,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 }
                 int angle = OracleObjectMovement.Shared.RelativeAngle(
                     _ghostPosition, _ghostTarget);
-                MoveGhost(angle);
+                // pumpkinHead_ghost_state17 uses ecom_moveTowardPosition,
+                // which calls objectApplySpeed directly. Its return to the
+                // head is not constrained by the fleeing phase's terrain.
+                _ghostPosition += OracleObjectMovement.Shared.Delta(0x32, angle);
                 return;
         }
     }

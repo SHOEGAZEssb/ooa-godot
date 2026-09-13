@@ -16,4 +16,5 @@ internal interface IPlayerRestriction
     bool DisablesWarpTiles => false;
     bool DisablesPlayerContact => false;
     bool DisablesCompanion => false;
+    bool PassesNpcs => false;
 }

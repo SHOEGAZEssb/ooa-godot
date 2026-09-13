@@ -6,8 +6,9 @@ namespace oracleofages;
 
 internal sealed class ZolRoomEntity
     : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity,
-        IScreenTransitionPreloadRoomEntity
+        IScreenTransitionPreloadRoomEntity, IPostObjectMeleeCollisionRoomEntity
 {
+    public bool MeleeReportsContact => true;
     public ZolRoomEntity(
         ZolCharacter zol,
         EnemyCombatSourceDescriptor combatSource,
@@ -19,7 +20,7 @@ internal sealed class ZolRoomEntity
                 combatSource,
                 zol,
                 zol.Record.DamageQuarters,
-                (_, damage) => zol.TakeSwordHit(damage),
+                zol.TakeSwordHit,
                 zol.TakeBurnHit,
                 zol.ApplySwordNoKnockback,
                 soundRequested,
@@ -27,13 +28,21 @@ internal sealed class ZolRoomEntity
                 completedOutcome: () => zol.DiedInHazard
                     ? RoomEnemyOutcome.HazardDeletion(
                         combatSource.CountsAsEnemy)
-                    : zol.Record.SubId == 1
+                    : zol.State == ZolState.RedSplitDelay
                         ? RoomEnemyOutcome.ReplacementDeletion(
                             combatSource.CountsAsEnemy)
                         : RoomEnemyOutcome.EnemyDie(
                             combatSource.KillableEnemyIndex)),
             collisionZ: () => zol.ZFixed >> 8)
     { }
+
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect != 0x0b || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        hook.NotifyObjectCollision();
+        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        return true;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
@@ -54,13 +63,13 @@ internal sealed class ZolRoomEntity
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) =>
-        // enemyCode34 state 0 is completed by ZolCharacter.Initialize.
-        // Subid $00 intentionally remains hidden in state $08 until Link is
-        // within the strict $28 Manhattan-distance wake check.
-        Entity.Visible
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.InitializeState();
+        return Entity.Visible
             ? ScreenTransitionPresentation.Visible
             : ScreenTransitionPresentation.Hidden;
+    }
 }
 
 internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;

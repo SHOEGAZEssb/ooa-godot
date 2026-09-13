@@ -31,6 +31,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
   eight-direction Seed Shooter aiming and three-bounce projectiles, Mystery
   Seed/Owl behavior, Gale Seed tornadoes and visited-tree travel,
+  Pegasus Satchel activation, timed movement boost and dust, Pegasus Shooter
+  projectile flight and collision effects,
   level-1 Roc's Feather, Harp songs and time travel with temporary return
   portals, obstructed-arrival returns and strange-force restrictions,
   source-timed top-down Flippers swimming/normal-water diving,
@@ -50,6 +52,14 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   their rewards and persistent re-entry flows, and room `4:49`'s Echoing Howl
   Essence sequence followed by room `0:ba`'s Ambi/Black Tower/remote Maku
   story event; the dungeon is not yet an end-to-end playable-fidelity claim.
+- Skull Dungeon (dungeon `$04`), starting in room `4:91`, has source-traced
+  implementations for all 43 rooms' placed enemies and interactions, including
+  floor, cube, lava, platform and minecart puzzles, Switch Hook acquisition
+  and exchanges, Armos Warrior, Eyesoar, reward portals and persistent
+  completion. Burning Flame collection, its exit to the present and the
+  fourth-Essence Maku message cover standard and linked games. Headless
+  regressions cover the native behaviors and gameplay handoffs; a complete
+  manual playthrough and exhaustive ROM comparison have not been performed.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
@@ -132,7 +142,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   terrain-specific cliff states.
 - Several active items and upgrades, including top-down Mermaid Suit movement
   and remaining deep-water transitions, other terrain-specific Link states,
-  Roc's Cape continuation, active Pegasus Seed behavior, and
+  Roc's Cape continuation, remaining Pegasus enemy collision and
+  terrain/transformation consumers, and
   remaining grabbable-object species.
 - Unimplemented or partial ring consumers whose base gameplay systems do not
   yet exist.

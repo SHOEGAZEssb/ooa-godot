@@ -54,7 +54,9 @@ public sealed class CombatController
             swordState: player.SwordState,
             swordLevel: player.Inventory.SwordLevel,
             itemZ: player.MeleeItemZ,
-            expertPunch: player.IsUsingExpertPunch);
+            expertPunch: player.IsUsingExpertPunch,
+            deferredContact: player.QueueSwordEnemyContact,
+            meleeActive: () => player.IsAttacking || player.IsUsingExpertPunch);
     }
 
     public bool ApplySwordTileHit(Player player, int direction, bool swordPoke)

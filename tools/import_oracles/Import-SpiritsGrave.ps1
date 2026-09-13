@@ -9,6 +9,7 @@ $pumpkinHeadSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
 
 $dungeonBossSpriteSequences = @{
+    0x11 = @($gfxNames[0xc4])
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
     # Shadow Hag's uncounted $42 bugs use the second boss sheet. The boss
     # itself loads both consecutive $c2/$c3 headers.
@@ -21,11 +22,15 @@ $dungeonBossSpriteSequences = @{
     # shares the final header while the enemy animations address the complete
     # live extra-GFX closure.
     0x72 = @($gfxNames[0xb1], $gfxNames[0xb2], $gfxNames[0xb3])
+    0x73 = @($gfxNames[0xb4], $gfxNames[0xb5], $gfxNames[0xb6])
     0x78 = @($gfxNames[0xbc], $gfxNames[0xbd], $gfxNames[0xbe])
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
     0x7a = @($gfxNames[0xc2], $gfxNames[0xc3])
+    0x7b = @($gfxNames[0xc4])
 }
 $dungeonBossSourceGrayscaleInverted = @{
+    0x11 = $true
+    0x7b = $true
     # Giant Ghini's two source sheets use white as color 0, unlike the
     # ordinary black-background enemy sheets.
     0x3f = $false
@@ -33,6 +38,7 @@ $dungeonBossSourceGrayscaleInverted = @{
     0x70 = $false
     0x71 = $true
     0x72 = $true
+    0x73 = $true
     0x78 = $true
     0x79 = $true
     0x7a = $true
@@ -41,11 +47,16 @@ $dungeonBossRows = [Collections.Generic.List[string]]::new()
 $dungeonBossRows.Add('# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace('`t', "`t"))
 foreach ($spec in @(
     @(0x3f, 0), @(0x42, 0), @(0x70, 0), @(0x71, 0), @(0x72, 0), @(0x78, 0),
-    @(0x79, 0), @(0x7a, 0)
+    @(0x79, 0), @(0x7a, 0), @(0x73, 0), @(0x73, 1), @(0x73, 2), @(0x73, 3),
+    @(0x7b, 0), @(0x7b, 1), @(0x11, 0), @(0x11, 1), @(0x11, 2), @(0x11, 3)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
-    $definition = Get-EnemyDefinition $id $subid
+    # Armos Warrior actively advances animation $0a beyond its one-frame
+    # label into animation $0b's spin loop. Its held animation $09 is not
+    # advanced by the source handler.
+    $fallthroughAnimations = if ($id -eq 0x73) { @(10) } else { @() }
+    $definition = Get-EnemyDefinition $id $subid $fallthroughAnimations
     $sprites = $dungeonBossSpriteSequences[$id]
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
@@ -54,12 +65,15 @@ foreach ($spec in @(
     $dungeonBossRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($dungeonBossRows.Count -ne 9 -or
+if ($dungeonBossRows.Count -ne 19 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^42\t00\tspr_shadowhag_2\t20\t2\t1\t6\t6\t1\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^71\t00\tspr_swoop,spr_pound\t0\t2\t1\t10\t10\t2\t20\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^72\t00\tspr_subterror_1,spr_subterror_2,spr_subterror_3\t0\t1\t1\t6\t6\t2\t20\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^73\t01\tspr_armoswarrior,spr_armoswarriorshield,spr_armoswarriorsword\t0\t1\t1\t6\t6\t2\t10\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^73\t02\tspr_armoswarrior,spr_armoswarriorshield,spr_armoswarriorsword\t0\t2\t1\t12\t6\t2\t3\t' }) -or
+    -not ($dungeonBossRows | Where-Object { $_ -match '^73\t03\tspr_armoswarrior,spr_armoswarriorshield,spr_armoswarriorsword\t0\t3\t1\t0\t0\t2\t127\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^78\t00\tspr_pumpkinhead_1,spr_pumpkinhead_2,spr_pumpkinhead_3\t0\t3\t1\t6\t12\t2\t8\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^79\t00\tspr_headthwomp_1,spr_headthwomp_2,spr_headthwomp_3\t0\t0\t1\t18\t15\t2\t4\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^7a\t00\tspr_shadowhag_1,spr_shadowhag_2\t0\t3\t1\t9\t9\t3\t12\t' })) {
@@ -340,6 +354,9 @@ function Add-DungeonInteractionVisual(
 }
 Add-DungeonInteractionVisual 'platform-05' 0x79 5 @(5)
 Add-DungeonInteractionVisual 'platform-09' 0x79 1 @(1)
+foreach ($size in 0..4) {
+    Add-DungeonInteractionVisual ('platform-' + $size.ToString('x2')) 0x79 $size @($size)
+}
 # Unlike the ordinary black-background spr_* sheets, spr_colored_cube is
 # authored black-on-white. Retain that source interpretation so color zero,
 # not the cube drawing, becomes transparent during OAM composition.
@@ -356,6 +373,9 @@ Add-DungeonInteractionVisual 'minecart-gate' 0x1b 0 @(0, 1, 2, 3)
 # uses animation 2/3. The parent toggles only its oamFlags palette bit, which
 # the runtime applies to both objects from the same imported graphics closure.
 Add-DungeonInteractionVisual 'spinner' 0x7d 0 @(0, 1, 2, 3)
+# getDataForInteraction clamps subid $02 to the last $0b subid row ($01).
+# That row selects animation 1: four updates, two updates, terminal $ff.
+Add-DungeonInteractionVisual 'eyesoar-spawn' 0x0b 1 @(1)
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix
@@ -390,7 +410,7 @@ $essencePedestalGraphic = $interactionGraphics['127:1']
 $essenceGlowGraphic = $interactionGraphics['127:2']
 if ($essenceSource -notmatch
         '(?ms)^@essenceOamData:.*?\.db \$00 \$01 \$01\s+' +
-        '\.db \$04 \$00 \$02\s+\.db \$06 \$03 \$02' -or
+        '\.db \$04 \$00 \$02\s+\.db \$06 \$03 \$02\s+\.db \$08 \$02 \$02' -or
     $null -eq $essencePedestalGraphic -or
     $essencePedestalGraphic.Gfx -ne 0x76 -or
     $essencePedestalGraphic.TileBase -ne 0 -or
@@ -423,6 +443,7 @@ Add-DungeonInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
 # D3's third row keeps the four-tile layout for Echoing Howl while selecting
 # tile base $06 and OBJ palette 3.
 Add-DungeonInteractionVisual 'echoing-howl' 0x7f 0 @(2) 6 3
+Add-DungeonInteractionVisual 'burning-flame' 0x7f 0 @(2) 8 2
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -489,6 +510,26 @@ Copy-EnemySprite $energySprite
 $energyAnimationData = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($energyAnimations -join "`n"))
 $dungeonVisualRows.Add("energy-bead`t$energySprite`t0`t4`t0`t$energyAnimationData")
+
+$energyCode = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/blueEnergyBead.s')
+if ($energyCode -notmatch '(?s)ld l,\$c0\s+set 7,\(hl\)\s+ld l,\$d0\s+ld \(hl\),\$(?<speed>[0-9a-f]+)' ) {
+    throw 'PART_BLUE_ENERGY_BEAD enabled/speed initialization changed.'
+}
+$energySpeed = $Matches['speed']
+if ($energyCode -notmatch '(?s)call getRandomNumber_noPreserveVars\s+and \$(?<mask>[0-9a-f]+)\s+inc a' ) {
+    throw 'PART_BLUE_ENERGY_BEAD random delay changed.'
+}
+$energyDelayMask = $Matches['mask']
+if ($energyCode -notmatch '(?s)ld a,\$(?<radius>[0-9a-f]+)\s+jp objectSetPositionInCircleArc' -or
+    $energyCode -notmatch 'ld d,\$08' -or $energyCode -notmatch 'ld \(wDeleteEnergyBeads\),a' -or
+    (Read-ImportText (Join-Path $Disassembly 'include/wram.s')) -notmatch 'wDeleteEnergyBeads: ; \$cd2d') {
+    throw 'PART_BLUE_ENERGY_BEAD circle/allocation/delete signal changed.'
+}
+$energyRadius = [regex]::Match($energyCode, 'ld a,\$(?<radius>[0-9a-f]+)\s+jp objectSetPositionInCircleArc').Groups['radius'].Value
+Write-GeneratedTable((Join-Path $destination 'objects/blue_energy_bead.tsv'), @(
+    "# id`tcount`tspeed`tradius`tdelay-mask`tdelete-address`tsource"
+    "53`t08`t$energySpeed`t$energyRadius`t$energyDelayMask`tcd2d`tobject_code/common/parts/blueEnergyBead.s:partCode53/createEnergySwirlGoingIn_body"
+))
 
 # PART_PUMPKIN_HEAD_PROJECTILE $42 uses gfx $a6, tile base $1e, palette 2.
 $pumpkinProjectileAnimationLabels = @([regex]::Matches(
@@ -885,8 +926,8 @@ Add-DungeonPartVisualRow `
     $seedBouncerVisual.SourceGrayscaleInverted `
     $seedBouncerVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 28) {
-    throw "Expected twenty-seven imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 35) {
+    throw "Expected thirty-two imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

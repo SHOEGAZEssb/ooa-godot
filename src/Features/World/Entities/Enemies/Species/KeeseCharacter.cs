@@ -15,6 +15,7 @@ public partial class KeeseCharacter : EnemyCharacter
     private int _turnAmount;
     private int _speed;
     private bool _flying;
+    private bool _hookHitPending;
 
     public EnemyDatabaseEnemyRecord Record { get; private set; }
     internal KeeseState State => _state;
@@ -59,6 +60,15 @@ public partial class KeeseCharacter : EnemyCharacter
 
     internal void UpdateFrame(Vector2 linkPosition, int frameCounter)
     {
+        if (_hookHitPending)
+        {
+            // keese.s returns on ENEMYSTATUS_JUST_HIT before recoil or
+            // movement. updateEnemies still advances invincibility on that
+            // update after the native handler returns.
+            _hookHitPending = false;
+            AdvanceInvincibilityCounter();
+            return;
+        }
         if (IsDead)
             return;
         if (BeginFrame())
@@ -78,6 +88,14 @@ public partial class KeeseCharacter : EnemyCharacter
         if (IsDead || InvincibilityCounter > 0)
             return false;
         return ApplyDamage(damage, invincibilityFrames: 0);
+    }
+
+    internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
+    {
+        if (!CollisionEnabled || !TakeSwordHit(damage)) return false;
+        ApplySwordKnockback(linkPosition, EnemyKnockbackStrength.Low);
+        _hookHitPending = true;
+        return true;
     }
 
     private void UpdateNormalKeese(int frameCounter)

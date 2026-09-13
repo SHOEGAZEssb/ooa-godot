@@ -1418,14 +1418,9 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
-            "Room 4:0b did not retain each Gel room count through its " +
-            "complete PART_ENEMY_DESTROYED animation.");
-        Step();
-        FailIf(
+            _entities.RoomEnemyCount != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
-            "Room 4:0b's two shutters did not observe the shared room " +
-            "count after the final Gel death puff completed.");
+            "Room 4:0b's two shutters must observe the final PART_ENEMY_DESTROYED count release in the same update's later interaction pass.");
         for (int frame = 0; frame < database.SolveWait; frame++)
             Step();
         Step();
@@ -1656,16 +1651,10 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.RoomEnemyCount != 1 ||
-            scrollingRoom406.GetMetatile(room406Block) != 0x1d,
-            "Room 4:06 did not release both Stalfos counts while retaining " +
-            "the disabled push-block sentinel through the terminal puff update.");
-        Step();
-        FailIf(
             _entities.Entities<PushBlockTriggerRoomEntity>().Count != 1 ||
             scrollingRoom406.GetMetatile(room406Block) != 0x1c ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
-            "Room 4:06 did not restore its source all-direction block on " +
-            "the update after the final Stalfos death puff completed.");
+            "Room 4:06 must retain its push-block sentinel count and restore the source all-direction block in the interaction pass after both terminal PART updates.");
 
         var pushableTiles = new PushableTileDatabase();
         FailIf(

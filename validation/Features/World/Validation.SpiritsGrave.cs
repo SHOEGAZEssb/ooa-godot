@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateSpiritsGrave()
     {
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
+        OracleRandomValidationSnapshot encounterRandom = CaptureOracleRandomForValidation();
         static bool IsGbcColor(Color color, int red, int green, int blue)
         {
             const float textureTolerance = 1.5f / 255.0f;
@@ -109,7 +110,7 @@ public sealed partial class ValidationRoot
             enemyData.ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
-            enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
+            !enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
             enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
             bosses.Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, SourceGrayscaleInverted: false } ||
@@ -334,15 +335,15 @@ public sealed partial class ValidationRoot
         int ropeRandomCalls = _entities.RandomCalls;
         StepEntities();
         FailIf(
-            _entities.RandomCalls != ropeRandomCalls ||
+            _entities.RandomCalls != ropeRandomCalls + 2 ||
             _entities.Entities<RopeCharacter>().Any(rope => rope.Counter != 0),
-            "D1 Ropes consumed RNG while source state 0 was only installing SPEED_60.");
+            "D1 Ropes lost enemyStandardUpdate's one var3d RNG roll per state-0 enemy.");
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         List<RopeCharacter> ropes = _entities.Entities<RopeCharacter>();
         Vector2[] ropeStarts = ropes.Select(rope => rope.Position).ToArray();
         StepEntities();
         FailIf(
-            _entities.RandomCalls != ropeRandomCalls ||
+            _entities.RandomCalls != ropeRandomCalls + 2 ||
             ropes.Any(rope => rope.SpeedRaw != 0x0f) ||
             ropes.Where((rope, index) =>
                 !Mathf.IsEqualApprox(
@@ -511,6 +512,10 @@ public sealed partial class ValidationRoot
             ghini.UpdateFrame();
         ghini.UpdateFrame();
         StepEntities();
+        FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0 || _entities.RoomEnemyCount != 1,
+            "Room 4:1e must retain the Ghini's count through death-puff transfer before spawning its key.");
+        for (int i = 0; _entities.RoomEnemyCount != 0 && i < 24; i++) StepEntities();
+        StepEntities();
         FailIf(
             _entities.Entities<GroundTreasurePickup>() is not
             [{
@@ -528,7 +533,7 @@ public sealed partial class ValidationRoot
                 }
             }],
             "Room 4:1e did not spawn its above-screen two-bounce small " +
-            "key after the Ghini's lethal recoil.");
+            "key after the Ghini's counted death puff completed.");
         GroundTreasurePickup fallingKey =
             _entities.Entities<GroundTreasurePickup>().Single();
         _player.WarpTo(new Vector2(0xd8, 0x98), recordSafe: false);
@@ -958,7 +963,7 @@ public sealed partial class ValidationRoot
             !_player.IsPullingIntoHole,
             "Room 4:15's uncovered $f6 tile did not begin the ordinary " +
             "hole-pull path before the platform claimed Link.");
-        StepEntities();
+        StepEntities(2); // State zero loads wait8; state one first checks Link.
         FailIf(
             !verticalPlatform.LinkRiding || !_entities.PlayerRidingObject,
             "Room 4:15's moving platform did not claim centered Link.");
@@ -968,7 +973,7 @@ public sealed partial class ValidationRoot
             "wLinkRidingObject-style support did not cancel room 4:15's " +
             "partial hole pull.");
         Vector2 linkPreciseStart = _player.PrecisePosition;
-        StepEntities(9);
+        StepEntities(8);
         FailIf(
             verticalPlatform.Script != 0 ||
             verticalPlatform.PrecisePosition !=
@@ -1167,7 +1172,7 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
-            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
+            !_saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<ItemDropEffect>() is not
                 [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 0 }] ||
             _entities.RandomCalls != giantDropRandomCalls + 2,
@@ -1184,7 +1189,7 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != giantDropRandomCalls + 5,
             "Room 4:18 did not begin its reward wait while the spawned fairy " +
             "initialized from three shared global RNG values.");
-        StepEntities(19);
+        StepEntities(18);
         FailIf(
             _entities.Entities<MinibossPortal>().Count != 0,
             "Room 4:18 created its portal before the native 20-update reward wait.");
@@ -1225,6 +1230,9 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(4, 0x13, OracleSaveData.RoomFlag80, false);
         _saveData.SetRoomFlag(4, 0x13, OracleSaveData.RoomFlagItem, false);
         _sound.ClearPlayRequestAudit();
+        // Keep this independent boss encounter reproducible when unrelated
+        // ordinary-enemy checks above gain source-required RNG calls.
+        RestoreOracleRandomForValidation(encounterRandom);
         PrepareRoom(0x13);
         PumpkinHeadBoss pumpkin = _entities.Entities<PumpkinHeadBoss>().Single();
         int pumpkinImpactRandomCalls = _entities.RandomCalls;
@@ -1854,6 +1862,7 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x11);
         DungeonEssence collectedEssence =
             _entities.Entities<DungeonEssence>().Single();
+        StepEntities(); // Native state0 recreates the persistent pedestal.
         FailIf(
             !collectedEssence.Collected ||
             _currentRoom.GetTerrainInfo(new Vector2(0x78, 0x28)).Collision != 0x0f ||

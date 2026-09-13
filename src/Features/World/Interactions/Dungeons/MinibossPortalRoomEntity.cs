@@ -7,7 +7,7 @@ namespace oracleofages;
 /// <summary>INTERAC_MINIBOSS_PORTAL $7e:$00.</summary>
 internal sealed class MinibossPortalRoomEntity :
     RoomEntityAdapter<MinibossPortal>, IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity
 {
 
     private readonly PlacementRecord _placement;
@@ -17,6 +17,7 @@ internal sealed class MinibossPortalRoomEntity :
     private readonly Action<int> _soundRequested;
     private PortalState _state;
     private int _counter;
+    private Player? _controlledPlayer;
 
     internal MinibossPortalRoomEntity(
         MinibossPortal portal,
@@ -32,9 +33,18 @@ internal sealed class MinibossPortalRoomEntity :
         _save = save;
         _warpRequested = warpRequested;
         _soundRequested = soundRequested;
+        portal.TreeExiting += ReleaseControl;
     }
 
     public bool Finished { get; private set; }
+    private bool ControlsLink => _state is PortalState.Spinning or PortalState.WarpRequested;
+    public bool DisablesSword => ControlsLink;
+    public bool DisablesItems => ControlsLink;
+    public bool DisablesMovement => ControlsLink;
+    public bool DisablesMenus => ControlsLink;
+    public bool DisablesPlayerContact => ControlsLink;
+    public bool PassesNpcs => ControlsLink;
+    public bool UpdatesDuringDialogue => _state == PortalState.Initialize;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
@@ -45,7 +55,7 @@ internal sealed class MinibossPortalRoomEntity :
         {
             if (!PreparePresentation())
                 return;
-            _state = Touching(frame.Player.Position)
+            _state = Touching(frame.Player)
                 ? PortalState.WaitForLinkToLeave
                 : PortalState.Ready;
             return;
@@ -54,19 +64,20 @@ internal sealed class MinibossPortalRoomEntity :
         Entity.AdvanceAnimation();
         if (_state == PortalState.WaitForLinkToLeave)
         {
-            if (!Touching(frame.Player.Position))
+            if (!Touching(frame.Player))
                 _state = PortalState.Ready;
             return;
         }
         if (_state == PortalState.Ready)
         {
-            if (!frame.Player.CutsceneControlled && Touching(frame.Player.Position))
+            if (frame.Player.CanEnterMinibossPortal && Touching(frame.Player))
                 BeginSpin(frame.Player);
             return;
         }
 
-        frame.Player.SetScriptedPosition(Entity.Position);
-        frame.Player.ResetEnemyInvincibility();
+        frame.Player.CopyPortalPosition(Entity.Position);
+        frame.Player.ResetPortalDamageState();
+        if (frame.Player.IsDying) return;
         if ((frame.Counter & 0x03) == 0)
             frame.Player.Face(NextClockwise(frame.Player.FacingVector));
         _counter--;
@@ -121,18 +132,26 @@ internal sealed class MinibossPortalRoomEntity :
 
     private void BeginSpin(Player player)
     {
-        player.WarpTo(Entity.Position, recordSafe: false);
-        player.BeginCutsceneControl();
+        player.ResetPortalDamageState();
+        player.CopyPortalPosition(Entity.Position);
+        player.RequestState08Control(this);
+        _controlledPlayer = player;
         _state = PortalState.Spinning;
         _counter = _data.PortalSpinUpdates;
         _soundRequested(_data.PortalSound);
     }
 
-    private bool Touching(Vector2 linkPosition)
+    private bool Touching(Player player) => player.OverlapsMinibossPortal(
+        new Rect2(Entity.Position - Vector2.One * _data.PortalRadius, Vector2.One * (_data.PortalRadius * 2)));
+
+    private void ReleaseControl()
     {
-        Vector2 delta = linkPosition - Entity.Position;
-        float radius = _data.PortalRadius + NpcCharacter.LinkCollisionRadius;
-        return Mathf.Abs(delta.X) < radius && Mathf.Abs(delta.Y) < radius;
+        if (_controlledPlayer?.IsCutsceneControlOwner(this) == true)
+        {
+            _controlledPlayer.SetScriptedLinkAnimationMode(null);
+            _controlledPlayer.EndCutsceneControl(this);
+        }
+        _controlledPlayer = null;
     }
 
     private static Vector2I NextClockwise(Vector2I direction) =>

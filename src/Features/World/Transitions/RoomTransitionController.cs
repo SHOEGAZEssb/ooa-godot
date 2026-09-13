@@ -1659,6 +1659,7 @@ void fragment() {
         if (_scrollActive)
             return;
         Vector2 focusPosition =
+            _entities.SwitchHook?.CameraFocus ??
             _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
             _player.Position;
         Vector2 target = GetCameraOrigin(
@@ -1687,6 +1688,7 @@ void fragment() {
     public void ResetCamera()
     {
         Vector2 focusPosition =
+            _entities.SwitchHook?.CameraFocus ??
             _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
             _player.Position;
         SetCameraOrigin(GetCameraOrigin(_rooms.CurrentRoom, focusPosition));

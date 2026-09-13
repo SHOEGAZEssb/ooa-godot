@@ -12,6 +12,7 @@ internal sealed class SwordBeamRoomEntity(SwordBeamEffect beam)
     public bool CollisionEnabled => Entity.CollisionEnabled;
     public Rect2 CollisionBounds => Entity.CollisionBounds;
     public int Damage => Entity.Damage;
+    internal void QueueNativeCollision() => Entity.QueueNativeCollision();
     public void UpdateFrame(
         RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter, spawns);

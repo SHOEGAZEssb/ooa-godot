@@ -33,7 +33,8 @@ internal readonly record struct DungeonObjectRecord(
     int Y,
     int X,
     DungeonObjectCondition Predicate,
-    string Source)
+    string Source,
+    int Var03 = 0)
 {
     internal Vector2 Position => new(X, Y);
 }
@@ -64,6 +65,14 @@ internal enum DungeonObjectKind
     CubeLightSensor,
     CubeTriggerSensor,
     FloorPatternKey,
+    FloorPatternTrigger,
+    BlueFlameChest,
+    TileFiller,
+    FloorFillChest,
+    OrbChest,
+    MovingOrb,
+    Lever,
+    LeverLavaFiller,
     ToggleFloor,
     SwitchTileToggler,
     MinecartGate,
@@ -78,5 +87,7 @@ internal enum DungeonObjectKind
     HeadThwomp,
     Swoop,
     Subterror,
-    ShadowHag
+    ShadowHag,
+    ArmosWarrior,
+    Eyesoar
 }

@@ -52,6 +52,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x49);
         DungeonEssence essence =
             _entities.Entities<DungeonEssence>().Single();
+        Step(); // Native state0 creates and initializes the later pedestal.
         FailIf(
             _rooms.CurrentDungeonIndex != 3 ||
             essence.Position != new Vector2(0x78, 0x28) ||
@@ -93,13 +94,15 @@ public sealed partial class ValidationRoot
 
         _dialogue.Close();
         Step();
+        FailIf(essence.SwirlActive, "Essence state5 must only install its script on the textbox-close update.");
+        Step();
         FailIf(
             !essence.SwirlActive ||
             _roomEvents.Get<DungeonEssenceEvent>().Counter != 360 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1,
             "Echoing Howl did not begin the common 360-update inward-energy " +
-            "swirl on the post-dialogue update.");
+            "swirl on the state6 update after installing its script.");
         for (int frame = 0;
              frame < 520 && !_transitions.IsTransitioning;
              frame++)
@@ -155,6 +158,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x49);
         DungeonEssence collected =
             _entities.Entities<DungeonEssence>().Single();
+        Step();
         FailIf(
             !collected.Collected ||
             _entities.Entities<DungeonEssence>().Count != 1 ||
@@ -531,7 +535,9 @@ public sealed partial class ValidationRoot
             "Shadow Hag did not hand off to the counted 120-update boss " +
             "death and finite PART_BOSS_DEATH_EXPLOSION sequence.");
         _sound.ClearPlayRequestAudit();
-        Step(80);
+        // PART_BOSS_DEATH_EXPLOSION releases the count before interactions
+        // observe it on the terminal dispatch, 78 animation updates plus one.
+        Step(79);
         FailIf(
             !_saveData.HasRoomFlag(
                 4, 0x4a, OracleSaveData.RoomFlag80) ||
@@ -822,7 +828,6 @@ public sealed partial class ValidationRoot
             "Subterror did not hand off to the counted 120-update boss " +
             "death / PART_BOSS_DEATH_EXPLOSION sequence.");
         Step(79);
-        Step();
         FailIf(
             !_saveData.HasRoomFlag(
                 4, 0x4d, OracleSaveData.RoomFlag80) ||
@@ -891,8 +896,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<DungeonRewardRoomEntity>().Single();
         bool WatcherPresent() => _entities.Entities<Node2D>().Any(
             node => node.Name == "TileChangeWatcher_2");
-        List<MoldormCharacter> moldorms =
-            _entities.Entities<MoldormCharacter>();
+        var moldorms = _entities.Entities<MoldormSpawnerCharacter>();
         FailIf(
             room.ActiveCollisions != 2 || room.Width != 240 || room.Height != 176 ||
             trigger.PackedPosition != 0x6b || trigger.CountsAsEnemy ||
@@ -912,13 +916,14 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             room.GetMetatile(Point(0x6b)) != data.PushableBlock ||
-            !trigger.CountsAsEnemy || _entities.RoomEnemyCount != 3 ||
+            !trigger.CountsAsEnemy || _entities.RoomEnemyCount != 7 ||
             _saveData.HasRoomFlag(4, 0x4b, OracleSaveData.RoomFlag80) ||
             keyController.Finished,
             "$13:$01 did not temporarily replace room 4:4b/$6b with $1d " +
             "and add itself to wNumEnemies before $12:$01 checked the count.");
 
-        foreach (MoldormCharacter moldorm in moldorms)
+        Step(); // The head reusing earlier ENEMY slot0 initializes on this pass.
+        foreach (MoldormCharacter moldorm in _entities.Entities<MoldormCharacter>())
         {
             FailIf(!moldorm.TakeSwordHit(moldorm.Position, damage: 0x7f),
                 "A room 4:4b Moldorm rejected a lethal validation hit.");
@@ -1054,7 +1059,10 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
+            {
                 _entities.Update(Update, _player);
+                _entities.ResolvePostObjectCollisions(_player);
+            }
         }
 
         var data = new DungeonMechanicDatabase();
@@ -1284,8 +1292,8 @@ public sealed partial class ValidationRoot
             firstOrbSeed.State != EmberState.Burning ||
             firstOrbSeed.CollisionEnabled || bouncer.Orientation != 3 ||
             _sound.PlayRequestsFor(0x7e) != 1,
-            "A shooter-fired Ember Seed did not reach PART_ORB before solid-" +
-            "tile handling, XOR bit `$04, activate on collision, and rotate " +
+            "A shooter-fired Ember Seed did not pass the orb's logical tile$0a, queue its native collision, " +
+            "then XOR bit$04, activate and rotate " +
             "the seed bouncer without sword-style invincibility " +
             $"(flight={firstOrbFlightUpdates}, toggle=${_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}, " +
             $"palette={orbs[0].Palette}, lockout={orbs[0].HitLockout}, " +
@@ -1448,7 +1456,7 @@ public sealed partial class ValidationRoot
         GD.Print(
             "Validated full room 4:4e: eight source-ordered objects, three " +
             "bit-1 extendable bridges and ten-update tile streams, two toggle " +
-            "orbs and switch hit by moving shooter seeds before terrain, one " +
+            "orbs hit through native post-object seed collisions, one switch, one " +
             "visible rotating bouncer with its collision-only child, four " +
             "`$c7-created Scent Seed bushes, one-call 50% drops, debris, and " +
             "exact respawn timing.");
@@ -1522,15 +1530,19 @@ public sealed partial class ValidationRoot
         Step();
         DungeonOrbRoomEntity orb =
             _entities.Entities<DungeonOrbRoomEntity>().Single();
+        FailIf(orb.Visible || _currentRoom.GetMetatile(orb.Position) == 0x0a,
+            "An orb allocated by the later interaction pass must wait until the following PART pass for initialization.");
+        Step();
         FailIf(
             orb.Position != Point(0x75) || orb.ToggleMask != 0x10 ||
             orb.IsOn || orb.Palette != 1 ||
-            _currentRoom.GetTerrainInfo(orb.Position).Collision != 0x0a ||
+            _currentRoom.GetTerrainInfo(orb.Position).Collision != 0x0f ||
+            _currentRoom.GetMetatile(orb.Position) != 0x0a ||
             OracleGraphicsCache.PixelHash(orb.CurrentTexture.GetImage()) == 0 ||
             (_runtimeState.ReadWramByte(
                 OracleRuntimeState.ToggleBlocksStateAddress) & 0x10) != 0,
             "The $21:$0a initializer did not clear toggle bit $10 and create " +
-            "PART_ORB $03:$04 at $75 with palette 1 and collision $0a.");
+            "PART_ORB $03:$04 at $75 with palette1, logical tile$0a and collision$0f.");
 
         _sound.ClearPlayRequestAudit();
         var hitSpawns = new List<RoomEntitySpawn>();
@@ -1541,11 +1553,10 @@ public sealed partial class ValidationRoot
             EnemyKnockbackStrength.Low,
             hitSpawns);
         FailIf(
-            !orb.IsOn || orb.Palette != 2 ||
+            orb.IsOn || orb.Palette != 1 || !orb.PendingHit ||
             orb.HitLockout != data.SwitchHitLockout ||
-            _sound.PlayRequestsFor(data.SwitchSound) != 1,
-            "PART_ORB did not XOR bit $10, select palette 2, and play " +
-            "SND_SWITCH with ENEMYDMG_34's lockout on an active collision.");
+            _sound.PlayRequestsFor(data.SwitchSound) != 0,
+            "PART_ORB must queue JUST_HIT and ENEMYDMG_34 lockout without toggling before its next PART update.");
 
         // ITEM_BOMB retains an active explosion collision for multiple
         // updates. ENEMYDMG_34 must suppress every overlapping update after
@@ -1557,12 +1568,18 @@ public sealed partial class ValidationRoot
             damage: 4,
             hitSpawns);
         FailIf(
-            !orb.IsOn || orb.HitLockout != data.SwitchHitLockout ||
-            _sound.PlayRequestsFor(data.SwitchSound) != 1,
+            orb.IsOn || !orb.PendingHit || orb.HitLockout != data.SwitchHitLockout ||
+            _sound.PlayRequestsFor(data.SwitchSound) != 0,
             "A continuing bomb explosion retriggered PART_ORB during its " +
             "ENEMYDMG_34 collision lockout.");
 
         Step();
+        FailIf(!orb.IsOn || orb.Palette != 2 || orb.PendingHit || orb.HitLockout != data.SwitchHitLockout - 1 ||
+            _sound.PlayRequestsFor(data.SwitchSound) != 1,
+            "The next PART update must decrement invincibility, toggle the local palette/bit, and play SND_SWITCH once.");
+        // The interaction creates a state-zero enemy spawner. Its next two
+        // enemy passes initialize, then scan tiles and initialize later slots.
+        Step(2);
         ArmosCharacter armos = _entities.Entities<ArmosCharacter>().Single();
         EnemyClearChestRoomEntity chest =
             _entities.Entities<EnemyClearChestRoomEntity>().Single();
@@ -1769,6 +1786,7 @@ public sealed partial class ValidationRoot
             "the earlier $21:$0c event observed it.");
 
         Step();
+        Step(2);
         List<ArmosCharacter> armos = _entities.Entities<ArmosCharacter>();
         Vector2[] expectedHiddenPositions =
         [
@@ -1891,6 +1909,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(buttonPosition, recordSafe: false);
         Step(2);
         Step();
+        Step(2); // ENEMY_ARMOS spawner initialization, then its native slot scan.
         FailIf(
             _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
@@ -2124,7 +2143,7 @@ public sealed partial class ValidationRoot
             incomingMoldorms.Count != 2 ||
             incomingMoldorms.Any(value =>
                 !value.Initialized || !value.Visible ||
-                value.TurnCounter != 8 || value.AngularSpeed != 2 ||
+                value.TurnCounter != 0 || value.AngularSpeed != 2 ||
                 value.Angle is < 0 or > 0x1f ||
                 value.Tail1Position != value.Position ||
                 value.Tail2Position != value.Position ||
@@ -2164,13 +2183,14 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != 4 ||
             !mimics.Select(value => value.Position)
                 .SequenceEqual([Point(0x45), Point(0x69)]) ||
-            _entities.Entities<MoldormCharacter>().Count != 2 ||
+            _entities.Entities<MoldormSpawnerCharacter>().Count != 2 ||
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Position: { X: 0x98, Y: 0x58 }, Counter: 0 }] ||
             _currentRoom.GetMetatile(Point(0x59)) == mechanics.ChestTile,
             "Room 4:58 did not construct its four counted enemies and " +
             "hidden $59 Seed Shooter chest in source order.");
         Step();
+        Step(); // A child allocated into earlier slot0 waits until the next ENEMY pass.
         FailIf(
             mimics.Any(value => !value.Initialized || !value.Visible) ||
             _entities.Entities<MoldormCharacter>()
@@ -2411,15 +2431,25 @@ public sealed partial class ValidationRoot
         }
         _sound.ClearPlayRequestAudit();
         Step();
+        FailIf(!zolsAccepted || _entities.RoomEnemyCount != 3 ||
+            _entities.Entities<ZolCharacter>().Any(zol => zol.State != ZolState.RedSplitting),
+            "Room 4:5b lethal Zol hits must consume JUST_HIT before dispatching death.");
+        Step();
+        FailIf(_entities.Entities<ZolCharacter>().Count != 0 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 3 || _entities.RoomEnemyCount != 3,
+            "Room 4:5b must transfer all three lethal Zol counts to their normal death puffs.");
+        for (int i = 0; _entities.RoomEnemyCount != 0 && i < 24; i++) Step();
         FailIf(
             !zolsAccepted || _entities.RoomEnemyCount != 0 ||
             _entities.Entities<ZolCharacter>().Count != 0,
             "Room 4:5b did not clear its three red Zols from the live enemy count.");
+        // The later interaction pass observes the final PART count release
+        // in the same update and starts both solve delays immediately.
         FailIf(
             _sound.PlayRequestsFor(mechanics.SolveSound) != 2 ||
             !room.IsSolid(Point(0x50)) || !room.IsSolid(Point(0xa7)),
             "Room 4:5b's two enemy shutters did not independently begin " +
-            "their source eight-update solve delays after the final enemy.");
+            $"their source eight-update solve delays after the final enemy: sounds={_sound.PlayRequestsFor(mechanics.SolveSound)}, left={room.IsSolid(Point(0x50))}, down={room.IsSolid(Point(0xa7))}, text={_dialogue.IsOpen}.");
         Step(mechanics.SolveWait);
         FailIf(
             room.GetMetatile(Point(0x50)) != 0x7b ||

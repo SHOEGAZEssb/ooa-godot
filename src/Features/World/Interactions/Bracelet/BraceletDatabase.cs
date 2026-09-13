@@ -28,7 +28,7 @@ internal sealed class BraceletDatabase
                     "power-glove-push-frames", "heavy-property-mask",
                     "grab-pull-frames",
                     "lift-low-frames", "lift-mid-frames", "lift-high-frames",
-                    "throw-frames", "source"
+                    "throw-frames", "lever-initial-frames", "lever-pull-frames", "lever-rest-frames", "source"
                 ],
                 ["item"],
                 headerRequired: true));
@@ -61,7 +61,7 @@ internal sealed class BraceletDatabase
             row.UnsignedDecimal(18),
             row.UnsignedDecimal(19),
             row.UnsignedDecimal(20),
-            row.RequiredString(21));
+            row.UnsignedDecimal(21), row.UnsignedDecimal(22), row.UnsignedDecimal(23), row.RequiredString(24));
         Validate(Data);
     }
 
@@ -83,7 +83,7 @@ internal sealed class BraceletDatabase
             record.LiftLowFrames != 7 ||
             record.LiftMidFrames != 4 ||
             record.LiftHighFrames != 2 ||
-            record.ThrowFrames != 8)
+            record.ThrowFrames != 8 || record.LeverInitialFrames != 1 || record.LeverPullFrames != 40 || record.LeverRestFrames != 20)
         {
             throw new InvalidOperationException(
                 $"Invalid ITEM_BRACELET record imported from {record.Source}.");
@@ -91,4 +91,4 @@ internal sealed class BraceletDatabase
     }
 }
 
-internal readonly record struct BraceletDatabaseRecord(int Item, int PickupSound, int ThrowSound, int Damage, int RadiusY, int RadiusX, int CollisionZRadius, int Gravity, int InitialSpeedZ, int SpeedRaw, int TossSpeedRaw, int PushSpeedRaw, int PushFrames, int PowerGlovePushSpeedRaw, int PowerGlovePushFrames, int HeavyPropertyMask, int GrabPullFrames, int LiftLowFrames, int LiftMidFrames, int LiftHighFrames, int ThrowFrames, string Source);
+internal readonly record struct BraceletDatabaseRecord(int Item, int PickupSound, int ThrowSound, int Damage, int RadiusY, int RadiusX, int CollisionZRadius, int Gravity, int InitialSpeedZ, int SpeedRaw, int TossSpeedRaw, int PushSpeedRaw, int PushFrames, int PowerGlovePushSpeedRaw, int PowerGlovePushFrames, int HeavyPropertyMask, int GrabPullFrames, int LiftLowFrames, int LiftMidFrames, int LiftHighFrames, int ThrowFrames, int LeverInitialFrames, int LeverPullFrames, int LeverRestFrames, string Source);

@@ -73,9 +73,6 @@ internal sealed class DungeonMechanicDatabase
     internal int MoonlitCrystalRadiusX => Constant("moonlit-crystal-radius-x");
     internal int MoonlitOrbPosition => Constant("moonlit-orb-position");
     internal int MoonlitOrbMask => Constant("moonlit-orb-mask");
-    internal int MoonlitOrbCollision => Constant("moonlit-orb-collision");
-    internal int MoonlitOrbRadiusY => Constant("moonlit-orb-radius-y");
-    internal int MoonlitOrbRadiusX => Constant("moonlit-orb-radius-x");
     internal int SeedBouncerBackgroundTile =>
         Constant("seed-bouncer-background-tile");
     internal int SeedBouncerTileCollision =>
@@ -231,7 +228,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 229 || _constants.Count != 75 || _texts.Count != 2 ||
+        if (RecordCount != 229 || _constants.Count != 72 || _texts.Count != 2 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||
@@ -377,8 +374,6 @@ internal sealed class DungeonMechanicDatabase
             MoonlitRoomFlag != 0x40 || MoonlitCrystalCollision != 0x0a ||
             MoonlitCrystalRadiusY != 4 || MoonlitCrystalRadiusX != 4 ||
             MoonlitOrbPosition != 0x75 || MoonlitOrbMask != 0x10 ||
-            MoonlitOrbCollision != 0x0a ||
-            MoonlitOrbRadiusY != 4 || MoonlitOrbRadiusX != 4 ||
             SeedBouncerBackgroundTile != 0x0a ||
             SeedBouncerTileCollision != 0x0f ||
             SeedBouncerChildY != 12 || SeedBouncerChildX != 0 ||

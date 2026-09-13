@@ -51,6 +51,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private SeedShooterRecord _shooter;
     private ISeedBounceTarget? _lastBounceTarget;
     private bool _skipShooterTerrainCollision;
+    private bool _collisionUpdatePending;
+    private SeedHitResult _pendingNativeCollision;
+    internal bool HasPendingNativeCollision => _pendingNativeCollision != SeedHitResult.None;
     private ItemCliffDatabase? _itemCliffs;
     private byte _shooterElevation;
     private int _lastShooterTilePosition;
@@ -72,6 +75,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int BouncesRemaining => _bouncesRemaining;
     internal byte ShooterElevation => _shooterElevation;
     internal int SeedItem => _record.SeedItem;
+    internal SeedRecord Record => _record;
+    internal int CollisionType => (_record.Collision & 0x7f) +
+        (_record.SeedItem == 0x24 ? 1 + _mysteryEffect : 0);
     internal Vector2? ScentTarget =>
         _state == EmberState.Scent && _scentPublished
             ? _precisePosition
@@ -142,6 +148,14 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _speedZ = launchKind == SeedLaunchKind.Shooter ? 0 : record.SpeedZ;
         _collisionEnabled = true;
 
+        LoadSeedGraphics(record);
+        Visible = false;
+        QueueRedraw();
+    }
+
+    private void LoadSeedGraphics(SeedRecord record)
+    {
+        _record = record;
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         AnimationDefinition effectAnimation =
@@ -155,6 +169,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             throw new InvalidOperationException(
                 $"{record.Source} imported an empty active-seed animation.");
         _frameCounter = _frames[0].Duration;
+        _frameIndex = 0;
 
         Image flyingSource = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.Sprite}.png");
@@ -171,8 +186,6 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             record.CollisionEffectPalette);
         if (record.SeedItem == 0x23)
             InitializeGaleTextures(flameSource);
-        Visible = false;
-        QueueRedraw();
     }
 
     internal void UpdateFrame(ICollection<RoomEntitySpawn> spawns) =>
@@ -185,6 +198,16 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (Finished)
             return;
         ElapsedFrames++;
+        if (HasPendingNativeCollision)
+        {
+            SeedHitResult response = _pendingNativeCollision;
+            _pendingNativeCollision = SeedHitResult.None;
+            ActivateCollision(response, null, null, spawns, beforeItemUpdate: false);
+            return;
+        }
+        // The pre-movement collision already executed state1's itemAnimate
+        // and transition. State3 begins on the next item dispatch.
+        if (_collisionUpdatePending) { _collisionUpdatePending = false; return; }
         if (_state == EmberState.Gale)
         {
             UpdateGale();
@@ -263,6 +286,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             case 0x21:
                 BeginScent();
                 break;
+            case 0x22:
+                Finish();
+                break;
             case 0x23:
                 TryBreakTile(spawns);
                 BeginGale(landed: true);
@@ -276,14 +302,27 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
     }
 
+    internal void QueueNativeCollision(SeedCollisionResponse response)
+    {
+        _pendingNativeCollision = response.Effect;
+        if (response.DisableCollision) _collisionEnabled = false;
+    }
+
     internal void OnCollision(
         SeedHitResult result,
         ISeedBurnTarget? burnTarget = null,
         ISeedBounceTarget? bounceTarget = null,
-        ICollection<RoomEntitySpawn>? spawns = null)
+        ICollection<RoomEntitySpawn>? spawns = null,
+        bool beforeItemUpdate = false)
     {
         if (!CollisionEnabled || result == SeedHitResult.None)
             return;
+        ActivateCollision(result, burnTarget, bounceTarget, spawns, beforeItemUpdate);
+    }
+
+    private void ActivateCollision(SeedHitResult result, ISeedBurnTarget? burnTarget,
+        ISeedBounceTarget? bounceTarget, ICollection<RoomEntitySpawn>? spawns, bool beforeItemUpdate)
+    {
         bool wall = result == SeedHitResult.Bounce;
         if (wall)
         {
@@ -292,6 +331,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             if (_launchKind == SeedLaunchKind.Shooter)
             {
                 BounceFrom(bounceTarget, spawns);
+                _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != 0x23 && _state != EmberState.Flying;
                 return;
             }
 
@@ -305,12 +345,26 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             Finish();
             return;
         }
+        if (result == SeedHitResult.ActivateRandomSeed)
+        {
+            if (_record.SeedItem != 0x24 || _state != EmberState.Flying)
+                throw new InvalidOperationException("seeds.s @mysteryCollidedWithEnemy requires a flying ITEM24.");
+            // The first @seedCollidedWithEnemy animates Mystery, then changes
+            // Item.id and reloads attributes/animation. Its recursive dispatch
+            // animates the selected seed once before entering that effect.
+            AdvanceAnimation();
+            if (!new SeedSatchelDatabase().TryGet(0x20 + _mysteryEffect, out SeedRecord selected))
+                throw new InvalidOperationException($"Missing Mystery-selected ITEM ${0x20 + _mysteryEffect:x2}.");
+            LoadSeedGraphics(selected);
+            result = SeedHitResult.Activate;
+        }
+        _collisionUpdatePending = beforeItemUpdate && _state == EmberState.Flying && _record.SeedItem != 0x23;
         if (_record.SeedItem == 0x23)
         {
             AdvanceAnimation();
             if (wall) TryBreakTile(spawns ?? throw new InvalidOperationException("Gale reflector activation requires the item-phase spawn collector."));
             BeginGale(landed: false, wall: wall);
-            _galeCollisionPending = true;
+            _galeCollisionPending = beforeItemUpdate;
             return;
         }
         if (_record.SeedItem == 0x24)
@@ -320,7 +374,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             BeginMystery();
             return;
         }
-        if (_record.SeedItem == 0x21)
+        if (_record.SeedItem is 0x21 or 0x22)
         {
             if (_state == EmberState.Flying)
                 AdvanceAnimation();
@@ -672,6 +726,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 BeginBurning();
                 break;
             case 0x21:
+            case 0x22:
                 BeginDissipating();
                 break;
             case 0x23:

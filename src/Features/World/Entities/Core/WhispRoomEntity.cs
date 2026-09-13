@@ -27,6 +27,14 @@ internal sealed class WhispRoomEntity
                 acceptedHitSound: 0))
     { }
 
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect != 0x1c) return false;
+        // Whisp's JUST_HIT handler ignores $8d and continues normal movement.
+        hook.NotifyObjectCollision();
+        return true;
+    }
+
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>

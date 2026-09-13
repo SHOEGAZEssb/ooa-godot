@@ -288,7 +288,9 @@ internal sealed class EnemyAnimationPlayer
         if (decrement <= 0)
             throw new ArgumentOutOfRangeException(nameof(decrement));
         List<EnemyAnimationPlayerAnimationFrame> animation = _animations[_animationIndex];
-        if (animation.Count <= 1)
+        // enemyAnimate decrements animCounter even when its stream loops to
+        // the same OAM frame. Handlers can observe that counter after a call.
+        if (animation.Count == 0)
             return;
         // Routines such as rope_animate reduce animCounter by three, clamp it
         // at zero, then call enemyAnimate. Crossing a frame boundary discards

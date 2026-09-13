@@ -22,7 +22,7 @@ internal sealed class ArrowMoblinRoomEntity
                 moblin.TakeBurnHit,
                 moblin.ApplySwordKnockback,
                 soundRequested,
-                EnemySwordResponse.Knockback))
+                EnemySwordResponse.Knockback), collisionZ: () => moblin.ZFixed >> 8)
     { }
 
     public void UpdateFrame(

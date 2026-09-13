@@ -29,6 +29,13 @@ internal sealed class HardhatBeetleRoomEntity
     { _fellInHole = fellInHole; }
 
     private readonly Action? _fellInHole;
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect != 0x0d || !Entity.TakeSwitchHookHit(linkPosition)) return false;
+        hook.NotifyObjectCollision();
+        return true;
+    }
+
     public override void HandleLinkContact(Player player)
     {
         if (Entity.Record.Id != 0x5f || player.IsUsingShield && CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))

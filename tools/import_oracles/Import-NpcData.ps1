@@ -2527,9 +2527,6 @@ $dungeonMechanicConstantRows = @(
     "moonlit-crystal-radius-x`t4"
     "moonlit-orb-position`t117"
     "moonlit-orb-mask`t16"
-    "moonlit-orb-collision`t10"
-    "moonlit-orb-radius-y`t4"
-    "moonlit-orb-radius-x`t4"
     "seed-bouncer-background-tile`t$seedBouncerTile"
     "seed-bouncer-tile-collision`t$seedBouncerCollision"
     "seed-bouncer-child-y`t$seedBouncerChildY"
@@ -5369,6 +5366,20 @@ if ($null -eq $room5bfFlippersObject -or
 [void]$npcSpriteNames.Add('spr_dungeon_sprites')
 [void]$npcSpriteNames.Add('spr_common_sprites')
 $room5bfSource = 'mainData.s:group5MapbfObjectData'
+$leverProfiles = [Collections.Generic.List[string]]::new()
+$leverProfiles.Add("# subid`tsprite`ttile-base`tpalette`tanimation`tconnections`tlength`tspeed`tradius-y`tradius-x`tlink-y-offset`tconnection-step`tmove-sound`tfull-sound`tsource")
+if ($room5bfLeverSource -notmatch '(?ms)ld a,\$0c\s+jr z,\+\s+ld a,\$f3' -or
+    $room5bfLeverSource -notmatch '\.db \$00 \$f8 \$f0 \$e8 \$e0') {
+    throw 'INTERAC_LEVER upward Link offset or connection offsets changed.'
+}
+foreach ($direction in 0..1) {
+    $animation = Resolve-NpcAnimation 0x61 $direction
+    if (-not $animation) { throw "Missing INTERAC_LEVER animation $direction." }
+    $subid = (0x30 + $direction).ToString('x2')
+    $offset = if ($direction -eq 0) { '0c' } else { 'f3' }
+    $leverProfiles.Add("$subid`tspr_dungeon_sprites`t0a`t03`t$animation`t$($room5bfConnectionAnimations -join '^')`t40`t0a`t05`t01`t$offset`t10`t71`t6c`tobject_code/ages/interactions/lever.s:interactionCode61")
+}
+Write-GeneratedTable((Join-Path $destination 'objects/dungeon_levers.tsv'), $leverProfiles)
 $room5bfRows = @(
     '# order`tkind`tid`tsubid`ty`tx`tvar03`tsprite`ttile-base`tpalette`tanimation-index`tanimation`tsource',
     "0`tflippers`t6b`t0c`t1c`tb8`t02`tspr_quest_items_5`t04`t05`t02`t$room5bfFlippersAnimation`t$room5bfSource",

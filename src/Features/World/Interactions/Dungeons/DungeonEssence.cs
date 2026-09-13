@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -9,21 +10,30 @@ namespace oracleofages;
 /// the room-event layer owns dialogue, music, flags, and the destination warp.
 /// </summary>
 internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IRoomBlocker
+    IRoomEntity, IFixedRoomEntity, IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
 
     private readonly DungeonObjectRecord _record;
     private readonly DungeonEssenceDefinition _definition;
     private readonly Action<DungeonEssence, Player> _triggered;
-    private readonly OracleRandom _random;
     private readonly bool _collected;
     private readonly EnemyAnimationPlayer _essence;
-    private readonly EnemyAnimationPlayer _pedestal;
-    private readonly EnemyAnimationPlayer _glow;
+    private readonly DungeonInteractionVisual _pedestalVisual;
+    private readonly DungeonInteractionVisual _glowVisual;
+    private readonly OracleRoomData _room;
+    private readonly Func<long> _animationTick;
+    private Action<DungeonEssence> _createChildren = null!;
+    private DungeonEssencePedestal? _pedestal;
+    private DungeonEssenceGlow? _glow;
+    internal bool Initialized { get; private set; }
+    public bool UpdatesDuringDialogue => !Initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !Initialized;
+    internal int DrawZ => _zFixed >> 8;
     private readonly EnemyAnimationPlayer[] _beads = new EnemyAnimationPlayer[8];
-    private readonly int[] _beadDelay = new int[8];
-    private readonly Vector2[] _beadPosition = new Vector2[8];
-    private readonly bool[] _beadVisible = new bool[8];
+    private IReadOnlyList<BlueEnergyBeadRoomEntity> _energyParts = [];
+    private Func<Vector2, IReadOnlyList<BlueEnergyBeadRoomEntity>> _createEnergySwirl = null!;
+    private Action _stopEnergySwirl = null!;
     private Vector2 _precisePosition;
     private Player? _heldBy;
     private MotionState _state;
@@ -32,10 +42,7 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     private int _speedZ;
     private int _delay;
     private bool _swirl;
-    private bool _beadsInitialized;
     private bool _triggerSent;
-    private bool _glowVisible = true;
-    private int _glowFrameIndex;
 
     private static readonly int[] FloatOffsets =
     {
@@ -47,14 +54,15 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     internal bool ReadyForDialogue => _state == MotionState.Held;
     internal bool SwirlActive => _swirl;
     internal bool Collected => _collected;
-    internal bool GlowVisible => _glowVisible;
+    internal bool GlowVisible => _glow is not null && GodotObject.IsInstanceValid(_glow) && _glow.Visible;
     internal int Group => _record.Group;
     internal int Room => _record.Room;
     internal int EssenceIndex => _definition.Index;
     internal string Message => _definition.Message;
     internal Warp ExitWarp => _definition.ExitWarp;
-    internal int GlowFrameIndex => _glow.FrameIndex;
-    internal bool EnergyBeadVisible(int index) => _beadVisible[index];
+    internal int GlowFrameIndex => _glow?.AnimationFrame ?? 0;
+    internal bool EnergyBeadVisible(int index) => _energyParts.Any(bead =>
+        bead.Index == index && GodotObject.IsInstanceValid(bead) && !bead.Finished && bead.Visible);
     internal Texture2D EnergyBeadTexture(int index) =>
         _beads[index].CurrentTexture;
 
@@ -73,65 +81,57 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     {
         _record = record;
         _definition = definition;
-        _random = random;
         _triggered = triggered;
         _collected = collected;
         Name = $"DungeonEssence_{definition.Index}";
         Position = record.Position;
         _precisePosition = Position;
-        ZIndex = 9;
+        ZIndex = NpcCharacter.InFrontOfLinkZIndex; // objectSetVisible81.
+        Visible = false;
         _essence = Load(essence, 0);
-        _pedestal = Load(pedestal, 0);
-        _glow = Load(glow, 0);
+        _pedestalVisual = pedestal; _glowVisual = glow;
+        _room = room; _animationTick = animationTick;
         for (int index = 0; index < _beads.Length; index++)
             _beads[index] = Load(bead, index);
 
-        // interaction7f_subid01 writes $0f to the collision byte at the
-        // pedestal's packed position. The pedestal is created before the
-        // essence checks ROOMFLAG_ITEM, so this remains true after collection.
-        room.SetPositionTileAndCollision(
-            record.Position,
-            room.GetMetatile(record.Position),
-            0x0f,
-            animationTick(),
-            preserveRenderedTile: true);
     }
 
-    public bool BlocksLink(Vector2 linkCenter)
+    public bool BlocksLink(Vector2 linkCenter) => _pedestal?.BlocksLink(linkCenter) == true;
+
+    internal void BindChildren(Action<DungeonEssence> create) => _createChildren = create;
+    internal DungeonEssencePedestal CreatePedestal() =>
+        _pedestal = new(_record.Position, _pedestalVisual, _room, _animationTick);
+    internal DungeonEssenceGlow CreateGlow() => _glow = new(this, _glowVisual);
+    private void InitializeState()
     {
-        Vector2 delta = linkCenter - _record.Position;
-        return Mathf.Abs(delta.X) < 10 && Mathf.Abs(delta.Y) < 6;
+        if (Initialized) return;
+        Initialized = true;
+        _createChildren(this);
+        Visible = !_collected;
+        _zFixed = -0x1000;
     }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    { InitializeState(); return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden; }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        _pedestal.Advance();
+        if (frame.Player.IsDying) return; // interactionCode7f's wLinkDeathTrigger gate.
+        if (!Initialized) { InitializeState(); return; }
         if (_collected)
         {
             QueueRedraw();
             return;
         }
-        _essence.Advance();
-        _glow.Advance();
-        if (_glow.FrameIndex != _glowFrameIndex)
-        {
-            _glowFrameIndex = _glow.FrameIndex;
-            // interaction7f_subid02 consumes a nonzero animation parameter
-            // and flips Object.visible bit 7 once on that frame. The source
-            // animation's two parameter-$01 frames therefore alternate the
-            // glow between visible and hidden without affecting the essence.
-            if (_glow.CurrentParameter != 0)
-                _glowVisible = !_glowVisible;
-        }
 
         switch (_state)
         {
             case MotionState.Waiting:
-                if ((frame.Counter & 3) == 0)
-                {
-                    _floatCounter = (_floatCounter + 1) & 0x0f;
-                    _zFixed = (-16 + FloatOffsets[_floatCounter]) << 8;
-                }
+                // Native state1 returns before both floating and approach
+                // detection on the other three updates.
+                if ((frame.Counter & 3) != 0) break;
+                _floatCounter = (_floatCounter + 1) & 0x0f;
+                _zFixed = (-16 + FloatOffsets[_floatCounter]) << 8;
                 if (!_triggerSent && CanTrigger(frame.Player))
                 {
                     _triggerSent = true;
@@ -146,7 +146,8 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
                     _precisePosition, frame.Player.Position);
                 Position = OracleObjectMovement.Shared.ApplySpeed(
                     ref _precisePosition, 0x14, angle);
-                if ((Position - frame.Player.Position).LengthSquared() <= 16.0f)
+                if (Player.EnemyCollisionOverlaps(frame.Player.Position,
+                    new Rect2(Position - new Vector2(4, 4), new Vector2(8, 8))))
                 {
                     _state = MotionState.Falling;
                     _speedZ = 0;
@@ -156,8 +157,9 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
 
             case MotionState.Falling:
                 if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x08) ||
-                    ((Position - frame.Player.Position).LengthSquared() <= 36.0f &&
-                     _zFixed >= -0x0600))
+                    (Player.EnemyCollisionOverlaps(frame.Player.Position,
+                        new Rect2(Position - new Vector2(6, 4), new Vector2(12, 8))) &&
+                     RoomEntityManager.ObjectCollisionZOverlaps(_zFixed >> 8, frame.Player.EnemyContactZ, 7)))
                 {
                     _delay = 30;
                     _state = MotionState.Delay;
@@ -169,35 +171,34 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
                 {
                     _heldBy = frame.Player;
                     frame.Player.BeginGetItemTwoHandPose();
-                    Position = frame.Player.Position + new Vector2(0, -14);
-                    _precisePosition = Position;
+                    // State4 writes only yh/xh; the moving essence keeps
+                    // its own fractional bytes rather than copying Link's.
+                    _precisePosition = frame.Player.Position.Floor() + new Vector2(0, -14) +
+                        _precisePosition - _precisePosition.Floor();
+                    Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                     _zFixed = 0;
                     _state = MotionState.Held;
                 }
                 break;
 
-            case MotionState.Held when _heldBy is not null:
-                Position = _heldBy.Position + new Vector2(0, -14);
-                _precisePosition = Position;
-                break;
         }
 
-        if (_swirl)
-            UpdateSwirl();
         QueueRedraw();
     }
+
+    internal void BindEnergySwirl(Func<Vector2, IReadOnlyList<BlueEnergyBeadRoomEntity>> create, Action stop)
+    { _createEnergySwirl = create; _stopEnergySwirl = stop; }
 
     internal void StartEnergySwirl()
     {
         _swirl = true;
-        _beadsInitialized = false;
-        Array.Fill(_beadVisible, false);
-        Array.Fill(_beadDelay, 0);
+        _energyParts = _createEnergySwirl(Position);
         QueueRedraw();
     }
 
     internal void StopEnergySwirl()
     {
+        if (_swirl) _stopEnergySwirl();
         _swirl = false;
         QueueRedraw();
     }
@@ -214,29 +215,13 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     public override void _Draw()
     {
         Vector2 transition = TransitionDrawOffset;
-        Vector2 pedestalOffset = _record.Position - Position + new Vector2(-16, -16);
-        DrawTexture(_pedestal.CurrentTexture, pedestalOffset + transition);
-
-        if (_collected)
+        if (_collected || !Initialized)
             return;
 
         int z = _zFixed >> 8;
         Vector2 itemOffset = new Vector2(-16, -16 + z) + transition;
-        if (_glowVisible)
-            DrawTexture(_glow.CurrentTexture, itemOffset);
         DrawTexture(_essence.CurrentTexture, itemOffset);
 
-        if (!_swirl)
-            return;
-        for (int index = 0; index < _beads.Length; index++)
-        {
-            if (!_beadVisible[index])
-                continue;
-            DrawTexture(
-                _beads[index].CurrentTexture,
-                OracleObjectMath.ToPixelPosition(_beadPosition[index]) +
-                new Vector2(-16, -16) + transition);
-        }
     }
 
     private EnemyAnimationPlayer Load(
@@ -261,47 +246,13 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
         {
             return false;
         }
-        Vector2 delta = player.Position - Position;
-        return delta.Y >= 0 && Mathf.Abs(delta.X) < 4 && delta.Length() < 20;
+        Vector2 delta = player.Position.Floor() - Position.Floor();
+        // objectCheckCenteredWithLink includes +/-4. The distance helper
+        // uses Manhattan distance, with ties selecting the horizontal axis.
+        float x = Mathf.Abs(delta.X);
+        return delta.Y > x && x <= 4 && delta.Y + x < 20;
     }
 
-    private void UpdateSwirl()
-    {
-        // createEnergySwirlGoingIn allocates eight ascending part slots while
-        // assigning indices $07 down through $00. Parts therefore consume
-        // their shared RNG delays in descending index order every update.
-        if (!_beadsInitialized)
-        {
-            for (int index = _beads.Length - 1; index >= 0; index--)
-                _beadDelay[index] = (_random.Next().Value & 0x07) + 1;
-            _beadsInitialized = true;
-        }
-
-        for (int index = _beads.Length - 1; index >= 0; index--)
-        {
-            if (!_beadVisible[index])
-            {
-                _beadDelay[index]--;
-                if (_beadDelay[index] != 0)
-                    continue;
-
-                _beadVisible[index] = true;
-                _beadPosition[index] =
-                    OracleObjectMovement.Shared.Direction(index * 4) * 56.0f;
-                _beads[index].SetAnimation(index);
-                continue;
-            }
-
-            _beadPosition[index] += OracleObjectMovement.Shared.Delta(
-                0x78, (index * 4) ^ 0x10);
-            _beads[index].Advance();
-            if (_beads[index].CurrentParameter == 0xff)
-            {
-                _beadVisible[index] = false;
-                _beadDelay[index] = (_random.Next().Value & 0x07) + 1;
-            }
-        }
-    }
 }
 
 internal enum MotionState

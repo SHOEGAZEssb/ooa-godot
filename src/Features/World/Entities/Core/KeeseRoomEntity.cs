@@ -29,4 +29,12 @@ internal sealed class KeeseRoomEntity
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Counter);
+
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect != 0x08 || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        hook.NotifyObjectCollision();
+        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        return true;
+    }
 }

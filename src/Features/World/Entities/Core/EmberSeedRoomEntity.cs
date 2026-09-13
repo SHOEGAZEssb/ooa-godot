@@ -12,10 +12,13 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
     public bool CollisionEnabled => Entity.CollisionEnabled;
     public int CollisionZ => Entity.CollisionZ;
     public int SeedItem => Entity.SeedItem;
+    public SeedRecord Record => Entity.Record;
+    public int CollisionType => Entity.CollisionType;
     internal SeedLaunchKind LaunchKind => Entity.LaunchKind;
     internal bool IsFlamePart => Entity.State == EmberState.Burning;
     public Vector2? ScentTarget => Entity.ScentTarget;
     public Rect2 CollisionBounds => Entity.CollisionBounds;
+    public void QueueNativeCollision(SeedCollisionResponse response) => Entity.QueueNativeCollision(response);
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         Entity.GalePlayer = frame.Player;
@@ -25,6 +28,6 @@ internal sealed class EmberSeedRoomEntity(EmberSeedEffect seed)
         SeedHitResult result,
         ISeedBurnTarget? burnTarget,
         ISeedBounceTarget? bounceTarget,
-        ICollection<RoomEntitySpawn> spawns) =>
-        Entity.OnCollision(result, burnTarget, bounceTarget, spawns);
+        ICollection<RoomEntitySpawn> spawns, bool beforeItemUpdate) =>
+        Entity.OnCollision(result, burnTarget, bounceTarget, spawns, beforeItemUpdate);
 }

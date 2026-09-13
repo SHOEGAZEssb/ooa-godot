@@ -4,41 +4,49 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// ENEMY_MOLDORM $4f:$00. One placed spawner becomes an uncounted head and
-/// two non-colliding tail segments. The runtime keeps the three source
-/// objects under one room-count owner while preserving the head's exact 8.8
-/// movement and each tail's independent eight-update displacement buffer.
+/// ENEMY_MOLDORM $4f:$01 head. Its two linked tails have their own ENEMY slots.
 /// </summary>
 internal partial class MoldormCharacter : EnemyCharacter
 {
-    private const int TailCount = 2;
-
     private readonly MoldormBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Moldorm;
-    private readonly byte[,] _tailOffsets = new byte[TailCount, 8];
-    private readonly int[] _tailOffsetIndices = new int[TailCount];
-    private readonly byte[] _tailLastParentY = new byte[TailCount];
-    private readonly byte[] _tailLastParentX = new byte[TailCount];
-    private readonly byte[] _tailY = new byte[TailCount];
-    private readonly byte[] _tailX = new byte[TailCount];
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
-    private EnemyAnimationPlayer _tail1Animation = null!;
-    private EnemyAnimationPlayer _tail2Animation = null!;
     private Vector2 _preciseHeadPosition;
-    private bool _initialized;
+    internal int State { get; private set; }
     private int _turnCounter;
     private int _angle;
     private int _angularSpeed;
+    private bool _justHit;
+    internal MoldormTailCharacter? Tail1 { get; set; }
+    internal MoldormTailCharacter? Tail2 { get; set; }
+    internal Action<MoldormCharacter>? KillRelatedParts { get; set; }
+    internal int NativeSlot { get; private set; } = -1;
+    internal int Tail1Slot { get; set; } = -1;
+    internal int Tail2Slot { get; set; } = -1;
+    private Func<int, IRoomEntity?>? _resolveSlot;
+
+    internal void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve)
+    {
+        NativeSlot = slot; _resolveSlot = resolve;
+    }
+
+    private void CopyTailInvincibility(int slot, MoldormTailCharacter? standaloneTail)
+    {
+        var target = slot >= 0 ? _resolveSlot?.Invoke(slot)?.Node : standaloneTail;
+        if (target is EnemyCharacter enemy) enemy.InvincibilityCounter = InvincibilityCounter;
+        else if (target is not null)
+            throw new NotSupportedException($"Moldorm $4f JUST_HIT writes invincibility to reused ENEMY slot ${slot:x2} ({target.GetType().Name}), which has no enemy damage owner.");
+    }
 
     internal ImportedEnemyDefinition Record { get; private set; }
-    internal bool Initialized => _initialized;
+    internal bool Initialized => State >= 8;
     internal int TurnCounter => _turnCounter;
     internal int Angle => _angle;
     internal int AngularSpeed => _angularSpeed;
     internal int SpeedRaw => _behavior.SpeedRaw;
-    internal Vector2 Tail1Position => TailPosition(0);
-    internal Vector2 Tail2Position => TailPosition(1);
+    internal Vector2 Tail1Position => Tail1?.Position ?? Position;
+    internal Vector2 Tail2Position => Tail2?.Position ?? Position;
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -63,7 +71,7 @@ internal partial class MoldormCharacter : EnemyCharacter
         _room = room;
         _random = random;
         _preciseHeadPosition = position;
-        _initialized = false;
+        State = 0;
         _turnCounter = 0;
         _angle = 0;
         _angularSpeed = _behavior.InitialAngularSpeed;
@@ -71,15 +79,14 @@ internal partial class MoldormCharacter : EnemyCharacter
         EnemyCharacterConfiguration configuration =
             EnemyCharacterConfiguration.FromImported(record);
         InitializeEnemy(position, configuration);
-        _tail1Animation = LoadTailAnimation(configuration, 8);
-        _tail2Animation = LoadTailAnimation(configuration, 9);
         Visible = false;
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true,
             precisePosition: () => _preciseHeadPosition,
-            setPrecisePosition: SetPreciseHeadPosition);
+            setPrecisePosition: SetPreciseHeadPosition,
+            knockbackHoleAnimation: true);
         ConfigureHazards(room, animateWhileFallingInHole: false);
     }
 
@@ -87,17 +94,39 @@ internal partial class MoldormCharacter : EnemyCharacter
     {
         if (IsDead)
             return;
-        if (!_initialized)
+        if (ContinueHazard() || CheckHazards())
+        {
+            _justHit = false;
+            return;
+        }
+
+        if (State == 0)
         {
             PrepareForScreenTransition();
             return;
         }
-        if (CheckHazards())
+
+        if (_justHit)
+        {
+            _justHit = false;
+            // updateEnemies advances invincibility AFTER enemyCode4f.
+            // Later tails receive this byte before their own post-update tick.
+            CopyTailInvincibility(Tail1Slot, Tail1);
+            CopyTailInvincibility(Tail2Slot, Tail2);
+            AdvanceInvincibilityCounter();
             return;
+        }
 
         if (BeginFrame())
+            return;
+
+        if (State == 8)
         {
-            UpdateTails();
+            State = 9;
+            _turnCounter = _behavior.TurnCounterFrames;
+            _angle = _random.Next().Value & _behavior.AngleMask;
+            _angularSpeed = _behavior.InitialAngularSpeed;
+            UpdateHeadAnimation();
             return;
         }
 
@@ -123,97 +152,46 @@ internal partial class MoldormCharacter : EnemyCharacter
             ref _preciseHeadPosition,
             _behavior.SpeedRaw,
             _angle);
-        UpdateTails();
         QueueRedraw();
     }
 
     internal ScreenTransitionPresentation PrepareForScreenTransition()
     {
-        if (_initialized)
+        if (State != 0)
             return ScreenTransitionPresentation.Visible;
-
-        _initialized = true;
-        _turnCounter = _behavior.TurnCounterFrames;
-        _angle = _random.Next().Value & _behavior.AngleMask;
-        _angularSpeed = _behavior.InitialAngularSpeed;
-        InitializeTails();
-        UpdateHeadAnimation();
+        _random.Next(); // enemyStandardUpdate var3d; main state8 waits for the next ENEMY update.
+        State = 8;
+        RestartAnimation(0);
         Visible = true;
         QueueRedraw();
         return ScreenTransitionPresentation.Visible;
     }
 
-    public override void _Draw()
+    internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
     {
-        if (!DrawsAnimation)
-            return;
-
-        DrawTail(_tail2Animation, 1);
-        DrawTail(_tail1Animation, 0);
-        DrawCurrentAnimation();
+        if (!TakeSwordHit(linkPosition, damage)) return false;
+        ApplySwordKnockback(linkPosition, EnemyKnockbackStrength.Low);
+        return true;
     }
 
-    private EnemyAnimationPlayer LoadTailAnimation(
-        EnemyCharacterConfiguration configuration,
-        int animation)
+    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        var player = new EnemyAnimationPlayer(
-            this, configuration.Animations.Count);
-        player.Load(
-            configuration.Source,
-            configuration.Animations,
-            configuration.TileBase,
-            configuration.Palette,
-            configuration.DamagePalette,
-            sourceGrayscaleInverted:
-                configuration.SourceGrayscaleInverted);
-        player.SetAnimation(animation);
-        return player;
+        if (!base.TakeSwordHit(sourcePosition, damage)) return false;
+        _justHit = true;
+        return true;
     }
 
-    private void InitializeTails()
+    internal override bool TryApplyShieldBump(Rect2 hitbox, Vector2 sourcePosition, EnemyKnockbackStrength strength)
     {
-        byte y = HighY(Position);
-        byte x = HighX(Position);
-        for (int tail = 0; tail < TailCount; tail++)
-        {
-            _tailOffsetIndices[tail] = 0;
-            _tailLastParentY[tail] = y;
-            _tailLastParentX[tail] = x;
-            _tailY[tail] = y;
-            _tailX[tail] = x;
-            for (int frame = 0; frame < _behavior.TailDelayFrames; frame++)
-                _tailOffsets[tail, frame] = (byte)_behavior.NeutralTailDelta;
-        }
+        if (!base.TryApplyShieldBump(hitbox, sourcePosition, strength)) return false;
+        _justHit = true;
+        return true;
     }
 
-    private void UpdateTails()
+    protected override void CompleteKnockbackDeath()
     {
-        UpdateTail(0, HighY(Position), HighX(Position));
-        UpdateTail(1, _tailY[0], _tailX[0]);
-        QueueRedraw();
-    }
-
-    private void UpdateTail(int tail, byte parentY, byte parentX)
-    {
-        byte yDelta = unchecked((byte)(
-            parentY - _tailLastParentY[tail] + 8));
-        byte xDelta = unchecked((byte)(
-            parentX - _tailLastParentX[tail] + 8));
-        byte packedDelta = (byte)((yDelta << 4) | xDelta);
-        _tailLastParentY[tail] = parentY;
-        _tailLastParentX[tail] = parentX;
-
-        int index = _tailOffsetIndices[tail];
-        _tailOffsets[tail, index] = packedDelta;
-        index = (index + 1) & (_behavior.TailDelayFrames - 1);
-        _tailOffsetIndices[tail] = index;
-
-        byte delayed = _tailOffsets[tail, index];
-        int delayedY = ((delayed >> 4) & 0x0f) - 8;
-        int delayedX = (delayed & 0x0f) - 8;
-        _tailY[tail] = unchecked((byte)(_tailY[tail] + delayedY));
-        _tailX[tail] = unchecked((byte)(_tailX[tail] + delayedX));
+        KillRelatedParts?.Invoke(this); // Clean-US moldorm.s intentionally targets PART slots, not its tails.
+        base.CompleteKnockbackDeath();
     }
 
     private void UpdateHeadAnimation() =>
@@ -234,32 +212,4 @@ internal partial class MoldormCharacter : EnemyCharacter
         QueueRedraw();
     }
 
-    private void DrawTail(EnemyAnimationPlayer animation, int tail)
-    {
-        Texture2D texture = DrawsDamagePalette
-            ? animation.DamageTexture
-            : animation.CurrentTexture;
-        DrawTexture(
-            texture,
-            animation.CurrentOffset + TailDrawOffset(tail) +
-                TransitionDrawOffset);
-    }
-
-    private Vector2 TailDrawOffset(int tail)
-    {
-        byte headY = HighY(Position);
-        byte headX = HighX(Position);
-        int y = unchecked((sbyte)(byte)(_tailY[tail] - headY));
-        int x = unchecked((sbyte)(byte)(_tailX[tail] - headX));
-        return new Vector2(x, y);
-    }
-
-    private Vector2 TailPosition(int tail) => new(
-        _tailX[tail], _tailY[tail]);
-
-    private static byte HighY(Vector2 position) =>
-        OracleObjectPosition.HighByte(position.Y);
-
-    private static byte HighX(Vector2 position) =>
-        OracleObjectPosition.HighByte(position.X);
 }

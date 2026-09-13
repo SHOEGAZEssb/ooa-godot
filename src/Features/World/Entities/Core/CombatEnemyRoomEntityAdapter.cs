@@ -14,12 +14,13 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
-        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget
+        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget, ISwitchHookHittableRoomEntity
     where T : EnemyCharacter
 {
     private bool _seedBurning;
     private bool _completedOutcomeTaken;
     private readonly GaleSeedEnemyMotion _gale = new(entity);
+    private bool _nativeGaleHitPending;
     public bool GaleCaught => _gale.Active;
     protected virtual int GaleCollisionMode => DimitriCollisionMode;
 
@@ -36,12 +37,49 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         return true;
     }
 
-    public void UpdateGale(int cameraY) => _gale.Update(cameraY);
+    protected void BeginNativeGale(Vector2 position, Func<byte> random)
+    {
+        _gale.Begin(position, CollisionZ, random);
+        // collisionEffect29 writes var2a=$9e. Native Gibdo/Fire Keese return
+        // from that JUST_HIT dispatch before their state5 handler can run.
+        _nativeGaleHitPending = true;
+    }
+    public void UpdateGale(int cameraY)
+    {
+        if (_nativeGaleHitPending) { _nativeGaleHitPending = false; return; }
+        _gale.Update(cameraY);
+    }
 
     public bool Finished => combatDescriptor.Combat.Finished;
+    public virtual bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
+    {
+        var collisions = SwitchHookCollisionDatabase.Shared;
+        if (!collisions.EnemyEnabled(DimitriCollisionType)) return false;
+        if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) ||
+            !combatDescriptor.Combat.Intersects(hook.CollisionBounds)) return false;
+        int effect = collisions.Effect(DimitriCollisionMode);
+        // Even a no-op collision returns out of this enemy's collision scan,
+        // so Link contact is skipped for this enemy while later enemies run.
+        if (effect == 0) return true;
+        if (effect == 0x2e && Entity.Health > 0 && Entity is ISwitchHookEnemy target)
+        {
+            target.BeginSwitchHook(linkPosition);
+            hook.LatchEnemy(target);
+            return true;
+        }
+        if (TryApplySwitchHookEffect(effect, hook, linkPosition)) return true;
+        throw new NotSupportedException($"Switch Hook collision for enemy ${combatDescriptor.Source?.Id:x2}:${combatDescriptor.Source?.SubId:x2} " +
+            $"({combatDescriptor.Source?.Source}), effect ${effect:x2}, is not implemented; " +
+            "data/ages/objectCollisionTable.s:ITEMCOLLISION_SWITCH_HOOK $0d / object_code/common/items/switchHook.s:state3.");
+    }
+    protected virtual bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition) => false;
     public bool CountsAsEnemy =>
         combatDescriptor.CountsAsEnemy &&
-        !combatDescriptor.Combat.Finished;
+        // enemyDie transfers its count to PART_ENEMY_DESTROYED. Preserve
+        // that count until OnFinished installs the replacement; interactions
+        // later in this update must not observe a temporary cleared room.
+        (!combatDescriptor.Combat.Finished || Entity.HasCompletedKnockbackDeath);
     public bool IsSeedBurning => _seedBurning;
     public virtual bool FreezesDuringSeedBurn => true;
     public Vector2 SeedBurnPosition => Entity.Position;
@@ -225,6 +263,7 @@ internal enum SeedHitResult
     None,
     Ignite,
     Activate,
+    ActivateRandomSeed,
     Consume,
     Bounce
 }

@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                 {
                     orb.ApplySwordHit(orb.CollisionBounds, orb.Position, 1,
                         EnemyKnockbackStrength.Normal, spawns);
-                    FailIf(orb.IsOn, "Room 2:9e second orb hit did not switch it off.");
+                    FailIf(!orb.IsOn || !orb.PendingHit, "Room2:9e's second hit must remain pending until the next PART update.");
                 }
             }
             FailIf(_entities.Entities<BridgeSpawnerRoomEntity>().Count != 0 ||

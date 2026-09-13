@@ -3,15 +3,17 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_DUNGEON_EVENTS $21:$01/$05.</summary>
+/// <summary>INTERAC_DUNGEON_EVENTS $21:$01/$05/$10.</summary>
 internal sealed partial class DungeonPatternKeyRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
     private readonly int _firstTile;
     private readonly IReadOnlyList<byte>[] _patterns;
     private readonly GroundTreasureGrantRequest _request;
+    private readonly OracleSaveData? _saveData;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -21,19 +23,23 @@ internal sealed partial class DungeonPatternKeyRoomEntity : Node2D,
         OracleRoomData room,
         int firstTile,
         IReadOnlyList<byte>[] patterns,
-        GroundTreasureGrantRequest request)
+        GroundTreasureGrantRequest request,
+        OracleSaveData? saveData)
     {
         _record = record;
         _room = room;
         _firstTile = firstTile;
         _patterns = patterns;
         _request = request;
+        _saveData = saveData;
         Name = $"DungeonPatternKey_{record.Group}_{record.Room:x2}";
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (Finished || !PatternMatches())
+        if (_saveData?.HasRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlagItem) == true)
+            Finished = true;
+        if (Finished || !DungeonTilePattern.Matches(_room, _firstTile, _patterns))
             return;
         spawns.Add(new GroundTreasureGrantSpawn(_request));
         Finished = true;
@@ -41,20 +47,4 @@ internal sealed partial class DungeonPatternKeyRoomEntity : Node2D,
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
-    private bool PatternMatches()
-    {
-        for (int color = 0; color < 3; color++)
-        {
-            IReadOnlyList<byte> positions = _patterns[color];
-            foreach (byte position in positions)
-            {
-                Vector2 point = new(
-                    (position & 0x0f) * 16 + 8,
-                    (position >> 4) * 16 + 8);
-                if (_room.GetMetatile(point) != _firstTile + color)
-                    return false;
-            }
-        }
-        return true;
-    }
 }

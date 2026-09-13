@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Shared imported definitions for implemented dungeon bosses and minibosses.
+/// Shared imported definitions for dungeon bosses and minibosses.
 /// Species records are keyed by enemy ID/subid, independent of the first
 /// dungeon route that made them playable.
 /// </summary>
@@ -126,7 +126,10 @@ internal sealed class DungeonBossDatabase
 
     private void ValidateContract()
     {
-        if (_enemies.Count != 8 ||
+        if (_enemies.Count != 18 ||
+            Enemy(0x7b, 0) is not { Health: 20, RadiusY: 6, RadiusX: 6, DamageQuarters: 4, Animations.Length: 2 } ||
+            Enemy(0x7b, 1) is not { Health: 20, Sprites.Length: 1 } ||
+            Enemy(0x11, 0) is not { Health: 4, RadiusY: 4, RadiusX: 4, DamageQuarters: 1, Animations.Length: 1 } ||
             Enemy(0x3f) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
             Enemy(0x42) is not
@@ -136,6 +139,10 @@ internal sealed class DungeonBossDatabase
             Enemy(0x71).Sprites is not ["spr_swoop", "spr_pound"] ||
             Enemy(0x72) is not
                 { Health: 20, DamageQuarters: 2, Sprites.Length: 3 } ||
+            Enemy(0x73, 0) is not { Health: 10, Sprites.Length: 3 } ||
+            Enemy(0x73, 1) is not { Health: 10, Palette: 1, Animations.Length: 12 } ||
+            Enemy(0x73, 2) is not { Health: 3, Palette: 2, RadiusY: 12, RadiusX: 6 } ||
+            Enemy(0x73, 3) is not { Health: 127, Palette: 3, RadiusY: 0, RadiusX: 0 } ||
             Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
             Enemy(0x79).Sprites.Length != 3 ||
             Enemy(0x7a) is not

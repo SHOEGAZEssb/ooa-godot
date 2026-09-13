@@ -394,35 +394,11 @@ Write-GeneratedTable(
     $platformRows)
 foreach ($obsoleteDungeonAsset in @(
     'objects\wing_dungeon_constants.tsv',
-    'objects\wing_dungeon_side_platforms.tsv'
+    'objects\wing_dungeon_side_platforms.tsv',
+    'objects\wing_dungeon_minecarts.tsv'
 )) {
     [IO.File]::Delete((Join-Path $destination $obsoleteDungeonAsset))
 }
-
-$staticDungeonSource = Read-ImportText (
-    Join-Path $Disassembly 'data\ages\staticDungeonObjects.s')
-$dungeon2Static = [regex]::Match(
-    $staticDungeonSource,
-    '(?ms)^dungeon2StaticObjects:\s*(?<body>.*?)(?=^dungeon[0-9a-f]+StaticObjects:|\z)')
-if (-not $dungeon2Static.Success) {
-    throw 'Wing Dungeon static-object list is missing.'
-}
-$minecartMatches = [regex]::Matches(
-    $dungeon2Static.Groups['body'].Value,
-    '(?m)^\s*\.db \$03,\s*\$(?<room>[0-9a-f]{2}),\s*INTERAC_MINECART,\s*\$00,\s*\$(?<y>[0-9a-f]{2}),\s*\$(?<x>[0-9a-f]{2})')
-if ($minecartMatches.Count -ne 3) {
-    throw "Wing Dungeon must retain three static minecarts; found $($minecartMatches.Count)."
-}
-$minecartRows = [Collections.Generic.List[string]]::new()
-$minecartRows.Add("# slot`troom`ty`tx`tsource")
-for ($slot = 0; $slot -lt $minecartMatches.Count; $slot++) {
-    $match = $minecartMatches[$slot]
-    $minecartRows.Add(
-        "$slot`t$($match.Groups['room'].Value)`t$($match.Groups['y'].Value)`t$($match.Groups['x'].Value)`tstaticDungeonObjects.s:dungeon2StaticObjects")
-}
-Write-GeneratedTable(
-    (Join-Path $destination 'objects\wing_dungeon_minecarts.tsv'),
-    $minecartRows)
 
 $patternRows = [Collections.Generic.List[string]]::new()
 $patternRows.Add("# kind`tcolor`tpositions")

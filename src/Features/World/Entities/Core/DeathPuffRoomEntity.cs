@@ -14,9 +14,16 @@ internal sealed class DeathPuffRoomEntity(
     bool dropsItem = true)
     : RoomEntityAdapter<EnemyDeathPuffEffect>(puff, puff.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
-        IRoomEnemyOutcomeSource
+        IRoomEnemyOutcomeSource, IRoomPartReplacementSource,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+        INativePartHealthRoomEntity
 {
     private bool _outcomeTaken;
+    private bool _replacementTaken;
+    public bool UpdatesDuringDialogue => Entity.ElapsedFrames == 0;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.ElapsedFrames == 0;
+    // partCode02 ignores its own health/status and has no collision enabled.
+    public void ClearHealthAndCollision() { }
 
     public bool Finished => Entity.Finished;
     public bool CountsAsEnemy => decrementsRoomCount && !Entity.Finished;
@@ -37,12 +44,17 @@ internal sealed class DeathPuffRoomEntity(
         return true;
     }
 
-    public void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    public bool TryTakePartReplacement(out RoomEntitySpawn replacement)
     {
-        if (!dropsItem) return;
+        replacement = null!;
+        if (!Finished || _replacementTaken) return false;
+        _replacementTaken = true;
+        if (!dropsItem) return false;
         int? subId = itemDrops.DecideDrop(
             Entity.EnemyId, random, inventory, saveData);
-        if (subId.HasValue)
-            spawns.Add(new ItemDropSpawn(subId.Value, Entity.Position));
+        if (!subId.HasValue) return false;
+        // objectReplaceWithID preserves only the high coordinate bytes.
+        replacement = new ItemDropSpawn(subId.Value, Entity.Position.Floor());
+        return true;
     }
 }

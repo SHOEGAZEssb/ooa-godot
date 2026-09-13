@@ -212,7 +212,7 @@ public sealed partial class ValidationRoot
             moblin.KnockbackCounter != 0 || moblin.Health != moblinHealth,
             "$1d blocked hit must write part -11 invincibility and Link recoil8 before transferring anything to $4a.");
         base._Process(1.0 / 60.0);
-        FailIf(moblin.KnockbackCounter != 9 || moblin.InvincibilityCounter != -11 || blade.InvincibilityCounter != -10,
+        FailIf(moblin.KnockbackCounter != 9 || moblin.InvincibilityCounter != -10 || blade.InvincibilityCounter != -10,
             "$1d did not copy ENEMYDMG_$4c to its parent in the part pass after the enemy update.");
         base._Process(1.0 / 60.0);
         FailIf(moblin.KnockbackCounter != 8 || !moblin.SwordBlocking || !blade.CollisionEnabled,

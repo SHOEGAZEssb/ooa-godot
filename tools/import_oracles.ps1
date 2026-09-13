@@ -244,6 +244,14 @@ $stageContracts = @(
             'Get-EnemySpriteSourceGrayscaleInverted', 'Read-PaletteBytes', 'Resolve-Oam')
     New-ImportStageContract 'wing-dungeon' 'Import-WingDungeon.ps1' `
         -inputs @('allTexts', 'mainObjectSource')
+    New-ImportStageContract 'skull-dungeon' 'Import-SkullDungeon.ps1' `
+        -inputs @('mainObjectSource', 'allTexts', 'allTextPositions')
+    New-ImportStageContract 'moving-platforms' 'Import-MovingPlatforms.ps1'
+    New-ImportStageContract 'static-dungeon-objects' 'Import-StaticDungeonObjects.ps1'
+    New-ImportStageContract 'part-switch' 'Import-PartSwitch.ps1'
+    New-ImportStageContract 'armos-warrior' 'Import-ArmosWarrior.ps1' `
+        -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'eyesoar' 'Import-Eyesoar.ps1'
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionOutputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `

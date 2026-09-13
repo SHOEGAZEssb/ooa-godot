@@ -20,11 +20,44 @@ internal sealed class ColorChangingGelRoomEntity
                 gel.Record.DamageQuarters,
                 gel.TakeSwordHit,
                 gel.TakeBurnHit,
-                gel.ApplySwordNoKnockback,
+                (_, _) => { },
                 soundRequested,
-                EnemySwordResponse.NoKnockback),
+                EnemySwordResponse.NoKnockback, acceptedHitSound: 0),
             collisionZ: () => gel.ZHigh)
     { }
+
+    public override int DimitriCollisionMode => Entity.CollisionMode;
+
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect is not (0x1c or 0x0b) || !Entity.TakeSwitchHookHit(hook.HitDamage)) return false;
+        hook.NotifyObjectCollision();
+        return true;
+    }
+
+    public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 sourcePosition,
+        int seedItem, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!CombatDescriptor.Combat.Intersects(hitbox)) return SeedHitResult.None;
+        if (seedItem == 0x24)
+            return Entity.TakeMysterySeedHit() ? SeedHitResult.Activate : SeedHitResult.None;
+        if (seedItem == 0x21)
+            return Entity.TakeSeedHit(0x1c, 2) ? SeedHitResult.Activate : SeedHitResult.None;
+        // Matching-color seeds use effect20/ENEMYDMG44. They activate their
+        // own effect without igniting, stunning or damaging the Gel.
+        if (Entity.CollisionMode == EnemyBehaviorTables.Shared.ColorChangingGel.ImmuneCollisionMode &&
+            seedItem is >= 0x20 and <= 0x23)
+            return Entity.TakeSeedHit(seedItem - 0x20 + 0x1b, 0) ? SeedHitResult.Activate : SeedHitResult.None;
+        return base.ApplySeedHit(hitbox, sourcePosition, seedItem, spawns);
+    }
+
+    public override void OnFinished(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (Entity.NormalDeathDispatched && !Entity.DiedInHazard && !GaleCaught &&
+            CombatDescriptor.Combat.CreateDeathPuff() is { } puff)
+            spawns.Add(puff with { DecrementsRoomCount = CombatDescriptor.CountsAsEnemy });
+        base.OnFinished(spawns);
+    }
 
     public void UpdateFrame(
         RoomEntityFrame frame,

@@ -77,6 +77,18 @@ internal sealed class OracleObjectMovement
     /// </summary>
     internal Vector2 Direction(int angle) => Delta(0x28, angle);
 
+    /// <summary>
+    /// objectSetPositionInCircleArc uses the wrapping high bytes of the
+    /// SPEED_100 vector multiplied by an unsigned distance byte.
+    /// </summary>
+    internal Vector2I CircleArcOffset(int distance, int angle)
+    {
+        if (distance is < 0 or > 255) throw new ArgumentOutOfRangeException(nameof(distance));
+        OracleObjectVelocity velocity = Velocity(0x28, angle);
+        return new(unchecked((sbyte)((velocity.XFixed * distance) >> 8)),
+            unchecked((sbyte)((velocity.YFixed * distance) >> 8)));
+    }
+
     internal OracleObjectPosition PositionFromPixels(Vector2 position) =>
         OracleObjectPosition.FromPixels(position);
 

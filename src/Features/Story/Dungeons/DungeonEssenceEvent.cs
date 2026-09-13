@@ -69,8 +69,14 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             case DungeonEssenceEventPhase.Dialogue:
                 if (_context.DialogueOpen)
                     return;
+                // Native state5 only installs the script and clears its
+                // counters. State6 starts executing it on the next update.
+                _counter = 0;
+                _phase = DungeonEssenceEventPhase.StartingScript;
+                return;
+
+            case DungeonEssenceEventPhase.StartingScript:
                 _context.Sound.PlaySound(OracleSoundEngine.MusEssence);
-                _context.Sound.PlaySound(OracleSoundEngine.SndEnergyThing);
                 _essence?.StartEnergySwirl();
                 _counter = 360;
                 _phase = DungeonEssenceEventPhase.Swirl;
@@ -96,7 +102,8 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                     return;
                 }
                 _essence?.StopEnergySwirl();
-                _counter = 30;
+                // state6 falls through state7 after scriptend:30 ->29 now.
+                _counter = 29;
                 _phase = DungeonEssenceEventPhase.WarpDelay;
                 return;
 
@@ -149,6 +156,7 @@ internal enum DungeonEssenceEventPhase
     Inactive,
     AwaitingHeldPose,
     Dialogue,
+    StartingScript,
     Swirl,
     FadeCadence,
     WarpDelay

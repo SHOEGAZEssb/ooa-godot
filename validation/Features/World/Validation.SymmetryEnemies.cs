@@ -74,12 +74,13 @@ public partial class ValidationRoot
             var predictor = new OracleRandom();
             var enemy = new ArrowDarknutCharacter();
             enemy.Initialize(database.ImportedEnemy(0x21, subid), room, new Vector2(0x88, 0x18), random);
+            predictor.Next(); // bank0.s:enemyStandardUpdate initializes var3d.
             int angle = predictor.NextCardinalAngle();
             int counter = 0x30 + (predictor.Next().Value & 0x3f);
             Vector2 target = new(0, enemy.Position.Y);
             enemy.UpdateFrame(target, target);
-            FailIf(enemy.State != ArrowMoblinState.Moving || enemy.Angle != angle || enemy.Counter != counter || random.Calls != 2,
-                $"Arrow Darknut $21:${subid:x2} lost its two-call initialization or followed scent.");
+            FailIf(enemy.State != ArrowMoblinState.Moving || enemy.Angle != angle || enemy.Counter != counter || random.Calls != 3,
+                $"Arrow Darknut $21:${subid:x2} lost its var3d/direction/duration initialization or followed scent.");
             bool sawHoming = false, sawRandom = false, sawRetainedAnimation = false;
             for (int cycle = 1; cycle <= 24; cycle++)
             {
@@ -227,8 +228,8 @@ public partial class ValidationRoot
             _inventory, _saveData, decrementsRoomCount: true, dropsItem: false);
         spawns.Clear();
         for (int i = 0; i < puff.DurationFrames; i++) puff.UpdateFrame(i);
-        puffAdapter.OnFinished(spawns);
-        FailIf(!puff.Finished || dropRandom.Calls != 0 || spawns.Count != 0 ||
+        bool replaced = puffAdapter.TryTakePartReplacement(out _);
+        FailIf(!puff.Finished || dropRandom.Calls != 0 || replaced ||
             !puffAdapter.TryTakeEnemyOutcome(out var puffOutcome) || !puffOutcome.DecrementsRoomCount,
             "No-drop death puff consumed drop RNG, spawned an item, or lost its delayed room-count decrement.");
         puff.Free();

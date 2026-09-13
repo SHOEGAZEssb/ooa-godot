@@ -585,6 +585,7 @@ public partial class GameRoot : Node2D
             _roomEvents.UpdateFrame();
             _interactions.Update(delta, _player);
         }
+        _entities.SwitchHook?.UpdatePost(_player);
         // The source screen-transition handler follows updateAllObjects.
         // In particular, the final scroll update still freezes destination
         // entities and room events; ordinary updates resume next tick.
@@ -595,6 +596,7 @@ public partial class GameRoot : Node2D
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
+        if (!IsTransitioning) _entities.ResolvePostObjectCollisions(_player);
         UpdateRoomDebugLabel();
         _debugWarps.Update();
     }
@@ -797,6 +799,8 @@ public partial class GameRoot : Node2D
         _seedSatchel = new SeedSatchelController(
             _inventory, _entities, new SeedSatchelDatabase(), _rooms,
             _sound.PlaySound);
+        _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
+            () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
         _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;

@@ -5,14 +5,18 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed partial class ColoredCubeFlameRoomEntity : DungeonInteractionVisualEntity,
-    IRoomEntity, IFixedRoomEntity
+    IRoomEntity, IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly ColoredCubePuzzleState _puzzle;
     private readonly EnemyAnimationPlayer[] _palettes = new EnemyAnimationPlayer[3];
     private int _palette;
+    private bool _initialized;
 
     public Node2D Node => this;
     internal int Palette => _palette;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal ColoredCubeFlameRoomEntity(
         DungeonObjectRecord record,
@@ -30,11 +34,29 @@ internal sealed partial class ColoredCubeFlameRoomEntity : DungeonInteractionVis
             _palettes[index].Load(source, visual.Animations, visual.TileBase, sourcePalettes[index]);
             _palettes[index].SetAnimation(0);
         }
-        ApplyPuzzleState(advanceAnimation: false);
+        Visible = false;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => UpdateState();
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
+        // updateInteractions dispatches state0 during scrolling. The cube's
+        // earlier state0 publishes wRotatingCubePos/Color; an unlit flame still
+        // initializes its palette, then falls through to objectSetInvisible.
+        if (!_initialized) UpdateState();
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+
+    private void UpdateState()
+    {
+        if (!_initialized)
+        {
+            if (_puzzle.CubePosition == 0) return;
+            _palette = _puzzle.CubeColor & 0x7f;
+            _initialized = true;
+        }
         ApplyPuzzleState(advanceAnimation: true);
     }
 
@@ -45,7 +67,9 @@ internal sealed partial class ColoredCubeFlameRoomEntity : DungeonInteractionVis
             return;
         _palette = _puzzle.CubeColor & 0x7f;
         if (advanceAnimation)
-            _palettes[_palette].Advance();
+            // Native color changes replace oamFlags, retaining the single
+            // animation cursor. Keep palette renderings at the same frame.
+            foreach (var palette in _palettes) palette.Advance();
         QueueRedraw();
     }
 

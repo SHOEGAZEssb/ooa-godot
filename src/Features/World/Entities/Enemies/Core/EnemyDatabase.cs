@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 46 ||
+        if (_importedDefinitions.Count != 55 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -400,11 +400,11 @@ public sealed class EnemyDatabase
                 throw row.Invalid(0, "unique ENEMY_STALFOS $31 definition");
             }
         }
-        if (_stalfosDefinitions.Count != 1 ||
-            !_stalfosDefinitions.ContainsKey(0))
+        if (_stalfosDefinitions.Count != 2 ||
+            !_stalfosDefinitions.ContainsKey(0) || !_stalfosDefinitions.ContainsKey(2))
         {
             throw new InvalidOperationException(
-                "Expected the ENEMY_STALFOS $31:$00 definition.");
+                "Expected ENEMY_STALFOS $31:$00/$02 definitions.");
         }
 
         table = GeneratedTable.Load(
@@ -841,6 +841,12 @@ public sealed class EnemyDatabase
             descriptor.SubId is 0 or 1,
         EnemyHandlerKind.Rope =>
             HasImportedDefinition(descriptor, 0x10),
+        EnemyHandlerKind.BladeTrap =>
+            HasImportedDefinition(descriptor, 0x0e),
+        EnemyHandlerKind.Gibdo =>
+            HasImportedDefinition(descriptor, 0x12),
+        EnemyHandlerKind.FireKeese =>
+            HasImportedDefinition(descriptor, 0x39),
         EnemyHandlerKind.Spark =>
             HasImportedDefinition(descriptor, 0x13),
         EnemyHandlerKind.Whisp =>

@@ -47,10 +47,8 @@ internal sealed class OracleRandom
 
     public void BeginRoomParse()
     {
-        byte[] permutation = GeneratePermutation();
-        permutation.CopyTo(_placementBuffer, 0);
+        GeneratePermutation();
         _placementIndex = 0;
-        _placementBufferReady = true;
     }
 
     internal byte[] GeneratePermutation()
@@ -65,6 +63,10 @@ internal sealed class OracleRandom
             int randomIndex = (Next().Value * current) >> 8;
             Swap(permutation, current, randomIndex);
         }
+        // generateRandomBuffer always replaces w4RandomBuffer, including
+        // calls from floor-color workers. Only room parsing resets its cursor.
+        permutation.CopyTo(_placementBuffer, 0);
+        _placementBufferReady = true;
         return permutation;
     }
 

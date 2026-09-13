@@ -23,6 +23,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private Func<Vector2>? _knockbackPosition;
     private Action<Vector2>? _setKnockbackPosition;
     private bool _knockbackChecksHazards;
+    private bool? _knockbackHoleAnimation;
     private bool _pendingKnockbackDeath;
     private bool _completedKnockbackDeath;
     private OracleRoomData? _hazardRoom;
@@ -86,6 +87,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _knockbackPosition = null;
         _setKnockbackPosition = null;
         _knockbackChecksHazards = false;
+        _knockbackHoleAnimation = null;
         _pendingKnockbackDeath = false;
         _completedKnockbackDeath = false;
         _hazardRoom = null;
@@ -122,7 +124,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         EnemyKnockbackMotion motion,
         bool checksHazards = false,
         Func<Vector2>? precisePosition = null,
-        Action<Vector2>? setPrecisePosition = null)
+        Action<Vector2>? setPrecisePosition = null,
+        bool? knockbackHoleAnimation = null)
     {
         if ((precisePosition is null) != (setPrecisePosition is null))
         {
@@ -139,6 +142,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _knockbackRoom = room;
         _knockbackMotion = motion;
         _knockbackChecksHazards = checksHazards;
+        _knockbackHoleAnimation = knockbackHoleAnimation;
         _knockbackPosition = precisePosition;
         _setKnockbackPosition = setPrecisePosition;
         if (checksHazards)
@@ -222,6 +226,22 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    private protected bool TakeDeferredNoKnockbackHit(Vector2 sourcePosition, int damage)
+    {
+        if (!CollisionEnabled || InvincibilityCounter != 0) return false;
+        ApplyDamage(damage, invincibilityFrames: 0);
+        // ENEMYDMG_0c still writes JUST_HIT and disables collision at zero HP.
+        // Its zero recoil count leaves death for the next normal status dispatch.
+        if (IsDead)
+        {
+            IsDead = false;
+            Visible = true;
+            _pendingKnockbackDeath = true;
+        }
+        ApplySwordNoKnockback(sourcePosition, EnemyKnockbackStrength.Normal);
+        return true;
+    }
+
     internal void ApplySwordBump(
         Vector2 sourcePosition,
         EnemyKnockbackStrength strength)
@@ -299,12 +319,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     /// </returns>
     protected bool BeginFrame()
     {
-        if (_hazardActive)
-        {
-            UpdateActiveHazard();
-            QueueRedraw();
+        if (ContinueHazard())
             return true;
-        }
         AdvanceInvincibilityCounter();
         if (_pendingKnockbackDeath && KnockbackCounter == 0)
         {
@@ -379,7 +395,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             profile.Second);
     }
 
-    internal bool TryApplyShieldBump(
+    internal virtual bool TryApplyShieldBump(
         Rect2 hitbox,
         Vector2 sourcePosition,
         EnemyKnockbackStrength strength)
@@ -421,7 +437,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     /// True when ecom_checkHazards consumed the remainder of this enemy's
     /// handler update.
     /// </returns>
-    protected bool CheckHazards()
+    protected bool CheckHazards(bool? holeAnimation = null)
     {
         if (_hazardRoom is null || _hazardActive ||
             (_hazardZ?.Invoke() ?? 0) < 0)
@@ -446,7 +462,17 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         if (hazard == HazardType.None)
             return false;
 
+        if (holeAnimation.HasValue) _animateWhileFallingInHole = holeAnimation.Value;
         BeginHazard(hazard, xNudge);
+        UpdateActiveHazard();
+        QueueRedraw();
+        return true;
+    }
+
+    // Species may gate the active hazard handler on another object's var3f.
+    private protected bool ContinueHazard()
+    {
+        if (!_hazardActive) return false;
         UpdateActiveHazard();
         QueueRedraw();
         return true;
@@ -495,6 +521,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     }
 
     protected virtual void CompleteKnockbackDeath() => Finish();
+
+    internal bool HasCompletedKnockbackDeath => _completedKnockbackDeath;
 
     internal bool TakeCompletedKnockbackDeath()
     {
@@ -555,7 +583,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         if (!moved)
             KnockbackCounter = 0;
 
-        if (_knockbackChecksHazards && CheckHazards())
+        if (_knockbackChecksHazards && CheckHazards(_knockbackHoleAnimation))
         {
             QueueRedraw();
             return true;

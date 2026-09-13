@@ -8,7 +8,7 @@ namespace oracleofages;
 /// SPEED_80 routes with an eight-update stand and fires PART_ENEMY_ARROW $1a
 /// on every other route change when the selected direction faces Link.
 /// </summary>
-internal partial class ArrowMoblinCharacter : EnemyCharacter
+internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
 {
     private readonly ArrowMoblinBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.ArrowMoblin;
@@ -19,6 +19,12 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
     private int _counter;
     private int _angle;
     private int _moveCycles;
+    private int _zFixed;
+    private int _speedZ;
+    internal int ZFixed => _zFixed;
+    internal int SwitchHookSubstate { get; private set; }
+    internal override bool CollisionEnabled => base.CollisionEnabled && _state != ArrowMoblinState.SwitchHook;
+    protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ArrowMoblinState State => _state;
@@ -28,7 +34,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
     internal int ScentAttractionCounter => _scentAttraction.Counter;
     protected virtual bool FollowsScentSeeds => true;
     protected virtual bool SupportsRecord(ImportedEnemyDefinition record) =>
-        record.SubId == 0 && record.Id is 0x0c or 0x22;
+        record.Id == 0x0c && record.SubId == 0 ||
+        record.Id == 0x22 && record.SubId is 0 or 1;
     protected virtual int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
         random.NextCardinalAngle();
 
@@ -62,6 +69,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
+        ConfigureHazards(room, zPosition: () => _zFixed);
     }
 
     /// <returns>The cardinal angle of an arrow to create, or -1.</returns>
@@ -76,7 +84,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         if (CheckHazards())
             return -1;
 
-        if (FollowsScentSeeds && _state != ArrowMoblinState.Uninitialized &&
+        if (FollowsScentSeeds && (_state == ArrowMoblinState.FollowingScentSeed || (int)_state >= 8) &&
             scentSeedTarget is { } scentPosition)
         {
             _state = ArrowMoblinState.FollowingScentSeed;
@@ -98,7 +106,17 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
 
         switch (_state)
         {
+            case ArrowMoblinState.SwitchHook:
+                if (SwitchHookSubstate == 0) SwitchHookSubstate = 1;
+                else if (SwitchHookSubstate == 3 &&
+                    OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x20))
+                    _state = ArrowMoblinState.Moving;
+                QueueRedraw();
+                return -1;
             case ArrowMoblinState.Uninitialized:
+                // bank0.s:enemyStandardUpdate initializes Enemy.var3d before
+                // dispatching state 0, including enemies that ignore scent.
+                _scentAttraction.Initialize(_random.Next().Value);
                 // arrowDarknut_state_uninitialized selects the angle before
                 // arrowDarknut_setState8WithRandomAngleAndCounter consumes
                 // the second RNG value for the movement duration.
@@ -153,11 +171,34 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter
         // ecom_updateAnimationFromAngle preserves the clock for the same direction.
         SetAnimation((_angle & 0x18) >> 3);
     }
+
+    public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead && !DiedInHazard &&
+        _state == ArrowMoblinState.SwitchHook && SwitchHookSubstate < 3;
+    public Vector2 SwitchHookPosition => Position;
+    public void BeginSwitchHook(Vector2 linkPosition)
+    {
+        KnockbackCounter = 0;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        _state = ArrowMoblinState.SwitchHook;
+        SwitchHookSubstate = 0;
+    }
+    public void CopySwitchHookPosition(Vector2 position, int zHigh)
+    {
+        Position = position.Floor() + Position - Position.Floor();
+        _zFixed = (zHigh << 8) | (_zFixed & 0xff);
+        QueueRedraw();
+    }
+    public void SwapSwitchHook() => SwitchHookSubstate = 2;
+    public void ReleaseSwitchHook()
+    {
+        if (SwitchHookHeld) SwitchHookSubstate = 3;
+    }
 }
 
 internal enum ArrowMoblinState
 {
     Uninitialized = 0,
+    SwitchHook = 3,
     FollowingScentSeed = 4,
     Moving = 8,
     Turning = 9

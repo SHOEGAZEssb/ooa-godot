@@ -16,6 +16,9 @@ public partial class ZolCharacter : EnemyCharacter
     private int _counter2;
     private int _angle;
     private bool _collisionEnabled;
+    private bool _damageHitPending;
+    private bool _emergeSoundPlayed;
+    private Action<int> _sound = static _ => { };
 
     public ZolRecord Record { get; private set; }
     internal ZolState State => _state;
@@ -32,11 +35,13 @@ public partial class ZolCharacter : EnemyCharacter
         ZolRecord record,
         OracleRoomData room,
         Vector2 position,
-        OracleRandom random)
+        OracleRandom random,
+        Action<int>? sound = null)
     {
         Record = record;
         _room = room;
         _random = random;
+        _sound = sound ?? (static _ => { });
         _movement = new EnemyTerrainMovement(this, room);
         _verticalMotion = new EnemyVerticalMotion(this, _behavior.Gravity);
 
@@ -68,7 +73,16 @@ public partial class ZolCharacter : EnemyCharacter
             animateWhileFallingInHole: false,
             zPosition: () => _verticalMotion.ZFixed);
 
-        if (record.SubId == 0)
+        _state = ZolState.Uninitialized;
+        _collisionEnabled = false;
+        Visible = false;
+    }
+
+    internal void InitializeState()
+    {
+        if (_state != ZolState.Uninitialized) return;
+        _random.Next(); // enemyStandardUpdate writes var3d before enemyCode34.
+        if (Record.SubId == 0)
         {
             _state = ZolState.GreenHidden;
             _collisionEnabled = false;
@@ -88,6 +102,20 @@ public partial class ZolCharacter : EnemyCharacter
 
     internal UpdateEvent UpdateFrame(Vector2 linkPosition)
     {
+        if (_state == ZolState.Uninitialized)
+        {
+            InitializeState();
+            return UpdateEvent.None;
+        }
+        if (_damageHitPending)
+        {
+            _damageHitPending = false;
+            AdvanceInvincibilityCounter();
+            // zol.s: a weapon's JUST_HIT selects the red split state and returns.
+            // A lethal hit dispatches enemyDie before that state can run.
+            if (Record.SubId == 1) _state = ZolState.RedSplitting;
+            return UpdateEvent.None;
+        }
         if (IsDead)
             return UpdateEvent.None;
         if (BeginFrame())
@@ -105,7 +133,6 @@ public partial class ZolCharacter : EnemyCharacter
                 _counter2 = _behavior.GreenHopCount;
                 _state = ZolState.GreenEmerging;
                 Visible = true;
-                RestartAnimation(0);
                 return UpdateEvent.None;
 
             case ZolState.GreenEmerging:
@@ -113,6 +140,11 @@ public partial class ZolCharacter : EnemyCharacter
                 {
                     AdvanceAnimation();
                     return UpdateEvent.None;
+                }
+                if (!_emergeSoundPlayed)
+                {
+                    _emergeSoundPlayed = true;
+                    _sound(OracleSoundEngine.SndEnemyJump);
                 }
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
@@ -130,6 +162,8 @@ public partial class ZolCharacter : EnemyCharacter
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
+                _sound(OracleSoundEngine.SndEnemyJump);
+                AdvanceAnimation(); // stateA falls through to zol_animate.
                 return UpdateEvent.None;
 
             case ZolState.GreenHopping:
@@ -160,6 +194,7 @@ public partial class ZolCharacter : EnemyCharacter
                 }
                 _state = ZolState.GreenGone;
                 _counter1 = _behavior.HiddenWaitFrames;
+                _emergeSoundPlayed = false;
                 Visible = false;
                 RestartAnimation(0);
                 return UpdateEvent.None;
@@ -168,12 +203,15 @@ public partial class ZolCharacter : EnemyCharacter
                 if (--_counter1 > 0)
                     return UpdateEvent.None;
                 _state = ZolState.GreenHidden;
+                RestartAnimation(0);
                 return UpdateEvent.None;
 
             case ZolState.RedWaiting:
-                AdvanceAnimation();
                 if (--_counter1 > 0)
+                {
+                    AdvanceAnimation();
                     return UpdateEvent.None;
+                }
                 if ((_random.Next().Value & 0x07) == 0)
                 {
                     _state = ZolState.RedShaking;
@@ -186,6 +224,7 @@ public partial class ZolCharacter : EnemyCharacter
                     _counter1 = _behavior.RedSlideFrames;
                     _angle = OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition);
+                    AdvanceAnimation();
                 }
                 return UpdateEvent.None;
 
@@ -201,14 +240,17 @@ public partial class ZolCharacter : EnemyCharacter
                 return UpdateEvent.None;
 
             case ZolState.RedShaking:
-                AdvanceAnimation();
                 if (--_counter1 > 0)
+                {
+                    AdvanceAnimation();
                     return UpdateEvent.None;
+                }
                 _state = ZolState.RedHopping;
                 _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
+                _sound(OracleSoundEngine.SndEnemyJump);
                 return UpdateEvent.None;
 
             case ZolState.RedHopping:
@@ -239,25 +281,18 @@ public partial class ZolCharacter : EnemyCharacter
     }
 
     public bool TakeSwordHit()
-        => TakeSwordHit(2);
+        => TakeSwordHit(Position, 2);
+
+    internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
+        => TakeSwordHit(linkPosition, damage);
 
     internal bool TakeSwordHit(int damage)
+        => TakeSwordHit(Position, damage);
+
+    internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (IsDead || !CollisionEnabled || InvincibilityCounter > 0 ||
-            _state is
-            ZolState.RedSplitting or ZolState.RedSplitDelay)
-            return false;
-
-        Health = Math.Max(0, Health - Math.Max(1, damage));
-        if (Record.SubId == 1)
-        {
-            _state = ZolState.RedSplitting;
-            return true;
-        }
-
-        if (Health > 0)
-            return true;
-        Finish();
+        if (!TakeDeferredNoKnockbackHit(sourcePosition, damage)) return false;
+        _damageHitPending = true;
         return true;
     }
 
@@ -307,6 +342,7 @@ public partial class ZolCharacter : EnemyCharacter
 
 internal enum ZolState
 {
+    Uninitialized = 0,
     GreenHidden = 8,
     GreenEmerging = 9,
     GreenWaiting = 10,

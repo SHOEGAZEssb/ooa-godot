@@ -26,8 +26,18 @@ internal sealed class PeahatRoomEntity
             collisionZ: () => peahat.ZHigh)
     { }
 
+    public override int DimitriCollisionMode => Entity.CollisionMode;
+
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect is not (0x0b or 0x1c) || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        hook.NotifyObjectCollision();
+        if (effect == 0x0b) CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        return true;
+    }
+
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame();
+        Entity.UpdateFrame(frame.Counter);
 }

@@ -9,8 +9,9 @@ internal sealed class ItemDropRoomEntity(
     Action<Vector2, HazardType> enteredHazard)
     : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime,
-        ILinkSwordCollectibleRoomEntity
+        ILinkSwordCollectibleRoomEntity, INativePartHealthRoomEntity
 {
+    public void ClearHealthAndCollision() => Entity.ClearHealthAndCollision();
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

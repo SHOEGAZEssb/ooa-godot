@@ -39,6 +39,9 @@ public sealed class BraceletController
     private BreakableTileRecord _targetRecord;
     private BraceletLiftedObject? _object;
     private IBraceletPullInteractableRoomEntity? _pullInteraction;
+    private bool _leverParentReady;
+    private int _leverAnimationPhase;
+    private int _leverAnimationCounter;
     private int _breakEffect;
 
     internal BraceletState State => _state;
@@ -92,6 +95,10 @@ public sealed class BraceletController
             {
                 _primaryButton = primaryButton;
                 _pullInteraction = pullInteraction;
+                _leverParentReady = false;
+                _leverAnimationPhase = 0;
+                _leverAnimationCounter = _record.LeverInitialFrames;
+                player.SetBraceletLiftCollisionsDisabled(true);
                 _state = BraceletState.PullingInteraction;
                 return true;
             }
@@ -160,9 +167,31 @@ public sealed class BraceletController
                     player, movementInput, assignedButtonHeld);
 
             case BraceletState.PullingInteraction:
+                bool canHoldLever = !player.TopDownSwimming && !player.SideScrollSwimming &&
+                    (!_leverParentReady || assignedButtonHeld && player.KnockbackFrames == 0);
+                Vector2 leverInput = Vector2.Zero;
+                // State 2 first changes to state 5 and loads LIFT_2. State 5
+                // advances its 1/40/20 animation only with the counter-direction
+                // held; the interaction consumes animParameter after this phase.
+                if (!_leverParentReady)
+                    _leverParentReady = true;
+                else if (movementInput.Dot(-(Vector2)player.FacingVector) <= 0.5f)
+                {
+                    _leverAnimationPhase = 0;
+                    _leverAnimationCounter = _record.LeverInitialFrames;
+                }
+                else
+                {
+                    if (--_leverAnimationCounter == 0)
+                    {
+                        _leverAnimationPhase = _leverAnimationPhase == 1 ? 2 : 1;
+                        _leverAnimationCounter = _leverAnimationPhase == 1 ? _record.LeverPullFrames : _record.LeverRestFrames;
+                    }
+                    if (_leverAnimationPhase == 1) leverInput = movementInput;
+                }
                 if (_pullInteraction is not null &&
                     _pullInteraction.UpdateBraceletPull(
-                        player, movementInput, assignedButtonHeld))
+                        player, leverInput, canHoldLever))
                 {
                     return true;
                 }
@@ -250,6 +279,17 @@ public sealed class BraceletController
             speedZ: 0,
             speedRaw: 0);
         _state = BraceletState.Projectile;
+    }
+
+    internal void ClearParent(Player player)
+    {
+        if (_state is BraceletState.Throwing or BraceletState.Projectile)
+        {
+            player.ClearBraceletActionPose();
+            _state = _object is null ? BraceletState.Idle : BraceletState.Projectile;
+            return;
+        }
+        Interrupt(player, discard: false);
     }
 
     private bool TryBeginWallGrab(Player player)

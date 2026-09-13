@@ -11,7 +11,10 @@ namespace oracleofages;
 internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntity,
     IFixedRoomEntity, ISwordHittableRoomEntity,
     IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget, IRoomEntityLifetime
+    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget, IRoomEntityLifetime,
+    ISwitchHookHittableRoomEntity, INativePartHealthRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
@@ -21,6 +24,14 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     private readonly Action _roomTileChanged;
     private readonly Action<int> _playSound;
     private int _hitLockout;
+    private bool _pendingHookHit;
+    private bool _initialized;
+    private bool _healthCleared;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
+    internal bool CollisionEnabled => !Finished && !_healthCleared;
+    public void ClearHealthAndCollision() => _healthCleared = true;
+    private readonly PartSwitchCollisionDatabase _collisions = PartSwitchCollisionDatabase.Shared;
     private readonly OracleSaveData? _save;
     public bool Finished { get; private set; }
 
@@ -66,10 +77,33 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if (!_initialized)
+        {
+            InitializePart();
+            return;
+        }
         // ENEMYDMG_34 writes $e4 to the signed invincibility counter. The
         // standard part update increments it through zero over 28 updates.
         if (_hitLockout > 0)
             _hitLockout--;
+        if (_pendingHookHit || _healthCleared)
+        {
+            _pendingHookHit = false;
+            Toggle();
+        }
+    }
+
+    private void InitializePart()
+    {
+        _initialized = true;
+        _healthCleared = false; // partCommon_standardUpdate reloads state-zero properties.
+        _pendingHookHit = false;
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized) InitializePart();
+        return ScreenTransitionPresentation.Visible;
     }
 
     public bool ApplySwordHit(
@@ -79,7 +113,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        TryToggle(hitbox);
+        TryToggle(hitbox, 0x04);
         // LINKDMG_1c does not mark ordinary enemy contact on ITEM_SWORD, so
         // this must not trigger Double-Edged Ring recoil or consume the hit.
         return false;
@@ -94,12 +128,13 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     {
         // PART_SWITCH's active-collision row includes thrown objects and the
         // sword beam, but excludes bombs.
-        if (collision is RoomEntityItemCollision.ThrownObject or
-            RoomEntityItemCollision.SwordBeam)
-        {
-            TryToggle(hitbox);
-        }
-        // LINKDMG_1c leaves the attacking item active.
+        if (collision == RoomEntityItemCollision.SwordBeam)
+            // Effect20 clears the beam's collision bit and delivers part
+            // damage $ff through LINKDMG24, making ITEM_SWORD_BEAM clink/delete.
+            return TryToggle(hitbox, 0x19);
+        if (collision == RoomEntityItemCollision.ThrownObject)
+            TryToggle(hitbox, 0x16);
+        // Thrown objects use effect26 / LINKDMG1c and remain active.
         return false;
     }
 
@@ -108,21 +143,45 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         Vector2 sourcePosition,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        TryToggle(hitbox, applyHitLockout: false)
+        TryToggle(hitbox, seedItem == 0x24 ? 0x1a : seedItem - 0x20 + 0x1b)
             ? SeedHitResult.Activate
             : SeedHitResult.None;
 
-    private bool TryToggle(Rect2 hitbox, bool applyHitLockout = true)
+    public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (Finished || _hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
-            return false;
+        if (!RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, hook.ZHigh, 7) ||
+            !TryAcceptHit(hook.CollisionBounds, 0x0d)) return false;
+        // collisionEffect26 writes var2a=$8d / invincibility=$e4 on the
+        // collision pass. The next part update increments $e4 before switch.s
+        // toggles the bit; subsequent interactions see it on that update.
+        _pendingHookHit = true;
+        hook.NotifyObjectCollision(); // Part.var3e=$08 retracts without a clink.
+        return true;
+    }
 
+    private bool TryAcceptHit(Rect2 hitbox, int itemCollision)
+    {
+        int lockout = _collisions.HitLockout(itemCollision);
+        if (!CollisionEnabled || _pendingHookHit || _hitLockout != 0 || lockout < 0 || !hitbox.Intersects(CollisionBounds))
+            return false;
+        _hitLockout = lockout;
+        return true;
+    }
+
+    private bool TryToggle(Rect2 hitbox, int itemCollision)
+    {
+        if (!TryAcceptHit(hitbox, itemCollision)) return false;
+        Toggle();
+        return true;
+    }
+
+    private void Toggle()
+    {
         byte switchState = _runtime.ReadWramByte(
             OracleRuntimeState.SwitchStateAddress);
         switchState ^= (byte)SwitchMask;
         _runtime.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, switchState);
-        _hitLockout = applyHitLockout ? _data.SwitchHitLockout : 0;
         if (_record.Group == 0)
         {
             // switch.s writes the visible $9e tile, then clears only the
@@ -139,7 +198,6 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
                 ? _data.SwitchOnTile
                 : _data.SwitchOffTile);
         _playSound(_data.SwitchSound);
-        return true;
     }
 
     private bool SwitchIsOn() =>

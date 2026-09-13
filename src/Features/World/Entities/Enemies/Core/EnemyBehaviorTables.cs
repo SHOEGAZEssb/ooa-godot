@@ -15,6 +15,14 @@ internal sealed class EnemyBehaviorTables
         new(static () => new EnemyBehaviorTables());
 
     internal static EnemyBehaviorTables Shared => LazyShared.Value;
+    internal IReadOnlyList<EnemyBehaviorValue> Gibdo { get; }
+    internal FireKeeseBehaviorProfile FireKeese { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> FireKeeseZOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> FireKeeseCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> KeeseFireCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> GibdoCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> GibdoActiveCollisions { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> FireKeeseActiveCollisions { get; }
 
     internal IReadOnlyList<EnemyBehaviorValue> KeeseDecelerationSpeeds { get; }
     internal IReadOnlyList<EnemyBehaviorValue>
@@ -64,6 +72,8 @@ internal sealed class EnemyBehaviorTables
     internal SandCrabBehaviorProfile SandCrab { get; }
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> BladeTrap { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> BladeTrapCollisionEffects { get; }
     internal ArmosBehaviorProfile Armos { get; }
     internal IReadOnlyList<EnemyBehaviorValue> ArmosCollisionEffects { get; }
     internal PolsVoiceBehaviorProfile PolsVoice { get; }
@@ -377,7 +387,17 @@ internal sealed class EnemyBehaviorTables
         values = TakeValues(groups, "boomerang-moblin", "state-profile", 1);
         BoomerangMoblin = new(values[0].Value, values);
 
-        values = TakeValues(groups, "rope", "state-profile", 7);
+        values = TakeValues(groups, "rope", "state-profile", 11);
+        BladeTrap = TakeValues(groups, "blade-trap", "state-profile", 8);
+        Gibdo = TakeValues(groups, "gibdo", "state-profile", 7);
+        FireKeese = new(TakeValues(groups, "fire-keese", "state-profile", 22));
+        FireKeeseZOffsets = TakeValues(groups, "fire-keese", "z-offsets", 6);
+        FireKeeseCollisionEffects = TakeValues(groups, "fire-keese", "collision-effects", 32);
+        KeeseFireCollisionEffects = TakeValues(groups, "keese-fire", "collision-effects", 32);
+        GibdoCollisionEffects = TakeValues(groups, "gibdo", "collision-effects", 32);
+        GibdoActiveCollisions = TakeValues(groups, "gibdo", "active-collisions", 32);
+        FireKeeseActiveCollisions = TakeValues(groups, "fire-keese", "active-collisions", 32);
+        BladeTrapCollisionEffects = TakeValues(groups, "blade-trap", "collision-effects", 32);
         Rope = new(
             values[0].Value,
             values[1].Value,
@@ -386,6 +406,10 @@ internal sealed class EnemyBehaviorTables
             values[4].Value,
             values[5].Value,
             values[6].Value,
+            values[7].Value,
+            values[8].Value,
+            values[9].Value,
+            values[10].Value,
             values);
 
         values = TakeValues(groups, "armos", "state-profile", 9);
@@ -456,8 +480,9 @@ internal sealed class EnemyBehaviorTables
             values[2].Value,
             values);
 
-        values = TakeValues(groups, "stalfos", "state-profile", 2);
-        Stalfos = new(values[0].Value, values[1].Value, values);
+        values = TakeValues(groups, "stalfos", "state-profile", 7);
+        Stalfos = new(values[0].Value, values[1].Value, values[2].Value,
+            values[3].Value, values[4].Value, values[5].Value, values[6].Value, values);
 
         values = TakeValues(
             groups, "hardhat-beetle", "state-profile", 1);
@@ -565,7 +590,9 @@ internal sealed class EnemyBehaviorTables
             Array.ConvertAll(
                 values[4..],
                 static value => value.Value),
-            values);
+            values,
+            TakeValues(groups, "peahat", "speeds", 9),
+            TakeValues(groups, "peahat", "animation-frequencies", 8));
 
         values = TakeValues(groups, "tektite", "state-profile", 7);
         EnemyBehaviorValue[] smallLeap = TakeValues(groups, "tektite", "smallLeap", 2);
@@ -596,6 +623,7 @@ internal sealed class EnemyBehaviorTables
 
         values = TakeValues(
             groups, "color-changing-gel", "state-profile", 6);
+        var colorRules = TakeValues(groups, "color-changing-gel", "color-rules", 5);
         ColorChangingGel = new(
             values[0].Value,
             values[1].Value,
@@ -603,6 +631,11 @@ internal sealed class EnemyBehaviorTables
             values[3].Value,
             values[4].Value,
             values[5].Value,
+            colorRules[0].Value, colorRules[1].Value, colorRules[2].Value,
+            colorRules[3].Value, colorRules[4].Value,
+            TakeValues(groups, "color-changing-gel", "hop-offsets", 16),
+            TakeValues(groups, "color-changing-gel", "floor-colors", 12),
+            TakeValues(groups, "color-changing-gel", "random-colors", 8),
             values);
 
         values = TakeValues(groups, "flying-tile", "state-profile", 8);
@@ -624,10 +657,10 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 893 || groups.Count != 0)
+        if (table.Rows.Count != 1195 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 893 rows and no " +
+                $"Enemy behavior table contract expected 1195 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -857,6 +890,10 @@ internal readonly record struct RopeBehaviorProfile(
     int ApproachAxisRadius,
     int WanderCounterBase,
     int WanderCounterMask,
+    int FallDelayMask,
+    int InitialFallSpeedZ,
+    int FallScreenOffset,
+    int FallGravity,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct ArmosBehaviorProfile(
@@ -917,6 +954,11 @@ internal readonly record struct GhiniBehaviorProfile(
 internal readonly record struct StalfosBehaviorProfile(
     int MoveCounterBase,
     int MoveCounterMask,
+    int BoneChanceMask,
+    int JumpSpeedZ,
+    int JumpGravity,
+    int JumpSpeedRaw,
+    int DodgeDistance,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct HardhatBeetleBehaviorProfile(
@@ -1018,7 +1060,9 @@ internal readonly record struct PeahatBehaviorProfile(
     int InitialSpeedRaw,
     int TopSpeedRaw,
     IReadOnlyList<int> FlightCounters,
-    IReadOnlyList<EnemyBehaviorValue> Sources);
+    IReadOnlyList<EnemyBehaviorValue> Sources,
+    IReadOnlyList<EnemyBehaviorValue> Speeds,
+    IReadOnlyList<EnemyBehaviorValue> AnimationFrequencies);
 
 internal readonly record struct SwordEnemyBehaviorProfile(
     int WanderSpeedRaw,
@@ -1040,6 +1084,14 @@ internal readonly record struct ColorChangingGelBehaviorProfile(
     int InitialSpeedZ,
     int Gravity,
     int ColorDelayFrames,
+    int ImmuneCollisionMode,
+    int VulnerableCollisionMode,
+    int SomariaTile,
+    int DeflectionInvincibilityFrames,
+    int DefaultColor,
+    IReadOnlyList<EnemyBehaviorValue> HopOffsets,
+    IReadOnlyList<EnemyBehaviorValue> FloorColors,
+    IReadOnlyList<EnemyBehaviorValue> RandomColors,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct FlyingTileBehaviorProfile(

@@ -563,7 +563,14 @@ public sealed partial class ValidationRoot
         int updates)
     {
         for (int update = 0; update < updates; update++)
+        {
+            // This fixture steps the event directly. Its existing native
+            // INTERAC_PUFF objects still need one update each so their finite
+            // interaction slots expire; the emitter initializes new puffs.
+            foreach (var puff in _entities.Entities<PuzzlePuffEffect>())
+                puff.UpdateFrame();
             collapse.UpdateFrame();
+        }
     }
 
     private void AssertRoom083CollapseMap(

@@ -8,7 +8,8 @@ namespace oracleofages;
 /// belong to the part pass, after its parent's enemy pass.</summary>
 internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     ISwordHittableRoomEntity, ILinkSwordStateAwareRoomEntity, ISwordAttackerKnockbackRoomEntity,
-    ILinkContactEntity, IItemCollisionHittableRoomEntity, IScreenTransitionPreloadRoomEntity
+    ILinkContactEntity, IItemCollisionHittableRoomEntity, IScreenTransitionPreloadRoomEntity,
+    INativePartHealthRoomEntity
 {
     private readonly SwordEnemyCharacter _parent;
     private readonly Action<int> _soundRequested;
@@ -18,6 +19,8 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     private bool _enabled;
     private int _invincibility;
     private int _knockback;
+    private int _knockbackAngle;
+    private bool _healthCleared;
     private int _pendingRecoil;
     private Vector2? _pendingBumpSource;
     private SwordActionState _swordState;
@@ -31,7 +34,10 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     public bool Finished => !GodotObject.IsInstanceValid(_parent) || _parent.IsDead;
     internal bool CollisionEnabled => _enabled && !Finished;
     internal int InvincibilityCounter => _invincibility;
+    internal int KnockbackCounter => _knockback;
+    internal int KnockbackAngle => _knockbackAngle;
     internal Rect2 CollisionBounds => _bounds;
+    public void ClearHealthAndCollision() { _healthCleared = true; _enabled = false; }
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => UpdatePart();
@@ -39,19 +45,25 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     private void UpdatePart()
     {
         if (Finished) return;
-        if (_pendingBumpSource is { } source)
+        if (!_initialized) _healthCleared = false; // Common state-zero property reload.
+        else if (_invincibility != 0) _invincibility += _invincibility > 0 ? -1 : 1;
+        if (_pendingBumpSource is not null || _healthCleared)
         {
-            _parent.ApplyBladeBump(source, _invincibility, _knockback);
+            // partCode1d copies the raw bytes, after common invincibility
+            // advances. A zero-health part repeats this on every dispatch.
+            _parent.ApplyBladeBump(_invincibility, _knockbackAngle, _knockback);
             _pendingBumpSource = null;
         }
         // State 0 goes directly to position setup; subsequent updates check
         // relatedObj1.var30, health, stun and var3f before enabling collision.
-        _enabled = !_initialized || _parent.SwordBlocking && _parent.CollisionEnabled && _parentCollisionAllowed();
+        // The part reads parent health and var30; the body's collision-enable
+        // bit is not a gate (the Switch Hook clears it while holding the body).
+        _enabled = !_initialized || _parent.SwordBlocking && _parent.Health != 0 && _parentCollisionAllowed();
         _initialized = true;
         _node.Position = _parent.EnemySwordPosition;
         _bounds = _parent.EnemySwordCollisionBounds;
-        if (_invincibility < 0) _invincibility++;
-        if (_knockback > 0) _knockback--;
+        // The part never decrements its knockback byte. Only the parent
+        // advances the copy in its own ENEMY pass.
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
@@ -81,7 +93,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
             _knockback = _pendingRecoil + 1;
         }
         else throw new InvalidOperationException($"PART_ENEMY_SWORD $1d: unsupported sword effect ${effect:x2}.");
-        _pendingBumpSource = sourcePosition;
+        PublishBump(sourcePosition);
         Vector2 midpoint = OracleObjectMath.ToPixelPosition(
             (_node.Position + OracleObjectMath.ToPixelPosition(hitbox.GetCenter())) / 2);
         spawns.Add(new EnemyClinkSpawn(midpoint));
@@ -108,13 +120,21 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
             bool level1 = player.Inventory.ShieldLevel == 1;
             _invincibility = -(level1 ? 21 : 16);
             _knockback = level1 ? 11 : 8;
-            _pendingBumpSource = player.ShieldCollisionBounds.GetCenter();
+            PublishBump(player.ShieldCollisionBounds.GetCenter());
             player.ApplyShieldCollisionRecoil(_node.Position, level1 ? 15 : 8, level1 ? 19 : 11);
             _soundRequested(OracleSoundEngine.SndClink);
             return;
         }
         if (player.OverlapsEnemyCollision(_bounds))
             player.ApplyEnemyContactDamage(_node.Position, 2);
+    }
+
+    private void PublishBump(Vector2 sourcePosition)
+    {
+        _pendingBumpSource = sourcePosition;
+        _knockbackAngle = OracleObjectMovement.Shared.RelativeAngle(
+            OracleObjectMath.ToPixelPosition(_node.Position),
+            OracleObjectMath.ToPixelPosition(sourcePosition)) ^ 0x10;
     }
 }
 

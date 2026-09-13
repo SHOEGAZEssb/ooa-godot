@@ -28,7 +28,8 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdateElectricShockPresentation(int counter) =>
         _entities.UpdateElectricShockPresentation(counter);
     public bool IsTransitioning => _transitions.IsTransitioning;
-    public bool TimeWarpPassesNpcs => _transitions.TimeWarpDestinationActive;
+    public bool PassesNpcs => _transitions.TimeWarpDestinationActive || _entities.PlayerPassesNpcs;
+    public bool InteractionMenusDisabled => _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled;
     public bool ScreenScrolling => _transitions.ScrollActive;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
@@ -46,6 +47,11 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool BombParentActive => _bomb.Active;
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
     public int SeedShooterAngle => _seedSatchel.ShooterAngle;
+    public bool SwitchHookActive => _entities.SwitchHook?.Active == true;
+    public bool SwitchHookExchangeActive => _entities.SwitchHook?.ExchangeActive == true;
+    public bool TryBeginSwitchHook(Player player, Vector2 input) => _entities.SwitchHook?.TryBegin(player, input) == true;
+    public void UpdateSwitchHookParent(Player player) => _entities.SwitchHook?.UpdateParent(player);
+    public void InterruptSwitchHook(bool discard) => _entities.SwitchHook?.Interrupt(discard);
     public bool SideScrolling =>
         (_terrain.CurrentTilesetFlags & 0x20) != 0;
     public bool Underwater =>
@@ -55,7 +61,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool RingTransformationsAllowed =>
         !_roomEvents.Active &&
         (_terrain.CurrentTilesetFlags & 0x60) == 0 &&
-        !_entities.PlayerRingTransformationsDisabled;
+        !_entities.PlayerRingTransformationsDisabled && !SwitchHookActive;
 
     public PlayerWorld(
         RoomTransitionController transitions,
@@ -135,6 +141,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
+    public PegasusSeedState Pegasus => _seedSatchel.Pegasus;
     public bool TryBeginSeedShooter(
         Player player, bool primaryButton, Vector2 movementInput) =>
         _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
@@ -146,6 +153,13 @@ public sealed class PlayerWorld : IPlayerWorld
             player, movementInput, primaryHeld, secondaryHeld,
             directionJustPressed);
     public void InterruptSeedShooter() => _seedSatchel.InterruptShooter();
+    public void ClearItemParents(Player player)
+    {
+        _bomb.Interrupt(player, discard: false);
+        _bracelet.ClearParent(player);
+        _seedSatchel.InterruptShooter();
+        _entities.SwitchHook?.ClearParent();
+    }
     public int BeginHarp(Player player)
     {
         int song = _harp.TryStart(player);

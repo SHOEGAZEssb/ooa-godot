@@ -17,10 +17,14 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     private Func<Vector2, Vector2> _worldToScreen = null!;
     private Vector2 _precisePosition;
     private bool _initialized;
+    private bool _pendingNativeCollision;
     private int _palettePhase;
+    private readonly ItemTilePassage _tilePassage = new();
 
     public bool Finished { get; private set; }
-    internal bool CollisionEnabled => _initialized && !Finished;
+    internal bool CollisionEnabled => _initialized && !Finished && !_pendingNativeCollision;
+    internal bool PendingNativeCollision => _pendingNativeCollision;
+    internal void QueueNativeCollision() => _pendingNativeCollision = true;
     internal int Damage => _record.Damage;
     internal int PalettePhase => _palettePhase;
     internal Vector2 PrecisePosition => _precisePosition;
@@ -52,6 +56,12 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     {
         if (Finished)
             return;
+        if (_pendingNativeCollision)
+        {
+            _pendingNativeCollision = false;
+            Collide(spawns);
+            return;
+        }
         if (!_initialized)
         {
             _initialized = true;
@@ -65,7 +75,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
             _record.SpeedRaw,
             _record.Direction * 8);
 
-        if (_room.IsSolid(Position))
+        if (_room.IsSolid(Position) && !_tilePassage.CanPass(_room, Position, _record.Direction * 8))
         {
             Collide(spawns);
             return;

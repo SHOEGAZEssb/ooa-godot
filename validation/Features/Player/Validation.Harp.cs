@@ -154,6 +154,7 @@ public sealed partial class ValidationRoot
             "INTERAC_TIMEPORTAL at wWarpDestPos.");
 
         int initialPalette = currentsReturn.CurrentPalette;
+        _harp.BeginObjectUpdate(); // First ordinary Link update clears the completed song byte.
         _entities.Update(2.0 / 60.0, _player);
         FailIf(
             currentsReturn.CurrentPalette == initialPalette,

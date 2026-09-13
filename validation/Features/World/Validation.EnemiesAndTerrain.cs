@@ -154,7 +154,7 @@ public sealed partial class ValidationRoot
         peahat.UpdateFrame();
         FailIf(
             peahat.State != PeahatState.Flying || peahat.ZHigh != -6 ||
-            random.Calls != 2,
+            random.Calls != 3,
             "ENEMY_PEAHAT $3e:$00 did not enter top-speed flight at Z -6 " +
             "with the source counter/angle RNG order.");
 
@@ -787,9 +787,13 @@ public sealed partial class ValidationRoot
                     tables.Rope.CooldownFrames,
                     tables.Rope.ApproachAxisRadius,
                     tables.Rope.WanderCounterBase,
-                    tables.Rope.WanderCounterMask
+                    tables.Rope.WanderCounterMask,
+                    tables.Rope.FallDelayMask,
+                    tables.Rope.InitialFallSpeedZ,
+                    tables.Rope.FallScreenOffset,
+                    tables.Rope.FallGravity
                 ],
-                [15, 50, 15, 64, 10, 112, 112]) ||
+                [15, 50, 15, 64, 10, 112, 112, 56, 256, 8, 14]) ||
             !ProfileMatches(
                 tables.PolsVoice.Sources,
                 [
@@ -827,9 +831,14 @@ public sealed partial class ValidationRoot
                 tables.Stalfos.Sources,
                 [
                     tables.Stalfos.MoveCounterBase,
-                    tables.Stalfos.MoveCounterMask
+                    tables.Stalfos.MoveCounterMask,
+                    tables.Stalfos.BoneChanceMask,
+                    tables.Stalfos.JumpSpeedZ,
+                    tables.Stalfos.JumpGravity,
+                    tables.Stalfos.JumpSpeedRaw,
+                    tables.Stalfos.DodgeDistance
                 ],
-                [32, 48]) ||
+                [32, 48, 7, -512, 32, 50, 44]) ||
             !ProfileMatches(
                 tables.HardhatBeetle.Sources,
                 [tables.HardhatBeetle.SpeedRaw],
@@ -1171,6 +1180,11 @@ public sealed partial class ValidationRoot
             [(0x21, 0x01)] = (0xa0, EnemySwordResponse.Knockback),
             [(0x2d, 0x00)] = (0x0f, EnemySwordResponse.NoKnockback),
             [(0x10, 0x00)] = (0x14, EnemySwordResponse.Knockback),
+            [(0x10, 0x01)] = (0x14, EnemySwordResponse.Knockback),
+            [(0x0e, 0x01)] = (0x93, EnemySwordResponse.Armored),
+            [(0x12, 0x00)] = (0x96, EnemySwordResponse.NoKnockback),
+            [(0x39, 0x00)] = (0xab, EnemySwordResponse.Knockback),
+            [(0x31, 0x02)] = (0xfd, EnemySwordResponse.Knockback),
             [(0x13, 0x00)] = (0x97, EnemySwordResponse.NoKnockback),
             [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
@@ -1180,6 +1194,7 @@ public sealed partial class ValidationRoot
             [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x22, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x22, 0x01)] = (0xfe, EnemySwordResponse.Knockback),
             [(0x23, 0x00)] = (0xa1, EnemySwordResponse.Bump),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
             [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
@@ -1196,6 +1211,7 @@ public sealed partial class ValidationRoot
             [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
             [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
             [(0x49, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x49, 0x01)] = (0xfe, EnemySwordResponse.Knockback),
             [(0x4a, 0x00)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump),
@@ -1303,30 +1319,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 551 ||
+                EnemyHandlerClassification.OrderedImplemented) != 609 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 270 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 212 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 809 ||
+                EnemyHandlerClassification.OrderedImplemented) != 884 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 352 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 277 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 56 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 63 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 67 ||
-            combatSourceRows != 537 ||
-            combatSourceFlags.Count != 125 ||
-            expectedCombat.Count != 46 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 60 ||
+            combatSourceRows != 595 ||
+            combatSourceFlags.Count != 138 ||
+            expectedCombat.Count != 53 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -1795,11 +1811,11 @@ public sealed partial class ValidationRoot
             $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - killSounds}).");
 
         int deathPuffDuration = puffs[0].DurationFrames;
-        for (int frame = 1; frame < deathPuffDuration; frame++)
+        for (int frame = 1; frame < deathPuffDuration - 1; frame++)
             _entities.Update(update, _player);
         FailIf(
-            _entities.RoomEnemyCount != 0 ||
-            _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            _entities.RoomEnemyCount != 2 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 2 ||
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Counter: 0 }] ||
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
@@ -1811,6 +1827,8 @@ public sealed partial class ValidationRoot
         int poofSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndPoof);
         _entities.Update(update, _player);
         FailIf(
+            _entities.RoomEnemyCount != 0 ||
+            _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Counter: 30 }] ||
             _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
@@ -1900,45 +1918,54 @@ public sealed partial class ValidationRoot
         var movementRandom = new OracleRandom();
         var movement = new MoldormCharacter();
         Vector2 start = new(0x78, 0x58);
-        movement.Initialize(definition, room, start, movementRandom);
+        movement.Initialize(database.ImportedEnemy(0x4f, 1), room, start, movementRandom);
+        var tail1 = new MoldormTailCharacter();
+        var tail2 = new MoldormTailCharacter();
+        tail1.Initialize(database.ImportedEnemy(0x4f, 2), room, start, movementRandom, movement);
+        tail2.Initialize(database.ImportedEnemy(0x4f, 3), room, start, movementRandom, tail1);
+        movement.Tail1 = tail1; movement.Tail2 = tail2;
+        void StepMoldorm() { movement.UpdateFrame(); tail1.UpdateFrame(); tail2.UpdateFrame(); }
         movement.PrepareForScreenTransition();
+        tail1.InitializeState(); tail2.InitializeState();
+        StepMoldorm();
         FailIf(
             !movement.Initialized || !movement.Visible ||
-            movement.Angle != 0x1e || movement.AngularSpeed != 2 ||
+            movement.Angle != 4 || movement.AngularSpeed != 2 ||
             movement.TurnCounter != 8 || movement.SpeedRaw != 0x28 ||
-            movement.AnimationIndex != 0 || movementRandom.Calls != 1 ||
+            movement.AnimationIndex != 1 || movementRandom.Calls != 4 ||
             movement.Tail1Position != start ||
             movement.Tail2Position != start,
-            "Moldorm initialization did not consume random $5e, install " +
-            "SPEED_100 / angle $1e / angular speed +2, and overlap both " +
+            "Moldorm's three common initializations and head state8 did not consume random $64, install " +
+            "SPEED_100 / angle $04 / angular speed +2, and overlap both " +
             "non-colliding tails at the head position.");
 
         Vector2 firstHeadPosition = default;
         for (int frame = 1; frame <= 7; frame++)
         {
-            movement.UpdateFrame();
+            StepMoldorm();
             if (frame == 1)
                 firstHeadPosition = movement.Position;
         }
         FailIf(
             movement.Tail1Position != start ||
             movement.Tail2Position != start ||
-            movement.TurnCounter != 1 || movementRandom.Calls != 1,
+            movement.TurnCounter != 1 || movementRandom.Calls != 4,
             "Moldorm tails moved before their source eight-entry displacement buffers matured.");
-        movement.UpdateFrame();
+        StepMoldorm();
         FailIf(
-            movement.Angle != 0 || movement.AngularSpeed != 2 ||
-            movement.TurnCounter != 8 || movementRandom.Calls != 2 ||
+            movement.Angle != 6 || movement.AngularSpeed != 2 ||
+            movement.TurnCounter != 8 || movementRandom.Calls != 5 ||
             movement.Tail1Position != firstHeadPosition ||
             movement.Tail2Position != start,
             "Moldorm update 8 did not turn by +2, consume the 1-in-16 " +
             "reversal roll, or replay the head's first displacement into tail 1.");
         for (int frame = 9; frame <= 15; frame++)
-            movement.UpdateFrame();
+            StepMoldorm();
         FailIf(
             movement.Tail2Position != firstHeadPosition,
             "Moldorm tail 2 did not replay tail 1's first delayed displacement on update 15.");
         movement.Free();
+        tail1.Free(); tail2.Free();
 
         EnemyCombatSourceDescriptor combatSource =
             handler.CombatSource(roomPlacements[0], killableEnemyIndex: 1);
@@ -2023,13 +2050,12 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x62);
         room = _currentRoom;
         Vector2 rightShutter = new(0xe8, 0x58);
-        List<MoldormCharacter> live =
-            _entities.Entities<MoldormCharacter>();
+        var spawners = _entities.Entities<MoldormSpawnerCharacter>();
         FailIf(
-            live.Count != 2 || _entities.RoomEnemyCount != 2 ||
-            live.Any(enemy => enemy.Visible || enemy.Initialized) ||
-            live.Select(enemy => enemy.Position).Distinct().Count() != 2 ||
-            live.Any(enemy => room.IsSolid(enemy.Position)) ||
+            spawners.Count != 2 || _entities.RoomEnemyCount != 2 ||
+            spawners.Any(enemy => enemy.Visible || enemy.State != 0) ||
+            spawners.Select(enemy => enemy.Position).Distinct().Count() != 2 ||
+            spawners.Any(enemy => room.IsSolid(enemy.Position)) ||
             _entities.Entities<DungeonDoorRoomEntity>() is not
                 [{ SubId: 0x09, PackedPosition: 0x5e,
                     EnemyCompletionSupported: true }] ||
@@ -2040,26 +2066,26 @@ public sealed partial class ValidationRoot
         int initializationRandomCalls = _entities.RandomCalls;
         _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
         _entities.Update(update, _player);
+        var live = _entities.Entities<MoldormCharacter>();
         FailIf(
-            live.Any(enemy => !enemy.Visible || !enemy.Initialized) ||
-            _entities.RandomCalls != initializationRandomCalls + 2,
+            live.Count != 2 || !live.Select(enemy => enemy.State).SequenceEqual(new[] { 8, 0 }) ||
+            _entities.RoomEnemyCount != 6 || _entities.Entities<MoldormTailCharacter>().Count != 4 ||
+            _entities.RandomCalls != initializationRandomCalls + 7,
             "Room 4:62 did not initialize its two Moldorm heads in source " +
-            "order with one shared-RNG call each.");
+            "order: the second head reuses earlier slot0 and must wait for the next enemy pass.");
+        _entities.Update(update, _player);
 
         _sound.ClearPlayRequestAudit();
         foreach (MoldormCharacter target in live)
         {
             FailIf(
-                !_entities.ApplySwordHit(
-                    target.CollisionBounds,
-                    target.Position,
-                    damage: 8,
-                    knockbackStrength: EnemyKnockbackStrength.High),
+                !_entities.EntityAdapters<MoldormRoomEntity>().Single(owner => owner.Node == target).ApplySwordHit(
+                    target.CollisionBounds, target.Position, 8, EnemyKnockbackStrength.High, new List<RoomEntitySpawn>()),
                 "A room 4:62 Moldorm head rejected a lethal high-recoil hit.");
         }
         FailIf(
             live.Any(enemy => !enemy.PendingKnockbackDeath) ||
-            _entities.RoomEnemyCount != 2,
+            _entities.RoomEnemyCount != 6,
             "Room 4:62 released wNumEnemies before both Moldorm heads " +
             "completed lethal recoil and their multipart death path.");
 
@@ -3579,12 +3605,13 @@ public sealed partial class ValidationRoot
         _entities.Update(update, _player);
         ArrowMoblinCharacter arrow =
             _entities.Entities<ArrowMoblinCharacter>().Single();
+        int initialArrowScentCounter = arrow.ScentAttractionCounter;
         arrow.UpdateFrame(_player.Position, arrow.Position + new Vector2(48, 32));
         int arrowRandomCalls = _entities.RandomCalls;
         arrow.UpdateFrame(_player.Position);
         FailIf(
             arrow.State != ArrowMoblinState.Moving ||
-            arrow.ScentAttractionCounter != 0xff ||
+            arrow.ScentAttractionCounter != ((initialArrowScentCounter - 1) & 0xff) ||
             _entities.RandomCalls != arrowRandomCalls + 1,
             "ENEMY_ARROW_MOBLIN did not cardinally follow scent or retain " +
             "its angle while consuming only the exit duration RNG.");
@@ -3593,12 +3620,13 @@ public sealed partial class ValidationRoot
         _entities.Update(update, _player);
         ArrowMoblinCharacter shrouded =
             _entities.Entities<ArrowMoblinCharacter>()[0];
+        int initialShroudedScentCounter = shrouded.ScentAttractionCounter;
         shrouded.UpdateFrame(
             _player.Position, shrouded.Position + new Vector2(48, 32));
         FailIf(
             shrouded.Record.Id != 0x22 ||
             shrouded.State != ArrowMoblinState.FollowingScentSeed ||
-            shrouded.ScentAttractionCounter != 0xff,
+            shrouded.ScentAttractionCounter != ((initialShroudedScentCounter - 1) & 0xff),
             "The shared ENEMY_SHROUDED_STALFOS arrow handler did not enter " +
             "its source scent state `$04.");
 
@@ -3621,11 +3649,12 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x1c);
         _entities.Update(update, _player);
         RopeCharacter rope = _entities.Entities<RopeCharacter>()[0];
+        int ropeScentCounter = rope.ScentAttractionCounter;
         rope.UpdateFrame(
             _player.Position, rope.Position + new Vector2(48, 32));
         FailIf(
             rope.State != RopeState.FollowingScentSeed ||
-            rope.SpeedRaw != 0x32 || rope.ScentAttractionCounter != 0xff,
+            rope.SpeedRaw != 0x32 || rope.ScentAttractionCounter != ((ropeScentCounter - 1) & 0xff),
             "ENEMY_ROPE did not follow scent at source SPEED_140.");
         rope.UpdateFrame(_player.Position);
         FailIf(
@@ -3724,6 +3753,7 @@ public sealed partial class ValidationRoot
         var random = new OracleRandom();
         var predictor = new OracleRandom();
         predictor.BeginRoomParse();
+        predictor.Next(); // bank0.s:enemyStandardUpdate initializes var3d.
         int expectedInitialAngle = predictor.Next().Value & 0x18;
         int expectedInitialCounter =
             0x30 + (predictor.Next().Value & 0x3f);
@@ -3755,8 +3785,8 @@ public sealed partial class ValidationRoot
             moblin.State != ArrowMoblinState.Moving ||
             moblin.Angle != expectedInitialAngle ||
             moblin.Counter != expectedInitialCounter ||
-            manager.RandomCalls != 258,
-            "ENEMY_ARROW_MOBLIN state 0 did not consume direction then duration " +
+            manager.RandomCalls != 259,
+            "ENEMY_ARROW_MOBLIN state 0 did not consume var3d, direction then duration " +
             "RNG and enter its imported cardinal SPEED_80 route.");
 
         for (int update = 0;
@@ -3781,7 +3811,7 @@ public sealed partial class ValidationRoot
             moblin.State != ArrowMoblinState.Turning ||
             moblin.Counter != 1 ||
             manager.Entities<EnemyArrowProjectile>().Count != 0 ||
-            manager.RandomCalls != 258,
+            manager.RandomCalls != 259,
             "ENEMY_ARROW_MOBLIN consumed RNG or fired before the eighth standing update.");
 
         Vector2 firstShotOrigin = moblin.Position;
@@ -3805,7 +3835,7 @@ public sealed partial class ValidationRoot
             moblin.Angle != expectedFirstShotAngle ||
             moblin.Counter != expectedFirstShotCounter ||
             moblin.MoveCycles != 1 ||
-            manager.RandomCalls != 260 ||
+            manager.RandomCalls != 261 ||
             arrows.Count != 1 ||
             arrows[0].State != HostileProjectileState.Flying ||
             arrows[0].ElapsedFrames != 1 ||
@@ -3843,7 +3873,7 @@ public sealed partial class ValidationRoot
             moblin.Angle != expectedSecondAngle ||
             moblin.Counter != expectedSecondCounter ||
             moblin.MoveCycles != 2 ||
-            manager.RandomCalls != 262 ||
+            manager.RandomCalls != 263 ||
             arrowsAfterEvenCycle.Any(arrow =>
                 !arrowsBeforeEvenCycle.Contains(arrow)),
             "ENEMY_ARROW_MOBLIN did not suppress PART_ENEMY_ARROW on its " +
@@ -4186,12 +4216,14 @@ public sealed partial class ValidationRoot
         zol.Health = 3;
         Vector2 zolOrigin = zol.Position;
         _sound.ClearPlayRequestAudit();
+        _entities.ApplySwordHit(
+            zol.CollisionBounds.Grow(1),
+            zol.Position + Vector2.Left * 16.0f,
+            damage: 1,
+            knockbackStrength: EnemyKnockbackStrength.High);
+        _entities.Update(1.0 / 60.0, _player);
+        _entities.ResolvePostObjectCollisions(_player);
         FailIf(
-            !_entities.ApplySwordHit(
-                zol.CollisionBounds.Grow(1),
-                zol.Position + Vector2.Left * 16.0f,
-                damage: 1,
-                knockbackStrength: EnemyKnockbackStrength.High) ||
             zol.Health != 2 ||
             zol.InvincibilityCounter != 0x20 ||
             zol.KnockbackCounter != 0 ||
@@ -4199,12 +4231,13 @@ public sealed partial class ValidationRoot
                 OracleSoundEngine.SndDamageEnemy) != 1,
             "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
             "$20 invincibility response with one SND_DAMAGE_ENEMY request.");
-        FailIf(
-            _entities.ApplySwordHit(
+        _entities.ApplySwordHit(
             zol.CollisionBounds.Grow(1),
             zol.Position,
             damage: 1,
-            knockbackStrength: EnemyKnockbackStrength.Low) ||
+            knockbackStrength: EnemyKnockbackStrength.Low);
+        _entities.ResolvePostObjectCollisions(_player);
+        FailIf(zol.Health != 2 ||
             _sound.PlayRequestsFor(
                 OracleSoundEngine.SndDamageEnemy) != 1,
             "The Zol no-knockback invincibility window accepted an " +
@@ -4215,7 +4248,7 @@ public sealed partial class ValidationRoot
             zol.InvincibilityCounter != 0x1f ||
             zol.KnockbackCounter != 0 ||
             zol.Counter1 != 999,
-            "A sword-hit Zol recoiled or paused despite collision effect $0b.");
+            "A sword-hit Zol must consume JUST_HIT without movement or another state-counter update.");
 
         GD.Print("Validated collisionEffects.s low/normal/high sword responses " +
             "($10/$15/$1a invincibility, $08/$0b/$0f knockback), " +
@@ -4233,12 +4266,15 @@ public sealed partial class ValidationRoot
             [0x0f] = (0x05, 0x05, 0x05),
             [0x10] = (0x10, 0x0f, 0x0f),
             [0x11] = (0x10, 0x0f, 0x0f),
+            [0x13] = (0x06, 0x06, 0x06),
             [0x14] = (0x10, 0x0f, 0x0f),
             [0x17] = (0x00, 0x00, 0x05),
             [0x18] = (0x10, 0x0f, 0x0f),
             [0x1a] = (0x00, 0x00, 0x0f),
             [0x1b] = (0x10, 0x0f, 0x0f),
             [0x1c] = (0x00, 0x00, 0x05),
+            [0x16] = (0x06, 0x06, 0x06),
+            [0x2b] = (0x00, 0x0f, 0x0f),
             [0x1f] = (0x10, 0x0f, 0x0f),
             [0x20] = (0x10, 0x0f, 0x0f),
             [0x21] = (0x0f, 0x0f, 0x0f),
@@ -4303,9 +4339,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 46 ||
+            auditedCombatKeys.Count != 53 ||
             auditedNonCombatKeys.Count != 8,
-            "The shield audit did not cover all 46 implemented combat " +
+            "The shield audit did not cover all 51 implemented combat " +
             "enemy keys and 8 deliberately non-combat implemented keys.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
@@ -4855,13 +4891,13 @@ public sealed partial class ValidationRoot
         Vector2[] initialPositions = stalfos.Select(enemy => enemy.Position).ToArray();
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            _entities.RandomCalls != randomCalls ||
+            _entities.RandomCalls != randomCalls + 2 ||
             stalfos.Any(enemy =>
                 enemy.State != StalfosState.Deciding),
-            "ENEMY_STALFOS state `$00 did not initialize state `$08 without consuming RNG.");
+            "ENEMY_STALFOS state `$00 lost enemyStandardUpdate's one var3d RNG roll per enemy.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            _entities.RandomCalls != randomCalls + 4 ||
+            _entities.RandomCalls != randomCalls + 6 ||
             stalfos.Any(enemy =>
                 enemy.State != StalfosState.Walking ||
                 enemy.Counter1 is not (0x20 or 0x30 or 0x40 or 0x50) ||
@@ -4900,6 +4936,9 @@ public sealed partial class ValidationRoot
             new OracleRandom());
         potStalfos.UpdateFrame(Vector2.Zero);
         potStalfos.UpdateFrame(Vector2.Zero);
+        var stalfosAngle = typeof(StalfosCharacter).GetField("_angle",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        stalfosAngle.SetValue(potStalfos, 0x16);
         var potApproach = new Vector2(136, 89);
         potStalfos.Position = potApproach;
         potStalfos.UpdateFrame(Vector2.Zero);
@@ -4914,12 +4953,12 @@ public sealed partial class ValidationRoot
         potStalfos.Free();
 
         var cornerRandom = new OracleRandom();
-        cornerRandom.Next();
         var cornerStalfos = new StalfosCharacter();
         cornerStalfos.Initialize(
             room41f[2], potRoom, new Vector2(136, 88), cornerRandom);
         cornerStalfos.UpdateFrame(Vector2.Zero);
         cornerStalfos.UpdateFrame(Vector2.Zero);
+        stalfosAngle.SetValue(cornerStalfos, 0x04);
         var cornerApproach = new Vector2(122, 115);
         cornerStalfos.Position = cornerApproach;
         cornerStalfos.UpdateFrame(Vector2.Zero);
@@ -4933,21 +4972,19 @@ public sealed partial class ValidationRoot
             $"${cornerStalfos.Angle:x2}, position={cornerStalfos.Position}).");
         cornerStalfos.Free();
 
-        (string Axis, int SkippedCalls, int InitialAngle,
+        (string Axis, int InitialAngle,
             Vector2 Position, int ReflectedAngle)[] stalfosBoundaryCases =
         [
-            ("vertical", 20, 0x00, new Vector2(80, 3), 0x10),
-            ("horizontal", 41, 0x08,
+            ("vertical", 0x00, new Vector2(80, 3), 0x10),
+            ("horizontal", 0x08,
                 new Vector2(potRoom.Width - 6, 64), 0x18),
-            ("corner", 1, 0x04,
+            ("corner", 0x04,
                 new Vector2(potRoom.Width - 6, 3), 0x14)
         ];
-        foreach ((string axis, int skippedCalls, int initialAngle,
+        foreach ((string axis, int initialAngle,
             Vector2 position, int reflectedAngle) in stalfosBoundaryCases)
         {
             var boundaryRandom = new OracleRandom();
-            for (int call = 0; call < skippedCalls; call++)
-                boundaryRandom.Next();
             var boundaryStalfos = new StalfosCharacter();
             boundaryStalfos.Initialize(
                 room41f[2],
@@ -4956,6 +4993,7 @@ public sealed partial class ValidationRoot
                 boundaryRandom);
             boundaryStalfos.UpdateFrame(Vector2.Zero);
             boundaryStalfos.UpdateFrame(Vector2.Zero);
+            stalfosAngle.SetValue(boundaryStalfos, initialAngle);
             FailIf(
                 boundaryStalfos.State != StalfosState.Walking ||
                 boundaryStalfos.Angle != initialAngle,
@@ -5114,8 +5152,11 @@ public sealed partial class ValidationRoot
             counter1: 1000,
             animation: 1);
         int greenCount = _entities.Entities<ZolCharacter>().Count;
+        _entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f));
+        _entities.ResolvePostObjectCollisions(_player);
+        FailIf(green.Health != 0 || green.IsDead, "Lethal Zol collision must retain its pending JUST_HIT before death dispatch.");
+        _entities.Update(2.0 / 60.0, _player);
         FailIf(
-            !_entities.ApplySwordHit(green.CollisionBounds.Grow(1.0f)) ||
             _entities.Entities<ZolCharacter>().Count != greenCount - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x34,
@@ -5124,6 +5165,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0xcc);
         _player.WarpTo(new Vector2(220, 160), recordSafe: false);
+        _entities.Update(1.0 / 60.0, _player); // Native state0 before a collision can reach the red Zol.
         ZolCharacter red = _entities.Entities<ZolCharacter>().Find(zol => zol.Record.SubId == 1)!;
         Vector2 splitPosition = red.Position;
         int redRoomCount = _entities.Entities<ZolCharacter>().Count;
@@ -5133,8 +5175,12 @@ public sealed partial class ValidationRoot
         RecentEnemyDefeatsState splitRecentDefeats =
             _entities.CaptureDebugState().RecentEnemyDefeats;
         _sound.ClearPlayRequestAudit();
+        _entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f));
+        _entities.ResolvePostObjectCollisions(_player);
+        FailIf(red.State != ZolState.RedWaiting || red.Health != 1,
+            "Red Zol sword collision must write JUST_HIT before its next enemy handler selects splitting.");
+        _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            !_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f)) ||
             red.State != ZolState.RedSplitting ||
             _entities.Entities<ZolCharacter>().Count != redRoomCount ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||

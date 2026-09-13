@@ -6,8 +6,9 @@ namespace oracleofages;
 internal sealed class ZoraFireRoomEntity(ZoraFireProjectile projectile)
     : RoomEntityAdapter<ZoraFireProjectile>(projectile, projectile.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, ISwordHittableRoomEntity,
-        IItemCollisionHittableRoomEntity
+        IItemCollisionHittableRoomEntity, INativePartHealthRoomEntity
 {
+    public void ClearHealthAndCollision() => Entity.ClearHealthAndCollision();
     public bool Finished => Entity.Finished;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame);

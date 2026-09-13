@@ -223,11 +223,13 @@ $postD3ExtraObjectSource = Read-ImportText (
     Join-Path $Disassembly 'objects\ages\extraData3.s')
 
 if ($remoteMakuObjectSource -notmatch '(?ms)^group0Map8dObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$00\s+obj_End' -or
+    $remoteMakuObjectSource -notmatch '(?ms)^group0Map03ObjectData:\s+obj_Interaction \$8a \$00 \$00 \$00 \$05\s+obj_Pointer group0Map03EnemyObjectData\s+obj_End' -or
     $remoteMakuObjectSource -notmatch '(?ms)^group0Map3aObjectData:.*?obj_Interaction \$8a \$00 \$00 \$00 \$02.*?obj_End' -or
     $remoteMakuObjectSource -notmatch '(?ms)^group1Map83ObjectData:\s+obj_Interaction \$41 \$00 \$38 \$4e\s+obj_Interaction \$8a \$01 \$00 \$00 \$03\s+obj_Pointer group1Map83EnemyObjectData\s+obj_End' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?returnIfScrollMode01Unset.*?^@checkConditionsAndSetText:.*?^@val00:\s+xor a\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b0.*?^@checkEssenceObtained:\s+ld hl,wEssencesObtained\s+jp checkFlag' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val02:\s+ld a,TREASURE_HARP\s+call checkTreasureObtained\s+jp nc,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b2\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val03:\s+ld a,\$01\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b3\s+jp @setTextForScript' -or
+    $remoteMakuInteractionSource -notmatch '(?ms)^@val05:\s+ld a,\$03\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05b5\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@val04:\s+ld a,\$02\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ld hl,wPastRoomFlags\+\$76\s+set 0,\(hl\)\s+call checkIsLinkedGame\s+ld a,GLOBALFLAG_CAN_BUY_FLUTE\s+call z,setGlobalFlag\s+ldbc \$00, <TX_05b4\s+jp @setTextForScript' -or
     $remoteMakuInteractionSource -notmatch '(?ms)^@state0:.*?getThisRoomFlags\s+and \$40\s+jp nz,interactionDelete.*?^@scriptTable:\s+\.dw mainScripts\.remoteMakuCutsceneScript' -or
     $remoteMakuHelperSource -notmatch '(?ms)^remoteMakuCutscene_fadeoutToBlackWithDelay:.*?fadeoutToBlackWithDelay.*?ld a,\$ff\s+ld \(wDirtyFadeBgPalettes\),a\s+ld \(wFadeBgPaletteSources\),a\s+ld a,\$01\s+ld \(wDirtyFadeSprPalettes\),a\s+ld a,\$fe\s+ld \(wFadeSprPaletteSources\),a' -or
@@ -386,6 +388,8 @@ if (-not $allTexts.ContainsKey(0x05b0) -or
     -not $allTexts.ContainsKey(0x05c3) -or
     -not $allTexts.ContainsKey(0x05b4) -or
     -not $allTexts.ContainsKey(0x05c4) -or
+    -not $allTexts.ContainsKey(0x05b5) -or
+    -not $allTexts.ContainsKey(0x05c5) -or
     -not $allTexts.ContainsKey(0x1316) -or
     -not $allTexts.ContainsKey(0x1317)) {
     throw 'Remote Maku text through TX_05b4/TX_05c4 or post-D3 text TX_1316/TX_1317 was not imported.'
@@ -444,6 +448,11 @@ $remoteMakuThirdEssenceEventRows = @(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\remote_maku_third_essence_event.tsv'),
     $remoteMakuThirdEssenceEventRows)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\remote_maku_fourth_essence_event.tsv'), @(
+        $remoteMakuEventHeader
+        "0`t03`t8a`t00`t05`t08`tff`t40`t05b5`t05c5`tb5`tc5`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
+    ))
 
 $postD3EventRows = @(
     "# group`troom`tid`tsubid`tessence-mask`troom-flag`tinitial-wait`tflash-frames`tfade-frames`tpalace-group`tpalace-room`tambi-id`tambi-subid`tambi-y`tambi-x`tnayru-id`tnayru-subid`tnayru-y`tnayru-x`tpalace-wait`tpalace-post-wait`tpalace-text-id`tpalace-text-base64`texplanation-wait`texplanation-post-wait`texplanation-text-id`texplanation-text-base64`texplanation-textbox-flags`tscreen-offset-y`treturn-y`treturn-x`treturn-direction`tpast-flag-group`tpast-flag-room`tpast-room-flag`tstandard-global-flag`tmusic`tsource",
@@ -511,7 +520,8 @@ foreach ($variant in @(
     @('first_essence', 0x05b0, 0x05c0),
     @('wing_dungeon', 0x05b1, 0x05c1),
     @('harp', 0x05b2, 0x05c2),
-    @('third_essence', 0x05b4, 0x05c4)
+    @('third_essence', 0x05b4, 0x05c4),
+    @('fourth_essence', 0x05b5, 0x05c5)
 )) {
     $remoteMakuCommandRows = [Collections.Generic.List[string]]::new()
     $remoteMakuCommandRows.Add($remoteMakuCommandHeader)

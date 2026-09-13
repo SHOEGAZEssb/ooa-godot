@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_COLORED_CUBE $19:$05.</summary>
+/// <summary>INTERAC_COLORED_CUBE $19, with subid selecting its initial orientation.</summary>
 internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     IColoredCubePuzzleStateSource
@@ -82,30 +82,30 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
             return;
         }
 
-        if (_room.GetMetatile(Position) == 0x4d)
+        // interactionDecCounter2 is an unconditional byte decrement. The
+        // cracked-floor probe runs only on zero, even after long idle waits.
+        _holeCounter = (_holeCounter - 1) & 0xff;
+        if (_holeCounter == 0 && _room.GetMetatile(Position) == 0x4d)
         {
-            if (--_holeCounter == 0)
-            {
                 _room.SetPositionTileAndCollision(Position, 0xf3, null, _animationTick());
                 _roomTileChanged();
                 spawns.Add(new FallingDownHoleSpawn(Position));
-                _puzzle.CubePosition = 0;
                 Finished = true;
-            }
-        }
-        else
-        {
-            _holeCounter = _data.Constant("cube-hole-frames");
+                return;
         }
 
-        if (!TryGetPushDirection(frame.Player, out Vector2I direction) ||
-            !DestinationIsOpen(direction))
+        if (!TryGetPushDirection(frame.Player, out Vector2I direction))
         {
             _pushCounter = _data.Constant("cube-push-frames");
             return;
         }
         if (--_pushCounter != 0)
             return;
+        if (!DestinationIsOpen(direction))
+        {
+            _pushCounter = _data.Constant("cube-push-frames");
+            return;
+        }
 
         int directionIndex = direction == Vector2I.Up ? 0
             : direction == Vector2I.Right ? 1

@@ -40,6 +40,12 @@ pixel per original update toward its clamped focus target. Textboxes hold that
 position. Only traced room-load/reset paths place the camera at its target
 immediately.
 
+Temporary item helpers can own camera focus independently of Link's position.
+Their snapshots and lifetime belong to the item controller; the transition
+controller remains the only camera writer. A helper created in an earlier
+item slot initializes in its later reserved slot during the same update, and
+releases focus there when its weapon disappears.
+
 ## Room lifetime and transitions
 
 `RoomTransitionController` owns scrolls, warps, camera, destination placement,
@@ -50,6 +56,37 @@ A native object freeze can leave the interaction phase running while holding
 Link, item parents, projectiles, enemies, parts, and companions. Preserve that
 distinction from an input lock: frozen item state must resume after release,
 and ordinary interactions must still advance when their source mask allows it.
+The text/interaction-disable dispatcher also runs interactions whose native
+state remains zero. Stateless puzzle checks retain that eligibility on every
+update; initialization must not silently turn them into ordinary frozen actors.
+
+Linked mechanisms consume live shared state in interaction order. Lever pull
+distance belongs to the runtime WRAM bytes and clears on room reload; lava
+controllers and sliding blocks read those bytes directly. The Bracelet parent
+owns the imported pull/rest animation gate and Link's held-item collision
+mask. The lever applies movement through Link's wall resolver, then publishes
+its high-byte distance for later interactions in the same update.
+
+Top-down moving-platform scripts are keyed by dungeon and script index; the
+same raw subid can select a different route in another dungeon. Their shared
+rider is cleared after Link consumes the previous update's support, then the
+first touching platform claims him in interaction order. The instrument
+sentinel also supplies support while preventing a platform claim. Platform
+movement carries Link through his wall resolver during ordinary airborne
+updates, and the Feather can jump from a platform without treating it as a
+mounted companion or minecart.
+
+Ordinary top-down jumps retain their takeoff velocity while rising. After the
+gravity update makes vertical speed nonnegative, the shared velocity helper
+steers and accelerates or brakes before applying movement. Releasing direction
+retains airborne momentum; item movement locks do not replace that source
+input path. Forced mount and ledge trajectories retain their own rules.
+
+Dungeon static-object lists share one imported dungeon-indexed table. Dungeon
+entry replaces the shared WRAM static-object buffer; ordinary room changes
+restore parked carts from that buffer. Boarding transfers a cart to the shared
+companion slot, and dismounting returns it to the first free static slot. The
+room factory selects these records by dungeon metadata, not room-ID ranges.
 
 During a scrolling transition:
 
@@ -114,15 +151,33 @@ into the destination; scrolling has a separate outgoing-entity lifetime.
 
 ## Ordered room objects and RNG
 
+Energy swirls allocate from the shared PART pool and stop at the first failed
+allocation. Their native enabled bit keeps them updating during text and
+object freezes. The creating script and the parts share one WRAM deletion
+signal; setting it does not delete objects until their next dispatch. Circle
+placement replaces coordinate high bytes while retaining existing fractions.
+
+An Essence's pedestal and reserved glow have separate lifetimes and drawing
+priorities. The reserved glow updates before its dynamic parent and remains
+eligible during dialogue. Its position therefore uses the parent's preceding
+high coordinate bytes. Collecting an Essence suppresses its next appearance
+and glow while retaining the pedestal's collision.
+Dynamic interaction allocation scans `$d2` through `$df`; the reserved `$d0`
+and `$d1` slots are not available to ordinary effects or actors.
+
 The importer produces one source-ordered object stream. Parse it in order and
 retain a shared reservation set so conditional objects, random placements,
 enemies, and later objects observe the same occupancy and RNG history as the
 original.
 
-The placement buffer is regenerated once per real room parse with the global
-game RNG and the original 256 calls. Do not use `Random.Shared`, a per-enemy
-generator, sorted collections, or a separate placement pass. Destination
-preload and re-entry must consume RNG only when the original does.
+The placement buffer is regenerated on each real room parse with the global
+game RNG and the original 256 calls. Native calls to `generateRandomBuffer`
+also overwrite that same buffer; only room parsing resets its placement
+cursor. Copies to shared WRAM scratch storage belong to `OracleRuntimeState`,
+so concurrent users observe the original buffer lifetime. Do not use
+`Random.Shared`, a per-enemy generator, sorted collections, or a separate
+placement pass. Destination preload and re-entry must consume RNG only when
+the original does.
 
 Parameterized enemy opcode `$09` retains its `var03` byte in the ordered
 stream. It allocates a counted enemy without reserving a tile, advancing the
@@ -166,6 +221,50 @@ without bouncing. Each seed owns the source byte elevation and last-tile cache;
 diagonal probes predict elevation while only the current tile commits it.
 Room coordinates and collision remain independent of camera presentation.
 
+Pegasus Satchel activation consumes its seed in the parent handler and keeps
+the timer in session WRAM. Link advances that timer before ordinary item use
+and captures the boosted target speed at takeoff. The reserved dust item
+updates after ordinary seed children, retains its two alternating cloud slots
+across scrolling, and freezes with the item phase during dialogue and scrolls.
+It does not contribute an ordinary seed projectile or an item-use input lock.
+
+Native seed collision receivers use the projectile's live collision type and
+original imported attributes separately. Mystery selects a collision type at
+creation and retains its own damage until the hit is resolved; only then may
+it reload the selected seed's attributes and graphics. Native receivers run
+in the post-object collision pass. A hit updates the enemy immediately and
+leaves an item signal for the following item update; dialogue freezes that
+signal, and room replacement discards it. The first overlapping item ends
+that enemy's scan even when its effect changes neither object, so Link contact
+is skipped for that pass only. Effects that preserve the item's collision bit
+allow it to hit later enemy slots in the same pass. Legacy seed receivers
+still use their existing collision phases. Boss combat descriptors retain the
+room sound callback for hit effects as well as movement and death sounds.
+Native receivers also use imported active-collision masks; a disabled entry
+does not consume the enemy's item scan. Gale's first enemy update consumes
+the collision signal before advancing its capture motion.
+The native collision scan visits enemy slots before part slots. Native part
+receivers test projectile and thrown-object geometry after movement; a sword
+beam collision leaves a signal for its next item update. Orbs retain their
+own palette while publishing toggle bits to the shared runtime state; moving
+orbs also retain their script position. Stationary orb initialization changes
+the logical layout and collision buffers while preserving the floor image and
+underlying layout. Orb chest scripts observe those bits in the following
+interaction phase and retain the source puff delay before changing the tile.
+
+The Pegasus Shooter projectile uses its own imported collision graphics and
+keeps its animation after a stun hit. Legacy stun receivers still resolve its
+collision before movement and the enemy update, using the source's asymmetric
+byte-height interval.
+Entering the collision effect consumes that item update; the effect's first
+ordinary animation update happens on the next dispatch. The enemy stun and
+projectile lifetime then advance independently.
+
+The shared enemy stun motion preserves fractional position bytes during
+shaking and applies the original wrapped height gates, 16-bit gravity, and
+bounce comparison. Species dispatch still owns status priority and resumes
+normal movement only on the update following stun-counter zero.
+
 Gale Seed capture stays in the item phase; Link owns his spinning pose and
 input lock, the map menu owns destination selection, and the transition owner
 performs the falling arrival. Enemy gale motion uses the imported collision
@@ -184,15 +283,75 @@ unsigned low-byte thresholds. Species consume that result to select their
 recovery state and RNG calls. Coordinate additions retain wrapping 8.8 words.
 
 Ordinary gameplay preserves the source category order: items, enemies, parts,
-then interactions. Item collisions resolve in the item phase, so a landed
-Scent Seed publishes its target before compatible enemies update, and its
+then interactions. A landed Scent Seed publishes its target in the item phase
+before compatible enemies update, and its
 zero-counter update removes that target before the same enemy pass.
+Enemy dispatch visits live slots in ascending order. A child allocated into a
+later slot initializes in that update; a reused earlier slot waits for the
+next update. Spawners retain their slot until the source deletes them, and
+multi-object encounters check the shared capacity before creating children.
+Source interaction effects publish animation parameters in the interaction
+pass; linked enemies observe them on the following enemy pass before the
+effect deletes itself. Their allocator belongs to the room entity manager,
+separately from enemy and part capacity. Native slot registration is explicit:
+logical controllers sharing an update phase must not consume object slots.
+Source object-page references resolve through the manager's current slot
+occupant, including reuse. A cross-object health/collision write belongs to
+the receiving object's state machine: zero health does not universally mean
+immediate deletion. State-zero property loading can overwrite an earlier
+write; initialized handlers retain their source-specific status behavior.
+Each object category samples dialogue state on entry, so an enemy opening
+text freezes already initialized parts and interactions later in that update.
+Boss shadows and death explosions occupy part slots; an explosion's terminal
+update releases the room enemy count before reward interactions run.
+
+Items with a post-object handler run that handler after interactions and
+before the camera update. This pass still runs when dialogue freezes an
+initialized item's ordinary state machine. Keep parent lifetime, child
+updates, post-object drawing and the later collision pass distinct: a child
+deletion is observed by its parent on the following Link update.
+Native melee collision owners defer overlap and height checks until that
+later pass. Damage and invincibility therefore follow enemy movement, and
+the sword parent consumes contact and recoil on its next update. The scan
+includes enemies allocated after the weapon's ordinary update. Pending
+requests belong to the entity manager and expire on cancellation or room
+replacement. Legacy combat owners still use their existing collision path.
+
+Switch Hook enemy eligibility and collision effects are separate imported
+tables. The item owns exchange timing and position snapshots; a compatible
+enemy owns its held substates, altitude, and release behavior. During flight,
+compatible enemy contacts wait for the later weapon collision pass, where an
+accepted item collision skips that enemy's Link contact. Cancelling the item
+releases a held enemy through its native falling state instead of directly
+restoring ordinary movement.
+
+Dungeon switches retain pending Switch Hook contacts until their next part
+update. That update advances the signed lockout before toggling the shared
+switch byte, so later rail interactions see the change in the same update.
+Dialogue preserves both the pending contact and its counters. Part collision
+masks and effects are imported separately from enemy collision profiles.
+
+Flying hooks and sword beams share the original item tile-passage state:
+cached tile identity and accumulated cliff elevation belong to each item.
+A solid movement tile can still permit item passage through its imported
+passable-tile or directional cliff rule.
+
+Enemies that react to `wLinkUsingItem1`'s high nibble observe parent-item
+animation starts, not the duration of an attack. Link publishes starts using
+the imported parent animation flags, clears them on the next ordinary item
+update, and suppresses cancelled parents. A gameplay pause preserves that
+signal together with the item and enemy states it freezes.
 
 Sword-enemy blades occupy the shared part pool. Their enemy remains in state
 zero if allocation fails. The enemy pass publishes its guarding collision
 mode; the following part pass positions the invisible blade and transfers
-pending blade recoil to its parent. Collision tests in the next item pass
+pending blade recoil to its parent after advancing part invincibility. The
+blade retains its recoil bytes; the enemy advances the copied counter.
+Collision tests in the next item pass
 consume that published state rather than recomputing facing during the hit.
+The blade's collision gate is independent of the body's collision-enable
+bit, which a Switch Hook exchange clears. Its part handler follows the
+parent's high XY coordinates without inheriting the body's lifted Z.
 
 Random breakable drops retain their unresolved part subid until the part's
 first update. That update checks Maple before drawing RNG, then applies the
@@ -202,10 +361,24 @@ next enemy pass. Slot reservations include source-placed noncombat controllers
 and explicitly unsupported placements; deletion releases the slot independently
 of the later death-puff room-count decrement.
 
+An `enemyReplaceWithID` conversion retains the original enemy slot, object
+order, room-count policy and defeat index. It clears fractional position and
+starts the replacement's initialization on the next enemy dispatch, without
+emitting a death outcome. Linked parts validate the identity of their target
+before restoring temporary state; an old burning-enemy part cannot write its
+saved health into the replacement.
+
 Enemy death puffs carry the source's room-count and item-drop policies
-independently. A no-drop puff skips drop selection entirely, including its
-RNG consumption; an uncounted defeat leaves the room counter and recent-defeat
-mark unchanged while still advancing the global kill counters.
+independently. Enemy death allocates the puff before releasing the enemy
+slot, so its first animation update runs in the later part pass. The terminal
+part update releases its count before room-clear interactions run. A random
+drop replaces the same part slot, keeps only coordinate high bytes, and
+initializes on the next part pass. A no-drop puff skips drop selection and
+its RNG consumption. If the part pool is full, the source leaves the enemy's
+count unreleased; the room manager retains that count until room loading,
+without retrying the puff or playing its kill sound. An uncounted defeat
+leaves the room counter and recent-defeat mark unchanged while still
+advancing the global kill counters.
 
 The live `w1Companion` slot has one runtime owner shared by rideable animal
 companions, the minecart, and the raft. A mounted owner, rather than Link, supplies the
@@ -229,6 +402,9 @@ over Link or apply riding damage. Mounting uses the shared ordinary-Link
 vulnerability, swimming, grabbing, airborne, and mount-lock gates.
 Companion contact restrictions are read through the entity restriction owner,
 including Moosh's charged-stomp protection through its recovery animation.
+NPC passage also reads the shared player-world restriction view: an active
+interaction or transition can permit passage for its lifetime without changing
+NPC collision geometry. Releasing that owner restores ordinary blocking.
 
 Mounted-animal Link presentation is not an independent Link animation. The
 `SPECIALOBJECT_LINK_RIDING_ANIMAL` owner copies the low six bits of

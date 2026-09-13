@@ -7,7 +7,8 @@ public interface IPlayerWorld
 {
     int FrameCounter { get; }
     bool IsTransitioning { get; }
-    bool TimeWarpPassesNpcs => false;
+    bool PassesNpcs => false;
+    bool InteractionMenusDisabled => false;
     bool ScreenScrolling { get; }
     bool DialogueOpen { get; }
     bool SwordDisabled { get; }
@@ -48,6 +49,7 @@ public interface IPlayerWorld
     void AdvanceBraceletProjectile();
     void InterruptBracelet(Player player, bool discard);
     int TryUseSeedSatchel(Player player);
+    PegasusSeedState? Pegasus => null;
     bool SeedShooterActive => false;
     int SeedShooterAngle => 0;
     bool TryBeginSeedShooter(
@@ -57,6 +59,12 @@ public interface IPlayerWorld
         bool primaryHeld, bool secondaryHeld,
         bool directionJustPressed) => false;
     void InterruptSeedShooter() { }
+    bool SwitchHookActive => false;
+    bool SwitchHookExchangeActive => false;
+    bool TryBeginSwitchHook(Player player, Vector2 input) => false;
+    void UpdateSwitchHookParent(Player player) { }
+    void InterruptSwitchHook(bool discard) { }
+    void ClearItemParents(Player player) { }
     int BeginHarp(Player player) => 0;
     int BeginFlute(Player player) => 0;
     void AdvanceHarp(Player player, int actionUpdate) { }

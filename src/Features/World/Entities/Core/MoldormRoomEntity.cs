@@ -7,8 +7,13 @@ namespace oracleofages;
 internal sealed class MoldormRoomEntity
     : CombatEnemyRoomEntityAdapter<MoldormCharacter>, IFixedRoomEntity,
         IScreenTransitionPreloadRoomEntity, IItemCollisionHittableRoomEntity,
-        IExpertPunchHittableRoomEntity
+        IExpertPunchHittableRoomEntity, IUpdatesDuringDialogueRoomEntity,
+        IUpdatesDuringRoomEntityFreeze, INativeEnemySlotRoomEntity, IPostObjectMeleeCollisionRoomEntity
 {
+    public bool MeleeReportsContact => true;
+    public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) => Entity.BindEnemySlot(slot, resolve);
+    public bool UpdatesDuringDialogue => Entity.State == 0;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
     private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
         EnemyBehaviorTables.Shared.MoldormCollisionEffects;
 
@@ -29,6 +34,14 @@ internal sealed class MoldormRoomEntity
                 soundRequested,
                 EnemySwordResponse.Knockback))
     { }
+
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (effect != 0x08 || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        hook.NotifyObjectCollision();
+        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        return true;
+    }
 
     public void UpdateFrame(
         RoomEntityFrame frame,

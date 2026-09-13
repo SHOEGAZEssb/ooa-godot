@@ -1,9 +1,9 @@
 namespace oracleofages;
 
 /// <summary>
-/// Explicit counterpart to bit 7 of the original interaction/part enabled
-/// byte. Ordinary non-state-zero room objects are skipped while
-/// wTextIsActive is nonzero; only source objects carrying that bit opt in.
+/// Objects eligible for the native text-time dispatcher: interactions whose
+/// state remains zero, or interaction/part objects with enabled bit 7 set.
+/// Ordinary non-state-zero objects are skipped while wTextIsActive is nonzero.
 /// </summary>
 internal interface IUpdatesDuringDialogueRoomEntity
 {

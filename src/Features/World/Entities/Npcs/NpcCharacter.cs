@@ -198,7 +198,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         float collisionRadiusY,
         float collisionRadiusX)
     {
-        if (player.TimeWarpPassesNpcs) return false;
+        if (player.PassesNpcs) return false;
         Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
         float radiusY = collisionRadiusY + LinkCollisionRadius;
         float radiusX = collisionRadiusX + LinkCollisionRadius;

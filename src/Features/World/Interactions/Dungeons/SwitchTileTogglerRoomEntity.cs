@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>INTERAC_SWITCH_TILE_TOGGLER $78.</summary>
 internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity
+    IRoomEntity, IFixedRoomEntity, IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
@@ -15,8 +16,11 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
     private int _lastSwitchState;
+    private bool _initialized;
 
     public Node2D Node => this;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal SwitchTileTogglerRoomEntity(
         DungeonObjectRecord record,
@@ -43,6 +47,11 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
+        if (!_initialized)
+        {
+            PrepareForScreenTransition(spawns);
+            return;
+        }
         int switchState = _runtime.ReadWramByte(
             OracleRuntimeState.SwitchStateAddress);
         if (switchState == _lastSwitchState)
@@ -52,6 +61,16 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized)
+        {
+            _initialized = true;
+            _lastSwitchState = _runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress);
+        }
+        return ScreenTransitionPresentation.Visible;
+    }
 
     private void SetTile(bool enabled)
     {

@@ -7,21 +7,33 @@ namespace oracleofages;
 /// <summary>Common PART_ORB $03 placed directly or spawned by an event.</summary>
 internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, ISwordHittableRoomEntity,
-    IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget
+    IPostObjectItemCollisionRoomEntity, ISeedCollisionTarget,
+    IObjectCollisionHeightRoomEntity, IPostObjectMeleeCollisionRoomEntity,
+    ISwitchHookHittableRoomEntity, IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity
 {
     private readonly DungeonMechanicDatabase _data;
+    private readonly PartOrbDatabase _orbData = PartOrbDatabase.Shared;
+    private readonly OracleRoomData _room;
+    private readonly Func<long> _animationTick;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly EnemyAnimationPlayer _animation;
     private readonly int _toggleMask;
     private int _hitLockout;
+    private bool _initialized;
+    private bool _pending;
+    private bool _collisionEnabled;
 
     public Node2D Node => this;
     public int CollisionZ => 0;
+    public bool MeleeReportsContact => false;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal int ToggleMask => _toggleMask;
-    internal int Palette => IsOn ? 2 : 1;
+    internal int Palette { get; private set; } = 1;
     internal int HitLockout => _hitLockout;
+    internal bool PendingHit => _pending;
     internal bool IsOn =>
         (_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) &
          ToggleMask) != 0;
@@ -29,11 +41,11 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         _animation.CurrentTextureForPalette(Palette);
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(
-            _data.MoonlitOrbRadiusX,
-            _data.MoonlitOrbRadiusY),
+            _orbData.RadiusX,
+            _orbData.RadiusY),
         new Vector2(
-            _data.MoonlitOrbRadiusX * 2,
-            _data.MoonlitOrbRadiusY * 2));
+            _orbData.RadiusX * 2,
+            _orbData.RadiusY * 2));
 
     internal DungeonOrbRoomEntity(
         DungeonMechanicDatabaseRecord record,
@@ -47,7 +59,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             record.Group,
             record.Room,
             record.PackedPosition,
-            1 << (record.SubId & 0x07),
+            1 << (record.SubId & PartOrbDatabase.Shared.SubidMask),
             data,
             visual,
             roomData,
@@ -74,6 +86,8 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         if (toggleMask is <= 0 or > 0x80 || (toggleMask & (toggleMask - 1)) != 0)
             throw new ArgumentOutOfRangeException(nameof(toggleMask));
         _data = data;
+        _room = roomData;
+        _animationTick = animationTick;
         _runtime = runtime;
         _playSound = playSound;
         _toggleMask = toggleMask;
@@ -89,21 +103,42 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             sourceGrayscaleInverted: visual.SourceGrayscaleInverted,
             paletteVariants: [1, 2]);
         _animation.SetAnimation(0);
+        Visible = false;
+    }
 
-        roomData.SetPositionTileAndCollision(
-            Position,
-            roomData.GetMetatile(Position),
-            (byte)data.MoonlitOrbCollision,
-            animationTick(),
-            preserveRenderedTile: true);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized)
+        {
+            _initialized = true;
+            _collisionEnabled = true;
+            _pending = false;
+            _hitLockout = 0;
+            // objectMakeTileSolid returns ceXX. ld h,Part.zh ($cf) then
+            // writes $0a to cfXX: logical layout only, preserving the floor
+            // image and underlying buffer. It does not alter Part.zh.
+            _room.SetPositionTileAndCollision(Position, _orbData.BackgroundTile,
+                _orbData.TileCollision, _animationTick(), preserveRenderedTile: true);
+            Palette = IsOn ? 2 : 1;
+            Visible = true;
+        }
+        return ScreenTransitionPresentation.Visible;
     }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if (!_initialized) { PrepareForScreenTransition(spawns); return; }
         if (_hitLockout > 0)
             _hitLockout--;
+        if (!_pending) return;
+        _pending = false;
+        _runtime.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress,
+            (byte)(_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) ^ ToggleMask));
+        Palette = (Palette & 1) + 1;
+        _playSound(_data.SwitchSound);
+        QueueRedraw();
     }
 
     public bool ApplySwordHit(
@@ -113,8 +148,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        Toggle(hitbox);
-        return false;
+        return Accept(hitbox, 4);
     }
 
     public bool ApplyItemCollision(
@@ -124,38 +158,42 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (collision is RoomEntityItemCollision.ThrownObject or
-            RoomEntityItemCollision.Bomb or
-            RoomEntityItemCollision.SwordBeam)
-        {
-            Toggle(hitbox);
-        }
-        return false;
+        return Accept(hitbox, (int)collision);
     }
 
     public SeedHitResult ApplySeedHit(
         Rect2 hitbox,
         Vector2 sourcePosition,
         int seedItem,
-        ICollection<RoomEntitySpawn> spawns) =>
-        Toggle(hitbox, applyHitLockout: false)
-            ? SeedHitResult.Activate
-            : SeedHitResult.None;
-
-    private bool Toggle(Rect2 hitbox, bool applyHitLockout = true)
+        ICollection<RoomEntitySpawn> spawns)
     {
-        if (_hitLockout != 0 || !hitbox.Intersects(CollisionBounds))
+        if (seedItem == 0x24) throw new InvalidOperationException("PART_ORB $03 requires Mystery's live collision type.");
+        return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
+            ? ApplySeedCollision(hitbox, sourcePosition, seed, seed.Collision & 0x7f, spawns).Effect : SeedHitResult.None;
+    }
+
+    public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 sourcePosition,
+        SeedRecord seed, int collisionType, ICollection<RoomEntitySpawn> spawns) => Accept(hitbox, collisionType)
+        ? new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true) : default;
+
+    public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
+    {
+        if (!RoomEntityManager.ObjectCollisionZOverlaps(0, hook.ZHigh, 7) || !Accept(hook.CollisionBounds, 0x0d)) return false;
+        hook.NotifyObjectCollision(); return true;
+    }
+
+    private bool Accept(Rect2 hitbox, int collision)
+    {
+        int lockout = _orbData.HitLockout(collision);
+        if (!_collisionEnabled || _pending || _hitLockout != 0 || lockout < 0 ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, hitbox))
             return false;
-        byte state = _runtime.ReadWramByte(
-            OracleRuntimeState.ToggleBlocksStateAddress);
-        _runtime.SetWramByte(
-            OracleRuntimeState.ToggleBlocksStateAddress,
-            (byte)(state ^ ToggleMask));
-        _hitLockout = applyHitLockout ? _data.SwitchHitLockout : 0;
-        _playSound(_data.SwitchSound);
-        QueueRedraw();
+        _pending = true;
+        _hitLockout = lockout;
         return true;
     }
+
+    public void ClearHealthAndCollision() => _collisionEnabled = false;
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);

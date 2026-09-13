@@ -9,11 +9,15 @@ internal interface ISeedProjectileRoomEntity
     bool CollisionEnabled { get; }
     int CollisionZ { get; }
     int SeedItem { get; }
+    SeedRecord Record { get; }
+    int CollisionType { get; }
     Vector2? ScentTarget { get; }
     Rect2 CollisionBounds { get; }
+    void QueueNativeCollision(SeedCollisionResponse response);
     void OnCollision(
         SeedHitResult result,
         ISeedBurnTarget? burnTarget,
         ISeedBounceTarget? bounceTarget,
-        ICollection<RoomEntitySpawn> spawns);
+        ICollection<RoomEntitySpawn> spawns,
+        bool beforeItemUpdate);
 }

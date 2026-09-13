@@ -22,6 +22,8 @@ internal partial class RopeCharacter : EnemyCharacter
     private int _speedZ;
     private int _direction = 0xff;
     private Action<int> _playSound = static _ => { };
+    private Func<int> _cameraY = static () => 0;
+    private bool _scentEnabled;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal RopeState State => _state;
@@ -32,8 +34,9 @@ internal partial class RopeCharacter : EnemyCharacter
     internal int ScentAttractionCounter => _scentAttraction.Counter;
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
+    private bool _hookHitPending;
     internal override bool CollisionEnabled => base.CollisionEnabled &&
-        (Record.SubId == 0 || _spawnCollision);
+        _spawnCollision;
     protected override Vector2 AnimationDrawOffset =>
         base.AnimationDrawOffset + new Vector2(0, _zFixed >> 8);
 
@@ -42,7 +45,8 @@ internal partial class RopeCharacter : EnemyCharacter
         OracleRoomData room,
         Vector2 position,
         OracleRandom random,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        Func<int>? cameraY = null)
     {
         Record = record;
         InitializeEnemy(
@@ -50,20 +54,40 @@ internal partial class RopeCharacter : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(record));
         _random = random;
         _playSound = playSound ?? (static _ => { });
+        _cameraY = cameraY ?? (static () => 0);
         _movement = new EnemyTerrainMovement(this, room);
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
         _speed = _behavior.WanderSpeedRaw;
+        ConfigureHazards(room, zPosition: () => _zFixed);
         _state = RopeState.Wandering;
+        _scentEnabled = record.SubId != 1;
+        if (record.SubId == 1)
+        {
+            Visible = false;
+            _state = RopeState.FallSetup;
+        }
         if (record.SubId is 2 or 3)
         {
             Visible = false;
             _state = RopeState.SpawnSetup;
             _speed = _behavior.CooldownSpeedRaw;
-            ConfigureHazards(room, zPosition: () => _zFixed);
         }
+    }
+
+    internal ScreenTransitionPresentation PrepareForScreenTransition()
+    {
+        if (!_initialized)
+        {
+            // Common enemy initialization precedes rope state0. Subid $01
+            // stays invisible; its fall-delay RNG belongs to the next state.
+            _initialized = true;
+            _scentAttraction.Initialize(_random.Next().Value);
+            Visible = Record.SubId != 1;
+        }
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
 
     internal void UpdateFrame(
@@ -71,21 +95,27 @@ internal partial class RopeCharacter : EnemyCharacter
         Vector2? scentSeedTarget = null,
         int linkDirection = 0)
     {
+        if (_hookHitPending)
+        {
+            // ENEMYSTATUS_JUST_HIT precedes recoil/health dispatch. Rope's
+            // handler returns without movement or decrementing knockback.
+            _hookHitPending = false;
+            if (_spawnCollision && CheckHazards()) return;
+            AdvanceInvincibilityCounter();
+            return;
+        }
         if (IsDead)
             return;
         if (BeginFrame())
             return;
-        if ((Record.SubId == 0 || _spawnCollision) && CheckHazards())
+        if (_spawnCollision && CheckHazards())
             return;
         if (!_initialized)
         {
-            // State 0 sets direction $ff/SPEED_60 and advances to state 8.
-            // State 8 falls through to movement on the following update.
-            _initialized = true;
-            Visible = true;
+            PrepareForScreenTransition();
             return;
         }
-        if (scentSeedTarget is { } scentPosition)
+        if (_scentEnabled && scentSeedTarget is { } scentPosition)
         {
             _spawnInitialized = true;
             _state = RopeState.FollowingScentSeed;
@@ -95,6 +125,44 @@ internal partial class RopeCharacter : EnemyCharacter
             SetAnimationFromAngle();
             _movement.MoveAtAngle(_angle, _speed, allowHoles: true);
             AdvanceAnimation(3);
+            return;
+        }
+        if (_state == RopeState.FallSetup)
+        {
+            _counter = (_random.Next().Value & _behavior.FallDelayMask) + 1;
+            _state = RopeState.WaitingToFall;
+            return;
+        }
+        if (_state == RopeState.WaitingToFall)
+        {
+            if (--_counter != 0)
+                return;
+            _spawnCollision = true;
+            _speedZ = _behavior.InitialFallSpeedZ;
+            // ecom_setZAboveScreen does byte addition, falls back to c on
+            // carry, then clamps a nonnegative zh to $80.
+            int offset = (-(int)Position.Y - _behavior.FallScreenOffset) & 0xff;
+            int height = (_cameraY() & 0xff) + offset;
+            if (height > 0xff) height = offset;
+            if ((height & 0x80) == 0) height = 0x80;
+            _zFixed = (height - 0x100) << 8;
+            _state = RopeState.Falling;
+            Visible = true;
+            _playSound(OracleSoundEngine.SndFallInHole);
+            QueueRedraw();
+            return;
+        }
+        if (_state == RopeState.Falling)
+        {
+            if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, _behavior.FallGravity))
+            {
+                _speedZ = 0;
+                _scentEnabled = true;
+                _playSound(OracleSoundEngine.SndBombLand);
+                ChangeDirection();
+                AdvanceAnimation();
+            }
+            QueueRedraw();
             return;
         }
         if (_state == RopeState.FollowingScentSeed)
@@ -157,6 +225,8 @@ internal partial class RopeCharacter : EnemyCharacter
             QueueRedraw();
             return;
         }
+        if (Record.SubId == 0)
+            _spawnCollision = true;
         if (_state == RopeState.Wandering && _cooldown == 0 &&
             IsCenteredWithLink(linkPosition))
         {
@@ -198,6 +268,14 @@ internal partial class RopeCharacter : EnemyCharacter
         SetAnimationFromAngle();
     }
 
+    internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
+    {
+        if (!TakeSwordHit(linkPosition, damage)) return false;
+        ApplySwordKnockback(linkPosition, EnemyKnockbackStrength.Low);
+        _hookHitPending = true;
+        return true;
+    }
+
     private bool IsCenteredWithLink(Vector2 linkPosition)
     {
         Vector2 rope = OracleObjectMath.ToPixelPosition(Position);
@@ -222,6 +300,9 @@ internal partial class RopeCharacter : EnemyCharacter
 
 internal enum RopeState
 {
+    FallSetup = 13,
+    WaitingToFall = 14,
+    Falling = 15,
     FollowingScentSeed = 4,
     SpawnSetup = 8,
     SpawnCharge = 11,

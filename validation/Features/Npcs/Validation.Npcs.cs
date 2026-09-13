@@ -499,9 +499,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 3 || adjacentHeartControls != 2 || byteEscapes != 2,
+            slowControls != 4 || adjacentHeartControls != 2 || byteEscapes != 2,
             "The generated dialogue inventory no longer contains the expected " +
-            "three \\slow(), two adjacent-heart, and two \\x20 source controls.");
+            "four \\slow() Essence introductions, two adjacent-heart, and two \\x20 source controls.");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>

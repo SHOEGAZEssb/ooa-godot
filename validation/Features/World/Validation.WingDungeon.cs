@@ -344,7 +344,7 @@ public sealed partial class ValidationRoot
                         _entities.Entities<SwitchTileTogglerRoomEntity>().Count != 1 ||
                         _entities.Entities<MinecartGateRoomEntity>().Count != 1 ||
                         _entities.Entities<ColoredCubeSensorRoomEntity>().Count != 1 ||
-                        _entities.Entities<WingDungeonStateController>().Count != 1 ||
+                        _entities.Entities<DungeonStateController>().Count != 1 ||
                         _entities.Entities<DungeonSwitchRoomEntity>().Count != 1 ||
                         _entities.Entities<ZolCharacter>().Count != 2,
                         "Room 4:2f did not create its cube, switch-tile, gate, " +
@@ -417,6 +417,9 @@ public sealed partial class ValidationRoot
             colorGels.Any(gel => !TextureContainsGbcColor(
                 gel.CurrentDrawTexture, 0x1f, 0x01, 0x05)),
             "Room 4:3e color Gels did not begin red on the red floor.");
+        // INTERAC22 samples var03 during its first dispatch, not allocation.
+        // Initialize it before simulating a subsequent control-tile change.
+        Step();
         colorGelRoom.SetPositionTileAndCollision(
             PackedPoint(0x57), 0xae, null, (long)_animationTicks);
         Step(424);
@@ -659,6 +662,7 @@ public sealed partial class ValidationRoot
             $"collisions=${_currentRoom.GetTerrainInfo(gateTilePoint).Collision:x2}/" +
             $"${_currentRoom.GetTerrainInfo(gateObjectPoint).Collision:x2}).");
 
+        Step(); // INTERAC_SWITCH_TILE_TOGGLER state0 samples the initial switch byte.
         _sound.ClearPlayRequestAudit();
         bool distantSwitchContact = _entities.ApplySwordHit(
             new Rect2(new Vector2(8, 8), Vector2.One),
@@ -1733,15 +1737,20 @@ public sealed partial class ValidationRoot
                 (swordEnemy.Angle + 4) & 0x18) * 16.0f;
         int clinksBeforeSpin =
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+        // This assertion concerns the blade's effect-$00 row. Its rectangle
+        // can overlap the parent's body after recoil; that body has its own
+        // damage row and cannot establish whether the blade ignored a spin.
+        var spinBlade = _entities.EntityAdapters<EnemySwordRoomEntity>()
+            .Single(part => part.Node.Position == swordEnemy.EnemySwordPosition);
+        spinBlade.SetLinkSwordState(SwordActionState.Spin, 2);
+        var spinSpawns = new List<RoomEntitySpawn>();
         FailIf(
-            _entities.ApplySwordHit(
+            spinBlade.ApplySwordHit(
                 swordEnemy.EnemySwordCollisionBounds,
                 blockingSource,
                 damage: 4,
-                knockbackStrength: EnemyKnockbackStrength.High,
-                collectItemDrops: true,
-                swordState: SwordActionState.Spin,
-                swordLevel: 2) ||
+                strength: EnemyKnockbackStrength.High,
+                spawns: spinSpawns) || spinSpawns.Count != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
                 clinksBeforeSpin,
             "PART_ENEMY_SWORD did not map the Spin Attack collision row to " +

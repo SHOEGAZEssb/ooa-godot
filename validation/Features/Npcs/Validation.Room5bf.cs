@@ -47,9 +47,9 @@ public sealed partial class ValidationRoot
             .Entities<Room5bfSlidingBlock>()
             .OrderBy(block => block.BaseRecord.X)
             .ToArray();
-        Room5bfLever lever = _entities.Entities<Room5bfLever>().Single();
-        Room5bfLeverConnection connection =
-            _entities.Entities<Room5bfLeverConnection>().Single();
+        LeverRoomEntity lever = _entities.Entities<LeverRoomEntity>().Single();
+        LeverConnectionRoomEntity connection =
+            _entities.Entities<LeverConnectionRoomEntity>().Single();
         FailIf(
             pickup.Record.TreasureObject != "TREASURE_OBJECT_FLIPPERS_00" ||
             pickup.Record.Source != "mainData.s:group5MapbfObjectData" ||
@@ -77,8 +77,8 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<GroundTreasurePickup>().Count != 0 ||
             _entities.Entities<Room5bfSlidingBlock>().Count != 2 ||
-            _entities.Entities<Room5bfLever>().Count != 1 ||
-            _entities.Entities<Room5bfLeverConnection>().Count != 1,
+            _entities.Entities<LeverRoomEntity>().Count != 1 ||
+            _entities.Entities<LeverConnectionRoomEntity>().Count != 1,
             "ROOMFLAG_ITEM did not suppress only room 5:bf's $6b:$0c " +
             "flippers interaction on re-entry.");
 
@@ -144,8 +144,8 @@ public sealed partial class ValidationRoot
         blocks = _entities.Entities<Room5bfSlidingBlock>()
             .OrderBy(block => block.BaseRecord.X)
             .ToArray();
-        lever = _entities.Entities<Room5bfLever>().Single();
-        connection = _entities.Entities<Room5bfLeverConnection>().Single();
+        lever = _entities.Entities<LeverRoomEntity>().Single();
+        connection = _entities.Entities<LeverConnectionRoomEntity>().Single();
         _player.WarpTo(new Vector2(0x78, 0x1c), recordSafe: false);
         _player.Face(Vector2I.Up);
         _sound.ClearPlayRequestAudit();
@@ -188,7 +188,7 @@ public sealed partial class ValidationRoot
             lever.PullDistance != 1 || lever.Position.Y != 0x11 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
             "Room 5:bf's SPEED_40 lever lost its first four-update pixel/sound boundary.");
-        for (int update = 4; update < 256; update++)
+        for (int update = 4; update < 376; update++)
             PullLever(Vector2.Down);
         FailIf(
             lever.PullDistance != 0xc0 ||
@@ -198,10 +198,10 @@ public sealed partial class ValidationRoot
             connection.Position != new Vector2(0x78, 0x30) ||
             blocks[0].PullOffset != 15 ||
             blocks[1].PullOffset != 15 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 7 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1,
-            "Room 5:bf's lever did not reach flagged distance $c0 after 256 " +
-            "SPEED_40 updates with one move sound, one open sound, and the " +
+            "Room 5:bf's lever did not reach flagged distance $c0 after 376 " +
+            "parent updates (256 SPEED_40 updates, six 20-update rests), seven move sounds, one open sound, and the " +
             "same-pass five-phase connection update.");
 
         PullLever(Vector2.Zero);

@@ -492,7 +492,10 @@ foreach ($legacyGeneratedAsset in @(
     'objects\linked_game_ghini.tsv',
     'objects\tokay_island_constants.tsv',
     'objects\tokay_island_texts.tsv',
-    'objects\tokay_island_animations.tsv'
+    'objects\tokay_island_animations.tsv',
+    'objects\interaction_script_references.tsv',
+    'objects\room_coverage.tsv',
+    'objects\script_coverage_dependencies.tsv'
 )) {
     $legacyGeneratedPath = Join-Path $destination $legacyGeneratedAsset
     if (Test-Path -LiteralPath $legacyGeneratedPath) {

@@ -8,7 +8,7 @@ namespace oracleofages;
 internal sealed partial class Room5bfSlidingBlock : NpcCharacter,
     IRoomEntity, IFixedRoomEntity, IRoomBlocker
 {
-    private readonly Room5bfLeverState _leverState;
+    private readonly LeverState _leverState;
     private readonly Room5bfConstants _constants;
     private readonly int _baseX;
     private readonly bool _movesRight;
@@ -18,7 +18,7 @@ internal sealed partial class Room5bfSlidingBlock : NpcCharacter,
 
     internal Room5bfSlidingBlock(
         Room5bfInteractionRecord record,
-        Room5bfLeverState leverState,
+        LeverState leverState,
         Room5bfConstants constants,
         Color[] palette)
     {

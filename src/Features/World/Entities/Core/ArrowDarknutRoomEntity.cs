@@ -9,7 +9,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
     : CombatEnemyRoomEntityAdapter<ArrowDarknutCharacter>(enemy, enemy.SetTransitionDrawOffset,
         EnemyCombatDescriptor.WithContactDamage(source, enemy, enemy.Record.DamageQuarters,
             enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
-            soundRequested, EnemySwordResponse.Knockback)),
+            soundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8),
         IFixedRoomEntity, ILinkSwordStateAwareRoomEntity, IScreenTransitionPreloadRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
 {

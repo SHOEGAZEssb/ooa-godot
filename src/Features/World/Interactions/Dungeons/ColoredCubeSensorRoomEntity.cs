@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed partial class ColoredCubeSensorRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity
+    IRoomEntity, IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly ColoredCubePuzzleState _puzzle;
     private readonly bool _light;
@@ -15,6 +15,8 @@ internal sealed partial class ColoredCubeSensorRoomEntity : Node2D,
     private int _lastPosition = -1;
 
     public Node2D Node => this;
+    public bool UpdatesDuringDialogue => !_light || _lastPosition < 0;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
 
     internal ColoredCubeSensorRoomEntity(
         DungeonObjectRecord record,

@@ -288,11 +288,19 @@ public sealed partial class ValidationRoot
         FailIf(node.Position != new Vector2(72, -8), $"Awarded companion ${companion:x2} flute lost its source top-edge entrance.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(node.Position != new Vector2(72, -8), "Flute entrance moved on the initialization update.");
-        for (int frame = 0; frame < 150; frame++) _entities.Update(1.0 / 60.0, _player);
+        for (int frame = 0; frame < 150; frame++)
+        {
+            _harp.BeginObjectUpdate(); // updateSpecialObjects clears the preceding parent's instrument signal.
+            _entities.Update(1.0 / 60.0, _player);
+        }
         FailIf(node.Position.Y <= 0 || node.Position.Y >= 100 || summoned.LinkRiding,
             $"Companion ${companion:x2} failed to enter and wait after the awarded flute call: position={node.Position}, riding={summoned.LinkRiding}.");
         Vector2 arrived = node.Position;
-        for (int frame = 0; frame < 20; frame++) _entities.Update(1.0 / 60.0, _player);
+        for (int frame = 0; frame < 20; frame++)
+        {
+            _harp.BeginObjectUpdate();
+            _entities.Update(1.0 / 60.0, _player);
+        }
         FailIf(node.Position != arrived, $"Companion ${companion:x2} continued moving after its flute entrance.");
         _player.WarpTo(arrived, recordSafe: false);
         for (int frame = 0; frame < 100 && !summoned.LinkRiding; frame++)
@@ -302,6 +310,7 @@ public sealed partial class ValidationRoot
             Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: [], justPressed: [], movement: Vector2.Zero));
             try
             {
+                _harp.BeginObjectUpdate();
                 _player.AdvanceApplicationUpdate();
                 _entities.Update(1.0 / 60.0, _player);
             }

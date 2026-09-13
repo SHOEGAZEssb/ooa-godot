@@ -5,11 +5,12 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// D2-specific INTERAC_DUNGEON_EVENTS state consumers layered around the
+/// Shared INTERAC_DUNGEON_EVENTS state consumers layered around the
 /// shared rotating-cube state.
 /// </summary>
-internal sealed partial class WingDungeonStateController : Node2D,
-    IRoomEntity, IFixedRoomEntity, IColoredCubePuzzleStateSource
+internal sealed partial class DungeonStateController : Node2D,
+    IRoomEntity, IFixedRoomEntity, IColoredCubePuzzleStateSource,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonObjectRecord _record;
     private readonly OracleRoomData _room;
@@ -21,8 +22,10 @@ internal sealed partial class WingDungeonStateController : Node2D,
 
     public Node2D Node => this;
     public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
+    public bool UpdatesDuringDialogue => _record.Kind != DungeonObjectKind.CubeColorSource;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
 
-    internal WingDungeonStateController(
+    internal DungeonStateController(
         DungeonObjectRecord record,
         OracleRoomData room,
         DungeonInteractionDatabase data,
@@ -36,7 +39,7 @@ internal sealed partial class WingDungeonStateController : Node2D,
         _puzzle = puzzle;
         _runtime = runtime;
         _setTrigger = setTrigger;
-        Name = $"WingDungeonState_{record.Kind}_{record.Room:x2}";
+        Name = $"DungeonState_{record.Kind}_{record.Room:x2}";
         switch (record.Kind)
         {
             case DungeonObjectKind.CubeColorSource:
@@ -74,7 +77,7 @@ internal sealed partial class WingDungeonStateController : Node2D,
                 break;
             default:
                 throw new InvalidOperationException(
-                    $"{_record.Source} is not a Wing Dungeon state controller.");
+                    $"{_record.Source} is not a shared dungeon state controller.");
         }
     }
 

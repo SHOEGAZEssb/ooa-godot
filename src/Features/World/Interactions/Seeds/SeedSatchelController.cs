@@ -22,6 +22,7 @@ public sealed class SeedSatchelController
     private bool _shooterFired;
 
     public bool ShooterActive => _shooterActive;
+    public PegasusSeedState Pegasus { get; }
     internal int ShooterAngle => _shooterAngle;
     internal int ShooterAimCounter => _shooterAimCounter;
     internal int ShooterPostShotCounter => _shooterPostShotCounter;
@@ -39,12 +40,19 @@ public sealed class SeedSatchelController
         _rooms = rooms;
         _playSound = playSound ?? (_ => { });
         _shooter = SeedShooterRecord.Load();
+        Pegasus = new PegasusSeedState(inventory, entities);
     }
 
     public int TryUse(Player player)
     {
         int seedItem = TreasureDatabase.TreasureEmberSeeds +
             _inventory.SatchelSelectedSeeds;
+        if (seedItem == 0x22)
+        {
+            if ((_rooms.CurrentRoom.TilesetFlags & 0x40) == 0 && !player.TopDownSwimming && !player.SideScrollSwimming)
+                Pegasus.TryUse();
+            return 0; // This branch clears the parent without immobilizing Link.
+        }
         if (_entities.HasActiveSeed(seedItem, SeedLaunchKind.Satchel) ||
             !_inventory.HasSelectedSatchelSeed())
         {
@@ -81,6 +89,7 @@ public sealed class SeedSatchelController
             return false;
         }
         _shooterActive = true;
+        player.NotifyParentItemAnimationStarted(InventoryState.ItemShooter);
         _shooterPrimaryButton = primaryButton;
         _shooterAngle = movementInput.LengthSquared() > 0.01f
             ? AngleForInput(movementInput)

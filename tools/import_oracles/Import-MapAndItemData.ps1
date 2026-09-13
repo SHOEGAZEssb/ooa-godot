@@ -180,6 +180,20 @@ $itemAttributesSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemA
 $itemAnimationsSource = Read-ImportText (Join-Path $Disassembly 'data\itemAnimations.s')
 $itemOamDataSource = Read-ImportText (Join-Path $Disassembly 'data\itemOamData.s')
 $itemUsageSource = Read-ImportText (Join-Path $Disassembly 'data\ages\itemUsageTables.s')
+$parentAnimationRows = [Collections.Generic.List[string]]::new()
+$parentAnimationRows.Add("# item-id`tflags`tsource")
+$parentAnimationBlock = [regex]::Match($itemUsageSource,
+    '(?ms)^linkItemAnimationTable:\s*(?<body>.*?)(?=^\w+:|\z)')
+$parentAnimationEntries = @([regex]::Matches($parentAnimationBlock.Groups['body'].Value,
+    '(?m)^\s*\.db\s+\$(?<flags>[0-9a-f]{2}),\s*LINK_ANIM_MODE_\w+\s*;\s*(?<name>ITEM_\w+)'))
+if ($parentAnimationEntries.Count -ne 32) {
+    throw 'Expected 32 source parent-item animation flags in linkItemAnimationTable.'
+}
+for ($item = 0; $item -lt 32; $item++) {
+    $entry = $parentAnimationEntries[$item]
+    $parentAnimationRows.Add("$($item.ToString('x2'))`t$($entry.Groups['flags'].Value)`tdata/ages/itemUsageTables.s:linkItemAnimationTable/$($entry.Groups['name'].Value)")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\parent_item_animation_flags.tsv'), $parentAnimationRows)
 $uncmpGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\uncmpGfxHeaders.s')
 $seedShooterPropertiesSource = Read-ImportText (
@@ -443,11 +457,24 @@ $braceletGravity = [Convert]::ToInt32(
 $braceletSpeedZLow = [Convert]::ToInt32(
     $braceletWeight.Groups['speedz'].Value, 16)
 $braceletInitialSpeedZ = 0xff00 + $braceletSpeedZLow - 0x10000
+$leverLinkAnimationSource = Read-ImportText (Join-Path $Disassembly 'data/ages/specialObjectAnimationData.s')
+$leverLinkPointers = [regex]::Match($leverLinkAnimationSource,
+    '(?ms)^specialObject00AnimationDataPointers:\s*specialObject09AnimationDataPointers:\s*(?<body>.*?)(?=^specialObject01AnimationDataPointers:)').Groups['body'].Value
+$leverLinkLabels = @([regex]::Matches($leverLinkPointers, '\.dw (\w+)') | ForEach-Object { $_.Groups[1].Value })
+$leverPullFrames = [regex]::Match($leverLinkAnimationSource,
+    '(?ms)^animationData19f3c:\s+\.db \$(?<initial>[0-9a-f]{2}) \$dc \$00\s+animationLoop19f3f:\s+\.db \$(?<pull>[0-9a-f]{2}) \$e0 \$01\s+\.db \$(?<rest>[0-9a-f]{2}) \$dc \$00\s+m_AnimationLoop animationLoop19f3f')
+if ($leverLinkLabels.Count -le 0x13 -or $leverLinkLabels[0x13] -ne 'animationData19f3c' -or -not $leverPullFrames.Success -or
+    $braceletParentSource -notmatch '(?ms)^@state5:.*?parentItemCheckButtonPressed.*?knockbackCounter.*?@counterDirections.*?LINK_ANIM_MODE_LIFT_2\s+jp z,specialObjectSetAnimationWithLinkData\s+jp specialObjectAnimate_optimized') {
+    throw 'Bracelet lever parent lost LIFT_2 animation/reset, knockback gate, or source timing.'
+}
+$leverInitial = [Convert]::ToInt32($leverPullFrames.Groups['initial'].Value, 16)
+$leverPull = [Convert]::ToInt32($leverPullFrames.Groups['pull'].Value, 16)
+$leverRest = [Convert]::ToInt32($leverPullFrames.Groups['rest'].Value, 16)
 $braceletRows = [Collections.Generic.List[string]]::new()
 $braceletRows.Add(
-    '# item`tpickup-sound`tthrow-sound`tdamage`tradius-y`tradius-x`tcollision-z-radius`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tpush-speed-raw`tpush-frames`tpower-glove-push-speed-raw`tpower-glove-push-frames`theavy-property-mask`tgrab-pull-frames`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tsource')
+    '# item`tpickup-sound`tthrow-sound`tdamage`tradius-y`tradius-x`tcollision-z-radius`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tpush-speed-raw`tpush-frames`tpower-glove-push-speed-raw`tpower-glove-push-frames`theavy-property-mask`tgrab-pull-frames`tlift-low-frames`tlift-mid-frames`tlift-high-frames`tthrow-frames`tlever-initial-frames`tlever-pull-frames`tlever-rest-frames`tsource')
 $braceletRows.Add(
-    "$($itemIds['ITEM_BRACELET'].ToString('x2'))`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$braceletDamage`t6`t6`t7`t$braceletGravity`t$braceletInitialSpeedZ`t3c`t64`t14`t32`t1e`t21`t20`t11`t7`t4`t2`t8`tobject_code/common/itemParents/bombsBraceletParent.s:parentItemCode_bracelet")
+    "$($itemIds['ITEM_BRACELET'].ToString('x2'))`t$($soundIds['SND_PICKUP'].ToString('x2'))`t$($soundIds['SND_THROW'].ToString('x2'))`t$braceletDamage`t6`t6`t7`t$braceletGravity`t$braceletInitialSpeedZ`t3c`t64`t14`t32`t1e`t21`t20`t11`t7`t4`t2`t8`t$leverInitial`t$leverPull`t$leverRest`tobject_code/common/itemParents/bombsBraceletParent.s:parentItemCode_bracelet")
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\bracelet.tsv'),
     $braceletRows)
@@ -639,6 +666,104 @@ function Convert-ItemAnimationBlock(
     }
     return $parts -join '|'
 }
+
+# ITEM_SWITCH_HOOK owns a weapon, a cycling chain item, and reserved helper $09.
+# The directional latch animations are advanced only by state3/substate0;
+# their final $80 parameter is a control-flow input, not a deletion marker.
+function Export-SwitchHookData {
+$hookPath = Join-Path $Disassembly 'object_code\common\items\switchHook.s'
+$hookSource = Read-ImportText $hookPath
+$hookParent = Read-ImportText (Join-Path $Disassembly 'object_code\common\itemParents\switchHookParent.s')
+$hookTileConstants = Read-ImportText (Join-Path $Disassembly 'constants\common\tileIndices.s')
+$hookSpeedConstants = Read-ImportText (Join-Path $Disassembly 'constants\common\objectSpeeds.s')
+$hookBreakSources = Read-ImportText (Join-Path $Disassembly 'constants\common\breakableTileSources.s')
+$hookOffsets = @(Read-AssemblyLiteralValues $hookPath '@offsetsTable')
+$hookPlacementOffsets = @(Read-AssemblyLiteralValues $hookPath '@data')
+if ($hookOffsets.Count -ne 12 -or $hookPlacementOffsets.Count -ne 4 -or
+    $itemIds['ITEM_SWITCH_HOOK'] -ne 0x0a -or $itemIds['ITEM_SWITCH_HOOK_CHAIN'] -ne 0x0b -or
+    $itemIds['ITEM_SWITCH_HOOK_HELPER'] -ne 0x09 -or
+    $hookBreakSources -notmatch 'BREAKABLETILESOURCE_SWITCH_HOOK:\s+db ; 0x08' -or
+    $hookTileConstants -notmatch 'TILEINDEX_SWITCH_DIAMOND\s+\$db' -or
+    $hookTileConstants -notmatch 'TILEINDEX_SOMARIA_BLOCK\s+\$da' -or
+    $hookSpeedConstants -notmatch 'SPEED_200\s+dsb 5 ; 0x50' -or
+    $hookSpeedConstants -notmatch 'SPEED_300\s+dsb 5 ; 0x78' -or
+    $hookSource -notmatch 'ldbc SPEED_200,\$29' -or
+    $hookSource -notmatch 'ldbc SPEED_300,\$26' -or
+    $hookSource -notmatch '(?ms)^@fullyRetracted:.*?itemDecCounter1.*?itemDelete' -or
+    $hookSource -notmatch '(?ms)call itemIncSubstate\s*; Set Item.counter1 to \$03\s*inc l\s*ld \(hl\),\$03' -or
+    $hookSource -notmatch '(?ms)^updateSwitchHookSound:.*?and \$03.*?ret z.*?SND_SWITCH_HOOK' -or
+    $hookSource -notmatch '(?ms)^@s3subState1:.*?dec \(hl\).*?cp \$f1.*?call c,itemIncSubstate' -or
+    $hookSource -notmatch '(?ms)^@s3subState3:.*?inc \(hl\).*?@updateOtherPositions' -or
+    $hookParent -notmatch 'parentItemLoadAnimationAndIncState' -or
+    $uncmpGfxHeadersSource -notmatch '(?ms)^uncmpGfxHeader1f:\s*m_GfxHeader spr_switch_hook, \$8521') {
+    throw 'Switch Hook source offsets, flight/exchange counters, parent animation or graphics header changed.'
+}
+$hookRows = [Collections.Generic.List[string]]::new()
+$hookRows.Add("# level`titem-id`tchain-id`thelper-id`tspeed-raw`textension-frames`tretracted-frames`tlift-frames`tsound-mask`tflight-sound`texchange-sound`tdiamond-tile`tsomaria-tile`tbreak-source`tsource")
+foreach ($level in 1..2) {
+    $hookSpeed = if ($level -eq 1) { 80 } else { 120 }
+    $hookFrames = if ($level -eq 1) { 41 } else { 38 }
+    $hookRows.Add("$level`t0a`t0b`t09`t$hookSpeed`t$hookFrames`t3`t16`t3`t$($soundIds['SND_SWITCH_HOOK'].ToString('x2'))`t$($soundIds['SND_SWITCH2'].ToString('x2'))`tdb`tda`t08`tobject_code/common/items/switchHook.s:itemCode0a;switchHookState3")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook.tsv'), $hookRows)
+$hookOffsetRows = [Collections.Generic.List[string]]::new()
+$hookOffsetRows.Add("# direction`ty`tx`tz`tplacement-offset`tsource")
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $offset = @($hookOffsets[($direction * 3)..($direction * 3 + 2)] | ForEach-Object {
+        if ($_ -ge 128) { $_ - 256 } else { $_ }
+    })
+    $placement = $hookPlacementOffsets[$direction]
+    if ($placement -ge 128) { $placement -= 256 }
+    $hookOffsetRows.Add("$direction`t$($offset[0])`t$($offset[1])`t$($offset[2])`t$placement`tobject_code/common/items/switchHook.s:itemCode0a@offsetsTable;switchHookState3@data")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_offsets.tsv'), $hookOffsetRows)
+$wallSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+$wallBlock = [regex]::Match($wallSource, '(?ms)^calculateAdjacentWallsBitset:.*?^@overworldOffsets:(?<top>.*?)^@sidescrollOffsets:(?<side>.*?)(?=^\.ifdef)')
+if (-not $wallBlock.Success) { throw 'Missing Link adjacent-wall probe tables used by Switch Hook.' }
+$wallRows = [Collections.Generic.List[string]]::new()
+$wallRows.Add("# sidescroll`tindex`ty`tx`tsource")
+foreach ($side in 0..1) {
+    $group = if ($side -eq 0) { 'top' } else { 'side' }
+    $pairs = [regex]::Matches($wallBlock.Groups[$group].Value, '(?m)^\s*\.db\s+(?<y>-?\d+),\s*(?<x>-?\d+)\s*$')
+    if ($pairs.Count -ne 8) { throw 'Expected eight cumulative Link adjacent-wall probes.' }
+    for ($i = 0; $i -lt 8; $i++) {
+        $wallRows.Add("$side`t$i`t$($pairs[$i].Groups['y'].Value)`t$($pairs[$i].Groups['x'].Value)`tobject_code/common/specialObjects/link.s:calculateAdjacentWallsBitset")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_wall_probes.tsv'), $wallRows)
+$hookAnimationPath = Join-Path $Disassembly 'data\itemAnimations.s'
+$hookTables = Read-AssemblyDwTables $hookAnimationPath 'item[0-9a-f]{2}Animations' 'itemAnimation[0-9a-f]+'
+$hookPointers = Read-AssemblyDwTables $hookAnimationPath 'item[0-9a-f]{2}OamDataPointers' 'itemOamData[0-9a-f]+'
+$hookDefinitions = Read-AssemblyAnimationDefinitions $hookAnimationPath 'itemAnimation[0-9a-f]+(?:Loop)?' $true
+$hookAnimationRows = [Collections.Generic.List[string]]::new()
+$hookAnimationRows.Add("# item-id`tanimation`tsprite`ttile-base`toam-flags`tcollision`tradius-y`tradius-x`tdamage`thealth`tframes`tsource")
+foreach ($item in @('0a', '0b')) {
+    $hookGfx = [regex]::Match($itemDataSource,
+        "(?m)^\s*\.db \`$00 \`$(?<tile>[0-9a-f]{2}) \`$(?<flags>[0-9a-f]{2}) ; \`$${item}:")
+    $hookAttributes = [regex]::Match($itemAttributesSource,
+        "(?m)^\s*\.db \`$(?<collision>[0-9a-f]{2}) \`$(?<radius>[0-9a-f]{2}) \`$(?<damage>[0-9a-f]{2}) \`$(?<health>[0-9a-f]{2}) ; \`$${item}:")
+    if (-not $hookGfx.Success -or -not $hookAttributes.Success) { throw "Could not read ITEM_`$$item attributes." }
+    $radius = [Convert]::ToInt32($hookAttributes.Groups['radius'].Value, 16)
+    $count = if ($item -eq '0a') { 6 } else { 1 }
+    for ($animation = 0; $animation -lt $count; $animation++) {
+        $label = $hookTables["item${item}Animations"][$animation]
+        $definition = $hookDefinitions[$label]
+        $encoded = @($definition.Frames | ForEach-Object {
+            if (($_.PointerOffset -band 1) -ne 0) { throw "$label has an odd OAM pointer offset." }
+            $oam = $hookPointers["item${item}OamDataPointers"][[int]($_.PointerOffset / 2)]
+            "$($_.Duration),$($_.Parameter)@$(Read-ItemOamComposition $oam)"
+        }) -join '|'
+        if (($item -eq '0a' -and $animation -ge 2) -and
+            ($definition.Frames.Count -ne 6 -or $definition.Frames[-1].Parameter -ne 0x80)) {
+            throw "$label must retain all six latch frames and the final exchange parameter `$80."
+        }
+        $sprite = if ($item -eq '0a') { 'spr_switch_hook' } else { 'spr_common_items' }
+        $hookAnimationRows.Add("$item`t$animation`t$sprite`t$($hookGfx.Groups['tile'].Value)`t$($hookGfx.Groups['flags'].Value)`t$($hookAttributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($hookAttributes.Groups['damage'].Value)`t$($hookAttributes.Groups['health'].Value)`t$encoded`tdata/itemAnimations.s:$label;data/ages/itemAttributes.s:ITEM_`$$item")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_animations.tsv'), $hookAnimationRows)
+}
+Export-SwitchHookData
 
 $encodedBombFuse = Convert-ItemAnimationBlock `
     -body $bombFuseBlock.Groups['body'].Value `
@@ -933,6 +1058,17 @@ $seedRows.Add(
 $seedRows.Add(
     "$($itemIds['ITEM_SEED_SATCHEL'].ToString('x2'))`t$($itemIds['ITEM_MYSTERY_SEED'].ToString('x2'))`t$($treasureIds['TREASURE_MYSTERY_SEEDS'].ToString('x2'))`tspr_common_items`t$($mysteryData.Groups['tile'].Value)`t$($mysteryData.Groups['palette'].Value)`t$($mysteryAttributes.Groups['collision'].Value)`t$radiusY`t$radiusX`t$($mysteryAttributes.Groups['damage'].Value)`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t8`tspr_common_sprites`t$($mysteryEffectTile.ToString('x2'))`t$($mysteryEffectFlags.ToString('x2'))`t$mysteryEffectCounter`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$encodedMysteryAnimation`t$($mysteryEffectTile.ToString('x2'))`t$($mysteryEffectFlags.ToString('x2'))`t$mysteryEffectCounter`t$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$encodedMysteryAnimation`tobject_code/common/items/seeds.s:itemCode24")
 # ITEM_GALE_SEED retains animation 0 across all three activation paths.
+# ITEM_PEGASUS_SEED is a shooter projectile; Satchel activation stays in its
+# parent-only branch. Animation/OAM aliases are shared with Mystery, while
+# the collision graphic uses $09/$18/$00 and SND_LIGHTTORCH, not Scent's row.
+if ($itemDataSource -notmatch '\.db \$78 \$16 \$01 ; \$22: ITEM_PEGASUS_SEED' -or
+    $itemAttributesSource -notmatch '\.db \$9d \$44 \$ff \$00 ; \$22: ITEM_PEGASUS_SEED' -or
+    $itemAnimationsSource -notmatch '(?ms)^item21Animations:\s*item22Animations:\s*item24Animations:\s*\.dw itemAnimation1e829' -or
+    $seedCodeSource -notmatch '\.db \$09 \$18 \$00 SND_LIGHTTORCH' -or
+    $seedCodeSource -notmatch '(?ms)^seedItemState3:.*?\.dw emberSeedBurn\s+\.dw seedUpdateAnimation\s+\.dw seedUpdateAnimation') {
+    throw 'ITEM_PEGASUS_SEED $22 attributes, animation aliases, or state3 contract changed.'
+}
+$seedRows.Add("19`t22`t22`tspr_common_items`t16`t01`t9d`t4`t4`tff`t-2`t-32`t28`t1e`t-4`t0`t1`t4`t5`t0`t1`t-5`t0`tspr_common_sprites`t18`t09`t0`t$($soundIds['SND_BOMB_LAND'].ToString('x2'))`t$($soundIds['SND_LIGHTTORCH'].ToString('x2'))`t$encodedMysteryAnimation`t18`t09`t0`t$($soundIds['SND_LIGHTTORCH'].ToString('x2'))`t$encodedMysteryAnimation`tobject_code/common/items/seeds.s:itemCode22/@scentOrPegasusCollided/@data;data/itemAnimations.s:item22Animations")
 $galeContracts = @(
     @{ Pattern = '(?ms)cp ITEM_GALE_SEED.*?ld l,Item.zh.*?add \$f8.*?ld \(hl\),\$ff'; Name = 'stationary Satchel initialization' },
     @{ Pattern = '(?ms)^galeSeedUpdateAnimationAndCounter:.*?call galeSeedUpdateAnimation.*?call itemDecCounter1.*?cp \$14'; Name = 'counter1 expiration and flicker' },
@@ -978,6 +1114,30 @@ foreach ($era in 0, 1) {
     }
 }
 Write-GeneratedTable((Join-Path $destination 'metadata\gale_tree_warps.tsv'), $treeRows)
+# Pegasus Satchel use is a parent-only branch, allocating reserved ITEM_DUST
+# instead of the ordinary $22 projectile. Preserve animation 0's fallthrough
+# into animation 1: its $98 parameter ends the initial cloud after six updates.
+$pegasusParent = Read-ImportText (Join-Path $Disassembly 'object_code\common\itemParents\seedsParent.s')
+$pegasusBank0 = Read-ImportText (Join-Path $Disassembly 'code\bank0.s')
+$pegasusLink = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
+if ($pegasusParent -notmatch '(?ms)ld hl,wPegasusSeedCounter.*?ldi a,\(hl\).*?or \(hl\).*?jr nz,@clear.*?ld a,\$03.*?ldd \(hl\),a.*?ld \(hl\),\$c0.*?decNumActiveSeeds.*?w1ReservedItemF.*?ITEM_DUST' -or
+    $pegasusBank0 -notmatch '(?ms)^decPegasusSeedCounter:.*?res 7,\(hl\).*?ld c,\$07.*?PEGASUS_RING.*?ld c,\$0f.*?decHlRef16WithCap.*?decHlRef16WithCap.*?or b' -or
+    $pegasusLink -notmatch '\.db SPEED_100, \$00, SPEED_0c0, SPEED_080, SPEED_100, SPEED_120, SPEED_0c0, SPEED_180' -or
+    $itemDataSource -notmatch '\.db \$00 \$16 \$0b ; \$1a: ITEM_DUST') {
+    throw 'Pegasus Satchel/timer/speed/dust source contract changed.'
+}
+$dustPointers = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\itemAnimations.s') 'item1aOamDataPointers' '.dw' | ForEach-Object { $_.Operands[0] })
+$dustAnimations = [Collections.Generic.List[string]]::new()
+$dustLabels = @('itemAnimation1e8aa', 'itemAnimation1e8b3', 'itemAnimation1e8b6', 'itemAnimation1e8b9')
+foreach ($index in 0..3) {
+    $end = if ($index -eq 0) { 'itemAnimation1e8b6' } elseif ($index -lt 3) { $dustLabels[$index + 1] } else { 'item00OamDataPointers' }
+    $block = [regex]::Match($itemAnimationsSource, "(?ms)^$($dustLabels[$index]):(?<body>.*?)(?=^${end}:)")
+    if (-not $block.Success -or $dustPointers.Count -ne 5) { throw 'ITEM_DUST animation/OAM boundary changed.' }
+    $dustAnimations.Add((Convert-ItemAnimationBlock -body $block.Groups['body'].Value -oamLabels $dustPointers -name "ITEM_DUST animation $index"))
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\pegasus_seed.tsv'), @(
+    '# item`tcounter`tnormal-speed`tgrass-speed`tstairs-speed`tdust-tile`tdust-flags`tstep-sound`tinitial-animation`tcloud1`tcloud2`tcloud3`tsource',
+    "22`t03c0`t3c`t2d`t1e`t16`t0b`t$($soundIds['SND_LAND'].ToString('x2'))`t$($dustAnimations -join "`t")`tobject_code/common/itemParents/seedsParent.s;code/bank0.s:decPegasusSeedCounter;object_code/common/specialObjects/link.s:updateLinkSpeed_withParam;object_code/common/items/dust.s;data/itemAnimations.s:item1aAnimations"))
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_satchel.tsv'),
     $seedRows)

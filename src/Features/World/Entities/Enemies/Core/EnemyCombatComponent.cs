@@ -180,14 +180,15 @@ internal sealed class EnemyCombatDescriptor
         EnemyCombatComponent combat,
         bool countsAsEnemy,
         int killableEnemyIndex,
-        Func<RoomEnemyOutcome>? completedOutcome = null) =>
+        Func<RoomEnemyOutcome>? completedOutcome = null,
+        Action<int>? soundRequested = null) =>
         new(
             combat,
             countsAsEnemy,
             killableEnemyIndex,
             completedOutcome,
             source: null,
-            soundRequested: null);
+            soundRequested);
 
     internal void RequestSound(int sound) =>
         _soundRequested?.Invoke(sound);
@@ -255,6 +256,9 @@ internal readonly record struct EnemyCombatSourceDescriptor(
                 EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.Thwomp, 0x28) =>
                 EnemySwordResponse.Armored,
+            (EnemyHandlerKind.BladeTrap, 0x13) => EnemySwordResponse.Armored,
+            (EnemyHandlerKind.Gibdo, 0x16) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.FireKeese, 0x2b) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.ArmMimic, 0x39) =>
                 EnemySwordResponse.Knockback,
             (_, 0x10 or 0x11 or 0x14 or 0x1a or 0x1f or 0x25 or 0x31 or 0x3a or 0x3b or 0x7d) =>

@@ -11,7 +11,8 @@ internal sealed class WingDungeonDatabase
 {
     private readonly Lookup<(int Group, int Room), DungeonObjectRecord> _objects = new();
     private readonly Dictionary<(DungeonObjectKind Kind, int Color), byte[]> _patterns = new();
-    private readonly List<MinecartStaticRecord> _minecarts = new();
+    private readonly IReadOnlyList<MinecartStaticRecord> _minecarts =
+        new StaticDungeonObjectDatabase().Minecarts(2);
     private readonly Dictionary<int, string> _texts = new();
     private DungeonBossRewardScriptDefinition _bossReward;
 
@@ -19,7 +20,6 @@ internal sealed class WingDungeonDatabase
     {
         LoadObjects();
         LoadPatterns();
-        LoadMinecarts();
         LoadText();
         LoadBossReward();
         ValidateContract();
@@ -178,30 +178,6 @@ internal sealed class WingDungeonDatabase
             if (!_texts.TryAdd(textId, row.Base64Utf8(1)))
                 throw row.Invalid(0, "a unique Wing Dungeon text id");
         }
-    }
-
-    private void LoadMinecarts()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_minecarts.tsv",
-            new GeneratedTableSchema(
-                "Wing Dungeon static minecarts",
-                GeneratedTableKeySemantics.Unique,
-                ["slot", "room", "y", "x", "source"],
-                ["slot"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            MinecartStaticRecord record = new(
-                row.UnsignedDecimal(0),
-                row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                row.RequiredString(4));
-            _minecarts.Add(record);
-        }
-        _minecarts.Sort(
-            static (left, right) => left.Slot.CompareTo(right.Slot));
     }
 
     private void ValidateContract()

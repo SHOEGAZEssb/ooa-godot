@@ -29,6 +29,7 @@ internal sealed class LinkItemDatabase
     private readonly byte[][] _bombableClinkTiles = new byte[6][];
     private readonly byte[][] _silentClinkTiles = new byte[6][];
     private readonly string[] _clinkListIds = new string[6];
+    private readonly byte[] _parentAnimationFlags = new byte[32];
 
     internal static LinkItemDatabase Shared => _shared ??= new LinkItemDatabase();
 
@@ -44,6 +45,17 @@ internal sealed class LinkItemDatabase
         string clinkPath = "res://assets/oracle/metadata/sword_clink_tiles.tsv")
     {
         Constants = LoadConstants(constantsPath);
+        var parentFlags = GeneratedTable.Load("res://assets/oracle/metadata/parent_item_animation_flags.tsv",
+            new GeneratedTableSchema("Parent item animation flags", GeneratedTableKeySemantics.Unique,
+                ["item-id", "flags", "source"], ["item-id"], headerRequired: true));
+        if (parentFlags.Rows.Count != 32)
+            throw new InvalidOperationException("Expected 32 parent-item animation flag records.");
+        foreach (var row in parentFlags.Rows)
+        {
+            int id = row.HexByte(0);
+            if (id >= 32) throw row.Invalid(0, "parent item ID $00-$1f");
+            _parentAnimationFlags[id] = (byte)row.HexByte(1);
+        }
         LoadOffsets(offsetsPath);
         LoadGraphics(graphicsPath);
         LoadSwordPresentation(swordPath);
@@ -67,6 +79,9 @@ internal sealed class LinkItemDatabase
         }
         return record;
     }
+
+    internal bool ParentAnimationSignalsItemUse(int itemId) =>
+        itemId is >= 0 and < 32 && (_parentAnimationFlags[itemId] & 0x80) != 0;
 
     internal Vector2 AttackPoseOffset(int direction) =>
         Directional(_attackPoseOffsets, direction);

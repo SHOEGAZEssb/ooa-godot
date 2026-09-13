@@ -14,8 +14,10 @@ internal sealed class BossDeathExplosionRoomEntity(
     : RoomEntityAdapter<BossDeathExplosionEffect>(
         explosion, explosion.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
-        IRoomEnemyOutcomeSource
+        IRoomEnemyOutcomeSource, INativePartHealthRoomEntity
 {
+    // partCode04 ignores its own health/status and has no enabled collision.
+    public void ClearHealthAndCollision() { }
     private bool _outcomeTaken;
 
     public bool Finished => Entity.Finished;

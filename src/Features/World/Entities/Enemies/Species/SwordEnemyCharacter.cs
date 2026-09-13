@@ -2,7 +2,7 @@ using Godot;
 
 namespace oracleofages;
 
-internal partial class SwordEnemyCharacter : EnemyCharacter
+internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
 {
     private readonly SwordEnemyBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SwordEnemy;
@@ -15,6 +15,12 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
     private int _counter2;
     private int _angle;
     private int _speedRaw;
+    private int _zFixed;
+    private int _speedZ;
+    internal int ZFixed => _zFixed;
+    internal int SwitchHookSubstate { get; private set; }
+    internal override bool CollisionEnabled => base.CollisionEnabled && _state != SwordEnemyState.SwitchHook;
+    protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SwordEnemyState State => _state;
@@ -69,6 +75,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
             room,
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
+        ConfigureHazards(room, zPosition: () => _zFixed);
         Visible = false;
     }
 
@@ -87,7 +94,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
     {
         if (IsDead || CheckHazards() || BeginFrame())
             return;
-        if (_state != SwordEnemyState.Uninitialized &&
+        if ((_state == SwordEnemyState.FollowingScentSeed || (int)_state >= 8) &&
             scentSeedTarget is { } scentPosition)
         {
             _state = SwordEnemyState.FollowingScentSeed;
@@ -113,6 +120,18 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
         }
         switch (_state)
         {
+            case SwordEnemyState.SwitchHook:
+                if (SwitchHookSubstate == 0) SwitchHookSubstate = 1;
+                else if (SwitchHookSubstate == 3)
+                {
+                    if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x20))
+                        _state = SwordEnemyState.PreparingChase;
+                    // swordEnemy_state_switchHook writes $10 on every release
+                    // dispatch, including airborne updates before landing.
+                    _counter1 = _behavior.ChasePrepareFrames;
+                }
+                QueueRedraw();
+                return;
             case SwordEnemyState.Uninitialized:
                 InitializeState(swordSlotAvailable);
                 return;
@@ -235,11 +254,34 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
 
     internal override bool TakeBurnHit(int damage) => base.TakeBurnHit(Health);
 
-    internal void ApplyBladeBump(Vector2 sourcePosition, int invincibility, int knockback)
+    public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead && !DiedInHazard &&
+        _state == SwordEnemyState.SwitchHook && SwitchHookSubstate < 3;
+    public Vector2 SwitchHookPosition => Position;
+    public void BeginSwitchHook(Vector2 linkPosition)
     {
-        int previousInvincibility = InvincibilityCounter;
-        ApplyCollisionBump(sourcePosition, -invincibility, knockback);
-        if (previousInvincibility != 0) InvincibilityCounter = previousInvincibility;
+        KnockbackCounter = 0;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        _state = SwordEnemyState.SwitchHook;
+        SwitchHookSubstate = 0;
+    }
+    public void CopySwitchHookPosition(Vector2 position, int zHigh)
+    {
+        Position = position.Floor() + Position - Position.Floor();
+        _zFixed = (zHigh << 8) | (_zFixed & 0xff);
+        QueueRedraw();
+    }
+    public void SwapSwitchHook() => SwitchHookSubstate = 2;
+    public void ReleaseSwitchHook()
+    {
+        if (SwitchHookHeld) SwitchHookSubstate = 3;
+    }
+
+    internal void ApplyBladeBump(int invincibility, int knockbackAngle, int knockback)
+    {
+        if (InvincibilityCounter == 0) InvincibilityCounter = invincibility;
+        KnockbackAngle = knockbackAngle;
+        KnockbackCounter = knockback;
+        QueueRedraw();
     }
 
     internal ScreenTransitionPresentation PrepareForScreenTransition(bool swordSlotAvailable)
@@ -281,6 +323,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter
 internal enum SwordEnemyState
 {
     Uninitialized,
+    SwitchHook = 3,
     FollowingScentSeed = 4,
     Wandering = 8,
     PreparingChase,
