@@ -19,8 +19,11 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
 
     internal bool TryBegin(Player player, Vector2 input)
     {
+        // switchHookParent @state0 tests wLinkObjectIndex bit 0 (mounted
+        // companion/cart/raft), not wLinkRidingObject's platform support.
         if (Active || player.Inventory.SwitchHookLevel == 0 || player.TopDownAirborne || player.SideScrollAirborne ||
-            player.IsFallingInHole || player.IsPullingIntoHole || entities.PlayerRidingObject) return false;
+            player.IsFallingInHole || player.IsPullingIntoHole || player.CompanionRideActive ||
+            player.MinecartRideActive || player.RaftRideActive) return false;
         if ((rooms.CurrentRoom.TilesetFlags & 0x40) != 0)
             throw new NotSupportedException("Switch Hook underwater LINK_ANIM_MODE_2e presentation is not implemented.");
         if (Item is not null) { Item.Free(); Item = null; }

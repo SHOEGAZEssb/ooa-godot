@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class ColorChangingGelRoomEntity
-    : CombatEnemyRoomEntityAdapter<ColorChangingGelCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<ColorChangingGelCharacter>, IFixedRoomEntity,
+      IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     internal ColorChangingGelRoomEntity(
         ColorChangingGelCharacter gel,
@@ -27,6 +28,22 @@ internal sealed class ColorChangingGelRoomEntity
     { }
 
     public override int DimitriCollisionMode => Entity.CollisionMode;
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        UpdateDuringScreenTransition();
+        return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+
+    public void UpdateDuringScreenTransition()
+    {
+        // bank0._updateEnemiesIfStateIsZero permits enemyCode47 during scrolling.
+        // Its color check can postpone state 0 on a non-red floor; preserve each
+        // retry's common RNG/property reload, then freeze state $08 (counter 150,
+        // animation $03) as soon as initialization makes the gel visible.
+        if (Entity.State == ColorChangingGelState.Uninitialized)
+            Entity.UpdateFrame();
+    }
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {

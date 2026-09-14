@@ -4,7 +4,8 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKeeseCharacter>, IFixedRoomEntity, ISeedCollisionTarget
+internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKeeseCharacter>, IFixedRoomEntity, ISeedCollisionTarget,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly Func<bool> _canSpawnPart;
     private readonly Func<byte> _random;
@@ -26,6 +27,14 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
     {
         if (Entity.UpdateFrame(frame.Player.Position, frame.Counter) && _canSpawnPart())
             spawns.Add(new KeeseFireSpawn(OracleObjectMath.ToPixelPosition(Entity.Position), Entity.ZFixed >> 8));
+    }
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        // bank0._updateEnemiesIfStateIsZero still dispatches enemyCode39 while
+        // scrolling. Resolve zh=-$1c, animation $01 and both state-0 RNG calls
+        // before drawing the incoming bat, then freeze state $0b until entry.
+        if (Entity.State == 0) Entity.UpdateFrame(Vector2.Zero);
+        return ScreenTransitionPresentation.Visible;
     }
     public override void HandleLinkContact(Player player)
     {

@@ -757,7 +757,16 @@ foreach ($item in @('0a', '0b')) {
             ($definition.Frames.Count -ne 6 -or $definition.Frames[-1].Parameter -ne 0x80)) {
             throw "$label must retain all six latch frames and the final exchange parameter `$80."
         }
-        $sprite = if ($item -eq '0a') { 'spr_switch_hook' } else { 'spr_common_items' }
+        # itemLoadGraphics/addIndexToLoadedObjectGfx leaves GFX index $00 in
+        # resident VRAM. The chain's flags $09 select bank 1, where
+        # GFXH_COMMON_SPRITES loads spr_common_sprites at $8000. Tile $16 on
+        # the dynamically loaded spr_common_items sheet is a Pegasus Seed.
+        if ($item -eq '0b' -and (
+            $hookGfx.Groups['flags'].Value -ne '09' -or
+            $gfxHeadersSource -notmatch '(?m)^\s*m_GfxHeader\s+spr_common_sprites,\s*\$8001')) {
+            throw 'ITEM_SWITCH_HOOK_CHAIN $0b: expected resident bank-1 graphics from gfxHeaders.s:GFXH_COMMON_SPRITES at $8001.'
+        }
+        $sprite = if ($item -eq '0a') { 'spr_switch_hook' } else { 'spr_common_sprites' }
         $hookAnimationRows.Add("$item`t$animation`t$sprite`t$($hookGfx.Groups['tile'].Value)`t$($hookGfx.Groups['flags'].Value)`t$($hookAttributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($hookAttributes.Groups['damage'].Value)`t$($hookAttributes.Groups['health'].Value)`t$encoded`tdata/itemAnimations.s:$label;data/ages/itemAttributes.s:ITEM_`$$item")
     }
 }

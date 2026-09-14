@@ -132,6 +132,85 @@ public sealed partial class ValidationRoot
         gel.Free();
 
         ValidateSkullColorGelHookLoop();
+        ValidateColorGelScreenTransition();
+    }
+
+    private void ValidateColorGelScreenTransition()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
+        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
+        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
+        void Step(int count = 1, Action? observe = null)
+        {
+            input.CaptureForValidation([], [], Vector2.Zero);
+            scheduler.Advance(count / 60.0, () => { update(); observe?.Invoke(); });
+        }
+        string State(ColorChangingGelCharacter gel) =>
+            $"{gel.Position}/{gel.State}/{gel.Counter}/{gel.ColorCounter}/{gel.Color}/{gel.CollisionMode}/{gel.ZHigh}/{gel.AnimationIndex}/{gel.AnimationFrame}/{gel.Visible}";
+
+        // objects/ages/enemyData.s: seven positioned $47:$00 in 4:3e,
+        // five random ($a0) in 4:71, four positioned in 5:3f.
+        foreach (var fixture in new[] { (Group: 4, Room: 0x3e, Count: 7), (Group: 4, Room: 0x71, Count: 5), (Group: 5, Room: 0x3f, Count: 4) })
+        {
+            var random = CaptureOracleRandomForValidation();
+            string[] Run(bool batched)
+            {
+                RestoreOracleRandomForValidation(random);
+                _saveData.SetRoomFlag(fixture.Group, fixture.Room, 0xff, false);
+                LoadValidationRoom(fixture.Group, fixture.Room);
+                var direction = new[] { Vector2I.Down, Vector2I.Up, Vector2I.Left, Vector2I.Right }
+                    .First(d => _rooms.TryGetNeighbor(d, out _));
+                _rooms.TryGetNeighbor(direction, out int sourceRoom);
+                LoadValidationRoom(fixture.Group, sourceRoom);
+                _transitions.BeginScroll(_player, -direction, fixture.Room);
+                var gels = _entities.Entities<ColorChangingGelCharacter>().ToArray();
+                FailIf(gels.Length != fixture.Count, $"{fixture.Group}:{fixture.Room:x2} lost its source Gel count.");
+                foreach (var gel in gels)
+                    FailIf(!gel.Visible || gel.State != ColorChangingGelState.Waiting || gel.Counter != 150 ||
+                        gel.ColorCounter != 0 || gel.Color != 2 || gel.CollisionMode != 0x6e || gel.AnimationIndex != 3,
+                        $"{fixture.Group}:{fixture.Room:x2} Gel preload lost source state $08/counter 150/animation $03: {State(gel)}.");
+                var frozen = gels.Select(State).ToArray();
+                long calls = _random.Calls;
+                foreach (var adapter in _entities.EntityAdapters<ColorChangingGelRoomEntity>())
+                    adapter.PrepareForScreenTransition(new List<RoomEntitySpawn>());
+                FailIf(_random.Calls != calls || !gels.Select(State).SequenceEqual(frozen), "Initialized Gel preload must be idempotent.");
+                void CheckFrozen() => FailIf(!gels.Select(State).SequenceEqual(frozen), "Gel advanced during scrolling.");
+                int total = _transitions.ScrollTotalFrames;
+                if (batched) Step(total, CheckFrozen);
+                else for (int i = 0; i < total; i++) Step(1, CheckFrozen);
+                FailIf(_transitions.ScrollActive || gels.Any(g => g.TransitionDrawOffset != Vector2.Zero), "Gel scroll did not finish.");
+                Step();
+                FailIf(gels.Any(g => !g.Visible || g.Counter != 149 || g.State != ColorChangingGelState.Waiting),
+                    "Gel reinitialized instead of resuming its wait after scrolling.");
+                return gels.Select(State).Append(_random.Calls.ToString()).ToArray();
+            }
+            FailIf(!Run(false).SequenceEqual(Run(true)), "Gel scroll/re-entry differs between individual and batched updates.");
+        }
+
+        // colorChangingGel_updateColor discards state dispatch on a mismatching
+        // floor until counter2=1. State-zero common properties/RNG reload on
+        // every retry; the successful retry sets counter1=150 and counter2=0.
+        LoadValidationRoom(4, 0x71);
+        var delayed = _entities.Entities<ColorChangingGelCharacter>().First();
+        _currentRoom.SetPositionTileAndCollision(delayed.Position, 0xaf, 0, 0);
+        var adapterDelayed = _entities.EntityAdapters<ColorChangingGelRoomEntity>().First();
+        long before = _random.Calls;
+        FailIf(adapterDelayed.PrepareForScreenTransition(new List<RoomEntitySpawn>()) != ScreenTransitionPresentation.Hidden ||
+            delayed.State != ColorChangingGelState.Uninitialized || delayed.ColorCounter != 90 || _random.Calls != before + 1,
+            "Blue-floor Gel must retain hidden state $00 and its 90-update color delay.");
+        for (int i = 0; i < 88; i++) adapterDelayed.UpdateDuringScreenTransition();
+        FailIf(delayed.Visible || delayed.ColorCounter != 2 || _random.Calls != before + 89,
+            "Hidden Gel state-zero retries lost their color counter or RNG calls.");
+        adapterDelayed.UpdateDuringScreenTransition();
+        FailIf(!delayed.Visible || delayed.Color != 1 || delayed.Counter != 150 || delayed.ColorCounter != 0 ||
+            delayed.State != ColorChangingGelState.Waiting || _random.Calls != before + 90,
+            "Blue-floor Gel did not complete state zero at counter2=1.");
+        string complete = State(delayed);
+        adapterDelayed.UpdateDuringScreenTransition();
+        FailIf(State(delayed) != complete || _random.Calls != before + 90, "Initialized blue Gel advanced during scrolling.");
+        LoadValidationRoom(4, 0x70);
+        FailIf(_entities.OutgoingEntities<ColorChangingGelCharacter>().Count != 0, "Room replacement retained scrolling Gels.");
     }
 
     private void ValidateSkullColorGelHookLoop()

@@ -38,6 +38,9 @@ public sealed partial class ValidationRoot
         FailIf(_player.Position != origin || _player.StartedItemAnimationThisUpdate || hook.Position != new Vector2(120, 135) ||
             !hook.ChainVisible || hook.ChainPosition != new Vector2(120, 137),
             "First flight update must move two pixels, freeze Link and draw chain segment2 using signed division.");
+        var chainAnimation = (EnemyAnimationPlayer)typeof(SwitchHookItem)
+            .GetField("_chainAnimation", flags)!.GetValue(hook)!;
+        ValidateSwitchHookChainPixels(chainAnimation);
         Vector2 frozenPosition = hook.Position;
         int frozenCounter = hook.Counter;
         var textSource = _entities.TextActiveSource;
@@ -184,7 +187,7 @@ public sealed partial class ValidationRoot
             FailIf(animation.CurrentTexture.GetImage().IsInvisible(), "Switch Hook latch graphic rendered empty.");
         }
         var chain = database.Chain;
-        FailIf(chain.Sprite != "spr_common_items" || chain.TileBase != 0x16 || chain.OamFlags != 9 ||
+        FailIf(chain.Sprite != "spr_common_sprites" || chain.TileBase != 0x16 || chain.OamFlags != 9 ||
             chain.Collision != 0x12 || chain.Radius != Vector2I.Zero || chain.Damage != 0 || chain.Health != 0x7e ||
             chain.Animation != "127,0@8,4,0,0",
             "ITEM_SWITCH_HOOK_CHAIN $0b lost the aliased itemAnimation1e7ad/item20OamDataPointers data.");
@@ -195,5 +198,26 @@ public sealed partial class ValidationRoot
                 "Switch Hook base animation aliases must retain their single $7f-duration frame.");
         }
         actor.Free();
+    }
+
+    private void ValidateSwitchHookChainPixels(EnemyAnimationPlayer animation)
+    {
+        // Independently read spr_common_sprites.png tile pair $16/$17 (x=88,
+        // y=0): a 4x4 link at cell-local (2,6). itemOamData's (8,4) places
+        // it at (14,14) in the centered frame. standardSpritePaletteData $01
+        // supplies black and RGB5 ($03,$10,$1f); shade 0 is transparent.
+        string[] link = ["0110", "1221", "1221", "0110"];
+        uint[] colors = [0, 0x000000ff, 0x1883ffff];
+        using var image = animation.CurrentTexture.GetImage();
+        FailIf(image.GetSize() != new Vector2I(32, 32) || animation.CurrentOffset != new Vector2(-16, -16),
+            "ITEM_SWITCH_HOOK_CHAIN $0b lost its centered OAM frame origin.");
+        for (int y = 0; y < 32; y++)
+        for (int x = 0; x < 32; x++)
+        {
+            int shade = x is >= 14 and < 18 && y is >= 14 and < 18 ? link[y - 14][x - 14] - '0' : 0;
+            Color pixel = image.GetPixel(x, y);
+            FailIf(shade == 0 ? pixel.A != 0 : pixel.ToRgba32() != colors[shade],
+                $"ITEM_SWITCH_HOOK_CHAIN $0b pixel ({x},{y}) differs from resident bank-1 tile $16; expected shade {shade}, got ${pixel.ToRgba32():x8}.");
+        }
     }
 }

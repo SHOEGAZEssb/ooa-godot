@@ -161,6 +161,33 @@ public sealed partial class ValidationRoot
             FailIf(!rider.LinkRiding || overlap.LinkRiding || _player.PrecisePosition.Y - link.Y != rider.PrecisePosition.Y - platform.Y,
                 $"Overlapping platform update{i}: owners={rider.LinkRiding}/{overlap.LinkRiding}, Link={link}->{_player.PrecisePosition}, platform={platform}->{rider.PrecisePosition}, air={_player.TopDownAirborne}, drowning={_player.IsDrowning}, knockback={_player.KnockbackFrames}.");
         }
+        // switchHookParent @state0 rejects wLinkObjectIndex bit 0, but
+        // permits wLinkRidingObject. interactionCode79 still carries Link
+        // by SPEED_80 (half a pixel) during the parent item's movement lock.
+        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
+        _inventory.EquipB(InventoryState.ItemSwitchHook);
+        for (int shot = 0; shot < 4; shot++)
+        {
+            FailIf(_player.TopDownAirborne || !rider.LinkRiding || _player.IsUsingSwitchHook,
+                "4:74 Switch Hook fixture must stand on the naturally boarded platform with no active hook.");
+            input.CaptureForValidation(["item"], ["item"], Vector2.Right);
+            scheduler.Advance(1 / 60.0, update);
+            FailIf(!_player.IsUsingSwitchHook || _entities.SwitchHook!.Item is not { State: 1 },
+                "4:74 moving-platform support incorrectly blocked Switch Hook $0a input.");
+            Vector2 linkBefore = _player.PrecisePosition;
+            Vector2 platformBefore = rider.PrecisePosition;
+            if (shot == 1) Step(4);
+            else for (int i = 0; i < 4; i++) Step();
+            FailIf(!rider.LinkRiding || _player.PrecisePosition - linkBefore != rider.PrecisePosition - platformBefore ||
+                Math.Abs(rider.PrecisePosition.Y - platformBefore.Y) != 2 || _player.IsDrowning,
+                "4:74 platform must carry Link half a pixel per update while the Switch Hook locks walking, including batched updates.");
+            if (shot == 2) _entities.SwitchHook!.Interrupt(discard: false);
+            int finish = 0;
+            while (_player.IsUsingSwitchHook && finish++ < 100) Step();
+            FailIf(_player.IsUsingSwitchHook || !rider.LinkRiding || _player.IsDrowning,
+                $"4:74 platform Switch Hook shot {shot} failed to finish/cancel and retain support.");
+            Step();
+        }
         var instrument = _entities.PlayingInstrumentSource;
         try
         {
@@ -175,8 +202,8 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(!rider.LinkRiding || overlap.LinkRiding, "Ordered platform ownership did not resume after the instrument sentinel cleared.");
         int returnWait = 0;
-        while ((rider.Angle != 0x10 || _player.Position.Y < 64 || _player.TopDownAirborne) && returnWait++ < 500) Step();
-        FailIf(returnWait >= 500 || !rider.LinkRiding,
+        while ((rider.Angle != 0x10 || _player.Position.Y != 64 || _player.TopDownAirborne) && returnWait++ < 700) Step();
+        FailIf(returnWait >= 700 || !rider.LinkRiding,
             $"Platform return wait{ returnWait}: Link={_player.Position}, platform={rider.Position}, owner={rider.LinkRiding}/{overlap.LinkRiding}, health={_player.HealthQuarters}, drowning={_player.IsDrowning}, air={_player.TopDownAirborne}.");
         Step(move: Vector2.Left, jump: true);
         for (int i = 0; i < 80 && _player.TopDownAirborne; i++) Step(move: Vector2.Left);
@@ -202,6 +229,6 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x74);
         FailIf(_entities.Entities<MovingPlatformRoomEntity>().Count != 1 || _entities.PlayerRidingObject,
             "Leaving/re-entering retained the old ride owner or dynamically spawned platform.");
-        GD.Print("Validated Skull moving platforms: six source placements/size visuals, dungeon-specific scripts and aliases, exact wait/move/loop updates, individual/batched execution, native Feather boarding, airborne carry, overlapping ownership, instrument freeze, text initialization, and cancellation/re-entry.");
+        GD.Print("Validated Skull moving platforms: six source placements/size visuals, dungeon-specific scripts and aliases, exact wait/move/loop updates, individual/batched execution, native Feather boarding, airborne carry, overlapping ownership, repeated Switch Hook firing/cancellation with platform carry, instrument freeze, text initialization, and cancellation/re-entry.");
     }
 }

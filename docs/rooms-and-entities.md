@@ -100,6 +100,9 @@ During a scrolling transition:
 
 Do not treat preload as room entry. Entry counters, RNG, events, music,
 checkpoints, and persistent mutations occur only at their traced boundary.
+Enemy state-zero initialization remains eligible during scrolling. If a source
+gate delays initialization, retain its per-update counters and RNG until it
+leaves state zero, then freeze the initialized enemy until scrolling completes.
 Warp requests also distinguish Link's source-transition handler from a direct
 scripted fade. Source handlers own the entrance sound; a direct write to
 `wWarpTransition2` bypasses that sound. Destination entry handlers do not replay
