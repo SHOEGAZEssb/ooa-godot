@@ -219,9 +219,9 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
             return true;
         }
 
-        Vector2 sample = point;
-        return _room.IsSolid(sample) ||
-            _room.GetTerrainInfo(sample).Hazard == HazardType.Hole;
+        // ecom_bounceOffWallsAndHoles uses checkTileCollisionAt_disallowHoles:
+        // SPECIALCOLLISION_HOLE $10 includes water and lava, not just pits.
+        return _room.IsSolidForEnemyMovement(point, holesAreWalls: true);
     }
 }
 

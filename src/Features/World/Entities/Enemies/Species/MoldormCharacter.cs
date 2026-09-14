@@ -202,8 +202,8 @@ internal partial class MoldormCharacter : EnemyCharacter
     private bool IsWallOrHole(Vector2I point) =>
         point.X < 0 || point.X >= _room.Width ||
         point.Y < 0 || point.Y >= _room.Height ||
-        _room.IsSolid(point) ||
-        _room.GetTerrainInfo(point).Hazard == HazardType.Hole;
+        // ecom_bounceOffWallsAndHoles blocks collision $10 for lava/water too.
+        _room.IsSolidForEnemyMovement(point, holesAreWalls: true);
 
     private void SetPreciseHeadPosition(Vector2 position)
     {
