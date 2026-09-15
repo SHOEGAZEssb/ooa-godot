@@ -375,7 +375,8 @@ Add-DungeonInteractionVisual 'minecart-gate' 0x1b 0 @(0, 1, 2, 3)
 Add-DungeonInteractionVisual 'spinner' 0x7d 0 @(0, 1, 2, 3)
 # getDataForInteraction clamps subid $02 to the last $0b subid row ($01).
 # That row selects animation 1: four updates, two updates, terminal $ff.
-Add-DungeonInteractionVisual 'eyesoar-spawn' 0x0b 1 @(1)
+# spr_circlebeads.properties specifies invert:false, including these oval tiles.
+Add-DungeonInteractionVisual 'eyesoar-spawn' 0x0b 1 @(1) -sourceGrayscaleInverted $false
 
 # interactionCode19 loads PALH_89, which replaces OBJ palettes 6 and 7 with
 # the two color-pair palettes used by the rotating cube. Its OAM records mix

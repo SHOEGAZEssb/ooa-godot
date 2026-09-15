@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             "Native circle offset must wrap its scaled high byte.");
 
         var visual = new DungeonInteractionVisualDatabase().Visual("eyesoar-spawn");
-        FailIf(visual.TileBase != 8 || visual.Palette != 4 || visual.Animations.Length != 1,
+        FailIf(visual.TileBase != 8 || visual.Palette != 4 || visual.Animations.Length != 1 || visual.SourceGrayscaleInverted,
             "INTERAC_0b:$02 must clamp to the final subid row, tile$08/palette4/animation1.");
         var definition = OracleGraphicsCache.GetAnimationDefinition(visual.Animations[0]);
         FailIf(definition.Frames.Length != 3 ||
@@ -72,17 +72,33 @@ public sealed partial class ValidationRoot
         var node = new Node2D();
         var animation = new EnemyAnimationPlayer(node, 1);
         animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
-            visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
+            visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted, positionedOam: true);
         for (int repeat = 0; repeat < 2; repeat++)
         {
             animation.SetAnimation(0);
             for (int tick = 0; tick < 6; tick++)
             {
                 FailIf(animation.CurrentParameter != 0, "Eyesoar child became eligible before six spawn-animation updates.");
+                ValidateEyesoarSpawnPixels(animation, tick >= 4);
                 animation.Advance();
             }
             FailIf(animation.CurrentParameter != 255, "Eyesoar spawn effect failed to publish its terminal signal at update6.");
         }
         node.Free();
+    }
+
+    private void ValidateEyesoarSpawnPixels(EnemyAnimationPlayer animation, bool small)
+    {
+        // interactionAnimation5a143 selects tile $0a then $08 from spr_circlebeads.
+        // Its invert:false source pixels map to OBJ4: black outline, blue fill,
+        // pale-blue highlight. These coordinates come from the source tiles.
+        using var pixels = animation.CurrentTexture.GetImage();
+        int top = small ? 1 : 0;
+        FailIf(pixels.GetSize() != new Vector2I(8, 16) || animation.CurrentOffset != new Vector2(-4, -8) ||
+            pixels.GetPixel(0, 0).A != 0 ||
+            !pixels.GetPixel(3, top).IsEqualApprox(Colors.Black) ||
+            !pixels.GetPixel(3, top + 1).IsEqualApprox(new Color(0, 0, 1)) ||
+            !pixels.GetPixel(3, top + 2).IsEqualApprox(new Color(115 / 255f, 172 / 255f, 1)),
+            $"INTERAC_0b:$02 oval lost source bounds, transparency or OBJ4 outline/fill/highlight polarity: small={small}, size={pixels.GetSize()}, offset={animation.CurrentOffset}, pixels={pixels.GetPixel(0, 0)}/{pixels.GetPixel(3, top)}/{pixels.GetPixel(3, top + 1)}/{pixels.GetPixel(3, top + 2)}.");
     }
 }

@@ -58,7 +58,16 @@ public sealed partial class ValidationRoot
         var effects = _entities.Entities<EyesoarSpawnEffect>();
         FailIf(effects.Count != 4 || effects.Any(effect => effect.Parameter != 0) || eyes.Any(eye => eye.State != 9 || eye.Visible),
             "Four native blue ovals must initialize later in the child allocation update, without advancing their animations.");
-        Step(5);
+        void CheckSpawnPixels(bool small)
+        {
+            foreach (var effect in effects)
+                ValidateEyesoarSpawnPixels((EnemyAnimationPlayer)typeof(EyesoarSpawnEffect)
+                    .GetField("_animation", flags)!.GetValue(effect)!, small);
+        }
+        CheckSpawnPixels(false);
+        Step(4);
+        CheckSpawnPixels(true);
+        Step();
         FailIf(effects.Any(effect => effect.Parameter != 0) || eyes.Any(eye => eye.Visible), "Blue oval signal arrived before six animation updates.");
         Step();
         FailIf(effects.Any(effect => effect.Parameter != 255 || effect.Finished) || eyes.Any(eye => eye.Visible),
