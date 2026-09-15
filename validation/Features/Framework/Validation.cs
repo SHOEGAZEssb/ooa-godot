@@ -485,7 +485,6 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSkullMoldormItemSwitchWrites);
         RunIsolatedValidation(ValidateSkullMoldormHitTiming);
         RunIsolatedValidation(ValidateSkullMoldormHazards);
-        RunIsolatedValidation(ValidateSkullEntranceProgression);
         RunIsolatedValidation(ValidateTopDownAirSteering);
         RunIsolatedValidation(ValidatePegasusSatchel);
         RunIsolatedValidation(ValidatePegasusProjectiles);

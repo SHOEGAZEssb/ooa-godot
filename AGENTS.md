@@ -46,6 +46,8 @@ Use `rg` or `rg --files` for searches and `apply_patch` for edits.
 
 ## Evidence and regression requirements
 
+- Keep validation focused on individual systems and their immediate
+  interactions. Do not add whole-dungeon progression or long playthrough tests.
 - Trace each behavior gate through its callers and the code that writes or
   clears its inputs. Include object-update eligibility, collision/input masks,
   and the lifetime of shared signals across update phases. A variable name or

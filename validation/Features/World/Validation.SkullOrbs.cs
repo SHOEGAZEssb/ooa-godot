@@ -226,8 +226,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(40,88));
         orb = _entities.Entities<MovingOrbRoomEntity>().Single();
         Step();
-        // Controlled item allocation isolates beam handoff; the connected
-        // entrance route above proves the real Shooter puzzle approach.
+        // Controlled item allocation isolates the beam/orb collision handoff.
         FailIf(!_entities.TrySpawnSwordBeam(orb.Position + Vector2.Down * 16, 0), "Orb beam fixture failed to allocate its real item.");
         var beam = _entities.Entities<SwordBeamEffect>().Single();
         for (int i = 0; !beam.PendingNativeCollision && !beam.Finished && i < 30; i++) Step();

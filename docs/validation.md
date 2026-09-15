@@ -137,10 +137,13 @@ transition dispatch, or sequencer order.
 
 ## Validation scope
 
-Prefer a small focused scenario for one mechanic and a route-level scenario
-when several real rooms must prove that imported coverage composes. A large
-route does not replace focused failure localization, and a focused unit does not
-prove room/object ordering or integration.
+Keep scenarios focused on individual gameplay systems and their immediate
+interactions. Do not automate whole-dungeon progression or long routes that
+chain unrelated combat, traversal, puzzles, and rewards.
+
+Use the actual gameplay update loop and real room geometry when a system needs
+integration coverage. Arrange the prerequisites directly, then exercise only
+the mechanic, transition, or handoff under test.
 
 Do not document the contents of every validation method here. The registered
 methods and feature files are the current inventory; use `rg` to find them.
