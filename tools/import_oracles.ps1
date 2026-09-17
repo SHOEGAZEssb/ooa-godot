@@ -122,7 +122,7 @@ $stageContracts = @(
         -inputs @('gfxNames', 'interactionGraphics', 'soundIds') `
         -functionInputs @('Resolve-NpcAnimation')
     New-ImportStageContract 'cutscene-maku-tree' 'Import-MakuTreeData.ps1' `
-        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords', 'treasureObjectSource') `
+        -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'paletteDataSource', 'paletteHeaderSource', 'treasureObjectRecords', 'treasureObjectSource') `
         -outputs @('makuStopSound', 'objectGfxSource') `
         -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-ralph-portal' 'Import-RalphPortalData.ps1' `

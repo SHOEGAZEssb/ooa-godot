@@ -56,6 +56,109 @@ $makuAnimations = @(0..4 | ForEach-Object { Resolve-NpcAnimation 0x87 $_ })
 if (($makuAnimations | Where-Object { -not $_ }).Count -ne 0) {
     throw 'Could not resolve all five INTERAC_MAKU_TREE animations.'
 }
+
+# The ordinary subid-$00 lanes retain their native mode dispatch and repeat
+# forever. Export each straight-line mode with its backward A-button branch.
+$adviceModes = @('mode00_justShowText', 'mode01_showTextWithLaugh',
+    'mode02_showTwoTexts_frownOnSecond', 'mode04_constantFrownAndShowText',
+    'mode05_showTwoTexts_frownOnFirst')
+foreach ($modeLabel in $adviceModes) {
+    $mode = [int]$modeLabel.Substring(4, 2)
+    $block = [regex]::Match($makuScriptSource,
+        "(?ms)^@$($modeLabel):(?<body>.*?)(?=^@mode|^makuTree_subid01Script_body:)")
+    if (-not $block.Success) { throw "Missing Maku Tree @$modeLabel." }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+    $loop = -1
+    $index = 0
+    $lineNumber = 1 + ($makuScriptSource.Substring(0, $block.Groups['body'].Index) -split "`n").Count - 1
+    foreach ($line in ($block.Groups['body'].Value -split "`n")) {
+        $code = ($line -split ';', 2)[0].Trim()
+        $sourceLine = $lineNumber++
+        if (-not $code) { continue }
+        if ($code -eq '--') { $loop = $index; continue }
+        $actor = ''; $arg0 = ''; $arg1 = ''; $payload = ''
+        if ($code -match '^asm15 makuTree_setAnimation, \$([0-4][0-9a-f]?)$') {
+            $opcode = 'setanimationcontinue'; $actor = 'MakuTree'
+            $arg0 = $Matches[1]; $payload = $makuAnimations[[Convert]::ToInt32($arg0,16)]
+        } elseif ($code -match '^asm15 (makuTree_showTextWithOffset(?:AndUpdateMapText)?), \$(0[01])$') {
+            $opcode = 'native'; $payload = "$($Matches[1]):$($Matches[2])"
+        } elseif ($code -match '^setcollisionradii \$([0-9a-f]{2}), \$([0-9a-f]{2})$') {
+            $opcode = 'setcollisionradii'; $actor = 'MakuTree'; $arg0 = $Matches[1]; $arg1 = $Matches[2]
+        } elseif ($code -in @('makeabuttonsensitive','checkabutton')) {
+            $opcode = $code; $actor = 'MakuTree'
+        } elseif ($code -match '^wait (\d+)$') {
+            $opcode = 'wait'; $arg0 = $Matches[1]
+        } elseif ($code -in @('disableinput','enableinput')) {
+            $opcode = $code
+        } elseif ($code -eq 'scriptjump --' -and $loop -ge 0) {
+            $opcode = 'scriptjump'; $arg0 = "$loop"
+        } else { throw "Unsupported Maku Tree @$modeLabel line ${sourceLine}: $code" }
+        $rows.Add((New-CutsceneCommandRow 'makuTree_subid00Script_body' $index "@$modeLabel" $sourceLine $opcode $actor $arg0 $arg1 $payload))
+        $index++
+    }
+    Write-CutsceneGeneratedTable((Join-Path $destination "cutscenes\maku_tree_advice_mode${mode}.tsv"), $rows)
+}
+$adviceRows = [Collections.Generic.List[string]]::new()
+$adviceRows.Add("# state`tlinked`tmode`ttext-id`tposition`ttext-base64`tsecond-text-id`tsecond-position`tsecond-text-base64")
+function Resolve-MakuAdviceText([int]$textId, [Collections.Generic.HashSet[int]]$visited) {
+    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
+        throw "Missing or recursive Maku advice TX_$($textId.ToString('x4'))."
+    }
+    $message = [string]$allTexts[$textId]
+    if ($allTextPositions.ContainsKey($textId)) { $message = "\pos($($allTextPositions[$textId]))" + $message }
+    while ($true) {
+        $call = [regex]::Match($message, '\\call\(TX_(?<id>[0-9a-f]{4})\)')
+        if (-not $call.Success) { break }
+        $called = Resolve-MakuAdviceText ([Convert]::ToInt32($call.Groups['id'].Value,16)) $visited
+        $message = $message.Substring(0,$call.Index) + $called + $message.Substring($call.Index+$call.Length)
+    }
+    $jump = [regex]::Match($message, '\\jump\(TX_(?<id>[0-9a-f]{4})\)')
+    if ($jump.Success) {
+        $message = $message.Substring(0,$jump.Index) + (Resolve-MakuAdviceText ([Convert]::ToInt32($jump.Groups['id'].Value,16)) $visited)
+    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
+        if ($message.EndsWith('\n', [StringComparison]::Ordinal)) { $message = $message.Substring(0,$message.Length-2) + "`n" }
+        $message += Resolve-MakuAdviceText $allTextFallthroughIds[$textId] $visited
+    }
+    [void]$visited.Remove($textId)
+    return $message
+}
+foreach ($state in (@(3..13) + @(15,16))) {
+    $stateHex = $state.ToString('x2')
+    $block = [regex]::Match($makuTreeSource, "(?ms)^@state${stateHex}:(?<body>.*?)(?=^@state|^@runSubidCode:)")
+    $choices = @([regex]::Matches($block.Groups['body'].Value, 'ldbc \$(?<mode>[0-9a-f]{2}), <TX_(?<text>[0-9a-f]{4})'))
+    if ($choices.Count -ne $(if ($state -eq 16) { 2 } else { 1 })) { throw "Unexpected Maku Tree state `$$stateHex dispatch." }
+    foreach ($linked in 0..1) {
+        $choice = $choices[$(if ($state -eq 16 -and $linked -eq 0) {1} else {0})]
+        $mode = [Convert]::ToInt32($choice.Groups['mode'].Value,16)
+        $id = [Convert]::ToInt32($choice.Groups['text'].Value,16) + $linked * 0x20
+        $columns = @($stateHex, "$linked", "$mode")
+        foreach ($textId in @($id, ($id + 1))) {
+            if (-not $allTexts.ContainsKey($textId) -or -not $allTextPositions.ContainsKey($textId)) { throw "Missing Maku advice TX_$($textId.ToString('x4'))." }
+            $text = Resolve-MakuAdviceText $textId ([Collections.Generic.HashSet[int]]::new())
+            $columns += @($textId.ToString('x4'), "$($allTextPositions[$textId])", [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($text)))
+        }
+        $adviceRows.Add(($columns -join "`t"))
+    }
+}
+if ($makuScriptSource -notmatch 'makuTree_textOffsetsForLinked:\s*\.db \$20, \$20, \$10') { throw 'Maku Tree linked text offset changed.' }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\maku_tree_advice.tsv'), $adviceRows)
+
+$flowerGraphic = $interactionGraphics['134:0']
+$flowerCode = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\makuFlower.s')
+if ($flowerCode -notmatch '(?ms)@subid0State1:.*?Object.var3b.*?objectGetRelatedObject2Var.*?jp interactionSetAnimation.*?@anims:\s*\.db \$00 \$00 \$00 \$00 \$01' -or
+    $makuTreeSource -notmatch '(?ms)@setVisibleAndSpawnFlower:.*?interactionSetAlwaysUpdateBit.*?@spawnMakuFlower:.*?INTERAC_MAKU_FLOWER.*?jp objectCopyPosition') {
+    throw 'Maku Tree related flower initialization/animation contract changed.'
+}
+$flowerSprite = $gfxNames[$flowerGraphic.Gfx]
+$flowerRows = @("# sprite`ttile-base`tpalette`tanimation0`tanimation1",
+    (@($flowerSprite, $flowerGraphic.TileBase, $flowerGraphic.Palette,
+        (Resolve-NpcAnimation 0x86 0), (Resolve-NpcAnimation 0x86 1)) -join "`t"))
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\maku_tree_flower.tsv'), $flowerRows)
+$flowerSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+    ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$flowerSprite.png" } | Select-Object -First 1
+if (-not $flowerSource) { throw "Missing Maku flower graphics $flowerSprite." }
+Copy-Item -LiteralPath $flowerSource.FullName -Destination (Join-Path $destination "gfx\$flowerSprite.png") -Force
 # interactionLoadExtraGraphics follows object graphics header $04 until the
 # stop bit on $05, appending the second 16-tile sheet after the first.
 $makuGfxIndex = $interactionGraphics['135:0'].Gfx

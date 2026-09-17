@@ -551,6 +551,16 @@ Write-GeneratedBytes(
     $textboxBgPaletteBytes.ToArray())
 
 $tilesetRecordSize = 8
+# checkTilesetOverride checks past room $48 bit 0 before loading present
+# room $38. The expanded disassembly expresses clean-ROM tileset $24 as
+# layout group $03; graphics, mappings, palettes and animation are identical.
+$makuOverrideSource = Read-ImportText (Join-Path $Disassembly 'code\ages\loadTilesetData.s')
+$makuOverride = [regex]::Match($makuOverrideSource,
+    '(?ms)^@checkMakuTreeSaved:.*?wActiveGroup.*?or a\s+ret nz.*?cp <ROOM_AGES_(?<room>038).*?wPastRoomFlags \+ \(<ROOM_AGES_(?<flagroom>148)\).*?and \$(?<mask>01)\s+ret z.*?ld a,\$(?<layout>03)\s+ldh \(<hFF8B\),a')
+if (-not $makuOverride.Success) { throw 'checkTilesetOverride:@checkMakuTreeSaved layout gate changed.' }
+Write-GeneratedTable((Join-Path $destination 'metadata\maku_tree_layout_override.tsv'), @(
+    "# group`troom`tflag-group`tflag-room`tflag-mask`tlayout-group",
+    "0`t$($makuOverride.Groups['room'].Value.Substring(1))`t1`t$($makuOverride.Groups['flagroom'].Value.Substring(1))`t$($makuOverride.Groups['mask'].Value)`t$($makuOverride.Groups['layout'].Value)"))
 $metadata = [byte[]]::new(128 * $tilesetRecordSize)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 

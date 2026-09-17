@@ -116,7 +116,12 @@ for ($index = 0; $index -lt $orderedTextEntryHeaders.Count; $index++) {
     if (($entry.Id -shr 8) -ne ($successor.Id -shr 8)) {
         throw "Unterminated TX_$($entry.Id.ToString('x4')) crosses its text group boundary."
     }
-    $allTextFallthroughIds.Add($entry.Id, $successor.Id)
+    # Every name in a shared entry points at the same unterminated stream.
+    # The successor is the next physical entry, not alias ID + 1.
+    $header = ($entrySource -split '    index:', 2)[0]
+    foreach ($alias in [regex]::Matches($header, 'TX_(?<id>[0-9a-f]{4})')) {
+        $allTextFallthroughIds.Add([Convert]::ToInt32($alias.Groups['id'].Value, 16), $successor.Id)
+    }
 }
 
 # CROSSITEMS appends symbolic TX_09_* rows with `index: auto`. Resolve those

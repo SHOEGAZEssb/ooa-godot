@@ -27,11 +27,19 @@ public sealed class OracleWorldData
     private readonly OracleAnimationData _animations;
     private OracleRoomData? _currentPaletteRoom;
     private OracleRoomData? _loadingPaletteRoom;
+    private readonly (int Group, int Room, int FlagGroup, int FlagRoom, int Mask, int LayoutGroup) _makuLayout;
 
     internal BackgroundPaletteState BackgroundPalettes { get; }
 
     public OracleWorldData()
     {
+        GeneratedTableRow maku = GeneratedTable.Load(
+            "res://assets/oracle/metadata/maku_tree_layout_override.tsv",
+            new GeneratedTableSchema("Maku Tree layout override", GeneratedTableKeySemantics.Ordered,
+                ["group", "room", "flag-group", "flag-room", "flag-mask", "layout-group"],
+                headerRequired: true)).SingleRow();
+        _makuLayout = (maku.Decimal(0, 0, 7), maku.HexByte(1), maku.Decimal(2, 0, 7),
+            maku.HexByte(3), maku.HexByte(4), maku.HexByte(5));
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
         _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
         _pastRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPast.bin", 256);
@@ -66,14 +74,20 @@ public sealed class OracleWorldData
         return LoadRoom(group, room, group);
     }
 
-    public OracleRoomData LoadRoom(int group, int room, int dataGroup, int? animalCompanion = null)
+    internal int? ResolveLayoutOverride(int group, int room, OracleSaveData save) =>
+        group == _makuLayout.Group && room == _makuLayout.Room &&
+        (save.GetRoomFlags(_makuLayout.FlagGroup, _makuLayout.FlagRoom) & _makuLayout.Mask) != 0
+            ? _makuLayout.LayoutGroup : null;
+
+    public OracleRoomData LoadRoom(int group, int room, int dataGroup, int? animalCompanion = null,
+        int? layoutGroupOverride = null)
     {
         if (!HasRoom(dataGroup, room))
             throw new InvalidOperationException($"Room {group:x1}:{room:x2} is not available.");
 
         int tileset = GetTilesetId(dataGroup, room);
         int metadataOffset = tileset * TilesetRecordSize;
-        int layoutGroup = _tilesetMetadata[metadataOffset + 1];
+        int layoutGroup = layoutGroupOverride ?? _tilesetMetadata[metadataOffset + 1];
         // ages/loadTilesetData.s:checkTilesetOverride changes only the layout
         // group for present room pack $7f in the expanded asset format.
         // Ricky keeps the base layout; Dimitri uses $01; every other value

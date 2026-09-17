@@ -113,7 +113,8 @@ public sealed class RoomSession
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
             : group;
-        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(0xc610));
+        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(0xc610),
+            World.ResolveLayoutOverride(group, room, _saveData));
         byte roomFlags = _saveData.GetRoomFlags(group, room);
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());

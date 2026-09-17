@@ -303,6 +303,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);
         RunIsolatedValidation(ValidateMakuTreeSavedCutscene);
+        RunIsolatedValidation(ValidateMakuTreeAdviceAndLayout);
         RunIsolatedValidation(ValidateRoom056Comedian);
         RunIsolatedValidation(ValidateRoom07cPoe);
         RunIsolatedValidation(ValidateRoom22ePoe);
