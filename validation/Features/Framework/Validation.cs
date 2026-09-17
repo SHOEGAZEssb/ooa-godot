@@ -258,6 +258,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom39eInteractions);
         RunIsolatedValidation(ValidateRoom3aeInteractions);
         RunIsolatedValidation(ValidateRoom20eNpcInteractions);
+        RunIsolatedValidation(ValidateHouse20eEntry);
         RunIsolatedValidation(ValidateTroyHouseRooms);
         RunIsolatedValidation(ValidateRooms145And3fcNpcInteractions);
         RunIsolatedValidation(ValidateRoom148NpcInteractions);
