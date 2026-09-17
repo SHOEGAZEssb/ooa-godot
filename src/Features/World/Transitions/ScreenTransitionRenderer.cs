@@ -48,6 +48,7 @@ internal sealed class ScreenTransitionRenderer
     {
         _tick++;
         int upload = _tick - _uploadStart;
+        bool graphicsChanged = false;
         if (upload >= 0 && upload < _uploads.Count)
         {
             ScreenGraphicsUpload entry = _uploads[upload];
@@ -60,6 +61,7 @@ internal sealed class ScreenTransitionRenderer
             else
             {
                 ApplyUpload(entry);
+                graphicsChanged = true;
             }
         }
         if (_tick == _paletteCommit && _smooth is null)
@@ -89,7 +91,7 @@ internal sealed class ScreenTransitionRenderer
             _tick == _paletteCommit || (_smooth is not null && age is > 0 and < 32 && (age & 1) == 0))
         {
             _source.RedrawForPaletteChange();
-            if (_source != _target) _target.RedrawForPaletteChange();
+            if (_source != _target && graphicsChanged) _target.RedrawForPaletteChange();
         }
     }
 

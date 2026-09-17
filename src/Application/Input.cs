@@ -12,6 +12,10 @@ internal static class Input
 {
     private static ApplicationInputSnapshot? _current;
     private static ulong _originalUpdate;
+    private static readonly StringName MoveLeft = "move_left";
+    private static readonly StringName MoveRight = "move_right";
+    private static readonly StringName MoveUp = "move_up";
+    private static readonly StringName MoveDown = "move_down";
 
     internal static ulong TimingFrame =>
         _current is null ? Engine.GetProcessFrames() : _originalUpdate;
@@ -39,28 +43,28 @@ internal static class Input
     }
 
     internal static bool IsActionPressed(
-        StringName action,
+        string action,
         bool exactMatch = false) =>
-        _current?.IsPressed(action.ToString()) ??
+        _current?.IsPressed(action) ??
         Godot.Input.IsActionPressed(action, exactMatch);
 
     internal static bool IsActionJustPressed(
-        StringName action,
+        string action,
         bool exactMatch = false) =>
-        _current?.IsJustPressed(action.ToString()) ??
+        _current?.IsJustPressed(action) ??
         Godot.Input.IsActionJustPressed(action, exactMatch);
 
     internal static Vector2 GetVector(
-        StringName negativeX,
-        StringName positiveX,
-        StringName negativeY,
-        StringName positiveY,
+        string negativeX,
+        string positiveX,
+        string negativeY,
+        string positiveY,
         float deadzone = -1.0f)
     {
-        if (negativeX.ToString() == "move_left" &&
-            positiveX.ToString() == "move_right" &&
-            negativeY.ToString() == "move_up" &&
-            positiveY.ToString() == "move_down")
+        if (negativeX == "move_left" &&
+            positiveX == "move_right" &&
+            negativeY == "move_up" &&
+            positiveY == "move_down")
         {
             return _current?.Movement ?? ReadMovement();
         }
@@ -75,10 +79,10 @@ internal static class Input
         // values once the other axis is held. Quantize the per-action pressed
         // state so player, collision, companions and menus agree.
         return new Vector2(
-            (Godot.Input.IsActionPressed("move_right") ? 1 : 0) -
-            (Godot.Input.IsActionPressed("move_left") ? 1 : 0),
-            (Godot.Input.IsActionPressed("move_down") ? 1 : 0) -
-            (Godot.Input.IsActionPressed("move_up") ? 1 : 0)).LimitLength();
+            (Godot.Input.IsActionPressed(MoveRight) ? 1 : 0) -
+            (Godot.Input.IsActionPressed(MoveLeft) ? 1 : 0),
+            (Godot.Input.IsActionPressed(MoveDown) ? 1 : 0) -
+            (Godot.Input.IsActionPressed(MoveUp) ? 1 : 0)).LimitLength();
     }
 
     internal static void ActionPress(StringName action, float strength = 1.0f) =>

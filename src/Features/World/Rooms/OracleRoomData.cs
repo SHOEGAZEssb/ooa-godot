@@ -105,9 +105,10 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, 0);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ClearedTilemapTexture =
-            ImageTexture.CreateFromImage(RenderClearedTilemap());
-        Texture = ImageTexture.CreateFromImage(RenderRoom(activeHeaders));
+        using Image cleared = RenderClearedTilemap();
+        using Image rendered = RenderRoom(activeHeaders);
+        ClearedTilemapTexture = ImageTexture.CreateFromImage(cleared);
+        Texture = ImageTexture.CreateFromImage(rendered);
     }
 
     public bool UpdateAnimation(long tick)
@@ -1029,11 +1030,11 @@ public sealed class OracleRoomData
 
     private Image RenderRoom(int[] activeHeaders)
     {
-        var output = Image.CreateEmpty(
-            WidthInTiles * MetatileSize,
-            HeightInTiles * MetatileSize,
-            false,
-            Image.Format.Rgba8);
+        byte[] output = new byte[Width * Height * 4];
+        byte[] colors = CapturePalettePixels();
+        // Read each source once per redraw, including the mutable shared VRAM.
+        // A persistent image cache here would miss transition/scripted writes.
+        var sources = new Dictionary<Image, (byte[] Pixels, int Width)>();
 
         for (int roomY = 0; roomY < HeightInTiles; roomY++)
         for (int roomX = 0; roomX < WidthInTiles; roomX++)
@@ -1053,7 +1054,12 @@ public sealed class OracleRoomData
                     : mappingOverride[4 + quarter];
                 int sourceIndex = tileId >= 0x80 ? tileId - 0x80 : tileId + 0x80;
                 ResolveBackgroundGraphics(activeHeaders, sourceIndex, out Image tileSource, out int sourceTile);
-                int sourceColumns = tileSource.GetWidth() / 8;
+                if (!sources.TryGetValue(tileSource, out var sourcePixels))
+                {
+                    sourcePixels = (ReadRgbaPixels(tileSource), tileSource.GetWidth());
+                    sources.Add(tileSource, sourcePixels);
+                }
+                int sourceColumns = sourcePixels.Width / 8;
                 int sourceX = (sourceTile % sourceColumns) * 8;
                 int sourceY = (sourceTile / sourceColumns) * 8;
                 bool flipX = (attributes & 0x20) != 0;
@@ -1067,28 +1073,25 @@ public sealed class OracleRoomData
                 {
                     int readX = sourceX + (flipX ? 7 - pixelX : pixelX);
                     int readY = sourceY + (flipY ? 7 - pixelY : pixelY);
-                    Color sourceColor = tileSource.GetPixel(readX, readY);
-                    int shade = Mathf.Clamp(Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
+                    int red = sourcePixels.Pixels[(readY * sourcePixels.Width + readX) * 4];
+                    int shade = (255 - red + 42) / 85;
                     int writeX = roomX * 16 + quarterX * 8 + pixelX;
                     int writeY = roomY * 16 + quarterY * 8 + pixelY;
-                    output.SetPixel(
-                        writeX,
-                        writeY,
-                        _backgroundPalettes.Resolve(rawPalette, shade));
+                    colors.AsSpan((rawPalette * 4 + shade) * 4, 4)
+                        .CopyTo(output.AsSpan((writeY * Width + writeX) * 4, 4));
                 }
             }
         }
 
-        return output;
+        return Image.CreateFromData(Width, Height, false, Image.Format.Rgba8, output);
     }
 
     private Image RenderClearedTilemap()
     {
-        var output = Image.CreateEmpty(
-            Width,
-            Height,
-            false,
-            Image.Format.Rgba8);
+        byte[] output = new byte[Width * Height * 4];
+        byte[] colors = CapturePalettePixels();
+        byte[] hud = ReadRgbaPixels(_hudGraphics);
+        int hudWidth = _hudGraphics.GetWidth();
 
         // initializeVramMaps fills the BG map with tile $00 and attribute $80.
         // Gfx register state $02 selects signed BG tile addressing, so tile $00
@@ -1098,15 +1101,32 @@ public sealed class OracleRoomData
         for (int y = 0; y < Height; y++)
         for (int x = 0; x < Width; x++)
         {
-            Color sourceColor = _hudGraphics.GetPixel(x & 0x07, y & 0x07);
-            int shade = Mathf.Clamp(
-                Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f),
-                0,
-                3);
-            output.SetPixel(x, y, _backgroundPalettes.Resolve(0, shade));
+            int red = hud[((y & 7) * hudWidth + (x & 7)) * 4];
+            int shade = (255 - red + 42) / 85;
+            colors.AsSpan(shade * 4, 4).CopyTo(output.AsSpan((y * Width + x) * 4, 4));
         }
 
-        return output;
+        return Image.CreateFromData(Width, Height, false, Image.Format.Rgba8, output);
+    }
+
+    private byte[] CapturePalettePixels()
+    {
+        // Let Godot quantize the 32 colors exactly as Image.SetPixel did.
+        // Full-room composition then stays in managed memory instead of
+        // making two native calls for every displayed pixel.
+        using Image colors = Image.CreateEmpty(4, 8, false, Image.Format.Rgba8);
+        for (int palette = 0; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++)
+            colors.SetPixel(shade, palette, _backgroundPalettes.Resolve(palette, shade));
+        return colors.GetData();
+    }
+
+    private static byte[] ReadRgbaPixels(Image source)
+    {
+        if (source.GetFormat() == Image.Format.Rgba8) return source.GetData();
+        using Image converted = (Image)source.Duplicate();
+        converted.Convert(Image.Format.Rgba8);
+        return converted.GetData();
     }
 
     internal void LoadTilesetPalette()
@@ -1173,7 +1193,7 @@ public sealed class OracleRoomData
         // Every room mutation produces a complete CPU-composited image. A
         // fresh backing upload keeps consecutive palette and animated-tile
         // redraws from retaining stale GPU regions in the embedded renderer.
-        ((ImageTexture)texture).SetImage(image);
+        using (image) ((ImageTexture)texture).SetImage(image);
     }
 
     private void CopyMappingQuarter(byte[] destination, int quarter, int sourceOffset)

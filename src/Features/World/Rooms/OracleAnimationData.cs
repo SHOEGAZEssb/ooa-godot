@@ -125,12 +125,14 @@ public sealed class OracleAnimationData
 
         void AdvanceTicks(long count)
         {
-            for (long elapsed = 0; elapsed < count; elapsed++)
+            // Only counter expiry emits a DMA write. Jump over unchanged
+            // updates while retaining the exact zero boundary and write order.
+            while (count >= counter)
             {
-                counter--;
-                if (counter == 0)
-                    ApplyCurrentFrame();
+                count -= counter;
+                ApplyCurrentFrame();
             }
+            counter -= (int)count;
         }
 
         // Once one full cycle has executed, all destination ranges have a

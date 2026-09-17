@@ -185,6 +185,7 @@ public sealed partial class ValidationRoot : GameRoot
     {
         RunIsolatedValidation(ValidateGameplaySceneGraph);
         RunIsolatedValidation(ValidateApplicationFixedUpdateScheduler);
+        RunIsolatedValidation(ValidateHotPaths);
         RunIsolatedValidation(ValidateControllerMovement);
         RunIsolatedValidation(ValidateGeneratedTableReader);
         RunIsolatedValidation(ValidateMenuLifecycleFoundation);
@@ -233,6 +234,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateScreenTransitionSourceBoundaries);
         RunIsolatedValidation(ValidateScreenTransitionSourceTiming);
         RunIsolatedValidation(ValidateScreenTransitionRendering);
+        RunIsolatedValidation(ValidateRoomRasterization);
         RunIsolatedValidation(ValidateRoomPackTransitions);
         RunIsolatedValidation(ValidateRoomTransitionSounds);
         RunIsolatedValidation(ValidateScreenTransitionGraphicsPayloads);

@@ -28,6 +28,8 @@ internal sealed class ApplicationInputBuffer
         "debug_maple",
         "debug_object_spawner"
     };
+    private static readonly StringName[] SampledActionNames =
+        Array.ConvertAll(SampledActions, static action => new StringName(action));
 
     private readonly HashSet<string> _pressed = new(StringComparer.Ordinal);
     private readonly HashSet<string> _pendingJustPressed =
@@ -37,16 +39,18 @@ internal sealed class ApplicationInputBuffer
     internal void CaptureHostFrame()
     {
         _pressed.Clear();
-        foreach (string action in SampledActions)
+        for (int index = 0; index < SampledActions.Length; index++)
         {
+            string action = SampledActions[index];
+            StringName name = SampledActionNames[index];
             // Development actions are installed by gameplay-scoped
             // controllers. Title and file-select frames still use this
             // application buffer, so an action may legitimately not exist yet.
-            if (!InputMap.HasAction(action))
+            if (!InputMap.HasAction(name))
                 continue;
-            if (Godot.Input.IsActionPressed(action))
+            if (Godot.Input.IsActionPressed(name))
                 _pressed.Add(action);
-            if (Godot.Input.IsActionJustPressed(action))
+            if (Godot.Input.IsActionJustPressed(name))
                 _pendingJustPressed.Add(action);
         }
         _movement = Input.ReadMovement();

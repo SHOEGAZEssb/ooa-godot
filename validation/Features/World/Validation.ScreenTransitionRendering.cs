@@ -98,7 +98,17 @@ public sealed partial class ValidationRoot
                 $"res://assets/oracle/metadata/palette{target.TilesetId:x2}.bin");
             for (int tick = 0; tick <= total; tick++)
             {
-                if (tick != 0) UpdateScrollingTransition(1.0 / 60.0);
+                if (tick == setup)
+                {
+                    int targetRedraws = 0;
+                    void CountRedraw() => targetRedraws++;
+                    target.Texture.Changed += CountRedraw;
+                    try { UpdateScrollingTransition(1.0 / 60.0); }
+                    finally { target.Texture.Changed -= CountRedraw; }
+                    FailIf(targetRedraws != 1,
+                        $"Yoll palette update redrew the destination {targetRedraws} times instead of once.");
+                }
+                else if (tick != 0) UpdateScrollingTransition(1.0 / 60.0);
                 int age = tick - (setup - 2);
                 int weight = Math.Clamp(age / 2, 0, 15);
                 for (int p = 0; p < 8; p++)
