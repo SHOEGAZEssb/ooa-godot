@@ -81,6 +81,13 @@ and submenu initialization cannot consume the following input state early.
 
 ## Input contract
 
+- Project input actions bind keyboard, D-pad and left stick through the same
+  application snapshot. Gamepad bindings accept any device index; the stick
+  uses the movement actions' 0.25 deadzone independently for each direction.
+  Movement is reconstructed from those digital pressed states, preserving
+  intentional diagonals without letting below-threshold stick drift turn a
+  cardinal press into a diagonal. Gameplay vectors and menu direction buttons
+  therefore use the same deadzone.
 - The active modal exclusively consumes its controls; gameplay underneath does
   not see the same presses.
 - Opening predicates include dialogue, transitions, story locks, room events,

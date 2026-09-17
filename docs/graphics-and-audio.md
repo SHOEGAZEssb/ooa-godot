@@ -58,6 +58,10 @@ logical room data.
 
 Scrolling room tilemaps share one mutable BG tile buffer captured from the
 outgoing room, including its last animation and scripted tile uploads.
+Overworld room-pack changes first apply the original fade-bit gate. Those
+transitions fade to white and reload the complete destination graphics instead
+of entering the shared scrolling-buffer path; Link retains the original
+byte-wrapped edge arrival coordinates.
 `RoomTransitionController` schedules clean-ROM unique graphics entries through
 its transition renderer; each entry replaces only its addressed VRAM range.
 Both room textures resolve those live bytes and the same background palette
@@ -131,6 +135,11 @@ independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation
 may discard stale samples after a host stall, bridging the resulting sample
 join without resetting driver, oscillator, envelope, or filter state.
+The output reserve grows after native mixer underruns to accommodate larger
+device batches and host jitter, capped at 100 ms. Total queued PCM is bounded
+to about 143.5 ms after adaptation; stable small-batch output retains the
+66.7 ms bound. Buffer capacity does not advance the sound driver ahead of
+gameplay.
 
 Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source

@@ -49,8 +49,7 @@ internal sealed class ApplicationInputBuffer
             if (Godot.Input.IsActionJustPressed(action))
                 _pendingJustPressed.Add(action);
         }
-        _movement = Godot.Input.GetVector(
-            "move_left", "move_right", "move_up", "move_down");
+        _movement = Input.ReadMovement();
     }
 
     internal ApplicationInputSnapshot ConsumeOriginalUpdate()

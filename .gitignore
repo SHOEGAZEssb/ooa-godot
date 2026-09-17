@@ -1,6 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+/builds/
 *.gbc
 /assets/oracle/
 /.vs/ORACLE-OF-AGES

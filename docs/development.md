@@ -67,6 +67,34 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 
 See [Validation](validation.md) for scenario isolation and handoff checks.
 
+## Android export
+
+The `Android` export preset produces an ARM64 APK for sideloading. Install the
+matching Godot .NET Android export templates, and configure the Java SDK and
+Android SDK paths in Godot's editor settings. The project targets .NET 9 for
+Android; the .NET SDK must support publishing that target.
+Android exports enable C# optimization even for debug-signed APKs, since the
+original sound interpreter and APU must synthesize audio in real time.
+
+After building and running validation, export with:
+
+```powershell
+New-Item -ItemType Directory -Force builds/android | Out-Null
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
+```
+
+This creates a debug-signed APK, not a store release. Release exports require a
+release signing key configured locally. Keep signing credentials out of source
+control. Export output under `builds/` is ignored.
+
+The preset includes generated `.bin`, `.tsv`, and `.2bpp` files explicitly;
+Godot's resource export alone does not include these runtime inputs. Imported
+graphics are exported as Godot resources. Regenerate assets before exporting
+only when their source inputs or importer have changed.
+
+Android currently uses the existing gamepad/keyboard controls below. Touch
+controls have not been implemented.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

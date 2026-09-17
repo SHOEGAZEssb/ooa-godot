@@ -162,7 +162,9 @@ public sealed partial class ValidationRoot
     private void ValidateSoundOutputTiming()
     {
         var data = new OracleSoundData();
-        foreach (int hostRate in new[] { 60, 30, 120, 0 })
+        foreach (int music in new[] { OracleSoundEngine.MusTitlescreen, OracleSoundEngine.MusOverworld })
+        foreach (int mixFrames in new[] { 512, 1024, 2048 })
+        foreach (int hostRate in new[] { 60, 30, 120, 0, -1 })
         {
             using var fixture = new SoundValidationFixture(data, true);
             var sound = fixture.Sound;
@@ -178,12 +180,14 @@ public sealed partial class ValidationRoot
             playbackField.SetValue(sound, playback);
             playback.Start();
             int capacity = playback.GetFramesAvailable();
-            sound.PlaySound(OracleSoundEngine.MusOverworld);
+            sound.PlaySound(music);
             var scheduler = new ApplicationFixedUpdateScheduler();
             double mixerRate = AudioServer.GetMixRate();
             double nextMix = 0, elapsed = 0;
             int warmedSkips = -1;
             double[] unevenDeltas = [1.0 / 120, 1.0 / 40, 1.0 / 60, 1.0 / 30, 1.0 / 120];
+            double[] jitterDeltas = [1.0 / 120, 1.0 / 120, 0.075, 1.0 / 120, 1.0 / 120];
+            int maximumPending = mixFrames == 512 && hostRate >= 0 ? 2940 : 6326;
             var field = typeof(OracleSoundEngine).GetField("_samples",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
             var queued = (Queue<Vector2>)field.GetValue(sound)!;
@@ -194,37 +198,41 @@ public sealed partial class ValidationRoot
                 // Include native and managed storage. Capacity alone does not
                 // establish latency; the old managed ring retained 250 ms.
                 int pending = capacity - playback.GetFramesAvailable() + queued.Count;
-                FailIf(pending > 2940, $"Audio retained {pending} frames, exceeding 66.7 ms of output latency.");
+                FailIf(pending > maximumPending,
+                    $"Audio retained {pending} frames, exceeding the {maximumPending}-frame latency bound.");
                 elapsed += delta;
                 while (nextMix < elapsed - 1e-9)
                 {
-                    playback.MixAudio(1, 512);
-                    nextMix += 512 / mixerRate;
+                    playback.MixAudio(1, mixFrames);
+                    nextMix += mixFrames / mixerRate;
                 }
             }
             for (int frame = 0; elapsed < 4; frame++)
             {
-                AdvanceHost(hostRate == 0 ? unevenDeltas[frame % unevenDeltas.Length] : 1.0 / hostRate);
+                AdvanceHost(hostRate < 0 ? jitterDeltas[frame % jitterDeltas.Length] :
+                    hostRate == 0 ? unevenDeltas[frame % unevenDeltas.Length] : 1.0 / hostRate);
                 if (elapsed >= 1 && warmedSkips < 0) warmedSkips = playback.GetSkips();
             }
             int skips = playback.GetSkips() - warmedSkips;
             FailIf(skips != 0 || queued.Count != 0,
-                $"Audio at {hostRate} FPS has {skips} mixer underruns or a stale PCM backlog of {queued.Count} samples.");
+                $"Audio at {hostRate} FPS, {mixFrames}-frame mixer has {skips} mixer underruns or a stale PCM backlog of {queued.Count} samples.");
 
             // A real host stall lets the mixer drain first, then batches the
             // missed game updates. Do not keep playing all that stale PCM.
             double stall = 0.25;
+            maximumPending = 6326;
             while (nextMix < elapsed + stall)
             {
-                playback.MixAudio(1, 512);
-                nextMix += 512 / mixerRate;
+                playback.MixAudio(1, mixFrames);
+                nextMix += mixFrames / mixerRate;
             }
             AdvanceHost(stall);
             int recoveredSkips = playback.GetSkips();
             for (int frame = 0; frame < 120; frame++) AdvanceHost(1.0 / 60);
             FailIf(playback.GetSkips() != recoveredSkips || queued.Count != 0,
                 "Audio did not recover without further underruns or stale samples after a 250 ms host stall.");
-            GD.Print($"Audio output at {(hostRate == 0 ? "uneven" : hostRate)} FPS: zero warmed underruns; bounded latency and stall recovery passed.");
+            string host = hostRate < 0 ? "75 ms jitter" : hostRate == 0 ? "uneven" : $"{hostRate} FPS";
+            GD.Print($"Music ${music:x2}, {host}, {mixFrames}-frame mixer: zero warmed underruns; bounded latency and stall recovery passed.");
             playback.Stop();
             playbackField.SetValue(sound, null);
         }

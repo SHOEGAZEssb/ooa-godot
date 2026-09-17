@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 12, 2026. It is an implementation inventory, not a
+interactions as of September 17, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,7 +51,7 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 147 | Traced and covered by the current named NPC/event scenarios. |
+| **I** | 147 | Traced and covered by the current named NPC/event scenarios, including Ralph's room-pack fade entry. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary. |
 | **D** | 187 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
@@ -105,7 +105,7 @@ well as record selection.
 | `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
 | `0:37` | [I] `$9a:$c4/v$00` carpenter |
 | `0:38` | [P] `$87:$00/v$00` makuTree |
-| `0:39` | [I] `$37:$0d/v$00` ralph (intro includes an imported Ghost Veran lane)<br>[D] `$5d:$02/v$00` bear |
+| `0:39` | [I] `$37:$0d/v$00` ralph (rightward room-pack fade entry; intro includes an imported Ghost Veran lane)<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2, including its occupied timewarp landing tile |
 | `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |

@@ -4222,22 +4222,27 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x38);
         _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
+        FailIf(!_transitions.IsTransitioning || _transitions.ScrollActive,
+            "Room 0:38 -> 0:39 must use checkRoomPack's white fade, not scrolling.");
+        UpdateRoomWarpTransition(32.0 / 60.0);
         NpcCharacter? ralph = _npcNodes.Find(npc =>
             npc.Record.Id == 0x37 && npc.Record.SubId == 0x0d);
         FailIf(
             ralph is null || !ralph.Active || !_roomEvents.Active ||
-            !ralphEvent.WaitingForScroll || !_entities.ScreenTransitionActive ||
+            !ralphEvent.WaitingForScroll || _entities.ScreenTransitionActive ||
             ralph.Position != new Vector2(0x18, 0x28),
             "Room 0:39 did not retain Ralph at $28/$18 while entering from the left.");
 
-        int ralphScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
+        UpdateRoomWarpTransition(31.0 / 60.0);
+        StepRoomEventFrames(1);
         FailIf(
-            ralphScrollFrames != 48,
-            $"The 0:38 -> 0:39 horizontal scroll took {ralphScrollFrames} updates, expected 48 including post-scroll unique graphics.");
+            !ralphEvent.WaitingForScroll || ralphEvent.Counter != 0,
+            "Ralph advanced his script before the room-pack fade completed.");
+        UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             !_player.CutsceneControlled || ralphEvent.Counter != 40,
             "Ralph's destination event fast-forwarded instead of installing its full " +
-            "40-update wait after scrolling.");
+            "40-update wait after the room-pack fade.");
         StepRoomEventFrames(39);
         FailIf(_dialogue.IsOpen || ralphEvent.Counter != 1, "Ralph's introductory wait ended early.");
         StepRoomEventFrames(1);

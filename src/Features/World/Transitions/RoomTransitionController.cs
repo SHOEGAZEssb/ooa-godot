@@ -79,6 +79,7 @@ public sealed class RoomTransitionController
     private int _deactivatedWarpRoom = -1;
     private int _deactivatedWarpPosition = -1;
     private bool _warpActive;
+    private Vector2? _roomPackArrival;
     private bool _suppressDestinationMusic;
     private WarpPhase _warpPhase;
     private Warp _pendingWarp;
@@ -119,6 +120,8 @@ public sealed class RoomTransitionController
     internal bool SuppressesDestinationMusic => _warpActive && _suppressDestinationMusic;
     public bool ScrollActive => _scrollActive;
     public Vector2I ScrollDirection => _scrollDirection;
+    internal Vector2I ScreenEntryDirection =>
+        _scrollActive || _roomPackArrival is not null ? _scrollDirection : Vector2I.Zero;
     internal Vector2 ScrollLinkPositionInDestination =>
         _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
     public float ScrollDistance => _scrollDistance;
@@ -541,6 +544,25 @@ public sealed class RoomTransitionController
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
         OracleRoomData source = _rooms.CurrentRoom;
+        if (_rooms.World.RequiresRoomPackFade(_rooms.ActiveGroup, source.Id, targetId))
+        {
+            // cutscene01 -> checkRoomPack -> CUTSCENE_05 performs a full
+            // reload. func_4493 adds byte offsets to the clamped coordinates,
+            // preserving the orthogonal coordinate and both subpixels.
+            Vector2 arrival = player.PrecisePosition;
+            if (direction.X != 0)
+                arrival.X = (direction.X > 0 ? 10 : 150) + arrival.X - Mathf.Floor(arrival.X);
+            else
+                arrival.Y = (direction.Y > 0 ? 9 : 118) + arrival.Y - Mathf.Floor(arrival.Y);
+            var warp = new Warp(_rooms.ActiveGroup, source.Id, -1, 0, 0,
+                _rooms.ActiveGroup, targetId,
+                ((Mathf.FloorToInt(arrival.Y) >> 4) << 4) | (Mathf.FloorToInt(arrival.X) >> 4),
+                0, 0);
+            BeginWarp(player, warp, false, forceFadeOut: true);
+            _roomPackArrival = arrival;
+            _scrollDirection = direction;
+            return;
+        }
         Image sourceGraphics = source.CaptureLiveGraphics();
         Color[,] sourceColors = source.BackgroundPalettes.Capture();
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
@@ -877,6 +899,7 @@ public sealed class RoomTransitionController
             return;
         _dialogue.Close();
         _pendingWarp = warp;
+        _roomPackArrival = null;
         _suppressDestinationMusic = suppressDestinationMusic;
         _timeWarp = false;
         _entities.RuntimeState.SetWramByte(0xcddc, 0);
@@ -1342,8 +1365,12 @@ public sealed class RoomTransitionController
         // Standard warp loading clears wEnemiesKilledList only when the
         // destination's wDungeonIndex is $ff. Dungeon-to-dungeon warps retain
         // the same transient last-eight-room suppression as scrolling.
-        if (_rooms.CurrentDungeonIndex < 0)
+        if (_rooms.CurrentDungeonIndex < 0 && _roomPackArrival is null)
             _entities.ClearRecentEnemyDefeats();
+        // CUTSCENE_05 calls func_4493 before initializeRoom, so destination
+        // actors observe the adjusted Link position during their state 0.
+        if (_roomPackArrival is { } arrival)
+            _player.WarpTo(arrival);
         if (_timeWarp && _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) == 1)
         {
             // initializeRoom returns before object parsing, Maple, companions,
@@ -1358,7 +1385,12 @@ public sealed class RoomTransitionController
         CheckDisplayEraInfoAfterFullRoomLoad();
 
         Vector2 spawn;
-        if (warp.DestinationTransition == 3)
+        if (_roomPackArrival is not null)
+        {
+            spawn = _player.PrecisePosition;
+            DeactivateWarpAtPlayerPosition(_player);
+        }
+        else if (warp.DestinationTransition == 3)
         {
             Vector2I direction = (warp.DestinationParameter & 0x04) != 0 ? Vector2I.Down : Vector2I.Up;
             bool entersFromScreen = true;
@@ -1501,7 +1533,8 @@ public sealed class RoomTransitionController
     private void FinishWarp()
     {
         bool finishedTimeWarp = _timeWarp;
-        _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd : _player.Position);
+        _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd :
+            _roomPackArrival is not null ? _player.PrecisePosition : _player.Position);
         _deathRespawnPoints.RecordWarpDestination(_pendingWarp.DestinationTransition);
         if (finishedTimeWarp)
         {
@@ -1541,6 +1574,7 @@ public sealed class RoomTransitionController
         _entities.RuntimeState.SetWramByte(0xcddc, 0);
         _timeWarpSourceRoom = null;
         _warpActive = false;
+        _roomPackArrival = null;
         _warpPhase = WarpPhase.None;
         _player.Visible = true;
         ClearRoomLoadColumnReveal();

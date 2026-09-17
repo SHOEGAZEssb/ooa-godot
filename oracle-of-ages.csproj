@@ -5,6 +5,8 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
     <RootNamespace>oracleofages</RootNamespace>
+    <!-- Sideloaded debug APKs still synthesize audio in real time. -->
+    <Optimize Condition=" '$(GodotTargetPlatform)' == 'android' ">true</Optimize>
   </PropertyGroup>
   <ItemGroup>
     <!-- The validation runner is built by the friend test assembly. -->

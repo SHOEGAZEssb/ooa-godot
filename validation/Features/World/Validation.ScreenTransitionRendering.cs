@@ -6,6 +6,69 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoomPackTransitions()
+    {
+        // roomPacksPresent: $38=$80, $39=$01. checkRoomPack compares low
+        // seven bits, then ORs bit 7. Interior groups bypass that check.
+        FailIf(!_world.RequiresRoomPackFade(0, 0x38, 0x39) ||
+            !_world.RequiresRoomPackFade(0, 0x39, 0x38) ||
+            _world.RequiresRoomPackFade(0, 0x38, 0x38) ||
+            _world.RequiresRoomPackFade(0, 0x6a, 0x6b) ||
+            _world.RequiresRoomPackFade(4, 0x38, 0x39),
+            "checkRoomPack lost its group, pack identity, or fade-bit gate.");
+
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            ResetValidationInput();
+            _saveData.SetMakuTreeState(3);
+            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeSaved);
+            LoadValidationRoom(0, 0x38);
+            _player.WarpTo(new Vector2(0x88 + 0.625f, 0x30 + 0.19921875f));
+            FailIf(_collision.Collides(_player.Position), "Room-pack fixture must approach through clear geometry.");
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                foreach (bool east in new[] { true, false })
+                {
+                    int source = east ? 0x38 : 0x39;
+                    int target = east ? 0x39 : 0x38;
+                    Vector2 movement = east ? Vector2.Right : Vector2.Left;
+                    for (int update = 0; update < 40 && !IsTransitioning; update++)
+                        StepGameplayUpdates(1, movement);
+                    FailIf(!IsTransitioning || _transitions.ScrollActive || _currentRoom.Id != source,
+                        $"Room 0:{source:x2} -> 0:{target:x2} did not begin CUTSCENE_05's fade through live movement: position={_player.PrecisePosition}, room=${_currentRoom.Id:x2}, transition={IsTransitioning}, scroll={_transitions.ScrollActive}.");
+                    Vector2 sourcePosition = _player.PrecisePosition;
+                    StepGameplayUpdates(31, Vector2.Zero, batched: batched);
+                    FailIf(!IsTransitioning || _currentRoom.Id != source ||
+                        _player.PrecisePosition != sourcePosition,
+                        "Room-pack fade loaded its destination or moved Link before the fade completed.");
+                    StepGameplayUpdates(1, Vector2.Zero);
+                    Vector2 arrival = _player.PrecisePosition;
+                    FailIf(_currentRoom.Id != target || !IsTransitioning || _transitions.ScrollActive ||
+                        Mathf.FloorToInt(arrival.X) != (east ? 10 : 150) || arrival.Y != sourcePosition.Y ||
+                        arrival.X - Mathf.Floor(arrival.X) != sourcePosition.X - Mathf.Floor(sourcePosition.X),
+                        "Room-pack reload lost func_4493's wrapped coordinate or started scrolling.");
+                    using Image live = _currentRoom.CaptureLiveGraphics();
+                    Image atlas = OracleGraphicsCache.LoadImage(
+                        $"res://assets/oracle/gfx/gfx_tileset{_currentRoom.TilesetId:x2}.png");
+                    // $8c00 lies outside every uniqueGfxHeader upload. The
+                    // full GFXH_TILESET load must replace it in both directions.
+                    for (int y = 0; y < 8; y++)
+                    for (int x = 0; x < 8; x++)
+                        FailIf(live.GetPixel(x, 32 + y) != atlas.GetPixel(x, 32 + y),
+                            $"Room 0:{target:x2} retained outgoing base graphics at VRAM $8c00.");
+                    StepGameplayUpdates(31, Vector2.Zero, batched: batched);
+                    FailIf(!IsTransitioning, "Room-pack fade-in completed before its terminal update.");
+                    StepGameplayUpdates(1, Vector2.Zero);
+                    FailIf(IsTransitioning || _player.PrecisePosition != arrival,
+                        "Room-pack fade did not release Link at the preserved arrival coordinate.");
+                    StepGameplayUpdates(1, Vector2.Zero);
+                }
+            }
+        }
+    }
+
     private void ValidateScreenTransitionRendering()
     {
         var routes = new ScreenTransitionPaletteDatabase();

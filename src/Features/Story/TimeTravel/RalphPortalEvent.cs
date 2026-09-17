@@ -52,8 +52,7 @@ internal sealed class RalphPortalEvent :
         // @initSubid0d deletes Ralph unless wScreenTransitionDirection is
         // DIR_RIGHT ($01). It also deletes him after the one-shot flag is set.
         Vector2I requiredDirection = DirectionFromOriginalValue(_record.EntryDirection);
-        if (Completed || !_context.Transitions.ScrollActive ||
-            _context.Transitions.ScrollDirection != requiredDirection)
+        if (Completed || _context.Transitions.ScreenEntryDirection != requiredDirection)
         {
             _ralph.SetActive(false);
             return;
@@ -68,7 +67,7 @@ internal sealed class RalphPortalEvent :
     {
         if (_waitingForScroll)
         {
-            // Destination objects do not update during a screen scroll. On
+            // Destination objects do not update during the entry transition. On
             // the first object update afterward, the script disables input
             // and installs its 40-frame counter.
             _waitingForScroll = false;

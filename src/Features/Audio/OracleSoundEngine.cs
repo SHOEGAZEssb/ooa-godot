@@ -9,10 +9,11 @@ public partial class OracleSoundEngine : Node
 {
     public const int UpdatesPerSecond = 60;
     public const int SampleRate = 44100;
-    // Capacity must fit a 30 Hz host's two updates plus a mixer safety margin.
-    // This is storage capacity, not how far ahead we fill the playback.
-    internal const float OutputBufferLengthSeconds = 0.05f;
+    // Capacity must also accommodate larger device mixer bursts. This is
+    // storage capacity, not how far ahead we fill the playback.
+    internal const float OutputBufferLengthSeconds = 0.2f;
     private const int OutputLeadFrames = 1024;
+    private const int MaximumOutputLeadFrames = SampleRate / 10;
     private const int MaximumQueuedOutputFrames = SampleRate / 15;
     private const int OutputBridgeFrames = 64;
     public const int MusTitlescreen = 0x01;
@@ -138,7 +139,8 @@ public partial class OracleSoundEngine : Node
     private readonly ChannelState[] _channels = new ChannelState[8];
     private readonly byte[] _requests = new byte[16];
     private readonly Queue<Vector2> _samples = new();
-    private readonly Vector2[] _outputBuffer = new Vector2[MaximumQueuedOutputFrames];
+    private readonly Vector2[] _outputBuffer = new Vector2[
+        MaximumQueuedOutputFrames + MaximumOutputLeadFrames - OutputLeadFrames];
     private readonly bool _enableOutput;
     private readonly bool _allowHeadlessOutput;
     private readonly ApplicationFixedUpdateScheduler _updates = new();
@@ -150,6 +152,7 @@ public partial class OracleSoundEngine : Node
     private bool _volumePending;
     private long _clockOrigin, _updateCount;
     private int _outputCapacity, _outputSkips, _bridgeRemaining;
+    private int _outputLeadFrames = OutputLeadFrames;
     private Vector2 _lastOutputSample, _bridgeStart;
     private bool _outputDiscontinuity;
     internal bool ApplicationUpdateOwned { get; set; }
@@ -201,6 +204,7 @@ public partial class OracleSoundEngine : Node
         _player = null;
         _samples.Clear();
         _outputCapacity = _outputSkips = _bridgeRemaining = 0;
+        _outputLeadFrames = OutputLeadFrames;
         _lastOutputSample = _bridgeStart = Vector2.Zero;
         _outputDiscontinuity = false;
         _requestObserver = null;
@@ -298,24 +302,30 @@ public partial class OracleSoundEngine : Node
         int skips = _playback.GetSkips();
         bool recovering = skips != _outputSkips;
         _outputSkips = skips;
+        // Learn a larger reserve only when this output device underruns.
+        // Bluetooth/mobile mixer bursts and host jitter can exceed the
+        // desktop reserve. Never change the driver or APU update clock.
+        if (recovering && !starting)
+            _outputLeadFrames = Math.Min(MaximumOutputLeadFrames, _outputLeadFrames * 2);
 
         // Godot consumes blocks on its audio thread, independently of the
         // application update. Keep a small initial reserve instead of feeding
         // an empty playback exactly one 60 Hz update at a time.
-        if (starting || (recovering && queued == 0))
+        if (starting || recovering)
         {
-            int lead = Math.Min(OutputLeadFrames, available);
+            int lead = Math.Min(Math.Max(0, _outputLeadFrames - queued), available);
             Array.Clear(_outputBuffer, 0, lead);
             _playback.PushBuffer(_outputBuffer.AsSpan(0, lead));
             queued += lead;
             available -= lead;
-            _lastOutputSample = Vector2.Zero;
+            if (lead > 0) _lastOutputSample = Vector2.Zero;
         }
 
         // Flush only after the complete host-frame batch. Count BOTH queues
         // when bounding latency; retaining 250 ms behind a full native ring
         // delays every subsequent effect even after the host has recovered.
-        int keep = Math.Max(0, MaximumQueuedOutputFrames - queued);
+        int keep = Math.Max(0,
+            MaximumQueuedOutputFrames + _outputLeadFrames - OutputLeadFrames - queued);
         while (_samples.Count > keep)
         {
             _samples.Dequeue();

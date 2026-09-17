@@ -15,6 +15,7 @@ public sealed class OracleWorldData
 
     private readonly byte[] _tilesetMetadata;
     private readonly byte[] _presentRoomPacks;
+    private readonly byte[] _pastRoomPacks;
     private readonly byte[] _roomsInAltWorld;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
     private readonly Dictionary<(int Group, int Room, int DataGroup, int LayoutGroup), OracleRoomData> _rooms = new();
@@ -33,6 +34,7 @@ public sealed class OracleWorldData
     {
         _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
         _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
+        _pastRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPast.bin", 256);
         _roomsInAltWorld = ReadBytes("res://assets/oracle/metadata/rooms_in_alt_world.bin", 256);
         Color[] commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
@@ -144,6 +146,16 @@ public sealed class OracleWorldData
 
     public int GetTilesetId(int group, int room)
         => GetRoomTilesetByte(group, room) & 0x7f;
+
+    // bank1.checkRoomPack: only overworld groups participate. A change in
+    // the low seven bits fades if either pack has bit 7 set.
+    internal bool RequiresRoomPackFade(int group, int sourceRoom, int targetRoom)
+    {
+        if (group is not (0 or 1)) return false;
+        byte[] packs = group == 0 ? _presentRoomPacks : _pastRoomPacks;
+        int source = packs[sourceRoom], target = packs[targetRoom];
+        return (source & 0x7f) != (target & 0x7f) && ((source | target) & 0x80) != 0;
+    }
 
     private int GetRoomTilesetByte(int group, int room)
     {
