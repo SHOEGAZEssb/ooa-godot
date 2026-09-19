@@ -3378,6 +3378,16 @@ internal sealed class RoomEntityFactory(
             man.InitializeDumbbellMan(record, _dumbbellMan.Record);
             return new DumbbellManRoomEntity(man);
         }
+        if (record.Id == 0x5a && record.SubId == 0)
+        {
+            var zora = new OldZoraCharacter
+            {
+                Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+                ZIndex = NpcCharacter.BehindLinkZIndex
+            };
+            zora.InitializeOldZora(record);
+            return new OldZoraRoomEntity(zora);
+        }
         if (record.Group == _maskSalesman.Record.Group &&
             record.Room == _maskSalesman.Record.Room &&
             record.Id == _maskSalesman.Record.InteractionId &&

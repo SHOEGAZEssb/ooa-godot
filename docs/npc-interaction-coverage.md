@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 17, 2026. It is an implementation inventory, not a
+interactions as of September 19, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 147 | Traced and covered by the current named NPC/event scenarios, including Ralph's room-pack fade entry. |
+| **I** | 148 | Traced and covered by the current named NPC/event scenarios, including Ralph's room-pack fade entry and Old Zora's trade. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary; adult Maku ordinary advice is included, while her endgame cutscene remains incomplete. |
-| **D** | 187 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 186 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -63,16 +63,16 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 91 specialized,
-51 event-owned, and 187 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 54 ordinary, 92 specialized,
+51 event-owned, and 186 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 455
-classified records and 163 specialized rows.
+classified records and 164 specialized rows.
 
 ### Highest-value missing clusters
 
 - Goron interaction `$66`, Goron Elders `$8b`, and the Goron/Biggoron
   shooting-gallery variants `$30:$01/$02` across groups 3 and 5.
-- Zora `$ab`, King Zora `$9c`, Old Zora `$5a`, and Jabu-Jabu child `$ba`.
+- Zora `$ab`, King Zora `$9c`, and Jabu-Jabu child `$ba`.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
 - Carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
@@ -223,7 +223,7 @@ well as record selection.
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [D] `$66:$00/v$00` goron |
 | `2:f3` | [I] `$3c:$07/v$00` boy |
-| `2:f5` | [D] `$5a:$00/v$00` oldZora |
+| `2:f5` | [I] `$5a:$00/v$00` oldZora (`ValidateRoom2f5OldZora`) |
 | `2:f6` | [D] `$66:$0f/v$00` goron |
 | `2:f7` | [D] `$66:$07/v$00` goron |
 | `2:f8` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |

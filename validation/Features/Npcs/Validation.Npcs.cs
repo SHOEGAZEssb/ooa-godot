@@ -535,9 +535,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 54,
-                [NpcImplementationClassification.SpecializedNative] = 163,
+                [NpcImplementationClassification.SpecializedNative] = 164,
                 [NpcImplementationClassification.EventOwned] = 51,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 187
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 186
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -550,7 +550,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 163 specialized, 51 event-owned, and 187 " +
+            "54 ordinary, 164 specialized, 51 event-owned, and 186 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -802,6 +802,7 @@ public sealed partial class ValidationRoot
             "tokay.s:tokayScriptTable; rosa.s:interactionCode68",
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
+            "oldZora.s:oldZoraScript",
             "dumbellMan.s:dumbbellManScript",
             "tokkey.s:interactionCode9d",
             "cheval.s:interactionCode6a",

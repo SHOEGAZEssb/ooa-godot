@@ -1,3 +1,54 @@
+# INTERAC_OLD_ZORA: the native wrapper falls through to one script update,
+# then interactionAnimateAsNpc, and sets the always-update bit.
+$oldZoraPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$oldZoraOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('initcollisions', 'checkabutton', 'disableinput',
+    'jumpifroomflagset', 'showtextlowindex', 'wait', 'jumpiftradeitemeq',
+    'scriptjump', 'jumpiftextoptioneq', 'giveitem', 'enableinput')) {
+    [void]$oldZoraOpcodes.Add($opcode)
+}
+$oldZoraCommands = Read-AssemblyCutsceneCommands $oldZoraPath 'oldZoraScript' $oldZoraOpcodes
+$oldZoraExpected = @(
+    @('initcollisions', ''), @('checkabutton', ''), @('disableinput', ''),
+    @('jumpifroomflagset', 'ROOMFLAG_ITEM, @alreadyGaveSword'),
+    @('showtextlowindex', '<TX_0b33'), @('wait', '30'),
+    @('jumpiftradeitemeq', 'TRADEITEM_SEA_UKELELE, @offerTrade'),
+    @('showtextlowindex', '<TX_0b34'), @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_0b35'), @('wait', '30'),
+    @('jumpiftextoptioneq', '$00, @acceptedTrade'),
+    @('showtextlowindex', '<TX_0b38'), @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_0b36'), @('wait', '30'),
+    @('giveitem', 'TREASURE_TRADEITEM, $0b'), @('wait', '30'),
+    @('showtextlowindex', '<TX_0b37'), @('scriptjump', '@enableInput'),
+    @('showtextlowindex', '<TX_0b39'), @('enableinput', ''),
+    @('scriptjump', '@npcLoop'))
+if ($oldZoraCommands.Count -ne $oldZoraExpected.Count) { throw 'oldZoraScript command count changed.' }
+for ($i = 0; $i -lt $oldZoraExpected.Count; $i++) {
+    if ($oldZoraCommands[$i].Opcode -ne $oldZoraExpected[$i][0] -or
+        ($oldZoraCommands[$i].Operands -replace '\s', '') -ne ($oldZoraExpected[$i][1] -replace '\s', '')) {
+        throw "oldZoraScript command $i changed at source line $($oldZoraCommands[$i].Line)."
+    }
+}
+$oldZoraNative = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\oldZora.s')
+if ($oldZoraNative -notmatch '(?ms)^@state0:\s+call @loadScriptAndInitGraphics\s+call interactionSetAlwaysUpdateBit\s+@state1:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp interactionAnimateAsNpc' -or
+    $oldZoraNative -notmatch '(?ms)^@loadScriptAndInitGraphics:\s+call interactionInitGraphics\s+ld a,>TX_0b00.*?interactionSetScript\s+jp interactionIncState.*?\.dw mainScripts.oldZoraScript' -or
+    $mainObjectSource -notmatch '(?ms)^group2Mapf5ObjectData:\s+obj_Interaction \$5a \$00 \$28 \$68\s+obj_End' -or
+    $tradeItemSource -notmatch 'TRADEITEM_SEA_UKELELE\s+db ; \$0a' -or
+    $tradeItemSource -notmatch 'TRADEITEM_BROKEN_SWORD\s+db ; \$0b' -or
+    $roomFlagSource -notmatch '\.define ROOMFLAG_ITEM\s+\$20') {
+    throw 'INTERAC_OLD_ZORA native wrapper, placement or trade constants changed.'
+}
+$oldZoraTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_0b']
+if ($null -eq $oldZoraTreasure -or $oldZoraTreasure.Treasure -ne 0x41 -or
+    $oldZoraTreasure.SubId -ne 0x0b -or $oldZoraTreasure.Parameter -ne 0x0b) {
+    throw 'TREASURE_OBJECT_TRADEITEM_0b no longer grants the Broken Sword.'
+}
+$oldZoraRows = ConvertTo-CutsceneCommandRows $oldZoraCommands 'OldZora' `
+    -symbols @{ ROOMFLAG_ITEM = 0x20; TRADEITEM_SEA_UKELELE = 0x0a; TREASURE_TRADEITEM = 0x41 } `
+    -texts $allTexts -positions $allTextPositions
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\old_zora_commands.tsv'), $oldZoraRows)
+
 # Room 2:e6 Mask Salesman trade. INTERAC_MASK_SALESMAN is a script-owned NPC
 # whose native wrapper runs the script once on its initialization update,
 # enables always-update behavior, then animates after every later script update.
