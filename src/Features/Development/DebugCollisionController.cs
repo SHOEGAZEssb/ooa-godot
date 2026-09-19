@@ -21,6 +21,8 @@ public sealed class DebugCollisionController
 
     internal void ToggleForValidation() => Toggle();
 
+    public void SetEnabled(bool enabled) => CollisionsDisabled = enabled;
+
     private void Toggle() => CollisionsDisabled = !CollisionsDisabled;
 
     private static void EnsureInputAction()

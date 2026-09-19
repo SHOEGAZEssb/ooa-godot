@@ -27,6 +27,17 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     private bool _saveSelectionDelay;
     private bool _gameOver;
     private int _saveDelayElapsed;
+    private Func<int, bool>? _readOption;
+    private Action<int, bool>? _writeOption;
+
+    internal void ConfigureOptions(Func<int, bool> read, Action<int, bool> write)
+    {
+        _readOption = read;
+        _writeOption = write;
+    }
+
+    private void RefreshOptions() => _saveScreen.RefreshOptions(
+        _readOption?.Invoke(0) ?? false, _readOption?.Invoke(1) ?? false);
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;
@@ -234,6 +245,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     private void UpdateSaveInput()
     {
+        if (_saveScreen.OptionsOpen)
+            RefreshOptions();
         if (_saveScreen.SaveErrorVisible)
         {
             if (Input.IsActionJustPressed("attack") ||
@@ -353,6 +366,22 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             _saveScreen.ClearSaveError();
             return;
         }
+        if (_saveScreen.OptionsOpen)
+        {
+            int option = _saveScreen.OptionsCursor;
+            if (_readOption is not null && _writeOption is not null)
+                _writeOption(option, !_readOption(option));
+            RefreshOptions();
+            _playSound(OracleSoundEngine.SndSelectItem);
+            return;
+        }
+        if (!_gameOver && _saveScreen.Cursor == 3)
+        {
+            _saveScreen.OpenOptions();
+            RefreshOptions();
+            _playSound(OracleSoundEngine.SndSelectItem);
+            return;
+        }
         if (_saveScreen.Cursor != 0)
         {
             SaveRequests++;
@@ -383,7 +412,10 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             return false;
         }
 
-        BeginClosing();
+        if (_saveScreen.OptionsOpen)
+            _saveScreen.CloseOptions();
+        else
+            BeginClosing();
         return true;
     }
 

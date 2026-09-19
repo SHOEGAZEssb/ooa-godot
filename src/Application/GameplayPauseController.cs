@@ -15,6 +15,18 @@ public sealed class GameplayPauseController
 
     public bool IsLeased => _activeLease is not null;
 
+    public bool RoomOverlayEnabled => _activeLease?.RoomDebugVisible ?? _roomDebug.Visible;
+
+    public void SetRoomOverlayEnabled(bool enabled)
+    {
+        // A menu edits the visibility restored by its lease, without exposing
+        // the gameplay overlay on top of the modal screen.
+        if (_activeLease is { } lease)
+            lease.RoomDebugVisible = enabled;
+        else
+            _roomDebug.Visible = enabled;
+    }
+
     public GameplayPauseController(Player player, Godot.Label roomDebug)
     {
         _player = player;

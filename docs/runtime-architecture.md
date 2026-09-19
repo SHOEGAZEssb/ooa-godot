@@ -8,6 +8,11 @@
 and gameplay boundary; replaying or dwelling on the title must advance the same
 state later consumed by room objects.
 
+The new-game intro requests the packed gameplay scene in the background and
+retains it for the handoff. This prepares resources only; instantiation, room
+entry, save changes and object RNG consumption still belong to gameplay
+initialization after the original intro completes.
+
 The gameplay scene contains stable nodes whose lifecycle and draw order should
 remain visible in the editor:
 

@@ -85,6 +85,7 @@ public sealed partial class ValidationRoot : GameRoot
             // AudioServer mixer/update handoff. Let those engine phases run
             // before quitting a suite that creates and tears down output.
             _scene.ProcessMode = ProcessModeEnum.Disabled;
+            await CaptureSaveOptionsScreens();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             GetTree().Quit(0);
@@ -211,6 +212,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFrontendIntro);
         RunIsolatedValidation(ValidateMainMenu);
         RunIsolatedValidation(ValidateNewGameIntro);
+        RunIsolatedValidation(ValidateGameplayScenePreload);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateSoundDriverControls);
         RunIsolatedValidation(ValidateSoundDriverHandoffs);
@@ -430,6 +432,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateChests);
         RunIsolatedValidation(ValidateInventoryFoundation);
         RunIsolatedValidation(ValidateInventoryMenu);
+        RunIsolatedValidation(ValidateSaveOptions);
         RunIsolatedValidation(ValidateInventoryFidelity);
         RunIsolatedValidation(ValidateInventoryIconFidelity);
         RunIsolatedValidation(ValidateRingFunctionality);

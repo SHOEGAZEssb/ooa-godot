@@ -7,7 +7,7 @@ using static oracleofages.OracleTileRenderer;
 namespace oracleofages;
 
 /// <summary>
-/// Original non-game-over save menu: Continue, Save and Continue, Save and Quit.
+/// Original save actions with an experimental Options entry outside game over.
 /// </summary>
 public partial class SaveQuitScreen : Node2D
 {
@@ -19,6 +19,10 @@ public partial class SaveQuitScreen : Node2D
     private Color[,] _spritePalette = null!;
     private Label _saveError = null!;
     private int _delayCounter;
+    private readonly Texture2D[] _optionsBackgrounds = new Texture2D[4];
+
+    public bool OptionsOpen { get; private set; }
+    public int OptionsCursor { get; private set; }
 
     public int Cursor { get; private set; }
     public bool IsGameOver { get; private set; }
@@ -55,6 +59,13 @@ public partial class SaveQuitScreen : Node2D
         _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
         _standardBackground = BuildBackground(gameOver: false);
         _gameOverBackground = BuildBackground(gameOver: true);
+        using (Image original = _standardBackground.GetImage())
+        {
+            for (int i = 0; i < 4; i++)
+                _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
+                    original, (i & 1) != 0, (i & 2) != 0);
+            _standardBackground = SaveOptionsPresentation.BuildSave(original);
+        }
         _background = _standardBackground;
         _saveError = new Label
         {
@@ -72,6 +83,7 @@ public partial class SaveQuitScreen : Node2D
     public void Open(bool gameOver = false)
     {
         IsGameOver = gameOver;
+        OptionsOpen = false;
         _background = gameOver
             ? _gameOverBackground
             : _standardBackground;
@@ -85,6 +97,7 @@ public partial class SaveQuitScreen : Node2D
     public void Close()
     {
         Visible = false;
+        OptionsOpen = false;
         IsGameOver = false;
         _background = _standardBackground;
         DelayCounter = 0;
@@ -93,12 +106,44 @@ public partial class SaveQuitScreen : Node2D
 
     public bool Move(int direction)
     {
+        if (OptionsOpen)
+        {
+            int option = OptionsCursor + Math.Sign(direction);
+            if (option is < 0 or > 1)
+                return false;
+            OptionsCursor = option;
+            QueueRedraw();
+            return true;
+        }
         int next = Cursor + Math.Sign(direction);
-        if (next is < 0 or > 2)
+        if (next < 0 || next > (IsGameOver ? 2 : 3))
             return false;
         Cursor = next;
         QueueRedraw();
         return true;
+    }
+
+    internal void OpenOptions()
+    {
+        OptionsOpen = true;
+        OptionsCursor = 0;
+        QueueRedraw();
+    }
+
+    internal void RefreshOptions(bool noclip, bool overlay)
+    {
+        Texture2D next = _optionsBackgrounds[(noclip ? 1 : 0) | (overlay ? 2 : 0)];
+        if (_background == next)
+            return;
+        _background = next;
+        QueueRedraw();
+    }
+
+    internal void CloseOptions()
+    {
+        OptionsOpen = false;
+        _background = _standardBackground;
+        QueueRedraw();
     }
 
     public void ShowSaveError()
@@ -131,7 +176,7 @@ public partial class SaveQuitScreen : Node2D
                 acorn.Tile,
                 acorn.Attributes & 0x07,
                 FileMenuPresentation.OamScreenPosition(
-                    acorn, yOffset: Cursor * 24),
+                    acorn, yOffset: OptionsOpen ? OptionsCursor * 24 : Cursor * 24 - (IsGameOver ? 0 : 8)),
                 (acorn.Attributes & 0x20) != 0,
                 (acorn.Attributes & 0x40) != 0,
                 _spritePalette,

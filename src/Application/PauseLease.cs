@@ -7,7 +7,7 @@ internal sealed class PauseLease : IDisposable
     internal object Owner { get; private set; }
     internal bool PlayerProcessEnabled { get; }
     internal bool PlayerPhysicsProcessEnabled { get; }
-    internal bool RoomDebugVisible { get; }
+    internal bool RoomDebugVisible { get; set; }
 
     internal PauseLease(GameplayPauseController controller, object owner, bool playerProcessEnabled, bool playerPhysicsProcessEnabled, bool roomDebugVisible)
     {

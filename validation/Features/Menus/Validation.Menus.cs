@@ -2043,7 +2043,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_inventoryMenu.SaveMenuOpen || !_saveQuitScreen.Visible ||
             !Mathf.IsZeroApprox(_scene.MenuFade.Color.A) || _saveQuitScreen.Cursor != 0,
-            "The three-option save menu did not finish its 11-update fade-in on Continue.");
+            "The save menu did not finish its 11-update fade-in on Continue.");
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
         int saveWrites = _saveWriteRequests;

@@ -8,6 +8,7 @@ public partial class GameRoot : Node2D
 {
     private readonly ApplicationFixedUpdateScheduler _applicationUpdates = new();
     private readonly ApplicationInputBuffer _applicationInput = new();
+    private readonly GameplaySceneResource _gameplaySceneResource = new();
 
     // Internal aliases and state form the narrow host surface used by the
     // friend validation assembly. Production transition state remains owned
@@ -218,6 +219,7 @@ public partial class GameRoot : Node2D
 
         if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone))
         {
+            _gameplaySceneResource.BeginPreload();
             _newGameIntroScreen = new NewGameIntroScreen
             {
                 Name = "NewGameIntro",
@@ -349,10 +351,7 @@ public partial class GameRoot : Node2D
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
         _rooms.RoomChanged += ApplyRoomMusic;
-        PackedScene gameplayScene = ResourceLoader.Load<PackedScene>(
-            GameSceneGraph.ScenePath, string.Empty, ResourceLoader.CacheMode.Reuse) ??
-            throw new InvalidOperationException(
-                $"Could not load gameplay scene {GameSceneGraph.ScenePath}.");
+        PackedScene gameplayScene = _gameplaySceneResource.Load();
         _scene = gameplayScene.Instantiate<GameSceneGraph>();
         AddChild(_scene);
         _dialogue.ApplicationUpdateOwned = true;
@@ -865,6 +864,15 @@ public partial class GameRoot : Node2D
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);
+        _inventoryMenu.ConfigureOptions(
+            option => option == 0 ? _debugCollision.CollisionsDisabled : _gameplayPause.RoomOverlayEnabled,
+            (option, enabled) =>
+            {
+                if (option == 0)
+                    _debugCollision.SetEnabled(enabled);
+                else
+                    _gameplayPause.SetRoomOverlayEnabled(enabled);
+            });
         _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,

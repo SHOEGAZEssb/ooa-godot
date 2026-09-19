@@ -136,6 +136,16 @@ the source file and retains cursors when backing up. Erase drains a display
 copy of the heart count before requesting deletion; its animation never
 rewrites the saved health bytes.
 
+The normal save screen includes an experimental Options entry. Its submenu
+uses file-menu capital strokes and panels, but its layout is a port
+extension. A/Start toggles the selected setting; B returns to the save screen.
+Each setting occupies one row with its current ON/OFF value after a colon.
+The room-overlay setting is labeled ROOM ID.
+Noclip shares the F2 controller, and room-overlay visibility edits the pause
+lease's restoration state so the overlay remains hidden throughout menus.
+These options do not write save-file bytes. Game over retains its three
+original actions.
+
 ## Adding or changing a menu
 
 1. Trace the original screen state, input order, counters, fades, OAM/tilemap
