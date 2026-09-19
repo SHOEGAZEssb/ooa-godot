@@ -32,6 +32,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
+    internal void DeleteForScript() { Finished=true; Visible=false; }
     public bool DisablesSword => false;
     public bool DisablesItems => false;
     public bool DisablesMovement => _phase != MinecartPhase.Stationary;

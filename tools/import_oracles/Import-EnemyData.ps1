@@ -392,7 +392,7 @@ $commonEnemySpecs = @(
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
     @(0x49, 0x01), @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x5f, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
-    @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00)
+    @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00), @(0x63,0x00)
     # moldorm_state1 allocates three separately initialized ENEMY objects.
     @(0x4f, 0x01), @(0x4f, 0x02), @(0x4f, 0x03)
 )
@@ -434,7 +434,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($commonEnemyRows.Count -ne 56 -or
+if ($commonEnemyRows.Count -ne 57 -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1515,7 +1515,8 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:04' = 'vine-sprout'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
-if ($orderedEnemyImplementationHandlers.Count -ne 64 -or
+for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
+if ($orderedEnemyImplementationHandlers.Count -ne 76 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1586,9 +1587,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 609 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 616 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 212) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 205) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1604,6 +1605,7 @@ foreach ($key in @(
         }
         $enemyHandlerKeys[$key] = @{ Id=0x5f; SubId=0 }
     }
+    if($key -match '^63:0[0-4]$') { $enemyHandlerKeys[$key]=@{Id=0x63;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
     if (-not $enemyHandlerKeys.ContainsKey($key)) {
         throw "Enemy implementation key $key has no ordered source placement."
     }
@@ -1726,7 +1728,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
         $shieldSource)
 }
-if ($enemyHandlerRows.Count -ne 125 -or
+if ($enemyHandlerRows.Count -ne 130 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK' +
@@ -1758,7 +1760,9 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\enemy_handler_registry.tsv'),
     $enemyHandlerRows)
 Write-GeneratedTable((Join-Path $destination 'objects\native_enemy_spawns.tsv'), @(
-    '# id`tsubid`tsource', "5f`t00`tobject_code/ages/interactions/patch.s:@spawnBeetle"))
+    '# id`tsubid`tsource', "5f`t00`tobject_code/ages/interactions/patch.s:@spawnBeetle"
+    @(0..4|ForEach-Object{"63`t$($_.ToString('x2'))`tobjects/ages/extraData3.s:targetCartCrystals"})
+))
 if ($paletteHeaderSource -notmatch '(?s)m_PaletteHeaderStart \$8d, PALH_8d\s+m_PaletteHeaderSpr 6, 1, paletteData4948') {
     throw 'ENEMY_HARMLESS_HARDHAT_BEETLE PALH_8d changed.'
 }

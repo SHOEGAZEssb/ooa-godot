@@ -834,7 +834,7 @@ public sealed class RoomEntityManager : IDisposable
                     entity is TimePortalRoomEntity && player.AcceptsTimePortalContact) &&
                 entity is ILinkContactEntity contactEntity)
             {
-                if (entity is IPostObjectMeleeCollisionRoomEntity or ISeedCollisionTarget ||
+                if (entity is IPostObjectMeleeCollisionRoomEntity or ISeedCollisionTarget or IPostObjectLinkContactRoomEntity ||
                     entity is ISwitchHookHittableRoomEntity && SwitchHook?.Item is { CollisionEnabled: true })
                     _deferredSwitchHookContacts.Add(entity);
                 else contactEntity.HandleLinkContact(player);
@@ -1851,6 +1851,7 @@ public sealed class RoomEntityManager : IDisposable
         {
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
+            if(spawn is TargetCartDebrisSpawn && !InteractionSlotAvailable) continue;
             if (spawn is EnemyDeathPuffSpawn puff && FindFreePartSlot() < 0)
             {
                 if (puff.DecrementsRoomCount) _unreleasedEnemyCounts++;
@@ -1869,11 +1870,12 @@ public sealed class RoomEntityManager : IDisposable
 
     private IEnumerable<IRoomEntity> EntitiesForUpdatePhase(int phase)
     {
-        if (phase == 0)
+        if (phase is 0 or 1)
         {
             for (int slot = 0; slot < 16; slot++)
             {
-                IRoomEntity? entity = _enemySlots.FirstOrDefault(pair => pair.Value == slot).Key;
+                IRoomEntity? entity = (phase==0?_enemySlots:_partSlots).FirstOrDefault(pair => pair.Value == slot &&
+                    (phase==0||pair.Key is not IRoomEntityLifetime {Finished:true})).Key;
                 if (entity is not null) yield return entity;
             }
             yield break;
@@ -1886,7 +1888,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or BlueEnergyBeadRoomEntity ? 1 : 2;
 
@@ -2002,7 +2004,13 @@ public sealed class RoomEntityManager : IDisposable
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
-        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect;
+        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity;
+
+    internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;
+    internal bool PartSlotAvailable => FindFreePartSlot() >= 0;
+    internal bool EnemySlotAvailable => _reservedEnemySlots.Count<16;
+    internal int InteractionSlot(Node2D actor) =>
+        _interactionSlots.Single(pair => ReferenceEquals(pair.Key.Node, actor)).Value;
 
     private int FindFreeInteractionSlot()
     {

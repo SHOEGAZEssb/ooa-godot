@@ -624,6 +624,11 @@ public sealed class InventoryState
         MysterySeeds = value;
         NotifyChanged();
     }
+    internal void SetScentSeedsFromScript(int value)
+    {
+        if(value<0||value>0x99||(value&15)>9) throw new ArgumentOutOfRangeException(nameof(value));
+        ScentSeeds=value; NotifyChanged();
+    }
 
     /// <summary>
     /// Mirrors the Tokay trading hut's direct BCD subtraction from a seed

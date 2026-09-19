@@ -101,7 +101,7 @@ public sealed class LinkedGameNpcDatabase
             }
         }
 
-        if (_records.Count != 2 ||
+        if (_records.Count != 3 ||
             Get(0, 0x5d, 0xcb, 0x00) is not
                 {
                     SecretIndex: 0x01,
@@ -119,7 +119,8 @@ public sealed class LinkedGameNpcDatabase
                     OfferTextId: 0x4d1e,
                     FinalTextId: 0x4d22,
                     HasExtraText: true
-                })
+                } || Get(2,0xf6,0x66,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
+                    OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false})
         {
             throw new InvalidOperationException(
                 "Linked-game NPC source records are incomplete.");

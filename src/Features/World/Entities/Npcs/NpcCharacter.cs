@@ -476,6 +476,17 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _faceCooldownFrames = 0.0;
     }
 
+    internal void FaceDownAndResetNativeNpcCooldown()
+    {
+        // goron_faceDown writes angle=$10 and invincibilityCounter=$00
+        // before installing animation $02, even if already facing down.
+        _nativeNpcFacingAngle = NpcCharacterFacing.Down;
+        _faceCooldownFrames = 0;
+        SetFacingDirection(Vector2I.Down);
+        _animationFrame = 0;
+        _animationTicks = 0;
+    }
+
     internal void UpdateDrawPriority(Vector2 linkPosition)
     {
         if (_fixedDrawPriority is int fixedDrawPriority)
@@ -543,6 +554,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
     internal void SetFacingDirection(Vector2I direction)
     {
+        // Leaving a scripted animation installs a new facing animation even
+        // when the direction itself is unchanged (eg. Goron punching -> down).
+        if (_scriptAnimationActive)
+        {
+            _animationFrame = 0;
+            _animationTicks = 0;
+        }
         _scriptAnimationSource = string.Empty;
         _scriptAnimationSourceOffsets = null;
         _scriptAnimationActive = false;

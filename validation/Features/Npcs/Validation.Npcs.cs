@@ -431,7 +431,11 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
-            ["objects/linked_game_npcs.tsv|\\secret1"] = 2,
+            ["objects/linked_game_npcs.tsv|\\secret1"] = 4,
+            ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
+            ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
+            ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
+            ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
@@ -499,9 +503,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 4 || adjacentHeartControls != 2 || byteEscapes != 2,
+            slowControls != 4 || adjacentHeartControls != 2 || byteEscapes != 4,
             "The generated dialogue inventory no longer contains the expected " +
-            "four \\slow() Essence introductions, two adjacent-heart, and two \\x20 source controls.");
+            $"four \\slow() Essence introductions, two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -534,23 +538,23 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 54,
+                [NpcImplementationClassification.OrdinaryGeneric] = 55,
                 [NpcImplementationClassification.SpecializedNative] = 164,
-                [NpcImplementationClassification.EventOwned] = 51,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 186
+                [NpcImplementationClassification.EventOwned] = 98,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 140
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 455 ||
+            records.Count != 457 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 164 specialized, 51 event-owned, and 186 " +
+            "54 ordinary, 164 specialized, 57 event-owned, and 180 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -618,7 +622,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 455 generated NPC records have exactly one " +
+            "Validated all 457 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -785,6 +789,7 @@ public sealed partial class ValidationRoot
         string[] expectedSources =
         [
             "blossom.s:MENU_KIDNAME",
+            "goron.s:scriptTable;goronElder.s;shootingGallery.s",
             "symmetryNpc.s:scriptTable",
             "patch.s:interactionCode94",
             "carpenter.s:room025Scripts",
@@ -3798,7 +3803,7 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 350 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 351 ||
             new NpcDialogueRuleDatabase().RuleCount != 122 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
             "Expected 344 NPC visibility, 122 NPC dialogue, and two NPC " +
@@ -4338,7 +4343,7 @@ public sealed partial class ValidationRoot
             "table, one-Essence gate, two-Essence stage/personality save write, refill-bit clear, " +
             "Bipin $28:$00's SPEED_100 X=$28/$58 patrol, $04/$05 animation reversal, " +
             "and moving objectPreventLinkFromPassing collision, " +
-            "350 imported visibility, 122 dialogue, and two position predicates, " +
+            "351 imported visibility, 122 dialogue, and two position predicates, " +
             "room 0:68's phased talkable cast, lifecycle-safe event hiding, and deliberate " +
             "suppression of unsupported native handlers.");
     }

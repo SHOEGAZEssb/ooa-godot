@@ -7,6 +7,7 @@ namespace oracleofages;
 /// <summary>Shared WRAM-style state for one ten-pitch gallery session.</summary>
 internal sealed class ShootingGallerySession
 {
+    internal ShootingGalleryEventDatabase? VariantDatabase { get; init; }
     internal int Score { get; set; }
     internal int Round { get; set; }
     internal bool BallFinished { get; private set; }

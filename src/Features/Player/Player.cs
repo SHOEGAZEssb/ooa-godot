@@ -1428,13 +1428,14 @@ public partial class Player : Node2D
         int quarters,
         RingDamageSource source,
         int invincibilityFrames = EnemyInvincibilityFrames,
-        int knockbackFrames = EnemyKnockbackFrames)
+        int knockbackFrames = EnemyKnockbackFrames,
+        bool allowZeroDamage = false)
     {
         if (_braceletLiftCollisionsDisabled || !AcceptsRoomEntityContact ||
             IsDying || _enemyInvincibilityFrames != 0.0f ||
-            _enemyKnockbackFrames > 0.0f || quarters <= 0)
+            _enemyKnockbackFrames > 0.0f || quarters < 0 || quarters == 0 && !allowZeroDamage)
             return false;
-        if (!ApplyDamage(quarters, source))
+        if (quarters != 0 && !ApplyDamage(quarters, source))
             return false;
 
         // LINKDMG_00/_04 select SND_DAMAGE_LINK ($5f) when the collision is

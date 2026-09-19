@@ -21,6 +21,7 @@ internal abstract class RemoteMakuEvent :
     private RemoteMakuConfettiEffect? _confetti;
     private int _textboxFlags;
     private int _dontUpdateStatusBar;
+    internal Action? SpawnTunnelGoron {get;set;}
 
     protected RemoteMakuEvent(
         RoomEventContext context,
@@ -218,6 +219,9 @@ internal abstract class RemoteMakuEvent :
         RemoteMakuEventRecord record = _database.Record;
         switch (handler)
         {
+            case "SpawnTunnelGoron":
+                if(SpawnTunnelGoron is null) throw UnsupportedCommand("missing $66:$03 handoff");
+                SpawnTunnelGoron(); SetInputEnabled(true); break;
             case "HideHud":
                 Context.Hud.HideStatusBar();
                 break;

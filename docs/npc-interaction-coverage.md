@@ -12,8 +12,8 @@ boundaries, and date in the same change.
 
 The inventory covers:
 
-- all 383 positioned or state-derived rows in
-  `assets/oracle/objects/npcs.tsv`, spanning 212 rooms;
+- all 385 positioned or state-derived rows in
+  `assets/oracle/objects/npcs.tsv`, spanning 214 rooms;
 - all 72 conditional Bipin/Blossom family rows in
   `assets/oracle/objects/bipin_blossom_family.tsv`; and
 - the explicit implementation classification selected for every record:
@@ -51,10 +51,10 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 148 | Traced and covered by the current named NPC/event scenarios, including Ralph's room-pack fade entry and Old Zora's trade. |
+| **I** | 196 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, and the Elder rescue. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary; adult Maku ordinary advice is included, while her endgame cutscene remains incomplete. |
-| **D** | 186 | Original native/script ownership is not implemented, so no actor is instantiated. |
-| **Total** | **383** | **212 rooms and 297 unique ID/subid keys.** |
+| **D** | 140 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
 `2:ea` and `2:eb`. Their selection, running Bipin, child naming, representative
@@ -63,15 +63,13 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 54 ordinary, 92 specialized,
-51 event-owned, and 186 deliberately unsupported positioned/state-derived
-rows. Including the family table, the typed runtime database contains 455
+The implementation manifest therefore contains 55 ordinary, 92 specialized,
+98 event-owned, and 140 deliberately unsupported positioned/state-derived
+rows. Including the family table, the typed runtime database contains 457
 classified records and 164 specialized rows.
 
 ### Highest-value missing clusters
 
-- Goron interaction `$66`, Goron Elders `$8b`, and the Goron/Biggoron
-  shooting-gallery variants `$30:$01/$02` across groups 3 and 5.
 - Zora `$ab`, King Zora `$9c`, and Jabu-Jabu child `$ba`.
 - Soldier `$40` and the surrounding palace, ending, and linked-game cast
   outside the implemented pre-Black-Tower and lower-Tower slices.
@@ -81,6 +79,16 @@ classified records and 164 specialized rows.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
+
+The September 19, 2026 Goron snapshot includes both dance-hall source aliases.
+`ValidateGoronVillagers`, `ValidateGoronTrades`, and `ValidateGoronHints` cover
+resident gates, exchanges, and linked secrets. `ValidateGoronDance`,
+`ValidateGoronGallery`, `ValidateGoronBigBang`, and `ValidateGoronTargetCarts`
+cover minigame entry, representative results, repeat interaction, and inventory
+handoffs. Gallery reward thresholds use score-handoff fixtures; target-cart
+hit checks inject real seed projectiles. These are not exhaustive retail
+playthrough comparisons. The dynamic tunnel announcement and fifth-Essence
+Maku handoff are covered by `ValidateGoronTunnel`, outside positioned NPC totals.
 
 ## Bipin and Blossom family variants
 
@@ -221,21 +229,22 @@ well as record selection.
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
-| `2:ef` | [D] `$66:$00/v$00` goron |
+| `2:ed` | [I] `$66:$00/v$00` goron |
+| `2:ef` | [I] `$66:$00/v$00` goron |
 | `2:f3` | [I] `$3c:$07/v$00` boy |
 | `2:f5` | [I] `$5a:$00/v$00` oldZora (`ValidateRoom2f5OldZora`) |
-| `2:f6` | [D] `$66:$0f/v$00` goron |
-| `2:f7` | [D] `$66:$07/v$00` goron |
+| `2:f6` | [I] `$66:$0f/v$00` goron |
+| `2:f7` | [I] `$66:$07/v$00` goron |
 | `2:f8` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
-| `2:fb` | [D] `$66:$0e/v$03` goron |
-| `2:fd` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
-| `2:ff` | [D] `$66:$08/v$00` goron<br>[D] `$66:$10/v$00` goron<br>[D] `$66:$0c/v$04` goron<br>[D] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
-| `3:1f` | [D] `$66:$0a/v$00` goron |
-| `3:2e` | [D] `$66:$0e/v$04` goron |
-| `3:3e` | [D] `$66:$0b/v$00` goron |
+| `2:fb` | [I] `$66:$0e/v$03` goron |
+| `2:fd` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
+| `2:ff` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$04` goron<br>[I] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
+| `3:1f` | [I] `$66:$0a/v$00` goron |
+| `3:2e` | [I] `$66:$0e/v$04` goron |
+| `3:3e` | [I] `$66:$0b/v$00` goron |
 | `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
-| `3:5f` | [D] `$66:$0e/v$06` goron |
+| `3:5f` | [I] `$66:$0e/v$06` goron |
 | `3:6e` | [I] `$bf:$06/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
 | `3:6f` | [I] `$bf:$07/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
 | `3:7e` | [I] `$bf:$0a/v$00` symmetryNpc |
@@ -252,9 +261,10 @@ well as record selection.
 | `3:cf` | [D] `$42:$01/v$00` mustacheMan |
 | `3:d1` | [D] `$ab:$1a/v$00` zora |
 | `3:d6` | [D] `$ab:$11/v$00` zora |
+| `3:de` | [D] `$ab:$16/v$00` zora; shared source placement with `3:df` |
 | `3:df` | [D] `$ab:$16/v$00` zora |
 | `3:e3` | [D] `$ab:$15/v$00` zora |
-| `3:e7` | [D] `$30:$01/v$00` shootingGallery<br>[D] `$8b:$02/v$00` goronElder |
+| `3:e7` | [I] `$30:$01/v$00` shootingGallery<br>[I] `$8b:$02/v$00` goronElder |
 | `3:e9` | [D] `$2e:$00/v$00` oldManWithRupees |
 | `3:ea` | [I] `$bf:$00/v$00` symmetryNpc |
 | `3:eb` | [I] `$bf:$02/v$00` symmetryNpc |
@@ -280,15 +290,15 @@ well as record selection.
 | `5:ac` | [D] `$ab:$05/v$00` zora<br>[D] `$ab:$06/v$00` zora<br>[D] `$ab:$07/v$00` zora |
 | `5:ad` | [D] `$9c:$01/v$00` kingZora<br>[D] `$ab:$03/v$00` zora<br>[D] `$ab:$04/v$00` zora |
 | `5:ae` | [D] `$ab:$00/v$00` zora<br>[D] `$ab:$01/v$00` zora<br>[D] `$ab:$02/v$00` zora |
-| `5:b9` | [D] `$66:$0e/v$00` goron |
-| `5:bb` | [D] `$66:$0d/v$01` goron<br>[D] `$66:$0e/v$02` goron |
-| `5:bc` | [D] `$66:$0d/v$00` goron |
-| `5:bd` | [D] `$66:$0e/v$01` goron |
-| `5:c0` | [D] `$66:$0c/v$00` goron |
-| `5:c2` | [D] `$66:$0d/v$02` goron |
-| `5:c3` | [D] `$66:$06/v$00` goron<br>[D] `$66:$06/v$01` goron<br>[D] `$66:$05/v$02` goron<br>[D] `$66:$05/v$03` goron<br>[D] `$66:$05/v$04` goron<br>[D] `$66:$04/v$00` goron |
-| `5:c4` | [D] `$66:$05/v$00` goron<br>[D] `$66:$05/v$01` goron |
-| `5:c6` | [D] `$66:$0d/v$03` goron<br>[D] `$66:$0e/v$07` goron |
+| `5:b9` | [I] `$66:$0e/v$00` goron |
+| `5:bb` | [I] `$66:$0d/v$01` goron<br>[I] `$66:$0e/v$02` goron |
+| `5:bc` | [I] `$66:$0d/v$00` goron |
+| `5:bd` | [I] `$66:$0e/v$01` goron |
+| `5:c0` | [I] `$66:$0c/v$00` goron |
+| `5:c2` | [I] `$66:$0d/v$02` goron |
+| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries` (September 19, 2026) |
+| `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
+| `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
 | `5:ca` | [P] `$48:$06/v$00` tokay |
 | `5:cc` | [P] `$48:$09/v$00` tokay |
@@ -300,13 +310,13 @@ well as record selection.
 | `5:d3` | [D] `$40:$0d/v$0c` soldier<br>[D] `$40:$0d/v$0d` soldier |
 | `5:d4` | [D] `$40:$0d/v$07` soldier |
 | `5:d5` | [D] `$40:$0d/v$0f` soldier |
-| `5:d8` | [D] `$ca:$00/v$00` troy<br>[D] `$66:$09/v$00` goron<br>[D] `$66:$09/v$01` goron |
-| `5:dc` | [D] `$66:$0e/v$05` goron<br>[D] `$66:$0c/v$06` goron |
-| `5:dd` | [D] `$66:$0c/v$07` goron |
-| `5:de` | [D] `$8b:$01/v$00` goronElder<br>[D] `$66:$05/v$05` goron |
-| `5:df` | [D] `$66:$0e/v$09` goron<br>[D] `$66:$0e/v$0a` goron |
-| `5:e0` | [D] `$66:$0e/v$08` goron<br>[D] `$66:$0d/v$04` goron |
-| `5:e2` | [D] `$66:$0c/v$01` goron<br>[D] `$66:$0c/v$02` goron |
+| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
+| `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
+| `5:dd` | [I] `$66:$0c/v$07` goron |
+| `5:de` | [I] `$8b:$01/v$00` goronElder<br>[I] `$66:$05/v$05` goron |
+| `5:df` | [I] `$66:$0e/v$09` goron<br>[I] `$66:$0e/v$0a` goron |
+| `5:e0` | [I] `$66:$0e/v$08` goron<br>[I] `$66:$0d/v$04` goron |
+| `5:e2` | [I] `$66:$0c/v$01` goron<br>[I] `$66:$0c/v$02` goron |
 | `5:e4` | [D] `$52:$00/v$00` oldMan<br>[D] `$52:$02/v$00` oldMan |
 | `5:e8` | [I] `$94:$01/v$00` patch (failure return and retry covered)<br>[I] `$94:$02/v$00` patch |
 | `5:e9` | [P] `$48:$1d/v$00` tokay |

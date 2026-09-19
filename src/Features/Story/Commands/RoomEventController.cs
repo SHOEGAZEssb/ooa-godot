@@ -62,6 +62,7 @@ public sealed class RoomEventController
             new RemoteMakuFirstEssenceEvent(_context),
             new RemoteMakuSecondEssenceEvent(_context),
             new RemoteMakuFourthEssenceEvent(_context),
+            new RemoteMakuFifthEssenceEvent(_context),
             new RemoteMakuHarpEvent(_context),
             new RemoteMakuWingDungeonEvent(_context),
             new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),
@@ -89,6 +90,7 @@ public sealed class RoomEventController
             new ComedianEvent(_context),
             new MaskSalesmanEvent(_context),
             new OldZoraEvent(_context),
+            new GoronCaveEvent(_context),
             new DumbbellManEvent(_context),
             new TokkeyEvent(_context),
             new ChevalEvent(_context),
@@ -131,6 +133,7 @@ public sealed class RoomEventController
                 Array.Exists(handlers, handler => handler(target.Npc)));
         _interactionHandlers =
         [
+            Npc("goron.s:scriptTable;goronElder.s;shootingGallery.s", Get<GoronCaveEvent>().TryInteractNpc),
             Npc("symmetryNpc.s:scriptTable",
                 Get<SymmetryEvent>().TryInteractNpc),
             Npc("patch.s:interactionCode94", Get<PatchEvent>().TryInteractNpc),
@@ -200,6 +203,7 @@ public sealed class RoomEventController
                 Get<TokayTradingEvent>().TryInteractPlayer)
         ];
         entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
         entities.ObjectFellInHole += NotifyObjectFellInHole;
         entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
     }
@@ -226,6 +230,7 @@ public sealed class RoomEventController
     {
         Get<WildTokayGameEvent>().SetSecretMenuOpener(opener);
         Get<SymmetryEvent>().OpenSecretMenu = opener;
+        Get<GoronCaveEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room);

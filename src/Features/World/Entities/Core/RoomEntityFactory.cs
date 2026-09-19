@@ -453,9 +453,9 @@ internal sealed class RoomEntityFactory(
             yield return controller;
         }
         int dungeon = rooms?.World.GetDungeonIndex(group, room.Id) ?? -1;
-        if (dungeon >= 0)
+        if (dungeon >= 0 || group>=4)
         {
-            MinecartRuntimeState.EnsureInitialized(
+            if(dungeon>=0) MinecartRuntimeState.EnsureInitialized(
                 runtimeState, _staticDungeonObjects.Minecarts(dungeon));
             foreach (ActiveMinecart cart in
                 MinecartRuntimeState.StationaryInRoom(
@@ -890,7 +890,9 @@ internal sealed class RoomEntityFactory(
                     case NpcImplementationClassification.EventOwned:
                         yield return record is { Id: 0x83, SubId: 0 }
                             ? new BombUpgradeFairyRoomEntity(CreateNpcCharacter(record))
-                            : new EventOwnedNpcRoomEntity(CreateNpcCharacter(record));
+                            : record.Id is 0x66 or 0x8b || record is {Id:0x30,SubId:1}
+                                ? new GoronCaveRoomEntity(CreateNpcCharacter(record))
+                                : new EventOwnedNpcRoomEntity(CreateNpcCharacter(record));
                         break;
                     case NpcImplementationClassification.DeliberatelyUnsupported:
                         break;
@@ -2073,6 +2075,17 @@ internal sealed class RoomEntityFactory(
         if (!handler.SupportsOrderedConstruction)
             return null;
 
+        if(handler.Handler==EnemyHandlerKind.TargetCartCrystal)
+        {
+            var visual=enemies.ImportedEnemy(0x63);
+            string animation=visual.Animations[0];
+            var actor=CreateNpcCharacter(new(rooms!.ActiveGroup,room.Id,0x63,source.SubId,0,0,0,0,
+                visual.Sprites[0],visual.TileBase,visual.Palette,0,false,animation,animation,animation,animation,"",
+                NpcImplementationClassification.EventOwned));
+            actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
+            return new TargetCartCrystalRoomEntity(actor,source.SubId,runtimeState,new GoronCaveDatabase(),soundRequested);
+        }
+
         if (handler.Handler == EnemyHandlerKind.GreatFairy)
         {
             return new FountainFairyRoomEntity(enemies.ImportedEnemy(0x38),
@@ -2673,7 +2686,7 @@ internal sealed class RoomEntityFactory(
         EnemyHandlerDescriptor? handler = enemies.EnemyHandlers.Handlers
             .FirstOrDefault(value => value.Id == id && value.SubId == subId);
         if (handler is null || !handler.SupportsOrderedConstruction ||
-            !handler.SupportsCombatSource)
+            !handler.SupportsCombatSource && handler.Handler!=EnemyHandlerKind.TargetCartCrystal)
         {
             error = $"{origin} has no standalone combat factory. " +
                 (handler?.Source ?? "No imported handler.");
@@ -2813,6 +2826,10 @@ internal sealed class RoomEntityFactory(
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         TingleKoolooSparkleSpawn sparkle =>
             CreateTingleKoolooSparkle(sparkle),
+        GoronCaveNpcSpawn goron => new GoronCaveRoomEntity(CreateNpcCharacter(goron.Record), goron.Interactive),
+        GoronBombSpawn bomb => new GoronBombRoomEntity(CreateNpcCharacter(bomb.Owner.Database.BombRecord),bomb.Owner,bomb.SubId),
+        TargetCartDebrisSpawn debris => new TargetCartDebrisRoomEntity(CreateNpcCharacter(debris.Record),debris.Position,debris.Direction),
+        GoronMinecartSpawn cart => CreateMinecart(cart.Cart,room),
         InteractionExplosionSpawn explosion =>
             CreateInteractionExplosion(explosion),
         WildTokayMeatSpawn => CreateWildTokayMeat(),
@@ -3591,7 +3608,7 @@ internal sealed class RoomEntityFactory(
             Name = "ShootingGalleryController"
         };
         controller.Initialize(
-            _shootingGallery,
+            spawn.Session.VariantDatabase ?? _shootingGallery,
             spawn.Session,
             room,
             random,
@@ -3610,7 +3627,7 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         ball.Initialize(
-            _shootingGallery,
+            spawn.Session.VariantDatabase ?? _shootingGallery,
             spawn.Session,
             room,
             random,

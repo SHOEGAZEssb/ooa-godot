@@ -20,7 +20,7 @@ internal sealed class ShootingGalleryEventDatabase
     internal IReadOnlyList<CutsceneCommand> MainCommands { get; }
     internal IReadOnlyList<CutsceneCommand> CleanupCommands { get; }
 
-    internal ShootingGalleryEventDatabase()
+    internal ShootingGalleryEventDatabase(int variant = 0)
     {
         GeneratedTableRow row = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/shooting_gallery_event.tsv",
@@ -116,6 +116,19 @@ internal sealed class ShootingGalleryEventDatabase
         _rings = LoadRings();
         Debris = LoadDebris();
         Validate();
+        if(variant!=0)
+        {
+            if(variant is not (1 or 2)) throw new ArgumentOutOfRangeException(nameof(variant));
+            var gorons=new GoronCaveDatabase();
+            string key=variant==1?"goron":"biggoron";
+            int[] positions=gorons.Bytes($"gallery-{key}-Positions"), tiles=gorons.Bytes($"gallery-{key}-Tiles");
+            if(positions.Length!=10||tiles.Length!=100) throw new InvalidOperationException($"Invalid {key} gallery layout dimensions.");
+            for(int i=0;i<10;i++)
+            {
+                _targets[i]=new(positions[i],$"shootingGallery_targetPositions_{key}");
+                for(int j=0;j<10;j++) _layouts[i][j]=(byte)tiles[i*10+j];
+            }
+        }
     }
 
     internal int TargetCount => _targets.Length;

@@ -957,6 +957,10 @@ foreach ($key in @('3:be:94:00:00','5:e8:94:01:00','5:e8:94:02:00')) {
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
 [void]$eventOwnedNpcImplementationKeys.Add('0:50:83:00:00')
+foreach ($key in @('5:c3:66:06:00','5:c3:66:06:01','5:c3:66:05:02',
+    '5:c3:66:05:03','5:c3:66:05:04','5:c3:66:04:00')) {
+    [void]$eventOwnedNpcImplementationKeys.Add($key)
+}
 
 function Resolve-NpcImplementation(
     [int]$group,
@@ -996,6 +1000,11 @@ function Resolve-NpcImplementation(
     if ($eventOwnedNpcImplementationKeys.Contains($key)) {
         return 'event-owned'
     }
+    if (($id -eq 0x66 -and $subid -in @(0,5,7,8,9,0x0a,0x0b,0x0c,0x0d,0x0e,0x10)) -or ($id -eq 0x8b -and $subid -eq 1)) {
+        return 'event-owned'
+    }
+    if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
+    if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     return 'deliberately-unsupported'
 }
 
@@ -1027,6 +1036,7 @@ function New-NpcDataRow(
     } else {
         0
     }
+    if ($id -eq 0x66 -and $subid -eq 0x0f) { $textId=0x4d28 }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
     if ($id -eq 0x9a -and $subid -eq 0x00 -and $textId -eq 0x2301) {
         if (!$message.Contains('\call(TX_2300)')) { throw 'Head carpenter TX_2301 lost its TX_2300 call.' }
@@ -1053,6 +1063,7 @@ function New-NpcDataRow(
         $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
     }
     if ($id -eq 0x94 -and $subid -lt 2) { $canFace = $true }
+    if ($id -eq 0x66 -or $id -eq 0x8b) { $canFace = $true; $initialAnimation = 2 }
     $downOam = Resolve-NpcAnimation $id $initialAnimation
     if ($canFace) {
         $upOam = Resolve-NpcAnimation $id ($initialAnimation - 2)
@@ -2636,13 +2647,16 @@ if ($treasureObjectVisualRows.Count -ne 92 -or
     $smallKeyVisual.DefaultAnimation -ne 0) {
     throw "Expected 91 INTERAC_TREASURE visuals including the small-key graphic `$42."
 }
+$npcRoomAliases = [Collections.Generic.List[object]]::new()
+$npcRoomBlockStarted = $false
 foreach ($line in $mainObjectLines) {
     if ($line -match '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData:') {
-        $currentGroup = [Convert]::ToInt32($Matches['group'], 10)
-        $currentRoom = [Convert]::ToInt32($Matches['room'], 16)
+        if ($npcRoomBlockStarted) { $npcRoomAliases.Clear(); $npcRoomBlockStarted = $false }
+        $npcRoomAliases.Add(@{Group=[Convert]::ToInt32($Matches['group'],10);Room=[Convert]::ToInt32($Matches['room'],16)})
         continue
     }
-    if ($currentGroup -lt 0 -or $line -notmatch 'obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})(?:\s+\$(?<var03>[0-9a-f]{2}))?') { continue }
+    if ($line -match '^\s*obj_') { $npcRoomBlockStarted = $true }
+    if ($npcRoomAliases.Count -eq 0 -or $line -notmatch 'obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})(?:\s+\$(?<var03>[0-9a-f]{2}))?') { continue }
     $id = [Convert]::ToInt32($Matches['id'], 16)
     if (-not $npcInteractionIds.Contains($id)) { continue }
     $subid = [Convert]::ToInt32($Matches['subid'], 16)
@@ -2656,11 +2670,13 @@ foreach ($line in $mainObjectLines) {
     } else {
         0
     }
-    $row = New-NpcDataRow $currentGroup $currentRoom $id $subid $y $x $var03
-    if ($row) { $npcRows.Add($row) }
+    foreach ($roomAlias in $npcRoomAliases) {
+        $row = New-NpcDataRow $roomAlias.Group $roomAlias.Room $id $subid $y $x $var03
+        if ($row) { $npcRows.Add($row) }
+    }
 }
-if ($npcRows.Count -ne 375) {
-    throw "Expected 374 clean-US positioned NPC/character records from Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 377) {
+    throw "Expected 376 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $room1adTokayRows = @($npcRows | Where-Object {
     $_ -match '^1\tad\t48\t15\t'
@@ -4624,8 +4640,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 384) {
-    throw "Expected 374 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 386) {
+    throw "Expected 376 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -4633,10 +4649,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 54 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 55 -or
     $npcImplementationCounts['specialized-native'] -ne 92 -or
-    $npcImplementationCounts['event-owned'] -ne 51 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 186 -or
+    $npcImplementationCounts['event-owned'] -ne 98 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 140 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -4968,6 +4984,11 @@ foreach ($linkedNpc in @(
         Group = 0x00; Room = 0x83; Id = 0xd5; SubId = 0x00
         SecretIndex = 0x06; BeganFlag = 'GLOBALFLAG_BEGAN_TEMPLE_SECRET'
         Source = 'greatFairy.s:greatFairy_subid0;greatFairySubid0Script;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x02; Room = 0xf6; Id = 0x66; SubId = 0x0f
+        SecretIndex = 0x08; BeganFlag = 'GLOBALFLAG_BEGAN_BIGGORON_SECRET'
+        Source = 'goron.s:goronSubid0f;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
@@ -4989,7 +5010,7 @@ foreach ($linkedNpc in @(
         ([int]$linkedNpc.SecretIndex).ToString('x2'),
         (0x20 + [int]$linkedNpc.SecretIndex).ToString('x2'),
         $globalFlagValues[$linkedNpc.BeganFlag].ToString('x2'),
-        '1'
+        $(if ($linkedNpc.SecretIndex -eq 8) { '0' } else { '1' })
     ) + @($textIds | ForEach-Object { $_.ToString('x4') }) +
         @($textIds | ForEach-Object {
             [Convert]::ToBase64String(
@@ -5866,6 +5887,7 @@ Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '
 
 # Room 0:5d's Ghini is secret index `$01: linked files only, after D1.
 Add-NpcLinkedVisibility 0xcb 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcLinkedVisibility 0x66 0x0f -1 0 $true 'goron.s:goronSubid0f;scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
 # Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
@@ -6050,8 +6072,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 351) {
-    throw "Expected 350 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 352) {
+    throw "Expected 351 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

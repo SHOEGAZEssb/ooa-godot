@@ -230,7 +230,7 @@ internal abstract class RemoteMakuEventDatabase
             Commands[16] is not CutsceneOrRoomFlagCommand { Flag: 0x40 } ||
             Commands[17] is not CutsceneNativeCommand
                 { Handler: "IncMakuTreeState" } ||
-            Commands[18] is not CutsceneEnableInputCommand ||
+            (Record.Var03==7 ? Commands[18] is not CutsceneNativeCommand {Handler:"SpawnTunnelGoron"} : Commands[18] is not CutsceneEnableInputCommand) ||
             Commands[19] is not CutsceneEndCommand)
         {
             throw new InvalidOperationException(

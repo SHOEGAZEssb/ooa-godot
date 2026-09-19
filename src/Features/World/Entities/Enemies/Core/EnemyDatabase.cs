@@ -77,7 +77,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 55 ||
+        if (_importedDefinitions.Count != 56 ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -820,6 +820,7 @@ public sealed class EnemyDatabase
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
+        EnemyHandlerKind.TargetCartCrystal => descriptor.Id==0x63 && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
         EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),

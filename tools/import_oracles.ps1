@@ -171,6 +171,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-trade-quest' 'Import-TradeQuestData.ps1' `
         -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-goron-cave' 'Import-GoronCaveData.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'gfxNames', 'interactionGraphics', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-ralph-quests' 'Import-RalphQuestData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicConstantSource') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')

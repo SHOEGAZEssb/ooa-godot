@@ -469,6 +469,13 @@ $postD3EventRows = @(
         'miscellaneous1.s:interaction6b_subid06;extraData3.s:ambiAndNayruInPostD3Cutscene;miscCutscenes.s:CUTSCENE_BLACK_TOWER_EXPLANATION/cbb8_01'
     ) -join "`t")
 )
+if($graveyardObjectSource -notmatch '(?s)group0Map0aObjectData:.*?obj_Interaction \$8a \$00 \$00 \$00 \$07') {
+    throw 'Fifth-Essence remote Maku $8a/v$07 placement changed.'
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_fifth_essence_event.tsv'), @(
+    $remoteMakuEventHeader
+    "0`t0a`t8a`t00`t07`t10`tff`t40`t05b7`t05c7`tb7`tc7`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
+))
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\post_d3_remote_maku_event.tsv'),
     $postD3EventRows)
@@ -521,7 +528,8 @@ foreach ($variant in @(
     @('wing_dungeon', 0x05b1, 0x05c1),
     @('harp', 0x05b2, 0x05c2),
     @('third_essence', 0x05b4, 0x05c4),
-    @('fourth_essence', 0x05b5, 0x05c5)
+    @('fourth_essence', 0x05b5, 0x05c5),
+    @('fifth_essence', 0x05b7, 0x05c7)
 )) {
     $remoteMakuCommandRows = [Collections.Generic.List[string]]::new()
     $remoteMakuCommandRows.Add($remoteMakuCommandHeader)
@@ -531,6 +539,11 @@ foreach ($variant in @(
         $arg0 = $spec[3]
         $arg1 = $spec[4]
         $payload = $spec[5]
+        if($variant[0] -eq 'fifth_essence' -and $index -eq 18) {
+            $spec=@($remoteMakuParsed[29],'native','','','','SpawnTunnelGoron')
+            $sourceCommand=$spec[0]; $payload=$spec[5]
+        }
+        if($variant[0] -eq 'fifth_essence' -and $index -eq 19) { $sourceCommand=$remoteMakuParsed[30] }
         if ($spec[1] -eq 'showtextdifferentforlinked') {
             $arg0 = $variant[1].ToString('x4')
             $arg1 = $variant[2].ToString('x4')

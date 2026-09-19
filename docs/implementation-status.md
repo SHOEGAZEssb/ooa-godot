@@ -63,6 +63,11 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
+- Goron residents, quest-item exchanges, clairvoyant hints, Elder rescue,
+  linked secrets, both dance halls, Goron and Biggoron shooting galleries,
+  target carts, Big Bang, and the fifth-Essence tunnel announcement. Focused
+  headless scenarios cover gameplay handoffs and representative outcomes;
+  exhaustive minigame playthrough comparison against the ROM remains open.
 - Symmetry Village residents, the sisters' request and postgame ring-box secret,
   the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
   with persistent present-day village restoration. The unrestored past has

@@ -114,6 +114,21 @@ internal sealed class OracleObjectSpeedTable
         }
     }
 
+    // getPositionOffsetForVelocity uses speed*16 as a byte offset, without
+    // rounding. PART $49 halves its speed byte, producing unaligned rows.
+    internal OracleObjectVelocity GetRaw(int speed,int angle)
+    {
+        if(speed==0) return Get(0,angle);
+        if(speed<5||speed>0x78||angle<0||angle>=32) throw new ArgumentOutOfRangeException(nameof(speed));
+        int offset=(speed-5)*16+angle*2;
+        int Word(int address)
+        {
+            int row=address/80, word=(address%80)/2;
+            return word<32?_velocities[row*32+word].YFixed:_velocities[row*32+word-8].XFixed;
+        }
+        return new(speed,0,angle,Word(offset),Word(offset+16));
+    }
+
     private static string SpeedName(int index) => index switch
     {
         0 => "20",
