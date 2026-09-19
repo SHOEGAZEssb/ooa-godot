@@ -203,6 +203,7 @@ internal sealed class EnemyHandlerRegistry
         "vine-sprout" => EnemyHandlerKind.VineSprout,
         "great-fairy" => EnemyHandlerKind.GreatFairy,
         "target-cart-crystal" => EnemyHandlerKind.TargetCartCrystal,
+        "king-moblin" => EnemyHandlerKind.KingMoblin,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
         _ => throw row.Invalid(column, "a registered enemy handler")
@@ -320,6 +321,7 @@ internal enum EnemyHandlerClassification
 
 internal enum EnemyHandlerKind
 {
+    KingMoblin,
     Beetle,
     None,
     Octorok,

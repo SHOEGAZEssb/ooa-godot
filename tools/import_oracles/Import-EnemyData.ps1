@@ -1513,10 +1513,11 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '62:02' = 'vine-sprout'
     '62:03' = 'vine-sprout'
     '62:04' = 'vine-sprout'
+    '7f:00' = 'king-moblin'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 76 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 77 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1587,9 +1588,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 616 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 617 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 205) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 204) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"

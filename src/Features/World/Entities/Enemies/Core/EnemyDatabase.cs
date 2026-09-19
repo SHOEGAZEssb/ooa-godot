@@ -819,6 +819,8 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.KingMoblin => descriptor.Id == 0x7f && descriptor.SubId == 0 &&
+            new KingMoblinDatabase().Actor(0x7f).Health == 6,
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
         EnemyHandlerKind.TargetCartCrystal => descriptor.Id==0x63 && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),

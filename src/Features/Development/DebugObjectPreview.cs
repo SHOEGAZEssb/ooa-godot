@@ -34,6 +34,13 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
 
     private PreviewVisual? EnemyVisual(int id, int subId)
     {
+        if (id == 0x7f && subId == 0)
+        {
+            var king = new KingMoblinDatabase();
+            var actor = king.Actor(id);
+            return new(actor.Sprites, actor.Animations, actor.TileBase, actor.Palette,
+                actor.SourceGrayscaleInverted, king.Palettes);
+        }
         var source = new RoomObjectRecord(0, 0, 0, RoomObjectKind.FixedEnemy,
             id, subId, 0, 1, 0, 0, 0, 0xff);
         if (enemies.TryGetImportedEnemyDefinition(source, out var common))

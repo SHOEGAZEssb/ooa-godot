@@ -522,6 +522,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateEyesoarFight);
         RunIsolatedValidation(ValidateSkullEssenceSequence);
         RunIsolatedValidation(ValidateArmosWarriorFight);
+        RunIsolatedValidation(ValidateKingMoblinFight);
+        RunIsolatedValidation(ValidateKingMoblinBombsAndRecentering);
+        RunIsolatedValidation(ValidateDefeatedMoblinSequence);
+        RunIsolatedValidation(ValidateKingMoblinCancellation);
         RunIsolatedValidation(ValidateRoom2cfCucco);
         RunIsolatedValidation(ValidateRoom2e3Interactions);
         RunIsolatedValidation(ValidateRoom5b6Interactions);

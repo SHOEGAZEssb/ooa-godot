@@ -205,6 +205,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-bomb-upgrade-fairy' 'Import-BombUpgradeFairyData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'soundIds') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Read-PaletteBytes', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-defeated-moblin' 'Import-DefeatedMoblin.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'interactionGraphics', 'treasureIds', 'mainObjectSource') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-validation' 'Validate-CutsceneData.ps1' `
         -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Test-GeneratedCutsceneCommandStreams')
@@ -255,6 +258,9 @@ $stageContracts = @(
     New-ImportStageContract 'armos-warrior' 'Import-ArmosWarrior.ps1' `
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'eyesoar' 'Import-Eyesoar.ps1'
+    New-ImportStageContract 'king-moblin' 'Import-KingMoblin.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'globalFlagValues') `
+        -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionOutputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `

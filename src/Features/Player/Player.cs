@@ -478,10 +478,12 @@ public partial class Player : Node2D
         !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !TopDownDiving &&
         !SideScrollDrowningCollisionsDisabled && !IsUsingHarp && !_braceletLiftCollisionsDisabled;
     // bombUpgradeFairy.s checks Link.zh==0 before checkLinkVulnerable.
-    internal bool BombFairyVulnerable => PatchCollisionsEnabled &&
+    internal bool NativeObjectVulnerable => PatchCollisionsEnabled &&
         _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 &&
-        !_drowning && !_fallingInHole && !_pullingIntoHole &&
-        (!_topDownAirborne || TopDownAirZ == 0) && !CutsceneControlled;
+        !_drowning && !_fallingInHole && !_pullingIntoHole && !CutsceneControlled;
+    internal bool BombFairyVulnerable => NativeObjectVulnerable &&
+        (!_topDownAirborne || TopDownAirZ == 0);
+    internal void ClearNativeItemParents() => _world.ClearItemParents(this);
     internal void ClearInteractionKnockback(bool clearInvincibility = false)
     {
         _enemyKnockbackFrames = 0;

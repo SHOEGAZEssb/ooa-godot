@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_EXPLOSION $56 with var03=$01 (Patch and Tingle's balloon).
+/// INTERAC_EXPLOSION $56; var03 selects its fixed draw priority.
 /// The creator supplies imported graphics; the shared handler owns lifetime.
 /// </summary>
 internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
@@ -83,7 +83,8 @@ internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
 internal sealed record InteractionExplosionSpawn(
     Vector2 Position,
     int ZOffset,
-    InteractionExplosionVisual Visual)
+    InteractionExplosionVisual Visual,
+    int Var03 = 1)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal readonly record struct InteractionExplosionVisual(string Sprite, int TileBase, int Palette, string Animation);

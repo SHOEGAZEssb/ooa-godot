@@ -114,6 +114,7 @@ internal sealed class RoomEntityFactory(
     private readonly MoonlitGrottoDatabase _moonlitGrotto = new();
     private readonly SkullDungeonDatabase _skullDungeon = new();
     private readonly ArmosWarriorDatabase _armosWarrior = new();
+    private readonly KingMoblinDatabase _kingMoblin = new();
     private readonly EyesoarDatabase _eyesoar = new();
     private readonly LeverDatabase _levers = new();
     private readonly LeverLavaDatabase _leverLava = new();
@@ -189,6 +190,7 @@ internal sealed class RoomEntityFactory(
         EnemyPlacementContext placementContext)
     {
         int activeGroup = group;
+        _kingMoblin.ApplyRoomLayout(group,room,animationTick());
         if (group == _patch.ResetGroup && room.Id == _patch.ResetRoom)
             for (int address = 0xcfd0; address < 0xcfd8; address++) runtimeState.SetWramByte(address, 0);
         foreach (var waterfall in _waterfallWarps.Records)
@@ -888,7 +890,9 @@ internal sealed class RoomEntityFactory(
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
-                        yield return record is { Id: 0x83, SubId: 0 }
+                        yield return record is { Id: 0x72, SubId: 0 }
+                            ? new DefeatedMoblinActorRoomEntity(CreateNpcCharacter(record))
+                            : record is { Id: 0x83, SubId: 0 }
                             ? new BombUpgradeFairyRoomEntity(CreateNpcCharacter(record))
                             : record.Id is 0x66 or 0x8b || record is {Id:0x30,SubId:1}
                                 ? new GoronCaveRoomEntity(CreateNpcCharacter(record))
@@ -1672,6 +1676,24 @@ internal sealed class RoomEntityFactory(
         return new ArmosWarriorRoomEntity(actor, actor.Entry);
     }
 
+    private static IRoomEntity CreateKingMoblinMinion(KingMoblinMinionSpawn spawn)
+    {
+        var actor = new KingMoblinMinion(); actor.Initialize(spawn.Boss,spawn.SubId);
+        return new KingMoblinMinionRoomEntity(actor);
+    }
+    private static IRoomEntity CreateKingMoblinBomb(KingMoblinBombSpawn spawn)
+    {
+        var actor = new KingMoblinBomb(); actor.Initialize(spawn.Boss,spawn.Minion);
+        return new KingMoblinBombRoomEntity(actor);
+    }
+    private IRoomEntity CreateKingMoblinExclamation(KingMoblinExclamationSpawn spawn)
+    {
+        var actor = new NpcCharacter();
+        actor.Initialize(_moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
+        soundRequested(OracleSoundEngine.SndClink);
+        return new ExclamationMarkRoomEntity(actor,30);
+    }
+
     private IRoomEntity CreateEyesoar(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
         var actor = new EyesoarActor();
@@ -2166,6 +2188,13 @@ internal sealed class RoomEntityFactory(
 
         switch (handler.Handler)
         {
+            case EnemyHandlerKind.KingMoblin:
+                var king = new KingMoblinBoss();
+                king.Initialize(new KingMoblinEnvironment(_kingMoblin,room,random,saveData,
+                    enemySlotsAvailable,freePartSlotAvailable,interactionSlotAvailable,soundRequested,
+                    screenShakeRequested,screenIsShaking,enableLinkCollisionsAndMenu,
+                    roomEntityDialogueRequested,roomWarpRequested,animationTick,_bracelet.Data,_bomb.Data),position);
+                return new KingMoblinRoomEntity(king);
             case EnemyHandlerKind.CheepCheep:
                 var cheepCheep = new CheepCheepCharacter
                 {
@@ -2807,6 +2836,11 @@ internal sealed class RoomEntityFactory(
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         ArmosWarriorChildSpawn child => CreateArmosChild(child),
+        DefeatedMoblinActorSpawn actor => new DefeatedMoblinActorRoomEntity(CreateNpcCharacter(actor.Record)),
+        KingMoblinMinionSpawn child => CreateKingMoblinMinion(child),
+        KingMoblinBombSpawn bomb => CreateKingMoblinBomb(bomb),
+        KingMoblinExplosionSpawn explosion => CreateInteractionExplosion(new InteractionExplosionSpawn(explosion.Position,0,_patch.ExplosionVisual,Var03:0)),
+        KingMoblinExclamationSpawn exclamation => CreateKingMoblinExclamation(exclamation),
         EyesoarChildSpawn child => new EyesoarRoomEntity(child.Spawner.CreateChild(child.Index)),
         MoldormChildSpawn child => child.Spawner.CreateChild(child.SubId),
         EyesoarSpawnEffectSpawn effect => new FixedEffectRoomEntityAdapter<EyesoarSpawnEffect>(effect.Effect),
@@ -4539,8 +4573,9 @@ internal sealed class RoomEntityFactory(
         var explosion = new InteractionExplosionEffect
         {
             Name = "InteractionExplosion",
-            // Balloon sets var03=$01, selecting objectSetVisible81.
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+            // var03 bit 0 selects objectSetVisible81 or objectSetVisible82.
+            ZIndex = (spawn.Var03 & 1) != 0
+                ? NpcCharacter.InFrontOfLinkZIndex : NpcCharacter.BehindLinkZIndex
         };
         explosion.Initialize(
             spawn.Position,

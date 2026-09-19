@@ -725,6 +725,9 @@ public sealed class RoomEntityManager : IDisposable
                 ProcessSpawns(frame);
             }
             // Reserved item F ($df) follows the ordinary seed child slots.
+            if (!textActive && !roomEntityFreezeActive)
+                foreach (var child in _activeEntities.OfType<IBraceletChildRoomEntity>().ToArray())
+                    child.UpdateBraceletChild(player);
             foreach (var dust in _activeEntities.OfType<PegasusDustRoomEntity>().ToArray())
                 if (!dust.Finished && (dust.Substate == 0 || !textActive && !roomEntityFreezeActive))
                     dust.UpdateFrame(frame, _pendingSpawns);
@@ -1888,7 +1891,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or BlueEnergyBeadRoomEntity ? 1 : 2;
 
@@ -2003,7 +2006,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
+        DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
         entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity;
 
     internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;

@@ -540,8 +540,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 55,
                 [NpcImplementationClassification.SpecializedNative] = 164,
-                [NpcImplementationClassification.EventOwned] = 98,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 140
+                [NpcImplementationClassification.EventOwned] = 99,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 139
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records

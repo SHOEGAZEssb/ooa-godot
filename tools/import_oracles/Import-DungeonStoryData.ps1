@@ -454,6 +454,10 @@ Write-CutsceneGeneratedTable(
         "0`t03`t8a`t00`t05`t08`tff`t40`t05b5`t05c5`tb5`tc5`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
     ))
 
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_moblin_event.tsv'), @(
+    $remoteMakuEventHeader
+    "0`t09`t8a`t00`t06`t00`tff`t40`t05b6`t05c6`tb6`tc6`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
+))
 $postD3EventRows = @(
     "# group`troom`tid`tsubid`tessence-mask`troom-flag`tinitial-wait`tflash-frames`tfade-frames`tpalace-group`tpalace-room`tambi-id`tambi-subid`tambi-y`tambi-x`tnayru-id`tnayru-subid`tnayru-y`tnayru-x`tpalace-wait`tpalace-post-wait`tpalace-text-id`tpalace-text-base64`texplanation-wait`texplanation-post-wait`texplanation-text-id`texplanation-text-base64`texplanation-textbox-flags`tscreen-offset-y`treturn-y`treturn-x`treturn-direction`tpast-flag-group`tpast-flag-room`tpast-room-flag`tstandard-global-flag`tmusic`tsource",
     (@(
@@ -529,6 +533,7 @@ foreach ($variant in @(
     @('harp', 0x05b2, 0x05c2),
     @('third_essence', 0x05b4, 0x05c4),
     @('fourth_essence', 0x05b5, 0x05c5),
+    @('moblin', 0x05b6, 0x05c6),
     @('fifth_essence', 0x05b7, 0x05c7)
 )) {
     $remoteMakuCommandRows = [Collections.Generic.List[string]]::new()

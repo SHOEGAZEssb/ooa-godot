@@ -59,6 +59,7 @@ public sealed class RoomEventController
         [
             new HarpOfAgesEvent(_context),
             new DungeonEssenceEvent(_context),
+            new DefeatedMoblinEvent(_context),
             new RemoteMakuFirstEssenceEvent(_context),
             new RemoteMakuSecondEssenceEvent(_context),
             new RemoteMakuFourthEssenceEvent(_context),

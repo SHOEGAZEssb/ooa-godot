@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 196 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, and the Elder rescue. |
+| **I** | 197 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, the Elder rescue, and the defeated Moblin sequence. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary; adult Maku ordinary advice is included, while her endgame cutscene remains incomplete. |
-| **D** | 140 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 139 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -64,7 +64,7 @@ behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
 The implementation manifest therefore contains 55 ordinary, 92 specialized,
-98 event-owned, and 140 deliberately unsupported positioned/state-derived
+99 event-owned, and 139 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 457
 classified records and 164 specialized rows.
 
@@ -105,7 +105,7 @@ well as record selection.
 
 | Room | Imported records in source order |
 | --- | --- |
-| `0:09` | [D] `$72:$00/v$00` kingMoblinDefeated |
+| `0:09` | [I] `$72:$00/v$00` kingMoblinDefeated |
 | `0:16` | [I] `$9a:$b2/v$00` carpenter<br>[I] `$9a:$d2/v$00` carpenter |
 | `0:17` | [I] `$9a:$c2/v$00` carpenter<br>[I] `$9a:$d3/v$00` carpenter |
 | `0:25` | [I] `$9a:$00/v$00` carpenter<br>[I] `$9a:$01/v$00` carpenter<br>[I] `$9a:$02/v$00` carpenter<br>[I] `$9a:$03/v$00` carpenter<br>[I] `$9a:$04/v$00` carpenter |

@@ -63,6 +63,10 @@ Use the validation files and runtime/importer dispatch for exact coverage.
 - Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
   Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
   traced story slices through and around the first two dungeons.
+- King Moblin's keep battle, including the two bomb-throwing minions, bracelet
+  bomb returns, health-dependent timing, and the defeat flags and exit warp.
+  The defeated Moblin sequence continues through the Gorons' Bomb Flower
+  reward and the linked/unlinked remote Maku message.
 - Goron residents, quest-item exchanges, clairvoyant hints, Elder rescue,
   linked secrets, both dance halls, Goron and Biggoron shooting galleries,
   target carts, Big Bang, and the fifth-Essence tunnel announcement. Focused

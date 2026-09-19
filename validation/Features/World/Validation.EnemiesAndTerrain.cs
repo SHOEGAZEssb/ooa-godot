@@ -1218,7 +1218,8 @@ public sealed partial class ValidationRoot
             [(0x4e, 0x00)] = (0xb9, EnemySwordResponse.Knockback),
             [(0x4f, 0x00)] = (0xba, EnemySwordResponse.Knockback),
             [(0x52, 0x00)] = (0x3c, EnemySwordResponse.NoKnockback),
-            [(0x52, 0x02)] = (0x3c, EnemySwordResponse.NoKnockback)
+            [(0x52, 0x02)] = (0x3c, EnemySwordResponse.NoKnockback),
+            [(0x7f, 0x00)] = (0xd0, EnemySwordResponse.None)
         };
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
         int combatSourceRows = 0;
@@ -1319,30 +1320,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 616 ||
+                EnemyHandlerClassification.OrderedImplemented) != 617 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 205 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 204 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 891 ||
+                EnemyHandlerClassification.OrderedImplemented) != 892 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 270 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 269 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 70 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 71 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 53 ||
-            combatSourceRows != 595 ||
-            combatSourceFlags.Count != 138 ||
-            expectedCombat.Count != 53 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 52 ||
+            combatSourceRows != 596 ||
+            combatSourceFlags.Count != 139 ||
+            expectedCombat.Count != 54 ||
             implementedHandler is not
             {
                 Id: 0x32,
@@ -4289,6 +4290,7 @@ public sealed partial class ValidationRoot
             [0x39] = (0x10, 0x0f, 0x0f),
             [0x3a] = (0x10, 0x0f, 0x0f),
             [0x3c] = (0x07, 0x06, 0x06),
+            [0x50] = (0x00, 0x00, 0x00),
             [0x58] = (0x06, 0x05, 0x05),
             [0x6e] = (0x00, 0x00, 0x00),
             [0x7d] = (0x10, 0x0f, 0x0f),
@@ -4339,9 +4341,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 53 ||
+            auditedCombatKeys.Count != 54 ||
             auditedNonCombatKeys.Count != 15,
-            "The shield audit did not cover all 53 implemented combat " +
+            "The shield audit did not cover all 54 implemented combat " +
             "enemy keys and 15 deliberately non-combat placed keys, including ENEMY $63:$05-$0b.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(

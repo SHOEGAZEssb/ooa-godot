@@ -486,6 +486,11 @@ priority and lifecycle ownership; it does not add another independent input
 scan or controller override chain. See [NPCs and events](npcs-and-events.md)
 for choosing ordinary NPC, linked interaction, or room-event ownership.
 
+Native objects carried by the bracelet can expose a reserved-item update.
+That motion runs before the enemy pass, while the object's native fuse and
+state handler retain their normal slot. A thrown part must not postpone its
+reserved-item movement until its later part update or advance its fuse twice.
+
 ## Adding a room mechanic or entity
 
 1. Find every source placement, dispatch row, handler, table, and caller.
