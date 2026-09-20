@@ -1013,7 +1013,7 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 229 || switchRecordCount != 7 ||
+            database.RecordCount != 231 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -1044,8 +1044,8 @@ public sealed partial class ValidationRoot
 
         // Room 4:08 uses the dungeon-$0d table's $20:$00 script: exact
         // wActiveTriggers == $01, solve cue plus INTERAC_PUFF, wait 15, then
-        // TILEINDEX_CHEST at packed $57. The script object precedes the button,
-        // so it observes the press on the following update.
+        // TILEINDEX_CHEST at packed $57. updateParts publishes the button
+        // before updateInteractions, regardless of placement order.
         _saveData.SetRoomFlag(
             4, 0x08, OracleSaveData.RoomFlagItem, value: false);
         LoadValidationRoom(4, 0x08);
@@ -1077,9 +1077,8 @@ public sealed partial class ValidationRoot
             room.GetMetatile(room408Button) != 0x0d ||
             room.GetMetatile(room408Chest) != 0xa3 ||
             _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
-            "Room 4:08's button did not latch before its earlier $20:$00 script slot reacted.");
-        Step();
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            "Room 4:08's button and $20:$00 script must react in the same update.");
         FailIf(
             _entities.Entities<TriggerChestRoomEntity>() is not [{ Counter: 15 }] ||
             _entities.Entities<PuzzlePuffEffect>() is not
@@ -1794,7 +1793,7 @@ public sealed partial class ValidationRoot
             "Room 4:13 did not bind both enemy shutters to Pumpkin Head.");
         // Room 4:09 is the canonical one-shot button: PART_BUTTON $09:$00 at
         // $14 sets trigger bit 0 after its state-0 initialization update. Both
-        // $1e:$04/$05 doors observe the bit on the following update, request
+        // $1e:$04/$05 doors observe the bit in the same update, request
         // the solve cue independently, and begin their six-update opening one
         // update later. The released Link does not clear a one-shot trigger.
         LoadValidationRoom(4, 0x09);
@@ -1823,18 +1822,17 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
             room.GetMetatile(oneShotButton) != 0x0d ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2 ||
             room.GetMetatile(triggerUpDoor) != 0x78 ||
             room.GetMetatile(triggerRightDoor) != 0x79,
-            "Room 4:09's one-shot button did not latch tile $0d/trigger bit 0 before its doors updated.");
+            "Room 4:09's one-shot button must latch tile $0d/trigger bit 0 before the interaction pass.");
         _player.WarpTo(new Vector2(0x78, 0x78));
-        Step();
         FailIf(
             _entities.ActiveTriggers != 0x01 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2 ||
             room.GetMetatile(triggerUpDoor) != 0x78 ||
             room.GetMetatile(triggerRightDoor) != 0x79,
-            "Room 4:09's two trigger doors did not request their solve cues one update after button pressure.");
+            "Room 4:09's two trigger doors did not request solve cues in the button's update.");
         Step();
         FailIf(
             room.GetMetatile(triggerUpDoor) != 0xa0 ||
@@ -1894,7 +1892,6 @@ public sealed partial class ValidationRoot
             _entities.ActiveTriggers != 0 || room.GetMetatile(reusableButton) != 0x0c ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 2,
             "Room 4:22 did not release at the strict eight-pixel boundary with SND_SPLASH.");
-        Step();
         FailIf(
             room.IsSolid(reusableDoor),
             "Room 4:22 closed its shutter in the update that observed trigger release.");
@@ -1992,7 +1989,6 @@ public sealed partial class ValidationRoot
             "PART_BUTTON $09:$01 did not select only wActiveTriggers bit 1 or incorrectly activated a bit-0 chest.");
         _player.WarpTo(bit0Button.Position);
         Step();
-        Step();
         FailIf(
             _entities.ActiveTriggers != 0x03 ||
             _entities.Entities<TriggerChestRoomEntity>() is not [{ Counter: 15 }] ||
@@ -2006,7 +2002,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 229 imported enemy-clear-key/chest/switch/button/" +
+        GD.Print("Validated all 231 imported enemy-clear-key/chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

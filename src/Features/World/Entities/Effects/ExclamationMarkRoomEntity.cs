@@ -18,3 +18,6 @@ internal sealed class ExclamationMarkRoomEntity(NpcCharacter actor,int frames)
         Entity.AdvanceAnimationUpdates(1);
     }
 }
+
+internal sealed record ExclamationMarkSpawn(Godot.Vector2 Position, bool InitializeThisFrame = false)
+    : RoomEntitySpawn(InitializeThisFrame);

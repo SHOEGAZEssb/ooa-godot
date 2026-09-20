@@ -125,6 +125,7 @@ internal sealed class RoomEntityFactory(
     private readonly GroundTreasureDatabase _groundTreasures = new();
     private readonly DungeonMechanicDatabase _dungeonMechanics = new();
     private readonly RoomTileChangeWatcherDatabase _tileChangeWatchers = new();
+    private readonly CollapsingFloorDatabase _collapsingFloors = new();
     private readonly BreakableTileDatabase _breakables = new();
     private readonly LedgeJumpDatabase _ledgeJumps = new();
     private readonly SwordBeamDatabase _swordBeam = new();
@@ -725,6 +726,10 @@ internal sealed class RoomEntityFactory(
         // interactions, so $d8 sees the parent's new pull byte first.
         foreach (IRoomEntity connection in leverConnections)
             yield return connection;
+
+        foreach (var record in _collapsingFloors.InRoom(group, room.Id))
+            yield return new CollapsingFloorRoomEntity(record, room, soundRequested,
+                roomTileChanged, animationTick, interactionSlotAvailable);
 
         if (!spawnMaple)
         {
@@ -1686,7 +1691,7 @@ internal sealed class RoomEntityFactory(
         var actor = new KingMoblinBomb(); actor.Initialize(spawn.Boss,spawn.Minion);
         return new KingMoblinBombRoomEntity(actor);
     }
-    private IRoomEntity CreateKingMoblinExclamation(KingMoblinExclamationSpawn spawn)
+    private IRoomEntity CreateExclamationMark(ExclamationMarkSpawn spawn)
     {
         var actor = new NpcCharacter();
         actor.Initialize(_moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
@@ -1854,6 +1859,10 @@ internal sealed class RoomEntityFactory(
                     $"Room {group:x1}:{room.Id:x2} $dc:$12 requires live save state."),
                 runtimeState, soundRequested, _dungeonMechanics.SolveSound);
         }
+        if (record.Id == 0xdc && record.SubId is 0x0c or 0x0d)
+            return new RidgeBridgeControllerRoomEntity(record,
+                saveData ?? throw new InvalidOperationException($"$dc:${record.SubId:x2} requires live save state."),
+                triggerState, freePartSlotAvailable, soundRequested, _dungeonMechanics);
         if (record.Id == 0x03)
         {
             return new DungeonOrbRoomEntity(
@@ -2840,7 +2849,7 @@ internal sealed class RoomEntityFactory(
         KingMoblinMinionSpawn child => CreateKingMoblinMinion(child),
         KingMoblinBombSpawn bomb => CreateKingMoblinBomb(bomb),
         KingMoblinExplosionSpawn explosion => CreateInteractionExplosion(new InteractionExplosionSpawn(explosion.Position,0,_patch.ExplosionVisual,Var03:0)),
-        KingMoblinExclamationSpawn exclamation => CreateKingMoblinExclamation(exclamation),
+        ExclamationMarkSpawn exclamation => CreateExclamationMark(exclamation),
         EyesoarChildSpawn child => new EyesoarRoomEntity(child.Spawner.CreateChild(child.Index)),
         MoldormChildSpawn child => child.Spawner.CreateChild(child.SubId),
         EyesoarSpawnEffectSpawn effect => new FixedEffectRoomEntityAdapter<EyesoarSpawnEffect>(effect.Effect),
@@ -4633,7 +4642,7 @@ internal sealed class RoomEntityFactory(
             ZIndex = 10
         };
         effect.Initialize(spawn.Position);
-        soundRequested(OracleSoundEngine.SndFallInHole);
+        if (!spawn.Silent) soundRequested(OracleSoundEngine.SndFallInHole);
         return new FallingDownHoleRoomEntity(effect);
     }
 

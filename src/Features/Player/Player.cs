@@ -505,8 +505,10 @@ public partial class Player : Node2D
     internal bool AcceptsTimePortalContact => AcceptsGroundInteractionContact &&
         OverlapsTimePortalHeight && !_world.RidingObject;
     internal bool PassesNpcs => _world.PassesNpcs;
-    internal bool CanEnterMinibossPortal => PatchCollisionsEnabled && !_world.InteractionMenusDisabled &&
-        !_spinnerControlled && !_companionRideControlled && !_minecartRideControlled && !_raftRideControlled;
+    internal bool NativeInteractionCollisionsEnabled =>
+        PatchCollisionsEnabled && !_world.InteractionMenusDisabled && !_spinnerControlled;
+    internal bool CanEnterMinibossPortal => NativeInteractionCollisionsEnabled &&
+        !_companionRideControlled && !_minecartRideControlled && !_raftRideControlled;
 
     internal bool OverlapsMinibossPortal(Rect2 bounds) =>
         // wLinkGrabState & $be permits wall-grab $41, but excludes lifting

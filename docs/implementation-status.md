@@ -65,6 +65,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   traced story slices through and around the first two dungeons.
 - King Moblin's keep battle, including the two bomb-throwing minions, bracelet
   bomb returns, health-dependent timing, and the defeat flags and exit warp.
+  The keep's collapsing-floor trap includes its timed tile sequence and
+  underground fall transition.
   The defeated Moblin sequence continues through the Gorons' Bomb Flower
   reward and the linked/unlinked remote Maku message.
 - Goron residents, quest-item exchanges, clairvoyant hints, Elder rescue,
@@ -72,6 +74,8 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   target carts, Big Bang, and the fifth-Essence tunnel announcement. Focused
   headless scenarios cover gameplay handoffs and representative outcomes;
   exhaustive minigame playthrough comparison against the ROM remains open.
+- Crown Key unlocking of Crown Dungeon, including the opening animation,
+  delayed doorway collision change, and persistent entrance on re-entry.
 - Symmetry Village residents, the sisters' request and postgame ring-box secret,
   the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
   with persistent present-day village restoration. The unrestored past has

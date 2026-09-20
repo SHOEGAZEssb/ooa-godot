@@ -101,6 +101,8 @@ $stageContracts = @(
             'treasureObjectSource') `
         -functionInputs @('Export-PaletteBlock') `
         -functionOutputs @('Resolve-NpcAnimation')
+    New-ImportStageContract 'collapsing-floor' 'Import-CollapsingFloor.ps1' `
+        -inputs @('mainObjectLines', 'soundIds')
     New-ImportStageContract 'gasha' 'Import-GashaData.ps1' `
         -inputs @(
             'allTexts', 'gfxNames', 'interactionAnimationSource',

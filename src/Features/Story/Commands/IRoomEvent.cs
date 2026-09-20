@@ -4,6 +4,7 @@ internal interface IRoomEvent
 {
     bool HasState { get; }
     bool BlocksGameplay { get; }
+    bool FreezesNonInteractionObjects => false;
     bool MenusDisabled => false;
     bool ScreenTransitionsDisabled => false;
     bool AllScreenTransitionsDisabled => false;

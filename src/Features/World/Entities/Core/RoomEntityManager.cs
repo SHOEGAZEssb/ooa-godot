@@ -161,6 +161,8 @@ public sealed class RoomEntityManager : IDisposable
         static position => position;
     internal Func<bool> TextActiveSource { get; set; } =
         static () => false;
+    internal Func<bool> NonInteractionObjectsDisabledSource { get; set; } =
+        static () => false;
     internal Func<int> DisplayedHealthSource { get; set; } =
         static () => throw new InvalidOperationException("ENEMY_GREAT_FAIRY $38 requires the status-bar health owner.");
     internal Func<int> PlayingInstrumentSource { get; set; } =
@@ -1409,11 +1411,15 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal bool TrySpawnDebugEnemy(int id, int subId, Vector2 position, out string error)
-        => TrySpawnEnemy(id, subId, position, "Debug spawn", out error);
+        => CanSpawnDebugObject(position, out error) &&
+            TrySpawnEnemy(id, subId, position, "Debug spawn", out error);
 
     internal bool TrySpawnEnemy(int id, int subId, Vector2 position, string source, out string error)
     {
-        if (!CanSpawnDebugObject(position, out error))
+        // Native interaction state zero can create enemies during scrolling
+        // (goron_targetCarts_loadCrystals). The preload pass initializes these
+        // later children; the debug UI's transition restriction does not apply.
+        if (!CanSpawnRoomObject(position, out error))
             return false;
         int slot = Enumerable.Range(0, 16).FirstOrDefault(
             candidate => !_reservedEnemySlots.Contains(candidate), -1);
@@ -1446,8 +1452,18 @@ public sealed class RoomEntityManager : IDisposable
 
     private bool CanSpawnDebugObject(Vector2 position, out string error)
     {
+        if (_screenTransitionActive)
+        {
+            error = "Wait for an active room with no transition.";
+            return false;
+        }
+        return CanSpawnRoomObject(position, out error);
+    }
+
+    private bool CanSpawnRoomObject(Vector2 position, out string error)
+    {
         error = string.Empty;
-        if (_disposed || _screenTransitionActive || _roomForActiveEntities is null)
+        if (_disposed || _roomForActiveEntities is null)
             error = "Wait for an active room with no transition.";
         else if (!float.IsFinite(position.X) || !float.IsFinite(position.Y) ||
             position.X != MathF.Truncate(position.X) || position.Y != MathF.Truncate(position.Y) ||
@@ -1674,7 +1690,7 @@ public sealed class RoomEntityManager : IDisposable
         if (y == 0 && x == 0) ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
-    private void UpdateScreenShake()
+    internal void UpdateScreenShake()
     {
         if (_screenShakeCounter == 0 &&
             _horizontalScreenShakeCounter == 0)
@@ -1890,7 +1906,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or BlueEnergyBeadRoomEntity ? 1 : 2;
@@ -2006,7 +2022,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
+        RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
         entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity;
 
     internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;
@@ -2123,6 +2139,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private bool RoomEntityFreezeActive()
     {
+        if (NonInteractionObjectsDisabledSource()) return true;
         foreach (IRoomEntity entity in _activeEntities)
         {
             if (entity is IRoomEntityUpdateFreeze
@@ -2452,7 +2469,7 @@ internal sealed record ItemDropSpawn(
     bool DugUp = false,
     bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
 
-internal sealed record FallingDownHoleSpawn(Vector2 Position) : RoomEntitySpawn;
+internal sealed record FallingDownHoleSpawn(Vector2 Position, bool Silent = false) : RoomEntitySpawn;
 
 internal enum ObjectFellInHoleKind
 {

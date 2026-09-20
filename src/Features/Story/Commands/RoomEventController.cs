@@ -74,6 +74,7 @@ public sealed class RoomEventController
                 _context, () => Get<RemoteMakuWingDungeonEvent>().StartWarning()),
             new NayruIntroEvent(_context, impa),
             new GraveyardGateEvent(_context),
+            new CrownDungeonEntranceEvent(_context),
             new RickyGlovesEvent(_context),
             new TingleEvent(_context),
             new CarpenterEvent(_context),
@@ -210,6 +211,8 @@ public sealed class RoomEventController
     }
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
+    internal bool FreezesNonInteractionObjects =>
+        _eventsByPriority.Any(roomEvent => roomEvent.FreezesNonInteractionObjects);
     private bool HasEventState => _eventsByPriority.Any(roomEvent => roomEvent.HasState);
     internal T Get<T>() where T : class, IRoomEvent => (T)_eventsByType[typeof(T)];
 
@@ -234,9 +237,15 @@ public sealed class RoomEventController
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
-        Get<GraveyardGateEvent>().CanTrigger(group, room);
-    internal void TriggerOverworldKeyhole(int group, int room) =>
-        Get<GraveyardGateEvent>().Trigger(group, room);
+        Get<GraveyardGateEvent>().CanTrigger(group, room) ||
+        Get<CrownDungeonEntranceEvent>().CanTrigger(group, room);
+    internal void TriggerOverworldKeyhole(int group, int room)
+    {
+        if (Get<CrownDungeonEntranceEvent>().CanTrigger(group, room))
+            Get<CrownDungeonEntranceEvent>().Trigger(group, room);
+        else
+            Get<GraveyardGateEvent>().Trigger(group, room);
+    }
     internal bool ScreenTransitionsDisabled =>
         _eventsByPriority.Any(roomEvent => roomEvent.ScreenTransitionsDisabled);
     internal bool AllScreenTransitionsDisabled =>
@@ -253,6 +262,7 @@ public sealed class RoomEventController
     {
         if (_context.Transitions.IsTransitioning)
         {
+            Get<GoronCaveEvent>().InitializeDuringTransition();
             if (Get<ImpaIntroEvent>().UpdatesDuringTransition)
                 Get<ImpaIntroEvent>().UpdateDuringTransition();
             return;
@@ -303,6 +313,7 @@ public sealed class RoomEventController
         NayruIntroEvent nayru = Get<NayruIntroEvent>();
         Get<TingleEvent>().OnRoomLoaded(group, room);
         Get<WingDungeonCollapseEvent>().RestoreCollapsedEntrance(group, room);
+        Get<CrownDungeonEntranceEvent>().RestoreEntrance(group, room);
         Get<FairiesWoodsEvent>().OnRoomLoaded(group, room);
         Get<CompanionForestEvent>().OnRoomLoaded(group, room);
         Get<GraveyardGateEvent>().RetireCompletedControllerOnRoomLoad();

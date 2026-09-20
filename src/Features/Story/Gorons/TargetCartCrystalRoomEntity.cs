@@ -8,7 +8,7 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
     OracleRuntimeState state,GoronCaveDatabase data,Action<int> sound)
     : RoomEntityAdapter<NpcCharacter>(actor,actor.SetTransitionDrawOffset),
       IFixedRoomEntity,IRoomEntityLifetime,IRoomEnemyCounterEntity,ISeedCollisionTarget,
-      IPostObjectItemCollisionRoomEntity,IObjectCollisionHeightRoomEntity
+      IPostObjectItemCollisionRoomEntity,IObjectCollisionHeightRoomEntity,IScreenTransitionPreloadRoomEntity
 {
     private int _state, _behaviour, _counter, _angle;
     private Vector2 _position;
@@ -16,18 +16,31 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
     public bool CountsAsEnemy=>!Finished;
     public int CollisionZ=>0;
     internal int SubId=>subid;
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        // bank0.updateEnemies dispatches state zero during scrolling.
+        // ENEMY $63 loads its configuration position before objectSetVisible80;
+        // its state-one movement and counters remain frozen until the scroll ends.
+        Initialize();
+        return Finished ? ScreenTransitionPresentation.Hidden : ScreenTransitionPresentation.Visible;
+    }
+    private void Initialize()
+    {
+        if(_state!=0||Finished) return;
+        int configuration=state.ReadWramByte(0xcfd4);
+        if(configuration>2) throw new InvalidOperationException($"ENEMY $63 configuration ${configuration:x2} is outside its source tables.");
+        int[] positions=data.Bytes("crystal-configuration"+configuration);
+        _position=new(positions[subid*2+1],positions[subid*2]);
+        _behaviour=data.Bytes("crystal-behaviourTable")[configuration*16+subid];
+        _counter=0x20; _angle=_behaviour==2?0x18:0; _state=1;
+        Entity.SetAnimationRate(0); Entity.Position=_position;
+    }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(Finished) return;
         if(_state==0)
         {
-            int configuration=state.ReadWramByte(0xcfd4);
-            if(configuration>2) throw new InvalidOperationException($"ENEMY $63 configuration ${configuration:x2} is outside its source tables.");
-            int[] positions=data.Bytes("crystal-configuration"+configuration);
-            _position=new(positions[subid*2+1],positions[subid*2]);
-            _behaviour=data.Bytes("crystal-behaviourTable")[configuration*16+subid];
-            _counter=0x20; _angle=_behaviour==2?0x18:0; _state=1;
-            Entity.SetAnimationRate(0); Entity.Position=_position; return;
+            Initialize(); return;
         }
         if(_state==2)
         {

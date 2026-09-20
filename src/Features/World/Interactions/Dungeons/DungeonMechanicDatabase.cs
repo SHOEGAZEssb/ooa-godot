@@ -38,6 +38,9 @@ internal sealed class DungeonMechanicDatabase
     internal int BridgeSpawnerWait => Constant("bridge-spawner-wait");
     internal int BridgeSpawnerHalfTile => Constant("bridge-spawner-half-tile");
     internal int BridgeSpawnerFullTile => Constant("bridge-spawner-full-tile");
+    internal int BridgeSpawnerTile(int angle, bool full) => Constant($"bridge-spawner-tile-{angle * 2 + (full ? 1 : 0)}");
+    internal int BridgeSpawnerStep(int angle) => Constant($"bridge-spawner-step-{angle}");
+    internal int RidgeBridgeAngle(int subId) => Constant($"ridge-bridge-angle-{subId:x2}");
     internal int BridgeFirstTile => Constant("bridge-first-tile");
     internal int BridgeTileCount => Constant("bridge-tile-count");
     internal int ButtonTile => Constant("button-tile");
@@ -135,7 +138,7 @@ internal sealed class DungeonMechanicDatabase
                 row.Boolean01(8));
             if (record.Id is not (0x03 or 0x05 or 0x09 or 0x12 or 0x13 or 0x1e or 0x20 or 0x21 or 0x23 or 0x24 or 0x33 or 0x6b or 0xc7 or 0xdc) ||
                 record.Id == 0x6b && record.SubId != 0x0f ||
-                record.Id == 0xdc && (record.SubId != 0x12 || record.Parameter == 0) ||
+                record.Id == 0xdc && (record.SubId is not (0x0c or 0x0d or 0x12) || record.Parameter == 0) ||
                 record.Id == 0x03 && record.SubId > 0x07 ||
                 record.Id == 0x12 && record.SubId is not (0x01 or 0x02) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
@@ -228,7 +231,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 229 || _constants.Count != 72 || _texts.Count != 2 ||
+        if (RecordCount != 231 || _constants.Count != 86 || _texts.Count != 2 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||

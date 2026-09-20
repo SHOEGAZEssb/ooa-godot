@@ -6,6 +6,76 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRoom5c3GoronEntry()
+    {
+        foreach(int progress in new[]{0,1,2})
+        {
+            string single=RunGoronEntry(progress,false);
+            ReinitializeGameplayForValidation();
+            string batched=RunGoronEntry(progress,true);
+            FailIf(single!=batched,$"Room $5:c3 entry differs across host batching at progress {progress}.");
+            ReinitializeGameplayForValidation();
+        }
+    }
+    private string RunGoronEntry(int progress,bool batched)
+    {
+        _saveData.SetGlobalFlag(0x2f,progress!=0);
+        _saveData.SetRoomFlag(5,0xc3,0x40,progress!=0);
+        if(progress==2) _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
+        var observations=new List<string>();
+        for(int repeat=0;repeat<2;repeat++)
+        {
+            LoadValidationRoom(1,0x28);
+            var room=_rooms.CurrentRoom;
+            var warps=new WarpDatabase();
+            Vector2 entrance=Vector2.Zero;
+            for(int y=0;y<room.Height;y+=16)
+            for(int x=0;x<room.Width;x+=16)
+            {
+                var position=new Vector2(x+8,y+8);
+                if(warps.TryGetTileWarp(1,0x28,room.GetPackedPosition(position),room.GetMetatile(position),out var warp)&&
+                    warp.DestinationGroup==5&&warp.DestinationRoom==0xc3)
+                    entrance=position;
+            }
+            FailIf(entrance==Vector2.Zero,"Room $1:28 lacks its imported cave entrance to $5:c3.");
+            Vector2 approach=entrance+Vector2.Down*20;
+            FailIf(room.GetTerrainInfo(approach).Collision!=0,$"Goron cave approach {approach} is not floor.");
+            _player.WarpTo(approach);
+            for(int i=0;i<40&&!IsTransitioning;i++)
+                StepGameplayUpdates(1,Vector2.Up,["move_up"],["move_up"]);
+            FailIf(!IsTransitioning,"Walking into the Goron cave failed to begin the $1:28 -> $5:c3 warp.");
+            for(int i=0;i<150&&_rooms.ActiveGroup!=5;i++) StepGameplayUpdates(1,Vector2.Zero);
+            FailIf(_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xc3||!IsTransitioning,
+                "Goron cave regression missed the destination-entry transition.");
+            var cave=_roomEvents.Get<GoronCaveEvent>();
+            string Snapshot()=>string.Join(";",cave.Actors.Where(a=>a.Actor.Active).Select(a=>
+                $"{a.Actor.Record.Id:x2}:{a.Actor.Record.SubId:x2}:{a.Actor.Record.Var03:x2}:{a.Actor.Position}:{a.Actor.CurrentScriptAnimationSource}:{a.Actor.CurrentAnimationFrame}:{a.CommandIndex}:{a.Counter}:{a.MovementCounter}"));
+            var active=cave.Actors.Where(a=>a.Actor.Active).ToArray();
+            // goron_subid05Script_A/B and subid04/06 delete opposite D5
+            // populations on their initial dispatch. The distant $05 actors
+            // select goron_beginNappingLoop animation $04 before appearing.
+            FailIf(active.Length!=(progress==0?4:progress==1?5:2)||
+                active.Any(a=>a.Actor.Record.Id==0x66&&
+                    (progress==2?a.Actor.Record is not {SubId:5,Var03:3 or 4}:a.Actor.Record is {SubId:5,Var03:3 or 4})),
+                $"Room $5:c3 exposed the wrong Goron population during entry, progress {progress}.");
+            FailIf(active.Where(a=>a.Actor.Record is {Id:0x66,SubId:5}).Any(a=>
+                a.Actor.CurrentScriptAnimationSource!=cave.Database.Animation(0x66,4)),
+                "Room $5:c3 exposed standing sprites before the initial Goron nap animation $04.");
+            string frozen=Snapshot();
+            StepGameplayUpdates(4,Vector2.Zero,batched:batched);
+            FailIf(Snapshot()!=frozen,"Goron scripts or poses advanced during the cave entry transition.");
+            for(int i=0;i<150&&IsTransitioning;i++)
+            {
+                FailIf(Snapshot()!=frozen,"Goron scripts advanced before the cave entrance walk completed.");
+                StepGameplayUpdates(1,Vector2.Zero);
+            }
+            FailIf(IsTransitioning,"Goron cave entrance walk did not finish.");
+            StepGameplayUpdates(4,Vector2.Zero,batched:batched);
+            observations.Add(Snapshot());
+        }
+        return string.Join("\n",observations);
+    }
+
     private void ValidateRoom5c3GoronBoundaries()
     {
         LoadValidationRoom(5,0xc3);

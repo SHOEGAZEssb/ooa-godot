@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 19, 2026. It is an implementation inventory, not a
+interactions as of September 20, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -51,7 +51,7 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 197 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, the Elder rescue, and the defeated Moblin sequence. |
+| **I** | 197 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, the Elder rescue and cave-entry presentation, and the defeated Moblin sequence. |
 | **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary; adult Maku ordinary advice is included, while her endgame cutscene remains incomplete. |
 | **D** | 139 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
@@ -80,7 +80,7 @@ classified records and 164 specialized rows.
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
 
-The September 19, 2026 Goron snapshot includes both dance-hall source aliases.
+The September 20, 2026 Goron snapshot retains the same counts and includes both dance-hall source aliases.
 `ValidateGoronVillagers`, `ValidateGoronTrades`, and `ValidateGoronHints` cover
 resident gates, exchanges, and linked secrets. `ValidateGoronDance`,
 `ValidateGoronGallery`, `ValidateGoronBigBang`, and `ValidateGoronTargetCarts`
@@ -89,6 +89,8 @@ handoffs. Gallery reward thresholds use score-handoff fixtures; target-cart
 hit checks inject real seed projectiles. These are not exhaustive retail
 playthrough comparisons. The dynamic tunnel announcement and fifth-Essence
 Maku handoff are covered by `ValidateGoronTunnel`, outside positioned NPC totals.
+`ValidateRoom5c3GoronEntry` covers initial suppression and napping poses during
+the bottom cave entrance, repeat entry, rescue/D5 gates, and host batching.
 
 ## Bipin and Blossom family variants
 
@@ -296,7 +298,7 @@ well as record selection.
 | `5:bd` | [I] `$66:$0e/v$01` goron |
 | `5:c0` | [I] `$66:$0c/v$00` goron |
 | `5:c2` | [I] `$66:$0d/v$02` goron |
-| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries` (September 19, 2026) |
+| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries`; initial suppression and napping during bottom entry covered by `ValidateRoom5c3GoronEntry` (September 20, 2026) |
 | `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
 | `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
@@ -310,7 +312,7 @@ well as record selection.
 | `5:d3` | [D] `$40:$0d/v$0c` soldier<br>[D] `$40:$0d/v$0d` soldier |
 | `5:d4` | [D] `$40:$0d/v$07` soldier |
 | `5:d5` | [D] `$40:$0d/v$0f` soldier |
-| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
+| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron; return-scroll crystal restoration covered by `ValidateGoronTargetCarts` (September 20, 2026) |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |
 | `5:de` | [I] `$8b:$01/v$00` goronElder<br>[I] `$66:$05/v$05` goron |

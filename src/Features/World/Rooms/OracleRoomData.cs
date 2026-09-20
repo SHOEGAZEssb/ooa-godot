@@ -893,6 +893,37 @@ public sealed class OracleRoomData
         Redraw(animationTick);
     }
 
+    /// <summary>drawRectangleToVramTiles writes tile/attribute pairs, including partial metatiles.</summary>
+    internal void SetBackgroundMappingRectangle(
+        Vector2I topLeft, int width, IReadOnlyList<byte> pairs, long animationTick)
+    {
+        if (width <= 0 || pairs.Count == 0 || pairs.Count % (width * 2) != 0)
+            throw new ArgumentException("Invalid tile/attribute rectangle.", nameof(pairs));
+        int height = pairs.Count / (width * 2);
+        if (topLeft.X < 0 || topLeft.Y < 0 || topLeft.X % 8 != 0 || topLeft.Y % 8 != 0 ||
+            topLeft.X + width * 8 > WidthInTiles * 16 || topLeft.Y + height * 8 > HeightInTiles * 16)
+            throw new ArgumentOutOfRangeException(nameof(topLeft));
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int subtileX = topLeft.X / 8 + x;
+            int subtileY = topLeft.Y / 8 + y;
+            int index = subtileY / 2 * _layoutStride + subtileX / 2;
+            int quarter = (subtileY & 1) * 2 + (subtileX & 1);
+            if (!_positionMappingOverrides.TryGetValue(index, out byte[]? mapping))
+            {
+                int offset = Layout[index] * 8;
+                mapping = _mappings[offset..(offset + 8)];
+                _positionMappingOverrides[index] = mapping;
+            }
+            int source = (y * width + x) * 2;
+            mapping[quarter] = pairs[source];
+            mapping[quarter + 4] = pairs[source + 1];
+            _positionVisualOverrides.Remove(index);
+        }
+        Redraw(animationTick);
+    }
+
     internal void SetDynamicBackgroundTiles(
         IReadOnlyDictionary<int, DynamicBackgroundTile> tiles,
         long animationTick)

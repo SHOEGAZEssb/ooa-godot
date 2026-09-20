@@ -175,4 +175,3 @@ internal sealed record KingMoblinEnvironment(KingMoblinDatabase Data, OracleRoom
 internal sealed record KingMoblinMinionSpawn(KingMoblinBoss Boss,int SubId) : RoomEntitySpawn;
 internal sealed record KingMoblinBombSpawn(KingMoblinBoss Boss,KingMoblinMinion? Minion) : RoomEntitySpawn;
 internal sealed record KingMoblinExplosionSpawn(Vector2 Position) : RoomEntitySpawn;
-internal sealed record KingMoblinExclamationSpawn(Vector2 Position) : RoomEntitySpawn;

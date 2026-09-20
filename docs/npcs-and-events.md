@@ -30,6 +30,11 @@ Complexity is not the decision. A moving villager may remain an ordinary room
 entity; a short sequence that owns input, room changes, or persistent story
 state may require a room event.
 
+Room events that write the original `$81` object-disable mask expose their
+non-interaction freeze through `IRoomEvent`. The application supplies that
+live state to the entity manager, so enemies and items pause while ordinary
+interactions, including key sprites and opening effects, continue updating.
+
 ## Evidence packet
 
 Before implementing an interaction, record:
@@ -136,6 +141,11 @@ Ordinary destination events remain frozen during scrolling. Clear runners,
 release input, detach registrations, and remove transient actors on cancellation
 or room invalidation. Persistent completion is derived from authoritative save
 or room flags, never an event-local boolean.
+
+Event-owned Goron actors resolve their native state-zero script before scroll
+presentation and during warp entry. That initialization selects visibility and
+pose and may create later-slot actors; it runs once per actor. Transition
+dispatch must not advance already initialized scripts or animations.
 
 Shared minigame scratch bytes retain their original WRAM lifetime across room
 loads. Clear them only at the imported reset interaction, and keep inventory

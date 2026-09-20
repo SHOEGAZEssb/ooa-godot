@@ -1782,10 +1782,9 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
             _entities.Entities<ArmosCharacter>().Count != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1,
-            "Room 4:5e's one-shot button did not latch trigger bit 0 before " +
-            "the earlier $21:$0c event observed it.");
+            "Room 4:5e's one-shot button must publish trigger bit 0 in the " +
+            "part pass before $21:$0c allocates the enemy spawner.");
 
-        Step();
         Step(2);
         List<ArmosCharacter> armos = _entities.Entities<ArmosCharacter>();
         Vector2[] expectedHiddenPositions =

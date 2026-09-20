@@ -2035,6 +2035,29 @@ if (-not $caveBridgeMatch.Success -or $bridgeSpawnerSource -notmatch
 }
 $caveBridgeCount = [Convert]::ToInt32($caveBridgeMatch.Groups['count'].Value, 16)
 $caveBridgePosition = [Convert]::ToInt32($caveBridgeMatch.Groups['position'].Value, 16)
+$ridgeBridgeMatch = [regex]::Match($caveBridgeSource,
+    '(?ms)^interactiondc_subid0C:\s+interactiondc_subid0D:\s+call checkInteractionState\s+jr z,@state0\s+@state1:\s+ld a,\(wActiveTriggers\)\s+or a\s+ret z.*?sub \$0c\s+ld bc,\$(?<pastCount>[0-9a-f]{2})(?<pastAngle>[0-9a-f]{2})\s+ld e,\$(?<pastPosition>[0-9a-f]{2})\s+jr z,\+\+\s+ld bc,\$(?<presentCount>[0-9a-f]{2})(?<presentAngle>[0-9a-f]{2})\s+ld e,\$(?<presentPosition>[0-9a-f]{2})\s+\+\+\s+call getFreePartSlot\s+ret nz\s+ld \(hl\),PART_BRIDGE_SPAWNER\s+ld l,Part.counter2\s+ld \(hl\),b\s+ld l,Part.angle\s+ld \(hl\),c\s+ld l,Part.yh\s+ld \(hl\),e\s+call getThisRoomFlags\s+set 7,\(hl\)\s+ld a,SND_SOLVEPUZZLE\s+call playSound\s+jp interactionDelete\s+@state0:\s+call getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete\s+jp interactionIncState')
+if (-not $ridgeBridgeMatch.Success -or
+    $bridgeSpawnerSource -notmatch '(?s)@tileValues:\s+\.db TILEINDEX_VERTICAL_BRIDGE_DOWN,\s+TILEINDEX_VERTICAL_BRIDGE\s+\.db TILEINDEX_HORIZONTAL_BRIDGE_LEFT,\s+TILEINDEX_HORIZONTAL_BRIDGE\s+\.db TILEINDEX_VERTICAL_BRIDGE_UP,\s+TILEINDEX_VERTICAL_BRIDGE\s+\.db TILEINDEX_HORIZONTAL_BRIDGE_RIGHT,\s+TILEINDEX_HORIZONTAL_BRIDGE') {
+    throw 'miscellaneous2.s:$dc:$0c/$0d or bridgeSpawner.s directional table changed.'
+}
+$ridgeBridgeVariants = @{}
+foreach ($variant in @(@('0c', 'past'), @('0d', 'present'))) {
+    $ridgeBridgeVariants[$variant[0]] = @{
+        Position=$ridgeBridgeMatch.Groups[$variant[1]+'Position'].Value
+        Count=$ridgeBridgeMatch.Groups[$variant[1]+'Count'].Value
+        Angle=[Convert]::ToInt32($ridgeBridgeMatch.Groups[$variant[1]+'Angle'].Value,16)
+    }
+}
+$bridgeTileNames = @('VERTICAL_BRIDGE_DOWN', 'VERTICAL_BRIDGE', 'HORIZONTAL_BRIDGE_LEFT', 'HORIZONTAL_BRIDGE',
+    'VERTICAL_BRIDGE_UP', 'VERTICAL_BRIDGE', 'HORIZONTAL_BRIDGE_RIGHT', 'HORIZONTAL_BRIDGE')
+$bridgeDirectionalConstants = @()
+for ($i=0; $i -lt $bridgeTileNames.Count; $i++) {
+    if ($tileIndexSource -notmatch ('(?m)^\.define TILEINDEX_' + $bridgeTileNames[$i] + '\s+\$(?<tile>[0-9a-f]{2})\b')) {
+        throw "Missing bridge tile constant TILEINDEX_$($bridgeTileNames[$i])."
+    }
+    $bridgeDirectionalConstants += "bridge-spawner-tile-$i`t$([Convert]::ToInt32($Matches.tile,16))"
+}
 $rotatableSeedThingSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\rotatableSeedThing.s')
 $respawnableBushSource = Read-ImportText (
@@ -2216,6 +2239,11 @@ foreach ($line in $mainObjectLines) {
             }
             if ($id -eq 0x23) { $extendableBridgeCount++ }
         }
+    } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$(?<subid>0c|0d)\s*$') {
+        $subid = $Matches.subid
+        $variant = $ridgeBridgeVariants[$subid]
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tdc`t$subid`t$($variant.Position)`t$($variant.Count)`tnone`t1")
     } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$12\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tdc`t12`t$($caveBridgePosition.ToString('x2'))`t$($caveBridgeCount.ToString('x2'))`tnone`t1")
@@ -2245,7 +2273,9 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 230 -or
+if ($dungeonMechanicRows.Count -ne 232 -or
+    -not ($dungeonMechanicRows -contains "5`tc2`t0`tdc`t0c`t56`t08`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "5`te3`t0`tdc`t0d`t28`t06`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "0`t54`t0`t6b`t0f`t68`t01`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "2`t9e`t0`tdc`t12`t13`t0c`tnone`t1") -or
     $sourceEnemyFallingKeyCount -ne 4 -or
@@ -2296,7 +2326,7 @@ if ($dungeonMechanicRows.Count -ne 230 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 229 reusable mechanics including room 0:54's Nuun bridge controller; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 231 reusable mechanics including Rolling Ridge's two bridge controllers; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2493,6 +2523,13 @@ $dungeonMechanicConstantRows = @(
     "bridge-spawner-wait`t8"
     "bridge-spawner-half-tile`t110"
     "bridge-spawner-full-tile`t109"
+    $bridgeDirectionalConstants
+    "bridge-spawner-step-0`t240"
+    "bridge-spawner-step-1`t1"
+    "bridge-spawner-step-2`t16"
+    "bridge-spawner-step-3`t255"
+    "ridge-bridge-angle-0c`t$($ridgeBridgeVariants['0c'].Angle)"
+    "ridge-bridge-angle-0d`t$($ridgeBridgeVariants['0d'].Angle)"
     "overworld-switch-on`t158"
     "pushable-block`t29"
     "push-delay`t30"

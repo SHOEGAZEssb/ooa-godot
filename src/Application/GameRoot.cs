@@ -767,6 +767,7 @@ public partial class GameRoot : Node2D
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
+        _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
         _combat = new CombatController(
             _scene.WorldRoot, _rooms, _roomView, _entities,
             new BreakableTileDatabase(), _saveData, _sound,

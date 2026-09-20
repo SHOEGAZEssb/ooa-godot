@@ -48,6 +48,14 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
         UpdateLink();
         UpdateSlots(false);
     }
+    internal void InitializeDuringTransition()
+    {
+        // State-zero interactions remain eligible while ordinary updates are
+        // frozen. Visit native slots so later-slot children initialize once in
+        // this pass too; no initialized script or animation advances here.
+        for(int slot=2;slot<16;slot++)
+            _actors.FirstOrDefault(actor=>actor.Slot==slot&&actor.Actor.Active)?.Initialize();
+    }
     public void UpdateDuringDialogueFrame() => UpdateSlots(true);
     private void UpdateSlots(bool dialogue)
     {

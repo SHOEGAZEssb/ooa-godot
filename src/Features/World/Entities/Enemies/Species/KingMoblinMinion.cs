@@ -56,7 +56,7 @@ internal sealed partial class KingMoblinMinion : EnemyCharacter
                 if(--_counter==0)
                 {
                     State=9; _speedZ=-0x140;
-                    if(Boss.World.InteractionSlot()) spawns.Add(new KingMoblinExclamationSpawn(Position+new Vector2(SubId==0?-12:12,-8)));
+                    if(Boss.World.InteractionSlot()) spawns.Add(new ExclamationMarkSpawn(Position+new Vector2(SubId==0?-12:12,-8)));
                 }
                 break;
             case 9:

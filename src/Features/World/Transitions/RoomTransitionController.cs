@@ -39,6 +39,7 @@ public sealed class RoomTransitionController
 
     private readonly RoomSession _rooms;
     private readonly WarpDatabase _warps;
+    private readonly CollapsingFloorDatabase _collapsingFloors = new();
     private readonly RoomView _roomView;
     private readonly RoomLoadColumnRevealOverlay _roomLoadReveal;
     private readonly Player _player;
@@ -779,6 +780,15 @@ public sealed class RoomTransitionController
         {
             throw new InvalidOperationException(
                 "A dungeon warphole descent cannot start during another transition.");
+        }
+        // LINK_STATE_RESPAWNING checks the Moblin Keep room before the
+        // ordinary dungeon descent. warpToMoblinKeepUnderground writes the
+        // imported hardcoded destination, with direct transition2=$03.
+        if (_collapsingFloors.TryGetHoleWarp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id,
+                packedPosition, out Warp keepWarp))
+        {
+            BeginWarp(player, keepWarp, delayedFadeOut: false);
+            return;
         }
         int dungeon = _rooms.CurrentDungeonIndex;
         if (dungeon < 0)

@@ -67,6 +67,12 @@ owns the imported pull/rest animation gate and Link's held-item collision
 mask. The lever applies movement through Link's wall resolver, then publishes
 its high-byte distance for later interactions in the same update.
 
+Floor buttons publish trigger bits in the part pass, before interaction
+controllers consume them. A bridge part allocated by an interaction starts
+on the next update. Its controller persists completion only after allocation
+succeeds; room re-entry restores the full bridge even if construction was
+interrupted.
+
 Top-down moving-platform scripts are keyed by dungeon and script index; the
 same raw subid can select a different route in another dungeon. Their shared
 rider is cleared after Link consumes the previous update's support, then the

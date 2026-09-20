@@ -89,7 +89,31 @@ public sealed partial class ValidationRoot
         FailIf(!_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Select(c=>c.Node.Position).SequenceEqual(sourcePositions),
             "Target-cart configuration zero differs from its independent source positions.");
         StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"]);
-        for(int i=0;i<2600&&!_dialogue.IsOpen;i++) StepGameplayUpdates(1,Vector2.Zero);
+        // targetCartCrystal.s configuration0, subids $05-$0b. Check the
+        // actual mounted scroll before gameplay can repair a zero-position spawn.
+        Vector2[] secondRoomPositions=[new(0x38,0x58),new(0x98,0x28),new(0xd8,0x28),
+            new(0xd8,0x58),new(0xd8,0x98),new(0x90,0x98),new(0x58,0x98)];
+        int scrollChecks=0, returnScrollChecks=0;
+        for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
+        {
+            StepGameplayUpdates(1,Vector2.Zero);
+            if(!IsTransitioning) continue;
+            var crystals=_entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray();
+            if(_rooms.CurrentRoom.Id==0xd8)
+            {
+                FailIf(crystals.Length!=5||crystals.Any(c=>!c.Node.Visible||c.Node.Position!=sourcePositions[c.SubId]),
+                    "Goron $66:$09 must restore the five unhit ENEMY $63 crystals during the return-scroll initialization.");
+                returnScrollChecks++;
+                continue;
+            }
+            if(_rooms.CurrentRoom.Id!=0xd9) continue;
+            FailIf(crystals.Length!=7||crystals.Any(c=>!c.Node.Visible||
+                c.Node.Position!=secondRoomPositions[c.SubId-5]),
+                "ENEMY $63 in $5:d9 must load configuration positions during scroll preload and remain frozen throughout scrolling.");
+            scrollChecks++;
+        }
+        FailIf(scrollChecks<2,"Target-cart regression did not observe the $5:d8 -> $5:d9 scroll.");
+        FailIf(returnScrollChecks<2,"Target-cart regression did not observe the $5:d9 -> $5:d8 return scroll.");
         // The source route crosses $5:d9 and returns before the right-hand script scores it.
         FailIf(!_dialogue.IsOpen||_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xd8,
             $"Target-cart ride did not return to its scoring attendant: {_rooms.ActiveGroup}:{_rooms.CurrentRoom.Id:x2}, Link {_player.Position}.");
@@ -134,6 +158,56 @@ public sealed partial class ValidationRoot
         FailIf(_saveData.HasRoomFlag(5,0xd8,0x80)||_inventory.ScentSeeds!=seeds||
             _inventory.EquippedA!=a||_inventory.EquippedB!=b,
             "Cancelling outside the target-cart course leaked its temporary inventory or active flag.");
+        ValidateTargetCartCrystalPreload();
+    }
+    private void ValidateTargetCartCrystalPreload()
+    {
+        // Independent targetCartCrystal.s configuration1/2 and behaviourTable.
+        Vector2[][] positions=[
+            [new(0x48,0x18),new(0x68,0x58),new(0x88,0x18),new(0xd8,0x18),new(0xd8,0x58),new(0xd8,0x98),new(0x78,0x98)],
+            [new(0x68,0x28),new(0x68,0x58),new(0xb8,0x18),new(0xd8,0x40),new(0xd8,0x80),new(0x90,0x98),new(0x50,0x98)]];
+        int[][] behaviour=[[0,0,0,0,1,0,2],[0,0,2,1,1,2,2]];
+        foreach(bool batched in new[]{false,true})
+        for(int configuration=1;configuration<=2;configuration++)
+        {
+            LoadValidationRoom(5,0xd9);
+            _entities.RuntimeState.SetWramByte(0xcfd4,(byte)configuration);
+            var room=_rooms.CurrentRoom;
+            _entities.BeginScreenTransition(5,room,Vector2.Up*room.Height);
+            FailIf(_entities.TrySpawnDebugEnemy(0x63,0,new Vector2(8,8),out _),
+                "Debug spawning must remain disabled during scrolling even though native state-zero spawns are eligible.");
+            var crystals=_entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray();
+            FailIf(crystals.Length!=7,"Room $5:d9 did not preload seven ENEMY $63 crystals.");
+            void CheckPositions(int updates)
+            {
+                foreach(var crystal in crystals)
+                {
+                    int index=crystal.SubId-5;
+                    Vector2 direction=behaviour[configuration-1][index] switch
+                    { 1=>Vector2.Up,2=>Vector2.Left,_=>Vector2.Zero };
+                    // SPEED_80: 31 half-pixel steps, reversal on update $20.
+                    float distance=updates==32?15:updates*0.5f;
+                    Vector2 expected=positions[configuration-1][index]+direction*distance;
+                    FailIf(!crystal.Node.Visible||crystal.Node.Position!=expected,
+                        $"ENEMY $63:${crystal.SubId:x2} configuration {configuration}, update {updates}, batched={batched}: expected {expected}, got {crystal.Node.Position}.");
+                }
+            }
+            CheckPositions(0);
+            if(batched) _entities.Update(40.0/60,_player);
+            else for(int i=0;i<40;i++) _entities.Update(1.0/60,_player);
+            CheckPositions(0);
+            FailIf(crystals.Any(c=>((NpcCharacter)c.Node).TransitionDrawOffset!=Vector2.Up*room.Height),
+                "ENEMY $63 preload lost its room-relative transition draw offset.");
+            _entities.FinishScreenTransition();
+            CheckPositions(0);
+            FailIf(crystals.Any(c=>((NpcCharacter)c.Node).TransitionDrawOffset!=Vector2.Zero),
+                "ENEMY $63 retained a draw offset after scrolling.");
+            if(batched) _entities.Update(31.0/60,_player);
+            else for(int i=0;i<31;i++) _entities.Update(1.0/60,_player);
+            CheckPositions(31);
+            _entities.Update(1.0/60,_player);
+            CheckPositions(32);
+        }
     }
     private void ValidateGoronTunnel()
     {

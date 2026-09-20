@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Globalization;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -47,9 +48,11 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         _owner = owner; Actor = actor; _runner = new(this);
         Slot = Context.Entities.InteractionSlot(actor);
         _position = actor.Position;
+        Context.Entities.EntityAdapters<GoronCaveRoomEntity>().Single(entity=>entity.Npc==actor).Host=this;
     }
     internal void Initialize()
     {
+        if(_initialized || !Actor.Active) return;
         _initialized = true;
         Actor.SetAnimationRate(0);
         if(Actor.Record is {Id:0x66,SubId:0x0b}) BigBang=new(this);

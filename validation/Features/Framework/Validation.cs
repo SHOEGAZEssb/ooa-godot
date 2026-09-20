@@ -352,6 +352,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom2f5OldZora);
         RunIsolatedValidation(ValidateRoom5c3Gorons);
         RunIsolatedValidation(ValidateRoom5c3GoronBoundaries);
+        RunIsolatedValidation(ValidateRoom5c3GoronEntry);
         RunIsolatedValidation(ValidateGoronVillagers);
         RunIsolatedValidation(ValidateGoronTrades);
         RunIsolatedValidation(ValidateGoronDance);
@@ -451,6 +452,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePushBlocks);
         RunIsolatedValidation(ValidateDungeonMechanics);
         RunIsolatedValidation(ValidateRoom29eOrbBridge);
+        RunIsolatedValidation(ValidateRollingRidgeButtonBridges);
+        RunIsolatedValidation(ValidateMoblinKeepCollapsingFloor);
         RunIsolatedValidation(ValidateRoom054SeedCliffsAndBridge);
         RunIsolatedValidation(ValidateRoom449EchoingHowl);
         RunIsolatedValidation(ValidateRoom44aShadowHagBoss);
@@ -532,6 +535,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom5bfInteractions);
         RunIsolatedValidation(ValidateSpiritsGraveEntranceInteractions);
         RunIsolatedValidation(ValidateOverworldKeyholeAndGraveyardGate);
+        RunIsolatedValidation(ValidateCrownDungeonEntrance);
         RunIsolatedValidation(ValidateDarkRoomInteractions);
         RunIsolatedValidation(ValidateDungeonKeyDoors);
         RunIsolatedValidation(ValidateSpiritsGrave);

@@ -92,6 +92,65 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\graveyard_gate_commands.tsv'),
     $graveyardCommandRows)
 
+# Crown Dungeon's $90:$11 script falls through into the shared key-door tail.
+$crownNativeSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/miscPuzzles.s')
+$crownGfxPath = Join-Path $Disassembly 'code/ages/roomGfxChanges.s'
+$crownGfxSource = Read-ImportText $crownGfxPath
+if ($graveyardObjectSource -notmatch '(?ms)^group0Map0aObjectData:\s+obj_Interaction \$90 \$11 \$18 \$78' -or
+    $crownNativeSource -notmatch '(?ms)^miscPuzzles_subid11:.*?checkInteractionState.*?jp nz,interactionRunScript.*?returnIfScrollMode01Unset.*?getThisRoomFlags.*?and ROOMFLAG_80.*?jp nz,interactionDelete.*?reloadTileMap.*?mainScripts.miscPuzzles_crownDungeonOpeningScript.*?interactionSetAlwaysUpdateBit.*?interactionIncState' -or
+    $crownGfxSource -notmatch '(?ms)^roomTileChangesAfterLoad07:.*?getThisRoomFlags\s+and \$80\s+ret nz' -or
+    $graveyardHelperSource -notmatch '(?ms)^miscPuzzles_drawCrownDungeonOpeningFrame1:\s+ld c,\$00.*?^miscPuzzles_drawCrownDungeonOpeningFrame2:\s+ld c,\$01.*?^miscPuzzles_drawCrownDungeonOpeningFrame3:\s+ld c,\$02.*?drawCrownDungeonOpeningTiles.*?reloadTileMap.*?ld a,\$0f.*?setScreenShakeCounter.*?SND_DOORCLOSE.*?ld bc,\$2060.*?ld bc,\$2070.*?ld bc,\$2080.*?ld bc,\$2090.*?INTERAC_PUFF.*?ld \(hl\),\$81') {
+    throw 'Crown Dungeon $0:$0a / $90:$11 placement, gate, drawing or puff contract changed.'
+}
+$crownOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('checkcfc0bit','setmusic','wait','asm15','settilehere','resetmusic','playsound','enableinput','scriptend')) {
+    [void]$crownOpcodes.Add($opcode)
+}
+$crownCommands = @(Read-AssemblyCutsceneCommands $graveyardScriptPath 'miscPuzzles_crownDungeonOpeningScript' $crownOpcodes 'miscPuzzles_mermaidsCaveDungeonOpeningScript')
+$crownExpected = @(
+    @('checkcfc0bit','0'), @('setmusic','SNDCTRL_STOPMUSIC'), @('wait','60'),
+    @('asm15','scriptHelp.miscPuzzles_drawCrownDungeonOpeningFrame1'), @('wait','30'),
+    @('asm15','scriptHelp.miscPuzzles_drawCrownDungeonOpeningFrame2'), @('wait','30'),
+    @('asm15','scriptHelp.miscPuzzles_drawCrownDungeonOpeningFrame3'), @('wait','30'),
+    @('settilehere','TILEINDEX_DUNGEON_DOOR_1'), @('wait','45'), @('resetmusic',''),
+    @('playsound','SND_SOLVEPUZZLE'), @('enableinput',''), @('scriptend',''))
+$crownSpecs = @(
+    @('setmusic','f0',''), @('wait','60',''), @('native','','Frame1'), @('wait','30',''),
+    @('native','','Frame2'), @('wait','30',''), @('native','','Frame3'), @('wait','30',''),
+    @('native','','OpenDoor'), @('wait','45',''), @('setmusic','ff',''),
+    @('playsound','4d',''), @('enableinput','',''), @('scriptend','',''))
+if ($crownCommands.Count -ne $crownExpected.Count) { throw 'Crown Dungeon opening script command count changed.' }
+$crownRows = [Collections.Generic.List[string]]::new()
+$crownRows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($i = 0; $i -lt $crownCommands.Count; $i++) {
+    $command = $crownCommands[$i]
+    if ($command.Opcode -ne $crownExpected[$i][0] -or ([string]$command.Operands).Trim() -ne $crownExpected[$i][1]) {
+        throw "miscPuzzles_crownDungeonOpeningScript command $i changed."
+    }
+    if ($i -eq 0) { continue } # The keyhole owner supplies cfc0 bit 0.
+    $spec = $crownSpecs[$i - 1]
+    $crownRows.Add((New-CutsceneCommandRow 'miscPuzzles_crownDungeonOpeningScript' ($i - 1) $command.Label $command.Line $spec[0] '' $spec[1] '' $spec[2]))
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/crown_dungeon_commands.tsv'), $crownRows)
+$crownFrameRows = [Collections.Generic.List[string]]::new()
+$crownFrameRows.Add("# phase`tx`ty`twidth`theight`ttiles-and-attributes`tsource")
+# readParametersForRectangleDrawing loads height into B and width into C;
+# the draw loop decrements C per column and B per row (the source prose swaps them).
+foreach ($spec in @(@(0,'@rectToDraw',0x0c,4,6), @(1,'@tiles0',0x6c,1,6), @(2,'@tiles1',0x2c,3,6), @(3,'@tiles2',0x0c,4,6))) {
+    $rows = @(Read-AssemblyDataDirectives $crownGfxPath $spec[1] '.db')
+    $bytes = @($rows | ForEach-Object { $_.Operands | ForEach-Object { Convert-AssemblyInteger $_ } })
+    $pointer = @(Read-AssemblyDataDirectives $crownGfxPath $spec[1] '.dw')
+    if ($pointer.Count -ne 1 -or $pointer[0].OperandText -ne ('w3VramTiles+$' + $spec[2].ToString('x2')) -or
+        $bytes[0] -ne $spec[3] -or $bytes[1] -ne $spec[4] -or $bytes.Count -ne 2 + 2 * $spec[3] * $spec[4]) {
+        throw "roomGfxChanges.s:$($spec[1]) Crown Dungeon rectangle changed."
+    }
+    $encoded = ($bytes[2..($bytes.Count - 1)] | ForEach-Object { $_.ToString('x2') }) -join ','
+    $x = ($spec[2] % 32) * 8
+    $y = [int][Math]::Floor($spec[2] / 32) * 8
+    $crownFrameRows.Add("$($spec[0])`t$x`t$y`t$($spec[4])`t$($spec[3])`t$encoded`troomGfxChanges.s:$($spec[1])")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/crown_dungeon_frames.tsv'), $crownFrameRows)
+
 # Present room 0:83's $dc:$02 watches the unique $c3 Bracelet rock. Once
 # Link reaches grab state $83, it runs the native Wing Dungeon collapse,
 # including the 6x6 BG maps and the persistent 3x3 layout/collision rewrite.
