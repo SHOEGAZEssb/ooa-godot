@@ -11,20 +11,25 @@ namespace oracleofages;
 /// then deletes itself.
 /// </summary>
 internal sealed partial class LightableTorchScannerRoomEntity :
-    DungeonMechanicRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    DungeonMechanicRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
     private readonly LightableTorchState _state;
     private readonly DarkRoomDatabase _data;
+    private readonly Func<LightableTorchState,int,bool> _createTorch;
 
     public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => !Finished;
+    public bool UpdatesDuringRoomEntityFreeze => !Finished;
 
     internal LightableTorchScannerRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
         LightableTorchState state,
-        DarkRoomDatabase data)
+        DarkRoomDatabase data,
+        Func<LightableTorchState,int,bool> createTorch)
         : base(record, $"LightableTorchScanner_{record.Order}")
     {
         if (record is not
@@ -36,11 +41,21 @@ internal sealed partial class LightableTorchScannerRoomEntity :
         _room = room;
         _state = state;
         _data = data;
+        _createTorch = createTorch;
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Scan();
+        Visible = false;
+        return ScreenTransitionPresentation.Hidden;
     }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns) => Scan();
+
+    private void Scan()
     {
         if (Finished)
             return;
@@ -58,7 +73,8 @@ internal sealed partial class LightableTorchScannerRoomEntity :
             if (_room.Layout[index] != _data.UnlitTile)
                 continue;
             int packedPosition = (index / 16 << 4) | index % 16;
-            spawns.Add(new LightableTorchSpawn(_state, packedPosition));
+            // interactionCodec7 continues the scan even when getFreePartSlot fails.
+            _ = _createTorch(_state, packedPosition);
             count++;
         }
         _state.SetTotalTorches(count);

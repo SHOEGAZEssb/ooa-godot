@@ -1,3 +1,40 @@
+# INTERAC_SMOG_BOSS $33 consumes relative tile lists and one ordered spawn
+# stream. Keep the terminators: state6 spends a separate five-update interval
+# reading the end marker before state7's spawn delay.
+$smogControllerRelative = 'object_code/ages/interactions/smogBoss.s'
+$smogControllerPath = Join-Path $Disassembly $smogControllerRelative
+$smogTilePointers = @(Read-AssemblyLabelNodes $smogControllerPath '@tileReplacementTable' | Where-Object {
+    $_.Kind -eq 'MacroInvocation' -and $_.Name -ieq 'dbrel'
+})
+if ($smogTilePointers.Count -ne 4) { throw 'INTERAC_SMOG_BOSS $33 requires four relative phase tile lists.' }
+$smogControllerRows = [Collections.Generic.List[string]]::new()
+$smogControllerRows.Add("# profile`tindex`tvalue`tsource")
+$smogControllerSpecs = [Collections.Generic.List[object]]::new()
+for ($phase = 0; $phase -lt 4; $phase++) {
+    if ($smogTilePointers[$phase].Operands.Count -ne 1) { throw "Smog phase $phase has an invalid relative target." }
+    $smogControllerSpecs.Add(@("tiles-$phase", $smogTilePointers[$phase].Operands[0], 0))
+}
+$smogControllerSpecs.Add(@('counts', '@numEnemiesToSpawn', 4))
+$smogControllerSpecs.Add(@('spawns', '@smogEnemyData', 44))
+$smogControllerSpecs.Add(@('link-positions', '@linkPlacementPositions', 8))
+foreach ($spec in $smogControllerSpecs) {
+    $values = @(Read-AssemblyDataDirectives $smogControllerPath $spec[1] '.db' | ForEach-Object {
+        foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+    })
+    if ($spec[2] -eq 0) {
+        if ($values.Count -lt 3 -or $values.Count % 2 -ne 1 -or $values[-1] -ne 0) {
+            throw "${smogControllerRelative}:$($spec[1]) requires position/tile pairs and a final zero terminator."
+        }
+        for ($index = 0; $index -lt $values.Count - 1; $index += 2) {
+            if ($values[$index] -eq 0) { throw "${smogControllerRelative}:$($spec[1]) has data after an early terminator." }
+        }
+    } elseif ($values.Count -ne $spec[2]) { throw "${smogControllerRelative}:$($spec[1]) expected $($spec[2]) bytes." }
+    for ($index = 0; $index -lt $values.Count; $index++) {
+        $smogControllerRows.Add("$($spec[0])`t$index`t$($values[$index].ToString('x2'))`t${smogControllerRelative}:$($spec[1])+$($index.ToString('x2'))")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'objects/smog_controller.tsv'), $smogControllerRows)
+
 # Room 0:5c's INTERAC_MISCELLANEOUS_2 $dc:$01 waits on the signal written by
 # nextToOverworldKeyhole, then runs a compact script around two native tile
 # removal helpers. Keep the command boundaries sourced from scripts.s while

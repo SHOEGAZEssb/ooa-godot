@@ -55,7 +55,7 @@ public sealed class BombController
 
         if (!_entities.TryPickupBomb(player, out BombEffect? bomb))
         {
-            if (_inventory.Bombs == 0 ||
+            if (!_entities.DynamicItemSlotAvailable || _inventory.Bombs == 0 ||
                 _entities.ActiveBombCount >=
                     RingEffects.BombObjectLimit(_inventory))
             {

@@ -302,6 +302,7 @@ function Get-EnemyDefinition([int]$id, [int]$subid = 0, [int[]]$fallthroughAnima
         RadiusX = $extraRow.RadiusX
         Damage = $damage
         DamageQuarters = $damage
+        RawDamage = $extraRow.Damage
         Health = $extraRow.Health
         Animations = Resolve-EnemyAnimations $id $false $fallthroughAnimations
     }
@@ -365,6 +366,7 @@ function Get-EnemySpriteSourceGrayscaleInverted([string]$name) {
 }
 
 $commonEnemySprites = @{
+    0x7c = @($gfxNames[0xc5], $gfxNames[0xc6])
     0x0a = @($gfxNames[0x91])
     0x0b = @($gfxNames[0x8f])
     0x0c = @($gfxNames[0x91])
@@ -378,13 +380,18 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x7c, 0x00),
+    @(0x74, 0x00), @(0x74, 0x01),
+    @(0x4b, 0x00),
+    @(0x24, 0x00),
+    @(0x16, 0x00),
     @(0x39, 0x00),
     @(0x12, 0x00),
     @(0x0e, 0x01),
     @(0x21, 0x00), @(0x21, 0x01), @(0x2d, 0x00),
     @(0x2c, 0x00), @(0x2c, 0x01),
     @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
-    @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00),
+    @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00), @(0x0c, 0x01),
     @(0x10, 0x00), @(0x10, 0x01), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
     @(0x51, 0x02), @(0x51, 0x03),
     @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
@@ -392,6 +399,7 @@ $commonEnemySpecs = @(
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
     @(0x49, 0x01), @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x5f, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
+    @(0x3d, 0x00), @(0x3d, 0x01), @(0x48, 0x00), @(0x48, 0x01),
     @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00), @(0x63,0x00)
     # moldorm_state1 allocates three separately initialized ENEMY objects.
     @(0x4f, 0x01), @(0x4f, 0x02), @(0x4f, 0x03)
@@ -407,9 +415,24 @@ for ($textId = 0x2f1e; $textId -le 0x2f25; $textId++) {
     $cukemanTexts.Add("$($textId.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId])))`tobject_code/common/enemies/buzzblob.s:buzzblob_checkShowText")
 }
 Write-GeneratedTable((Join-Path $destination 'objects\cukeman_text.tsv'), $cukemanTexts)
+$likeLikeTexts = [Collections.Generic.List[string]]::new()
+$likeLikeTexts.Add("# text-id`ttext-base64`tsource")
+if (-not $allTexts.ContainsKey(0x510b)) { throw 'ENEMY_LIKE_LIKE $24 requires shield-loss text TX_510b.' }
+$likeLikeTexts.Add("510b`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x510b])))`tobject_code/common/enemies/likelike.s:likelike_stateB")
+Write-GeneratedTable((Join-Path $destination 'objects\like_like_text.tsv'), $likeLikeTexts)
+if (-not $allTexts.ContainsKey(0x2f26)) { throw 'Smog intro requires TX_2f26.' }
+if ($allTextFallthroughIds.ContainsKey(0x2f26)) { throw 'Smog TX_2f26 unexpectedly falls through to another text stream.' }
+$smogIntroText = $allTexts[0x2f26]
+if ($allTextPositions.ContainsKey(0x2f26)) {
+    $smogIntroText = '\pos(' + $allTextPositions[0x2f26] + ')' + $smogIntroText
+}
+Write-GeneratedTable((Join-Path $destination 'objects/smog_intro_text.tsv'), @(
+    "# text-id`ttext-base64`tsource",
+    "2f26`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($smogIntroText)))`tobject_code/ages/enemies/smog.s:@subid0Init"
+))
 $commonEnemyRows = [Collections.Generic.List[string]]::new()
 $commonEnemyRows.Add(
-    '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64'.Replace(
+    '# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64`traw-damage'.Replace(
         '`t', "`t"))
 foreach ($spec in $commonEnemySpecs) {
     $id = [int]$spec[0]
@@ -432,9 +455,15 @@ foreach ($spec in $commonEnemySpecs) {
         [Text.Encoding]::UTF8.GetBytes(
             $definition.Animations -join "`n"))
     $commonEnemyRows.Add(
-        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
+        "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 57 -or
+if ($commonEnemyRows.Count -ne 68 -or
+    ($commonEnemyRows | Where-Object {
+        $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
+    }).Count -ne 2 -or
+    -not ($commonEnemyRows | Where-Object {
+        $_ -match '^24\t00\tspr_ballandchain_likelike\t12\t3\t1\t6\t6\t2\t5\t'
+    }) -or
     -not ($commonEnemyRows | Where-Object {
         $_ -match '^0a\t00\tspr_moblin\t0\t2\t1\t6\t6\t2\t3\t'
     }) -or
@@ -1459,12 +1488,15 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '0b:01' = 'leever'
     '25:00' = 'goponga-flower'
     '0c:00' = 'arrow-moblin'
+    '0c:01' = 'arrow-moblin'
     '21:00' = 'arrow-darknut'
     '21:01' = 'arrow-darknut'
     '2d:00' = 'podoboo-tower'
     '10:00' = 'rope'
     '0e:01' = 'blade-trap'
     '12:00' = 'gibdo'
+    '24:00' = 'like-like'
+    '4b:00' = 'ball-chain-soldier'
     '39:00' = 'fire-keese'
     '10:01' = 'rope'
     '13:00' = 'spark'
@@ -1494,11 +1526,17 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '34:01' = 'zol'
     '36:00' = 'cucco'
     '38:00' = 'great-fairy'
+    '16:00' = 'beamos'
+    '50:01' = 'fireball-shooter'
     '3e:00' = 'peahat'
     '41:00' = 'crow'
     '43:00' = 'gel'
     '47:00' = 'color-changing-gel'
     '49:00' = 'sword-enemy'
+    '3d:00' = 'sword-enemy'
+    '3d:01' = 'sword-enemy'
+    '48:00' = 'sword-enemy'
+    '48:01' = 'sword-enemy'
     '49:01' = 'sword-enemy'
     '4a:00' = 'sword-enemy'
     '4a:01' = 'sword-enemy'
@@ -1517,7 +1555,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 77 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 86 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1588,9 +1626,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 617 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 674 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 204) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 147) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1671,6 +1709,31 @@ function Export-SwitchHookCollisionData {
     Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_enemy_collisions.tsv'), $rows)
 }
 Export-SwitchHookCollisionData
+function Export-SomariaCollisionData {
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`tswing-effect`tblock-effect`tsource")
+    for ($mode = 0; $mode -lt 128; $mode++) {
+        $offset = $mode * 32
+        $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x12].ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x15].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/somaria_collision_effects.tsv'), $rows)
+    foreach ($kind in @('enemy', 'part')) {
+        $relative = "data/ages/${kind}ActiveCollisions.s"
+        $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $relative) "${kind}ActiveCollisions" 'dbrev')
+        $expected = if ($kind -eq 'enemy') { 128 } else { 0x5a }
+        if ($masks.Count -ne $expected) { throw "${relative}: expected $expected ordered Somaria collision masks, got $($masks.Count)." }
+        $rows = [Collections.Generic.List[string]]::new()
+        $rows.Add("# id`tswing-enabled`tblock-enabled`tsource")
+        for ($id = 0; $id -lt $masks.Count; $id++) {
+            $bits = ($masks[$id].Operands -join '').Replace('%', '')
+            if ($bits -notmatch '^[01]{32}$') { throw "${relative}: malformed collision mask at id `$$($id.ToString('x2'))." }
+            # dbrev source characters follow collision-type order, not numeric bit significance.
+            $rows.Add("$($id.ToString('x2'))`t$($bits[0x12])`t$($bits[0x15])`t${relative}:${kind}ActiveCollisions+$((4 * $id).ToString('x4'))")
+        }
+        Write-GeneratedTable((Join-Path $destination "metadata/somaria_${kind}_collisions.tsv"), $rows)
+    }
+}
+Export-SomariaCollisionData
 $galeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')
 if ($galeCollisionCode -notmatch '(?ms)^collisionEffect29:.*?ld \(hl\),\$9e.*?Enemy.state.*?ld \(hl\),\$05.*?Enemy.counter2.*?ld \(hl\),\$1e.*?Enemy.speed.*?ld \(hl\),\$05.*?Enemy.speedZ.*?ld \(hl\),\$00.*?ld \(hl\),\$fa.*?call getRandomNumber\s+and \$18' -or
     $enemyCommonCodeSource -notmatch '(?ms)^ecom_galeSeedEffect:.*?call ecom_decCounter2.*?and \$03.*?call objectApplySpeed\s+ld c,\$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?@oscillationX:\s+\.db \$fe \$02 \$02 \$fe') {
@@ -2577,6 +2640,172 @@ if (($gopongaPartBytes -join ',') -ne '0,134,34,252,64,28,10,0' -or
 $zoraPartTables = Read-AssemblyDwTables $zoraPartPath 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
 $zoraPartPointers = Read-AssemblyDwTables $zoraPartPath 'part[0-9a-f]{2}OamDataPointers' 'partOamData[0-9a-f]+'
 $zoraPartFrames = Read-AssemblyAnimationDefinitions $zoraPartPath 'partAnimation[0-9a-f]+(?:Loop)?' $true
+# PART_BEAM $29 keeps eight held poses; it never calls partAnimate.
+$beamBytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x29]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($beamBytes -join ',') -ne '167,135,51,252,64,8,4,0') {
+    throw 'PART_BEAM $29 attributes changed.'
+}
+if ((Read-ImportText (Join-Path $Disassembly 'data\ages\partActiveCollisions.s')) -notmatch
+    '(?m)^\s*dbrev %10010000 %00000000 %00000000 %00000000 ; 0x29\s*$' -or
+    $enemyCollisionTableValues[7 * 32] -ne 0x3c -or
+    $enemyCollisionTableValues[7 * 32 + 3] -ne 0x1f) {
+    throw 'PART_BEAM $29 must expose only Link / L3 shield with effects $3c / $1f.'
+}
+$beamRows = [Collections.Generic.List[string]]::new()
+$beamRows.Add("# animation-index`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`tanimation`tsource")
+$beamLabels = $zoraPartTables['part29Animations']
+$beamOam = $zoraPartPointers['part29OamDataPointers']
+if ($beamLabels.Count -ne 8) { throw 'PART_BEAM $29 requires eight animation entries.' }
+for ($index = 0; $index -lt $beamLabels.Count; $index++) {
+    $frames = [Collections.Generic.List[string]]::new()
+    foreach ($frame in $zoraPartFrames[$beamLabels[$index]].Frames) {
+        $pointer = [int]($frame.PointerOffset / 2)
+        if ($pointer -ge $beamOam.Count) { throw 'PART_BEAM $29 OAM pointer out of range.' }
+        $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $beamOam[$pointer])")
+    }
+    if ($frames.Count -ne 1) { throw "PART_BEAM $29 animation $index no longer has one held pose." }
+    $beamRows.Add("$index`t$($gfxNames[$beamBytes[0]])`t$($beamBytes[5])`t$($beamBytes[6] -band 7)`t3`t3`t2`t$($frames[0])`tdata/ages/partAnimations.s:$($beamLabels[$index])")
+}
+Copy-EnemySprite $gfxNames[$beamBytes[0]]
+Write-GeneratedTable((Join-Path $destination 'effects\beamos_beam.tsv'), $beamRows)
+$spikedBallRows = [Collections.Generic.List[string]]::new()
+$spikedBallRows.Add("# animation-index`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`tanimation`tsource")
+$spikedBallBytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x2a]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($spikedBallBytes -join ',') -ne '153,116,102,252,64,8,2,0') { throw 'PART_SPIKED_BALL $2a properties changed.' }
+$spikedBallLabels = $zoraPartTables['part2aAnimations']
+$spikedBallOam = $zoraPartPointers['part2aOamDataPointers']
+# The shared table also serves other part IDs. $2a uses pose0 for its head
+# and pose1 for all three chain links (state0 loads A=1, not the subid).
+if ($spikedBallLabels.Count -lt 2 -or $spikedBallOam.Count -ne 2) { throw 'PART_SPIKED_BALL requires head and chain poses.' }
+for ($index = 0; $index -lt 2; $index++) {
+    $frames = @($zoraPartFrames[$spikedBallLabels[$index]].Frames)
+    if ($frames.Count -ne 1) { throw 'PART_SPIKED_BALL poses must remain single held frames.' }
+    $frame = $frames[0]
+    $pointer = [int]($frame.PointerOffset / 2)
+    if ($pointer -ge $spikedBallOam.Count) { throw 'PART_SPIKED_BALL OAM pointer out of range.' }
+    $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $spikedBallOam[$pointer])"
+    $spikedBallRows.Add("$index`t$($gfxNames[$spikedBallBytes[0]])`t$($spikedBallBytes[5])`t$($spikedBallBytes[6] -band 7)`t6`t6`t2`t$animation`tdata/ages/partAnimations.s:$($spikedBallLabels[$index])")
+}
+Copy-EnemySprite $gfxNames[$spikedBallBytes[0]]
+Write-GeneratedTable((Join-Path $destination 'effects/spiked_ball.tsv'), $spikedBallRows)
+function Export-SmogProjectileData {
+    $bytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x4a]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if (($bytes -join ',') -ne '199,134,68,254,1,0,4,0') { throw 'PART_SMOG_PROJECTILE $4a attributes changed.' }
+    $labels = $zoraPartTables['part4aAnimations']
+    $pointers = $zoraPartPointers['part4aOamDataPointers']
+    if ($labels.Count -ne 4 -or $pointers.Count -ne 10) { throw 'PART_SMOG_PROJECTILE requires four animations and ten OAM pointers.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# animation-index`tsprite`ttile-base`tpalette`tradius-y`tradius-x`traw-damage`thealth`tcollision-mode`tanimation`tsource")
+    for ($index = 0; $index -lt 4; $index++) {
+        $definition = $zoraPartFrames[$labels[$index]]
+        $frames = [Collections.Generic.List[string]]::new()
+        foreach ($frame in $definition.Frames) {
+            $pointer = [int]($frame.PointerOffset / 2)
+            if ($pointer -ge $pointers.Count) { throw "PART_SMOG_PROJECTILE animation $index OAM pointer out of range." }
+            $frames.Add("$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])")
+        }
+        $animation = $frames -join '|'
+        if ($definition.LoopStart -gt 0) { $animation += "~$($definition.LoopStart)" }
+        $rows.Add("$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6] -band 7)`t$($bytes[2] -shr 4)`t$($bytes[2] -band 15)`t$($bytes[3].ToString('x2'))`t$($bytes[4])`t$($bytes[1].ToString('x2'))`t$animation`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:partData+0250")
+    }
+    Copy-EnemySprite $gfxNames[$bytes[0]]
+    Write-GeneratedTable((Join-Path $destination 'effects/smog_projectile.tsv'), $rows)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# direction`ty`tx`tsource")
+    $offsets = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/common/parts/commonCode.s') 'partCommon_anglePositionOffsets' '.db')
+    if ($offsets.Count -ne 8) { throw 'partCommon_anglePositionOffsets requires eight rows.' }
+    for ($index = 0; $index -lt 8; $index++) {
+        if ($offsets[$index].Operands.Count -ne 2) { throw 'Malformed partCommon_anglePositionOffsets row.' }
+        $y = Convert-AssemblyInteger $offsets[$index].Operands[0]
+        $x = Convert-AssemblyInteger $offsets[$index].Operands[1]
+        $rows.Add("$index`t$($y.ToString('x2'))`t$($x.ToString('x2'))`tobject_code/common/parts/commonCode.s:partCommon_anglePositionOffsets+$((2*$index).ToString('x2'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'effects/smog_projectile_offsets.tsv'), $rows)
+    $mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[0x4a]
+    $bits = ($mask.Operands -join '').Replace('%', '')
+    if ($bits -notmatch '^[01]{32}$') { throw 'PART_SMOG_PROJECTILE $4a has a malformed active mask.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# collision`tenabled`tsmall-effect`tlarge-effect`tsource")
+    for ($collision = 0; $collision -lt 32; $collision++) {
+        $small = $enemyCollisionTableValues[6 * 32 + $collision]
+        $large = $enemyCollisionTableValues[4 * 32 + $collision]
+        $rows.Add("$($collision.ToString('x2'))`t$($bits[$collision])`t$($small.ToString('x2'))`t$($large.ToString('x2'))`tdata/ages/partActiveCollisions.s:partActiveCollisions+0128;data/ages/objectCollisionTable.s:mode06/mode04")
+    }
+    Write-GeneratedTable((Join-Path $destination 'effects/smog_projectile_collisions.tsv'), $rows)
+}
+Export-SmogProjectileData
+function Export-SmogWallData {
+    $relative = 'object_code/ages/enemies/smog.s'
+    $path = Join-Path $Disassembly $relative
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# profile`tindex`tvalue`tsource")
+    foreach ($spec in @(@('front-offsets','smog_positionOffsets',8), @('wall-probes','@offsetTable',16))) {
+        $values = @(Read-AssemblyDataDirectives $path $spec[1] '.db' | ForEach-Object {
+            foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+        })
+        if ($values.Count -ne $spec[2]) { throw "${relative}:$($spec[1]) expected $($spec[2]) bytes." }
+        for ($index = 0; $index -lt $values.Count; $index++) {
+            $rows.Add("$($spec[0])`t$index`t$($values[$index].ToString('x2'))`t${relative}:$($spec[1])+$($index.ToString('x2'))")
+        }
+    }
+    $speeds = @(Read-AssemblyDataDirectives $path '@subidSpeedTable' '.db' | ForEach-Object { $_.Operands })
+    if (($speeds -join ',') -ne 'SPEED_00,SPEED_00,SPEED_e0,SPEED_80,SPEED_40') { throw 'Smog subid speed dispatch changed.' }
+    $speedNames = @('00','20','40','60','80','a0','c0','e0')
+    for ($index = 0; $index -lt $speeds.Count; $index++) {
+        $value = [Array]::IndexOf($speedNames, $speeds[$index].Substring(6)) * 5
+        $rows.Add("speeds`t$index`t$($value.ToString('x2'))`t${relative}:@subidSpeedTable+$($index.ToString('x2'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'enemies/smog_wall.tsv'), $rows)
+}
+Export-SmogWallData
+function Export-SmogFireTimers {
+    # The clean US image differs from a locally linked ages.gbc/ages.sym.
+    # This instruction signature anchors both the routine and its relative table.
+    $signature = @(0x1e,0x82,0x1a,0xe6,0x0f,0xd6,0x02,0x21,0xd0,0x73,0xd7,0x7e,0xd7,0x1c,0x1a,
+        0xd7,0x7e,0xd7,0xcd,0x3e,0x04,0xe6,0x03,0xd7,0x7e,0x1e,0xb6,0x12,0xc9)
+    for ($i = 0; $i -lt $signature.Count; $i++) {
+        if ($romBytes[0x3f3b3 + $i] -ne $signature[$i]) { throw 'Clean-US smog_setCounterToFireProjectile at $0f:$73b3 changed.' }
+    }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# subid`tphase`trandom0`trandom1`trandom2`trandom3`tsource")
+    for ($subid = 0; $subid -le 4; $subid++) {
+        $phaseCount = if ($subid -lt 2) { 1 } else { 4 }
+        for ($phase = 0; $phase -lt $phaseCount; $phase++) {
+            # rst_addAToHl adds an unsigned byte, including the $fe/$ff underflow
+            # for intro subids00/01. Each relative byte is based on its own address.
+            $cursor = 0x73d0 + (($subid - 2) -band 255)
+            $cursor += $romBytes[0x38000 + $cursor]
+            $cursor += $phase
+            $cursor += $romBytes[0x38000 + $cursor]
+            $values = @(0..3 | ForEach-Object { [int]$romBytes[0x38000 + $cursor + $_] })
+            if ($subid -ge 2) {
+                $label = "@subid${subid}_${phase}"
+                $sourceValues = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/ages/enemies/smog.s') $label '.db' | ForEach-Object {
+                    foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+                })
+                if (($values -join ',') -ne ($sourceValues -join ',')) { throw "Smog $label disagrees with clean US relative-table reads." }
+            }
+            $hex = @($values | ForEach-Object { $_.ToString('x2') })
+            $rows.Add("$($subid.ToString('x2'))`t$phase`t$($hex -join "`t")`tclean-US-ROM:0f:$($cursor.ToString('x4'));smog_setCounterToFireProjectile")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'enemies/smog_fire_timers.tsv'), $rows)
+}
+Export-SmogFireTimers
+function Export-SmogCollisions {
+    $mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/enemyActiveCollisions.s') 'enemyActiveCollisions' 'dbrev')[0x7c]
+    $bits = ($mask.Operands -join '').Replace('%','')
+    if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_SMOG $7c active mask is malformed.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# collision`tenabled`tcloud-effect`tlarge-effect`tsource")
+    for ($collision = 0; $collision -lt 32; $collision++) {
+        $cloud = $enemyCollisionTableValues[7 * 32 + $collision]
+        $large = $enemyCollisionTableValues[0x4d * 32 + $collision]
+        $rows.Add("$($collision.ToString('x2'))`t$($bits[$collision])`t$($cloud.ToString('x2'))`t$($large.ToString('x2'))`tdata/ages/enemyActiveCollisions.s:enemyActiveCollisions+01f0;data/ages/objectCollisionTable.s:mode07/mode4d")
+    }
+    Write-GeneratedTable((Join-Path $destination 'enemies/smog_collisions.tsv'), $rows)
+}
+Export-SmogCollisions
 $zoraAnimation = $zoraPartFrames[$zoraPartTables['part19Animations'][0]]
 $zoraOam = $zoraPartPointers['part19OamDataPointers']
 $zoraFrames = [Collections.Generic.List[string]]::new()
@@ -2587,6 +2816,12 @@ foreach ($frame in $zoraAnimation.Frames) {
 }
 $zoraPartData = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x19]
 $zoraBytes = @($zoraPartData.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+foreach ($partId in @('19', '31')) {
+    if ((Read-ImportText (Join-Path $Disassembly 'data\ages\partActiveCollisions.s')) -notmatch
+        "(?m)^\s*dbrev %10110000 %00000000 %00000000 %00000000 ; 0x$partId\s*$") {
+        throw "PART `$$partId must expose only Link, L2 and L3 shield collisions."
+    }
+}
 if (($zoraBytes -join ',') -ne '0,135,34,252,64,28,10,0') {
     throw 'PART_ZORA_FIRE $19 attributes changed.'
 }
@@ -4275,6 +4510,27 @@ Add-EnemyBehaviorValueTable 'peahat' 'speeds' $peahatSpeeds `
 Add-EnemyBehaviorProfile 'sword-enemy' 'state-profile' `
     @(0x14, 0x19, 0x10, 0x60, 0x28, 0x50, 0x3f, 7, 3, 0x14, 0x10, 0x0c) `
     'object_code/common/enemies/swordEnemies.s:state-entry-operands'
+if ($wingEnemySources.sword -notmatch '(?ms)^enemyCode3d:\s+enemyCode49:\s+enemyCode4a:' -or
+    $wingEnemySources.sword -notmatch '(?ms)^swordDarknut_state9:.*?ld \(hl\),SPEED_c0.*?^swordDarknut_stateA:.*?and \$01' -or
+    $wingEnemySources.sword -notmatch '(?ms)^swordEnemy_updateEnemyCollisionMode:.*?Enemy.stunCounter.*?jr nz,\+\+.*?ENEMYCOLLISION_STALFOS_BLOCKED_WITH_SWORD.*?ENEMYCOLLISION_BURNABLE_ENEMY.*?ENEMYCOLLISION_BURNABLE_UNDEAD' -or
+    $wingEnemySources.sword -notmatch '(?ms)^swordDarknut_updateEnemyCollisionMode:.*?Enemy.stunCounter.*?ENEMYCOLLISION_DARKNUT_BLOCKED_WITH_SWORD.*?ENEMYCOLLISION_DARKNUT') {
+    throw 'swordEnemies.s: shared dispatch, Darknut chase or status-dependent collision modes changed.'
+}
+Add-EnemyBehaviorProfile 'sword-enemy' 'darknut-chase' @(0x1e, 1) `
+    'object_code/common/enemies/swordEnemies.s:swordDarknut_state9/stateA'
+foreach ($mode in @(0x11, 0x7e, 0x20, 0x55, 0x56)) {
+    Add-EnemyBehaviorProfile 'sword-enemy' "collision-$($mode.ToString('x2'))" `
+        @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) `
+        "data/ages/objectCollisionTable.s:objectCollisionTable+`$$((32 * $mode).ToString('x4'))"
+}
+foreach ($id in @(0x3d, 0x48, 0x49, 0x4a)) {
+    $bits = ($seedActiveRows[$id].Operands -join '').Replace('%', '')
+    if ($bits -ne '11111111111111110001111111111110') {
+        throw "Sword enemy `$$($id.ToString('x2')) active collision mask changed."
+    }
+}
+Add-EnemyBehaviorProfile 'sword-enemy' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$3d/$48/$49/$4a'
 
 $tektiteSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\tektite.s')
@@ -4477,8 +4733,232 @@ Add-EnemyBehaviorProfile 'buzzblob' 'state-profile' `
     @(10, 0x1c, 0x30, 0x30, 60, 0x2f1e, 7) `
     'object_code/common/enemies/buzzblob.s:enemyCode18'
 
-if ($enemyBehaviorRows.Count -ne 1196) {
-    throw "Expected 1195 enemy behavior-table rows, got " +
+# Keep Beamos and its ten independent PART_BEAM segments separate. In
+# particular, the segment velocity is a scaled lookup, not a new speed index.
+$beamosCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\beamos.s')
+$beamCode = Read-ImportText (Join-Path $Disassembly 'object_code\common\parts\beam.s')
+$beamosInit = [regex]::Match($beamosCode,
+    '(?ms)^@state_uninitialized:\s+call ecom_setSpeedAndState8AndVisible\s+ld l,Enemy.counter1\s+ld \(hl\),\$(?<rotation>[0-9a-f]+)\s+jp objectMakeTileSolid')
+$beamosReset = [regex]::Match($beamosCode,
+    '(?ms)^@state9:\s+call ecom_decCounter1\s+jr nz,\+\+\s+ld \(hl\),\$(?<rotation>[0-9a-f]+)[^\r\n]*\s+inc l\s+ld \(hl\),(?<cooldown>[0-9]+)[^\r\n]*\s+ld l,e\s+dec \(hl\)')
+$beamosSound = [regex]::Match($beamosCode,
+    '(?ms)ld a,\(hl\)\s+cp \$(?<sound>[0-9a-f]+)\s+ld a,SND_BEAM\s+jp z,playSound\s+ret nc\s+;[^\r\n]*\s+ld b,PART_BEAM\s+call ecom_spawnProjectile\s+ret nz\s+ld e,Enemy.counter1\s+ld a,\(de\)\s+and \$(?<blink>[0-9a-f]+)')
+$beamosCharge = [regex]::Match($beamosCode,
+    '(?ms)^@checkFireBeam:\s+call objectGetAngleTowardEnemyTarget\s+ld h,d\s+ld l,Enemy.angle\s+sub \(hl\)\s+inc a\s+cp \$(?<window>[0-9a-f]+)\s+ret nc\s+ld l,Enemy.counter1\s+ld \(hl\),(?<charge>[0-9]+).*?ld l,Enemy.invincibilityCounter\s+ld \(hl\),\$(?<glow>[0-9a-f]+)')
+$beamInit = [regex]::Match($beamCode,
+    '(?ms)^@state0:.*?ld l,\$c6\s+ld \(hl\),\$(?<grace>[0-9a-f]+).*?ld b,\$(?<speed>[0-9a-f]+)\s+ld a,\$(?<scale>[0-9a-f]+)\s+call objectSetComponentSpeedByScaledVelocity')
+if (-not $beamosInit.Success -or -not $beamosReset.Success -or
+    -not $beamosSound.Success -or -not $beamosCharge.Success -or -not $beamInit.Success -or
+    $beamosInit.Groups['rotation'].Value -ne $beamosReset.Groups['rotation'].Value -or
+    $beamosCode -notmatch '(?ms)^@state8:\s+call @updateAngle\s+call ecom_decCounter2\s+ret nz\s+jr @checkFireBeam' -or
+    $beamCode -notmatch '(?ms)^partCode29:\s+jr z,@normalStatus\s+ld e,\$ea\s+ld a,\(de\)\s+cp \$83\s+jp z,partDelete' -or
+    $beamCode -notmatch '(?ms)^@state1:\s+call partCommon_decCounter1IfNonzero\s+jr nz,func_5758\s+ld l,e\s+inc \(hl\)\s+@state2:\s+call func_5758\s+call partCommon_checkTileCollisionOrOutOfBounds\s+jp c,partDelete') {
+    throw 'ENEMY_BEAMOS $16 / PART_BEAM $29 charge, spawn, shield or tile-grace contract changed.'
+}
+Add-EnemyBehaviorProfile 'beamos' 'state-profile' @(
+    [Convert]::ToInt32($beamosInit.Groups['rotation'].Value, 16),
+    [int]$beamosReset.Groups['cooldown'].Value,
+    [Convert]::ToInt32($beamosSound.Groups['sound'].Value, 16),
+    [int]$beamosCharge.Groups['charge'].Value,
+    [Convert]::ToInt32($beamosCharge.Groups['glow'].Value, 16),
+    [Convert]::ToInt32($beamosCharge.Groups['window'].Value, 16),
+    [Convert]::ToInt32($beamosSound.Groups['blink'].Value, 16)
+) 'object_code/common/enemies/beamos.s:enemyCode16'
+Add-EnemyBehaviorProfile 'beamos-beam' 'state-profile' @(
+    [Convert]::ToInt32($beamInit.Groups['grace'].Value, 16),
+    [Convert]::ToInt32($beamInit.Groups['speed'].Value, 16),
+    [Convert]::ToInt32($beamInit.Groups['scale'].Value, 16)
+) 'object_code/common/parts/beam.s:partCode29'
+foreach ($spec in @(
+    @('beamos', $beamosCode, 'angleToAnimation', 32, 'object_code/common/enemies/beamos.s'),
+    @('beamos-beam', $beamCode, 'table_5737', 16, 'object_code/common/parts/beam.s')
+)) {
+    $values = @(Read-AssemblyDataDirectives (Join-Path $Disassembly $spec[4]) "@$($spec[2])" '.db' | ForEach-Object {
+        foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+    })
+    if ($values.Count -ne $spec[3]) {
+        throw "$($spec[4]):@$($spec[2]) expected $($spec[3]) animation indices."
+    }
+    Add-EnemyBehaviorProfile $spec[0] 'angle-to-animation' $values "$($spec[4]):@$($spec[2])"
+}
+
+$shooterPath = Join-Path $Disassembly 'object_code\common\enemies\fireballShooter.s'
+$shooterCode = Read-ImportText $shooterPath
+$shooterCooldown = [regex]::Match($shooterCode,
+    '(?ms)^fireballShooter_state9:\s+call fireballShooter_checkAllEnemiesKilled.*?ld c,\$(?<range>[0-9a-f]+)\s+call objectCheckLinkWithinDistance\s+ret c.*?call ecom_decCounter1\s+ret nz\s+ld b,PART_GOPONGA_PROJECTILE\s+call ecom_spawnProjectile.*?call getRandomNumber_noPreserveVars\s+and \$(?<mask>[0-9a-f]+)\s+add \$(?<base>[0-9a-f]+)')
+$shooterPosition = [regex]::Match($shooterCode,
+    '(?ms)ld a,c\s+and \$f0\s+add \$(?<y>[0-9a-f]+)\s+ld l,Enemy.yh\s+ldi \(hl\),a\s+ld a,c\s+and \$0f\s+swap a\s+add \$(?<x>[0-9a-f]+)')
+$shooterShutdown = [regex]::Match($shooterCode,
+    '(?ms)^fireballShooter_checkAllEnemiesKilled:\s+ld e,Enemy.subid\s+ld a,\(de\)\s+cp \$(?<subid>[0-9a-f]+)\s+ret nz\s+ld a,\(wNumEnemies\)\s+or a\s+ret nz\s+\.ifdef ENABLE_BUGFIXES.*?pop bc\s+\.endif\s+jp enemyDelete')
+if (-not $shooterCooldown.Success -or -not $shooterPosition.Success -or -not $shooterShutdown.Success -or
+    $shooterCode -notmatch '(?ms)^fireballShooter_state1:.*?ld e,Enemy.yh.*?ld b,LARGE_ROOM_HEIGHT<<4.*?call ecom_spawnUncountedEnemyWithSubid01\s+jr nz,@delete.*?ld e,l\s+ld a,\(de\)\s+set 7,a\s+ldi \(hl\),a.*?ldh a,\(<hFF8D\)\s+inc a\s+and \$03' -or
+    $shooterCode -notmatch '(?ms)^fireballShooter_state_uninitialized:.*?inc \(hl\).*?ld e,Enemy.subid.*?bit 7,a\s+ret z\s+ld \(hl\),\$08' -or
+    $shooterCode -notmatch '(?ms)^fireballShooter_state8:\s+ld a,\$09.*?ld e,Enemy.var03.*?ld hl,fireballShooter_timingOffsets.*?ld e,Enemy.counter1') {
+    throw 'ENEMY_FIREBALL_SHOOTER $50: source scanner, cooldown or clean-US deletion fallthrough changed.'
+}
+$shooterTimings = @(Read-AssemblyDataDirectives $shooterPath 'fireballShooter_timingOffsets' '.db' | ForEach-Object {
+    foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+})
+if ($shooterTimings.Count -ne 4) { throw 'ENEMY_FIREBALL_SHOOTER $50 requires four timing offsets.' }
+Add-EnemyBehaviorProfile 'fireball-shooter' 'timing-offsets' $shooterTimings `
+    'object_code/common/enemies/fireballShooter.s:fireballShooter_timingOffsets'
+Add-EnemyBehaviorProfile 'fireball-shooter' 'state-profile' @(
+    [Convert]::ToInt32($shooterCooldown.Groups['range'].Value, 16),
+    [Convert]::ToInt32($shooterCooldown.Groups['mask'].Value, 16),
+    [Convert]::ToInt32($shooterCooldown.Groups['base'].Value, 16),
+    [Convert]::ToInt32($shooterPosition.Groups['y'].Value, 16),
+    [Convert]::ToInt32($shooterPosition.Groups['x'].Value, 16),
+    [Convert]::ToInt32($shooterShutdown.Groups['subid'].Value, 16)
+) 'object_code/common/enemies/fireballShooter.s:enemyCode50'
+
+# Like Like captures use a deferred Link state, not ordinary contact damage.
+# Keep the source operands available before registering the runtime handler.
+$likeLikePath = Join-Path $Disassembly 'object_code/common/enemies/likelike.s'
+$likeLikeCode = Read-ImportText $likeLikePath
+$likeLikeWalk = [regex]::Match($likeLikeCode,
+    '(?ms)^likelike_state9:.*?ldbc \$(?<angle>[0-9a-f]+),\$(?<duration>[0-9a-f]+)\s+call ecom_randomBitwiseAndBCE.*?ld a,\$(?<base>[0-9a-f]+)\s+add c')
+$likeLikeCapture = [regex]::Match($likeLikeCode,
+    '(?ms)cp \$80\|ITEMCOLLISION_LINK\s+ret nz.*?callab bank5.checkPositionSurroundedByWalls\s+rl b\s+jp c,likelike_releaseLink.*?ld \(hl\),\$00[^\r\n]*\s+inc l\s+ld \(hl\),(?<hold>[0-9]+).*?res 7,\(hl\).*?call objectCopyPosition.*?res 7,\(hl\)')
+$likeLikeRelease = [regex]::Match($likeLikeCode,
+    '(?ms)^likelike_stateB:\s+call ecom_decCounter2\s+jr z,@releaseLink.*?ld a,\(wGameKeysJustPressed\).*?inc \(hl\).*?^@releaseLink:\s+ld \(hl\),(?<cooldown>[0-9]+).*?cp (?<presses>[0-9]+)\s+jr nc,\+\+.*?call checkTreasureObtained\s+jr nc,\+\+.*?call loseTreasure\s+ld bc,TX_(?<text>[0-9a-f]+)\s+call showText.*?call getRandomNumber_noPreserveVars\s+and \$18')
+$likeLikeLinkCode = Read-ImportText (Join-Path $Disassembly 'object_code/common/specialObjects/link.s')
+$likeLikeLinkRelease = [regex]::Match($likeLikeLinkCode,
+    '(?ms)^linkState0d:.*?^@substate0:.*?ld \(wWarpsDisabled\),a.*?jp linkCancelAllItemUsage.*?^@substate4:\s+ld h,d\s+ld l,SpecialObject.invincibilityCounter\s+ld \(hl\),\$(?<invincibility>[0-9a-f]+)\s+\+\+\s+xor a\s+ld \(wWarpsDisabled\),a\s+jp initLinkStateAndAnimateStanding')
+if (-not $likeLikeWalk.Success -or -not $likeLikeCapture.Success -or
+    -not $likeLikeRelease.Success -or -not $likeLikeLinkRelease.Success -or
+    $likeLikeCode -notmatch '(?ms)^likelike_state_uninitialized:.*?ld a,SPEED_40\s+jp ecom_setSpeedAndState8' -or
+    $likeLikeCode -notmatch '(?ms)^likelike_stateA:\s+call ecom_decCounter1\s+jr nz,@move.*?dec \(hl\).*?@move:\s+call ecom_applyVelocityForSideviewEnemyNoHoles\s+jr z,@newDirection' -or
+    $likeLikeCode -notmatch '(?ms)^likelike_stateC:\s+call ecom_decCounter2\s+jr nz,\+\+.*?sub \$03.*?set 7,\(hl\).*?call ecom_applyVelocityForSideviewEnemyNoHoles\s+jr nz,likelike_animate.*?call getRandomNumber_noPreserveVars\s+and \$18' -or
+    $enemyCollisionModes[0x24] -ne 0x22) {
+    throw 'ENEMY_LIKE_LIKE $24: capture, motion, release or Link state $0d source contract changed.'
+}
+Add-EnemyBehaviorProfile 'like-like' 'state-profile' @(
+    10, # SPEED_40, the native speed index (not a pixel displacement).
+    [Convert]::ToInt32($likeLikeWalk.Groups['angle'].Value, 16),
+    [Convert]::ToInt32($likeLikeWalk.Groups['duration'].Value, 16),
+    [Convert]::ToInt32($likeLikeWalk.Groups['base'].Value, 16),
+    [int]$likeLikeCapture.Groups['hold'].Value,
+    [int]$likeLikeRelease.Groups['presses'].Value,
+    [int]$likeLikeRelease.Groups['cooldown'].Value,
+    [Convert]::ToInt32($likeLikeRelease.Groups['text'].Value, 16)
+) 'object_code/common/enemies/likelike.s:enemyCode24'
+Add-EnemyBehaviorProfile 'like-like' 'link-release' @(
+    [Convert]::ToInt32($likeLikeLinkRelease.Groups['invincibility'].Value, 16)
+) 'object_code/common/specialObjects/link.s:linkState0d/@substate4'
+Add-EnemyBehaviorProfile 'like-like' 'collision-effects' @(0..31 | ForEach-Object {
+    $enemyCollisionTableValues[0x22 * 32 + $_]
+}) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0440'
+$likeLikeBits = ($seedActiveRows[0x24].Operands -join '').Replace('%', '')
+if ($likeLikeBits -notmatch '^[01]{32}$') { throw 'ENEMY_LIKE_LIKE $24 collision mask is malformed.' }
+Add-EnemyBehaviorProfile 'like-like' 'active-collisions' @($likeLikeBits.ToCharArray() | ForEach-Object {
+    [int]::Parse([string]$_)
+}) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$0090'
+$likeLikeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
+if ($likeLikeCollisionCode -notmatch '(?ms)^collisionEffect3a:.*?Enemy.knockbackCounter.*?ret nz.*?^collisionEffect3d:.*?w1Link.id.*?ret nz.*?wWarpsDisabled.*?ret nz.*?LINK_STATE_GRABBED.*?wLinkForceState.*?ldhl LINKDMG_2c, ENEMYDMG_1c') {
+    throw 'Like Like contact no longer defers LINK_STATE_GRABBED through LINKDMG_2c/ENEMYDMG_1c.'
+}
+foreach ($damage in @('LINKDMG_2c', 'ENEMYDMG_1c')) {
+    $row = [regex]::Match($likeLikeCollisionCode, "(?m)^\s*\.db (?<bytes>[^;\r\n]+); $damage\s*$")
+    if (-not $row.Success) { throw "Missing Like Like contact damage profile $damage." }
+    $values = @($row.Groups['bytes'].Value.Trim() -split '\s+' | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($values.Count -ne 4) { throw "Malformed Like Like damage profile $damage." }
+    Add-EnemyBehaviorProfile 'like-like' $damage.ToLowerInvariant() $values "code/collisionEffects.s:$damage"
+}
+
+$ballSoldierSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/ballAndChainSoldier.s')
+$spikedBallSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/spikedBall.s')
+if ($enemyCollisionModes[0x4b] -ne 0xb7) { throw 'Ball & Chain Soldier collision mode must remain $b7.' }
+foreach ($pattern in @(
+    'ballAndChain_state_uninitialized:.*?SPEED_60.*?ecom_setSpeedAndState8AndVisible',
+    'ballAndChain_state8:\s+ld c,\$38.*?ld \(hl\),90.*?Enemy.var30\s+inc \(hl\)',
+    'ballAndChain_state9:.*?ecom_decCounter1.*?inc \(hl\).*?Enemy.var30\s+inc \(hl\)',
+    'ballAndChain_stateA:.*?Enemy.counter1.*?ret nz.*?ld c,\$38.*?ld \(hl\),90',
+    'ballAndChain_spawnSpikedBall:.*?ld b,\$04.*?\.else\s+call checkBEnemySlotsAvailable.*?PART_SPIKED_BALL.*?ld e,\$01.*?getFreePartSlot.*?cp \$04'
+)) { if ($ballSoldierSource -notmatch "(?s)$pattern") { throw "Ball & Chain Soldier `$4b source contract changed: $pattern" } }
+foreach ($pattern in @(
+    'spikedBall_head_state1:.*?inc a\s+and \$1f',
+    'spikedBall_head_state2:.*?add \$02\s+and \$1f.*?ld a,\$0a',
+    'spikedBall_head_state3:.*?sub \$06\s+and \$1f.*?inc a\s+and \$1f\s+cp \$03.*?sub \$03.*?ld \(hl\),\$0d',
+    'spikedBall_head_state4:.*?add \$03.*?ld \(hl\),\$12.*?ld a,<\(\$0340\).*?ld \(hl\),>\(\$0340\)',
+    'spikedBall_copyParentPosition:.*?sub \$05.*?sub \$05',
+    'spikedBall_head_updateDistanceFromOrigin:.*?Part.speed\+1.*?add \(hl\)\s+cp \$0a.*?sub <\(\$0020\).*?sbc >\(\$0020\)',
+    'partCode2a:.*?Object.invincibilityCounter.*?ld \(hl\),\$f4'
+)) { if ($spikedBallSource -notmatch "(?s)$pattern") { throw "PART_SPIKED_BALL source contract changed: $pattern" } }
+Add-EnemyBehaviorProfile 'ball-chain' 'state-profile' @(15, 0x38, 90, 4, -5, 10, 13, 18, 0x340, 0x20, 1, 2, 0x1f, 0xf4) 'object_code/common/enemies/ballAndChainSoldier.s;object_code/common/parts/spikedBall.s'
+Add-EnemyBehaviorProfile 'spiked-ball' 'part-data' $spikedBallBytes 'data/ages/partData.s:partData+$0150'
+$partActiveRows = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')
+foreach ($entry in @(@('ball-chain', 0x37, $seedActiveRows[0x4b], 'enemy'), @('spiked-ball', 0x74, $partActiveRows[0x2a], 'part'))) {
+    $owner = $entry[0]; $mode = [int]$entry[1]
+    Add-EnemyBehaviorProfile $owner 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) "data/ages/objectCollisionTable.s:objectCollisionTable+`$$((32 * $mode).ToString('x4'))"
+    $bits = ($entry[2].Operands -join '').Replace('%', '')
+    if ($bits -notmatch '^[01]{32}$') { throw "$owner active collision mask is malformed." }
+    Add-EnemyBehaviorProfile $owner 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) "data/ages/$($entry[3])ActiveCollisions.s"
+}
+$smasherRelativePath = 'object_code/ages/enemies/smasher.s'
+$smasherPath = Join-Path $Disassembly $smasherRelativePath
+$smasherSource = Read-ImportText $smasherPath
+foreach ($pattern in @(
+    'smasher_ball_updateRespawnTimer:.*?Enemy.subid.*?ret nz.*?cp \$0d.*?ret nc.*?wFrameCounter.*?rrca\s+ret c.*?Enemy.var30\s+inc \(hl\).*?cp 180',
+    'smasher_ball_stateD:.*?objectCreatePuff\s+ret nz.*?ld \(hl\),60',
+    'smasher_ball_stateE:.*?ecom_decCounter1\s+ret nz.*?ld \(hl\),-\$20.*?and \$0e',
+    'smasher_ball_stateF:\s+ld c,\$20',
+    'smasher_parent_state9:.*?ld \(hl\),60.*?and \$03',
+    'smasher_parent_stateB:.*?Enemy.counter2\s+ld \(hl\),30',
+    'smasher_hop:.*?ld a,<\(-\$c0\).*?ld \(hl\),>\(-\$c0\)',
+    'smasher_parent_stateC:.*?ld a,>\(-\$1e0\).*?ld \(hl\),<\(-\$1e0\)',
+    'smasher_parent_state9:.*?ld a,\$0e.*?ld a,-\$0e.*?sub \$18\s+cp \$c0',
+    'smasher_parent_stateA:.*?add \$02\s+cp \$05.*?add \$02\s+cp \$05',
+    'smasher_ball_stateA:.*?cp \$f4.*?sub <\(\$0080\).*?sbc >\(\$0080\)',
+    'smasher_state_uninitialized:.*?Enemy.xh.*?sub \$20',
+    '@released:.*?Enemy.zh.*?add \$08\s+cp \$11.*?Enemy.invincibilityCounter\s+ld \(hl\),\$20.*?Enemy.knockbackCounter\s+ld \(hl\),\$10.*?Enemy.health\s+dec \(hl\)'
+)) {
+    if ($smasherSource -notmatch "(?s)$pattern") { throw "ENEMY_SMASHER `$74 source contract changed: $pattern" }
+}
+Add-EnemyBehaviorProfile 'smasher' 'state-profile' @(
+    180, 60, -32, 32, 60, 30, -0xc0, -0x1e0, 14, 24, 192, 2, 5, -12, 128, 32, 32, 16, 8, 17
+) $smasherRelativePath
+$smasherDeathSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/commonBossCode.s')
+if ($smasherDeathSource -notmatch '(?s)enemyBoss_dead:.*?Enemy.counter1\s+ld \(hl\),(\d+).*?ecom_decCounter1.*?inc \(hl\).*?getFreePartSlot') {
+    throw 'ENEMY_SMASHER $74 common boss death counter/allocation contract changed.'
+}
+Add-EnemyBehaviorProfile 'smasher' 'death-profile' @([int]$Matches[1]) 'object_code/common/enemies/commonBossCode.s:enemyBoss_dead'
+# A directionless throw copies angle $ff into Smasher's ball. The original
+# RLCA/rounding selects offset $f8, beyond the named 64-byte sideview table.
+# These are executable bytes read as data in the supported clean US ROM.
+$smasherDropOffsets = @(0x7c,0xa0,0x47,0x7d,0xa1,0x4f,0xaf,0xc9)
+for ($i = 0; $i -lt 8; $i++) {
+    if ($romBytes[0x3c356 + $i] -ne $smasherDropOffsets[$i]) {
+        throw 'Smasher angle $ff: clean-US bank $0f sideview table+$f8 signature changed.'
+    }
+}
+if ($romBytes[0x3c41e] -ne 0 -or $romBytes[0x3c42e] -ne 8) {
+    throw 'Smasher angle $ff: clean-US bank $0f bounce table+$ff/$10f signature changed.'
+}
+Add-EnemyBehaviorProfile 'smasher' 'drop-wall-probes' @($smasherDropOffsets + @(0,8)) 'clean-US-ROM:0f:4356/ecom_sideviewAdjacentWallOffsetTable+$f8;0f:441e/442e'
+foreach ($spec in @(@('spawnPositions', 'respawn-positions', 16), @('randomAngles', 'wander-angles', 4))) {
+    $values = @(Read-AssemblyDataDirectives $smasherPath "@$($spec[0])" '.db' | ForEach-Object {
+        foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
+    })
+    if ($values.Count -ne $spec[2]) { throw "${smasherRelativePath}:@$($spec[0]) expected $($spec[2]) bytes." }
+    Add-EnemyBehaviorProfile 'smasher' $spec[1] $values "${smasherRelativePath}:@$($spec[0])"
+}
+if ($enemyCollisionModes[0x74] -ne 0xc5 -or
+    $smasherSource -notmatch 'Enemy.enemyCollisionMode\s+ld \(hl\),ENEMYCOLLISION_SMASHER_BALL') {
+    throw 'ENEMY_SMASHER $74 must initialize mode$c5 and switch the ball to mode$63.'
+}
+foreach ($spec in @(@('parent-collision-effects', 0x45), @('ball-collision-effects', 0x63))) {
+    $mode = [int]$spec[1]
+    Add-EnemyBehaviorProfile 'smasher' $spec[0] @(0..31 | ForEach-Object {
+        $enemyCollisionTableValues[$mode * 32 + $_]
+    }) "data/ages/objectCollisionTable.s:objectCollisionTable+`$$((32 * $mode).ToString('x4'))"
+}
+$smasherBits = ($seedActiveRows[0x74].Operands -join '').Replace('%', '')
+if ($smasherBits -notmatch '^[01]{32}$') { throw 'ENEMY_SMASHER $74 active collision mask is malformed.' }
+Add-EnemyBehaviorProfile 'smasher' 'active-collisions' @($smasherBits.ToCharArray() | ForEach-Object {
+    [int]::Parse([string]$_)
+}) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$01d0'
+if ($enemyBehaviorRows.Count -ne 1836) {
+    throw "Expected 1835 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

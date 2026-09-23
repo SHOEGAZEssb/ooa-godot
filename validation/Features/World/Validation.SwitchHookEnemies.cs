@@ -21,13 +21,30 @@ public sealed partial class ValidationRoot
         for (int bits = 0; bits < 256; bits++)
         {
             int index = 0;
-            bool surrounded = collisions.SurroundedByWalls(new(80, 80), side, point =>
+            bool surrounded = LinkWallProbe.Shared.SurroundedByWalls(new(80, 80), side, point =>
             {
                 FailIf(point != probes[index], "Link adjacent-wall probes must accumulate the source YX offsets.");
                 return (bits & (0x80 >> index++)) != 0;
             });
             bool expected = Enumerable.Range(0, 4).All(pair => (bits & (3 << (pair * 2))) != 0);
             FailIf(index != 8 || surrounded != expected, "Surrounded-wall rotation lost a cardinal pair boundary.");
+        }
+        // calculateAdjacentWallsBitset accumulates byte coordinates. Probe
+        // order matters even when the original coordinate has subpixels.
+        Vector2[] wrapped = [new(253,253),new(2,253),new(253,7),new(2,7),
+            new(251,0),new(251,5),new(4,0),new(4,5)];
+        foreach (bool side in new[] { false, true })
+        {
+            int index = 0;
+            int raw = LinkWallProbe.Shared.RawWalls(new(0.75f,0.25f), side, point =>
+            {
+                FailIf(point != wrapped[index], "Link raw wall probe lost byte wrapping or high-byte coordinates.");
+                return (0xdb & (0x80 >> index++)) != 0;
+            });
+            FailIf(raw != 0xdb || index != 8 || !LinkWallProbe.AllSidesBlocked(raw) ||
+                !LinkWallProbe.AllSidesBlocked(0xee) || LinkWallProbe.AllSidesBlocked(0xc3) ||
+                LinkWallProbe.AllSidesBlocked(0xcc),
+                "Capture/placement probes must preserve raw $db/$ee instead of movement's $c3/$cc.");
         }
 
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;

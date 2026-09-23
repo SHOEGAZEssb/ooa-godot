@@ -4,5 +4,6 @@ namespace oracleofages;
 // own handler still runs in its ordinary object slot later in the update.
 internal interface IBraceletChildRoomEntity
 {
+    bool ReservedBraceletChildActive { get; }
     void UpdateBraceletChild(Player player);
 }

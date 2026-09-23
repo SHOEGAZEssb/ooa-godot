@@ -22,6 +22,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     private readonly ItemTilePassage _tilePassage = new();
 
     public bool Finished { get; private set; }
+    internal bool Initialized => _initialized;
     internal bool CollisionEnabled => _initialized && !Finished && !_pendingNativeCollision;
     internal bool PendingNativeCollision => _pendingNativeCollision;
     internal void QueueNativeCollision() => _pendingNativeCollision = true;

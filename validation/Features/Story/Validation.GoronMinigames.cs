@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
         {
             if(IsTransitioning) return;
             foreach(var crystal in _entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray())
-                if(crystal.Node.Position!=Vector2.Zero&&fired.Add(crystal.SubId))
+                if(crystal.Node.Position!=Vector2.Zero&&_entities.DynamicItemSlotAvailable&&fired.Add(crystal.SubId))
                     _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                         crystal.Node.Position+Vector2.Down*8-shooter.Offsets[0],Vector2I.Up,scent,4,SeedLaunchKind.Shooter));
         }

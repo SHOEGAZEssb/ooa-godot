@@ -13,6 +13,19 @@ public sealed class RoomEntityManager : IDisposable
 {
     private readonly DiggingEnemyDatabase _diggingEnemies = new();
     private readonly MovingPlatformRidingState _platformRiding = new();
+    private readonly List<INativeBraceletRoomEntity> _grabbableObjects = new(8);
+    internal bool ReservedBraceletChildActive => _activeEntities.OfType<IBraceletChildRoomEntity>()
+        .Any(child => child.ReservedBraceletChildActive);
+    internal void ClearGrabbableObjectsAfterPlayer() => _grabbableObjects.Clear();
+    private void PublishGrabbableObject(INativeBraceletRoomEntity entity)
+    {
+        if (_grabbableObjects.Count < 8) _grabbableObjects.Add(entity);
+    }
+    internal void UpdateHeldObjectPosition(Player player)
+    {
+        foreach (var entity in _activeEntities.OfType<INativeBraceletRoomEntity>())
+            entity.UpdateHeldPosition(player);
+    }
     internal void RequestPegasusDust(PegasusSeedState pegasus, bool signal)
     {
         var dust = _activeEntities.OfType<PegasusDustRoomEntity>().FirstOrDefault(d => !d.Finished);
@@ -20,15 +33,58 @@ public sealed class RoomEntityManager : IDisposable
         if (signal) dust.Signal();
     }
     internal void RequestSound(int sound) => OnSoundRequested(sound);
+    internal PushBlockController? ReservedPushBlock { get; set; }
+    private bool TryCreateSynchronizedBlock(byte position,int angle)
+    {
+        if (FindFreeInteractionSlot() < 0) return false;
+        var actor = (ReservedPushBlock ?? throw new InvalidOperationException("INTERAC $bd has no reserved $14 owner."))
+            .CreateSynchronizedController();
+        actor.Name = $"SynchronizedPushBlock_{position:x2}";
+        AddEntity(new SynchronizedPushBlockRoomEntity(actor,position,angle,() => _inventory?.BraceletLevel ?? 0));
+        return true;
+    }
     private readonly Dictionary<IRoomEntity, int> _enemySlots = new();
+    private readonly DynamicItemSlotPool _dynamicItems = new();
+    internal bool DynamicItemSlotAvailable => _dynamicItems.FindFree() >= 0;
+    internal int DynamicItemSlotOf(IRoomEntity entity) => _dynamicItems.SlotOf(entity);
+    internal bool TryAllocateSwitchHookChain(SwitchHookItem owner) =>
+        _dynamicItems.TryAllocate(owner,0x0b,()=>SwitchHook?.Item==owner && owner.ChainAllocated)>=0;
+
+    private static int DynamicItemId(IRoomEntity entity) => entity switch
+    {
+        EmberSeedRoomEntity { IsFlamePart:true } => -1,
+        ISeedProjectileRoomEntity seed => seed.SeedItem,
+        SwordBeamRoomEntity => 0x27,
+        SomariaBlockRoomEntity => 0x18,
+        _ when entity.Node is BombEffect => 0x03,
+        _ => -1
+    };
+    private static bool ItemSetupPending(IRoomEntity entity) => entity.Node switch
+    {
+        BombEffect bomb => bomb.SetupPending,
+        SwordBeamEffect beam => !beam.Initialized,
+        EmberSeedEffect seed => seed.State == EmberState.Initializing,
+        SomariaBlock block => block.State == 0,
+        _ => false
+    };
     private readonly HashSet<int> _reservedEnemySlots = new();
+    private readonly byte[] _deletedEnemyCounter1 = new byte[16];
     private readonly HashSet<IRoomEntity> _updatedEntitiesThisFrame = new();
     private readonly HashSet<IRoomEntity> _specialObjectsUpdatedBeforePlayer = new();
 
     private void RegisterEnemySlot(IRoomEntity? entity, int slot)
     {
-        if (slot is < 0 or >= 16 || !_reservedEnemySlots.Add(slot))
+        if (slot is < 0 or >= 16 || _reservedEnemySlots.Contains(slot))
             throw new InvalidOperationException($"getFreeEnemySlot: duplicate or invalid enemy slot ${slot:x2}.");
+        if (_deletedEnemyCounter1[slot] != 0)
+        {
+            if (entity is not INativeEnemyCounter1RoomEntity counter)
+                throw new NotSupportedException($"ENEMY slot ${slot:x2} retains counter1=${_deletedEnemyCounter1[slot]:x2} " +
+                    $"from fireballShooter_state9 after enemyDelete; {entity?.GetType().Name ?? "unsupported enemy"} does not represent that initial byte.");
+            counter.Counter1 = _deletedEnemyCounter1[slot];
+            _deletedEnemyCounter1[slot] = 0;
+        }
+        _reservedEnemySlots.Add(slot);
         if (entity is not null)
         {
             _enemySlots.Add(entity, slot);
@@ -49,17 +105,25 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0)
             return;
+        TryAllocateEnemy(_ => _factory.CreateDiggingEnemy(
+            _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
+            _diggingEnemies.BeetleCounters));
+    }
+
+    // getFreeEnemySlot[_uncounted] scans the live pool. In particular, a
+    // later slot freed during this pass cannot satisfy an earlier request.
+    internal IRoomEntity? TryAllocateEnemy(Func<int, IRoomEntity> create)
+    {
         for (int slot = 0; slot < 16; slot++)
         {
             if (_reservedEnemySlots.Contains(slot))
                 continue;
-            IRoomEntity entity = _factory.CreateDiggingEnemy(
-                _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
-                _diggingEnemies.BeetleCounters);
+            IRoomEntity entity = create(slot);
             RegisterEnemySlot(entity, slot);
             AddEntity(entity);
-            return;
+            return entity;
         }
+        return null;
     }
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     public event Action<TimePortal>? TimePortalEntered;
@@ -120,6 +184,9 @@ public sealed class RoomEntityManager : IDisposable
     private int _horizontalScreenShakeCounter;
     private int _screenShakeMagnitude;
     private bool _linkCollisionsAndMenuDisabled;
+    private bool _smogLinkAndMenuLocked;
+    private readonly BossShutterSignal _bossShutterSignal = new();
+    internal byte BossEntrySignal => _bossShutterSignal.Value;
     private bool _disposed;
     private Color[,]? _preShockBackgroundPalettes;
     private IReadOnlyDictionary<int, Color[]>? _activeObjectPaletteOverride;
@@ -170,6 +237,7 @@ public sealed class RoomEntityManager : IDisposable
 
     public bool ScreenTransitionActive => _screenTransitionActive;
     internal SwitchHookController? SwitchHook { get; set; }
+    internal SomariaController? Somaria { get; set; }
     private readonly HashSet<IRoomEntity> _deferredSwitchHookContacts = [];
     private readonly Dictionary<IRoomEntity, Func<bool>> _postObjectMeleeHits = [];
     private Func<IRoomEntity, Func<bool>?>? _postObjectMeleeHitFactory;
@@ -177,17 +245,27 @@ public sealed class RoomEntityManager : IDisposable
     internal void ResolvePostObjectCollisions(Player player)
     {
         if (!_screenTransitionActive && !TextActiveSource() && !RoomEntityFreezeActive())
-        foreach (var entity in _activeEntities.OrderBy(EntityPhase)
-            .ThenBy(entity => _enemySlots.TryGetValue(entity, out int slot) ? slot : _partSlots.GetValueOrDefault(entity, 16)).ToArray())
         {
-            if (_postObjectMeleeHits.TryGetValue(entity, out var melee) && melee()) continue;
-            if (entity is ISwitchHookHittableRoomEntity target && SwitchHook?.Item is { CollisionEnabled: true } hook &&
-                target.ApplySwitchHookHit(hook, SwitchHook.Player.Position)) continue;
-            if (entity is ISeedCollisionTarget seeds && ResolveNativeSeedCollision(entity, seeds)) continue;
-            if (_deferredSwitchHookContacts.Contains(entity) &&
-                !_linkCollisionsAndMenuDisabled && entity is ILinkContactEntity contact)
+            foreach (var source in _activeEntities.OfType<IReservedBraceletCollisionRoomEntity>().ToArray())
+                if (source.TryGetReservedBraceletCollision(out var collision))
+                    ApplyThrownObjectHit(collision.Bounds, collision.Z, collision.Radius, collision.Damage);
+            foreach (var entity in _activeEntities.OrderBy(EntityPhase)
+                .ThenBy(entity => _enemySlots.TryGetValue(entity, out int slot) ? slot : _partSlots.GetValueOrDefault(entity, 16)).ToArray())
             {
-                if (player.AcceptsRoomEntityContact) contact.HandleLinkContact(player);
+                if (_postObjectMeleeHits.TryGetValue(entity, out var melee) && melee()) continue;
+                if (entity is ISwitchHookHittableRoomEntity target && SwitchHook?.Item is { CollisionEnabled: true } hook &&
+                    target.ApplySwitchHookHit(hook, SwitchHook.Player.Position)) continue;
+                if (entity is ISeedCollisionTarget or ISomariaBlockCollisionRoomEntity && ResolveNativeItemCollision(entity)) continue;
+                if (_deferredSwitchHookContacts.Contains(entity) &&
+                    !_linkCollisionsAndMenuDisabled && entity is ILinkContactEntity contact)
+                {
+                    if (player.AcceptsRoomEntityContact)
+                    {
+                        contact.HandleLinkContact(player);
+                        if (contact is IPostObjectLinkContactRoomEntity effects)
+                            effects.CollectContactSpawns(_pendingSpawns);
+                    }
+                }
             }
         }
         _deferredSwitchHookContacts.Clear();
@@ -196,10 +274,16 @@ public sealed class RoomEntityManager : IDisposable
         _postObjectMeleeHitFactory = null;
         ProcessSpawns();
     }
-    private bool ResolveNativeSeedCollision(IRoomEntity entity, ISeedCollisionTarget target)
+    private bool ResolveNativeItemCollision(IRoomEntity entity)
     {
-        foreach (var item in _activeEntities)
+        // Reused native slots precede older scene nodes in higher slots.
+        // Existing non-item projectile adapters retain their relative order.
+        foreach (var item in _activeEntities.OrderBy(item =>
+            _dynamicItems.SlotOf(item) is int slot && slot >= 0 ? slot : int.MaxValue))
         {
+            if (item is SomariaBlockRoomEntity { Block.CollisionEnabled: true } somaria &&
+                entity is ISomariaBlockCollisionRoomEntity blockTarget &&
+                blockTarget.ApplySomariaBlockCollision(somaria.Block, _pendingSpawns)) return true;
             if (entity is IPostObjectItemCollisionRoomEntity nativeItem)
             {
                 if (item is SwordBeamRoomEntity { CollisionEnabled: true } beam &&
@@ -212,7 +296,7 @@ public sealed class RoomEntityManager : IDisposable
                     nativeItem.ApplyItemCollision(RoomEntityItemCollision.Bomb, bomb.CollisionBounds,
                         bomb.CollisionBounds.GetCenter(), bomb.Damage, _pendingSpawns)) return true;
             }
-            if (item is not ISeedProjectileRoomEntity seed) continue;
+            if (item is not ISeedProjectileRoomEntity seed || entity is not ISeedCollisionTarget target) continue;
             if (!seed.CollisionEnabled || entity is IObjectCollisionHeightRoomEntity height &&
                 !ObjectCollisionZOverlaps(height.CollisionZ, seed.CollisionZ, 7)) continue;
             SeedCollisionResponse response = target.ApplySeedCollision(seed.CollisionBounds,
@@ -231,9 +315,7 @@ public sealed class RoomEntityManager : IDisposable
                         thrown.Bounds.GetCenter(), thrown.Damage, _pendingSpawns)) return true;
         return false;
     }
-    internal bool SwitchHookChainSlotAvailable => _activeEntities.Count(e =>
-        e.Node is EmberSeedEffect or SwordBeamEffect or BombEffect &&
-        e is not IRoomEntityLifetime { Finished: true }) < 5;
+    internal bool SwitchHookChainSlotAvailable => DynamicItemSlotAvailable;
     public OracleRuntimeState RuntimeState => _runtimeState;
     internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
         _familyState;
@@ -342,7 +424,7 @@ public sealed class RoomEntityManager : IDisposable
     public bool PlayerSwordDisabled
         => HasPlayerRestriction(static restriction => restriction.DisablesSword);
     internal bool PlayerUpdatesFrozen
-        => HasPlayerRestriction(static restriction => restriction.FreezesPlayerUpdates);
+        => _smogLinkAndMenuLocked || HasPlayerRestriction(static restriction => restriction.FreezesPlayerUpdates);
     public bool PlayerItemUsageDisabled
         => HasPlayerRestriction(static restriction => restriction.DisablesItems);
     public bool PlayerMovementDisabled
@@ -359,7 +441,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         get
         {
-            if (_linkCollisionsAndMenuDisabled || SwitchHook?.ExchangeActive == true)
+            if (_smogLinkAndMenuLocked || _linkCollisionsAndMenuDisabled || SwitchHook?.ExchangeActive == true)
                 return true;
             return HasPlayerRestriction(
                 static restriction => restriction.DisablesMenus);
@@ -449,7 +531,14 @@ public sealed class RoomEntityManager : IDisposable
             () => FindFreePartSlot() >= 0, _platformRiding,
             count => _reservedEnemySlots.Count <= 16 - count,
             () => FindFreeInteractionSlot() >= 0,
-            KillMoldormRelatedParts);
+            KillMoldormRelatedParts, TryAllocateEnemy, () => _enemyFrameCounter,
+            RoomEntityFreezeActive, WriteSmogInteractionCounter, TryCreatePuzzlePuff, ReleaseSmogLinkAndMenu,
+            InitializeActiveSmogBossRoom, _bossShutterSignal.BeginBossEntry,
+            opened => { if (opened) _bossShutterSignal.Opened(); else _bossShutterSignal.Closed(); },
+            LockSmogLinkAndMenu, () => _bossShutterSignal.Value,
+            phase => { TryMergeSmogClouds(phase); }, ReleaseSmogSentinelCount,
+            () => ReservedPushBlock ?? throw new InvalidOperationException("INTERAC $bd requires reserved $14."),
+            TryCreateSynchronizedBlock,TryCreateRockDebris,TryCreateSeedReflectorChild,TryCreateLightableTorch,_outgoingEntities.Contains);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -501,10 +590,10 @@ public sealed class RoomEntityManager : IDisposable
             AddEntity(portal);
     }
 
-    public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset)
+    public void BeginScreenTransition(int group, OracleRoomData room, Vector2 incomingOffset, Player? player = null)
     {
         BeginScreenTransition(
-            group, room, incomingOffset, EnemyPlacementContext.Unrestricted);
+            group, room, incomingOffset, EnemyPlacementContext.Unrestricted, player);
     }
 
     internal void BeginScreenTransition(
@@ -512,19 +601,21 @@ public sealed class RoomEntityManager : IDisposable
         OracleRoomData room,
         Vector2 incomingOffset,
         Vector2I scrollDirection,
-        int entryPackedPosition)
+        int entryPackedPosition,
+        Player player)
     {
         BeginScreenTransition(
             group, room, incomingOffset,
             EnemyPlacementContext.Scrolling(
-                scrollDirection, entryPackedPosition));
+                scrollDirection, entryPackedPosition), player);
     }
 
     private void BeginScreenTransition(
         int group,
         OracleRoomData room,
         Vector2 incomingOffset,
-        EnemyPlacementContext placementContext)
+        EnemyPlacementContext placementContext,
+        Player? player)
     {
         // updateSeedTreeRefillData runs after getNextActiveRoom only when the
         // outgoing tileset is outdoors. Warp/direct loads bypass this path.
@@ -533,16 +624,18 @@ public sealed class RoomEntityManager : IDisposable
         ClearEntities(_outgoingEntities);
         _outgoingEntities.AddRange(_activeEntities);
         _activeEntities.Clear();
+        _grabbableObjects.Clear();
         _postObjectMeleeHits.Clear();
         _postObjectThrownHits.Clear();
         _postObjectMeleeHitFactory = null;
-        _partSlots.Clear();
-        _interactionSlots.Clear();
+        // setObjectsEnabledTo2 preserves outgoing allocations until deletion
+        // or clearObjectsWithEnabled2 at scroll completion. Incoming objects
+        // allocate from these same pools, including any holes already freed.
         _screenTransitionActive = true;
         _screenTransitionFrameAccumulator = 0.0;
         _roomForActiveEntities = room;
         AddRoomEntities(group, room, placementContext);
-        PrepareIncomingEntitiesForScreenTransition();
+        PrepareIncomingEntitiesForScreenTransition(player);
         SetScreenTransitionOffsets(Vector2.Zero, incomingOffset);
     }
 
@@ -707,25 +800,36 @@ public sealed class RoomEntityManager : IDisposable
             ProcessSpawns(frame);
 
             // updateItems clears wScentSeedActive, updates every item slot,
-            // and only then begins the enemy pass. Run active seed children in
-            // that source phase so a landed scent starts on its following
-            // update and its zero-counter update stops attraction immediately.
+            // and only then begins the enemy pass. Visit the live native slots
+            // so reuse does not substitute scene insertion order for $d7-$db.
             SwitchHook?.UpdateItem(player, textActive || roomEntityFreezeActive);
-            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            Somaria?.UpdateItem(player, textActive || roomEntityFreezeActive);
+            foreach (object owner in _dynamicItems.LiveOwners())
             {
-                if (entity is not ISeedProjectileRoomEntity ||
-                    textActive && !UpdatesDuringDialogue(entity) ||
-                    roomEntityFreezeActive &&
-                        !UpdatesDuringRoomEntityFreeze(entity) ||
-                    entity is not IFixedRoomEntity fixedSeed)
+                if (owner is not IRoomEntity entity ||
+                    _updatedEntitiesThisFrame.Contains(entity) ||
+                    (textActive || roomEntityFreezeActive) && !ItemSetupPending(entity) ||
+                    entity is not IFixedRoomEntity fixedItem)
                 {
                     continue;
                 }
-                fixedSeed.UpdateFrame(frame, _pendingSpawns);
+                fixedItem.UpdateFrame(frame, _pendingSpawns);
+                _updatedEntitiesThisFrame.Add(entity);
                 if (entity.Node is EmberSeedEffect { GaleMenuRequested: true })
                     GaleMenuRequested?.Invoke();
                 ProcessSpawns(frame);
             }
+            // Existing seed flame adapters represent PARTs after conversion;
+            // they no longer own an ITEM slot. Do not advance a conversion a
+            // second time in the update that produced it.
+            foreach (var flame in _activeEntities.OfType<EmberSeedRoomEntity>().ToArray())
+                if (flame.IsFlamePart && !_updatedEntitiesThisFrame.Contains(flame) &&
+                    !textActive && !roomEntityFreezeActive)
+                {
+                    flame.UpdateFrame(frame, _pendingSpawns);
+                    _updatedEntitiesThisFrame.Add(flame);
+                    ProcessSpawns(frame);
+                }
             // Reserved item F ($df) follows the ordinary seed child slots.
             if (!textActive && !roomEntityFreezeActive)
                 foreach (var child in _activeEntities.OfType<IBraceletChildRoomEntity>().ToArray())
@@ -748,6 +852,9 @@ public sealed class RoomEntityManager : IDisposable
                 // message opened by an enemy freezes initialized parts and
                 // interactions later in this same update.
                 textActive = TextActiveSource();
+                if (phase == 2 && ReservedPushBlock is { Active: true } push &&
+                    (!push.NativeInitialized || !textActive && !roomEntityFreezeActive))
+                    push.Advance(1.0 / 60.0,player);
                 foreach (IRoomEntity entity in EntitiesForUpdatePhase(phase))
                 {
                     if (phase == 0 && enemiesDisabled && !UpdatesDuringDialogue(entity))
@@ -757,7 +864,7 @@ public sealed class RoomEntityManager : IDisposable
                         continue;
                     if (player.ElectricShockActive && entity is IPlayerRideableRoomEntity)
                         continue;
-                    if (entity is ISeedProjectileRoomEntity or PegasusDustRoomEntity)
+                    if (DynamicItemId(entity) >= 0 || entity is ISeedProjectileRoomEntity or PegasusDustRoomEntity)
                         continue;
                     if (entity is IRoomEntityLifetime { Finished: true })
                     {
@@ -839,7 +946,7 @@ public sealed class RoomEntityManager : IDisposable
                     entity is TimePortalRoomEntity && player.AcceptsTimePortalContact) &&
                 entity is ILinkContactEntity contactEntity)
             {
-                if (entity is IPostObjectMeleeCollisionRoomEntity or ISeedCollisionTarget or IPostObjectLinkContactRoomEntity ||
+                if (entity is IPostObjectMeleeCollisionRoomEntity or ISeedCollisionTarget or IPostObjectLinkContactRoomEntity or ISomariaBlockCollisionRoomEntity ||
                     entity is ISwitchHookHittableRoomEntity && SwitchHook?.Item is { CollisionEnabled: true })
                     _deferredSwitchHookContacts.Add(entity);
                 else contactEntity.HandleLinkContact(player);
@@ -973,8 +1080,16 @@ public sealed class RoomEntityManager : IDisposable
         out IBraceletPullInteractableRoomEntity? pullInteraction)
     {
         pullInteraction = null;
+        if (!player.IsCarryingObject)
+        {
+            if (ReservedBraceletChildActive) return false;
+            foreach (var candidate in _grabbableObjects)
+                if (_activeEntities.Contains(candidate) && candidate.TryUseBracelet(player, releaseDirection))
+                    return true;
+        }
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            if (!player.IsCarryingObject && entity is INativeBraceletRoomEntity) continue;
             if (releaseDirection == Vector2I.Zero &&
                 entity is IBraceletPullInteractableRoomEntity pull &&
                 pull.TryBeginBraceletPull(player))
@@ -1380,6 +1495,7 @@ public sealed class RoomEntityManager : IDisposable
 
     internal bool TrySpawnSwordBeam(Vector2 linkPosition, int direction)
     {
+        if (!DynamicItemSlotAvailable) return false;
         foreach (IRoomEntity entity in _activeEntities)
         {
             if (entity is SwordBeamRoomEntity { Finished: false })
@@ -1561,8 +1677,14 @@ public sealed class RoomEntityManager : IDisposable
     {
         // bank0.s:clearAllItemsAndPutLinkOnGround clears the physical Item
         // slots without collision, explosion, loot, or ordinary finish effects.
+        Somaria?.Cancel();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            if (entity is SomariaBlockRoomEntity somaria)
+            {
+                somaria.ClearPhysicalItem();
+                continue;
+            }
             // Ember's free flame / attached burning-enemy phase represents a
             // Part slot; clearing Items must not strand its burn target.
             if (entity is EmberSeedRoomEntity { IsFlamePart: true }) continue;
@@ -1573,20 +1695,59 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
+    internal void MarkPreviousSomariaBlock()
+    {
+        if (_dynamicItems.FindItem(0x18) is SomariaBlockRoomEntity previous)
+            previous.Block.Flags |= 0x20;
+    }
+
+    internal void RequestSomariaPush(int direction)
+    {
+        // findItemWithID is independent of tile position and state; a stale
+        // $da tile with no ITEM$18 consumes the push attempt without a spawn.
+        if (_dynamicItems.FindItem(0x18) is SomariaBlockRoomEntity block)
+            block.Block.RequestPush(direction);
+    }
+
+    internal bool TryCreateSomariaBlock(Player player, int group, Vector2 position, int z)
+    {
+        if (!DynamicItemSlotAvailable) return false;
+        AddEntity(new SomariaBlockRoomEntity(_roomForActiveEntities,group,player,position,z,_animationTick,
+            OnSoundRequested,
+            (point,height)=>
+            {
+                if (InteractionSlotAvailable)
+                    Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(point,OracleSoundEngine.SndPoof,ZHigh:height));
+            },
+            (kind,point,height)=>
+            {
+                if (!InteractionSlotAvailable) return;
+                SpawnItemHazardEffect(point+Vector2.Down*height,
+                kind switch { 1=>HazardType.Water, 2=>HazardType.Hole, 4=>HazardType.Lava,
+                    _=>throw new NotSupportedException($"ITEM$18 hazard ${kind:x2} is not represented.") },
+                    ObjectFellInHoleKind.CaneOfSomariaBlock);
+            }));
+        return true;
+    }
+
     public void Clear()
     {
+        _grabbableObjects.Clear();
         _postObjectMeleeHits.Clear();
         _postObjectMeleeHitFactory = null;
         _deferredSwitchHookContacts.Clear();
         _postObjectThrownHits.Clear();
         SwitchHook?.Cancel();
+        Somaria?.Cancel();
         _specialObjectsUpdatedBeforePlayer.Clear();
         _preShockBackgroundPalettes = null;
         _activeObjectPaletteOverride = null;
         ClearEntities(_outgoingEntities);
         ClearEntities(_activeEntities);
+        _dynamicItems.Clear();
         _enemySlots.Clear();
         _reservedEnemySlots.Clear();
+        Array.Clear(_deletedEnemyCounter1);
         _unreleasedEnemyCounts = 0;
         _pendingSpawns.Clear();
         _pendingRoomWarp = null;
@@ -1597,6 +1758,8 @@ public sealed class RoomEntityManager : IDisposable
         _horizontalScreenShakeCounter = 0;
         _screenShakeMagnitude = 0;
         _linkCollisionsAndMenuDisabled = false;
+        _smogLinkAndMenuLocked = false;
+        _bossShutterSignal.Clear();
         ScreenShakeChanged?.Invoke(Vector2.Zero);
     }
 
@@ -1607,8 +1770,11 @@ public sealed class RoomEntityManager : IDisposable
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        _bossShutterSignal.Clear();
+        _smogLinkAndMenuLocked = false;
         _enemySlots.Clear();
         _reservedEnemySlots.Clear();
+        Array.Clear(_deletedEnemyCounter1);
         // loadTilesetAndRoomLayout runs the common tile substitutions before
         // parseObjectData. Layout shutters $78-$7f can exist only in that
         // layout and therefore must be opened before placed entities are read.
@@ -1679,6 +1845,11 @@ public sealed class RoomEntityManager : IDisposable
 
     private void EnableLinkCollisionsAndMenu() =>
         _linkCollisionsAndMenuDisabled = false;
+
+    // INTERAC$33 owns wDisabledObjects=$01 plus wMenuDisabled. Do not route
+    // this through the broad room freeze or wDisableLinkCollisionsAndMenu.
+    internal void LockSmogLinkAndMenu() => _smogLinkAndMenuLocked = true;
+    private void ReleaseSmogLinkAndMenu() => _smogLinkAndMenuLocked = false;
 
     internal void SetScreenShake(int y, int x, int magnitude)
     {
@@ -1788,6 +1959,15 @@ public sealed class RoomEntityManager : IDisposable
 
     private IRoomEntity AddEntity(IRoomEntity entity)
     {
+        int dynamicId=DynamicItemId(entity);
+        if(dynamicId>=0 && _dynamicItems.TryAllocate(entity,dynamicId,
+            ()=>_activeEntities.Contains(entity) && entity is not IRoomEntityLifetime {Finished:true} && DynamicItemId(entity)>=0)<0)
+        {
+            FreeEntity(entity);
+            throw new NotSupportedException($"ITEM${dynamicId:x2}: caller requested creation with all dynamic slots $d7-$db occupied; use a checked allocation path.");
+        }
+        if (entity is INativeBraceletRoomEntity grabbable)
+            grabbable.BindGrabbablePublisher(PublishGrabbableObject);
         if (entity is DungeonEssence essence)
         {
             essence.BindEnergySwirl(center => CreateEnergySwirl(center), () => _runtimeState.SetWramByte(BlueEnergyBeadDatabase.Shared.DeleteAddress, 1));
@@ -1809,7 +1989,7 @@ public sealed class RoomEntityManager : IDisposable
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.
-        if ((entity.Node is EnemyCharacter || entity is ArmosSpawnerRoomEntity) && entity is IRoomEnemyCounterEntity &&
+        if ((entity.Node is EnemyCharacter || entity is ArmosSpawnerRoomEntity or FireballShooterRoomEntity) && entity is IRoomEnemyCounterEntity &&
             !_enemySlots.ContainsKey(entity))
         {
             for (int slot = 0; slot < 16; slot++)
@@ -1870,6 +2050,8 @@ public sealed class RoomEntityManager : IDisposable
         {
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
+            if (spawn is SpikedBallSpawn && FindFreePartSlot() < 0)
+                throw new NotSupportedException("ballAndChain_spawnSpikedBall: clean-US checks four ENEMY slots before unchecked PART allocation; exhausted PART write is not represented.");
             if(spawn is TargetCartDebrisSpawn && !InteractionSlotAvailable) continue;
             if (spawn is EnemyDeathPuffSpawn puff && FindFreePartSlot() < 0)
             {
@@ -1899,17 +2081,31 @@ public sealed class RoomEntityManager : IDisposable
             }
             yield break;
         }
-        foreach (var entity in _activeEntities.Where(entity => EntityPhase(entity) == phase)
-            .OrderBy(entity => phase == 1 ? _partSlots.GetValueOrDefault(entity, 16) : entity is DungeonEssenceGlow ? -1 : 0).ToArray())
+        // updateInteractions walks live slots $d0-$df. A child allocated above
+        // the cursor runs in this pass; a reused lower slot waits until the
+        // next pass. Insertion-order snapshots lose both rules ($bd pushes
+        // allocate ordinary $14 children while traversing this same pool).
+        var logicalOwners = _activeEntities.Where(entity => EntityPhase(entity) == phase &&
+            !_interactionSlots.ContainsKey(entity)).ToArray();
+        foreach (var entity in logicalOwners.Where(entity => entity is DungeonEssenceGlow))
+            yield return entity;
+        for (int slot = 0; slot < 16; slot++)
+        {
+            IRoomEntity? entity = _interactionSlots.FirstOrDefault(pair => pair.Value == slot &&
+                pair.Key is not IRoomEntityLifetime { Finished: true }).Key;
+            if (entity is not null) yield return entity;
+        }
+        foreach (var entity in logicalOwners.Where(entity => entity is not DungeonEssenceGlow))
             yield return entity;
     }
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
-            or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or BlueEnergyBeadRoomEntity ? 1 : 2;
+            or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
+            or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity ? 1 : 2;
 
     internal IReadOnlyList<BlueEnergyBeadRoomEntity> CreateEnergySwirl(Vector2 center, byte duration = 0xff)
     {
@@ -2023,7 +2219,10 @@ public sealed class RoomEntityManager : IDisposable
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
-        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity;
+        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
+            or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
+            or DungeonStateController or MinecartGateRoomEntity
+            or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity;
 
     internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;
     internal bool PartSlotAvailable => FindFreePartSlot() >= 0;
@@ -2040,45 +2239,70 @@ public sealed class RoomEntityManager : IDisposable
         return -1;
     }
 
-    private void PrepareIncomingEntitiesForScreenTransition()
+    private void PrepareIncomingEntitiesForScreenTransition(Player? player)
     {
         // updateEnemies/updateInteractions still dispatch source state 0 while
         // wScrollMode is active. Complete that work before the incoming room
-        // is exposed, then freeze ordinary state-8+ updates. The list may grow
-        // while a preloader creates source-ordered children, so walk by index
-        // until the complete transitive set is prepared.
-        for (int index = 0; index < _activeEntities.Count; index++)
+        // is exposed, then freeze ordinary state-8+ updates. Native dispatch
+        // order is ENEMY, PART, INTERACTION, each in slot order; object-stream
+        // insertion order can place a controller before the enemy it observes.
+        var prepared = new HashSet<IRoomEntity>();
+        int Order(IRoomEntity entity, int phase) => phase switch
         {
-            IRoomEntity entity = _activeEntities[index];
-            if (entity is IScreenTransitionPreloadRoomEntity preloader)
+            0 => _enemySlots[entity],
+            1 => _partSlots.GetValueOrDefault(entity,16 + _activeEntities.IndexOf(entity)),
+            _ => entity is DungeonEssenceGlow ? -1 :
+                _interactionSlots.GetValueOrDefault(entity,16 + _activeEntities.IndexOf(entity))
+        };
+        while (_activeEntities.Any(entity => !prepared.Contains(entity)))
+        {
+            for (int phase = 0; phase < 3; phase++)
             {
-                ScreenTransitionPresentation presentation =
-                    preloader.PrepareForScreenTransition(_pendingSpawns);
-                ProcessScreenTransitionPreloadSpawns();
-                if (entity is IRoomEntityLifetime { Finished: true } && _enemySlots.Remove(entity, out int finishedSlot))
-                    _reservedEnemySlots.Remove(finishedSlot);
-                ValidateScreenTransitionPresentation(entity, presentation);
-                if (entity is IRoomEntityLifetime { Finished: true } lifetime)
+                int cursor = -1;
+                while (true)
                 {
-                    ApplyEnemyOutcomes(entity);
-                    lifetime.OnFinished(_pendingSpawns);
-                    _activeEntities.RemoveAt(index--);
-                    FreeEntity(entity);
-                    ProcessScreenTransitionPreloadSpawns();
+                    IRoomEntity? entity = _activeEntities.Where(candidate => !prepared.Contains(candidate) &&
+                        EntityPhase(candidate) == phase && Order(candidate,phase) >= cursor)
+                        .OrderBy(candidate => Order(candidate,phase)).FirstOrDefault();
+                    if (entity is null) break;
+                    cursor = Order(entity,phase) + 1;
+                    prepared.Add(entity);
+                    PrepareIncomingEntityForScreenTransition(entity, player);
                 }
-                continue;
             }
+        }
+    }
 
-            if (!entity.Node.Visible)
+    private void PrepareIncomingEntityForScreenTransition(IRoomEntity entity, Player? player)
+    {
+        if (entity is IScreenTransitionPreloadRoomEntity preloader)
+        {
+            ScreenTransitionPresentation presentation =
+                preloader.PrepareForScreenTransition(player, _pendingSpawns);
+            ProcessScreenTransitionPreloadSpawns();
+            if (entity is IRoomEntityLifetime { Finished: true } && _enemySlots.Remove(entity, out int finishedSlot))
+                _reservedEnemySlots.Remove(finishedSlot);
+            ValidateScreenTransitionPresentation(entity, presentation);
+            if (entity is IRoomEntityLifetime { Finished: true } lifetime)
             {
-                throw new InvalidOperationException(
-                    $"Incoming room entity {entity.GetType().Name} " +
-                    $"('{entity.Node.Name}') is hidden after creation and " +
-                    $"does not implement " +
-                    $"{nameof(IScreenTransitionPreloadRoomEntity)}. Source " +
-                    $"state 0 must resolve its transition presentation " +
-                    $"explicitly so it cannot pop in after scrolling.");
+                ApplyEnemyOutcomes(entity);
+                lifetime.OnFinished(_pendingSpawns);
+                _activeEntities.Remove(entity);
+                FreeEntity(entity);
+                ProcessScreenTransitionPreloadSpawns();
             }
+            return;
+        }
+
+        if (!entity.Node.Visible)
+        {
+            throw new InvalidOperationException(
+                $"Incoming room entity {entity.GetType().Name} " +
+                $"('{entity.Node.Name}') is hidden after creation and " +
+                $"does not implement " +
+                $"{nameof(IScreenTransitionPreloadRoomEntity)}. Source " +
+                $"state 0 must resolve its transition presentation " +
+                $"explicitly so it cannot pop in after scrolling.");
         }
     }
 
@@ -2153,6 +2377,76 @@ public sealed class RoomEntityManager : IDisposable
         return false;
     }
 
+    internal bool TryMergeSmogClouds(int phase) => SmogCloudMerge.TryMerge(
+        _enemySlots.OrderBy(pair => pair.Value).Select(pair => pair.Key.Node).OfType<SmogCharacter>(),
+        phase, spawn =>
+        {
+            if (TryAllocateEnemy(_ => _factory.Create(spawn,_roomForActiveEntities)) is null)
+                throw new NotSupportedException("INTERAC$33 mergeSmogs unchecked allocation into a full ENEMY pool is not represented.");
+        });
+
+    internal void ReleaseSmogSentinelCount()
+    {
+        var sentinels = _activeEntities.OfType<SmogRoomEntity>().Where(entity => entity.IsRoomSentinel).ToArray();
+        if (sentinels.Length != 1)
+            throw new InvalidOperationException($"INTERAC$33 final decrement found {sentinels.Length} live ENEMY$7c:$05 sentinels; expected one.");
+        sentinels[0].ReleaseSentinelCount();
+    }
+
+    private int InitializeActiveSmogBossRoom(bool scrolling)
+    {
+        var owners = _activeEntities.OfType<SmogRoomEntity>().Where(entity => entity.OwnsBossRoomInitialization).ToArray();
+        if (owners.Length != 1)
+            throw new NotSupportedException($"Smog state0 room initialization requires one active placed sentinel; found {owners.Length}.");
+        return owners[0].InitializeBossRoom(scrolling);
+    }
+
+    private void WriteSmogInteractionCounter(int slot, int value)
+    {
+        if (slot is < 0 or >= 16) throw new InvalidOperationException("Smog $47 write requires its native ENEMY page.");
+        var target = _interactionSlots.FirstOrDefault(pair => pair.Value == slot &&
+            pair.Key is not IRoomEntityLifetime { Finished: true }).Key;
+        // An unused interaction's counter2 is not read by allocation and is
+        // cleared on allocation. Active actor aliases require explicit support.
+        if (target is null) return;
+        if (target is SmogEncounterRoomEntity smog)
+        {
+            smog.WriteCounter2Alias(value);
+            return;
+        }
+        throw new NotSupportedException($"smog.s writes ${value:x2} to INTERACTION page${0xd0+slot:x2} counter2 ($47); active {target.GetType().Name} does not represent that alias.");
+    }
+
+    private bool TryCreatePuzzlePuff(Vector2 position)
+    {
+        if (FindFreeInteractionSlot() < 0) return false;
+        AddEntity(_factory.Create(new PuzzlePuffSpawn(position,OracleSoundEngine.SndPoof),_roomForActiveEntities));
+        return true;
+    }
+
+    private bool TryCreateRockDebris(Vector2 position)
+    {
+        if (FindFreeInteractionSlot() < 0) return false;
+        var entity = _factory.Create(new RockDebrisSpawn(position),_roomForActiveEntities);
+        AddEntity(entity);
+        _interactionSlots[entity] = FindFreeInteractionSlot();
+        return true;
+    }
+
+    private bool TryCreateSeedReflectorChild(RotatableSeedThingRoomEntity parent,Vector2 offset,int z)
+    {
+        if (FindFreePartSlot() < 0) return false;
+        AddEntity(new SeedReflectorChildRoomEntity(parent,offset,z));
+        return true;
+    }
+
+    private bool TryCreateLightableTorch(LightableTorchState state,int packedPosition)
+    {
+        if (FindFreePartSlot() < 0) return false;
+        AddEntity(_factory.Create(new LightableTorchSpawn(state,packedPosition),_roomForActiveEntities));
+        return true;
+    }
+
     private bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity) =>
         entity is IUpdatesDuringRoomEntityFreeze { UpdatesDuringRoomEntityFreeze: true } ||
         entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true } ||
@@ -2214,20 +2508,17 @@ public sealed class RoomEntityManager : IDisposable
         while (_screenTransitionFrameAccumulator >= 1.0)
         {
             _screenTransitionFrameAccumulator -= 1.0;
-            UpdateAlwaysEntitiesDuringScreenTransition(_outgoingEntities);
-            UpdateAlwaysEntitiesDuringScreenTransition(_activeEntities);
+            foreach (IRoomEntity entity in ScreenTransitionUpdateOrder())
+                if (entity is IAlwaysUpdateDuringScreenTransitionRoomEntity always)
+                    always.UpdateDuringScreenTransition();
+            RemoveFinishedScreenTransitionEntities(_outgoingEntities);
+            RemoveFinishedScreenTransitionEntities(_activeEntities);
         }
     }
 
-    private void UpdateAlwaysEntitiesDuringScreenTransition(
+    private void RemoveFinishedScreenTransitionEntities(
         List<IRoomEntity> entities)
     {
-        foreach (IRoomEntity entity in entities.ToArray())
-        {
-            if (entity is IAlwaysUpdateDuringScreenTransitionRoomEntity always)
-                always.UpdateDuringScreenTransition();
-        }
-
         for (int index = entities.Count - 1; index >= 0; index--)
         {
             IRoomEntity entity = entities[index];
@@ -2247,6 +2538,24 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
+    private IEnumerable<IRoomEntity> ScreenTransitionUpdateOrder()
+    {
+        foreach (IRoomEntity entity in _outgoingEntities.Concat(_activeEntities).Where(entity =>
+            !_interactionSlots.ContainsKey(entity) && !_partSlots.ContainsKey(entity)).ToArray())
+            yield return entity;
+        // The scroll gate changes eligibility, not updateInteractions' live
+        // ascending walk. A chest puff allocated above this cursor must run
+        // state 0 in the same pass; a child below it waits until the next pass.
+        foreach (var slots in new[] { _partSlots, _interactionSlots })
+            for (int slot = 0; slot < 16; slot++)
+            {
+                IRoomEntity? entity = slots.FirstOrDefault(pair => pair.Value == slot &&
+                    pair.Key is not IRoomEntityLifetime { Finished: true }).Key;
+                if (entity is not null)
+                    yield return entity;
+            }
+    }
+
     private void ClearEntities(List<IRoomEntity> entities)
     {
         foreach (IRoomEntity entity in entities)
@@ -2259,7 +2568,11 @@ public sealed class RoomEntityManager : IDisposable
         _interactionSlots.Remove(entity);
         _partSlots.Remove(entity);
         if (_enemySlots.Remove(entity, out int enemySlot))
+        {
+            if (entity is INativeEnemyCounter1RoomEntity { RetainsCounter1AfterDeletion: true } counter)
+                _deletedEnemyCounter1[enemySlot] = checked((byte)counter.Counter1);
             _reservedEnemySlots.Remove(enemySlot);
+        }
         if (entity is INpcTalkLifecycle lifecycle &&
             _npcTalkLifecycles.TryGetValue(
                 lifecycle.TalkNpc, out INpcTalkLifecycle? registered) &&
@@ -2467,7 +2780,8 @@ internal sealed record ItemDropSpawn(
     Vector2 Position,
     int Angle = 0,
     bool DugUp = false,
-    bool UpdateThisFrame = false) : RoomEntitySpawn(UpdateThisFrame);
+    bool UpdateThisFrame = false,
+    int ZHigh = 0) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record FallingDownHoleSpawn(Vector2 Position, bool Silent = false) : RoomEntitySpawn;
 

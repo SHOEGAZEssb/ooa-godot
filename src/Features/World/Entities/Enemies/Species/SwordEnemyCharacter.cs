@@ -17,9 +17,19 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     private int _speedRaw;
     private int _zFixed;
     private int _speedZ;
-    internal int ZFixed => _zFixed;
+    private int _stunCounter;
+    private bool _emberPending;
+    private bool _emberCollisionDisabled;
+    internal int ZFixed { get => _zFixed; set => _zFixed = value; }
+    internal int StunCounter => _stunCounter;
+    internal bool BurnKilled { get; private set; }
+    internal bool IsDarknut => Record.Id == 0x48;
+    internal int CollisionMode => SwordBlocking ? (IsDarknut ? 0x56 : 0x55)
+        : IsDarknut ? 0x20 : Record.Id == 0x49 ? 0x7e : 0x11;
+    private int ChaseSpeed => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[0].Value : _behavior.ChaseSpeedRaw;
+    private int TurnIntervalMask => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[1].Value : _behavior.TurnIntervalMask;
     internal int SwitchHookSubstate { get; private set; }
-    internal override bool CollisionEnabled => base.CollisionEnabled && _state != SwordEnemyState.SwitchHook;
+    internal override bool CollisionEnabled => base.CollisionEnabled && !_emberCollisionDisabled && _state != SwordEnemyState.SwitchHook;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -82,20 +92,32 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     internal void UpdateFrame(
         Vector2 linkPosition,
         Vector2? scentSeedTarget = null,
-        bool swordSlotAvailable = true)
+        bool swordSlotAvailable = true,
+        int frameCounter = 0)
     {
-        UpdateState(linkPosition, scentSeedTarget, swordSlotAvailable);
+        UpdateState(linkPosition, scentSeedTarget, swordSlotAvailable, frameCounter);
         // swordEnemy_updateEnemyCollisionMode runs after the handler and
         // publishes the collision mode consumed by the following item pass.
-        SwordBlocking = !IsDead && BlocksSwordFrom(linkPosition);
+        SwordBlocking = !IsDead && _stunCounter == 0 && BlocksSwordFrom(linkPosition);
     }
 
-    private void UpdateState(Vector2 linkPosition, Vector2? scentSeedTarget, bool swordSlotAvailable)
+    private void UpdateState(Vector2 linkPosition, Vector2? scentSeedTarget, bool swordSlotAvailable, int frameCounter)
     {
         if (IsDead || CheckHazards() || BeginFrame())
             return;
+        // COLLISIONEFFECT_$34 writes JUST_HIT before clearing health. Return
+        // on that status so the later PART_BURNING_ENEMY pass can borrow HP.
+        if (_emberPending) { _emberPending = false; return; }
+        if (Health == 0) { BurnKilled = true; Finish(); return; }
+        if (_stunCounter != 0)
+        {
+            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
+                ref _stunCounter, ref _zFixed, ref _speedZ);
+            QueueRedraw();
+            return;
+        }
         if ((_state == SwordEnemyState.FollowingScentSeed || (int)_state >= 8) &&
-            scentSeedTarget is { } scentPosition)
+            !IsDarknut && scentSeedTarget is { } scentPosition)
         {
             _state = SwordEnemyState.FollowingScentSeed;
             _speedRaw = _behavior.ChaseSpeedRaw;
@@ -179,7 +201,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
                     return;
                 _state = SwordEnemyState.Chasing;
                 _counter1 = _behavior.ChaseFrames;
-                _speedRaw = _behavior.ChaseSpeedRaw;
+                _speedRaw = ChaseSpeed;
                 return;
 
             case SwordEnemyState.Chasing:
@@ -196,7 +218,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
                     return;
                 }
                 if ((_counter1 &
-                    _behavior.TurnIntervalMask) == 0)
+                    TurnIntervalMask) == 0)
                 {
                     int target =
                         OracleObjectMovement.Shared.RelativeAngle(
@@ -253,6 +275,31 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     }
 
     internal override bool TakeBurnHit(int damage) => base.TakeBurnHit(Health);
+
+    internal void BeginPegasusHit()
+    {
+        // collisionEffects.s:ENEMYDMG_38 writes stun/invincibility only;
+        // it does not overwrite var2a or an existing knockback counter.
+        _stunCounter = 240;
+        InvincibilityCounter = -16;
+    }
+
+    internal void BeginEmberHit()
+    {
+        _emberPending = true;
+        _emberCollisionDisabled = true;
+        _stunCounter = 90;
+        InvincibilityCounter = -90;
+        Health = 0;
+    }
+
+    internal void ClearSeedStun() => _stunCounter = 0;
+
+    internal void ReleaseBurn()
+    {
+        InvincibilityCounter = 0;
+        _stunCounter = 1; // partCode12's restoration writes this even at zero HP.
+    }
 
     public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead && !DiedInHazard &&
         _state == SwordEnemyState.SwitchHook && SwitchHookSubstate < 3;

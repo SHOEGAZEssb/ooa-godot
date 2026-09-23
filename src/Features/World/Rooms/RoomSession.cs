@@ -13,6 +13,18 @@ public sealed class RoomSession
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
     private readonly GashaSpotDatabase _gashaSpots;
+    private readonly ChangedTileQueue _changedTiles = new();
+
+    // INTERAC$14 state0 writes this shared byte for reserved and dynamic
+    // blocks alike. Finishing/deleting the writer does not clear it.
+    internal byte BlockPushAngle { get; private set; }
+    internal void WriteBlockPushAngle(int angle) => BlockPushAngle = (byte)(angle | 0x80);
+
+    internal int PendingTileGraphics => _changedTiles.Count;
+    internal bool TrySetTile(byte position, byte tile) =>
+        _changedTiles.TryWrite(position,tile,write => CurrentRoom.SetTileWithoutGraphicsReload(write,_animationTick()));
+    internal void UpdateChangedTileGraphics(byte scrollMode) =>
+        _changedTiles.UpdateGraphics(scrollMode,write => CurrentRoom.ApplyQueuedTileGraphics(write,_animationTick()));
 
     public event Action<int, OracleRoomData>? RoomChanged;
     public OracleWorldData World { get; }
@@ -55,6 +67,8 @@ public sealed class RoomSession
 
     public OracleRoomData Load(int group, int room)
     {
+        BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
+        _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
@@ -73,6 +87,8 @@ public sealed class RoomSession
     /// </summary>
     public OracleRoomData LoadCutsceneRoom(int group, int room)
     {
+        BlockPushAngle = 0;
+        _changedTiles.Clear(); // disableLcdAndLoadRoom clears wLinkInAir..wcce9.
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
@@ -83,6 +99,8 @@ public sealed class RoomSession
 
     public void SetLoadedRoom(int group, OracleRoomData room)
     {
+        BlockPushAngle = 0; // func_49c9 clears wDisabledObjects..$cce0, including $cca6.
+        _changedTiles.Clear(); // Scroll-entry func_49c9 clears these indices before loading.
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;

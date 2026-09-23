@@ -1007,13 +1007,13 @@ public sealed partial class ValidationRoot
                 orbCount += record.Id == 0x03 ? 1 : 0;
                 extendableBridgeCount += record.Id == 0x23 ? 1 : 0;
                 rotatableSeedThingCount += record is
-                    { Id: 0x33, SubId: 0x0a } ? 1 : 0;
+                    { Id: 0x33, SubId: 0x0a or 0x08 or 0x88 } ? 1 : 0;
                 respawnableBushScannerCount += record is
                     { Id: 0xc7, SubId: 0x04 } ? 1 : 0;
             }
         }
         FailIf(
-            database.RecordCount != 231 || switchRecordCount != 7 ||
+            database.RecordCount != 233 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -1026,7 +1026,7 @@ public sealed partial class ValidationRoot
             tilePatternFallingKeyCount != 1 ||
             torchTranslatorCount != 2 || torchScannerCount != 8 ||
             orbCount != 17 || extendableBridgeCount != 7 ||
-            rotatableSeedThingCount != 2 || respawnableBushScannerCount != 3 ||
+            rotatableSeedThingCount != 4 || respawnableBushScannerCount != 3 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
             "Expected two shared enemy-clear falling keys, 12 enemy-clear chests, " +
@@ -1190,8 +1190,7 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             room.GetMetatile(retractableChest) != 0xf1 ||
-            _entities.Entities<TriggerChestRoomEntity>() is not
-            [{ Id: 0x21, Predicate: TriggerPredicate.Exact }] ||
+            _entities.Entities<RetractableTriggerChestRoomEntity>().Count != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 1,
             "Room 4:7a's $21:$17 did not create its exact-$01 reusable chest.");
@@ -1203,7 +1202,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(retractableChest) != retractableOriginal ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 2 ||
-            _entities.Entities<TriggerChestRoomEntity>().Count != 1,
+            _entities.Entities<RetractableTriggerChestRoomEntity>().Count != 1,
             "Room 4:7a's $21:$17 did not retract to the source tile without another solve cue.");
 
         _sound.ClearPlayRequestAudit();
@@ -1849,10 +1848,9 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2,
             "Room 4:09 did not retain its latched trigger and reusable door controllers after opening.");
 
-        // Room 4:22 uses reusable button $80. State 0 returns even when Link
-        // already overlaps it; airborne Link remains ignored. Ground contact
-        // presses on the next update, strict combined radius 8 releases at
-        // exactly +8 pixels, and the right shutter closes again.
+        // Room 4:22 uses reusable button $80. Its first pressure check rejects
+        // the falling Link; grounded contact presses it. The summed radius8
+        // excludes exactly +8 pixels, and the right shutter closes again.
         LoadValidationRoom(4, 0x22);
         room = _currentRoom;
         Vector2 reusableButton = new(0xb8, 0x58);
@@ -1866,7 +1864,7 @@ public sealed partial class ValidationRoot
             _entities.ActiveTriggers != 0 ||
             room.GetMetatile(reusableButton) != 0x0c ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 0,
-            "Room 4:22's reusable button accepted state-0 or airborne Link pressure.");
+            "Room 4:22's reusable button accepted airborne Link pressure.");
         _player.EndNewGameSlowFall();
         Step();
         FailIf(
@@ -1944,13 +1942,14 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundButtonRoomEntity>() is not
                 [{ Pressed: true, ReleaseCounter: 0x1c }] ||
             room.GetMetatile(reusableButton) != 0x1d ||
+            room.GetUnderlyingMetatile(reusableButton) != 0x0d ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1,
             "Room 4:22 did not preserve an object above its newly pressed reusable button.");
         // Destination tile $1d is intentionally no longer pushable. Restore
         // the underlying tile here to model a removable pot/Somaria block
         // leaving while preserving the real push-controller pressure path.
         room.SetPositionTileAndCollision(
-            reusableButton, 0x0c, null, (long)_animationTicks);
+            reusableButton, room.GetUnderlyingMetatile(reusableButton), null, (long)_animationTicks);
         for (int frame = 0; frame < database.ButtonObjectReleaseDelay - 1; frame++)
             Step();
         FailIf(
@@ -2002,7 +2001,7 @@ public sealed partial class ValidationRoot
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 231 imported enemy-clear-key/chest/switch/button/" +
+        GD.Print("Validated all 233 imported enemy-clear-key/chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +

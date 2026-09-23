@@ -47,6 +47,6 @@ internal sealed partial class GopongaFlowerCharacter : EnemyCharacter
             RestartAnimation(0);
         }
         else if (Counter == _profile[2].Value && (_random.Next().Value & _profile[4].Value) == 0)
-            spawns.Add(new ZoraFireSpawn(Position)); // PART_$31 shares partCode19.
+            spawns.Add(new ZoraFireSpawn(Position, 0x31)); // PART_$31 shares partCode19.
     }
 }

@@ -548,6 +548,34 @@ public sealed class OracleRoomData
         return true;
     }
 
+    // setTile changes terrain immediately; its queued graphics must retain
+    // the previously displayed mapping until updateChangedTileQueue runs.
+    internal void SetTileWithoutGraphicsReload(ChangedTileWrite write, long animationTick)
+    {
+        Vector2 position = new((write.Position & 15) * MetatileSize + 8,
+            (write.Position >> 4) * MetatileSize + 8);
+        SetPositionTileAndCollision(position,write.Tile,null,animationTick,preserveRenderedTile: true);
+    }
+
+    internal void ApplyQueuedTileGraphics(ChangedTileWrite write, long animationTick)
+    {
+        int x = write.Position & 15, y = write.Position >> 4;
+        if (x >= WidthInTiles || y >= HeightInTiles)
+            throw new ArgumentOutOfRangeException(nameof(write),$"Queued tile position${write.Position:x2} is outside the room.");
+        int index = y * _layoutStride + x;
+        bool changed = _positionMappingOverrides.Remove(index);
+        changed |= GetRenderedMetatile(index) != write.Tile;
+        // A later queued write may already have changed Layout[index].
+        // Display this entry's value without reverting logical terrain.
+        if (Layout[index] == write.Tile) _positionVisualOverrides.Remove(index);
+        else _positionVisualOverrides[index] = write.Tile;
+        if (!changed) return;
+        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
+        _activeAnimationHeaders = activeHeaders;
+        _animationSignature = GetAnimationSignature(activeHeaders);
+        ReplaceTextureImage(Texture,RenderRoom(activeHeaders));
+    }
+
     internal void SetPositionTileAndCollision(
         Vector2 localPoint,
         byte tile,

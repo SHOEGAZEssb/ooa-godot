@@ -82,7 +82,7 @@ public sealed class BraceletController
     /// </summary>
     public bool TryUse(Player player, bool primaryButton)
     {
-        if (_state != BraceletState.Idle)
+        if (_state != BraceletState.Idle || _entities.ReservedBraceletChildActive)
             return false;
 
         bool wasCarrying = player.IsCarryingObject;
@@ -441,6 +441,14 @@ public sealed class BraceletController
 
     private void UpdateEntityLift(Player player)
     {
+        // bombsBraceletParent.s state2 checks wLinkGrabState before advancing
+        // the lift animation. An expiring native object can clear that owner
+        // during the later enemy/part pass of the preceding update.
+        if (!player.IsCarryingObject)
+        {
+            ResetParent(player);
+            return;
+        }
         if (!BraceletLiftSequence.Advance(
                 player,
                 ref _counter,

@@ -84,6 +84,37 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public virtual bool FreezesDuringSeedBurn => true;
     public Vector2 SeedBurnPosition => Entity.Position;
     protected EnemyCombatDescriptor CombatDescriptor => combatDescriptor;
+    protected bool ApplySomariaBlockCollision(SomariaBlock block, int rawDamage,
+        bool pendingHit, ICollection<RoomEntitySpawn> spawns, bool deferNativeStatus = true)
+    {
+        int type = DimitriCollisionType;
+        if (type < 0 || !block.CollisionEnabled || !Entity.CollisionEnabled ||
+            pendingHit || Entity.InvincibilityCounter != 0 ||
+            !SomariaCollisionDatabase.Shared.Enemy((byte)type).Block ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, block.ZHigh, 7) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, block.CollisionBounds)) return false;
+        int effect = SomariaCollisionDatabase.Shared.Effects((byte)DimitriCollisionMode).Block;
+        switch (effect)
+        {
+            case 0: return true;
+            case 0x2d: block.Flags |= 0x20; return true;
+            case 0x2f:
+                // LINKDMG_30 precedes ENEMYDMG_04. Ordinary enemy initialization
+                // sets var3e=$01; the block receives the enemy's raw damage,
+                // without Link's ring or contact-damage policy.
+                block.QueueEnemyDamage(rawDamage, 1, Entity.Position);
+                ApplySomariaEnemyDamage(block, spawns);
+                if (deferNativeStatus) Entity.DeferNativeHitStatus();
+                return true;
+            default: throw new NotSupportedException($"Enemy ${type:x2} mode ${DimitriCollisionMode:x2} Somaria effect ${effect:x2} is not represented (objectCollisionTable).");
+        }
+    }
+    protected virtual void ApplySomariaEnemyDamage(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!combatDescriptor.Combat.ApplyDamageAfterCollision(block.Position,
+            -block.Damage, EnemyKnockbackStrength.Normal, spawns, combatDescriptor.CountsAsEnemy))
+            throw new InvalidOperationException($"Enemy ${DimitriCollisionType:x2} rejected an eligible Somaria effect$2f damage exchange.");
+    }
     protected bool SeedBurning => _seedBurning;
     protected int KillableEnemyIndex =>
         combatDescriptor.KillableEnemyIndex;

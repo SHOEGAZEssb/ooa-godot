@@ -47,7 +47,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         if (player.KnockbackFrames > 0) Item.RequestCancellation();
     }
     internal void UpdateItem(Player player, bool frozen) =>
-        Item?.UpdateItem(rooms.CurrentRoom, player.Position, frozen, () => entities.SwitchHookChainSlotAvailable);
+        Item?.UpdateItem(rooms.CurrentRoom, player.Position, frozen, () => entities.TryAllocateSwitchHookChain(Item));
     internal void UpdateHelper(bool frozen)
     {
         if (Helper is null || frozen && Helper.Initialized) return;
@@ -62,7 +62,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
     internal void CreateClink(Vector2 point, bool initializeOnUpdate = false) =>
         entities.Spawn(new EnemyClinkSpawn(point, initializeOnUpdate));
     internal bool CanLiftEnemy(Vector2 position) => !pushBlockActive() &&
-        !SwitchHookCollisionDatabase.Shared.SurroundedByWalls(position,
+        !LinkWallProbe.Shared.SurroundedByWalls(position,
             (rooms.CurrentRoom.TilesetFlags & 0x20) != 0, rooms.CurrentRoom.IsSolid);
     internal bool TryLiftTile(Vector2 position, out BreakableTileBreak result, out Texture2D texture)
     {

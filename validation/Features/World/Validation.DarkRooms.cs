@@ -127,8 +127,8 @@ public sealed partial class ValidationRoot
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             handler.State.LitCount != 2 || room.Layout[0x3b] != 0x09 ||
-            _entities.Entities<GroundTreasurePickup>().Count != 0,
-            "The second torch did not light one update before the ordered $dc:$00 reward check.");
+            _entities.Entities<GroundTreasurePickup>().Count != 1 || handler.State.FadeActive,
+            "PART$06 must publish the second lit torch before INTERAC$dc:$00 in the same update; the earlier PART$08 observes it next update.");
         _entities.Update(1.0 / 60.0, _player);
         GroundTreasurePickup key =
             _entities.Entities<GroundTreasurePickup>().Single();
@@ -153,7 +153,6 @@ public sealed partial class ValidationRoot
             !handler.State.FadeActive || handler.State.Parameter != 0,
             "Exactly two torches did not create the falling one-hand Graveyard Key before full brightening.");
 
-        _entities.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             key.State != PickupState.Spawning ||

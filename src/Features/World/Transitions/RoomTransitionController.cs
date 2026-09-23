@@ -628,11 +628,15 @@ public sealed class RoomTransitionController
         _scrollIncomingStartOffset = sourceCameraOrigin - destinationCameraOrigin +
             (Vector2)direction * _scrollDistance;
         _rooms.SetLoadedRoom(_rooms.ActiveGroup, target);
+        // screenTransitionState2 writes the edge-clamped high coordinate
+        // before destination object initialization observes Link.
+        if (transitionOwner is null)
+            player.SetScriptedPosition(start);
         _roomView.StartScreenTransition(
             target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
-            target.GetPackedPosition(transitionEnd));
+            target.GetPackedPosition(transitionEnd), player);
         int beforeGraphics = _scrollSetupFrames - 4;
         int uploadStart = target.LoadsUniqueGraphicsAfterScroll
             ? _scrollTotalFrames - entries + 1 : 2;
@@ -647,17 +651,12 @@ public sealed class RoomTransitionController
             _scrollSetupFrames - 2, smooth);
         _scrollPlayerOwner = transitionOwner;
         _scrollPlayerOwner?.BeginScreenTransition(target);
-        // Destination interaction state 0 runs during room parsing. It may
-        // overwrite Link's orthogonal high coordinate before scrolling starts
-        // (soldierSubid05 writes w1Link.xh=$50). The transition updater changes
-        // only the scrolling axis, so retain that destination-authored write.
+        // State0 may change either coordinate (platform contact), not only
+        // the orthogonal one (soldierSubid05 writes w1Link.xh=$50).
+        // transitionUpdateScrollAndLinkPosition adds to the resulting live
+        // coordinates; it does not restore the pre-initialization position.
         if (_scrollPlayerOwner is null)
-        {
-            if (direction.X == 0)
-                start.X = player.PrecisePosition.X;
-            else
-                start.Y = player.PrecisePosition.Y;
-        }
+            start = player.PrecisePosition;
         _scrollLinkStart = start;
         if (_scrollPlayerOwner is null)
         {

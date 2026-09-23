@@ -21,13 +21,15 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 
     public bool Finished { get; private set; }
     internal int BossId { get; private set; }
+    internal int ZHigh { get; private set; }
     internal int AnimationDuration { get; private set; }
     internal Vector2 CurrentTextureSize => _animation[_frame].Texture.GetSize();
     internal Vector2 CurrentDrawOffset => _animation[_frame].Offset;
 
-    internal void Initialize(Vector2 position, int bossId, Action<int> playSound)
+    internal void Initialize(Vector2 position, int bossId, Action<int> playSound, int zHigh = 0)
     {
         Position = position;
+        ZHigh = (sbyte)(byte)zHigh;
         BossId = bossId;
         _playSound = playSound;
         _animation = _definition ??= LoadDefinition();
@@ -78,7 +80,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         {
             DrawTexture(
                 _animation[_frame].Texture,
-                _animation[_frame].Offset + TransitionDrawOffset);
+                _animation[_frame].Offset + Vector2.Down * ZHigh + TransitionDrawOffset);
         }
     }
 

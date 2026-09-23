@@ -5,10 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Trigger-chest consumers used by dungeon script $20:$00 and dungeon event
-/// $21:$17. The former plays the solve cue, creates a puff, waits 15 updates,
-/// installs a permanent chest, and deletes. The latter mirrors trigger state
-/// immediately and restores the source layout tile when pressure is released.
+/// Dungeon script $20:$00 plays the solve cue, creates a puff, waits 15 updates,
+/// installs a permanent chest, and deletes.
 /// </summary>
 internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity,
     IFixedRoomEntity, IRoomEntityLifetime
@@ -20,7 +18,6 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
     private readonly Func<bool> _itemFlagSet;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
-    private readonly byte _originalTile;
     private bool _initialized;
     private int _counter;
 
@@ -42,8 +39,7 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
         Action<int> playSound)
         : base(record, $"TriggerChest_{record.Id:x2}_{record.Order}")
     {
-        if (record is not ({ Id: 0x20, SubId: 0x00 } or
-            { Id: 0x21, SubId: 0x17 }))
+        if (record is not { Id: 0x20, SubId: 0x00 })
         {
             throw new ArgumentOutOfRangeException(nameof(record));
         }
@@ -54,17 +50,10 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
         _itemFlagSet = itemFlagSet;
         _animationTick = animationTick;
         _playSound = playSound;
-        _originalTile = room.GetOriginalMetatile(Position);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (_record.Id == 0x21)
-        {
-            UpdateRetractable(spawns);
-            return;
-        }
-
         // INTERAC_DUNGEON_SCRIPT executes stopifitemflagset once when its
         // script is selected, then remains parked at its trigger predicate.
         if (!_initialized)
@@ -99,33 +88,6 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
         _counter = _data.ChestWait;
     }
 
-
-    private void UpdateRetractable(ICollection<RoomEntitySpawn> spawns)
-    {
-        // $21:$17 checks ROOMFLAG_ITEM on every update, so opening the dynamic
-        // chest retires this controller before it can restore the source tile.
-        if (_itemFlagSet())
-        {
-            Finished = true;
-            return;
-        }
-
-        byte tile = _room.GetMetatile(Position);
-        if (TriggerMatches())
-        {
-            if (tile == _data.ChestTile)
-                return;
-            SetTile((byte)_data.ChestTile);
-            spawns.Add(new PuzzlePuffSpawn(Position, _data.PuffSound));
-            _playSound(_data.SolveSound);
-            return;
-        }
-
-        if (tile != _data.ChestTile)
-            return;
-        SetTile(_originalTile);
-        spawns.Add(new PuzzlePuffSpawn(Position, _data.PuffSound));
-    }
 
     private bool TriggerMatches() => _record.Predicate switch
     {

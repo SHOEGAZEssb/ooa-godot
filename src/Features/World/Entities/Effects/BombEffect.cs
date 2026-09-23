@@ -49,6 +49,7 @@ public partial class BombEffect : TransitionOffsetNode2D
 
     public bool Finished => _state == BombState.Finished;
     internal BombState State => _state;
+    internal bool SetupPending => _setupPending;
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
     internal int SpeedRaw => _speedRaw;

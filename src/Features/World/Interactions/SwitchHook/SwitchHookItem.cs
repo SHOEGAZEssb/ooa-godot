@@ -28,6 +28,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     private Vector2 _precisePosition;
     private bool _cancelRequested;
     private bool _chainCreated;
+    internal bool ChainAllocated => _chainCreated;
     private int _chainCounter = 3;
     internal int State { get; private set; }
     internal int Substate { get; private set; }
@@ -243,6 +244,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     internal void UpdatePost(Vector2 linkPosition, bool parentActive)
     {
         if (!parentActive) Delete();
+        if (Finished || State == 2 && Substate == 1) _chainCreated = false;
         if (Finished || !_chainCreated || State == 2 && Substate == 1)
         { ChainVisible = false; return; }
         if (--_chainCounter == 0) _chainCounter = 3;

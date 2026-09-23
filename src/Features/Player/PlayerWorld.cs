@@ -42,14 +42,28 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
     public bool PlayerContactDisabled => _transitions.TimeWarpActive || _entities.PlayerContactDisabled;
+    public bool NativeWarpsDisabled =>
+        _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0;
+    public void SetNativeWarpsDisabled(bool disabled) =>
+        _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, disabled ? (byte)1 : (byte)0);
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
     public int SeedShooterAngle => _seedSatchel.ShooterAngle;
     public bool SwitchHookActive => _entities.SwitchHook?.Active == true;
+    public bool SomariaActive => _entities.Somaria?.Active==true;
+    public int SomariaAnimationMode => _entities.Somaria?.Parent?.Mode??0;
+    public int SomariaAnimationFrame => _entities.Somaria?.Parent?.Frame??0;
+    public void BeginSomaria(Player player,bool underwater) => _entities.Somaria!.Begin(player,underwater);
+    public void UpdateSomariaParent() => _entities.Somaria?.UpdateParent();
+    public void CancelSomaria() => _entities.Somaria?.Cancel();
     public bool SwitchHookExchangeActive => _entities.SwitchHook?.ExchangeActive == true;
-    public bool TryBeginSwitchHook(Player player, Vector2 input) => _entities.SwitchHook?.TryBegin(player, input) == true;
+    public bool TryBeginSwitchHook(Player player, Vector2 input)
+    {
+        CancelSomaria();
+        return _entities.SwitchHook?.TryBegin(player, input)==true;
+    }
     public void UpdateSwitchHookParent(Player player) => _entities.SwitchHook?.UpdateParent(player);
     public void InterruptSwitchHook(bool discard) => _entities.SwitchHook?.Interrupt(discard);
     public bool SideScrolling =>
@@ -114,7 +128,11 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryInteract(Player player) => _interactions.TryInteract(player);
     public bool TrySecondaryInteract(Player player) =>
         _interactions.TrySecondaryInteract(player);
-    public bool TryUseBomb(Player player) => _bomb.TryUse(player);
+    public bool TryUseBomb(Player player)
+    {
+        CancelSomaria();
+        return _bomb.TryUse(player);
+    }
     public bool UpdateBomb(
         Player player,
         Vector2 movementInput,
@@ -122,8 +140,11 @@ public sealed class PlayerWorld : IPlayerWorld
         _bomb.Update(player, movementInput, itemButtonJustPressed);
     public void InterruptBomb(Player player, bool discard) =>
         _bomb.Interrupt(player, discard);
-    public bool TryUseBracelet(Player player, bool primaryButton) =>
-        _bracelet.TryUse(player, primaryButton);
+    public bool TryUseBracelet(Player player, bool primaryButton)
+    {
+        CancelSomaria();
+        return _bracelet.TryUse(player, primaryButton);
+    }
     public bool UpdateBracelet(
         Player player,
         Vector2 movementInput,
@@ -143,8 +164,11 @@ public sealed class PlayerWorld : IPlayerWorld
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
     public PegasusSeedState Pegasus => _seedSatchel.Pegasus;
     public bool TryBeginSeedShooter(
-        Player player, bool primaryButton, Vector2 movementInput) =>
-        _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
+        Player player, bool primaryButton, Vector2 movementInput)
+    {
+        CancelSomaria();
+        return _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
+    }
     public bool UpdateSeedShooter(
         Player player, Vector2 movementInput,
         bool primaryHeld, bool secondaryHeld,
@@ -159,6 +183,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _bracelet.ClearParent(player);
         _seedSatchel.InterruptShooter();
         _entities.SwitchHook?.ClearParent();
+        _entities.Somaria?.ClearParent();
     }
     public int BeginHarp(Player player)
     {

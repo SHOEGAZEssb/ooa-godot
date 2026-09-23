@@ -76,6 +76,40 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   exhaustive minigame playthrough comparison against the ROM remains open.
 - Crown Key unlocking of Crown Dungeon, including the opening animation,
   delayed doorway collision change, and persistent entrance on re-entry.
+  Crown Dungeon now loads Smasher's linked miniboss and ball, with isolated
+  checks for entry, motion, Bracelet handling, weapon responses and death.
+  The Cane of Somaria now supports normal item-button use, block creation and
+  replacement, pushing, Bracelet carry/release, and block damage/destruction
+  responses for several Crown enemy families. Remaining combat and
+  context-specific input/presentation paths are unfinished. Smog's imported
+  controller now starts through the actual boss doorway, with isolated checks
+  for entry, intro allocation, reset handoff and cloud behavior. Its shared
+  boss reward now handles the final-count handoff, heart-container collection
+  and persistent re-entry; complete combat parity and remaining dungeon
+  interactions are unfinished. Seed-shooter eye statues now display and
+  maintain their timed triggers after projectile hits. Their Crown chest
+  script handles the exact trigger condition, delayed appearance, small-key
+  collection and collected-item re-entry.
+  The owl-ring, statue and colored-block patterns now reveal their boss-key,
+  small-key and Cane chests. The Cane-room button now shows and clears its
+  colored pattern hint. Matching statues and colored blocks now move together,
+  with blocked-destination retries and isolated checks for repeated pushes,
+  dialogue freezes and room departure. The boss-key room now detects a trapped
+  player and resets the room after its warning delay. Its wall detector now
+  requests the shared squish animation and local respawn, with isolated checks
+  for both orientations and repeated recovery. Complete block-crush, forced-state
+  and respawn parity remain unfinished, as does complete dungeon parity.
+  The floor-button bridge now extends and retracts at its original tile
+  interval, including direction reversals and room re-entry. The torch room's
+  timed seed reflectors now rotate in opposite directions, with separate child
+  collision parts and isolated checks for timing and seed reflection. Lighting
+  all four torches drives the shutter through its ordered trigger controller;
+  isolated checks cover text pauses, scrolling and the opening interval.
+  The four-button chest now uses the native retractable controller, including
+  exact trigger matching, live underlying-tile restoration and queued writes.
+  With three statues pre-positioned, an isolated check covers normal Cane use
+  on the fourth button, a reachable chest approach, Small Key collection and
+  persistent re-entry. The complete statue push routes remain unverified.
 - Symmetry Village residents, the sisters' request and postgame ring-box secret,
   the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
   with persistent present-day village restoration. The unrestored past has

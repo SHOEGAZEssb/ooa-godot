@@ -63,14 +63,8 @@ internal sealed class TimeWarpLandingDatabase
 
     internal bool CanStandOnTile(OracleRoomData room, Vector2 position, bool hasMermaidSuit)
     {
-        // checkPositionSurroundedByWalls rotates two bits at a time. It accepts
-        // any completely open side; no $db/$ee movement-mask normalization.
-        ReadOnlySpan<Vector2> probes = [new(-3, -3), new(2, -3), new(-3, 7), new(2, 7),
-            new(-5, 0), new(-5, 5), new(4, 0), new(4, 5)];
-        bool openSide = false;
-        for (int index = 0; index < probes.Length; index += 2)
-            openSide |= !room.IsSolid(position + probes[index]) && !room.IsSolid(position + probes[index + 1]);
-        if (!openSide) return false;
+        if (LinkWallProbe.Shared.SurroundedByWalls(position,
+            (room.TilesetFlags & 0x20) != 0, room.IsSolid)) return false;
         return !_invalidTiles.TryGetValue(room.GetMetatile(position), out bool requiresSuit) ||
             requiresSuit && hasMermaidSuit;
     }

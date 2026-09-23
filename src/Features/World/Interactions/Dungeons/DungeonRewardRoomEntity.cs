@@ -5,7 +5,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed partial class DungeonRewardRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly DungeonObjectRecord _record;
     private readonly DungeonInteractionDatabase _data;
@@ -14,9 +16,11 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     private readonly GroundTreasureGrantRequest? _treasure;
     private readonly Action _enableLinkCollisionsAndMenu;
     private int _counter = -1;
+    private bool _initialized;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => !_initialized;
 
     internal DungeonRewardRoomEntity(
         DungeonObjectRecord record,
@@ -33,12 +37,23 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         _treasure = treasure;
         _enableLinkCollisionsAndMenu = enableLinkCollisionsAndMenu;
         Name = $"DungeonReward_{record.Group}_{record.Room:x2}_{record.Kind}";
+        Visible = false;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => Advance(spawns);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized) Advance(spawns);
+        return ScreenTransitionPresentation.Hidden;
+    }
+
+    private void Advance(ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished)
             return;
+        _initialized = true;
         // Static $12:$01 placements are omitted by the room factory when the
         // item flag is already set. Dynamically parsed placements still
         // create the interaction, whose first script command is
@@ -61,6 +76,24 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
             SpawnTreasure(spawns);
             return;
         }
+        if (_record.Kind == DungeonObjectKind.BossReward)
+        {
+            // dungeonScript_bossDeath jumps over checknoenemies when flag$80
+            // is already set. stopifitemflagset occurs AFTER that branch and
+            // before spawnitem/enableLinkAndMenu, not at placement time.
+            if (_save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80) != true)
+            {
+                if (_enemyCount() != 0) return;
+                _save?.SetRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80);
+            }
+            if (_save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlagItem) == true)
+            {
+                Finished = true;
+                return;
+            }
+            SpawnTreasure(spawns);
+            return;
+        }
         if (_enemyCount() != 0)
             return;
 
@@ -73,11 +106,6 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         if (_counter < 0)
         {
             _save?.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
-            if (_record.Kind == DungeonObjectKind.BossReward)
-            {
-                SpawnTreasure(spawns);
-                return;
-            }
             _counter = _data.Constant("miniboss-reward-wait");
             return;
         }

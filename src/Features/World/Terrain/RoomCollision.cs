@@ -115,8 +115,16 @@ public sealed class RoomCollision
     internal int AdjacentWallsBitset(Vector2 playerPosition) =>
         CalculateAdjacentWallsBitset(playerPosition);
 
-    internal bool TileBlocksPointForSidePlatform(Vector2 point) =>
-        TileBlocksPoint(point);
+    internal bool TileBlocksPointForSidePlatform(Vector2 point)
+    {
+        // sidescrollPlatform_getTileCollisionBehindLink / Func_5b51 call
+        // getTileCollisionsAtPosition: byte coordinates select a whole
+        // metatile's raw collision byte, without quarter-tile normalization.
+        var wrapped = new Vector2(
+            unchecked((byte)Mathf.FloorToInt(point.X)),
+            unchecked((byte)Mathf.FloorToInt(point.Y)));
+        return _rooms.CurrentRoom.GetTerrainInfo(wrapped).Collision != 0;
+    }
 
     private static int GetMovementAngle(Vector2 movement)
     {

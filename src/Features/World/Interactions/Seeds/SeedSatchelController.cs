@@ -54,7 +54,7 @@ public sealed class SeedSatchelController
             return 0; // This branch clears the parent without immobilizing Link.
         }
         if (_entities.HasActiveSeed(seedItem, SeedLaunchKind.Satchel) ||
-            !_inventory.HasSelectedSatchelSeed())
+            !_inventory.HasSelectedSatchelSeed() || !_entities.DynamicItemSlotAvailable)
         {
             return 0;
         }

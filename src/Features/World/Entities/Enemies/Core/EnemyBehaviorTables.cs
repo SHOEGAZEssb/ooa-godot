@@ -16,6 +16,11 @@ internal sealed class EnemyBehaviorTables
 
     internal static EnemyBehaviorTables Shared => LazyShared.Value;
     internal IReadOnlyList<EnemyBehaviorValue> Gibdo { get; }
+    internal BeamosBehaviorProfile Beamos { get; }
+    internal FireballShooterBehaviorProfile FireballShooter { get; }
+    internal LikeLikeBehaviorProfile LikeLike { get; }
+    internal BallChainBehaviorProfile BallChain { get; }
+    internal SmasherBehaviorProfile Smasher { get; }
     internal FireKeeseBehaviorProfile FireKeese { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FireKeeseZOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FireKeeseCollisionEffects { get; }
@@ -96,6 +101,10 @@ internal sealed class EnemyBehaviorTables
     internal CheepCheepBehaviorProfile CheepCheep { get; }
     internal PeahatBehaviorProfile Peahat { get; }
     internal SwordEnemyBehaviorProfile SwordEnemy { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SwordDarknutChase { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyActiveCollisions { get; }
+    private readonly Dictionary<int, IReadOnlyList<EnemyBehaviorValue>> _swordEnemyCollisions = new();
+    internal int SwordEnemyCollisionEffect(int mode, int collision) => _swordEnemyCollisions[mode][collision].Value;
     internal TektiteBehaviorProfile Tektite { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyAngleAnimations { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyBlockingBits { get; }
@@ -602,6 +611,10 @@ internal sealed class EnemyBehaviorTables
             smallLeap[0].Value, smallLeap[1].Value, bigLeap[0].Value, bigLeap[1].Value);
         SwordEnemyAngleAnimations = TakeValues(groups, "sword-enemy", "angle-to-animation", 32);
         SwordEnemyBlockingBits = TakeValues(groups, "sword-enemy", "blocking-angle-bits", 16);
+        SwordDarknutChase = TakeValues(groups, "sword-enemy", "darknut-chase", 2);
+        SwordEnemyActiveCollisions = TakeValues(groups, "sword-enemy", "active-collisions", 32);
+        foreach (int mode in new[] { 0x11, 0x7e, 0x20, 0x55, 0x56 })
+            _swordEnemyCollisions.Add(mode, TakeValues(groups, "sword-enemy", $"collision-{mode:x2}", 32));
         EnemySwordOffsets = TakeValues(groups, "enemy-sword", "offsets", 16);
         EnemySwordRadii = TakeValues(groups, "enemy-sword", "radii", 4);
         EnemySwordCollisionEffects = TakeValues(groups, "enemy-sword", "collision-effects", 32);
@@ -657,10 +670,46 @@ internal sealed class EnemyBehaviorTables
         FlyingTileCollisionEffects = TakeValues(
             groups, "flying-tile", "collision-effects", 32);
 
-        if (table.Rows.Count != 1195 || groups.Count != 0)
+        Beamos = new(
+            TakeValues(groups, "beamos", "state-profile", 7),
+            TakeValues(groups, "beamos", "angle-to-animation", 32),
+            TakeValues(groups, "beamos-beam", "state-profile", 3),
+            TakeValues(groups, "beamos-beam", "angle-to-animation", 16));
+
+        FireballShooter = new(
+            TakeValues(groups, "fireball-shooter", "state-profile", 6),
+            TakeValues(groups, "fireball-shooter", "timing-offsets", 4));
+
+        LikeLike = new(
+            TakeValues(groups, "like-like", "state-profile", 8),
+            TakeValues(groups, "like-like", "link-release", 1),
+            TakeValues(groups, "like-like", "collision-effects", 32),
+            TakeValues(groups, "like-like", "active-collisions", 32),
+            TakeValues(groups, "like-like", "linkdmg_2c", 4),
+            TakeValues(groups, "like-like", "enemydmg_1c", 4));
+
+        BallChain = new(
+            TakeValues(groups, "ball-chain", "state-profile", 14),
+            TakeValues(groups, "spiked-ball", "part-data", 8),
+            TakeValues(groups, "ball-chain", "collision-effects", 32),
+            TakeValues(groups, "ball-chain", "active-collisions", 32),
+            TakeValues(groups, "spiked-ball", "collision-effects", 32),
+            TakeValues(groups, "spiked-ball", "active-collisions", 32));
+
+        Smasher = new(
+            TakeValues(groups, "smasher", "state-profile", 20),
+            TakeValues(groups, "smasher", "death-profile", 1),
+            TakeValues(groups, "smasher", "drop-wall-probes", 10),
+            TakeValues(groups, "smasher", "respawn-positions", 16),
+            TakeValues(groups, "smasher", "wander-angles", 4),
+            TakeValues(groups, "smasher", "parent-collision-effects", 32),
+            TakeValues(groups, "smasher", "ball-collision-effects", 32),
+            TakeValues(groups, "smasher", "active-collisions", 32));
+
+        if (table.Rows.Count != 1835 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 1195 rows and no " +
+                $"Enemy behavior table contract expected 1835 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

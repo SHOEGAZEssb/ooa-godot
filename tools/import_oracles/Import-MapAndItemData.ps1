@@ -194,6 +194,30 @@ for ($item = 0; $item -lt 32; $item++) {
     $parentAnimationRows.Add("$($item.ToString('x2'))`t$($entry.Groups['flags'].Value)`tdata/ages/itemUsageTables.s:linkItemAnimationTable/$($entry.Groups['name'].Value)")
 }
 Write-GeneratedTable((Join-Path $destination 'metadata\parent_item_animation_flags.tsv'), $parentAnimationRows)
+$usageRows = [Collections.Generic.List[string]]::new()
+$usageRows.Add("# item-id`tusage`tinput`tsource")
+$usageActive = $false
+$usageIndex = 0
+foreach ($node in @(Read-AssemblyNodes (Join-Path $Disassembly 'data/ages/itemUsageTables.s'))) {
+    if ($node.Kind -eq 'Label') {
+        if ($usageActive) { break }
+        if ($node.Name -eq 'itemUsageParameterTable') { $usageActive = $true }
+        continue
+    }
+    if (-not $usageActive -or $node.Kind -in @('Blank','Comment')) { continue }
+    if ($node.Kind -ne 'Data' -or $node.Name -ne '.db' -or $node.Operands.Count -ne 2 -or
+        $node.Operands[0] -notmatch '^\$[0-9a-f]{2}$' -or
+        $node.Operands[1] -notmatch '^<wGameKeys(?:Just)?Pressed$') {
+        throw "itemUsageParameterTable unsupported node at offset $($node.Offset): $($node.Kind)/$($node.Name)."
+    }
+    $usage = [Convert]::ToInt32($node.Operands[0].Substring(1),16)
+    if (($usage -band 15) -gt 5) { throw "itemUsageParameterTable item $usageIndex has unsupported selector $usage." }
+    $inputKind = if ($node.Operands[1] -eq '<wGameKeysJustPressed') { 'just-pressed' } else { 'held' }
+    $usageRows.Add("$($usageIndex.ToString('x2'))`t$($usage.ToString('x2'))`t$inputKind`tdata/ages/itemUsageTables.s:itemUsageParameterTable+$($usageIndex.ToString('x2'))")
+    $usageIndex++
+}
+if ($usageIndex -ne 32) { throw "itemUsageParameterTable requires 32 rows, found $usageIndex." }
+Write-GeneratedTable((Join-Path $destination 'metadata/parent_item_usage.tsv'), $usageRows)
 $uncmpGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\uncmpGfxHeaders.s')
 $seedShooterPropertiesSource = Read-ImportText (
@@ -478,6 +502,66 @@ $braceletRows.Add(
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\bracelet.tsv'),
     $braceletRows)
+
+$braceletWeightRows = [Collections.Generic.List[string]]::new()
+$braceletWeightRows.Add('# weight`tgravity`tinitial-speed-z`tspeed-raw`ttoss-speed-raw`tsource')
+$throwSpeeds = @{}
+$throwSpeedOffset = 0
+foreach ($match in [regex]::Matches($objectSpeedsSource, '(?m)^\s*(SPEED_[0-9a-f]+)\s+dsb (\d+)')) {
+    $throwSpeeds[$match.Groups[1].Value] = $throwSpeedOffset
+    $throwSpeedOffset += [int]$match.Groups[2].Value
+}
+$nativeWeights = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/common/items/commonBombAndBraceletCode.s') 'itemWeights' '.db')
+foreach ($alias in Read-AssemblyConstants (Join-Path $Disassembly 'constants/common/objectSpeeds.s')) {
+    if ($throwSpeeds.ContainsKey($alias.OperandText)) { $throwSpeeds[$alias.Name] = $throwSpeeds[$alias.OperandText] }
+}
+if ($nativeWeights.Count -ne 6) { throw 'Ages itemWeights requires six ordered weight records.' }
+for ($weight = 0; $weight -lt 6; $weight++) {
+    $operands = $nativeWeights[$weight].Operands
+    if ($operands.Count -ne 4 -or !$throwSpeeds.ContainsKey($operands[2]) -or !$throwSpeeds.ContainsKey($operands[3])) {
+        throw "itemWeights[$weight] has unresolved gravity, launch or speed operands."
+    }
+    $gravity = Convert-AssemblyInteger $operands[0]
+    $speedZ = (Convert-AssemblyInteger $operands[1]) - 256
+    $braceletWeightRows.Add("$weight`t$gravity`t$speedZ`t$($throwSpeeds[$operands[2]])`t$($throwSpeeds[$operands[3]])`tobject_code/common/items/commonBombAndBraceletCode.s:itemWeights+$($weight * 4)")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/bracelet_weights.tsv'), $braceletWeightRows)
+$nativeLift = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/common/itemParents/commonCode.s') '@liftedObjectPositions' '.db')
+if ($nativeLift.Count -ne 20) { throw 'Ages liftedObjectPositions requires five weights with four frames each.' }
+$nativeLiftRows = [Collections.Generic.List[string]]::new()
+$nativeLiftRows.Add('# weight`tframe`tdirection`tz`tx`tsource')
+for ($index = 0; $index -lt 20; $index++) {
+    $operands = $nativeLift[$index].Operands
+    if ($operands.Count -ne 8) { throw "liftedObjectPositions row$index requires four Z/X pairs." }
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        $z = Convert-AssemblyInteger $operands[$direction * 2]
+        $x = Convert-AssemblyInteger $operands[$direction * 2 + 1]
+        if ($z -ge 128) { $z -= 256 }; if ($x -ge 128) { $x -= 256 }
+        $weight = [int][Math]::Floor($index / 4); $frame = $index % 4
+        $nativeLiftRows.Add("$weight`t$frame`t$direction`t$z`t$x`tobject_code/common/itemParents/commonCode.s:@liftedObjectPositions+$($index * 8 + $direction * 2)")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/bracelet_weight_offsets.tsv'), $nativeLiftRows)
+
+$grabSource = Read-ImportText (Join-Path $Disassembly 'code/bank0.s')
+$grabPosition = [regex]::Match($grabSource, '(?s)_getLinkPositionPlusDirectionOffset:.*?sub \$(?<z>[0-9a-f]{2}).*?@positionOffsets:(?<rows>.*?)(?=\r?\n;;)')
+$grabHeight = [regex]::Match($grabSource, '(?s)_checkCollisionWithHAndD:.*?bit 7,\(hl\)\s+ret nz.*?sub \(hl\)\s+add \$(?<radius>[0-9a-f]{2})\s+cp \$(?<span>[0-9a-f]{2})')
+if (-not $grabPosition.Success -or -not $grabHeight.Success) { throw 'bank0.s native grabbable-object geometry contract changed.' }
+$grabWords = @([regex]::Matches($grabPosition.Groups['rows'].Value, '\.dw\s+\$([0-9a-f]{4})'))
+$grabZ = [Convert]::ToInt32($grabPosition.Groups['z'].Value,16)
+$grabRadius = [Convert]::ToInt32($grabHeight.Groups['radius'].Value,16)
+if ($grabWords.Count -ne 4 -or [Convert]::ToInt32($grabHeight.Groups['span'].Value,16) -ne 2*$grabRadius) {
+    throw 'bank0.s grabbable geometry requires four direction offsets and a symmetric byte-height window.'
+}
+$grabRows = [Collections.Generic.List[string]]::new()
+$grabRows.Add('# direction`tx`ty`tz-subtract`tz-radius`tsource')
+for ($direction = 0; $direction -lt 4; $direction++) {
+    $word = [Convert]::ToInt32($grabWords[$direction].Groups[1].Value,16)
+    $x = ($word -shr 8) -band 255; $y = $word -band 255
+    if ($x -ge 128) { $x -= 256 }; if ($y -ge 128) { $y -= 256 }
+    $grabRows.Add("$direction`t$x`t$y`t$grabZ`t$grabRadius`tcode/bank0.s:_getLinkPositionPlusDirectionOffset;_checkCollisionWithHAndD")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/bracelet_grab_geometry.tsv'), $grabRows)
 
 $emberData = [regex]::Match(
     $itemDataSource,
@@ -773,6 +857,176 @@ foreach ($item in @('0a', '0b')) {
 Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_animations.tsv'), $hookAnimationRows)
 }
 Export-SwitchHookData
+
+# Somaria's creation geometry and raw tile ownership precede its presentation.
+$somariaPath = Join-Path $Disassembly 'object_code/common/items/caneOfSomaria.s'
+$somariaSource = Read-ImportText $somariaPath
+foreach ($contract in @(
+    'w1ParentItem2.animParameter\)\s+cp \$06',
+    'findItemWithID.*?Item.var2f\s+set 5,\(hl\).*?getFreeItemSlot',
+    '@checkBlockCanAppear:.*?cp >ROOM_AGES_5e8.*?cp <ROOM_AGES_5e8.*?Item.zh.*?dec a\s+cp \$fc',
+    '@checkBlockCanAppear:.*?objectGetTileCollisions\s+ret nz.*?TILESETFLAG_BIT_UNDERWATER.*?TILESETFLAG_SIDESCROLL.*?add \$10.*?cp \$0f',
+    '@createBlockIfNotOnHazard:.*?@alignOnTile.*?hazardCollisionTable.*?TILEINDEX_SOMARIA_BLOCK.*?wRoomCollisions.*?\$0f.*?setTileInRoomLayoutBuffer',
+    '@removeBlock:.*?@checkBlockInPlace\s+ret nz.*?getTileIndexFromRoomLayoutBuffer\s+jp setTile',
+    '@alignOnTile:\s+call objectCenterOnTile\s+ld l,Item.yh\s+dec \(hl\)\s+dec \(hl\)'
+)) {
+    if ($somariaSource -notmatch "(?s)$contract") { throw "caneOfSomaria.s source contract changed: $contract" }
+}
+$somariaTileConstants = Read-ImportText (Join-Path $Disassembly 'constants/common/tileIndices.s')
+if ($somariaTileConstants -notmatch '(?m)^\.define TILEINDEX_SOMARIA_BLOCK\s+\$(?<tile>[0-9a-f]{2})') {
+    throw 'Missing TILEINDEX_SOMARIA_BLOCK constant.'
+}
+$somariaTile = $Matches['tile']
+Write-GeneratedTable((Join-Path $destination 'metadata/somaria_placement.tsv'), @(
+    "# create-parameter`ttile`tcollision`tz-subtract`tz-boundary`tforbidden-group`tforbidden-room`talign-y`tsource",
+    "6`t$somariaTile`t0f`t1`tfc`t5`te8`t-2`tobject_code/common/items/caneOfSomaria.s:checkBlockCanAppear/createBlockIfNotOnHazard/alignOnTile"
+))
+$somariaOffsets = @(Read-AssemblyDataDirectives $somariaPath '@somariaCreationOffsets' '.dw')
+if ($somariaOffsets.Count -ne 4) { throw 'Somaria creation requires four ordered Y/X words.' }
+$somariaRows = [Collections.Generic.List[string]]::new()
+$somariaRows.Add("# direction`ty`tx`tsource")
+for ($i=0; $i -lt 4; $i++) {
+    $word = Convert-AssemblyInteger $somariaOffsets[$i].Operands[0]
+    $y = $word -band 255; $x = $word -shr 8
+    if ($y -ge 128) { $y -= 256 }; if ($x -ge 128) { $x -= 256 }
+    $somariaRows.Add("$i`t$y`t$x`tobject_code/common/items/caneOfSomaria.s:somariaCreationOffsets+$($i*2)")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/somaria_creation_offsets.tsv'), $somariaRows)
+$somariaHazardPath = Join-Path $Disassembly 'data/ages/tile_properties/hazards.s'
+$somariaHazardSource = Read-ImportText $somariaHazardPath
+$somariaHazards = [Collections.Generic.List[string]]::new()
+$somariaHazards.Add("# mode`ttile`tkind`tsource")
+$somariaHazardLabels = @(Read-AssemblyDataDirectives $somariaHazardPath 'hazardCollisionTable' '.dw' | ForEach-Object {
+    if ($_.Operands.Count -ne 1 -or $_.Operands[0] -notmatch '^@\w+$') { throw 'Malformed Somaria hazard-mode pointer.' }
+    $_.Operands[0]
+})
+if ($somariaHazardLabels.Count -ne 6) { throw 'Somaria hazard lookup requires six source mode pointers.' }
+for ($mode=0; $mode -lt 6; $mode++) {
+    $terminated = $false
+    $resolvedLabel=$somariaHazardLabels[$mode]
+    $visitedLabels=[Collections.Generic.HashSet[string]]::new()
+    while ($true) {
+        if (!$visitedLabels.Add($resolvedLabel)) { throw "Somaria hazard alias cycle at $resolvedLabel." }
+        $dataRows=@(Read-AssemblyDataDirectives $somariaHazardPath $resolvedLabel '.db')
+        if ($dataRows.Count -gt 0) { break }
+        $alias=[regex]::Match($somariaHazardSource,'(?m)^'+[regex]::Escape($resolvedLabel)+':\s*(?<label>@\w+):')
+        if (!$alias.Success) { throw "Somaria hazard label $resolvedLabel has neither data nor a fallthrough alias." }
+        $resolvedLabel=$alias.Groups['label'].Value
+    }
+    foreach ($row in $dataRows) {
+        if ($terminated) { throw 'Somaria hazard table has data after its terminator.' }
+        if ($row.Operands.Count -eq 1 -and (Convert-AssemblyInteger $row.Operands[0]) -eq 0) { $terminated=$true; continue }
+        if ($row.Operands.Count -ne 2) { throw 'Somaria hazard lookup requires tile/kind pairs.' }
+        $tile = Convert-AssemblyInteger $row.Operands[0]; $kind = Convert-AssemblyInteger $row.Operands[1]
+        $somariaHazards.Add("$mode`t$($tile.ToString('x2'))`t$kind`tdata/ages/tile_properties/hazards.s:$($somariaHazardLabels[$mode])")
+    }
+    if (!$terminated) { throw "Somaria hazard table $mode lacks its terminator." }
+}
+if ($somariaHazards.Count -ne 85) { throw "Somaria hazard modes require84 entries, got $($somariaHazards.Count-1)." }
+Write-GeneratedTable((Join-Path $destination 'metadata/somaria_hazards.tsv'), $somariaHazards)
+
+# ITEM18 state1 advances through the next label until parameter1; states3
+# and2 hold their poses without calling itemAnimate. Keep that executable
+# fallthrough, but do not import unrelated following item animations.
+function Export-SomariaGraphics {
+    $path = Join-Path $Disassembly 'data/itemAnimations.s'
+    $tables = Read-AssemblyDwTables $path 'item[0-9a-f]{2}Animations' 'itemAnimation[0-9a-f]+'
+    $pointers = Read-AssemblyDwTables $path 'item[0-9a-f]{2}OamDataPointers' 'itemOamData[0-9a-f]+'
+    $definitions = Read-AssemblyAnimationDefinitions $path 'itemAnimation[0-9a-f]+(?:Loop)?' $true
+    if ($tables['item04Animations'].Count -ne 8 -or $tables['item18Animations'].Count -ne 3 -or
+        $uncmpGfxHeadersSource -notmatch '(?ms)^uncmpGfxHeader1c:\s*m_GfxHeader spr_cane_of_somaria, \$8521' -or
+        $somariaSource -notmatch '(?ms)Item.oamFlagsBackup\s+ld a,\$0d\s+ldi \(hl\),a\s+ldi \(hl\),a\s+; Item.oamTileIndexBase\s+ld \(hl\),\$36') {
+        throw 'Somaria item04/item18 animation tables or weapon/block VRAM mapping changed.'
+    }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# item-id`tanimation`tsprite`ttile-base`toam-flags`tcollision`tradius-y`tradius-x`tdamage`thealth`tframes`tsource")
+    foreach ($item in @('04','18')) {
+        $gfx = [regex]::Match($itemDataSource,
+            "(?m)^\s*\.db \`$00 \`$(?<tile>[0-9a-f]{2}) \`$(?<flags>[0-9a-f]{2}) ; \`$${item}:")
+        $attributes = [regex]::Match($itemAttributesSource,
+            "(?m)^\s*\.db \`$(?<collision>[0-9a-f]{2}) \`$(?<radius>[0-9a-f]{2}) \`$(?<damage>[0-9a-f]{2}) \`$(?<health>[0-9a-f]{2}) ; \`$${item}:")
+        if (-not $gfx.Success -or -not $attributes.Success) { throw "Missing Somaria ITEM_`$$item graphics/attributes." }
+        $radius = [Convert]::ToInt32($attributes.Groups['radius'].Value,16)
+        $labels = $tables["item${item}Animations"]
+        for ($animation=0; $animation -lt $labels.Count; $animation++) {
+            $label = $labels[$animation]
+            $frames = @($definitions[$label].Frames)
+            if ($item -eq '18' -and $animation -eq 0) {
+                $next = $labels[1]
+                if ($frames.Count -ne 3 -or $itemAnimationsSource -notmatch
+                    "(?ms)^${label}:\s*(?:\.db[^\r\n]+\s*){3}${next}:") {
+                    throw "Somaria phase-in $label must fall through directly to $next."
+                }
+                $frames += @($definitions[$next].Frames)
+                if ($frames.Count -ne 4 -or $frames[-1].Parameter -ne 1) {
+                    throw "Somaria phase-in $label must reach placement parameter1."
+                }
+            }
+            $encoded = @($frames | ForEach-Object {
+                $index = [int]($_.PointerOffset / 2)
+                if (($_.PointerOffset -band 1) -ne 0 -or $index -ge $pointers["item${item}OamDataPointers"].Count) {
+                    throw "Somaria $label has invalid OAM offset $($_.PointerOffset)."
+                }
+                "$($_.Duration),$($_.Parameter)@$(Read-ItemOamComposition $pointers["item${item}OamDataPointers"][$index])"
+            }) -join '|'
+            $sprite = if ($item -eq '04') { 'spr_cane_of_somaria' } else { 'spr_common_sprites' }
+            $tile = $gfx.Groups['tile'].Value
+            $flags = $gfx.Groups['flags'].Value
+            if ($item -eq '18' -and $animation -gt 0) { $tile='36'; $flags='0d' }
+            $rows.Add("$item`t$animation`t$sprite`t$tile`t$flags`t$($attributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes.Groups['damage'].Value)`t$($attributes.Groups['health'].Value)`t$encoded`tdata/itemAnimations.s:$label;object_code/common/items/caneOfSomaria.s")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/somaria_animations.tsv'), $rows)
+}
+Export-SomariaGraphics
+
+function Export-SomariaParentAnimations {
+    $path = Join-Path $Disassembly 'data/ages/specialObjectAnimationData.s'
+    $tables = Read-AssemblyDwTables $path 'specialObject(?:00|09)AnimationDataPointers' 'animationData\w+'
+    $nodes = @(Read-AssemblyNodes $path)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`tframe`tduration`tgraphic`tparameter`tsource")
+    foreach ($mode in @(0x22,0x26,0x2d)) {
+        $label = $tables['specialObject00AnimationDataPointers'][$mode]
+        $start = @($nodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $label })
+        if ($start.Count -ne 1) { throw "Somaria parent mode $mode cannot resolve $label." }
+        $frame=0; $ended=$false
+        foreach ($node in $nodes) {
+            if ($node.Offset -le $start[0].Offset -or $node.Kind -in @('Label','Blank','Comment')) { continue }
+            if ($node.Kind -ne 'Data' -or $node.Name -ne '.db' -or $node.Operands.Count -ne 3) {
+                throw "Somaria parent animation $label encountered unsupported $($node.Kind)/$($node.Name) before terminal parameter."
+            }
+            $bytes = @($node.Operands | ForEach-Object {
+                if ($_ -notmatch '^\$[0-9a-f]{2}$') { throw "Somaria $label has non-byte animation operand $_." }
+                [Convert]::ToInt32($_.Substring(1),16)
+            })
+            $rows.Add("$($mode.ToString('x2'))`t$frame`t$($bytes[0])`t$($bytes[1].ToString('x2'))`t$($bytes[2].ToString('x2'))`tdata/ages/specialObjectAnimationData.s:$label+$frame")
+            $frame++
+            if (($bytes[2] -band 0x80) -ne 0) { $ended=$true; break }
+        }
+        if (-not $ended -or $frame -ne $(if ($mode -eq 0x26) {4} else {5})) {
+            throw "Somaria parent $label did not terminate after its expected source frames."
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/somaria_parent_animations.tsv'), $rows)
+    $selector = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/common/items/postUpdate.s') '@data')
+    if ($selector.Count -ne 24) { throw 'Somaria/sword swing selector requires24 source bytes.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# index`tvalue`tsource")
+    for ($i=0;$i -lt 24;$i++) {
+        $rows.Add("$i`t$($selector[$i].ToString('x2'))`tobject_code/common/items/postUpdate.s:updateSwingableItemAnimation/@data+$i")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/somaria_swing_selector.tsv'), $rows)
+}
+Export-SomariaParentAnimations
+
+$somariaPush = [regex]::Match($somariaSource,
+    '(?ms)ldbc SPEED_80, \$(?<normal>[0-9a-f]{2}).*?wBraceletLevel\).*?cp \$02.*?ldbc SPEED_c0, \$(?<glove>[0-9a-f]{2})')
+if (-not $somariaPush.Success -or $somariaSource -notmatch 'ld a,SND_MYSTERY_SEED' -or
+    $somariaSource -notmatch 'ld a,SND_MOVEBLOCK') { throw 'Somaria block push counters/phase sounds changed.' }
+Write-GeneratedTable((Join-Path $destination 'metadata/somaria_lifecycle.tsv'), @(
+    "# phase-sound`tmove-sound`tnormal-speed`tnormal-frames`tglove-speed`tglove-frames`tsource",
+    "$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$($soundIds['SND_MOVEBLOCK'].ToString('x2'))`t14`t$([Convert]::ToInt32($somariaPush.Groups['normal'].Value,16))`t1e`t$([Convert]::ToInt32($somariaPush.Groups['glove'].Value,16))`tobject_code/common/items/caneOfSomaria.s:itemCode18"))
 
 $encodedBombFuse = Convert-ItemAnimationBlock `
     -body $bombFuseBlock.Groups['body'].Value `

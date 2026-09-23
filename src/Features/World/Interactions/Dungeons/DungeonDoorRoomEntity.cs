@@ -27,6 +27,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private readonly bool _enteredThroughThisDoor;
     private readonly bool _controlledByTrigger;
     private readonly bool _enemyCompletionSupported;
+    private readonly Action<bool>? _shutterSignal;
     private DoorState _state;
     private int _counter;
 
@@ -50,7 +51,8 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         Func<long> animationTick,
         Action<int> playSound,
         EnemyPlacementContext placementContext,
-        bool enemyCompletionSupported)
+        bool enemyCompletionSupported,
+        Action<bool>? shutterSignal = null)
         : base(record, $"DungeonDoor_{record.SubId:x2}_{record.Order}")
     {
         if (record.Id != 0x1e || record.SubId is < 0x04 or > 0x0b)
@@ -66,6 +68,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         _enteredThroughThisDoor = IsEnteredShutter(record, placementContext);
         _controlledByTrigger = record.SubId <= 0x07;
         _enemyCompletionSupported = _controlledByTrigger || enemyCompletionSupported;
+        _shutterSignal = shutterSignal;
 
         // loadTilesetAndRoomLayout restores the source layout on every room
         // parse. replaceShutterForLinkEntering changes only the shutter on
@@ -86,6 +89,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         switch (_state)
         {
             case DoorState.Initialize:
+                if (_room.GetTerrainInfo(Position).Collision == 0) _shutterSignal?.Invoke(true);
                 _state = _controlledByTrigger
                     ? _enteredThroughThisDoor
                         ? DoorState.WaitingForLinkClear
@@ -153,6 +157,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                     return;
                 if (_room.GetPackedPosition(frame.Player.Position) == PackedPosition)
                     frame.Player.BeginFloorDoorRespawn();
+                _shutterSignal?.Invoke(false);
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.ClosedTile(_record.SubId), null,
                     _animationTick());
@@ -204,6 +209,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 _counter--;
                 if (_counter != 0)
                     return;
+                _shutterSignal?.Invoke(true);
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.OpenTile, null, _animationTick());
                 PlayDoorSoundIfVisible();

@@ -139,12 +139,12 @@ public partial class ValidationRoot
         FailIf(fire.State != 2 || fire.Angle != 8 || fire.Position != new Vector2(80, 48),
             "PART_ZORA_FIRE $19 did not aim at the active Scent target on delay update 8.");
         fire.UpdateFrame(frame);
-        FailIf(fire.Position != new Vector2(81.5f, 48), "PART_ZORA_FIRE $19 lost SPEED_180 movement.");
+        FailIf(fire.Position != new Vector2(81, 48), "PART_ZORA_FIRE $19 must render the high byte after SPEED_180 movement.");
         var fireAdapter = new ZoraFireRoomEntity(fire);
         FailIf(fireAdapter.ApplyItemCollision(RoomEntityItemCollision.Bomb, fire.CollisionBounds,
             fire.Position, 4, spawns) || fire.Finished ||
-            !fireAdapter.ApplySwordHit(fire.CollisionBounds, fire.Position, 2, EnemyKnockbackStrength.Low, spawns) ||
-            !fire.Finished, "PART_ZORA_FIRE $19 did not ignore bombs and delete on a sword collision.");
+            fireAdapter.ApplySwordHit(fire.CollisionBounds, fire.Position, 2, EnemyKnockbackStrength.Low, spawns) ||
+            fire.Finished, "PART_ZORA_FIRE $19 active collision mask must exclude bombs and swords.");
 
         // Ember uses motionless-enemy effect $34, not the ordinary 59-update burn.
         for (int i = 0; i < 1024 && zora.State != 0x0b; i++) zora.UpdateFrame(Vector2.Zero, spawns);

@@ -8,12 +8,17 @@ namespace oracleofages;
 /// continue updating state 0 while scrolling, then freeze later states.
 /// Implementations must preserve any state-0 graphics, visibility/deletion,
 /// child creation, counter, and RNG effects without advancing state-8+
-/// movement, animation, collision, or scripts.
+/// movement, animation, or scripts. Contact work explicitly executed by state
+/// zero still runs and can require the live Player overload.
 /// </summary>
 internal interface IScreenTransitionPreloadRoomEntity
 {
     ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns);
+
+    ScreenTransitionPresentation PrepareForScreenTransition(
+        Player? player, ICollection<RoomEntitySpawn> spawns) =>
+        PrepareForScreenTransition(spawns);
 }
 
 /// <summary>

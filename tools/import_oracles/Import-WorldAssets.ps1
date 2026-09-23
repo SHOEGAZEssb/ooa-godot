@@ -657,6 +657,8 @@ $pushableTable = Read-LocalHexByteTable `
 $pushableBytes = [byte[]]::new(6 * 256 * 4)
 for ($i = 0; $i -lt $pushableBytes.Length; $i++) { $pushableBytes[$i] = 0xff }
 $joinedPushableRecords = 0
+$somariaPushRows = [Collections.Generic.List[string]]::new()
+$somariaPushRows.Add("# active-collisions`ttile`tparameter`tsource")
 for ($mode = 0; $mode -lt 6; $mode++) {
     $interactable = @{}
     $offset = $interactableTable.Labels[$interactableTable.Pointers[$mode]]
@@ -681,7 +683,12 @@ for ($mode = 0; $mode -lt 6; $mode++) {
     foreach ($tile in $interactable.Keys) {
         # The Somaria block ($da) uses its dedicated item object and therefore
         # intentionally has no INTERAC_PUSHBLOCK property record.
-        if (-not $properties.ContainsKey($tile)) { continue }
+        if (-not $properties.ContainsKey($tile)) {
+            if ($tile -eq 0xda) {
+                $somariaPushRows.Add("$mode`t$($tile.ToString('x2'))`t$($interactable[$tile].ToString('x2'))`tdata/ages/tile_properties/interactableTiles.s:$($interactableTable.Pointers[$mode])")
+            }
+            continue
+        }
         $recordOffset = ($mode * 256 + $tile) * 4
         $pushableBytes[$recordOffset] = $interactable[$tile]
         $pushableBytes[$recordOffset + 1] = $properties[$tile][0]
@@ -695,6 +702,8 @@ if ($joinedPushableRecords -ne 33) {
 }
 $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
 Write-GeneratedBytes($pushablePath, $pushableBytes)
+if ($somariaPushRows.Count -ne 7) { throw 'Expected Somaria push dispatch in all six collision modes.' }
+Write-GeneratedTable((Join-Path $destination 'metadata/somaria_push_tiles.tsv'), $somariaPushRows)
 
 # Transformation rings replace Link with special objects $03-$07. Export the
 # eight source GFX/OAM combinations for each disguise instead of reconstructing
@@ -822,6 +831,7 @@ Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
 Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
 Copy-GeneratedFile "gfx\common\spr_seed_shooter.png" "gfx\spr_seed_shooter.png"
 Copy-GeneratedFile "gfx\common\spr_switch_hook.png" "gfx\spr_switch_hook.png"
+Copy-GeneratedFile "gfx\common\spr_cane_of_somaria.png" "gfx\spr_cane_of_somaria.png"
 Copy-GeneratedFile "gfx\ages\spr_subrosian.png" "gfx\spr_subrosian.png"
 Copy-GeneratedFile "gfx\common\spr_link_retro.png" "gfx\spr_link_retro.png"
 Copy-GeneratedFile "gfx\common\spr_octorok_leever_tektite_zora.png" "gfx\spr_octorok_leever_tektite_zora.png"

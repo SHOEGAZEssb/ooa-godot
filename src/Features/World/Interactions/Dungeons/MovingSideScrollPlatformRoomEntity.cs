@@ -7,7 +7,9 @@ namespace oracleofages;
 /// <summary>INTERAC_MOVING_SIDESCROLL_PLATFORM $a1:$00-$0e.</summary>
 internal sealed partial class MovingSideScrollPlatformRoomEntity :
     DungeonInteractionVisualEntity,
-    IRoomEntity, IFixedRoomEntity, IPlayerRideableRoomEntity
+    IRoomEntity, IFixedRoomEntity, IPlayerRideableRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly MovingSideScrollPlatformRecord _record;
     private Vector2 _precisePosition;
@@ -24,6 +26,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     internal int WaitCounter => _waitCounter;
     internal int CurrentAnimationIndex => AnimationIndex;
     internal Vector2 PrecisePosition => _precisePosition;
+    public bool UpdatesDuringDialogue => !_initialized;
 
     internal MovingSideScrollPlatformRoomEntity(
         MovingSideScrollPlatformPlacement placement,
@@ -46,12 +49,26 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => Advance(frame.Player);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) =>
+        throw new InvalidOperationException("INTERAC $a1 preload requires live Link for state0 contact checks.");
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(Player? player, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (player is null)
+            throw new InvalidOperationException("INTERAC $a1 preload requires live Link for state0 contact checks.");
+        if (!_initialized) Advance(player);
+        return ScreenTransitionPresentation.Visible;
+    }
+
+    private void Advance(Player player)
     {
         bool wasLinkRiding = _linkRiding;
-        UpdateRiding(frame.Player);
+        UpdateRiding(player);
         if (_linkRiding && !wasLinkRiding)
         {
-            frame.Player.SynchronizeMovingPlatformSubpixels(
+            player.SynchronizeMovingPlatformSubpixels(
                 _precisePosition);
         }
         if (!_initialized)
@@ -61,7 +78,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             // the following update.
             _initialized = true;
             LoadCurrentCommand();
-            ResolveContact(frame);
+            ResolveContact(player);
             return;
         }
 
@@ -70,7 +87,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         {
             if (--_waitCounter == 0)
                 AdvanceCommand();
-            ResolveContact(frame);
+            ResolveContact(player);
             return;
         }
 
@@ -83,7 +100,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             if (_linkRiding &&
                 command.Direction != MovingSideScrollPlatformDirection.Up)
             {
-                frame.Player.ApplySideScrollMovingPlatformVelocity(
+                player.ApplySideScrollMovingPlatformVelocity(
                     _record.Speed,
                     _angle);
             }
@@ -109,12 +126,12 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             {
                 // sidescrollPlatformFunc_5bfc copies both low bytes after
                 // objectRunMovementScript selects the next command.
-                frame.Player.SynchronizeMovingPlatformSubpixels(
+                player.SynchronizeMovingPlatformSubpixels(
                     _precisePosition);
             }
         }
 
-        ResolveContact(frame);
+        ResolveContact(player);
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
@@ -159,9 +176,9 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         };
     }
 
-    private void ResolveContact(RoomEntityFrame frame)
+    private void ResolveContact(Player player)
     {
-        frame.Player.ResolveSideScrollPlatformContact(
+        player.ResolveSideScrollPlatformContact(
             Position,
             _record.RadiusY,
             _record.RadiusX,
@@ -188,9 +205,11 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
 
     private void UpdateRiding(Player player)
     {
+        // interactionCodea1 checks riding before state0 initializes the
+        // collision radii. Fresh native interaction memory still has zeroes.
         _linkRiding = player.CheckSideScrollPlatformRide(
             Position,
-            _record.RadiusY,
-            _record.RadiusX);
+            _initialized ? _record.RadiusY : 0,
+            _initialized ? _record.RadiusX : 0);
     }
 }

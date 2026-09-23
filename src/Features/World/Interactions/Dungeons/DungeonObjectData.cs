@@ -48,6 +48,17 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    WallSquish,
+    ButtonBridge,
+    PushBlockSynchronizer,
+    PuzzleTrapReset,
+    SeedShooterEyeStatue,
+    TriggerChestScript,
+    TilePatternChest,
+    PatternHint,
+    Smasher,
+    SmogSentinel,
+    SmogController,
     BraceletReward,
     RupeeReward,
     FeatherReward,

@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// ENEMY_ARROW_MOBLIN $0c:$00. The shared Moblin handler alternates cardinal
+/// ENEMY_ARROW_MOBLIN $0c:$00/$01. The shared Moblin handler alternates cardinal
 /// SPEED_80 routes with an eight-update stand and fires PART_ENEMY_ARROW $1a
 /// on every other route change when the selected direction faces Link.
 /// </summary>
@@ -34,7 +34,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
     internal int ScentAttractionCounter => _scentAttraction.Counter;
     protected virtual bool FollowsScentSeeds => true;
     protected virtual bool SupportsRecord(ImportedEnemyDefinition record) =>
-        record.Id == 0x0c && record.SubId == 0 ||
+        record.Id == 0x0c && record.SubId is 0 or 1 ||
         record.Id == 0x22 && record.SubId is 0 or 1;
     protected virtual int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
         random.NextCardinalAngle();

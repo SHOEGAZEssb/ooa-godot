@@ -5,6 +5,93 @@ namespace oracleofages;
 
 public partial class Player : Node2D
 {
+
+    private bool _enemyGrabRequested;
+    private int _enemyGrabSubstate = -1;
+    private bool _enemyGrabCollisionDisabled;
+    private bool _enemyGrabUpdated;
+
+    internal bool EnemyGrabActive => _enemyGrabSubstate >= 0;
+    internal bool EnemyGrabPending => _enemyGrabRequested;
+    internal int EnemyGrabSubstate => _enemyGrabSubstate;
+
+    internal bool RequestLikeLikeGrab()
+    {
+        // collisionEffect3d follows the caller's ordinary collision gates.
+        // Transformed/riding Link has a nonzero special-object ID.
+        if (!PatchCollisionsEnabled || _enemyInvincibilityFrames != 0 ||
+            _activeTransformation != 0 || _companionRideControlled ||
+            _minecartRideControlled || _raftRideControlled ||
+            _world.NativeWarpsDisabled || _enemyGrabRequested) return false;
+        _enemyGrabRequested = true;
+        var damage = EnemyBehaviorTables.Shared.LikeLike.LinkDamage;
+        _enemyInvincibilityFrames = unchecked((sbyte)damage[1].Value);
+        // LINKDMG_2c plays damage audio without subtracting any health.
+        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+        return true;
+    }
+
+    internal void CopyLikeLikePosition(Vector2 position)
+    {
+        // objectCopyPosition copies only YH/XH/ZH. Do not WarpTo: that would
+        // clear fractions, active parents, invincibility and capture state.
+        SetScriptedCoordinateHigh(false, OracleObjectPosition.HighByte(position.Y));
+        SetScriptedCoordinateHigh(true, OracleObjectPosition.HighByte(position.X));
+        _topDownAirZFixed &= 0xff;
+        _enemyGrabCollisionDisabled = true;
+        QueueRedraw();
+    }
+
+    internal void ReleaseLikeLikeGrab()
+    {
+        // likelike_releaseLink restores collision in the enemy pass. Link's
+        // next dispatch installs the release invincibility and normal state.
+        _enemyGrabSubstate = 4;
+        _enemyGrabCollisionDisabled = false;
+    }
+
+    private bool AdvanceEnemyGrab()
+    {
+        if (_enemyGrabRequested)
+        {
+            _enemyGrabRequested = false;
+            _enemyGrabSubstate = 0;
+        }
+        if (!EnemyGrabActive) return false;
+        _enemyGrabUpdated = true; // wcc92 bit7 lasts through the entire update.
+        if (_enemyGrabSubstate == 0)
+        {
+            _enemyGrabSubstate = 1;
+            _world.SetNativeWarpsDisabled(true);
+            _world.ClearItemParents(this);
+            ClearShieldParent();
+            CancelSwordAttack();
+            CancelShovelAction();
+            _startedParentItemAnimations = 0;
+        }
+        else if (_enemyGrabSubstate == 4)
+        {
+            _enemyInvincibilityFrames = EnemyBehaviorTables.Shared.LikeLike.ReleaseInvincibility;
+            _world.SetNativeWarpsDisabled(false);
+            _enemyGrabSubstate = -1;
+            _walking = false;
+            _pushing = false;
+            ResetLinkWalkAnimation();
+            Visible = true;
+        }
+        QueueRedraw();
+        return true;
+    }
+
+    private void CancelEnemyGrab()
+    {
+        if (EnemyGrabActive) _world.SetNativeWarpsDisabled(false);
+        _enemyGrabRequested = false;
+        _enemyGrabSubstate = -1;
+        _enemyGrabCollisionDisabled = false;
+        _enemyGrabUpdated = false;
+    }
+
     internal const int NormalZIndex = 10;
     internal const int DivingZIndex = 8;
     internal const int AlternateTextboxPaletteZIndex = 13;
@@ -176,10 +263,12 @@ public partial class Player : Node2D
     private string? _rocsCapeButtonAction;
     private bool _sideScrollReducedGravity;
     private int _sideScrollInstantRespawnCounter;
+    private int _instantRespawnRecoveryCounter;
+    private bool _instantRespawnCollisionDisabled;
     private bool _sideScrollSquishPending;
     private bool _sideScrollSquishVertical;
-    private int _sideScrollSquishAnimationCounter;
-    private int _sideScrollSquishFlickerCounter;
+    private LinkSquishAnimation? _squishAnimation;
+    internal LinkSquishAnimation? SquishAnimation => _squishAnimation;
     private int _sideScrollAnimationPhase;
     private int _sideScrollAnimationCounter;
     private bool _sideScrollAirborne;
@@ -320,6 +409,8 @@ public partial class Player : Node2D
     public bool IsUsingShovel => _usingShovel;
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
     public bool IsUsingSwitchHook => _world is not null && _world.SwitchHookActive;
+    internal bool IsUsingSomaria => _world is not null && _world.SomariaActive;
+    private readonly ParentItemUsageDatabase _parentItemUsage = new();
     public bool IsUsingSeedShooter =>
         _world is not null && _world.SeedShooterActive;
     public bool IsUsingHarp => _usingHarp;
@@ -336,6 +427,7 @@ public partial class Player : Node2D
         Started(InventoryState.ItemSeedSatchel, IsUsingSeedSatchel) ||
         Started(InventoryState.ItemShooter, IsUsingSeedShooter) ||
         Started(InventoryState.ItemSwitchHook, IsUsingSwitchHook) ||
+        Started(InventoryState.ItemSomaria, IsUsingSomaria) ||
         Started(0x02, IsUsingPunch);
     private bool Started(int id, bool active) => active && (_startedParentItemAnimations & (1u << id)) != 0;
     internal void NotifyParentItemAnimationStarted(int id)
@@ -345,7 +437,7 @@ public partial class Player : Node2D
     }
     private bool IsUsingItem =>
         IsAttacking || IsUsingShovel || IsUsingSeedSatchel ||
-        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook;
+        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook || IsUsingSomaria;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal int SwordStateFrame => _swordStateFrame;
@@ -466,17 +558,29 @@ public partial class Player : Node2D
     internal bool IsRoomWarpFalling => _roomWarpFallActive;
     internal bool RoomWarpFallCollapsed => _roomWarpFallCollapsed;
     internal int RoomWarpFallZ => _roomWarpFallZFixed >> 8;
+    // w1Link.zh is independent of wLinkInAir and collision-enable flags.
+    // Read the existing owner of each native movement state, without creating
+    // a second height value for contact consumers. Minecart state0 clears Link.z.
+    internal byte ObjectZHigh => unchecked((byte)((_roomWarpFallActive ? _roomWarpFallZFixed :
+        _newGameSlowFalling ? _newGameFallZFixed :
+        _ledgeJumpState != LedgeJumpState.None ? _ledgeZFixed :
+        _companionRideControlled ? _companionRideZFixed :
+        _minecartRideControlled ? 0 : _topDownAirZFixed) >> 8));
     internal bool IsGroundedForFloorButton =>
         _ledgeJumpState == LedgeJumpState.None && !_newGameSlowFalling &&
         !_sideScrollAirborne && !_topDownAirborne &&
         !TopDownSwimming && !_drowning && !_fallingInHole;
+    internal bool IsOnGroundForBracelet => IsGroundedForFloorButton &&
+        !_world.Underwater && !SideScrollSwimming && !_companionRideControlled &&
+        !_minecartRideControlled && !_raftRideControlled;
     internal bool AcceptsRoomEntityContact =>
-        !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
+        !_enemyGrabCollisionDisabled && !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !_topDownAirborne &&
         !TopDownDiving && !SideScrollDrowningCollisionsDisabled && !IsUsingHarp;
     // checkLinkCollisionsEnabled has no Z test for an ordinary feather jump.
-    internal bool PatchCollisionsEnabled => !IsDying && !GaleActive && !_world.PlayerContactDisabled &&
+    internal bool PatchCollisionsEnabled => !_enemyGrabCollisionDisabled && !IsDying && !GaleActive && !_world.PlayerContactDisabled &&
         !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None && !TopDownDiving &&
-        !SideScrollDrowningCollisionsDisabled && !IsUsingHarp && !_braceletLiftCollisionsDisabled;
+        !SideScrollDrowningCollisionsDisabled && !IsUsingHarp && !_braceletLiftCollisionsDisabled &&
+        _squishAnimation is not { State: > 0 } && !_instantRespawnCollisionDisabled;
     // bombUpgradeFairy.s checks Link.zh==0 before checkLinkVulnerable.
     internal bool NativeObjectVulnerable => PatchCollisionsEnabled &&
         _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 &&
@@ -494,7 +598,7 @@ public partial class Player : Node2D
     // objectCheckCollidedWithLink accepts signed Z in [-7,6]. Ordinary feather
     // jumps do not set the high wLinkInAir bit in checkLinkCollisionsEnabled.
     internal bool AcceptsGroundInteractionContact =>
-        !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
+        !_enemyGrabCollisionDisabled && !GaleActive && !_world.PlayerContactDisabled && !ElectricShockActive && _ledgeJumpState == LedgeJumpState.None &&
         !TopDownDiving && !SideScrollDrowningCollisionsDisabled && !IsUsingHarp &&
         (!_topDownAirborne || ((TopDownAirZ + 7) & 0xff) < 14);
     internal bool OverlapsTimePortalHeight => !IsDying && !IsCarryingObject &&
@@ -507,6 +611,8 @@ public partial class Player : Node2D
     internal bool PassesNpcs => _world.PassesNpcs;
     internal bool NativeInteractionCollisionsEnabled =>
         PatchCollisionsEnabled && !_world.InteractionMenusDisabled && !_spinnerControlled;
+    internal bool NativePuzzleResetVulnerable => NativeInteractionCollisionsEnabled &&
+        _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0;
     internal bool CanEnterMinibossPortal => NativeInteractionCollisionsEnabled &&
         !_companionRideControlled && !_minecartRideControlled && !_raftRideControlled;
 
@@ -611,14 +717,12 @@ public partial class Player : Node2D
     internal ulong SideScrollMermaidAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(_sideScrollMermaidTexture.GetImage());
     internal bool SideScrollSquished =>
-        _sideScrollSquishPending ||
-        _sideScrollSquishAnimationCounter != 0 ||
-        _sideScrollSquishFlickerCounter != 0;
+        _sideScrollSquishPending || _squishAnimation is not null;
     internal bool DelaysOrdinaryScreenTransition =>
         _sideScrollAirborne || _topDownAirborne;
     internal bool RejectsOrdinaryScreenTransition =>
-        _enemyKnockbackFrames > 0.0f || _drowning || _fallingInHole || _pullingIntoHole ||
-        _sideScrollInstantRespawnCounter != 0 || SideScrollSquished;
+        _enemyGrabUpdated || _enemyKnockbackFrames > 0.0f || _drowning || _fallingInHole || _pullingIntoHole ||
+        _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 || SideScrollSquished;
     internal bool ScreenTransitionTerrainMotion => _screenTransitionTerrainMotion;
     internal bool IsMovingTowardScreenEdge(Vector2I direction)
     {
@@ -938,6 +1042,7 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        CancelEnemyGrab();
         _screenTransitionTerrainMotion = false;
         if (GaleActive) EndGale();
         if (ElectricShockActive)
@@ -978,9 +1083,10 @@ public partial class Player : Node2D
         _floorDoorRespawnCounter = 0;
         _floorDoorRecoveryCounter = 0;
         _sideScrollInstantRespawnCounter = 0;
+        _instantRespawnRecoveryCounter = 0;
+        _instantRespawnCollisionDisabled = false;
         _sideScrollSquishPending = false;
-        _sideScrollSquishAnimationCounter = 0;
-        _sideScrollSquishFlickerCounter = 0;
+        _squishAnimation = null;
         _getItemOneHandPose = false;
         _getItemTwoHandPose = false;
         _scriptedLinkAnimationMode = null;
@@ -1033,6 +1139,7 @@ public partial class Player : Node2D
         _world.InterruptBracelet(this, discard);
         _world.InterruptSeedShooter();
         _world.InterruptSwitchHook(discard);
+        _world.CancelSomaria();
     }
 
     internal void BeginNewGameSlowFall(int initialZ)
@@ -1566,7 +1673,7 @@ public partial class Player : Node2D
             OracleObjectMovement.Shared.Direction(angle);
     }
 
-    private void TransferSwordCollisionKnockback()
+    internal void TransferSwordCollisionKnockback()
     {
         if (_pendingSwordKnockbackFrames == 0)
             return;
@@ -1697,12 +1804,23 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta)
     {
+        _enemyGrabUpdated = false;
         _swimmingSwordUpdatedInPhysics = false;
         // updateSpecialObjects clears wcc92 before this update's terrain
         // handler can publish a conveyor/current displacement.
         _screenTransitionTerrainMotion = false;
         // updateSpecialObjects clears wForceLinkPushAnimation even when
         // DISABLE_LINK freezes Link's native state and item parents.
+        // linkState01 checks forced state BEFORE text/$81 restrictions;
+        // linkState0d itself has no such gate. Only an unconsumed request
+        // still waits for the normal state's scrolling/palette gate.
+        if ((EnemyGrabActive || _enemyGrabRequested && !_world.IsTransitioning) && AdvanceEnemyGrab())
+            return;
+        if (_squishAnimation is not null || _sideScrollSquishPending && !_world.IsTransitioning && !IsDying)
+        {
+            AdvanceSideScrollSquish();
+            return;
+        }
         if (_world.PlayerUpdatesFrozen)
         {
             _pushing = false;
@@ -1756,21 +1874,29 @@ public partial class Player : Node2D
             _sideScrollInstantRespawnCounter--;
             if (_sideScrollInstantRespawnCounter == 0)
             {
+                // linkState02 substate2 clears the shared air/swim bytes
+                // on the reveal update, before applying damage.
+                _topDownAirborne = false;
+                _sideScrollAirborne = false;
+                _topDownSwimmingState = 0;
                 Visible = true;
                 ApplyDamage(
                     TerrainHazardDamageQuarters,
                     RingDamageSource.Hole);
                 _enemyInvincibilityFrames = 0x3c;
-                _hazardRecoveryTime = HazardRecoveryDuration;
+                _instantRespawnRecoveryCounter = 0x10;
                 QueueRedraw();
             }
             return;
         }
-        if (_sideScrollSquishPending ||
-            _sideScrollSquishAnimationCounter != 0 ||
-            _sideScrollSquishFlickerCounter != 0)
+        if (_instantRespawnRecoveryCounter != 0)
         {
-            AdvanceSideScrollSquish();
+            // State02 does not dispatch normal movement (or pending death)
+            // until the update after substate3's counter reaches zero.
+            if (--_instantRespawnRecoveryCounter == 0)
+                _instantRespawnCollisionDisabled = false;
+            _walking = false;
+            QueueRedraw();
             return;
         }
         if (IsDying)
@@ -1862,6 +1988,7 @@ public partial class Player : Node2D
         if (!_world.IsTransitioning && !_world.DialogueOpen)
             _world.Pegasus?.AdvanceCounter();
         _world.UpdateSwitchHookParent(this);
+        _world.UpdateSomariaParent();
         if (_enemyKnockbackFrames > 0.0f)
         {
             // Damage suppresses Link's ordinary item-input path, but the
@@ -2077,13 +2204,13 @@ public partial class Player : Node2D
         if (_activeTransformation == 0 &&
             Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
         {
-            if (!IsUsingItem)
+            if (!IsUsingItem || IsUsingSomaria)
             {
                 // Link's standing-state handler checks A-button-sensitive
                 // objects and interactWithTileBeforeLink before checkUseItems.
                 // A chest/sign/keyhole therefore wins over an equipped
                 // Bracelet when both probes accept the same press.
-                if (!_minecartRideControlled && !_raftRideControlled &&
+                if (!IsUsingSomaria && !_minecartRideControlled && !_raftRideControlled &&
                     _world.TryInteract(this))
                     return;
                 if (!primaryItemInputSuppressed &&
@@ -2124,7 +2251,9 @@ public partial class Player : Node2D
             }
             else if (_inventory.EquippedA == InventoryState.ItemSword)
                 StartSwordAttack("attack", input);
-            else if (!IsUsingItem && _inventory.EquippedA == InventoryState.ItemSwitchHook &&
+            else if (_inventory.EquippedA == InventoryState.ItemSomaria)
+                StartSomariaAction(input);
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedA == InventoryState.ItemSwitchHook &&
                 _world.TryBeginSwitchHook(this, input))
                 return;
             else if (!_minecartRideControlled && !_raftRideControlled &&
@@ -2144,7 +2273,7 @@ public partial class Player : Node2D
                 StartHarpAction(_inventory.EquippedA == InventoryState.ItemFlute);
         }
         if (_activeTransformation == 0 &&
-            (primaryItemInputSuppressed || !Input.IsActionJustPressed("attack")) &&
+            (primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") || _inventory.EquippedA==InventoryState.ItemSomaria) &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
             if (!_minecartRideControlled && !_raftRideControlled &&
@@ -2157,7 +2286,7 @@ public partial class Player : Node2D
             {
                 // The secondary button can still lift or return shop stock.
             }
-            else if (!IsUsingItem &&
+            else if ((!IsUsingItem || IsUsingSomaria) &&
                 !_minecartRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemBomb)
             {
@@ -2173,20 +2302,22 @@ public partial class Player : Node2D
             {
                 StartPunchAction(input);
             }
-            else if (!IsUsingItem &&
+            else if ((!IsUsingItem || IsUsingSomaria) &&
                 !_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemBracelet)
             {
                 if (_world.TryUseBracelet(this, primaryButton: false))
                     return;
             }
-            else if (!IsUsingItem && _inventory.EquippedB == InventoryState.ItemSwitchHook &&
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedB == InventoryState.ItemSwitchHook &&
                 _world.TryBeginSwitchHook(this, input))
                 return;
             else if (_inventory.EquippedB == InventoryState.ItemSword)
             {
                 StartSwordAttack("item", input);
             }
+            else if (!_world.Underwater && _inventory.EquippedB == InventoryState.ItemSomaria)
+                StartSomariaAction(input);
             else if (!_minecartRideControlled && !_raftRideControlled &&
                 _inventory.EquippedB == InventoryState.ItemShovel)
             {
@@ -2544,6 +2675,9 @@ public partial class Player : Node2D
     /// </summary>
     internal void SetCutsceneDrawZFixed(int zFixed)
     {
+        // These script callbacks write SpecialObject.z, not merely a camera
+        // offset. Keep the gameplay owner current even for a grounded pose.
+        _topDownAirZFixed = zFixed;
         if (_cutsceneDrawZFixed == zFixed)
             return;
         _cutsceneDrawZFixed = zFixed;
@@ -2868,7 +3002,7 @@ public partial class Player : Node2D
             return false;
         }
 
-        return linkY < platformY - radiusY - 2 &&
+        return linkY < unchecked((byte)(platformY - radiusY - 2)) &&
             SidePlatformLinkIsClose(
                 linkY, linkX, platformY, platformX, radiusY, radiusX);
     }
@@ -2884,7 +3018,7 @@ public partial class Player : Node2D
         // LINK_STATE_NORMAL. Knockback remains a normal-state counter, but
         // death and the hazard/respawn states do not receive platform pushes.
         if (IsDying || _drowning || _fallingInHole || _pullingIntoHole ||
-            SideScrollSquished || _sideScrollInstantRespawnCounter != 0)
+            SideScrollSquished || _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0)
             return;
 
         int linkY = Mathf.FloorToInt(Position.Y);
@@ -2990,9 +3124,12 @@ public partial class Player : Node2D
             return false;
         }
 
-        int yRadius = radiusY - 2;
+        // sidescrollPlatform_checkLinkIsClose performs SUB $02, ADD A and
+        // INC A in byte registers. State0 still has radiusY=$00, so the
+        // comparison limit is $fd rather than signed -3.
+        int yRadius = unchecked((byte)(radiusY - 2));
         return unchecked((byte)(linkY - platformY + yRadius)) >=
-            yRadius * 2 + 1;
+            unchecked((byte)(yRadius * 2 + 1));
     }
 
     private bool CheckSideScrollPlatformSquish(
@@ -3069,6 +3206,20 @@ public partial class Player : Node2D
         // preventObjectHFromPassingObjectD overwrites only Object.xh/yh. Keep
         // the 8.8 fractional byte accumulated by linkCutscene6 intact.
         SetCoordinateHigh(horizontal, coordinate);
+    }
+
+    internal byte ScriptedZHigh => unchecked((byte)(_topDownAirZFixed >> 8));
+
+    internal void SetScriptedZHigh(byte coordinate)
+    {
+        // INTERAC$33 increments/decrements Link.zh while Link's update is
+        // disabled. Preserve zl and wLinkInAir; this is not a jump/landing.
+        int signedHigh = unchecked((sbyte)coordinate);
+        _topDownAirZFixed = (signedHigh << 8) | (_topDownAirZFixed & 0xff);
+        // Airborne body drawing already applies zh. A suspended grounded
+        // pose needs the presentation offset, without drawing zl fractions.
+        _cutsceneDrawZFixed = _topDownAirborne ? 0 : signedHigh << 8;
+        QueueRedraw();
     }
 
     internal void SetScreenTransitionBoundaryCoordinate(
@@ -3175,6 +3326,12 @@ public partial class Player : Node2D
         // item parents below it remain frozen without being cancelled.
         if (_world.PlayerUpdatesFrozen) return;
 
+        if (_enemyGrabUpdated || EnemyGrabActive)
+        {
+            _world.AdvanceBraceletProjectile();
+            return;
+        }
+
         if (IsDying)
             return;
 
@@ -3185,6 +3342,14 @@ public partial class Player : Node2D
         // warps cancel the sword synchronously in BeginRoomWarpTransition.
         if (_world.IsTransitioning)
             return;
+
+        if (_squishAnimation is not null || _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0)
+        {
+            // Link's forced state owns the parent pass, while ITEM_BRACELET
+            // children still run in updateItems after a native held-item drop.
+            _world.AdvanceBraceletProjectile();
+            return;
+        }
 
         if (_forcedState08Phase != 0)
         {
@@ -3214,7 +3379,7 @@ public partial class Player : Node2D
             CancelShovelAction();
         }
 
-        if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f ||
+        if (_drowning || _fallingInHole || _hazardRecoveryTime > 0.0f || _instantRespawnRecoveryCounter != 0 ||
             (_pullingIntoHole && _holePullCounter >= 16))
         {
             CancelSwordAttack();
@@ -3411,6 +3576,17 @@ public partial class Player : Node2D
         {
             DrawSeedShooterPose();
         }
+        else if (IsUsingSomaria)
+        {
+            int mode=_world.SomariaAnimationMode, frame=_world.SomariaAnimationFrame;
+            int phase=mode==0x26?frame:frame<3?frame:1;
+            Texture2D texture=mode==0x26 ? DamagePaletteActive?_damageMinecartAttackTexture:_minecartAttackTexture :
+                mode==0x2d ? DamagePaletteActive?_damageUnderwaterAttackTexture:_underwaterAttackTexture :
+                DamagePaletteActive?_damageAttackTexture:_attackTexture;
+            Vector2 offset=mode!=0x26 && frame==2?_linkItems.AttackPoseOffset((int)_facing):Vector2.Zero;
+            DrawTextureRectRegion(texture,new Rect2(NormalSpriteOrigin+offset+Vector2.Down*EnemyContactZ,new(16,16)),
+                new Rect2(phase*16,(int)_facing*16,16,16));
+        }
         else if (UsesSideScrollSwimmingSwordPose)
         {
             DrawSwordPose();
@@ -3419,13 +3595,9 @@ public partial class Player : Node2D
         {
             DrawSideScrollSwimmingBody(Vector2.Zero);
         }
-        else if (SideScrollSquished)
+        else if (_squishAnimation is { State: > 0 } squish)
         {
-            DrawTexture(
-                _sideScrollSquishVertical
-                    ? _sideScrollSquishYTexture
-                    : _sideScrollSquishXTexture,
-                new Vector2(-16, -16));
+            DrawTexture(squish.Current.Texture,new Vector2(-16,-16));
         }
         else if (UsesAirborneSwordPose)
         {
@@ -5538,16 +5710,25 @@ public partial class Player : Node2D
         _world.PlaySound(OracleSoundEngine.SndThrow);
     }
 
-    private void BeginSideScrollInstantRespawn()
+    private void BeginSideScrollInstantRespawn(bool collisionsDisabled = false)
     {
-        InterruptCarriedItems(discard: true);
-        CancelSwordAttack();
-        CancelShovelAction();
-        _precisePosition = _lastSafePosition;
+        CancelNativeItemsForSquishRespawn();
+        // specialObjectSetCoordinatesToRespawnYX copies only yh/xh;
+        // Link retains his current yl/xl, not the saved position's fraction.
+        SetCoordinateHigh(horizontal: false, Mathf.FloorToInt(_lastSafePosition.Y));
+        SetCoordinateHigh(horizontal: true, Mathf.FloorToInt(_lastSafePosition.X));
+        _topDownAirZFixed = 0;
+        _enemyKnockbackFrames = 0.0f;
         _facing = _localRespawnFacing;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         ClearSideScrollState(_precisePosition);
         _sideScrollInstantRespawnCounter = 2;
+        _instantRespawnRecoveryCounter = 0;
+        _instantRespawnCollisionDisabled = collisionsDisabled;
+        // linkState02 @respawn breaks the landing tile before writing
+        // wEnteredWarpPosition, then hides Link for the counter$02 delay.
+        _world.ApplyLandedTileHit(Position);
+        _world.DeactivateWarpAtPlayerPosition(this);
         Visible = false;
         _walking = false;
         QueueRedraw();
@@ -5566,33 +5747,42 @@ public partial class Player : Node2D
         if (_sideScrollSquishPending)
         {
             _sideScrollSquishPending = false;
-            _sideScrollSquishAnimationCounter = 0x2d;
-            InterruptCarriedItems(discard: true);
-            CancelSwordAttack();
-            CancelShovelAction();
+            // checkLinkForceState changes state and returns. State11's
+            // initialization is dispatched on the following Link update.
+            _squishAnimation = new LinkSquishAnimation(_sideScrollSquishVertical);
+            return;
+        }
+        var squish = _squishAnimation!;
+        if (squish.Finished)
+        {
+            // respawnLink/checkLinkForceState selected state02 last update;
+            // its initialization (including the position copy) runs now.
+            _squishAnimation = null;
+            BeginSideScrollInstantRespawn(collisionsDisabled: true);
+            return;
+        }
+        if (squish.State == 0)
+        {
+            CancelNativeItemsForSquishRespawn();
             _world.PlaySound(OracleSoundEngine.SndDamageEnemy);
             _walking = false;
-            QueueRedraw();
-            return;
         }
-        if (_sideScrollSquishAnimationCounter != 0)
-        {
-            _sideScrollSquishAnimationCounter--;
-            if (_sideScrollSquishAnimationCounter == 0)
-                _sideScrollSquishFlickerCounter = 0x14;
-            QueueRedraw();
-            return;
-        }
-
-        bool visibleUpdate = (_world.FrameCounter & 1) == 0;
-        Visible = visibleUpdate;
-        if (visibleUpdate)
-        {
-            _sideScrollSquishFlickerCounter--;
-            if (_sideScrollSquishFlickerCounter == 0)
-                BeginSideScrollInstantRespawn();
-        }
+        squish.Advance(_world.FrameCounter);
+        Visible = squish.Visible;
         QueueRedraw();
+    }
+
+    private void CancelNativeItemsForSquishRespawn()
+    {
+        // linkCancelAllItemUsage drops held items and clears parent slots.
+        // Physical ITEM children keep their own lifetime and update phase.
+        _world.ClearItemParents(this);
+        ClearShieldParent();
+        CancelSwordAttack();
+        CancelShovelAction();
+        CancelPunchAction();
+        CancelSeedSatchelAction();
+        _startedParentItemAnimations = 0;
     }
 
     private void ClearSideScrollState(Vector2 position)
@@ -6361,6 +6551,27 @@ public partial class Player : Node2D
             new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
     }
 
+    private void StartSomariaAction(Vector2 input)
+    {
+        if (!_inventory.HasTreasure(InventoryState.ItemSomaria) || IsCarryingObject) return;
+        int current=IsUsingSwitchHook?InventoryState.ItemSwitchHook:
+            IsAttacking?InventoryState.ItemSword:IsUsingSeedShooter?InventoryState.ItemShooter:
+            _world.BombParentActive?InventoryState.ItemBomb:IsUsingShovel?InventoryState.ItemShovel:
+            IsUsingPunch?InventoryState.TreasurePunch:IsUsingSomaria?InventoryState.ItemSomaria:0;
+        Span<ParentItemSlotState> slots=stackalloc ParentItemSlotState[4];
+        slots.Clear();
+        if(current!=0) slots[0]=new((byte)_parentItemUsage.Item(current).Enabled,(byte)current);
+        if(_parentItemUsage.ChooseSlot(InventoryState.ItemSomaria,slots)!=2) return;
+        CancelPunchAction();
+        if(input.LengthSquared()>0.01f) UpdateFacing(input);
+        bool underwater=_world.Underwater || _world.SideScrolling &&
+            _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+            (_world.GetSideScrollTerrain(_precisePosition).ActiveType&SideScrollTileType.Water)!=0;
+        _world.BeginSomaria(this,underwater);
+        _walking=false; _pushing=false;
+        QueueRedraw();
+    }
+
     public void StartSwordAttack() => StartSwordAttack(null, Vector2.Zero);
 
     internal void StartSwordAttackForValidation(Vector2 facingInput) =>
@@ -6377,6 +6588,7 @@ public partial class Player : Node2D
             return;
         if (IsAttacking && !SwordCanRestart)
             return;
+        _world.CancelSomaria();
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _swordState = SwordActionState.Swing;
@@ -6439,6 +6651,7 @@ public partial class Player : Node2D
 
     private void StartShovelAction(Vector2 facingInput)
     {
+        _world.CancelSomaria();
         if (IsUsingItem)
             return;
         if (facingInput.LengthSquared() > 0.01f)

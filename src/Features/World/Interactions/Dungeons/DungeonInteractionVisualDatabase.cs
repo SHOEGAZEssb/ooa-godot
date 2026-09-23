@@ -75,7 +75,7 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 34 ||
+        if (_visuals.Count != 35 ||
             Visual("burning-flame") is not { TileBase: 8, Palette: 2, Animations.Length: 1 } ||
             Visual("eyesoar-spawn") is not { TileBase: 8, Palette: 4, Animations.Length: 1 } ||
             Visual("colored-cube").Animations.Length != 30 ||

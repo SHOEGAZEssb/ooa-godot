@@ -44,6 +44,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal int KnockbackCounter { get; private protected set; }
     internal int KnockbackAngle { get; private protected set; }
     internal bool PendingKnockbackDeath => _pendingKnockbackDeath;
+    internal bool NativeHitPending { get; private set; }
+    internal void DeferNativeHitStatus() => NativeHitPending = true;
     internal bool IsFallingIntoHole =>
         _hazardActive && DeathHazard == HazardType.Hole;
     internal int AnimationIndex => _animation.AnimationIndex;
@@ -79,6 +81,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         DiedInHazard = false;
         DeathHazard = HazardType.None;
         InvincibilityCounter = 0;
+        NativeHitPending = false;
         KnockbackCounter = 0;
         KnockbackAngle = 0;
         _globalFrameCounter = 0;
@@ -317,11 +320,18 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     /// True when the enemy's handler must return after applying its shared
     /// ENEMYSTATUS_KNOCKBACK update.
     /// </returns>
-    protected bool BeginFrame()
+    protected bool BeginFrame(bool advanceInvincibility = true)
     {
         if (ContinueHazard())
             return true;
-        AdvanceInvincibilityCounter();
+        if (advanceInvincibility) AdvanceInvincibilityCounter();
+        if (NativeHitPending)
+        {
+            // enemyStandardUpdate dispatches JUST_HIT before decrementing
+            // knockbackCounter or checking health. Post-update clears bit7.
+            NativeHitPending = false;
+            return true;
+        }
         if (_pendingKnockbackDeath && KnockbackCounter == 0)
         {
             _pendingKnockbackDeath = false;

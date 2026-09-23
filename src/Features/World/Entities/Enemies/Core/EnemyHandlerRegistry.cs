@@ -174,6 +174,8 @@ internal sealed class EnemyHandlerRegistry
         "rope" => EnemyHandlerKind.Rope,
         "blade-trap" => EnemyHandlerKind.BladeTrap,
         "gibdo" => EnemyHandlerKind.Gibdo,
+        "like-like" => EnemyHandlerKind.LikeLike,
+        "ball-chain-soldier" => EnemyHandlerKind.BallChainSoldier,
         "fire-keese" => EnemyHandlerKind.FireKeese,
         "pols-voice" => EnemyHandlerKind.PolsVoice,
         "moldorm" => EnemyHandlerKind.Moldorm,
@@ -202,6 +204,8 @@ internal sealed class EnemyHandlerRegistry
         "flying-tile" => EnemyHandlerKind.FlyingTile,
         "vine-sprout" => EnemyHandlerKind.VineSprout,
         "great-fairy" => EnemyHandlerKind.GreatFairy,
+        "beamos" => EnemyHandlerKind.Beamos,
+        "fireball-shooter" => EnemyHandlerKind.FireballShooter,
         "target-cart-crystal" => EnemyHandlerKind.TargetCartCrystal,
         "king-moblin" => EnemyHandlerKind.KingMoblin,
         "maku-sprout-masked-moblin" =>
@@ -252,7 +256,7 @@ internal sealed record EnemyHandlerDescriptor(
 
     internal bool SupportsCombatSource =>
         Classification != EnemyHandlerClassification.DeliberatelyUnsupported &&
-        Handler is not (EnemyHandlerKind.VineSprout or EnemyHandlerKind.GreatFairy or EnemyHandlerKind.TargetCartCrystal or
+        Handler is not (EnemyHandlerKind.FireballShooter or EnemyHandlerKind.Beamos or EnemyHandlerKind.VineSprout or EnemyHandlerKind.GreatFairy or EnemyHandlerKind.TargetCartCrystal or
             EnemyHandlerKind.BabyCucco or EnemyHandlerKind.Cucco);
 
     internal bool CompletesDungeonEnemyCount => SupportsOrderedConstruction;
@@ -337,6 +341,8 @@ internal enum EnemyHandlerKind
     Rope,
     BladeTrap,
     Gibdo,
+    LikeLike,
+    BallChainSoldier,
     FireKeese,
     PolsVoice,
     Moldorm,
@@ -365,6 +371,8 @@ internal enum EnemyHandlerKind
     FlyingTile,
     VineSprout,
     GreatFairy,
+    Beamos,
+    FireballShooter,
     TargetCartCrystal,
     MakuSproutMaskedMoblin
 }

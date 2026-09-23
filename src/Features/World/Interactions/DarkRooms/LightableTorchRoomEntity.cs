@@ -6,23 +6,25 @@ namespace oracleofages;
 
 /// <summary>
 /// Permanent PART_LIGHTABLE_TORCH $06:$00. A seed collision selects state 2;
-/// the following object update increments the room count, changes tile $08 to
-/// $09, plays SND_LIGHTTORCH, and deletes the part.
+/// the following object update increments the room count, plays SND_LIGHTTORCH,
+/// attempts setTile $09, and deletes even when the tile queue is full.
 /// </summary>
 internal sealed partial class LightableTorchRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, ISeedHittableRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, ISeedHittableRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly LightableTorchState _state;
-    private readonly OracleRoomData _room;
     private readonly DarkRoomDatabase _data;
     private readonly Action<int> _playSound;
-    private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
+    private readonly Action<byte,byte> _setTile;
     private bool _initialized;
     private bool _hit;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
+    internal bool Initialized => _initialized;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal int PackedPosition { get; }
     internal bool HitPending => _hit;
     internal Rect2 CollisionBounds => new(
@@ -32,24 +34,27 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
     internal LightableTorchRoomEntity(
         LightableTorchState state,
         int packedPosition,
-        OracleRoomData room,
         DarkRoomDatabase data,
         Action<int> playSound,
-        Action roomTileChanged,
-        Func<long> animationTick)
+        Action<byte,byte> setTile)
     {
         _state = state;
-        _room = room;
         _data = data;
         _playSound = playSound;
-        _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
+        _setTile = setTile;
         PackedPosition = packedPosition;
         Position = PositionFromPacked(packedPosition);
         Name = $"LightableTorch_{packedPosition:x2}";
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        _initialized = true;
+        Visible = false;
+        return ScreenTransitionPresentation.Hidden;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
@@ -63,9 +68,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
 
         _state.IncrementLitCount();
         _playSound(_data.LightSound);
-        _room.SetPositionTileAndCollision(
-            Position, (byte)_data.LitTile, null, _animationTick());
-        _roomTileChanged();
+        _setTile((byte)PackedPosition,(byte)_data.LitTile);
         Finished = true;
     }
 

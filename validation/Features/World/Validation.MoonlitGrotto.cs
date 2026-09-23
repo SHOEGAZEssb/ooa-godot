@@ -1121,14 +1121,11 @@ public sealed partial class ValidationRoot
                 orb.ToggleMask)).ToArray() is not [(0x31, 0x04), (0x3d, 0x08)] ||
             roomSwitch is not { PackedPosition: 0x68, SwitchMask: 0x02 } ||
             bouncer.Position != Point(0x18) || bouncer.ToggleMask != 0x0c ||
-            bouncer.Orientation != 2 ||
-            room.GetMetatile(Point(0x18)) != data.SeedBouncerBackgroundTile ||
+            bouncer.Initialized ||
             bouncerBackground.SequenceEqual(switchBackground) ||
             data.SeedBouncerChildY != 12 ||
             data.SeedBouncerChildX != 0 ||
             data.SeedBouncerChildZ != -14 ||
-            !room.IsSolid(Point(0x18) + Vector2.Left * 4) ||
-            !room.IsSolid(Point(0x18) + Vector2.Right * 4) ||
             _entities.Entities<RespawnableBushScannerRoomEntity>().Count != 1 ||
             _entities.Entities<RespawnableBushRoomEntity>().Count != 0,
             "Room 4:4e did not instantiate the placed mechanisms before the " +
@@ -1137,6 +1134,17 @@ public sealed partial class ValidationRoot
             "visible switch graphic beneath itself.");
 
         Step();
+        // PART$33 state0 initializes on its first dispatch, not object creation.
+        FailIf(!bouncer.Initialized || bouncer.Orientation != 2 ||
+            room.GetMetatile(Point(0x18)) != data.SeedBouncerBackgroundTile ||
+            !room.IsSolid(Point(0x18) + Vector2.Left * 4) ||
+            !room.IsSolid(Point(0x18) + Vector2.Right * 4) ||
+            !bouncerBackground.SequenceEqual(new byte[] {
+                room.GetBackgroundSubtileForValidation(16, 2),
+                room.GetBackgroundSubtileForValidation(17, 2),
+                room.GetBackgroundSubtileForValidation(16, 3),
+                room.GetBackgroundSubtileForValidation(17, 3) }),
+            "PART$33 first dispatch must initialize orientation and solid logical tile while preserving its background.");
         List<RespawnableBushRoomEntity> bushes =
             _entities.Entities<RespawnableBushRoomEntity>();
         FailIf(
@@ -1228,7 +1236,7 @@ public sealed partial class ValidationRoot
                 sourceZ: 0,
                 ember.SeedItem,
                 ignoredSpawns) != SeedHitResult.None ||
-            bouncer.ApplySeedHitAtHeight(
+            _entities.Entities<SeedReflectorChildRoomEntity>().Single().ApplySeedHitAtHeight(
                 childOnlyBounds,
                 childOnlyBounds.GetCenter(),
                 sourceZ: -14,
@@ -2123,7 +2131,7 @@ public sealed partial class ValidationRoot
             transitionDestination,
             incomingOffset,
             Vector2I.Right,
-            entryPackedPosition: 0x55);
+            entryPackedPosition: 0x55, player: _player);
         List<ArmMimicCharacter> incomingMimics =
             _entities.Entities<ArmMimicCharacter>();
         List<MoldormCharacter> incomingMoldorms =

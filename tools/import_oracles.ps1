@@ -214,7 +214,7 @@ $stageContracts = @(
         -inputs @('cutsceneCommandSchemas', 'generatedCutsceneCommandStreams') `
         -functionInputs @('Test-GeneratedCutsceneCommandStreams')
     New-ImportStageContract 'enemies' 'Import-EnemyData.ps1' `
-        -inputs @('allTexts', 'gfxNames', 'paletteHeaderSource') `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'gfxNames', 'paletteHeaderSource') `
         -outputs @(
             'crowRows', 'gelInstanceCount', 'keeseInstanceCount',
             'octorokInstanceCount', 'orderedObjectRows', 'partAnimationSource',
@@ -255,8 +255,14 @@ $stageContracts = @(
     New-ImportStageContract 'skull-dungeon' 'Import-SkullDungeon.ps1' `
         -inputs @('mainObjectSource', 'allTexts', 'allTextPositions')
     New-ImportStageContract 'moving-platforms' 'Import-MovingPlatforms.ps1'
+    New-ImportStageContract 'crown-dungeon' 'Import-CrownDungeon.ps1'
+    New-ImportStageContract 'pushblock-synchronizer' 'Import-PushblockSynchronizer.ps1'
+    New-ImportStageContract 'puzzle-trap-reset' 'Import-PuzzleTrapReset.ps1'
+    New-ImportStageContract 'link-squish' 'Import-LinkSquish.ps1' `
+        -functionInputs @('Read-HexBytes')
     New-ImportStageContract 'static-dungeon-objects' 'Import-StaticDungeonObjects.ps1'
     New-ImportStageContract 'part-switch' 'Import-PartSwitch.ps1'
+    New-ImportStageContract 'seed-shooter-eye-statue' 'Import-SeedShooterEyeStatue.ps1'
     New-ImportStageContract 'armos-warrior' 'Import-ArmosWarrior.ps1' `
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'eyesoar' 'Import-Eyesoar.ps1'

@@ -11,19 +11,27 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private int _palette;
     private bool _healthCleared;
+    private bool _pendingCollision;
+    private OracleObjectPosition _position;
+    private readonly RingDamageSource _damageSource;
+    internal int PartId { get; }
     internal void ClearHealthAndCollision() => _healthCleared = true;
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal int Angle { get; private set; }
     internal bool Finished { get; private set; }
     internal void SetPaletteOverride(IReadOnlyDictionary<int, Color[]>? palette) => _animation.SetPaletteOverride(palette);
-    internal Rect2 CollisionBounds => Finished || _healthCleared ? new(Position, Vector2.Zero) :
+    internal Rect2 CollisionBounds => Finished || _healthCleared || _pendingCollision ? new(Position, Vector2.Zero) :
         new(Position - new Vector2(_data.RadiusX, _data.RadiusY), new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
 
     internal ZoraFireProjectile(ZoraFireSpawn spawn, ZoraFireDatabase data,
         Func<Vector2, Vector2> worldToScreen)
     {
-        Position = spawn.Position;
+        if (spawn.PartId is not (0x19 or 0x31)) throw new ArgumentOutOfRangeException(nameof(spawn), "Expected PART $19 or $31.");
+        PartId = spawn.PartId;
+        _damageSource = PartId == 0x19 ? RingDamageSource.ZoraFire : RingDamageSource.Generic;
+        _position = OracleObjectMovement.Shared.PositionFromPixels(spawn.Position);
+        Position = _position.PixelPosition;
         _data = data;
         _palette = data.Palette;
         _worldToScreen = worldToScreen;
@@ -43,22 +51,12 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
             State = 1;
             Counter = 8;
             Visible = true;
+            ZIndex = NpcCharacter.InFrontOfLinkZIndex;
             return;
         }
-        if (_healthCleared)
+        if (_healthCleared || _pendingCollision)
         {
             Finished = true; // partCode19: jp nz,partDelete.
-            Visible = false;
-            return;
-        }
-        // Part.collisionType starts enabled: even the eight stationary
-        // updates retain the ordinary part collision window.
-        if (frame.Player.TryBlockWithShield(CollisionBounds) ||
-            frame.Player.AcceptsRoomEntityContact &&
-            frame.Player.OverlapsEnemyCollision(CollisionBounds) &&
-            frame.Player.ApplyEnemyContactDamage(Position, _data.Damage, RingDamageSource.OctorokProjectile))
-        {
-            Finished = true;
             Visible = false;
             return;
         }
@@ -71,7 +69,8 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
             return;
         }
         if ((frame.Counter & 3) == 0) _palette ^= 7;
-        Position += OracleObjectMovement.Shared.Delta(_data.Speed, Angle);
+        _position = OracleObjectMovement.Shared.ApplySpeed(_position, _data.Speed, Angle);
+        Position = _position.PixelPosition;
         Vector2 screen = _worldToScreen(Position) - Vector2.Down * OracleRoomData.StatusBarHeight;
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(screen))
         {
@@ -89,13 +88,22 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
             new Vector2(-16, -16) + TransitionDrawOffset);
     }
 
-    internal bool Strike()
+    internal void HandleLinkContact(Player player)
     {
-        if (Finished || _healthCleared) return false;
-        Finished = true;
-        Visible = false;
-        return true;
+        if (State == 0 || Finished || _healthCleared || _pendingCollision || !player.EnemyContactHeightOverlaps(0)) return;
+        // Both partActiveCollisions rows are $0d: Link, L2 and L3 shield.
+        if (player.CanAcceptShieldCollision && player.TryBlockWithShield(CollisionBounds, minimumLevel: 2))
+        {
+            _pendingCollision = true;
+            return;
+        }
+        if (!player.AcceptsRoomEntityContact || player.InvincibilityFrames != 0 ||
+            !player.OverlapsEnemyCollision(CollisionBounds)) return;
+        if (RingEffects.PreventsDamage(player.Inventory, _damageSource))
+            _healthCleared = true; // collisionEffect3c destroys $19 for Blue Holy Ring.
+        else if (player.ApplyEnemyContactDamage(Position, _data.Damage, _damageSource))
+            _pendingCollision = true;
     }
 }
 
-internal sealed record ZoraFireSpawn(Vector2 Position) : RoomEntitySpawn;
+internal sealed record ZoraFireSpawn(Vector2 Position, int PartId = 0x19) : RoomEntitySpawn;

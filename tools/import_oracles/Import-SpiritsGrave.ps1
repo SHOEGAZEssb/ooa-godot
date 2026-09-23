@@ -607,6 +607,8 @@ function Get-DungeonPartVisual(
         '4d'
     } elseif ($partId -eq 0x3b) {
         '54'
+    } elseif ($partId -eq 0x46) {
+        '58'
     } else {
         $animationTableHex
     }
@@ -653,6 +655,10 @@ function Get-DungeonPartVisual(
             '(?m)^part41Animations:\s*\r?\npart56Animations:\s*\r?\n' +
             'part58Animations:\s*\r?\n\s*\.dw\s+partAnimation5b8c0') {
         throw 'PART_SHADOW_HAG_SHADOW no longer aliases PART $58 animations.'
+    }
+    if ($partId -eq 0x46 -and $partAnimationSource -notmatch
+        '(?m)^part46OamDataPointers:[^\r\n]*\r?\npart58OamDataPointers:[^\r\n]*\r?\n') {
+        throw 'PART $46 no longer aliases PART $58 OAM pointers.'
     }
     $animationLabels = @([regex]::Matches(
         (Get-AssemblyLabelBody $partAnimationSource "part${animationTableHex}Animations"),
@@ -927,7 +933,15 @@ Add-DungeonPartVisualRow `
     $seedBouncerVisual.SourceGrayscaleInverted `
     $seedBouncerVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 35) {
+$eyeStatueVisual = Get-DungeonPartVisual 0x46 $true
+if ($eyeStatueVisual.Sprite -ne 'spr_polsvoice_hardhatbeetle_spikedbeetle_beamon' -or
+    $eyeStatueVisual.TileBase -ne 0x1e -or $eyeStatueVisual.Palette -ne 0) {
+    throw 'PART_SEED_SHOOTER_EYE_STATUE $46 graphics definition changed.'
+}
+Add-DungeonPartVisualRow 'seed-shooter-eye-statue' $eyeStatueVisual.Sprite $eyeStatueVisual.TileBase `
+    $eyeStatueVisual.Palette $eyeStatueVisual.SourceGrayscaleInverted $eyeStatueVisual.Animations
+
+if ($dungeonVisualRows.Count -ne 36) {
     throw "Expected thirty-two imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(

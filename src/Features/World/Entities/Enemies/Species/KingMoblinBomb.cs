@@ -12,6 +12,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
     internal int ZFixed => _motion.ZFixed;
     internal int Radius { get; private set; }
     internal bool Held => !Small && State==2 && !_released;
+    internal bool ReservedBraceletChildActive => !Small && !IsDead && State == 2 && _released && !_settled;
     private CarriedObjectMotion _motion;
     private int _angle, _speed, _flashLimit;
     private bool _released, _damagedLink;

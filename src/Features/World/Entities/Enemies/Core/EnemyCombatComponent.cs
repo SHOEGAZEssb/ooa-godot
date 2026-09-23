@@ -59,6 +59,13 @@ internal sealed class EnemyCombatComponent(
     {
         if (!Intersects(hitbox))
             return false;
+        return ApplyDamageAfterCollision(sourcePosition, damage, knockbackStrength, spawns, deathPuffDecrementsRoomCount);
+    }
+
+    internal bool ApplyDamageAfterCollision(Vector2 sourcePosition, int damage,
+        EnemyKnockbackStrength knockbackStrength, ICollection<RoomEntitySpawn> spawns,
+        bool deathPuffDecrementsRoomCount)
+    {
         bool struck = takeSwordHit(sourcePosition, damage);
         if (struck)
             acceptedSwordHit?.Invoke(sourcePosition, knockbackStrength);
@@ -251,6 +258,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.PodobooTower, 0x0f) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.ArrowDarknut, 0x20) => EnemySwordResponse.Knockback,
+            (EnemyHandlerKind.SwordEnemy, 0x20) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.GopongaFlower, 0x23) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.BuzzBlob, 0x1b) => EnemySwordResponse.ElectricShock,
             (EnemyHandlerKind.FlyingTile, 0x3c) =>
@@ -259,6 +267,8 @@ internal readonly record struct EnemyCombatSourceDescriptor(
                 EnemySwordResponse.Armored,
             (EnemyHandlerKind.BladeTrap, 0x13) => EnemySwordResponse.Armored,
             (EnemyHandlerKind.Gibdo, 0x16) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.LikeLike, 0x22) => EnemySwordResponse.Knockback,
+            (EnemyHandlerKind.BallChainSoldier, 0x37) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.FireKeese, 0x2b) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.ArmMimic, 0x39) =>
                 EnemySwordResponse.Knockback,

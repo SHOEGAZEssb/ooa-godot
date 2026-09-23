@@ -552,9 +552,9 @@ public partial class GameRoot : Node2D
         bool scrollOwnedUpdate = _transitions.ScrollActive;
         _harp.BeginObjectUpdate();
         _player.AdvanceApplicationUpdate();
+        _entities.ClearGrabbableObjectsAfterPlayer();
         if (!IsTransitioning)
         {
-            _pushBlocks.Advance(delta);
             _keyDoors.Advance(delta);
         }
         _transitions.UpdateWarpAndEffects(delta);
@@ -585,6 +585,13 @@ public partial class GameRoot : Node2D
             _interactions.Update(delta, _player);
         }
         _entities.SwitchHook?.UpdatePost(_player);
+        _entities.Somaria?.UpdatePost(_player);
+        _entities.UpdateHeldObjectPosition(_player);
+        // updateAllObjects drains up to four queued tile graphics after the
+        // object passes, before screen-transition handling and animation.
+        // Preserve the current scroll gate on its final frozen update.
+        if (!_transitions.TimeWarpActive)
+            _rooms.UpdateChangedTileGraphics(_transitions.ScrollActive ? (byte)8 : (byte)1);
         // The source screen-transition handler follows updateAllObjects.
         // In particular, the final scroll update still freezes destination
         // entities and room events; ordinary updates resume next tick.
@@ -694,12 +701,14 @@ public partial class GameRoot : Node2D
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound,
-            _entities.PushBlockPermittedByColoredCube)
+            _entities.PushBlockPermittedByColoredCube,
+            _entities.RequestSomariaPush)
         {
             Name = "PushBlock"
         };
         _scene.WorldRoot.AddChild(_pushBlocks);
         _pushBlocks.SetPhysicsProcess(false);
+        _entities.ReservedPushBlock = _pushBlocks;
         _keyDoors = new DungeonKeyDoorController(
             _rooms, _inventory, _entities, _treasures,
             () => (long)_animationTicks, _sound.PlaySound)
@@ -801,6 +810,7 @@ public partial class GameRoot : Node2D
             _sound.PlaySound);
         _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
             () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
+        _entities.Somaria = new SomariaController(_scene.WorldRoot,_rooms,_entities,_sound.PlaySound);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
         _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;

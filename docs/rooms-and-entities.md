@@ -27,6 +27,92 @@ Gameplay positions remain original room/world coordinates. Camera and
 transition offsets are presentation. Preserve byte and 8.8 fractional state
 through movement and transitions where the source does.
 
+Native interaction dispatch walks the live slot pool in ascending order.
+Children allocated above the current slot run in the same object update;
+children placed in an already visited slot wait for the next update. Deletion
+releases a slot immediately for allocation, even before end-of-update node
+cleanup. Do not replace this walk with an insertion-order entity snapshot.
+Logical owners without native interaction slots remain outside this pool.
+Scrolling retains outgoing interaction and part allocations until those
+objects delete themselves or the scroll finishes. Incoming allocations use
+the remaining slots. Eligible outgoing and incoming objects share one live
+slot walk; processing the two rooms separately changes child dispatch timing.
+
+`RoomSession` owns the shared block-push direction. Every initialized native
+push block writes it, including dynamically allocated synchronized blocks.
+Finishing or cancelling a block retains the byte; room loading clears it.
+Readers must not reconstruct it from the reserved block's movement direction.
+
+Link owns forced squish requests and the subsequent animation state. Consuming
+the request returns before initialization; initialization then advances the
+imported animation immediately. Its terminal update falls through to the
+flicker handler, including that handler's additional animation advance. Keep
+animation progression separate from the counter that decrements only on
+visible updates. Respawn selection and respawn initialization are separate
+Link dispatches. Instant respawn retains an inherited squish collision lock
+through its two-update reveal delay and sixteen-update recovery. Recovery
+releases the lock and selects normal state on its terminal update; normal
+movement begins on the following update. Other instant-respawn callers do
+not acquire a squish collision lock merely by entering the shared recovery.
+After copying the local coordinates, instant respawn invokes the combat
+owner's landed-tile hit, then the transition owner's warp suppression, before
+hiding Link. These use the same tile-hit and warp-marker owners as normal
+landing and other local hazard respawns.
+Squish initialization and instant respawn clear item parents through their
+shared owner. Held bracelet objects are released into their child-item update
+instead of being deleted; those children continue falling while squish or
+recovery owns Link. The Cane weapon observes its cleared parent in its post pass.
+
+The entity manager owns the native boss-entry/shutter signal (`wcc93`). Smog
+initialization sets bit 7; shutter initialization and completed opening/closing
+update the byte count in source order. Closing clears bit 7 only when the
+remaining low count is zero. Reset the signal when parsing a new room. A
+consumer that checks this full byte must not substitute a collision-based
+"all doors closed" predicate, since the entry bit can remain set independently.
+
+Queued native tile writes separate logical terrain from displayed mappings.
+An accepted write changes layout and collision immediately while preserving
+the old graphics; draining the queue applies the stored tile value without
+rewriting terrain. Multiple queued writes to one position must retain their
+intermediate visual values. Direct initialization writes remain a separate
+operation. `RoomSession` owns the queue; gameplay drains up to four entries
+after object updates, retaining the scroll gate through its final update.
+Room commits and full/cutscene loads clear pending entries; preloading data
+does not. Smog enemy writes, the native exact-trigger chest script and the
+triggered floor-pattern hint, floor buttons, moving push blocks and permanent torch lighting
+use this path. Callers retain their source failure policy: a permanent torch
+increments the lit count, plays its sound and deletes even if the queue rejects
+its tile write. Other existing tile writers still require migration before the
+queue represents all native tile traffic.
+
+Object-held floor buttons write their pressed tile into the live underlying
+layout buffer while leaving the covering object visible. Object removal reveals
+that buffer; buttons must not invent a replacement tile on a later update.
+Their Link contact gate reads the player's object Z high byte after XY overlap,
+not a general grounded-state flag. Scripted fixed-point height changes update
+the player's gameplay height as well as the presentation offset.
+
+Link placement and capture checks share the imported cumulative wall probes.
+They wrap coordinates as bytes and retain the raw collision mask: a side is
+blocked when either of its two probes hits terrain. Movement's later mask
+normalization is a separate operation and must not affect these checks.
+
+Side-view platform contact probes also inspect whole-metatile raw collision
+bytes at wrapped byte coordinates. They must not use Link's quarter-tile or
+special-collision movement masks: even a tile that permits Link movement can
+select the platform's obstructed push or squish branch.
+
+Enemy capture requests enter Link's grabbed state on the next Link update,
+before the later enemy pass disables his collision and copies coordinate high
+bytes. Link owns item cancellation, the native warp-disable byte and release
+invincibility. Enemy-pass release restores collision first; the next Link
+dispatch returns to standing, and the common invincibility update advances
+the signed release byte. The grabbed dispatcher runs even under Link's normal
+object-freeze mask. Its transition-blocking signal lasts through the release
+update, then clears with the next special-object pass.
+Shield-loss dialogue uses imported text, including its formatting commands.
+It pauses the enemy's cooldown while Link's grabbed-state release still runs.
+
 Side-view water state is owned by Link. Its terrain probes sample the current
 position and eight pixels below it; `wLastActiveTileType` names the latter
 probe, not a previous update. Swimming input, parent-item movement locks, and
@@ -109,6 +195,21 @@ checkpoints, and persistent mutations occur only at their traced boundary.
 Enemy state-zero initialization remains eligible during scrolling. If a source
 gate delays initialization, retain its per-update counters and RNG until it
 leaves state zero, then freeze the initialized enemy until scrolling completes.
+Preload initialization follows native category and slot order: enemies, parts,
+then interactions. Object-stream insertion order does not override that order.
+Children created in a later category join that pass; an already-passed slot
+or category is visited on a subsequent preload pass. Keep the active entity
+list itself in its original order.
+Preload callers pass the live player when source state-zero handlers inspect
+or move Link. Those handlers retain their state-zero contact work before later
+movement freezes; they reject a missing player instead of skipping contact.
+Ordinary scroll entry clamps Link's coordinate high byte before that preload,
+retains both coordinate low bytes, and starts scrolling from the resulting
+position after initialization has had a chance to change either axis.
+Shared dungeon reward scripts initialize during state-zero preload and text
+dispatch. Boss completion and item collection are separate flags: completion
+bypasses the enemy-count wait, while the later item check can end the script
+before its spawn and collision/menu-unlock commands.
 Warp requests also distinguish Link's source-transition handler from a direct
 scripted fade. Source handlers own the entrance sound; a direct write to
 `wWarpTransition2` bypasses that sound. Destination entry handlers do not replay
@@ -173,6 +274,12 @@ high coordinate bytes. Collecting an Essence suppresses its next appearance
 and glow while retaining the pedestal's collision.
 Dynamic interaction allocation scans `$d2` through `$df`; the reserved `$d0`
 and `$d1` slots are not available to ordinary effects or actors.
+
+Native object replacement retains its allocated slot and copies only the
+coordinate high bytes, including height. A boss explosion's item drop starts
+in that same part slot on the next update, with zero coordinate fractions.
+Its world position and height remain separate through initialization; drawing
+the inherited height must not move its ground position or collision anchor.
 
 The importer produces one source-ordered object stream. Parse it in order and
 retain a shared reservation set so conditional objects, random placements,
@@ -253,6 +360,9 @@ Native receivers also use imported active-collision masks; a disabled entry
 does not consume the enemy's item scan. Gale's first enemy update consumes
 the collision signal before advancing its capture motion.
 The native collision scan visits enemy slots before part slots. Native part
+contact effects join the post-object spawn batch immediately, so a later
+dialogue or object freeze cannot postpone their allocation to another update.
+Native part
 receivers test projectile and thrown-object geometry after movement; a sword
 beam collision leaves a signal for its next item update. Orbs retain their
 own palette while publishing toggle bits to the shared runtime state; moving
@@ -356,11 +466,41 @@ zero if allocation fails. The enemy pass publishes its guarding collision
 mode; the following part pass positions the invisible blade and transfers
 pending blade recoil to its parent after advancing part invincibility. The
 blade retains its recoil bytes; the enemy advances the copied counter.
+Sword enemies publish their collision mode after the native status handler.
+Stun disables directional guarding for the body and its later blade part;
+the zero-stun update can restore guarding before movement resumes. Seed hits
+use the post-object scan and the live collision mode. An Ember kill clears
+health before the burning part temporarily holds it at one; restoring zero
+health leaves death to the next enemy pass and room-count release to the
+death puff. Darknuts share the blade lifecycle but retain their own chase
+speed, turn cadence, collision rows and Scent Seed eligibility.
 Collision tests in the next item pass
 consume that published state rather than recomputing facing during the hit.
 The blade's collision gate is independent of the body's collision-enable
 bit, which a Switch Hook exchange clears. Its part handler follows the
 parent's high XY coordinates without inheriting the body's lifted Z.
+
+Beamos beams allocate independent native parts from that same pool. A full
+pool drops the current segment without pausing the parent counter. Each
+segment initializes in the later part pass, preserves scaled 8.8 velocity,
+and delays terrain checks until its second moving update. Its collision mask
+and pending shield status remain separate from visibility and cleared health.
+
+Ball & Chain Soldiers allocate a head and three chain links in native part
+order. Their throw-completion signal is written by the head after the enemy
+pass and consumed on the following update. The clean-US allocation check
+counts enemy slots; an ensuing unchecked write into an exhausted part pool
+currently raises a source-aware diagnostic. It must not silently become a
+part-slot availability check.
+
+Fireball-shooter scanners retain native enemy-slot order when creating their
+uncounted children. Their clean-US deletion path can write a counter byte
+after clearing the object. The room entity manager retains that byte with the
+freed slot until reuse or room loading; a receiver without an explicit model
+for that initial byte fails with source context. Shared fireballs preserve
+their part ID because collision masks and ring protection are part-specific.
+Contact publishes status after object updates; deletion occurs on the next
+part pass, including during the initial stationary aim delay.
 
 Random breakable drops retain their unresolved part subid until the part's
 first update. That update checks Maple before drawing RNG, then applies the
@@ -492,10 +632,62 @@ priority and lifecycle ownership; it does not add another independent input
 scan or controller override chain. See [NPCs and events](npcs-and-events.md)
 for choosing ordinary NPC, linked interaction, or room-event ownership.
 
+The room-entity manager owns the five dynamic item slots `$d7`–`$db`, shared
+by bombs, seeds, sword beams, Somaria blocks, and the Switch Hook chain. Item deletion frees
+capacity before scene-node cleanup; a replacement request alone does not.
+The chain releases its slot in its post-update after its weapon disappears.
+Checked callers preserve their source allocation-failure behavior. Unchecked
+creation into a full pool fails explicitly until its original memory side
+effects are represented.
+
+Dynamic item handlers run before enemies in live native slot order. An item
+allocated into a later slot can run in the same pass; reuse of an earlier
+slot waits for the next pass. State-zero bomb, beam, seed, and Somaria handlers still
+initialize while dialogue or the room-object freeze suppresses initialized
+items. Scene insertion order must not replace slot order after reuse.
+The post-object collision scan uses that same dynamic-slot order. Its first
+accepted overlap ends the target's item scan, including a no-op effect; a
+collision that marks an item for deletion leaves cleanup to its next eligible
+handler update.
+Enemy records retain the raw damage byte separately from Link's converted
+quarter-heart damage. Item health uses the raw byte. Shared-damage collisions
+overwrite an item's pending damage while combining contact flags; they do not
+sum damage from every enemy in the pass. Newly hit enemies dispatch their
+source JUST_HIT status before advancing recoil or completing a lethal hit.
+
+Somaria blocks retain their item slot while carried or thrown. Replacement
+marks the first existing block before attempting allocation; it does not
+reserve that block's slot. Physical-item clearing removes the Cane weapon
+immediately, drops a held block, and marks and hides the block. Its handler
+remains responsible for restoring the underlying floor. Native
+pickup publication and the final held-position copy use the same room-owned
+buffer and update boundary as other carried objects.
+
+Somaria's pushable tile dispatch remains separate from ordinary pushblock
+properties. The shared terrain push countdown signals the existing item;
+it creates no pushblock interaction and leaves movement and floor restoration
+with the block. Destination checks use the live collision byte, including
+temporary overrides, after the push countdown expires.
+
+The Somaria controller separates Link's parent animation, the reserved
+weapon update, and the unconditional weapon post-update. Block allocation
+runs before the live dynamic-slot pass, allowing a newly created block to
+initialize that update. A failed allocation consumes the swing's creation
+trigger; a slot freed later in the pass does not cause a retry.
+
 Native objects carried by the bracelet can expose a reserved-item update.
 That motion runs before the enemy pass, while the object's native fuse and
 state handler retain their normal slot. A thrown part must not postpone its
 reserved-item movement until its later part update or advance its fuse twice.
+Native pickup candidates use the manager's ordered eight-entry buffer: Link
+reads the preceding object pass, then the buffer clears after Link updates.
+Participating handlers republish eligible objects on each update. Their held
+position copies run after the object pass; reserved throws retain their own
+fractional coordinates and prevent another Bracelet parent from starting.
+Reserved-item collision sources expose the physical item's live geometry to
+the post-object pass. Keep that contact separate from any collision performed
+inside the carried object's own handler, and stop publishing when the item
+retires on its final bounce.
 
 ## Adding a room mechanic or entity
 

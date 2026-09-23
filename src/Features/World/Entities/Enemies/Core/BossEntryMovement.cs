@@ -16,6 +16,7 @@ internal sealed class BossEntryMovement(Vector2I direction)
         if (direction == Vector2I.Zero)
             return;
         _counter = ForceMovementCounter;
+        _initialized = false;
         _armed = true;
     }
 
@@ -27,6 +28,8 @@ internal sealed class BossEntryMovement(Vector2I direction)
         {
             _initialized = true;
             player.BeginForcedRoomEntryMovement(direction);
+            // checkLinkForceState/linkSetState consumes the request and
+            // returns from normal Link without dispatching state0b yet.
             return;
         }
 

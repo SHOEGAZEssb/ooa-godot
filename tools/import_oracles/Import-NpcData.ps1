@@ -2101,6 +2101,13 @@ $seedBouncerChildX = $seedBouncerChildOffset -band 0xff
 $seedBouncerChildZ = [Convert]::ToInt32(
     $seedBouncerChildMatch.Groups['z'].Value, 16)
 if ($seedBouncerChildZ -ge 0x80) { $seedBouncerChildZ -= 0x100 }
+$seedBouncerPeriod = & {
+    $m = [regex]::Match($rotatableSeedThingSource,'(?s)@subid0_state0:.*?ld l,\$f1\s+ldd \(hl\),a\s+rlc c\s+ld a,\$(?<period>[0-9a-f]{2})\s+jr nc,\+\s+add a\s+\+\s+ld \(hl\),a\s+ld l,\$c6\s+ld \(hl\),a')
+    if (!$m.Success -or $rotatableSeedThingSource -notmatch '(?s)@func_64f2:\s+call partCommon_decCounter1IfNonzero\s+ret nz\s+ld e,\$f0\s+ld a,\(de\)\s+ld \(hl\),a\s+jp @func_657e') { throw 'PART$33 timed rotation counter contract changed.' }
+    $partSource = Read-ImportText (Join-Path $Disassembly 'data/ages/partData.s')
+    if ($partSource -notmatch '(?m)\.db \$73 \$f5 \$00 \$00 \$40 \$1a \$02 \$00 ; \$33') { throw 'PART$33 initial zero radii / graphics contract changed.' }
+    [Convert]::ToInt32($m.Groups['period'].Value,16)
+}
 $mechanicTilesetsByGroup = @{}
 function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
     if (-not $script:mechanicTilesetsByGroup.ContainsKey($group)) {
@@ -2254,12 +2261,12 @@ foreach ($line in $mainObjectLines) {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
         if ($Matches['id'] -eq '03') { $orbCount++ }
-    } elseif ($line -match '^\s*obj_Part\s+\$33\s+\$0a\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s*$') {
+    } elseif ($line -match '^\s*obj_Part\s+\$33\s+\$(?<subid>0a|08|88)\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s*$') {
         $y = [Convert]::ToInt32($Matches['y'], 16)
         $x = [Convert]::ToInt32($Matches['x'], 16)
         $position = ($y -band 0xf0) -bor (($x -shr 4) -band 0x0f)
         $dungeonMechanicRows.Add(
-            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t33`t0a`t$($position.ToString('x2'))`t$($Matches['mask'])`tnone`t1")
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t33`t$($Matches['subid'])`t$($position.ToString('x2'))`t$($Matches['mask'])`tnone`t1")
         $rotatableSeedThingCount++
     } elseif ($line -match '^\s*obj_Pointer\s+objectData_makeAllTorchesLightable\s*$') {
         $dungeonMechanicRows.Add(
@@ -2273,7 +2280,7 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 232 -or
+if ($dungeonMechanicRows.Count -ne 234 -or
     -not ($dungeonMechanicRows -contains "5`tc2`t0`tdc`t0c`t56`t08`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`te3`t0`tdc`t0d`t28`t06`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "0`t54`t0`t6b`t0f`t68`t01`tnone`t1") -or
@@ -2287,7 +2294,7 @@ if ($dungeonMechanicRows.Count -ne 232 -or
     $torchScannerCount -ne 8 -or
     $extendableBridgeCount -ne 7 -or
     $orbCount -ne 17 -or
-    $rotatableSeedThingCount -ne 2 -or
+    $rotatableSeedThingCount -ne 4 -or
     $respawnableBushScannerCount -ne 3 -or
     -not ($dungeonMechanicRows -contains "4`t08`t0`t20`t00`t57`t01`texact`t1") -or
     -not ($dungeonMechanicRows -contains "4`t08`t1`t09`t00`t17`t00`tnone`t1") -or
@@ -2326,7 +2333,7 @@ if ($dungeonMechanicRows.Count -ne 232 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 231 reusable mechanics including Rolling Ridge's two bridge controllers; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 233 reusable mechanics including Crown's two timed reflectors; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2582,6 +2589,7 @@ $dungeonMechanicConstantRows = @(
     "seed-bouncer-child-y`t$seedBouncerChildY"
     "seed-bouncer-child-x`t$seedBouncerChildX"
     "seed-bouncer-child-z`t$seedBouncerChildZ"
+    "seed-bouncer-period`t$seedBouncerPeriod"
     "moonlit-armos-chest-position`t105"
     "moonlit-button-key-y`t$moonlitButtonKeyY"
     "moonlit-button-key-x`t$moonlitButtonKeyX"

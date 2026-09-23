@@ -27,11 +27,26 @@ public sealed class EnemyDatabase
     internal EnemyHandlerRegistry EnemyHandlers { get; }
     internal VineSproutDatabase VineSprouts { get; } = new();
     private readonly Dictionary<int, string> _cukemanTexts = new();
+    internal string LikeLikeShieldText { get; }
+    internal string SmogIntroText { get; }
     internal string CukemanText(int id) => _cukemanTexts.TryGetValue(id, out string? text)
         ? text : throw new InvalidOperationException($"Missing Cukeman text ${id:x4}.");
 
     public EnemyDatabase()
     {
+        var smogText = GeneratedTable.Load("res://assets/oracle/objects/smog_intro_text.tsv",
+            new GeneratedTableSchema("Smog intro", GeneratedTableKeySemantics.Unique,
+                ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
+        if (smogText.Rows.Count != 1 || smogText.Rows[0].HexWord(0) != 0x2f26)
+            throw new InvalidOperationException("smog_state_uninitialized requires TX_2f26.");
+        SmogIntroText = smogText.Rows[0].Base64Utf8(1);
+        var likeLikeText = GeneratedTable.Load("res://assets/oracle/objects/like_like_text.tsv",
+            new GeneratedTableSchema("Like Like shield loss", GeneratedTableKeySemantics.Unique,
+                ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
+        if (likeLikeText.Rows.Count != 1 || likeLikeText.Rows[0].HexWord(0) != 0x510b)
+            throw new InvalidOperationException("likelike_stateB requires TX_510b.");
+        LikeLikeShieldText = likeLikeText.Rows[0].Base64Utf8(1);
+        _ = likeLikeText.Rows[0].RequiredString(2);
         GeneratedTable texts = GeneratedTable.Load("res://assets/oracle/objects/cukeman_text.tsv",
             new GeneratedTableSchema("Cukeman dialogue", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
@@ -53,7 +68,7 @@ public sealed class EnemyDatabase
                 [
                     "id", "subid", "sprites", "tile-base", "palette",
                     "source-grayscale-inverted", "radius-y", "radius-x",
-                    "damage-quarters", "health", "animations-base64"
+                    "damage-quarters", "health", "animations-base64", "raw-damage"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -70,14 +85,17 @@ public sealed class EnemyDatabase
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
                 row.UnsignedDecimal(9),
-                row.EncodedAnimations(10));
+                row.EncodedAnimations(10), row.HexByte(11));
             if (!_importedDefinitions.TryAdd((record.Id, record.SubId), record))
             {
                 throw new InvalidOperationException(
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 56 ||
+        if (_importedDefinitions.Count != 67 ||
+            ImportedEnemy(0x24) is not
+                { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
+                    TileBase: 12, Palette: 3, Animations.Length: 2 } ||
             ImportedEnemy(0x0a) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
             ImportedEnemy(0x0b) is not
@@ -848,6 +866,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x0e),
         EnemyHandlerKind.Gibdo =>
             HasImportedDefinition(descriptor, 0x12),
+        EnemyHandlerKind.LikeLike => HasImportedDefinition(descriptor, 0x24),
+        EnemyHandlerKind.BallChainSoldier => HasImportedDefinition(descriptor, 0x4b),
         EnemyHandlerKind.FireKeese =>
             HasImportedDefinition(descriptor, 0x39),
         EnemyHandlerKind.Spark =>
@@ -869,7 +889,7 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.ColorChangingGel =>
             HasImportedDefinition(descriptor, 0x47),
         EnemyHandlerKind.SwordEnemy =>
-            descriptor.Id is 0x49 or 0x4a &&
+            descriptor.Id is 0x3d or 0x48 or 0x49 or 0x4a &&
             _importedDefinitions.ContainsKey(
                 (descriptor.Id, descriptor.SubId)),
         EnemyHandlerKind.Ghini =>
@@ -892,6 +912,9 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x36),
         EnemyHandlerKind.GreatFairy =>
             HasImportedDefinition(descriptor, 0x38),
+        EnemyHandlerKind.Beamos =>
+            HasImportedDefinition(descriptor, 0x16),
+        EnemyHandlerKind.FireballShooter => descriptor.Id == 0x50 && descriptor.SubId == 1,
         EnemyHandlerKind.Zol =>
             descriptor.Id == 0x34 &&
             _zolDefinitions.ContainsKey(descriptor.SubId),
@@ -941,7 +964,7 @@ public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int 
 
 internal readonly record struct KeeseDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
 
-internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations);
+internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations, int RawDamage = 0);
 
 internal readonly record struct EnemyProjectileVisualRecord(string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
 

@@ -18,6 +18,9 @@ public interface IPlayerWorld
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
     bool GaleWarpDisabled => false;
+    bool NativeWarpsDisabled => false;
+    void SetNativeWarpsDisabled(bool disabled) =>
+        throw new NotSupportedException("LINK_STATE_GRABBED $0d requires the authoritative wWarpsDisabled owner.");
     bool PlayerContactDisabled => false;
     Vector2? MountedCompanionPosition => null;
     Vector2? MountedRaftPosition => null;
@@ -60,6 +63,12 @@ public interface IPlayerWorld
         bool directionJustPressed) => false;
     void InterruptSeedShooter() { }
     bool SwitchHookActive => false;
+    bool SomariaActive => false;
+    int SomariaAnimationMode => 0;
+    int SomariaAnimationFrame => 0;
+    void BeginSomaria(Player player,bool underwater) { }
+    void UpdateSomariaParent() { }
+    void CancelSomaria() { }
     bool SwitchHookExchangeActive => false;
     bool TryBeginSwitchHook(Player player, Vector2 input) => false;
     void UpdateSwitchHookParent(Player player) { }

@@ -21,20 +21,24 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
     private bool _initialized;
 
     internal override bool Finished { get; private protected set; }
+    internal bool Initialized => _initialized;
     internal int ElapsedUpdates { get; private set; }
     internal bool Flickers { get; private set; }
     internal bool FlickerVisibleOnEvenUpdates { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int CurrentParameter => _animation[AnimationFrame].Parameter;
+    internal int ZHigh { get; private set; }
 
     internal void Initialize(
         Vector2 position,
         int sound,
         bool flickers = false,
         bool flickerVisibleOnEvenUpdates = true,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        int zHigh = 0)
     {
         Position = position;
+        ZHigh = (sbyte)(byte)zHigh;
         _animation = _definition ??= LoadDefinition();
         _sound = sound;
         Flickers = flickers;
@@ -42,6 +46,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         _playSound = playSound ?? (static _ => { });
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
+        Visible = false;
         QueueRedraw();
     }
 
@@ -54,6 +59,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         if (!_initialized)
         {
             _initialized = true;
+            Visible = true;
             if (_sound != 0)
                 _playSound(_sound);
             return;
@@ -94,7 +100,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         {
             DrawTexture(
                 _animation[AnimationFrame].Texture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
+                new Vector2(-16, -16 + ZHigh) + TransitionDrawOffset);
         }
     }
 

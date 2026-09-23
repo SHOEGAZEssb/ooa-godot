@@ -108,7 +108,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         ItemDropDatabase? itemDrops = null,
         OracleRandom? random = null,
         Func<bool>? maplePresent = null,
-        Action<int, int, Vector2>? spawnEnemy = null)
+        Action<int, int, Vector2>? spawnEnemy = null,
+        int zHigh = 0)
     {
         if (angle is < 0 or >= 0x20)
             throw new ArgumentOutOfRangeException(nameof(angle));
@@ -120,6 +121,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         }
         SubId = subId;
         _precisePosition = position;
+        _zFixed = (sbyte)(byte)zHigh * 0x100;
         Position = OracleObjectMath.ToPixelPosition(position);
         _sideScrollYFixed = unchecked(
             (ushort)Mathf.FloorToInt(position.Y * 256.0f));
@@ -214,7 +216,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             {
                 // State 0 increments Part.state twice in a side-scrolling
                 // tileset, enables collision, and starts counter1 immediately.
-                // zh remains zero; objectUpdateSpeedZ_sidescroll will apply
+                // zh is retained; objectUpdateSpeedZ_sidescroll will apply
                 // speedZ to the object's Y word beginning next update.
                 _state = DropState.Grounded;
                 _collisionEnabled = true;

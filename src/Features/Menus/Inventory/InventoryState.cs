@@ -11,6 +11,7 @@ public sealed class InventoryState
     public const int ItemNone = 0x00;
     public const int ItemShield = 0x01;
     public const int ItemBomb = 0x03;
+    public const int ItemSomaria = 0x04;
     public const int ItemSword = 0x05;
     public const int ItemSwitchHook = 0x0a;
     public const int ItemBiggoronSword = 0x0c;
@@ -801,6 +802,16 @@ public sealed class InventoryState
         if (changed)
             NotifyChanged();
         return changed;
+    }
+
+    internal void ApplySmogResetPenalty()
+    {
+        // INTERAC$33 @buttonPressed writes wLinkHealth directly: subtract4
+        // only at >=$0c, without damage rings, recoil or invincibility.
+        if (HealthQuarters < 0x0c) return;
+        HealthQuarters -= 4;
+        HealthChanged?.Invoke();
+        NotifyChanged();
     }
 
     public bool ApplyDamage(int quarters)

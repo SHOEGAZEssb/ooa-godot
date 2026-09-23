@@ -83,6 +83,7 @@ internal sealed class DungeonMechanicDatabase
     internal int SeedBouncerChildY => Constant("seed-bouncer-child-y");
     internal int SeedBouncerChildX => Constant("seed-bouncer-child-x");
     internal int SeedBouncerChildZ => Constant("seed-bouncer-child-z");
+    internal int SeedBouncerPeriod => Constant("seed-bouncer-period");
     internal int MoonlitArmosChestPosition =>
         Constant("moonlit-armos-chest-position");
     internal int MoonlitButtonKeyY => Constant("moonlit-button-key-y");
@@ -145,7 +146,7 @@ internal sealed class DungeonMechanicDatabase
                 record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
                 record.Id == 0x23 && record.SubId > 0x07 ||
                 record.Id == 0x24 && record.SubId is not (0x02 or 0x10 or 0x20 or 0x40 or 0x80) ||
-                record.Id == 0x33 && record.SubId != 0x0a ||
+                record.Id == 0x33 && record.SubId is not (0x0a or 0x08 or 0x88) ||
                 record.Id == 0xc7 && record.SubId is not (0x04 or 0x08))
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             List<DungeonMechanicDatabaseRecord> records =
@@ -231,7 +232,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 231 || _constants.Count != 86 || _texts.Count != 2 ||
+        if (RecordCount != 233 || _constants.Count != 87 || _texts.Count != 2 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||

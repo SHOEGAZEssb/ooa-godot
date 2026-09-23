@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class ArrowMoblinRoomEntity
-    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity
 {
     internal ArrowMoblinRoomEntity(
         ArrowMoblinCharacter moblin,
@@ -24,6 +24,9 @@ internal sealed class ArrowMoblinRoomEntity
                 soundRequested,
                 EnemySwordResponse.Knockback), collisionZ: () => moblin.ZFixed >> 8)
     { }
+
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
 
     public void UpdateFrame(
         RoomEntityFrame frame,
