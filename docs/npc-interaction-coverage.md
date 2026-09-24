@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 23, 2026. It is an implementation inventory, not a
+interactions as of September 24, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -49,13 +49,13 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 ### Positioned and state-derived rows
 
-Snapshot: September 23, 2026.
+Snapshot: September 24, 2026.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 197 | Traced and covered by named NPC/event scenarios. |
+| **I** | 198 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 139 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 138 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -65,10 +65,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 55 ordinary, 92 specialized,
-99 event-owned, and 139 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 55 ordinary, 93 specialized,
+99 event-owned, and 138 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 457
-classified records and 164 specialized rows.
+classified records and 165 specialized rows.
 
 ### Highest-value missing clusters
 
@@ -77,7 +77,7 @@ classified records and 164 specialized rows.
   outside the implemented pre-Black-Tower and lower-Tower slices.
 - Carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
   Fairy `$83`, Syrup `$5f`, and
-  the remaining shopkeeper variants `$46`.
+  the Advance Shop keeper `$46:$02`.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
@@ -207,7 +207,7 @@ well as record selection.
 | `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
-| `2:7e` | [D] `$46:$01/v$00` shopkeeper |
+| `2:7e` | [I] `$46:$01/v$00` shopkeeper; hidden-shop stock, purchases, theft prevention, and chest-choice game (`ValidateHiddenShopInteractions`) |
 | `2:a0` | [D] `$ab:$10/v$00` zora<br>[D] `$ab:$14/v$00` zora |
 | `2:b1` | [D] `$ab:$13/v$00` zora |
 | `2:d1` | [D] `$ab:$1b/v$00` zora |

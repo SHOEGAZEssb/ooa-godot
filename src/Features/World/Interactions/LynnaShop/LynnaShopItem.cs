@@ -20,6 +20,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
     public ItemRecord Record { get; private set; }
     public int Order { get; private set; }
     public bool Held { get; private set; }
+    internal bool Purchasing { get; private set; }
     public bool Removed { get; private set; }
     public Vector2 ShelfPosition => _shelfPosition;
     internal int AnimationFrame => _frame;
@@ -142,9 +143,20 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         if (Removed)
             return;
         Held = false;
+        Purchasing = false;
         Removed = true;
         player.EndCarriedObjectPose();
         Visible = false;
+        QueueRedraw();
+    }
+
+    internal void BeginPurchase(Player player)
+    {
+        // shopkeeperState4 drops wLinkGrabState before shopItemState3
+        // requests Link state04. Keep the product at its last held position.
+        Held = false;
+        Purchasing = true;
+        player.EndCarriedObjectPose();
         QueueRedraw();
     }
 
@@ -154,7 +166,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
             return;
         LynnaShopItemFrame frame = _frames[_frame];
         DrawTexture(frame.Texture, frame.Offset + TransitionDrawOffset);
-        if (Held)
+        if (Held || Purchasing)
             return;
 
         string price = Record.Price.ToString();

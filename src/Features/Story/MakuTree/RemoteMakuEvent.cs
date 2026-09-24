@@ -70,7 +70,7 @@ internal abstract class RemoteMakuEvent :
 
         if (_stage == RemoteMakuEventStage.Running)
             _runner.AdvanceFrame();
-        _confetti?.UpdateFrame();
+        UpdateConfetti();
 
         if (_stage == RemoteMakuEventStage.Tail &&
             (_confetti is null || _confetti.Finished))
@@ -80,7 +80,17 @@ internal abstract class RemoteMakuEvent :
         }
     }
 
-    public void UpdateDuringDialogueFrame() => _confetti?.UpdateFrame();
+    public void UpdateDuringDialogueFrame() => UpdateConfetti();
+
+    private void UpdateConfetti()
+    {
+        if (_confetti is null)
+            return;
+        // Keep $62 motion in room coordinates; only its presentation crosses
+        // into the physical screen canvas, including the 16-pixel HUD strip.
+        _confetti.Position = Context.Transitions.WorldToScreen(Vector2.Zero);
+        _confetti.UpdateFrame();
+    }
 
     public virtual void Cancel()
     {
@@ -105,10 +115,15 @@ internal abstract class RemoteMakuEvent :
         {
             Name = kind == RemoteMakuConfettiKind.Past
                 ? "RemoteMakuPastConfetti"
-                : "RemoteMakuPresentConfetti"
+                : "RemoteMakuPresentConfetti",
+            ZIndex = Context.Hud.ZIndex + 1,
+            Position = Context.Transitions.WorldToScreen(Vector2.Zero)
         };
         _confetti.Initialize(_database, Context.Sound, cameraOrigin);
-        Context.Player.GetParent().AddChild(_confetti);
+        // The script writes wDontUpdateStatusBar=$77: hideStatusBar_body
+        // clears the HUD's BG priority attributes as well as its tiles, so
+        // the $62 OBJ sprites and $84 sparkle trails can cross the HUD strip.
+        Context.InterfaceLayer.AddChild(_confetti);
     }
 
     private void RemoveConfetti()
@@ -143,7 +158,7 @@ internal abstract class RemoteMakuEvent :
                 Context.Hud.SetHiddenStatusBarFade(Colors.Black, progress);
                 break;
             case "FadeInWhite":
-                EventResources.CaptureFullScreenFade(Context.Hud.ZIndex + 1);
+                EventResources.CaptureFullScreenFade(Context.Hud.ZIndex + 2);
                 Context.Fade.Color = new Color(1, 1, 1, 1.0f - progress);
                 break;
             default:

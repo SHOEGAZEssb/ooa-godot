@@ -436,7 +436,7 @@ public sealed partial class ValidationRoot
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
             ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
-            ["objects/lynna_shop_texts.tsv|\\num1"] = 7,
+            ["objects/lynna_shop_texts.tsv|\\num1"] = 9,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
             ["objects/tokay_interaction_texts.tsv|\\secret1"] = 1,
@@ -539,9 +539,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 55,
-                [NpcImplementationClassification.SpecializedNative] = 164,
+                [NpcImplementationClassification.SpecializedNative] = 165,
                 [NpcImplementationClassification.EventOwned] = 99,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 139
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 138
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -554,7 +554,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "54 ordinary, 164 specialized, 57 event-owned, and 180 " +
+            "55 ordinary, 165 specialized, 99 event-owned, and 138 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 

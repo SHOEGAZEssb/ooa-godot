@@ -31,7 +31,7 @@ focused validations; NPC classifications live in the
   Complete combat, traversal, and dungeon parity remain unfinished.
 - Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
-  Village restoration, and Patch's ceremony.
+  Village restoration, Patch's ceremony, and the hidden shop's chest-choice game.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
 - Ricky, Dimitri, and Moosh riding and forest quests, flute summoning, and

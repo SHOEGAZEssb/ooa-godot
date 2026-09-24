@@ -12,19 +12,16 @@ internal sealed class LynnaShopkeeperRoomEntity
     : NpcCharacterRoomEntityAdapter, IVariableRoomEntity, IFixedRoomEntity,
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction
 {
-    private readonly LynnaShopDatabase _database;
-
     public LynnaShopkeeperRoomEntity(
         NpcCharacter npc,
         LynnaShopDatabase database)
         : base(npc, npc.SetTransitionDrawOffset)
     {
-        _database = database;
         npc.SetDialogue(0, string.Empty, canFace: false, database.TextboxPosition);
         npc.SetScriptButtonSensitive(true);
         npc.SetCollisionRadii(
             database.ShopkeeperRadiusY, database.ShopkeeperRadiusX);
-        npc.SetScriptAnimation(database.Animation(0x46, 3));
+        npc.SetScriptAnimation(database.Animation(0x46, database.Hidden ? 0 : 3));
     }
 
     public NpcCharacter Npc => Entity;
@@ -46,11 +43,7 @@ internal sealed class LynnaShopkeeperRoomEntity
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
 
     public NpcCharacter? FindTalkTarget(Player player) =>
-        Entity.CanScriptTalkTo(
-            player,
-            _database.ShopkeeperRadiusY,
-            _database.ShopkeeperRadiusX,
-            _database.AButtonPointOffset)
+        Entity.CanTalkTo(player)
             ? Entity
             : null;
 }

@@ -4,32 +4,55 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// Native $2:$5e shop flow: lift/return stock, $46:$00 purchase scripts,
-/// already-full and rupee checks, item grants, and theft prevention.
+/// Shared $46:$00/$01 and $47 shop flow: retail purchases, stock carrying,
+/// theft prevention, and the hidden shop's chest-choice game.
 /// </summary>
-internal sealed class LynnaShopEvent : IRoomEvent
+internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent
 {
 
     private readonly RoomEventContext _context;
     private RoomEventResources? _resources;
     private RoomEventResources EventResources => _resources ??= new(_context, this);
-    private readonly LynnaShopDatabase _database = new();
+    private readonly LynnaShopDatabase _normalDatabase = new();
+    private readonly LynnaShopDatabase _hiddenDatabase = new(hidden: true);
+    private LynnaShopDatabase _database => _context.Rooms.CurrentRoom.Id == _hiddenDatabase.Room
+        ? _hiddenDatabase : _normalDatabase;
     private LynnaShopItem? _item;
     private NpcCharacter? _shopkeeper;
     private LynnaShopEventStage _stage;
     private int _counter;
     private bool _cannotBuy;
+    private bool _completesHeartContainer;
 
-    public LynnaShopEvent(RoomEventContext context) => _context = context;
+    public LynnaShopEvent(RoomEventContext context)
+    {
+        _context = context;
+        context.RegisterHeartPiecePresentation(
+            () => { if (_completesHeartContainer) context.Inventory.ResetCompletedHeartPieceSet(); },
+            () =>
+            {
+                if (!_completesHeartContainer) return;
+                _completesHeartContainer = false;
+                context.Inventory.GiveCompletedHeartContainer(
+                    context.Treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
+                context.Sound.PlaySound(OracleSoundEngine.SndFilledHeartContainer);
+                ShowText(0x0049);
+            });
+    }
 
     public bool HasState => _stage != LynnaShopEventStage.Inactive;
-    public bool BlocksGameplay => HasState && _stage != LynnaShopEventStage.Holding;
+    public bool BlocksGameplay => HasState && _stage is not
+        (LynnaShopEventStage.Holding or LynnaShopEventStage.ChestSelection);
+    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool MenusDisabled => BlocksGameplay;
     internal LynnaShopEventStage Stage => _stage;
 
     public bool TryInteractPlayer(Player player)
     {
         if (!MatchesCurrentRoom())
             return false;
+        if (TryInteractShopChest(player))
+            return true;
         if (_stage == LynnaShopEventStage.Holding)
         {
             if (_item is null)
@@ -68,8 +91,9 @@ internal sealed class LynnaShopEvent : IRoomEvent
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!MatchesCurrentRoom() || npc.Record is not { Id: 0x46, SubId: 0x00 } ||
-            _stage is not (LynnaShopEventStage.Inactive or LynnaShopEventStage.Holding))
+        if (!MatchesCurrentRoom() || npc.Record.Id != 0x46 ||
+            npc.Record.SubId != _database.ShopkeeperSubId ||
+            _stage is not (LynnaShopEventStage.Inactive or LynnaShopEventStage.Holding or LynnaShopEventStage.ChestSelection))
         {
             return false;
         }
@@ -77,11 +101,22 @@ internal sealed class LynnaShopEvent : IRoomEvent
         _shopkeeper = npc;
         npc.SetScriptButtonSensitive(false);
         FaceShopkeeperTowardPlayer();
+        if (_chestGame)
+        {
+            BeginChestConversation();
+            return true;
+        }
         if (_stage == LynnaShopEventStage.Holding)
         {
             if (_item is null)
                 throw new InvalidOperationException("Lynna shop lost its held product.");
-            _cannotBuy = CannotBuy(_item.Record);
+            if (_item.Record.SubId is 0x00 or 0x14 && !_context.Inventory.HasTreasure(0x2c))
+            {
+                ShowText(0x0e0b);
+                _stage = LynnaShopEventStage.PurchaseRejected;
+                return true;
+            }
+            _cannotBuy = !_database.Hidden && CannotBuy(_item.Record);
             ShowChoice(_item.Record.PromptTextId, _item.Record.Price);
             _stage = LynnaShopEventStage.PurchasePrompt;
         }
@@ -95,12 +130,16 @@ internal sealed class LynnaShopEvent : IRoomEvent
 
     public void UpdateFrame()
     {
+        UpdateChestPrizeVisual();
+        if (UpdateHiddenShop())
+            return;
         switch (_stage)
         {
             case LynnaShopEventStage.Holding:
                 if (_item is null)
                     throw new InvalidOperationException("Lynna shop lost its held product.");
-                if (_context.Player.Position.Y > _database.TheftLinkY)
+                if (_database.Hidden ? _context.Player.Position.Y < _database.TheftLinkY
+                    : _context.Player.Position.Y > _database.TheftLinkY)
                     BeginTheftPrevention();
                 break;
 
@@ -156,13 +195,18 @@ internal sealed class LynnaShopEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_item?.Purchasing == true)
+        {
+            _item.FinishPurchase(_context.Player);
+            _context.Player.CancelGetItemState();
+        }
         if (_item?.Held == true)
             _item.ReturnToShelf(_context.Player);
         if (_shopkeeper is not null)
         {
             _shopkeeper.SetCollisionRadii(
                 _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 3));
+            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
             _shopkeeper.SetScriptButtonSensitive(true);
         }
         _context.Player.EndCutsceneControl(this);
@@ -171,6 +215,8 @@ internal sealed class LynnaShopEvent : IRoomEvent
         _stage = LynnaShopEventStage.Inactive;
         _counter = 0;
         _cannotBuy = false;
+        CancelChestGame();
+        _completesHeartContainer = false;
         _context.Player.EndCutsceneControl(this);
     }
 
@@ -197,6 +243,7 @@ internal sealed class LynnaShopEvent : IRoomEvent
         }
 
         ItemRecord item = _item.Record;
+        _completesHeartContainer = item.TreasureId == 0x2b && _context.Inventory.HeartPieces == 3;
         _context.Inventory.AddRupees(-item.Price);
         TreasureObjectRecord treasure = new TreasureObjectRecord(
             $"SHOP_ITEM_{item.SubId:x2}",
@@ -206,15 +253,25 @@ internal sealed class LynnaShopEvent : IRoomEvent
             item.ItemTextId,
             0,
             _database.Text(item.ItemTextId));
-        _context.Inventory.GiveTreasure(treasure);
+        if (item.TreasureId == 0)
+            GiveRandomRing(item.Parameter);
+        else
+            _context.Inventory.GiveTreasure(treasure);
+        if (_database.Hidden)
+            MarkHiddenPurchase(item.SubId);
         if (item.SubId == 0x13)
             SetBoughtItems1Mask(_database.NormalGashaBoughtMask);
 
-        int sound = _context.Treasures.GetBehaviour(item.TreasureId).Sound;
+        int sound = _context.Treasures.GetBehaviour(item.TreasureId == 0 ? 0x2d : item.TreasureId).Sound;
         if (sound != 0)
             _context.Sound.PlaySound(sound);
         _context.ShowDialogue(treasure.Message, _database.TextboxPosition);
         _stage = LynnaShopEventStage.ItemText;
+        if (_database.Hidden)
+        {
+            _item.BeginPurchase(_context.Player);
+            _context.Player.RequestGetItemState(0x01, () => _stage == LynnaShopEventStage.ItemText);
+        }
     }
 
     private bool CannotBuy(ItemRecord item) => item.SubId switch
@@ -261,7 +318,7 @@ internal sealed class LynnaShopEvent : IRoomEvent
         {
             _shopkeeper.SetCollisionRadii(
                 _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 3));
+            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
             _shopkeeper.SetScriptButtonSensitive(true);
         }
         _shopkeeper = null;
@@ -286,13 +343,18 @@ internal sealed class LynnaShopEvent : IRoomEvent
     private void BeginTheftPrevention()
     {
         _shopkeeper = _context.RequireNpc(
-            _database.Group, _database.Room, 0x46, 0x00, "Lynna shopkeeper");
+            _database.Group, _database.Room, 0x46, _database.ShopkeeperSubId, "Lynna shopkeeper");
         _shopkeeper.SetScriptButtonSensitive(false);
         _shopkeeper.SetCollisionRadii(
             _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusY);
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: false, coordinate: _database.TheftLinkY);
         _context.Player.BeginCutsceneControl(owner: this);
+        if (_database.Hidden)
+        {
+            BeginHiddenTheft();
+            return;
+        }
         _context.Sound.PlaySound(OracleSoundEngine.SndClink);
         BeginTheftMove(LynnaShopEventStage.TheftDown, Vector2I.Down, 4);
     }
@@ -322,7 +384,7 @@ internal sealed class LynnaShopEvent : IRoomEvent
     {
         _shopkeeper!.SetCollisionRadii(
             _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-        _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 3));
+        _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
         _shopkeeper.SetScriptButtonSensitive(true);
         _shopkeeper = null;
         _context.Player.EndCutsceneControl(this);
@@ -378,5 +440,8 @@ internal enum LynnaShopEventStage
     TheftLeft,
     TheftText,
     TheftRight,
-    TheftUp
+    TheftUp,
+    HiddenMove, HiddenTheftText, ChestPrompt, ChestDeclined, ChestPrepareRight,
+    ChestPrepareLeft, ChestInstructions, ChestSelection, ChestTalk, ChestWrong,
+    ChestCorrect, ChestPrize, ChestRingText
 }

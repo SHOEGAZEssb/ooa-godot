@@ -760,9 +760,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMapScreen);
         RunIsolatedValidation(ValidateMapDisassemblyFidelity);
         RunIsolatedValidation(ValidateLynnaShopInteractions);
+        RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuSecondEssenceCutscene);
+        RunIsolatedValidation(ValidateRemoteMakuConfettiDrawOrder);
         RunIsolatedValidation(ValidateRemoteMakuHudPlacement);
         RunIsolatedValidation(ValidateRemoteMakuHarpCutscene);
         RunIsolatedValidation(ValidatePostD3RemoteMakuCutscene);

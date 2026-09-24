@@ -824,6 +824,7 @@ foreach ($key in @(
     '2:2f:55:00:00',
     '2:3e:5b:00:00',
     '2:5e:46:00:00',
+    '2:7e:46:01:00',
     '2:e6:5c:00:00',
     '2:f5:5a:00:00',
     '2:f3:3c:07:00',
@@ -949,7 +950,7 @@ foreach ($key in @('1:03:bf:0c:00','3:6e:bf:06:00','3:6f:bf:07:00',
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
 if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
-    $specializedNpcImplementationKeys.Count -ne 90 -or
+    $specializedNpcImplementationKeys.Count -ne 91 -or
     $eventOwnedNpcImplementationKeys.Count -ne 47) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -3675,9 +3676,28 @@ if (-not $lynnaShopRoomMatch.Success -or
     throw 'Room 2:5e Lynna shop placement, graphics, predicates, scripts, or companion state changed in the disassembly.'
 }
 
+# Hidden shop $46:$01 shares the retail handler, then switches to state 5
+# only on re-entry with wBoughtShopItems1 low nibble complete.
+if ($mainObjectSource -notmatch '(?ms)^group2Map7eObjectData:\s+obj_Interaction \$47 \$00 \$28 \$40\s+obj_Interaction \$47 \$02 \$28 \$60\s+obj_Interaction \$47 \$15 \$28 \$80\s+obj_Interaction \$46 \$01 \$58 \$18\s+obj_End' -or
+    $shopItemSource -notmatch '(?ms)TREASURE_RING_BOX.*?wRingBoxLevel.*?dec a.*?ld a,\$14' -or
+    $shopkeeperSource -notmatch '(?ms)wBoughtShopItems1.*?and \$0f.*?cp \$0f.*?set 7,\(hl\)' -or
+    $shopkeeperSource -notmatch '(?ms)shopkeeperState5:.*?getRandomNumber.*?and \$01.*?shopkeeperCloseOpenedChest.*?wcca2.*?var3f.*?@substate1:.*?shopkeeperScript_talkDuringChestGame.*?wcca2.*?TILEINDEX_CHEST.*?sub l.*?rlca.*?xor \$01.*?and \$01.*?var39.*?var3c' -or
+    $vasuShopScriptsSource -notmatch '(?ms)shopkeeperSubid1Script_stopLink:\s+setspeed SPEED_200\s+moveup \$10\s+showtextlowindex <TX_0e07\s+setdisabledobjectsto11\s+movedown \$10' -or
+    $vasuShopScriptsSource -notmatch '(?ms)shopkeeperChestGameScript:.*?wBoughtShopItems1, \$80.*?TX_0e0d.*?TX_0e0e.*?wShootingGalleryccd5.*?shopkeeper_take10Rupees.*?moveup\s+\$08\s+moveright \$19\s+moveup\s+\$1a\s+moveright \$11\s+movedown\s+\$08.*?wait 60.*?wait 60.*?TX_0e10' -or
+    $vasuShopScriptsSource -notmatch '(?ms)@round3:.*?TX_0e12.*?var3f, \$03.*?@round4:.*?TX_0e15.*?var3f, \$02.*?@round5:.*?TX_0e16.*?var3f, \$01' -or
+    $vasuShopScriptsSource -notmatch '(?ms)shopkeeperReturnToDeskAfterChestGame:\s+moveup\s+\$08\s+moveleft \$11\s+movedown \$1a\s+moveleft \$19\s+movedown \$08') {
+    throw 'Hidden shop $2:$7e placement, replacement, theft, or chest-game source contract changed.'
+}
+
 $lynnaShopDefinitions = @(
     # subid, price tile, price, treasure, parameter, prompt, item text,
     # replacement address, mask, replacement subid, x offset
+    @(0x00, 0x66, 300, 0x2c, 0x02, 0x0e09, 0x0058, 0xc642, 0x01, 0xff, 0),
+    @(0x02, 0x6a, 300, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x02, 0x06, 0),
+    @(0x05, 0x6e, 300, 0x00, 0x03, 0x0e25, 0x0054, 0xc642, 0x08, 0xff, 0),
+    @(0x06, 0x6a, 500, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x04, 0xff, 0),
+    @(0x14, 0x66, 300, 0x2c, 0x03, 0x0e09, 0x0059, 0xc642, 0x01, 0xff, 0),
+    @(0x15, 0x6e, 500, 0x2b, 0x01, 0x0e01, 0x0017, 0xc643, 0x40, 0x05, 0),
     @(0x01, 0x6f,  10, 0x29, 0x0c, 0x0e02, 0x004c, 0xc643, 0x08, 0x0d, 4),
     @(0x03, 0x6c,  30, 0x01, 0x01, 0x0e03, 0x001f, 0xc6af, 0x02, 0x11, 0),
     @(0x04, 0x69,  20, 0x03, 0x10, 0x0e04, 0x004d, 0xc642, 0x00, 0xff, 0),
@@ -3686,7 +3706,34 @@ $lynnaShopDefinitions = @(
     @(0x12, 0x6c,  80, 0x01, 0x03, 0x0e2a, 0x0021, 0xc6af, 0x00, 0xff, 0),
     @(0x13, 0x6c,  30, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x20, 0x03, 0)
 )
+# Independently bind the new records to the source table rows and purchase
+# scripts. Fail on table changes rather than retaining stale native values.
+$hiddenShopSourceRows = @(
+    @('00', 'RUPEEVAL_300', 'TREASURE_RING_BOX', '02', 'wBoughtShopItems1', '01', 'ff', '0058'),
+    @('02', 'RUPEEVAL_300', 'TREASURE_GASHA_SEED', '01', 'wBoughtShopItems1', '02', '06', '004b'),
+    @('05', 'RUPEEVAL_300', '\$00', '03', 'wBoughtShopItems1', '08', 'ff', '0054'),
+    @('06', 'RUPEEVAL_500', 'TREASURE_GASHA_SEED', '01', 'wBoughtShopItems1', '04', 'ff', '004b'),
+    @('14', 'RUPEEVAL_300', 'TREASURE_RING_BOX', '03', 'wBoughtShopItems1', '01', 'ff', '0059'),
+    @('15', 'RUPEEVAL_500', 'TREASURE_HEART_PIECE', '01', 'wBoughtShopItems2', '40', '05', '0017')
+)
+foreach ($row in $hiddenShopSourceRows) {
+    $prefix = '/\* \$' + $row[0] + ' \*/\s+\.db\s+'
+    foreach ($body in @(
+        ($row[1] + '\b'),
+        ($row[2] + '\s+\$' + $row[3] + '\b'),
+        ('<' + $row[4] + '\s+\$' + $row[5] + '\s+\$' + $row[6] + '\s+\$00'),
+        ('<TX_' + $row[7] + '\b'))) {
+        if ($shopItemSource -notmatch ($prefix + $body)) {
+            throw "Hidden shopItem `$47:`$$($row[0]) source table row changed: $body"
+        }
+    }
+}
 $lynnaShopPlacementBySubId = @{
+    # Orders 3..5 encode the second shop's three placements; the loader
+    # normalizes these to their room-local $47 object order.
+    0x00 = @(3, 0x28, 0x40)
+    0x02 = @(4, 0x28, 0x60)
+    0x15 = @(5, 0x28, 0x80)
     0x01 = @(0, 0x28, 0x80)
     0x03 = @(1, 0x28, 0x68)
     0x04 = @(2, 0x28, 0x50)
@@ -3719,6 +3766,9 @@ foreach ($definition in $lynnaShopDefinitions) {
 }
 
 $lynnaShopTextIds = @(
+    0x0e01, 0x0e09, 0x0e0b, 0x0e0d, 0x0e0e, 0x0e10, 0x0e11,
+    0x0e12, 0x0e13, 0x0e14, 0x0e15, 0x0e16, 0x0e17, 0x0e18, 0x0e1a, 0x0e25,
+    0x0058, 0x0059, 0x0054, 0x0017, 0x0049,
     0x0e00, 0x0e02, 0x0e03, 0x0e04, 0x0e05, 0x0e06, 0x0e07,
     0x0e1b, 0x0e1d, 0x0e26, 0x0e29, 0x0e2a,
     0x004b, 0x004c, 0x004d, 0x001f, 0x0020, 0x0021, 0x003b)
@@ -4716,9 +4766,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 55 -or
-    $npcImplementationCounts['specialized-native'] -ne 92 -or
+    $npcImplementationCounts['specialized-native'] -ne 93 -or
     $npcImplementationCounts['event-owned'] -ne 99 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 139 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 138 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

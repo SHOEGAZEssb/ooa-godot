@@ -6,6 +6,82 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRemoteMakuConfettiDrawOrder()
+    {
+        foreach (bool past in new[] { false, true })
+        foreach (bool batched in new[] { false, true })
+        {
+            RemoteMakuEvent cutscene = past
+                ? _roomEvents.Get<RemoteMakuSecondEssenceEvent>()
+                : _roomEvents.Get<RemoteMakuFirstEssenceEvent>();
+            int group = past ? 1 : 0;
+            int room = past ? 0x83 : 0x8d;
+            _saveData.WriteWramByte(0xc6bf, 3);
+            _saveData.SetRoomFlag(group, room, 0x40, false);
+            LoadValidationRoom(group, room);
+            void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
+            int limit = 180;
+            while (cutscene.Confetti is not { LivePieces: > 0 } && --limit > 0)
+                Step(1);
+            FailIf(limit == 0, $"Remote Maku {group:x}:{room:x2} did not create $62 confetti.");
+            RemoteMakuConfettiEffect effect = cutscene.Confetti!;
+            // scripts.s writes $77 before hideStatusBar_body, which clears
+            // all $40 BG attributes (including priority). OBJ must therefore
+            // remain visible over physical scanlines 0..15, not just the room.
+            FailIf(effect.GetParent() != _hud.GetParent() ||
+                effect.GetCanvasLayerNode() != _hud.GetCanvasLayerNode() ||
+                effect.ZIndex <= _hud.ZIndex || effect.ZIndex >= _dialogue.ZIndex ||
+                !_hud.StatusBarHidden,
+                "$62 confetti must share the screen canvas above the cleared HUD and below dialogue.");
+            Vector2 first = effect.PiecePositions[0];
+            FailIf(effect.Position + first != (past ? new Vector2(16, 144) : new Vector2(56, -8)),
+                "$62 presentation lost the source camera-relative spawn or the 16-pixel HUD offset.");
+            bool crossedHud = false;
+            for (int frame = 0; frame < 80; frame++)
+            {
+                Step(1);
+                // Both source OAM rows begin eight pixels above the anchor.
+                crossedHud |= effect.PiecePositions.Any(position =>
+                    (position + effect.Position).Y - 8 is >= 0 and < 16);
+            }
+            FailIf(!crossedHud, $"$62 sprites never crossed the physical HUD strip (past={past}, batched={batched}).");
+
+            // Camera movement changes only the screen transform. Both normal
+            // and textbox updates must refresh it while preserving room motion.
+            Vector2 camera = _roomCamera.Position;
+            Vector2 presentation = effect.Position;
+            _roomCamera.Position += new Vector2(24, 32);
+            cutscene.UpdateDuringDialogueFrame();
+            FailIf(effect.Position != presentation - new Vector2(24, 32),
+                "$62 screen presentation ignored the camera during a dialogue update.");
+            _roomCamera.Position = camera;
+            Step(1);
+            FailIf(effect.Position != presentation,
+                "$62 normal update did not restore the world-to-screen presentation.");
+
+            int fadeZ = _warpFade.ZIndex;
+            if (!batched)
+            {
+                cutscene.Cancel();
+                FailIf(effect.GetParent() is not null || cutscene.Confetti is not null ||
+                    _hud.StatusBarHidden || _player.CutsceneControlled,
+                    "Cancelling remote Maku left a screen-space effect or HUD/input ownership behind.");
+                continue;
+            }
+            limit = 700;
+            while (!_dialogue.IsOpen && --limit > 0) Step(1);
+            FailIf(limit == 0, "Remote Maku did not reach dialogue after confetti.");
+            _dialogue.Close();
+            Step(2);
+            FailIf(_warpFade.ZIndex <= effect.ZIndex || _warpFade.Color.A != 1,
+                "Remote Maku's full-screen white fade must cover both the HUD and confetti.");
+            Step(100);
+            FailIf(cutscene.HasState || cutscene.Confetti is not null ||
+                _warpFade.ZIndex != fadeZ || _hud.StatusBarHidden,
+                "Remote Maku completion left the overlay or altered fade ordering behind.");
+        }
+    }
+
     private void ValidateRemoteMakuFirstEssenceCutscene()
     {
         const int group = 0;

@@ -44,6 +44,11 @@ internal sealed class RoomEventContext(
     public OracleSoundEngine Sound { get; } = sound;
     public Camera2D RoomCamera { get; } = roomCamera;
     public bool DialogueOpen => _dialogue.IsOpen;
+    internal void RegisterHeartPiecePresentation(Action filled, Action accepted)
+    {
+        _dialogue.HeartPieceSetFilled += filled;
+        _dialogue.HeartPieceSetAccepted += accepted;
+    }
     internal DialogueScreenDatabase DialogueScreens { get; } = new();
     internal Func<DialogueScreenContext?> NativeDialogueScreen { get; set; } = () => null;
     internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }

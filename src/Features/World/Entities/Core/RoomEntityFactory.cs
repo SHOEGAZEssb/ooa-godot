@@ -120,6 +120,7 @@ internal sealed class RoomEntityFactory(
     private readonly NayruHouseDatabase _nayruHouse = new();
     private readonly VasuShopDatabase _vasuShop = new();
     private readonly LynnaShopDatabase _lynnaShop = new();
+    private readonly LynnaShopDatabase _hiddenShop = new(hidden: true);
     private readonly TokayInteractionDatabase _tokayInteractions = new();
     private readonly TokayNativeDatabase _tokayNative = new();
     private readonly TokaySeedlingPlotDatabase _tokaySeedlingPlot = new();
@@ -958,7 +959,8 @@ internal sealed class RoomEntityFactory(
                 yield return entity;
             }
         }
-        else if (group == _lynnaShop.Group && room.Id == _lynnaShop.Room)
+        else if (group == _lynnaShop.Group &&
+            (room.Id == _lynnaShop.Room || room.Id == _hiddenShop.Room))
         {
             foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
@@ -4254,17 +4256,19 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         IReadOnlyList<NpcRecord> records)
     {
-        if (records.Count != 1 || records[0] is not { Id: 0x46, SubId: 0x00 })
+        LynnaShopDatabase database = room.Id == _hiddenShop.Room ? _hiddenShop : _lynnaShop;
+        if (records.Count != 1 || records[0].Id != 0x46 ||
+            records[0].SubId != database.ShopkeeperSubId)
         {
             throw new InvalidOperationException(
-                $"Room 2:5e must contain shopkeeper $46:$00, got {records.Count} NPC records.");
+                $"Room 2:{room.Id:x2} must contain shopkeeper $46:${database.ShopkeeperSubId:x2}, got {records.Count} NPC records.");
         }
 
         // The three $47 placements precede $46:$00 in mainData.s. Stock
         // replacement can delete a placement, but surviving objects retain
         // that source order.
         foreach (StockRecord stock in
-            _lynnaShop.ResolveStock(saveData))
+            database.ResolveStock(saveData))
         {
             var item = new LynnaShopItem
             {
@@ -4280,11 +4284,12 @@ internal sealed class RoomEntityFactory(
             record,
             NpcImplementationClassification.SpecializedNative);
         NpcCharacter shopkeeper = CreateNpcCharacter(record);
-        yield return new LynnaShopkeeperRoomEntity(shopkeeper, _lynnaShop);
+        yield return new LynnaShopkeeperRoomEntity(shopkeeper, database);
 
         // The final $71:$0c object is invisible and deletes itself after this
         // one entry-side effect.
-        _lynnaShop.ApplyCompanionEntryState(saveData);
+        if (!database.Hidden)
+            database.ApplyCompanionEntryState(saveData);
     }
 
     private IEnumerable<IRoomEntity> CreateTokayShop(

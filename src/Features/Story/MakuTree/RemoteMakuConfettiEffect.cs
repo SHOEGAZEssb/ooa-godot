@@ -49,7 +49,6 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         _record = database.Record;
         _sound = sound;
         _cameraOrigin = cameraOrigin;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
     }
 
     internal void UpdateFrame()

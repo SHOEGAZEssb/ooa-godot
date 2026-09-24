@@ -5,7 +5,7 @@ namespace oracleofages;
 
 /// <summary>
 /// Imported INTERAC_SHOP_ITEM $47, INTERAC_SHOPKEEPER $46, and
-/// INTERAC_COMPANION_SCRIPTS $71:$0c data used by past room $2:$5e.
+/// INTERAC_COMPANION_SCRIPTS $71:$0c data used by rooms $2:$5e and $2:$7e.
 /// </summary>
 internal sealed class LynnaShopDatabase
 {
@@ -17,7 +17,10 @@ internal sealed class LynnaShopDatabase
     private readonly Dictionary<(int InteractionId, int Animation), string> _animations = new();
 
     public int Group => Constant("group");
-    public int Room => Constant("room");
+    public bool Hidden { get; }
+    public int Room => Hidden ? 0x7e : Constant("room");
+    public int ShopkeeperSubId => Hidden ? 1 : 0;
+    public int IdleAnimation => Hidden ? 1 : 3;
     public int TextboxPosition => Constant("textbox-position");
     public int ItemCollisionRadius => Constant("item-collision-radius");
     public int LinkCollisionRadius => Constant("link-collision-radius");
@@ -28,7 +31,7 @@ internal sealed class LynnaShopDatabase
     public int AButtonPointOffset => Constant("a-button-point-offset");
     public int SelectionLinkYLimit => Constant("selection-link-y-limit");
     public int SelectionXRadius => Constant("selection-x-radius");
-    public int TheftLinkY => Constant("theft-link-y");
+    public int TheftLinkY => Hidden ? 0x27 : Constant("theft-link-y");
     public int BoughtItems1Address => Constant("bought-items-1-address");
     public int BoughtItems2Address => Constant("bought-items-2-address");
     public int DimitriStateAddress => Constant("dimitri-state-address");
@@ -41,8 +44,9 @@ internal sealed class LynnaShopDatabase
     public int BombchuMissingMask => Constant("bombchu-missing-mask");
     public int SpecialObjectDimitri => Constant("specialobject-dimitri");
 
-    public LynnaShopDatabase()
+    public LynnaShopDatabase(bool hidden = false)
     {
+        Hidden = hidden;
         LoadConstants();
         LoadItems();
         LoadTexts();
@@ -79,6 +83,9 @@ internal sealed class LynnaShopDatabase
             }
 
             int subId = placement.SubId;
+            if (subId == 0 && save?.HasTreasure(0x2c) == true &&
+                save.ReadWramByte(0xc6cc) != 1)
+                subId = 0x14;
             if (subId == 0x03 && save?.IsLinkedGame == true)
                 subId = 0x13;
 
@@ -190,8 +197,8 @@ internal sealed class LynnaShopDatabase
                 row.RequiredString(14), row.HexWord(15),
                 row.HexByte(16), row.HexByte(17), row.Decimal(18));
             _items.Add(item.SubId, item);
-            if (item.Order >= 0)
-                _placements.Add(item);
+            if (item.Order >= 0 && (item.Order >= 3) == Hidden)
+                _placements.Add(item with { Order = item.Order % 3 });
         }
         _placements.Sort(static (a, b) => a.Order.CompareTo(b.Order));
     }
@@ -235,17 +242,17 @@ internal sealed class LynnaShopDatabase
 
     private void Validate()
     {
-        if (Group != 2 || Room != 0x5e || TextboxPosition != 0 ||
+        if (Group != 2 || Room != (Hidden ? 0x7e : 0x5e) || TextboxPosition != 0 ||
             ItemCollisionRadius != 7 || LinkCollisionRadius != 6 ||
             GrabNegativePointOffset != 6 || GrabPositivePointOffset != 5 ||
             ShopkeeperRadiusY != 6 ||
             ShopkeeperRadiusX != 0x14 || AButtonPointOffset != 10 ||
             SelectionLinkYLimit != 0x3d || SelectionXRadius != 0x0d ||
-            TheftLinkY != 0x69 || BoughtItems1Address != 0xc642 ||
+            TheftLinkY != (Hidden ? 0x27 : 0x69) || BoughtItems1Address != 0xc642 ||
             BoughtItems2Address != 0xc643 || DimitriStateAddress != 0xc647 ||
             DimitriSavedMask != 0x20 || DimitriDisappearMask != 0x40 ||
             GlobalCanBuyFlute != 0x1d || SpecialObjectDimitri != 0x0c ||
-            _placements.Count != 3 || _items.Count != 7 ||
+            _placements.Count != 3 || _items.Count != 13 ||
             Item(0x01).Price != 10 || Item(0x0d).Price != 150 ||
             Item(0x13).ReplacementSubId != 0x03 ||
             !Text(0x0e02).Contains("\\opt()OK", StringComparison.Ordinal) ||
