@@ -29,13 +29,6 @@ Normal map and inventory closing resume gameplay on the update that releases
 menu ownership. The post-menu return value observes the cleared menu state,
 so an eligible stair can activate on that same update.
 
-Short-secret entry uses the application-owned shared pause/fade lifecycle.
-Its keyboard, glyph mapping, lower cursor offsets and error overlay are imported
-from the source; the controller retains source button priority and repeat timing.
-Validation and return-secret generation share the linked-game codec and live
-save game ID. An interaction receives its result only after the closing fade
-releases menu ownership, so its script waits do not run behind the menu.
-
 ## Screen-space boundaries
 
 The Gale Seed menu shares the map presentation and menu lifecycle. It selects
@@ -49,15 +42,10 @@ HUD. A room-warp fade covers only the gameplay field at y=16-143. Ordinary room
 dialogue starts with field-relative positions and adds the 16-pixel display
 offset; pregame and full-screen presentations do not.
 
-Textbox placement follows `initTextbox`'s unsigned byte subtraction of Link Y
-and camera Y, then `initTextboxStuff`'s rounded tilemap address and hardware
-SCY. Native events expose their source screen context through
-`IRoomEventDialogueContext`; the event stage remains its authoritative owner.
-A cutscene that clears WRAM bank 1 supplies cleared Link coordinates to that
-context without moving the retained gameplay player. Imported graphics register
-states distinguish the palace HUD layout from the full-screen Black Tower.
-Returning or cancelling the event restores normal player/camera selection.
-Explicit position operands are reserved for original text/script commands.
+Dialogue placement derives from the source player/camera context and imported
+position commands. Native events expose their screen context through
+`IRoomEventDialogueContext`; cleanup restores normal selection. Do not move
+the gameplay player merely to position a cutscene textbox.
 
 Imported presentation records own source-ordered tilemaps, OAM, cursor
 locations, palette selections, and layout data. Menu controllers own input,
@@ -65,44 +53,17 @@ cursor transitions, state changes, modal phases, and update timing. Apply Game
 Boy OAM offsets, signed byte wrap, and hardware coordinate biases at the
 rendering boundary instead of baking corrected coordinates into imported data.
 
-Map mode follows the effective tileset flags, including the imported indoor-era
-bit table. Room entry maintains the saved minimap position and dungeon visited
-floor mask; side-view rooms retain the preceding top-down cell. Floor visibility
-reads that mask independently of individual room visit flags. Dungeon scrolling
-copies an 18-row window through source-ordered floors and their blank separators,
-moving one tile per update and consuming a final zero-counter update. Sprite
-overlap follows source OAM order, while marker phase uses the application clock.
-
-Inventory retains the gameplay HUD's displayed health, rupees, and dungeon
-context through the existing status-bar owner. Its middle tilemap scrolls
-between subscreens while the HUD and text bar stay fixed. The shared HUD layout
-rules include two heart rows, the compressed layout above fourteen hearts, and
-the two-button Biggoron sword display. Inventory cursor positions survive
-closing; initialization resets only the source-defined essence/right-column
-fields. Direction repeat advances on calls to the original direction handler,
-and submenu initialization cannot consume the following input state early.
+Map and inventory presentation read authoritative room, visit, inventory, and
+HUD state. Keep cursor/repeat state and display animation with the menu owner;
+initialization resets only source-defined fields.
 
 ## Input contract
 
-An item's parent animation and physical child have independent lifetimes.
-For the boomerang, the throw parent releases movement after its terminal
-animation update; the dynamic child remains allocated throughout flight and
-the hidden catch delay. A failed child allocation clears the parent's lock
-and start signal immediately. Clearing parents alone must preserve that child
-and its one-instance limit.
-Items in independent parent slots can overlap. Somaria and the Seed Satchel
-retain their separate completion counters and child allocations when both
-buttons are pressed; ending the satchel pose does not release the Cane's
-movement lock.
-Shared-slot input priority is resolved before parent initialization failures.
-An empty higher-priority A item still prevents B-Cane on that update; its
-failed initialization makes the slot available for a later press.
-Instrument initialization follows both button scans, so its exclusion check
-sees lower parent slots allocated by either button. Once playback starts, its
-input lock prevents new Cane actions until the instrument parent completes.
-The Bracelet's input-phase slot remains occupied on the update that releases
-its button. Its later parent update can clear that slot, but Cane requires a
-subsequent press to claim it; an empty-handed wall search still owns the slot.
+Item parents and physical children have independent lifetimes. Input priority,
+slot allocation, initialization failure, and later parent completion are
+separate phases. Concurrent items retain their own locks and counters; ending
+one action must not release another's restriction. See
+[Rooms and entities](rooms-and-entities.md) for native update ordering.
 
 - Project input actions bind keyboard, D-pad and left stick through the same
   application snapshot. Gamepad bindings accept any device index; the stick
@@ -142,32 +103,14 @@ through the attract cinematic and title idle/replay states. It shares the same
 the first cinematic calls, and every title dispatch consumes one call before
 its state handler. Starting gameplay must not reseed that owner.
 
-Start remains gated until the Capcom stage finishes. During the cinematic it
-enters title initialization in the same original update; at the title it
-requests `SND_SELECTITEM $56` followed by `SNDCTRL_FAST_FADEOUT $fa`, completes
-the source fade, and only then transfers ownership to file select.
+Frontend transitions retain original skip/input gates, fade endpoints, sound
+order, and the handoff to file select. File-menu substates own their button
+priorities and repeat timing; animated display copies never rewrite saved
+health or other persistent fields.
 
-Frontend palette counters retain the source endpoint rules: an ordinary white
-fade-out completes in 32 updates, while fade-in completes in 33. Delayed fades
-take their first step on update one and then use the refill divisor. Cinematic
-dispatch runs before Link and interaction updates; movement, hover, glow, and
-terminal animation signals must preserve that order while scene timers run.
-
-File-menu substates keep their own button priorities. Name entry uses the
-original direction autofire and two-step Start selection of OK. Copy skips
-the source file and retains cursors when backing up. Erase drains a display
-copy of the heart count before requesting deletion; its animation never
-rewrites the saved health bytes.
-
-The normal save screen includes an experimental Options entry. Its submenu
-uses file-menu capital strokes and panels, but its layout is a port
-extension. A/Start toggles the selected setting; B returns to the save screen.
-Each setting occupies one row with its current ON/OFF value after a colon.
-The room-overlay setting is labeled ROOM ID.
-Noclip shares the F2 controller, and room-overlay visibility edits the pause
-lease's restoration state so the overlay remains hidden throughout menus.
-These options do not write save-file bytes. Game over retains its three
-original actions.
+The save screen's experimental Options entry is a port extension. Noclip uses
+the F2 owner; room-overlay visibility edits the pause lease's restoration state.
+These options do not write save bytes. Game over retains its original actions.
 
 ## Adding or changing a menu
 

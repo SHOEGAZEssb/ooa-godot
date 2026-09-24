@@ -142,11 +142,6 @@ release input, detach registrations, and remove transient actors on cancellation
 or room invalidation. Persistent completion is derived from authoritative save
 or room flags, never an event-local boolean.
 
-Event-owned Goron actors resolve their native state-zero script before scroll
-presentation and during warp entry. That initialization selects visibility and
-pose and may create later-slot actors; it runs once per actor. Transition
-dispatch must not advance already initialized scripts or animations.
-
 Shared minigame scratch bytes retain their original WRAM lifetime across room
 loads. Clear them only at the imported reset interaction, and keep inventory
 changes in the inventory owner. Event cancellation releases local resources;

@@ -11,14 +11,8 @@ specialized controllers.
 The owner is still an ordinary entity, linked interaction, or room event. See
 [NPCs and events](npcs-and-events.md) before choosing the runner.
 
-Core files:
-
-- `tools/import_oracles/Import-CutsceneData.ps1`
-- `src/Features/Story/Commands/CutsceneCommandSchema.cs`
-- `src/Features/Story/Commands/CutsceneCommandCatalog.cs`
-- `src/Features/Story/Commands/CutsceneCommandRunner.cs`
-- `src/Features/Story/Commands/ICutsceneCommandHost.cs`
-- `src/Features/Story/Commands/CutsceneCommandLaneScheduler.cs`
+Start with `tools/import_oracles/Import-CutsceneData.ps1` and
+`src/Features/Story/Commands/` for the schema, runner, hosts, and lane scheduler.
 
 ## Generated commands
 
@@ -83,10 +77,6 @@ state. A blocked script does not decrement either counter. This does not freeze
 the actor's native tail: always-update objects may still animate or move during
 dialogue or harp. Object eligibility and native ordering remain with the owning
 gameplay scheduler and source-specific controller.
-
-`setcoords` writes the high position bytes while preserving the fractional
-bytes. `applyspeed` installs counter2, then moves only after a decrement leaves
-a nonzero counter; an operand of `$45` therefore permits 68 moves.
 
 ## Hosts and actor bindings
 

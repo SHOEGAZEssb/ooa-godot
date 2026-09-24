@@ -77,11 +77,9 @@ its complete graphics or palette. The finisher restores the destination
 palette and resumes animation over the uploaded tile buffer; a full room load
 replaces that buffer. Cached source graphics remain immutable.
 
-Electric shock keeps its update counter with Link. Its presentation captures
-and restores the live background slots, while enemy animation palette overrides
-select separately cached OAM textures without changing animation clocks or
-source images. Overrides retain each OBJ slot, including the inverted colors
-in slots 4-7. Zora fireballs created during the effect inherit the active override.
+Temporary palette effects capture and restore live palette state. Per-object
+overrides select cached textures without resetting animation clocks or mutating
+source images.
 
 Keep these concepts separate:
 
@@ -101,15 +99,10 @@ Gameplay UI, dialogue, and menu presentation use shared tile/OAM composition
 helpers with their imported layouts and palettes. A feature should provide
 source-specific data, not copy pixel-decoding loops.
 
-Inventory display records and item/HUD graphics are recovered from the checked
-clean US ROM because hack-base rearranges the icon sheets and changes display
-modes. Keep equipped-item graphics selection separate from inventory OAM:
-the equipped Harp uses the small song pair, while stored items and the song
-picker use the original OAM table and large song pair. Harp background tiles
-retain their nonzero-pixel priority over those sprites.
-Restore a shared sheet together with every consumer's tile indices and dynamic
-tile replacements. Validate composed screens as well as individual sheets;
-correct source pixels alone cannot detect a mismatched runtime tile layout.
+UI graphics must come from the checked clean US ROM where the disassembly
+changes sheets or display modes. Restore shared sheets together with consumer
+tile indices and dynamic replacements. Validate composed screens as well as
+individual sheets; correct pixels alone cannot detect a mismatched layout.
 
 ## Audio determinism and lifecycle
 
@@ -145,12 +138,6 @@ independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation
 may discard stale samples after a host stall, bridging the resulting sample
 join without resetting driver, oscillator, envelope, or filter state.
-The output reserve grows after native mixer underruns to accommodate larger
-device batches and host jitter, capped at 100 ms. Total queued PCM is bounded
-to about 143.5 ms after adaptation; stable small-batch output retains the
-66.7 ms bound. Buffer capacity does not advance the sound driver ahead of
-gameplay.
-
 Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source
 selects a variation with the global game RNG, consume `OracleRandom`; a private

@@ -34,33 +34,21 @@ entry point.
 | A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
 | Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
 
-## What belongs in documentation
+## Documentation boundary
 
-Keep a rule here when a future contributor needs it to make the right design
-choice before reading an implementation. Good documentation covers:
+Keep durable evidence rules, ownership, lifecycle, ordering, format contracts,
+and contributor workflow here. Put source-specific constants and branch details
+beside code and focused validations. Do not append implementation diaries,
+class inventories, per-feature test summaries, or unowned plans.
 
-- source-of-truth and evidence rules;
-- ownership and lifecycle boundaries;
-- update order, coordinate systems, persistence, and RNG contracts;
-- generated formats and failure behavior;
-- normal implementation and verification workflow.
+Fidelity audits and working findings belong in untracked `local-audits/`,
+excluded through `.git/info/exclude`. Do not link tracked guides to them.
 
-Do not copy information that is more reliably found in code or generated data:
-
-- exhaustive class or file lists;
-- room-by-room and interaction-by-interaction coverage;
-- long catalogs of constants, WRAM addresses, sounds, or validation methods;
-- chronological implementation notes;
-- planned work without an active owner.
-
-Source-specific details belong next to their implementation and in focused
-validations, with original labels and hexadecimal IDs retained. The deliberate
-exception is the navigable [NPC interaction coverage](npc-interaction-coverage.md)
-ledger. Agents must update its row, summary counts, and snapshot date whenever
-implemented NPC coverage or classification changes. The concise
-[implementation status](implementation-status.md) records only broad coverage
+The [NPC coverage ledger](npc-interaction-coverage.md) is the deliberate
+room-by-room inventory exception: update affected entries, summary counts, and
+the dated snapshot when coverage changes. Keep
+[implementation status](implementation-status.md) at broad playable boundaries
 and major limitations.
 
-When moving or removing a guide, update all repository-relative links and run
-`git diff --check`. Generated files under `assets/oracle/` are outputs, never
-documentation sources.
+When removing or moving documentation, update repository-relative links and
+run `git diff --check`. Generated `assets/oracle/` files are never hand-edited.

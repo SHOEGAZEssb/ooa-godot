@@ -49,14 +49,12 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 ### Positioned and state-derived rows
 
-September 23, 2026: counts remain 197 implemented, 49 partial, and 139
-deliberately unsupported. Ralph's post-Cheval puff allocation now uses the
-shared native interaction pool and frame counter; its status remains **I**.
+Snapshot: September 23, 2026.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 197 | Traced and covered by named NPC/event scenarios, including Goron residents, trades, dance halls, galleries, target carts, Big Bang, the Elder rescue and cave-entry presentation, and the defeated Moblin sequence. |
-| **P** | 49 | A traced ordinary, specialized, or event-owned path exists with a documented boundary; adult Maku ordinary advice is included, while her endgame cutscene remains incomplete. |
+| **I** | 197 | Traced and covered by named NPC/event scenarios. |
+| **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 139 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
@@ -83,18 +81,6 @@ classified records and 164 specialized rows.
 - Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
   interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
   so their placements are deliberately suppressed.
-
-The September 20, 2026 Goron snapshot retains the same counts and includes both dance-hall source aliases.
-`ValidateGoronVillagers`, `ValidateGoronTrades`, and `ValidateGoronHints` cover
-resident gates, exchanges, and linked secrets. `ValidateGoronDance`,
-`ValidateGoronGallery`, `ValidateGoronBigBang`, and `ValidateGoronTargetCarts`
-cover minigame entry, representative results, repeat interaction, and inventory
-handoffs. Gallery reward thresholds use score-handoff fixtures; target-cart
-hit checks inject real seed projectiles. These are not exhaustive retail
-playthrough comparisons. The dynamic tunnel announcement and fifth-Essence
-Maku handoff are covered by `ValidateGoronTunnel`, outside positioned NPC totals.
-`ValidateRoom5c3GoronEntry` covers initial suppression and napping poses during
-the bottom cave entrance, repeat entry, rescue/D5 gates, and host batching.
 
 ## Bipin and Blossom family variants
 
@@ -187,7 +173,7 @@ well as record selection.
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
 | `1:77` | [P] `$45:$01/v$00` pastOldLady |
-| `1:79` | [I] `$37:$10/v$00` ralph; native dust allocation and flicker covered by `ValidateRoom179RalphAfterCheval` (September 23, 2026) |
+| `1:79` | [I] `$37:$10/v$00` ralph; native dust allocation and flicker covered by `ValidateRoom179RalphAfterCheval` |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
 | `1:83` | [I] `$41:$00/v$00` miscMan |
@@ -302,7 +288,7 @@ well as record selection.
 | `5:bd` | [I] `$66:$0e/v$01` goron |
 | `5:c0` | [I] `$66:$0c/v$00` goron |
 | `5:c2` | [I] `$66:$0d/v$02` goron |
-| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries`; initial suppression and napping during bottom entry covered by `ValidateRoom5c3GoronEntry` (September 20, 2026) |
+| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries`; initial suppression and napping during bottom entry covered by `ValidateRoom5c3GoronEntry` |
 | `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
 | `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
@@ -316,7 +302,7 @@ well as record selection.
 | `5:d3` | [D] `$40:$0d/v$0c` soldier<br>[D] `$40:$0d/v$0d` soldier |
 | `5:d4` | [D] `$40:$0d/v$07` soldier |
 | `5:d5` | [D] `$40:$0d/v$0f` soldier |
-| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron; return-scroll crystal restoration covered by `ValidateGoronTargetCarts` (September 20, 2026) |
+| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron; return-scroll crystal restoration covered by `ValidateGoronTargetCarts` |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |
 | `5:de` | [I] `$8b:$01/v$00` goronElder<br>[I] `$66:$05/v$05` goron |

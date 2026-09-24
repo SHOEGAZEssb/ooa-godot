@@ -1,213 +1,56 @@
 # Implementation status
 
-This is a high-level coverage boundary, not a changelog or exhaustive feature
-inventory. “Implemented” means the named path has source-traced runtime behavior
-and headless coverage; it does not imply that adjacent game content is complete.
-Use the validation files and runtime/importer dispatch for exact coverage.
+The port is playable but incomplete. These are supported coverage boundaries,
+not exhaustive clean-US ROM parity claims. Exact branches belong in code and
+focused validations; NPC classifications live in the
+[coverage ledger](npc-interaction-coverage.md).
 
-## Implemented foundations
+## Foundations
 
-- Import pipeline for the complete room and tileset data set, including world
-  graphics, palettes, collision, navigation, room objects, dialogue, menus,
-  sprite data, and all sound IDs used by the supported ROM.
-- Original-resolution room rendering, animated terrain, top-down and
-  side-scrolling room foundations, collision, scrolling/warp transitions,
-  dungeon layout neighbors, time portals, and persistent room/map state.
-- Application-owned 60 Hz scheduling, buffered input, global deterministic RNG,
-  ordered room-object parsing, transition preload/freeze, and headless scenario
-  isolation.
-- Clean-US boot/attract/title replay and skip flow, file select, three
-  explicit-save slots with backup recovery, new-game presentation, HUD,
-  dialogue, map/dungeon map, inventory foundations, ring appraisal/list
-  screens, save/quit and game-over flows, plus development navigation and
-  state tools.
-- Imported music/SFX sequencing with square, wave, and noise channels, channel
-  priority, envelopes, fades, vibrato, and room music ownership.
+- Room, tileset, graphics, collision, navigation, object, dialogue, menu, sprite,
+  and sound data import.
+- Original-resolution rendering, top-down and side-view rooms, scrolling,
+  warps, time travel, persistent room state, deterministic RNG and 60 Hz updates.
+- Boot/title, file select, three explicit-save slots with backup recovery,
+  HUD, dialogue, inventory, maps, ring screens, save/quit, and game over.
+- Imported music and SFX sequencing with original channel and RNG ownership.
 
-## Playable gameplay coverage
+## Gameplay coverage
 
-- Core Link movement and collision; level-1 sword combat; common terrain,
-  hazards, chests, drops, push blocks, and breakable-object interactions.
-- Substantial item coverage including active Bomb, Shovel, Seed Satchel paths,
-  eight-direction Seed Shooter aiming and three-bounce projectiles, Mystery
-  Seed/Owl behavior, Gale Seed tornadoes and visited-tree travel,
-  Pegasus Satchel activation, timed movement boost and dust, Pegasus Shooter
-  projectile flight and collision effects,
-  level-1 Roc's Feather, Harp songs and time travel with temporary return
-  portals, obstructed-arrival returns and strange-force restrictions,
-  source-timed top-down Flippers swimming/normal-water diving,
-  source-placed normal-water dive transitions, side-view Flippers and Mermaid
-  Suit swimming with equipment-dependent sword poses and swimming bubbles,
-  common treasure transactions, and many ring effects.
-- A growing shared enemy and interaction roster with deterministic placement,
-  combat, drops, projectiles, and native object behavior, including random
-  digging spawns with Rope/Beetle launch behavior and room restrictions,
-  River Zora surfacing/fireballs, Buzz Blob electric shock and Cukeman form,
-  Tektite leaps, and both sword Masked Moblin variants with separate blade parts.
-- Spirit's Grave (dungeon `$01`) and Wing Dungeon (dungeon `$02`) are playable
-  end to end, including their principal rooms, puzzles, side-view passages,
-  minibosses, bosses, rewards, and Essences.
-- Moonlit Grotto (dungeon `$03`) has selected source-traced puzzle rooms plus
-  the complete room `4:4d` Subterror miniboss and room `4:4a` Shadow Hag boss,
-  their rewards and persistent re-entry flows, and room `4:49`'s Echoing Howl
-  Essence sequence followed by room `0:ba`'s Ambi/Black Tower/remote Maku
-  story event; the dungeon is not yet an end-to-end playable-fidelity claim.
-- Skull Dungeon (dungeon `$04`), starting in room `4:91`, has source-traced
-  implementations for all 43 rooms' placed enemies and interactions, including
-  floor, cube, lava, platform and minecart puzzles, Switch Hook acquisition
-  and exchanges, Armos Warrior, Eyesoar, reward portals and persistent
-  completion. Burning Flame collection, its exit to the present and the
-  fourth-Essence Maku message cover standard and linked games. Headless
-  regressions cover the native behaviors and gameplay handoffs; a complete
-  manual playthrough and exhaustive ROM comparison have not been performed.
-- Selected overworld NPC families, shops/trades, Gasha and Seed Tree systems,
-  Maple encounters, early-game Impa/Ralph/Nayru/Maku sequences, and additional
-  traced story slices through and around the first two dungeons.
-- King Moblin's keep battle, including the two bomb-throwing minions, bracelet
-  bomb returns, health-dependent timing, and the defeat flags and exit warp.
-  The keep's collapsing-floor trap includes its timed tile sequence and
-  underground fall transition.
-  The defeated Moblin sequence continues through the Gorons' Bomb Flower
-  reward and the linked/unlinked remote Maku message.
-- Goron residents, quest-item exchanges, clairvoyant hints, Elder rescue,
-  linked secrets, both dance halls, Goron and Biggoron shooting galleries,
-  target carts, Big Bang, and the fifth-Essence tunnel announcement. Focused
-  headless scenarios cover gameplay handoffs and representative outcomes;
-  exhaustive minigame playthrough comparison against the ROM remains open.
-- Crown Key unlocking of Crown Dungeon, including the opening animation,
-  delayed doorway collision change, and persistent entrance on re-entry.
-  Crown Dungeon now loads Smasher's linked miniboss and ball, with isolated
-  checks for entry, motion, Bracelet handling, weapon responses and death.
-  The Cane of Somaria now supports normal item-button use, block creation and
-  replacement, pushing, Bracelet carry/release, and block damage/destruction
-  responses for several Crown enemy families. Remaining combat and
-  context-specific input/presentation paths are unfinished. Smog's imported
-  controller now starts through the actual boss doorway, with isolated checks
-  for entry, intro allocation, reset handoff and cloud behavior. Its shared
-  boss reward now handles the final-count handoff, heart-container collection
-  and persistent re-entry; complete combat parity and remaining dungeon
-  interactions are unfinished. Seed-shooter eye statues now display and
-  maintain their timed triggers after projectile hits. Their Crown chest
-  script handles the exact trigger condition, delayed appearance, small-key
-  collection and collected-item re-entry.
-  The owl-ring, statue and colored-block patterns now reveal their boss-key,
-  small-key and Cane chests. The Cane-room button now shows and clears its
-  colored pattern hint. Defeating the staircase room's enemies now reveals its
-  persistent return stairs. Orb hits now toggle the dungeon's colored floors,
-  including the brief freeze, graphics change and removal of covered blocks.
-  Sacred Soil now uses its source graphics and collection
-  text, persists its essence bit, and exits to the source respawn destination;
-  isolated checks cover collection and collected-room re-entry.
-  Matching statues and colored blocks now move together,
-  with blocked-destination retries and isolated checks for repeated pushes,
-  dialogue freezes and room departure. The boss-key room now detects a trapped
-  player and resets the room after its warning delay. Its wall detector now
-  requests the shared squish animation and local respawn, with isolated checks
-  for both orientations and repeated recovery. Complete block-crush, forced-state
-  and respawn parity remain unfinished, as does complete dungeon parity.
-  The floor-button bridge now extends and retracts at its original tile
-  interval, including direction reversals and room re-entry. The torch room's
-  timed seed reflectors now rotate in opposite directions, with separate child
-  collision parts and isolated checks for timing and seed reflection. Lighting
-  all four torches drives the shutter through its ordered trigger controller;
-  isolated checks cover text pauses, scrolling and the opening interval.
-  The four-button chest now uses the native retractable controller, including
-  exact trigger matching, live underlying-tile restoration and queued writes.
-  With three statues pre-positioned, an isolated check covers normal Cane use
-  on the fourth button, a reachable chest approach, Small Key collection and
-  persistent re-entry. The complete statue push routes remain unverified.
-- Symmetry Village residents, the sisters' request and postgame ring-box secret,
-  the brothers' Tuni Nut handoff, and the repaired nut's placement ceremony
-  with persistent present-day village restoration. The unrestored past has
-  volcanic tremors, rumbling, erupting rocks, and lava-waterfall impacts.
-- Red and blue Arrow Darknuts on the paths around Symmetry Village, and
-  Podoboo Towers in its ruined present, including restoration-based removal.
-- Falling boulders on the climb to Patch, with staggered appearances,
-  randomized bounces, contact damage, and repeating room-local cycles.
-- Patch's upstairs conversations and downstairs restoration ceremony, including
-  the switch-controlled cart, harmless beetles, failure/retry, and restored
-  Tuni Nut or sword rewards.
-- Moosh's rescue and mountable-companion core: exact ride visuals, movement,
-  cliff descent, ground-contact tile breaking, hover/charged stomp and charge
-  flash, collision-safe dismount/remount memory,
-  source-timed warning hover and water/hole hazard respawn, and single-owner
-  scrolling retention, including room `0:5b`'s one-time flutter tutorial.
-- Ricky's room `0:6a` glove handoff and mountable-companion core: source-loaded
-  ride graphics, normal/hole/cliff jumps, punch/tornado charge, landing tile
-  breaks, hazards, dismount/remount memory, and single-owner scrolling.
-- Rafton's completed raft: source placements in rooms `1:a7`/`1:a9`, airborne
-  boarding, exact water-only collision and SPEED_e0 steering, blocked-direction
-  dismount timing, Link/item restrictions, directional animation, local respawn
-  and remembered-position persistence, and single-owner room scrolling. The
-  room `1:a8` raft-wreck sequence includes its source command timing, storm
-  effects, completion flag, raft retirement, and hardcoded `1:aa` warp. Its
-  destination continues into the first Tokay theft cutscene with the imported
-  washed-up Link animation, exact item-loss cadence, thief movement and exits,
-  completion flag, respawn update, music restoration, and input release.
-- Shared fairy fountains support appearance, proximity-triggered dialogue,
-  full-health dismissal, eight circling hearts, health-display completion,
-  and departure, with fresh actors on room re-entry.
-- Tokkey teaches the Tune of Currents through his conversation, harp-position
-  check, dance and response song, with persistent completion on return visits.
-- Non-dungeon Tokay Island NPCs and interactions are partial: ordinary island dialogue,
-  stolen-item recovery, linked Rosa, scent-seedling and shield rewards, the
-  trading hut, and past/present Wild Tokay gameplay with imported patterns and
-  prizes; all five source-placed vine sprouts retain and restore their terrain
-  while pushing and persist their room positions. The three Tokay sprouts grow
-  the corresponding two-room present vines at their source positions and leave
-  the source withered-vine tile when misaligned. The southern entrance
-  Eyeball/socket sequence places the second eye and opens the doorway with the
-  original timing. Present Sand Crabs and past red Leevers use their imported
-  non-dungeon placements, source RNG/counters, movement, and combat. The
-  companion Dimitri now appears after D3, completes the rescue/mount dialogue, rides and
-  swims with Link, bites edible tiles and supported enemies, remembers land
-  dismounts, and departs on reaching the mainland. Bracelet carrying/throwing,
-  carried scrolling, autonomous water return, cliff hops, unmounted hole recovery,
-  and flute playback/entrance use source timing and collision data. Mouth attacks
-  check imported enemy collision masks and flipped-beetle/Armos modes. All three
-  companion forest quests support the introductory fairy, search hints, rescue,
-  flute acquisition, linked/unlinked dialogue and mount-gated forest reset.
-  Awarded flutes summon Ricky, Dimitri or Moosh through their native entrances. Complete
-  thrown-NPC collision handling and exhaustive native initialization/slot-order
-  parity remain incomplete.
-  The Tokay rescue trade includes the native seed-hop/flame effects and timed
-  departures. Native facing/animation, cook/Rosa/vine events, shop ordering,
-  Wild Tokay catching/results, statue/accessory presentation and theft wave
-  audio/RNG behavior have source-based implementations.
-  Island Business Scrub sales and present Wild Tokay linked-secret input and
-  return generation are implemented. Complete interaction-slot reuse and
-  cross-object signal interleavings remain unverified.
-- Nuun Highlands supports all three companion layouts and their conditional
-  enemies, the full carpenter search and bridge completion, search cancellation,
-  waterfall tutorials, and Dimitri's waterfall cave round trip. Goponga Flowers
-  and red Leevers use the shared enemy dispatcher and imported behavior data.
-- Side-view Cheep Cheeps support horizontal and vertical patrols, imported
-  travel distances, timed reversals, combat, and room re-entry.
-- Tingle in room `0:79`: balloon pop/fall, normal friendship and Island Chart
-  sequence, Seed Satchel upgrade path, kooloo-limpah animation, and Ricky's
-  departure. Postgame secret entry and return-secret generation remain partial.
+- Core movement, sword combat, common terrain, hazards, treasures, drops,
+  blocks, breakable objects, and a growing shared enemy roster.
+- Substantial item and ring support, including seeds, bombs, shovel, Feather,
+  Harp, Flippers, Switch Hook, and partial Cane of Somaria behavior.
+- Spirit's Grave (`$01`) and Wing Dungeon (`$02`) are playable end to end.
+- Moonlit Grotto (`$03`) has selected puzzles, both boss encounters, rewards,
+  and its Essence/story handoff; full dungeon fidelity remains incomplete.
+- Skull Dungeon (`$04`) has source-traced placed enemies and interactions in
+  all 43 rooms, puzzles, bosses, rewards, and completion. A complete manual
+  playthrough and exhaustive ROM comparison remain unperformed.
+- Crown Dungeon (`$05`) has entrance, puzzle, item, boss, and reward paths.
+  Complete combat, traversal, and dungeon parity remain unfinished.
+- Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
+  early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
+  Village restoration, and Patch's ceremony.
+- Raft travel and wreck/theft events; partial Tokay Island progression and
+  minigames; fairy fountains and Tokkey's song lesson.
+- Ricky, Dimitri, and Moosh riding and forest quests, flute summoning, and
+  the three Nuun Highlands layouts with carpenter/bridge progression.
 
-## Major incomplete areas
+## Major limitations
 
-- The full story and world progression beyond the ported slices.
-- Remaining dungeons, bosses, enemy species/subids, NPC scripts, room-event
-  families, door/controller variants, companion systems, and Moosh's
-  terrain-specific cliff states.
-- Several active items and upgrades, including top-down Mermaid Suit movement
-  and remaining deep-water transitions, other terrain-specific Link states,
-  Roc's Cape continuation, remaining Pegasus enemy collision and
-  terrain/transformation consumers, and
-  remaining grabbable-object species.
-- Unimplemented or partial ring consumers whose base gameplay systems do not
-  yet exist.
-- Linked-game transport and external Game Link functionality.
-- Graphics and sound requests owned by gameplay objects that have not yet been
-  ported.
+- Full story/world progression, remaining dungeons and bosses, enemy variants,
+  NPC scripts, and room mechanisms.
+- Remaining item upgrades and terrain-specific player states, including
+  top-down Mermaid Suit movement, deep-water transitions, Roc's Cape, and
+  incomplete seed and grabbable-object consumers.
+- Remaining companion terrain states, thrown-NPC collisions, and exhaustive
+  native initialization, slot reuse, and cross-object signal parity.
+- Ring effects whose underlying gameplay systems are not yet supported.
+- Partial linked-secret paths, linked-game transport, and external Game Link
+  functionality.
+- Graphics and sound behavior owned by unported gameplay objects.
 
-Unsupported imported behavior is classified and rejected or safely suppressed
-with source context; it must not fall back to a graphics-only or approximate
-implementation.
-
-When a broad boundary changes, edit one bullet here. Put detailed IDs,
-room-specific behavior, and exact branch coverage in the importer/runtime code
-and focused validations, where they can remain synchronized with the feature.
+Focused headless coverage does not establish complete minigame, dungeon, or
+world playthrough parity. Unsupported imported behavior must fail with source
+context or be explicitly and safely suppressed.
