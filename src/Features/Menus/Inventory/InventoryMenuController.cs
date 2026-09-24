@@ -37,7 +37,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     }
 
     private void RefreshOptions() => _saveScreen.RefreshOptions(
-        _readOption?.Invoke(0) ?? false, _readOption?.Invoke(1) ?? false);
+        _readOption?.Invoke(0) ?? false, _readOption?.Invoke(1) ?? false,
+        _readOption?.Invoke(2) ?? false);
 
     public bool IsActive => _lifecycle.IsOwnedBy(this);
     public bool IsOpen => _lifecycle.IsOpenFor(this) && !_saveSelectionDelay;

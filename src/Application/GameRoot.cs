@@ -62,6 +62,7 @@ public partial class GameRoot : Node2D
     internal OracleRandom _random = null!;
     internal DeathRespawnPointController _deathRespawnPoints = null!;
     private bool _persistSaveData;
+    internal readonly PresentationSettings _presentationSettings = new();
     private int _activeSaveSlot;
     internal int _saveWriteRequests;
     internal double _newGameArrivalTicks;
@@ -125,6 +126,8 @@ public partial class GameRoot : Node2D
             return;
         }
         _persistSaveData = !_launchOptions.Has("--validate");
+        if (_persistSaveData)
+            _presentationSettings.Load();
         _sound = GetNodeOrNull<OracleSoundEngine>("%SoundEngine") ??
             GetNodeOrNull<OracleSoundEngine>("SoundEngine") ??
             throw new InvalidOperationException(
@@ -418,6 +421,7 @@ public partial class GameRoot : Node2D
         SyncHudToInventory();
         _transitions.ResetCamera();
         ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
+        _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
     }
 
     internal bool TryDisplayEraInfoAfterInitialRoomLoad(
@@ -492,7 +496,10 @@ public partial class GameRoot : Node2D
         finally
         {
             if (GodotObject.IsInstanceValid(dialogue))
+            {
                 dialogue.AdvanceApplicationUpdate();
+                _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
+            }
         }
     }
 
@@ -895,13 +902,27 @@ public partial class GameRoot : Node2D
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,
             RestartGameplayAfterDeath);
         _inventoryMenu.ConfigureOptions(
-            option => option == 0 ? _debugCollision.CollisionsDisabled : _gameplayPause.RoomOverlayEnabled,
+            option => option switch
+            {
+                0 => _debugCollision.CollisionsDisabled,
+                1 => _gameplayPause.RoomOverlayEnabled,
+                2 => _presentationSettings.HudBottom,
+                _ => throw new ArgumentOutOfRangeException(nameof(option))
+            },
             (option, enabled) =>
             {
                 if (option == 0)
                     _debugCollision.SetEnabled(enabled);
-                else
+                else if (option == 1)
                     _gameplayPause.SetRoomOverlayEnabled(enabled);
+                else if (option == 2)
+                {
+                    _presentationSettings.HudBottom = enabled;
+                    if (_persistSaveData && _presentationSettings.Save() is var error && error != Error.Ok)
+                        GD.PushWarning($"Could not save HUD preference: {error}.");
+                }
+                else
+                    throw new ArgumentOutOfRangeException(nameof(option));
             });
         _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(

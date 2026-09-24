@@ -5,6 +5,101 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRemoteMakuHudPlacement()
+    {
+        bool originalBottom = _presentationSettings.HudBottom;
+        try
+        {
+            foreach (bool bottom in new[] { false, true })
+            foreach (bool batched in new[] { false, true })
+            foreach (bool past in new[] { false, true })
+            // Completion, cancellation while hidden, cancellation during return fade.
+            foreach (int cancellation in new[] { 0, 1, 2 })
+            {
+                RemoteMakuEvent cutscene = past
+                    ? _roomEvents.Get<RemoteMakuSecondEssenceEvent>()
+                    : _roomEvents.Get<RemoteMakuFourthEssenceEvent>();
+                int group = past ? 1 : 0;
+                int room = past ? 0x83 : 0x03;
+                _presentationSettings.HudBottom = bottom;
+                _saveData.WriteWramByte(0xc6bf, past ? (byte)0x02 : (byte)0x08);
+                _saveData.CommitInventoryChange();
+                _saveData.SetRoomFlag(group, room, 0x40, false);
+                LoadValidationRoom(group, room);
+                _scene.ApplyHudPlacement(bottom, _transitions);
+                bool sawHidden = false;
+                bool sawDialogue = false;
+                bool sawFullFade = false;
+                bool cancelled = false;
+                int fieldTop = bottom ? 0 : 16;
+
+                void CheckLayout()
+                {
+                    FailIf(_hud.Position.Y != (bottom ? 128 : 0) ||
+                        _scene.RoomLoadReveal.Position.Y != fieldTop ||
+                        _presentationSettings.HudBottom != bottom,
+                        $"Remote Maku {group:x}:{room:x2} changed the selected HUD layout.");
+                    Vector2 screen = _transitions.WorldToGameplayScreen(_player.Position);
+                    FailIf(!(_player.Position - _roomCamera.Position + new Vector2(80, 72))
+                            .IsEqualApprox(screen + new Vector2(0, fieldTop)),
+                        "Remote Maku hide/show shifted the gameplay camera.");
+                    bool full = _warpFade.Size.Y == 144;
+                    FailIf(_warpFade.Position.Y != (full ? 0 : fieldTop),
+                        "Remote Maku fade must cover the entire viewport while event-owned, then restore the field.");
+                }
+
+                CheckLayout();
+                for (int frame = 0; frame < 900 && cutscene.HasState; frame += 4)
+                {
+                    StepGameplayUpdates(4, Vector2.Zero, batched: batched);
+                    CheckLayout();
+                    sawHidden |= _hud.StatusBarHidden;
+                    sawFullFade |= _warpFade.Size.Y == 144;
+                    if ((cancellation == 1 && _hud.StatusBarHidden) ||
+                        (cancellation == 2 && _warpFade.Size.Y == 144))
+                    {
+                        LoadValidationRoom(0, 0x11);
+                        StepGameplayUpdates(4, Vector2.Zero, batched: batched);
+                        cancelled = true;
+                        break;
+                    }
+                    if (_dialogue.IsOpen)
+                    {
+                        sawDialogue = true;
+                        float y = _dialogue.Position.Y;
+                        _scene.ApplyHudPlacement(!bottom, _transitions);
+                        FailIf(_dialogue.Position.Y != y + (bottom ? 16 : -16),
+                            "Remote Maku dialogue must follow the gameplay field while the HUD is hidden.");
+                        _scene.ApplyHudPlacement(bottom, _transitions);
+                        _dialogue.Close();
+                    }
+                }
+                CheckLayout();
+                FailIf(!sawHidden || cutscene.HasState || _hud.StatusBarHidden ||
+                    _player.CutsceneControlled || _warpFade.Size.Y != 128 ||
+                    (cancellation == 0 && (!sawDialogue || !sawFullFade ||
+                        !_saveData.HasRoomFlag(group, room, 0x40))) ||
+                    (cancellation != 0 && (!cancelled || _saveData.HasRoomFlag(group, room, 0x40))),
+                    "Remote Maku HUD lifecycle did not complete/cancel with source hide/show and fade ownership intact.");
+                if (cancellation == 0)
+                {
+                    LoadValidationRoom(group, room);
+                    StepGameplayUpdates(4, Vector2.Zero, batched: batched);
+                    CheckLayout();
+                    FailIf(cutscene.HasState, "Completed remote Maku event replayed on re-entry.");
+                }
+            }
+        }
+        finally
+        {
+            _dialogue.Close();
+            _presentationSettings.HudBottom = originalBottom;
+            LoadValidationRoom(0, 0x11);
+            _scene.ApplyHudPlacement(originalBottom, _transitions);
+        }
+        GD.Print("Validated remote Maku top/bottom HUD placement in both eras through hidden dialogue, full-screen fade, completion, cancellation and re-entry with individual/batched gameplay updates.");
+    }
+
     private void ValidateRemoteMakuSecondEssenceCutscene()
     {
         const int group = 1;

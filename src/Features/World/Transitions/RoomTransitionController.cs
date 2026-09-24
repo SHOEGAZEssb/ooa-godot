@@ -44,6 +44,7 @@ public sealed class RoomTransitionController
     private readonly RoomLoadColumnRevealOverlay _roomLoadReveal;
     private readonly Player _player;
     private readonly Camera2D _camera;
+    private int _gameplayScreenTop = OracleRoomData.GameplayScreenTop;
     private readonly ColorRect _warpFade;
     private readonly Hud _hud;
     private readonly DialogueBox _dialogue;
@@ -1840,9 +1841,18 @@ void fragment() {
     private Vector2 CurrentCameraOrigin => _camera.Position -
         GameplayCameraOffset;
 
-    private static Vector2 GameplayCameraOffset => new(
+    internal void SetGameplayScreenTop(int top)
+    {
+        if (_gameplayScreenTop == top)
+            return;
+        Vector2 origin = CurrentCameraOrigin;
+        _gameplayScreenTop = top;
+        SetCameraOrigin(origin);
+    }
+
+    private Vector2 GameplayCameraOffset => new(
         OracleRoomData.ViewportWidth / 2.0f,
-        OracleRoomData.ScreenHeight / 2.0f - OracleRoomData.GameplayScreenTop);
+        OracleRoomData.ScreenHeight / 2.0f - _gameplayScreenTop);
 
     private static Vector2 GetCameraOrigin(OracleRoomData room, Vector2 playerPosition)
     {

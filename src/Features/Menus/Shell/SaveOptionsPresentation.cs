@@ -18,7 +18,7 @@ internal static class SaveOptionsPresentation
         return ImageTexture.CreateFromImage(output);
     }
 
-    internal static Texture2D BuildOptions(Image original, bool noclip, bool overlay)
+    internal static Texture2D BuildOptions(Image original, bool noclip, bool overlay, bool hudBottom)
     {
         using Image output = ClearChoices(original);
         // Retain the title's native top/bottom edges, replacing only its text.
@@ -28,6 +28,7 @@ internal static class SaveOptionsPresentation
         DrawWord(output, "OPTIONS", 8, title: true);
         DrawChoice(output, original, noclip ? "NOCLIP: ON" : "NOCLIP: OFF", 56, left: 44);
         DrawChoice(output, original, overlay ? "ROOM ID: ON" : "ROOM ID: OFF", 80, left: 44);
+        DrawChoice(output, original, hudBottom ? "HUD: BOTTOM" : "HUD: TOP", 104, left: 40);
         return ImageTexture.CreateFromImage(output);
     }
 
@@ -83,6 +84,9 @@ internal static class SaveOptionsPresentation
                     if (letter == 'L') ink &= x < 2 || y >= 9;
                     if (letter == 'F') ink &= x < 2 || y < 9;
                     if (letter == 'D') ink |= x < 2;
+                    if (letter == 'H') ink = x < 2 || x >= 4 || y is 4 or 5;
+                    if (letter == 'U') ink = y < 9 ? x < 2 || x >= 4 : ink;
+                    if (letter == 'B') ink = x < 2 || (y is 0 or 1 or 4 or 5 or 9 or 10 ? x < 5 : x >= 4);
                     // Leave the panel grain continuous instead of pasting
                     // rectangular wood fragments from unrelated letter sheets.
                     if (ink)
@@ -97,8 +101,8 @@ internal static class SaveOptionsPresentation
     {
         ' ' or ':' => ("", 0, 0, 2, false),
         'C' => ("gfx_savescreen", 18, 20, 6, false),
-        'O' or 'D' => ("gfx_savescreen", 26, 20, 6, false),
-        'N' => ("gfx_savescreen", 34, 20, 6, false),
+        'O' or 'D' or 'U' or 'B' => ("gfx_savescreen", 26, 20, 6, false),
+        'N' or 'H' => ("gfx_savescreen", 34, 20, 6, false),
         'T' => ("gfx_savescreen", 42, 20, 6, false),
         'I' => ("gfx_savescreen", 50, 20, 2, false),
         'S' => ("gfx_savescreen", 105, 20, 6, false),

@@ -8,6 +8,15 @@ namespace oracleofages;
 public partial class DialogueBox : Node2D
 {
     private Func<float> _gameplayCameraY = () => 0;
+    private bool _gameplayPresentation;
+    private int _presentationOffsetY;
+
+    internal void SetGameplayPresentationOffset(int offsetY)
+    {
+        if (_gameplayPresentation)
+            Position += new Vector2(0, offsetY - _presentationOffsetY);
+        _presentationOffsetY = offsetY;
+    }
 
     internal void SetGameplayCameraYProvider(Func<float> cameraY) =>
         _gameplayCameraY = cameraY;
@@ -325,7 +334,9 @@ public partial class DialogueBox : Node2D
             _ => throw new InvalidOperationException(
                 $"Unsupported wTextboxPosition ${position:x2}.")
         };
-        Position = new Vector2(0, screen.ScreenY(textboxY));
+        _gameplayPresentation = screen.IsGameplay;
+        Position = new Vector2(0, screen.ScreenY(textboxY) +
+            (_gameplayPresentation ? _presentationOffsetY : 0));
         Visible = true;
         QueueRedraw();
     }

@@ -68,6 +68,25 @@ public partial class GameSceneGraph : Node2D
         }
     }
 
+    internal void ApplyHudPlacement(bool bottom, RoomTransitionController transitions)
+    {
+        // Original full-screen presentations can contain a HUD aperture at y=0.
+        // Keep their imported layouts intact; only rearrange the gameplay field.
+        bottom &= !MapScreen.Visible && !InventoryScreen.Visible &&
+            !SaveQuitScreen.Visible && !RingMenuScreen.Visible;
+        int fieldTop = bottom ? 0 : OracleRoomData.GameplayScreenTop;
+        transitions.SetGameplayScreenTop(fieldTop);
+        Hud.Position = new Vector2(0, bottom ? 128 : 0);
+        // Native events can temporarily own this rectangle as a full-screen
+        // fade. Its captured size/position belong to that owner until release.
+        if (WarpFade.Size.Y == OracleRoomData.ViewportHeight)
+            WarpFade.Position = new Vector2(0, fieldTop);
+        RoomLoadReveal.Position = new Vector2(0, fieldTop);
+        RoomDebug.Position = new Vector2(2, fieldTop);
+        DebugObjectSpawnerScreen.Position = new Vector2(0, fieldTop);
+        Dialogue.SetGameplayPresentationOffset(fieldTop - OracleRoomData.GameplayScreenTop);
+    }
+
     private T Unique<T>(string name) where T : Node
     {
         return GetNodeOrNull<T>($"%{name}") ?? throw new InvalidOperationException(

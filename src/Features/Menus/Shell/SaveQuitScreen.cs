@@ -19,7 +19,7 @@ public partial class SaveQuitScreen : Node2D
     private Color[,] _spritePalette = null!;
     private Label _saveError = null!;
     private int _delayCounter;
-    private readonly Texture2D[] _optionsBackgrounds = new Texture2D[4];
+    private readonly Texture2D[] _optionsBackgrounds = new Texture2D[8];
 
     public bool OptionsOpen { get; private set; }
     public int OptionsCursor { get; private set; }
@@ -61,9 +61,9 @@ public partial class SaveQuitScreen : Node2D
         _gameOverBackground = BuildBackground(gameOver: true);
         using (Image original = _standardBackground.GetImage())
         {
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 8; i++)
                 _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
-                    original, (i & 1) != 0, (i & 2) != 0);
+                    original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
             _standardBackground = SaveOptionsPresentation.BuildSave(original);
         }
         _background = _standardBackground;
@@ -109,7 +109,7 @@ public partial class SaveQuitScreen : Node2D
         if (OptionsOpen)
         {
             int option = OptionsCursor + Math.Sign(direction);
-            if (option is < 0 or > 1)
+            if (option is < 0 or > 2)
                 return false;
             OptionsCursor = option;
             QueueRedraw();
@@ -130,9 +130,9 @@ public partial class SaveQuitScreen : Node2D
         QueueRedraw();
     }
 
-    internal void RefreshOptions(bool noclip, bool overlay)
+    internal void RefreshOptions(bool noclip, bool overlay, bool hudBottom)
     {
-        Texture2D next = _optionsBackgrounds[(noclip ? 1 : 0) | (overlay ? 2 : 0)];
+        Texture2D next = _optionsBackgrounds[(noclip ? 1 : 0) | (overlay ? 2 : 0) | (hudBottom ? 4 : 0)];
         if (_background == next)
             return;
         _background = next;

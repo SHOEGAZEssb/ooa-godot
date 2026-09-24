@@ -38,7 +38,7 @@ to the room transition owner; canceling restores Link's falling state in the
 existing room. Neither path uses development fast travel.
 
 Full-screen menus and their fade use 160 by 144 screen space, including the
-HUD. A room-warp fade covers only the gameplay field at y=16-143. Ordinary room
+HUD. A room-warp fade covers only the gameplay field, normally at y=16-143. Ordinary room
 dialogue starts with field-relative positions and adds the 16-pixel display
 offset; pregame and full-screen presentations do not.
 
@@ -111,6 +111,13 @@ health or other persistent fields.
 The save screen's experimental Options entry is a port extension. Noclip uses
 the F2 owner; room-overlay visibility edits the pause lease's restoration state.
 These options do not write save bytes. Game over retains its original actions.
+HUD placement defaults to the top and can be moved to the bottom. This port
+preference persists separately in `user://presentation.cfg`. Bottom placement
+moves the gameplay field, its dialogue, reveal, fade and debug overlays up by
+16 pixels without changing world coordinates or source camera state. Imported
+full-screen menus retain their original layout. Temporarily hiding or fading
+the status bar does not change its placement. Event-owned full-screen fades
+continue to cover the entire viewport in either HUD layout.
 
 ## Adding or changing a menu
 

@@ -9,9 +9,11 @@ namespace oracleofages;
 internal readonly record struct DialogueScreenContext(
     byte LinkY, byte CameraY, byte ScreenOffsetY, byte ScrollY)
 {
+    internal bool IsGameplay { get; init; }
+
     internal static DialogueScreenContext Gameplay(float linkY, float cameraY = 0) =>
         new(ToByte(linkY), ToByte(cameraY), 0,
-            unchecked((byte)(ToByte(cameraY) - OracleRoomData.GameplayScreenTop)));
+            unchecked((byte)(ToByte(cameraY) - OracleRoomData.GameplayScreenTop))) { IsGameplay = true };
 
     internal static DialogueScreenContext FullScreen(float linkY) =>
         new(ToByte(linkY), 0, 0, 0);

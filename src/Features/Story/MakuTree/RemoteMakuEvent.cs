@@ -100,10 +100,7 @@ internal abstract class RemoteMakuEvent :
         if (_database.Record.ConfettiKind != kind)
             throw UnsupportedCommand($"spawn {kind} confetti");
         RemoveConfetti();
-        Vector2 cameraOrigin = Context.RoomCamera.Position - new Vector2(
-            OracleRoomData.ViewportWidth / 2.0f,
-            OracleRoomData.ScreenHeight / 2.0f -
-                OracleRoomData.GameplayScreenTop);
+        Vector2 cameraOrigin = -Context.Transitions.WorldToGameplayScreen(Vector2.Zero);
         _confetti = new RemoteMakuConfettiEffect
         {
             Name = kind == RemoteMakuConfettiKind.Past
