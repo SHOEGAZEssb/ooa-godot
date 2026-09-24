@@ -223,6 +223,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSoundShortEffects);
         RunIsolatedValidation(ValidateGraphicsCache);
         RunIsolatedValidation(ValidateMonochromeFonts);
+        RunIsolatedValidation(ValidateBufferedTilemaps);
         RunIsolatedValidation(ValidateNpcPaletteRebuildOffsets);
         RunIsolatedValidation(ValidateCompanionWallMasks);
         RunIsolatedValidation(ValidateBackgroundPaletteState);

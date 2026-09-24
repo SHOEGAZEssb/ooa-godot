@@ -60,8 +60,8 @@ logical room data.
 
 Scrolling room tilemaps share one mutable BG tile buffer captured from the
 outgoing room, including its last animation and scripted tile uploads.
-Room rasterization reads each source image into an RGBA buffer once per redraw
-and composes pixels in managed memory before uploading the complete image.
+Room and cutscene tilemap rasterization read each source image once per redraw
+and compose pixels in managed memory before uploading the complete image.
 These reads are scoped to one redraw: retaining a snapshot of the mutable
 transition buffer would hide later graphics uploads. Temporary raster images
 are disposed after their texture upload.

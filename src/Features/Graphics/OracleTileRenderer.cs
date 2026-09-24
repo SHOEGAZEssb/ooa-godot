@@ -92,8 +92,17 @@ internal static class OracleTileRenderer
             throw new ArgumentException(
                 $"A {columns}x{rows} tilemap requires {required} map and flag bytes.");
         }
-        Image output = Image.CreateEmpty(
-            columns * 8, rows * 8, false, Image.Format.Rgba8);
+        int width = columns * 8;
+        byte[] pixels = new byte[width * rows * 8 * 4];
+        // Quantize the palette with Godot, exactly as SetPixel did. Sources
+        // and palette snapshots belong to this draw, not a persistent cache:
+        // frontend animation can replace tiles or mutate their graphics.
+        using Image colors = Image.CreateEmpty(4, palettes.GetLength(0), false, Image.Format.Rgba8);
+        for (int palette = 0; palette < palettes.GetLength(0); palette++)
+        for (int shade = 0; shade < 4; shade++)
+            colors.SetPixel(shade, palette, palettes[palette, shade]);
+        byte[] palettePixels = colors.GetData();
+        var sources = new Dictionary<Image, (byte[] Shades, int Width)>();
         for (int row = 0; row < rows; row++)
         for (int column = 0; column < columns; column++)
         {
@@ -105,11 +114,49 @@ internal static class OracleTileRenderer
             {
                 continue;
             }
-            DrawBackgroundTile(
-                output, source, sourceTile, attributes, palettes,
-                column * 8, row * 8);
+            if (!sources.TryGetValue(source, out var captured))
+            {
+                captured = (CaptureBackgroundShades(source), source.GetWidth());
+                sources.Add(source, captured);
+            }
+            int sourceColumns = captured.Width / 8;
+            int sourceX = sourceTile % sourceColumns * 8;
+            int sourceY = sourceTile / sourceColumns * 8;
+            for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int readX = sourceX + ((attributes & 0x20) != 0 ? 7 - x : x);
+                int readY = sourceY + ((attributes & 0x40) != 0 ? 7 - y : y);
+                int shade = captured.Shades[readY * captured.Width + readX];
+                int paletteOffset = ((attributes & 7) * 4 + shade) * 4;
+                int outputOffset = ((row * 8 + y) * width + column * 8 + x) * 4;
+                palettePixels.AsSpan(paletteOffset, 4).CopyTo(pixels.AsSpan(outputOffset, 4));
+            }
         }
+        using Image output = Image.CreateFromData(width, rows * 8, false, Image.Format.Rgba8, pixels);
         return ImageTexture.CreateFromImage(output);
+    }
+
+    private static byte[] CaptureBackgroundShades(Image source)
+    {
+        int width = source.GetWidth();
+        int height = source.GetHeight();
+        byte[] shades = new byte[width * height];
+        if (source.GetFormat() == Image.Format.Rgba8)
+        {
+            byte[] rgba = source.GetData();
+            for (int pixel = 0; pixel < shades.Length; pixel++)
+                shades[pixel] = (byte)((255 - rgba[pixel * 4] + 42) / 85);
+        }
+        else
+        {
+            // Preserve the original float threshold for non-RGBA8 images;
+            // quantizing them first could change a shade at its boundary.
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                shades[y * width + x] = (byte)OracleGraphicsData.TwoBitShade(source.GetPixel(x, y));
+        }
+        return shades;
     }
 
     public static Texture2D GetOamCellTexture(

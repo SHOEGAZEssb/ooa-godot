@@ -60,7 +60,7 @@ internal sealed class ScreenTransitionRenderer
             }
             else
             {
-                ApplyUpload(entry);
+                ApplyUpload(_vram, entry);
                 graphicsChanged = true;
             }
         }
@@ -95,9 +95,14 @@ internal sealed class ScreenTransitionRenderer
         }
     }
 
-    private void ApplyUpload(ScreenGraphicsUpload upload)
+    internal static void ApplyUpload(Image vram, ScreenGraphicsUpload upload)
     {
+        // Both room owners retain this Image. Decode only the uploaded rows,
+        // then blit their addressed spans without replacing the shared image.
         int startTile = (upload.Address - 0x8800) / 16;
+        int firstColumn = startTile % 16;
+        int rows = (firstColumn + upload.Tiles + 15) / 16;
+        byte[] pixels = new byte[128 * rows * 8 * 4];
         for (int tile = 0; tile < upload.Tiles; tile++)
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
@@ -106,9 +111,23 @@ internal sealed class ScreenTransitionRenderer
             int shade = ((upload.Data[offset] >> (7 - x)) & 1) |
                 (((upload.Data[offset + 1] >> (7 - x)) & 1) << 1);
             byte intensity = (byte)(255 - shade * 85);
-            int index = startTile + tile;
-            _vram.SetPixel(index % 16 * 8 + x, index / 16 * 8 + y,
-                Color.Color8(intensity, intensity, intensity));
+            int index = firstColumn + tile;
+            int pixel = ((index / 16 * 8 + y) * 128 + index % 16 * 8 + x) * 4;
+            pixels[pixel] = intensity;
+            pixels[pixel + 1] = intensity;
+            pixels[pixel + 2] = intensity;
+            pixels[pixel + 3] = 255;
+        }
+        using Image patch = Image.CreateFromData(128, rows * 8, false, Image.Format.Rgba8, pixels);
+        for (int copied = 0; copied < upload.Tiles;)
+        {
+            int index = startTile + copied;
+            int column = index % 16;
+            int count = Math.Min(16 - column, upload.Tiles - copied);
+            vram.BlitRect(patch,
+                new Rect2I(column * 8, (firstColumn + copied) / 16 * 8, count * 8, 8),
+                new Vector2I(column * 8, index / 16 * 8));
+            copied += count;
         }
     }
 

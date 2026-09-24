@@ -203,6 +203,7 @@ public sealed partial class ValidationRoot
     private void ValidateScreenTransitionGraphicsPayloads()
     {
         var data = new ScreenTransitionGraphicsDatabase();
+        ValidateBufferedTransitionUploads(data);
         for (int unique = 1; unique < 0x14; unique++)
         {
             int tileset = Enumerable.Range(0, 103).First(t => data.ForTileset(t).Unique == unique);
@@ -238,5 +239,90 @@ public sealed partial class ValidationRoot
             "Clean-US uniqueGfxHeader08 bytes changed to the patched Symmetry art.");
         FailIf(palette.Palette != 0x63 || palette.Tiles != 0 || palette.Data.Length != 0,
             "uniqueGfxHeader14 lost its terminal PALH_63 record.");
+    }
+
+    private static void ValidateBufferedTransitionUploads(ScreenTransitionGraphicsDatabase data)
+    {
+        byte[] initial = new byte[128 * 128 * 4];
+        for (int i = 0; i < initial.Length; i++) initial[i] = (byte)(i * 17 + i / 257);
+        using Image expected = Image.CreateFromData(128, 128, false, Image.Format.Rgba8, initial);
+        using Image actual = Image.CreateFromData(128, 128, false, Image.Format.Rgba8, initial);
+        ulong identity = actual.GetInstanceId();
+        for (int unique = 0; unique < 0x15; unique++)
+        foreach (ScreenGraphicsUpload upload in data.Uploads(unique))
+        {
+            if (upload.Palette >= 0) continue;
+            Compare(upload);
+        }
+        // Also exercise the first/last VRAM tiles and a partial row crossing.
+        foreach (int address in new[] { 0x8800, 0x88f0, 0x97e0 })
+        {
+            byte[] bytes = new byte[32];
+            for (int i = 0; i < bytes.Length; i++) bytes[i] = (byte)(i * 37);
+            Compare(new ScreenGraphicsUpload(address, 2, -1, bytes));
+        }
+        if (System.Environment.GetEnvironmentVariable("OOA_BENCHMARK_SCROLL_UPLOADS") == "1")
+            BenchmarkTransitionUploads(data.Uploads(1)[0], expected, actual);
+
+        void Compare(ScreenGraphicsUpload upload)
+        {
+            ApplyReferenceTransitionUpload(expected, upload);
+            ScreenTransitionRenderer.ApplyUpload(actual, upload);
+            FailIf(actual.GetInstanceId() != identity ||
+                !actual.GetData().AsSpan().SequenceEqual(expected.GetData()),
+                $"Buffered transition upload ${upload.Address:x4}, ${upload.Tiles:x2} tiles changed image identity or addressed/unaddressed pixels.");
+        }
+    }
+
+    private static void ApplyReferenceTransitionUpload(Image vram, ScreenGraphicsUpload upload)
+    {
+        int startTile = (upload.Address - 0x8800) / 16;
+        for (int tile = 0; tile < upload.Tiles; tile++)
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int offset = tile * 16 + y * 2;
+            int shade = ((upload.Data[offset] >> (7 - x)) & 1) |
+                (((upload.Data[offset + 1] >> (7 - x)) & 1) << 1);
+            byte intensity = (byte)(255 - shade * 85);
+            int index = startTile + tile;
+            vram.SetPixel(index % 16 * 8 + x, index / 16 * 8 + y,
+                Color.Color8(intensity, intensity, intensity));
+        }
+    }
+
+    private static void BenchmarkTransitionUploads(ScreenGraphicsUpload upload, Image beforeImage, Image afterImage)
+    {
+        Action before = () => ApplyReferenceTransitionUpload(beforeImage, upload);
+        Action after = () => ScreenTransitionRenderer.ApplyUpload(afterImage, upload);
+        for (int i = 0; i < 100; i++) { before(); after(); }
+        double[] oldTimes = new double[7], newTimes = new double[7];
+        long oldBytes = 0, newBytes = 0;
+        for (int sample = 0; sample < 7; sample++)
+        {
+            if ((sample & 1) == 0)
+            {
+                (oldTimes[sample], oldBytes) = Measure(before);
+                (newTimes[sample], newBytes) = Measure(after);
+            }
+            else
+            {
+                (newTimes[sample], newBytes) = Measure(after);
+                (oldTimes[sample], oldBytes) = Measure(before);
+            }
+        }
+        Array.Sort(oldTimes); Array.Sort(newTimes);
+        GD.Print(FormattableString.Invariant(
+            $"SCROLL_UPLOAD_BENCHMARK ${upload.Address:x4}, {upload.Tiles} tiles: median_us before={oldTimes[3]:F3} after={newTimes[3]:F3}; managed_bytes/op before={oldBytes} after={newBytes}; 7 samples, 1000 uploads/sample, headless; excludes room redraws."));
+
+        static (double Microseconds, long Bytes) Measure(Action action)
+        {
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            for (int i = 0; i < 1000; i++) action();
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            return (elapsed * 1000.0 / System.Diagnostics.Stopwatch.Frequency,
+                (GC.GetAllocatedBytesForCurrentThread() - allocated) / 1000);
+        }
     }
 }
