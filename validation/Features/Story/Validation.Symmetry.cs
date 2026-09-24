@@ -70,20 +70,18 @@ public sealed partial class ValidationRoot
         var jumps = commands.OfType<CutsceneBranchYieldCommand>().ToArray();
         FailIf(jumps.Length == 0 || jumps.Any(j => !j.Source.Label.StartsWith("symmetryNpcSubid", StringComparison.Ordinal)),
             "Symmetry helper scripts lost their wBigBuffer jump classification.");
-        foreach (var jump in jumps)
-        {
-            var runner = new CutsceneCommandRunner(new ValidationSymmetryBranchHost());
-            // Keep the source branch but use a destination that would fail if
-            // dispatched in the same update by the default-deny host.
-            var branchSource = jump.Source with { CommandIndex = 0 };
-            var targetSource = jump.Source with { CommandIndex = 1, Opcode = "native" };
-            runner.Start(new CutsceneCommand[] {
-                new CutsceneBranchYieldCommand(branchSource, 1),
-                new CutsceneNativeCommand(targetSource, "MustWaitForNextUpdate") });
-            runner.AdvanceFrame();
-            FailIf(runner.Instruction != 1 || !runner.Active,
-                $"{jump.Source} did not yield at its relocated target.");
-        }
+        var runner = new CutsceneCommandRunner(new ValidationSymmetryBranchHost());
+        // All imported branches are classified above. Check the interpreter's
+        // yield once: relocation replaces every original target with the same
+        // default-deny native command, so repeating it adds no path coverage.
+        var branchSource = jumps[0].Source with { CommandIndex = 0 };
+        var targetSource = jumps[0].Source with { CommandIndex = 1, Opcode = "native" };
+        runner.Start(new CutsceneCommand[] {
+            new CutsceneBranchYieldCommand(branchSource, 1),
+            new CutsceneNativeCommand(targetSource, "MustWaitForNextUpdate") });
+        runner.AdvanceFrame();
+        FailIf(runner.Instruction != 1 || !runner.Active,
+            $"{branchSource} did not yield at its relocated target.");
 
         var quest = _roomEvents.Get<SymmetryEvent>();
         _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"), false);

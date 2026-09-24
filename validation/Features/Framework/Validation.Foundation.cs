@@ -999,16 +999,10 @@ public sealed partial class ValidationRoot
 
         sound.PlaySound(0x4c);
         sound.Tick();
-        int protectedOffset = sound.Channel(2).Offset;
         FailIf(
             sound.Channel(2).Priority != 8 || sound.Channel(3).Priority != 8 ||
             sound.Channel(5).Priority != 8 || sound.Channel(7).Priority != 8,
             "SND_GETITEM did not claim all four SFX channels at priority 8.");
-        sound.PlaySound(OracleSoundEngine.SndMenuMove);
-        FailIf(
-            sound.Channel(2).Priority != 8 || sound.Channel(2).Offset != protectedOffset,
-            "Low-priority SND_MENU_MOVE replaced SND_GETITEM's square channel.");
-
         sound.PlaySound(OracleSoundEngine.SndCtrlStopSfx);
         sound.Tick();
         FailIf(

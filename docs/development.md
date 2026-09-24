@@ -56,7 +56,7 @@ checkpoint progression. For a side-scrolling dungeon room, name its source
 group (`4` or `5`); the development loader performs the retail active-group
 switch to `6` or `7`.
 
-After building, run all headless validations with the standard eight workers,
+After building, run all headless validations with the standard 64 workers,
 or one exact registered method:
 
 ```powershell

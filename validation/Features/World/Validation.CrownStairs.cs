@@ -1,9 +1,87 @@
 using Godot;
+using System.Linq;
 
 namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateCrownStairEnemyFadeInitialization()
+    {
+        foreach (bool batch in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _player.ApplicationUpdateOwned = true;
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                LoadValidationRoom(4, 0xae);
+                _entities.Clear(); // Isolate the approach; retain all destination objects.
+                Vector2 stair = new(88, 88);
+                FailIf(_currentRoom.GetMetatile(stair) != 0x45,
+                    "4:$ae stair $55 must retain source tile $45 for the 4:$9f arrival.");
+                Vector2 approach = Vector2.Zero;
+                foreach (Vector2 offset in new[] { Vector2.Down, Vector2.Right, Vector2.Left, Vector2.Up })
+                {
+                    if (_collision.Collides(stair + offset * 16) || _currentRoom.IsSolid(stair + offset * 8))
+                        continue;
+                    approach = -offset;
+                    _player.WarpTo(stair + offset * 16);
+                    break;
+                }
+                FailIf(approach == Vector2.Zero, "4:$ae stair $55 needs a reachable adjacent floor approach.");
+                for (int i = 0; !IsTransitioning && i < 40; i++)
+                    StepGameplayUpdates(1, approach);
+                FailIf(!IsTransitioning || _rooms.CurrentRoom.Id != 0xae,
+                    "Walking onto 4:$ae stair $55 must begin the source fade.");
+                StepGameplayUpdates(31, Vector2.Zero, batched: batch);
+                FailIf(_rooms.CurrentRoom.Id != 0xae || !_transitions.PaletteFadeActive,
+                    "4:$ae must remain loaded until fade-out's terminal update32.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x9f ||
+                    _player.Position != stair || !IsTransitioning || !_transitions.PaletteFadeActive,
+                    "Stair arrival must load 4:$9f/$55 under the white fade.");
+
+                // enemyData.s group4Map9f: two fixed ENEMY $19:$00 followed
+                // by two random ENEMY $24:$00. bank0.updateEnemies dispatches
+                // state/substate zero even with wPaletteThread_mode active.
+                var whisps = _entities.Entities<WhispCharacter>();
+                var likes = _entities.Entities<LikeLikeCharacter>();
+                FailIf(whisps.Count != 2 || likes.Count != 2 ||
+                    whisps[0].Position != new Vector2(120, 56) || whisps[1].Position != new Vector2(120, 136),
+                    "4:$9f must load the source's two fixed Whisps and two random Like Likes.");
+                FailIf(whisps.Any(w => !w.Initialized || !w.Visible || w.Angle is not (4 or 12 or 20 or 28)) ||
+                    likes.Any(l => l.State != 8 || !l.Visible),
+                    "4:$9f ENEMY $19/$24 state0 must initialize and become visible before white fades away.");
+                var positions = whisps.Select(w => w.Position).ToArray();
+                var angles = whisps.Select(w => w.Angle).ToArray();
+                var likePositions = likes.Select(l => l.Position).ToArray();
+                var random = CaptureOracleRandomForValidation();
+                foreach (int updates in new[] { 1, 14, 16 })
+                {
+                    StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
+                    var currentRandom = CaptureOracleRandomForValidation();
+                    FailIf(!_transitions.PaletteFadeActive || !IsTransitioning ||
+                        whisps.Where((w, i) => !w.Visible || w.Position != positions[i] || w.Angle != angles[i]).Any() ||
+                        likes.Where((l, i) => !l.Visible || l.State != 8 || l.Position != likePositions[i]).Any() ||
+                        currentRandom.Calls != random.Calls || currentRandom.Rng1 != random.Rng1 ||
+                        currentRandom.Rng2 != random.Rng2 || currentRandom.PlacementIndex != random.PlacementIndex ||
+                        !currentRandom.PlacementBuffer.SequenceEqual(random.PlacementBuffer),
+                        "4:$9f initialized enemies must stay visible and frozen, without consuming RNG during fade-in.");
+                }
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(IsTransitioning || _transitions.PaletteFadeActive ||
+                    whisps.Where((w, i) => !w.Visible || w.Position == positions[i]).Any() ||
+                    likes.Any(l => !l.Visible || l.State != 10),
+                    "4:$9f enemies must resume state8 on terminal fade update32 without a delayed appearance.");
+                var afterFade = whisps.Select(w => w.Position).ToArray();
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(whisps.Where((w, i) => !w.Visible || w.Position == afterFade[i]).Any(),
+                    "4:$9f Whisps must continue moving after the fade completes.");
+            }
+        }
+        ReinitializeGameplayForValidation();
+        GD.Print("Validated 4:$ae stair arrival into 4:$9f: enemy visibility during white fade, frozen state/RNG, exact resume and repeat in single/batched updates.");
+    }
+
     private void ValidateCrownStairs()
     {
         _player.ApplicationUpdateOwned = true;

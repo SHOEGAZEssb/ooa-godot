@@ -269,6 +269,15 @@ public sealed class BraceletController
             return;
         }
 
+        // bombsBraceletParent state3 unlinks the child before throwing.
+        // dropLinkHeldItem only releases a held state2 object; an airborne
+        // ITEM $16 keeps its world position, angle and velocity in state3.
+        if (_object.Thrown)
+        {
+            _state = BraceletState.Projectile;
+            return;
+        }
+
         Vector2I heldOffset = new(
             Mathf.RoundToInt(_object.Position.X),
             Mathf.RoundToInt(_object.Position.Y));

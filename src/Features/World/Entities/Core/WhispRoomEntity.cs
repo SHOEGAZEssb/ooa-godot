@@ -7,9 +7,15 @@ namespace oracleofages;
 internal sealed class WhispRoomEntity
     : CombatEnemyRoomEntityAdapter<WhispCharacter>, IFixedRoomEntity,
         IScreenTransitionPreloadRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity, IExpertPunchHittableRoomEntity,
         IPostObjectItemCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
+    // bank0._updateEnemiesIfStateIsZero still dispatches whisp state0 during
+    // palette fades, text and object freezes. State8 waits for normal updates.
+    public bool UpdatesDuringDialogue => !Entity.Initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !Entity.Initialized;
+
     protected override void TransformByBoomerang() => Entity.ApplyBoomerangHit();
     private int _swordCollision = 4;
     private bool _meleeReportsContact;

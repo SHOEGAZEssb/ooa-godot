@@ -38,7 +38,7 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 5. Implement the smallest general rule supported by the source. Do not add a
    room exception unless the original has one.
 6. Add or extend a focused headless regression.
-7. Build, run the full suite through `tools/validate_parallel.ps1` with eight
+7. Build, run the full suite through `tools/validate_parallel.ps1` with 64
    workers, and update only documentation whose durable contract or high-level
    coverage changed.
 
@@ -140,7 +140,7 @@ Run the importer only when import code or generated inputs changed.
 `verify_oracle_import.ps1` is required for parser, stage-boundary, schema, or
 determinism changes. The build must have zero warnings and errors.
 Agents must always run the full suite through `tools/validate_parallel.ps1`
-using its eight-worker default unless the user explicitly requests a different
+using its 64-worker default unless the user explicitly requests a different
 worker count. Build once before launching workers. A serial full-suite run does
 not replace the required parallel run; use serial runs only for additional
 debugging.

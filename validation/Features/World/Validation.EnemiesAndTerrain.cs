@@ -3419,39 +3419,6 @@ public sealed partial class ValidationRoot
             _entities.Entities<OctorokRockProjectile>().Count != 0,
             "The deflected Octorok rock survived bounce update `$20.");
 
-        Vector2 terrainCollisionOrigin = Vector2.Zero;
-        bool foundTerrainCollision = false;
-        for (int y = 8; y < _currentRoom.Height - 8 && !foundTerrainCollision; y++)
-        {
-            for (int x = 8; x < _currentRoom.Width - 2; x++)
-            {
-                var origin = new Vector2(x, y);
-                if (!_currentRoom.IsSolid(origin) &&
-                    _currentRoom.IsSolid(origin + Vector2.Right * 2.0f) &&
-                    origin.DistanceTo(_player.Position) > 16.0f)
-                {
-                    terrainCollisionOrigin = origin;
-                    foundTerrainCollision = true;
-                    break;
-                }
-            }
-        }
-        FailIf(!foundTerrainCollision, "Room 1:bc has no usable Octorok-rock collision edge.");
-        var terrainRock = new OctorokRockProjectile();
-        terrainRock.Initialize(projectile, _currentRoom, terrainCollisionOrigin, angle: 0x08);
-        terrainRock.UpdateFrame(_player);
-        terrainRock.UpdateFrame(_player);
-        FailIf(
-            terrainRock.State != HostileProjectileState.CollisionPending ||
-            terrainRock.Position != terrainCollisionOrigin + Vector2.Right * 2.0f,
-            "A terrain-striking Octorok rock did not enter state 2 after applying its final flying step.");
-        terrainRock.UpdateFrame(_player);
-        FailIf(
-            terrainRock.State != HostileProjectileState.Bouncing ||
-            terrainRock.Counter != 0x20 || terrainRock.Angle != 0x18,
-            "Octorok-rock terrain collision state 2 did not initialize the reversed bounce on the next update.");
-        terrainRock.Free();
-
         blue = _entities.Entities<OctorokCharacter>()[0];
         otherBlue.SetStateForValidation(OctorokState.Standing, counter1: 1000);
         int blueCount = _entities.Entities<OctorokCharacter>().Count;

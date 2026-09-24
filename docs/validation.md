@@ -21,7 +21,7 @@ or cache histories to production classes.
 
 ## Run validations
 
-Build first, then run the complete suite with the standard eight workers:
+Build first, then run the complete suite with the standard 64 workers:
 
 ```powershell
 dotnet build
@@ -38,7 +38,7 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
-Eight workers is the launcher default. Override it with `-Workers` (1–64).
+64 workers is the launcher default. Override it with `-Workers` (1–64).
 For a serial run when debugging:
 
 ```powershell

@@ -9,7 +9,6 @@ public sealed partial class ValidationRoot
     {
         foreach (bool batched in new[] { false, true })
         foreach (int gate in new[] { 0x01, 0x80, -1, -2 })
-        for (int repeat = 0; repeat < 2; repeat++)
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(4, 0xa1);

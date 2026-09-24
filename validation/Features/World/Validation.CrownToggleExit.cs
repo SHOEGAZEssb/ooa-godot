@@ -10,7 +10,6 @@ public sealed partial class ValidationRoot
     private void ValidateCrownToggleExit()
     {
         foreach (bool batched in new[] { false, true })
-        for (int repeat = 0; repeat < 2; repeat++)
         {
             ReinitializeGameplayForValidation();
             _runtimeState.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0);

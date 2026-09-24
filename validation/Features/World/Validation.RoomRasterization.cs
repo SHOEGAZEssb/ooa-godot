@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Diagnostics;
 using System.Linq;
 
 namespace oracleofages;
@@ -51,10 +50,6 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(id.Item1, id.Item2);
             Verify(_currentRoom);
-            var timer = Stopwatch.StartNew();
-            for (int i = 0; i < 30; i++) _currentRoom.RedrawForPaletteChange();
-            timer.Stop();
-            GD.Print($"Room {id.Item1:x1}:{id.Item2:x2} redraw: {timer.Elapsed.TotalMilliseconds / 30:F3} ms average (30 iterations).");
             for (int tick = 1; tick <= 32; tick++) _currentRoom.UpdateAnimation(tick);
             Verify(_currentRoom);
         }
@@ -62,26 +57,19 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(0, entering ? 0x6a : 0x6b);
             OracleRoomData source = _currentRoom;
-            var timer = Stopwatch.StartNew();
             _transitions.BeginScroll(_player, entering ? Vector2I.Right : Vector2I.Left, entering ? 0x6b : 0x6a);
-            timer.Stop();
-            double beginMs = timer.Elapsed.TotalMilliseconds;
             OracleRoomData target = _currentRoom;
-            double updateMs = 0;
             int total = _transitions.ScrollTotalFrames;
             for (int tick = 1; tick <= total; tick++)
             {
-                timer.Restart();
                 UpdateScrollingTransition(1.0 / 60);
-                timer.Stop();
-                updateMs += timer.Elapsed.TotalMilliseconds;
                 if (tick is 1 or 3 or 8 or 16 or 32 || tick == total)
                 {
                     if (tick != total) Verify(source);
                     Verify(target);
                 }
             }
-            GD.Print($"Yoll {(entering ? "entry" : "exit")}: begin {beginMs:F3} ms, updates {updateMs:F3} ms total; reference pixels match.");
+            GD.Print($"Yoll {(entering ? "entry" : "exit")}: room and cleared-tilemap reference pixels match.");
         }
     }
 }

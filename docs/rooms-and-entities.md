@@ -323,6 +323,10 @@ scripted fade. Source handlers own the entrance sound; a direct write to
 it. Dungeon floor-stair lookup owns its separate sound before the direct fade.
 Warps, scrolls, time travel, and development direct loads are different entry
 contexts and require explicit coverage.
+The enemy dispatcher also admits state/substate-zero initialization during
+palette fades. Full-load arrivals must resolve each enemy's source visibility
+while the room fades in, then freeze initialized enemies until the palette
+thread finishes. Do not defer their first visible update until after the fade.
 
 Vertical edge warps carry the crossed edge's direction into the source
 transition. The exit handler sets Link's facing and movement from that value;

@@ -571,6 +571,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateBoomerangMovementScratch);
         RunIsolatedValidation(ValidateSwitchHookMovementScratch);
         RunIsolatedValidation(ValidateBraceletMovementScratch);
+        RunIsolatedValidation(ValidateThrownPotDamage);
         RunIsolatedValidation(ValidatePushBlockMovementScratch);
         RunIsolatedValidation(ValidateFallingHoleMovementScratch);
         RunIsolatedValidation(ValidateLinkTopDownSwimming);
@@ -722,6 +723,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCrownKeyDoorSwitchHook);
         RunIsolatedValidation(ValidateCrownKeyDoorScroll);
         RunIsolatedValidation(ValidateCrownStairs);
+        RunIsolatedValidation(ValidateCrownStairEnemyFadeInitialization);
         RunIsolatedValidation(ValidateCrownPassageReturns);
         RunIsolatedValidation(ValidateCrownEnemyStairs);
         RunIsolatedValidation(ValidateCrownExteriorWarp);

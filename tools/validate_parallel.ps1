@@ -1,6 +1,6 @@
 param(
     [ValidateRange(1, 64)]
-    [int]$Workers = 8,
+    [int]$Workers = 64,
     [string]$Godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe',
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600

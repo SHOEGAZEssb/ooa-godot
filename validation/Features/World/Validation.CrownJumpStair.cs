@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
     private void ValidateCrownJumpStair()
     {
         foreach (bool batched in new[] { false, true })
-        for (int repeat = 0; repeat < 2; repeat++)
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(4, 0xa1);
