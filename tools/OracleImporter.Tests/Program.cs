@@ -10,6 +10,7 @@ try
     RunSourceModelTests(temporaryRoot);
     RunManifestTests(temporaryRoot);
     RunImporterBoundaryTests();
+    RunBallAndChainSourceContractTests();
     Console.WriteLine("OracleImporter tests passed.");
 }
 finally
@@ -210,6 +211,36 @@ static void RunImporterBoundaryTests()
         "AssemblySourceRepository.cs"));
     Assert(hostSource.Contains("File.ReadAllText(fullPath)", StringComparison.Ordinal),
         "assembly source repository no longer owns its single physical read");
+}
+
+static void RunBallAndChainSourceContractTests()
+{
+    string stage = Path.Combine(Environment.CurrentDirectory,
+        "tools", "import_oracles", "Import-EnemyData.ps1");
+    string pattern = File.ReadLines(stage).Single(line =>
+        line.TrimStart().StartsWith("'ballAndChain_spawnSpikedBall:", StringComparison.Ordinal))
+        .Trim().Trim('\'');
+    var contract = new System.Text.RegularExpressions.Regex(pattern,
+        System.Text.RegularExpressions.RegexOptions.Singleline);
+    // aa4cb96 (CI source): the clean US game checks enemy slots for four parts.
+    const string vanilla = "ballAndChain_spawnSpikedBall:\n" +
+        "ld b,$04\ncall checkBEnemySlotsAvailable\nret nz\n" +
+        "ld b,PART_SPIKED_BALL\ncall ecom_spawnProjectile\n" +
+        "ld c,h\nld e,$01\n@nextChain:\ncall getFreePartSlot\n" +
+        "ld (hl),b\ninc l\nld (hl),e\nld l,Part.relatedObj1\n" +
+        "ld a,Part.start\nldi (hl),a\nld (hl),c\ninc e\nld a,e\ncp $04\n";
+    const string originalCall = "call checkBEnemySlotsAvailable";
+    string conditional = vanilla.Replace(originalCall,
+        ".ifdef ENABLE_BUGFIXES\ncall checkBPartSlotsAvailable\n.else\n" +
+        originalCall + "\n.endif", StringComparison.Ordinal);
+    foreach (string source in new[] { vanilla, conditional })
+    {
+        Assert(contract.IsMatch(source), "Ball & Chain Soldier $4b rejected vanilla source");
+        Assert(!contract.IsMatch(source.Replace(originalCall, "call checkBPartSlotsAvailable",
+            StringComparison.Ordinal)), "Ball & Chain Soldier $4b accepted the fixed slot gate");
+        Assert(!contract.IsMatch(source.Replace("ld b,$04", "ld b,$03", StringComparison.Ordinal)),
+            "Ball & Chain Soldier $4b accepted the wrong slot count");
+    }
 }
 
 static void Assert(bool condition, string message)

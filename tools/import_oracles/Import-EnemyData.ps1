@@ -4936,7 +4936,8 @@ foreach ($pattern in @(
     'ballAndChain_state8:\s+ld c,\$38.*?ld \(hl\),90.*?Enemy.var30\s+inc \(hl\)',
     'ballAndChain_state9:.*?ecom_decCounter1.*?inc \(hl\).*?Enemy.var30\s+inc \(hl\)',
     'ballAndChain_stateA:.*?Enemy.counter1.*?ret nz.*?ld c,\$38.*?ld \(hl\),90',
-    'ballAndChain_spawnSpikedBall:.*?ld b,\$04.*?\.else\s+call checkBEnemySlotsAvailable.*?PART_SPIKED_BALL.*?ld e,\$01.*?getFreePartSlot.*?cp \$04'
+    # The pinned source has the vanilla call directly; newer sources wrap it in ENABLE_BUGFIXES.
+    'ballAndChain_spawnSpikedBall:.*?ld b,\$04\s+(?:\.ifdef ENABLE_BUGFIXES\s+call checkBPartSlotsAvailable\s+\.else\s+)?call checkBEnemySlotsAvailable\s+(?:\.endif\s+)?ret nz.*?PART_SPIKED_BALL.*?ld e,\$01.*?getFreePartSlot.*?cp \$04'
 )) { if ($ballSoldierSource -notmatch "(?s)$pattern") { throw "Ball & Chain Soldier `$4b source contract changed: $pattern" } }
 foreach ($pattern in @(
     'spikedBall_head_state1:.*?inc a\s+and \$1f',
