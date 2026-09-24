@@ -65,6 +65,32 @@ public sealed partial class ValidationRoot
                 schema),
             "header is",
             "expected");
+        var boundarySchema = new GeneratedTableSchema(
+            "line boundaries", GeneratedTableKeySemantics.Unique,
+            ["key", "value", "empty"], ["key"], headerRequired: true);
+        const string boundarySource =
+            "\r\n\u2003\r\n# key\tvalue\tempty\r\n" +
+            "a\t embedded\rcarriage return \t\r\r\n" +
+            "# ignored\n\tb\t";
+        foreach (string ending in new[] { "", "\n", "\r\n" })
+        {
+            GeneratedTable boundaries = GeneratedTable.ParseForValidation(
+                path, boundarySource + ending, boundarySchema);
+            FailIf(boundaries.Rows.Count != 2 ||
+                boundaries.Rows[0].LineNumber != 4 || boundaries.Rows[1].LineNumber != 6 ||
+                boundaries.Rows[0].String(1) != " embedded\rcarriage return " ||
+                boundaries.Rows[0].String(2) != "" || boundaries.Rows[1].String(0) != "" ||
+                boundaries.Rows[1].String(1) != "b" || boundaries.Rows[1].String(2) != "",
+                "TSV scanning changed whitespace, embedded CR, empty cells, or final-line handling.");
+        }
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path, boundarySource + "\n\n\ta\t", boundarySchema),
+            $"{path}:8:", "duplicate unique key", "first declared at line 6");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path, "# key\tvalue\tempty\n\nonly-one", boundarySchema),
+            $"{path}:3:", "expected 3 columns", "got 1");
         ExpectGeneratedTableFailure(
             () => GeneratedTable.ParseForValidation(
                 path,

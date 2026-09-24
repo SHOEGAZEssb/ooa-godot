@@ -111,9 +111,13 @@ internal static class OracleGraphicsCache
 
         int cellCount = bytes.Length / 32;
         int cellRows = (cellCount + cellsPerRow - 1) / cellsPerRow;
-        Image image = Image.CreateEmpty(
-            cellsPerRow * 8, cellRows * 16, false, Image.Format.Rgba8);
-        image.Fill(Colors.Black);
+        int width = cellsPerRow * 8;
+        int height = cellRows * 16;
+        // Decode in managed memory and upload once, avoiding a native call for
+        // every pixel. Unused cells in the final row remain opaque black.
+        byte[] pixels = new byte[width * height * 4];
+        for (int offset = 3; offset < pixels.Length; offset += 4)
+            pixels[offset] = 255;
         for (int cell = 0; cell < cellCount; cell++)
         for (int tileY = 0; tileY < 2; tileY++)
         for (int y = 0; y < 8; y++)
@@ -125,14 +129,16 @@ internal static class OracleGraphicsCache
             {
                 int bit = 7 - x;
                 int shade = ((low >> bit) & 1) | (((high >> bit) & 1) << 1);
-                float value = shade / 3.0f;
-                image.SetPixel(
-                    cell % cellsPerRow * 8 + x,
-                    cell / cellsPerRow * 16 + tileY * 8 + y,
-                    new Color(value, value, value));
+                byte value = (byte)(shade * 85);
+                int pixelOffset = ((cell / cellsPerRow * 16 + tileY * 8 + y) * width +
+                    cell % cellsPerRow * 8 + x) * 4;
+                pixels[pixelOffset] = value;
+                pixels[pixelOffset + 1] = value;
+                pixels[pixelOffset + 2] = value;
             }
         }
 
+        Image image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, pixels);
         SourceImages.Add(cacheKey, image);
         ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
         Observe(OracleGraphicsCacheOperation.SourceLoad, path);

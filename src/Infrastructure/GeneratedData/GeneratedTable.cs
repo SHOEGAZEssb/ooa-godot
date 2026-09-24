@@ -74,16 +74,19 @@ internal sealed class GeneratedTable
         var rows = new List<GeneratedTableRow>();
         var uniqueKeys = new Dictionary<string, int>(StringComparer.Ordinal);
         bool matchingHeaderFound = false;
-        string[] lines = source.Split('\n');
-        for (int index = 0; index < lines.Length; index++)
+        ReadOnlySpan<char> remaining = source.AsSpan();
+        int lineNumber = 0;
+        while (!remaining.IsEmpty)
         {
-            int lineNumber = index + 1;
-            string line = lines[index].TrimEnd('\r');
-            if (string.IsNullOrWhiteSpace(line))
+            lineNumber++;
+            int newline = remaining.IndexOf('\n');
+            ReadOnlySpan<char> line = (newline < 0 ? remaining : remaining[..newline]).TrimEnd('\r');
+            remaining = newline < 0 ? default : remaining[(newline + 1)..];
+            if (line.IsWhiteSpace())
                 continue;
-            if (line.StartsWith('#'))
+            if (line[0] == '#')
             {
-                string candidate = line[1..].TrimStart().Replace("`t", "\t");
+                string candidate = line[1..].TrimStart().ToString().Replace("`t", "\t");
                 if (candidate.Contains('\t'))
                 {
                     string[] header = candidate.Split('\t');
@@ -103,15 +106,24 @@ internal sealed class GeneratedTable
                 continue;
             }
 
-            string[] columns = line.Split('\t');
-            if (columns.Length != schema.Columns.Count)
+            int columnCount = line.Count('\t') + 1;
+            if (columnCount != schema.Columns.Count)
             {
                 throw new InvalidOperationException(
                     $"{path}:{lineNumber}: schema '{schema.Name}' expected " +
                     $"{schema.Columns.Count} columns [{string.Join(", ", schema.Columns)}], " +
-                    $"got {columns.Length}.");
+                    $"got {columnCount}.");
             }
 
+            // Materialize only retained fields, not another copy of every row.
+            string[] columns = new string[columnCount];
+            for (int column = 0; column < columnCount - 1; column++)
+            {
+                int tab = line.IndexOf('\t');
+                columns[column] = line[..tab].ToString();
+                line = line[(tab + 1)..];
+            }
+            columns[^1] = line.ToString();
             var row = new GeneratedTableRow(path, lineNumber, schema, columns);
             if (schema.KeySemantics == GeneratedTableKeySemantics.Unique)
             {

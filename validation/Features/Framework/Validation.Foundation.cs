@@ -1104,6 +1104,43 @@ public sealed partial class ValidationRoot
 
         ValidationGraphicsCacheAudit cacheAudit =
             ValidationGraphicsCacheAudit.Attach();
+        // Clean-ROM $068000-$06a2df contains 279 consecutive 8x16 cells.
+        // Keep the old native pixel compositor as an independent byte-for-byte
+        // reference, including RGBA8 conversion and opaque final-row padding.
+        const string linkPath = "res://assets/oracle/gfx/spr_link.2bpp";
+        byte[] linkBytes = Godot.FileAccess.GetFileAsBytes(linkPath);
+        FailIf(linkBytes.Length != 0x22e0, "Clean-ROM Link graphics extent changed.");
+        foreach (int cellsPerRow in new[] { 16, 17, 31 })
+        {
+            int width = cellsPerRow * 8;
+            int height = ((279 + cellsPerRow - 1) / cellsPerRow) * 16;
+            using Image reference = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
+            reference.Fill(Colors.Black);
+            for (int offset = 0; offset < linkBytes.Length; offset += 2)
+            {
+                int cell = offset / 32;
+                int y = cell / cellsPerRow * 16 + offset % 32 / 2;
+                for (int x = 0; x < 8; x++)
+                {
+                    int mask = 0x80 >> x;
+                    int shade = ((linkBytes[offset] & mask) != 0 ? 1 : 0) +
+                        ((linkBytes[offset + 1] & mask) != 0 ? 2 : 0);
+                    float value = shade / 3.0f;
+                    reference.SetPixel(cell % cellsPerRow * 8 + x, y,
+                        new Color(value, value, value));
+                }
+            }
+            Image decoded = OracleGraphicsCache.LoadTwoBitSpriteSheet(linkPath, 0x22e0, cellsPerRow);
+            FailIf(decoded.GetWidth() != width || decoded.GetHeight() != height ||
+                decoded.GetFormat() != Image.Format.Rgba8 ||
+                !decoded.GetData().AsSpan().SequenceEqual(reference.GetData()),
+                $"Link $068000 2bpp decode or opaque padding changed at {cellsPerRow} cells per row.");
+            int sourceLoads = cacheAudit.Count(OracleGraphicsCacheOperation.SourceLoad);
+            FailIf(!ReferenceEquals(decoded,
+                    OracleGraphicsCache.LoadTwoBitSpriteSheet(linkPath, 0x22e0, cellsPerRow)) ||
+                cacheAudit.Count(OracleGraphicsCacheOperation.SourceLoad) != sourceLoads,
+                "Repeated 2bpp loading rebuilt the source image.");
+        }
         string[] pngPaths = EnumeratePngPaths("res://assets/oracle")
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();

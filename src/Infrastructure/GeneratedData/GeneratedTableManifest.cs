@@ -220,10 +220,13 @@ internal static class GeneratedTableManifest
             throw new InvalidOperationException($"{path}: not valid UTF-8.", exception);
         }
         int count = 0;
-        foreach (string raw in source.Split('\n'))
+        ReadOnlySpan<char> remaining = source.AsSpan();
+        while (!remaining.IsEmpty)
         {
-            string line = raw.TrimEnd('\r');
-            if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith('#'))
+            int newline = remaining.IndexOf('\n');
+            ReadOnlySpan<char> line = (newline < 0 ? remaining : remaining[..newline]).TrimEnd('\r');
+            remaining = newline < 0 ? default : remaining[(newline + 1)..];
+            if (!line.IsWhiteSpace() && line[0] != '#')
                 count++;
         }
         return count;
