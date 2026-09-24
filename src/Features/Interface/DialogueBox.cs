@@ -163,8 +163,8 @@ public partial class DialogueBox : Node2D
 
     public override void _Ready()
     {
-        _fontTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font.png");
-        _symbolTexture = BuildFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
+        _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
         _tradeItemSource = LoadSourceImage(
             "res://assets/oracle/gfx/gfx_font_tradeitems.png");
         _continueMarkerTexture = BuildContinueMarkerTexture();
@@ -1447,22 +1447,6 @@ public partial class DialogueBox : Node2D
             return int.TryParse(value[2..], System.Globalization.NumberStyles.HexNumber,
                 null, out result);
         return int.TryParse(value, out result);
-    }
-
-    private static Texture2D BuildFontTexture(string path)
-    {
-        Image source = LoadSourceImage(path);
-        Image output = Image.CreateEmpty(
-            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
-        {
-            Color pixel = source.GetPixel(x, y);
-            output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
-        }
-
-        return ImageTexture.CreateFromImage(output);
     }
 
     private bool ContainsTradeItemGlyph()

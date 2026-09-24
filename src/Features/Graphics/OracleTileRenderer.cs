@@ -55,20 +55,26 @@ internal static class OracleTileRenderer
         return true;
     }
 
-    public static Texture2D BuildMonochromeFontTexture(string path)
+    public static Texture2D BuildMonochromeFontTexture(string path) =>
+        OracleGraphicsCache.LoadMonochromeFont(path);
+
+    internal static Texture2D BuildMonochromeFontTexture(Image source)
     {
-        Image source = OracleGraphicsCache.LoadImage(path);
-        Image output = Image.CreateEmpty(
-            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
+        if (source.GetFormat() != Image.Format.Rgba8)
+            throw new ArgumentException("Monochrome fonts require an RGBA8 source image.", nameof(source));
+        // GetData returns a copy: preserve the shared source and upload once.
+        byte[] pixels = source.GetData();
+        for (int offset = 0; offset < pixels.Length; offset += 4)
         {
-            output.SetPixel(
-                x, y,
-                source.GetPixel(x, y).R > 0.5f
-                    ? Colors.White
-                    : Colors.Transparent);
+            byte value = pixels[offset] > 127 ? (byte)255 : (byte)0;
+            // Colors.Transparent retains white RGB beneath alpha zero.
+            pixels[offset] = 255;
+            pixels[offset + 1] = 255;
+            pixels[offset + 2] = 255;
+            pixels[offset + 3] = value;
         }
+        using Image output = Image.CreateFromData(
+            source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8, pixels);
         return ImageTexture.CreateFromImage(output);
     }
 

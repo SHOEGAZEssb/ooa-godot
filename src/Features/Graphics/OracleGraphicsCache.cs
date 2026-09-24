@@ -14,6 +14,8 @@ internal static class OracleGraphicsCache
 
     private static readonly Dictionary<string, Image> SourceImages =
         new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, Texture2D> MonochromeFonts =
+        new(StringComparer.Ordinal);
     private static readonly Dictionary<CompositeKey, Image> CompositeImages = new();
     private static readonly Dictionary<ulong, ulong> ImageHashes = new();
     private static readonly Dictionary<string, AnimationDefinition> AnimationDefinitions =
@@ -75,6 +77,17 @@ internal static class OracleGraphicsCache
         ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
         Observe(OracleGraphicsCacheOperation.SourceLoad, path);
         return image;
+    }
+
+    internal static Texture2D LoadMonochromeFont(string path)
+    {
+        if (MonochromeFonts.TryGetValue(path, out Texture2D? cached))
+            return cached;
+
+        Image source = LoadImage(path);
+        Texture2D texture = OracleTileRenderer.BuildMonochromeFontTexture(source);
+        MonochromeFonts.Add(path, texture);
+        return texture;
     }
 
     /// <summary>
@@ -368,6 +381,7 @@ internal static class OracleGraphicsCache
 
     internal static void Shutdown()
     {
+        MonochromeFonts.Clear();
         OamCells.Clear();
         OamFrames.Clear();
         AnimationDefinitions.Clear();

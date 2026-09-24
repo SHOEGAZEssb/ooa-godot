@@ -6,8 +6,10 @@ Graphics facts come from the ROM/disassembly through generated assets. Runtime
 code loads them through the shared graphics data and cache layers; it does not
 decode a private copy for each actor or reconstruct source tables in C#.
 
-`OracleGraphicsCache` owns immutable source images, composites, OAM frames, and
-OAM cells. Every pixel-affecting input belongs in the cache key: source bytes,
+`OracleGraphicsCache` owns immutable source images, monochrome font textures,
+composites, OAM frames, and OAM cells. Monochrome fonts are shared by dialogue
+and menus; conversion must preserve the cached source image. Every
+pixel-affecting input belongs in the cache key: source bytes,
 tile base, OAM, palette, overrides, grayscale interpretation, and composition
 mode. Treat cached images as read-only. Clear retained Godot resources during
 root shutdown.
