@@ -6,7 +6,7 @@ namespace oracleofages;
 
 internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordEnemyCharacter>,
     IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity,
-    IItemCollisionHittableRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, ISomariaBlockCollisionRoomEntity
+    IItemCollisionHittableRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
     private readonly Func<bool> _freePartSlot;
     private readonly Func<byte> _random;

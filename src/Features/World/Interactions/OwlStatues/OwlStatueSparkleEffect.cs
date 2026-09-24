@@ -13,6 +13,7 @@ internal sealed partial class OwlStatueSparkleEffect : FixedEffectNode2D
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
+    internal int AnimationParameter => _initialized ? _animation.CurrentParameter : 0;
 
     internal void Initialize(
         Vector2 position,
@@ -44,7 +45,7 @@ internal sealed partial class OwlStatueSparkleEffect : FixedEffectNode2D
             QueueRedraw();
             return;
         }
-        if ((_animation.CurrentParameter & 0x80) != 0)
+        if (_animation.CurrentParameter == 0xff)
         {
             Finished = true;
             Visible = false;

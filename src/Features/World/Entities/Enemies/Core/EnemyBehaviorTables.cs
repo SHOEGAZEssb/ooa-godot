@@ -96,6 +96,10 @@ internal sealed class EnemyBehaviorTables
     internal MoblinBoomerangBehaviorProfile MoblinBoomerang { get; }
     internal PumpkinProjectileBehaviorProfile PumpkinProjectile { get; }
     internal SparkBehaviorProfile Spark { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SparkCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SparkActiveCollisions { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> WhispCollisionEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> WhispActiveCollisions { get; }
     internal WhispBehaviorProfile Whisp { get; }
     internal ThwompBehaviorProfile Thwomp { get; }
     internal CheepCheepBehaviorProfile CheepCheep { get; }
@@ -333,7 +337,7 @@ internal sealed class EnemyBehaviorTables
             values[7].Value,
             values);
 
-        values = TakeValues(groups, "zol", "state-profile", 14);
+        values = TakeValues(groups, "zol", "state-profile", 15);
         Zol = new(
             values[0].Value,
             values[1].Value,
@@ -349,6 +353,7 @@ internal sealed class EnemyBehaviorTables
             values[11].Value,
             values[12].Value,
             values[13].Value,
+            values[14].Value,
             values);
 
         values = TakeValues(groups, "octorok", "state-profile", 2);
@@ -573,9 +578,13 @@ internal sealed class EnemyBehaviorTables
 
         values = TakeValues(groups, "spark", "state-profile", 1);
         Spark = new(values[0].Value, values);
+        SparkCollisionEffects = TakeValues(groups, "spark", "collision-effects", 32);
+        SparkActiveCollisions = TakeValues(groups, "spark", "active-collisions", 32);
 
         values = TakeValues(groups, "whisp", "state-profile", 1);
         Whisp = new(values[0].Value, values);
+        WhispCollisionEffects = TakeValues(groups, "whisp", "collision-effects", 32);
+        WhispActiveCollisions = TakeValues(groups, "whisp", "active-collisions", 32);
 
         values = TakeValues(groups, "cheep-cheep", "state-profile", 2);
         CheepCheep = new(values[0].Value, values[1].Value, values);
@@ -704,12 +713,13 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "smasher", "wander-angles", 4),
             TakeValues(groups, "smasher", "parent-collision-effects", 32),
             TakeValues(groups, "smasher", "ball-collision-effects", 32),
-            TakeValues(groups, "smasher", "active-collisions", 32));
+            TakeValues(groups, "smasher", "active-collisions", 32),
+            TakeValues(groups, "smasher", "unlinked-object", 6));
 
-        if (table.Rows.Count != 1835 || groups.Count != 0)
+        if (table.Rows.Count != 1970 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 1835 rows and no " +
+                $"Enemy behavior table contract expected 1970 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }
@@ -901,6 +911,7 @@ internal readonly record struct ZolBehaviorProfile(
     int RedHopSpeedRaw,
     int RedWaitFrames,
     int SplitDelayFrames,
+    int RedInitialSpeedRaw,
     IReadOnlyList<EnemyBehaviorValue> Sources);
 
 internal readonly record struct OctorokBehaviorProfile(

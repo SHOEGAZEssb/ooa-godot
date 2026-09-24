@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 20, 2026. It is an implementation inventory, not a
+interactions as of September 23, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -48,6 +48,10 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 ## Snapshot
 
 ### Positioned and state-derived rows
+
+September 23, 2026: counts remain 197 implemented, 49 partial, and 139
+deliberately unsupported. Ralph's post-Cheval puff allocation now uses the
+shared native interaction pool and frame counter; its status remains **I**.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
@@ -183,7 +187,7 @@ well as record selection.
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
 | `1:77` | [P] `$45:$01/v$00` pastOldLady |
-| `1:79` | [I] `$37:$10/v$00` ralph |
+| `1:79` | [I] `$37:$10/v$00` ralph; native dust allocation and flicker covered by `ValidateRoom179RalphAfterCheval` (September 23, 2026) |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
 | `1:83` | [I] `$41:$00/v$00` miscMan |

@@ -33,9 +33,16 @@ public partial class ValidationRoot
                 _entities.TextActiveSource = () => true;
                 Step();
                 FailIf(shot.State != 1 || shot.Position != new Vector2(40 + subid,40), "Frozen PART$4a must initialize and execute state1 once.");
+                FailIf(_runtimeState.ReadWramByte(0xcec1) != 0 ||
+                    _runtimeState.ReadWramByte(0xcec2) != (subid == 0 ? 0xc0 : 0) ||
+                    _runtimeState.ReadWramByte(0xcec3) != subid,
+                    "PART$4a initialization must publish its actual SPEED_c0/100 vector before post-object warp processing.");
                 Vector2 position = shot.Position;
+                for (int offset = 1; offset < 4; offset++) _runtimeState.SetWramByte(0xcec0 + offset, 0xa5);
                 Step(3);
                 FailIf(shot.Position != position, "Initialized PART$4a must freeze during dialogue.");
+                FailIf(Enumerable.Range(1, 3).Any(offset => _runtimeState.ReadWramByte(0xcec0 + offset) != 0xa5),
+                    "A frozen initialized Smog projectile must not republish velocity scratch.");
             }
             finally { _entities.TextActiveSource = text; }
             Step(4);
@@ -45,6 +52,13 @@ public partial class ValidationRoot
                 FailIf(adapter.ApplySwordHit(shot.CollisionBounds, Vector2.Zero, 1, default, []), "PART$4a source mask excludes spins and pokes.");
             }
             adapter.SetLinkSwordState(SwordActionState.Swing, 1);
+            foreach (int invincibility in new[] { -1, 1 })
+            {
+                shot.InvincibilityCounter = invincibility;
+                FailIf(adapter.ApplySwordHit(shot.CollisionBounds, Vector2.Zero, 1, default, []),
+                    "Either sign of projectile invincibility must reject item collisions.");
+            }
+            shot.InvincibilityCounter = 0;
             FailIf(!adapter.ApplySwordHit(shot.CollisionBounds, Vector2.Zero, 1, default, []), "Ordinary sword overlap must end PART$4a's collision scan.");
             FailIf(shot.InvincibilityCounter != (subid == 0 ? -28 : 0) || shot.ContactFlags != (subid == 0 ? 0x84 : 0) ||
                 adapter.MeleeReportsContact != (subid == 0), "Small sword contact uses ENEMYDMG_34; large contact is a no-op.");
@@ -62,17 +76,31 @@ public partial class ValidationRoot
             FailIf(shot.Finished, "Small destruction remains alive through update11; large sword overlap leaves it moving.");
             Step();
             FailIf(shot.Finished != (subid == 0), "Small destruction completes on update12 only.");
-            LoadValidationRoom(0, 0x60); _entities.Clear(); _player.WarpTo(new(72,72));
-            _currentRoom.SetPositionTileAndCollision(new(72,72), 0x0c, 0, 0);
-            int health = _player.HealthQuarters;
-            shot = _entities.Spawn<SmogProjectilePart>(new SmogProjectileSpawn(new(72,72), subid));
-            Step();
-            FailIf(_player.HealthQuarters != health - 1 || shot.ContactFlags != 0x80 || shot.State != 1 ||
-                _player.InvincibilityFrames != 34,
-                "PART$4a effect02 must damage Link by one quarter-heart and defer small destruction until the next native update.");
-            Step();
-            FailIf(shot.State != (subid == 0 ? 2 : 1) || shot.PendingCollision,
-                "Small projectile consumes Link contact next update; large projectile ignores it and clears the pending bit.");
+            foreach (int invincibility in new[] { 0, -3, 3 })
+            {
+                LoadValidationRoom(0, 0x60); _entities.Clear(); _player.WarpTo(new(72,72));
+                _currentRoom.SetPositionTileAndCollision(new(72,72), 0x0c, 0, 0);
+                int health = _player.HealthQuarters;
+                shot = _entities.Spawn<SmogProjectilePart>(new SmogProjectileSpawn(new(72,72), subid));
+                shot.InvincibilityCounter = invincibility;
+                Step();
+                if (invincibility != 0)
+                {
+                    FailIf(_player.HealthQuarters != health || shot.ContactFlags != 0 || shot.State != 1 ||
+                        _player.InvincibilityFrames != 0,
+                        "PART$4a nonzero signed invincibility must skip Link contact at the outer PART dispatcher.");
+                    Step();
+                    FailIf(_player.HealthQuarters != health || shot.PendingCollision || shot.State != 1,
+                        "PART$4a must remain harmless while its invincibility counter is nonzero.");
+                    continue;
+                }
+                FailIf(_player.HealthQuarters != health - 1 || shot.ContactFlags != 0x80 || shot.State != 1 ||
+                    _player.InvincibilityFrames != 34,
+                    "PART$4a effect02 must damage Link by one quarter-heart and defer small destruction until the next native update.");
+                Step();
+                FailIf(shot.State != (subid == 0 ? 2 : 1) || shot.PendingCollision,
+                    "Small projectile consumes Link contact next update; large projectile ignores it and clears the pending bit.");
+            }
         }
         LoadValidationRoom(0, 0x60); _entities.Clear();
         for (int slot = 0; slot < 16; slot++)

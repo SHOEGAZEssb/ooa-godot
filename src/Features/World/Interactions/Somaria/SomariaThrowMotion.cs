@@ -5,7 +5,7 @@ namespace oracleofages;
 
 // ITEM18 uses the bomb lateral helper and common vertical/hazard helper,
 // but deletes on its first ground contact rather than using bomb bouncing.
-internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDatabase hazards)
+internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDatabase hazards, OracleRuntimeState? memory = null)
 {
     private readonly BraceletWeight _weight = new BraceletWeightDatabase().Weight(0);
     private readonly BombRecord _common = new BombDatabase().Data;
@@ -33,14 +33,17 @@ internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDa
     internal void AdvanceLateral()
     {
         if ((_flags & 1) != 0) Speed = 0;
+        if (Angle == 0xff) return;
         if (Angle != 0xff)
         {
             Vector2I offset = _common.EdgeOffsets[(Angle & 0x18) >> 3];
             Vector2 probe = new((byte)((int)Position.X+offset.X), (byte)((int)Position.Y+offset.Y));
             if (probe.Y < 0xb0 && room.IsSolid(probe) && !_passage.CanPass(room, probe, Angle)) Angle = 0xff;
         }
-        if (Angle != 0xff && (!Sideview || (Angle & 15) != 0))
-            OracleObjectMovement.Shared.ApplySpeed(ref _position, Speed, Angle);
+        // A newly blocked angle $ff falls through and clears velocity;
+        // an angle already $ff returned above before the collision probe.
+        if (!Sideview || (Angle & 15) != 0)
+            NativeObjectMovement.ApplySpeed(memory, ref _position, Speed, Angle);
     }
 
     // Returns true on contact with solid ground. A destructive hazard sets

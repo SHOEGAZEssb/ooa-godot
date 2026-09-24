@@ -90,11 +90,14 @@ public sealed partial class ValidationRoot
             _pushBlocks.UpdatePushAttempt(
                 linkRight, Vector2I.Left, Vector2.Left);
         }
+        FailIf(_pushBlocks.NativeInitialized || _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+            "Player-phase push allocation must not initialize or sound before interaction dispatch.");
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
             "An accepted push did not request SND_MOVEBLOCK exactly once at movement start.");
-        for (int frame = 0; frame < PushBlockController.MoveFrames; frame++)
+        for (int frame = 1; frame < PushBlockController.MoveFrames; frame++)
         {
             _pushBlocks.Advance(1.0 / 60.0);
         }
@@ -143,9 +146,9 @@ public sealed partial class ValidationRoot
 
         _pushBlocks.UpdatePushAttempt(linkLeft, Vector2I.Right, Vector2.Right);
         FailIf(
-            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames ||
+            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames - 1 ||
             _pushBlocks.Active,
-            "Block $1c started moving right even though destination tile $19 is solid.");
+            "Block $1c must count contact before checking its solid destination on update20.");
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames - 1; frame++)
         {
@@ -167,13 +170,16 @@ public sealed partial class ValidationRoot
             _pushBlocks.UpdatePushAttempt(
                 linkBelow, Vector2I.Up, Vector2.Up);
         }
+        FailIf(!_pushBlocks.Active || _pushBlocks.NativeInitialized || room.GetMetatile(blockCenter) != 0x1c,
+            "Reserved block allocation must retain its source tile until interaction dispatch.");
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
             !_collision.Collides(blockCenter + new Vector2(0, -2)) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 2,
             "Block $1c did not become a Link-blocking object over source floor $a0.");
 
-        for (int frame = 0; frame < PushBlockController.MoveFrames - 1; frame++)
+        for (int frame = 1; frame < PushBlockController.MoveFrames - 1; frame++)
         {
             _pushBlocks.Advance(1.0 / 60.0);
         }
@@ -223,6 +229,9 @@ public sealed partial class ValidationRoot
             _pushBlocks.UpdatePushAttempt(
                 gravePushPosition, Vector2I.Up, Vector2.Up);
         }
+        FailIf(!_pushBlocks.LinkMovementDisabled || room.GetMetatile(graveCenter) != 0xd9,
+            "Grave allocation must lock Link immediately while retaining its tile until state0.");
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
             !_playerWorld.MovementDisabled ||
@@ -234,7 +243,7 @@ public sealed partial class ValidationRoot
             "Room 0:7c's upward $d9 push did not reveal staircase $dc " +
             "while locking Link and suppressing its same-update warp.");
 
-        for (int frame = 0; frame < PushBlockController.MoveFrames - 1; frame++)
+        for (int frame = 1; frame < PushBlockController.MoveFrames - 1; frame++)
             _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
@@ -458,13 +467,13 @@ public sealed partial class ValidationRoot
         _keyDoors.UpdatePushAttempt(
             linkRightOfDoor, Vector2I.Left, Vector2.Left);
         FailIf(
-            !_keyDoors.Opening || _keyDoors.OpeningCounter != 6 ||
+            !_keyDoors.Opening || _keyDoors.OpeningCounter != 0 ||
             _inventory.GetDungeonSmallKeys(dungeon) != keysBeforeOpen - 1 ||
-            room.GetMetatile(doorCenter) != 0xa0 || !room.IsSolid(doorCenter) ||
+            room.GetMetatile(doorCenter) != 0x73 || !room.IsSolid(doorCenter) ||
             !_saveData.HasRoomFlag(group, roomId, roomDoorFlag) ||
             !_saveData.HasRoomFlag(group, neighborRoomId, neighborDoorFlag) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 0 ||
             _entities.Entities<DungeonKeyUseEffect>() is not
                 [{ Phase: 0, Counter: 8, Z: -4 }],
             "Room 4:0a did not consume one dungeon key, set both directional flags, " +
@@ -483,6 +492,16 @@ public sealed partial class ValidationRoot
             "The dungeon HUD did not draw gfx_key/X/key count together with the rupee digits.");
 
         DungeonKeyUseEffect keyEffect = _entities.Entities<DungeonKeyUseEffect>()[0];
+        _keyDoors.Advance(update);
+        FailIf(room.GetMetatile(doorCenter) != 0x73 || _keyDoors.OpeningCounter != 0,
+            "Reserved door state0 must yield after incstate, before interleaving.");
+        _keyDoors.Advance(update);
+        FailIf(room.GetMetatile(doorCenter) != 0xa0 || _keyDoors.OpeningCounter != 6,
+            "Reserved door state2 must start its six-update animation on the second dispatch.");
+        keyEffect.UpdateFrame();
+        FailIf(!keyEffect.Visible || keyEffect.Counter != 8 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            "Key sprite state0 must show/play sound without decrementing counter8.");
         for (int frame = 0; frame < 7; frame++)
             keyEffect.UpdateFrame();
         FailIf(
@@ -633,7 +652,7 @@ public sealed partial class ValidationRoot
                 blockEntities.Entities<PuzzlePuffEffect>() is not
                     [{ ElapsedUpdates: 0 }] ||
                 blockSounds.Count(sound =>
-                    sound == OracleSoundEngine.SndGetSeed) != 1 ||
+                    sound == OracleSoundEngine.SndGetSeed) != 0 ||
                 blockSounds.Count(sound =>
                     sound == OracleSoundEngine.SndOpenChest) != 1 ||
                 blockSounds.Contains(OracleSoundEngine.SndPoof),
@@ -723,9 +742,9 @@ public sealed partial class ValidationRoot
             !bossSave.HasRoomFlag(4, 0x13, 0x08) ||
             bossEntities.Entities<DungeonKeyUseEffect>() is not
                 [{ Graphic: 0x43, Phase: 0, Counter: 8, Z: -4 }] ||
-            bossSounds.Count(sound => sound == OracleSoundEngine.SndGetSeed) != 1,
+            bossSounds.Count(sound => sound == OracleSoundEngine.SndGetSeed) != 0,
             "Room 4:12 did not retain the D1 Boss Key, set both door flags, and create its graphic-$43 key effect.");
-        for (int frame = 0; frame < bossRight.DoorFrameWait; frame++)
+        for (int frame = 0; frame < 2 + bossRight.DoorFrameWait; frame++)
             bossController.Advance(update);
         FailIf(
             bossController.Opening ||
@@ -841,12 +860,18 @@ public sealed partial class ValidationRoot
         {
             FailIf(
                 eyes[index].Position != initialEyePositions[index] ||
-                !eyes[index].Visible || !eyes[index].Initialized ||
+                eyes[index].Visible != (index != 0) || eyes[index].Initialized != (index != 0) ||
+                manager.InteractionSlot(eyes[index]) != (index == 0 ? 2 : index + 4) ||
                 eyes[index].Direction != 4 || eyes[index].AnimationIndex != 4 ||
                 eyes[index].PixelHash == 0,
                 $"Statue eye {index} did not preserve descending spawn order, " +
-                "setup-only first update, default direction, or imported OAM.");
+                "native slot initialization timing, default direction, or imported OAM.");
         }
+        // Entry slot $d2 was freed before scanner $d3 ran. Its first child
+        // reuses $d2 and waits; later children in $d5-$d9 run immediately.
+        manager.Update(update, _player);
+        FailIf(!eyes[0].Visible || !eyes[0].Initialized || eyes[0].Position != initialEyePositions[0],
+            "The lower-slot statue eye must initialize on the next pass without starting its aiming update.");
         ulong fixedEyePixelHash = eyes[0].PixelHash;
         Vector2 firstEyeTileCenter = new(0x98, 0x78);
         for (int direction = 0; direction < 8; direction++)
@@ -1013,7 +1038,7 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 233 || switchRecordCount != 7 ||
+            database.RecordCount != 234 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -1229,6 +1254,7 @@ public sealed partial class ValidationRoot
         Vector2 linkBelow = block + Vector2.Down * 10.0f;
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _pushBlocks.UpdatePushAttempt(linkBelow, Vector2I.Up, Vector2.Up);
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active || room.GetMetatile(block) != 0xa0,
             "Room 4:0c's up-only trigger block did not start its common push movement.");
@@ -1244,10 +1270,14 @@ public sealed partial class ValidationRoot
             "Room 4:0c released its synthetic enemy before the 30-update trigger delay.");
         Step();
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
             _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
             room.GetMetatile(door) != 0x78,
-            "Room 4:0c did not clear wNumEnemies and request SND_SOLVEPUZZLE on update 30.");
+            "Room 4:0c must clear wNumEnemies on update30 before the shutter's separate sound command.");
+        Step();
+        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            "The shutter must play its solve sound one update after checknoenemies succeeds.");
+        Step(); // The wait8 command yields after loading counter1.
 
         for (int frame = 0; frame < database.SolveWait - 1; frame++)
             Step();
@@ -1331,6 +1361,8 @@ public sealed partial class ValidationRoot
         Step();
         Step();
         _player.WarpTo(new Vector2(0x17, 0x58), recordSafe: false);
+        Step(); // Enemy branch and callscript each yield before contact.
+        Step();
         Step();
         FailIf(
             scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
@@ -1339,12 +1371,15 @@ public sealed partial class ValidationRoot
             "Room 4:0b closed its left shutter while Link still overlapped the strict 16-pixel boundary.");
         _player.WarpTo(new Vector2(0x18, 0x58), recordSafe: false);
         Step();
+        Step(); // Successful contact check yields before the respawn helper.
         FailIf(
             scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
             scrollingRoom40b.IsSolid(scrollingLeftDoor) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0 ||
             _player.LocalRespawnPosition != new Vector2(0x18, 0x58),
             "Room 4:0b did not move Link's local respawn inward while deferring the close animation.");
+        Step(); // jumpifnoenemies
+        Step(); // setstate3
         Step();
         FailIf(
             scrollingRoom40b.GetMetatile(scrollingLeftDoor) != 0xa0 ||
@@ -1417,8 +1452,12 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             _entities.RoomEnemyCount != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
             "Room 4:0b's two shutters must observe the final PART_ENEMY_DESTROYED count release in the same update's later interaction pass.");
+        Step();
+        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
+            "Room4:0b must play both solve commands after the count-check update.");
+        Step(); // Load wait8.
         for (int frame = 0; frame < database.SolveWait; frame++)
             Step();
         Step();
@@ -1455,12 +1494,15 @@ public sealed partial class ValidationRoot
         FailIf(
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
             "Room 4:0b replayed SND_SOLVEPUZZLE for a zero-count re-entry.");
+        Step(); // setangle
+        Step(); // jumpifnoenemies
+        Step(); // setstate2
         Step();
         FailIf(
             !room.IsSolid(new Vector2(0x78, 0x08)) ||
             !room.IsSolid(new Vector2(0x08, 0x58)) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2,
-            "Room 4:0b did not begin its immediate re-entry door animation on update 2.");
+            "Room 4:0b did not begin its re-entry door animation on update5.");
         for (int frame = 0; frame < database.DoorFrameWait; frame++)
             Step();
         FailIf(
@@ -1499,6 +1541,9 @@ public sealed partial class ValidationRoot
             "Room 5:93 did not load six count-exempt Keese and right shutter $1e:$09.");
         Step();
         Step();
+        Step();
+        Step();
+        Step();
         FailIf(
             room.GetMetatile(countExemptDoor) != 0xa0 ||
             !room.IsSolid(countExemptDoor) ||
@@ -1508,7 +1553,7 @@ public sealed partial class ValidationRoot
         // Room 4:06 combines two ordinary Stalfos with a $13:$01 push trigger.
         // Entering upward through its down shutter preloads only the crossed
         // door as floor, freezes all destination objects during the scroll,
-        // and closes after Link reaches the strict 16-pixel clear boundary.
+        // and closes after Link passes the inclusive negative16-pixel edge.
         _entities.ClearRecentEnemyDefeats();
         LoadValidationRoom(4, 0x09);
         _player.WarpTo(new Vector2(0x78, 0x08));
@@ -1556,19 +1601,24 @@ public sealed partial class ValidationRoot
             $"${scrollingRoom406.GetPackedPosition(_player.Position):x2} instead of $a7.");
         Step();
         Step();
-        _player.WarpTo(new Vector2(0x78, 0x99), recordSafe: false);
+        _player.WarpTo(new Vector2(0x78, 0x98), recordSafe: false);
+        Step();
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406DownDoor) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
             "Room 4:06 closed its down shutter before Link stepped fully inside.");
-        _player.WarpTo(new Vector2(0x78, 0x98), recordSafe: false);
+        _player.WarpTo(new Vector2(0x78, 0x97), recordSafe: false);
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406DownDoor) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0 ||
             _player.LocalRespawnPosition != new Vector2(0x78, 0x98),
-            "Room 4:06 did not accept Link at the strict 16-pixel clear boundary.");
+            "Room 4:06 did not accept Link beyond the inclusive negative16-pixel edge.");
+        Step();
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406DownDoor) ||
@@ -1670,6 +1720,7 @@ public sealed partial class ValidationRoot
         Vector2 linkBelowBlock = room406Block + Vector2.Down * 10.0f;
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _pushBlocks.UpdatePushAttempt(linkBelowBlock, Vector2I.Up, Vector2.Up);
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
@@ -1687,10 +1738,12 @@ public sealed partial class ValidationRoot
             _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
             "Room 4:06's source-ordered doors observed the push trigger before it finished update 30.");
+        Step(); // checknoenemies yields before playsound.
         Step();
         FailIf(
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
             "Room 4:06's two shutters did not observe the completed Stalfos/block enemy count.");
+        Step(); // wait8 loads its counter on a separate update.
         for (int frame = 0; frame < database.SolveWait; frame++)
             Step();
         Step();
@@ -1745,18 +1798,23 @@ public sealed partial class ValidationRoot
             $"${scrollingRoom406.GetPackedPosition(_player.Position):x2} instead of $8e.");
         Step();
         Step();
-        _player.WarpTo(new Vector2(0xd9, 0x88), recordSafe: false);
+        _player.WarpTo(new Vector2(0xd8, 0x88), recordSafe: false);
+        Step();
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406RightDoor) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
             "Room 4:06 closed its right shutter while Link still overlapped it.");
-        _player.WarpTo(new Vector2(0xd8, 0x88), recordSafe: false);
+        _player.WarpTo(new Vector2(0xd7, 0x88), recordSafe: false);
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406RightDoor) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
             "Room 4:06 did not defer its right-entry close by one update at the strict boundary.");
+        Step();
+        Step();
         Step();
         FailIf(
             scrollingRoom406.IsSolid(room406RightDoor) ||
@@ -1792,9 +1850,9 @@ public sealed partial class ValidationRoot
             "Room 4:13 did not bind both enemy shutters to Pumpkin Head.");
         // Room 4:09 is the canonical one-shot button: PART_BUTTON $09:$00 at
         // $14 sets trigger bit 0 after its state-0 initialization update. Both
-        // $1e:$04/$05 doors observe the bit in the same update, request
-        // the solve cue independently, and begin their six-update opening one
-        // update later. The released Link does not clear a one-shot trigger.
+        // $1e:$04/$05 doors reach their trigger check after setup/contact
+        // script yields, request separate solve cues, and then enter their
+        // six-update animation. Releasing Link keeps a one-shot trigger set.
         LoadValidationRoom(4, 0x09);
         room = _currentRoom;
         Vector2 oneShotButton = new(0x48, 0x18);
@@ -1821,17 +1879,19 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
             room.GetMetatile(oneShotButton) != 0x0d ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
             room.GetMetatile(triggerUpDoor) != 0x78 ||
             room.GetMetatile(triggerRightDoor) != 0x79,
             "Room 4:09's one-shot button must latch tile $0d/trigger bit 0 before the interaction pass.");
         _player.WarpTo(new Vector2(0x78, 0x78));
+        for (int frame = 0; frame < 5; frame++) Step(); // Script updates3..7.
         FailIf(
             _entities.ActiveTriggers != 0x01 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2 ||
             room.GetMetatile(triggerUpDoor) != 0x78 ||
             room.GetMetatile(triggerRightDoor) != 0x79,
-            "Room 4:09's two trigger doors did not request solve cues in the button's update.");
+            "Room 4:09's two trigger scripts must request solve cues on update7.");
+        Step(); // setstate2
         Step();
         FailIf(
             room.GetMetatile(triggerUpDoor) != 0xa0 ||
@@ -1874,6 +1934,7 @@ public sealed partial class ValidationRoot
                 [{ SubId: 0x80, TriggerBit: 0, Reusable: true, Pressed: true }] ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1,
             "Room 4:22's grounded Link did not press reusable bit-0 button $80.");
+        for (int frame = 0; frame < 4; frame++) Step(); // Remaining setup/solve script yields.
         Step();
         Step();
         for (int frame = 0; frame < database.DoorFrameWait; frame++)
@@ -1893,6 +1954,7 @@ public sealed partial class ValidationRoot
         FailIf(
             room.IsSolid(reusableDoor),
             "Room 4:22 closed its shutter in the update that observed trigger release.");
+        Step(); // setstate3 yields before interleave starts.
         Step();
         int healthBeforeDoorRespawn = _player.HealthQuarters;
         Vector2 expectedDoorRespawn = _player.LocalRespawnPosition;
@@ -1905,16 +1967,22 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(
             room.GetMetatile(reusableDoor) != 0x79 || !room.IsSolid(reusableDoor) ||
-            !_player.IsFloorDoorRespawning || _player.FloorDoorRespawnCounter != 2 ||
-            _player.Visible || _player.Position != expectedDoorRespawn ||
+            !_player.IsFloorDoorRespawning || _player.FloorDoorRespawnCounter != 0 ||
+            !_player.Visible || _player.Position != reusableDoor ||
             _player.HealthQuarters != healthBeforeDoorRespawn,
-            "Room 4:22 did not finish tile $79 and begin the parameter-2 local respawn when it closed on Link.");
+            "Room 4:22 must close tile $79 and request parameter-2 respawn without moving or hiding Link yet.");
+        _player._PhysicsProcess(update); // Consume state02 request.
+        FailIf(!_player.Visible || _player.Position != reusableDoor || _player.NativeNormalStateForInteraction,
+            "Consuming the shutter request must change state without initializing respawn.");
+        _player._PhysicsProcess(update); // Initialize state02.
+        FailIf(_player.Visible || _player.Position != expectedDoorRespawn || _player.FloorDoorRespawnCounter != 2,
+            "State02 initialization must copy the local anchor and start the two-update wait.");
         _player._PhysicsProcess(update);
         _player._PhysicsProcess(update);
         FailIf(
-            !_player.Visible || _player.HealthQuarters != healthBeforeDoorRespawn - 4,
-            "Floor-door respawn did not reappear after two updates with the original one-heart damage.");
-        _player.Heal(4);
+            !_player.Visible || _player.HealthQuarters != healthBeforeDoorRespawn - 2,
+            "Floor-door respawn must reappear after two wait updates with source raw $fc damage.");
+        _player.Heal(2);
         _player.WarpTo(new Vector2(0x78, 0x78));
 
         // An object above reusable button $80 starts the original $1c release
@@ -1992,16 +2060,19 @@ public sealed partial class ValidationRoot
             _entities.ActiveTriggers != 0x03 ||
             _entities.Entities<TriggerChestRoomEntity>() is not [{ Counter: 15 }] ||
             room.GetMetatile(bit0Chest.Position) != bit0ChestOriginal ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
+            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
             "Room 4:16's bit-0 predicate did not accept trigger state $03 " +
             $"while bit 1 remained set: triggers=${_entities.ActiveTriggers:x2}, " +
             $"controllers={_entities.Entities<TriggerChestRoomEntity>().Count}, " +
             $"counter={_entities.Entities<TriggerChestRoomEntity>().FirstOrDefault()?.Counter}, " +
             $"tile=${room.GetMetatile(bit0Chest.Position):x2}, " +
             $"solve={_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}.");
+        for (int frame = 0; frame < 4; frame++) Step();
+        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 2,
+            "Room4:16's shutter must add its solve sound on script update7, after the chest's immediate cue.");
         _entities.WorldToScreen = _transitions.WorldToGameplayScreen;
 
-        GD.Print("Validated all 233 imported enemy-clear-key/chest/switch/button/" +
+        GD.Print("Validated all 234 imported enemy-clear-key/chest/switch/button/" +
             "trigger-chest/$13:$01/$1e:$04-$0b " +
             "placements, seven switches, 49 buttons, seven delayed and six retractable trigger chests, " +
             "20 trigger-door records, room 4:08's exact-$01 solve/puff/15-update chest, " +
@@ -2249,6 +2320,7 @@ public sealed partial class ValidationRoot
             _playerWorld.UpdatePushableBlocks(
                 linkAboveMovingPot, Vector2I.Down, Vector2.Down);
         }
+        _pushBlocks.Advance(1.0 / 60.0);
         Texture2D? movingPotTexture = _pushBlocks.BlockTexture;
         FailIf(
             !_pushBlocks.Active ||
@@ -2619,6 +2691,7 @@ public sealed partial class ValidationRoot
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active ||
             _currentRoom.GetMetatile(blockCenter) != 0xa0 ||

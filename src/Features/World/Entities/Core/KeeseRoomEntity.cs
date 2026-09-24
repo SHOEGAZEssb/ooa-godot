@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class KeeseRoomEntity
-    : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
     public KeeseRoomEntity(
         KeeseCharacter keese,
@@ -26,6 +26,9 @@ internal sealed class KeeseRoomEntity
                 deathPuffPosition: () =>
                     keese.Position + Vector2.Down * keese.SpriteHeight))
     { }
+
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position, frame.Counter);

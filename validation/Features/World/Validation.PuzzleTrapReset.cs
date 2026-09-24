@@ -38,16 +38,52 @@ public partial class ValidationRoot
             Step();
             FailIf(initial.Counter != 255,"Initial zero counter must wrap to $ff on the next update.");
             // At $18 the second upward probe wraps to scratch byte $cef8.
-            // Known open floor still disproves a trap; otherwise fail explicitly.
+            // bank3.init clears this tail; placement/wizzrobe/secret writers
+            // stop below $cef0. Read the authoritative byte, not padding.
             foreach (int position in new[] { 0x08,0x19,0x1a,0x28,0x38,0x17,0x16 })
                 _currentRoom.SetPositionTileAndCollision(Center(position),0x2c,0x0f,(long)_animationTicks);
             _currentRoom.SetPositionTileAndCollision(Center(0x19),0xa0,0,(long)_animationTicks);
             FailIf(initial.IsTrapped(0x18),"A known open probe must disprove a trap despite an unknown earlier scratch probe.");
             _currentRoom.SetPositionTileAndCollision(Center(0x19),0x2c,0x0f,(long)_animationTicks);
-            bool rejected = false;
-            try { initial.IsTrapped(0x18); }
-            catch (NotSupportedException exception) { rejected = exception.Message.Contains("$f8") && exception.Message.Contains("miscPuzzles_subid1f"); }
-            FailIf(!rejected,"A trap result depending on shared scratch must fail with source and hexadecimal probe diagnostics.");
+            FailIf(_entities.RuntimeState.ReadWramByte(0xcef8) != 0 || initial.IsTrapped(0x18),
+                "The cleared upper scratch tail must disprove a trap even when all room probes are blocked.");
+            try
+            {
+                _entities.RuntimeState.SetWramByte(0xcef8, 0x10);
+                FailIf(!initial.IsTrapped(0x18),
+                    "An explicitly staged nonzero raw scratch byte must count as blocked.");
+                _currentRoom.SetPositionTileAndCollision(Center(0x19),0xa0,0,(long)_animationTicks);
+                FailIf(initial.IsTrapped(0x18), "A later open room probe must still disprove the trap.");
+            }
+            finally { _entities.RuntimeState.SetWramByte(0xcef8, 0); }
+            // At packed$08 the near-up probe itself wraps to$cef8. If its
+            // paired script byte$cff8 is zero, source skips far-up$cee8.
+            foreach (int position in new[] { 0x09, 0x0a, 0x18, 0x28, 0x07, 0x06 })
+                _currentRoom.SetPositionTileAndCollision(Center(position), 0x2c, 0x0f, (long)_animationTicks);
+            try
+            {
+                _runtimeState.SetWramByte(0xcef8, 0x10);
+                _runtimeState.SetWramByte(0xcff8, 0);
+                FailIf(!initial.IsTrapped(0x08),
+                    "A zero script-layout byte must skip the wrapped far probe after a blocked near probe.");
+                _runtimeState.SetWramByte(0xcff8, 1);
+                bool rejectedUnknownFarProbe = false;
+                try { initial.IsTrapped(0x08); }
+                catch (NotSupportedException error)
+                {
+                    rejectedUnknownFarProbe = error.Message.Contains("$e8");
+                }
+                FailIf(!rejectedUnknownFarProbe,
+                    "A nonzero script-layout byte must retain the unrepresented far$e8 probe, not silently skip it.");
+                _currentRoom.SetPositionTileAndCollision(Center(0x09), 0xa0, 0, (long)_animationTicks);
+                FailIf(initial.IsTrapped(0x08),
+                    "A later open probe must disprove the trap despite an earlier unresolved far probe.");
+            }
+            finally
+            {
+                _runtimeState.SetWramByte(0xcef8, 0);
+                _runtimeState.SetWramByte(0xcff8, 0);
+            }
             LoadValidationRoom(4,0x9b);
             for (int repeat = 0; repeat < 3; repeat++)
             {
@@ -86,20 +122,29 @@ public partial class ValidationRoot
                 FailIf(trap.Counter != 1 || _entities.PlayerUpdatesFrozen,"Trap must wait through counter1 before checking.");
                 if (repeat == 0)
                 {
-                    _player.ApplyInteractionInvincibility(3);
-                    Step();
-                    FailIf(trap.Counter != 30 || trap.State != 1 || _entities.PlayerMenusDisabled,
-                        "Signed Link invincibility must reject the trap and reload the 30-update interval.");
-                    Step(29);
+                    // checkLinkVulnerable ORs the raw counter: both signs
+                    // reject. updateSpecialObjects ages it before INTERACTION.
+                    foreach (int signedDuration in new[] { 3, -3 })
+                    {
+                        _player.ApplyInteractionInvincibility(signedDuration);
+                        Step();
+                        FailIf(trap.Counter != 30 || trap.State != 1 || _entities.PlayerMenusDisabled ||
+                            _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 0,
+                            "Either sign of Link invincibility must reject the trap silently and reload its interval.");
+                        Step(29);
+                    }
                 }
+                // Negative on the first route, positive on the repeated one.
+                // Both expire in Link's dispatch immediately before the scan.
+                _player.ApplyInteractionInvincibility(repeat == 1 ? -1 : 1);
                 Step();
-                FailIf(trap.State != 2 || trap.Counter != 60 || !_entities.PlayerUpdatesFrozen ||
-                    !_entities.PlayerMenusDisabled || _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 1,
+                FailIf(_player.InvincibilityFrames != 0 || trap.State != 2 || trap.Counter != 60 || !_entities.PlayerUpdatesFrozen ||
+                    !_entities.PlayerMenusDisabled || !_entities.WarpTilesDisabled || _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 1,
                     "Vulnerable trapped Link must request one error cue and the 60-update Link/menu lock.");
                 if (repeat == 2)
                 {
                     LoadValidationRoom(0,0x60); Step(2);
-                    FailIf(_entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled,
+                    FailIf(_entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled || _entities.WarpTilesDisabled,
                         "Room departure must release the reset handler's restrictions.");
                     break;
                 }
@@ -113,12 +158,12 @@ public partial class ValidationRoot
                 finally { _entities.TextActiveSource = text; }
                 Vector2 held = _player.Position;
                 Step(59,Vector2.Down);
-                FailIf(trap.Counter != 1 || _player.Position != held || !_entities.PlayerUpdatesFrozen,
+                FailIf(trap.Counter != 1 || _player.Position != held || !_entities.PlayerUpdatesFrozen || !_entities.WarpTilesDisabled,
                     "Reset delay must hold Link through update59 despite movement input.");
                 Step();
                 for (int i = 0; IsTransitioning && i < 90; i++) Step();
                 FailIf(IsTransitioning || _rooms.ActiveGroup != 4 || _currentRoom.Id != 0x9b ||
-                    _player.Position != Center(0x12) || _entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled ||
+                    _player.Position != Center(0x12) || _entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled || _entities.WarpTilesDisabled ||
                     ReferenceEquals(trap,_entities.Entities<PuzzleTrapResetRoomEntity>().Single()) ||
                     _currentRoom.GetMetatile(Center(0x48)) != 0xa5,
                     "Reset warp must reload 4:9b at $12, restore its tiles and release the lock.");

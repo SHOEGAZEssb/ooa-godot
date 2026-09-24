@@ -60,9 +60,13 @@ public partial class ValidationRoot
             FailIf(_entities.Entities<LightableTorchRoomEntity>().Count!=0 ||
                 positions.Any(p=>_currentRoom.Layout[p]!=0x09) ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)!=4 || _entities.ActiveTriggers!=0x21 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1 ||
+                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=0 ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=0,
                 "The next PART pass must light four torches once, delete them, and publish the count before the translator runs.");
+            Step(5); // Door setup resumes at setangle; playsound is script update7.
+            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1,
+                "Torch shutter solve sound must follow its setup, contact and trigger script yields.");
+            Step(); // setstate2
             Step();
             FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=1 || !_currentRoom.IsSolid(door.Position),
                 "The next door dispatch must begin interleaving while retaining solid collision.");

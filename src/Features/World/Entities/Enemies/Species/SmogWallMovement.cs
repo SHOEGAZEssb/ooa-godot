@@ -10,6 +10,7 @@ internal sealed class SmogWallMovement
 {
     private readonly SmogWallDatabase _data;
     private readonly Func<int, byte> _collision;
+    private readonly Func<int, int, OracleObjectVelocity> _velocity;
     private readonly Vector2I _originalPosition;
     private readonly int _originalDirection;
     internal int SubId { get; }
@@ -22,11 +23,12 @@ internal sealed class SmogWallMovement
     internal int MissingWallCounter { get; private set; }
 
     internal SmogWallMovement(SmogWallDatabase data, int subid, OracleObjectPosition position,
-        int direction, Func<int, byte> collision)
+        int direction, Func<int, byte> collision, Func<int, int, OracleObjectVelocity> velocity)
     {
         if ((subid & 0x7f) is not (2 or 3) || subid is < 0 or > 255 || direction is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(subid), "Smog wall movement requires subid$02/$03/$82/$83 and cardinal direction.");
         _data = data; SubId = subid; Position = position; Direction = direction;
+        _velocity = velocity;
         _originalPosition = (Vector2I)position.PixelPosition; _originalDirection = direction; _collision = collision;
     }
 
@@ -109,7 +111,7 @@ internal sealed class SmogWallMovement
     private void ApplySpeed()
     {
         Angle = Direction * 8;
-        var velocity = OracleObjectMovement.Shared.Velocity(_data.Speeds[SubId & 0x0f], Angle);
+        var velocity = _velocity(_data.Speeds[SubId & 0x0f], Angle);
         Position = Position.Add(velocity.YFixed, velocity.XFixed);
         UpdateAdjacentWalls();
     }

@@ -21,6 +21,9 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
     private int _moveCycles;
     private int _zFixed;
     private int _speedZ;
+    private int _stunCounter;
+    internal int StunCounter => _stunCounter;
+    internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
     internal int ZFixed => _zFixed;
     internal int SwitchHookSubstate { get; private set; }
     internal override bool CollisionEnabled => base.CollisionEnabled && _state != ArrowMoblinState.SwitchHook;
@@ -68,21 +71,33 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
-            checksHazards: true);
+            checksHazards: true,
+            nativeSpeed: () => _behavior.SpeedRaw);
         ConfigureHazards(room, zPosition: () => _zFixed);
     }
 
     /// <returns>The cardinal angle of an arrow to create, or -1.</returns>
     internal int UpdateFrame(
         Vector2 linkPosition,
-        Vector2? scentSeedTarget = null)
+        Vector2? scentSeedTarget = null, int frameCounter = 0)
     {
         if (IsDead)
             return -1;
+        // enemyStandardUpdate applies stun motion before ecom_checkHazards.
+        bool stunned = (int)_state != 0 && !NativeHitPending && !HasActiveKnockback && Health > 0 && _stunCounter != 0;
+        if (stunned)
+            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
+                ref _stunCounter, ref _zFixed, ref _speedZ);
         if (BeginFrame())
             return -1;
         if (CheckHazards())
             return -1;
+
+        if (stunned)
+        {
+            QueueRedraw();
+            return -1;
+        }
 
         if (FollowsScentSeeds && (_state == ArrowMoblinState.FollowingScentSeed || (int)_state >= 8) &&
             scentSeedTarget is { } scentPosition)

@@ -7,16 +7,27 @@ public interface IPlayerWorld
 {
     int FrameCounter { get; }
     bool IsTransitioning { get; }
+    bool DeathUpdatesSuspendedByWarp => false;
     bool PassesNpcs => false;
     bool InteractionMenusDisabled => false;
     bool ScreenScrolling { get; }
     bool DialogueOpen { get; }
+    bool NativeTextActive => DialogueOpen;
     bool SwordDisabled { get; }
     bool ItemUsageDisabled { get; }
     bool MovementDisabled { get; }
     bool PlayerUpdatesFrozen => false;
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }
+    int RaisedFloorOffset
+    {
+        get => 0;
+        set
+        {
+            if (value != 0)
+                throw new NotSupportedException("Raised-floor Link requires the authoritative wLinkRaisedFloorOffset owner.");
+        }
+    }
     bool GaleWarpDisabled => false;
     bool NativeWarpsDisabled => false;
     void SetNativeWarpsDisabled(bool disabled) =>
@@ -25,6 +36,7 @@ public interface IPlayerWorld
     Vector2? MountedCompanionPosition => null;
     Vector2? MountedRaftPosition => null;
     bool BombParentActive => false;
+    bool BraceletParentActive => false;
     bool SideScrolling { get; }
     bool Underwater => false;
     SideScrollPlayerParameters SideScrollParameters { get; }
@@ -63,6 +75,12 @@ public interface IPlayerWorld
         bool directionJustPressed) => false;
     void InterruptSeedShooter() { }
     bool SwitchHookActive => false;
+    bool BoomerangParentActive => false;
+    int BoomerangParentSlot => 0;
+    int BoomerangParentGraphic => 0;
+    bool TryBeginBoomerang(Player player, int parentSlot) => false;
+    void UpdateBoomerangParent() { }
+    void ClearBoomerangParent() { }
     bool SomariaActive => false;
     int SomariaAnimationMode => 0;
     int SomariaAnimationFrame => 0;
@@ -82,6 +100,9 @@ public interface IPlayerWorld
     bool DigWithShovel(Vector2 point, Vector2I direction);
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);
+    Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide) =>
+        (angle & 0x80) != 0 ? Vector2.Zero :
+        ResolveMovement(position, OracleObjectMovement.Shared.Delta(speed, angle), allowWallSlide);
     bool IsPushingAgainstWall(
         Vector2 playerPosition,
         Vector2I facing,

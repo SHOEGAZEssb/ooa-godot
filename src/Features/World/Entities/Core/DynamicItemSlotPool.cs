@@ -41,6 +41,7 @@ internal sealed class DynamicItemSlotPool
         return -1;
     }
     internal void Clear() => Array.Clear(_slots);
+    internal object? OwnerAt(int slot) => slot is >= 0xd7 and <= 0xdb ? Live(slot - 0xd7)?.Owner : null;
     // Read each slot when reached, not a snapshot: a later allocation runs
     // now; replacement in an already visited slot waits for the next pass.
     internal IEnumerable<object> LiveOwners()

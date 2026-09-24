@@ -6,8 +6,10 @@ namespace oracleofages;
 
 internal sealed class ZolRoomEntity
     : CombatEnemyRoomEntityAdapter<ZolCharacter>, IFixedRoomEntity,
-        IScreenTransitionPreloadRoomEntity, IPostObjectMeleeCollisionRoomEntity
+        IScreenTransitionPreloadRoomEntity, IPostObjectMeleeCollisionRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
+    protected override bool Stunned => Entity.StunCounter != 0;
+    protected override bool BoomerangHitPending => Entity.DamageHitPending || base.BoomerangHitPending;
     public bool MeleeReportsContact => true;
     public ZolRoomEntity(
         ZolCharacter zol,
@@ -36,6 +38,16 @@ internal sealed class ZolRoomEntity
             collisionZ: () => zol.ZFixed >> 8)
     { }
 
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.DamageHitPending, spawns, deferNativeStatus: false);
+
+    protected override void ApplySomariaEnemyDamage(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!Entity.TakeSomariaHit(block.Position, -block.Damage))
+            throw new InvalidOperationException("ENEMY$34 rejected an eligible Somaria effect$2f collision.");
+        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+    }
+
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
         if (effect != 0x0b || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
@@ -46,7 +58,7 @@ internal sealed class ZolRoomEntity
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        switch (Entity.UpdateFrame(frame.Player.Position))
+        switch (Entity.UpdateFrame(frame.Player.Position, frame.Counter))
         {
             case UpdateEvent.BeginSplit:
                 spawns.Add(new KillEnemyPuffSpawn(Entity.Position));

@@ -12,6 +12,8 @@ public sealed class RoomSession
     private readonly RoomTileChangeDatabase _tileChanges;
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
+    private readonly DungeonToggleTileDatabase _toggleTiles;
+    private readonly Func<byte> _toggleState;
     private readonly GashaSpotDatabase _gashaSpots;
     private readonly ChangedTileQueue _changedTiles = new();
 
@@ -43,16 +45,19 @@ public sealed class RoomSession
         Func<long> animationTick,
         Action resetAnimationTick,
         OracleSaveData saveData,
-        bool countAsRoomEntry = true)
+        bool countAsRoomEntry = true,
+        Func<byte>? toggleState = null)
     {
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
+        _toggleState = toggleState ?? (() => 0);
         World = new OracleWorldData();
         _singleTileChanges = new SingleTileChangeDatabase();
         _tileChanges = new RoomTileChangeDatabase();
         _keyDoors = new DungeonKeyDoorDatabase();
         _standardTileSubstitutions = new StandardTileSubstitutionDatabase();
+        _toggleTiles = new DungeonToggleTileDatabase();
         _gashaSpots = new GashaSpotDatabase();
         DungeonMaps = new DungeonMapDatabase();
         ActiveGroup = startingGroup;
@@ -137,6 +142,7 @@ public sealed class RoomSession
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
+        _toggleTiles.Apply(group, World.GetDungeonIndex(group, room), _toggleState(), loaded, _animationTick());
         _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
         _gashaSpots.ApplyRoomState(
             group, loaded, _saveData, _animationTick());

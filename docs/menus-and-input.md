@@ -25,6 +25,9 @@ disabled gameplay first. Failed acquisition leaves the caller unchanged.
 Gameplay-owned submenus may use their interaction controller when that matches
 the original mechanism. Do not force every prompt through the map/inventory
 lifecycle; preserve its update masks, fade, and screen boundary.
+Normal map and inventory closing resume gameplay on the update that releases
+menu ownership. The post-menu return value observes the cleared menu state,
+so an eligible stair can activate on that same update.
 
 Short-secret entry uses the application-owned shared pause/fade lifecycle.
 Its keyboard, glyph mapping, lower cursor offsets and error overlay are imported
@@ -80,6 +83,26 @@ fields. Direction repeat advances on calls to the original direction handler,
 and submenu initialization cannot consume the following input state early.
 
 ## Input contract
+
+An item's parent animation and physical child have independent lifetimes.
+For the boomerang, the throw parent releases movement after its terminal
+animation update; the dynamic child remains allocated throughout flight and
+the hidden catch delay. A failed child allocation clears the parent's lock
+and start signal immediately. Clearing parents alone must preserve that child
+and its one-instance limit.
+Items in independent parent slots can overlap. Somaria and the Seed Satchel
+retain their separate completion counters and child allocations when both
+buttons are pressed; ending the satchel pose does not release the Cane's
+movement lock.
+Shared-slot input priority is resolved before parent initialization failures.
+An empty higher-priority A item still prevents B-Cane on that update; its
+failed initialization makes the slot available for a later press.
+Instrument initialization follows both button scans, so its exclusion check
+sees lower parent slots allocated by either button. Once playback starts, its
+input lock prevents new Cane actions until the instrument parent completes.
+The Bracelet's input-phase slot remains occupied on the update that releases
+its button. Its later parent update can clear that slot, but Cane requires a
+subsequent press to claim it; an empty-handed wall search still owns the slot.
 
 - Project input actions bind keyboard, D-pad and left stick through the same
   application snapshot. Gamepad bindings accept any device index; the stick

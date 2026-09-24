@@ -358,6 +358,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Single();
         TreasureObjectRecord rewardObject =
             _treasures.GetObject(record.RewardObject);
+        InitializeGetItemStateForValidation();
         FailIf(
             reward.Record.TreasureObject != record.RewardObject ||
             reward.Record.SpawnMode != 0 ||
@@ -376,6 +377,7 @@ public sealed partial class ValidationRoot
             "two-hand Stink Bag, set room bit $20, and open TX_005c.");
 
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(

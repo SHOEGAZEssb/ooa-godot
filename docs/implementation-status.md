@@ -92,7 +92,13 @@ Use the validation files and runtime/importer dispatch for exact coverage.
   collection and collected-item re-entry.
   The owl-ring, statue and colored-block patterns now reveal their boss-key,
   small-key and Cane chests. The Cane-room button now shows and clears its
-  colored pattern hint. Matching statues and colored blocks now move together,
+  colored pattern hint. Defeating the staircase room's enemies now reveals its
+  persistent return stairs. Orb hits now toggle the dungeon's colored floors,
+  including the brief freeze, graphics change and removal of covered blocks.
+  Sacred Soil now uses its source graphics and collection
+  text, persists its essence bit, and exits to the source respawn destination;
+  isolated checks cover collection and collected-room re-entry.
+  Matching statues and colored blocks now move together,
   with blocked-destination retries and isolated checks for repeated pushes,
   dialogue freezes and room departure. The boss-key room now detects a trapped
   player and resets the room after its warning delay. Its wall detector now

@@ -101,6 +101,8 @@ public sealed partial class ValidationRoot
         int health = _inventory.HealthQuarters;
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!_player.IsDrowning, "Room 7:05 without Flippers failed to enter swimming state $03.");
+        FailIf(!_player.NativeNormalStateForInteraction,
+            "Side-view drowning starts inside linkState01, before its terminal animation sets state02.");
         FailIf(!_player.AcceptsRoomEntityContact,
             "Side-view water entry disabled collisions before the first linkUpdateDrowning update.");
         StepGameplayUpdates(22, Vector2.Zero);
@@ -108,9 +110,13 @@ public sealed partial class ValidationRoot
             "Side-view drowning moved or damaged Link before the next-update respawn initializer.");
         FailIf(_player.AcceptsRoomEntityContact || _player.AcceptsGroundInteractionContact,
             "linkUpdateDrowning did not disable enemy and interaction collision eligibility.");
+        FailIf(_player.NativeNormalStateForInteraction,
+            "The terminal side-view drowning update must already publish state02 before respawn initialization.");
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.Position != safe || _player.Visible || _inventory.HealthQuarters != health,
             "Side-view drowning did not enter its two-update invisible respawn after animation completion.");
+        FailIf(_player.NativeNormalStateForInteraction,
+            "Invisible side-view respawn remains non-normal for interaction state checks.");
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(_player.Visible || _inventory.HealthQuarters != health,
             "Side-view drowning applied damage before its invisible counter reached zero.");
@@ -118,6 +124,14 @@ public sealed partial class ValidationRoot
         // linkApplyDamage halves damageToApply=$fc: two quarter-hearts.
         FailIf(!_player.Visible || _inventory.HealthQuarters != health - 2 || _player.SideScrollSwimming,
             $"Side-view drowning zero update: visible={_player.Visible}, health={_inventory.HealthQuarters}/{health - 2}, swimming={_player.SideScrollSwimmingState}.");
+        FailIf(_player.NativeNormalStateForInteraction,
+            "Visible side-view respawn must retain state02 through its16-update recovery.");
+        StepGameplayUpdates(15, Vector2.Zero);
+        FailIf(_player.NativeNormalStateForInteraction,
+            "Side-view recovery must remain non-normal through its penultimate update.");
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(!_player.NativeNormalStateForInteraction,
+            "Recovery counter zero must restore linkState01 for interaction checks.");
         GD.Print("Validated room 7:05 Flippers/Mermaid A/B routing, sword start/lock/held/release/repeat, and complete gameplay cadence.");
     }
 

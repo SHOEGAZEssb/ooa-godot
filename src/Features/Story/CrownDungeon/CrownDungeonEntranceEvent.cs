@@ -97,6 +97,9 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
         Context.Sound.PlaySound(OracleSoundEngine.SndDoorClose);
         for (int x = 0x60; x <= 0x90; x += 0x10)
         {
+            // scriptHelp.@spawnPuff returns on a failed allocation; each
+            // later position still gets its own attempt.
+            if (!Context.Entities.InteractionSlotAvailable) continue;
             // INTERAC_PUFF subid $81 suppresses sound and flickers.
             var puff = Context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(x, 0x20), 0, Flickers: true));
             puff.UpdateFrame();

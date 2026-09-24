@@ -138,10 +138,11 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 _zFixed = 0;
                 Position = player.Position + new Vector2(
                     Record.GrabMode == 1 ? -4 : 0, -14);
-                if (Record.GrabMode == 1)
-                    player.BeginGetItemOneHandPose();
-                else
-                    player.BeginGetItemTwoHandPose();
+                // treasure.s queues state04 with bit7 set: text closure
+                // releases Link regardless of the surrounding object mask.
+                player.RequestGetItemState(
+                    Record.GrabMode == 1 ? (byte)0x80 : (byte)0x81,
+                    static () => false);
                 _soundRequested(OracleSoundEngine.SndGetItem);
                 Visible = true;
                 QueueRedraw();
@@ -209,10 +210,10 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         if (Finished)
             return;
-        if (Record.GrabMode is 1 or 3)
+        // Ordinary state04 restores its own animation on Link's dispatch.
+        // The sword-spin path instead changes a pose while state08 owns Link.
+        if (Record.GrabMode == 3)
             player.EndGetItemOneHandPose();
-        else
-            player.EndGetItemTwoHandPose();
         Held = false;
         Finished = true;
         Visible = false;

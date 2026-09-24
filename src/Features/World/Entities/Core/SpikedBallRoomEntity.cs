@@ -10,7 +10,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         IPostObjectLinkContactRoomEntity, ILinkContactEntity, IObjectCollisionHeightRoomEntity,
         IPostObjectMeleeCollisionRoomEntity, ISwordHittableRoomEntity, ILinkSwordStateAwareRoomEntity,
         ISwordAttackerKnockbackRoomEntity, IExpertPunchHittableRoomEntity, IPostObjectItemCollisionRoomEntity, ISeedCollisionTarget,
-        ISomariaBlockCollisionRoomEntity,
+        ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
@@ -42,6 +42,17 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && _data.BallMask[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
+    public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
+    {
+        var data = BoomerangCollisionDatabase.Shared;
+        if (!item.CollisionEnabled || !data.PartEnabled(0x2a) || !Overlaps(0x17, item.CollisionBounds) ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7)) return default;
+        int effect = data.Effect(0x74);
+        if (effect != 0x1b) throw new NotSupportedException($"PART_SPIKED_BALL $2a: boomerang effect${effect:x2}.");
+        Entity.InvincibilityCounter = data.DeflectionInvincibility;
+        Entity.PublishCollision(0x17);
+        return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
+    }
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     {
         if (!block.CollisionEnabled || !SomariaCollisionDatabase.Shared.Part(0x2a).Block ||

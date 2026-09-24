@@ -7,18 +7,21 @@ namespace oracleofages;
 /// <summary>One-update INTERAC_STATUE_EYEBALL $e2:$01 room-layout scanner.</summary>
 internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>,
     IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly OracleRoomData _room;
     private readonly DungeonEntranceInteractionDatabase _data;
+    private readonly Func<Vector2,bool> _tryCreateEye;
 
     internal StatueEyeballSpawnerRoomEntity(
         OracleRoomData room,
-        DungeonEntranceInteractionDatabase data)
+        DungeonEntranceInteractionDatabase data,
+        Func<Vector2,bool> tryCreateEye)
         : base(new Node2D { Name = "StatueEyeballSpawner", Visible = false }, static _ => { })
     {
         _room = room;
         _data = data;
+        _tryCreateEye = tryCreateEye;
     }
 
     public bool Finished { get; private set; }
@@ -56,7 +59,9 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
                 (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
                 (packed >> 4) * OracleRoomData.MetatileSize + 8 +
                     _data.EyeInitialYOffset);
-            spawns.Add(new StatueEyeballSpawn(position));
+            // @spawnChild returns on allocation failure; the scan continues
+            // while the parent still owns its slot, then deletes itself.
+            _tryCreateEye(position);
         }
         Finished = true;
     }

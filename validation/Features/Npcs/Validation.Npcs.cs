@@ -503,9 +503,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 4 || adjacentHeartControls != 2 || byteEscapes != 4,
+            slowControls != 5 || adjacentHeartControls != 2 || byteEscapes != 4,
             "The generated dialogue inventory no longer contains the expected " +
-            $"four \\slow() Essence introductions, two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"five \\slow() Essence introductions, two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -1233,6 +1233,7 @@ public sealed partial class ValidationRoot
             bipinInteractions.PastBipinTreasureForValidation;
         TreasureObjectRecord seed =
             bipinTreasures.GetObject("TREASURE_OBJECT_GASHA_SEED_08");
+        InitializeGetItemStateForValidation();
         FailIf(
             bipinInventory.GashaSeeds != 1 ||
             !bipinSave.HasRoomFlag(
@@ -1261,6 +1262,7 @@ public sealed partial class ValidationRoot
             "for TX_004b.");
 
         bipinDialogue.Close();
+        _player.AdvanceApplicationUpdate();
         bipinInteractions.Update(frame, _player);
         bipinManager.Update(frame, _player);
         FailIf(
@@ -2777,6 +2779,7 @@ public sealed partial class ValidationRoot
         GroundTreasurePickup vasuRingBox =
             _entities.Entities<GroundTreasurePickup>()
                 .Single(treasure => !treasure.Finished);
+        InitializeGetItemStateForValidation();
         FailIf(
             shop.Stage != EventStage.VasuRingBoxReward ||
             _inventory.RingBoxLevel != 1 || !_player.IsHoldingItemTwoHands ||
@@ -2794,12 +2797,14 @@ public sealed partial class ValidationRoot
             "vasu_giveRingBox did not use the manager-owned, caller-completed " +
             "L-1 Ring Box grant with two-hand audio.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         StepRoomEventFrames(1);
         _dialogue.Close();
         StepRoomEventFrames(1);
         GroundTreasurePickup vasuRing =
             _entities.Entities<GroundTreasurePickup>()
                 .Single(treasure => !treasure.Finished);
+        InitializeGetItemStateForValidation();
         FailIf(
             shop.Stage != EventStage.VasuFriendshipReward ||
             _inventory.UnappraisedRingCount != unappraisedBefore + 1 ||
@@ -2818,6 +2823,7 @@ public sealed partial class ValidationRoot
             "vasu_giveFriendshipRing did not perform its concrete ring-$00 " +
             "inventory write through one-hand TREASURE_RING.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         StepRoomEventFrames(1);
         FailIf(
             shop.Stage != EventStage.VasuAppraisalHandoff ||
@@ -3144,11 +3150,14 @@ public sealed partial class ValidationRoot
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            !heart.Held || !_player.IsHoldingItemTwoHands ||
+            !heart.Held || _player.IsHoldingItemTwoHands ||
             heart.Position != _player.Position + new Vector2(0, -14) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
-            "Ground Heart Piece did not enter its next-update two-hand pose with the second SND_GETITEM.");
+            "Ground Heart Piece did not enter its held-item update with the second SND_GETITEM.");
+        InitializeGetItemStateForValidation();
+        FailIf(!_player.IsHoldingItemTwoHands, "State04 initialization must select the Heart Piece pose.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
@@ -3634,6 +3643,7 @@ public sealed partial class ValidationRoot
             .OfType<GroundTreasurePickup>().Single();
         BlackTowerWorkerDatabaseVisualRecord shovelVisual =
             data.Visual("shovel");
+        InitializeGetItemStateForValidation();
         FailIf(
             !shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
             !shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem) ||
@@ -3663,6 +3673,7 @@ public sealed partial class ValidationRoot
             "play both ordered SND_GETITEM calls, and apply the exact Shovel " +
             "visual override for TX_0025.");
         shovelDialogue.Close();
+        _player.AdvanceApplicationUpdate();
         shovelInteractions.Update(frame, _player);
         shovelManager.Update(frame, _player);
         FailIf(

@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_EXTENDABLE_BRIDGE $23, rotating seed bouncer PART $33:$0a,
 /// respawnable-bush scanner $c7:$04,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
-/// INTERAC_DUNGEON_STUFF $12:$01/$02, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
+/// INTERAC_DUNGEON_STUFF $12:$01/$02/$04, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
 /// shutter-door controller variants $1e:$04-$0b, torch-count translator
 /// $24:$02, and the $c7:$08 lightable-torch scanner. Moonlit Grotto's
 /// INTERAC_DUNGEON_EVENTS $21:$09/$0a/$0c/$0d/$0e, PART_ORB $03, and
@@ -33,6 +33,7 @@ internal sealed class DungeonMechanicDatabase
     internal int DoorFrameWait => Constant("door-frame-wait");
     internal int OpenTile => Constant("open-tile");
     internal int SolveSound => Constant("solve-sound");
+    internal int EnemyStairTile(int sourceTile) => Constant($"enemy-stair-tile-{sourceTile - 0x40}");
     internal int DoorSound => Constant("door-sound");
     internal int BridgeStepWait => Constant("bridge-step-wait");
     internal int BridgeSpawnerWait => Constant("bridge-spawner-wait");
@@ -141,7 +142,7 @@ internal sealed class DungeonMechanicDatabase
                 record.Id == 0x6b && record.SubId != 0x0f ||
                 record.Id == 0xdc && (record.SubId is not (0x0c or 0x0d or 0x12) || record.Parameter == 0) ||
                 record.Id == 0x03 && record.SubId > 0x07 ||
-                record.Id == 0x12 && record.SubId is not (0x01 or 0x02) ||
+                record.Id == 0x12 && record.SubId is not (0x01 or 0x02 or 0x04) ||
                 record.Id == 0x20 && record.SubId != 0x00 ||
                 record.Id == 0x21 && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
                 record.Id == 0x23 && record.SubId > 0x07 ||
@@ -232,7 +233,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(0x21, 0x09);
-        if (RecordCount != 233 || _constants.Count != 87 || _texts.Count != 2 ||
+        if (RecordCount != 234 || _constants.Count != 91 || _texts.Count != 2 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||

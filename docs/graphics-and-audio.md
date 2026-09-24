@@ -126,6 +126,11 @@ bank is hash-checked before execution; unsupported instructions, memory access,
 and banks fail with original source addresses. Production never loads a ROM or
 disassembly file. Logical channel views read that memory without mirroring it.
 
+Gameplay writes that alias sound memory must reach this same owner. Native
+channel-volume writes go through the room entity event and sound engine to
+the driver's byte storage, retaining the full byte value. They do not become
+a second copy in general runtime WRAM or a queued sound request.
+
 Eight logical programs share four physical CGB voices. Register writes control
 handoffs, note lengths, waveform RAM, DAC gates, and envelopes; ending an SFX
 does not automatically restore a separately saved music voice. Envelope writes

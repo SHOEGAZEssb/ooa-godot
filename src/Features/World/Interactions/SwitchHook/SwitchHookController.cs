@@ -32,6 +32,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
             player.FacingVector == Vector2I.Down ? 2 : 3;
         _player = player;
         Item = new(_database, player.Inventory.SwitchHookLevel, player.Position, direction, sound, this);
+        Item.BindMovementMemory(entities.RuntimeState);
         worldRoot.AddChild(Item);
         Active = true;
         player.BeginSwitchHookPose();

@@ -13,6 +13,8 @@ internal partial class BraceletLiftedObject : Node2D
     private Texture2D _texture = null!;
     private int _zFixed;
     private int _speedZ;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal int GroundX { get; private set; }
     internal int GroundY { get; private set; }
@@ -57,8 +59,12 @@ internal partial class BraceletLiftedObject : Node2D
 
     internal void AdvanceLateral()
     {
-        GroundX += ThrowDirection.X * SpeedRaw * 256 / 40;
-        GroundY += ThrowDirection.Y * SpeedRaw * 256 / 40;
+        // itemUpdateThrowingLaterally returns for angle $ff (dropped item).
+        if (ThrowDirection == Vector2I.Zero) return;
+        var velocity = NativeObjectMovement.Velocity(_movementMemory, SpeedRaw,
+            CarriedObjectMotion.DirectionIndex(ThrowDirection) * 8);
+        GroundX = unchecked((ushort)(GroundX + velocity.XFixed));
+        GroundY = unchecked((ushort)(GroundY + velocity.YFixed));
         SyncPosition();
     }
 

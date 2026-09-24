@@ -12,11 +12,19 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         ISwordHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity,
         IPostObjectItemCollisionRoomEntity, IExpertPunchHittableRoomEntity, IObjectCollisionHeightRoomEntity,
         ISeedCollisionTarget, IPostObjectLinkContactRoomEntity, ISwitchHookHittableRoomEntity,
-        ISomariaBlockCollisionRoomEntity,
+        ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         INativeBraceletRoomEntity, IBraceletChildRoomEntity, IReservedBraceletCollisionRoomEntity,
-        INativeEnemyCounter1RoomEntity, IScreenTransitionPreloadRoomEntity, IPlayerForcedMovement
+        INativeEnemyCounter1RoomEntity, IScreenTransitionPreloadRoomEntity, IPlayerForcedMovement,
+        IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        // _updateEnemiesIfStateIsZero dispatches uninitialized enemies on
+        // every scroll update, including allocation retries. State8 freezes.
+        if (Entity.State == 0)
+            Entity.UpdateInitializationFrame(frame.Counter, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
+    }
     public int Counter1 { get => Entity.Counter1; set => Entity.Counter1 = value; }
     public bool RetainsCounter1AfterDeletion => false;
     public void UpdatePlayerForcedMovement(Player player)
@@ -29,7 +37,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.State == 0)
-            Entity.UpdateInitializationFrame(world.FrameCounter?.Invoke() ?? 0, InitializeBossRoom, () => world.SpawnParent(this));
+            Entity.UpdateInitializationFrame(world.FrameCounter?.Invoke() ?? 0, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
         return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
     private Action<INativeBraceletRoomEntity>? _publishGrabbable;
@@ -123,6 +131,16 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         Entity.InvincibilityCounter == 0 && _data.ActiveCollisions[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
     private int Effect(int collision) => (Entity.CollisionMode == 0x63 ? _data.BallEffects : _data.ParentEffects)[collision].Value;
+    public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!item.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7) ||
+            !Overlaps(0x17, item.CollisionBounds)) return default;
+        int effect = Effect(0x17);
+        if (effect == 0) return new(true, false);
+        if (effect != 0x1c) throw new NotSupportedException($"ENEMY_SMASHER $74 mode${Entity.CollisionMode:x2}: boomerang effect${effect:x2}.");
+        Entity.PublishCollision();
+        return new(true, true);
+    }
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     {
         if (!block.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, block.ZHigh, 7) ||
@@ -193,7 +211,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     {
         if (Entity.State == 0)
         {
-            Entity.UpdateInitializationFrame(frame.Counter, InitializeBossRoom, () => world.SpawnParent(this));
+            Entity.UpdateInitializationFrame(frame.Counter, InitializeBossRoom, () => world.SpawnParent(this), world.InteractionSlotAvailable(), world.CreateInitializationPuff);
             return;
         }
         bool Puff(Vector2 position)
@@ -245,7 +263,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         if (!Entity.CollisionEnabled || Entity.PendingCollision ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, player.EnemyContactZ, 7)) return;
         int shield = Math.Clamp(player.Inventory.ShieldLevel, 1, 3);
-        if (Entity.InvincibilityCounter == 0 && player.IsUsingShield && _data.ActiveCollisions[shield].Value != 0 &&
+        if (player.IsUsingShield && _data.ActiveCollisions[shield].Value != 0 &&
             RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, player.ShieldCollisionBounds))
         {
             if (!player.CanAcceptShieldCollision) return;

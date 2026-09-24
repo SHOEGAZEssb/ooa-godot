@@ -15,6 +15,7 @@ public sealed class OracleRuntimeState
     public const int MamamuDogLocationAddress = 0xcde2;
     // Ages WRAM addresses (the shared labels are $cdd2-$cdd4 in Seasons).
     public const int ToggleBlocksStateAddress = 0xcc31;
+    public const int LastToggleBlocksStateAddress = 0xcd2c;
     public const int SwitchStateAddress = 0xcc32;
     public const int Lever1PullDistanceAddress = 0xccab;
     public const int Lever2PullDistanceAddress = 0xccac;
@@ -23,6 +24,7 @@ public sealed class OracleRuntimeState
     public const int SentBackByStrangeForceAddress = 0xcdde;
     public const int DiggingUpEnemiesForbiddenAddress = 0xccde;
     public const int WarpsDisabledAddress = 0xcc6e;
+    public const int LinkRaisedFloorOffsetAddress = 0xcc69;
     public const int PegasusSeedCounterAddress = 0xcc6c;
     internal const int UpgradesObtainedAddress = 0xcca8;
     internal const int SeedTreeRefillLocationCount = 16;

@@ -274,7 +274,7 @@ public sealed class EnemyDatabase
                 [
                     "id", "subid", "sprite", "tile-base", "palette", "radius-y",
                     "radius-x", "damage-quarters", "health", "idle-animation",
-                    "fly-animation"
+                    "fly-animation", "raw-damage"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -291,7 +291,7 @@ public sealed class EnemyDatabase
                 row.UnsignedDecimal(7),
                 row.UnsignedDecimal(8),
                 row.RequiredString(9),
-                row.RequiredString(10));
+                row.RequiredString(10), row.HexByte(11));
             if (definition.Id != 0x32 ||
                 !_keeseDefinitions.TryAdd(definition.SubId, definition))
             {
@@ -434,7 +434,7 @@ public sealed class EnemyDatabase
                     "id", "subid", "sprite", "tile-base", "palette", "radius-y",
                     "radius-x", "damage-quarters", "health", "animation-0",
                     "animation-1", "animation-2", "animation-3", "animation-4",
-                    "animation-5"
+                    "animation-5", "raw-damage"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -455,7 +455,7 @@ public sealed class EnemyDatabase
                 row.RequiredString(11),
                 row.RequiredString(12),
                 row.RequiredString(13),
-                row.RequiredString(14));
+                row.RequiredString(14), row.HexByte(15));
             if (definition.Id != 0x34 ||
                 !_zolDefinitions.TryAdd(definition.SubId, definition))
             {
@@ -474,7 +474,7 @@ public sealed class EnemyDatabase
                 [
                     "id", "subid", "sprite", "tile-base", "palette", "radius-y",
                     "radius-x", "damage-quarters", "health", "animation-0",
-                    "animation-1", "animation-2"
+                    "animation-1", "animation-2", "raw-damage"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -494,7 +494,7 @@ public sealed class EnemyDatabase
             gel.UnsignedDecimal(8),
             gel.RequiredString(9),
             gel.RequiredString(10),
-            gel.RequiredString(11));
+            gel.RequiredString(11), gel.HexByte(12));
         if (Gel is not { Id: 0x43, SubId: 0x00 })
             throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
 
@@ -642,7 +642,7 @@ public sealed class EnemyDatabase
             definition.DamageQuarters,
             definition.Health,
             definition.IdleAnimation,
-            definition.FlyAnimation);
+            definition.FlyAnimation, definition.RawDamage);
         return true;
     }
 
@@ -710,7 +710,7 @@ public sealed class EnemyDatabase
             definition.HopAnimation,
             definition.DisappearAnimation,
             definition.RedIdleAnimation,
-            definition.RedShakeAnimation);
+            definition.RedShakeAnimation, definition.RawDamage);
         return true;
     }
 
@@ -960,9 +960,9 @@ public readonly record struct CrowRecord(int Group, int Room, int Id, int SubId,
 
 public readonly record struct EnemyArrowRecord(string SpriteName, int TileBase, int Palette, int DamageQuarters, int SpeedRaw, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string BounceAnimation);
 
-public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
+public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
-internal readonly record struct KeeseDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation);
+internal readonly record struct KeeseDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
 internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations, int RawDamage = 0);
 
@@ -974,15 +974,15 @@ internal readonly record struct OctorokDefinition(int Id, int SubId, string Spri
 
 internal readonly record struct StalfosDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 
-internal readonly record struct ZolDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation);
+internal readonly record struct ZolDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
 
-public readonly record struct GelDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation);
+public readonly record struct GelDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation, int RawDamage);
 
 public readonly record struct MaskedMoblinRecord(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int MoveCounterBase, int MoveCounterMask, int TurnWait, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
 
 public readonly record struct OctorokProjectileRecord(string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int SpeedRaw, string NormalAnimation, string BounceAnimation);
 
-public readonly record struct ZolRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation);
+public readonly record struct ZolRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
 
 public readonly record struct StalfosRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 

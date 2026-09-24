@@ -132,7 +132,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloon.SetTransitionDrawOffset(offset);
     }
 
-    public void UpdateDuringScreenTransition() =>
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) =>
         AdvancePhysical(player: null, spawns: null);
 
     public void UpdateFrame(

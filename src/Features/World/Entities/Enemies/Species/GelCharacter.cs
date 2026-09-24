@@ -15,11 +15,16 @@ public partial class GelCharacter : EnemyCharacter
     private int _counter2;
     private int _angle;
     private bool _collisionEnabled;
+    private bool _linkContactPending;
+    internal bool LinkContactPending => _linkContactPending;
+    internal bool AttachmentRestrictionActive { get; private set; }
+    internal void ClearAttachmentRestriction() => AttachmentRestrictionActive = false;
 
     public bool IsAttached => !IsDead && _state == GelState.Attached;
     internal GelDefinition Definition { get; private set; }
     internal GelState State => _state;
     internal int Counter2 => _counter2;
+    internal int Counter1 => _counter1;
     internal int Angle => _angle;
     internal int ZFixed => _verticalMotion.ZFixed;
     internal int CurrentAnimationFrame => AnimationFrame;
@@ -59,6 +64,7 @@ public partial class GelCharacter : EnemyCharacter
                 encodedAnimations,
                 definition.TileBase,
                 definition.Palette));
+        ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain);
         ConfigureHazards(
             room,
             animateWhileFallingInHole: false,
@@ -71,12 +77,22 @@ public partial class GelCharacter : EnemyCharacter
         Vector2I linkFacing,
         bool anyButtonJustPressed)
     {
+        AttachmentRestrictionActive = false;
         if (IsDead)
             return;
-        if (BeginFrame())
+        if (BeginFrame(continueDuringHitAndKnockback: true))
             return;
         if (CheckHazards())
             return;
+
+        if (_linkContactPending)
+        {
+            _linkContactPending = false;
+            _state = GelState.Attached;
+            _counter2 = _behavior.AttachedFrames;
+            RestartAnimation(1);
+            return; // gel_stateC does not copy Link or publish wccd8 yet.
+        }
 
         if (_state == GelState.Attached)
         {
@@ -91,6 +107,7 @@ public partial class GelCharacter : EnemyCharacter
                 _counter2 = Math.Max(1, _counter2 - 3);
             if ((_counter2 & 0x03) == 0)
                 ZIndex = ZIndex <= 10 ? 11 : 9;
+            AttachmentRestrictionActive = true;
             AdvanceAnimation();
             QueueRedraw();
             return;
@@ -148,21 +165,36 @@ public partial class GelCharacter : EnemyCharacter
         }
     }
 
-    internal void AttachToLink(Vector2 linkPosition)
+    internal void QueueLinkContact()
     {
-        if (IsDead || IsAttached)
+        if (IsDead || IsAttached || _linkContactPending)
             return;
-        Position = linkPosition;
-        _state = GelState.Attached;
-        _counter2 = _behavior.AttachedFrames;
-        _verticalMotion.Reset();
+        // collisionEffect38 clears collision, writes counter1=$60 and only
+        // the high Z byte, then publishes ENEMYDMG_1c/Link JUST_HIT. The next
+        // enemy dispatch initializes stateC; attachment follows in stateD.
+        _linkContactPending = true;
+        _counter1 = 0x60;
+        _verticalMotion.ZFixed &= 0xff;
         _collisionEnabled = false;
-        RestartAnimation(1);
-        ZIndex = 11;
     }
 
     public bool TakeSwordHit()
         => TakeSwordHit(2);
+
+    internal bool TakeBoomerangHit(Vector2 origin, int damage)
+    {
+        if (!TakeDeferredNoKnockbackHit(origin, damage)) return false;
+        DeferNativeHitStatus();
+        return true;
+    }
+
+    internal bool TakeSomariaHit(Vector2 sourcePosition, int damage)
+    {
+        if (!TakeDeferredNoKnockbackHit(sourcePosition, damage)) return false;
+        ApplySwordKnockback(sourcePosition, EnemyKnockbackStrength.Normal);
+        DeferNativeHitStatus();
+        return true;
+    }
 
     internal bool TakeSwordHit(int damage)
     {

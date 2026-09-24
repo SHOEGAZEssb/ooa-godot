@@ -24,6 +24,53 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public bool GaleCaught => _gale.Active;
     protected virtual int GaleCollisionMode => DimitriCollisionMode;
 
+    protected virtual bool BoomerangHitPending => Entity.NativeHitPending;
+    protected virtual bool Stunned => false;
+    protected virtual void MarkBoomerangHit() => Entity.DeferNativeHitStatus();
+    protected virtual void TransformByBoomerang() => throw new NotSupportedException(
+        $"Enemy${DimitriCollisionType:x2} mode${DimitriCollisionMode:x2}: boomerang effect$35 has no transformation owner.");
+    protected virtual void DamageByBoomerang(BoomerangItem item, int effect, ICollection<RoomEntitySpawn> spawns)
+    {
+        var strength = effect == 8 ? EnemyKnockbackStrength.Low : effect == 10 ? EnemyKnockbackStrength.High : EnemyKnockbackStrength.Normal;
+        if (!combatDescriptor.Combat.ApplyDamageAfterCollision(item.Position, item.Damage, strength, spawns, combatDescriptor.CountsAsEnemy))
+            throw new InvalidOperationException($"Enemy${DimitriCollisionType:x2} rejected eligible boomerang damage effect${effect:x2}.");
+        MarkBoomerangHit();
+    }
+    public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
+    {
+        var data = BoomerangCollisionDatabase.Shared;
+        if (!item.CollisionEnabled || !data.EnemyEnabled(DimitriCollisionType) || GaleCaught ||
+            !Entity.CollisionEnabled || BoomerangHitPending || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, item.CollisionBounds)) return default;
+        int effect = data.Effect(DimitriCollisionMode);
+        switch (effect)
+        {
+            case 0: return new(true, false);
+            case 8: case 9: case 10: case 11:
+                DamageByBoomerang(item, effect, spawns);
+                break;
+            case 0x1b:
+                Entity.InvincibilityCounter = data.DeflectionInvincibility;
+                MarkBoomerangHit();
+                return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
+            case 0x1c:
+                MarkBoomerangHit();
+                break;
+            case 0x22:
+                Entity.ApplyBoomerangStun(data.StunCounter);
+                Entity.InvincibilityCounter = data.StunInvincibility;
+                combatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+                break;
+            case 0x35:
+                TransformByBoomerang();
+                break;
+            default: throw new NotSupportedException($"Enemy${DimitriCollisionType:x2} mode${DimitriCollisionMode:x2}: " +
+                $"objectCollisionTable column$17 effect${effect:x2} is not represented.");
+        }
+        return new(true, true);
+    }
+
     public bool TryCatchGale(Rect2 hitbox, int seedZ, Func<byte> random)
     {
         if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
@@ -84,6 +131,37 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public virtual bool FreezesDuringSeedBurn => true;
     public Vector2 SeedBurnPosition => Entity.Position;
     protected EnemyCombatDescriptor CombatDescriptor => combatDescriptor;
+    protected bool ApplyBoomerangTransformCollision(Rect2 bounds,
+        IReadOnlyList<EnemyBehaviorValue> mask, IReadOnlyList<EnemyBehaviorValue> effects, Action hit)
+    {
+        const int collision = (int)RoomEntityItemCollision.Boomerang;
+        if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 || mask[collision].Value == 0 ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds)) return false;
+        if (effects[collision].Value != 0x35)
+            throw new NotSupportedException($"Enemy${DimitriCollisionType:x2} boomerang transformation requires collisionEffect35.");
+        hit();
+        return true;
+    }
+    protected bool ApplyIneffectiveWeaponCollision(int collision, Rect2 bounds,
+        IReadOnlyList<EnemyBehaviorValue> mask, IReadOnlyList<EnemyBehaviorValue> effects,
+        out bool reportsContact)
+    {
+        reportsContact = false;
+        if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 || mask[collision].Value == 0 ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds)) return false;
+        switch (effects[collision].Value)
+        {
+            case 0: return true;
+            case 0x20: return true; // Projectile owner consumes the hit; no enemy status changes.
+            case 0x1c:
+                // Both damage rows are$1c: report weapon contact without
+                // health, recoil, invincibility or sound. Species using this
+                // helper must continue their AI on this non-boomerang hit.
+                reportsContact = true;
+                return true;
+            default: throw new NotSupportedException($"Enemy${DimitriCollisionType:x2} ineffective weapon column${collision:x2}: effect${effects[collision].Value:x2} is not represented.");
+        }
+    }
     protected bool ApplySomariaBlockCollision(SomariaBlock block, int rawDamage,
         bool pendingHit, ICollection<RoomEntitySpawn> spawns, bool deferNativeStatus = true)
     {
@@ -158,7 +236,9 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             return;
         }
 
-        combatDescriptor.Combat.HandleLinkContact(player);
+        // enemyCheckCollisions checks the shield before the stun byte, then
+        // suppresses ordinary Link contact while the enemy remains stunned.
+        if (!Stunned) combatDescriptor.Combat.HandleLinkContact(player);
     }
     public virtual bool ApplySwordHit(
         Rect2 hitbox,

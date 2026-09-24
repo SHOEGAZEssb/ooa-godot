@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -9,6 +10,29 @@ internal partial class WhispCharacter : EnemyCharacter
     private OracleRoomData _room = null!;
     private bool _initialized;
     private int _angle;
+    private bool _collisionEnabled = true;
+    private SparkTransformation? _transformation;
+    internal override bool CollisionEnabled => _collisionEnabled && base.CollisionEnabled;
+    internal int TransformationState => _transformation?.State ?? 8;
+    internal bool TransformationCompleted => _transformation?.Completed == true;
+    internal void ApplyBoomerangHit()
+    {
+        ApplyUnrandomizedMysteryHit();
+        (_transformation ?? throw new InvalidOperationException(
+            "ENEMY_WHISP $19 requires its native transformation owners.")).Hit();
+    }
+    internal void ConfigureTransformation(Func<Vector2, int> createPuff, Func<int, int> parameter,
+        Action<Vector2, int> createFairy) =>
+        _transformation = new(this, createPuff, parameter, createFairy, Finish);
+
+    internal void ApplyUnrandomizedMysteryHit()
+    {
+        // collisionEffect35 sets health=0 and clears collisionType bit7.
+        // Whisp's NO_HEALTH handler only transforms for boomerang IDs, so
+        // this otherwise unused raw Mystery collision keeps moving visibly.
+        Health = 0;
+        _collisionEnabled = false;
+    }
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int Angle => _angle;
@@ -33,6 +57,8 @@ internal partial class WhispCharacter : EnemyCharacter
     {
         if (BeginFrame())
             return;
+        if (_transformation?.Update(_angle, createsFairy: false) == true)
+            return;
         if (!_initialized)
         {
             PrepareForScreenTransition();
@@ -46,7 +72,7 @@ internal partial class WhispCharacter : EnemyCharacter
             _angle, walls);
         // whisp_state8 calls ecom_bounceOffWalls, then objectApplySpeed; it
         // does not run the adjacent-wall movement helper a second time.
-        Position += OracleObjectMovement.Shared.Delta(
+        Position += MovementDelta(
             EnemyBehaviorTables.Shared.Whisp.SpeedRaw,
             _angle);
         QueueRedraw();
@@ -74,6 +100,6 @@ internal partial class WhispCharacter : EnemyCharacter
     private bool Collides(Vector2I point) =>
         point.X < 0 || point.X >= _room.Width ||
         point.Y < 0 || point.Y >= _room.Height ||
-        _room.IsSolid(point) ||
-        _room.GetTerrainInfo(point).Hazard == HazardType.Hole;
+        // whisp_state8 selects ecom_bounceOffWalls, with A=0.
+        _room.IsSolidForEnemyMovement(point, holesAreWalls: false);
 }

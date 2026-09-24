@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
             FailIf(falls.Length < 4 || falls.Any(fall => fall.Finished),
                 "Patch victory did not retain the final beetles' live $0f hole interactions.");
             // interaction0f animation 0 has durations 8,12,12 followed by
-            // parameter $80. It deletes on update 33 even while Patch sets
+            // parameter $ff. It deletes on update 33 even while Patch sets
             // DISABLE_ALL_BUT_INTERACTIONS and starts the white palette fade.
             for (int elapsed = 0; elapsed < 35;)
             {
@@ -260,6 +260,7 @@ public sealed partial class ValidationRoot
             CheckVictoryHoleEffects(batched: swordLevel == 2);
             Text("Hmm..."); Close(); Text("Here you go."); Close();
             Until(() => _inventory.SwordLevel == swordLevel + 1, 30, "restored sword reward");
+            Step(2); // state04 consumption, then initialization.
             FailIf(!_player.IsHoldingItemOneHand, "Patch's first sword reward lost collect mode $01.");
             Close();
             Until(() => _entities.Entities<GroundTreasurePickup>().Any(t => t.Record.GrabMode == 3), 10, "silent sword collect mode $03");

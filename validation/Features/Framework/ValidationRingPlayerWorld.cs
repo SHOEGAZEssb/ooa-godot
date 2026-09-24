@@ -11,6 +11,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool IsTransitioning { get; set; }
     public bool ScreenScrolling { get; set; }
     public bool DialogueOpen => false;
+    public bool NativeTextActive { get; set; }
     public bool SwordDisabled => false;
     public bool ItemUsageDisabled => false;
     public bool MovementDisabled { get; set; }

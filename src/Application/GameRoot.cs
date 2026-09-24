@@ -347,7 +347,8 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData,
-            countAsRoomEntry: !useDebugSavestate);
+            countAsRoomEntry: !useDebugSavestate,
+            toggleState: () => _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress));
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
         _rooms.RoomChanged += ApplyRoomMusic;
@@ -518,6 +519,10 @@ public partial class GameRoot : Node2D
         // on the frame where ownership is released.
         if (ringMenuOwnedFrame || _ringMenu.IsActive)
             return;
+        // cutscene02 advances before updateAllObjects. Its pending trigger
+        // already blocks opening a menu between selection and state0.
+        bool toggleOwnedUpdate = _entities.FloorToggle?.Active == true;
+        _entities.FloorToggle?.AdvanceBeforeObjects();
         _inventoryMenu.Update(delta);
         if (_mainMenu is not null)
             return;
@@ -530,9 +535,10 @@ public partial class GameRoot : Node2D
             }
             return;
         }
-        bool mapOwnedFrame = _mapMenu.IsActive;
         _mapMenu.Update(delta);
-        if (mapOwnedFrame || _mapMenu.IsActive)
+        // updateMenus returns the post-update wOpenedMenuType. Completing
+        // menuStateFadeIntoGame resumes cutscene01 on this same update.
+        if (_mapMenu.IsActive)
             return;
         // MENU_KIDNAME is a gameplay-owned file-menu screen in the original.
         // Keep servicing its controller while freezing the room beneath it.
@@ -550,13 +556,11 @@ public partial class GameRoot : Node2D
         // item parents. Link's former physics/process split is therefore
         // replayed here before enemies, parts, and interactions.
         bool scrollOwnedUpdate = _transitions.ScrollActive;
+        bool roomTransitionOwnedUpdate = IsTransitioning;
         _harp.BeginObjectUpdate();
+        _transitions.BeginObjectUpdate();
         _player.AdvanceApplicationUpdate();
-        _entities.ClearGrabbableObjectsAfterPlayer();
-        if (!IsTransitioning)
-        {
-            _keyDoors.Advance(delta);
-        }
+        _entities.ClearSignalsAfterPlayer();
         _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
@@ -565,9 +569,8 @@ public partial class GameRoot : Node2D
                 _entities.UpdateDuringHarp(delta, _player);
             else
                 _entities.Update(delta, _player);
-            if (!IsTransitioning)
+            if (!IsTransitioning && _entities.FloorToggle?.Frozen != true)
             {
-                _combat.AdvanceApplicationUpdate();
                 _terrain.AdvanceApplicationUpdate();
             }
         }
@@ -579,7 +582,7 @@ public partial class GameRoot : Node2D
         {
             _roomEvents.UpdateDuringTimeWarpFrame();
         }
-        else
+        else if (_entities.FloorToggle?.Frozen != true)
         {
             _roomEvents.UpdateFrame();
             _interactions.Update(delta, _player);
@@ -592,17 +595,27 @@ public partial class GameRoot : Node2D
         // Preserve the current scroll gate on its final frozen update.
         if (!_transitions.TimeWarpActive)
             _rooms.UpdateChangedTileGraphics(_transitions.ScrollActive ? (byte)8 : (byte)1);
+        // cutscene01 selects a changed orb bit before getNextActiveRoom and
+        // the enemy/part collision pass. cutscene02 only runs its handler
+        // and updateAllObjects, including the update that releases its freeze.
+        if (!toggleOwnedUpdate && !roomTransitionOwnedUpdate &&
+            !IsTransitioning && !_roomEvents.Active)
+            _entities.FloorToggle?.CheckAfterObjects();
+        bool toggleOwnsPostObjects = toggleOwnedUpdate || _entities.FloorToggle?.Active == true;
         // The source screen-transition handler follows updateAllObjects.
         // In particular, the final scroll update still freezes destination
         // entities and room events; ordinary updates resume next tick.
         if (scrollOwnedUpdate)
             _transitions.UpdateScroll(delta);
-        else
+        else if (!toggleOwnsPostObjects)
             UpdatePostObjectPlayerState();
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
-        if (!IsTransitioning) _entities.ResolvePostObjectCollisions(_player);
+        if (!IsTransitioning && !toggleOwnsPostObjects)
+            _entities.ResolvePostObjectCollisions(_player);
+        if (roomTransitionOwnedUpdate && !IsTransitioning)
+            _entities.FloorToggle?.CompleteRoomInitialization();
         UpdateRoomDebugLabel();
         _debugWarps.Update();
     }
@@ -613,7 +626,7 @@ public partial class GameRoot : Node2D
         // Interactions and moving platforms can move Link after his own state
         // handler, so check the final object-authored position as well. This is
         // required for side-view edge warps reached on a moving platform.
-        if (!IsTransitioning)
+        if (!IsTransitioning && !_transitions.CheckRequestedTileWarp(_player))
             _transitions.CheckRoomExit(_player);
 
         // The camera likewise observes the final post-object Link position.
@@ -702,7 +715,9 @@ public partial class GameRoot : Node2D
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound,
             _entities.PushBlockPermittedByColoredCube,
-            _entities.RequestSomariaPush)
+            _entities.RequestSomariaPush,
+            braceletLevelSource: () => _inventory.BraceletLevel,
+            movementMemory: _runtimeState)
         {
             Name = "PushBlock"
         };
@@ -742,6 +757,7 @@ public partial class GameRoot : Node2D
         _entities.RoomWarpRequested += warp =>
             _transitions.ApplyWarp(_player, warp);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.NativeChannelVolumeWritten += _sound.SetNativeChannelVolume;
         _entities.RoomMusicRequested += _sound.PlayRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         _entities.EnemyDefeated += _inventory.RecordEnemyKill;
@@ -777,8 +793,11 @@ public partial class GameRoot : Node2D
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
         _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
+        _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
+        _entities.FloorToggle = new DungeonToggleController(_rooms, _runtimeState, _entities,
+            _sound.PlaySound, () => (long)_animationTicks);
         _combat = new CombatController(
-            _scene.WorldRoot, _rooms, _roomView, _entities,
+            _rooms, _roomView, _entities,
             new BreakableTileDatabase(), _saveData, _sound,
             () => (long)_animationTicks);
         _bracelet = new BraceletController(

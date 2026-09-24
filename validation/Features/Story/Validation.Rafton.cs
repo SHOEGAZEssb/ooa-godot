@@ -924,6 +924,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Single();
         TreasureObjectRecord rewardObject =
             _treasures.GetObject(record.RewardObject);
+        InitializeGetItemStateForValidation();
         FailIf(
             reward.Record.TreasureObject != record.RewardObject ||
             reward.Record.GrabMode != 2 || !reward.Held ||
@@ -935,6 +936,7 @@ public sealed partial class ValidationRoot
             "Rafton's giveitem did not exchange Magic Oar for a two-hand Sea " +
             "Ukulele and set room bit $20.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         StepRoomEventFrames(1);

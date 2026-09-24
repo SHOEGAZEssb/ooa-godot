@@ -5,6 +5,7 @@ namespace oracleofages;
 
 public partial class ZolCharacter : EnemyCharacter
 {
+    internal int NativeSpeed { get; private set; }
     private readonly ZolBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Zol;
     private OracleRoomData _room = null!;
@@ -17,6 +18,9 @@ public partial class ZolCharacter : EnemyCharacter
     private int _angle;
     private bool _collisionEnabled;
     private bool _damageHitPending;
+    private int _stunCounter;
+    internal int StunCounter => _stunCounter;
+    internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
     private bool _emergeSoundPlayed;
     private Action<int> _sound = static _ => { };
 
@@ -24,6 +28,7 @@ public partial class ZolCharacter : EnemyCharacter
     internal ZolState State => _state;
     internal int Counter1 => _counter1;
     internal int Counter2 => _counter2;
+    internal bool DamageHitPending => _damageHitPending;
     internal int ZFixed => _verticalMotion.ZFixed;
     internal override bool CollisionEnabled =>
         _collisionEnabled && base.CollisionEnabled;
@@ -67,7 +72,8 @@ public partial class ZolCharacter : EnemyCharacter
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
-            checksHazards: true);
+            checksHazards: true,
+            nativeSpeed: () => NativeSpeed);
         ConfigureHazards(
             room,
             animateWhileFallingInHole: false,
@@ -82,6 +88,7 @@ public partial class ZolCharacter : EnemyCharacter
     {
         if (_state != ZolState.Uninitialized) return;
         _random.Next(); // enemyStandardUpdate writes var3d before enemyCode34.
+        NativeSpeed = Record.SubId == 0 ? _behavior.GreenHopSpeedRaw : _behavior.RedInitialSpeedRaw;
         if (Record.SubId == 0)
         {
             _state = ZolState.GreenHidden;
@@ -100,7 +107,7 @@ public partial class ZolCharacter : EnemyCharacter
         QueueRedraw();
     }
 
-    internal UpdateEvent UpdateFrame(Vector2 linkPosition)
+    internal UpdateEvent UpdateFrame(Vector2 linkPosition, int frameCounter = 0)
     {
         if (_state == ZolState.Uninitialized)
         {
@@ -118,10 +125,17 @@ public partial class ZolCharacter : EnemyCharacter
         }
         if (IsDead)
             return UpdateEvent.None;
-        if (BeginFrame())
-            return UpdateEvent.None;
-        if (CheckHazards())
-            return UpdateEvent.None;
+        bool stunned = !NativeHitPending && !HasActiveKnockback && Health > 0 && _stunCounter != 0;
+        if (stunned)
+        {
+            int z = _verticalMotion.ZFixed, speedZ = _verticalMotion.SpeedZ;
+            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
+                ref _stunCounter, ref z, ref speedZ);
+            _verticalMotion.ZFixed = z;
+            _verticalMotion.SpeedZ = speedZ;
+            QueueRedraw();
+        }
+        if (BeginFrame() || CheckHazards() || stunned) return UpdateEvent.None;
 
         switch (_state)
         {
@@ -221,6 +235,7 @@ public partial class ZolCharacter : EnemyCharacter
                 else
                 {
                     _state = ZolState.RedSliding;
+                    NativeSpeed = _behavior.RedSlideSpeedRaw;
                     _counter1 = _behavior.RedSlideFrames;
                     _angle = OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition);
@@ -246,6 +261,7 @@ public partial class ZolCharacter : EnemyCharacter
                     return UpdateEvent.None;
                 }
                 _state = ZolState.RedHopping;
+                NativeSpeed = _behavior.RedHopSpeedRaw;
                 _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
@@ -285,6 +301,16 @@ public partial class ZolCharacter : EnemyCharacter
 
     internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
         => TakeSwordHit(linkPosition, damage);
+
+    internal bool TakeSomariaHit(Vector2 sourcePosition, int damage)
+    {
+        if (!TakeSwordHit(sourcePosition, damage)) return false;
+        // Block column$15 uses ENEMYDMG_04 rather than the sword's
+        // ENEMYDMG_0c. JUST_HIT still selects the red split state, but its
+        // eleven recoil updates precede that state's dispatch (or death).
+        ApplySwordKnockback(sourcePosition, EnemyKnockbackStrength.Normal);
+        return true;
+    }
 
     internal bool TakeSwordHit(int damage)
         => TakeSwordHit(Position, damage);

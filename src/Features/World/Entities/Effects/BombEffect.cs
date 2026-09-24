@@ -39,6 +39,8 @@ public partial class BombEffect : TransitionOffsetNode2D
     private bool _sideScrollMerged;
     private bool _sideScrollGroundCollisionLastUpdate;
     private int _speedRaw;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private int _frameIndex;
     private int _frameCounter;
     private int _breakProbe;
@@ -382,10 +384,14 @@ public partial class BombEffect : TransitionOffsetNode2D
             {
                 _throwDirection = Vector2I.Zero;
                 _speedRaw = 0;
+                // itemUpdateThrowingLaterally falls through to objectApplySpeed
+                // with angle $ff on this update; later $ff updates return early.
+                NativeObjectMovement.Velocity(_movementMemory, 0, 0xff);
             }
             else if (!IsSideScrolling() || _throwDirection.X != 0)
             {
-                Position = OracleObjectMovement.Shared.ApplySpeed(
+                Position = NativeObjectMovement.ApplySpeed(
+                    _movementMemory,
                     ref _precisePosition,
                     _speedRaw,
                     DirectionAngle(_throwDirection));
@@ -422,8 +428,8 @@ public partial class BombEffect : TransitionOffsetNode2D
         {
             _speedZ = rebound;
             _speedRaw = _record.ReducedBounceSpeed(_speedRaw);
-            if (_speedRaw == 0)
-                _throwDirection = Vector2I.Zero;
+            // itemBounce changes speed, not angle. Even SPEED_000 must
+            // execute objectApplySpeed on later airborne updates.
         }
         AdvanceFuse();
     }
@@ -517,7 +523,8 @@ public partial class BombEffect : TransitionOffsetNode2D
             Vector2 edge = _precisePosition + _record.EdgeOffset(direction);
             if (WithinRoomBoundary(edge) && !_room.IsSolid(edge))
             {
-                Position = OracleObjectMovement.Shared.ApplySpeed(
+                Position = NativeObjectMovement.ApplySpeed(
+                    _movementMemory,
                     ref _precisePosition,
                     _record.ConveyorSpeedRaw,
                     DirectionAngle(direction));

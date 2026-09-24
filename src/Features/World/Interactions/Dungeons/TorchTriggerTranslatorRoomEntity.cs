@@ -68,7 +68,7 @@ internal sealed partial class TorchTriggerTranslatorRoomEntity :
         return ScreenTransitionPresentation.Hidden;
     }
 
-    public void UpdateDuringScreenTransition() => Dispatch();
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame = default) => Dispatch();
 
     private void Dispatch()
     {

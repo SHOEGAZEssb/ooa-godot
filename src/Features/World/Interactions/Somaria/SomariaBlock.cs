@@ -14,6 +14,8 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
     private readonly SomariaBlockPlacement _placement;
     private readonly SomariaBlockVisual _visual;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private int _direction, _speed;
     private SomariaThrowMotion? _throw;
     private int _throwAngle;
@@ -161,7 +163,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
                     _placement.Remove(tick);
                 }
                 if (ApplyDamage() || (Flags & 0x20) != 0) { Delete(); break; }
-                Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _speed, _direction*8);
+                Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, _speed, _direction*8);
                 PushLinkAway(); Counter--;
                 Radius = new(4,4);
                 if (Counter == 0) CreateBlock(group, tick);
@@ -208,7 +210,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
         { Finished = true; Visible = false; return; }
         if (_throw is null)
         {
-            _throw = new(_room, _geometry);
+            _throw = new(_room, _geometry, _movementMemory);
             _throw.Begin(Position, ZHigh, linkDirection, _throwAngle, tossRing);
         }
         _throw.AdvanceLateral();

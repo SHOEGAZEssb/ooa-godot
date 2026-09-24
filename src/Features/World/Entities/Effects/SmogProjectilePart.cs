@@ -11,7 +11,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;
     private OracleObjectPosition _position;
-    private OracleObjectVelocity _velocity;
+    private OracleRuntimeState? _movementMemory;
     private bool _collisionCleared;
     internal int SubId { get; }
     internal int State { get; private set; }
@@ -27,6 +27,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
     internal Rect2 CollisionBounds => new(Position - (Vector2)_data.Radius, (Vector2)_data.Radius * 2);
     internal void PublishCollision(int flags) => ContactFlags |= flags;
     internal void ClearHealthAndCollision() => _collisionCleared = true;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal SmogProjectilePart(SmogProjectileDatabase data, OracleRoomData room, Vector2 position, int subid)
     {
@@ -58,7 +59,6 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
             State = 1; Visible = true; ZIndex = NpcCharacter.InFrontOfLinkZIndex;
             _collisionCleared = false;
             Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target.Floor());
-            _velocity = OracleObjectMovement.Shared.Velocity(SubId == 0 ? 0x1e : 0x28, Angle);
             _animation.SetAnimation(SubId == 0 ? 0 : 2 + (((Angle + 4) >> 3) & 1));
             // state0 falls through: boundary checks, movement and (small only)
             // animation all execute on the allocation's first eligible update.
@@ -68,7 +68,8 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
             if ((roomFlags & 0x40) != 0 || enemyCount == 1 ||
                 (byte)((int)Position.Y - camera.Y + 7) >= 0x8f ||
                 (byte)((int)Position.X - camera.X + 7) >= 0xaf) { Delete(); return; }
-            _position = _position.Add(_velocity.YFixed, _velocity.XFixed);
+            var velocity = NativeObjectMovement.Velocity(_movementMemory, SubId == 0 ? 0x1e : 0x28, Angle);
+            _position = _position.Add(velocity.YFixed, velocity.XFixed);
             Position = _position.PixelPosition;
             QueueRedraw();
             if (SubId != 0) return;

@@ -26,6 +26,8 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     internal bool CollisionEnabled => !Finished && State == 1 && !_enemyHitPending;
     internal int ZHigh { get; private set; }
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private bool _cancelRequested;
     private bool _chainCreated;
     internal bool ChainAllocated => _chainCreated;
@@ -36,6 +38,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     internal bool Finished { get; private set; }
     internal bool ChainVisible { get; private set; }
     internal Vector2 ChainPosition { get; private set; }
+    internal int ChainZHigh { get; private set; }
     internal int Angle { get; private set; }
     internal Vector2 PrecisePosition => _precisePosition;
     internal Rect2 CollisionBounds => new(Position - Vector2.One * 6, Vector2.One * 12);
@@ -235,7 +238,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
     private static bool WithinLinkRange(float item, float link) =>
         (((int)item - (int)link + 8) & 0xff) < 16;
     private void Retract() { State = 2; Substate = 0; }
-    private void Move() => Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _level.SpeedRaw, Angle);
+    private void Move() => Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, _level.SpeedRaw, Angle);
     private void PlayFlightSound()
     {
         if ((Counter & _level.SoundMask) != 0) _sound(_level.FlightSound);
@@ -247,6 +250,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
         if (Finished || State == 2 && Substate == 1) _chainCreated = false;
         if (Finished || !_chainCreated || State == 2 && Substate == 1)
         { ChainVisible = false; return; }
+        ChainZHigh = ZHigh;
         if (--_chainCounter == 0) _chainCounter = 3;
         ChainPosition = new(ChainComponent(Position.X, linkPosition.X, 0), ChainComponent(Position.Y, linkPosition.Y, 3));
         ChainVisible = true;
@@ -268,6 +272,6 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
         }
         if (ChainVisible)
             DrawTexture(_chainAnimation.CurrentTexture,
-                _chainAnimation.CurrentOffset + ChainPosition - Position + Vector2.Down * ZHigh + TransitionDrawOffset);
+                _chainAnimation.CurrentOffset + ChainPosition - Position + Vector2.Down * ChainZHigh + TransitionDrawOffset);
     }
 }

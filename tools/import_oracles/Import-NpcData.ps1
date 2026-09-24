@@ -1838,6 +1838,17 @@ $fallDownHoleRows = @(
     "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t15`t$fallDownHoleAnimation"
 )
 
+$knockbackDustAnimation = Resolve-NpcAnimation 0x0f 1
+if ([string]::IsNullOrWhiteSpace($knockbackDustAnimation) -or
+    $fallDownHoleSource -notmatch '(?ms)^@dust:\s+call interactionSetAnimation\s+jp objectSetVisible80' -or
+    $fallDownHoleSource -notmatch '(?ms)^@interac0f_state2:.*?xor \$80.*?bit 7,\(hl\).*?jr z,@animate') {
+    throw 'INTERAC_FALLDOWNHOLE $0f:$01 dust animation or flicker contract changed.'
+}
+$knockbackDustRows = @(
+    "# tile-base`tpalette`tanimation"
+    "$($fallDownHoleGraphic.TileBase)`t$($fallDownHoleGraphic.Palette)`t$knockbackDustAnimation"
+)
+
 # Link's side-view swimming counter creates INTERAC_BUBBLE $91:$00.
 # Its state-0 RNG draw belongs to the later interaction pass, not Link.
 $swimBubbleSource = Read-ImportText (
@@ -2192,7 +2203,7 @@ foreach ($line in $mainObjectLines) {
             }
         }
         if (-not $specializedEnemyFallingKey -and (
-            ($id -eq 0x12 -and $subid -in @(0x01, 0x02)) -or
+            ($id -eq 0x12 -and $subid -in @(0x01, 0x02, 0x04)) -or
             ($id -eq 0x13 -and $subid -eq 0x01) -or
             ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
             ($id -eq 0x23 -and $subid -le 0x07) -or
@@ -2280,7 +2291,8 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 234 -or
+if ($dungeonMechanicRows.Count -ne 235 -or
+    -not ($dungeonMechanicRows -contains "4`tab`t0`t12`t04`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`tc2`t0`tdc`t0c`t56`t08`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`te3`t0`tdc`t0d`t28`t06`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "0`t54`t0`t6b`t0f`t68`t01`tnone`t1") -or
@@ -2333,7 +2345,7 @@ if ($dungeonMechanicRows.Count -ne 234 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 233 reusable mechanics including Crown's two timed reflectors; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 234 reusable mechanics including Crown's enemy-clear staircase; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2525,8 +2537,16 @@ if ($dungeonEventTilePatternRows.Count -ne 54 -or
     throw 'Expected the three $21:$09 goals and 50 source-ordered INTERAC_EXTENDABLE_BRIDGE creation/removal tiles.'
 }
 
+$enemyStairTiles = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/common/interactions/dungeonStuff.s') '@replacementTiles')
+if (($enemyStairTiles -join ',') -ne '70,71,68,69') {
+    throw 'dungeonStuff.s:@replacementTiles must map $40..$43 to $46,$47,$44,$45.'
+}
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
+    "enemy-stair-tile-0`t$($enemyStairTiles[0])"
+    "enemy-stair-tile-1`t$($enemyStairTiles[1])"
+    "enemy-stair-tile-2`t$($enemyStairTiles[2])"
+    "enemy-stair-tile-3`t$($enemyStairTiles[3])"
     "bridge-spawner-wait`t8"
     "bridge-spawner-half-tile`t110"
     "bridge-spawner-full-tile`t109"
@@ -6665,6 +6685,7 @@ $dungeonMechanicConstantsPath = Join-Path $destination "objects\dungeon_mechanic
 Write-GeneratedTable(
     $dungeonMechanicConstantsPath,
     $dungeonMechanicConstantRows)
+Remove-Variable enemyStairTiles
 $dungeonMechanicTextPath = Join-Path $destination "objects\dungeon_mechanic_text.tsv"
 Write-GeneratedTable(
     $dungeonMechanicTextPath,
@@ -6685,6 +6706,12 @@ $fallDownHolePath = Join-Path $destination "effects\fall_down_hole.tsv"
 Write-GeneratedTable(
     $fallDownHolePath,
     $fallDownHoleRows)
+$knockbackDustPath = Join-Path $destination 'effects\knockback_dust.tsv'
+Write-GeneratedTable(
+    $knockbackDustPath,
+    $knockbackDustRows)
+# This dot-sourced stage shares Windows PowerShell's bounded variable scope.
+Remove-Variable knockbackDustAnimation, knockbackDustRows, knockbackDustPath
 $eraInfoPath = Join-Path $destination "effects\era_info.tsv"
 Write-GeneratedTable(
     $eraInfoPath,

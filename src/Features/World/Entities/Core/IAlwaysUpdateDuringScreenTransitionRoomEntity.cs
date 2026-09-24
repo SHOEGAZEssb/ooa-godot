@@ -7,5 +7,5 @@ namespace oracleofages;
 /// </summary>
 internal interface IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
-    void UpdateDuringScreenTransition();
+    void UpdateDuringScreenTransition(RoomEntityFrame frame);
 }

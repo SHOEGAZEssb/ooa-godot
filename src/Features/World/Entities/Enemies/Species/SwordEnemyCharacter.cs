@@ -22,6 +22,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     private bool _emberCollisionDisabled;
     internal int ZFixed { get => _zFixed; set => _zFixed = value; }
     internal int StunCounter => _stunCounter;
+    internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
     internal bool BurnKilled { get; private set; }
     internal bool IsDarknut => Record.Id == 0x48;
     internal int CollisionMode => SwordBlocking ? (IsDarknut ? 0x56 : 0x55)
@@ -84,7 +85,8 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
-            checksHazards: true);
+            checksHazards: true,
+            nativeSpeed: () => _speedRaw);
         ConfigureHazards(room, zPosition: () => _zFixed);
         Visible = false;
     }
@@ -103,16 +105,18 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
 
     private void UpdateState(Vector2 linkPosition, Vector2? scentSeedTarget, bool swordSlotAvailable, int frameCounter)
     {
+        bool stunned = !IsDead && (int)_state != 0 && !NativeHitPending && !HasActiveKnockback && Health > 0 && _stunCounter != 0;
+        if (stunned)
+            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
+                ref _stunCounter, ref _zFixed, ref _speedZ);
         if (IsDead || CheckHazards() || BeginFrame())
             return;
         // COLLISIONEFFECT_$34 writes JUST_HIT before clearing health. Return
         // on that status so the later PART_BURNING_ENEMY pass can borrow HP.
         if (_emberPending) { _emberPending = false; return; }
         if (Health == 0) { BurnKilled = true; Finish(); return; }
-        if (_stunCounter != 0)
+        if (stunned)
         {
-            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
-                ref _stunCounter, ref _zFixed, ref _speedZ);
             QueueRedraw();
             return;
         }

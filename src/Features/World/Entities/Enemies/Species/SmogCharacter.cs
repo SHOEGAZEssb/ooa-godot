@@ -104,7 +104,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         _record = record; _dying = false;
         SubId = subid; _phase = phase; State = 0; Counter2 = 0; Visible = false; ContactFlags = 0; CollisionMode = 0x4d;
         _collisionEnabled = true; Speed = 0;
-        _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision);
+        _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision, MovementVelocity);
         _roomCollision = collision;
     }
 
@@ -117,7 +117,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         _record = record; _dying = false;
         SubId = subid; _phase = phase; State = 0; Counter2 = 5; Visible = false; ContactFlags = 0; CollisionMode = 0x4d;
         _collisionEnabled = false; Speed = 0;
-        _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision);
+        _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision, MovementVelocity);
         _roomCollision = collision; LargeSubstate = 0; Counter1 = 0; Angle = 0;
     }
 
@@ -192,7 +192,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
             return;
         }
         if (_fireTimer.Advance()) SetAnimation(5);
-        var velocity = OracleObjectMovement.Shared.Velocity(Speed, Angle);
+        var velocity = MovementVelocity(Speed, Angle);
         _largePosition = _largePosition.Add(velocity.YFixed, velocity.XFixed);
         Position = _largePosition.PixelPosition;
         // ecom_bounceOffScreenBoundary accepts only raw $ff, with native byte
@@ -200,7 +200,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         Angle = EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle,
             point => _roomCollision((point.Y & 0xf0) | ((point.X & 255) >> 4)) == 0xff);
         QueueRedraw();
-        if (Counter1 != 0) Counter1--;
+        Counter1 = (byte)(Counter1 - 1); // ecom_decCounter1 is DEC (HL), unlike counter2.
         if (Counter1 != 0) return;
         Counter1 = 20;
         Speed += LargeSubstate == 1 ? 5 : -5;

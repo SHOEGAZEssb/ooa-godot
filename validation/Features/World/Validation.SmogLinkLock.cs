@@ -30,7 +30,7 @@ public partial class ValidationRoot
             Vector2 linkPosition = _player.Position, shotPosition = shot.Position;
             int timer = cloud.ProjectileCounter;
             _entities.LockSmogLinkAndMenu();
-            FailIf(!_entities.PlayerUpdatesFrozen || !_entities.PlayerMenusDisabled || _entities.LinkCollisionsAndMenuDisabled,
+            FailIf(!_entities.PlayerUpdatesFrozen || !_entities.PlayerMenusDisabled || !_entities.WarpTilesDisabled || _entities.LinkCollisionsAndMenuDisabled,
                 "INTERAC$33's mask$01/menu lock must freeze Link without setting wDisableLinkCollisionsAndMenu.");
             Step(4);
             FailIf(_player.Position != linkPosition || cloud.ProjectileCounter != timer - 4 || shot.Position == shotPosition,
@@ -40,7 +40,7 @@ public partial class ValidationRoot
             typeof(RoomEntityManager).GetMethod("DisableLinkCollisionsAndMenu",flags)!.Invoke(_entities,null);
             _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(104,104),2));
             Step();
-            FailIf(_entities.PlayerUpdatesFrozen || !_entities.LinkCollisionsAndMenuDisabled ||
+            FailIf(_entities.PlayerUpdatesFrozen || _entities.WarpTilesDisabled || !_entities.LinkCollisionsAndMenuDisabled ||
                 !_entities.PlayerMenusDisabled || _player.Position != linkPosition,
                 "Small-cloud initialization must release mask$01/menu in the enemy pass, retaining the separate collision/menu lock and earlier frozen Link update.");
             typeof(RoomEntityManager).GetMethod("EnableLinkCollisionsAndMenu",flags)!.Invoke(_entities,null);
@@ -50,7 +50,7 @@ public partial class ValidationRoot
 
             _entities.LockSmogLinkAndMenu();
             _entities.Clear();
-            FailIf(_entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled,
+            FailIf(_entities.PlayerUpdatesFrozen || _entities.PlayerMenusDisabled || _entities.WarpTilesDisabled,
                 "Room teardown must release the Smog-owned Link/menu lock.");
         }
         GD.Print("Validated Smog Link-only lock, continuing enemy/part updates, boss-start release timing and teardown with single/batched gameplay updates.");

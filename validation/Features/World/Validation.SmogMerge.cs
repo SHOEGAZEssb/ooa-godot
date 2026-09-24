@@ -95,6 +95,37 @@ public partial class ValidationRoot
             Step(3);
             FailIf(merged.State != 8 || merged.SubId != 4 || _entities.RoomEnemyCount != 2,
                 "Replacement's fifth initialization must observe the post-deletion count and become large.");
+
+            // Four clouds leave three counted enemies after a merge, selecting
+            // medium initialization and its same-page Interaction.counter2 write.
+            _entities.Clear();
+            for (int i = 0; i < 4; i++)
+                _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(
+                    i < 2 ? new(72 + i * 2,72 + i * 2) : new(120,40 + i * 24),2,2,1));
+            Step();
+            for (int i = 0; i < 3; i++)
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+            var puff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
+                _entities.InteractionSlot(entity.Node) == 4);
+            var effect = (PuzzlePuffEffect)puff.Node;
+            FailIf(!_entities.TryMergeSmogClouds(2), "Four-cloud fixture must merge its first pair.");
+            Step(4);
+            FailIf(puff.Counter2Alias != 0, "Medium initialization must wait five updates before writing $47.");
+            Step();
+            FailIf(puff.Counter2Alias != 60 || effect.ElapsedUpdates != 5 || effect.Finished ||
+                _entities.RoomEnemyCount != 3,
+                "Medium ENEMY$d4 must write INTERACTION$d4 counter2 without interrupting its puff.");
+            Step(14);
+            FailIf(effect.Finished || effect.CurrentParameter != 0xff || puff.Counter2Alias != 60,
+                "The aliased puff must reach its terminal parameter on update19 without counting down counter2.");
+            Step();
+            FailIf(!effect.Finished, "The aliased puff must still delete on update20.");
+            for (int i = 0; i < 3; i++)
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+            var replacementPuff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
+                _entities.InteractionSlot(entity.Node) == 4);
+            FailIf(replacementPuff.Counter2Alias != 0,
+                "interactionDelete clears $40-$7f, including counter2, before the puff slot is reused.");
         }
         _entities.Clear();
         GD.Print("Validated Smog merge byte bounds, pair/slot ordering, allocation side effects and deferred deletion in single and batched gameplay updates.");

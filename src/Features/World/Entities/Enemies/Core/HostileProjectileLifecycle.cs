@@ -17,6 +17,9 @@ internal sealed class HostileProjectileLifecycle
     private readonly HostileProjectileProfile _profile;
     private Vector2 _collisionRadii;
     private int _speedZ;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     public HostileProjectileLifecycle(
         Node2D entity,
@@ -90,9 +93,6 @@ internal sealed class HostileProjectileLifecycle
             return;
         }
 
-        Vector2 movement =
-            OracleObjectMovement.Shared.Delta(_profile.SpeedRaw, Angle);
-        Vector2 destination = _entity.Position + movement;
         switch (_profile.TileProbe)
         {
             case HostileProjectileTileProbe.CurrentPosition:
@@ -106,9 +106,10 @@ internal sealed class HostileProjectileLifecycle
                     BeginBounce();
                     return;
                 }
-                _entity.Position = destination;
+                _entity.Position += MovementDelta(_profile.SpeedRaw);
                 break;
             case HostileProjectileTileProbe.DestinationWithPendingBounce:
+                Vector2 destination = _entity.Position + MovementDelta(_profile.SpeedRaw);
                 if (!WithinRoom(destination))
                 {
                     Finish();
@@ -169,8 +170,14 @@ internal sealed class HostileProjectileLifecycle
             ref zFixed, ref _speedZ, _bounce.Gravity);
         ZFixed = zFixed;
         _entity.Position +=
-            OracleObjectMovement.Shared.Delta(_bounce.SpeedRaw, Angle);
+            MovementDelta(_bounce.SpeedRaw);
         _entity.QueueRedraw();
+    }
+
+    private Vector2 MovementDelta(int speed)
+    {
+        var velocity = NativeObjectMovement.Velocity(_movementMemory, speed, Angle);
+        return new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
     }
 
     private bool WithinVisibleBoundary(Vector2 linkPosition)

@@ -691,10 +691,10 @@ if ($null -eq $keeseSourceSprite) { throw "Keese sprite not found in disassembly
 Copy-Item -LiteralPath $keeseSourceSprite.FullName -Destination (Join-Path $destination "gfx\$keeseSpriteName.png") -Force
 $keeseDefinitionRows = [Collections.Generic.List[string]]::new()
 $keeseDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation")
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tidle-animation`tfly-animation`traw-damage")
 foreach ($subid in @('00', '01')) {
     $keeseDefinitionRows.Add(
-        "32`t$subid`t$keeseSpriteName`t$(($keeseGraphicFlags -band 0x0f) * 2)`t$(($keeseGraphicFlags -shr 4) -band 7)`t$keeseRadiusY`t$keeseRadiusX`t$keeseDamageQuarters`t$keeseHealth`t$keeseIdleAnimation`t$keeseFlyAnimation")
+        "32`t$subid`t$keeseSpriteName`t$(($keeseGraphicFlags -band 0x0f) * 2)`t$(($keeseGraphicFlags -shr 4) -band 7)`t$keeseRadiusY`t$keeseRadiusX`t$keeseDamageQuarters`t$keeseHealth`t$keeseIdleAnimation`t$keeseFlyAnimation`t$($keeseDefinition.RawDamage.ToString('x2'))")
 }
 $keesePath = Join-Path $destination "objects\keese.tsv"
 
@@ -1048,17 +1048,17 @@ if ($null -eq $zolSourceSprite) { throw "Zol/Gel sprite not found: $zolSpriteNam
 Copy-Item -LiteralPath $zolSourceSprite.FullName -Destination (Join-Path $destination "gfx\$zolSpriteName.png") -Force
 $zolDefinitionRows = [Collections.Generic.List[string]]::new()
 $zolDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5")
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`tanimation-3`tanimation-4`tanimation-5`traw-damage")
 foreach ($subid in 0..1) {
     $definition = $zolDefinitions[$subid]
     $zolDefinitionRows.Add(
-        "34`t$($subid.ToString('x2'))`t$zolSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")")
+        "34`t$($subid.ToString('x2'))`t$zolSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($zolAnimations -join "`t")`t$($definition.RawDamage.ToString('x2'))")
 }
 $gelDefinitionRows = [Collections.Generic.List[string]]::new()
 $gelDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2")
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tanimation-0`tanimation-1`tanimation-2`traw-damage")
 $gelDefinitionRows.Add(
-    "43`t00`t$zolSpriteName`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")")
+    "43`t00`t$zolSpriteName`t$($gelDefinition.TileBase)`t$($gelDefinition.Palette)`t$($gelDefinition.RadiusY)`t$($gelDefinition.RadiusX)`t$($gelDefinition.DamageQuarters)`t$($gelDefinition.Health)`t$($gelAnimations -join "`t")`t$($gelDefinition.RawDamage.ToString('x2'))")
 
 # Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
 # header, standard attributes, and four directional/flight animations are
@@ -1709,6 +1709,40 @@ function Export-SwitchHookCollisionData {
     Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_enemy_collisions.tsv'), $rows)
 }
 Export-SwitchHookCollisionData
+function Export-BoomerangCollisionData {
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`teffect`tsource")
+    for ($mode = 0; $mode -lt 128; $mode++) {
+        $offset = $mode * 32 + 0x17
+        $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/boomerang_collision_effects.tsv'), $rows)
+    foreach ($kind in @('enemy', 'part')) {
+        $relative = "data/ages/${kind}ActiveCollisions.s"
+        $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $relative) "${kind}ActiveCollisions" 'dbrev')
+        $expected = if ($kind -eq 'enemy') { 128 } else { 0x5a }
+        if ($masks.Count -ne $expected) { throw "${relative}: expected $expected ordered boomerang masks." }
+        $rows = [Collections.Generic.List[string]]::new()
+        $rows.Add("# id`tenabled`tsource")
+        for ($id = 0; $id -lt $masks.Count; $id++) {
+            $bits = ($masks[$id].Operands -join '').Replace('%', '')
+            if ($bits -notmatch '^[01]{32}$') { throw "${relative}: malformed collision mask at id `$$($id.ToString('x2'))." }
+            $rows.Add("$($id.ToString('x2'))`t$($bits[0x17])`t${relative}:${kind}ActiveCollisions+$((4 * $id).ToString('x4'))")
+        }
+        Write-GeneratedTable((Join-Path $destination "metadata/boomerang_${kind}_collisions.tsv"), $rows)
+    }
+    $source = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# damage-type`tflags`tinvincibility`tknockback`tstun`tsource")
+    foreach ($damage in @('24', '28')) {
+        $match = [regex]::Match($source, "(?m)^\s*\.db (?<bytes>(?:\`$[0-9a-f]{2}\s+){3}\`$[0-9a-f]{2})\s*; ENEMYDMG_$damage\s*$")
+        if (-not $match.Success) { throw "collisionEffects.s: missing ENEMYDMG_$damage row for boomerang status." }
+        $bytes = [regex]::Matches($match.Groups['bytes'].Value, '[0-9a-f]{2}')
+        $rows.Add("$damage`t$($bytes[0].Value)`t$($bytes[1].Value)`t$($bytes[2].Value)`t$($bytes[3].Value)`tcode/collisionEffects.s:ENEMYDMG_$damage")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/boomerang_status.tsv'), $rows)
+}
+Export-BoomerangCollisionData
 function Export-SomariaCollisionData {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# mode`tswing-effect`tblock-effect`tsource")
@@ -3954,8 +3988,21 @@ if ($zolCodeSource -notmatch
 }
 Add-EnemyBehaviorProfile 'zol' 'state-profile' `
     @(0x28, -0x200, 0x28, 0x18, 4, 0x30, 0x1e, 40,
-      0x10, 0x14, 0x20, 0x28, 0x18, 18) `
+      0x10, 0x14, 0x20, 0x28, 0x18, 18, (0x38971 -shr 14)) `
     'object_code/common/enemies/zol.s:state-entry-operands'
+
+# Red initialization calls enemySetAnimation, which returns A=hRomBank.
+# Verify the clean-US call sequence before exporting its containing bank as speed.
+$values = @(0x78,0xb7,0x3e,0x1e,0xca,0x64,0x43,0x62,0x2e,0x86,0x36,0x18,
+    0x2e,0xa4,0xcb,0xfe,0x3e,0x04,0xcd,0x2b,0x28,0xc3,0x5e,0x43)
+for ($i = 0; $i -lt $values.Count; $i++) {
+    if ($romBytes[0x38971 + $i] -ne $values[$i]) {
+        throw 'Clean-US zol_state_uninitialized bank/animation-call signature changed.'
+    }
+}
+if ($bank0Source -notmatch '(?ms)^enemySetAnimation:.*?ldh a,\(<hRomBank\)\s+push af.*?pop af\s+setrombank\s+ret') {
+    throw 'enemySetAnimation no longer returns the restored ROM bank in A.'
+}
 
 if ($octorokCodeSource -notmatch
         '(?ms)^octorok_state_08:.*?ld \(hl\),\$10' -or
@@ -4470,9 +4517,25 @@ Add-EnemyBehaviorProfile 'pumpkin-head-projectile' 'state-profile' `
 Add-EnemyBehaviorProfile 'spark' 'state-profile' `
     @(0x28) `
     'object_code/common/enemies/spark.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'spark' 'collision-effects' `
+    @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x17 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_SPARK/$17'
+$bits = ($seedActiveRows[0x13].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_SPARK $13 requires32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'spark' 'active-collisions' `
+    @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$13'
 Add-EnemyBehaviorProfile 'whisp' 'state-profile' `
     @(0x1e) `
     'object_code/common/enemies/whisp.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'whisp' 'collision-effects' `
+    @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x1c * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_WHISP/$1c'
+$bits = ($seedActiveRows[0x19].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_WHISP $19 requires32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'whisp' 'active-collisions' `
+    @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$19'
 Add-EnemyBehaviorProfile 'thwomp' 'state-profile' `
     @(0x14, 0x30, 60, 0x80, 0x20, 0x13, 3) `
     'object_code/common/enemies/thwomp.s:state-entry-operands'
@@ -4935,6 +4998,11 @@ if ($romBytes[0x3c41e] -ne 0 -or $romBytes[0x3c42e] -ne 8) {
     throw 'Smasher angle $ff: clean-US bank $0f bounce table+$ff/$10f signature changed.'
 }
 Add-EnemyBehaviorProfile 'smasher' 'drop-wall-probes' @($smasherDropOffsets + @(0,8)) 'clean-US-ROM:0f:4356/ecom_sideviewAdjacentWallOffsetTable+$f8;0f:441e/442e'
+$values = @(0x2b,0x8b,0x8d,0x8f,0xa6,0xa7 | ForEach-Object { [int]$romBytes[$_] })
+if (($values -join ',') -ne '0,151,245,234,74,76') {
+    throw 'Smasher unlinked release: clean-US ROM object-alias bytes changed.'
+}
+Add-EnemyBehaviorProfile 'smasher' 'unlinked-object' $values 'clean-US-ROM:00:002b/008b/008d/008f/00a6/00a7;smasher_state_grabbed@released'
 foreach ($spec in @(@('spawnPositions', 'respawn-positions', 16), @('randomAngles', 'wander-angles', 4))) {
     $values = @(Read-AssemblyDataDirectives $smasherPath "@$($spec[0])" '.db' | ForEach-Object {
         foreach ($operand in $_.Operands) { Convert-AssemblyInteger $operand }
@@ -4957,8 +5025,8 @@ if ($smasherBits -notmatch '^[01]{32}$') { throw 'ENEMY_SMASHER $74 active colli
 Add-EnemyBehaviorProfile 'smasher' 'active-collisions' @($smasherBits.ToCharArray() | ForEach-Object {
     [int]::Parse([string]$_)
 }) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$01d0'
-if ($enemyBehaviorRows.Count -ne 1836) {
-    throw "Expected 1835 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 1971) {
+    throw "Expected 1970 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

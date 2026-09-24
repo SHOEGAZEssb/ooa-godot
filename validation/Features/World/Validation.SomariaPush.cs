@@ -33,6 +33,21 @@ public partial class ValidationRoot
             _entities.TryCreateSomariaBlock(_player,0,new(72,70),0);
             Step(11);
             var block=_entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
+            bool observeMovement = false;
+            int movementObservations = 0;
+            var observer = new ItemPhaseValidationEntity(() =>
+            {
+                if (!observeMovement) return;
+                byte low = level == 2 ? (byte)0xc0 : (byte)0x80;
+                FailIf(_runtimeState.ReadWramByte(0xcec0) != low ||
+                    _runtimeState.ReadWramByte(0xcec1) != 0 ||
+                    _runtimeState.ReadWramByte(0xcec2) != 0 ||
+                    _runtimeState.ReadWramByte(0xcec3) != 0,
+                    "Somaria pushes must publish the source downward SPEED_080/SPEED_0c0 vector before the enemy pass.");
+                movementObservations++;
+            });
+            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot",flags)!.Invoke(_entities,[observer,0]);
+            typeof(RoomEntityManager).GetMethod("AddEntity",flags)!.Invoke(_entities,[observer]);
             for(int cycle=0;cycle<2;cycle++)
             {
                 for(int i=0;i<50 && _pushBlocks.RemainingPushFrames==20;i++) Step(1,true);
@@ -50,16 +65,20 @@ public partial class ValidationRoot
                 FailIf(block.State!=4 || block.Substate!=0 || block.Position!=start || _pushBlocks.Active,
                     "Push update20 must signal ITEM$18 and enter state4 without movement until its following handler update.");
                 int moves=level==2?21:32;
+                observeMovement = true;
                 Step(1);
                 FailIf(block.Counter!=moves-1 || _currentRoom.GetMetatile(start)!=0x0c,
                     $"First Somaria movement update must restore the source floor and consume one speed-dependent counter: level{level}/{_inventory.BraceletLevel}, cycle{cycle}, state{block.State}:{block.Substate}, counter{block.Counter}, tile${_currentRoom.GetMetatile(start):x2}.");
                 Step(moves-2);
                 FailIf(block.Counter!=1 || block.State!=4,"Somaria must remain moving until the final source counter update.");
                 Step(1);
+                observeMovement = false;
                 FailIf(block.State!=3 || block.Position!=start+Vector2.Down*16 ||
                     _currentRoom.GetMetatile(start+Vector2.Down*16)!=0xda,
                     "Somaria movement must finish aligned on the next tile after32 normal or21 Power Glove updates.");
             }
+            FailIf(movementObservations != 2 * (level == 2 ? 21 : 32),
+                "Repeated Somaria pushes must publish velocity on every moving update, including completion.");
             // A live collision override must win over the floor tile's
             // ordinary collision-table entry, and be checked only at zero.
             _currentRoom.SetPositionTileAndCollision(new(72,118),0x0c,15,0);

@@ -8,7 +8,8 @@ internal sealed class SynchronizedPushBlockRoomEntity(PushBlockController actor,
     int angle,Func<int> braceletLevel)
     : RoomEntityAdapter<PushBlockController>(actor,offset => actor.Position = offset),
         IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity,
-        IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
+        IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity,
+        IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private bool _initialized;
     public bool Finished => _initialized && !Entity.Active;
@@ -17,6 +18,10 @@ internal sealed class SynchronizedPushBlockRoomEntity(PushBlockController actor,
     internal byte SourcePosition => sourcePosition;
 
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Advance(frame.Player);
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        if (!_initialized) Advance(frame.Player);
+    }
     private void Advance(Player player)
     {
         if (!_initialized)

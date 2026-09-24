@@ -54,7 +54,8 @@ public partial class KeeseCharacter : EnemyCharacter
                 record.Palette));
         ConfigureSwordKnockback(
             room,
-            EnemyKnockbackMotion.ScreenBoundary);
+            EnemyKnockbackMotion.ScreenBoundary,
+            nativeSpeed: () => _speed);
         RestartAnimation(0);
     }
 
@@ -207,7 +208,7 @@ public partial class KeeseCharacter : EnemyCharacter
 
     private void ApplySpeed(int speed)
     {
-        Position += OracleObjectMovement.Shared.Delta(speed, _angle);
+        Position += MovementDelta(speed, _angle);
     }
 
     private void BounceOffScreenBoundary()

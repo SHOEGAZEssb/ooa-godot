@@ -61,7 +61,9 @@ internal sealed class SmasherBraceletThrow(SmasherCharacter ball, OracleRoomData
             var offset = commonThrow.EdgeOffsets[(Angle & 0x18) >> 3];
             var probe = new Vector2((byte)((int)Position.X + offset.X), (byte)((int)Position.Y + offset.Y));
             if (probe.Y < 0xb0 && room.IsSolid(probe) && !commonThrow.CanPassSolidTile(room, probe)) Angle = 0xff;
-            if (Angle != 0xff) Position = OracleObjectMovement.Shared.ApplySpeed(
+            // A newly blocked throw falls through objectApplySpeed with $ff,
+            // clearing velocity scratch. Later $ff updates return above.
+            Position = ball.ApplyMovementSpeed(
                 OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
         }
         if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, _weight.Gravity))

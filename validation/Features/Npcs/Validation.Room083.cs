@@ -137,16 +137,16 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 7; update++)
             manager.Update(1.0 / 60.0, _player);
         FailIf(
-            manager.FrameCounter != 40 ||
-            fairy.ScriptDrawOffset != new Vector2(0, -14),
-            "The Great Fairy lost the source frame-$28 +2 Z-height step.");
+            manager.FrameCounter != 80 ||
+            fairy.ScriptDrawOffset != new Vector2(0, -17),
+            "The Great Fairy lost the source frame-$50 -1 Z-height step after 40 scroll updates.");
 
         manager.TextActiveSource = static () => true;
         for (int update = 0; update < 8; update++)
             manager.Update(1.0 / 60.0, _player);
         FailIf(
-            manager.FrameCounter != 48 ||
-            fairy.ScriptDrawOffset != new Vector2(0, -13),
+            manager.FrameCounter != 88 ||
+            fairy.ScriptDrawOffset != new Vector2(0, -17),
             "INTERAC_GREAT_FAIRY's enabled bit 7 did not preserve its " +
             "animation/Z update while wTextIsActive was set.");
 

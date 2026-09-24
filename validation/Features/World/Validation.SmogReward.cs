@@ -15,6 +15,7 @@ public partial class ValidationRoot
         var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
         var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
+        foreach (bool aliasedCounter in new[] { false,true })
         {
             void Step(int count = 1, bool approach = false)
             {
@@ -39,7 +40,23 @@ public partial class ValidationRoot
             typeof(SmogEncounterController).GetProperty("State",flags)!.SetValue(controller.Controller,9);
             typeof(SmogEncounterController).GetProperty("Phase",flags)!.SetValue(controller.Controller,3);
             typeof(RoomEntityManager).GetMethod("ReleaseSmogLinkAndMenu",flags)!.Invoke(_entities,null);
-            CollisionLock(); Step();
+            CollisionLock();
+            var reward = _entities.EntityAdapters<DungeonRewardRoomEntity>().Single();
+            if (aliasedCounter)
+                typeof(RoomEntityManager).GetMethod("WriteSmogInteractionCounter",flags)!.Invoke(
+                    _entities,[_entities.InteractionSlot(reward.Node),60]);
+            Step();
+            if (aliasedCounter)
+            {
+                FailIf(reward.Counter2Alias != 59 || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                    _saveData.HasRoomFlag(4,0xbf,0x80),
+                    "An initialized boss-reward script must wait on the same-page Smog counter2 write.");
+                Step(59);
+                FailIf(reward.Counter2Alias != 0 || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                    _saveData.HasRoomFlag(4,0xbf,0x80),
+                    "interactionRunScript must still return on counter2's 1->0 update.");
+                Step();
+            }
             var heart = _entities.Entities<GroundTreasurePickup>().Single();
             FailIf(!controller.Finished || !_saveData.HasRoomFlag(4,0xbf,0x80) ||
                 _saveData.HasRoomFlag(4,0xbf,0x20) || _entities.LinkCollisionsAndMenuDisabled ||
@@ -50,7 +67,25 @@ public partial class ValidationRoot
             for (int i = 0; i < 40 && !_saveData.HasRoomFlag(4,0xbf,0x20); i++) Step(1,true);
             FailIf(!_saveData.HasRoomFlag(4,0xbf,0x20) || _inventory.MaxHealthQuarters != maxHealth + 4,
                 "Approaching Smog's heart through real room geometry must grant one container and persist the item flag.");
-            _dialogue.Close(); Step(2);
+            FailIf(_player.IsHoldingItemTwoHands,
+                "Collecting Smog's heart must not initialize state $04 on the collection update.");
+            Step();
+            FailIf(!heart.Held || _player.IsHoldingItemTwoHands || !_player.NativeNormalStateForInteraction,
+                "The heart's grab handler must queue state $04 after Link's dispatch.");
+            Step();
+            FailIf(_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction,
+                "Consuming force-state $04 must defer the heart's pose initialization.");
+            Step();
+            FailIf(!_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction || !_dialogue.IsOpen,
+                "State $04 initialization must hold Smog's heart while its text is open.");
+            Step(3);
+            FailIf(!_player.IsHoldingItemTwoHands,
+                "Smog's heart pose must persist across textbox updates.");
+            _dialogue.Close(); Step();
+            FailIf(_player.IsHoldingItemTwoHands || !_player.NativeNormalStateForInteraction ||
+                _inventory.MaxHealthQuarters != maxHealth + 4,
+                "Closing the heart textbox must restore Link without granting a second container.");
+            Step();
             LoadValidationRoom(4,0xbf); Step(2);
             FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0 || _entities.RoomEnemyCount != 0,
                 "Collected Smog heart and defeated boss must stay absent on re-entry.");
@@ -74,6 +109,8 @@ public partial class ValidationRoot
                 "Zero count must set flag$80 before stopifitemflagset ends without spawning or unlocking.");
 
             Load(true,false);
+            var uninitializedReward = _entities.EntityAdapters<DungeonRewardRoomEntity>().Single();
+            if (aliasedCounter) uninitializedReward.WriteCounter2Alias(60);
             typeof(RoomEntityManager).GetMethod("PrepareIncomingEntitiesForScreenTransition",flags)!.Invoke(_entities,[_player]);
             FailIf(_entities.Entities<GroundTreasurePickup>().Count != 1 || _entities.RoomEnemyCount != 0,
                 "State0 reward script must recreate an uncollected heart during cleared-room preload.");

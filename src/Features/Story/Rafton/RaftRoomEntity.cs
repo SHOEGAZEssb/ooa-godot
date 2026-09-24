@@ -107,7 +107,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     public void UpdatePlayerForcedMovement(Player player)
     {
-        if (LinkRiding && !player.RaftRespawning)
+        if (LinkRiding && !player.RaftRespawnPreventsSynchronization)
         {
             Visible = true;
             player.SetRaftRidePosition(

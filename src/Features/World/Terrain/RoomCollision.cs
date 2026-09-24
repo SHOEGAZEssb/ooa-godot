@@ -44,7 +44,7 @@ public sealed class RoomCollision
                     return true;
                 continue;
             }
-            if (room.IsSolid(sample))
+            if (TileBlocksPoint(sample))
                 return true;
         }
         return _entities.BlocksLink(playerPosition) || _pushBlocks.BlocksLink(playerPosition);
@@ -64,6 +64,29 @@ public sealed class RoomCollision
             walls = 0; // specialObjectUpdatePositionGivenVelocity clears e.
         }
 
+        return ResolveMaskedMovement(playerPosition, movement, angle, walls);
+    }
+
+    internal Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide)
+    {
+        // specialObjectUpdatePositionGivenVelocity rejects bit7 before the
+        // lookup, then adjusts the angle before publishing its velocity.
+        if ((angle & 0x80) != 0) return Vector2.Zero;
+        if (angle is < 0 or > 31)
+            throw new ArgumentOutOfRangeException(nameof(angle), angle, "Link movement requires a source angle $00-$1f or bit7 set.");
+        int walls = CalculateAdjacentWallsBitset(position);
+        if (allowWallSlide && TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
+        {
+            angle = adjustedAngle;
+            walls = 0;
+        }
+        var velocity = NativeObjectMovement.Velocity(_entities.RuntimeState, speed, angle);
+        Vector2 movement = new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
+        return ResolveMaskedMovement(position, movement, angle, walls);
+    }
+
+    private Vector2 ResolveMaskedMovement(Vector2 playerPosition, Vector2 movement, int angle, int walls)
+    {
         int relevantWalls = walls & BitsToCheck(angle);
         Vector2 resolved = movement;
         if ((relevantWalls & 0xf0) != 0)
@@ -152,13 +175,13 @@ public sealed class RoomCollision
         return angle switch
         {
             0 => 0xcf,
-            4 => 0xc3,
+            >= 1 and <= 7 => 0xc3,
             8 => 0xf3,
-            12 => 0x33,
+            >= 9 and <= 15 => 0x33,
             16 => 0x3f,
-            20 => 0x3c,
+            >= 17 and <= 23 => 0x3c,
             24 => 0xfc,
-            28 => 0xcc,
+            >= 25 and <= 31 => 0xcc,
             _ => 0xff
         };
     }
@@ -166,7 +189,11 @@ public sealed class RoomCollision
     private static bool TryAdjustCardinalAngle(int angle, int walls, out int adjustedAngle)
     {
         adjustedAngle = angle;
-        switch (angle)
+        // slideAngleTable permits each cardinal and its two immediate
+        // neighbors (31/0/1, 7/8/9, 15/16/17, 23/24/25).
+        int sector = (angle + 1) & 0x1f;
+        if ((sector & 7) > 2) return false;
+        switch (sector & 0x18)
         {
             case 0:
                 if ((walls & 0xc3) == 0x80) adjustedAngle = 8;
@@ -221,10 +248,12 @@ public sealed class RoomCollision
     private bool CanApplyMovement(Vector2 position)
     {
         OracleRoomData room = _rooms.CurrentRoom;
+        // Moving INTERAC$14 blocks clamp Link after objectApplySpeed in the
+        // interaction pass. Rejecting movement against their old position
+        // here adds a one-update lag compared with synchronized partners.
         return position.X >= 0 && position.X < room.Width &&
             position.Y >= 0 && position.Y < room.Height &&
-            !_entities.BlocksLink(position) &&
-            !_pushBlocks.BlocksLink(position);
+            !_entities.BlocksLink(position);
     }
 
     private bool TileBlocksPoint(Vector2 point)
@@ -232,6 +261,8 @@ public sealed class RoomCollision
         OracleRoomData room = _rooms.CurrentRoom;
         if (point.X < 0 || point.X >= room.Width || point.Y < 0 || point.Y >= room.Height)
             return !_hasNeighborFor(point);
-        return room.IsSolid(point);
+        return _entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress) != 0
+            ? room.IsSolidForRaisedFloorLink(point)
+            : room.IsSolid(point);
     }
 }

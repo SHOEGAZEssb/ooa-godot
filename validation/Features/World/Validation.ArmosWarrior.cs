@@ -65,11 +65,22 @@ public sealed partial class ValidationRoot
             FailIf(spawner.State != 1 || spawner.IsDead || _entities.Entities<ArmosWarriorActor>().Count != 1,
                 "Armos spawner must wait with fewer than three free enemy slots, preserving its counted slot.");
             foreach (int slot in reservations) reservedEnemies.Remove(slot);
+            var enemySlots = (Dictionary<IRoomEntity,int>)typeof(RoomEntityManager).GetField("_enemySlots",flags)!.GetValue(_entities)!;
+            int spawnerSlot = enemySlots.Single(pair=>pair.Key.Node==spawner).Value;
+            int[] childSlots = Enumerable.Range(0,16).Except(reservedEnemies).Take(3).ToArray();
             int randomBefore = _entities.RandomCalls;
             Step();
-            FailIf(_entities.Entities<ArmosWarriorActor>().Any(actor => actor.State != 8) ||
+            // Source spawns all three children before deleting the spawner.
+            // updateEnemies only visits child slots above its current cursor
+            // in this pass; lower slots freed after scrolling wait one pass.
+            FailIf(!_entities.Entities<ArmosWarriorActor>().Select(actor=>actor.State)
+                    .SequenceEqual(childSlots.Select(slot=>slot>spawnerSlot?8:0)) ||
+                _entities.RandomCalls != randomBefore + childSlots.Count(slot=>slot>spawnerSlot),
+                "Armos children must initialize only when their allocated slot is later than the spawner's native cursor.");
+            Step();
+            FailIf(_entities.Entities<ArmosWarriorActor>().Any(actor => actor.State == 0) ||
                 _entities.RandomCalls != randomBefore + 3,
-                "Armos's three later enemy slots must each initialize once in their allocation update.");
+                "Armos children must initialize once each on the next update after lower-slot allocation.");
         }
         for (int i = 0; _entities.Entities<ArmosWarriorActor>().Count != 3 && i < 5; i++) Step();
         var actors = _entities.Entities<ArmosWarriorActor>();
@@ -155,7 +166,8 @@ public sealed partial class ValidationRoot
             if (delta.Length() <= 26)
                 _player.Face(Math.Abs(delta.X) > Math.Abs(delta.Y) ? new Vector2I(Math.Sign(delta.X), 0) : new Vector2I(0, Math.Sign(delta.Y)));
             int previousHealth = body.Health;
-            Step(movement: move, fire: (i & 1) == 0);
+            // Let each swing finish before chasing and attacking again.
+            Step(movement: move, fire: delta.Length() <= 26 && !_player.IsAttacking);
             if (body.Health != previousHealth)
             {
                 FailIf(body.Health != Math.Max(0, previousHealth - 2) || body.InvincibilityCounter != 32 ||
@@ -175,7 +187,7 @@ public sealed partial class ValidationRoot
             if ((i & 255) == 0) { _inventory.RefillHealth(); _inventory.ApplyDamage(4); }
         }
         FailIf(!body.Dying || body.Health != 0 || _entities.RoomEnemyCount != 1,
-            $"Actual sword attacks did not defeat exposed Armos: hp={body.Health}, state={body.State}, Link={_player.Position}.");
+            $"Actual sword attacks did not defeat exposed Armos: hp={body.Health}, state={body.State}, body={body.Position}, Link={_player.Position}, LinkHealth={_inventory.HealthQuarters}, dying={_player.IsDying}, equipped={_inventory.EquippedA}.");
         FailIf(body.Counter != 119 || !_entities.LinkCollisionsAndMenuDisabled,
             "Armos death must set120 then decrement119 on its entry update.");
         Step(118);

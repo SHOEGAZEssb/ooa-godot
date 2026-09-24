@@ -858,6 +858,69 @@ Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_animations.ts
 }
 Export-SwitchHookData
 
+function Export-BoomerangData {
+    $path = Join-Path $Disassembly 'object_code/common/items/boomerang.s'
+    $source = Read-ImportText $path
+    foreach ($contract in @(
+        'ld bc,\(SPEED_1a0<<8\)\|\$28',
+        '(?s)@state2:.*?ld bc,\$140a.*?call itemCheckWithinRangeOfLink',
+        '(?s)@state3:.*?ld bc,\$0402.*?ld \(hl\),\$04',
+        '(?s)@updateSpeedAndAnimation:.*?objectApplySpeed.*?Item.animParameter.*?ld \(hl\),\$00.*?SND_BOOMERANG.*?itemAnimate')) {
+        if ($source -notmatch $contract) { throw "boomerang.s source contract changed: $contract" }
+    }
+    $source = Read-ImportText (Join-Path $Disassembly 'constants/common/objectSpeeds.s')
+    if ($source -notmatch 'SPEED_1a0\s+dsb 5 ; 0x(?<speed>[0-9a-f]{2})') { throw 'Missing boomerang SPEED_1a0.' }
+    $speed = [Convert]::ToInt32($Matches['speed'],16)
+    $gfx = [regex]::Match($itemDataSource, '(?m)^\s*\.db \$00 \$(?<tile>[0-9a-f]{2}) \$(?<flags>[0-9a-f]{2}) ; \$06:')
+    $attributes = [regex]::Match($itemAttributesSource, '(?m)^\s*\.db \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$(?<health>[0-9a-f]{2}) ; \$06:')
+    if (-not $gfx.Success -or -not $attributes.Success -or $gfx.Groups['tile'].Value -ne '4e' -or
+        $uncmpGfxHeadersSource -notmatch 'm_GfxHeader spr_boomerang, \$84e1, \$04' -or
+        (Read-ImportText (Join-Path $Disassembly 'gfx/common/spr_boomerang.properties')) -notmatch 'invert: false') {
+        throw 'ITEM_BOOMERANG requires its $84e1 graphics upload and non-inverted source pixels.'
+    }
+    $path = Join-Path $Disassembly 'data/itemAnimations.s'
+    $tables = Read-AssemblyDwTables $path 'item[0-9a-f]{2}Animations' 'itemAnimation[0-9a-f]+'
+    $pointers = Read-AssemblyDwTables $path 'item[0-9a-f]{2}OamDataPointers' 'itemOamData[0-9a-f]+'
+    $definitions = Read-AssemblyAnimationDefinitions $path 'itemAnimation[0-9a-f]+(?:Loop)?' $true
+    $label = $tables['item06Animations'][0]
+    $animation = $definitions[$label]
+    if ($animation.Frames.Count -ne 4) { throw 'Boomerang requires four ordered rotation frames.' }
+    $encoded = @($animation.Frames | ForEach-Object {
+        if (($_.PointerOffset -band 1) -ne 0) { throw "$label has an odd OAM pointer offset." }
+        $oam = $pointers['item06OamDataPointers'][[int]($_.PointerOffset / 2)]
+        "$($_.Duration),$($_.Parameter)@$(Read-ItemOamComposition $oam)"
+    }) -join '|'
+    $radius = [Convert]::ToInt32($attributes.Groups['radius'].Value,16)
+    Write-GeneratedTable((Join-Path $destination 'metadata/boomerang.tsv'), @(
+        "# speed-raw`toutward-updates`tcatch-updates`tnear-radius`tcatch-radius`tsound`tcollision`tradius-y`tradius-x`tdamage`toam-flags`tsource-inverted`tanimation`tsource",
+        "$speed`t40`t4`t10`t2`t$($soundIds['SND_BOOMERANG'].ToString('x2'))`t$($attributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes.Groups['damage'].Value)`t$($gfx.Groups['flags'].Value)`t0`t$encoded`tobject_code/common/items/boomerang.s;data/itemAnimations.s:$label"
+    ))
+    $path = Join-Path $Disassembly 'data/ages/specialObjectAnimationData.s'
+    $tables = Read-AssemblyDwTables $path 'specialObject(?:00|09)AnimationDataPointers' 'animationData\w+'
+    $nodes = @(Read-AssemblyNodes $path)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`tframe`tduration`tgraphic`tparameter`tsource")
+    foreach ($mode in @(0x21,0x25)) {
+        $label = $tables['specialObject00AnimationDataPointers'][$mode]
+        $start = @($nodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $label })
+        if ($start.Count -ne 1) { throw "Boomerang parent mode $mode cannot resolve $label." }
+        $frame=0; $ended=$false
+        foreach ($node in $nodes) {
+            if ($node.Offset -le $start[0].Offset -or $node.Kind -in @('Label','Blank','Comment')) { continue }
+            if ($node.Kind -ne 'Data' -or $node.Name -ne '.db' -or $node.Operands.Count -ne 3) {
+                throw "Boomerang parent $label encountered unsupported $($node.Kind)/$($node.Name)."
+            }
+            $bytes = @($node.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+            $rows.Add("$($mode.ToString('x2'))`t$frame`t$($bytes[0])`t$($bytes[1].ToString('x2'))`t$($bytes[2].ToString('x2'))`tdata/ages/specialObjectAnimationData.s:$label+$frame")
+            $frame++
+            if (($bytes[2] -band 0x80) -ne 0) { $ended=$true; break }
+        }
+        if (-not $ended) { throw "Boomerang parent $label has no terminal parameter." }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/boomerang_parent_animations.tsv'), $rows)
+}
+Export-BoomerangData
+
 # Somaria's creation geometry and raw tile ownership precede its presentation.
 $somariaPath = Join-Path $Disassembly 'object_code/common/items/caneOfSomaria.s'
 $somariaSource = Read-ImportText $somariaPath

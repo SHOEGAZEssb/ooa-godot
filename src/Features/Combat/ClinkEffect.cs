@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -12,41 +13,51 @@ public partial class ClinkEffect : Node2D
     private const int FrameCount = 2;
     private static Texture2D? _sharedTexture;
     private Texture2D _texture = null!;
-    private double _frames;
+    private int _frames;
+    private Func<int>? _nativeFrame;
+    private int _nativeSlot;
+    private bool _nativeVisible = true;
 
     internal bool Flickers { get; private set; }
     internal bool Finished { get; private set; }
-    internal int AnimationFrame => Mathf.Min((int)(_frames / FrameDuration), FrameCount - 1);
-    internal int ElapsedFrames => Mathf.Min((int)_frames, DurationFrames);
-    internal int DurationFrames => FrameDuration * FrameCount;
-    internal bool EffectVisible => !Flickers || (ElapsedFrames & 1) == 0;
+    internal int AnimationFrame => Math.Min(Math.Max(0, _frames - 1) / FrameDuration, FrameCount - 1);
+    internal int ElapsedFrames => Math.Min(_frames, DurationFrames);
+    internal int DurationFrames => FrameDuration * FrameCount + 2;
+    internal bool EffectVisible => _nativeVisible;
+    internal int ZHigh { get; private set; }
+    internal int AnimationParameter => _frames >= DurationFrames - 1 ? 0xff : 0;
 
-    internal void Initialize(Vector2 position, bool flickers)
+    internal void BindNativeTiming(int slot, Func<int> frame)
+    {
+        _nativeSlot = slot;
+        _nativeFrame = frame;
+        Visible = false;
+    }
+
+    internal void Initialize(Vector2 position, bool flickers, int zHigh = 0)
     {
         Position = position;
         Flickers = flickers;
+        ZHigh = unchecked((sbyte)(byte)zHigh);
         _texture = _sharedTexture ??= BuildTexture();
         QueueRedraw();
     }
 
-    public override void _PhysicsProcess(double delta) => Advance(delta);
-
-    internal void AdvanceForValidation(double delta) => Advance(delta);
-    internal void AdvanceFrameForEntityManager() => Advance(1.0 / 60.0, false);
-    internal void AdvanceApplicationUpdate() =>
-        Advance(ApplicationFixedUpdateScheduler.UpdateDelta);
-
-    private void Advance(double delta, bool queueFree = true)
+    internal void AdvanceFrameForEntityManager()
     {
         if (Finished)
             return;
-        _frames += delta * 60.0;
+        _frames++;
+        // breakTileDebris state0 shows the initial frame without ticking
+        // animation. State1 sees terminal $ff on the update after eight
+        // animation updates (interactionAnimation5a0c8).
+        int frame = (_nativeFrame ?? throw new InvalidOperationException("INTERAC$07 requires native interaction timing."))();
+        _nativeVisible = _frames <= 1 || !Flickers || ((frame ^ _nativeSlot) & 1) == 0;
+        Visible = _nativeVisible;
         if (_frames >= DurationFrames)
         {
             Finished = true;
             Visible = false;
-            if (queueFree)
-                QueueFree();
             return;
         }
         QueueRedraw();
@@ -58,7 +69,7 @@ public partial class ClinkEffect : Node2D
             return;
         DrawTextureRectRegion(
             _texture,
-            new Rect2(-8, -8, 16, 16),
+            new Rect2(-8, -8 + ZHigh, 16, 16),
             new Rect2(AnimationFrame * 16, 0, 16, 16));
     }
 

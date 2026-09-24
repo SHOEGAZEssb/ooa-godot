@@ -8,8 +8,10 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     IFixedRoomEntity, IPostObjectLinkContactRoomEntity, IPostObjectMeleeCollisionRoomEntity,
     IPostObjectItemCollisionRoomEntity, ISeedCollisionTarget, IExpertPunchHittableRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity,
-    ISomariaBlockCollisionRoomEntity
+    ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
+    protected override bool BoomerangHitPending => Entity.PendingHit;
+    protected override void MarkBoomerangHit() => Entity.MarkContact();
     private readonly Func<int, bool> _enemySlots;
     private readonly SpikedBallDatabase _weapon;
     public bool MeleeReportsContact => true;

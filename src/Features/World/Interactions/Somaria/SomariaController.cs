@@ -29,7 +29,7 @@ internal sealed class SomariaController(Node world,RoomSession rooms,RoomEntityM
         // postUpdate.s reads shared wLinkRaisedFloorOffset ($cc69).
         Weapon?.UpdatePost(Active?InventoryState.ItemSomaria:0,Active?Parent!.Parameter:0,
             player.Position,CarriedObjectMotion.DirectionIndex(player.FacingVector),player.EnemyContactZ,
-            unchecked((sbyte)entities.RuntimeState.ReadWramByte(0xcc69)));
+            unchecked((sbyte)entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress)));
         if(Weapon?.Finished==true) { Weapon.Free(); Weapon=null; }
     }
     internal void ClearParent() => Parent?.Cancel();

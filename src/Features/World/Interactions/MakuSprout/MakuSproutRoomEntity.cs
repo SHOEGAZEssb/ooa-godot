@@ -48,7 +48,7 @@ internal sealed class MakuSproutRoomEntity
         AdvancePostTalkWait();
     }
 
-    public void UpdateDuringScreenTransition()
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
     {
         Entity.AdvanceAnimationUpdates(1);
         AdvancePostTalkWait();

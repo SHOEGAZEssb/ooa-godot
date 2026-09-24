@@ -163,7 +163,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter
 
     private void Move(int speed, int angle)
     {
-        var velocity = OracleObjectMovement.Shared.Velocity(speed, angle);
+        var velocity = MovementVelocity(speed, angle);
         Position = OracleObjectPosition.FromPixels(Position).Add(velocity.YFixed, velocity.XFixed).PrecisePosition;
     }
     private void BounceAndMove()

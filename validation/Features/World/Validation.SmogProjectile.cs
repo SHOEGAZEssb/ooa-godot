@@ -88,10 +88,15 @@ public partial class ValidationRoot
         foreach (var (roomFlags, enemies) in new[] { (0x40,2),(0,1) })
         {
             var shot = new SmogProjectilePart(data,room,new(40,40),1);
+            var memory = new OracleRuntimeState();
+            shot.BindMovementMemory(memory);
+            for (int offset = 0; offset < 4; offset++) memory.SetWramByte(0xcec0 + offset, 0xa5);
             try
             {
                 shot.UpdateFrame(new(140,40),Vector2I.Zero,roomFlags,enemies);
                 FailIf(!shot.Finished || shot.Position != new Vector2(40,40), "Smog boss/count deletion precedes movement even on state0 fallthrough.");
+                FailIf(Enumerable.Range(0, 4).Any(offset => memory.ReadWramByte(0xcec0 + offset) != 0xa5),
+                    "Smog state0 aim/animation setup and early deletion must not execute the velocity helper.");
             }
             finally { shot.Free(); }
         }

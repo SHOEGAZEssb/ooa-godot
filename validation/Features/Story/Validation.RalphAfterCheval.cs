@@ -160,7 +160,7 @@ public sealed partial class ValidationRoot
         PuzzlePuffEffect dust = _entities.Entities<PuzzlePuffEffect>()
             .Single(puff => puff.ElapsedUpdates == 1);
         FailIf(
-            !dust.Flickers || !dust.FlickerVisibleOnEvenUpdates ||
+            !dust.Flickers || _entities.InteractionSlot(dust) != 3 ||
             !dust.Visible ||
             dust.Position != dustSourcePosition + new Vector2(0x04, 0x08),
             "Ralph substate 1 did not create silent flickering $05:$81 dust " +
@@ -182,15 +182,15 @@ public sealed partial class ValidationRoot
             .Single(puff => puff.ElapsedUpdates == 1);
         FailIf(
             !secondDust.Flickers ||
-            secondDust.FlickerVisibleOnEvenUpdates ||
+            _entities.InteractionSlot(secondDust) != 4 ||
             secondDust.Position !=
                 secondDustSourcePosition + new Vector2(0x04, 0x08),
-            "Ralph's second live puff did not take even source slot $d2 " +
-            "after odd slot $d1.");
+            "Ralph's second live puff did not take even source slot $d4 " +
+            "after odd slot $d3.");
         StepRoomEventFrames(1);
         FailIf(
             secondDust.ElapsedUpdates != 2 || secondDust.Visible,
-            "Ralph's even-slot $d2 puff did not invert the first puff's " +
+            "Ralph's even-slot $d4 puff did not invert the first puff's " +
             "state-1 flicker phase.");
 
         int substateGuard = 0;

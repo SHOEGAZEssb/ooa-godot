@@ -1,12 +1,10 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
 public sealed class CombatController
 {
-    private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly RoomView _roomView;
     private readonly RoomEntityManager _entities;
@@ -15,11 +13,9 @@ public sealed class CombatController
     private readonly OracleSoundEngine _sound;
     private readonly Func<long> _animationTick;
     private readonly LinkItemDatabase _linkItems;
-    private readonly List<ClinkEffect> _clinkEffects = new();
     private ICombatEffectObserver? _effectObserver;
 
     public CombatController(
-        Node worldRoot,
         RoomSession rooms,
         RoomView roomView,
         RoomEntityManager entities,
@@ -28,7 +24,6 @@ public sealed class CombatController
         OracleSoundEngine sound,
         Func<long> animationTick)
     {
-        _worldRoot = worldRoot;
         _rooms = rooms;
         _roomView = roomView;
         _entities = entities;
@@ -127,8 +122,8 @@ public sealed class CombatController
         int collisionSet = Math.Clamp(room.ActiveCollisions, 0, 5);
         if (_linkItems.IsBombableClinkTile(collisionSet, tile))
         {
-            SpawnClinkEffect(point, flickers: false);
             _sound.PlaySound(OracleSoundEngine.SndClink2);
+            SpawnClinkEffect(point, flickers: false);
             return true;
         }
         if (!swordPoke ||
@@ -139,7 +134,6 @@ public sealed class CombatController
         }
 
         SpawnClinkEffect(point, flickers: true);
-        _sound.PlaySound(OracleSoundEngine.SndClink);
         return true;
     }
 
@@ -149,28 +143,11 @@ public sealed class CombatController
     internal void SetEffectObserver(ICombatEffectObserver? observer) =>
         _effectObserver = observer;
 
-    internal void AdvanceApplicationUpdate()
-    {
-        for (int index = _clinkEffects.Count - 1; index >= 0; index--)
-        {
-            ClinkEffect effect = _clinkEffects[index];
-            effect.AdvanceApplicationUpdate();
-            if (effect.Finished)
-                _clinkEffects.RemoveAt(index);
-        }
-    }
-
     private void SpawnClinkEffect(Vector2 position, bool flickers)
     {
-        var effect = new ClinkEffect
-        {
-            Name = "Clink",
-            ZIndex = 10
-        };
-        effect.Initialize(position, flickers);
-        _worldRoot.AddChild(effect);
-        effect.SetPhysicsProcess(false);
-        _clinkEffects.Add(effect);
+        // commonCode2.s @createClink returns on a full interaction pool.
+        if (!_entities.InteractionSlotAvailable) return;
+        var effect = _entities.Spawn<ClinkEffect>(new SwordWallClinkSpawn(position, flickers));
         _effectObserver?.OnClinkEffectSpawned(effect);
     }
 

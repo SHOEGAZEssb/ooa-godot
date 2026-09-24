@@ -32,6 +32,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private Texture2D[] _effectTextures = null!;
     private Texture2D[] _collisionEffectTextures = null!;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private Vector2I _direction;
     private EmberState _state;
     private int _zFixed;
@@ -253,7 +255,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory,
             ref _precisePosition,
             _record.SpeedRaw,
             DirectionAngle(_direction));
@@ -674,8 +677,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     }
 
     private void MoveShooterSeed() => Position =
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
+        NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
 
     private void BounceFrom(ISeedBounceTarget target, ICollection<RoomEntitySpawn>? spawns)
     {

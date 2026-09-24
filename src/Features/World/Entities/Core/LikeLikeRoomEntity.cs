@@ -7,8 +7,9 @@ namespace oracleofages;
 internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLikeCharacter>,
     IFixedRoomEntity, IPostObjectLinkContactRoomEntity, IScreenTransitionPreloadRoomEntity,
     IPostObjectItemCollisionRoomEntity, IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, ISomariaBlockCollisionRoomEntity
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
+    protected override bool BoomerangHitPending => Entity.PendingHit;
     private readonly Func<bool> _freePart;
     private readonly Func<byte> _random;
     private readonly Action _shieldLost;

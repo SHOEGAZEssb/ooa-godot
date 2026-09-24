@@ -19,6 +19,6 @@ internal sealed class EraInfoRoomEntity(EraInfoDisplay display)
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame();
 
-    public void UpdateDuringScreenTransition() => Entity.UpdateFrame();
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => Entity.UpdateFrame();
 
 }

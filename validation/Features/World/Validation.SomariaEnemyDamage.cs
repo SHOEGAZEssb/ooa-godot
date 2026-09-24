@@ -17,11 +17,12 @@ public partial class ValidationRoot
         foreach (bool batch in new[] { false, true })
         foreach (var (id, subid, room, rawDamage) in new[] {
             (0x0c, 1, 0xab, 0xfc), (0x3d, 0, 0xb0, 0xfa), (0x48, 0, 0x9c, 0xfc),
-            (0x24, 0, 0x9f, 0xfc), (0x4b, 0, 0xa0, 0xfc) })
+            (0x24, 0, 0x9f, 0xfc), (0x4b, 0, 0xa0, 0xfc), (0x32, 0, 0xa1, 0xfc),
+            (0x21, 0, 0xaa, 0xfc), (0x21, 1, 0x9c, 0xf8) })
         {
             // enemyData -> extraEnemyData: literal signed bytes, before the
             // divide-by-two conversion used by Link's quarter-heart owner.
-            FailIf(new EnemyDatabase().ImportedEnemy(id, subid).RawDamage != rawDamage,
+            FailIf(id != 0x32 && new EnemyDatabase().ImportedEnemy(id, subid).RawDamage != rawDamage,
                 $"Enemy ${id:x2}:${subid:x2} must retain raw damage ${rawDamage:x2}.");
             RestoreOracleRandomForValidation(random);
             LoadValidationRoom(4, room);
@@ -37,8 +38,12 @@ public partial class ValidationRoot
                 0x0c => _entities.Entities<ArrowMoblinCharacter>().First(e => e.Record.SubId == subid),
                 0x3d or 0x48 => _entities.Entities<SwordEnemyCharacter>().First(e => e.Record.Id == id && e.Record.SubId == subid),
                 0x24 => _entities.Entities<LikeLikeCharacter>().First(),
+                0x32 => _entities.Entities<KeeseCharacter>().First(),
+                0x21 => _entities.Entities<ArrowDarknutCharacter>().First(e => e.Record.SubId == subid),
                 _ => _entities.Entities<BallChainSoldierCharacter>().Single()
             };
+            FailIf(target is KeeseCharacter keese && keese.Record.RawDamage != 0xfc,
+                "enemyData$32 -> extraEnemyData$07 must retain raw Keese damage$fc.");
             foreach (var enemy in _entities.Entities<EnemyCharacter>())
             {
                 enemy.Position = new(32, 32);

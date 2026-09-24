@@ -21,6 +21,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private OracleRoomData? _knockbackRoom;
     private EnemyKnockbackMotion _knockbackMotion;
     private Func<Vector2>? _knockbackPosition;
+    private Func<int>? _knockbackNativeSpeed;
     private Action<Vector2>? _setKnockbackPosition;
     private bool _knockbackChecksHazards;
     private bool? _knockbackHoleAnimation;
@@ -42,10 +43,14 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal int Health { get; set; }
     internal int InvincibilityCounter { get; set; }
     internal int KnockbackCounter { get; private protected set; }
+    internal bool HasActiveKnockback => (KnockbackCounter & 0x7f) != 0;
+    internal Func<Vector2, int, bool>? TryCreateKnockbackDust { private get; set; }
     internal int KnockbackAngle { get; private protected set; }
     internal bool PendingKnockbackDeath => _pendingKnockbackDeath;
     internal bool NativeHitPending { get; private set; }
     internal void DeferNativeHitStatus() => NativeHitPending = true;
+    internal virtual void ApplyBoomerangStun(int updates) => throw new NotSupportedException(
+        $"{GetType().Name}: collisionEffect22 requires a native stun-counter owner.");
     internal bool IsFallingIntoHole =>
         _hazardActive && DeathHazard == HazardType.Hole;
     internal int AnimationIndex => _animation.AnimationIndex;
@@ -88,6 +93,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _knockbackRoom = null;
         _knockbackMotion = EnemyKnockbackMotion.None;
         _knockbackPosition = null;
+        _knockbackNativeSpeed = null;
         _setKnockbackPosition = null;
         _knockbackChecksHazards = false;
         _knockbackHoleAnimation = null;
@@ -128,7 +134,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         bool checksHazards = false,
         Func<Vector2>? precisePosition = null,
         Action<Vector2>? setPrecisePosition = null,
-        bool? knockbackHoleAnimation = null)
+        bool? knockbackHoleAnimation = null,
+        Func<int>? nativeSpeed = null)
     {
         if ((precisePosition is null) != (setPrecisePosition is null))
         {
@@ -147,6 +154,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _knockbackChecksHazards = checksHazards;
         _knockbackHoleAnimation = knockbackHoleAnimation;
         _knockbackPosition = precisePosition;
+        _knockbackNativeSpeed = nativeSpeed;
         _setKnockbackPosition = setPrecisePosition;
         if (checksHazards)
             ConfigureHazards(room);
@@ -317,10 +325,10 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Player.EnemyCollisionOverlaps(linkPosition, CollisionBounds);
 
     /// <returns>
-    /// True when the enemy's handler must return after applying its shared
-    /// ENEMYSTATUS_KNOCKBACK update.
+    /// True when shared status handling consumes the enemy's update. Handlers
+    /// that continue normal AI during hit/recoil can opt out of recoil motion.
     /// </returns>
-    protected bool BeginFrame(bool advanceInvincibility = true)
+    protected bool BeginFrame(bool advanceInvincibility = true, bool continueDuringHitAndKnockback = false)
     {
         if (ContinueHazard())
             return true;
@@ -330,15 +338,22 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             // enemyStandardUpdate dispatches JUST_HIT before decrementing
             // knockbackCounter or checking health. Post-update clears bit7.
             NativeHitPending = false;
-            return true;
+            return !continueDuringHitAndKnockback;
         }
-        if (_pendingKnockbackDeath && KnockbackCounter == 0)
+        if (_pendingKnockbackDeath && !HasActiveKnockback)
         {
             _pendingKnockbackDeath = false;
             _completedKnockbackDeath = true;
             CompleteKnockbackDeath();
             QueueRedraw();
             return true;
+        }
+        if (continueDuringHitAndKnockback && HasActiveKnockback)
+        {
+            // enemyStandardUpdate decrements this counter even for handlers
+            // such as gel.s that ignore recoil motion and run normal AI.
+            KnockbackCounter--;
+            return false;
         }
         return UpdateKnockback();
     }
@@ -585,13 +600,19 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 
     private bool UpdateKnockback()
     {
-        if (KnockbackCounter == 0)
+        if (!HasActiveKnockback)
             return false;
 
         KnockbackCounter--;
+        // ecom_updateKnockback rotates the already-decremented byte. Dust
+        // allocation precedes movement and failure does not stop recoil.
+        if ((KnockbackCounter & 0x83) == 0x80)
+            (TryCreateKnockbackDust ?? throw new InvalidOperationException(
+                "ecom_updateKnockback high-bit recoil requires INTERAC$0f:$01 allocation."))
+                (CurrentKnockbackPosition, (_hazardZ?.Invoke() ?? 0) >> 8);
         bool moved = MoveKnockback();
         if (!moved)
-            KnockbackCounter = 0;
+            KnockbackCounter &= 0x80;
 
         if (_knockbackChecksHazards && CheckHazards(_knockbackHoleAnimation))
         {
@@ -647,7 +668,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             }
 
             int angle = OracleObjectMovement.Shared.RelativeAngle(pixels, target);
-            Position += OracleObjectMovement.Shared.Delta(
+            Position += MovementDelta(
                 _behavior.EnemyHazards.PullSpeedRaw, angle);
         }
 
@@ -670,18 +691,29 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private bool MoveKnockback()
     {
         Vector2 position = CurrentKnockbackPosition;
+        int speed = (KnockbackCounter & 0x80) != 0
+            ? _behavior.EnemyKnockback.HighSpeedRaw : _behavior.EnemyKnockback.NormalSpeedRaw;
         EnemyAdjacentWallProbe walls =
             EnemyAdjacentWallResolver.Shared.Probe(
                 position,
                 KnockbackAngle,
                 IsKnockbackCollision);
 
+        if (_knockbackNativeSpeed is not null)
+        {
+            bool moved = EnemyTerrainMovement.ApplyGivenAdjacentWalls(ref position,
+                KnockbackAngle, MovementVelocity(speed, KnockbackAngle), walls, _knockbackNativeSpeed());
+            if (_setKnockbackPosition is not null) _setKnockbackPosition(position);
+            else Position = position;
+            return moved;
+        }
+
         // At SPEED_200 every nonzero source component is at least $63, which
         // ecom_applyGivenVelocityGivenAdjacentWalls counts as movement even
         // when the high byte does not change.
         Vector2 movement =
-            OracleObjectMovement.Shared.Delta(
-                _behavior.EnemyKnockback.NormalSpeedRaw,
+            MovementDelta(
+                speed,
                 KnockbackAngle);
         if (walls.YBlocked)
             movement.Y = 0;

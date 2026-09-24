@@ -36,17 +36,22 @@ public partial class ValidationRoot
         for (int cycle = 0; cycle < 2; cycle++)
         {
             Vector2 start = _player.Position; entry.Arm();
+            FailIf(!_player.NativeNormalStateForInteraction,
+                "Arming boss entry must leave Link in state01 until the request is consumed.");
             entry.Update(_player);
-            FailIf(_player.Position != start || !(bool)forced.GetValue(_player)!,
+            FailIf(_player.Position != start || !(bool)forced.GetValue(_player)! ||
+                _player.NativeNormalStateForInteraction,
                 "Force-state request consumption must retain position before the state0b handler runs.");
             for (int tick = 1; tick <= 21; tick++)
             {
                 entry.Update(_player);
-                FailIf(_player.Position != start + new Vector2(tick,0) || !(bool)forced.GetValue(_player)!,
+                FailIf(_player.Position != start + new Vector2(tick,0) || !(bool)forced.GetValue(_player)! ||
+                    _player.NativeNormalStateForInteraction,
                     $"Boss entry handler update{tick} must move, including initialization and re-arming.");
             }
             entry.Update(_player);
-            FailIf(_player.Position != start + new Vector2(21,0) || (bool)forced.GetValue(_player)!,
+            FailIf(_player.Position != start + new Vector2(21,0) || (bool)forced.GetValue(_player)! ||
+                !_player.NativeNormalStateForInteraction,
                 "Boss entry update22 must release without an extra movement.");
             entry.Update(_player);
             FailIf(_player.Position != start + new Vector2(21,0), "Completed forced entry must remain inert.");
@@ -90,6 +95,8 @@ public partial class ValidationRoot
         for (int i = 0; i < 24; i++)
         {
             float x = _player.Position.X; Step();
+            FailIf(_player.NativeNormalStateForInteraction == (bool)forced.GetValue(_player)!,
+                "Smog's actual entry loop must expose state0b only during its consumed forced walk.");
             countedOpenDoor |= _entities.BossEntrySignal == 0x81;
             if (_player.Position.X != x)
             {
@@ -99,8 +106,14 @@ public partial class ValidationRoot
         }
         FailIf(moved != 21 || (bool)forced.GetValue(_player)!,
             "Smog must execute its short forced walk and release Link after scrolling.");
+        Vector2 entryEnd = _player.Position;
+        // Contact, respawn helper, count branch and setstate each yield
+        // before the shutter's six-update close. Link's walk ends first.
+        for (int i = 0; _entities.BossEntrySignal != 0 && i < 8; i++) Step();
+        FailIf(_player.Position != entryEnd, "Waiting for the entry shutter must not add forced Link movement.");
         FailIf(!countedOpenDoor || _entities.BossEntrySignal != 0,
             "Smog entry shutter must increment cc93 to81, then close and clear both its count and bit7.");
+        Step(); // Enemy dispatch sees the preceding interaction pass's signal.
         var intro = _entities.Entities<SmogCharacter>().Single(enemy => enemy.SubId == 0);
         FailIf(intro.Position != new Vector2(120,88) || _entities.RoomEnemyCount != 2 || !_entities.PlayerUpdatesFrozen,
             "Registered INTERAC$33 must spawn its single intro cloud after shutter completion and keep Link locked.");

@@ -532,6 +532,9 @@ public sealed partial class ValidationRoot
             harness, database.Item(0));
         harness.Player.WarpTo(heart.Position, recordSafe: false);
         harness.Step(closeDialogue: false);
+        harness.PlayerWorld.NativeTextActive = harness.Dialogue.IsOpen;
+        harness.Player.AdvanceApplicationUpdate();
+        harness.Player.AdvanceApplicationUpdate();
         FailIf(
             !heart.Finished ||
             (harness.Save.MapleState & 0x80) == 0 ||
@@ -543,6 +546,8 @@ public sealed partial class ValidationRoot
             "Maple's Heart Piece did not use the held treasure path, set bit 7, " +
             "and avoid the room-item flag.");
         harness.Dialogue.Close();
+        harness.PlayerWorld.NativeTextActive = false;
+        harness.Player.AdvanceApplicationUpdate();
         harness.Interactions.Update(1.0 / 60.0, harness.Player);
         FailIf(
             harness.Player.IsHoldingItemTwoHands,

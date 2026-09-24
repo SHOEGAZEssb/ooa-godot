@@ -3618,24 +3618,26 @@ public sealed partial class ValidationRoot
             !_player.SwordCanRestart || _player.GetSwordHitbox().Size != Vector2.Zero ||
             _player.AttackSpriteOrigin != new Vector2(-8, -11) ||
             _player.SwordSpritePosition != new Vector2(-4, -19) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
-            "Held-sword wall pressure did not enter the collision-disabled 12-update poke and play SND_CLINK.");
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0,
+            "Held-sword wall pressure must enter its 12-update poke before the later interaction pass plays SND_CLINK.");
         ClinkEffect? ordinaryClink = _combatEffectAudit.LastClinkEffect;
         Vector2 expectedClinkPosition = _player.Position + new Vector2(0, -14);
         FailIf(
             _combatEffectAudit.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
             ordinaryClink.Position != expectedClinkPosition || !ordinaryClink.Flickers ||
-            ordinaryClink.DurationFrames != 8 || ordinaryClink.AnimationFrame != 0 ||
+            ordinaryClink.DurationFrames != 10 || ordinaryClink.AnimationFrame != 0 ||
             !ordinaryClink.EffectVisible,
             "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
-        ordinaryClink.AdvanceForValidation(1.0 / 60.0);
+        _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0,
-            "INTERAC_CLINK did not flicker during its first 4-update frame.");
-        ordinaryClink.AdvanceForValidation(3.0 / 60.0);
+            !ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0 ||
+            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+            "INTERAC_CLINK state0 must show its first frame and play the deferred sound once.");
+        _entities.Update(4.0 / 60.0, _player);
         FailIf(
-            !ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 1,
-            "INTERAC_CLINK did not enter its second OAM frame after 4 updates.");
+            ordinaryClink.EffectVisible != (((_entities.FrameCounter ^ _entities.InteractionSlot(ordinaryClink)) & 1) == 0) ||
+            ordinaryClink.AnimationFrame != 1,
+            "INTERAC_CLINK must select its second OAM frame after four animation updates with native slot flicker.");
         _player.AdvanceSwordForValidation(11, buttonHeld: true);
         FailIf(
             _player.SwordState != SwordActionState.Poke ||
@@ -3771,7 +3773,7 @@ public sealed partial class ValidationRoot
             "held collision/movement and scrolling-transition persistence, " +
             "41-update charge, " +
             "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
-            "12-update wall/enemy pokes with enemy-contact retraction and 8-update INTERAC_CLINK sprites, 23-update swordspin, " +
+            "12-update wall/enemy pokes with enemy-contact retraction and 10-update INTERAC_CLINK sprites, 23-update swordspin, " +
             "shared-RNG slash sounds, blocked-restart RNG preservation, exact grass/bush debris, " +
             "and all 24 swordArcData hitboxes.");
     }

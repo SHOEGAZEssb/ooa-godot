@@ -15,17 +15,26 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
     private int _phase;
     private int _counter;
     private int _z;
+    private int _initialAnimationParameter;
+    private System.Action _playSound = null!;
+    internal bool Initialized { get; private set; }
 
     internal override bool Finished { get; private protected set; }
     internal int Phase => _phase;
     internal int Counter => _counter;
     internal int Z => _z;
     internal int Graphic { get; private set; }
+    // interactionInitGraphics loads the first parameter in state0. States1/2
+    // never call interactionAnimate, so that byte stays until deletion.
+    internal int AnimationParameter => Initialized ? _initialAnimationParameter : 0;
 
     internal void Initialize(
         Vector2 position,
-        TreasureObjectVisualRecord visual)
+        TreasureObjectVisualRecord visual,
+        System.Action playSound)
     {
+        _playSound = playSound;
+        Visible = false;
         Position = position;
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{visual.Sprite}.png");
@@ -47,6 +56,7 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
             paletteOverride: null,
             sourceGrayscaleInverted: true);
         Graphic = visual.Graphic;
+        _initialAnimationParameter = definition.Frames[0].Parameter;
         _phase = 0;
         _counter = 8;
         _z = -4;
@@ -57,6 +67,15 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
     {
         if (Finished)
             return;
+        // interactionCode17 state0 returns after graphics, visibility and sound.
+        // Its counter does not decrement until the following eligible update.
+        if (!Initialized)
+        {
+            Initialized = true;
+            Visible = true;
+            _playSound();
+            return;
+        }
         _counter--;
         if (_counter != 0)
             return;

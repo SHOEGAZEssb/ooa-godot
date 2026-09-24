@@ -170,7 +170,8 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
                 if (--_delay == 0)
                 {
                     _heldBy = frame.Player;
-                    frame.Player.BeginGetItemTwoHandPose();
+                    // The room-event callback publishes state04 alongside
+                    // the textbox; Link applies the pose two dispatches later.
                     // State4 writes only yh/xh; the moving essence keeps
                     // its own fractional bytes rather than copying Link's.
                     _precisePosition = frame.Player.Position.Floor() + new Vector2(0, -14) +

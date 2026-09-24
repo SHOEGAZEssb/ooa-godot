@@ -14,6 +14,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
     private bool _collisionCleared;
     private readonly SpikedBallDatabase _visual;
     internal int SubId { get; }
+    internal SpikedBallPart? Head => _head;
     internal int State { get; private set; }
     internal int Angle { get; private set; }
     internal int Radius { get; private set; }
@@ -115,7 +116,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
         ((int)MathF.Floor(_soldier.Position.Y) + _data.OriginOffset) & 0xff);
     private void UpdatePosition()
     {
-        Vector2 p = Origin() + OracleObjectMovement.Shared.CircleArcOffset(Radius, Angle);
+        Vector2 p = Origin() + _soldier.MovementCircleArcOffset(Radius, Angle);
         Position = new((int)p.X & 0xff, (int)p.Y & 0xff);
         ZHigh = _soldier.ZFixed >> 8;
         QueueRedraw();

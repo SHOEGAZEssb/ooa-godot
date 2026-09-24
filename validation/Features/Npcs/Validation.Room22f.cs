@@ -225,6 +225,7 @@ public sealed partial class ValidationRoot
             interactions.PostmanTreasureForValidation!;
         TreasureObjectRecord stationery =
             fixture.Treasures.GetObject("TREASURE_OBJECT_TRADEITEM_01");
+        InitializeGetItemStateForValidation();
         FailIf(
             !inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
             inventory.TradeItem != 1 ||
@@ -260,6 +261,7 @@ public sealed partial class ValidationRoot
             $"dialogue={DialogueBox.PlainText(dialogue.CurrentMessage)}.");
 
         dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         Step();
         manager.Update(frame, _player);
         FailIf(

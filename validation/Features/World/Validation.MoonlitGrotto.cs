@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
             Step();
         FailIf(
             !_dialogue.IsOpen || !essence.ReadyForDialogue ||
-            !_player.IsHoldingItemTwoHands ||
+            _player.IsHoldingItemTwoHands ||
             !_saveData.HasRoomFlag(
                 4, 0x49, OracleSaveData.RoomFlagItem) ||
             (_inventory.Essences & 0x04) == 0 ||
@@ -88,9 +88,14 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(
                 OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1,
-            "Room 4:49's Echoing Howl did not approach, fall, enter the " +
-            "two-hand pose, show TX_0010, set ROOMFLAG_ITEM/D3's Essence bit, " +
+            "Room 4:49's Echoing Howl did not approach, fall, request the " +
+            "two-hand state, show TX_0010, set ROOMFLAG_ITEM/D3's Essence bit, " +
             "and start the source sounds.");
+
+        _player.AdvanceApplicationUpdate();
+        FailIf(_player.IsHoldingItemTwoHands, "State04 consumption must not initialize the pose.");
+        _player.AdvanceApplicationUpdate();
+        FailIf(!_player.IsHoldingItemTwoHands, "State04 initialization must select the two-hand pose.");
 
         _dialogue.Close();
         Step();
@@ -183,7 +188,12 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int index = 0; index < count; index++)
+            {
+                // This fixture repeatedly parks Link in the boss's attacks
+                // to inspect its phases; player death is tested separately.
+                _inventory.RefillHealth();
                 _entities.Update(Update, _player);
+            }
         }
         void FaceBoss(ShadowHagBoss target)
         {
@@ -548,10 +558,14 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != 0 ||
             !_currentRoom.IsSolid(Point(0x50)) ||
             !_currentRoom.IsSolid(Point(0x5e)) ||
-            _sound.PlayRequestsFor(mechanics.SolveSound) != 2,
+            _sound.PlayRequestsFor(mechanics.SolveSound) != 0,
             "Room 4:4a did not persist flag $80 and spawn its Heart " +
             "Container and begin both enemy-shutter solve delays when the " +
             "boss explosion released the enemy count.");
+        Step();
+        FailIf(_sound.PlayRequestsFor(mechanics.SolveSound) != 2,
+            $"Shadow Hag's shutters must play their solve commands after the successful count-check update: health={_player.HealthQuarters}, dying={_player.IsDying}, text={_dialogue.IsOpen}.");
+        Step(); // wait8 loads its counter after playsound.
         Step(mechanics.SolveWait);
         FailIf(
             _currentRoom.GetMetatile(Point(0x50)) != 0x7b ||
@@ -947,11 +961,12 @@ public sealed partial class ValidationRoot
             {
                 _pushBlocks.UpdatePushAttempt(link, direction, direction);
             }
+            _pushBlocks.Advance(Update);
             FailIf(
                 !_pushBlocks.Active || room.GetMetatile(source) != 0xa0,
                 $"Room 4:4b block ${sourcePacked:x2} did not begin its " +
                 $"source-direction push toward ${goalPacked:x2}.");
-            for (int frame = 0;
+            for (int frame = 1;
                  frame < PushBlockController.MoveFrames - 1;
                  frame++)
             {
@@ -1635,7 +1650,7 @@ public sealed partial class ValidationRoot
         OracleRandomResult directionRoll = expectedArmosRandom.Next();
         int expectedArmosAngle = directionRoll.Value & 0x18;
         Vector2 positionBeforeMovement = armos.Position;
-        var expectedArmosPosition = new Node2D
+        var expectedArmosPosition = new ValidationMovementCharacter
         {
             Position = positionBeforeMovement
         };
@@ -2024,7 +2039,7 @@ public sealed partial class ValidationRoot
             "direction changes, and enemyAnimate.");
 
         Vector2 movementOrigin = movementMimic.Position;
-        var expectedNode = new Node2D { Position = movementOrigin };
+        var expectedNode = new ValidationMovementCharacter { Position = movementOrigin };
         var expectedMovement = new EnemyTerrainMovement(
             expectedNode, movementRoom);
         expectedMovement.MoveUsingAdjacentWalls(
@@ -2451,12 +2466,16 @@ public sealed partial class ValidationRoot
             _entities.Entities<ZolCharacter>().Count != 0,
             "Room 4:5b did not clear its three red Zols from the live enemy count.");
         // The later interaction pass observes the final PART count release
-        // in the same update and starts both solve delays immediately.
+        // in the same update. playsound and wait8 each follow separately.
         FailIf(
-            _sound.PlayRequestsFor(mechanics.SolveSound) != 2 ||
+            _sound.PlayRequestsFor(mechanics.SolveSound) != 0 ||
             !room.IsSolid(Point(0x50)) || !room.IsSolid(Point(0xa7)),
             "Room 4:5b's two enemy shutters did not independently begin " +
             $"their source eight-update solve delays after the final enemy: sounds={_sound.PlayRequestsFor(mechanics.SolveSound)}, left={room.IsSolid(Point(0x50))}, down={room.IsSolid(Point(0xa7))}, text={_dialogue.IsOpen}.");
+        Step();
+        FailIf(_sound.PlayRequestsFor(mechanics.SolveSound) != 2,
+            "Room4:5b must play both solve commands after checknoenemies yields.");
+        Step(); // Load wait8.
         Step(mechanics.SolveWait);
         FailIf(
             room.GetMetatile(Point(0x50)) != 0x7b ||
@@ -2632,6 +2651,7 @@ public sealed partial class ValidationRoot
             {
                 _pushBlocks.UpdatePushAttempt(link, direction, direction);
             }
+            _pushBlocks.Advance(Update);
             FailIf(
                 !_pushBlocks.Active || room.GetMetatile(source) != 0xa0 ||
                 room.GetMetatile(Point(goalPacked)) != 0xa0 ||
@@ -2639,7 +2659,7 @@ public sealed partial class ValidationRoot
                     expectedMoveSounds,
                 $"Room 4:64 block ${sourcePacked:x2} did not begin its " +
                 "source 20-update push over floor $a0.");
-            for (int frame = 0;
+            for (int frame = 1;
                  frame < PushBlockController.MoveFrames - 1;
                  frame++)
             {

@@ -26,9 +26,13 @@ public sealed partial class ValidationRoot
                     $"House 0:56 doorway did not begin entry to 2:0e: {_activeGroup}:{_currentRoom.Id:x2}, {_player.Position}.");
                 // $ff / transition $03 / parameter $09 enters at x=$50,
                 // y=$80, then walks up $1c pixels before releasing Link.
-                // The triggering gameplay update also advances the warp once.
-                FailIf(_player.Position != new Vector2(0x50, 0x7f),
+                // func_60e9 follows updateAllObjects, so the newly selected
+                // destination cannot also run Link's walk in that update.
+                FailIf(_player.Position != new Vector2(0x50, 0x80),
                     $"House 2:0e load retained the source position: {_player.Position}.");
+                StepGameplayUpdates(1, Vector2.Zero);
+                FailIf(_player.Position != new Vector2(0x50, 0x7f),
+                    "The first destination object update must advance the entrance walk once.");
                 StepGameplayUpdates(120, Vector2.Zero, batched: batched);
                 FailIf(IsTransitioning || _player.Position != new Vector2(0x50, 0x64) ||
                     !_inventoryMenu.CanOpenForValidation || _gameplayPause.IsLeased,

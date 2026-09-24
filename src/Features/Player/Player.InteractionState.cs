@@ -10,20 +10,30 @@ public partial class Player
     {
         get
         {
-            if (_deathAnimationActive || EnemyGrabActive || _squishAnimation is not null ||
+            // checkLinkJumpingOffCliff enters state12 immediately, including
+            // its pre-scroll and waiting phases; landing restores state01.
+            // BossEntryMovement arms separately and sets this flag only when
+            // consuming the request. State0b restores state01 on counter zero.
+            if (_getItemStatePhase >= 2 || _floorDoorRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
+                _deathAnimationActive || EnemyGrabActive || _squishAnimation is not null ||
                 GaleActive && !_galePending || _forcedState08Phase >= 2 ||
-                _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0)
+                _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
+                _fallingInHole || _drowning && _topDownDrownPhase >= 2)
+                return false;
+            // linkState01_sidescroll also owns jumping and swimming. Its
+            // drowning handler changes state only at the terminal frame;
+            // the following dispatch initializes state02's respawn phase.
+            if (_world.SideScrolling && (_sideScrollDrownRespawnPending || _drownRespawning))
                 return false;
             // These controllers currently combine native request, state and
             // presentation phases. Do not guess their state from groundedness.
-            if (_world.SideScrolling || _world.IsTransitioning ||
-                _forcedRoomEntryMovement || _spinnerControlled ||
-                _cutsceneControlled && _forcedState08Phase == 0 ||
+            if (_world.IsTransitioning ||
+                _spinnerControlled ||
+                _cutsceneControlled && _forcedState08Phase == 0 && _getItemStatePhase == 0 ||
                 _getItemOneHandPose || _getItemTwoHandPose ||
-                _ledgeJumpState != LedgeJumpState.None || _newGameSlowFalling ||
+                _newGameSlowFalling ||
                 _roomWarpFallActive || _roomWarpFallCollapsed ||
-                _drowning || _fallingInHole || _hazardRecoveryTime > 0 ||
-                _floorDoorRespawnCounter != 0 || _floorDoorRecoveryCounter != 0 ||
+                _drowning && !_world.SideScrolling && _topDownDrownPhase == 0 ||
                 _companionRideControlled || _minecartRideControlled || _raftRideControlled)
                 throw new NotSupportedException("INTERAC$33 Link state gate reached a control mode whose native state boundary is not represented.");
             // Pending death/grab/gale/state08 requests do not change state
@@ -39,10 +49,13 @@ public partial class Player
         {
             if (!NativeNormalStateForInteraction) return;
             // These owners publish wLinkForceState before Link consumes it.
-            if (_enemyGrabRequested || _galePending || _forcedState08Phase == 1 || _sideScrollSquishPending)
+            if (_enemyGrabRequested || _galePending || _forcedState08Phase == 1 || _sideScrollSquishPending ||
+                _topDownDrownPhase == 1 || _floorDoorRespawnPhase == 1 || _getItemStatePhase == 1)
                 return;
-            if (_deathPending)
-                throw new NotSupportedException("Pending death versus retained forced-state lifetime is not represented.");
+            // interactiondc_subid17 does not read wLinkDeathTrigger. A lethal
+            // hit after Link's update may therefore leave this request pending.
+            // linkState01 checks death before checkLinkForceState: dying wins
+            // without consuming the request (AdvancePhysics preserves it too).
             _sideScrollSquishVertical = (pushAngle & 8) == 0;
             _sideScrollSquishPending = true;
         }
@@ -56,7 +69,9 @@ public partial class Player
     {
         get
         {
-            if (_world.SideScrolling || _ledgeJumpState != LedgeJumpState.None ||
+            // State12 retains wLinkInAir=$81 through both halves of a scroll.
+            if (_ledgeJumpState != LedgeJumpState.None) return true;
+            if (_world.SideScrolling ||
                 _companionJumpControlled || _minecartJumpControlled ||
                 _newGameSlowFalling || _roomWarpFallActive)
                 throw new NotSupportedException("INTERAC$33 wLinkInAir gate reached an unrepresented airborne control mode.");

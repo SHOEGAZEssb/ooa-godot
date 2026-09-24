@@ -23,10 +23,9 @@ internal sealed partial class WallSquishRoomEntity(OracleRoomData room, Func<int
     {
         Visible = false;
         if (State == 0) { State = 1; return; }
-        if (raisedFloorOffset() != 0)
-            throw new NotSupportedException($"INTERAC $dc:$17 raised-floor wall probes are not represented at {source}.");
         if (!LinkWallProbe.Shared.SurroundedByWalls(frame.Player.Position,
-                (room.TilesetFlags & 0x20) != 0, room.IsSolid)) return;
+                (room.TilesetFlags & 0x20) != 0,
+                raisedFloorOffset() != 0 ? room.IsSolidForRaisedFloorLink : room.IsSolid)) return;
         frame.Player.RequestWallSquish(pushAngle(), source);
     }
 }

@@ -1015,9 +1015,12 @@ public sealed partial class ValidationRoot
         Vector2 leftShutter = new(0x08, 0x58);
         FailIf(
             _player.Position != minibossEntry + Vector2.Right * 21.0f ||
-            _player.Walking || !scrollingMinibossRoom.IsSolid(leftShutter),
+            _player.Walking,
             "Room 4:18 did not finish the $16 forced-entry counter after " +
-            "Link cleared and closed the left miniboss shutter.");
+            "Link cleared the left miniboss shutter.");
+        for (int i = 0; !scrollingMinibossRoom.IsSolid(leftShutter) && i < 8; i++) StepEntities();
+        FailIf(!scrollingMinibossRoom.IsSolid(leftShutter) || _player.Position != minibossEntry + Vector2.Right * 21.0f,
+            "Room4:18 must finish its delayed shutter script without extending Link's forced walk.");
 
         _saveData.SetRoomFlag(4, 0x18, OracleSaveData.RoomFlag80, false);
         _sound.ClearPlayRequestAudit();
@@ -1210,7 +1213,7 @@ public sealed partial class ValidationRoot
             !_currentRoom.IsSolid(leftShutter),
             "Completed room 4:18 did not begin re-entry with its source " +
             "boss stream suppressed and both layout shutters closed.");
-        StepEntities();
+        StepEntities(4); // radii, angle, empty-enemy branch, setstate2.
         StepEntities();
         StepEntities(5);
         FailIf(
@@ -1798,13 +1801,17 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             !_dialogue.IsOpen || !essence.ReadyForDialogue ||
-            !_player.IsHoldingItemTwoHands ||
+            _player.IsHoldingItemTwoHands ||
             !_saveData.HasRoomFlag(4, 0x11, OracleSaveData.RoomFlagItem) ||
             (_inventory.Essences & 0x01) == 0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
             _sound.ActiveMusic != OracleSoundEngine.MusGetEssence,
-            "The Eternal Spirit did not fall, enter the two-hand pose, show " +
+            "The Eternal Spirit did not fall, request the two-hand state, show " +
             "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
+        _player.AdvanceApplicationUpdate();
+        FailIf(_player.IsHoldingItemTwoHands, "State04 consumption must not initialize the pose.");
+        _player.AdvanceApplicationUpdate();
+        FailIf(!_player.IsHoldingItemTwoHands, "State04 initialization must select the two-hand pose.");
         _dialogue.Close();
         bool[] observedEnergyBead = new bool[8];
         bool[] observedEnergyBeadRestart = new bool[8];

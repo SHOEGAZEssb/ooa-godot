@@ -13,6 +13,7 @@ public sealed class InventoryState
     public const int ItemBomb = 0x03;
     public const int ItemSomaria = 0x04;
     public const int ItemSword = 0x05;
+    public const int ItemBoomerang = 0x06;
     public const int ItemSwitchHook = 0x0a;
     public const int ItemBiggoronSword = 0x0c;
     public const int ItemShooter = 0x0f;

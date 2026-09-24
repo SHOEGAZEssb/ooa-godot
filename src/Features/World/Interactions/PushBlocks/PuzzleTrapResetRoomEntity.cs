@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed partial class PuzzleTrapResetRoomEntity(PuzzleTrapResetRecord data,
-    OracleRoomData room,Action<int> sound,Action<Warp> warp) : Node2D, IRoomEntity,
+    OracleRoomData room,OracleRuntimeState runtime,Action<int> sound,Action<Warp> warp) : Node2D, IRoomEntity,
         IFixedRoomEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity,
         IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
@@ -15,6 +15,7 @@ internal sealed partial class PuzzleTrapResetRoomEntity(PuzzleTrapResetRecord da
     public Node2D Node => this;
     public bool FreezesPlayerUpdates => _locked;
     public bool DisablesMenus => _locked;
+    public bool MenuDisablesWarpTiles => _locked; // checkTileWarps reads wMenuDisabled.
     public bool DisablesPlayerContact => _locked; // wMenuDisabled also gates Link collisions.
     public bool DisablesSword => false;
     public bool UpdatesDuringDialogue => State == 0;
@@ -52,6 +53,20 @@ internal sealed partial class PuzzleTrapResetRoomEntity(PuzzleTrapResetRecord da
         for (int i = 0; i < data.Offsets.Count; i++)
         {
             byte target = (byte)(position + data.Offsets[i]);
+            if (target >= 0xf0)
+            {
+                // bank3.init clears this upper scratch tail. Normal room
+                // placement uses $cec0-$cedf; Wizzrobes stop at $ceef; map,
+                // secret and movement temporaries also end below $cef0.
+                // Retain the actual WRAM byte rather than inventing a wall.
+                if (runtime.ReadWramByte(0xce00 + target) == 0) return false;
+                if ((i & 1) != 0) continue;
+                // Near probes read the corresponding layout-page byte even
+                // outside wRoomLayout. $cff0-$cfff belongs to script scratch;
+                // a zero byte skips the far probe, just as a zero edge tile.
+                if (runtime.ReadWramByte(0xcf00 + target) == 0) i++;
+                continue;
+            }
             if (target >= 0xc0)
             {
                 // $cec0-$ceff is shared scratch, not collision-buffer padding.

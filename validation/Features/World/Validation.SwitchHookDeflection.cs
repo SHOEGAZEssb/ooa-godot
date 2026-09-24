@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                 FailIf(enemy.InvincibilityCounter != (id == 0x0e ? -19 : id == 0x4d ? -20 : 0) ||
                     enemy.KnockbackCounter != (id == 0x4d ? 11 : 0),
                     $"${id:x2} advanced the wrong counter on the pending-hit update.");
-                FailIf(clink is not null && (!clink.Visible || clink.ElapsedFrames != 0),
+                FailIf(clink is not null && (!clink.Visible || clink.ElapsedFrames != 1 || clink.AnimationFrame != 0),
                     "Clink state0 must show its initial frame without advancing animation.");
                 if (batch) Step(10); else for (int i = 0; i < 10; i++) Step();
                 FailIf(id == 0x4d && (enemy.KnockbackCounter != 1 || enemy.Position == hit),

@@ -56,8 +56,12 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
             }
             bool justHit = _hitPending;
             _hitPending = false;
-            if (State != 0 && !justHit && KnockbackCounter == 0 && Health == 0) { Finish(); return; }
-            if (!justHit && KnockbackCounter != 0) KnockbackCounter--;
+            // enemyStandardUpdate tests only the low seven bits before
+            // decrementing. The terminal high bit is retained, not another
+            // $80 updates of recoil. This handler ignores recoil movement.
+            bool recoil = (KnockbackCounter & 0x7f) != 0;
+            if (State != 0 && !justHit && !recoil && Health == 0) { Finish(); return; }
+            if (State != 0 && !justHit && recoil) KnockbackCounter--;
             if (ContinueHazard() || CheckHazards()) return;
             switch (State)
             {

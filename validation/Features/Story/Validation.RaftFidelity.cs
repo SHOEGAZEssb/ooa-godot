@@ -216,9 +216,14 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(raft.Visible || raft.PrecisePosition != new Vector2(8.5f, 85.25f),
             "SPECIALOBJECT_RAFT $13 @respawning failed to hide at the local high-byte coordinates.");
+        Step(); // State02 initialization.
+        Step(); // First invisible wait decrement.
+        FailIf(raft.Visible || !_player.RaftRideActive,
+            "func_410d must retain hidden raft presentation before state02 reaches substate3.");
         Step();
         FailIf(!raft.Visible || !_player.RaftRideActive,
             "SPECIALOBJECT_RAFT $13 failed to restore the mounted pair after local respawn.");
+        for (int tick = 0; tick < 16; tick++) Step();
         raft.BeginRaftwreckControl(_player, new Vector2(64.75f, 72.75f));
         raft.SetRaftwreckPosition(_player, new Vector2(65.75f, 73.75f), 1);
         FailIf(raft.PrecisePosition != new Vector2(65.5f, 73.25f) ||

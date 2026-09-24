@@ -5,8 +5,9 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class ArrowMoblinRoomEntity
-    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity
+    : CombatEnemyRoomEntityAdapter<ArrowMoblinCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
+    protected override bool Stunned => Entity.StunCounter != 0;
     internal ArrowMoblinRoomEntity(
         ArrowMoblinCharacter moblin,
         EnemyCombatSourceDescriptor combatSource,
@@ -33,7 +34,7 @@ internal sealed class ArrowMoblinRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         int arrowAngle = Entity.UpdateFrame(
-            frame.Player.Position, frame.ScentSeedTarget);
+            frame.Player.Position, frame.ScentSeedTarget, frame.Counter);
         if (arrowAngle >= 0)
         {
             spawns.Add(new EnemyArrowSpawn(

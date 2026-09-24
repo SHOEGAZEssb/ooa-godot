@@ -205,6 +205,8 @@ public partial class ValidationRoot
         var random = new OracleRandom();
         var soldier = new BallChainSoldierCharacter();
         soldier.Initialize(new EnemyDatabase().ImportedEnemy(0x4b), Room060MovementFixture(), new(64,64), random);
+        var movementMemory = new OracleRuntimeState();
+        soldier.BindMovementMemory(movementMemory);
         var visual = new SpikedBallDatabase();
         SpikedBallPart[] parts = [];
         Vector2 link = new(64,100);
@@ -225,6 +227,11 @@ public partial class ValidationRoot
             "$4b clean-US allocation gate must retry state0 and consume RNG while fewer than4 enemy slots remain.");
         Tick();
         var ball = parts[0];
+        // Clean US $c09b + 7*$50 + angle1*2 contains -251/+49.
+        // The final chain link scales by radius2 after the head and links1/2.
+        FailIf(movementMemory.ReadWramByte(0xcec0) != 0x0a || movementMemory.ReadWramByte(0xcec1) != 0xfe ||
+            movementMemory.ReadWramByte(0xcec2) != 0x62 || movementMemory.ReadWramByte(0xcec3) != 0,
+            "The final spiked-chain part must leave its scaled radius2/angle1 words in shared movement scratch.");
         FailIf(soldier.State != 8 || random.Calls != 3 || ball.State != 1 || ball.Angle != 1 || ball.Radius != 10 ||
             !parts.Skip(1).Select(p => p.Radius).SequenceEqual(new[] { 7,4,2 }),
             "$4b initialization must create head then three links; link radii shift before multiplying.");

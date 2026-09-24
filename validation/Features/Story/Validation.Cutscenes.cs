@@ -3078,11 +3078,14 @@ public sealed partial class ValidationRoot
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            !respawned.Held || !_player.IsHoldingItemOneHand ||
+            !respawned.Held || _player.IsHoldingItemOneHand ||
             respawned.Position != _player.Position + new Vector2(-4, -14) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
             "Seed Satchel collection did not use grab mode $01 and its -4/-14 offset.");
+        InitializeGetItemStateForValidation();
+        FailIf(!_player.IsHoldingItemOneHand, "State04 initialization must apply the Satchel's one-hand pose.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
@@ -3317,6 +3320,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GroundTreasurePickup>().Single();
         TreasureObjectRecord rewardObject =
             _treasures.GetObject(record.RewardObject);
+        InitializeGetItemStateForValidation();
         FailIf(
             reward.Record.TreasureObject != record.RewardObject ||
             reward.Record.SpawnMode != 0 || reward.Record.GrabMode != 2 ||
@@ -3331,6 +3335,7 @@ public sealed partial class ValidationRoot
             "grab mode $02 with text, sounds, inventory, and room flag $20.");
 
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(

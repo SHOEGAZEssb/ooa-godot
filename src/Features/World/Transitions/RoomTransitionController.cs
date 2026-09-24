@@ -80,6 +80,7 @@ public sealed class RoomTransitionController
     private int _deactivatedWarpRoom = -1;
     private int _deactivatedWarpPosition = -1;
     private bool _warpActive;
+    private bool _tileWarpCheckRequested;
     private Vector2? _roomPackArrival;
     private bool _suppressDestinationMusic;
     private WarpPhase _warpPhase;
@@ -118,6 +119,8 @@ public sealed class RoomTransitionController
     };
 
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
+    internal bool AwaitingLinkWarpState => _warpActive && _warpPhase == WarpPhase.AwaitingLinkState;
+    internal bool DeathUpdatesSuspendedByWarp => _warpActive && !AwaitingLinkWarpState;
     internal bool SuppressesDestinationMusic => _warpActive && _suppressDestinationMusic;
     public bool ScrollActive => _scrollActive;
     public Vector2I ScrollDirection => _scrollDirection;
@@ -136,6 +139,19 @@ public sealed class RoomTransitionController
     internal Func<bool> AllScreenTransitionsDisabledSource { get; set; } =
         static () => false;
     internal bool TimeWarpActive => _timeWarp && _warpActive;
+    // Palette-thread lifetime, including its terminal update. A held black
+    // screen or a landing animation after fade-in is not an active fade.
+    internal bool PaletteFadeActive => _warpActive && (_warpPhase switch
+    {
+        WarpPhase.FadeOut => _warpFrame < _warpFadeOutFrames,
+        WarpPhase.FadeIn => _warpFrame < WarpFadeFrames,
+        WarpPhase.TimeWarpInitialize => true,
+        WarpPhase.TimeWarpDissolve => TimeWarpInitializeFrames + _timeWarpPhaseFrame < FastPaletteFadeFrames,
+        WarpPhase.TimeWarpBlackFadeIn => _timeWarpPhaseFrame < FastPaletteFadeFrames,
+        WarpPhase.TimeWarpWhiteFadeOut or WarpPhase.TimeWarpArrivalFadeIn or
+            WarpPhase.TimeWarpReturnFadeOut => _timeWarpPhaseFrame < WarpFadeFrames,
+        _ => false
+    });
     internal bool TimeWarpDestinationActive => TimeWarpActive && _warpPhase is
         WarpPhase.TimeWarpArrivalFadeIn or WarpPhase.TimeWarpArrivalWait or
         WarpPhase.TimeWarpArrivalEffect or WarpPhase.TimeWarpArrivalFlicker or
@@ -177,6 +193,7 @@ public sealed class RoomTransitionController
         _hud = hud;
         _dialogue = dialogue;
         _entities = entities;
+        _entities.PaletteFadeActiveSource = () => PaletteFadeActive;
         _deathRespawnPoints = deathRespawnPoints;
         _sound = sound;
         _timePortals = timePortals;
@@ -216,12 +233,32 @@ public sealed class RoomTransitionController
             UpdateCamera();
     }
 
+    internal void BeginObjectUpdate() => _tileWarpCheckRequested = false;
+
+    internal void RequestTileWarpCheck() => _tileWarpCheckRequested = true;
+
+    internal bool CheckRequestedTileWarp(Player player)
+    {
+        bool requested = _tileWarpCheckRequested;
+        _tileWarpCheckRequested = false;
+        return requested && CheckTileWarp(player);
+    }
+
     public bool CheckTileWarp(Player player)
     {
         if (_warpActive || _scrollActive) return false;
-        if (_entities.WarpTilesDisabled) return false;
+        if (_entities.NativeWarpTilesDisabled) return false;
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 linkPosition = OracleObjectMath.ToPixelPosition(player.Position);
+        DiveWarp diveWarp = default;
+        bool hasDiveWarp = player.TopDownDiving &&
+            _warps.TryGetDiveWarp(_rooms.ActiveGroup, room.Id, linkPosition, out diveWarp);
+        // func_60e9 samples these after updateAllObjects, before inspecting
+        // the standing tile or clearing wEnteredWarpPosition. INTERAC$1f:00
+        // installs its diving warp independently of this tile-warp dispatcher.
+        if (!hasDiveWarp && (player.TopDownAirborne || _dialogue.IsOpen ||
+            _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0))
+            return false;
         Vector2 standingPoint = linkPosition + new Vector2(0, 4);
         int position = room.GetPackedPosition(standingPoint);
         byte tile = room.GetMetatile(standingPoint);
@@ -242,31 +279,57 @@ public sealed class RoomTransitionController
         // INTERAC_SPECIAL_WARP $1f:$00 checks its small collision box after
         // Link's swimming update and only installs the direct warp while the
         // diving bit is set. It is intentionally independent of warp tiles.
-        if (player.TopDownDiving &&
-            _warps.TryGetDiveWarp(
-                _rooms.ActiveGroup, room.Id, linkPosition,
-                out DiveWarp diveWarp))
+        if (hasDiveWarp)
         {
             ApplyWarp(player, diveWarp.ToWarp());
             return true;
         }
+
+        // Unlike func_60e9's earlier wLinkInAir check, checkTileWarps rejects
+        // nonzero Link.zh and wLinkGrabState after updating the entered-warp
+        // marker. A later hook/item pass can
+        // change Z after Link's air-state update. Screen edges are separate.
+        if (player.TopDownAirZ != 0 || _entities.MenuDisablesWarpTiles || player.TileWarpGrabActive)
+            return FinishUnmatchedTileWarpCheck();
 
         bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
                 _rooms.ActiveGroup, room.Id, position, tile, out Warp warp))
         {
             if (!TryGetDungeonStairFallback(position, tile, out warp))
-                return false;
+                return FinishUnmatchedTileWarpCheck();
             dungeonStairFallback = true;
         }
         if (!LinkWithinTileWarpBounds(
                 room, _rooms.ActiveGroup, position, linkPosition))
         {
-            return false;
+            return FinishUnmatchedTileWarpCheck();
         }
         if (dungeonStairFallback)
             _sound.PlaySound(OracleSoundEngine.SndEnterCave);
         ApplyWarp(player, warp);
+        return true;
+    }
+
+    private bool FinishUnmatchedTileWarpCheck()
+    {
+        // checkWarpsTopDown falls through to checkScreenEdgeWarps even when
+        // checkTileWarps rejects height/menu/grab or finds no tile source.
+        // Its $ff write precedes findScreenEdgeWarpSource's scroll-mode gate.
+        // An actual boundary match is resolved by CheckRoomExit below.
+        _entities.RuntimeState.SetWramByte(0xcec0, 0xff);
+        return false;
+    }
+
+    private bool TrySelectScreenEdgeWarp(
+        OracleRoomData room, Vector2I direction, Vector2 position, out Warp warp)
+    {
+        _entities.RuntimeState.SetWramByte(0xcec0, 0xff);
+        if (!_warps.TryGetEdgeWarp(_rooms.ActiveGroup, room.Id, direction,
+                position, new Vector2(room.Width, room.Height), out warp))
+            return false;
+        // bank4.findScreenEdgeWarpSource @foundWarpSource clears the byte.
+        _entities.RuntimeState.SetWramByte(0xcec0, 0);
         return true;
     }
 
@@ -398,9 +461,7 @@ public sealed class RoomTransitionController
         // checkScreenEdgeWarps runs independently of ordinary edge gates.
         if (!AllScreenTransitionsDisabledSource() &&
             vertical != Vector2I.Zero &&
-            _warps.TryGetEdgeWarp(
-                _rooms.ActiveGroup, room.Id, vertical, pixel,
-                new Vector2(room.Width, room.Height), out Warp warp))
+            TrySelectScreenEdgeWarp(room, vertical, pixel, out Warp warp))
         {
             _screenTransitionDelay = 0;
             ApplyWarp(player, warp);
@@ -627,6 +688,8 @@ public sealed class RoomTransitionController
         Vector2 destinationCameraOrigin = GetCameraOrigin(target, transitionEnd);
         _scrollIncomingStartOffset = sourceCameraOrigin - destinationCameraOrigin +
             (Vector2)direction * _scrollDistance;
+        _entities.ReservedKeyDoor?.BeginScreenTransition();
+        _entities.ReservedPushBlock?.BeginScreenTransition();
         _rooms.SetLoadedRoom(_rooms.ActiveGroup, target);
         // screenTransitionState2 writes the edge-clamped high coordinate
         // before destination object initialization observes Link.
@@ -921,6 +984,16 @@ public sealed class RoomTransitionController
             !delayedFadeOut && UsesRoomLoadColumnReveal(warp);
         _destinationWalk = false;
         _destinationFall = false;
+        // initiateWarp requests wLinkForceState=$0a; it does not dispatch
+        // warpTransition2 itself. State03 never calls checkLinkForceState,
+        // so lethal recoil can select a stair but cannot start its fade.
+        // Keep the selected warp while Link continues dying. Direct
+        // cutscene-owned fades bypass this request.
+        if (player.IsDying && !delayedFadeOut && !forceFadeOut && !warp.DirectFadeOut)
+        {
+            _warpPhase = WarpPhase.AwaitingLinkState;
+            return;
+        }
         player.BeginRoomWarpTransition();
         if (delayedFadeOut || forceFadeOut || warp.DirectFadeOut)
         {
@@ -993,6 +1066,8 @@ public sealed class RoomTransitionController
         _warpFrame++;
         switch (_warpPhase)
         {
+            case WarpPhase.AwaitingLinkState:
+                break;
             case WarpPhase.FadeOut:
                 SetFade(_warpFadeOutFrames == WarpFadeFrames
                     ? _warpFrame / WarpFadeMaximumOffset
@@ -1311,6 +1386,7 @@ public sealed class RoomTransitionController
         // interactions such as INTERAC_SPLASH follow that same full-load
         // boundary instead of surviving under the destination tilemap.
         WarpDestinationLoading?.Invoke();
+        _player.ResetDeathAnimationForRoomLoad();
         Warp warp = _pendingWarp;
         if (_timeWarp)
         {
@@ -1854,6 +1930,7 @@ void fragment() {
 internal enum WarpPhase
 {
     None,
+    AwaitingLinkState,
     FadeOut,
     LeaveScreen,
     FadeIn,

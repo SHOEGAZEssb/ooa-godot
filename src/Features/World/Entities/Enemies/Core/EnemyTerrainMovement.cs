@@ -6,17 +6,18 @@ namespace oracleofages;
 /// Shared adjacent-wall enemy movement. Species state machines still choose
 /// the angle, speed, hole policy, and source collision-box variant.
 /// </summary>
-internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
+internal sealed class EnemyTerrainMovement(EnemyCharacter entity, OracleRoomData room)
 {
     public HazardType Hazard =>
         room.GetTerrainInfo(entity.Position).Hazard;
 
-    public bool MoveAtAngle(int angle, int speed, bool allowHoles) =>
+    public bool MoveAtAngle(int angle, int speed, bool allowHoles, int? nativeSpeed = null) =>
         MoveUsingAdjacentWalls(
             angle,
             speed,
             allowHoles,
-            topDown: false);
+            topDown: false,
+            nativeSpeed);
 
     /// <summary>
     /// Applies ecom_applyGivenVelocityGivenAdjacentWalls with either the
@@ -27,7 +28,8 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
         int angle,
         int speed,
         bool allowHoles,
-        bool topDown)
+        bool topDown,
+        int? nativeSpeed = null)
     {
         EnemyAdjacentWallProbe walls = topDown
             ? EnemyAdjacentWallResolver.Shared.ProbeTopDown(
@@ -38,7 +40,7 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
                 entity.Position,
                 angle,
                 point => IsAdjacentWallCollision(point, allowHoles));
-        return MoveGivenAdjacentWalls(angle, speed, walls);
+        return MoveGivenAdjacentWalls(angle, speed, walls, nativeSpeed);
     }
 
     // ecom_applyGivenVelocityGivenAdjacentWalls returns hFF8D, not whether
@@ -47,16 +49,28 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
     internal bool MoveGivenAdjacentWalls(
         int angle,
         int speed,
-        EnemyAdjacentWallProbe walls)
+        EnemyAdjacentWallProbe walls,
+        int? nativeSpeed = null)
     {
-        OracleObjectVelocity velocity = OracleObjectMovement.Shared.Velocity(speed, angle);
         Vector2 position = entity.Position;
+        bool moved = ApplyGivenAdjacentWalls(ref position, angle,
+            entity.MovementVelocity(speed, angle), walls, nativeSpeed ?? speed);
+        entity.Position = position;
+        entity.QueueRedraw();
+        return moved;
+    }
+
+    internal static bool ApplyGivenAdjacentWalls(
+        ref Vector2 position, int angle, OracleObjectVelocity velocity, EnemyAdjacentWallProbe walls, int statusSpeed)
+    {
+        // Velocity comes from B, but hFF8D's thresholds read Enemy.speed.
+        // Knockback can supply a different velocity without changing that byte.
         bool moved = false;
 
         int yWalls = walls.Bitset & 0x0c;
         if (yWalls == 0)
         {
-            moved |= ApplySpeedComponent(ref position.Y, velocity.YFixed, speed);
+            moved |= ApplySpeedComponent(ref position.Y, velocity.YFixed, statusSpeed);
         }
         else if (yWalls != 0x0c)
         {
@@ -65,14 +79,14 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
             if (testedAngle < 0x11)
             {
                 ApplyComponent(ref position.X, firstProbeBlocked ? 0x60 : -0x60);
-                moved |= speed < 0x32;
+                moved |= statusSpeed < 0x32;
             }
         }
 
         int xWalls = walls.Bitset & 0x03;
         if (xWalls == 0)
         {
-            moved |= ApplySpeedComponent(ref position.X, velocity.XFixed, speed);
+            moved |= ApplySpeedComponent(ref position.X, velocity.XFixed, statusSpeed);
         }
         else if (xWalls != 0x03)
         {
@@ -82,12 +96,10 @@ internal sealed class EnemyTerrainMovement(Node2D entity, OracleRoomData room)
             if (testedAngle < 0x11)
             {
                 ApplyComponent(ref position.Y, lastProbeBlocked ? -0x60 : 0x60);
-                moved |= speed < 0x32;
+                moved |= statusSpeed < 0x32;
             }
         }
 
-        entity.Position = position;
-        entity.QueueRedraw();
         return moved;
     }
 

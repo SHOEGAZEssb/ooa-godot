@@ -371,6 +371,7 @@ public sealed class BraceletController
             Name = $"LiftedTile_{_targetTile:x2}"
         };
         _object.Initialize(texture);
+        _object.BindMovementMemory(_entities.RuntimeState);
         player.AddChild(_object);
         _object.SetHeldOffset(GetLiftOffset(player, 0));
         _breakEffect = _targetRecord.Effect;

@@ -10,6 +10,7 @@ internal sealed class CrownDungeonDatabase
     internal int TriggerChestWait { get; }
     internal IReadOnlyList<DungeonPatternHintTile> PatternHint { get; }
     internal ButtonBridgeData ButtonBridge { get; }
+    internal DungeonEssenceDefinition Essence { get; }
     internal CrownDungeonDatabase()
     {
         var table = GeneratedTable.Load("res://assets/oracle/objects/crown_dungeon_objects.tsv",
@@ -24,6 +25,7 @@ internal sealed class CrownDungeonDatabase
                     "smog-sentinel" => DungeonObjectKind.SmogSentinel,
                     "smog-controller" => DungeonObjectKind.SmogController,
                     "boss-reward" => DungeonObjectKind.BossReward,
+                    "essence" => DungeonObjectKind.Essence,
                     "trigger-chest" => DungeonObjectKind.TriggerChestScript,
                     "tile-pattern-chest" => DungeonObjectKind.TilePatternChest,
                     "pattern-hint" => DungeonObjectKind.PatternHint,
@@ -35,7 +37,19 @@ internal sealed class CrownDungeonDatabase
                 DungeonObjectData.ParseCondition(row,8),row.RequiredString(9));
             _records.GetOrAdd((record.Group << 8) | record.Room).Add(record);
         }
-        if (table.Rows.Count != 12) throw new InvalidOperationException("Crown native objects require twelve boss/reward/pattern/squish/bridge records.");
+        if (table.Rows.Count != 13) throw new InvalidOperationException("Crown native objects require thirteen boss/reward/pattern/squish/bridge/essence records.");
+        var essence = GeneratedTable.Load("res://assets/oracle/objects/crown_dungeon_essence.tsv",
+            new GeneratedTableSchema("Crown Dungeon Essence", GeneratedTableKeySemantics.Ordered,
+                ["index","text-id","text-position","message-base64","destination-group","destination-room",
+                 "destination-position","destination-transition","source"],headerRequired:true)).SingleRow();
+        string message = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(essence.RequiredString(3)));
+        int position = essence.UnsignedDecimal(2);
+        if(position!=0) message=$"\\pos({position})"+message;
+        Essence = new(essence.UnsignedDecimal(0),message,new Warp(4,0xb8,-1,0,0,
+            essence.Decimal(4,0,7),essence.HexByte(5),essence.HexByte(6),0,essence.HexByte(7)));
+        if(Essence.Index!=4 || essence.HexWord(1)!=0x0012 || Essence.ExitWarp is not
+            {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:1})
+            throw new InvalidOperationException("Crown Essence source text/exit mapping is incomplete.");
         var bridge = GeneratedTable.Load("res://assets/oracle/objects/crown_button_bridge.tsv",
             new GeneratedTableSchema("Crown button bridge",GeneratedTableKeySemantics.Unique,
                 ["first","last","interval","hole","bridge","diamond","source"],["first"],headerRequired:true));

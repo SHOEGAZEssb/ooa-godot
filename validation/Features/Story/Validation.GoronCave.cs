@@ -19,6 +19,7 @@ public sealed partial class ValidationRoot
     }
     private string RunGoronEntry(int progress,bool batched)
     {
+        _player.ApplicationUpdateOwned = true;
         _saveData.SetGlobalFlag(0x2f,progress!=0);
         _saveData.SetRoomFlag(5,0xc3,0x40,progress!=0);
         if(progress==2) _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
@@ -47,6 +48,9 @@ public sealed partial class ValidationRoot
             for(int i=0;i<150&&_rooms.ActiveGroup!=5;i++) StepGameplayUpdates(1,Vector2.Zero);
             FailIf(_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xc3||!IsTransitioning,
                 "Goron cave regression missed the destination-entry transition.");
+            // initializeRoom parses objects; state-zero interaction dispatch
+            // belongs to the next updateAllObjects, after warp selection.
+            StepGameplayUpdates(1,Vector2.Zero);
             var cave=_roomEvents.Get<GoronCaveEvent>();
             string Snapshot()=>string.Join(";",cave.Actors.Where(a=>a.Actor.Active).Select(a=>
                 $"{a.Actor.Record.Id:x2}:{a.Actor.Record.SubId:x2}:{a.Actor.Record.Var03:x2}:{a.Actor.Position}:{a.Actor.CurrentScriptAnimationSource}:{a.Actor.CurrentAnimationFrame}:{a.CommandIndex}:{a.Counter}:{a.MovementCounter}"));

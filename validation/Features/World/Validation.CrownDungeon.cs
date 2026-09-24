@@ -19,7 +19,7 @@ public partial class ValidationRoot
             }, "ENEMY_ARROW_MOBLIN $0c:$01 lost its source palette, combat properties or animations.");
 
         using var fixture = RoomEntityValidationFixture.ForRoot(this,
-            new() { Enemies = database, Random = new OracleRandom() });
+            new() { Enemies = database, Random = new OracleRandom(), SaveData = _saveData });
         var manager = fixture.Manager;
         manager.LoadRoom(4, _world.LoadRoom(4, 0xab));
         var moblins = manager.Entities<ArrowMoblinCharacter>();

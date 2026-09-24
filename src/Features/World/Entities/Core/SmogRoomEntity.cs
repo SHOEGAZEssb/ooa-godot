@@ -70,11 +70,25 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
         }
         void Projectile(Vector2 position, int subid)
         {
-            if (!environment.PartSlotAvailable()) throw new NotSupportedException("smog.s unchecked PART$4a allocation into a full native pool is not represented.");
+            // getFreePartSlot fails with HL=$e0c0. Smog still copies XYZ
+            // (and increments subid for large shots), targeting main-stack
+            // bytes through echo RAM rather than a seventeenth PART slot.
+            if (!environment.PartSlotAvailable())
+            {
+                (environment.WriteFailedProjectile ?? throw new InvalidOperationException(
+                    "Smog full-PART fallthrough requires the runtime WRAM owner."))(position, subid);
+                return;
+            }
             spawns.Add(new SmogProjectileSpawn(position,subid));
         }
         void Handler()
         {
+            // enemyCode7c dispatches states $01..$07 to smog_state_stub
+            // before examining subid. Shared status/death handling remains
+            // in UpdateNativeFrame, outside this native state dispatch.
+            if (Entity.State is >= 1 and <= 7) return;
+            if (Entity.State > 8)
+                throw new NotSupportedException($"smog.s state${Entity.State:x2} is outside the native jump table.");
             switch (Entity.SubId & 15)
             {
                 case 0: case 1:

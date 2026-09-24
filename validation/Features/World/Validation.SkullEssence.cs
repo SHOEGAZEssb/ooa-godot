@@ -98,13 +98,19 @@ public sealed partial class ValidationRoot
                         "Essence state4 must copy Link's high XY bytes while preserving its own low bytes.");
                 }
             }
-            FailIf(!_dialogue.IsOpen || !essence.ReadyForDialogue || !_player.IsHoldingItemTwoHands ||
+            FailIf(!_dialogue.IsOpen || !essence.ReadyForDialogue || _player.IsHoldingItemTwoHands ||
                 (_inventory.Essences & 8) == 0 || !_saveData.HasRoomFlag(4, 0x69, OracleSaveData.RoomFlagItem) ||
                 !_dialogue.CurrentMessage.Contains("Burning Flame", StringComparison.Ordinal) ||
                 _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
                 _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1,
                 "Walking to the pedestal did not collect Burning Flame through the actual gameplay loop.");
-            Step(8);
+            Step();
+            FailIf(_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction,
+                "Essence state04 consumption must precede the held pose.");
+            Step();
+            FailIf(!_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction,
+                "Essence state04 must initialize its held pose on the following dispatch.");
+            Step(6);
             FailIf(essence.SwirlActive || IsTransitioning, "Essence cutscene advanced past an open textbox.");
             _dialogue.Close(); Step();
             FailIf(essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter != 0,

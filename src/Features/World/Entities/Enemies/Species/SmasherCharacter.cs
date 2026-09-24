@@ -72,7 +72,8 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
     }
 
     internal void UpdateInitializationFrame(int frameCounter, Action initializeBossRoom,
-        Func<SmasherCharacter?> spawnUncountedParent)
+        Func<SmasherCharacter?> spawnUncountedParent, bool interactionSlotAvailable = true,
+        Func<Vector2, bool>? createInitializationPuff = null)
     {
         if (State != 0) throw new InvalidOperationException("ENEMY_SMASHER $74 initialization requires state $00.");
         // enemyStandardUpdate reloads properties and consumes var3d RNG on
@@ -83,7 +84,17 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
         if (NativeSubId == 0)
         {
             if ((frameCounter & 1) == 0 && ++ExpirationCounter >= _data.ExpirationEvenTicks)
-                throw new NotSupportedException("smasher.s $74 state $00 expired before relatedObj1 allocation; raw unlinked-object dispatch is not represented.");
+            {
+                // The timer precedes state dispatch: no further room setup or
+                // parent allocation occurs after expiry. State$0d first tries
+                // a puff and returns on pool exhaustion before reading the link.
+                ExpirationCounter = 0;
+                State = 0x0d;
+                if (!interactionSlotAvailable) return;
+                UpdateBall(createInitializationPuff ?? throw new InvalidOperationException(
+                    "Smasher initialization expiry requires the room's puff allocator."), _ => { }, null);
+                return;
+            }
             initializeBossRoom();
             var child = spawnUncountedParent();
             if (child is null) return;
@@ -133,7 +144,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             if (!justHit && KnockbackCounter != 0)
             {
                 KnockbackCounter--;
-                if (!_movement.MoveAtAngle(KnockbackAngle, 0x50, allowHoles: true)) KnockbackCounter = 0; // SPEED_200
+                if (!_movement.MoveAtAngle(KnockbackAngle, 0x50, allowHoles: true, nativeSpeed: Speed)) KnockbackCounter = 0; // SPEED_200
                 return;
             }
             if (!justHit && Health == 0)
@@ -141,7 +152,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 (handleDeath ?? throw new InvalidOperationException("ENEMY_SMASHER $74 requires its native death owner."))();
                 return;
             }
-            if (State < 8 && State != 2)
+            if (State == 0)
                 throw new NotSupportedException($"smasher.s $74 state ${State:x2}: dispatch requires native initialization/death owner.");
             if (IsBall && State < 0x0d && (frameCounter & 1) == 0 && ++ExpirationCounter >= _data.ExpirationEvenTicks)
             {
@@ -150,6 +161,9 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                     (forceDrop ?? throw new InvalidOperationException("smasher_ball_makeLinkDrop requires the held-item owner."))();
                 State = 0x0d;
             }
+            // The common dispatch table maps $01/$03-$07 to RET. Respawn
+            // timing runs first and can replace one of these states with $0d.
+            if (State < 8 && State != 2) return;
             if (State == 2) UpdateGrabbed(setReservedItemAngle, setLinkGrabState, sound);
             else if (IsBall) UpdateBall(createPuff, sound, groundBallContact);
             else UpdateParent(enemyTarget, beginMiniboss);
@@ -227,16 +241,23 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 int reflected = Angle == 0xff ? _data.BounceDroppedBall(Position, Wall) :
                     EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle, point => Wall(point));
                 if (reflected != Angle) { Angle = reflected; writeAngle(Angle); }
-                if (_related.InvincibilityCounter != 0 ||
-                    (byte)((_z >> 8) - (_related._z >> 8) + _data.HitZBias) >= _data.HitZSpan ||
-                    !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, _related.CollisionBounds)) return;
-                _related.InvincibilityCounter = _data.HitInvincibility;
-                _related.KnockbackCounter = _data.HitKnockback;
-                _related.Health = (byte)(_related.Health - 1);
-                _related.KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, _related.Position);
+                if ((_related?.InvincibilityCounter ?? _data.UnlinkedInvincibility) != 0 ||
+                    (byte)((_z >> 8) - (_related is null ? _data.UnlinkedZ : _related._z >> 8) + _data.HitZBias) >= _data.HitZSpan ||
+                    !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, _related?.CollisionBounds ?? _data.UnlinkedBounds)) return;
+                int knockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, _related?.Position ?? _data.UnlinkedPosition);
+                if (_related is not null)
+                {
+                    _related.InvincibilityCounter = _data.HitInvincibility;
+                    _related.KnockbackCounter = _data.HitKnockback;
+                    _related.Health = (byte)(_related.Health - 1);
+                    _related.KnockbackAngle = knockbackAngle;
+                }
+                // Null-related writes target mapper addresses $00ab/$00ad/
+                // $00a9/$00ac, leaving ROM and stored SRAM bytes unchanged.
+                // They cannot establish invincibility for the next release update.
                 // The native handler changes the controlling ITEM's angle;
                 // it does not overwrite the ball's Enemy.angle here.
-                writeAngle(_related.KnockbackAngle ^ 0x10);
+                writeAngle(knockbackAngle ^ 0x10);
                 sound(OracleSoundEngine.SndBossDamage); return;
             case 3: State = 8; ZIndex = NpcCharacter.BehindLinkZIndex; return;
             default: throw new NotSupportedException($"smasher_state_grabbed substate ${GrabSubstate:x2} is not represented.");
@@ -262,7 +283,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                     State = 10; Speed = 0x28; // SPEED_100
                     SetAnimation(FaceTarget(_pickupTarget)); return;
                 }
-                if (Counter1 != 0) Counter1--;
+                Counter1 = (byte)(Counter1 - 1);
                 if (Counter1 == 0) { Counter1 = _data.WanderFrames; Angle = _data.WanderAngle(_random.Next().Value); UpdateDirection(); }
                 _movement.MoveAtAngle(Angle, Speed, allowHoles: false);
                 if (Fall()) { _speedZ = _data.HopSpeedZ; SetAnimation(Direction + 1); }
@@ -313,7 +334,12 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             case 9: groundBallContact?.Invoke(); return;
             case 10:
                 if ((_z >> 8) != _data.CarriedZOffset) _z = unchecked((short)(_z - _data.LiftSpeedZ));
-                if (Position.Floor() != _related.Position.Floor()) { FaceTarget(_related.Position); Move(); return; }
+                if (Position.Floor() != _related.Position.Floor())
+                {
+                    // ecom_moveTowardPosition writes angle, not direction.
+                    Angle = OracleObjectMovement.Shared.RelativeAngle(Position, _related.Position);
+                    Move(); return;
+                }
                 if ((_z >> 8) != _data.CarriedZOffset) return;
                 State = 11; _collisionEnabled = true; Speed = 0x78; ZIndex = NpcCharacter.InFrontOfLinkZIndex; return; // SPEED_300
             case 11: return;
@@ -327,10 +353,15 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 Move(); return;
             case 13:
                 if (!createPuff(Position)) return;
-                if (_related.State >= 11) { _related.State = 13; _related.Palette = 3; }
+                // With relatedObj1=0, clean US reads ROM$0004=$30 and writes
+                // $0d/$03/$03 to mapper addresses $0004/$009b/$009c. Executed
+                // ROM confirms SRAM is disabled, contents unchanged. Save/file
+                // operations explicitly enable SRAM; no actor/save bytes change.
+                if (_related is not null && _related.State >= 11) { _related.State = 13; _related.Palette = 3; }
                 State = 14; _collisionEnabled = false; Counter1 = _data.RespawnFrames; Visible = false; return;
             case 14:
-                if (--Counter1 != 0) return;
+                Counter1 = (byte)(Counter1 - 1);
+                if (Counter1 != 0) return;
                 State = 15; SetZHigh(_data.RespawnZ); _speedZ = 0;
                 var position = _data.RespawnPosition(_random.Next().Value);
                 Position = position + Position - Position.Floor();
@@ -352,7 +383,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
         if ((Angle & 15) == 0) return 0;
         return Direction = ((Angle & 16) ^ 16) >> 3;
     }
-    private void Move() => Position = OracleObjectMovement.Shared.ApplySpeed(OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
+    private void Move() => Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
     private void SetZHigh(int high) => _z = unchecked((short)((high << 8) | (_z & 255)));
     private void CopyPositionHigh(SmasherCharacter source)
     { Position = source.Position.Floor() + Position - Position.Floor(); SetZHigh(source._z >> 8); }

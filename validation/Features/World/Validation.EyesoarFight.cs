@@ -47,7 +47,13 @@ public sealed partial class ValidationRoot
             eyes.Any(eye => eye.State != 8 || eye.Counter != 90 || eye.Parent != body || eye.Visible),
             "Eyesoar preload lost its counted body, 60/90 counters, hidden children, or references.");
         var enemySlots = (Dictionary<IRoomEntity, int>)typeof(RoomEntityManager).GetField("_enemySlots", flags)!.GetValue(_entities)!;
-        FailIf(enemySlots.Values.Contains(0), "Eyesoar's deleted spawner must release ENEMY slot0 during preload.");
+        var outgoingNodes = _entities.OutgoingEntities<Node2D>().ToHashSet();
+        var outgoingSlots = enemySlots.Where(pair=>outgoingNodes.Contains(pair.Key.Node)).Select(pair=>pair.Value).ToArray();
+        // getFreeEnemySlot allocates the spawner around retained room4:6c
+        // enemies. Its handler allocates children before deleting itself.
+        int spawnerSlot = Enumerable.Range(0,16).Except(outgoingSlots).First();
+        FailIf(enemySlots.Values.Contains(spawnerSlot),
+            "Eyesoar's deleted spawner must release its first-free ENEMY slot during preload, preserving outgoing allocations.");
         for (int i = 0; IsTransitioning && i < 160; i++) Step();
         FailIf(IsTransitioning || _currentRoom.Id != 0x6b || body.Counter != 60 || eyes.Any(eye => eye.Counter != 90),
             "Eyesoar native counters advanced during scrolling.");
@@ -153,9 +159,15 @@ public sealed partial class ValidationRoot
             _inventory.MaxHealthQuarters != maxHealthBefore + 4 || _inventory.HealthQuarters != _inventory.MaxHealthQuarters,
             "Walking to Eyesoar's Heart Container must show TX_0016, add four health quarters, refill health and set ROOMFLAG_ITEM.");
         Step();
+        FailIf(!heart.Held || _player.IsHoldingItemTwoHands || !_player.NativeNormalStateForInteraction,
+            "Heart Container grab must request state $04 after Link's dispatch.");
+        Step();
+        FailIf(_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction,
+            "State $04 consumption must precede Heart Container pose initialization.");
+        Step();
         FailIf(!heart.Held || !_player.IsHoldingItemTwoHands || heart.Position != _player.Position + new Vector2(0, -14) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
-            "Heart Container must enter the two-hand pose on the next interaction update after its treasure sound/text.");
+            "State $04 initialization must enter the Heart Container's two-hand pose.");
         Vector2 heldPosition = _player.Position;
         Step(8, Vector2.Right);
         FailIf(_player.Position != heldPosition || heart.Finished || !heart.Held,

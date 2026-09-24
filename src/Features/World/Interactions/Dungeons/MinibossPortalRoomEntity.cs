@@ -7,7 +7,8 @@ namespace oracleofages;
 /// <summary>INTERAC_MINIBOSS_PORTAL $7e:$00.</summary>
 internal sealed class MinibossPortalRoomEntity :
     RoomEntityAdapter<MinibossPortal>, IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity
+    IScreenTransitionPreloadRoomEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze
 {
 
     private readonly PlacementRecord _placement;
@@ -45,6 +46,7 @@ internal sealed class MinibossPortalRoomEntity :
     public bool DisablesPlayerContact => ControlsLink;
     public bool PassesNpcs => ControlsLink;
     public bool UpdatesDuringDialogue => _state == PortalState.Initialize;
+    public bool UpdatesDuringRoomEntityFreeze => _state == PortalState.Initialize;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

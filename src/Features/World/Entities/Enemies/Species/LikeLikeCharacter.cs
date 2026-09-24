@@ -22,6 +22,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
     internal int Angle { get; private set; }
     internal int ZFixed { get; set; }
     internal int StunCounter => _stun;
+    internal override void ApplyBoomerangStun(int updates) => _stun = updates;
     internal bool PendingHit => _hitPending || _capturePending;
     internal override bool CollisionEnabled => base.CollisionEnabled && _enabled && State != 3;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (ZFixed >> 8);
@@ -34,7 +35,8 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
         Record = record; _room = room; _random = random;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _movement = new(this, room);
-        ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain, checksHazards: true);
+        ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain, checksHazards: true,
+            nativeSpeed: () => _data.SpeedRaw);
         ConfigureHazards(room, zPosition: () => ZFixed);
         Visible = false;
     }
@@ -64,6 +66,13 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
         try
         {
             if (State == 0) InitializeCommonProperties();
+            bool stunned = State != 0 && !PendingHit && !HasActiveKnockback && Health > 0 && _stun != 0;
+            if (stunned)
+            {
+                int z = ZFixed;
+                Position = EnemyStunMotion.Update(Position, State, frameCounter, ref _stun, ref z, ref _speedZ);
+                ZFixed = z;
+            }
             // The original deliberately checks GLOBAL Link state, not an
             // owner pointer. This precedes common hazard/status dispatch.
             if (player.EnemyGrabActive && (ZFixed >> 8) >= 0 &&
@@ -84,15 +93,9 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
                 return;
             }
             if (_hitPending) { _hitPending = false; return; }
-            if (KnockbackCounter != 0) { BeginFrame(advanceInvincibility: false); return; }
+            if (HasActiveKnockback) { BeginFrame(advanceInvincibility: false); return; }
             if (Health == 0) { Finish(); return; }
-            if (_stun != 0)
-            {
-                int z = ZFixed;
-                Position = EnemyStunMotion.Update(Position, State, frameCounter, ref _stun, ref z, ref _speedZ);
-                ZFixed = z;
-                return;
-            }
+            if (stunned) return;
             switch (State)
             {
                 case 3:

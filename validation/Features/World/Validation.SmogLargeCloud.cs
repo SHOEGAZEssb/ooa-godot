@@ -8,10 +8,12 @@ public partial class ValidationRoot
     private void ValidateSmogLargeCloud()
     {
         var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var memory = new OracleRuntimeState();
         SmogCharacter Create(int phase, int random, System.Func<int,byte> collision)
         {
             var actor = new SmogCharacter();
             actor.InitializeMergedCloud(record,3,phase,new(72,72),0,collision);
+            actor.BindMovementMemory(memory);
             for (int i = 0; i < 5; i++) actor.UpdateMergedInitialization(2,_ => FailIf(true,"Large promotion cannot write interaction counter."), (_,_) => { }, () => random);
             return actor;
         }
@@ -23,8 +25,17 @@ public partial class ValidationRoot
             for (int tick = 1; tick <= 242; tick++)
             {
                 var before = large.NativePosition;
+                for (int offset = 0; offset < 4; offset++) memory.SetWramByte(0xcec0 + offset, 0xa5);
                 int counter = large.Counter1;
                 large.UpdateLargeCloud(new(200,72),shots.Add,() => { draws++; return 3; });
+                if (tick is 1 or 21)
+                    FailIf(memory.ReadWramByte(0xcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
+                        memory.ReadWramByte(0xcec2) != (tick == 1 ? 0 : 0x20) || memory.ReadWramByte(0xcec3) != 0,
+                        "Large Smog must publish zero-speed and SPEED_020 movement scratch at the actual dispatch boundary.");
+                if (tick is 195 or 206)
+                    for (int offset = 0; offset < 4; offset++)
+                        FailIf(memory.ReadWramByte(0xcec0 + offset) != 0xa5,
+                            "Large Smog's projectile/terminal animation return must preserve movement scratch.");
                 if (tick == 1) FailIf(large.Speed != 0 || large.Counter1 != 19 || large.Angle != 8 || large.NativePosition != before,
                     "Large Smog first update must aim once, clear speed and fall through to the first of20 speed-counter updates.");
                 if (tick == 20) FailIf(large.Speed != 5 || large.Counter1 != 20 || large.Position != new Vector2(72,72),
@@ -43,6 +54,25 @@ public partial class ValidationRoot
             large.UpdateLargeCloud(new(0,72),shots.Add,() => 3);
             FailIf(large.Angle != 24 || large.Speed != 0 || large.Counter1 != 19,
                 "Large Smog must reacquire its target only when starting the next speed cycle.");
+        }
+        finally { large.Free(); }
+        // @func_72b2 calls the wrapping counter1 helper, not the saturating
+        // counter2 helper. Inject zero to isolate this arithmetic boundary.
+        large = Create(0, 3, _ => 0);
+        try
+        {
+            large.UpdateLargeCloud(new(200, 72), _ => { }, () => 3);
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                large.Counter1 = 0;
+                for (int update = 1; update <= 2; update++)
+                {
+                    large.UpdateLargeCloud(new(200, 72), _ => FailIf(true, "Counter fixture must not fire."), () => 3);
+                    FailIf(large.Counter1 != 256 - update || large.Speed != 0 || large.LargeSubstate != 1 ||
+                        large.Position != new Vector2(72, 72),
+                        "Smog counter1 must wrap zero to$ff without advancing the acceleration stage.");
+                }
+            }
         }
         finally { large.Free(); }
         foreach (byte collision in new byte[] { 0,1,0x0f,0x10,0xff })

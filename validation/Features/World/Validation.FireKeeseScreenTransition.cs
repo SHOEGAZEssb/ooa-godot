@@ -15,6 +15,8 @@ public sealed partial class ValidationRoot
         var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
         var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var drawOffset = typeof(FireKeeseCharacter).GetProperty("AnimationDrawOffset", flags)!;
+        var slots = (Dictionary<IRoomEntity,int>)typeof(RoomEntityManager).GetField("_enemySlots",flags)!.GetValue(_entities)!;
+        var reserved = (HashSet<int>)typeof(RoomEntityManager).GetField("_reservedEnemySlots",flags)!.GetValue(_entities)!;
         Vector2 DrawPosition(FireKeeseCharacter bat) => bat.Position + (Vector2)drawOffset.GetValue(bat)!;
         string State(FireKeeseCharacter bat) =>
             $"{bat.Position}/{DrawPosition(bat)}/{bat.ZFixed}/{bat.State}/{bat.Counter}/{bat.Angle}/{bat.Speed}/{bat.AnimationIndex}/{bat.AnimationFrame}/{bat.Visible}";
@@ -49,7 +51,14 @@ public sealed partial class ValidationRoot
                     $"Fire Keese fixture lost dungeon-layout neighbor 4:{route.Source:x2} -> 4:{route.Target:x2}.");
                 var outgoing = _entities.Entities<FireKeeseCharacter>().ToArray();
                 string[] outgoingState = outgoing.Select(State).ToArray();
+                var outgoingSlots = slots.ToArray();
                 _transitions.BeginScroll(_player, route.Direction, route.Target);
+                var incomingSlots = slots.Where(pair => !outgoingSlots.Any(old => old.Key==pair.Key)).ToArray();
+                int[] expectedSlots = Enumerable.Range(0,16).Except(outgoingSlots.Select(pair=>pair.Value))
+                    .Take(incomingSlots.Length).ToArray();
+                FailIf(outgoingSlots.Any(pair=>!slots.TryGetValue(pair.Key,out int slot) || slot!=pair.Value) ||
+                    !incomingSlots.Select(pair=>pair.Value).Order().SequenceEqual(expectedSlots),
+                    "Scrolling must retain outgoing ENEMY slots and allocate incoming enemies in the first available native slots.");
                 var bats = _entities.Entities<FireKeeseCharacter>().ToArray();
                 FailIf(bats.Length != route.Count, $"4:{route.Target:x2} lost its source Fire Keese count.");
 
@@ -81,6 +90,9 @@ public sealed partial class ValidationRoot
                 else for (int i = 0; i < total; i++) Step(1, CheckFrozen);
                 FailIf(_transitions.ScrollActive || bats.Any(b => b.TransitionDrawOffset != Vector2.Zero),
                     "Fire Keese scroll did not finish with cleared presentation offsets.");
+                FailIf(outgoingSlots.Any(pair=>slots.ContainsKey(pair.Key) || reserved.Contains(pair.Value)) ||
+                    incomingSlots.Any(pair=>!slots.TryGetValue(pair.Key,out int slot) || slot!=pair.Value),
+                    "Scroll completion must release outgoing ENEMY slots without renumbering incoming enemies.");
 
                 Vector2[] before = bats.Select(DrawPosition).ToArray();
                 Step(1);

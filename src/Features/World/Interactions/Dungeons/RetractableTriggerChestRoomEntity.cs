@@ -33,7 +33,7 @@ internal sealed partial class RetractableTriggerChestRoomEntity : DungeonMechani
         _outgoing=outgoing; _setTile=setTile; _puff=puff; _sound=sound; Visible=false;
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Dispatch();
-    public void UpdateDuringScreenTransition() => Dispatch();
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => Dispatch();
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { Dispatch(); return ScreenTransitionPresentation.Hidden; }
     private void Dispatch()

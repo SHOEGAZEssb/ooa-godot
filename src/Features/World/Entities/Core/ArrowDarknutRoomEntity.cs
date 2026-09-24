@@ -11,9 +11,11 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
             enemy.TakeSwordHit, enemy.TakeBurnHit, enemy.ApplySwordKnockback,
             soundRequested, EnemySwordResponse.Knockback), collisionZ: () => enemy.ZFixed >> 8),
         IFixedRoomEntity, ILinkSwordStateAwareRoomEntity, IScreenTransitionPreloadRoomEntity,
-        IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
+        IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
     private int _swordCollision = 4;
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
     public void SetLinkSwordState(SwordActionState state, int level) => _swordCollision = state switch
     {
         SwordActionState.Spin => 8,
@@ -54,7 +56,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        int angle = Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget);
+        int angle = Entity.UpdateFrame(frame.Player.Position, frame.ScentSeedTarget, frame.Counter);
         if (angle >= 0) spawns.Add(new EnemyArrowSpawn(Entity.Position, angle));
     }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)

@@ -14,6 +14,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
     private static FallingDownHoleEffectDefinition? _definition;
     private FallingDownHoleEffectDefinition _activeDefinition = null!;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
     private int _animationFrame;
     private int _animationCounter;
 
@@ -24,6 +25,8 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
     internal int CurrentParameter =>
         _activeDefinition.Frames[AnimationFrame].Parameter;
     internal Vector2 PrecisePosition => _precisePosition;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal void Initialize(Vector2 position)
     {
@@ -82,8 +85,8 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
             return;
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             _precisePosition, target);
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _activeDefinition.SpeedRaw, angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, _activeDefinition.SpeedRaw, angle);
     }
 
     private static FallingDownHoleEffectDefinition LoadDefinition()

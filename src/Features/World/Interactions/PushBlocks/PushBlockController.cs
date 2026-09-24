@@ -13,16 +13,21 @@ public partial class PushBlockController : Node2D
     private const byte TilesetFlagOutdoors = 0x01;
 
     private readonly RoomSession _rooms;
+    private readonly OracleRuntimeState? _movementMemory;
+    private int _activeSpeedRaw;
     private readonly PushableTileDatabase _tiles;
     private readonly RoomView _roomView;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
     private readonly Func<byte, bool> _pushBlockPermitted;
     private readonly Action<int>? _pushSomaria;
+    private readonly Func<int>? _braceletLevelSource;
+    private int _pendingPosition = -1, _pendingAngle, _pendingBraceletLevel;
     private int _pushCounter = PushDelayFrames;
     private int _candidatePosition = -1;
     private Vector2I _candidateDirection;
     private bool _active;
+    private bool _outgoing;
     private float _moveFrame;
     private Vector2 _sourceTopLeft;
     private Vector2 _destinationTopLeft;
@@ -40,7 +45,7 @@ public partial class PushBlockController : Node2D
     public bool Active => _active;
     internal byte ActiveTile { get; private set; }
     internal int PushAngle => _rooms.BlockPushAngle & 0x1f;
-    internal bool NativeInitialized => _moveFrame != 0;
+    internal bool NativeInitialized => _active && _pendingPosition < 0;
     internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
     internal int ActiveMoveFrames => _activeMoveFrames;
@@ -48,6 +53,7 @@ public partial class PushBlockController : Node2D
     internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *
         (_moveFrame * _activeMoveSpeedPerFrame);
     internal Texture2D? BlockTexture => _blockTexture;
+    internal int BlockZHigh { get; private set; }
 
     public PushBlockController(
         RoomSession rooms,
@@ -57,23 +63,28 @@ public partial class PushBlockController : Node2D
         Action<int> playSound,
         Func<byte, bool>? pushBlockPermitted = null,
         Action<int>? pushSomaria = null,
-        bool observeRoomChanges = true)
+        bool observeRoomChanges = true,
+        Func<int>? braceletLevelSource = null,
+        OracleRuntimeState? movementMemory = null)
     {
         _rooms = rooms;
+        _movementMemory = movementMemory;
         _tiles = tiles;
         _roomView = roomView;
         _animationTick = animationTick;
         _playSound = playSound;
         _pushBlockPermitted = pushBlockPermitted ?? (_ => true);
         _pushSomaria = pushSomaria;
+        _braceletLevelSource = braceletLevelSource;
         ZIndex = 9;
-        if (observeRoomChanges) _rooms.RoomChanged += (_, _) => Cancel();
+        if (observeRoomChanges) _rooms.RoomChanged += (_, _) => { if (!_outgoing) Cancel(); };
     }
 
     internal PushBlockController CreateSynchronizedController()
     {
         var child = new PushBlockController(_rooms,_tiles,_roomView,_animationTick,_playSound,
-            _pushBlockPermitted,observeRoomChanges:false);
+            _pushBlockPermitted,observeRoomChanges:false,braceletLevelSource:_braceletLevelSource,
+            movementMemory:_movementMemory);
         child.EnteredHazard += (position,hazard) => EnteredHazard?.Invoke(position,hazard);
         return child;
     }
@@ -82,13 +93,15 @@ public partial class PushBlockController : Node2D
     {
         Vector2 topLeft = new((position & 15) * 16,(position >> 4) * 16);
         byte tile = _rooms.CurrentRoom.GetMetatile(topLeft + Vector2.One * 8);
-        if (!_pushBlockPermitted(tile)) return;
-        if (!_tiles.TryGet(_rooms.CurrentRoom.ActiveCollisions,tile,out var record))
-            throw new NotSupportedException($"INTERAC $14 at ${position:x2}: missing push properties for tile ${tile:x2}.");
+        if (!_pushBlockPermitted(tile)) { Cancel(); return; }
+        // @loadPushableTileProperties returns at its zero terminator on a
+        // miss, leaving the freshly allocated var32..var34 bytes zero. A
+        // pending state0 can observe a tile changed since its allocation.
+        _tiles.TryGet(_rooms.CurrentRoom.ActiveCollisions,tile,out var record);
         Vector2I direction = (angle & 0x1f) switch {
             0 => Vector2I.Up, 8 => Vector2I.Right, 16 => Vector2I.Down, 24 => Vector2I.Left,
             _ => throw new NotSupportedException($"INTERAC $14: unsupported push angle ${angle:x2}.") };
-        StartMovement(topLeft,tile,direction,record,braceletLevel);
+        StartMovement(topLeft,tile,direction,record,braceletLevel,dispatchSomaria: false);
     }
 
     public void UpdatePushAttempt(
@@ -126,20 +139,69 @@ public partial class PushBlockController : Node2D
         if (_pushCounter > 0)
             return;
 
-        StartMovement(topLeft, tile, direction, record, braceletLevel);
+        if (_tiles.TryGetSomaria(_rooms.CurrentRoom.ActiveCollisions, tile, out _))
+        {
+            StartMovement(topLeft, tile, direction, record, braceletLevel);
+            return;
+        }
+        // nextToPushableBlock checks the destination only when the contact
+        // counter expires. A changing obstruction must not restart it early.
+        Vector2 target = topLeft + (Vector2)direction * OracleRoomData.MetatileSize +
+            Vector2.One * (OracleRoomData.MetatileSize / 2.0f);
+        OracleRoomData room = _rooms.CurrentRoom;
+        ResetPushCounter();
+        if (room.GetMetatile(target) == 0xff || (room.GetTerrainInfo(target).Collision & 0x0f) != 0)
+            return;
+        // nextToPushableBlock allocates reserved $d1; INTERAC$14 state0
+        // owns the later tile read, graphics, sound and shared direction.
+        _pendingPosition = position;
+        _pendingAngle = InteractableTilePushGeometry.DirectionIndex(direction) * 8;
+        _pendingBraceletLevel = braceletLevel;
+        _sourceTopLeft = topLeft;
+        _moveDirection = direction;
+        _moveFrame = 0;
+        ActiveTile = 0;
+        _blockTexture = null;
+        Visible = false;
+        _active = true;
+        _linkMovementDisabled = tile == GraveHidingDoorTile &&
+            (_rooms.CurrentRoom.TilesetFlags & TilesetFlagOutdoors) != 0;
     }
 
     public override void _PhysicsProcess(double delta) => Advance(delta);
 
     internal void Advance(double delta, Player? player = null)
     {
-        if (_active)
-            AdvanceMovement(delta,player);
+        if (!_active) return;
+        bool initializing = _pendingPosition >= 0;
+        if (initializing)
+        {
+            byte position = (byte)_pendingPosition;
+            _pendingPosition = -1;
+            StartNativeMovement(position, _pendingAngle, _braceletLevelSource?.Invoke() ?? _pendingBraceletLevel);
+        }
+        if (_active && (initializing || !_outgoing)) AdvanceMovement(delta,player);
+    }
+
+    // setInteractionsEnabledTo2 includes reserved interaction $d1. An
+    // initialized $14 keeps its sprite/counters until scroll bulk cleanup.
+    internal void BeginScreenTransition() => _outgoing = _active;
+    internal void UpdateDuringScreenTransition(Player player)
+    {
+        if (_outgoing && !NativeInitialized) Advance(1.0 / 60.0, player);
+    }
+    internal void SetScreenTransitionOffset(Vector2 offset)
+    {
+        if (_outgoing) Position = offset;
+    }
+    internal void FinishScreenTransition()
+    {
+        if (_outgoing) Cancel();
     }
 
     public bool BlocksLink(Vector2 linkCenter)
     {
-        if (!_active)
+        if (!_active || !NativeInitialized)
             return false;
         Vector2 delta = linkCenter - _collisionCenter;
         return Mathf.Abs(delta.X) < CombinedLinkRadius &&
@@ -148,10 +210,14 @@ public partial class PushBlockController : Node2D
 
     public void Cancel()
     {
+        _outgoing = false;
+        Position = Vector2.Zero;
         _active = false;
+        _pendingPosition = -1;
         _linkMovementDisabled = false;
         _moveFrame = 0.0f;
         _blockTexture = null;
+        BlockZHigh = 0;
         Visible = false;
         ResetPushCounter();
         QueueRedraw();
@@ -160,7 +226,7 @@ public partial class PushBlockController : Node2D
     public override void _Draw()
     {
         if (_active && _blockTexture is not null)
-            DrawTexture(_blockTexture, BlockTopLeft);
+            DrawTexture(_blockTexture, BlockTopLeft + new Vector2(0, BlockZHigh));
     }
 
     private bool TryGetCandidate(
@@ -203,11 +269,7 @@ public partial class PushBlockController : Node2D
             return false;
         }
 
-        if (somaria) return true; // Destination is tested after the push countdown.
-        Vector2 targetPoint = topLeft + (Vector2)direction * OracleRoomData.MetatileSize +
-            Vector2.One * (OracleRoomData.MetatileSize / 2.0f);
-        byte destination = room.GetMetatile(targetPoint);
-        return destination != 0xff && (room.GetTerrainInfo(targetPoint).Collision & 0x0f) == 0;
+        return true; // Destination is tested after the push countdown.
     }
 
     private void StartMovement(
@@ -215,10 +277,11 @@ public partial class PushBlockController : Node2D
         byte tile,
         Vector2I direction,
         PushableTileRecord record,
-        int braceletLevel)
+        int braceletLevel,
+        bool dispatchSomaria = true)
     {
         OracleRoomData room = _rooms.CurrentRoom;
-        if (_tiles.TryGetSomaria(room.ActiveCollisions,tile,out _))
+        if (dispatchSomaria && _tiles.TryGetSomaria(room.ActiveCollisions,tile,out _))
         {
             Vector2 target=topLeft+(Vector2)direction*16+Vector2.One*8;
             if ((room.GetTerrainInfo(target).Collision&15)==0)
@@ -237,12 +300,7 @@ public partial class PushBlockController : Node2D
         _moveDirection = direction;
         _record = record;
         ActiveTile = tile; // INTERAC $14 var31, observed by INTERAC $bd.
-        // interactableTiles.s disables Link when the outdoor
-        // TILEINDEX_GRAVE_HIDING_DOOR $d9 begins moving. The matching
-        // pushableTiles.s property $85 clears that lock at completion.
-        _linkMovementDisabled = tile == GraveHidingDoorTile &&
-            (room.TilesetFlags & TilesetFlagOutdoors) != 0;
-        bool usePowerGloveSpeed = braceletLevel >= 2 &&
+        bool usePowerGloveSpeed = braceletLevel == 2 &&
             (record.PropertyFlags & _bracelet.HeavyPropertyMask) == 0;
         _activeMoveFrames = usePowerGloveSpeed
             ? _bracelet.PowerGlovePushFrames
@@ -250,6 +308,7 @@ public partial class PushBlockController : Node2D
         int speedRaw = usePowerGloveSpeed
             ? _bracelet.PowerGlovePushSpeedRaw
             : _bracelet.PushSpeedRaw;
+        _activeSpeedRaw = speedRaw;
         Vector2 objectDelta = OracleObjectMovement.Shared.Delta(
             speedRaw, InteractableTilePushGeometry.DirectionIndex(direction) * 8);
         _activeMoveSpeedPerFrame = Math.Abs(
@@ -272,6 +331,12 @@ public partial class PushBlockController : Node2D
 
     private void AdvanceMovement(double delta, Player? player)
     {
+        // INTERAC$14 samples its object position before applying speed.
+        // Button height is presentation; collision and destination stay XY.
+        if ((_rooms.CurrentRoom.TilesetFlags & 0x18) != 0)
+            BlockZHigh = _rooms.CurrentRoom.GetMetatile(_collisionCenter) == 0x0c ? -2 : 0;
+        NativeObjectMovement.Velocity(_movementMemory, _activeSpeedRaw,
+            InteractableTilePushGeometry.DirectionIndex(_moveDirection) * 8);
         _moveFrame = Mathf.Min(
             _activeMoveFrames, _moveFrame + (float)(delta * 60.0));
         _collisionCenter = _sourceTopLeft + new Vector2(8, 6) +

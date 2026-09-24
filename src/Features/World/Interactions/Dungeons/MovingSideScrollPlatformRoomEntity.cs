@@ -18,6 +18,9 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     private int _waitCounter;
     private bool _initialized;
     private bool _linkRiding;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     public Node2D Node => this;
     bool IPlayerRideableRoomEntity.LinkRiding => _linkRiding;
@@ -104,8 +107,8 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
                     _record.Speed,
                     _angle);
             }
-            Position = OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition,
+            Position = NativeObjectMovement.ApplySpeed(
+                _movementMemory, ref _precisePosition,
                 _record.Speed,
                 _angle);
         }

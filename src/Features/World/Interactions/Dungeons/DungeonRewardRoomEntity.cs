@@ -17,6 +17,13 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     private readonly Action _enableLinkCollisionsAndMenu;
     private int _counter = -1;
     private bool _initialized;
+    internal byte Counter2Alias { get; private set; }
+    internal void WriteCounter2Alias(int value)
+    {
+        if (_record.Kind != DungeonObjectKind.BossReward)
+            throw new NotSupportedException($"INTERAC${_record.Id:x2}: counter2 alias requires a traced reward script.");
+        Counter2Alias = unchecked((byte)value);
+    }
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -53,7 +60,20 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     {
         if (Finished)
             return;
-        _initialized = true;
+        if (!_initialized)
+        {
+            // interactionSetScript clears counter1/counter2, including bytes
+            // inherited from a write while this native page was disabled.
+            Counter2Alias = 0;
+            _initialized = true;
+        }
+        if (Counter2Alias != 0)
+        {
+            // interactionRunScript returns even on the 1->0 update. The
+            // stationary boss-reward script has speed=0, so no motion occurs.
+            Counter2Alias--;
+            return;
+        }
         // Static $12:$01 placements are omitted by the room factory when the
         // item flag is already set. Dynamically parsed placements still
         // create the interaction, whose first script command is

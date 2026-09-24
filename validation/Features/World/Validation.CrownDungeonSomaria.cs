@@ -175,11 +175,21 @@ public partial class ValidationRoot
         FailIf(landed || !deleted || effect != 2,
             "Somaria throw landing must use the Y+5 hole probe and hazard effect instead of a puff.");
         hazardRoom.SetPositionTileAndCollision(new(73,54),0x22,15,0);
-        motion = new SomariaThrowMotion(hazardRoom,geometry);
+        motion = new SomariaThrowMotion(hazardRoom,geometry,_runtimeState);
         motion.Begin(new(72,54),-14,1,8,false);
+        for (int i=0;i<4;i++) _runtimeState.SetWramByte(0xcec0+i,0xa5);
         motion.AdvanceLateral();
         FailIf(motion.Angle!=0xff || motion.Position!=new Vector2(73,54),
             "Somaria lateral wall contact must clear angle before displacement, while preserving vertical flight.");
+        for (int i=0;i<4;i++)
+        {
+            FailIf(_runtimeState.ReadWramByte(0xcec0+i)!=0,
+                "Somaria's new wall collision must execute invalid-angle velocity clearing.");
+            _runtimeState.SetWramByte(0xcec0+i,0xa5);
+        }
+        motion.AdvanceLateral();
+        for (int i=0;i<4;i++) FailIf(_runtimeState.ReadWramByte(0xcec0+i)!=0xa5,
+            "A previously stopped Somaria throw must return before velocity writes.");
         landed=motion.AdvanceVertical((_,_,_)=>{},out deleted);
         FailIf(landed || deleted || motion.ZHigh!=-15,
             "Somaria lateral wall contact must not terminate its airborne arc.");

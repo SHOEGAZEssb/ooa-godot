@@ -411,7 +411,7 @@ $essencePedestalGraphic = $interactionGraphics['127:1']
 $essenceGlowGraphic = $interactionGraphics['127:2']
 if ($essenceSource -notmatch
         '(?ms)^@essenceOamData:.*?\.db \$00 \$01 \$01\s+' +
-        '\.db \$04 \$00 \$02\s+\.db \$06 \$03 \$02\s+\.db \$08 \$02 \$02' -or
+        '\.db \$04 \$00 \$02\s+\.db \$06 \$03 \$02\s+\.db \$08 \$02 \$02\s+\.db \$0a \$00 \$02' -or
     $null -eq $essencePedestalGraphic -or
     $essencePedestalGraphic.Gfx -ne 0x76 -or
     $essencePedestalGraphic.TileBase -ne 0 -or
@@ -445,6 +445,7 @@ Add-DungeonInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
 # tile base $06 and OBJ palette 3.
 Add-DungeonInteractionVisual 'echoing-howl' 0x7f 0 @(2) 6 3
 Add-DungeonInteractionVisual 'burning-flame' 0x7f 0 @(2) 8 2
+Add-DungeonInteractionVisual 'sacred-soil' 0x7f 0 @(2) 10 0
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -941,8 +942,8 @@ if ($eyeStatueVisual.Sprite -ne 'spr_polsvoice_hardhatbeetle_spikedbeetle_beamon
 Add-DungeonPartVisualRow 'seed-shooter-eye-statue' $eyeStatueVisual.Sprite $eyeStatueVisual.TileBase `
     $eyeStatueVisual.Palette $eyeStatueVisual.SourceGrayscaleInverted $eyeStatueVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 36) {
-    throw "Expected thirty-two imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 37) {
+    throw "Expected thirty-six imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

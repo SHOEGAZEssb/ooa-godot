@@ -19,8 +19,6 @@ internal sealed class RalphAfterChevalEvent :
     private bool _facingBit;
     private int _substate;
     private bool _menusDisabled;
-    private readonly PuzzlePuffEffect?[] _dustSlots =
-        new PuzzlePuffEffect?[0x10];
 
     internal RalphAfterChevalEvent(RoomEventContext context)
         : base(context, ActorName)
@@ -237,7 +235,6 @@ internal sealed class RalphAfterChevalEvent :
         _facingBit = false;
         _substate = 0;
         _menusDisabled = false;
-        Array.Clear(_dustSlots);
     }
 
     private void TurnLinkTowardRalph(RalphAfterChevalCharacter ralph)
@@ -274,23 +271,14 @@ internal sealed class RalphAfterChevalEvent :
 
         Vector2 position = ralph.Position +
             new Vector2(_record.PuffXOffset, _record.PuffYOffset);
-        int slot = 1;
-        while (slot < _dustSlots.Length &&
-               _dustSlots[slot] is { Finished: false } candidate &&
-               GodotObject.IsInstanceValid(candidate))
-        {
-            slot++;
-        }
-        if (slot == _dustSlots.Length)
+        if (!Context.Entities.InteractionSlotAvailable)
             return;
 
         PuzzlePuffEffect puff = Context.Entities.Spawn<PuzzlePuffEffect>(
             new PuzzlePuffSpawn(
                 position,
                 Sound: 0,
-                Flickers: true,
-                FlickerVisibleOnEvenUpdates: (slot & 1) != 0));
-        _dustSlots[slot] = puff;
+                Flickers: true));
         // Ralph is the first placed interaction in this room, so the next free
         // $05 slot receives state 0 later in the same original interaction pass.
         puff.UpdateFrame();

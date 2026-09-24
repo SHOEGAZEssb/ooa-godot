@@ -49,6 +49,8 @@ public sealed partial class ValidationRoot
         FailIf(-_transitions.WorldToGameplayScreen(Vector2.Zero) != expectedCamera,
             "The camera must observe helper $de on its creation update and move one pixel toward that focus.");
         Step(15);
+        FailIf(!_player.TopDownAirborne || _player.TopDownAirSpeedZ != 0x01c0,
+            "Link must observe the hook's prior negative Z in its next dispatch and accumulate14 gravity steps before lift update15.");
         FailIf(item.Substate != 1 || item.ZHigh != -15 || _player.SwitchHookZFixed != -15 * 256 ||
             _player.PrecisePosition != origin,
             "Lift changed XY or advanced to swap before its16th update.");
@@ -68,8 +70,11 @@ public sealed partial class ValidationRoot
             _entities.PlayerMenusDisabled || _entities.PlayerContactDisabled || _player.SwitchHookZFixed != 0 ||
             _currentRoom.GetMetatile(origin) != 0xdb || _currentRoom.GetMetatile(diamond) != 0xa0 || !_player.IsUsingSwitchHook,
             "Lowering completion must place the diamond, release helper/collision locks and retain the parent until the next update.");
+        FailIf(!_player.TopDownAirborne || _player.TopDownAirSpeedZ != 0x40,
+            "The final hook write restores Z=0 after Link's dispatch; its air state must remain live until the next update.");
         Step();
-        FailIf(_player.IsUsingSwitchHook, "Exchange completion failed to release the parent on the following Link update.");
+        FailIf(_player.IsUsingSwitchHook || _player.TopDownAirborne || _player.TopDownAirSpeedZ != 0,
+            "Exchange completion must release the parent and resolve the retained air state on the following Link update.");
         Step(press: true);
         int repeat = 0;
         while (controller.Item is { Finished: false } && repeat++ < 130) Step();

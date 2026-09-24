@@ -164,6 +164,7 @@ public partial class OracleSoundEngine : Node
     internal OracleSoundDriver Driver => _driver;
     internal OracleApu Apu => _apu;
     internal ChannelState Channel(int channel) => _channels[channel];
+    internal void SetNativeChannelVolume(int channel, byte value) => _driver.SetChannelVolumeByte(channel, value);
     internal bool OutputResourcesActiveForValidation => _player is not null || _playback is not null;
 
     public OracleSoundEngine() : this(new OracleSoundData(), true) { }

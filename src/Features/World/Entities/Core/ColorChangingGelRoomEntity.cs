@@ -35,7 +35,7 @@ internal sealed class ColorChangingGelRoomEntity
         return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
 
-    public void UpdateDuringScreenTransition()
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame = default)
     {
         // bank0._updateEnemiesIfStateIsZero permits enemyCode47 during scrolling.
         // Its color check can postpone state 0 on a non-red floor; preserve each

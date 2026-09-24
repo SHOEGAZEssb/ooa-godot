@@ -482,12 +482,13 @@ public sealed partial class ValidationRoot
             _pushBlocks.UpdatePushAttempt(
                 aboveBlueBlock, Vector2I.Down, Vector2.Down);
         }
+        _pushBlocks.Advance(update);
         FailIf(
             !_pushBlocks.Active ||
             coloredBlockRoom.GetMetatile(blueBlock) != 0xa0 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
             "Room 4:42 did not move a blue block while blue was selected.");
-        for (int frame = 0; frame < PushBlockController.MoveFrames; frame++)
+        for (int frame = 1; frame < PushBlockController.MoveFrames; frame++)
             _pushBlocks.Advance(update);
         FailIf(
             _pushBlocks.Active ||

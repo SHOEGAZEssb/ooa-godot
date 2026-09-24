@@ -49,6 +49,9 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             case DungeonEssenceEventPhase.AwaitingHeldPose:
                 if (_essence?.ReadyForDialogue != true)
                     return;
+                // essence.s keeps disabledObjects=$81 through the exit warp;
+                // its script never clears that mask. WarpTo resets state04.
+                _context.Player.RequestGetItemState(0x01, static () => true);
                 _context.ShowDialogue(
                     (_essence ?? throw new InvalidOperationException(
                         "The essence get event has no active essence.")).Message);
@@ -121,6 +124,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             GodotObject.IsInstanceValid(_essence))
         {
             _essence.StopEnergySwirl();
+            _context.Player.CancelGetItemState();
             _essence.ReleasePlayerPose();
         }
         _essence = null;

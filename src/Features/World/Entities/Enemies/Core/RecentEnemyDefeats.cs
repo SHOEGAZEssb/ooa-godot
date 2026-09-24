@@ -15,6 +15,15 @@ internal sealed class RecentEnemyDefeats
     private int _tail;
     private int _activeRoom = -1;
 
+    internal byte ActiveRoomBitset
+    {
+        get
+        {
+            int slot = FindRoom(_activeRoom);
+            return slot >= 0 ? _killedEnemies[slot] : (byte)0;
+        }
+    }
+
     internal void BeginRoom(int room)
     {
         if (room is < 0 or > 0xff)

@@ -368,6 +368,11 @@ public sealed class OracleRoomData
     public bool IsSolid(Vector2 localPoint) =>
         IsSolid(localPoint, SpecialCollisionMasks);
 
+    // link.s calculateAdjacentWallsBitset selects a table differing only at
+    // collision $1e when wLinkRaisedFloorOffset is nonzero.
+    internal bool IsSolidForRaisedFloorLink(Vector2 localPoint) =>
+        GetTerrainInfo(localPoint).Collision != 0x1e && IsSolid(localPoint);
+
     /// <summary>
     /// Applies checkTileCollisionAt_disallowHoles when holesAreWalls is true.
     /// In the source, SPECIALCOLLISION_HOLE $10 also covers water and lava.
@@ -496,6 +501,28 @@ public sealed class OracleRoomData
             throw new ArgumentOutOfRangeException(nameof(packedPosition));
         }
         _underlyingLayout[tileY * _layoutStride + tileX] = tile;
+    }
+
+    internal byte GetUnderlyingStorageMetatile(int position) => _underlyingLayout[position];
+    internal void SetStorageLayoutWithoutGraphics(int position, byte tile)
+    {
+        // A direct WRAM layout write does not update the background mapping.
+        // Preserve it even if no earlier queued setTile write was accepted.
+        if (!_positionMappingOverrides.ContainsKey(position))
+            _positionVisualOverrides[position] = GetRenderedMetatile(position);
+        Layout[position] = tile;
+    }
+
+    internal void SetStorageTileAndCollision(int position, byte tile, byte collision, long tick)
+    {
+        if ((position & 15) < WidthInTiles)
+            SetPositionTileAndCollision(new((position & 15) * 16 + 8, (position >> 4) * 16 + 8), tile, collision, tick,
+                preserveRenderedTile: true);
+        else
+        {
+            Layout[position] = tile;
+            _positionCollisionOverrides[position] = collision;
+        }
     }
 
     internal bool RestoreUnderlyingMetatileRange(

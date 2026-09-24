@@ -11,8 +11,14 @@ internal sealed class SmasherBehaviorProfile(
     IReadOnlyList<EnemyBehaviorValue> wanderAngles,
     IReadOnlyList<EnemyBehaviorValue> parentEffects,
     IReadOnlyList<EnemyBehaviorValue> ballEffects,
-    IReadOnlyList<EnemyBehaviorValue> activeCollisions)
+    IReadOnlyList<EnemyBehaviorValue> activeCollisions,
+    IReadOnlyList<EnemyBehaviorValue> unlinkedObject)
 {
+    internal int UnlinkedInvincibility => unlinkedObject[0].Value;
+    internal Vector2 UnlinkedPosition => new(unlinkedObject[2].Value, unlinkedObject[1].Value);
+    internal int UnlinkedZ => unchecked((sbyte)unlinkedObject[3].Value);
+    internal Rect2 UnlinkedBounds => new(UnlinkedPosition - new Vector2(unlinkedObject[5].Value, unlinkedObject[4].Value),
+        new Vector2(unlinkedObject[5].Value * 2, unlinkedObject[4].Value * 2));
     internal IReadOnlyList<EnemyBehaviorValue> DropWallProbes => dropWallProbes;
     internal int BounceDroppedBall(Vector2 position, System.Func<Vector2, bool> collides)
     {

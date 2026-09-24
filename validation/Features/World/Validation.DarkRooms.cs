@@ -193,12 +193,14 @@ public sealed partial class ValidationRoot
             "Collecting the Graveyard Key did not grant treasure $42, set only ROOMFLAG_ITEM, and open TX_0023.");
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
+        InitializeGetItemStateForValidation();
         FailIf(
             !key.Held || !_player.IsHoldingItemOneHand ||
             key.Position != _player.Position + new Vector2(-4, -14) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
             "The collected Graveyard Key did not use its one-hand held pose and second SND_GETITEM.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
 

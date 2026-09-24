@@ -24,10 +24,13 @@ public partial class DungeonKeyDoorController : Node
     private int _candidatePosition = -1;
     private Vector2I _candidateDirection;
     private bool _opening;
+    private bool _outgoing;
     private int _openingCounter;
     private double _openingTicks;
     private Vector2 _doorCenter;
     private DungeonKeyDoorDatabaseRecord _door;
+    private OpeningState _openingState;
+    private enum OpeningState { Initialize, Script, Ready, Animate, ScriptEnd }
 
     public event Action<string>? MessageRequested;
 
@@ -50,7 +53,11 @@ public partial class DungeonKeyDoorController : Node
         _animationTick = animationTick;
         _playSound = playSound;
         _pushCounter = DefaultPushCounter;
-        _rooms.RoomChanged += (_, _) => Cancel();
+        _entities.ReservedKeyDoor = this;
+        _rooms.RoomChanged += (_, _) =>
+        {
+            if (!_outgoing) Cancel();
+        };
     }
 
     private int DefaultPushCounter => _keyBlocks.Record.PushCounter;
@@ -60,9 +67,6 @@ public partial class DungeonKeyDoorController : Node
         Vector2I facing,
         Vector2 movementInput)
     {
-        if (_opening)
-            return;
-
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
             direction != facing ||
@@ -123,32 +127,90 @@ public partial class DungeonKeyDoorController : Node
 
     public override void _PhysicsProcess(double delta) => Advance(delta);
 
-    internal void Advance(double delta)
+    internal void Advance(double delta, Player? player = null, bool interactionsDisabled = false)
     {
-        if (!_opening || delta <= 0.0)
+        if (!_opening || _outgoing || delta <= 0.0)
             return;
 
         _openingTicks += delta * OracleSoundEngine.UpdatesPerSecond;
         while (_opening && _openingTicks >= 1.0)
         {
             _openingTicks -= 1.0;
+            bool text = _entities.TextActiveSource();
+            if (_entities.SwitchHook?.ExchangeState == 2 ||
+                _openingState != OpeningState.Initialize && (text || interactionsDisabled))
+                continue;
+            bool scriptPaused = text || player?.IsDying == true;
+            if (_openingState is OpeningState.Initialize or OpeningState.Script)
+            {
+                // INTERAC$1e:$00 initializes, then executes incstate. That
+                // script command yields; state2 starts on the next update.
+                _openingState = scriptPaused ? OpeningState.Script : OpeningState.Ready;
+                continue;
+            }
+            if (_openingState == OpeningState.ScriptEnd)
+            {
+                if (!scriptPaused) _opening = false;
+                continue;
+            }
+            if (_entities.DoorPaletteFadeActive) continue;
+            if (_openingState == OpeningState.Ready)
+            {
+                // @state2Substate0 skips animation if another interaction has
+                // already cleared collision. Holes also count as passable.
+                if (!_rooms.CurrentRoom.IsSolid(_doorCenter))
+                {
+                    _openingState = OpeningState.ScriptEnd;
+                    if (!scriptPaused) _opening = false;
+                    continue;
+                }
+                _rooms.CurrentRoom.SetInterleavedMetatile(
+                    _doorCenter, _door.OpenTile, _door.ClosedTile,
+                    InteractableTilePushGeometry.DirectionIndex(_door.Direction), _animationTick());
+                PlayDoorSoundIfVisible();
+                _openingCounter = _door.DoorFrameWait;
+                _openingState = OpeningState.Animate;
+                continue;
+            }
             _openingCounter--;
             if (_openingCounter != 0)
                 continue;
 
             _rooms.CurrentRoom.SetPositionTileAndCollision(
                 _doorCenter, _door.OpenTile, null, _animationTick());
-            _playSound(_door.DoorSound);
-            _opening = false;
+            PlayDoorSoundIfVisible();
+            _openingState = OpeningState.ScriptEnd;
+            if (!scriptPaused) _opening = false;
         }
     }
 
     internal void Cancel()
     {
         _opening = false;
+        _outgoing = false;
         _openingCounter = 0;
         _openingTicks = 0.0;
         ResetPushCounter();
+    }
+
+    internal void BeginScreenTransition() => _outgoing = _opening;
+
+    internal void UpdateDuringScreenTransition()
+    {
+        // setInteractionsEnabledTo2 includes reserved0. Scroll mode$08
+        // dispatches only state0, whose handler deletes enabled02 first.
+        if (_outgoing && _openingState == OpeningState.Initialize) Cancel();
+    }
+
+    internal void FinishScreenTransition()
+    {
+        if (_outgoing) Cancel();
+    }
+
+    private void PlayDoorSoundIfVisible()
+    {
+        if (OracleObjectMath.IsInsideOriginalScreenBoundary(_entities.WorldToScreen(_doorCenter)))
+            _playSound(_door.DoorSound);
     }
 
     private bool TryGetFrontTile(
@@ -183,9 +245,7 @@ public partial class DungeonKeyDoorController : Node
             return;
         }
 
-        _entities.Spawn<DungeonKeyUseEffect>(
-            new DungeonKeyUseSpawn(
-                center, _treasures.GetObjectVisual(keyBlock.KeyGraphic)));
+        TryCreateKeySprite(center, keyBlock.KeyGraphic);
         _rooms.CurrentRoom.SetPositionTileAndCollision(
             center, keyBlock.OpenTile, null, _animationTick());
         _playSound(keyBlock.OpenSound);
@@ -193,8 +253,10 @@ public partial class DungeonKeyDoorController : Node
             _rooms.ActiveGroup,
             _rooms.CurrentRoom.Id,
             keyBlock.RoomFlag);
-        _entities.Spawn<PuzzlePuffEffect>(
-            new PuzzlePuffSpawn(center, keyBlock.PuffSound));
+        // nextToKeyBlock tries these allocations independently, key first.
+        // Failure does not undo the key debit, floor tile or room flag.
+        if (_entities.InteractionSlotAvailable)
+            _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(center, keyBlock.PuffSound));
         ResetPushCounter();
     }
 
@@ -213,6 +275,14 @@ public partial class DungeonKeyDoorController : Node
             return;
         }
 
+        // nextToKeyDoor checks reserved INTERACTION0 only after key debit.
+        // A busy opener skips new effects/flags but still resets the push timer.
+        if (_opening)
+        {
+            ResetPushCounter();
+            return;
+        }
+
         int group = _rooms.ActiveGroup;
         int room = _rooms.CurrentRoom.Id;
         if (!_rooms.TryGetNeighbor(door.Direction, out int neighbor))
@@ -224,20 +294,22 @@ public partial class DungeonKeyDoorController : Node
 
         _rooms.SaveData.SetRoomFlag(group, room, door.RoomFlag);
         _rooms.SaveData.SetRoomFlag(group, neighbor, door.OppositeRoomFlag);
-        _entities.Spawn<DungeonKeyUseEffect>(
-            new DungeonKeyUseSpawn(
-                center, _treasures.GetObjectVisual(door.KeyGraphic)));
+        TryCreateKeySprite(center, door.KeyGraphic);
 
         _doorCenter = center;
         _door = door;
-        _rooms.CurrentRoom.SetInterleavedMetatile(
-            center, door.OpenTile, door.ClosedTile,
-            InteractableTilePushGeometry.DirectionIndex(door.Direction), _animationTick());
-        _playSound(door.DoorSound);
-        _openingCounter = door.DoorFrameWait;
+        _openingState = OpeningState.Initialize;
+        _openingCounter = 0;
         _openingTicks = 0.0;
         _opening = true;
         ResetPushCounter();
+    }
+
+    private void TryCreateKeySprite(Vector2 center, int graphic)
+    {
+        // createKeySpriteInteraction returns on getFreeInteractionSlot failure.
+        if (_entities.InteractionSlotAvailable)
+            _entities.Spawn<DungeonKeyUseEffect>(new DungeonKeyUseSpawn(center, _treasures.GetObjectVisual(graphic)));
     }
 
     private void ResetPushCounter()

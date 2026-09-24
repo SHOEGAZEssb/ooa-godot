@@ -7,7 +7,7 @@ namespace oracleofages;
 /// <summary>Invisible INTERAC_DUNGEON_STUFF $12:$00.</summary>
 internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly EntryRecord _record;
     private readonly DungeonEntranceInteractionDatabase _data;
@@ -37,10 +37,17 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
     }
 
     public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns) =>
-        ScreenTransitionPresentation.Hidden;
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        // INTERAC$12:$00 deletes in state0 when SCROLLMODE_02 is clear.
+        // Ordinary scrolling must release this slot before the eye scanner.
+        if (!_whiteoutEntry) Finished = true;
+        return ScreenTransitionPresentation.Hidden;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
@@ -64,9 +71,14 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
             _initializeStaticObjects(_record.Dungeon);
         }
 
-        Vector2 delta = frame.Player.Position - Entity.Position;
-        float radius = _data.EntryRadius + NpcCharacter.LinkCollisionRadius;
-        if (Mathf.Abs(delta.X) >= radius || Mathf.Abs(delta.Y) >= radius)
+        // objectCheckCollidedWithLink_notDead includes the byte-height gate
+        // and high-byte XY arithmetic (negative radius edge is inclusive).
+        if (frame.Player.IsDying ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(frame.Player.ObjectZHigh, 0, 7) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(
+                new Rect2(Entity.Position - Vector2.One * _data.EntryRadius, Vector2.One * (_data.EntryRadius * 2)),
+                new Rect2(frame.Player.Position - Vector2.One * NpcCharacter.LinkCollisionRadius,
+                    Vector2.One * (NpcCharacter.LinkCollisionRadius * 2))))
             return;
         Finished = true;
         _triggered(_record.TextId, _record.Message);

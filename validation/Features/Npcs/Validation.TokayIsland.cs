@@ -953,6 +953,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         GroundTreasurePickup featherReward =
             _entities.Entities<GroundTreasurePickup>().Single();
+        InitializeGetItemStateForValidation();
         FailIf(
             trading.Stage != TokayTradingStage.ShopReward ||
             featherReward.Record.TreasureObject !=
@@ -967,6 +968,7 @@ public sealed partial class ValidationRoot
             "Accepting the Tokay feather trade did not consume ten Mystery " +
             "Seeds and grant `$17:$02 with treasure-object parameter `$01.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         StepRoomEventFrames(1);
         FailIf(

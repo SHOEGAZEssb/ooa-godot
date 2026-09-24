@@ -40,6 +40,8 @@ internal sealed class SmogProjectileRoomEntity(SmogProjectilePart projectile, Sm
     }
     public void HandleLinkContact(Player player)
     {
+        // checkEnemyAndPartCollisions skips the entire PART scan while its
+        // invincibility counter is nonzero, before calling partCheckCollisions.
         if (!player.AcceptsRoomEntityContact || !player.EnemyContactHeightOverlaps(0) ||
             !Eligible(0, new(player.EnemyContactPosition - new Vector2(6,6), new(12,12)))) return;
         int effect = data.Effect(Entity.SubId, 0);

@@ -15,6 +15,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
     private readonly OwlStatueRecord _record;
     private readonly Action<int, string, Vector2> _messageRequested;
     private readonly EnemyAnimationPlayer _animation;
+    private readonly Func<OwlStatueSparkleSpawn,bool> _tryCreateSparkle;
     private int _counter;
 
     internal OwlStatueRoomEntity(
@@ -22,6 +23,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
         OwlStatueRecord record,
         OracleRoomData room,
         Action<int, string, Vector2> messageRequested,
+        Func<OwlStatueSparkleSpawn,bool> tryCreateSparkle,
         Func<long> animationTick)
     {
         if (source.Kind != RoomObjectKind.ReservingPart ||
@@ -35,6 +37,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
 
         _record = record;
         _messageRequested = messageRequested;
+        _tryCreateSparkle = tryCreateSparkle;
         Name = $"OwlStatue_{record.SubId:x2}";
         // objectSetVisible83 fixes PART_OWL_STATUE at source priority 3.
         ZIndex = NpcCharacter.FixedLowPriorityZIndex;
@@ -97,7 +100,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
                 if ((_counter & 0x07) == 0)
                 {
                     int offsetIndex = (_counter >> 3) - 1;
-                    spawns.Add(new OwlStatueSparkleSpawn(
+                    _tryCreateSparkle(new OwlStatueSparkleSpawn(
                         Position + _record.SparkleOffsets[offsetIndex],
                         _record.Sparkle));
                 }

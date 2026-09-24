@@ -96,6 +96,11 @@ public sealed partial class ValidationRoot
         flight.UpdatePost(origin, true);
         FailIf(!flight.ChainVisible || !sounds.SequenceEqual(new[] { 0xa7 }),
             "Hook failed to retry chain allocation, or counter39 lost SND_SWITCH_HOOK.");
+        typeof(SwitchHookItem).GetProperty("ZHigh", flags)!.SetValue(flight, -6);
+        FailIf(flight.ChainZHigh != 0, "Chain height remains its own byte until itemCode0bPost copies weapon Z.");
+        flight.UpdatePost(origin, true);
+        typeof(SwitchHookItem).GetProperty("ZHigh", flags)!.SetValue(flight, -4);
+        FailIf(flight.ChainZHigh != -6, "A related object must read the chain's copied Z, not the weapon's newer Z.");
         flight.RequestCancellation();
         flight.UpdateItem(_currentRoom, origin, false, () => true);
         FailIf(!flight.Finished, "Extension state1 failed to honor parent cancellation.");

@@ -155,6 +155,7 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         StepRoomEventFrames(1);
         GroundTreasurePickup reward = _entities.Entities<GroundTreasurePickup>().Single();
+        InitializeGetItemStateForValidation();
         FailIf(reward.Record.TreasureObject != "TREASURE_OBJECT_TRADEITEM_06" ||
             reward.Record.GrabMode != 2 || !reward.Held ||
             !_player.IsHoldingItemTwoHands || _inventory.TradeItem != 0x06 ||
@@ -163,6 +164,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
             "Room 2:e8 failed Cheesy Mustache $41:$06 presentation, audio, inventory, or room flag.");
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         StepRoomEventFrames(1);
         ExpectText(0x0b24);

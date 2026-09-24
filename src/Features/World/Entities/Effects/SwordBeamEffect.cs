@@ -16,6 +16,8 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     private OracleRoomData _room = null!;
     private Func<Vector2, Vector2> _worldToScreen = null!;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private bool _initialized;
     private bool _pendingNativeCollision;
     private int _palettePhase;
@@ -71,7 +73,8 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory,
             ref _precisePosition,
             _record.SpeedRaw,
             _record.Direction * 8);

@@ -55,6 +55,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private int _counter;
     private bool _collisionEnabled;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private int _angle;
     private int _speed;
     private OracleObjectPosition _fairyPosition;
@@ -65,6 +67,16 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
     private int _collectionSound;
     private bool _swordCollectionPending;
     private bool _healthCleared;
+    private Func<ItemDropCarrier?>? _carrier;
+    private bool _attachmentPending;
+    private int? _carrierId;
+    internal bool CanAttachToItem => !Finished && _collisionEnabled && !_healthCleared &&
+        !_swordCollectionPending && !_attachmentPending;
+    internal void AttachToItem(Func<ItemDropCarrier?> carrier)
+    {
+        _carrier = carrier;
+        _attachmentPending = true;
+    }
     internal void ClearHealthAndCollision()
     {
         _healthCleared = true;
@@ -189,6 +201,11 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             Collect(player);
             return;
         }
+        if (_attachmentPending)
+        {
+            _attachmentPending = false;
+            _state = DropState.Attached;
+        }
         if (_state == DropState.Initializing)
         {
             // partCode01@state0 checks Maple before consuming any RNG. The
@@ -233,9 +250,36 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
         }
 
-        if (_collisionEnabled && OverlapsLink(player.Position))
+        if (_collisionEnabled && _state != DropState.Attached && OverlapsLink(player.Position))
         {
             Collect(player);
+            return;
+        }
+
+        if (_state == DropState.Attached)
+        {
+            ItemDropCarrier? carrier = _carrier!();
+            if (_carrierId is null)
+            {
+                _carrierId = carrier?.ItemId ?? -1;
+                _zFixed = unchecked((byte)_zFixed);
+                Visible = true;
+            }
+            // state3 checks Link before carrier liveness and before copying
+            // position. Unlike the normal pickup check, this ignores Z.
+            if (Player.EnemyCollisionOverlaps(player.ActiveLinkObjectPosition, CollisionBounds))
+                Collect(player);
+            else if (carrier is { } live && live.ItemId == _carrierId)
+            {
+                _precisePosition = new(
+                    unchecked((byte)(int)live.Position.X) + _precisePosition.X - Mathf.Floor(_precisePosition.X),
+                    unchecked((byte)(int)live.Position.Y) + _precisePosition.Y - Mathf.Floor(_precisePosition.Y));
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                _sideScrollYFixed = unchecked((ushort)Mathf.FloorToInt(_precisePosition.Y * 256));
+                _zFixed = (unchecked((sbyte)(byte)live.ZHigh) << 8) | (_zFixed & 0xff);
+                QueueRedraw();
+            }
+            else FinishWithoutCollection();
             return;
         }
 
@@ -255,6 +299,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                     FinishWithoutCollection();
                 }
             }
+            UpdateConveyor();
             QueueRedraw();
             return;
         }
@@ -300,6 +345,20 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         if (SubId == ItemDropDatabase.Fairy)
         {
             UpdateFairyMovement();
+            QueueRedraw();
+        }
+        else
+        {
+            if (!IsSideScrolling() && (_zFixed >> 8) >= 0)
+            {
+                HazardType hazard = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Hazard;
+                if (hazard != HazardType.None)
+                {
+                    FinishedHazard = hazard;
+                    FinishWithoutCollection();
+                }
+            }
+            UpdateConveyor();
             QueueRedraw();
         }
     }
@@ -425,11 +484,29 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         FinishWithoutCollection();
     }
 
+    private void UpdateConveyor()
+    {
+        // PART$01 @label_11_010: conveyor lookup follows hazard handling
+        // and rejects negative zh. Its table has rows only for groups 2/5.
+        if (Finished || (_zFixed >> 8) < 0 || _room.ActiveCollisions is not (2 or 5)) return;
+        int angle = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Type switch
+        {
+            TerrainType.UpConveyor => 0,
+            TerrainType.RightConveyor => 8,
+            TerrainType.DownConveyor => 16,
+            TerrainType.LeftConveyor => 24,
+            _ => -1
+        };
+        if (angle < 0) return;
+        // itemDrop_applySpeed checks only the forward probe; unlike bomb
+        // conveyors it uses the PART offsets (-5/+4), allowing holes.
+        Vector2 front = Position + FairyProbeOffsets[angle / 4];
+        if (IsOutsideRoom(front) || IsSolidExceptHole(front)) return;
+        Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, 0x14, angle);
+    }
+
     private void UpdateHorizontalSpeed()
     {
-        if (_speed == 0)
-            return;
-
         Vector2 direction = OracleObjectMath.StrictCardinalVector(_angle);
         // partCommon_anglePositionOffsets probes five pixels toward up/left
         // and four toward right/down before objectCheckTileCollision_allowHoles
@@ -444,8 +521,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _speed, _angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, _speed, _angle);
     }
 
     private void UpdateFairyBounceMovement()
@@ -490,8 +567,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
 
     private void ApplyFairyVelocity()
     {
-        _fairyPosition = OracleObjectMovement.Shared.ApplySpeed(
-            _fairyPosition, _speed, _angle);
+        var velocity = NativeObjectMovement.Velocity(_movementMemory, _speed, _angle);
+        _fairyPosition = _fairyPosition.Add(velocity.YFixed, velocity.XFixed);
         _precisePosition = _fairyPosition.PrecisePosition;
         Position = _fairyPosition.PixelPosition;
     }
@@ -659,5 +736,6 @@ internal enum DropState
 {
     Initializing,
     Bouncing,
-    Grounded
+    Grounded,
+    Attached
 }

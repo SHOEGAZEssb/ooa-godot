@@ -6,7 +6,8 @@ namespace oracleofages;
 /// <summary>INTERAC_ESSENCE $7f:$02 in reserved interaction $d1.</summary>
 internal sealed partial class DungeonEssenceGlow : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IScreenTransitionPreloadRoomEntity,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly DungeonEssence _owner;
     private readonly EnemyAnimationPlayer _animation;
@@ -32,8 +33,13 @@ internal sealed partial class DungeonEssenceGlow : TransitionOffsetNode2D,
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => Advance(frame.Player);
+
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => Advance(frame.Player);
+
+    private void Advance(Player player)
     {
-        if (frame.Player.IsDying) return;
+        if (player.IsDying) return;
         if (!Initialized) { InitializeState(); return; }
         // Reserved $d1 runs before its dynamic parent, so these are the
         // parent's preceding high XYZ bytes, not its next movement result.

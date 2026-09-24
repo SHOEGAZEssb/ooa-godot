@@ -43,7 +43,9 @@ internal sealed class GaleSeedEnemyMotion(EnemyCharacter entity)
         }
         else
         {
-            entity.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, 0x05, _angle);
+            var position = entity.ApplyMovementSpeed(OracleObjectPosition.FromPixels(_position), 0x05, _angle);
+            _position = position.PrecisePosition;
+            entity.Position = position.PixelPosition;
             OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, 0x10);
             int z = (_z >> 8) & 0xff;
             if (z < 0x80 || (((int)entity.Position.Y + z - cameraY) & 0xff) >= 0xb0)

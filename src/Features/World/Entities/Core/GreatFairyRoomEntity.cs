@@ -78,7 +78,7 @@ internal sealed class GreatFairyRoomEntity
         Entity.SetScriptDrawOffset(new Vector2(0, _z));
     }
 
-    public void UpdateDuringScreenTransition()
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
     {
         // interactionSetAlwaysUpdateBit retains the object in the update list,
         // but returnIfScrollMode01Unset exits before its script and animation

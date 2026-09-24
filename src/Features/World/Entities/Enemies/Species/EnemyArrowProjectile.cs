@@ -67,6 +67,8 @@ public partial class EnemyArrowProjectile
     internal void UpdateFrame(Player player) =>
         _lifecycle.UpdateFrame(player);
 
+    internal void BindMovementMemory(OracleRuntimeState memory) => _lifecycle.BindMovementMemory(memory);
+
     internal bool DeflectWithSword() => _lifecycle.DeflectWithSword();
 
     void IHostileProjectile.UpdateFrame(Player player) =>

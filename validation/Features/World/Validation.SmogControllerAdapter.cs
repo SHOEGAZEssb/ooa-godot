@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 using System.Reflection;
 
 namespace oracleofages;
@@ -78,6 +79,54 @@ public partial class ValidationRoot
             try { _ = ((ISmogEncounterWorld)entity).LinkZHigh; }
             catch (InvalidOperationException) { rejected = true; }
             FailIf(!rejected,"Smog adapter must not retain a player reference outside its active update.");
+
+            // Empty native pages still receive the medium-cloud $47 write.
+            // Allocation sets enabled only; puff initialization never clears it.
+            _entities.Clear();
+            _player.WarpTo(new(8,8));
+            for (int i = 0; i < 3; i++)
+                _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(72 + i * 24,72),3));
+            Step(5);
+            var puffNode = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+            var puff = System.Linq.Enumerable.Single(_entities.EntityAdapters<PuzzlePuffRoomEntity>());
+            FailIf(_entities.InteractionSlot(puffNode) != 2 || puff.Counter2Alias != 60,
+                "The first puff must inherit the disabled INTERACTION$d2 counter2 written by ENEMY$d2.");
+            Step(19);
+            FailIf(puffNode.Finished || puff.Counter2Alias != 60,
+                "Puff initialization and animation must preserve the inherited unused counter2.");
+            Step(1);
+            FailIf(!puffNode.Finished, "Inherited counter2 must not change puff deletion on update20.");
+            var nextPuff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+            var nextAdapter = System.Linq.Enumerable.Single(_entities.EntityAdapters<PuzzlePuffRoomEntity>());
+            FailIf(_entities.InteractionSlot(nextPuff) != 2 || nextAdapter.Counter2Alias != 0,
+                "Deleting the first puff must clear the inherited byte before reuse.");
+            foreach (bool killPuff in new[] { false,true })
+            foreach (bool inherit in new[] { false,true })
+            {
+                _entities.Clear();
+                for (int i = 0; i < 3; i++)
+                    _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(72 + i * 24,72),3));
+                Step(inherit ? 5 : 4);
+                Node2D SpawnEffect() => killPuff
+                    ? _entities.Spawn<KillEnemyPuffEffect>(new KillEnemyPuffSpawn(new(24,24)))
+                    : _entities.Spawn<ClinkEffect>(new EnemyClinkSpawn(new(24,24)));
+                byte Counter() => killPuff
+                    ? System.Linq.Enumerable.Single(_entities.EntityAdapters<KillPuffRoomEntity>()).Counter2Alias
+                    : System.Linq.Enumerable.Single(_entities.EntityAdapters<SwordBeamClinkRoomEntity>()).Counter2Alias;
+                var effect = SpawnEffect();
+                FailIf(_entities.InteractionSlot(effect) != 2 || Counter() != (inherit ? 60 : 0),
+                    "INTERAC$07/$08 must inherit inactive counter2 only when the medium cloud already wrote it.");
+                Step(2);
+                int elapsed = effect is KillEnemyPuffEffect kill ? kill.ElapsedFrames : ((ClinkEffect)effect).ElapsedFrames;
+                FailIf(Counter() != 60 || elapsed != 2,
+                    "Smog's same-page write must leave clink/kill-puff animation advancing and counter2 unchanged.");
+                Step(30);
+                FailIf(_entities.EntityAdapters<KillPuffRoomEntity>().Any() ||
+                    _entities.EntityAdapters<SwordBeamClinkRoomEntity>().Any(),
+                    "The unused counter2 must not delay either effect until its value reaches zero.");
+                SpawnEffect();
+                FailIf(Counter() != 0, "Deleted clink/kill-puff pages must not pass counter2 to their replacement.");
+            }
         }
         LoadValidationRoom(0,0x60);
         GD.Print("Validated Smog controller adapter entry wait, player lift/lower and one-shot reset effects through single/batched gameplay updates.");

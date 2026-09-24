@@ -267,7 +267,7 @@ public partial class ValidationRoot
             Step(2); Step(40, Vector2.Left);
             FailIf(_player.Position != new Vector2(100,88) || ball.State != 9,
                 "$4:$b4 bracelet fixture must approach the ground ball through actual room geometry.");
-            _entities.ClearGrabbableObjectsAfterPlayer();
+            _entities.ClearSignalsAfterPlayer();
             FailIf(_entities.TryUseBracelet(_player,Vector2I.Zero),
                 "$74 pickup must require an object-phase publication, not scan eligible actors directly.");
             Step(1);
@@ -317,6 +317,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherLinkResponses()
     {
+        foreach (int enemyInvincibility in new[] { 0, -3, 3 })
         for (int shield = 0; shield <= 3; shield++)
         {
             var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
@@ -338,6 +339,7 @@ public partial class ValidationRoot
             var world = new SmasherRoomEnvironment(_ => null, () => { }, () => { }, () => true, () => true,
                 () => { }, () => { }, sound => { FailIf(sound != OracleSoundEngine.SndBombLand,"$74 shield used the wrong sound."); sounds++; },1,true);
             var adapter = new SmasherRoomEntity(parent,world,false);
+            parent.InvincibilityCounter = enemyInvincibility;
             if (shield != 0) FailIf(Player.EnemyCollisionOverlaps(player.Position,parent.CollisionBounds),"Shield fixture must exclude Link's body.");
             adapter.HandleLinkContact(player);
             int expectedInvincibility = shield == 0 ? 34 : shield == 1 ? 0 : -8;
@@ -345,7 +347,7 @@ public partial class ValidationRoot
             FailIf(player.HealthQuarters != health-(shield == 0 ? 2 : 0) ||
                 player.InvincibilityFrames != expectedInvincibility || player.KnockbackFrames != expectedKnockback ||
                 parent.PendingCollision != (shield != 1) || sounds != (shield >= 2 ? 1 : 0) ||
-                parent.Health != 5 || parent.InvincibilityCounter != 0 || parent.KnockbackCounter != 0,
+                parent.Health != 5 || parent.InvincibilityCounter != enemyInvincibility || parent.KnockbackCounter != 0,
                 $"$74 Link response for shield level{shield} lost effect02/05 damage, signed invincibility, recoil, sound or enemy JUST_HIT.");
             adapter.HandleLinkContact(player);
             FailIf(player.HealthQuarters != health-(shield == 0 ? 2 : 0) || sounds != (shield >= 2 ? 1 : 0),
@@ -753,6 +755,8 @@ public partial class ValidationRoot
             var room = Room060MovementFixture(); var database = new EnemyDatabase(); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             ball.InitializeLinked(database.ImportedEnemy(0x74,0), room, new(80.5f,64.25f), random, parent);
+            var memory = new OracleRuntimeState();
+            ball.BindMovementMemory(memory);
             parent.InitializeLinked(database.ImportedEnemy(0x74,1), room, new(140,32), random, ball);
             ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { }); ball.BeginGrab();
             var motion = new SmasherBraceletThrow(ball, room, new BraceletWeightDatabase(), new BombDatabase().Data);
@@ -766,6 +770,10 @@ public partial class ValidationRoot
             int landings = 0;
             motion.Update(_ => landings++);
             float firstX = toss ? 83.5f : 82.625f;
+            FailIf(memory.ReadWramByte(0xcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
+                memory.ReadWramByte(0xcec2) != (toss ? 0x80 : 0xa0) ||
+                memory.ReadWramByte(0xcec3) != (toss ? 2 : 1),
+                "The reserved Smasher throw must publish its actual weight2/Toss X velocity before copying position to the enemy.");
             FailIf(motion.Position != new Vector2(firstX,64) || motion.ZFixed != -18*256-0xe0 || motion.SpeedZ != -0xb8 ||
                 ball.Position != new Vector2(Mathf.Floor(firstX)+0.5f,64.25f) || ball.ZFixed != -19*256,
                 "$74 first reserved-item update must apply weight2 motion before copying high bytes to its enemy.");
@@ -776,6 +784,12 @@ public partial class ValidationRoot
             motion.SetAngle(8); motion.Update(_ => landings++);
             FailIf(motion.Angle != 0xff || motion.Speed != (toss ? 0x64 : 0x41) || motion.Position != new Vector2(81,64),
                 "Native item wall collision must clear angle but retain speed and position.");
+            FailIf(Enumerable.Range(0, 4).Any(offset => memory.ReadWramByte(0xcec0 + offset) != 0),
+                "The first blocked throw must fall through objectApplySpeed with angle $ff and clear scratch.");
+            for (int offset = 0; offset < 4; offset++) memory.SetWramByte(0xcec0 + offset, 0xa5);
+            motion.Update(_ => landings++);
+            FailIf(Enumerable.Range(0, 4).Any(offset => memory.ReadWramByte(0xcec0 + offset) != 0xa5),
+                "A later angle-$ff throw must return before movement and preserve scratch.");
             motion.SetAngle(24); motion.Update(_ => landings++);
             FailIf(motion.Position.X != (toss ? 78.5f : 79.375f),
                 "Native item rebound must resume movement using the retained speed.");

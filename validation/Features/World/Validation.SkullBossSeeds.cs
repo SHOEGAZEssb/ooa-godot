@@ -71,6 +71,8 @@ public sealed partial class ValidationRoot
                     Step(movement: armos ? Vector2.Up : Vector2.Left, attack: true);
                     if (item == 0x24) SetDiggingRoll(_random, selected);
                     int calls = _random.Calls;
+                    var healthBefore = actors.ToDictionary(a => a, a => a.Health);
+                    sounds.Clear();
                     Step();
                     var seed = _entities.Entities<EmberSeedEffect>().Single(s => !s.Finished);
                     FailIf(seed.SeedItem != item || seed.CollisionType != 0x1b + selected ||
@@ -79,13 +81,14 @@ public sealed partial class ValidationRoot
                         $"Seed init item${item:x2}/selected{selected}/shot{shot}/batch{batch}: actual${seed.SeedItem:x2}, collision${seed.CollisionType:x2}, damage${seed.Record.Damage:x2}, effect{seed.MysteryEffect}, RNG{_random.Calls - calls}.");
                     EnemyCharacter? target = null;
                     int health = 0;
-                    sounds.Clear();
                     for (int i = 0; !seed.HasPendingNativeCollision && seed.State == EmberState.Flying && i < 160; i++)
                     {
-                        var healthBefore = actors.ToDictionary(a => a, a => a.Health);
+                        healthBefore = actors.ToDictionary(a => a, a => a.Health);
                         sounds.Clear();
                         Step();
-                        if (!seed.HasPendingNativeCollision) continue;
+                    }
+                    if (seed.HasPendingNativeCollision)
+                    {
                         target = actors.FirstOrDefault(a =>
                             (a is EyesoarActor eye ? eye.JustHit : ((ArmosWarriorActor)a).JustHit && ((ArmosWarriorActor)a).CollisionMode != 0x60) &&
                             RoomEntityManager.ObjectCollisionXYOverlaps(a.CollisionBounds, seed.CollisionBounds) &&
@@ -93,7 +96,7 @@ public sealed partial class ValidationRoot
                                 seed.ZFixed >> 8, 7));
                         health = target is null ? 0 : healthBefore[target];
                     }
-                    FailIf(target is null, $"Armos={armos} ITEM${item:x2} selection{selected} shot{shot} missed native actors: seed={seed.Position}, Link={_player.Position}.");
+                    FailIf(target is null, $"Armos={armos} ITEM${item:x2} selection{selected} shot{shot} missed native actors: seed={seed.Position}/{seed.State}, Link={_player.Position}, dying={_player.IsDying}, actors={string.Join(';', actors.Select(actor=>$"{actor.Position}/{actor.Health}"))}.");
                     bool damages = target is EyesoarActor { IsChild: true } && selected < 2;
                     if (damages) damagingHits++;
                     int damage = damages ? 2 : 0;
@@ -111,7 +114,14 @@ public sealed partial class ValidationRoot
                         seed.CollisionEnabled || selected is 0 or 3 && seed.FlameCounter != duration,
                         $"ITEM${item:x2} selection{selected} must consume its pending hit once before the next enemy dispatch: target={target.Name}, hp={target.Health}/{health}, inv={target.InvincibilityCounter}, seed={seed.State}/{seed.AnimationFrame}/{seed.FlameCounter}.");
                     int[] expectedSounds = damages ? [OracleSoundEngine.SndDamageEnemy, sound] : [sound];
-                    FailIf(!sounds.SequenceEqual(expectedSounds), $"Armos={armos} seed${item:x2} selected{selected} impact sounds [{string.Join(',', sounds)}] / [{string.Join(',', expectedSounds)}].");
+                    // armosWarrior.s emits SND_SWORDSLASH when the shared
+                    // frame is divisible by16. This two-update impact window
+                    // can contain that independent sword event after scrolling.
+                    int slashes = sounds.Count(value => value == OracleSoundEngine.SndSwordSlash);
+                    FailIf(slashes > 0 && (!armos || slashes != 1 || (_entities.FrameCounter & 15) > 1),
+                        "Armos emitted a sword slash outside its global16-update boundary.");
+                    FailIf(!sounds.Where(value => value != OracleSoundEngine.SndSwordSlash).SequenceEqual(expectedSounds),
+                        $"Armos={armos} seed${item:x2} selected{selected} impact sounds [{string.Join(',', sounds)}] / [{string.Join(',', expectedSounds)}].");
                     Step(duration - 1);
                     FailIf(seed.Finished, "Selected seed effect ended before its source animation/counter boundary.");
                     Step();

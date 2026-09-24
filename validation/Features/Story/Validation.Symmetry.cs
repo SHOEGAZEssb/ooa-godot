@@ -318,6 +318,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut); i++) Step(1);
             var reward = _interactions.GroundTreasureForValidation;
+            InitializeGetItemStateForValidation();
             FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) || _inventory.TuniNutState != 0 ||
                 !_dialogue.IsOpen || reward is null || !reward.Held || !_player.IsHoldingItemTwoHands,
                 $"Symmetry $3:${room:x2} did not present broken Tuni Nut $4c:$00.");
@@ -325,6 +326,7 @@ public sealed partial class ValidationRoot
             FailIf(reward!.Finished || !quest.BlocksGameplay,
                 $"Symmetry $3:${room:x2} finished the nut handoff before its textbox closed.");
             _dialogue.Close();
+            _player.AdvanceApplicationUpdate();
             Step(1);
             FailIf(_interactions.DialogueOpen || _interactions.GroundTreasureForValidation is not null ||
                 !reward.Finished || _player.IsHoldingItemTwoHands || _player.CutsceneControlled || quest.BlocksGameplay,

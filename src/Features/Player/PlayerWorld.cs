@@ -28,16 +28,24 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdateElectricShockPresentation(int counter) =>
         _entities.UpdateElectricShockPresentation(counter);
     public bool IsTransitioning => _transitions.IsTransitioning;
+    public bool DeathUpdatesSuspendedByWarp => _transitions.DeathUpdatesSuspendedByWarp;
     public bool PassesNpcs => _transitions.TimeWarpDestinationActive || _entities.PlayerPassesNpcs;
     public bool InteractionMenusDisabled => _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled;
     public bool ScreenScrolling => _transitions.ScrollActive;
     public bool DialogueOpen => _interactions.DialogueOpen;
+    public bool NativeTextActive => _entities.TextActiveSource();
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool PlayerUpdatesFrozen => _entities.PlayerUpdatesFrozen;
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
     public bool RidingObject => _entities.PlayerRidingObject;
+    public bool BraceletParentActive => _bracelet.State is not (BraceletState.Idle or BraceletState.Projectile);
+    public int RaisedFloorOffset
+    {
+        get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress));
+        set => _entities.RuntimeState.SetWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress, unchecked((byte)value));
+    }
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
         _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
@@ -52,6 +60,25 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
     public int SeedShooterAngle => _seedSatchel.ShooterAngle;
     public bool SwitchHookActive => _entities.SwitchHook?.Active == true;
+    public bool BoomerangParentActive => _entities.BoomerangParent.Active;
+    public int BoomerangParentSlot => _entities.BoomerangParent.Slot;
+    public int BoomerangParentGraphic => _entities.BoomerangParent.Graphic;
+    public bool TryBeginBoomerang(Player player, int parentSlot)
+    {
+        // boomerangParent state0 rejects these before animation/allocation.
+        if (Underwater || SideScrolling && _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+            (GetSideScrollTerrain(player.PrecisePosition).ActiveType & SideScrollTileType.Water) != 0 ||
+            player.TopDownSwimming || player.SideScrollSwimming || SwitchHookActive)
+            return false;
+        int angle = player.LinkMovementAngle;
+        if ((angle & 0x80) != 0) angle = CarriedObjectMotion.DirectionIndex(player.FacingVector) * 8;
+        if (!_entities.TryCreateBoomerang(player.PrecisePosition, angle, player.ObjectZHigh)) return false;
+        _entities.BoomerangParent.Begin(parentSlot, player.MinecartRideActive || player.CompanionRideActive, player.RaftRideActive);
+        player.NotifyParentItemAnimationStarted(InventoryState.ItemBoomerang);
+        return true;
+    }
+    public void UpdateBoomerangParent() => _entities.BoomerangParent.Update();
+    public void ClearBoomerangParent() => _entities.BoomerangParent.Clear();
     public bool SomariaActive => _entities.Somaria?.Active==true;
     public int SomariaAnimationMode => _entities.Somaria?.Parent?.Mode??0;
     public int SomariaAnimationFrame => _entities.Somaria?.Parent?.Frame??0;
@@ -157,8 +184,13 @@ public sealed class PlayerWorld : IPlayerWorld
             primaryHeld,
             secondaryHeld,
             itemButtonJustPressed);
-    public void AdvanceBraceletProjectile() =>
-        _bracelet.AdvanceProjectile();
+    public void AdvanceBraceletProjectile()
+    {
+        // initiateWarp's $1e mask freezes an existing ITEM_BRACELET child
+        // even while dying Link continues to dispatch its special object.
+        if (!_transitions.AwaitingLinkWarpState)
+            _bracelet.AdvanceProjectile();
+    }
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
@@ -184,6 +216,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _seedSatchel.InterruptShooter();
         _entities.SwitchHook?.ClearParent();
         _entities.Somaria?.ClearParent();
+        ClearBoomerangParent();
     }
     public int BeginHarp(Player player)
     {
@@ -204,6 +237,14 @@ public sealed class PlayerWorld : IPlayerWorld
         _collisionsDisabled()
             ? movement
             : _collision.ResolveMovement(position, movement, allowWallSlide);
+    public Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide)
+    {
+        if ((angle & 0x80) != 0) return Vector2.Zero;
+        if (!_collisionsDisabled())
+            return _collision.ResolveNativeMovement(position, speed, angle, allowWallSlide);
+        var velocity = NativeObjectMovement.Velocity(_entities.RuntimeState, speed, angle);
+        return new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
+    }
     public bool IsPushingAgainstWall(
         Vector2 position,
         Vector2I facing,
@@ -250,8 +291,16 @@ public sealed class PlayerWorld : IPlayerWorld
         _transitions.ApplyDungeonHoleWarp(player, packedPosition);
     public void DeactivateWarpAtPlayerPosition(Player player) =>
         _transitions.DeactivateWarpAtPlayerPosition(player);
-    public bool CheckTileWarp(Player player) =>
-        !RidingObject && _transitions.CheckTileWarp(player);
+    public bool CheckTileWarp(Player player)
+    {
+        if (RidingObject) return false;
+        if (!player.ApplicationUpdateOwned)
+            return _transitions.CheckTileWarp(player);
+        // cutscene01 calls func_60e9 after all objects and toggle selection.
+        // Record eligibility here, then inspect the final position there.
+        _transitions.RequestTileWarpCheck();
+        return false;
+    }
     public void CheckRoomExit(Player player)
     {
         // The application samples screenTransitionState2 once, after objects.

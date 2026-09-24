@@ -1,4 +1,5 @@
 using System;
+using Godot;
 
 namespace oracleofages;
 
@@ -14,4 +15,5 @@ internal sealed record SmasherRoomEnvironment(
     int KillableEnemyIndex,
     bool Counted,
     BossEntryMovement? Entry = null,
-    Func<int>? FrameCounter = null);
+    Func<int>? FrameCounter = null,
+    Func<Vector2, bool>? CreateInitializationPuff = null);

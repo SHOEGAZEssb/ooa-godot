@@ -147,13 +147,15 @@ public sealed partial class ValidationRoot
 
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
+        InitializeGetItemStateForValidation();
         FailIf(
             !gloves.Held || !_player.IsHoldingItemOneHand ||
             gloves.Position != _player.Position + new Vector2(-4, -14) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
-            "Ricky's Gloves did not enter the next-update one-hand get-item pose.");
+            "Ricky's Gloves did not initialize the requested state $04 one-hand pose.");
 
         _dialogue.Close();
+        _player.AdvanceApplicationUpdate();
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(

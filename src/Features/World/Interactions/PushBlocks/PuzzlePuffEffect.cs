@@ -19,12 +19,14 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
     private int _animationFrame;
     private int _animationCounter;
     private bool _initialized;
+    private Func<int>? _frameCounter;
+    private int _interactionSlot;
 
     internal override bool Finished { get; private protected set; }
     internal bool Initialized => _initialized;
     internal int ElapsedUpdates { get; private set; }
     internal bool Flickers { get; private set; }
-    internal bool FlickerVisibleOnEvenUpdates { get; private set; }
+    internal bool AlwaysUpdates { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int CurrentParameter => _animation[AnimationFrame].Parameter;
     internal int ZHigh { get; private set; }
@@ -33,21 +35,27 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         Vector2 position,
         int sound,
         bool flickers = false,
-        bool flickerVisibleOnEvenUpdates = true,
         Action<int>? playSound = null,
-        int zHigh = 0)
+        int zHigh = 0,
+        bool alwaysUpdates = true)
     {
         Position = position;
         ZHigh = (sbyte)(byte)zHigh;
         _animation = _definition ??= LoadDefinition();
         _sound = sound;
         Flickers = flickers;
-        FlickerVisibleOnEvenUpdates = flickerVisibleOnEvenUpdates;
+        AlwaysUpdates = alwaysUpdates;
         _playSound = playSound ?? (static _ => { });
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
         Visible = false;
         QueueRedraw();
+    }
+
+    internal void BindNativeTiming(int interactionSlot, Func<int> frameCounter)
+    {
+        _interactionSlot = interactionSlot;
+        _frameCounter = frameCounter;
     }
 
     internal override void UpdateFrame()
@@ -73,11 +81,11 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         }
 
         // Subid bit 0 uses (wFrameCounter XOR the interaction slot page) bit
-        // 0. The spawning owner supplies the slot-derived phase when it
-        // models the original interaction allocator.
+        // 0. Neither effect age nor the spawning owner's slot sets this phase.
         if (Flickers)
-            Visible = ((ElapsedUpdates & 1) == 0) ==
-                FlickerVisibleOnEvenUpdates;
+            Visible = (((_frameCounter ?? throw new InvalidOperationException(
+                "INTERAC_PUFF $05: flickering state1 requires native interaction timing."))()
+                ^ _interactionSlot) & 1) == 0;
 
         _animationCounter--;
         if (_animationCounter == 0)

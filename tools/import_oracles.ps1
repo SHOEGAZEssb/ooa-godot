@@ -255,7 +255,8 @@ $stageContracts = @(
     New-ImportStageContract 'skull-dungeon' 'Import-SkullDungeon.ps1' `
         -inputs @('mainObjectSource', 'allTexts', 'allTextPositions')
     New-ImportStageContract 'moving-platforms' 'Import-MovingPlatforms.ps1'
-    New-ImportStageContract 'crown-dungeon' 'Import-CrownDungeon.ps1'
+    New-ImportStageContract 'crown-dungeon' 'Import-CrownDungeon.ps1' `
+        -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'pushblock-synchronizer' 'Import-PushblockSynchronizer.ps1'
     New-ImportStageContract 'puzzle-trap-reset' 'Import-PuzzleTrapReset.ps1'
     New-ImportStageContract 'link-squish' 'Import-LinkSquish.ps1' `
@@ -488,10 +489,12 @@ finally {
 }
 
 Write-Host "Validated clean US ROM: $hash"
-$assemblySourceParts = $assemblySourceStats.Split("`t")
-Write-Host (
+& {
+    $assemblySourceParts = $assemblySourceStats.Split("`t")
+    Write-Host (
     "Parsed $($assemblySourceParts[0]) assembly sources with " +
     "$($assemblySourceParts[1]) physical reads and " +
     "$($assemblySourceParts[2]) indexed label-block / " +
-    "$($assemblySourceParts[3]) structured-node queries.")
+        "$($assemblySourceParts[3]) structured-node queries.")
+}
 Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon mechanic placements, $($dungeonSharedPlacementRows.Count - 1) shared dungeon-entry placements, $keeseInstanceCount Keese, $($crowRows.Count - 1) fixed Crows, $octorokInstanceCount Octoroks, $stalfosInstanceCount ordinary Stalfos, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 tile/edge warps, 2 dive-interaction warps, 22 animation groups, and 223 sound IDs into $destination"

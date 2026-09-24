@@ -15,18 +15,25 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     private List<KillEnemyPuffEffectFrameRecord> _animation = null!;
     private int _animationFrame;
     private int _animationCounter;
+    private Action _initializeSound = static () => { };
+    internal bool Initialized { get; private set; }
+    internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
+    internal int AnimationParameter => !Initialized ? 0
+        : _animationFrame >= _animation.Count ? 0xff : _animation[AnimationFrame].Parameter;
 
     public bool Finished { get; private set; }
     internal int ElapsedFrames { get; private set; }
     internal int DurationFrames { get; private set; }
 
-    internal void Initialize(Vector2 position)
+    internal void Initialize(Vector2 position, Action initializeSound)
     {
         Position = position;
+        _initializeSound = initializeSound;
+        Visible = false;
         _animation = _definition ??= LoadDefinition();
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
-        DurationFrames = 0;
+        DurationFrames = 2; // State0 plus the state1 terminal-parameter check.
         foreach (KillEnemyPuffEffectFrameRecord frame in _animation)
             DurationFrames += frame.Duration;
         QueueRedraw();
@@ -38,14 +45,26 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
             return;
 
         ElapsedFrames++;
+        if (!Initialized)
+        {
+            Initialized = true;
+            Visible = true;
+            _initializeSound();
+            return;
+        }
+        // interactionAnimation5a122's final $ff is tested before animating.
+        if (_animationFrame >= _animation.Count)
+        {
+            Finished = true;
+            Visible = false;
+            return;
+        }
         _animationCounter--;
         if (_animationCounter <= 0)
         {
             _animationFrame++;
             if (_animationFrame >= _animation.Count)
             {
-                Finished = true;
-                Visible = false;
                 return;
             }
             _animationCounter = _animation[_animationFrame].Duration;
@@ -58,7 +77,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         if (!Finished && _animation.Count > 0)
         {
             DrawTexture(
-                _animation[_animationFrame].Texture,
+                _animation[AnimationFrame].Texture,
                 new Vector2(-16, -16) + TransitionDrawOffset);
         }
     }
@@ -91,7 +110,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
             animation.Add(new KillEnemyPuffEffectFrameRecord(
                 NpcCharacter.BuildOamTexture(
                     source, frame.EncodedOam, tileBase, palette),
-                frame.Duration));
+                frame.Duration, frame.Parameter));
         }
         if (animation.Count == 0)
             throw new InvalidOperationException("INTERAC_KILLENEMYPUFF has no frames.");
@@ -99,4 +118,4 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     }
 }
 
-internal sealed record KillEnemyPuffEffectFrameRecord(Texture2D Texture, int Duration);
+internal sealed record KillEnemyPuffEffectFrameRecord(Texture2D Texture, int Duration, int Parameter);

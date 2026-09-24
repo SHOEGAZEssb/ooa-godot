@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -17,6 +18,23 @@ internal partial class SparkCharacter : EnemyCharacter
     private bool _initialized;
     private int _angle;
     private Vector2 _precisePosition;
+    private SparkTransformation? _transformation;
+    private bool _collisionEnabled = true;
+
+    internal override bool CollisionEnabled => _collisionEnabled && base.CollisionEnabled;
+    internal int TransformationState => _transformation?.State ?? 8;
+    internal bool TransformationCompleted => _transformation?.Completed == true;
+    internal void ApplyBoomerangHit()
+    {
+        // collisionEffect35 writes var2a, then health=0 and clears collisionType bit7.
+        Health = 0;
+        _collisionEnabled = false;
+        (_transformation ?? throw new InvalidOperationException(
+            "ENEMY_SPARK $13 requires its native transformation owners.")).Hit();
+    }
+    internal void ConfigureTransformation(Func<Vector2, int> createPuff, Func<int, int> parameter,
+        Action<Vector2, int> createFairy) =>
+        _transformation = new(this, createPuff, parameter, createFairy, Finish);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int Angle => _angle;
@@ -40,6 +58,8 @@ internal partial class SparkCharacter : EnemyCharacter
     {
         if (BeginFrame())
             return;
+        if (_transformation?.Update(_angle, createsFairy: true) == true)
+            return;
         if (!_initialized)
         {
             PrepareForScreenTransition();
@@ -60,7 +80,7 @@ internal partial class SparkCharacter : EnemyCharacter
             _angle = (_angle + 0x08) & 0x18;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = ApplyMovementSpeed(
             ref _precisePosition,
             EnemyBehaviorTables.Shared.Spark.SpeedRaw,
             _angle);
@@ -110,6 +130,5 @@ internal partial class SparkCharacter : EnemyCharacter
     private bool Collides(Vector2I point) =>
         point.X < 0 || point.X >= _room.Width ||
         point.Y < 0 || point.Y >= _room.Height ||
-        _room.IsSolid(point) ||
-        _room.GetTerrainInfo(point).Hazard == HazardType.Hole;
+        _room.IsSolidForEnemyMovement(point, holesAreWalls: true);
 }

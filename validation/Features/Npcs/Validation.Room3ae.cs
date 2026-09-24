@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
             FailIf(
                 !harp.Held ||
-                !_player.IsHoldingItemTwoHands ||
+                _player.IsHoldingItemTwoHands ||
                 harp.Position != _player.Position + new Vector2(0, -14) ||
                 sparkle.Position != harp.Position ||
                 harpEvent.Stage != HarpOfAgesEventStage.AwaitingTextOpen ||
@@ -144,6 +144,8 @@ public sealed partial class ValidationRoot
                     OracleSoundEngine.SndCtrlStopMusic) != 1,
                 "Harp state 1 did not lift the reward, keep the sparkle " +
                 "attached, stop music, and disable Link on the following update.");
+            InitializeGetItemStateForValidation();
+            FailIf(!_player.IsHoldingItemTwoHands, "State04 initialization must select the Harp's two-hand pose.");
 
             StepRoomEventFrames(1);
             FailIf(
@@ -157,6 +159,7 @@ public sealed partial class ValidationRoot
             _entities.Update(1.0 / 60.0, _player);
             if (GodotObject.IsInstanceValid(harp))
                 harp.Free();
+            _player.AdvanceApplicationUpdate();
             _roomEvents.Update(1.0 / 60.0);
             _sound.Tick();
             FailIf(
@@ -372,6 +375,9 @@ public sealed partial class ValidationRoot
                     "nayruScript07 did not create the Tune of Echoes reward.");
             TreasureObjectRecord echoObject =
                 _treasures.GetObject(record.EchoesObject);
+            FailIf(_player.IsHoldingItemTwoHands,
+                "Tune of Echoes must request state $04 before selecting its pose.");
+            InitializeGetItemStateForValidation();
             FailIf(
                 !echoReward.Held ||
                 echoReward.Record.TreasureObject != record.EchoesObject ||
@@ -405,6 +411,7 @@ public sealed partial class ValidationRoot
                 "single explicit SND_GETITEM.");
 
             _dialogue.Close();
+            _player.AdvanceApplicationUpdate();
             _interactions.Update(1.0 / 60.0, _player);
             StepRoomEventFrames(1);
             FailIf(

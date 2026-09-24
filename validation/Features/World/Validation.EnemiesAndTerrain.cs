@@ -557,7 +557,7 @@ public sealed partial class ValidationRoot
             routeOrigin is null,
             "Room 0:00 has no open 64-update SPEED_20 angle `$03 route.");
 
-        var mover = new Node2D { Position = routeOrigin!.Value };
+        var mover = new ValidationMovementCharacter { Position = routeOrigin!.Value };
         var movement = new EnemyTerrainMovement(mover, room);
         for (int update = 0; update < pathUpdates; update++)
         {
@@ -737,10 +737,11 @@ public sealed partial class ValidationRoot
                     tables.Zol.RedShakeFrames,
                     tables.Zol.RedHopSpeedRaw,
                     tables.Zol.RedWaitFrames,
-                    tables.Zol.SplitDelayFrames
+                    tables.Zol.SplitDelayFrames,
+                    tables.Zol.RedInitialSpeedRaw
                 ],
                 [40, -512, 40, 24, 4, 48, 30, 40,
-                 16, 20, 32, 40, 24, 18]) ||
+                 16, 20, 32, 40, 24, 18, 0x0e]) ||
             !ProfileMatches(
                 tables.Octorok.Sources,
                 [
@@ -1405,7 +1406,8 @@ public sealed partial class ValidationRoot
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
-        var wrappedReservations = new EnemyPlacementReservations();
+        var placementRuntime = new OracleRuntimeState();
+        var wrappedReservations = new EnemyPlacementReservations(placementRuntime);
         for (int position = 0; position < 15; position++)
             wrappedReservations.Add(position);
         FailIf(
@@ -1422,6 +1424,21 @@ public sealed partial class ValidationRoot
             wrappedReservations.Count != 1 || !wrappedReservations.Contains(0xaa) ||
             wrappedReservations.Contains(0x01),
             "The wrapped placement table did not restart from entry zero.");
+        FailIf(placementRuntime.ReadWramByte(0xcec1) != 1 || placementRuntime.ReadWramByte(0xced0) != 0xaa,
+            "Placement reservations must use authoritative wEnemyPlacement WRAM.");
+        placementRuntime.SetWramByte(0xced0, 0x56);
+        FailIf(!wrappedReservations.Contains(0x56) || wrappedReservations.Contains(0xaa),
+            "Shared scratch writes must be visible to reservation reads without a mirrored position array.");
+        placementRuntime.SetWramByte(0xcec1, 0xf0);
+        wrappedReservations.Add(0x78);
+        FailIf(placementRuntime.ReadWramByte(0xcfc0) != 0x78 || wrappedReservations.Count != 1,
+            "A stale count$f0 must write$ced0+$f0=$cfc0 before masking the increment to1.");
+        placementRuntime.SetWramByte(0xcedf, 0x99);
+        placementRuntime.SetWramByte(0xcee0, 0x42);
+        EnemyPlacementReservations.BeginRoomParse(placementRuntime);
+        FailIf(Enumerable.Range(0xcec0, 0x20).Any(address => placementRuntime.ReadWramByte(address) != 0) ||
+            placementRuntime.ReadWramByte(0xcfc0) != 0 || placementRuntime.ReadWramByte(0xcee0) != 0x42,
+            "parseObjectData must clear exactly its32-byte scratch block and$cfc0, preserving the following scratch region.");
 
         var validationRoot = new Node { Name = "EnemyPlacementOrderValidation" };
         AddChild(validationRoot);
@@ -2500,7 +2517,7 @@ public sealed partial class ValidationRoot
             for (int y = 16; y < room.Height - 16; y += 4)
             for (int x = 16; x < room.Width - 40; x += 4)
             {
-                var probe = new Node2D { Position = new Vector2(x, y) };
+                var probe = new ValidationMovementCharacter { Position = new Vector2(x, y) };
                 var movement = new EnemyTerrainMovement(probe, room);
                 int counter = 150;
                 int speed = 10;
@@ -2653,7 +2670,7 @@ public sealed partial class ValidationRoot
             armoredClink is null ||
             armoredClink.Position != expectedClinkPosition ||
             armoredClink.Flickers ||
-            armoredClink.DurationFrames != 8 ||
+            armoredClink.DurationFrames != 10 ||
             armoredClink.AnimationFrame != 0 ||
             !armoredClink.EffectVisible ||
             armoredClink.IsPhysicsProcessing(),
@@ -2688,13 +2705,13 @@ public sealed partial class ValidationRoot
             _entities.Update(update, _player);
             FailIf(
                 _entities.Entities<ClinkEffect>().Count != 1,
-                "Room-entity INTERAC_CLINK ended before its eighth update.");
+                "Room-entity INTERAC_CLINK ended before its tenth update.");
         }
         _entities.Update(update, _player);
         FailIf(
             _entities.Entities<ClinkEffect>().Count != 0,
             "Room-entity INTERAC_CLINK did not finish and free exactly once " +
-            "on its eighth update.");
+            "on its tenth update.");
 
         LoadValidationRoom(4, 0x44);
         beetles = _entities.Entities<SpikedBeetleCharacter>();
@@ -3063,7 +3080,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(normalKeese.Position, recordSafe: false);
         int healthBeforeContact = _player.HealthQuarters;
         int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
-        _entities.Update(0.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _player.HealthQuarters != healthBeforeContact - 2 ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
@@ -3073,7 +3090,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
             "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
             "15 knockback updates, and SND_DAMAGE_LINK $5f.");
-        _entities.Update(0.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _player.HealthQuarters != healthBeforeContact - 2 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
@@ -3940,6 +3957,9 @@ public sealed partial class ValidationRoot
             Vector2.Zero,
             angle: 0x08);
         arrow.Position = collisionPosition;
+        var arrowMemory = new OracleRuntimeState();
+        arrow.BindMovementMemory(arrowMemory);
+        for (int offset = 0; offset < 4; offset++) arrowMemory.SetWramByte(0xcec0 + offset, 0xa5);
 
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
@@ -3955,6 +3975,8 @@ public sealed partial class ValidationRoot
             "PART_OCTOROK_PROJECTILE and PART_ENEMY_ARROW lost their " +
             "distinct destination-pending versus current-tile-immediate " +
             "collision order.");
+        FailIf(Enumerable.Range(0, 4).Any(offset => arrowMemory.ReadWramByte(0xcec0 + offset) != 0xa5),
+            "Arrow initialization and current-tile bounce setup must return before movement scratch writes.");
         FailIf(
             rock.DeflectWithSword(),
             "PART_OCTOROK_PROJECTILE accepted a sword collision after " +
@@ -3974,6 +3996,9 @@ public sealed partial class ValidationRoot
         arrow.UpdateFrame(_player);
         Vector2 firstBouncePosition =
             collisionPosition + Vector2.Left * 0.25f;
+        FailIf(arrowMemory.ReadWramByte(0xcec0) != 0 || arrowMemory.ReadWramByte(0xcec1) != 0 ||
+            arrowMemory.ReadWramByte(0xcec2) != 0xc0 || arrowMemory.ReadWramByte(0xcec3) != 0xff,
+            "Arrow bounce must publish SPEED_40 angle$18 as Y=$0000/X=$ffc0.");
         FailIf(
             rock.Position != firstBouncePosition ||
             arrow.Position != firstBouncePosition ||
@@ -3994,8 +4019,11 @@ public sealed partial class ValidationRoot
             rock.Finished || arrow.Finished ||
             rock.Counter != 1 || arrow.Counter != 1,
             "The shared hostile-projectile bounce ended before update $20.");
+        for (int offset = 0; offset < 4; offset++) arrowMemory.SetWramByte(0xcec0 + offset, 0xa5);
         rock.UpdateFrame(_player);
         arrow.UpdateFrame(_player);
+        FailIf(Enumerable.Range(0, 4).Any(offset => arrowMemory.ReadWramByte(0xcec0 + offset) != 0xa5),
+            "Arrow counter-zero deletion must return before writing movement scratch.");
         FailIf(
             !rock.Finished || !arrow.Finished,
             "The shared hostile-projectile bounce survived counter zero.");
@@ -4508,7 +4536,7 @@ public sealed partial class ValidationRoot
             "Room 0:74 no longer exposes the `$79.80 -> `$7b.80 source " +
             "knockback stop and leftward walking-probe escape.");
 
-        var sideviewMover = new Node2D { Position = wallStop };
+        var sideviewMover = new ValidationMovementCharacter { Position = wallStop };
         var sideviewMovement =
             new EnemyTerrainMovement(sideviewMover, octorokRoom);
         FailIf(
@@ -5201,9 +5229,9 @@ public sealed partial class ValidationRoot
         FailIf(
             red.State != ZolState.RedSplitDelay || red.Counter2 != 18 ||
             red.Visible || red.CollisionEnabled || _entities.Entities<KillEnemyPuffEffect>().Count != 1 ||
-            _entities.Entities<KillEnemyPuffEffect>()[0].DurationFrames != 20 ||
+            _entities.Entities<KillEnemyPuffEffect>()[0].DurationFrames != 22 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1,
-            "Red Zol did not create the 20-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
+            "Red Zol did not create the 22-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
         for (int frame = 0; frame < 17; frame++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
@@ -5222,10 +5250,10 @@ public sealed partial class ValidationRoot
                 splitRecentDefeats.KilledEnemies),
             "Red Zol replacement did not preserve silent deletion, recent-" +
             "defeat state, and two +/-4 X Gels.");
-        _entities.Update(2.0 / 60.0, _player);
+        _entities.Update(4.0 / 60.0, _player);
         FailIf(
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 0,
-            "INTERAC_KILLENEMYPUFF did not end after 20 updates or incorrectly resolved an item drop.");
+            "INTERAC_KILLENEMYPUFF did not end after 22 updates or incorrectly resolved an item drop.");
 
         GelCharacter defeatedGel = _entities.Entities<GelCharacter>()[0];
         int gelCount = _entities.Entities<GelCharacter>().Count;
@@ -5278,18 +5306,24 @@ public sealed partial class ValidationRoot
         _player.WarpTo(latchPosition, recordSafe: false);
         _player.RefillHealth();
         int healthBeforeLatch = _player.HealthQuarters;
-        _entities.Update(0.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(!latchGel.LinkContactPending || latchGel.IsAttached || _entities.PlayerSwordDisabled,
+            "Gel contact must queue attachment without publishing the item restriction during collision.");
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             !latchGel.IsAttached || latchGel.Counter2 != 120 ||
             _player.HealthQuarters != healthBeforeLatch ||
-            !_entities.PlayerSwordDisabled,
-            "Gel contact damaged Link or failed to latch for 120 updates and disable the sword.");
+            _entities.PlayerSwordDisabled,
+            "Gel stateC must initialize the 120-update latch without damage or a stateD item restriction.");
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(latchGel.Counter2 != 119 || !_entities.PlayerSwordDisabled,
+            "The first Gel stateD update must publish the item restriction.");
         bool movementPhase = _entities.PlayerMovementDisabled;
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             _entities.PlayerMovementDisabled == movementPhase,
             "Attached Gel did not immobilize Link on alternating updates.");
-        for (int frame = 0; frame < 118; frame++)
+        for (int frame = 0; frame < 117; frame++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
             !latchGel.IsAttached || latchGel.Counter2 != 1,
@@ -5311,7 +5345,8 @@ public sealed partial class ValidationRoot
         GelCharacter buttonGel = _entities.Spawn<GelCharacter>(
             new GelSpawn(buttonLatchPosition, "ButtonReleaseGel"));
         _player.WarpTo(buttonLatchPosition, recordSafe: false);
-        _entities.Update(0.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!buttonGel.IsAttached || buttonGel.Counter2 != 120, "Button-release test Gel did not latch.");
         for (int press = 0; press < 30; press++)
             buttonGel.UpdateFrame(_player.Position, Vector2I.Down, anyButtonJustPressed: true);
@@ -6731,7 +6766,13 @@ public sealed partial class ValidationRoot
             _player.HealthQuarters != healthBeforeDrowning,
             $"{terrainName} damage was applied before the drowning animation finished.");
 
-        _player._PhysicsProcess(5.0 / 60.0);
+        FailIf(!_player.NativeNormalStateForInteraction || _player.NativeInteractionCollisionsEnabled,
+            "Drowning request retains state01 while immediately clearing collisionType bit7.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(_player.NativeNormalStateForInteraction || _player.DrownAnimationFrame != 0,
+            "The following update selects state02 without dispatching its initializer.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        for (int tick = 0; tick < 5; tick++) _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
             !_player.Visible || _player.DrownAnimationFrame != 0,
             $"{terrainName} did not hold directional drowning frame $d4 for six updates.");
@@ -6740,16 +6781,19 @@ public sealed partial class ValidationRoot
             !_player.Visible || _player.DrownAnimationFrame != 1,
             $"{terrainName} did not advance to drowning frame $0b after six updates.");
 
-        _player._PhysicsProcess(15.0 / 60.0);
+        for (int tick = 0; tick < 15; tick++) _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
             !_player.Visible || _player.Position != hazardPosition,
             $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(!_player.Visible || _player.Position != hazardPosition,
+            "Drowning substate5 must expose its terminal animation before the following respawn check.");
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
             _player.Visible || !_player.IsDrowning ||
             _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
             $"{terrainName} did not restore the local respawn coordinates " +
-            "and hide Link after the 22-update drowning animation.");
+            "and hide Link on the update after the 22-update drowning animation.");
         FailIf(
             _player.HealthQuarters != healthBeforeDrowning,
             $"{terrainName} damage was applied before the two-update respawn delay.");
@@ -6963,6 +7007,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _player.LedgeJumpPhase != LedgeJumpState.WaitingForScroll ||
             !_scrollTransitionActive ||
+            _player.NativeNormalStateForInteraction || !_player.NativeInAirForInteraction ||
             _scrollTransitionDirection != Vector2I.Down ||
             _scrollTransitionFrames != 32 ||
             _currentRoom.Group != 0 ||
@@ -6989,6 +7034,7 @@ public sealed partial class ValidationRoot
             _scrollTransitionActive ||
             _player.LedgeJumpPhase != LedgeJumpState.AirborneAfterScroll ||
             _player.PrecisePosition != new Vector2(80, 22) ||
+            _player.NativeNormalStateForInteraction || !_player.NativeInAirForInteraction ||
             _player.LedgeZ != -13 ||
             _player.LedgeSpeedZ != 0x120 ||
             _player.LedgeSpeedRaw != 0 ||
@@ -7023,58 +7069,19 @@ public sealed partial class ValidationRoot
 
     private OracleRandomValidationSnapshot CaptureOracleRandomForValidation()
     {
-        Type type = typeof(OracleRandom);
-        byte[] placementBuffer = (byte[])RequiredRandomField(
-            type, "_placementBuffer").GetValue(_random)!;
+        OracleRandomState state = _random.CaptureState();
         return new OracleRandomValidationSnapshot(
-            (byte)RequiredRandomField(type, "_rng1").GetValue(_random)!,
-            (byte)RequiredRandomField(type, "_rng2").GetValue(_random)!,
-            (byte[])placementBuffer.Clone(),
-            (byte)RequiredRandomField(type, "_placementIndex").GetValue(_random)!,
-            (bool)RequiredRandomField(type, "_placementBufferReady").GetValue(_random)!,
-            _random.Calls,
-            _random.LastResult);
+            state.Rng1, state.Rng2, state.PlacementBuffer, state.PlacementIndex,
+            state.PlacementBufferReady, state.Calls, state.LastResult);
     }
 
     private void RestoreOracleRandomForValidation(
         OracleRandomValidationSnapshot snapshot)
     {
-        Type type = typeof(OracleRandom);
-        RequiredRandomField(type, "_rng1").SetValue(_random, snapshot.Rng1);
-        RequiredRandomField(type, "_rng2").SetValue(_random, snapshot.Rng2);
-        byte[] placementBuffer = (byte[])RequiredRandomField(
-            type, "_placementBuffer").GetValue(_random)!;
-        snapshot.PlacementBuffer.CopyTo(placementBuffer, 0);
-        RequiredRandomField(type, "_placementIndex").SetValue(
-            _random, snapshot.PlacementIndex);
-        RequiredRandomField(type, "_placementBufferReady").SetValue(
-            _random, snapshot.PlacementBufferReady);
-        RequiredRandomProperty(type, nameof(OracleRandom.Calls)).SetValue(
-            _random, snapshot.Calls);
-        RequiredRandomProperty(type, nameof(OracleRandom.LastResult)).SetValue(
-            _random, snapshot.LastResult);
+        _random.RestoreState(new(snapshot.Rng1, snapshot.Rng2,
+            snapshot.PlacementBuffer, snapshot.PlacementIndex,
+            snapshot.PlacementBufferReady, snapshot.Calls, snapshot.LastResult));
     }
-
-    private static System.Reflection.FieldInfo RequiredRandomField(
-        Type type,
-        string name) =>
-        type.GetField(
-            name,
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic) ??
-        throw new InvalidOperationException(
-            $"OracleRandom validation field '{name}' was not found.");
-
-    private static System.Reflection.PropertyInfo RequiredRandomProperty(
-        Type type,
-        string name) =>
-        type.GetProperty(
-            name,
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic |
-            System.Reflection.BindingFlags.Public) ??
-        throw new InvalidOperationException(
-            $"OracleRandom validation property '{name}' was not found.");
 
     private void ValidateRoom56TileEdgeSlide()
     {
