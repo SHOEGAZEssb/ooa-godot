@@ -3930,6 +3930,8 @@ internal sealed class RoomEntityFactory(
         }
 
         NpcCharacter npc = CreateNpcCharacter(record);
+        if (record is { Id: 0x2e, SubId: 0x01 })
+            return new OldManRupeesRoomEntity(npc);
         if (_stoneRabbit.Matches(record))
         {
             return new StoneRabbitRoomEntity(npc, _stoneRabbit);

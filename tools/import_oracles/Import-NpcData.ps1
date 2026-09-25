@@ -801,6 +801,7 @@ foreach ($key in @(
 $specializedNpcImplementationKeys =
     [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($key in @(
+    '2:4e:2e:01:00',
     '0:56:65:00:00',
     '0:5d:cb:00:00',
     '0:79:c8:00:00',
@@ -950,7 +951,7 @@ foreach ($key in @('1:03:bf:0c:00','3:6e:bf:06:00','3:6f:bf:07:00',
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
 if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
-    $specializedNpcImplementationKeys.Count -ne 91 -or
+    $specializedNpcImplementationKeys.Count -ne 92 -or
     $eventOwnedNpcImplementationKeys.Count -ne 47) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -1024,6 +1025,14 @@ function New-NpcDataRow(
     [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
+    # oldManWithRupees.s overwrites the object-data coordinates in state 0.
+    if ($id -eq 0x2e -and $subid -eq 1) {
+        $y = 0x38
+        $x = 0x28
+        $textIdOverride = 0x3315
+        $initialAnimationOverride = 2
+        $canFaceOverride = 1
+    }
     if ($null -eq $graphic) { $graphic = $interactionGraphics["$id`:0"] }
     if ($null -eq $graphic -or -not $gfxNames.ContainsKey($graphic.Gfx)) { return '' }
 
@@ -4766,9 +4775,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 55 -or
-    $npcImplementationCounts['specialized-native'] -ne 93 -or
+    $npcImplementationCounts['specialized-native'] -ne 94 -or
     $npcImplementationCounts['event-owned'] -ne 99 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 138 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 137 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

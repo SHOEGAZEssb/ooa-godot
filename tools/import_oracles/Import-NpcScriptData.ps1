@@ -3,6 +3,59 @@
 # native presentation, secret generation, and giveitem handoffs stay in
 # dedicated runtime hosts.
 
+# INTERAC_OLD_MAN_WITH_RUPEES $2e:$01. Validate the native initializer and
+# helper as well as the entire script, including the broke branch's text jump.
+& {
+$oldManNative = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\oldManWithRupees.s')
+$oldManHelper = Read-ImportText (Join-Path $Disassembly 'scripts\ages\scriptHelper.s')
+if ($oldManNative -notmatch '(?ms)Interaction.yh\s+ld \(hl\),\$38\s+ld l,Interaction.xh\s+ld \(hl\),\$28.*?call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $oldManNative -notmatch '(?ms)@scriptTable:\s+\.dw mainScripts.oldManScript_givesRupees\s+\.dw mainScripts.oldManScript_takesRupees' -or
+    $oldManHelper -notmatch '(?ms)^oldMan_takeRupees:\s+ld hl,wNumRupees\s+ldi a,\(hl\)\s+or \(hl\)\s+ld e,Interaction.var3f\s+ld \(de\),a\s+ret z\s+ld a,\$01\s+ld \(de\),a\s+ld e,Interaction.subid\s+ld a,\(de\)\s+ld hl,oldMan_rupeeValues\s+rst_addAToHl\s+ld a,\(hl\)\s+jp removeRupeeValue' -or
+    $oldManHelper -notmatch '(?ms)^oldMan_rupeeValues:\s+\.db RUPEEVAL_200\s+\.db RUPEEVAL_100') {
+    throw 'oldManWithRupees.s $2e:$01 initialization or payment helper changed.'
+}
+$oldManExpected = @(
+    @('initcollisions', '', 'initcollisions', 'OldMan', '', '', ''),
+    @('jumpifroomflagset', '$40, @alreadyTookMoney', 'jumpifroomflagset', '', '40', '11', ''),
+    @('checkabutton', '', 'checkabutton', 'OldMan', '', '', ''),
+    @('disableinput', '', 'disableinput', '', '', '', ''),
+    @('showtextlowindex', '<TX_3315', 'showtext', '', '3315', '', $allTexts[0x3315]),
+    @('asm15', 'scriptHelp.oldMan_takeRupees', 'native', '', '', '', 'oldMan_takeRupees100'),
+    @('jumpifobjectbyteeq', 'Interaction.var3f, $00, @linkIsBroke', 'jumpifmemoryeq', '', '00', '14', 'OldManVar3f'),
+    @('wait', '8', 'wait', '', '8', '', ''),
+    @('checkrupeedisplayupdated', '', 'checkrupeedisplayupdated', '', '', '', ''),
+    @('orroomflag', '$40', 'orroomflag', '', '40', '', ''),
+    @('enableinput', '', 'enableinput', '', '', '', ''),
+    @('checkabutton', '', 'checkabutton', 'OldMan', '', '', ''),
+    @('showtextlowindex', '<TX_3316', 'showtext', '', '3316', '', $allTexts[0x3316]),
+    @('scriptjump', '@alreadyTookMoney', 'scriptjump', '', '11', '', ''),
+    @('wait', '30', 'wait', '', '30', '', ''),
+    @('showtextlowindex', '<TX_3317', 'showtext', '', '3317', '', $allTexts[0x3317]),
+    @('enableinput', '', 'enableinput', '', '', '', ''),
+    @('scriptjump', '@alreadyTookMoney', 'scriptjump', '', '11', '', '')
+)
+$oldManOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($spec in $oldManExpected) { [void]$oldManOpcodes.Add($spec[0]) }
+$oldManCommands = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scripts.s') 'oldManScript_takesRupees' $oldManOpcodes 'shootingGalleryScript_humanNpc')
+if ($oldManCommands.Count -ne $oldManExpected.Count) { throw 'oldManScript_takesRupees command count changed.' }
+$oldManRows = [Collections.Generic.List[string]]::new()
+$oldManRows.Add($cutsceneCommandHeader)
+for ($index = 0; $index -lt $oldManExpected.Count; $index++) {
+    $spec = $oldManExpected[$index]
+    $command = $oldManCommands[$index]
+    if ($command.Opcode -ne $spec[0] -or $command.Operands.Trim() -ne $spec[1]) {
+        throw "oldManScript_takesRupees command $index changed at line $($command.Line)."
+    }
+    $payload = [string]$spec[6]
+    if ($index -eq 15) {
+        if (-not $payload.Contains('\jump(TX_3316)')) { throw 'TX_3317 lost its TX_3316 text jump.' }
+        $payload = $payload.Replace('\jump(TX_3316)', [string]$allTexts[0x3316])
+    }
+    $oldManRows.Add((New-CutsceneCommandRow 'oldManScript_takesRupees' $index $command.Label $command.Line $spec[2] $spec[3] $spec[4] $spec[5] $payload))
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\old_man_rupees_commands.tsv'), $oldManRows)
+}
+
 # linkedGameNpcScript is shared by the linked Ghini and Great Fairy. Their
 # visibility/spawn predicates are already imported with the NPC records, so
 # this stream begins at initcollisions and retains the complete talk loop.

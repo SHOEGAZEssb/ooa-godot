@@ -49,14 +49,14 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 ### Positioned and state-derived rows
 
-Snapshot: September 25, 2026. Vanilla-source migration retains the existing
-198 implemented, 49 partial, and 138 deliberately unsupported classifications.
+Snapshot: September 25, 2026. Room `2:4e`'s rupee-taking old man is implemented,
+bringing coverage to 199 implemented, 49 partial, and 137 deliberately unsupported records.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 198 | Traced and covered by named NPC/event scenarios. |
+| **I** | 199 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 138 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 137 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 The separate family table contributes 72 conditional variants in rooms
@@ -66,10 +66,10 @@ family remains **P** until its progression ownership and all per-variant
 behavior are independently completed. All 72 rows are explicitly classified
 as specialized native interactions.
 
-The implementation manifest therefore contains 55 ordinary, 93 specialized,
-99 event-owned, and 138 deliberately unsupported positioned/state-derived
+The implementation manifest therefore contains 55 ordinary, 94 specialized,
+99 event-owned, and 137 deliberately unsupported positioned/state-derived
 rows. Including the family table, the typed runtime database contains 457
-classified records and 165 specialized rows.
+classified records and 166 specialized rows.
 
 ### Highest-value missing clusters
 
@@ -205,7 +205,7 @@ well as record selection.
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |
 | `2:3f` | [P] `$48:$05/v$00` tokay (imported cook trade script and native jump path) |
-| `2:4e` | [D] `$2e:$01/v$00` oldManWithRupees |
+| `2:4e` | [I] `$2e:$01/v$00` oldManWithRupees (rupee-taking script; `ValidateRoom24eOldMan`) |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:7e` | [I] `$46:$01/v$00` shopkeeper; hidden-shop stock, purchases, theft prevention, and chest-choice game (`ValidateHiddenShopInteractions`) |

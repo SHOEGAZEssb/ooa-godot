@@ -16,6 +16,7 @@ internal sealed class NpcInteractionScriptController
     private readonly PastBipinScriptHost _pastBipin;
     private readonly HardhatShovelScriptHost _hardhat;
     private readonly PostmanScriptHost _postman;
+    private readonly OldManRupeesScriptHost _oldMan;
     private double _frameAccumulator;
 
     public NpcInteractionScriptController(
@@ -24,7 +25,8 @@ internal sealed class NpcInteractionScriptController
         DialogueBox dialogue,
         TreasureDatabase treasures,
         BipinBlossomFamilyStateResolver family,
-        InventoryState inventory)
+        InventoryState inventory,
+        Func<bool> rupeeDisplayUpdated)
     {
         var scripts = new NpcInteractionScriptDatabase();
         _linked = new LinkedGameNpcScriptHost(
@@ -54,9 +56,12 @@ internal sealed class NpcInteractionScriptController
             scripts.Postman,
             treasures,
             inventory);
-        _hosts = [_linked, _pastBipin, _hardhat, _postman];
+        _oldMan = new OldManRupeesScriptHost(rooms, entities, dialogue,
+            scripts.OldManRupees, inventory, rupeeDisplayUpdated);
+        _hosts = [_linked, _pastBipin, _hardhat, _postman, _oldMan];
         _handlers =
         [
+            NpcInteractionHandler.ForNpc("oldManScript_takesRupees", _oldMan.TryInteract),
             NpcInteractionHandler.ForNpc(
                 "linkedGameNpcScript",
                 _linked.TryInteract),
@@ -93,6 +98,7 @@ internal sealed class NpcInteractionScriptController
     internal PastBipinScriptHost PastBipin => _pastBipin;
     internal HardhatShovelScriptHost Hardhat => _hardhat;
     internal PostmanScriptHost Postman => _postman;
+    internal OldManRupeesScriptHost OldMan => _oldMan;
     internal IReadOnlyList<NpcInteractionHandler> Handlers => _handlers;
     internal ICutsceneCommandTraceSink? TraceSink
     {

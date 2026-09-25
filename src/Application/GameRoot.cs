@@ -781,7 +781,8 @@ public partial class GameRoot : Node2D
             _inventory, _scene.InterfaceLayer, _sound.PlaySound,
             () => _statusBar.DisplayedRupees == _inventory.Rupees &&
                 _statusBar.DisplayedHealth == _inventory.HealthQuarters,
-            _roomEvents.InteractionHandlers);
+            _roomEvents.InteractionHandlers,
+            () => _statusBar.DisplayedRupees == _inventory.Rupees);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
         _keyholes.MessageRequested += message =>

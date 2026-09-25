@@ -25,6 +25,7 @@ $cutsceneVocabularyRows = @(
     "initcollisions`tinitcollisions`t1`tCutsceneInitCollisionsCommand`trequired`tnone`tnone`tnone`tcontinue`tActorId`tactor-collision|actor-button`tInstall standard radii and register a talk target.",
     "checkabutton`tcheckabutton`t1`tCutsceneCheckAButtonCommand`trequired`tnone`tnone`tnone`tblock|continue`tActorId`tactor-button`tHold until the actor consumes an A press.",
     "gate`tcontroller:gate`truntime`tCutsceneGateCommand`tnone`tnone`tnone`trequired`tblock|yield`t-`tgate-read`tHold on a named controller gate.",
+    "checkrupeedisplayupdated`tcheckrupeedisplayupdated`t1`tCutsceneCheckRupeeDisplayCommand`tnone`tnone`tnone`tnone`tblock|continue`t-`tgate-read`tWait for displayed rupees to equal the wallet, then continue in the same update.",
     "checkmemoryeq`tcheckmemoryeq`t4`tCutsceneMemoryGateCommand`tnone`thex`tnone`trequired`tblock|yield`t-`tmemory-read`tHold until a WRAM binding equals the operand.",
     "jumpifmemoryeq`tjumpifmemoryeq`t6`tCutsceneMemoryBranchCommand`tnone`thex`tdecimal`trequired`tcontinue`t-`tmemory-read`tConditionally branch on a WRAM binding.",
     "jumpifmemoryeqyieldonmiss`tjumpifmemoryset`t6`tCutsceneMemoryBranchYieldOnMissCommand`tnone`thex`tdecimal`trequired`tcontinue|yield`t-`tmemory-read`tBranch and continue on a normalized match; otherwise advance and yield.",

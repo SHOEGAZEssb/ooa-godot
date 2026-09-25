@@ -9,6 +9,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class NpcInteractionScriptDatabase
 {
+    public IReadOnlyList<CutsceneCommand> OldManRupees { get; } =
+        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/old_man_rupees_commands.tsv");
     public IReadOnlyList<CutsceneCommand> LinkedGameNpc { get; } =
         CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/linked_game_npc_commands.tsv");

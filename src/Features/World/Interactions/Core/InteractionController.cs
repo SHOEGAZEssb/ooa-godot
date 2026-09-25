@@ -76,7 +76,8 @@ public sealed class InteractionController
         Node interfaceLayer,
         Action<int>? playSound = null,
         Func<bool>? gashaCountersCaughtUp = null,
-        IReadOnlyList<NpcInteractionHandler>? roomInteractionHandlers = null)
+        IReadOnlyList<NpcInteractionHandler>? roomInteractionHandlers = null,
+        Func<bool>? rupeeDisplayUpdated = null)
     {
         _rooms = rooms;
         _entities = entities;
@@ -100,7 +101,9 @@ public sealed class InteractionController
             dialogue,
             treasures,
             _familyState,
-            inventory);
+            inventory,
+            rupeeDisplayUpdated ?? (static () => throw new InvalidOperationException(
+                "oldManScript_takesRupees requires the status bar rupee counter.")));
         var interactionHandlers = new List<NpcInteractionHandler>
         {
             NpcInteractionHandler.ForNpc(

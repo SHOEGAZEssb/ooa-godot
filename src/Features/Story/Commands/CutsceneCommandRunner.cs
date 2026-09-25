@@ -295,6 +295,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     ? CommandResult.Yield
                     : CommandResult.Block;
 
+            case CutsceneCheckRupeeDisplayCommand:
+                return host.GateOpen("RupeeDisplayUpdated")
+                    ? CommandResult.Continue
+                    : CommandResult.Block;
+
             case CutsceneMemoryGateCommand gate:
                 return host.MemoryEquals(gate.Binding, gate.Value)
                     ? CommandResult.Yield

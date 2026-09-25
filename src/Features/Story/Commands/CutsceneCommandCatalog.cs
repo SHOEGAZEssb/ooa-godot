@@ -108,6 +108,7 @@ internal static class CutsceneCommandCatalog
                 source, Required(path, physicalLine, "actor", actor)),
             "gate" => new CutsceneGateCommand(
                 source, Required(path, physicalLine, "payload", payload)),
+            "checkrupeedisplayupdated" => new CutsceneCheckRupeeDisplayCommand(source),
             "checkmemoryeq" => new CutsceneMemoryGateCommand(
                 source,
                 Required(path, physicalLine, "payload", payload),
