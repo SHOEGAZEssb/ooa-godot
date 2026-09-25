@@ -5933,6 +5933,9 @@ Add-NpcLinkedVisibility 0x4c 0x04 -1 0 $true 'bird.s:@initSubid04'
 Add-NpcGlobalVisibility 0x4c 0x04 -1 0 'GLOBALFLAG_GOT_RING_FROM_ZELDA' $false 'bird.s:@initSubid04'
 Add-NpcLinkedVisibility 0x68 0x00 -1 0 $true 'rosa.s:@@state0'
 Add-NpcEssenceVisibility 0x68 0x00 -1 0 0x04 $false 'rosa.s:@@state0' 'wEssencesObtained'
+# Goron Dance Rosa ends her script (and deletes herself) when the linked check
+# writes CPU_ZFLAG to wcddb; unlike subid $00, she has no essence restriction.
+Add-NpcLinkedVisibility 0x68 0x01 -1 0 $true 'scripts.s:rosa_subid01Script'
 # getBlackTowerProgress checks room $90 before room $ba. Progress $00 therefore
 # requires both entrance flags clear; progress $01 requires $ba set while $90
 # remains clear. The var03 $00/$01 hardhats delete themselves outside those
@@ -6184,8 +6187,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 352) {
-    throw "Expected 351 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 353) {
+    throw "Expected 352 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

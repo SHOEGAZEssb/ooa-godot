@@ -3815,11 +3815,33 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 351 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 352 ||
             new NpcDialogueRuleDatabase().RuleCount != 122 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 344 NPC visibility, 122 NPC dialogue, and two NPC " +
+            "Expected 352 NPC visibility, 122 NPC dialogue, and two NPC " +
             "position state predicates.");
+
+        // rosa_subid01Script branches to stubScript on CPU_ZFLAG from
+        // checkIsLinkedGameForScript. There is no essence gate for $68:$01.
+        foreach (bool linked in new[] { false, true, false })
+        {
+            save.SetLinkedGame(linked);
+            foreach (byte essences in new byte[] { 0x00, 0x04, 0xff })
+            {
+                if (save.WriteWramByte(0xc6bf, essences))
+                    save.CommitInventoryChange();
+                manager.LoadRoom(2, _world.LoadRoom(2, 0xfd));
+                NpcCharacter rosa = manager.Entities<NpcCharacter>().Single(npc =>
+                    npc.Record is { Id: 0x68, SubId: 0x01 });
+                FailIf(rosa.Active != linked || rosa.Visible != linked ||
+                    rosa.TextId != 0x1c13,
+                    $"Room 2:fd Rosa $68:$01 visibility differs from linked={linked} " +
+                    $"with essences ${essences:x2}, or lost TX_1c13.");
+                manager.LoadRoom(0, _world.LoadRoom(0, 0x58));
+            }
+        }
+        if (save.WriteWramByte(0xc6bf, 0))
+            save.CommitInventoryChange();
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
         NpcCharacter towerEntranceGuard = manager.Entities<NpcCharacter>().Single(npc =>
