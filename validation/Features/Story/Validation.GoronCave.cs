@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
             for(int x=0;x<room.Width;x+=16)
             {
                 var position=new Vector2(x+8,y+8);
-                if(warps.TryGetTileWarp(1,0x28,room.GetPackedPosition(position),room.GetMetatile(position),out var warp)&&
+                if(warps.TryGetTileWarp(1,room,room.GetPackedPosition(position),room.GetMetatile(position),out var warp)&&
                     warp.DestinationGroup==5&&warp.DestinationRoom==0xc3)
                     entrance=position;
             }

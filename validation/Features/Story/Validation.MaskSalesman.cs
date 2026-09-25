@@ -302,13 +302,13 @@ public sealed partial class ValidationRoot
             {
                 byte tile = exterior.GetMetatile(PackedPosition(position));
                 return warps.TryGetTileWarp(
-                        exteriorGroup, exteriorRoom, position, tile,
+                        exteriorGroup, exterior, position, tile,
                         out Warp candidate) &&
                     candidate.DestinationGroup == group &&
                     candidate.DestinationRoom == room;
             }).ToArray();
         bool hasEntry = warps.TryGetTileWarp(
-            exteriorGroup, exteriorRoom, 0x52, 0xef, out Warp entry);
+            exteriorGroup, exterior, 0x52, 0xef, out Warp entry);
         bool hasExit = warps.TryGetEdgeWarp(
             group, room, Vector2I.Down,
             new Vector2(0x70, interior.Height + 2),

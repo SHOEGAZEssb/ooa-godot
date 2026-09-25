@@ -95,8 +95,11 @@ retains source-defined fractional positions, item state, and outgoing slots;
 full loads clear transient objects at their own boundary. Warps, scrolls,
 time travel, and development direct loads are distinct entry contexts.
 
-Tile warps use imported behavior and exact position windows. Resolve requests
-from the final gameplay position in the original hazard/object/exit order.
+Tile warps use imported behavior and exact position windows. Use the room's
+active collision set to classify warp tiles, including adjacent
+door tiles and arrival suppression; room group selects source records only.
+Resolve requests from the final gameplay position in the original
+hazard/object/exit order.
 Keep air state, height, grab, modal, and native warp-disable gates separate.
 Link-owned entrance handlers and direct scripted fades have different state
 and sound ownership. Imported destinations are exact anchors, not suggestions

@@ -101,10 +101,10 @@ public sealed class WarpDatabase
         return false;
     }
 
-    public bool TryGetTileWarp(int group, int room, int position, byte metatile, out Warp warp)
+    public bool TryGetTileWarp(int group, OracleRoomData room, int position, byte metatile, out Warp warp)
     {
-        if (!IsWarpTile(group, metatile) ||
-            !_warps.TryGetValues((group, room), out IReadOnlyList<Warp> warps))
+        if (!IsWarpTile(room.ActiveCollisions, metatile) ||
+            !_warps.TryGetValues((group, room.Id), out IReadOnlyList<Warp> warps))
         {
             warp = default;
             return false;
@@ -173,13 +173,15 @@ public sealed class WarpDatabase
         return false;
     }
 
-    internal static bool IsWarpTile(int group, byte metatile)
+    internal static bool IsWarpTile(int activeCollisions, byte metatile)
     {
-        return group switch
+        // checkTileIsWarpTile -> lookupCollisionTable indexes warpTileTable
+        // with wActiveCollisions, independently of the room's group.
+        return activeCollisions switch
         {
-            0 or 1 => metatile is 0xdc or 0xdd or 0xde or 0xdf or 0xed or 0xee or 0xef,
-            2 or 3 => metatile is 0x34 or 0x36 or 0x44 or 0x45 or 0x46 or 0x47 or 0xaf,
-            4 or 5 => metatile is 0x44 or 0x45 or 0x46 or 0x47 or 0x4f,
+            0 or 4 => metatile is 0xdc or 0xdd or 0xde or 0xdf or 0xed or 0xee or 0xef,
+            1 => metatile is 0x34 or 0x36 or 0x44 or 0x45 or 0x46 or 0x47 or 0xaf,
+            2 or 5 => metatile is 0x44 or 0x45 or 0x46 or 0x47 or 0x4f,
             _ => false
         };
     }

@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
                 byte tile = _currentRoom.Layout[30 + x];
                 FailIf(tile != (restored ? 0xee + x - 4 : 0xfe),
                     $"Symmetry $0:$03 entrance ${0x30 + x:x2} has tile ${tile:x2}.");
-                bool warp = warps.TryGetTileWarp(0, 0x03, 0x30 + x, tile, out _);
+                bool warp = warps.TryGetTileWarp(0, _currentRoom, 0x30 + x, tile, out _);
                 FailIf(warp != restored || (!restored &&
                     !_currentRoom.IsSolid(new Vector2(x * 16 + 8, 3 * 16 + 8))),
                     "Unrestored Symmetry dungeon entrance must be solid and reject warping.");

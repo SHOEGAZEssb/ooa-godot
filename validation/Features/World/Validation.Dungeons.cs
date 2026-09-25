@@ -262,17 +262,17 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
             _playerWorld.CheckTileWarp(_player) ||
             !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, graveCenter) ||
+                room, 0x25, graveCenter) ||
             RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, new Vector2(0x53, 0x28)) ||
+                room, 0x25, new Vector2(0x53, 0x28)) ||
             !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, new Vector2(0x54, 0x20)) ||
+                room, 0x25, new Vector2(0x54, 0x20)) ||
             !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, new Vector2(0x5d, 0x29)) ||
+                room, 0x25, new Vector2(0x5d, 0x29)) ||
             RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, new Vector2(0x5e, 0x29)) ||
+                room, 0x25, new Vector2(0x5e, 0x29)) ||
             RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0, 0x25, new Vector2(0x58, 0x2a)),
+                room, 0x25, new Vector2(0x58, 0x2a)),
             "Room 0:7c's hidden grave did not release Link, install " +
             "stationary grave $02, request SND_SOLVEPUZZLE on update 32, " +
             "and retain the original $54-$5d/$20-$29 staircase bounds.");

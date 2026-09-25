@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             exterior.GetMetatile(exteriorDoor) != 0xdf ||
-            !warps.TryGetTileWarp(0, 0x45, 0x32, 0xdf, out Warp entry) ||
+            !warps.TryGetTileWarp(0, exterior, 0x32, 0xdf, out Warp entry) ||
             entry is not
             {
                 SourcePosition: -1, EdgeMask: 0, SourceTransition: 4,

@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
         byte[] renderedAfter = BackgroundMetatile(room, 0x22);
         byte[] attributesAfter = BackgroundAttributes(room, 0x22);
         bool hasBasementWarp = new WarpDatabase().TryGetTileWarp(
-            group, roomId, 0x22, 0x45, out Warp basementWarp);
+            group, room, 0x22, 0x45, out Warp basementWarp);
         FailIf(
             logicalStair != 0x45 ||
             !renderedAfter.SequenceEqual(renderedBefore) ||

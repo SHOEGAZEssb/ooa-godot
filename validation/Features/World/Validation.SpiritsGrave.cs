@@ -596,7 +596,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(0xb8, 0x28), recordSafe: false);
         FailIf(
             !warps.TryGetTileWarp(
-                4, 0x1b, 0x2b, 0x45, out Warp braceletStairs) ||
+                4, _currentRoom, 0x2b, 0x45, out Warp braceletStairs) ||
             braceletStairs is not
                 { DestinationGroup: 6, DestinationRoom: 0x10,
                   DestinationPosition: 0x02, DestinationTransition: 3 } ||

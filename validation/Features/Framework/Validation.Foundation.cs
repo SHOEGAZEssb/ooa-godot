@@ -520,14 +520,14 @@ public sealed partial class ValidationRoot
             room.GetPackedPosition(doorPoint) != 0x23 ||
             room.GetOriginalMetatile(doorPoint) != 0xa7 ||
             room.GetMetatile(doorPoint) != 0xa7 || !room.IsSolid(doorPoint) ||
-            warps.TryGetTileWarp(0, 0x3a, 0x23, room.GetMetatile(doorPoint), out _),
+            warps.TryGetTileWarp(0, room, 0x23, room.GetMetatile(doorPoint), out _),
             "Room 0:3a did not begin with Nayru's house door closed at $23/$a7.");
 
         save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
         room = rooms.Load(0, 0x3a);
         FailIf(
             room.GetMetatile(doorPoint) != 0xee || room.IsSolid(doorPoint) ||
-            !warps.TryGetTileWarp(0, 0x3a, 0x23, 0xee, out Warp warp) ||
+            !warps.TryGetTileWarp(0, room, 0x23, 0xee, out Warp warp) ||
             warp.DestinationGroup != 3 || warp.DestinationRoom != 0x9e,
             "GLOBALFLAG_INTRO_DONE $0a did not open room 0:3a's $23/$ee door to 3:9e.");
 

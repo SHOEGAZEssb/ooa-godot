@@ -268,7 +268,7 @@ public sealed class RoomTransitionController
         {
             if (_deactivatedWarpPosition == position ||
                 (_deactivatedWarpPosition - 1 == position &&
-                    WarpDatabase.IsWarpTile(_rooms.ActiveGroup, tile)))
+                    WarpDatabase.IsWarpTile(room.ActiveCollisions, tile)))
             {
                 return false;
             }
@@ -295,14 +295,14 @@ public sealed class RoomTransitionController
 
         bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
-                _rooms.ActiveGroup, room.Id, position, tile, out Warp warp))
+                _rooms.ActiveGroup, room, position, tile, out Warp warp))
         {
             if (!TryGetDungeonStairFallback(position, tile, out warp))
                 return FinishUnmatchedTileWarpCheck();
             dungeonStairFallback = true;
         }
         if (!LinkWithinTileWarpBounds(
-                room, _rooms.ActiveGroup, position, linkPosition))
+                room, position, linkPosition))
         {
             return FinishUnmatchedTileWarpCheck();
         }
@@ -362,7 +362,7 @@ public sealed class RoomTransitionController
     {
         int dungeon = _rooms.CurrentDungeonIndex;
         if (dungeon < 0 ||
-            !WarpDatabase.IsWarpTile(_rooms.ActiveGroup, tile))
+            !WarpDatabase.IsWarpTile(_rooms.CurrentRoom.ActiveCollisions, tile))
         {
             warp = default;
             return false;
@@ -395,7 +395,6 @@ public sealed class RoomTransitionController
     /// </summary>
     internal static bool LinkWithinTileWarpBounds(
         OracleRoomData room,
-        int activeGroup,
         int packedPosition,
         Vector2 linkPosition)
     {
@@ -407,10 +406,10 @@ public sealed class RoomTransitionController
 
         bool multiTileDoor =
             WarpDatabase.IsWarpTile(
-                activeGroup,
+                room.ActiveCollisions,
                 MetatileAtPackedPosition(room, packedPosition + 1)) ||
             WarpDatabase.IsWarpTile(
-                activeGroup,
+                room.ActiveCollisions,
                 MetatileAtPackedPosition(room, packedPosition - 1));
         return collision != 0 || multiTileDoor ||
             WarpAxisWithinCenter(linkPosition.X, 0);

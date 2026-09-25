@@ -6582,7 +6582,7 @@ public sealed partial class ValidationRoot
         byte stairTile = _currentRoom.GetMetatile(stair);
         FailIf(
             !warps.TryGetTileWarp(
-                group, room, stairPosition, stairTile, out Warp stairWarp) ||
+                group, _currentRoom, stairPosition, stairTile, out Warp stairWarp) ||
             stairWarp.SourcePosition != -1 ||
             stairWarp.SourceTransition != 4 ||
             stairWarp.DestinationGroup != 1 ||
@@ -6614,7 +6614,7 @@ public sealed partial class ValidationRoot
             if (!foundOffWarp &&
                 terrain.Hazard == HazardType.None &&
                 !RoomCollides(_currentRoom, center) &&
-                !WarpDatabase.IsWarpTile(group, _currentRoom.GetMetatile(center)))
+                !WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions, _currentRoom.GetMetatile(center)))
             {
                 offWarp = center;
                 foundOffWarp = true;
