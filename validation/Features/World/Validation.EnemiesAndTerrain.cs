@@ -817,7 +817,7 @@ public sealed partial class ValidationRoot
                 [
                     0x02, 0x0f, 0x0f, 0x0f, 0x0c, 0x0d, 0x0d, 0x0e,
                     0x0e, 0x0c, 0x0c, 0x09, 0x0d, 0x0c, 0x0c, 0x25,
-                    0x00, 0x00, 0x00, 0x0d, 0x0d, 0x0d, 0x09, 0x0d,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x0d, 0x09, 0x0d,
                     0x0a, 0x0d, 0x20, 0x20, 0x0d, 0x28, 0x29, 0x00
                 ]) ||
             !ProfileMatches(
@@ -1192,7 +1192,7 @@ public sealed partial class ValidationRoot
             [(0x24, 0x00)] = (0x22, EnemySwordResponse.Knockback),
             [(0x4b, 0x00)] = (0xb7, EnemySwordResponse.NoKnockback),
             [(0x39, 0x00)] = (0xab, EnemySwordResponse.Knockback),
-            [(0x31, 0x02)] = (0xfd, EnemySwordResponse.Knockback),
+            [(0x31, 0x02)] = (0x90, EnemySwordResponse.Knockback),
             [(0x13, 0x00)] = (0x97, EnemySwordResponse.NoKnockback),
             [(0x14, 0x00)] = (0x98, EnemySwordResponse.Armored),
             [(0x17, 0x00)] = (0x9a, EnemySwordResponse.Knockback),
@@ -1201,15 +1201,15 @@ public sealed partial class ValidationRoot
             [(0x1b, 0x01)] = (0x90, EnemySwordResponse.Knockback),
             [(0x20, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x20, 0x01)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x22, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
-            [(0x22, 0x01)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x22, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x22, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x23, 0x00)] = (0xa1, EnemySwordResponse.Bump),
             [(0x28, 0x00)] = (0x25, EnemySwordResponse.Knockback),
             [(0x2f, 0x00)] = (0xa8, EnemySwordResponse.Armored),
             [(0x30, 0x00)] = (0x91, EnemySwordResponse.Knockback),
             [(0x30, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x30, 0x02)] = (0x91, EnemySwordResponse.Knockback),
-            [(0x31, 0x00)] = (0xfd, EnemySwordResponse.Knockback),
+            [(0x31, 0x00)] = (0x90, EnemySwordResponse.Knockback),
             [(0x32, 0x00)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x32, 0x01)] = (0x9f, EnemySwordResponse.Knockback),
             [(0x34, 0x00)] = (0x29, EnemySwordResponse.NoKnockback),
@@ -1218,8 +1218,8 @@ public sealed partial class ValidationRoot
             [(0x41, 0x00)] = (0x31, EnemySwordResponse.Knockback),
             [(0x43, 0x00)] = (0xb3, EnemySwordResponse.NoKnockback),
             [(0x47, 0x00)] = (0xee, EnemySwordResponse.NoKnockback),
-            [(0x49, 0x00)] = (0xfe, EnemySwordResponse.Knockback),
-            [(0x49, 0x01)] = (0xfe, EnemySwordResponse.Knockback),
+            [(0x49, 0x00)] = (0x91, EnemySwordResponse.Knockback),
+            [(0x49, 0x01)] = (0x91, EnemySwordResponse.Knockback),
             [(0x4a, 0x00)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4a, 0x01)] = (0xb6, EnemySwordResponse.Knockback),
             [(0x4d, 0x00)] = (0xb8, EnemySwordResponse.Bump),
@@ -4296,9 +4296,7 @@ public sealed partial class ValidationRoot
             [0x3c] = (0x07, 0x06, 0x06),
             [0x50] = (0x00, 0x00, 0x00),
             [0x58] = (0x06, 0x05, 0x05),
-            [0x6e] = (0x00, 0x00, 0x00),
-            [0x7d] = (0x10, 0x0f, 0x0f),
-            [0x7e] = (0x10, 0x0f, 0x0f)
+            [0x6e] = (0x00, 0x00, 0x00)
         };
         var auditedCombatKeys = new HashSet<(int Id, int SubId)>();
         var auditedNonCombatKeys = new HashSet<(int Id, int SubId)>();

@@ -7,7 +7,7 @@ $gfxBlock = [regex]::Match($source,'(?ms)^specialObject00GfxPointers:.*?(?=^spec
 $gfx = [regex]::Matches($gfxBlock.Value,'(?m)^\s*m_SpecialObjectGfxPointer \$(?<oam>[0-9a-f]{2}) spr_link \$(?<offset>[0-9a-f]{4}) \$(?<size>[0-9a-f]{2})')
 $oamBlock = [regex]::Match($source,'(?ms)^specialObject00OamDataPointers:.*?(?=^specialObject02GfxPointers:)')
 $oamLabels = @([regex]::Matches($oamBlock.Value,'(?m)^\s*\.dw (?<label>oamData[0-9a-f]+)') | ForEach-Object { $_.Groups['label'].Value })
-if ($gfx.Count -ne 260 -or $oamLabels.Count -ne 48) { throw 'Link squish lost shared graphics/OAM tables.' }
+if ($gfx.Count -ne 256 -or $oamLabels.Count -ne 48) { throw 'Link squish lost shared graphics/OAM tables.' }
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# mode`tframe`tduration`tgraphic`tparameter`tnext`toffset`toam`tsource")
 foreach ($mode in @(6,7)) {

@@ -271,7 +271,7 @@ public sealed partial class ValidationRoot
                 "Armos sword deceleration lost source swap/rrca/and03 speed selection.");
         for (int hits = 0; hits < 3; hits++)
             FailIf(data.ParentSpeed(hits) != new[] { 60, 50, 40 }[hits], "Armos parent shield-hit speed table changed.");
-        const string mask = "11111111111101100001111111111110";
+        const string mask = "11111111111101100000011111111110";
         for (int item = 0; item < 32; item++)
             FailIf(data.CollisionEnabled(item) != (mask[item] == '1'), "Armos collision mask lost native item bit ordering.");
         foreach (var (mode, sword, hook, beam) in new[] { (0x44,0x21,0x21,0x21), (0x60,0x16,0x1b,0),

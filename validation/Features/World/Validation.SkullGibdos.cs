@@ -12,14 +12,14 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         var definition = database.ImportedEnemy(0x12);
-        FailIf(string.Concat(EnemyBehaviorTables.Shared.GibdoActiveCollisions.Select(v => v.Value)) != "11111111111101110001111111111110",
+        FailIf(string.Concat(EnemyBehaviorTables.Shared.GibdoActiveCollisions.Select(v => v.Value)) != "11111111111101110000011111111110",
             "Gibdo active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 8, DamageQuarters: 4, RadiusX: 6, RadiusY: 6, Palette: 2, TileBase: 0 } ||
             definition.Animations.Length != 1 || definition.Animations[0] != "16@8,0,0,0;8,8,2,0|16,1@8,0,2,32;8,8,0,32",
             "ENEMY_GIBDO lost extraEnemyData $17 or its 16-update animation/parameter stream.");
         FailIf(!EnemyBehaviorTables.Shared.Gibdo.Select(v => v.Value).SequenceEqual(new[] { 20, 24, 127, 64, 30, 49, 2 }) ||
             !EnemyBehaviorTables.Shared.GibdoCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
-                2,6,6,6,11,11,11,11,11,11,11,8,0,46,11,37,0,0,0,43,11,47,11,34,11,11,32,39,11,40,41,0 }),
+                2,6,6,6,11,11,11,11,11,11,11,8,0,46,11,37,0,0,0,0,0,47,11,34,11,11,32,39,11,40,41,0 }),
             "Gibdo source walk/conversion operands or collision row $16 changed.");
         foreach (var (room, expected) in new[] {
             (0x6e, new Vector2[] { new(120,56), new(184,40) }),

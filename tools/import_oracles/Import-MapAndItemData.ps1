@@ -221,7 +221,7 @@ Write-GeneratedTable((Join-Path $destination 'metadata/parent_item_usage.tsv'), 
 $uncmpGfxHeadersSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\uncmpGfxHeaders.s')
 $seedShooterPropertiesSource = Read-ImportText (
-    Join-Path $Disassembly 'gfx\common\spr_seed_shooter.properties')
+    Join-Path $Disassembly 'gfx\ages\spr_seed_shooter.properties')
 $specialObjectAnimationsSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\specialObjectAnimationData.s')
 $specialObjectAnimationLogicSource = Read-ImportText (
@@ -394,9 +394,9 @@ if ($itemIds['ITEM_SHIELD'] -ne 0x01 -or
     $partDataSource -notmatch
         '(?m)^\s*\.db \$8e \$86 \$22 \$fc \$40 \$00 \$02 \$00 ; \$1a' -or
     $partActiveCollisionsSource -notmatch
-        '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x18' -or
+        '(?m)^\s*dbrev %11111111 %10000010 %00000000 %00000000 ; 0x18' -or
     $partActiveCollisionsSource -notmatch
-        '(?m)^\s*dbrev %11111111 %10000010 %00001000 %00000000 ; 0x1a') {
+        '(?m)^\s*dbrev %11111111 %10000010 %00000000 %00000000 ; 0x1a') {
     throw 'ITEM_SHIELD or ridden Link animation data, graphics, hitbox, sounds, or supported projectile collisions changed in the disassembly.'
 }
 
@@ -460,7 +460,7 @@ if (-not $braceletAttributes.Success -or -not $braceletWeight.Success -or
     $specialObjectAnimationsSource -notmatch
         '(?ms)^animationData19f47:\s*\.db \$01 \$dc \$00.*?\.db \$0a \$e0 \$00\s*\.db \$6e \$e0 \$ff.*?^animationData19f5b:\s*\.db \$03 \$e0 \$00\s*^animationData19f5e:\s*\.db \$04 \$e0 \$00\s*\.db \$04 \$dc \$04\s*\.db \$02 \$5c \$08\s*\.db \$7f \$5c \$ff.*?^animationData19f6a:\s*\.db \$08 \$b0 \$04\s*\.db \$7f \$b0 \$ff' -or
     $objectCollisionTableSource -notmatch
-        '(?ms)ENEMYCOLLISION_STANDARD_ENEMY \(0x10\)\s*\.db [^\r\n]+\s*\.db \$00 \$00 \$00 \$22 \$0d \$2f \$09' -or
+        '(?ms)ENEMYCOLLISION_STANDARD_ENEMY \(0x10\)\s*\.db [^\r\n]+\s*\.db \$00 \$00 \$00 \$00 \$00 \$2f \$09' -or
     $collisionEffectsSource -notmatch
         '(?ms)^collisionEffect09:\s*ld e,ENEMYDMG_04\s*j[rp] label_07_027.*?^label_07_027:.*?jp applyDamageToEnemyOrPart' -or
     $collisionEffectsSource -notmatch
@@ -755,7 +755,7 @@ function Convert-ItemAnimationBlock(
 # The directional latch animations are advanced only by state3/substate0;
 # their final $80 parameter is a control-flow input, not a deletion marker.
 function Export-SwitchHookData {
-$hookPath = Join-Path $Disassembly 'object_code\common\items\switchHook.s'
+$hookPath = Join-Path $Disassembly 'object_code\ages\items\switchHook.s'
 $hookSource = Read-ImportText $hookPath
 $hookParent = Read-ImportText (Join-Path $Disassembly 'object_code\common\itemParents\switchHookParent.s')
 $hookTileConstants = Read-ImportText (Join-Path $Disassembly 'constants\common\tileIndices.s')
@@ -787,7 +787,7 @@ $hookRows.Add("# level`titem-id`tchain-id`thelper-id`tspeed-raw`textension-frame
 foreach ($level in 1..2) {
     $hookSpeed = if ($level -eq 1) { 80 } else { 120 }
     $hookFrames = if ($level -eq 1) { 41 } else { 38 }
-    $hookRows.Add("$level`t0a`t0b`t09`t$hookSpeed`t$hookFrames`t3`t16`t3`t$($soundIds['SND_SWITCH_HOOK'].ToString('x2'))`t$($soundIds['SND_SWITCH2'].ToString('x2'))`tdb`tda`t08`tobject_code/common/items/switchHook.s:itemCode0a;switchHookState3")
+    $hookRows.Add("$level`t0a`t0b`t09`t$hookSpeed`t$hookFrames`t3`t16`t3`t$($soundIds['SND_SWITCH_HOOK'].ToString('x2'))`t$($soundIds['SND_SWITCH2'].ToString('x2'))`tdb`tda`t08`tobject_code/ages/items/switchHook.s:itemCode0a;switchHookState3")
 }
 Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook.tsv'), $hookRows)
 $hookOffsetRows = [Collections.Generic.List[string]]::new()
@@ -798,7 +798,7 @@ for ($direction = 0; $direction -lt 4; $direction++) {
     })
     $placement = $hookPlacementOffsets[$direction]
     if ($placement -ge 128) { $placement -= 256 }
-    $hookOffsetRows.Add("$direction`t$($offset[0])`t$($offset[1])`t$($offset[2])`t$placement`tobject_code/common/items/switchHook.s:itemCode0a@offsetsTable;switchHookState3@data")
+    $hookOffsetRows.Add("$direction`t$($offset[0])`t$($offset[1])`t$($offset[2])`t$placement`tobject_code/ages/items/switchHook.s:itemCode0a@offsetsTable;switchHookState3@data")
 }
 Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_offsets.tsv'), $hookOffsetRows)
 $wallSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')
@@ -875,7 +875,7 @@ function Export-BoomerangData {
     $attributes = [regex]::Match($itemAttributesSource, '(?m)^\s*\.db \$(?<collision>[0-9a-f]{2}) \$(?<radius>[0-9a-f]{2}) \$(?<damage>[0-9a-f]{2}) \$(?<health>[0-9a-f]{2}) ; \$06:')
     if (-not $gfx.Success -or -not $attributes.Success -or $gfx.Groups['tile'].Value -ne '4e' -or
         $uncmpGfxHeadersSource -notmatch 'm_GfxHeader spr_boomerang, \$84e1, \$04' -or
-        (Read-ImportText (Join-Path $Disassembly 'gfx/common/spr_boomerang.properties')) -notmatch 'invert: false') {
+        (Read-ImportText (Join-Path $Disassembly 'gfx/ages/spr_boomerang.properties')) -notmatch 'invert: false') {
         throw 'ITEM_BOOMERANG requires its $84e1 graphics upload and non-inverted source pixels.'
     }
     $path = Join-Path $Disassembly 'data/itemAnimations.s'
@@ -922,7 +922,7 @@ function Export-BoomerangData {
 Export-BoomerangData
 
 # Somaria's creation geometry and raw tile ownership precede its presentation.
-$somariaPath = Join-Path $Disassembly 'object_code/common/items/caneOfSomaria.s'
+$somariaPath = Join-Path $Disassembly 'object_code/ages/items/caneOfSomaria.s'
 $somariaSource = Read-ImportText $somariaPath
 foreach ($contract in @(
     'w1ParentItem2.animParameter\)\s+cp \$06',
@@ -942,7 +942,7 @@ if ($somariaTileConstants -notmatch '(?m)^\.define TILEINDEX_SOMARIA_BLOCK\s+\$(
 $somariaTile = $Matches['tile']
 Write-GeneratedTable((Join-Path $destination 'metadata/somaria_placement.tsv'), @(
     "# create-parameter`ttile`tcollision`tz-subtract`tz-boundary`tforbidden-group`tforbidden-room`talign-y`tsource",
-    "6`t$somariaTile`t0f`t1`tfc`t5`te8`t-2`tobject_code/common/items/caneOfSomaria.s:checkBlockCanAppear/createBlockIfNotOnHazard/alignOnTile"
+    "6`t$somariaTile`t0f`t1`tfc`t5`te8`t-2`tobject_code/ages/items/caneOfSomaria.s:checkBlockCanAppear/createBlockIfNotOnHazard/alignOnTile"
 ))
 $somariaOffsets = @(Read-AssemblyDataDirectives $somariaPath '@somariaCreationOffsets' '.dw')
 if ($somariaOffsets.Count -ne 4) { throw 'Somaria creation requires four ordered Y/X words.' }
@@ -952,7 +952,7 @@ for ($i=0; $i -lt 4; $i++) {
     $word = Convert-AssemblyInteger $somariaOffsets[$i].Operands[0]
     $y = $word -band 255; $x = $word -shr 8
     if ($y -ge 128) { $y -= 256 }; if ($x -ge 128) { $x -= 256 }
-    $somariaRows.Add("$i`t$y`t$x`tobject_code/common/items/caneOfSomaria.s:somariaCreationOffsets+$($i*2)")
+    $somariaRows.Add("$i`t$y`t$x`tobject_code/ages/items/caneOfSomaria.s:somariaCreationOffsets+$($i*2)")
 }
 Write-GeneratedTable((Join-Path $destination 'metadata/somaria_creation_offsets.tsv'), $somariaRows)
 $somariaHazardPath = Join-Path $Disassembly 'data/ages/tile_properties/hazards.s'
@@ -1036,7 +1036,7 @@ function Export-SomariaGraphics {
             $tile = $gfx.Groups['tile'].Value
             $flags = $gfx.Groups['flags'].Value
             if ($item -eq '18' -and $animation -gt 0) { $tile='36'; $flags='0d' }
-            $rows.Add("$item`t$animation`t$sprite`t$tile`t$flags`t$($attributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes.Groups['damage'].Value)`t$($attributes.Groups['health'].Value)`t$encoded`tdata/itemAnimations.s:$label;object_code/common/items/caneOfSomaria.s")
+            $rows.Add("$item`t$animation`t$sprite`t$tile`t$flags`t$($attributes.Groups['collision'].Value)`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes.Groups['damage'].Value)`t$($attributes.Groups['health'].Value)`t$encoded`tdata/itemAnimations.s:$label;object_code/ages/items/caneOfSomaria.s")
         }
     }
     Write-GeneratedTable((Join-Path $destination 'metadata/somaria_animations.tsv'), $rows)
@@ -1089,7 +1089,7 @@ if (-not $somariaPush.Success -or $somariaSource -notmatch 'ld a,SND_MYSTERY_SEE
     $somariaSource -notmatch 'ld a,SND_MOVEBLOCK') { throw 'Somaria block push counters/phase sounds changed.' }
 Write-GeneratedTable((Join-Path $destination 'metadata/somaria_lifecycle.tsv'), @(
     "# phase-sound`tmove-sound`tnormal-speed`tnormal-frames`tglove-speed`tglove-frames`tsource",
-    "$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$($soundIds['SND_MOVEBLOCK'].ToString('x2'))`t14`t$([Convert]::ToInt32($somariaPush.Groups['normal'].Value,16))`t1e`t$([Convert]::ToInt32($somariaPush.Groups['glove'].Value,16))`tobject_code/common/items/caneOfSomaria.s:itemCode18"))
+    "$($soundIds['SND_MYSTERY_SEED'].ToString('x2'))`t$($soundIds['SND_MOVEBLOCK'].ToString('x2'))`t14`t$([Convert]::ToInt32($somariaPush.Groups['normal'].Value,16))`t1e`t$([Convert]::ToInt32($somariaPush.Groups['glove'].Value,16))`tobject_code/ages/items/caneOfSomaria.s:itemCode18"))
 
 $encodedBombFuse = Convert-ItemAnimationBlock `
     -body $bombFuseBlock.Groups['body'].Value `
@@ -1470,8 +1470,10 @@ Write-GeneratedTable(
 
 # ITEM_SHOOTER ($0f) holds its parent until the assigned button is released,
 # rotates through eight directions while held, then creates the selected seed
-# with subid $63. The child uses SPEED_300 and activates after its third solid
-# bounce. Keep these parent/child boundaries separate from the Satchel rows:
+# with a nonzero subid from the item-use dispatcher. The runtime represents
+# the zero/nonzero distinction with SeedLaunchKind, not a fixed source subid.
+# The child uses SPEED_300 and activates after its third solid bounce.
+# Keep these parent/child boundaries separate from the Satchel rows:
 # the seed item IDs and graphics are shared, but their motion is not.
 $seedShooterSourceValid =
     $itemIds['ITEM_SHOOTER'] -eq 0x0f -and
@@ -1487,7 +1489,7 @@ $seedShooterSourceValid =
     $seedParentSource -match
         '(?ms)^parentItemCode_shooter:.*?^@state0:.*?call clearSelfIfNoSeeds.*?call updateLinkDirectionFromAngle.*?call parentItemLoadAnimationAndIncState.*?call itemCreateChild' -and
     $seedParentSource -match
-        '(?ms)^@state1:.*?call parentItemCheckButtonPressed.*?wIsSeedShooterInUse.*?ld c,\$63.*?call itemCreateChildWithID.*?ld \(hl\),\$0c.*?SND_SEEDSHOOTER' -and
+        '(?ms)^@state1:.*?call parentItemCheckButtonPressed.*?wIsSeedShooterInUse.*?call clearSelfIfNoSeeds\s*;[^\r\n]*\r?\n(?:\s*;[^\r\n]*\r?\n)*\s*push bc\s+ld e,\$01\s+call itemCreateChildWithID.*?ld \(hl\),\$0c.*?SND_SEEDSHOOTER' -and
     $seedParentSource -match
         '(?ms)^@updateAngleFrom5Bit:.*?^@checkUpdateAngle:.*?and \(BTN_RIGHT\|BTN_LEFT\|BTN_UP\|BTN_DOWN\).*?ld \(hl\),\$10.*?^@determineBaseAnimation:.*?ld a,\$48.*?ld a,\$40.*?ld a,\$38.*?ld l,Item\.var31.*?ld \(hl\),a.*?ld l,Item\.var3f.*?ld \(hl\),\$04' -and
     $specialObjectAnimationLogicSource -match
@@ -1530,8 +1532,8 @@ if ($shooterOamLabels.Count -ne 8) {
 $encodedShooterOam = @($shooterOamLabels |
     ForEach-Object { Read-ItemOamComposition $_ }) -join '|'
 $seedShooterRows = @(
-    '# item`tsubid`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-tiles`titem-passable-tiles`tweapon-sprite`tweapon-vram-tile-base`tweapon-palette`tweapon-source-grayscale-inverted`tweapon-oam`tsource'.Replace('`t', "`t")
-    "0f`t63`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t$encodedSeedNonBounceTiles`t$encodedItemPassableTiles`tspr_seed_shooter`t52`t00`t0`t$encodedShooterOam`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/common/items/seedShooter.s:itemCode0fPost;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing;data/ages/tile_properties/seedsDontBounce.s;data/itemAnimations.s:item0fAnimations;gfx/common/spr_seed_shooter.properties"
+    '# item`tspeed-raw`tbounces`taim-lockout`tpost-shot-wait`tsound`toffsets`tnon-bounce-tiles`titem-passable-tiles`tweapon-sprite`tweapon-vram-tile-base`tweapon-palette`tweapon-source-grayscale-inverted`tweapon-oam`tsource'.Replace('`t', "`t")
+    "0f`t78`t3`t16`t12`tcb`t-14,-4;-4,11;5,12;9,11;13,3;10,-8;5,-13;-8,-8`t$encodedSeedNonBounceTiles`t$encodedItemPassableTiles`tspr_seed_shooter`t52`t00`t0`t$encodedShooterOam`tobject_code/common/itemParents/seedsParent.s:parentItemCode_shooter;object_code/ages/items/seedShooter.s:itemCode0fPost;object_code/common/items/seeds.s:@shooterPositionOffsets/seedItemUpdateBouncing;data/ages/tile_properties/seedsDontBounce.s;data/itemAnimations.s:item0fAnimations;gfx/ages/spr_seed_shooter.properties"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\seed_shooter.tsv'),
@@ -2050,13 +2052,6 @@ foreach ($line in $behaviourSource) {
     $mode = Convert-AsmByte $behaviourFields[1]
     if ($mode -lt 0) { throw "Could not parse treasure behaviour mode '$($behaviourFields[1])'." }
     $sound = $behaviourFields[2]
-    # hack-base adds Seasons item levels to Ages. The supported clean US
-    # treasureCollectionBehaviourTable has no auxiliary write for these IDs.
-    if ($currentBehaviourTreasure -in 0x06, 0x07, 0x08, 0x13, 0x17) {
-        $variable = '$00'
-        $mode = 0
-        if ($currentBehaviourTreasure -eq 0x07) { $sound = 'SND_NONE' }
-    }
     $romBehaviourOffset = 0xfec09 + $currentBehaviourTreasure * 3
     $soundValue = if ($sound -eq 'SND_NONE') { 0 }
         elseif ($sound.StartsWith('MUS_')) { $behaviourMusicIds[$sound] }
@@ -2828,7 +2823,7 @@ $linkOamLabels = @([regex]::Matches(
     $linkOamPointerBlock.Value,
     '(?m)^\s*\.dw\s+(?<label>oamData[0-9a-f]+)\s*$') |
     ForEach-Object { $_.Groups['label'].Value })
-if (-not $linkGfxBlock.Success -or $linkGfxRows.Count -ne 260 -or
+if (-not $linkGfxBlock.Success -or $linkGfxRows.Count -ne 256 -or
     -not $linkOamPointerBlock.Success -or $linkOamLabels.Count -ne 48) {
     throw 'Could not resolve Ages Link graphics or OAM pointer tables.'
 }

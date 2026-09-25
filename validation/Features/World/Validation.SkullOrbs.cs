@@ -160,7 +160,7 @@ public sealed partial class ValidationRoot
             database.GetRoomRecords(4,0x74)[1] is not { Id:0x20, SubId:2, Order:2, X:72, Y:88 },
             "Orb placements must retain source order, pixel coordinates, script dispatch, and raw var03 mask.");
         FailIf(string.Concat(Enumerable.Range(0,32).Select(i => PartOrbDatabase.Shared.HitLockout(i) >= 0 ? '1':'0')) !=
-            "00001111111101100001101111111110" || PartOrbDatabase.Shared.Speed != 0x14 ||
+            "00001111111101100000001111111110" || PartOrbDatabase.Shared.Speed != 0x14 ||
             PartOrbDatabase.Shared.Right != 0x98 || PartOrbDatabase.Shared.Left != 0x68,
             "Moving orb lost its source active mask or SPEED_80/right98/left68 script.");
         _saveData.SetRoomFlag(4, 0x92, 0xff, false);

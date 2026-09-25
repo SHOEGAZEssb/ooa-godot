@@ -33,7 +33,7 @@ foreach ($spec in @(
     $rows.Add("$($spec[0])`t$($values -join ',')`t${relativeSource}:${label}")
 }
 $collisionValues = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/objectCollisionTable.s') 'objectCollisionTable')
-if ($collisionValues.Count -ne 4096) { throw 'Armos Warrior: incomplete collision table.' }
+if ($collisionValues.Count -ne 4000) { throw 'Armos Warrior: incomplete collision table.' }
 foreach ($mode in @(0x44, 0x60, 0x61, 0x62)) {
     $values = $collisionValues[($mode * 32)..($mode * 32 + 31)] | ForEach-Object { $_.ToString('x2') }
     $rows.Add("collision-$($mode.ToString('x2'))`t$($values -join ',')`tdata/ages/objectCollisionTable.s:objectCollisionTable+$((32 * $mode).ToString('x4'))")

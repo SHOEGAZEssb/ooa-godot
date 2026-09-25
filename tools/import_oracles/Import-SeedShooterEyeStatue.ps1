@@ -32,7 +32,7 @@ $mask = [regex]::Match($active, '(?m)^\s*dbrev (?<bits>%[01]{8} %[01]{8} %[01]{8
 $effectsSource = Read-ImportText (Join-Path $Disassembly 'data/ages/objectCollisionTable.s')
 $effectRows = [regex]::Matches($effectsSource, '(?m)^\s*\.db(?<values>(?:\s+\$[0-9a-f]{2}){16})\s*$')
 $effectCode = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
-if (-not $mask.Success -or $effectRows.Count -ne 256 -or
+if (-not $mask.Success -or $effectRows.Count -ne 250 -or
     $effectCode -notmatch '(?ms)collisionEffect31:\s+ld a,ENEMYDMG_34\s+jp applyDamageToEnemyOrPart' -or
     $effectCode -notmatch '\.db \$60 \$e4 \$00 \$00 ; ENEMYDMG_34') {
     throw 'PART $46 requires collision effect31 and ENEMYDMG34 pending-hit / signed invincibility writes.'

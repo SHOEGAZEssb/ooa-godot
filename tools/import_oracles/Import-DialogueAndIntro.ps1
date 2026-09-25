@@ -124,37 +124,6 @@ for ($index = 0; $index -lt $orderedTextEntryHeaders.Count; $index++) {
     }
 }
 
-# CROSSITEMS appends symbolic TX_09_* rows with `index: auto`. Resolve those
-# sequential indices as the text compiler does so treasure display records can
-# retain their real low text byte instead of degrading every TX symbol to $ff.
-$group09 = [regex]::Match(
-    $textYaml,
-    '(?ms)^- group: 0x09\r?\n(?<body>.*?)(?=^- group: 0x0a\r?$)')
-if (-not $group09.Success) { throw 'Could not parse inventory text group $09.' }
-$nextGroup09Index = 0
-foreach ($match in [regex]::Matches(
-    $group09.Groups['body'].Value,
-    '(?ms)^  - name: (?<name>TX_09[A-Z0-9_]+)\r?\n    index: (?<index>auto|0x[0-9a-f]{2})\r?\n    text: \|-\r?\n(?<body>(?:      [^\r\n]*(?:\r?\n|\z))+)'
-)) {
-    $indexText = $match.Groups['index'].Value
-    $index = if ($indexText -eq 'auto') {
-        $nextGroup09Index
-    } else {
-        [Convert]::ToInt32($indexText.Substring(2), 16)
-    }
-    $nextGroup09Index = $index + 1
-    if ($indexText -ne 'auto') { continue }
-
-    $lines = $match.Groups['body'].Value -split '\r?\n' | ForEach-Object {
-        if ($_.Length -ge 6) { $_.Substring(6) } else { '' }
-    }
-    while ($lines.Count -gt 0 -and $lines[-1] -eq '') {
-        $lines = $lines[0..($lines.Count - 2)]
-    }
-    $textId = 0x0900 -bor $index
-    $allTextIdsByName[$match.Groups['name'].Value] = $textId
-    $allTexts[$textId] = Normalize-DialogueText ($lines -join "`n")
-}
 
 # Starting a standard file runs CUTSCENE_PREGAME_INTRO ("Accept our quest,
 # hero!") and then linkSummonedCutscene before loading the saved room. Export

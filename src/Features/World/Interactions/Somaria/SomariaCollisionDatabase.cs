@@ -5,7 +5,7 @@ namespace oracleofages;
 internal sealed class SomariaCollisionDatabase
 {
     internal static SomariaCollisionDatabase Shared { get; } = new();
-    private readonly SomariaCollisionEffects[] _effects = new SomariaCollisionEffects[128];
+    private readonly SomariaCollisionEffects[] _effects = new SomariaCollisionEffects[0x7d];
     private readonly SomariaCollisionEligibility[] _enemies;
     private readonly SomariaCollisionEligibility[] _parts;
 
@@ -15,7 +15,7 @@ internal sealed class SomariaCollisionDatabase
             new GeneratedTableSchema("Somaria collision effects", GeneratedTableKeySemantics.Unique,
                 ["mode", "swing-effect", "block-effect", "source"], ["mode"], headerRequired: true));
         if (table.Rows.Count != _effects.Length)
-            throw new InvalidOperationException("objectCollisionTable: expected $80 Somaria collision modes.");
+            throw new InvalidOperationException("objectCollisionTable: expected $7d vanilla Somaria collision modes.");
         for (int mode = 0; mode < _effects.Length; mode++)
         {
             var row = table.Rows[mode];
@@ -45,7 +45,9 @@ internal sealed class SomariaCollisionDatabase
         return result;
     }
 
-    internal SomariaCollisionEffects Effects(byte mode) => _effects[mode & 0x7f];
+    internal SomariaCollisionEffects Effects(byte mode) => (mode & 0x7f) < _effects.Length
+        ? _effects[mode & 0x7f]
+        : throw new NotSupportedException($"Vanilla objectCollisionTable has no mode ${(mode & 0x7f):x2}.");
     internal SomariaCollisionEligibility Enemy(byte collisionType) => _enemies[collisionType & 0x7f];
     internal SomariaCollisionEligibility Part(byte collisionType)
     {

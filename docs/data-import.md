@@ -6,6 +6,22 @@ The importer converts the supported ROM and `oracles-disasm` sources into
 address-independent runtime assets under `assets/oracle/`. Production runtime
 code consumes those assets and never opens assembly files.
 
+Use the vanilla `master` disassembly; the supported reference revision is
+`842c5649b63f5b6fae8ffd55f80f45f86e9c10e7`. The default checkout is
+`..\oracles-disasm`, relative to the project root and resolved from the script's
+location regardless of the working directory. Keep that revision for reproducible imports;
+updating it requires reviewing generated differences and rerunning verification.
+The importer does not require building the disassembly. `hack-base` is not a
+supported input: its expanded tilesets and CROSSITEMS behavior differ from the
+original game.
+
+Vanilla shared layout headers are resolved into per-tileset mapping/collision
+files, and clean-ROM main and unique graphics uploads compose each atlas in
+original order. Room-dependent cliff palette changes remain in the room loader,
+where the effective tileset flags and active room byte are available.
+Shared room and dungeon-layout labels are expanded for every alias; a fresh
+output directory receives all 1,536 room layouts.
+
 The stable entry point validates the clean US ROM before doing any work:
 
 ```powershell

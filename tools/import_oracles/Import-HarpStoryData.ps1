@@ -24,7 +24,7 @@ if ($mainObjectSource -notmatch
     $harpNayruSource -notmatch
         '(?ms)^@init07:.*?ld a,\$1e.*?interactionLoadExtraGraphics.*?interactionSetAlwaysUpdateBit.*?^nayruSubid07:.*?interactionDecCounter1.*?xor \$80.*?MUS_NAYRU.*?mainScripts\.nayruScript07.*?rrca.*?cp \$07.*?createMusicNotes.*?wActiveMusic2.*?fadeinFromWhiteWithDelay.*?showStatusBar' -or
     $harpSparkleSource -notmatch
-        '(?ms)^@initSubid0c:.*?relatedObj1.*?Interaction\.var38' -or
+        '(?ms)^@initSubid0c:\s+ld a,Object\.id\s+call objectGetRelatedObject1Var\s+ld e,Interaction\.var38\s+ld a,\(hl\)\s+ld \(de\),a' -or
     $harpSparkleSource -notmatch
         '(?ms)^@runSubid0c:.*?Interaction\.var38.*?interactionDelete.*?objectTakePosition.*?cfc0.*?bit 0,a.*?animateAndFlicker' -or
     $harpSongSource -notmatch

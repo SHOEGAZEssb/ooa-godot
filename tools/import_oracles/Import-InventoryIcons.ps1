@@ -1,5 +1,4 @@
-# The local hack-base art and display tables contain CROSSITEMS rearrangements.
-# Restore the supported US game's bytes after the source-asset copying stages.
+# Decode the supported US game's item/HUD bytes in the runtime's grayscale format.
 # Offsets are the original data/ages/gfxDataBank19_1.s and gfxDataMain.s extents;
 # compressed streams use decompressGraphics mode $01. The ROM hash is checked
 # by Initialize-Import.ps1 before any stage runs.

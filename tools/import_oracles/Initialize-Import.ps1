@@ -485,6 +485,9 @@ function Read-AssemblyDwTables(
 # Remove outputs that moved to another owner or were replaced by a broader
 # generated table. Their obsolete paths must not survive a local re-import.
 foreach ($legacyGeneratedAsset in @(
+    'gfx\gfx_key.png',
+    'gfx\gfx_partial_hearts.png',
+    'gfx\spr_hyperslingshot_inventory.png',
     'menu\new_game_intro.tsv',
     'menu\new_game_intro_sprites.tsv',
     'objects\maku_tree_cutscene.tsv',

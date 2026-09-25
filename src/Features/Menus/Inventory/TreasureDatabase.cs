@@ -229,14 +229,14 @@ public sealed class TreasureDatabase
             _objectVisuals.Add(graphic, record);
         }
 
-        if (_objectVisuals.Count != 91 ||
+        if (_objectVisuals.Count != 84 ||
             !_objectVisuals.TryGetValue(0x42, out TreasureObjectVisualRecord smallKey) ||
             smallKey.Sprite != "spr_map_compass_keys_bookofseals" ||
             smallKey.TileBase != 0x0c || smallKey.Palette != 5 ||
             smallKey.DefaultAnimation != 0 || string.IsNullOrEmpty(smallKey.Animation))
         {
             throw new InvalidOperationException(
-                "Treasure visuals must include all 91 source graphics and exact small-key graphic $42 data.");
+                "Treasure visuals must include all 84 vanilla source graphics and exact small-key graphic $42 data.");
         }
     }
 

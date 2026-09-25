@@ -8,7 +8,7 @@ if (-not $mask.Success) { throw 'PART_SWITCH active collision bitset missing.' }
 $bits = $mask.Groups['bits'].Value.Replace('%', '').Replace(' ', '')
 $collision = Read-ImportText (Join-Path $Disassembly 'data/ages/objectCollisionTable.s')
 $tableRows = [regex]::Matches($collision, '(?m)^\s*\.db(?<values>(?:\s+\$[0-9a-f]{2}){16})\s*$')
-if ($tableRows.Count -ne 256) { throw 'Expected 128 complete object collision modes.' }
+if ($tableRows.Count -ne 250) { throw 'Expected 125 complete vanilla object collision modes.' }
 $effects = [regex]::Matches(($tableRows[6].Value + $tableRows[7].Value), '\$(?<value>[0-9a-f]{2})')
 $code = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
 if ($code -notmatch '(?ms)^collisionEffect26:\s+ldhl LINKDMG_1c, ENEMYDMG_34\s+jr applyDamageToBothObjects' -or

@@ -1,56 +1,4 @@
-# The expanded-tileset disassembly deletes unique graphics entries, but the
-# supported clean US ROM retains tilesetData ($04:$4f9c), the header pointer
-# table ($04:$5b28), and loadUniqueGfxHeader's pointer operand ($00:$3783).
-# Preserve the original entry counts for screenTransitionState3/4/5 timing.
-function Expand-TransitionGraphics([byte[]]$rom, [int]$address, [int]$tiles, [int]$mode) {
-    # decompressGraphics / tools/common.py:decompressGfxData. Header modes
-    # select raw bytes, short/long dictionary references, or common-byte masks.
-    $output = [Collections.Generic.List[byte]]::new()
-    $length = $tiles * 16
-    if ($mode -eq 0) { return [byte[]]$rom[$address..($address + $length - 1)] }
-    if ($mode -eq 2) {
-        foreach ($tile in 1..$tiles) {
-            $mask1 = $rom[$address++]; $mask2 = $rom[$address++]
-            if (($mask1 -bor $mask2) -eq 0) {
-                foreach ($i in 1..16) { $output.Add($rom[$address++]) }
-            } else {
-                $common = $rom[$address++]
-                foreach ($mask in @($mask1, $mask2)) {
-                    foreach ($bit in 7..0) {
-                        if (($mask -band (1 -shl $bit)) -ne 0) { $output.Add($common) }
-                        else { $output.Add($rom[$address++]) }
-                    }
-                }
-            }
-        }
-    } elseif ($mode -eq 1 -or $mode -eq 3) {
-        while ($output.Count -lt $length) {
-            $flags = $rom[$address++]
-            foreach ($bit in 7..0) {
-                if ($output.Count -ge $length) { break }
-                if (($flags -band (1 -shl $bit)) -eq 0) { $output.Add($rom[$address++]); continue }
-                $first = $rom[$address++]
-                if ($mode -eq 1) {
-                    $distance = ($first -band 0x1f) + 1
-                    $count = ($first -shr 5) + 1
-                    if (($first -band 0xe0) -eq 0) { $count = $rom[$address++] }
-                } else {
-                    $second = $rom[$address++]
-                    $distance = $first + (([int]$second -band 7) -shl 8) + 1
-                    $count = ($second -shr 3) + 2
-                    if (($second -band 0xf8) -eq 0) { $count = $rom[$address++] }
-                }
-                if ($count -eq 0) { $count = 256 }
-                foreach ($i in 1..$count) {
-                    $index = $output.Count - $distance
-                    $output.Add($(if ($index -lt 0) { 0 } else { $output[$index] }))
-                }
-            }
-        }
-    } else { throw "Unsupported decompressGraphics mode $mode." }
-    if ($output.Count -ne $length) { throw 'Unique graphics decompression length mismatch.' }
-    return $output.ToArray()
-}
+# Preserve original graphics uploads and screen-transition update counts.
 
 function Read-TransitionPalette([string]$label) {
     $nodes = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/paletteData.s') $label 'm_RGB16')
@@ -394,20 +342,33 @@ Write-GeneratedTable(
 # Dungeon rooms occupy arbitrary cells in one or more 8x8 floor maps. Screen
 # transitions use these cells rather than the overworld's hexadecimal room
 # coordinates (for example, dungeon00 room $03 is directly above room $04).
-$dungeonLayoutSource = Read-ImportText (Join-Path $Disassembly "data\ages\dungeonLayouts.s")
-$dungeonBlocks = [regex]::Matches(
-    $dungeonLayoutSource,
-    '(?ms)^dungeon(?<index>[0-9a-f]{2})Layout:\s*(?<body>.*?)(?=^dungeon[0-9a-f]{2}Layout:|\z)')
+$dungeonLayoutPath = Join-Path $Disassembly 'data/ages/dungeonLayouts.s'
+$dungeonBlocks = [Collections.Generic.List[object]]::new()
+$cells = [Collections.Generic.List[int]]::new()
+foreach ($node in Read-AssemblyNodes $dungeonLayoutPath) {
+    if ($node.Kind -in @('Blank', 'Comment')) { continue }
+    if ($node.Kind -eq 'Label') {
+        if ($node.Name -eq 'dungeonLayoutDataStart') { continue }
+        if ($node.Name -notmatch '^dungeon(?<index>[0-9a-f]{2})Layout$') {
+            throw "Unexpected dungeon layout label: $($node.Name)."
+        }
+        # Consecutive labels share storage (notably dungeon00/dungeon09).
+        # Start another buffer only after the preceding layout has emitted data.
+        if ($cells.Count -gt 0) { $cells = [Collections.Generic.List[int]]::new() }
+        $dungeonBlocks.Add([pscustomobject]@{
+            Index = [Convert]::ToInt32($Matches['index'], 16); Cells = $cells
+        })
+    } elseif ($node.Kind -eq 'Data' -and $node.Name -eq '.db' -and $dungeonBlocks.Count -gt 0) {
+        foreach ($operand in $node.Operands) { $cells.Add((Convert-AssemblyInteger $operand)) }
+    } else {
+        throw "Unsupported dungeon layout source: $($node.Span): $($node.Code)."
+    }
+}
 $dungeonRows = [Collections.Generic.List[string]]::new()
 $dungeonRows.Add("# dungeon`troom`tdirection`tneighbor")
 foreach ($block in $dungeonBlocks) {
-    $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
-    $cells = [Collections.Generic.List[int]]::new()
-    foreach ($dataLine in [regex]::Matches($block.Groups['body'].Value, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
-        foreach ($value in [regex]::Matches($dataLine.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})')) {
-            $cells.Add([Convert]::ToInt32($value.Groups['value'].Value, 16))
-        }
-    }
+    $dungeon = $block.Index
+    $cells = $block.Cells
     if (($cells.Count % 64) -ne 0) {
         throw "Dungeon $($dungeon.ToString('x2')) layout has $($cells.Count) cells; expected complete 8x8 floors."
     }
@@ -462,14 +423,9 @@ $dungeonProperties = @{
 $dungeonMapRows = [Collections.Generic.List[string]]::new()
 $dungeonMapRows.Add('# dungeon`tgroup`twallmaster-destination`tfloors`tbase-floor`tcompass-floors`tfloor`tx`ty`troom`tproperties')
 foreach ($block in $dungeonBlocks) {
-    $dungeon = [Convert]::ToInt32($block.Groups['index'].Value, 16)
+    $dungeon = $block.Index
     $metadataRecord = $dungeonMetadata[$dungeon]
-    $cells = [Collections.Generic.List[int]]::new()
-    foreach ($dataLine in [regex]::Matches($block.Groups['body'].Value, '(?m)^\s*\.db\s+(?<values>[^;\r\n]+)')) {
-        foreach ($value in [regex]::Matches($dataLine.Groups['values'].Value, '\$(?<value>[0-9a-f]{2})')) {
-            $cells.Add([Convert]::ToInt32($value.Groups['value'].Value, 16))
-        }
-    }
+    $cells = $block.Cells
     if ($cells.Count -ne $metadataRecord.Floors * 64) {
         throw "Dungeon $($dungeon.ToString('x2')) has $($cells.Count) layout cells; expected $($metadataRecord.Floors * 64)."
     }
@@ -578,16 +534,34 @@ Write-GeneratedTable(
 Write-GeneratedTable(
     (Join-Path $animationDestination "tracks.tsv"), $animationTrackRows)
 
-# Room files are already expanded and address-independent. Preserve their
-# group-prefixed names so metadata can select the correct layout group.
-foreach ($kind in 'small', 'large') {
-    $roomSource = Join-Path $Disassembly "rooms\ages\$kind"
-    $roomDestination = Join-Path $destination "rooms\$kind"
-    New-Item -ItemType Directory -Force -Path $roomDestination | Out-Null
-    Copy-Item -Path (Join-Path $roomSource '*.bin') -Destination $roomDestination -Force
+# Vanilla omits duplicate room files. Resolve the labels preceding each
+# m_RoomLayoutData declaration into concrete, address-independent assets.
+function Export-RoomLayouts {
+    $aliases = [Collections.Generic.List[string]]::new()
+    $exported = [Collections.Generic.HashSet[string]]::new()
+    foreach ($node in Read-AssemblyNodes (Join-Path $Disassembly 'data/ages/roomLayoutData.s')) {
+        if ($node.Kind -in @('Blank', 'Comment')) { continue }
+        if ($node.Kind -eq 'Label' -and $node.Name -match '^room0[0-5][0-9a-f]{2}$') {
+            $aliases.Add($node.Name)
+            continue
+        }
+        if ($node.Kind -ne 'MacroInvocation' -or $node.Name -ne 'm_RoomLayoutData' -or
+            $node.Operands.Count -ne 1 -or $node.Operands[0] -notmatch '^room0[0-5][0-9a-f]{2}$') {
+            throw "Unsupported room layout source: $($node.Span): $($node.Code)."
+        }
+        $source = $node.Operands[0]
+        $kind = if ($source[5] -lt '4') { 'small' } else { 'large' }
+        $aliases.Add($source)
+        foreach ($alias in $aliases) {
+            if ($alias[5] -ne $source[5] -or -not $exported.Add($alias)) {
+                throw "Duplicate or cross-group room layout alias: $alias -> $source."
+            }
+            Copy-GeneratedFile "rooms/ages/$kind/$source.bin" "rooms/$kind/$alias.bin"
+        }
+        $aliases.Clear()
+    }
+    if ($aliases.Count -ne 0 -or $exported.Count -ne 1536) {
+        throw "Expected 1536 resolved room layouts, imported $($exported.Count); dangling aliases: $aliases."
+    }
 }
-
-$importedRoomCount = (Get-ChildItem (Join-Path $destination 'rooms') -Recurse -File -Filter '*.bin').Count
-if ($importedRoomCount -ne 1536) {
-    throw "Expected 1536 expanded room layouts, imported $importedRoomCount."
-}
+Export-RoomLayouts

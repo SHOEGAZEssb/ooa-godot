@@ -364,7 +364,7 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\maple_items.tsv'),
     $mapleItemRows)
 Copy-GeneratedFile `
-    'gfx_compressible\common\spr_quest_items_5.png' `
+    'gfx_compressible\ages\spr_quest_items_5.png' `
     'gfx\spr_quest_items_5.png'
 
 # INTERAC_TOUCHING_BOOK $a5:$00 supplies the book actor used by the trade

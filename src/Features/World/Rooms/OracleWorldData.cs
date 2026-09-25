@@ -6,7 +6,7 @@ using static oracleofages.OracleGraphicsData;
 namespace oracleofages;
 
 /// <summary>
-/// Address-independent bridge between oracles-disasm's expanded assets and the
+/// Address-independent bridge between generated vanilla assets and the
 /// Godot runtime. Rooms and tilesets are decoded on demand, then cached.
 /// </summary>
 public sealed class OracleWorldData
@@ -88,8 +88,9 @@ public sealed class OracleWorldData
         int tileset = GetTilesetId(dataGroup, room);
         int metadataOffset = tileset * TilesetRecordSize;
         int layoutGroup = layoutGroupOverride ?? _tilesetMetadata[metadataOffset + 1];
-        // ages/loadTilesetData.s:checkTilesetOverride changes only the layout
-        // group for present room pack $7f in the expanded asset format.
+        // ages/loadTilesetData.s:checkTilesetOverride selects tilesets
+        // $0d/$0e/$0f for present room pack $7f. Import verifies that only
+        // their layout groups differ, preserving this layout-only projection.
         // Ricky keeps the base layout; Dimitri uses $01; every other value
         // (including an unassigned companion) follows the Moosh branch $03.
         if (animalCompanion.HasValue && group == 0 && _presentRoomPacks[room] == 0x7f && animalCompanion != 0x0b)
@@ -122,9 +123,8 @@ public sealed class OracleWorldData
                 $"res://assets/oracle/gfx/gfx_tileset{tileset:x2}.png");
             _graphics.Add(tileset, graphics);
         }
-        // expandedTilesetMappingsTable is indexed by tileset ID. The original
-        // shared layout index retained in tilesets.s is not the lookup key for
-        // tileset_layouts_expanded.
+        // The importer resolves vanilla shared layout headers into per-tileset
+        // files. Room-specific palette changes must not mutate this cache.
         if (!_mappings.TryGetValue(tileset, out byte[]? mappings))
         {
             mappings = ReadBytes($"res://assets/oracle/layouts/tilesetMappings{tileset:x2}.bin", 2048);
@@ -139,6 +139,22 @@ public sealed class OracleWorldData
         {
             palette = LoadPalette(tileset);
             _palettes.Add(tileset, palette);
+        }
+
+        // loadTilesetLayout -> setPastCliffPalettesToRed, after
+        // updateTilesetFlagsForIndoorRoomInAltWorld. The room-byte $38
+        // exception applies regardless of group. Only metatiles $40-$7f
+        // and palette bits 6 change; flips, priority and VRAM bank survive.
+        if (activeCollisions == 0 && (tilesetFlags & 0x80) != 0 && room != 0x38)
+        {
+            mappings = (byte[])mappings.Clone();
+            for (int tile = 0x40; tile < 0x80; tile++)
+                for (int quarter = 0; quarter < 4; quarter++)
+                {
+                    int offset = tile * 8 + 4 + quarter;
+                    if ((mappings[offset] & 7) == 6)
+                        mappings[offset] &= 0xf8;
+                }
         }
 
         byte[] layout = Godot.FileAccess.GetFileAsBytes(roomPath);

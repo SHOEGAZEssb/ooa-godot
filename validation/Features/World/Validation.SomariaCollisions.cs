@@ -19,7 +19,7 @@ public partial class ValidationRoot
             "00 2f 0d 00 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d " +
             "2d 2f 00 2f 2f 2f 2f 2d 00 2f 2d 2d 2d 2d 2f 2d " +
             "2d 2d 2d 2d 2d 2f 2d 2d 2d 00 2d 2d 2d 2d 2d 00 " +
-            "00 00 00 00 2d 00 00 00 00 00 00 2d 00 2f 2f 2d")
+            "00 00 00 00 2d 00 00 00 00 00 00 2d 00")
             .Split(' ').Select(value => Convert.ToInt32(value, 16)).ToArray();
         // enemyActiveCollisions dbrev character $15; all character $12 bits clear.
         int[] enabled = (
@@ -31,13 +31,18 @@ public partial class ValidationRoot
             .Split(' ').Select(value => Convert.ToInt32(value, 16)).ToArray();
         for (int id = 0; id < 128; id++)
         {
-            var effect = data.Effects((byte)id);
             var enemy = data.Enemy((byte)id);
-            FailIf(effect.Swing != 0 || effect.Block != effects[id],
-                $"Somaria objectCollisionTable mode ${id:x2} lost column $12/$15 effects.");
+            if (id < 0x7d)
+            {
+                var effect = data.Effects((byte)id);
+                FailIf(effect.Swing != 0 || effect.Block != effects[id],
+                    $"Somaria objectCollisionTable mode ${id:x2} lost column $12/$15 effects.");
+                FailIf(data.Effects((byte)(id | 0x80)) != effect,
+                    $"Somaria mode ${id:x2} must strip the collision-enabled high bit.");
+            }
             FailIf(enemy.Swing || enemy.Block != enabled.Contains(id),
                 $"Somaria enemyActiveCollisions type ${id:x2} eligibility differs from source.");
-            FailIf(data.Effects((byte)(id | 0x80)) != effect || data.Enemy((byte)(id | 0x80)) != enemy,
+            FailIf(data.Enemy((byte)(id | 0x80)) != enemy,
                 $"Somaria mode/type ${id:x2} must strip the collision-enabled high bit.");
         }
         for (int id = 0; id < 0x5a; id++)
@@ -48,6 +53,10 @@ public partial class ValidationRoot
                 $"Somaria partActiveCollisions type ${id:x2} eligibility differs from source.");
         }
         bool rejected = false;
+        try { data.Effects(0x7d); }
+        catch (NotSupportedException error) { rejected = error.Message.Contains("$7d"); }
+        FailIf(!rejected, "Vanilla objectCollisionTable ends at $7c; hack-base mode $7d must be rejected.");
+        rejected = false;
         try { data.Part(0x5a); }
         catch (NotSupportedException error) { rejected = error.Message.Contains("$5a"); }
         FailIf(!rejected, "partActiveCollisions ends at $59; missing $5a must report its source identity.");

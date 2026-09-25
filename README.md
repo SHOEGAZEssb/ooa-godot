@@ -13,11 +13,12 @@ current high-level boundary.
 
 - Godot 4.7.1 with .NET support
 - .NET 8 SDK and PowerShell
-- A local `oracles-disasm` checkout
+- A local `oracles-disasm` checkout (`master`, not `hack-base`)
 - The clean US ROM with MD5 `C4639CC61C049E5A085526BB6CAC03BB`
 
-The default setup expects the disassembly at
-`C:\msys64\home\timst\oracles-disasm` and the ROM in the repository root as:
+By default, the importer uses the disassembly in the sibling directory
+`..\oracles-disasm`, relative to the repository root, and the ROM is in the
+repository root as:
 
 ```text
 Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc

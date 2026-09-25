@@ -5,7 +5,7 @@ namespace oracleofages;
 internal sealed class BoomerangCollisionDatabase
 {
     internal static BoomerangCollisionDatabase Shared { get; } = new();
-    private readonly int[] _effects = new int[128];
+    private readonly int[] _effects = new int[0x7d];
     private readonly bool[] _enemies = new bool[128];
     private readonly bool[] _parts = new bool[0x5a];
     internal int StunCounter { get; }
@@ -17,7 +17,7 @@ internal sealed class BoomerangCollisionDatabase
         var table = GeneratedTable.Load("res://assets/oracle/metadata/boomerang_collision_effects.tsv",
             new GeneratedTableSchema("ITEMCOLLISION_L1_BOOMERANG $17", GeneratedTableKeySemantics.Unique,
                 ["mode", "effect", "source"], ["mode"], headerRequired: true));
-        if (table.Rows.Count != 128) throw new InvalidOperationException("Expected $80 boomerang collision modes.");
+        if (table.Rows.Count != 0x7d) throw new InvalidOperationException("Expected $7d vanilla boomerang collision modes.");
         for (int i = 0; i < table.Rows.Count; i++)
         {
             var row = table.Rows[i];
@@ -56,5 +56,7 @@ internal sealed class BoomerangCollisionDatabase
     }
     internal bool EnemyEnabled(int type) => type >= 0 && _enemies[type & 0x7f];
     internal bool PartEnabled(int type) => type is >= 0 and < 0x5a && _parts[type];
-    internal int Effect(int mode) => _effects[mode & 0x7f];
+    internal int Effect(int mode) => (mode & 0x7f) < _effects.Length
+        ? _effects[mode & 0x7f]
+        : throw new NotSupportedException($"Vanilla objectCollisionTable has no mode ${(mode & 0x7f):x2}.");
 }

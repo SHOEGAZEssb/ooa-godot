@@ -110,32 +110,30 @@ if ($noiseRows.Count -ne 13) {
 }
 Write-GeneratedBytes((Join-Path $soundDestination 'noise_frequencies.bin'), $noiseData)
 
-$audioDriverSource = Read-ImportText (Join-Path $Disassembly 'code\audio.s')
-$envelopeDelayBlock = [regex]::Match(
-    $audioDriverSource,
-    '(?ms)^data_4ad0:\s*(?<body>.*?)(?=^;;\s*; @param a The sound to play\.)')
-$envelopeDelayValues = [regex]::Matches(
-    $envelopeDelayBlock.Groups['body'].Value, '\$(?<value>[0-9a-f]{2})')
-if (-not $envelopeDelayBlock.Success -or $envelopeDelayValues.Count -ne 128) {
-    throw "Expected 128 envelope-delay/vibrato bytes, parsed $($envelopeDelayValues.Count)."
+$audioDriverPath = Join-Path $Disassembly 'code/audio.s'
+$envelopeDelayValues = @(Read-AssemblyLiteralValues $audioDriverPath 'envelopeWaitTable')
+$vibratoValues = @(Read-AssemblyLiteralValues $audioDriverPath 'vibratoOffsetTable' '.dw')
+if ($envelopeDelayValues.Count -ne 112 -or $vibratoValues.Count -ne 8) {
+    throw 'code/audio.s: expected 112 envelope wait bytes and eight signed vibrato words.'
 }
-$envelopeDelays = [byte[]]::new($envelopeDelayValues.Count)
-for ($delay = 0; $delay -lt $envelopeDelayValues.Count; $delay++) {
-    $envelopeDelays[$delay] =
-        [Convert]::ToByte($envelopeDelayValues[$delay].Groups['value'].Value, 16)
+# Preserve the adjacent tables in the existing 128-byte runtime address space.
+$envelopeDelays = [byte[]]::new(128)
+for ($delay = 0; $delay -lt 112; $delay++) {
+    $envelopeDelays[$delay] = [byte]$envelopeDelayValues[$delay]
+}
+for ($index = 0; $index -lt 8; $index++) {
+    $envelopeDelays[112 + $index * 2] = [byte]($vibratoValues[$index] -band 0xff)
+    $envelopeDelays[113 + $index * 2] = [byte](($vibratoValues[$index] -shr 8) -band 0xff)
 }
 Write-GeneratedBytes((Join-Path $soundDestination 'envelope_delays.bin'), $envelopeDelays)
 
-$frequencyBlock = [regex]::Match(
-    $audioDriverSource,
-    '(?ms)^soundFrequencyTable:\s*(?<body>.*?)(?=^data_4ad0:)')
-$frequencies = [regex]::Matches($frequencyBlock.Groups['body'].Value, '\.dw\s+\$(?<value>[0-9a-f]{4})')
-if (-not $frequencyBlock.Success -or $frequencies.Count -ne 87) {
+$frequencies = @(Read-AssemblyLiteralValues $audioDriverPath 'soundFrequencyTable' '.dw')
+if ($frequencies.Count -ne 87) {
     throw "Expected 87 sound-frequency words, parsed $($frequencies.Count)."
 }
 $frequencyData = [byte[]]::new($frequencies.Count * 2)
 for ($frequency = 0; $frequency -lt $frequencies.Count; $frequency++) {
-    $value = [Convert]::ToInt32($frequencies[$frequency].Groups['value'].Value, 16)
+    $value = $frequencies[$frequency]
     $frequencyData[$frequency * 2] = [byte]($value -band 0xff)
     $frequencyData[$frequency * 2 + 1] = [byte](($value -shr 8) -band 0xff)
 }

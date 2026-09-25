@@ -264,8 +264,8 @@ foreach ($node in $interactionDataNodes) {
 if ($subidAliases.Count -ne 0 -or $subidEntries.Count -ne 0) {
     throw 'Interaction subid data ended without m_InteractionSubidDataEnd.'
 }
-if ($interactionSubidCounts[0x60] -ne 0x83) {
-    throw "Expected 131 INTERAC_TREASURE subid graphics, parsed " +
+if ($interactionSubidCounts[0x60] -ne 0x7c) {
+    throw "Expected 124 vanilla INTERAC_TREASURE subid graphics, parsed " +
         "$($interactionSubidCounts[0x60])."
 }
 $gfxNames = @{}
@@ -1262,7 +1262,7 @@ $tingleKoolooSparkleAngles = @($tingleKoolooSparkleMatches | ForEach-Object {
 if ($mainObjectSource -notmatch '(?ms)^group0Map79ObjectData:\s+obj_Interaction \$d0 \$01 \$38 \$78\s+obj_Interaction \$c8 \$00 \$32 \$38\s+obj_End' -or
     $tingleInteractionDataSource -notmatch '(?m)^\s*/\* \$c8 \*/ m_InteractionData \$55 \$04 \$00\s*$' -or
     $tinglePartDataSource -notmatch '(?m)^\s*\.db \$55 \$82 \$44 \$00 \$01 \$18 \$02 \$00 ; \$44\s*$' -or
-    $tingleActiveCollisions -ne '00001111111101100001100100000000' -or
+    $tingleActiveCollisions -ne '00001111111101100000000100000000' -or
     -not $tingleExplosionOffsetMatch.Success -or
     $tingleExplosionYOffset -ne -16 -or $tingleExplosionXOffset -ne 0 -or
     $itemCollisionTypesSource -notmatch '(?m)^\s*ITEMCOLLISION_SWORD_BEAM\s+db ; \$19: Sword beam, Ricky punch/tornado, Moosh stomp\s*$' -or
@@ -1688,8 +1688,8 @@ if ($pushblockTriggerSource -notmatch '(?ms)^@state0:.*?ld a,TILEINDEX_PUSHABLE_
     $zolEnemySource -notmatch '(?ms)^zol_subid01_stateC:.*?INTERAC_KILLENEMYPUFF.*?ld a,SND_KILLENEMY\s+call playSound' -or
     $partDataSource -notmatch '(?m)^\s*\.db \$00 \$83 \$44 \$ff \$40 \$08 \$00 \$00 ; \$05' -or
     $partDataSource -notmatch '(?m)^\s*\.db \$00 \$02 \$22 \$00 \$40 \$00 \$00 \$00 ; \$09' -or
-    $partActiveCollisionsSource -notmatch '(?m)^\s*dbrev %00001111 %11110110 %00011011 %01111110 ; 0x05' -or
-    $objectCollisionTableSource -notmatch '(?ms); ENEMYCOLLISION_SWITCH \(0x03\)\s+\.db(?: \$26){16}\s+\.db \$00 \$00 \$00 \$26(?: \$26){5} \$20 \$20 \$20 \$20 \$20 \$20 \$00' -or
+    $partActiveCollisionsSource -notmatch '(?m)^\s*dbrev %00001111 %11110110 %00000011 %01111110 ; 0x05' -or
+    $objectCollisionTableSource -notmatch '(?ms); ENEMYCOLLISION_SWITCH \(0x03\)\s+\.db(?: \$26){16}\s+\.db(?: \$00){5}(?: \$26){4} \$20 \$20 \$20 \$20 \$20 \$20 \$00' -or
     $collisionEffectsSource -notmatch '(?m)^\s*\.db \$60 \$e4 \$00 \$00 ; ENEMYDMG_34' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_PUSHABLE_BLOCK\s+\$1d' -or
     $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_DUNGEON_SWITCH_OFF\s+\$0a' -or
@@ -2397,7 +2397,7 @@ if ($moonlitPartDataSource -notmatch
     # partData supplies enemyCollisionMode $03. In row $24, collision $18 is
     # disabled and $19 is enabled after dbrev/bitTable indexing.
     $partActiveCollisionsSource -notmatch
-        '(?m)^\s*dbrev %00001111 %11110110 %00010001 %01111110 ; 0x24\s*$' -or
+        '(?m)^\s*dbrev %00001111 %11110110 %00000001 %01111110 ; 0x24\s*$' -or
     $itemCollisionTypesSource -notmatch
         '(?m)^\s*ITEMCOLLISION_BOMB\s+db ; \$18: Bomb, bombchu\s*$' -or
     $moonlitCrystalSource -notmatch
@@ -2706,13 +2706,13 @@ foreach ($graphicIndex in $treasureObjectGraphics) {
         "$($graphicIndex.ToString('x2'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($graphic.DefaultAnimation.ToString('x2'))`t$animation")
 }
 $smallKeyVisual = $interactionGraphics['96:66']
-if ($treasureObjectVisualRows.Count -ne 92 -or
+if ($treasureObjectVisualRows.Count -ne 85 -or
     $null -eq $smallKeyVisual -or
     $gfxNames[$smallKeyVisual.Gfx] -ne 'spr_map_compass_keys_bookofseals' -or
     $smallKeyVisual.TileBase -ne 0x0c -or
     $smallKeyVisual.Palette -ne 5 -or
     $smallKeyVisual.DefaultAnimation -ne 0) {
-    throw "Expected 91 INTERAC_TREASURE visuals including the small-key graphic `$42."
+    throw "Expected 84 vanilla INTERAC_TREASURE visuals including the small-key graphic `$42."
 }
 $npcRoomAliases = [Collections.Generic.List[object]]::new()
 $npcRoomBlockStarted = $false

@@ -37,7 +37,6 @@ public partial class MainMenuScreen : Node2D
     private Texture2D _nameKeyboardGlyphFont = null!;
     private Texture2D[] _fileHudTileTextures = null!;
     private Texture2D[] _eraseHudTileTextures = null!;
-    private Texture2D[] _erasePartialHearts = null!;
     private int? _eraseHealth;
     private int _copySource = -1;
     private Image _hudTiles = null!;
@@ -118,8 +117,6 @@ public partial class MainMenuScreen : Node2D
         _nameKeyboardGlyphFont = BuildFontTexture(_fileSpritePalette[1, 2]);
         _fileHudTileTextures = BuildHudTileTextures(_fileBgPalette);
         _eraseHudTileTextures = BuildHudTileTextures(_eraseBgPalette);
-        _erasePartialHearts = BuildHudTileTextures(_eraseBgPalette,
-            LoadPng("res://assets/oracle/gfx/gfx_partial_hearts.png"));
         _title = BuildTitleTexture();
         _fileMenu = BuildFileMenuTexture();
         _copyMenu = BuildCopyMenuTexture();
@@ -483,7 +480,8 @@ public partial class MainMenuScreen : Node2D
                 80 + heart / heartsPerRow * 8);
             int quarters = Math.Clamp(health - heart * 4, 0, 4);
             if (quarters is > 0 and < 4)
-                DrawTexture(_erasePartialHearts[quarters - 1], position);
+                // bank2.s:@partiallyFilledHeart uses HUD tiles $0c-$0e.
+                DrawTexture(_eraseHudTileTextures[0x0b + quarters], position);
             else DrawHudTile(quarters == 4 ? 0x0f : 0x0b, position);
         }
     }

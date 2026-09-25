@@ -54,6 +54,23 @@ public partial class ValidationRoot
             FailIf(seed.State!=EmberState.Flying || seed.Angle!=1 || seed.BouncesRemaining!=2,
                 "Crown's timed reflector must reflect the real shooter projectile at its asymmetric left boundary.");
             seed.OnCollision(SeedHitResult.Consume);
+            // Vanilla seedItemState1 calls func_50f4 on reflector contact
+            // without a subid gate. Satchel seeds retain their speed/Z and
+            // skip gravity on that update, then resume their normal arc.
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                Vector2 satchelPoint = parents[0].Position + Vector2.Up * 6;
+                var satchel = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+                    satchelPoint - ember.Offset(Vector2I.Down), Vector2I.Down, ember, 4));
+                Step(2);
+                FailIf(satchel.State != EmberState.Flying || satchel.Angle != 0 ||
+                    satchel.BouncesRemaining != 2 || satchel.SpeedZ != ember.SpeedZ,
+                    "Vanilla Satchel reflector contact must bounce and bypass gravity through the gameplay loop.");
+                Step();
+                FailIf(satchel.State != EmberState.Flying || satchel.SpeedZ == ember.SpeedZ,
+                    "Satchel reflection must resume its normal arc on the following update.");
+                satchel.OnCollision(SeedHitResult.Consume);
+            }
             Step(parents[0].Counter-1);
             FailIf(parents.Any(p=>p.Counter!=1 || p.Orientation!=2),"Timed reflectors rotated before update60.");
             var text = _entities.TextActiveSource;

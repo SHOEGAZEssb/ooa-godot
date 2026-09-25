@@ -984,12 +984,12 @@ public partial class ValidationRoot
                 $"Smasher weight2 lift frame{frame}/direction{direction} lost Ages Z/X offsets.");
         }
         int[] parentEffects = [2,0,5,5,0x1c,0x1c,0x1c,0x1c,0,0x1c,0,0,0,0x1c,0x1c,0,
-            0,0,0,0x1c,0x1c,0x2d,0x1c,0x1c,0,0x20,0x20,0x20,0x20,0x20,0x20,0];
+            0,0,0,0,0,0x2d,0x1c,0x1c,0,0x20,0x20,0x20,0x20,0x20,0x20,0];
         int[] ballEffects = [2,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0x2d,0,0,0,0,0,0,0,0,0,0];
         FailIf(!data.ParentEffects.Select(v => v.Value).SequenceEqual(parentEffects) ||
             !data.BallEffects.Select(v => v.Value).SequenceEqual(ballEffects) ||
-            string.Concat(data.ActiveCollisions.Select(v => v.Value)) != "10111111010001100001111101111110",
+            string.Concat(data.ActiveCollisions.Select(v => v.Value)) != "10111111010001100000011101111110",
             "$74 source collision modes $45/$63 or common active mask changed.");
         string[] animations = [
             "127@8,252,0,0;8,4,2,0;8,12,4,0;248,12,12,0",

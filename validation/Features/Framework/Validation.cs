@@ -227,6 +227,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNpcPaletteRebuildOffsets);
         RunIsolatedValidation(ValidateCompanionWallMasks);
         RunIsolatedValidation(ValidateBackgroundPaletteState);
+        RunIsolatedValidation(ValidateVanillaTilesets);
         RunIsolatedValidation(ValidateDebugFlagMenu);
         RunIsolatedValidation(ValidateDebugObjectSpawner);
         RunIsolatedValidation(ValidateDebugObjectPreviews);

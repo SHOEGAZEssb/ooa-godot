@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
         var collisions = PartSwitchCollisionDatabase.Shared;
         // Independent partActiveCollisions $05 bit order and collision mode03.
-        const string enabled = "00001111111101100001101101111110";
+        const string enabled = "00001111111101100000001101111110";
         for (int item = 0; item < 32; item++)
         {
             int expected = enabled[item] == '0' ? -1 : item >= 0x19 ? 0 : 28;

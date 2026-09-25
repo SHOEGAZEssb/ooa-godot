@@ -456,8 +456,8 @@ Write-GeneratedTable(
     $continuousRespawnPath, $continuousRespawnRows)
 
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
-# group and resolved six-palette block; the original shared mapping index is
-# retained in metadata for provenance, but expanded mappings use tileset IDs.
+# group and resolved six-palette block. Shared layouts are expanded by the
+# vanilla-tilesets stage into the runtime's per-tileset asset format.
 $tilesetSource = Read-ImportText (Join-Path $Disassembly "data\ages\tilesets.s")
 $tilesetPattern = '(?ms);\s*0x(?<id>[0-9a-f]{2})\s*\r?\n' +
     '\s*\.db\s+\$(?<properties>[0-9a-f]{2}),\s*\$(?<flags>[0-9a-f]{2})[^\r\n]*\r?\n' +
@@ -552,15 +552,22 @@ Write-GeneratedBytes(
 
 $tilesetRecordSize = 8
 # checkTilesetOverride checks past room $48 bit 0 before loading present
-# room $38. The expanded disassembly expresses clean-ROM tileset $24 as
-# layout group $03; graphics, mappings, palettes and animation are identical.
+# room $38. Vanilla increments tileset $22 twice to $24; only its layout
+# group differs, so retain the runtime's layout-only override contract.
 $makuOverrideSource = Read-ImportText (Join-Path $Disassembly 'code\ages\loadTilesetData.s')
 $makuOverride = [regex]::Match($makuOverrideSource,
-    '(?ms)^@checkMakuTreeSaved:.*?wActiveGroup.*?or a\s+ret nz.*?cp <ROOM_AGES_(?<room>038).*?wPastRoomFlags \+ \(<ROOM_AGES_(?<flagroom>148)\).*?and \$(?<mask>01)\s+ret z.*?ld a,\$(?<layout>03)\s+ldh \(<hFF8B\),a')
+    '(?ms)^@checkMakuTreeSaved:.*?wActiveGroup.*?or a\s+ret nz.*?cp <ROOM_AGES_(?<room>038).*?wPastRoomFlags \+ \(<ROOM_AGES_(?<flagroom>148)\).*?and \$(?<mask>01)\s+ret z.*?ld hl,hFF8D\s+inc \(hl\)\s+inc \(hl\)\s+scf')
 if (-not $makuOverride.Success) { throw 'checkTilesetOverride:@checkMakuTreeSaved layout gate changed.' }
+$makuBase = @($tilesets | Where-Object { $_.Groups['id'].Value -eq '22' })[0]
+$makuSaved = @($tilesets | Where-Object { $_.Groups['id'].Value -eq '24' })[0]
+foreach ($field in @('properties', 'flags', 'palette', 'layout', 'animation')) {
+    if ($makuBase.Groups[$field].Value -ne $makuSaved.Groups[$field].Value) {
+        throw "Maku tilesets `$22/`$24 differ in $field; layout-only override is insufficient."
+    }
+}
 Write-GeneratedTable((Join-Path $destination 'metadata\maku_tree_layout_override.tsv'), @(
     "# group`troom`tflag-group`tflag-room`tflag-mask`tlayout-group",
-    "0`t$($makuOverride.Groups['room'].Value.Substring(1))`t1`t$($makuOverride.Groups['flagroom'].Value.Substring(1))`t$($makuOverride.Groups['mask'].Value)`t$($makuOverride.Groups['layout'].Value)"))
+    "0`t$($makuOverride.Groups['room'].Value.Substring(1))`t1`t$($makuOverride.Groups['flagroom'].Value.Substring(1))`t$($makuOverride.Groups['mask'].Value)`t$($makuSaved.Groups['group'].Value)"))
 $metadata = [byte[]]::new(128 * $tilesetRecordSize)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 
@@ -612,7 +619,6 @@ foreach ($tileset in $tilesets) {
     $palettePath = Join-Path $destination "metadata\palette$($id.ToString('x2')).bin"
     Write-GeneratedBytes($palettePath, $paletteBytes)
 
-    Copy-GeneratedFile "gfx\ages\gfx_tileset$($id.ToString('x2')).png" "gfx\gfx_tileset$($id.ToString('x2')).png"
 }
 
 $metadataPath = Join-Path $destination "metadata\tilesets.bin"
@@ -802,14 +808,6 @@ $transformedLinkPath = Join-Path $destination 'metadata\transformed_link.tsv'
 Write-GeneratedTable(
     $transformedLinkPath, $transformedLinkRows)
 
-# The expanded tileset table is indexed by tileset ID, even though byte 5 in
-# tilesets.s still records the original/shared mapping index. Copy the expanded
-# mapping and collision pair for every concrete tileset.
-foreach ($tilesetId in $usedTilesets) {
-    $hex = $tilesetId.ToString('x2')
-    Copy-GeneratedFile "tileset_layouts_expanded\ages\tilesetMappings${hex}.bin" "layouts\tilesetMappings${hex}.bin"
-    Copy-GeneratedFile "tileset_layouts_expanded\ages\tilesetCollisions${hex}.bin" "layouts\tilesetCollisions${hex}.bin"
-}
 
 $tilesetAssignmentSource = Read-ImportText (
     Join-Path $Disassembly 'data\ages\tilesetAssignments.s')
@@ -829,9 +827,10 @@ Copy-GeneratedFile "rooms\ages\roomPacksPresent.bin" "groups\roomPacksPresent.bi
 Copy-GeneratedFile "rooms\ages\roomPacksPast.bin" "groups\roomPacksPast.bin"
 Copy-GeneratedFile "gfx\common\spr_link.png" "gfx\spr_link.png"
 Copy-GeneratedFile "gfx\common\spr_swords.png" "gfx\spr_swords.png"
-Copy-GeneratedFile "gfx\common\spr_seed_shooter.png" "gfx\spr_seed_shooter.png"
-Copy-GeneratedFile "gfx\common\spr_switch_hook.png" "gfx\spr_switch_hook.png"
-Copy-GeneratedFile "gfx\common\spr_cane_of_somaria.png" "gfx\spr_cane_of_somaria.png"
+Copy-GeneratedFile "gfx\ages\spr_boomerang.png" "gfx\spr_boomerang.png"
+Copy-GeneratedFile "gfx\ages\spr_seed_shooter.png" "gfx\spr_seed_shooter.png"
+Copy-GeneratedFile "gfx\ages\spr_switch_hook.png" "gfx\spr_switch_hook.png"
+Copy-GeneratedFile "gfx\ages\spr_cane_of_somaria.png" "gfx\spr_cane_of_somaria.png"
 Copy-GeneratedFile "gfx\ages\spr_subrosian.png" "gfx\spr_subrosian.png"
 Copy-GeneratedFile "gfx\common\spr_link_retro.png" "gfx\spr_link_retro.png"
 Copy-GeneratedFile "gfx\common\spr_octorok_leever_tektite_zora.png" "gfx\spr_octorok_leever_tektite_zora.png"
@@ -839,14 +838,12 @@ Copy-GeneratedFile "gfx\common\spr_moblin.png" "gfx\spr_moblin.png"
 Copy-GeneratedFile "gfx\common\spr_ballandchain_likelike.png" "gfx\spr_ballandchain_likelike.png"
 Copy-GeneratedFile "gfx_compressible\common\spr_common_sprites.png" "gfx\spr_common_sprites.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_syrup_teenager.png" "gfx\spr_syrup_teenager.png"
-Copy-GeneratedFile "gfx_compressible\common\gfx_hud.png" "gfx\gfx_hud.png"
-Copy-GeneratedFile "gfx\ages\gfx_key.png" "gfx\gfx_key.png"
-Copy-GeneratedFile "gfx\common\spr_item_icons_1.png" "gfx\spr_item_icons_1.png"
-Copy-GeneratedFile "gfx\common\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
-Copy-GeneratedFile "gfx\common\spr_item_icons_3.png" "gfx\spr_item_icons_3.png"
+Copy-GeneratedFile "gfx_compressible\ages\gfx_hud.png" "gfx\gfx_hud.png"
+Copy-GeneratedFile "gfx\ages\spr_item_icons_1.png" "gfx\spr_item_icons_1.png"
+Copy-GeneratedFile "gfx\ages\spr_item_icons_2.png" "gfx\spr_item_icons_2.png"
+Copy-GeneratedFile "gfx\ages\spr_item_icons_3.png" "gfx\spr_item_icons_3.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_4.png" "gfx\spr_quest_items_4.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_common_items.png" "gfx\spr_common_items.png"
-Copy-GeneratedFile "gfx\common\gfx_partial_hearts.png" "gfx\gfx_partial_hearts.png"
 Copy-GeneratedFile "gfx\common\gfx_font.png" "gfx\gfx_font.png"
 Copy-GeneratedFile "gfx\common\gfx_font_jp.png" "gfx\gfx_font_jp.png"
 Copy-GeneratedFile "gfx\ages\gfx_font_tradeitems.png" "gfx\gfx_font_tradeitems.png"

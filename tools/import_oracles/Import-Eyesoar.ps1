@@ -27,7 +27,7 @@ foreach ($spec in @(
     $rows.Add("$($spec[0])`t$($values -join ',')`t$($spec[1]):$($spec[2])")
 }
 $collisionValues = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/objectCollisionTable.s') 'objectCollisionTable')
-if ($collisionValues.Count -ne 4096) { throw 'Eyesoar: incomplete collision table.' }
+if ($collisionValues.Count -ne 4000) { throw 'Eyesoar: incomplete collision table.' }
 foreach ($mode in @(0x15, 0x4c, 0x6d)) {
     $values = $collisionValues[($mode * 32)..($mode * 32 + 31)] | ForEach-Object { $_.ToString('x2') }
     $rows.Add("collision-$($mode.ToString('x2'))`t$($values -join ',')`tdata/ages/objectCollisionTable.s:objectCollisionTable+$((32 * $mode).ToString('x4'))")

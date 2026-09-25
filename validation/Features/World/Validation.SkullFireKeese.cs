@@ -12,13 +12,13 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         var definition = database.ImportedEnemy(0x39);
-        FailIf(string.Concat(EnemyBehaviorTables.Shared.FireKeeseActiveCollisions.Select(v => v.Value)) != "10111111110101110001111111111110",
+        FailIf(string.Concat(EnemyBehaviorTables.Shared.FireKeeseActiveCollisions.Select(v => v.Value)) != "10111111110101110000011111111110",
             "Fire Keese active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 2, DamageQuarters: 2, RadiusX: 6, RadiusY: 4, Palette: 5, TileBase: 0, Animations.Length: 4 },
             "Fire Keese lost enemyData $9d/$ab/$09/$50 or its four source animations.");
         FailIf(!EnemyBehaviorTables.Shared.FireKeeseZOffsets.Select(v => v.Value).SequenceEqual(new[] {128,96,64,48,32,32}) ||
             !EnemyBehaviorTables.Shared.FireKeeseCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
-                2,0,15,15,8,9,9,10,10,8,0,10,0,8,8,37,0,0,0,9,13,47,9,9,10,9,32,28,8,40,41,0 }) ||
+                2,0,15,15,8,9,9,10,10,8,0,10,0,8,8,37,0,0,0,0,0,47,9,9,10,9,32,28,8,40,41,0 }) ||
             !EnemyBehaviorTables.Shared.KeeseFireCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
                 1,0,0,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }),
             "Fire Keese dive offsets or source collision rows $2b/$71 changed.");

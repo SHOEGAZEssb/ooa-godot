@@ -304,7 +304,7 @@ $linkCutsceneAnimation = [regex]::Match(
     '(?ms)^specialObject08AnimationDataPointers:.*?^(?:\s*\.dw animationData[0-9a-f]+\s*){20}\s*\.dw animationData19e38.*?^animationData19e38:\s*\.db \$b4 \$04 \$00\s*animationLoop19e3b:\s*\.db \$7f \$56 \$00\s*m_AnimationLoop animationLoop19e3b')
 $linkCutsceneOamPointers =
     $specialOamTables['specialObject08OamDataPointers']
-if ($linkCutsceneGfxRows.Count -ne 0x104 -or
+if ($linkCutsceneGfxRows.Count -ne 0x100 -or
     -not $linkCutsceneAnimation.Success -or
     $null -eq $linkCutsceneOamPointers -or
     $linkCutsceneOamPointers.Count -ne 0x30) {

@@ -26,7 +26,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     internal bool BurnKilled { get; private set; }
     internal bool IsDarknut => Record.Id == 0x48;
     internal int CollisionMode => SwordBlocking ? (IsDarknut ? 0x56 : 0x55)
-        : IsDarknut ? 0x20 : Record.Id == 0x49 ? 0x7e : 0x11;
+        : IsDarknut ? 0x20 : 0x11;
     private int ChaseSpeed => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[0].Value : _behavior.ChaseSpeedRaw;
     private int TurnIntervalMask => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[1].Value : _behavior.TurnIntervalMask;
     internal int SwitchHookSubstate { get; private set; }

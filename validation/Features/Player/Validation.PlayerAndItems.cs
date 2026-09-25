@@ -2825,7 +2825,7 @@ public sealed partial class ValidationRoot
         ];
         FailIf(
             record.Item != InventoryState.ItemShooter ||
-            record.SubId != 0x63 || record.SpeedRaw != 0x78 ||
+            record.SpeedRaw != 0x78 ||
             record.Bounces != 3 || record.AimLockout != 16 ||
             record.PostShotWait != 12 ||
             record.Sound != OracleSoundEngine.SndSeedShooter ||

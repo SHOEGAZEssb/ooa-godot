@@ -1,7 +1,7 @@
 # NPC and character interaction coverage
 
 This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 24, 2026. It is an implementation inventory, not a
+interactions as of September 25, 2026. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
@@ -49,7 +49,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 ### Positioned and state-derived rows
 
-Snapshot: September 24, 2026.
+Snapshot: September 25, 2026. Vanilla-source migration retains the existing
+198 implemented, 49 partial, and 138 deliberately unsupported classifications.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
@@ -128,7 +129,7 @@ well as record selection.
 | `0:72` | [D] `$49:$0c/v$00` forestFairy |
 | `0:77` | [D] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
-| `0:79` | [P] `$c8:$00/v$00` tingle (includes pre-upgrade `$84:$04` glow) |
+| `0:79` | [P] `$c8:$00/v$00` tingle (vanilla balloon collision mask; includes pre-upgrade `$84:$04` glow) |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [D] `$49:$06/v$00` forestFairy |

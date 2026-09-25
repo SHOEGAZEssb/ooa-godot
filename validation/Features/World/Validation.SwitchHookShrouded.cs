@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSwitchHookShroudedStalfos()
     {
         var collisions = SwitchHookCollisionDatabase.Shared;
-        foreach (int mode in new[] { 0x11, 0x20, 0x36, 0x55, 0x7e })
+        foreach (int mode in new[] { 0x11, 0x20, 0x36, 0x55 })
             FailIf(collisions.Effect(mode) != 0x2e, $"Source hook collision mode ${mode:x2} must select exchange $2e.");
         FailIf(!collisions.EnemyEnabled(0x22) || !collisions.EnemyEnabled(0x49),
             "Shrouded Stalfos lost the source hook eligibility bits.");

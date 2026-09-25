@@ -6,13 +6,13 @@
 - .NET 8 SDK and PowerShell
 - A clean US Oracle of Ages ROM with MD5
   `C4639CC61C049E5A085526BB6CAC03BB`
-- A local `oracles-disasm` checkout
+- A local vanilla `oracles-disasm` checkout (`master`, not `hack-base`)
 
 The current environment uses:
 
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
-Disassembly:    C:\msys64\home\timst\oracles-disasm
+Disassembly:    E:\Stuff\Github\oracles-disasm
 Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 

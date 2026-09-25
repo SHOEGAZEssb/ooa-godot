@@ -128,7 +128,7 @@ internal sealed class TingleDatabase
                 ExplosionSprite: "spr_common_sprites",
                 ExplosionTileBase: 0x0c, ExplosionPalette: 2,
                 ExplosionYOffset: -16, ExplosionXOffset: 0,
-                BalloonActiveCollisions: "00001111111101100001100100000000"
+                BalloonActiveCollisions: "00001111111101100000000100000000"
             } || Record.KoolooSparkleOffsets is not
             [
                 { X: 0, Y: -24 },

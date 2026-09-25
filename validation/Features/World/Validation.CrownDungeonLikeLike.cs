@@ -152,8 +152,8 @@ public partial class ValidationRoot
             data.ReleaseInvincibility != -108,
             "ENEMY_LIKE_LIKE $24 source movement, capture or release operands changed.");
         int[] effects = [0x3a,0,0,0,8,9,9,10,10,8,8,10,13,0x2e,8,0x25,
-            0,0,0,0x22,13,0x2f,9,0x22,10,9,0x20,0x27,8,0x28,0x29,0];
-        const string mask = "10001111111111110001111111111110";
+            0,0,0,0,0,0x2f,9,0x22,10,9,0x20,0x27,8,0x28,0x29,0];
+        const string mask = "10001111111111110000011111111110";
         FailIf(!data.CollisionEffects.Select(v => v.Value).SequenceEqual(effects) ||
             string.Concat(data.ActiveCollisions.Select(v => v.Value)) != mask ||
             !data.LinkDamage.Select(v => v.Value).SequenceEqual(new[] { 0x62,0xf4,0,0 }) ||

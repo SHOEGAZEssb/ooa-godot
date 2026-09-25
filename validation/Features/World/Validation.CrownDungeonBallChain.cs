@@ -324,13 +324,13 @@ public partial class ValidationRoot
             data.AngleMask != 0x1f || data.ParentBlockInvincibility != -12,
             "$4b/$2a source windup, clean-US enemy-slot gate, orbit, throw or block operands changed.");
         int[] body = [2,6,5,5,11,11,11,11,11,11,0,11,0x16,0x2e,0x1b,0x25,
-            0,0,0,0x1b,0x16,0x2f,11,0x1b,11,11,0x20,0x20,11,0x20,0x20,0];
+            0,0,0,0,0,0x2f,11,0x1b,11,11,0x20,0x20,11,0x20,0x20,0];
         int[] ball = [2,0x17,0x16,0x16,0x15,0x15,0x15,0x16,0x1b,0x15,0,0,0,0,0,0,
-            0,0,0,0x1b,0,0x2d,0x1c,0x1b,0,0x20,0x20,0x20,0x20,0x20,0x20,0];
+            0,0,0,0,0,0x2d,0x1c,0x1b,0,0x20,0x20,0x20,0x20,0x20,0x20,0];
         FailIf(!data.BodyEffects.Select(v => v.Value).SequenceEqual(body) ||
             !data.BallEffects.Select(v => v.Value).SequenceEqual(ball) ||
-            string.Concat(data.BodyMask.Select(v => v.Value)) != "11111111110111110001111111111110" ||
-            string.Concat(data.BallMask.Select(v => v.Value)) != "11111111110000000001011101111110" ||
+            string.Concat(data.BodyMask.Select(v => v.Value)) != "11111111110111110000011111111110" ||
+            string.Concat(data.BallMask.Select(v => v.Value)) != "11111111110000000000011101111110" ||
             !data.PartData.Select(v => v.Value).SequenceEqual(new[] { 0x99,0x74,0x66,0xfc,0x40,8,2,0 }),
             "$4b collision$37 and PART_SPIKED_BALL $2a collision$74 source masks/effects/properties changed.");
         var enemy = new EnemyDatabase().ImportedEnemy(0x4b);

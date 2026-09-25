@@ -231,7 +231,6 @@ public sealed class SeedSatchelController
 
 internal readonly record struct SeedShooterRecord(
     int Item,
-    int SubId,
     int SpeedRaw,
     int Bounces,
     int AimLockout,
@@ -254,7 +253,7 @@ internal readonly record struct SeedShooterRecord(
             new GeneratedTableSchema(
                 "seed shooter",
                 GeneratedTableKeySemantics.Unique,
-                ["item", "subid", "speed-raw", "bounces", "aim-lockout",
+                ["item", "speed-raw", "bounces", "aim-lockout",
                     "post-shot-wait", "sound", "offsets",
                     "non-bounce-tiles", "item-passable-tiles",
                     "weapon-sprite", "weapon-vram-tile-base",
@@ -266,29 +265,29 @@ internal readonly record struct SeedShooterRecord(
             throw new System.InvalidOperationException("Expected one ITEM_SHOOTER record.");
         GeneratedTableRow row = table.Rows[0];
         Vector2I[] offsets = System.Array.ConvertAll(
-            row.RequiredString(7).Split(';'), value =>
+            row.RequiredString(6).Split(';'), value =>
             {
                 string[] pair = value.Split(',');
                 if (pair.Length != 2 ||
                     !int.TryParse(pair[0], out int y) ||
                     !int.TryParse(pair[1], out int x))
                 {
-                    throw row.Invalid(7, "eight y,x offset pairs");
+                    throw row.Invalid(6, "eight y,x offset pairs");
                 }
                 return new Vector2I(x, y);
             });
-        byte[][] nonBounce = ParseItemPassableTiles(row.RequiredString(8), row, 8);
+        byte[][] nonBounce = ParseItemPassableTiles(row.RequiredString(7), row, 7);
         byte[][] passableTiles = ParseItemPassableTiles(
-            row.RequiredString(9), row);
-        string[] weaponOam = row.RequiredString(14).Split('|');
+            row.RequiredString(8), row, 8);
+        string[] weaponOam = row.RequiredString(13).Split('|');
         var record = new SeedShooterRecord(
-            row.HexByte(0), row.HexByte(1), row.HexByte(2),
-            row.UnsignedDecimal(3), row.UnsignedDecimal(4),
-            row.UnsignedDecimal(5), row.HexByte(6), offsets,
-            nonBounce, passableTiles, row.RequiredString(10),
-            row.HexByte(11), row.HexByte(12), row.Boolean01(13), weaponOam,
-            row.RequiredString(15));
-        if (record.Item != InventoryState.ItemShooter || record.SubId != 0x63 ||
+            row.HexByte(0), row.HexByte(1),
+            row.UnsignedDecimal(2), row.UnsignedDecimal(3),
+            row.UnsignedDecimal(4), row.HexByte(5), offsets,
+            nonBounce, passableTiles, row.RequiredString(9),
+            row.HexByte(10), row.HexByte(11), row.Boolean01(12), weaponOam,
+            row.RequiredString(14));
+        if (record.Item != InventoryState.ItemShooter ||
             record.SpeedRaw != 0x78 || record.Bounces != 3 ||
             record.AimLockout != 16 || record.PostShotWait != 12 ||
             record.Sound != 0xcb || offsets.Length != 8 ||

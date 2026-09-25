@@ -218,10 +218,10 @@ public sealed partial class ValidationRoot
         _dialogue.ShowChoiceMessage("\\opt()Yes \\opt()No", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
         FailIf(
-            DialogueBox.ChoiceCursorGlyphCodeForValidation != 0x9f ||
+            DialogueBox.ChoiceCursorTileForValidation != 0x04 ||
             _dialogue.ChoiceCursorOpaquePixelCountForValidation() != 16,
             "The textbox option cursor did not use the 16-pixel triangle from " +
-            "clean-US gfx_hud tile $04 (hack-base font character $9f).");
+            "clean-US gfx_hud tile $04.");
         _dialogue.MoveChoiceForValidation(1);
         FailIf(
             _dialogue.SelectedChoice != 1 ||

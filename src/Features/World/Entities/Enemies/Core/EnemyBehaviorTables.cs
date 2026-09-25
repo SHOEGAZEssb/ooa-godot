@@ -622,7 +622,7 @@ internal sealed class EnemyBehaviorTables
         SwordEnemyBlockingBits = TakeValues(groups, "sword-enemy", "blocking-angle-bits", 16);
         SwordDarknutChase = TakeValues(groups, "sword-enemy", "darknut-chase", 2);
         SwordEnemyActiveCollisions = TakeValues(groups, "sword-enemy", "active-collisions", 32);
-        foreach (int mode in new[] { 0x11, 0x7e, 0x20, 0x55, 0x56 })
+        foreach (int mode in new[] { 0x11, 0x20, 0x55, 0x56 })
             _swordEnemyCollisions.Add(mode, TakeValues(groups, "sword-enemy", $"collision-{mode:x2}", 32));
         EnemySwordOffsets = TakeValues(groups, "enemy-sword", "offsets", 16);
         EnemySwordRadii = TakeValues(groups, "enemy-sword", "radii", 4);
@@ -716,10 +716,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "smasher", "active-collisions", 32),
             TakeValues(groups, "smasher", "unlinked-object", 6));
 
-        if (table.Rows.Count != 1970 || groups.Count != 0)
+        if (table.Rows.Count != 1938 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 1970 rows and no " +
+                $"Enemy behavior table contract expected 1938 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

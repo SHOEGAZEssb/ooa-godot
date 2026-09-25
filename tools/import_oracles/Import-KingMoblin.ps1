@@ -36,7 +36,7 @@ if(-not $ledge.Success -or $gfx -notmatch '(?ms)^@group2:.*?\.db \$af \$05') {th
 $count=[regex]::Matches($ledge.Groups['writes'].Value,'ldi').Count
 $rows.Add("ledge`t02,af,$($ledge.Groups['position'].Value),$($count.ToString('x2')),$($ledge.Groups['tile'].Value)`tcode/ages/roomGfxChanges.s:roomTileChangesAfterLoad05")
 $effects=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/objectCollisionTable.s') 'objectCollisionTable')
-if($effects.Count -ne 4096){throw 'King Moblin: incomplete collision effect table.'}
+if($effects.Count -ne 4000){throw 'King Moblin: incomplete collision effect table.'}
 $rows.Add("collision`t$(($effects[0xa00..0xa1f]|ForEach-Object{$_.ToString('x2')}) -join ',')`tdata/ages/objectCollisionTable.s:objectCollisionTable+0a00")
 Write-GeneratedTable((Join-Path $destination 'objects/king_moblin_tables.tsv'), $rows)
 $rows = [Collections.Generic.List[string]]::new()

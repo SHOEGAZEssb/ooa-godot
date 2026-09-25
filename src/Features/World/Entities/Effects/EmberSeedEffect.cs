@@ -34,7 +34,6 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private Vector2 _precisePosition;
     private OracleRuntimeState? _movementMemory;
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
-    private Vector2I _direction;
     private EmberState _state;
     private int _zFixed;
     private int _speedZ;
@@ -126,7 +125,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _saveData = saveData;
         _group = group;
         _launchKind = launchKind;
-        _angle = angle;
+        _angle = launchKind == SeedLaunchKind.Shooter ? angle : DirectionAngle(direction) / 4;
         _shooter = SeedShooterRecord.Load();
         _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase() : null;
         _shooterElevation = 0;
@@ -134,13 +133,11 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _lastShooterTile = 0;
         if (launchKind == SeedLaunchKind.Shooter && angle is < 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(angle));
-        _bouncesRemaining = launchKind == SeedLaunchKind.Shooter
-            ? _shooter.Bounces
-            : 0;
+        // Vanilla Ages initializes Item.var34 to three for all seed launches.
+        _bouncesRemaining = _shooter.Bounces;
         if (record.SeedItem == 0x24 && mysteryEffect is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(mysteryEffect));
         _mysteryEffect = record.SeedItem == 0x24 ? mysteryEffect : -1;
-        _direction = direction;
         _precisePosition = linkPosition +
             (launchKind == SeedLaunchKind.Shooter
                 ? _shooter.Offsets[angle]
@@ -259,7 +256,16 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _movementMemory,
             ref _precisePosition,
             _record.SpeedRaw,
-            DirectionAngle(_direction));
+            _angle * 4);
+        ClearSeparatedBounceTarget();
+        if (_skipShooterTerrainCollision)
+        {
+            // seedItemState1 jumps directly to @updatePosition after a
+            // reflector collision, bypassing satchel gravity for this update.
+            _skipShooterTerrainCollision = false;
+            QueueRedraw();
+            return;
+        }
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _record.Gravity);
         if (!landed)
@@ -331,16 +337,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         {
             if (bounceTarget is null)
                 throw new ArgumentNullException(nameof(bounceTarget));
-            if (_launchKind == SeedLaunchKind.Shooter)
-            {
-                BounceFrom(bounceTarget, spawns);
-                _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != 0x23 && _state != EmberState.Flying;
-                return;
-            }
-
-            // The CROSSITEMS guard in func_50f4 only reflects shooter subid
-            // $63. A Satchel seed takes the ordinary collided-with-wall path.
-            result = SeedHitResult.Activate;
+            // Vanilla func_50f4 has no subid gate: Satchel seeds reflect too.
+            BounceFrom(bounceTarget, spawns);
+            _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != 0x23 && _state != EmberState.Flying;
+            return;
         }
         _collisionEnabled = false;
         if (result == SeedHitResult.Consume)
@@ -592,7 +592,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _playSound,
             _decideBreakableDrop,
             spawns,
-            DirectionAngle(_direction));
+            _angle * 4);
         _roomTileChanged();
     }
 

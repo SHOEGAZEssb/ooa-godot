@@ -36,8 +36,8 @@ public sealed partial class ValidationRoot
             FailIf(data.CenterAngle(index) != new[] { 8, 0, 16, 24 }[index] ||
                 data.ChildAngle(index) != index * 8 || data.ChildReadyFlags(index) != 0x11 << index,
                 "Eyesoar quadrant steering, child angles or split-nibble ready flags changed.");
-        const string parentMask = "11111111111101100001111101111110";
-        const string childMask = "11111111111101110001001111111110";
+        const string parentMask = "11111111111101100000011101111110";
+        const string childMask = "11111111111101110000001111111110";
         for (int item = 0; item < 32; item++)
             FailIf(data.CollisionEnabled(0x7b, item) != (parentMask[item] == '1') ||
                 data.CollisionEnabled(0x11, item) != (childMask[item] == '1'),

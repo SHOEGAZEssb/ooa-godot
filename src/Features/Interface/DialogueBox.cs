@@ -36,7 +36,7 @@ public partial class DialogueBox : Node2D
     private const int TextAreaHeight = LinesPerPage * LineSpacing;
     private const int TextSoundCooldownFrames = 4;
     private const int TextSlowdownFrames = 0x78;
-    private const int ChoiceCursorGlyphCode = 0x9f;
+    private const int ChoiceCursorTile = 0x04;
     private static readonly Rect2 ContinueMarkerRect = new(144, 32, 8, 8);
 
     // getCharacterDisplayLength reads byte 2 of each eight-byte row in
@@ -68,6 +68,7 @@ public partial class DialogueBox : Node2D
     private Image? _tradeItemSource;
     private Texture2D? _tradeItemTexture;
     private Texture2D _continueMarkerTexture = null!;
+    private Texture2D _choiceCursorTexture = null!;
     private Texture2D[] _heartPieceTextures = null!;
     private string _currentMessage = string.Empty;
     private int _segmentIndex;
@@ -150,8 +151,7 @@ public partial class DialogueBox : Node2D
     internal static Color RedTextColorForValidation => RedTextColor;
     internal static Color BlueTextColorForValidation => BlueTextColor;
     internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
-    internal static int ChoiceCursorGlyphCodeForValidation =>
-        ChoiceCursorGlyphCode;
+    internal static int ChoiceCursorTileForValidation => ChoiceCursorTile;
 
     private TextSegment CurrentSegment => _segments[_segmentIndex];
     private bool HasAnotherLine => _firstLineIndex + LinesPerPage < CurrentSegment.Lines.Count;
@@ -167,7 +167,8 @@ public partial class DialogueBox : Node2D
         _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
         _tradeItemSource = LoadSourceImage(
             "res://assets/oracle/gfx/gfx_font_tradeitems.png");
-        _continueMarkerTexture = BuildContinueMarkerTexture();
+        _continueMarkerTexture = BuildHudMarkerTexture(0x03, 1);
+        _choiceCursorTexture = BuildHudMarkerTexture(ChoiceCursorTile, 2);
         _heartPieceTextures = BuildHeartPieceTextures();
     }
 
@@ -657,14 +658,12 @@ public partial class DialogueBox : Node2D
 
     internal int ChoiceCursorOpaquePixelCountForValidation()
     {
-        Image image = _fontTexture.GetImage();
-        int sourceX = (ChoiceCursorGlyphCode & 0x0f) * 8;
-        int sourceY = (ChoiceCursorGlyphCode >> 4) * 16;
+        using Image image = _choiceCursorTexture.GetImage();
         int count = 0;
-        for (int y = 0; y < 16; y++)
+        for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            if (image.GetPixel(sourceX + x, sourceY + y).A > 0.5f)
+            if (image.GetPixel(x, y).A > 0.5f)
                 count++;
         }
         return count;
@@ -805,25 +804,13 @@ public partial class DialogueBox : Node2D
             {
                 if (optionIndex++ != _selectedChoice)
                     continue;
-                // Clean-US updateSelectedTextPosition writes gfx_hud tile
-                // $04. The disassembly's hack-base branch moved those exact
-                // triangle pixels into font character $9f.
-                TextLine cursorLine = new TextLine(
-                    new[]
-                    {
-                        new TextGlyph(
-                            ChoiceCursorGlyphCode,
-                            FontSource.Main,
-                            0,
-                            0,
-                            0)
-                    },
-                    Array.Empty<int>());
-                DrawFontLine(
-                    cursorLine,
+                // updateSelectedTextPosition writes HUD tile $04 into
+                // textbox-map row $20/$60: the lower half of the text line.
+                DrawTexture(
+                    _choiceCursorTexture,
                     new Vector2(16 + Math.Max(0, column - 1) * 8,
-                        lineIndex * LineSpacing),
-                    1);
+                        lineIndex * LineSpacing + 8),
+                    ColorFor(0));
                 return;
             }
         }
@@ -1487,18 +1474,17 @@ public partial class DialogueBox : Node2D
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildContinueMarkerTexture()
+    private static Texture2D BuildHudMarkerTexture(int tile, int foregroundShade)
     {
-        // updateTextboxArrow writes HUD tile $03; tile $02 is its blank frame.
+        // HUD tile $03's continuation arrow uses shade 1; the option
+        // cursor at $04 uses shade 2. Shade 3 is transparent textbox black.
         Image source = LoadSourceImage("res://assets/oracle/gfx/gfx_hud.png");
-        Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        using Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            Color pixel = source.GetPixel(3 * 8 + x, y);
-            // gfx_hud uses inverted 2bpp grayscale. Tile $03's arrow pixels
-            // are shade 1 (PNG value 170); shade 3 is the transparent black.
-            output.SetPixel(x, y, pixel.R > 0.5f ? Colors.White : Colors.Transparent);
+            int shade = OracleGraphicsData.TwoBitShade(source.GetPixel(tile * 8 + x, y));
+            output.SetPixel(x, y, shade == foregroundShade ? Colors.White : Colors.Transparent);
         }
         return ImageTexture.CreateFromImage(output);
     }

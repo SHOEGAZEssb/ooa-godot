@@ -820,8 +820,8 @@ $octorokPath = Join-Path $destination 'objects\octoroks.tsv'
 # bone projectiles, or stomp states and remain explicit unsupported variants.
 $stalfosDefinition = Get-EnemyDefinition 0x31 0
 if ($stalfosDefinition.Gfx -ne 0x9b -or
-    ($stalfosDefinition.Collision -band 0x7f) -ne 0x7d) {
-    throw 'ENEMY_STALFOS no longer resolves to gfx `$9b / undead collision mode `$7d.'
+    ($stalfosDefinition.Collision -band 0x7f) -ne 0x10) {
+    throw 'ENEMY_STALFOS no longer resolves to gfx `$9b / vanilla collision mode `$10.'
 }
 $stalfosGfx = $stalfosDefinition.Gfx
 
@@ -1679,9 +1679,9 @@ foreach ($collisionRow in $enemyCollisionRows) {
             [Convert]::ToInt32($value.Groups['value'].Value, 16))
     }
 }
-if ($enemyCollisionRows.Count -ne 256 -or
-    $enemyCollisionTableValues.Count -ne 0x1000) {
-    throw "Expected 256 object-collision rows / 4096 effects, got " +
+if ($enemyCollisionRows.Count -ne 250 -or
+    $enemyCollisionTableValues.Count -ne 0x0fa0) {
+    throw "Expected 250 vanilla object-collision rows / 4000 effects, got " +
         "$($enemyCollisionRows.Count) / $($enemyCollisionTableValues.Count)."
 }
 
@@ -1689,7 +1689,7 @@ $galeCollisionRows = [Collections.Generic.List[string]]::new()
 function Export-SwitchHookCollisionData {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# mode`teffect`tsource")
-    for ($mode = 0; $mode -lt 128; $mode++) {
+    for ($mode = 0; $mode -lt 0x7d; $mode++) {
         $offset = $mode * 32 + 13
         $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
     }
@@ -1712,7 +1712,7 @@ Export-SwitchHookCollisionData
 function Export-BoomerangCollisionData {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# mode`teffect`tsource")
-    for ($mode = 0; $mode -lt 128; $mode++) {
+    for ($mode = 0; $mode -lt 0x7d; $mode++) {
         $offset = $mode * 32 + 0x17
         $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
     }
@@ -1746,7 +1746,7 @@ Export-BoomerangCollisionData
 function Export-SomariaCollisionData {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# mode`tswing-effect`tblock-effect`tsource")
-    for ($mode = 0; $mode -lt 128; $mode++) {
+    for ($mode = 0; $mode -lt 0x7d; $mode++) {
         $offset = $mode * 32
         $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x12].ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x15].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
     }
@@ -1774,7 +1774,7 @@ if ($galeCollisionCode -notmatch '(?ms)^collisionEffect29:.*?ld \(hl\),\$9e.*?En
     throw 'Gale collision $29 or shared enemy shake/ascent changed.'
 }
 $galeCollisionRows.Add('# mode`teffect`tsource')
-for ($mode = 0; $mode -lt 0x80; $mode++) {
+for ($mode = 0; $mode -lt 0x7d; $mode++) {
     $galeOffset = $mode * 0x20 + 0x1e
     $galeCollisionRows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$galeOffset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($galeOffset.ToString('x4'))")
 }
@@ -4128,7 +4128,7 @@ $armosCollisionEffects = @(
 $expectedArmosCollisionEffects = @(
     0x02, 0x07, 0x06, 0x06, 0x15, 0x15, 0x15, 0x08,
     0x16, 0x15, 0x00, 0x00, 0x15, 0x2e, 0x15, 0x25,
-    0x00, 0x00, 0x00, 0x2b, 0x15, 0x2f, 0x1c, 0x22,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x2f, 0x1c, 0x22,
     0x0b, 0x20, 0x35, 0x20, 0x0b, 0x28, 0x20, 0x00)
 if (($armosCollisionEffects -join ',') -ne
     ($expectedArmosCollisionEffects -join ',')) {
@@ -4179,7 +4179,7 @@ $polsVoiceCollisionEffects = @(
 $expectedPolsVoiceCollisionEffects = @(
     0x02, 0x0f, 0x0f, 0x0f, 0x0c, 0x0d, 0x0d, 0x0e,
     0x0e, 0x0c, 0x0c, 0x09, 0x0d, 0x0c, 0x0c, 0x25,
-    0x00, 0x00, 0x00, 0x0d, 0x0d, 0x0d, 0x09, 0x0d,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x0d, 0x09, 0x0d,
     0x0a, 0x0d, 0x20, 0x20, 0x0d, 0x28, 0x29, 0x00)
 if (($polsVoiceCollisionEffects -join ',') -ne
     ($expectedPolsVoiceCollisionEffects -join ',')) {
@@ -4213,7 +4213,7 @@ $armMimicCollisionEffects = @(
 $expectedArmMimicCollisionEffects = @(
     0x02, 0x10, 0x0f, 0x0f, 0x08, 0x09, 0x09, 0x0a,
     0x0a, 0x08, 0x08, 0x0a, 0x0d, 0x2e, 0x08, 0x25,
-    0x00, 0x00, 0x00, 0x22, 0x0d, 0x2f, 0x09, 0x22,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x2f, 0x09, 0x22,
     0x0a, 0x08, 0x35, 0x27, 0x08, 0x20, 0x29, 0x00)
 if (($armMimicCollisionEffects -join ',') -ne
     ($expectedArmMimicCollisionEffects -join ',')) {
@@ -4262,7 +4262,7 @@ $moldormCollisionEffects = @(
 $expectedMoldormCollisionEffects = @(
     0x02, 0x10, 0x0f, 0x0f, 0x08, 0x09, 0x09, 0x0a,
     0x0a, 0x08, 0x08, 0x0a, 0x0d, 0x08, 0x08, 0x25,
-    0x00, 0x00, 0x00, 0x1b, 0x00, 0x2f, 0x09, 0x1b,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x2f, 0x09, 0x1b,
     0x0a, 0x08, 0x20, 0x20, 0x08, 0x20, 0x20, 0x00)
 if (($moldormCollisionEffects -join ',') -ne
     ($expectedMoldormCollisionEffects -join ',')) {
@@ -4581,14 +4581,14 @@ if ($wingEnemySources.sword -notmatch '(?ms)^enemyCode3d:\s+enemyCode49:\s+enemy
 }
 Add-EnemyBehaviorProfile 'sword-enemy' 'darknut-chase' @(0x1e, 1) `
     'object_code/common/enemies/swordEnemies.s:swordDarknut_state9/stateA'
-foreach ($mode in @(0x11, 0x7e, 0x20, 0x55, 0x56)) {
+foreach ($mode in @(0x11, 0x20, 0x55, 0x56)) {
     Add-EnemyBehaviorProfile 'sword-enemy' "collision-$($mode.ToString('x2'))" `
         @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) `
         "data/ages/objectCollisionTable.s:objectCollisionTable+`$$((32 * $mode).ToString('x4'))"
 }
 foreach ($id in @(0x3d, 0x48, 0x49, 0x4a)) {
     $bits = ($seedActiveRows[$id].Operands -join '').Replace('%', '')
-    if ($bits -ne '11111111111111110001111111111110') {
+    if ($bits -ne '11111111111111110000011111111110') {
         throw "Sword enemy `$$($id.ToString('x2')) active collision mask changed."
     }
 }
@@ -4769,7 +4769,7 @@ $flyingTileCollisionEffects = @(
 $expectedFlyingTileCollisionEffects = @(
     0x02, 0x07, 0x06, 0x06, 0x1c, 0x1c, 0x1c, 0x1c,
     0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x00,
-    0x00, 0x00, 0x00, 0x1c, 0x0b, 0x00, 0x1c, 0x1c,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x1c,
     0x1c, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00)
 if (($flyingTileCollisionEffects -join ',') -ne
     ($expectedFlyingTileCollisionEffects -join ',')) {
@@ -5026,8 +5026,8 @@ if ($smasherBits -notmatch '^[01]{32}$') { throw 'ENEMY_SMASHER $74 active colli
 Add-EnemyBehaviorProfile 'smasher' 'active-collisions' @($smasherBits.ToCharArray() | ForEach-Object {
     [int]::Parse([string]$_)
 }) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$01d0'
-if ($enemyBehaviorRows.Count -ne 1971) {
-    throw "Expected 1970 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 1939) {
+    throw "Expected 1938 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

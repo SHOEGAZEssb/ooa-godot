@@ -1,5 +1,5 @@
 param(
-    [string]$Disassembly = "C:\msys64\home\timst\oracles-disasm",
+    [string]$Disassembly = (Join-Path $PSScriptRoot '..\..\oracles-disasm'),
     [string]$Rom = (Join-Path $PSScriptRoot "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc"),
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\assets\oracle'),
     [switch]$SkipBuild
@@ -63,6 +63,8 @@ function New-ImportStageContract(
 }
 
 $stageContracts = @(
+    New-ImportStageContract 'vanilla-tilesets' 'Import-VanillaTilesets.ps1' `
+        -functionOutputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'world' 'Import-WorldAssets.ps1' `
         -outputs @(
             'globalFlagValues', 'singleTileChangeRecords', 'tilesets',
@@ -271,7 +273,7 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'globalFlagValues') `
         -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
-        -functionOutputs @('Expand-TransitionGraphics')
+        -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
         -inputs @('globalFlagValues')
     New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `

@@ -112,7 +112,7 @@ foreach ($introAsset in @(
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_1.png" "inventory\gfx_inventory_hud_1.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_present_past_symbols.png" "inventory\spr_present_past_symbols.png"
 Copy-GeneratedFile "gfx_compressible\ages\gfx_inventory_hud_2.png" "inventory\gfx_inventory_hud_2.png"
-Copy-GeneratedFile "gfx_compressible\common\spr_quest_items_5.png" "inventory\spr_quest_items_5.png"
+Copy-GeneratedFile "gfx_compressible\ages\spr_quest_items_5.png" "inventory\spr_quest_items_5.png"
 Copy-GeneratedFile "gfx_compressible\ages\spr_map_compass_keys_bookofseals.png" "inventory\spr_map_compass_keys_bookofseals.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_save.png" "inventory\gfx_save.png"
 Copy-GeneratedFile "gfx_compressible\common\gfx_blank.png" "inventory\gfx_blank.png"
