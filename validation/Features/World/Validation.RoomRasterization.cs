@@ -50,6 +50,7 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(id.Item1, id.Item2);
             Verify(_currentRoom);
+            ValidateClearedTilemapDependencies(_currentRoom, Verify);
             for (int tick = 1; tick <= 32; tick++) _currentRoom.UpdateAnimation(tick);
             Verify(_currentRoom);
         }
@@ -71,5 +72,48 @@ public sealed partial class ValidationRoot
             }
             GD.Print($"Yoll {(entering ? "entry" : "exit")}: room and cleared-tilemap reference pixels match.");
         }
+    }
+
+    private static void ValidateClearedTilemapDependencies(OracleRoomData room, Action<OracleRoomData> verify)
+    {
+        Color[,] original = room.BackgroundPalettes.Capture();
+        Color[,] replacement = (Color[,])original.Clone();
+        Texture2D texture = room.ClearedTilemapTexture;
+        int changes = 0;
+        void CountChange() => changes++;
+        texture.Changed += CountChange;
+        try
+        {
+            for (int palette = 1; palette < 8; palette++)
+            for (int shade = 0; shade < 4; shade++)
+            {
+                Color old = replacement[palette, shade];
+                replacement[palette, shade] = new Color(old.R, old.G, old.B, 1.0f - old.A);
+            }
+            room.BackgroundPalettes.Restore(replacement);
+            room.RedrawForPaletteChange();
+            using Image vram = room.CaptureLiveGraphics();
+            room.SetLiveGraphics(vram, true);
+            room.SetLiveGraphics(null, false);
+            FailIf(changes != 0, "BG1-7 or live graphics changes rebuilt the BG0 cleared texture.");
+            verify(room);
+            for (int shade = 0; shade < 4; shade++)
+            {
+                Color old = replacement[0, shade];
+                replacement[0, shade] = new Color(old.R, old.G, old.B, 1.0f - old.A);
+                room.BackgroundPalettes.Restore(replacement);
+                FailIf(changes != shade + 1 || !ReferenceEquals(texture, room.ClearedTilemapTexture),
+                    $"BG0 color {shade} did not update the retained clear texture exactly once.");
+                verify(room);
+                room.RedrawForPaletteChange();
+                FailIf(changes != shade + 1, "Repeated BG0 state rebuilt the cleared texture.");
+            }
+        }
+        finally
+        {
+            texture.Changed -= CountChange;
+            room.BackgroundPalettes.Restore(original);
+        }
+        verify(room);
     }
 }

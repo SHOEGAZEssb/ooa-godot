@@ -53,6 +53,7 @@ public sealed class OracleRoomData
     private readonly Dictionary<int, DynamicBackgroundTile> _dynamicBackgroundTiles = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
+    private (Color, Color, Color, Color) _clearedTilemapPalette;
 
     internal int CurrentAnimationSignature => _animationSignature;
     internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
@@ -108,6 +109,7 @@ public sealed class OracleRoomData
         using Image cleared = RenderClearedTilemap();
         using Image rendered = RenderRoom(activeHeaders);
         ClearedTilemapTexture = ImageTexture.CreateFromImage(cleared);
+        _clearedTilemapPalette = ClearedTilemapPaletteKey();
         Texture = ImageTexture.CreateFromImage(rendered);
     }
 
@@ -1266,8 +1268,19 @@ public sealed class OracleRoomData
     internal void RedrawForPaletteChange()
     {
         ReplaceTextureImage(Texture, RenderRoom(_activeAnimationHeaders));
-        ReplaceTextureImage(ClearedTilemapTexture, RenderClearedTilemap());
+        // The clear map repeats immutable gfx_hud tile $00 with BG palette 0.
+        // Scrolling VRAM uploads and writes to BG1-7 cannot change its pixels.
+        var palette = ClearedTilemapPaletteKey();
+        if (palette != _clearedTilemapPalette)
+        {
+            ReplaceTextureImage(ClearedTilemapTexture, RenderClearedTilemap());
+            _clearedTilemapPalette = palette;
+        }
     }
+
+    private (Color, Color, Color, Color) ClearedTilemapPaletteKey() =>
+        (_backgroundPalettes.Resolve(0, 0), _backgroundPalettes.Resolve(0, 1),
+            _backgroundPalettes.Resolve(0, 2), _backgroundPalettes.Resolve(0, 3));
 
     private byte GetRenderedMetatile(int layoutIndex) =>
         _positionVisualOverrides.TryGetValue(layoutIndex, out byte visualOverride)

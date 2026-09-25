@@ -65,6 +65,7 @@ public sealed partial class ValidationRoot
     {
         LoadValidationRoom(5, 0x0b);
         OracleRoomData room = _rooms.CurrentRoom;
+        ValidatePaletteSnapshotRestore(room);
         var palette1Pixel = new Vector2I(0, 0);
 
         FailIf(
@@ -177,6 +178,52 @@ public sealed partial class ValidationRoot
             "Validated eight live BG palette slots, PALH_0e/PALH_0d slot-1 " +
             "writes over room 5:0b, slots-2-7-only darkening, retained " +
             "post-textbox state, and Link's alternate-textbox draw priority.");
+    }
+
+    private static void ValidatePaletteSnapshotRestore(OracleRoomData room)
+    {
+        BackgroundPaletteState state = room.BackgroundPalettes;
+        Color[,] original = state.Capture();
+        Color[,] replacement = new Color[8, 4];
+        for (int palette = 0; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++)
+            replacement[palette, shade] = new Color(palette / 7.0f, shade / 3.0f, 0.25f, 0.5f);
+        int notifications = 0, redraws = 0;
+        void ObserveCompleteSnapshot()
+        {
+            notifications++;
+            for (int palette = 0; palette < 8; palette++)
+            for (int shade = 0; shade < 4; shade++)
+                FailIf(state.Resolve(palette, shade) != replacement[palette, shade],
+                    $"Palette restore published incomplete BG{palette}, color {shade}.");
+        }
+        void CountRedraw() => redraws++;
+        state.Changed += ObserveCompleteSnapshot;
+        room.Texture.Changed += CountRedraw;
+        try
+        {
+            state.Restore(replacement);
+            FailIf(notifications != 1 || redraws != 1,
+                $"Palette snapshot restore notified {notifications} times and redrew {redraws} times, expected one each.");
+            state.Restore((Color[,])replacement.Clone());
+            FailIf(notifications != 1 || redraws != 1,
+                "An unchanged palette snapshot requested another redraw.");
+            bool rejected = false;
+            try { state.Restore(new Color[7, 4]); }
+            catch (System.ArgumentException) { rejected = true; }
+            FailIf(!rejected || notifications != 1 || redraws != 1,
+                "Invalid palette snapshot was accepted or published a change.");
+            for (int palette = 0; palette < 8; palette++)
+            for (int shade = 0; shade < 4; shade++)
+                FailIf(state.Resolve(palette, shade) != replacement[palette, shade],
+                    "Invalid palette snapshot partially overwrote the live colors.");
+        }
+        finally
+        {
+            state.Changed -= ObserveCompleteSnapshot;
+            room.Texture.Changed -= CountRedraw;
+            state.Restore(original);
+        }
     }
 
     private static Color GbcPaletteColor(int red, int green, int blue) =>

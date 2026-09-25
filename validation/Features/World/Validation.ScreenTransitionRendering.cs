@@ -71,6 +71,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateScreenTransitionRendering()
     {
+        if (System.Environment.GetEnvironmentVariable("OOA_BENCHMARK_PALETTE_RESTORE") == "1")
+            BenchmarkTransitionPaletteRestore();
         var routes = new ScreenTransitionPaletteDatabase();
         foreach (bool entering in new[] { true, false })
         {
@@ -198,6 +200,38 @@ public sealed partial class ValidationRoot
         UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
         FailIf(_transitions.ScrollActive || _currentRoom.TilesetPaletteId != 0x63,
             "Room 5:78 did not execute uniqueGfxHeader14's terminal PALH_63 upload.");
+    }
+
+    private void BenchmarkTransitionPaletteRestore()
+    {
+        LoadValidationRoom(0, 0x6a);
+        Color[,] source = _currentRoom.BackgroundPalettes.Capture();
+        LoadValidationRoom(0, 0x6b);
+        Color[,] target = _currentRoom.BackgroundPalettes.Capture();
+        BackgroundPaletteState palettes = _currentRoom.BackgroundPalettes;
+        void RestorePair() { palettes.Restore(source); palettes.Restore(target); }
+        for (int i = 0; i < 10; i++) RestorePair();
+        int redraws = 0;
+        void CountRedraw() => redraws++;
+        _currentRoom.Texture.Changed += CountRedraw;
+        try
+        {
+            double[] times = new double[7];
+            long bytes = 0;
+            for (int sample = 0; sample < times.Length; sample++)
+            {
+                long allocated = GC.GetAllocatedBytesForCurrentThread();
+                long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                for (int i = 0; i < 30; i++) RestorePair();
+                long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+                bytes = (GC.GetAllocatedBytesForCurrentThread() - allocated) / 60;
+                times[sample] = elapsed * 1000000.0 / System.Diagnostics.Stopwatch.Frequency / 60;
+            }
+            Array.Sort(times);
+            GD.Print(FormattableString.Invariant(
+                $"PALETTE_RESTORE_BENCHMARK Yoll 0:6a/6b: median_us/restore={times[3]:F3}; managed_bytes/restore={bytes}; room_redraws/restore={redraws / 420.0:F1}; 7 samples, 60 restores/sample, warmed room, actual redraw callback, headless."));
+        }
+        finally { _currentRoom.Texture.Changed -= CountRedraw; }
     }
 
     private void ValidateScreenTransitionGraphicsPayloads()

@@ -68,8 +68,20 @@ public sealed class BackgroundPaletteState
     {
         if (palettes.GetLength(0) != PaletteCount || palettes.GetLength(1) != ColorsPerPalette)
             throw new ArgumentException("A live BG palette snapshot must contain eight palettes.", nameof(palettes));
+        // Snapshot restoration is one synchronous write. Publish only the
+        // complete palette, avoiding a room redraw for every changed slot.
+        bool changed = false;
         for (int palette = 0; palette < PaletteCount; palette++)
-            WritePalette(palette, shade => palettes[palette, shade]);
+        for (int shade = 0; shade < ColorsPerPalette; shade++)
+        {
+            Color value = palettes[palette, shade];
+            if (_colors[palette, shade] == value)
+                continue;
+            _colors[palette, shade] = value;
+            changed = true;
+        }
+        if (changed)
+            Changed?.Invoke();
     }
 
     internal void LoadTileset(Color[,] palettes)

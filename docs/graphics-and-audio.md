@@ -65,6 +65,9 @@ and compose pixels in managed memory before uploading the complete image.
 These reads are scoped to one redraw: retaining a snapshot of the mutable
 transition buffer would hide later graphics uploads. Temporary raster images
 are disposed after their texture upload.
+The cleared-room reveal texture depends only on immutable HUD tile $00 and
+BG palette slot 0. Reuse it across other palette and graphics changes; rebuild
+it when slot 0 changes while retaining the texture object used by reveal views.
 Overworld room-pack changes first apply the original fade-bit gate. Those
 transitions fade to white and reload the complete destination graphics instead
 of entering the shared scrolling-buffer path; Link retains the original
@@ -79,7 +82,9 @@ its complete graphics or palette. The finisher restores the destination
 palette and resumes animation over the uploaded tile buffer; a full room load
 replaces that buffer. Cached source graphics remain immutable.
 
-Temporary palette effects capture and restore live palette state. Per-object
+Temporary palette effects capture and restore live palette state. A complete
+snapshot restore publishes one change after all slots are written; unchanged
+snapshots do not request a redraw. Per-object
 overrides select cached textures without resetting animation clocks or mutating
 source images.
 
