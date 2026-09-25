@@ -91,12 +91,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"INTERAC_KILLENEMYPUFF should have one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
 

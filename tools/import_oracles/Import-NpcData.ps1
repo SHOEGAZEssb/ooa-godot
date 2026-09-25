@@ -335,6 +335,20 @@ foreach ($label in $oamDataByLabel.Keys) {
     $npcOamBlocks[$label] = $blocks -join ';'
 }
 
+# Encoding is shared; pointer domains and missing-frame handling stay with
+# each resolver (interactions and treasures may cross named pointer tables).
+function Format-NpcAnimationFrame($frame, [string]$oam) {
+    $metadata = "$($frame.Duration)"
+    if ([int]$frame.Parameter -ne 0) { $metadata += ",$($frame.Parameter)" }
+    return "$metadata@$oam"
+}
+
+function Join-NpcAnimationFrames($frames, [int]$loopStart) {
+    $encoded = $frames -join '|'
+    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
+    return $encoded
+}
+
 function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
     $hex = $interactionId.ToString('x2')
     $animationKey = "interaction${hex}Animations"
@@ -355,19 +369,9 @@ function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
             $absolutePointerIndex -ge $npcOamPointers.Count) { continue }
         $oamLabel = $npcOamPointers[$absolutePointerIndex]
         $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
-        $metadata = if ([int]$frame.Parameter -eq 0) {
-            "$($frame.Duration)"
-        } else {
-            "$($frame.Duration),$($frame.Parameter)"
-        }
-        $resolvedFrames.Add("$metadata@$oam")
+        $resolvedFrames.Add((Format-NpcAnimationFrame $frame $oam))
     }
-    $encoded = $resolvedFrames -join '|'
-    $loopStart = $definition.LoopStart
-    if ($loopStart -gt 0) {
-        $encoded += "~$loopStart"
-    }
-    return $encoded
+    return Join-NpcAnimationFrames $resolvedFrames $definition.LoopStart
 }
 
 # PART_TINGLE_BALLOON uses the same object-gfx sheet as Tingle, but its
@@ -429,18 +433,9 @@ function Resolve-PartAnimation([int]$partId, [int]$animationIndex) {
         $oam = if ($partOamBlocks.ContainsKey($oamLabel)) {
             $partOamBlocks[$oamLabel]
         } else { '' }
-        $metadata = if ([int]$frame.Parameter -eq 0) {
-            "$($frame.Duration)"
-        } else {
-            "$($frame.Duration),$($frame.Parameter)"
-        }
-        $resolvedFrames.Add("$metadata@$oam")
+        $resolvedFrames.Add((Format-NpcAnimationFrame $frame $oam))
     }
-    $encoded = $resolvedFrames -join '|'
-    if ($definition.LoopStart -gt 0) {
-        $encoded += "~$($definition.LoopStart)"
-    }
-    return $encoded
+    return Join-NpcAnimationFrames $resolvedFrames $definition.LoopStart
 }
 
 # The shared INTERAC_TREASURE OAM pointer base intentionally indexes through
@@ -476,17 +471,9 @@ function Resolve-TreasureAnimation([int]$animationIndex) {
         } else {
             ''
         }
-        $metadata = if ([int]$frame.Parameter -eq 0) {
-            "$($frame.Duration)"
-        } else {
-            "$($frame.Duration),$($frame.Parameter)"
-        }
-        $resolvedFrames.Add("$metadata@$oam")
+        $resolvedFrames.Add((Format-NpcAnimationFrame $frame $oam))
     }
-    $encoded = $resolvedFrames -join '|'
-    $loopStart = $definition.LoopStart
-    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
-    return $encoded
+    return Join-NpcAnimationFrames $resolvedFrames $definition.LoopStart
 }
 
 # The graphics record supplies the animation used before interaction state 0

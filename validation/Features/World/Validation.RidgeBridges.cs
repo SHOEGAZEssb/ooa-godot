@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,10 +8,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRollingRidgeButtonBridges()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var data = new DungeonMechanicDatabase();
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
         // Source $dc:$0c: BC=$0801/E=$56; $0d: BC=$0603/E=$28.
@@ -20,12 +15,8 @@ public sealed partial class ValidationRoot
         foreach (var setup in new[] { (Room: 0xc2, Button: 0x45, Start: 0x56, Count: 8, Direction: 1, Half: 0x6e),
             (Room: 0xe3, Button: 0x19, Start: 0x28, Count: 6, Direction: -1, Half: 0x6f) })
         {
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             void Enter()
             {
                 _saveData.SetRoomFlag(5, setup.Room, 0x80, false);

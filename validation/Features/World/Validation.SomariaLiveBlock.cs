@@ -19,12 +19,8 @@ public partial class ValidationRoot
             Vector2 point=new(72,70);
             // Isolated placement surface; no room progression or NPC approach.
             _currentRoom.SetPositionTileAndCollision(point,0x0c,0,0);
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             FailIf(!_entities.TryCreateSomariaBlock(_player,0,point,0),"ITEM$18 must allocate in the shared dynamic pool.");
             var block=_entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
             Step(1); Step(8);

@@ -22,15 +22,9 @@ public sealed partial class ValidationRoot
             data.GetRoomRecords(4, 0x7b)[0] is not { Id: 0x21, SubId: 0x10, Order: 0, X: 0x68, Y: 0x58 },
             "Skull pattern events lost their native order or falling-key coordinates.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var setTrigger = (Action<int, bool>)typeof(RoomEntityManager).GetMethod("SetTrigger", flags)!.CreateDelegate(typeof(Action<int, bool>), _entities);
-        void Step(int count = 1, bool jump = false, Vector2 move = default)
-        {
-            input.CaptureForValidation(jump ? ["attack"] : [], jump ? ["attack"] : [], move);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, bool jump = false, Vector2 move = default) =>
+            StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         static Vector2 Point(int packed) => new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);
         void Tile(int packed, int tile) => _currentRoom.SetPositionTileAndCollision(Point(packed), (byte)tile, null, (long)_animationTicks);
         void SetPattern(byte[][] pattern)

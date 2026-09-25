@@ -133,24 +133,8 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _lifecycle.TransferOpening(map, this);
     }
 
-    internal void BeginOpeningForValidation() => BeginOpening(openSaveMenu: false);
-    internal void BeginSaveOpeningForValidation() => BeginOpening(openSaveMenu: true);
-    internal void BeginGameOverForValidation() => BeginGameOver();
-    internal void OpenSaveMenuFromInventoryForValidation() => OpenSaveMenuFromInventory();
-    internal void SelectSaveOptionForValidation() => SelectSaveOption();
-    internal bool CancelSaveMenuForValidation() => CancelSaveMenu();
-    internal bool MoveSaveCursorForValidation(int direction) =>
-        MoveSaveCursor(direction);
-    internal bool BeginNextSubscreenForValidation() => BeginNextSubscreen();
-    internal bool MoveCursorForValidation(Vector2I direction) => MoveCursor(direction);
-    internal bool EquipToAForValidation() => EquipToA();
-    internal bool EquipToBForValidation() => EquipToB();
     internal void UpdateItemSubmenuForValidation(double delta) =>
         _screen.UpdateItemSubmenu(delta);
-    internal bool MoveItemSubmenuForValidation(int direction) =>
-        MoveItemSubmenu(direction);
-    internal bool ConfirmItemSubmenuForValidation() =>
-        ConfirmItemSubmenu();
 
     internal void OpenImmediatelyForValidation()
     {
@@ -312,7 +296,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         }
     }
 
-    private void BeginOpening(bool openSaveMenu)
+    internal void BeginOpening(bool openSaveMenu)
     {
         _openMenu = openSaveMenu ? OpenMenu.SaveQuit : OpenMenu.Inventory;
         _gameOver = false;
@@ -333,7 +317,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         }
     }
 
-    private bool BeginNextSubscreen()
+    internal bool BeginNextSubscreen()
     {
         if (_screen.PageTransitionActive || _screen.ItemSubmenuActive)
             return false;
@@ -344,7 +328,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private void OpenSaveMenuFromInventory()
+    internal void OpenSaveMenuFromInventory()
     {
         if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.Inventory)
             throw new InvalidOperationException(
@@ -358,7 +342,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _lifecycle.BeginFadeInFromWhite(this);
     }
 
-    private void SelectSaveOption()
+    internal void SelectSaveOption()
     {
         if (!_lifecycle.IsOpenFor(this) || _openMenu != OpenMenu.SaveQuit || _saveSelectionDelay)
             return;
@@ -403,7 +387,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         _saveDelayUpdates.Reset();
     }
 
-    private bool CancelSaveMenu()
+    internal bool CancelSaveMenu()
     {
         if (_gameOver ||
             !_lifecycle.IsOpenFor(this) ||
@@ -420,7 +404,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private bool MoveSaveCursor(int direction)
+    internal bool MoveSaveCursor(int direction)
     {
         if (!_lifecycle.IsOpenFor(this) ||
             _openMenu != OpenMenu.SaveQuit ||
@@ -449,7 +433,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     private int DirectionInputWithAutofire() => _lifecycle.DirectionInputWithAutofire();
 
-    private bool MoveCursor(Vector2I direction)
+    internal bool MoveCursor(Vector2I direction)
     {
         if (!_screen.MoveCursor(direction))
             return false;
@@ -457,7 +441,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private bool EquipToA()
+    internal bool EquipToA()
     {
         if (!_screen.EquipToA())
             return false;
@@ -465,7 +449,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private bool EquipToB()
+    internal bool EquipToB()
     {
         if (!_screen.EquipToB())
             return false;
@@ -481,7 +465,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private bool MoveItemSubmenu(int direction)
+    internal bool MoveItemSubmenu(int direction)
     {
         if (!_screen.MoveItemSubmenu(direction))
             return false;
@@ -489,7 +473,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
         return true;
     }
 
-    private bool ConfirmItemSubmenu()
+    internal bool ConfirmItemSubmenu()
     {
         if (!_screen.ConfirmItemSubmenu())
             return false;

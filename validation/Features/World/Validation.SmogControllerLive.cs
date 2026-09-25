@@ -11,18 +11,11 @@ public partial class ValidationRoot
     private void ValidateSmogControllerLive()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var signal = (BossShutterSignal)typeof(RoomEntityManager).GetField("_bossShutterSignal",flags)!.GetValue(_entities)!;
         foreach (bool batch in new[] { false,true })
         {
-            void Step(int count = 1)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count = 1) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             void Reset()
             {
                 _saveData.SetRoomFlag(4,0xbf,0x80,false);

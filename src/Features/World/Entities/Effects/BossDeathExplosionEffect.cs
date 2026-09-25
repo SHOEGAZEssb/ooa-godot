@@ -93,12 +93,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"PART_BOSS_DEATH_EXPLOSION should have one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
         Image source = OracleGraphicsCache.LoadImage(

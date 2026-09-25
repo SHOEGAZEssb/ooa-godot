@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
         {
             _inventoryMenu.Update(1.0 / 60.0);
         }
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         for (int update = 0;
             update < InventoryMenuController.SaveSelectionDelayFrames;
             update++)
@@ -248,7 +248,7 @@ public sealed partial class ValidationRoot
 
         _inventoryMenu.OpenSaveImmediatelyForValidation();
         int menuSaveRequests = _inventoryMenu.SaveRequests;
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         FailIf(
             _saveWriteRequests != saveWrites ||
             _inventoryMenu.SaveRequests != menuSaveRequests ||

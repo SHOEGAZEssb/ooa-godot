@@ -72,12 +72,8 @@ public partial class ValidationRoot
             var platform = platforms.Single(actor => actor.Name == $"MovingSideScrollPlatform_{test.Sub:x2}_{test.Order}");
             FailIf(platform.PrecisePosition != test.Start || _entities.InteractionSlot(platform) != test.Order + 2,
                 $"Crown $a1:${test.Sub:x2} must preserve placement and native interaction slot order.");
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             var text = _entities.TextActiveSource;
             var freeze = _entities.NonInteractionObjectsDisabledSource;
             try

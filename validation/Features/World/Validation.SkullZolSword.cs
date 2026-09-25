@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,20 +8,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullZolSword()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var random = CaptureOracleRandomForValidation();
         foreach (bool batch in new[] { false, true })
         foreach (string scenario in new[] { "green", "red", "red-lethal" })
         {
-            void Step(int count = 1, Vector2 movement = default, bool fire = false)
-            {
-                input.CaptureForValidation(fire ? ["attack"] : [], fire ? ["attack"] : [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default, bool fire = false) =>
+                StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: batch);
             RestoreOracleRandomForValidation(random);
             LoadValidationRoom(4, 0x91);
             if (_inventory.SwordLevel == 0) _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);

@@ -17,13 +17,13 @@ public sealed partial class ValidationRoot
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         using (Image image = GetViewport().GetTexture().GetImage())
             image.SavePng(System.IO.Path.Combine(directory, "save-menu-full.png"));
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         using (Image image = GetViewport().GetTexture().GetImage())
             image.SavePng(System.IO.Path.Combine(directory, "options-menu-full.png"));
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         _saveQuitScreen.Move(1);
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         using (Image image = GetViewport().GetTexture().GetImage())
             image.SavePng(System.IO.Path.Combine(directory, "options-menu-toggled-full.png"));
@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             _gameplayPause.SetRoomOverlayEnabled(true);
             int saves = _saveWriteRequests;
             Vector2 position = _player.Position;
-            _inventoryMenu.BeginSaveOpeningForValidation();
+            _inventoryMenu.BeginOpening(openSaveMenu: true);
             StepGameplayUpdates(22, Vector2.Zero, batched: batched);
             FailIf(!_inventoryMenu.SaveMenuOpen || _saveQuitScreen.Cursor != 0,
                 "Options parent did not open through both 11-update fades.");

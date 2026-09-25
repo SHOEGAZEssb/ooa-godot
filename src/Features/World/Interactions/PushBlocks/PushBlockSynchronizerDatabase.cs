@@ -27,8 +27,7 @@ internal sealed class PushBlockSynchronizerDatabase
             new GeneratedTableSchema("INTERAC $bd search rules", GeneratedTableKeySemantics.Unique,
                 ["scan-start","excluded-tile","up-offset","right-offset","down-offset","left-offset","source"],
                 ["scan-start"], headerRequired:true));
-        if (rules.Rows.Count != 1) throw new InvalidOperationException("INTERAC $bd requires one search rule.");
-        var rule = rules.Rows[0];
+        GeneratedTableRow rule = rules.SingleRow();
         ScanStart = (byte)rule.HexByte(0);
         ExcludedTile = (byte)rule.HexByte(1);
         DestinationOffsets = Array.AsReadOnly(new byte[] {

@@ -23,11 +23,8 @@ public partial class ValidationRoot
                 Tiles:new[] { 0x2c,0x2c,0x2d,0x2d,0x2e,0x2e }) })
         foreach (bool batch in new[] { false,true })
         {
-            void Step()
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step() =>
+                StepGameplayUpdates(1, Vector2.Zero, [], [], batched: true);
             _saveData.SetRoomFlag(4,test.Room,0x20,false);
             LoadValidationRoom(4,test.Room); _player.BeginCutsceneControl();
             var cells = data.Cells(test.Sub);

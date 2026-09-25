@@ -12,9 +12,6 @@ public partial class ValidationRoot
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var add = (Func<IRoomEntity,IRoomEntity>)typeof(RoomEntityManager).GetMethod("AddEntity",flags)!
             .CreateDelegate(typeof(Func<IRoomEntity,IRoomEntity>),_entities);
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(0,0x60);
@@ -22,12 +19,8 @@ public partial class ValidationRoot
             _player.BeginCutsceneControl();
             var trace = new List<string>();
             var actors = new Dictionary<string,InteractionSlotValidationEntity>();
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             void Spawn(string name,int expectedSlot,Action<InteractionSlotValidationEntity>? dispatch = null)
             {
                 var puff = new PuzzlePuffEffect { Name = name };

@@ -14,12 +14,8 @@ public sealed partial class ValidationRoot
         var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
         var advance = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         bool batch = false;
-        void Step(int count = 1, Vector2 movement = default, bool jump = false)
-        {
-            input.CaptureForValidation(jump ? ["attack"] : [], jump ? ["attack"] : [], movement);
-            if (batch) scheduler.Advance(count / 60.0, advance);
-            else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, advance);
-        }
+        void Step(int count = 1, Vector2 movement = default, bool jump = false) =>
+            StepGameplayUpdates(count, movement, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
         var data = new DungeonEntranceInteractionDatabase();
         var pair = data.PortalPairFor(4);
         FailIf(pair.MinibossRoom != 0x80 || pair.EntranceRoom != 0x91 || data.PortalPosition != 0x57 ||

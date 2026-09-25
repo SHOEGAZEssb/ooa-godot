@@ -15,17 +15,11 @@ public sealed partial class ValidationRoot
             !profile.AnimationFrequencies.Select(v => v.Value).SequenceEqual(new[] { 255,255,255,0,0,1,3,7 }),
             "Peahat motion must retain the source SPEED_c0..SPEED_20 and ff/00/01/03/07 tables.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var frameField = typeof(RoomEntityManager).GetField("_enemyFrameCounter", flags)!;
         var animationField = typeof(EnemyCharacter).GetField("_animation", flags)!;
         var animationCounter = typeof(EnemyAnimationPlayer).GetField("_frameCounter", flags)!;
-        void Step(int count = 1, Vector2 movement = default)
-        {
-            input.CaptureForValidation([], [], movement);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, Vector2 movement = default) =>
+            StepGameplayUpdates(count, movement, [], [], batched: true);
         int AnimationRemaining(PeahatCharacter p) => (int)animationCounter.GetValue(animationField.GetValue(p))!;
         var random = CaptureOracleRandomForValidation();
         var checkpoints = new List<(Vector2, int, int, int, int, int, int)>();

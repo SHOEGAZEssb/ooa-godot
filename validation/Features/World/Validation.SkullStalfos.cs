@@ -109,15 +109,8 @@ public sealed partial class ValidationRoot
         bone.UpdateFrame(_player, 32);
         FailIf(!bone.Finished, "Bone failed to delete on the bounce counter's zero update.");
         bone.Free();
-
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count, bool press = false)
-        {
-            input.CaptureForValidation(press ? ["attack"] : [], press ? ["attack"] : [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count, bool press = false) =>
+            StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
         _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
         _inventory.EquipA(InventoryState.ItemSword);
         var snapshot = CaptureOracleRandomForValidation();

@@ -14,9 +14,6 @@ public partial class ValidationRoot
             FailIf(!tiles.TryGetSomaria(mode,0xda,out byte parameter) || parameter!=0x80 || tiles.TryGet(mode,0xda,out _),
                 $"Collision mode${mode:x2} must dispatch tile$da to ITEM$18 with parameter$80, not INTERAC_PUSHBLOCK.");
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach(bool batch in new[]{false,true})
         foreach(int level in new[]{1,2})
         {
@@ -24,12 +21,8 @@ public partial class ValidationRoot
             for(int y=70;y<=102;y+=16) _currentRoom.SetPositionTileAndCollision(new(72,y),0x0c,0,0);
             _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,level);
             typeof(InventoryState).GetMethod("SetVariable",flags)!.Invoke(_inventory,[TreasureVariable.BraceletLevel,level]);
-            void Step(int count,bool down=false)
-            {
-                input.CaptureForValidation(down?["move_down"]:[],[],down?Vector2.Down:Vector2.Zero);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count,bool down=false) =>
+                StepGameplayUpdates(count, down?Vector2.Down:Vector2.Zero, down?["move_down"]:[], [], batched: batch);
             _entities.TryCreateSomariaBlock(_player,0,new(72,70),0);
             Step(11);
             var block=_entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;

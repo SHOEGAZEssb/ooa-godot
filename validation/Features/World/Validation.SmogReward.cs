@@ -11,18 +11,11 @@ public partial class ValidationRoot
     private void ValidateSmogReward()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         foreach (bool aliasedCounter in new[] { false,true })
         {
-            void Step(int count = 1, bool approach = false)
-            {
-                input.CaptureForValidation([],[],approach ? Vector2.Up : Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count = 1, bool approach = false) =>
+                StepGameplayUpdates(count, approach ? Vector2.Up : Vector2.Zero, [], [], batched: batch);
             void Load(bool bossFlag, bool itemFlag)
             {
                 _saveData.SetRoomFlag(4,0xbf,0x80,bossFlag);

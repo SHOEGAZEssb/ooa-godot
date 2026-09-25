@@ -146,12 +146,8 @@ public partial class ValidationRoot
 
             LoadValidationRoom(5,0x22);
             _player.WarpTo(new Vector2(120,88),recordSafe:false);
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             Step(1);
             FailIf(_entities.Entities<FireballShooterRoomEntity>().Single().State != 1,
                 "$50 scanner must not run during its state0 update.");

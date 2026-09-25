@@ -10,10 +10,6 @@ public partial class ValidationRoot
 {
     private void ValidateCrownDungeonBallChainSeeds()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var seeds = new SeedSatchelDatabase();
         var shooter = SeedShooterRecord.Load();
         var random = CaptureOracleRandomForValidation();
@@ -21,12 +17,8 @@ public partial class ValidationRoot
         foreach (int item in new[] { 0x20, 0x21, 0x22, 0x23 })
         {
             RestoreOracleRandomForValidation(random);
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             LoadValidationRoom(4, 0xa0);
             var soldier = _entities.Entities<BallChainSoldierCharacter>().Single();
             _player.WarpTo(new(232,144));
@@ -76,19 +68,12 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonBallChainRoom()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var random = CaptureOracleRandomForValidation();
         foreach (bool batch in new[] { false, true })
         {
             RestoreOracleRandomForValidation(random);
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             LoadValidationRoom(4, 0xa0);
             var soldier = _entities.Entities<BallChainSoldierCharacter>().Single();
             FailIf(soldier.Position != new Vector2(0x78,0x58), "$4:$a0 must retain its fixed $4b:$00 source position.");

@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -10,17 +9,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullSideViewTraversal()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         bool batch = false;
-        void Step(int count = 1, Vector2 move = default, bool jump = false)
-        {
-            input.CaptureForValidation(jump ? ["attack"] : [], jump ? ["attack"] : [], move);
-            if (batch) scheduler.Advance(count / 60.0, update);
-            else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-        }
+        void Step(int count = 1, Vector2 move = default, bool jump = false) =>
+            StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
         var placements = new MovingSideScrollPlatformDatabase().GetRoomRecords(4, 0x68);
         var script = new DungeonInteractionDatabase().SidePlatform(1);
         FailIf(placements is not [{ Order: 0, Id: 0xa1, SubId: 1, Y: 0x48, X: 0x58 },

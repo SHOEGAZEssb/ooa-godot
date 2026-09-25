@@ -23,13 +23,7 @@ internal sealed class NayruHouseDatabase
                 ],
                 ["group", "room", "interaction-id", "subid"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one Nayru-house record, got {table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Record = new NayruHouseRecord(
             row.Decimal(0, 0, 7),
             row.HexByte(1),

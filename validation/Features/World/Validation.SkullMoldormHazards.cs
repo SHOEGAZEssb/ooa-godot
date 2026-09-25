@@ -10,9 +10,6 @@ public sealed partial class ValidationRoot
     private void ValidateSkullMoldormHazards()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var counter = typeof(EnemyCharacter).GetField("_hazardCounter", flags)!;
         var animationCounter = typeof(EnemyAnimationPlayer).GetField("_frameCounter", flags)!;
         var position = typeof(MoldormCharacter).GetMethod("SetPreciseHeadPosition", flags)!;
@@ -31,12 +28,8 @@ public sealed partial class ValidationRoot
         foreach (bool batch in new[] { false, true })
         foreach (string scenario in new[] { "complete", "cancel", "knockback" })
         {
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             LoadValidationRoom(4, roomId);
             Vector2? floor = null;
             for (int y = 24; y < _currentRoom.Height - 24 && floor is null; y += 8)

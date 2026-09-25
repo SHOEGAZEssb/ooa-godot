@@ -241,12 +241,7 @@ public sealed class EnemyDatabase
                     "source-grayscale-inverted", "animations-base64"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Moblin boomerang data should have one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow boomerang = table.Rows[0];
+        GeneratedTableRow boomerang = table.SingleRow();
         MoblinBoomerang = new EnemyProjectileVisualRecord(
             boomerang.SplitRequired(0, ','),
             boomerang.UnsignedDecimal(1),
@@ -478,10 +473,7 @@ public sealed class EnemyDatabase
                 ],
                 ["id", "subid"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Expected one Gel definition, got {table.Rows.Count}.");
-        GeneratedTableRow gel = table.Rows[0];
+        GeneratedTableRow gel = table.SingleRow();
         Gel = new GelDefinition(
             gel.HexByte(0),
             gel.HexByte(1),
@@ -548,12 +540,7 @@ public sealed class EnemyDatabase
                     "damage-quarters", "speed-raw", "normal-animation", "bounce-animation"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Octorok projectile data should have one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow projectile = table.Rows[0];
+        GeneratedTableRow projectile = table.SingleRow();
         OctorokProjectile = new OctorokProjectileRecord(
             projectile.RequiredString(0),
             projectile.UnsignedDecimal(1),
@@ -576,10 +563,7 @@ public sealed class EnemyDatabase
                     "turn-wait", "up-animation", "right-animation", "down-animation", "left-animation"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Masked Moblin data should have one row, got {table.Rows.Count}.");
-        GeneratedTableRow masked = table.Rows[0];
+        GeneratedTableRow masked = table.SingleRow();
         MaskedMoblin = new MaskedMoblinRecord(
             masked.HexByte(0), masked.HexByte(1),
             masked.RequiredString(2), masked.UnsignedDecimal(3), masked.UnsignedDecimal(4),
@@ -600,10 +584,7 @@ public sealed class EnemyDatabase
                     "bounce-animation"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Enemy arrow data should have one row, got {table.Rows.Count}.");
-        GeneratedTableRow arrow = table.Rows[0];
+        GeneratedTableRow arrow = table.SingleRow();
         EnemyArrow = new EnemyArrowRecord(
             arrow.RequiredString(0), arrow.UnsignedDecimal(1), arrow.UnsignedDecimal(2),
             arrow.UnsignedDecimal(3), arrow.UnsignedDecimal(4),

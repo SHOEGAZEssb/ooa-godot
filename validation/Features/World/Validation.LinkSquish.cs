@@ -46,19 +46,12 @@ public partial class ValidationRoot
         }
 
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         foreach (bool vertical in new[] { false,true })
         foreach (bool sideView in new[] { false,true })
         {
-            void Step(int count = 1)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count = 1) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             LoadValidationRoom(sideView ? 6 : 4,sideView ? 0x95 : 0x9b);
             Vector2 origin = sideView ? new(40,40) : new(136,136);
             Vector2 destination = sideView ? new(56,40) : new(136,104);

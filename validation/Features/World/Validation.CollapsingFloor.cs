@@ -10,21 +10,14 @@ public sealed partial class ValidationRoot
     private void ValidateMoblinKeepCollapsingFloor()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         // Independently transcribed from miscellaneous2.s:@listOfTilesToBreak.
         int[] expected = [0x67,0x66,0x65,0x64,0x63,0x62,0x61,0x51,0x41,0x31,0x21,0x11,
             0x12,0x13,0x23,0x33,0x43,0x44,0x45,0x46,0x47,0x48,0x38,0x28,0x18,0x17,0x16];
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
         foreach (bool batch in new[] { false, true })
         {
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             CollapsingFloorRoomEntity Enter()
             {
                 LoadValidationRoom(2, 0x9f);

@@ -329,7 +329,7 @@ public sealed partial class ValidationRoot
         int selectRequests =
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
         FailIf(
-            menu.EquipToAForValidation() ||
+            menu.EquipToA() ||
             !screen.ItemSubmenuActive ||
             screen.ItemSubmenuReady ||
             screen.ItemSubmenuWidth != 0 ||
@@ -358,11 +358,11 @@ public sealed partial class ValidationRoot
         int moveRequests =
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         FailIf(
-            !menu.MoveItemSubmenuForValidation(-1) ||
+            !menu.MoveItemSubmenu(-1) ||
             screen.ItemSubmenuIndex != 2 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
                 moveRequests + 1 ||
-            !menu.ConfirmItemSubmenuForValidation() ||
+            !menu.ConfirmItemSubmenu() ||
             screen.ItemSubmenuActive ||
             inventory.SelectedHarpSong != 3 ||
             inventory.EquippedA != InventoryState.ItemHarp ||
@@ -402,7 +402,7 @@ public sealed partial class ValidationRoot
             () => { },
             _sound.PlaySound);
         FailIf(
-            twoSongMenu.EquipToBForValidation(),
+            twoSongMenu.EquipToB(),
             "Equipping a two-song Harp bypassed inventoryMenuState2.");
         for (int update = 0; update < 14; update++)
             twoSongMenu.UpdateItemSubmenuForValidation(HarpFrame);

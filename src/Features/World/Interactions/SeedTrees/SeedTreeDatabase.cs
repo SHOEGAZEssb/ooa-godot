@@ -274,10 +274,7 @@ internal sealed class SeedTreeDatabase
                 ["sprite", "animation", "no-satchel-message-base64"],
                 ["sprite"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Expected one seed-tree visual, loaded {table.Rows.Count}.");
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         return new SeedTreeVisualRecord(
             row.RequiredString(0),
             row.RequiredString(1),

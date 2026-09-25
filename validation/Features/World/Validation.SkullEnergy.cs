@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,10 +8,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullEnergyBeads()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var advance = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var data = BlueEnergyBeadDatabase.Shared;
         FailIf(data.Count != 8 || data.Speed != 0x78 || data.Radius != 0x38 || data.DelayMask != 7 || data.DeleteAddress != 0xcd2d,
             "PART_BLUE_ENERGY_BEAD lost its source eight-slot allocation, SPEED_300, radius38, delay mask07 or cd2d signal.");
@@ -26,12 +21,8 @@ public sealed partial class ValidationRoot
         {
             foreach (bool batch in new[] { false, true })
             {
-                void Step(int count = 1)
-                {
-                    input.CaptureForValidation([], [], Vector2.Zero);
-                    if (batch) scheduler.Advance(count / 60.0, advance);
-                    else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, advance);
-                }
+                void Step(int count = 1) =>
+                    StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
                 LoadValidationRoom(4, 0x69);
                 _player.WarpTo(new(120, 140));
                 _entities.TextActiveSource = () => true;

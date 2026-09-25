@@ -23,14 +23,8 @@ public sealed partial class ValidationRoot
                 $"4:{room:x2} did not instantiate its native floor controller.");
         }
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, bool jump = false, Vector2 move = default)
-        {
-            input.CaptureForValidation(jump ? ["attack"] : [], jump ? ["attack"] : [], move);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, bool jump = false, Vector2 move = default) =>
+            StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
         _inventory.EquipA(InventoryState.ItemFeather);
         var random = CaptureOracleRandomForValidation();

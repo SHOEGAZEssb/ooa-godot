@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -10,10 +9,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullStationaryOrb()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var data = PartOrbDatabase.Shared;
         FailIf(data.BackgroundTile != 0x0a || data.TileCollision != 0x0f || data.SubidMask != 7 || data.RadiusX != 4 || data.RadiusY != 4,
             "partCode03 state0 must write cfXX=$0a, ceXX=$0f, preserve Zh=0, and derive its mask from subid&7.");
@@ -24,12 +19,8 @@ public sealed partial class ValidationRoot
         {
             RestoreOracleRandomForValidation(random);
             _inventory.RefillHealth();
-            void Step(int count = 1, Vector2 move = default, bool attack = false)
-            {
-                input.CaptureForValidation(attack ? ["attack"] : [], attack ? ["attack"] : [], move);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 move = default, bool attack = false) =>
+                StepGameplayUpdates(count, move, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
             _saveData.SetRoomFlag(4, 0x74, 0xff, false);
             _entities.RuntimeState.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0);
             LoadValidationRoom(4, 0x74);
@@ -145,15 +136,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateSkullOrbScripts()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
         var database = new SkullDungeonDatabase();
         FailIf(database.GetRoomRecords(4,0x92) is not [{ Id:0x20, SubId:3, Order:0, X:40, Y:104 },
                 { Id:0x0b, SubId:0, Order:1, X:128, Y:72, Var03:2 }] ||

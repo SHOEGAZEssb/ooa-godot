@@ -1817,7 +1817,7 @@ public sealed partial class ValidationRoot
             "The inventory menu must use the 11-update fast palette fade.");
 
         int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
-        _inventoryMenu.BeginOpeningForValidation();
+        _inventoryMenu.BeginOpening(openSaveMenu: false);
         FailIf(
             !_gameplayPause.IsOwnedBy(_inventoryMenu) ||
             _mapMenu.CanOpenNormalForValidation ||
@@ -1892,7 +1892,7 @@ public sealed partial class ValidationRoot
         int selectItemRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
         int inventoryMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         FailIf(
-            !_inventoryMenu.EquipToAForValidation() ||
+            !_inventoryMenu.EquipToA() ||
             _sound.LastPlayRequestForValidation() !=
                 OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 1 ||
@@ -1924,7 +1924,7 @@ public sealed partial class ValidationRoot
             "Inventory text did not advance on the eighth marquee update.");
 
         FailIf(
-            !_inventoryMenu.EquipToBForValidation() ||
+            !_inventoryMenu.EquipToB() ||
             _sound.LastPlayRequestForValidation() !=
                 OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 2 ||
@@ -1939,12 +1939,12 @@ public sealed partial class ValidationRoot
             $"submenu={_inventoryScreen.ItemSubmenuActive}).");
 
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Left) ||
             _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
             _inventoryScreen.Cursor != 15,
             "Inventory cursor did not wrap left with the original & $0f rule.");
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Right) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 2 ||
             _inventoryScreen.Cursor != 0,
             "Inventory cursor did not return to slot 0 after wrapping.");
@@ -1953,10 +1953,10 @@ public sealed partial class ValidationRoot
         // original submenu intentionally intercepts A/B. Use the next empty
         // slot to restore the sword without consuming a Harp selection.
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Right) ||
             _inventoryScreen.Cursor != 1 ||
-            !_inventoryMenu.EquipToBForValidation() ||
-            !_inventoryMenu.EquipToAForValidation() ||
+            !_inventoryMenu.EquipToB() ||
+            !_inventoryMenu.EquipToA() ||
             _sound.LastPlayRequestForValidation() !=
                 OracleSoundEngine.SndSelectItem ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 4 ||
@@ -1968,14 +1968,14 @@ public sealed partial class ValidationRoot
 
         int tabSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
         FailIf(
-            !_inventoryMenu.BeginNextSubscreenForValidation() ||
+            !_inventoryMenu.BeginNextSubscreen() ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests,
             "The Select edge must defer SND_OPENMENU $54 to state 3's first dispatch.");
         _inventoryMenu.Update(1.0 / 60.0);
         FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
             "inventoryMenuState3 did not request SND_OPENMENU $54 on its first dispatch.");
         FailIf(
-            _inventoryMenu.BeginNextSubscreenForValidation() ||
+            _inventoryMenu.BeginNextSubscreen() ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
             "An in-progress inventory tab scroll replayed SND_OPENMENU $54.");
         for (int frame = 1; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
@@ -1990,11 +1990,11 @@ public sealed partial class ValidationRoot
             _inventoryScreen.Subscreen != InventorySubscreen.SecondaryItems,
             "The secondary inventory page did not finish after 13 updates.");
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Left) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Left) ||
             _inventoryScreen.ActiveCursor != 14,
             "The empty secondary page did not wrap 0 -> 14 to the left.");
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Right) ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 5,
             "Secondary inventory cursor movement did not request SND_MENU_MOVE $84.");
 
@@ -2012,7 +2012,7 @@ public sealed partial class ValidationRoot
             "Ring-box capacity, contents, active-ring toggle, or save-image persistence regressed.");
 
         FailIf(
-            !_inventoryMenu.BeginNextSubscreenForValidation() ||
+            !_inventoryMenu.BeginNextSubscreen() ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
             "The second Select edge must defer SND_OPENMENU $54.");
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
@@ -2023,9 +2023,9 @@ public sealed partial class ValidationRoot
             _inventoryScreen.VisibleTextForValidation != new string(' ', 16),
             "The essence/save page displayed text for an unobtained essence.");
         FailIf(
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Right) ||
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
-            !_inventoryMenu.MoveCursorForValidation(Vector2I.Down) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Right) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Down) ||
+            !_inventoryMenu.MoveCursor(Vector2I.Down) ||
             _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 8 ||
             !_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82 ||
@@ -2033,7 +2033,7 @@ public sealed partial class ValidationRoot
             _inventoryScreen.VisibleTextForValidation != "  Save Screen   ",
             "The page-3 cursor did not reach the original Save & Quit entry.");
 
-        _inventoryMenu.OpenSaveMenuFromInventoryForValidation();
+        _inventoryMenu.OpenSaveMenuFromInventory();
         FailIf(
             !_saveQuitScreen.Visible || _inventoryScreen.Visible ||
             !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f),
@@ -2047,7 +2047,7 @@ public sealed partial class ValidationRoot
         _saveQuitScreen.Move(1);
         int saveRequests = _inventoryMenu.SaveRequests;
         int saveWrites = _saveWriteRequests;
-        _inventoryMenu.SelectSaveOptionForValidation();
+        _inventoryMenu.SelectSaveOption();
         FailIf(
             _inventoryMenu.SaveRequests != saveRequests + 1 ||
             _saveWriteRequests != saveWrites + 1 ||
@@ -2077,7 +2077,7 @@ public sealed partial class ValidationRoot
             !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
             "The inventory closing fade did not restore gameplay processing.");
 
-        _inventoryMenu.BeginSaveOpeningForValidation();
+        _inventoryMenu.BeginOpening(openSaveMenu: true);
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
         {
             _inventoryMenu.Update(1.0 / 60.0);
@@ -2119,7 +2119,7 @@ public sealed partial class ValidationRoot
             _sound.PlaySound,
             () => gameOverContinues++);
 
-        gameOverMenu.BeginGameOverForValidation();
+        gameOverMenu.BeginGameOver();
         FailIf(
             !gameOverMenu.GameOver ||
             !_saveQuitScreen.Visible ||
@@ -2129,7 +2129,7 @@ public sealed partial class ValidationRoot
             _saveQuitScreen.Cursor != 0 ||
             !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f) ||
             !_gameplayPause.IsOwnedBy(gameOverMenu) ||
-            gameOverMenu.CancelSaveMenuForValidation(),
+            gameOverMenu.CancelSaveMenu(),
             "Forced game over did not open gfx_gameover with PALH_06 at " +
             "white, retain the save-option graphics without transparent " +
             "cells, select Continue, freeze gameplay, and block B.");
@@ -2149,7 +2149,7 @@ public sealed partial class ValidationRoot
             !Mathf.IsZeroApprox(_scene.MenuFade.Color.A),
             "Forced game over did not finish its fade-in on update 11.");
 
-        gameOverMenu.SelectSaveOptionForValidation();
+        gameOverMenu.SelectSaveOption();
         FailIf(
             gameOverSaveWrites != 0 ||
             gameOverMenu.SaveRequests != 0 ||
@@ -2179,7 +2179,7 @@ public sealed partial class ValidationRoot
             "Game-over Continue did not close immediately and resume at " +
             "the death checkpoint after 30 updates.");
 
-        gameOverMenu.BeginGameOverForValidation();
+        gameOverMenu.BeginGameOver();
         for (int update = 0;
             update < InventoryMenuController.FastFadeFrames;
             update++)
@@ -2187,12 +2187,12 @@ public sealed partial class ValidationRoot
             gameOverMenu.Update(1.0 / 60.0);
         }
         FailIf(
-            !gameOverMenu.MoveSaveCursorForValidation(1) ||
+            !gameOverMenu.MoveSaveCursor(1) ||
             _saveQuitScreen.Cursor != 1 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
                 gameOverMoveRequests + 1,
             "Game-over Save and Continue cursor movement missed SND_MENU_MOVE.");
-        gameOverMenu.SelectSaveOptionForValidation();
+        gameOverMenu.SelectSaveOption();
         for (int update = 0;
             update < InventoryMenuController.SaveSelectionDelayFrames;
             update++)
@@ -2208,7 +2208,7 @@ public sealed partial class ValidationRoot
             "Game-over Save and Continue did not save once and then " +
             "resume after 30 updates.");
 
-        gameOverMenu.BeginGameOverForValidation();
+        gameOverMenu.BeginGameOver();
         for (int update = 0;
             update < InventoryMenuController.FastFadeFrames;
             update++)
@@ -2216,14 +2216,14 @@ public sealed partial class ValidationRoot
             gameOverMenu.Update(1.0 / 60.0);
         }
         FailIf(
-            !gameOverMenu.MoveSaveCursorForValidation(1) ||
-            !gameOverMenu.MoveSaveCursorForValidation(1) ||
+            !gameOverMenu.MoveSaveCursor(1) ||
+            !gameOverMenu.MoveSaveCursor(1) ||
             _saveQuitScreen.Cursor != 2 ||
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
                 gameOverMoveRequests + 3,
             "Game-over Save and Quit cursor movement missed its two " +
             "SND_MENU_MOVE requests.");
-        gameOverMenu.SelectSaveOptionForValidation();
+        gameOverMenu.SelectSaveOption();
         for (int update = 0;
             update < InventoryMenuController.SaveSelectionDelayFrames;
             update++)

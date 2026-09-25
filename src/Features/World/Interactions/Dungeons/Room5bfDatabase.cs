@@ -162,24 +162,10 @@ internal sealed class Room5bfDatabase
                 $"{constants.Path}:{constants.LineNumber}.");
         }
 
-        byte[] palette = FileAccess.GetFileAsBytes(
+        // PALH_a3: preserve color zero's RGB beneath its transparent alpha.
+        BlockPalette = OracleGraphicsData.LoadPaletteColors(
             Root + "room5bf_block_palette.bin");
-        if (palette.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"PALH_a3 room 5:bf block palette should contain 12 bytes, " +
-                $"got {palette.Length}.");
-        }
-        BlockPalette = new Color[4];
-        for (int color = 0; color < BlockPalette.Length; color++)
-        {
-            int offset = color * 3;
-            BlockPalette[color] = new Color(
-                palette[offset] / 31.0f,
-                palette[offset + 1] / 31.0f,
-                palette[offset + 2] / 31.0f,
-                color == 0 ? 0.0f : 1.0f);
-        }
+        BlockPalette[0].A = 0.0f;
     }
 
     private static void ValidatePlacementContract(

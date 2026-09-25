@@ -52,10 +52,7 @@ internal sealed class TokayEntranceEyeDatabase
                 ],
                 ["group", "room", "id", "subid"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Tokay eyeball socket should have one row, got {table.Rows.Count}.");
-        GeneratedTableRow slot = table.Rows[0];
+        GeneratedTableRow slot = table.SingleRow();
         Slot = new TokayEyeballSlotRecord(
             slot.Decimal(0, 0, 7), slot.HexByte(1), slot.HexByte(2),
             slot.HexByte(3), slot.HexByte(4), slot.HexByte(5),

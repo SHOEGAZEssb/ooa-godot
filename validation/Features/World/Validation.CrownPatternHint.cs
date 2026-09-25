@@ -10,9 +10,6 @@ public partial class ValidationRoot
     private void ValidateCrownPatternHint()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var setTrigger = (Action<int,bool>)typeof(RoomEntityManager).GetMethod("SetTrigger",flags)!.CreateDelegate(typeof(Action<int,bool>),_entities);
         int[] positions = [0x5c,0x6a,0x3b,0x5a,0x4c,0x7b];
         int[] colors = [0xad,0xad,0xae,0xae,0xaf,0xaf];
@@ -22,12 +19,8 @@ public partial class ValidationRoot
                 "INTERAC $21:$16 must retain source write order, colors and standard floor $a0.");
         foreach (bool batch in new[] { false,true })
         {
-            void Step(int count = 1,Vector2 move = default)
-            {
-                input.CaptureForValidation([],[],move);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count = 1,Vector2 move = default) =>
+                StepGameplayUpdates(count, move, [], [], batched: batch);
             void CheckTiles(bool shown)
             {
                 for (int i = 0; i < 6; i++)

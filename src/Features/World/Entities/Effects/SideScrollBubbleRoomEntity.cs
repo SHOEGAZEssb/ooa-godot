@@ -98,9 +98,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "speed-raw", "turn-counter", "initial-turns",
                     "turns", "animation", "source"], headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException("INTERAC_BUBBLE $91:$00 requires one imported side-view definition.");
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         AnimationDefinition animation = OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(6));
         if (row.UnsignedDecimal(0) != 0x16 || row.UnsignedDecimal(1) != 1 ||
             row.UnsignedDecimal(2) != 0x14 || row.UnsignedDecimal(3) != 4 ||

@@ -15,14 +15,8 @@ public sealed partial class ValidationRoot
     private void ValidateKingMoblinCancellation()
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(Vector2 movement=default,bool fire=false)
-        {
-            input.CaptureForValidation(fire?["attack"]:[],fire?["attack"]:[],movement);
-            scheduler.Advance(1.0/60,update);
-        }
+        void Step(Vector2 movement=default,bool fire=false) =>
+            StepGameplayUpdates(1, movement, fire?["attack"]:[], fire?["attack"]:[], batched: true);
         _saveData.SetGlobalFlag(0x1a,false);
         LoadValidationRoom(2,0xaf); _player.WarpTo(new Vector2(24,88));
         _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
@@ -62,16 +56,8 @@ public sealed partial class ValidationRoot
     }
     private void RunKingMoblinFight(bool batch)
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(int count=1,Vector2 movement=default,bool fire=false)
-        {
-            input.CaptureForValidation(fire?["attack"]:[],fire?["attack"]:[],movement);
-            if(batch) scheduler.Advance(count/60.0,update);
-            else for(int i=0;i<count;i++) scheduler.Advance(1.0/60,update);
-        }
+        void Step(int count=1,Vector2 movement=default,bool fire=false) =>
+            StepGameplayUpdates(count, movement, fire?["attack"]:[], fire?["attack"]:[], batched: batch);
         _saveData.SetGlobalFlag(0x1a,false); _saveData.SetGlobalFlag(0x16,false);
         _saveData.WriteWramByte(0xc612,(byte)(batch?1:0));
         _saveData.SetRoomFlag(0,0x09,1,false);

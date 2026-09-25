@@ -11,9 +11,6 @@ public sealed partial class ValidationRoot
     private void ValidateSkullBossSeeds()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         OracleSaveData.TryDeserialize(_saveData.Serialize(), out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
@@ -23,12 +20,8 @@ public sealed partial class ValidationRoot
         foreach (var (item, selected) in new[] { (0x20, 0), (0x21, 1), (0x23, 3), (0x24, 0), (0x24, 1), (0x24, 2), (0x24, 3) })
         foreach (bool batch in new[] { false, true })
         {
-            void Step(int count = 1, Vector2 movement = default, bool attack = false)
-            {
-                input.CaptureForValidation(attack ? ["attack"] : [], attack ? ["attack"] : [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default, bool attack = false) =>
+                StepGameplayUpdates(count, movement, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);

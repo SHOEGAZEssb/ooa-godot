@@ -28,9 +28,7 @@ internal sealed partial class KnockbackDustRoomEntity : TransitionOffsetNode2D,
         var table = GeneratedTable.Load("res://assets/oracle/effects/knockback_dust.tsv",
             new GeneratedTableSchema("INTERAC$0f:$01", GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"], headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException("INTERAC$0f:$01 requires one dust animation row.");
-        var row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_common_sprites.png"),
             [row.RequiredString(2)], row.UnsignedDecimal(0), row.UnsignedDecimal(1));

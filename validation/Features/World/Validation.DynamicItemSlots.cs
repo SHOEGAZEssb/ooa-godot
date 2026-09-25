@@ -48,11 +48,8 @@ public partial class ValidationRoot
         var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
         var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
         var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(string? button=null)
-        {
-            input.CaptureForValidation(button is null?[]:[button],button is null?[]:[button],Vector2.Zero);
-            scheduler.Advance(1.0/60.0,update);
-        }
+        void Step(string? button=null) =>
+            StepGameplayUpdates(1, Vector2.Zero, button is null?[]:[button], button is null?[]:[button], batched: true);
         var bombs=new BombEffect[5]; var record=new BombDatabase().Data;
         for(int i=0;i<5;i++) bombs[i]=_entities.Spawn<BombEffect>(new BombSpawn(_player,record,_rooms.ActiveGroup,_=>{}));
         FailIf(_entities.DynamicItemSlotAvailable || _entities.TrySpawnSwordBeam(_player.Position,0),

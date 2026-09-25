@@ -66,12 +66,7 @@ public sealed class TimeWarpEffectDatabase
                     "particles"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Time-warp effect data should contain one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
 
         TimeWarpSprite = row.RequiredString(0);
         CommonSprite = row.RequiredString(1);

@@ -98,12 +98,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "speed-raw", "animation"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"INTERAC_FALLDOWNHOLE should have one row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
         int speedRaw = row.UnsignedDecimal(2);

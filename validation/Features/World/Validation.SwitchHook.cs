@@ -11,14 +11,8 @@ public sealed partial class ValidationRoot
     private void ValidateSwitchHookFlight()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, string? button = null, Vector2 movement = default)
-        {
-            input.CaptureForValidation(button is null ? [] : [button], button is null ? [] : [button], movement);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, string? button = null, Vector2 movement = default) =>
+            StepGameplayUpdates(count, movement, button is null ? [] : [button], button is null ? [] : [button], batched: true);
         _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
         _inventory.GiveTreasure(TreasureDatabase.TreasureShield, 1);
         _inventory.EquipA(InventoryState.ItemSwitchHook);

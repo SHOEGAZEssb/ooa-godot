@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,18 +8,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullMoldormHitTiming()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         {
-            void Step(int count = 1, Vector2 movement = default, bool attack = false)
-            {
-                input.CaptureForValidation(attack ? ["attack"] : [], attack ? ["attack"] : [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default, bool attack = false) =>
+                StepGameplayUpdates(count, movement, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
             foreach (string scenario in new[] { "active", "cancelled", "room-change" })
             {
                 LoadValidationRoom(4, 0x91);

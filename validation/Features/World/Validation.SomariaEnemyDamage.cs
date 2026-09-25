@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,10 +8,6 @@ public partial class ValidationRoot
 {
     private void ValidateSomariaEnemyDamage()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var random = CaptureOracleRandomForValidation();
         foreach (bool batch in new[] { false, true })
         foreach (var (id, subid, room, rawDamage) in new[] {
@@ -27,12 +22,8 @@ public partial class ValidationRoot
             RestoreOracleRandomForValidation(random);
             LoadValidationRoom(4, room);
             _player.WarpTo(new(232, 144));
-            void Step(int count = 1)
-            {
-                input.CaptureForValidation([], [], Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count = 1) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             Step(2);
             EnemyCharacter target = id switch {
                 0x0c => _entities.Entities<ArrowMoblinCharacter>().First(e => e.Record.SubId == subid),
@@ -116,11 +107,8 @@ public partial class ValidationRoot
         {
             LoadValidationRoom(4, 0x9c);
             _player.WarpTo(new(232, 144));
-            void Step(int count)
-            {
-                input.CaptureForValidation([], [], Vector2.Zero);
-                scheduler.Advance(count / 60.0, update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
             Step(2);
             var enemies = _entities.Entities<SwordEnemyCharacter>().ToArray();
             foreach (var enemy in enemies) { enemy.Position = new(32, 32); enemy.InvincibilityCounter = 127; }

@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -10,15 +9,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonMinecarts()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, Vector2 move = default)
-        {
-            input.CaptureForValidation([], [], move);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, Vector2 move = default) =>
+            StepGameplayUpdates(count, move, [], [], batched: true);
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
         var data = new StaticDungeonObjectDatabase();
         var runtime = _entities.RuntimeState;

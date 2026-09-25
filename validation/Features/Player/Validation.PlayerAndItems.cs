@@ -3223,7 +3223,7 @@ public sealed partial class ValidationRoot
         int selectRequests =
             _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
         FailIf(
-            menu.EquipToAForValidation() ||
+            menu.EquipToA() ||
             !screen.ItemSubmenuActive ||
             screen.ItemSubmenuReady ||
             screen.ItemSubmenuWidth != 0 ||
@@ -3253,7 +3253,7 @@ public sealed partial class ValidationRoot
         int moveRequests =
             _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
         FailIf(
-            !menu.MoveItemSubmenuForValidation(-1) ||
+            !menu.MoveItemSubmenu(-1) ||
             screen.ItemSubmenuIndex != 1 ||
             screen.ItemSubmenuOptionForValidation != 4 ||
             screen.ActiveTextKey != _treasures
@@ -3265,7 +3265,7 @@ public sealed partial class ValidationRoot
             "Satchel submenu did not wrap from Ember to the non-contiguous " +
             "owned Mystery Seed option and select its text.");
         FailIf(
-            !menu.ConfirmItemSubmenuForValidation() ||
+            !menu.ConfirmItemSubmenu() ||
             screen.ItemSubmenuActive ||
             inventory.SatchelSelectedSeeds != 4 ||
             inventory.EquippedA != InventoryState.ItemSeedSatchel ||

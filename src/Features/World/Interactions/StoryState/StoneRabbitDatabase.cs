@@ -26,14 +26,7 @@ internal sealed class StoneRabbitDatabase
                 ],
                 ["group", "room", "id", "subid"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one room 1:84 stone-rabbit state, got " +
-                $"{table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Record = new StoneRabbitRecord(
             row.Decimal(0, 0, 7),
             row.HexByte(1),
@@ -61,24 +54,10 @@ internal sealed class StoneRabbitDatabase
                 $"{row.Path}:{row.LineNumber}.");
         }
 
-        byte[] palette = FileAccess.GetFileAsBytes(
+        // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
+        StonePalette = OracleGraphicsData.LoadPaletteColors(
             "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
-        if (palette.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"PALH_a2 stone palette should contain 12 bytes, got " +
-                $"{palette.Length}.");
-        }
-        StonePalette = new Color[4];
-        for (int color = 0; color < StonePalette.Length; color++)
-        {
-            int offset = color * 3;
-            StonePalette[color] = new Color(
-                palette[offset] / 31.0f,
-                palette[offset + 1] / 31.0f,
-                palette[offset + 2] / 31.0f,
-                color == 0 ? 0.0f : 1.0f);
-        }
+        StonePalette[0].A = 0.0f;
     }
 
     public bool Matches(NpcRecord npc) =>

@@ -25,10 +25,7 @@ internal sealed class Room148PickaxeDatabase
                     "offset-x", "speed", "speed-z", "gravity", "angle-0", "angle-1"
                 ],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Room 1:48 pickaxe data should have one row, got {table.Rows.Count}.");
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
 
         Record = new PickaxeRecord(
             row.RequiredString(0),

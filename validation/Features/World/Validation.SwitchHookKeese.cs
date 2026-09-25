@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -11,15 +10,8 @@ public sealed partial class ValidationRoot
     {
         FailIf(SwitchHookCollisionDatabase.Shared.Effect(0x1f) != 8,
             "Keese mode $1f must select hook damage effect $08.");
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, Vector2 movement = default, bool fire = false)
-        {
-            input.CaptureForValidation(fire ? ["attack"] : [], fire ? ["attack"] : [], movement);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, Vector2 movement = default, bool fire = false) =>
+            StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: true);
         _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
         _inventory.EquipA(InventoryState.ItemSwitchHook);
         foreach (bool batch in new[] { false, true })

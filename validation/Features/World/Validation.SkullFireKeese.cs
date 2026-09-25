@@ -92,14 +92,8 @@ public sealed partial class ValidationRoot
         finally { Array.Copy(layout, testRoom.Layout, layout.Length); bat.Free(); }
 
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int n = 1)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(n / 60.0, update);
-        }
+        void Step(int n = 1) =>
+            StepGameplayUpdates(n, Vector2.Zero, [], [], batched: true);
         var snapshot = CaptureOracleRandomForValidation();
         Vector2 SafePoint() => Enumerable.Range(0, 176)
             .Select(i => new Vector2((i & 15) * 16 + 8, (i >> 4) * 16 + 8))

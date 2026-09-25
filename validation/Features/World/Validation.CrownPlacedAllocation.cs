@@ -11,18 +11,11 @@ public partial class ValidationRoot
     private void ValidateCrownPlacedAllocation()
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var parts=(Dictionary<IRoomEntity,int>)typeof(RoomEntityManager).GetField("_partSlots",flags)!.GetValue(_entities)!;
         foreach(bool batch in new[]{false,true})
         {
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             _saveData.SetRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem,false);
             LoadValidationRoom(4,0xbc);
             _player.WarpTo(new(24,24));

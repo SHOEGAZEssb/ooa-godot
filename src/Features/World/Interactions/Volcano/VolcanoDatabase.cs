@@ -40,8 +40,7 @@ internal sealed class VolcanoDatabase
         foreach (var row in Load("effects/volcano_radii.tsv", "parameter y x", "parameter").Rows)
             ImpactRadii.Add(row.UnsignedDecimal(0), (row.UnsignedDecimal(1), row.UnsignedDecimal(2)));
         var visuals = Load("effects/volcano_rock.tsv", "sprite tile-base palette radius damage-quarters animations-base64 source", "sprite");
-        if (visuals.Rows.Count != 1) throw new InvalidOperationException("PART_VOLCANO_ROCK $11: missing visual.");
-        var visual = visuals.Rows[0];
+        GeneratedTableRow visual = visuals.SingleRow();
         Sprite = visual.RequiredString(0);
         TileBase = visual.UnsignedDecimal(1);
         Palette = visual.Decimal(2, 0, 7);

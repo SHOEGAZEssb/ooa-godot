@@ -10,16 +10,9 @@ public sealed partial class ValidationRoot
     private void ValidateSkullEssenceSequence()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var advance = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         bool batched = false;
-        void Step(int count = 1, Vector2 movement = default)
-        {
-            input.CaptureForValidation([], [], movement);
-            if (batched) scheduler.Advance(count / 60.0, advance);
-            else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, advance);
-        }
+        void Step(int count = 1, Vector2 movement = default) =>
+            StepGameplayUpdates(count, movement, [], [], batched: batched);
         var data = new SkullDungeonDatabase();
         var visual = new DungeonInteractionVisualDatabase().Visual("burning-flame");
         FailIf(data.GetRoomRecords(4, 0x69) is not [{ Id: 0x7f, SubId: 0, Order: 0, Y: 0x28, X: 0x78,

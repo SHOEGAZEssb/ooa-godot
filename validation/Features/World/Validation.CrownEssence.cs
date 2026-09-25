@@ -10,9 +10,6 @@ public partial class ValidationRoot
     private void ValidateCrownEssence()
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var data=new CrownDungeonDatabase();
         var visual=new DungeonInteractionVisualDatabase().Visual("sacred-soil");
         // mainData.s4:b8 and essence.s fifth OAM/text/warp rows, independent
@@ -26,12 +23,8 @@ public partial class ValidationRoot
             "Crown Essence lost its source placement, fifth OAM/text row or respawn-setting exit.");
         foreach(bool batch in new[]{false,true})
         {
-            void Step(int count=1,Vector2 movement=default)
-            {
-                input.CaptureForValidation([],[],movement);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count=1,Vector2 movement=default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             _saveData.SetRoomFlag(4,0xb8,OracleSaveData.RoomFlagItem,false);
             LoadValidationRoom(4,0xb8);
             _player.WarpTo(new(120,120));

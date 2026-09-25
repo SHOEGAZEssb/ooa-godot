@@ -52,12 +52,7 @@ internal sealed class WingDungeonDatabase
                 ],
                 ["group", "room"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                "Wing Dungeon must import one boss reward script.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         string[] encodedPositions = row.RequiredString(5).Split(
             ',',
             StringSplitOptions.RemoveEmptyEntries |

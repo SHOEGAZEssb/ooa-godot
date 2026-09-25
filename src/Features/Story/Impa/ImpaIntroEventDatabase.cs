@@ -204,48 +204,13 @@ public sealed class ImpaIntroEventDatabase
             throw new InvalidOperationException($"Expected three fake Octoroks, got {octoroks.Count}.");
         Octoroks = octoroks;
 
-        byte[] palette = FileAccess.GetFileAsBytes(
-            "res://assets/oracle/metadata/impa_possessed_palette.bin");
-        if (palette.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"Possessed Impa palette should contain 12 bytes, got {palette.Length}.");
-        }
-        PossessedPalette = new Color[4];
-        PossessedPalette[0] = Colors.Transparent;
-        for (int color = 1; color < PossessedPalette.Length; color++)
-        {
-            int offset = color * 3;
-            PossessedPalette[color] = new Color(
-                palette[offset] / 31.0f,
-                palette[offset + 1] / 31.0f,
-                palette[offset + 2] / 31.0f);
-        }
-
-        StonePalette = ReadSpritePalette(
+        PossessedPalette = OracleGraphicsData.LoadPaletteColors(
+            "res://assets/oracle/metadata/impa_possessed_palette.bin",
+            transparentZero: true);
+        // Triforce-stone PALH_98, retaining transparent black at color zero.
+        StonePalette = OracleGraphicsData.LoadPaletteColors(
             "res://assets/oracle/metadata/impa_stone_palette.bin",
-            "Triforce-stone PALH_98 palette");
-    }
-
-    private static Color[] ReadSpritePalette(string path, string description)
-    {
-        byte[] palette = FileAccess.GetFileAsBytes(path);
-        if (palette.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"{description} should contain 12 bytes, got {palette.Length}.");
-        }
-        var result = new Color[4];
-        result[0] = Colors.Transparent;
-        for (int color = 1; color < result.Length; color++)
-        {
-            int offset = color * 3;
-            result[color] = new Color(
-                palette[offset] / 31.0f,
-                palette[offset + 1] / 31.0f,
-                palette[offset + 2] / 31.0f);
-        }
-        return result;
+            transparentZero: true);
     }
 
     private void ValidateEncounterCommands()

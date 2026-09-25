@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -23,20 +22,12 @@ public partial class ValidationRoot
             records[0].Id != 0x7c || records[0].SubId != 5 || records[0].Position != new Vector2(120,88) ||
             records[0].Predicate != DungeonObjectCondition.Flag80Clear,
             "$4:$bf BeforeEvent must retain ENEMY$7c:$05 at main order$04, position$58,$78, gated by room flag$80.");
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             _saveData.SetRoomFlag(4,0xbf,0x80,false);
             LoadValidationRoom(4,0xbf);
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             var sentinel = _entities.Entities<SmogCharacter>().Single();
             Step(1);
             FailIf(sentinel.State != 8 || sentinel.SubId != 5 || sentinel.Visible || sentinel.CollisionEnabled ||

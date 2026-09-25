@@ -11,14 +11,8 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonCubes()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, Vector2 move = default, bool attack = false)
-        {
-            input.CaptureForValidation(attack ? ["attack"] : [], attack ? ["attack"] : [], move);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, Vector2 move = default, bool attack = false) =>
+            StepGameplayUpdates(count, move, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: true);
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
         Vector2I[] directions = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
         int[] offsets = [-16, 1, 16, -1];

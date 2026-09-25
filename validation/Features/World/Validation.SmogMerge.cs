@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -56,21 +55,13 @@ public partial class ValidationRoot
             foreach (var cloud in clouds) cloud.Free();
         }
 
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(8,8));
             for (int y = 8; y < 128; y += 16)
                 for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x,y),0x0c,0,0);
-            void Step(int count = 1)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count = 1) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             var first = _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(72,72),2,2,1));
             var second = _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(74,74),0x82,2,3));
             _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(120,104),2));

@@ -26,8 +26,7 @@ internal sealed class BoomerangDatabase
                 ["speed-raw", "outward-updates", "catch-updates", "near-radius", "catch-radius", "sound",
                  "collision", "radius-y", "radius-x", "damage", "oam-flags", "source-inverted", "animation", "source"],
                 headerRequired: true));
-        if (table.Rows.Count != 1) throw new InvalidOperationException("Clean-US Ages requires one L1 boomerang record.");
-        var row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Speed = row.Decimal(0, 1, 255);
         OutwardUpdates = row.Decimal(1, 1, 255);
         CatchUpdates = row.Decimal(2, 1, 255);

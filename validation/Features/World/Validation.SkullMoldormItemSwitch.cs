@@ -11,9 +11,6 @@ public sealed partial class ValidationRoot
     private void ValidateSkullMoldormItemSwitchWrites()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var pending = (List<RoomEntitySpawn>)typeof(RoomEntityManager).GetField("_pendingSpawns", flags)!.GetValue(_entities)!;
         var process = typeof(RoomEntityManager).GetMethod("ProcessSpawns", flags)!;
         var record = new DungeonMechanicDatabase().GetRoomRecords(4, 0x89).Single(r => r.Id == 5);
@@ -21,12 +18,8 @@ public sealed partial class ValidationRoot
         foreach (bool batch in new[] { false, true })
         foreach (bool initialized in new[] { false, true })
         {
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             _runtimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0x80);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(new Vector2(120, 128));

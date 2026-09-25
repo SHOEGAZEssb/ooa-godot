@@ -53,21 +53,10 @@ internal sealed class Room149FamilyDatabase
             throw new InvalidOperationException(
                 $"Expected six room 1:49 texts, got {_texts.Count}.");
 
-        byte[] palette = FileAccess.GetFileAsBytes(
+        // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
+        StonePalette = OracleGraphicsData.LoadPaletteColors(
             "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
-        if (palette.Length != 12)
-            throw new InvalidOperationException(
-                $"PALH_a2 stone palette should contain 12 bytes, got {palette.Length}.");
-        StonePalette = new Color[4];
-        for (int color = 0; color < StonePalette.Length; color++)
-        {
-            int offset = color * 3;
-            StonePalette[color] = new Color(
-                palette[offset] / 31.0f,
-                palette[offset + 1] / 31.0f,
-                palette[offset + 2] / 31.0f,
-                color == 0 ? 0.0f : 1.0f);
-        }
+        StonePalette[0].A = 0.0f;
     }
 
     public Room149FamilyDatabaseVisualRecord Visual(string key) =>

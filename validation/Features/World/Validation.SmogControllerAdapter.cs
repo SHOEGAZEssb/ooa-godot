@@ -10,9 +10,6 @@ public partial class ValidationRoot
     private void ValidateSmogControllerAdapter()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(0,0x60); _entities.Clear();
@@ -31,12 +28,8 @@ public partial class ValidationRoot
             typeof(RoomEntityManager).GetMethod("WriteSmogInteractionCounter",flags)!.Invoke(_entities,[slot,60]);
             FailIf(entity.Counter2Alias != 60 || entity.Controller.Counter != 0,
                 "Smog's $47 alias must reach the live interaction counter2 without changing controller counter1.");
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             Step(2);
             FailIf(entity.Controller.State != 0 || spawned != 0 || !_entities.PlayerUpdatesFrozen,
                 "INTERAC$33 must retain its live Link lock and wait while boss entry is busy.");

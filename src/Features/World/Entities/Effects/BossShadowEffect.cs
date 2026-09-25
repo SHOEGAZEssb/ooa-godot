@@ -111,13 +111,7 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
                 ["sprite", "tile-base", "palette", "animation-0",
                  "animation-1", "animation-2", "animation-3"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"PART_SHADOW should have one row, got {table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         string sprite = row.RequiredString(0);
         int tileBase = row.UnsignedDecimal(1);
         int palette = row.UnsignedDecimal(2);

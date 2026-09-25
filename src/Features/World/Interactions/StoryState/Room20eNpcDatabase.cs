@@ -121,24 +121,10 @@ internal sealed class Room20eNpcDatabase
             }
         }
 
-        byte[] paletteBytes = FileAccess.GetFileAsBytes(
+        // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
+        StonePalette = OracleGraphicsData.LoadPaletteColors(
             "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
-        if (paletteBytes.Length != 12)
-        {
-            throw new InvalidOperationException(
-                $"PALH_a2 stone palette should contain 12 bytes, got " +
-                $"{paletteBytes.Length}.");
-        }
-        StonePalette = new Color[4];
-        for (int color = 0; color < StonePalette.Length; color++)
-        {
-            int offset = color * 3;
-            StonePalette[color] = new Color(
-                paletteBytes[offset] / 31.0f,
-                paletteBytes[offset + 1] / 31.0f,
-                paletteBytes[offset + 2] / 31.0f,
-                color == 0 ? 0.0f : 1.0f);
-        }
+        StonePalette[0].A = 0.0f;
     }
 
     public bool Matches(NpcRecord npc) =>

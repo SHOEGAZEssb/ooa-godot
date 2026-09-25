@@ -11,20 +11,13 @@ public partial class ValidationRoot
     private void ValidateWallSquish()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var record = new CrownDungeonDatabase().GetRoomRecords(4,0x9b).Single(row => row.Kind == DungeonObjectKind.WallSquish);
         FailIf(record.Order != 3 || record.Id != 0xdc || record.SubId != 0x17,
             "Crown requires INTERAC $dc:$17 at main-stream order $03.");
         foreach (bool batch in new[] { false,true })
         {
-            void Step(int count = 1, Vector2 move = default)
-            {
-                input.CaptureForValidation([],[],move);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count = 1, Vector2 move = default) =>
+                StepGameplayUpdates(count, move, [], [], batched: batch);
             LoadValidationRoom(4,0x9b);
             var detector = _entities.Entities<WallSquishRoomEntity>().Single();
             FailIf(detector.State != 0 || _entities.InteractionSlot(detector) != 5,

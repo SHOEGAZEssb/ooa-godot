@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -8,15 +7,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookTileExchange()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, bool press = false)
-        {
-            input.CaptureForValidation(press ? ["attack"] : [], press ? ["attack"] : [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, bool press = false) =>
+            StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
         _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
         _inventory.EquipA(InventoryState.ItemSwitchHook);
         LoadValidationRoom(4, 0x7c);

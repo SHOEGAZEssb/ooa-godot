@@ -27,13 +27,7 @@ internal sealed class DungeonKeyBlockDatabase
                 ],
                 ["closed-tile"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one dungeon key-block row, got {table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Record = new DungeonKeyBlockDatabaseRecord(
             (byte)row.HexByte(0),
             row.HexByte(1),

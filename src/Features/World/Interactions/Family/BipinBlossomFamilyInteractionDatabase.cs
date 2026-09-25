@@ -44,10 +44,7 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
                     "alternate-animation-data", "source"
                 ],
                 headerRequired: true));
-        if (runningBipin.Rows.Count != 1)
-            throw new InvalidOperationException(
-                $"Expected one Running Bipin record, got {runningBipin.Rows.Count}.");
-        GeneratedTableRow runningRow = runningBipin.Rows[0];
+        GeneratedTableRow runningRow = runningBipin.SingleRow();
         RunningBipin = new RunningBipinRecord(
             runningRow.HexByte(0),
             runningRow.HexByte(1),

@@ -9,9 +9,6 @@ public sealed partial class ValidationRoot
     private void ValidateTopDownAirSteering()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var angleField = typeof(Player).GetField("_topDownAirAngle", flags)!;
         var speedField = typeof(Player).GetField("_topDownAirSpeedRaw", flags)!;
         int Angle() => (int)angleField.GetValue(_player)!;
@@ -21,12 +18,8 @@ public sealed partial class ValidationRoot
         foreach (bool batch in new[] { false, true })
         foreach (string scenario in new[] { "turn", "reverse", "neutral", "sword" })
         {
-            void Step(int count = 1, Vector2 movement = default, bool attack = false)
-            {
-                input.CaptureForValidation(attack ? ["attack"] : [], attack ? ["attack"] : [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default, bool attack = false) =>
+                StepGameplayUpdates(count, movement, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(new Vector2(120, 144));
             Step(32, Vector2.Up);

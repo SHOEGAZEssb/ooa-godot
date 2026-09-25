@@ -10,20 +10,13 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonSmasherHeldExpiration()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] {false,true})
         {
             _saveData.SetRoomFlag(4,0xb4,0x80,false);
             LoadValidationRoom(4,0xb4); _player.WarpTo(new(64,88));
             _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1); _inventory.EquipA(InventoryState.ItemBracelet);
-            void Step(int count,Vector2 movement = default,bool press = false)
-            {
-                input.CaptureForValidation(press ? ["attack"] : [],press ? ["attack"] : [],movement);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i=0;i<count;i++) scheduler.Advance(1.0/60,update);
-            }
+            void Step(int count,Vector2 movement = default,bool press = false) =>
+                StepGameplayUpdates(count, movement, press ? ["attack"] : [], press ? ["attack"] : [], batched: batch);
             Step(2); Step(12,Vector2.Right); Step(1,press:true); Step(13);
             var ball = _entities.Entities<SmasherCharacter>().Single(actor => actor.IsBall);
             FailIf(!_player.IsCarryingObject || ball.State != 2 || ball.GrabSubstate != 1,
@@ -55,20 +48,12 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherRewardHandoff()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] {false,true})
         {
             _saveData.SetRoomFlag(4,0xb4,0x80,false);
             LoadValidationRoom(4,0xb4); _player.WarpTo(new(48,136));
-            void Step(int count)
-            {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i=0;i<count;i++) scheduler.Advance(1.0/60,update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             bool Completed() => _saveData.HasRoomFlag(4,0xb4,0x80);
             Step(2);
             var parent = _entities.Entities<SmasherCharacter>().Single(actor => !actor.IsBall);
@@ -109,15 +94,8 @@ public partial class ValidationRoot
             records[1].SubId != 0 || records[1].Position != new Vector2(120,88) ||
             records.Any(record => record.Predicate != DungeonObjectCondition.Flag80Clear),
             "$4:$b4 main stream must retain reward order0 and BeforeEvent Smasher order4 at $58,$78, both gated by room flag$80.");
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(Vector2 movement = default)
-        {
-            input.CaptureForValidation([],[],movement);
-            scheduler.Advance(1.0/60,update);
-        }
+        void Step(Vector2 movement = default) =>
+            StepGameplayUpdates(1, movement, [], [], batched: true);
         _saveData.SetRoomFlag(4,0xb4,0x80,false);
         // Isolate entry from key-door progression: use its already-open flag.
         _saveData.SetRoomFlag(4,0xb3,0x02,true);
@@ -236,10 +214,6 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherBraceletLoop()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         foreach (bool directionless in new[] { false, true })
         {
@@ -258,12 +232,8 @@ public partial class ValidationRoot
                 ball.InitializePending(db.ImportedEnemy(0x74,0), _currentRoom, new(120,88), random, slot);
                 return new SmasherRoomEntity(ball, world, true);
             })!;
-            void Step(int count, Vector2 movement = default, bool press = false)
-            {
-                input.CaptureForValidation(press ? ["attack"] : [], press ? ["attack"] : [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count, Vector2 movement = default, bool press = false) =>
+                StepGameplayUpdates(count, movement, press ? ["attack"] : [], press ? ["attack"] : [], batched: batch);
             Step(2); Step(40, Vector2.Left);
             FailIf(_player.Position != new Vector2(100,88) || ball.State != 9,
                 "$4:$b4 bracelet fixture must approach the ground ball through actual room geometry.");
@@ -359,10 +329,6 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherGroundPush()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         {
             LoadValidationRoom(4,0xb4); _entities.Clear();
@@ -381,12 +347,8 @@ public partial class ValidationRoot
                 ball.InitializePending(db.ImportedEnemy(0x74,0), _currentRoom, new(120,88), random, slot);
                 return new SmasherRoomEntity(ball, world, true);
             });
-            void Step(int count, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             Step(2);
             Step(40, Vector2.Left);
             FailIf(_player.Position != new Vector2(100,88) || ball.Position != new Vector2(88,88) || ball.PendingCollision,
@@ -477,9 +439,6 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonSmasherRoomLifecycle()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40));
@@ -499,12 +458,8 @@ public partial class ValidationRoot
                 () => disabled++, () => restored++, sound => { if (sound == OracleSoundEngine.SndBossDead) deathSounds++; },
                 KillableEnemyIndex: 1, Counted: true);
             _entities.TryAllocateEnemy(slot => Create(slot, true));
-            void Step(int count)
-            {
-                input.CaptureForValidation([], [], Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             FailIf(_entities.RoomEnemyCount != 1, "$74 uninitialized placement must retain one room enemy.");
             Step(2);
             var pair = active.OfType<SmasherRoomEntity>().ToArray();
@@ -705,9 +660,6 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonBraceletLiftCancellation()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         foreach (int cancelAfter in new[] { 1, 7, 12 })
         {
@@ -717,12 +669,8 @@ public partial class ValidationRoot
             _player.WarpTo(new(72,40));
             _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
             _inventory.EquipA(InventoryState.ItemBracelet);
-            void Step(int count)
-            {
-                input.CaptureForValidation([], [], Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0, update);
-            }
+            void Step(int count) =>
+                StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             void BeginLift()
             {
                 // Fixture starts at the entity-to-bracelet handoff. Pickup

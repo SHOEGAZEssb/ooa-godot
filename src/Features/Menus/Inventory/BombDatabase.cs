@@ -36,13 +36,7 @@ public sealed class BombDatabase
                 ],
                 ["item"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one ITEM_BOMB record, got {table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Data = new BombRecord(
             row.HexByte(0),
             row.HexByte(1),

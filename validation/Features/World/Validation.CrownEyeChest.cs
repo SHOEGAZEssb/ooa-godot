@@ -10,21 +10,14 @@ public partial class ValidationRoot
     private void ValidateCrownEyeChest()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var setTrigger = (Action<int,bool>)typeof(RoomEntityManager).GetMethod("SetTrigger",flags)!.CreateDelegate(typeof(Action<int,bool>),_entities);
         var data = new CrownDungeonDatabase();
         FailIf(data.TriggerChestValue != 7 || data.TriggerChestWait != 15 ||
             data.GetRoomRecords(4,0xba).Single().Order != 0,"Crown eye chest must retain source trigger07, wait15 and order0.");
         foreach (bool batch in new[] { false,true })
         {
-            void Step(int count = 1,Vector2 move = default)
-            {
-                input.CaptureForValidation([],[],move);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
-            }
+            void Step(int count = 1,Vector2 move = default) =>
+                StepGameplayUpdates(count, move, [], [], batched: batch);
             _saveData.SetRoomFlag(4,0xba,0x20,false);
             LoadValidationRoom(4,0xba); _player.WarpTo(new(120,120));
             var script = _entities.Entities<DungeonTriggerChestScriptRoomEntity>().Single();

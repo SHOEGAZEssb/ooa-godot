@@ -128,7 +128,7 @@ public partial class ValidationRoot
             "closeMenu did not request SND_CLOSEMENU $55 on Start.");
         _inventoryMenu.CloseImmediatelyForValidation();
 
-        _inventoryMenu.BeginOpeningForValidation();
+        _inventoryMenu.BeginOpening(openSaveMenu: false);
         Tick(["inventory", "map"], ["map"]);
         for (int update = 1; update < 22; update++) Tick([], []);
         FailIf(!_inventoryMenu.SaveMenuOpen || _inventoryScreen.Visible,

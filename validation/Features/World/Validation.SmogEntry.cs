@@ -56,14 +56,8 @@ public partial class ValidationRoot
             entry.Update(_player);
             FailIf(_player.Position != start + new Vector2(21,0), "Completed forced entry must remain inert.");
         }
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(Vector2 movement = default)
-        {
-            input.CaptureForValidation([],[],movement);
-            scheduler.Advance(1.0 / 60.0,update);
-        }
+        void Step(Vector2 movement = default) =>
+            StepGameplayUpdates(1, movement, [], [], batched: true);
         _saveData.SetRoomFlag(4,0xbf,0x80,false);
         // Isolate entry from Boss Key acquisition/opening; preserve the real
         // door's already-open flags on both sides and its actual geometry.

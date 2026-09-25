@@ -32,13 +32,7 @@ internal sealed class BraceletDatabase
                 ],
                 ["item"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one ITEM_BRACELET record, got {table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Data = new BraceletDatabaseRecord(
             row.HexByte(0),
             row.HexByte(1),

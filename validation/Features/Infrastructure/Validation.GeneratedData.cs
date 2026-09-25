@@ -7,8 +7,59 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private static void ValidateSpritePaletteReaders()
+    {
+        // Independent pins from data/ages/paletteData.s, including the RGB
+        // beneath alpha zero. Transparent black and transparent RGB differ.
+        Color[] stone = [new(31/31f, 26/31f, 17/31f, 0), new(0, 0, 0),
+            new(17/31f, 17/31f, 25/31f), new(27/31f, 27/31f, 31/31f)]; // $44e8
+        Color[] block = [new(27/31f, 18/31f, 10/31f, 0), new(23/31f, 14/31f, 0),
+            new(13/31f, 8/31f, 1/31f), new(0, 0, 0)]; // $5958
+        var impa = new ImpaIntroEventDatabase();
+        foreach (var (actual, expected, source) in new (Color[], Color[], string)[]
+        {
+            (new StoneRabbitDatabase().StonePalette, stone, "PALH_a2 rabbit $4b:$06"),
+            (new Room20eNpcDatabase().StonePalette, stone, "PALH_a2 room $2:$0e"),
+            (new Room149FamilyDatabase().StonePalette, stone, "PALH_a2 room $1:$49"),
+            (new Room5bfDatabase().BlockPalette, block, "PALH_a3 room $5:$bf"),
+            (impa.StonePalette, [Colors.Transparent, new(12/31f, 18/31f, 17/31f),
+                new(11/31f, 9/31f, 11/31f), new(0, 0, 0)], "PALH_98 $4428"),
+            (impa.PossessedPalette, [Colors.Transparent, new(0, 0, 0),
+                new(25/31f, 1/31f, 5/31f), new(18/31f, 26/31f, 31/31f)], "PALH_97 slot $07")
+        })
+        {
+            FailIf(actual.Length != 4, $"{source}: expected four colors.");
+            for (int i = 0; i < 4; i++)
+                FailIf(actual[i] != expected[i], $"{source}: color ${i:x2} lost source RGBA.");
+        }
+        const string path = "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin";
+        Color[] mutable = OracleGraphicsData.LoadPaletteColors(path);
+        mutable[1] = Colors.Red;
+        FailIf(OracleGraphicsData.LoadPaletteColors(path)[1] != stone[1],
+            "Palette loads must not share mutable color arrays.");
+        try
+        {
+            OracleGraphicsData.ReadBytes(path, 11);
+            throw new InvalidOperationException("Palette length mismatch was accepted.");
+        }
+        catch (InvalidOperationException error) when (error.Message.Contains(path) &&
+            error.Message.Contains("11") && error.Message.Contains("12")) { }
+        GD.Print("Validated source-pinned sprite palettes, transparent RGB, array ownership and length diagnostics.");
+    }
+
     private static void ValidateGeneratedTableReader()
     {
+        var singletonSchema = new GeneratedTableSchema(
+            "source singleton", GeneratedTableKeySemantics.Ordered, ["id", "source"], [], headerRequired: true);
+        const string singletonPath = "validation://singleton.tsv";
+        GeneratedTable Singleton(string rows) => GeneratedTable.ParseForValidation(
+            singletonPath, "# id\tsource\n" + rows, singletonSchema);
+        FailIf(Singleton("a2\tfirst\n").SingleRow().HexByte(0) != 0xa2,
+            "SingleRow did not retain its original source row.");
+        foreach (string rows in new[] { "", "a2\tfirst\na3\tsecond\n" })
+            ExpectGeneratedTableFailure(() => Singleton(rows).SingleRow(),
+                singletonPath, "source singleton", "exactly one data row", rows.Length == 0 ? "got 0" : "got 2");
+
         var lookup = new Lookup<string, int>(StringComparer.Ordinal);
         lookup.Add("second", 2);
         lookup.Add("first", 1);

@@ -53,8 +53,7 @@ internal sealed class CrownDungeonDatabase
         var bridge = GeneratedTable.Load("res://assets/oracle/objects/crown_button_bridge.tsv",
             new GeneratedTableSchema("Crown button bridge",GeneratedTableKeySemantics.Unique,
                 ["first","last","interval","hole","bridge","diamond","source"],["first"],headerRequired:true));
-        if (bridge.Rows.Count != 1) throw new InvalidOperationException("Crown bridge requires one source rule.");
-        var b = bridge.Rows[0];
+        GeneratedTableRow b = bridge.SingleRow();
         ButtonBridge = new(b.HexByte(0),b.HexByte(1),b.Decimal(2,1,255),(byte)b.HexByte(3),(byte)b.HexByte(4),(byte)b.HexByte(5),b.RequiredString(6));
         var script = GeneratedTable.Load("res://assets/oracle/objects/crown_trigger_chest_script.tsv",
             new GeneratedTableSchema("Crown trigger chest script",GeneratedTableKeySemantics.Unique,

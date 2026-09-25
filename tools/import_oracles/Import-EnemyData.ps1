@@ -1709,6 +1709,25 @@ function Export-SwitchHookCollisionData {
     Write-GeneratedTable((Join-Path $destination 'metadata\switch_hook_enemy_collisions.tsv'), $rows)
 }
 Export-SwitchHookCollisionData
+function Export-ItemActiveCollisionColumns([string]$item, [string[]]$columns, [int[]]$indices) {
+    foreach ($kind in @('enemy', 'part')) {
+        $relative = "data/ages/${kind}ActiveCollisions.s"
+        $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $relative) "${kind}ActiveCollisions" 'dbrev')
+        $expected = if ($kind -eq 'enemy') { 128 } else { 0x5a }
+        if ($masks.Count -ne $expected) { throw "${relative}: expected $expected ordered $item collision masks, got $($masks.Count)." }
+        $rows = [Collections.Generic.List[string]]::new()
+        $rows.Add("# id`t$($columns -join "`t")`tsource")
+        for ($id = 0; $id -lt $masks.Count; $id++) {
+            $bits = ($masks[$id].Operands -join '').Replace('%', '')
+            if ($bits -notmatch '^[01]{32}$') { throw "${relative}: malformed collision mask at id `$$($id.ToString('x2'))." }
+            # dbrev source characters follow collision-type order, not numeric bit significance.
+            $enabled = @($indices | ForEach-Object { $bits[$_] }) -join "`t"
+            $rows.Add("$($id.ToString('x2'))`t$enabled`t${relative}:${kind}ActiveCollisions+$((4 * $id).ToString('x4'))")
+        }
+        Write-GeneratedTable((Join-Path $destination "metadata/${item}_${kind}_collisions.tsv"), $rows)
+    }
+}
+
 function Export-BoomerangCollisionData {
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# mode`teffect`tsource")
@@ -1717,20 +1736,7 @@ function Export-BoomerangCollisionData {
         $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
     }
     Write-GeneratedTable((Join-Path $destination 'metadata/boomerang_collision_effects.tsv'), $rows)
-    foreach ($kind in @('enemy', 'part')) {
-        $relative = "data/ages/${kind}ActiveCollisions.s"
-        $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $relative) "${kind}ActiveCollisions" 'dbrev')
-        $expected = if ($kind -eq 'enemy') { 128 } else { 0x5a }
-        if ($masks.Count -ne $expected) { throw "${relative}: expected $expected ordered boomerang masks." }
-        $rows = [Collections.Generic.List[string]]::new()
-        $rows.Add("# id`tenabled`tsource")
-        for ($id = 0; $id -lt $masks.Count; $id++) {
-            $bits = ($masks[$id].Operands -join '').Replace('%', '')
-            if ($bits -notmatch '^[01]{32}$') { throw "${relative}: malformed collision mask at id `$$($id.ToString('x2'))." }
-            $rows.Add("$($id.ToString('x2'))`t$($bits[0x17])`t${relative}:${kind}ActiveCollisions+$((4 * $id).ToString('x4'))")
-        }
-        Write-GeneratedTable((Join-Path $destination "metadata/boomerang_${kind}_collisions.tsv"), $rows)
-    }
+    Export-ItemActiveCollisionColumns 'boomerang' @('enabled') @(0x17)
     $source = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# damage-type`tflags`tinvincibility`tknockback`tstun`tsource")
@@ -1751,21 +1757,7 @@ function Export-SomariaCollisionData {
         $rows.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x12].ToString('x2'))`t$($enemyCollisionTableValues[$offset + 0x15].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
     }
     Write-GeneratedTable((Join-Path $destination 'metadata/somaria_collision_effects.tsv'), $rows)
-    foreach ($kind in @('enemy', 'part')) {
-        $relative = "data/ages/${kind}ActiveCollisions.s"
-        $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $relative) "${kind}ActiveCollisions" 'dbrev')
-        $expected = if ($kind -eq 'enemy') { 128 } else { 0x5a }
-        if ($masks.Count -ne $expected) { throw "${relative}: expected $expected ordered Somaria collision masks, got $($masks.Count)." }
-        $rows = [Collections.Generic.List[string]]::new()
-        $rows.Add("# id`tswing-enabled`tblock-enabled`tsource")
-        for ($id = 0; $id -lt $masks.Count; $id++) {
-            $bits = ($masks[$id].Operands -join '').Replace('%', '')
-            if ($bits -notmatch '^[01]{32}$') { throw "${relative}: malformed collision mask at id `$$($id.ToString('x2'))." }
-            # dbrev source characters follow collision-type order, not numeric bit significance.
-            $rows.Add("$($id.ToString('x2'))`t$($bits[0x12])`t$($bits[0x15])`t${relative}:${kind}ActiveCollisions+$((4 * $id).ToString('x4'))")
-        }
-        Write-GeneratedTable((Join-Path $destination "metadata/somaria_${kind}_collisions.tsv"), $rows)
-    }
+    Export-ItemActiveCollisionColumns 'somaria' @('swing-enabled', 'block-enabled') @(0x12, 0x15)
 }
 Export-SomariaCollisionData
 $galeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')

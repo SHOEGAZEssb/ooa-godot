@@ -33,14 +33,7 @@ internal sealed class TokaySeedlingPlotDatabase
                 ],
                 ["group", "room", "npc-id", "npc-subid"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Tokay scent-seedling plot should have one row, got " +
-                $"{table.Rows.Count}.");
-        }
-
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Record = new TokaySeedlingPlotRecord(
             row.Decimal(0, 0, 7), row.HexByte(1), row.HexByte(2),
             row.HexByte(3), row.HexByte(4), row.HexByte(5),

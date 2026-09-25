@@ -170,12 +170,7 @@ internal sealed class LinkItemDatabase
                 ],
                 ["source"],
                 headerRequired: true));
-        if (table.Rows.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Expected one Link/item constants row, got {table.Rows.Count}.");
-        }
-        GeneratedTableRow row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         return new LinkItemConstants(
             row.UnsignedDecimal(0),
             row.UnsignedDecimal(1),

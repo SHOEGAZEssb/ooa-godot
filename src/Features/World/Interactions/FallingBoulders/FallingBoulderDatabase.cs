@@ -21,9 +21,7 @@ internal sealed class FallingBoulderDatabase
             new GeneratedTableSchema("PART_FALLING_BOULDER_SPAWNER $45", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius", "damage-quarters", "delays", "animation-base64", "source-grayscale-inverted", "source"],
                 ["sprite"], headerRequired: true));
-        if (table.Rows.Count != 1)
-            throw new InvalidOperationException("fallingBoulderSpawner.s: expected one PART $45 definition.");
-        var row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         Sprite = row.RequiredString(0);
         TileBase = row.Decimal(1, 0, 255);
         Palette = row.Decimal(2, 0, 7);

@@ -10,9 +10,6 @@ public sealed partial class ValidationRoot
     private void ValidateSkullZolCycles()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var animation = typeof(EnemyCharacter).GetField("_animation", flags)!;
         var remaining = typeof(EnemyAnimationPlayer).GetField("_frameCounter", flags)!;
         int AnimationRemaining(ZolCharacter zol) => (int)remaining.GetValue(animation.GetValue(zol))!;
@@ -20,12 +17,8 @@ public sealed partial class ValidationRoot
         foreach (bool batch in new[] { false, true })
         foreach (int subid in new[] { 0, 1 })
         {
-            void Step(int count = 1, Vector2 movement = default)
-            {
-                input.CaptureForValidation([], [], movement);
-                if (batch) scheduler.Advance(count / 60.0, update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60, update);
-            }
+            void Step(int count = 1, Vector2 movement = default) =>
+                StepGameplayUpdates(count, movement, [], [], batched: batch);
             RestoreOracleRandomForValidation(originalRandom);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(new Vector2(120, 128));

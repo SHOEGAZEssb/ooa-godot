@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,19 +8,11 @@ public partial class ValidationRoot
 {
     private void ValidateCrownButtonChestItem()
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         Vector2 Center(int p)=>new((p&15)*16+8,(p>>4)*16+8);
         foreach(bool batch in new[]{false,true})
         {
-            void Step(int count=1,Vector2 move=default,bool cane=false)
-            {
-                input.CaptureForValidation(cane?["attack"]:[],cane?["attack"]:[],move);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count=1,Vector2 move=default,bool cane=false) =>
+                StepGameplayUpdates(count, move, cane?["attack"]:[], cane?["attack"]:[], batched: batch);
             _saveData.SetRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem,false);
             LoadValidationRoom(4,0xbc);
             // Isolated final-pressure fixture: pre-position the room's three

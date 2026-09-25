@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,10 +8,6 @@ public partial class ValidationRoot
 {
     private void ValidatePuzzleTrapReset()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var record = new PuzzleTrapResetDatabase().GetRoomRecords(4,0x9b).Single();
         byte[] offsets = [0xf0,0xe0,0x01,0x02,0x10,0x20,0xff,0xfe];
         FailIf(record.Order != 2 || record.Interval != 30 || record.Delay != 60 ||
@@ -23,12 +18,8 @@ public partial class ValidationRoot
         Vector2 Center(int packed) => new((packed & 15)*16+8,(packed >> 4)*16+8);
         foreach (bool batch in new[] { false,true })
         {
-            void Step(int count = 1,Vector2 move = default)
-            {
-                input.CaptureForValidation([],[],move);
-                if (batch) scheduler.Advance(count/60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count = 1,Vector2 move = default) =>
+                StepGameplayUpdates(count, move, [], [], batched: batch);
             LoadValidationRoom(4,0x9b);
             var initial = _entities.Entities<PuzzleTrapResetRoomEntity>().Single();
             FailIf(initial.State != 0 || initial.Counter != 0 || _entities.InteractionSlot(initial) != 4,

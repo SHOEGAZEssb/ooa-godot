@@ -18,8 +18,7 @@ internal sealed class SomariaPlacementDatabase
             new GeneratedTableSchema("Somaria placement",GeneratedTableKeySemantics.Unique,
                 ["create-parameter","tile","collision","z-subtract","z-boundary","forbidden-group","forbidden-room","align-y","source"],
                 ["create-parameter"],headerRequired:true));
-        if (table.Rows.Count != 1) throw new InvalidOperationException("Somaria placement requires one profile.");
-        var row = table.Rows[0];
+        GeneratedTableRow row = table.SingleRow();
         CreateParameter=row.Decimal(0,0,255); Tile=(byte)row.HexByte(1); Collision=(byte)row.HexByte(2);
         _zSubtract=row.Decimal(3,0,255); _zBoundary=row.HexByte(4); _forbiddenGroup=row.Decimal(5,0,7);
         _forbiddenRoom=row.HexByte(6); _alignY=row.Decimal(7,-128,127); _=row.RequiredString(8);

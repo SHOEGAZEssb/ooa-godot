@@ -13,11 +13,8 @@ public sealed partial class ValidationRoot
         var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
         var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
         var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1, Vector2 move = default, bool jump = false)
-        {
-            input.CaptureForValidation(jump ? ["attack"] : [], jump ? ["attack"] : [], move);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1, Vector2 move = default, bool jump = false) =>
+            StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         void Wait(int count, bool batch)
         {
             if (batch) Step(count);

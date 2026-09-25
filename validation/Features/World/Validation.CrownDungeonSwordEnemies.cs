@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -65,15 +64,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateCrownDungeonSwordSeedCollisions()
     {
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
         var seeds = new SeedSatchelDatabase();
         var shooter = SeedShooterRecord.Load();
         EmberSeedEffect Shoot(SwordEnemyCharacter target, int seedItem)

@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -15,16 +14,8 @@ public sealed partial class ValidationRoot
     }
     private void RunDefeatedMoblinSequence(bool batch)
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
-        void Step(int count=1)
-        {
-            input.CaptureForValidation([],[],Vector2.Zero);
-            if(batch)scheduler.Advance(count/60.0,update);
-            else for(int i=0;i<count;i++)scheduler.Advance(1.0/60,update);
-        }
+        void Step(int count=1) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
         var sequence=_roomEvents.Get<DefeatedMoblinEvent>();
         _saveData.SetGlobalFlag(0x1a,false);_saveData.SetRoomFlag(0,9,0x40,false);
         LoadValidationRoom(0,9);Step();

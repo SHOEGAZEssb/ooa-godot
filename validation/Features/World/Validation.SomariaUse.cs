@@ -21,12 +21,8 @@ public partial class ValidationRoot
             _inventory.GiveTreasure(InventoryState.ItemSomaria,1);
             _inventory.EquipA(button=="attack"?InventoryState.ItemSomaria:InventoryState.ItemNone);
             _inventory.EquipB(button=="item"?InventoryState.ItemSomaria:InventoryState.ItemNone);
-            void Step(int count,bool pressed=false,bool turn=false)
-            {
-                input.CaptureForValidation([button],pressed?[button]:[],turn?Vector2.Right:Vector2.Zero);
-                if(batch) scheduler.Advance(count/60.0,update);
-                else for(int i=0;i<count;i++) scheduler.Advance(1.0/60.0,update);
-            }
+            void Step(int count,bool pressed=false,bool turn=false) =>
+                StepGameplayUpdates(count, turn?Vector2.Right:Vector2.Zero, [button], pressed?[button]:[], batched: batch);
             var cane=_entities.Somaria!;
             Step(1,true);
             FailIf(!cane.Active || cane.Weapon?.State!=1 || cane.Parent?.Parameter!=0,

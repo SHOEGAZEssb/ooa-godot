@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -108,15 +107,8 @@ public sealed partial class ValidationRoot
             "Blade trap accepted an unsupported burn, expert punch or bomb damage path.");
         waiting.Free();
 
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
         var startRandom = CaptureOracleRandomForValidation();
         (Vector2 Position, BladeTrapState State, int Angle, int Counter)[] Run(bool batched)
         {
@@ -157,15 +149,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateSkullDungeonFallingRopes()
     {
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
 
         _saveData.SetRoomFlag(4, 0x73, 0xff, false);
         LoadValidationRoom(4, 0x73);
@@ -242,15 +227,8 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonShroudedStalfos()
     {
         var database = new EnemyDatabase();
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
-        void Step(int count = 1)
-        {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, update);
-        }
+        void Step(int count = 1) =>
+            StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
 
         // enemyData.s uses the same direct extra-data row $0e for both subids
         // of $22/$49; subid $01 only changes the sword chase cooldown.
