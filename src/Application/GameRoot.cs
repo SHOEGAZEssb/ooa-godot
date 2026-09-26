@@ -8,6 +8,7 @@ public partial class GameRoot : Node2D
 {
     private readonly ApplicationFixedUpdateScheduler _applicationUpdates = new();
     private readonly ApplicationInputBuffer _applicationInput = new();
+    private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
 
     // Internal aliases and state form the narrow host surface used by the
@@ -150,6 +151,18 @@ public partial class GameRoot : Node2D
 
     public override void _Input(InputEvent @event)
     {
+        if (@event is InputEventKey
+            {
+                PhysicalKeycode: Key.F5, Pressed: true, Echo: false,
+                CtrlPressed: false, AltPressed: false, MetaPressed: false,
+                ShiftPressed: false
+            })
+        {
+            _debugFastForward = !_debugFastForward;
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_transitions is null ||
             _frontendIntro is not null ||
             _mainMenu is not null ||
@@ -449,7 +462,10 @@ public partial class GameRoot : Node2D
     public override void _Process(double delta)
     {
         _applicationInput.CaptureHostFrame();
-        _applicationUpdates.Advance(delta, AdvanceApplicationUpdate);
+        // Debug speed changes the number of complete original updates, never
+        // their 1/60 delta, input-edge consumption, or subsystem order.
+        _applicationUpdates.Advance(
+            delta * (_debugFastForward ? 4 : 1), AdvanceApplicationUpdate);
     }
 
     private void AdvanceApplicationUpdate()
@@ -967,6 +983,8 @@ public partial class GameRoot : Node2D
         string roomText = $"{_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}";
         if (_debugCollision.CollisionsDisabled)
             roomText += " NOCLIP";
+        if (_debugFastForward)
+            roomText += " FF x4";
         if (_debugSavestateStatusFrames > 0.0 &&
             !string.IsNullOrEmpty(_debugSavestateStatus))
         {

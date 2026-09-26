@@ -6,6 +6,73 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateGoronDanceScrollEntry()
+    {
+        var results = new List<string>();
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _player.ApplicationUpdateOwned = true;
+            var observations = new List<string>();
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                LoadValidationRoom(2, 0xfd);
+                StepGameplayUpdates(1, Vector2.Zero);
+                // The open north passage in group2Mapfd leads to group2Maped.
+                _player.WarpTo(new Vector2(0x58, 0x18));
+                FailIf(_rooms.CurrentRoom.GetTerrainInfo(_player.Position).Collision != 0,
+                    "Room 2:fd dance approach is not floor.");
+                var outgoing = _entities.Entities<NpcCharacter>().Where(n => n.Record.Id == 0x66 && n.Active).ToArray();
+                for (int i = 0; i < 40 && !IsTransitioning; i++)
+                    StepGameplayUpdates(1, Vector2.Up, ["move_up"], ["move_up"]);
+                FailIf(!IsTransitioning || _rooms.CurrentRoom.Id != 0xed,
+                    "Room 2:fd north passage failed to scroll to 2:ed.");
+                var incoming = _entities.Entities<NpcCharacter>().Where(n => n.Record.Id == 0x66).ToArray();
+                FailIf(_player.FacingVector != Vector2I.Up || outgoing.Any(n => !n.Active || !n.Visible) ||
+                    incoming.Length != 8 || incoming.Any(n => !n.Active || !n.Visible),
+                    $"Goron scroll 2:fd -> 2:ed: facing {_player.FacingVector}; " +
+                    $"outgoing {outgoing.Count(n => n.Active && n.Visible)}/{outgoing.Length}; " +
+                    $"incoming {incoming.Count(n => n.Active && n.Visible)}/{incoming.Length} (expected 8).");
+                string Snapshot() => string.Join(";", incoming.Select(n =>
+                    $"{n.Position}:{n.CurrentAnimationFrame}:{n.CurrentScriptAnimationSource}"));
+                string frozen = Snapshot();
+                // After setup and some scrolling, the lower dancer row (source
+                // yh=$68) must already be inside the viewport before completion.
+                for (int tick = 0; tick < 16; tick += batched ? 4 : 1)
+                    StepGameplayUpdates(batched ? 4 : 1, Vector2.Zero, batched: batched);
+                observations.Add($"{_player.PrecisePosition}:{incoming[0].TransitionDrawOffset}:{Snapshot()}");
+                FailIf(incoming.Any(n => n.TransitionDrawOffset != incoming[0].TransitionDrawOffset) ||
+                    incoming[0].TransitionDrawOffset.Y is <= -128 or >= 0,
+                    "Room 2:ed dancers do not share the incoming room's scroll offset.");
+                foreach (var dancer in incoming.Where(n => n.Record.SubId == 1 && n.Position.Y == 0x68))
+                {
+                    Vector2 screen = _transitions.WorldToGameplayScreen(dancer.Position) +
+                        dancer.TransitionDrawOffset + dancer.SourceOamWrapOffset;
+                    FailIf(screen.Y is < 0 or >= 128 || !dancer.IsVisibleInTree(),
+                        $"Room 2:ed dancer ${dancer.Record.Var03:x2} is not presented during scrolling: {screen}.");
+                }
+                for (int i = 0; i < 100 && IsTransitioning; i++)
+                {
+                    FailIf(outgoing.Any(n => !n.Active || !n.Visible) || incoming.Any(n => !n.Active || !n.Visible) ||
+                        Snapshot() != frozen || _player.FacingVector != Vector2I.Up,
+                        "Goron scroll changed frozen actors or Link's facing before completion.");
+                    StepGameplayUpdates(1, Vector2.Zero);
+                }
+                FailIf(IsTransitioning || _entities.OutgoingEntities<NpcCharacter>().Count != 0 ||
+                    Snapshot() != frozen || incoming.Any(n => n.TransitionDrawOffset != Vector2.Zero),
+                    "Goron scroll failed to retire outgoing actors and retain destination poses at completion.");
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched);
+                FailIf(incoming.Any(n => !n.Active || !n.Visible), "Room 2:ed lost dancers after scroll completion.");
+                observations.Add($"{_player.PrecisePosition}:{Snapshot()}");
+                _roomEvents.Get<GoronCaveEvent>().Cancel();
+                FailIf(incoming.Any(n => n.Active || n.Visible),
+                    "Explicit Goron event cancellation retained destination actors.");
+            }
+            results.Add(string.Join("\n", observations));
+        }
+        FailIf(results[0] != results[1], "Goron scroll differs between individual and batched gameplay updates.");
+    }
+
     private void ValidateRoom5c3GoronEntry()
     {
         foreach(int progress in new[]{0,1,2})

@@ -1,14 +1,15 @@
 # NPC and character interaction coverage
 
-This is the room-by-room coverage snapshot for imported visible character
-interactions as of September 25, 2026. It is an implementation inventory, not a
+This is the current room-by-room coverage for imported visible character
+interactions. It is an implementation inventory, not a
 claim that every listed room has been compared exhaustively against a retail
 playthrough.
 
 This ledger is maintained alongside NPC implementation work. Any change that
 implements, extends, partially supports, suppresses, or reclassifies an imported
-NPC record must update the affected room entry, snapshot counts, important
-boundaries, and date in the same change.
+NPC record must update the affected table entries and counts in the same
+change. Keep diary entries, bugfix descriptions, and regression details out of
+this ledger, including its tables.
 
 The inventory covers:
 
@@ -45,12 +46,9 @@ native or script owner is unavailable is suppressed, even when the importer
 can resolve graphics, initial text, or a visibility predicate. Neither status
 can be promoted to **I** merely because the actor looks plausible in one room.
 
-## Snapshot
+## Coverage totals
 
 ### Positioned and state-derived rows
-
-Snapshot: September 25, 2026. Room `2:4e`'s rupee-taking old man is implemented,
-bringing coverage to 199 implemented, 49 partial, and 137 deliberately unsupported records.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
@@ -59,40 +57,24 @@ bringing coverage to 199 implemented, 49 partial, and 137 deliberately unsupport
 | **D** | 137 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
-The separate family table contributes 72 conditional variants in rooms
-`2:ea` and `2:eb`. Their selection, running Bipin, child naming, representative
-stage/personality dialogue, and finished-game suppression are covered, but the
-family remains **P** until its progression ownership and all per-variant
-behavior are independently completed. All 72 rows are explicitly classified
-as specialized native interactions.
+### Implementation classifications
 
-The implementation manifest therefore contains 55 ordinary, 94 specialized,
-99 event-owned, and 137 deliberately unsupported positioned/state-derived
-rows. Including the family table, the typed runtime database contains 457
-classified records and 166 specialized rows.
-
-### Highest-value missing clusters
-
-- Zora `$ab`, King Zora `$9c`, and Jabu-Jabu child `$ba`.
-- Soldier `$40` and the surrounding palace, ending, and linked-game cast
-  outside the implemented pre-Black-Tower and lower-Tower slices.
-- Carpenter `$9a`, Mamamu Yan/dog `$53/$54`, Bomb Upgrade
-  Fairy `$83`, Syrup `$5f`, and
-  the Advance Shop keeper `$46:$02`.
-- Old-lady linked-secret records `$3d:$04/$05`: their complete linked-secret
-  interaction graphs are not implemented like the Graveyard Ghini `$cb:$00`,
-  so their placements are deliberately suppressed.
+| Classification | Positioned/state-derived rows | Family variants | Total |
+| --- | ---: | ---: | ---: |
+| Ordinary NPC adapter | 55 | 0 | 55 |
+| Specialized native interaction | 94 | 72 | 166 |
+| Event-owned actor | 99 | 0 | 99 |
+| Deliberately unsupported | 137 | 0 | 137 |
+| **Total** | **385** | **72** | **457** |
 
 ## Bipin and Blossom family variants
 
 | Room | Coverage |
 | --- | --- |
-| `2:ea` | **[P] 38 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`; state/personality selection, naming, and representative dialogue are covered. |
-| `2:eb` | **[P] 34 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`; stage advancement and running Bipin are covered. |
+| `2:ea` | **[P] 38 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
+| `2:eb` | **[P] 34 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
 
 These are mutually selected alternatives, not 72 simultaneous actors.
-`NpcDatabase.GetRoomNpcs` currently owns family progression side effects as
-well as record selection.
 
 ## Room inventory
 
@@ -105,20 +87,20 @@ well as record selection.
 | `0:26` | [I] `$9a:$b3/v$00` carpenter<br>[I] `$9a:$c3/v$00` carpenter |
 | `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
 | `0:37` | [I] `$9a:$c4/v$00` carpenter |
-| `0:38` | [P] `$87:$00/v$00` makuTree (disappearance, rescue reward, ordinary advice and attached flower; endgame cutscene incomplete) |
-| `0:39` | [I] `$37:$0d/v$00` ralph (rightward room-pack fade entry; intro includes an imported Ghost Veran lane)<br>[D] `$5d:$02/v$00` bear |
+| `0:38` | [P] `$87:$00/v$00` makuTree |
+| `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
-| `0:45` | [I] `$3f:$01/v$00` boy2, including its occupied timewarp landing tile |
+| `0:45` | [I] `$3f:$01/v$00` boy2 |
 | `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
 | `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
-| `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy, including bomb sprite encoding and palettes |
+| `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy |
 | `0:55` | [D] `$54:$01/v$01` mamamuDog |
 | `0:56` | [I] `$3a:$04/v$00` villager<br>[I] `$65:$00/v$00` comedian |
 | `0:57` | [I] `$41:$01/v$00` miscMan |
 | `0:58` | [I] `$41:$04/v$00` miscMan |
 | `0:5a` | [I] `$39:$02/v$00` monkey<br>[I] `$39:$03/v$00` monkey |
 | `0:5d` | [I] `$cb:$00/v$00` linkedGameGhini |
-| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh<br>rescue retains the room-local digging restriction |
+| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
 | `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
 | `0:67` | [D] `$41:$03/v$00` miscMan |
@@ -129,18 +111,18 @@ well as record selection.
 | `0:72` | [D] `$49:$0c/v$00` forestFairy |
 | `0:77` | [D] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
-| `0:79` | [P] `$c8:$00/v$00` tingle (vanilla balloon collision mask; includes pre-upgrade `$84:$04` glow) |
+| `0:79` | [P] `$c8:$00/v$00` tingle |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [D] `$49:$06/v$00` forestFairy |
-| `0:81` | [D] `$49:$0d/v$00` forestFairy<br>Dimitri's separate `$71:$09` controller and dynamically spawned `$49:$03` rescue fairy are implemented; the positioned `$49:$0d` record remains deferred. |
+| `0:81` | [D] `$49:$0d/v$00` forestFairy |
 | `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[I] `$49:$0e/v$00` forestFairy<br>[I] `$49:$0f/v$00` forestFairy<br>[I] `$49:$10/v$00` forestFairy |
-| `0:83` | [I] `$d5:$00/v$00` greatFairy<br>native non-character `$dc:$02` Wing Dungeon collapse, including its digging restriction |
+| `0:83` | [I] `$d5:$00/v$00` greatFairy |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |
 | `0:a7` | [D] `$41:$06/v$00` miscMan |
-| `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay<br>Introduction waits for scroll completion; Dimitri appears, responds, and mounts after rescue. His companion owner also supports carrying/throwing, water return, cliff hops and flute entrance. Seed hops, dialogue-gated flames, and separate departure counters are implemented; full NPC facing/input-path parity remains unverified. |
+| `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay |
 | `0:bb` | [P] `$48:$1e/v$00` tokay |
 | `0:bd` | [P] `$48:$12/v$00` tokay |
 | `0:cd` | [P] `$48:$13/v$00` tokay |
@@ -174,7 +156,7 @@ well as record selection.
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
 | `1:77` | [P] `$45:$01/v$00` pastOldLady |
-| `1:79` | [I] `$37:$10/v$00` ralph; native dust allocation and flicker covered by `ValidateRoom179RalphAfterCheval` |
+| `1:79` | [I] `$37:$10/v$00` ralph |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
 | `1:83` | [I] `$41:$00/v$00` miscMan |
@@ -204,11 +186,11 @@ well as record selection.
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |
-| `2:3f` | [P] `$48:$05/v$00` tokay (imported cook trade script and native jump path) |
-| `2:4e` | [I] `$2e:$01/v$00` oldManWithRupees (rupee-taking script; `ValidateRoom24eOldMan`) |
+| `2:3f` | [P] `$48:$05/v$00` tokay |
+| `2:4e` | [I] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
-| `2:7e` | [I] `$46:$01/v$00` shopkeeper; hidden-shop stock, purchases, theft prevention, and chest-choice game (`ValidateHiddenShopInteractions`) |
+| `2:7e` | [I] `$46:$01/v$00` shopkeeper |
 | `2:a0` | [D] `$ab:$10/v$00` zora<br>[D] `$ab:$14/v$00` zora |
 | `2:b1` | [D] `$ab:$13/v$00` zora |
 | `2:d1` | [D] `$ab:$1b/v$00` zora |
@@ -217,7 +199,7 @@ well as record selection.
 | `2:df` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
-| `2:e6` | [I] `$5c:$00/v$00` maskSalesman (positioned trade dialogue) |
+| `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
@@ -225,7 +207,7 @@ well as record selection.
 | `2:ed` | [I] `$66:$00/v$00` goron |
 | `2:ef` | [I] `$66:$00/v$00` goron |
 | `2:f3` | [I] `$3c:$07/v$00` boy |
-| `2:f5` | [I] `$5a:$00/v$00` oldZora (`ValidateRoom2f5OldZora`) |
+| `2:f5` | [I] `$5a:$00/v$00` oldZora |
 | `2:f6` | [I] `$66:$0f/v$00` goron |
 | `2:f7` | [I] `$66:$07/v$00` goron |
 | `2:f8` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
@@ -238,8 +220,8 @@ well as record selection.
 | `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
 | `3:5f` | [I] `$66:$0e/v$06` goron |
-| `3:6e` | [I] `$bf:$06/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
-| `3:6f` | [I] `$bf:$07/v$00` symmetryNpc (copied-script cadence and nut handoff completion covered) |
+| `3:6e` | [I] `$bf:$06/v$00` symmetryNpc |
+| `3:6f` | [I] `$bf:$07/v$00` symmetryNpc |
 | `3:7e` | [I] `$bf:$0a/v$00` symmetryNpc |
 | `3:7f` | [I] `$bf:$0b/v$00` symmetryNpc |
 | `3:8e` | [I] `$bf:$04/v$00` symmetryNpc |
@@ -254,7 +236,7 @@ well as record selection.
 | `3:cf` | [D] `$42:$01/v$00` mustacheMan |
 | `3:d1` | [D] `$ab:$1a/v$00` zora |
 | `3:d6` | [D] `$ab:$11/v$00` zora |
-| `3:de` | [D] `$ab:$16/v$00` zora; shared source placement with `3:df` |
+| `3:de` | [D] `$ab:$16/v$00` zora |
 | `3:df` | [D] `$ab:$16/v$00` zora |
 | `3:e3` | [D] `$ab:$15/v$00` zora |
 | `3:e7` | [I] `$30:$01/v$00` shootingGallery<br>[I] `$8b:$02/v$00` goronElder |
@@ -289,7 +271,7 @@ well as record selection.
 | `5:bd` | [I] `$66:$0e/v$01` goron |
 | `5:c0` | [I] `$66:$0c/v$00` goron |
 | `5:c2` | [I] `$66:$0d/v$02` goron |
-| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron; ambient dialogue, Bomb Flower rescue, Crown Key and re-entry covered by `ValidateRoom5c3Gorons` / `ValidateRoom5c3GoronBoundaries`; initial suppression and napping during bottom entry covered by `ValidateRoom5c3GoronEntry` |
+| `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron |
 | `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
 | `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
@@ -303,7 +285,7 @@ well as record selection.
 | `5:d3` | [D] `$40:$0d/v$0c` soldier<br>[D] `$40:$0d/v$0d` soldier |
 | `5:d4` | [D] `$40:$0d/v$07` soldier |
 | `5:d5` | [D] `$40:$0d/v$0f` soldier |
-| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron; return-scroll crystal restoration covered by `ValidateGoronTargetCarts` |
+| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |
 | `5:de` | [I] `$8b:$01/v$00` goronElder<br>[I] `$66:$05/v$05` goron |
@@ -311,30 +293,11 @@ well as record selection.
 | `5:e0` | [I] `$66:$0e/v$08` goron<br>[I] `$66:$0d/v$04` goron |
 | `5:e2` | [I] `$66:$0c/v$01` goron<br>[I] `$66:$0c/v$02` goron |
 | `5:e4` | [D] `$52:$00/v$00` oldMan<br>[D] `$52:$02/v$00` oldMan |
-| `5:e8` | [I] `$94:$01/v$00` patch (failure return and retry covered)<br>[I] `$94:$02/v$00` patch |
+| `5:e8` | [I] `$94:$01/v$00` patch<br>[I] `$94:$02/v$00` patch |
 | `5:e9` | [P] `$48:$1d/v$00` tokay |
 | `5:ec` | [D] `$52:$03/v$00` oldMan<br>[D] `$52:$04/v$00` oldMan<br>[D] `$52:$05/v$00` oldMan<br>[D] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
-| `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc; copied-script cadence and `$b1` entry covered |
+| `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc |
 | `5:f8` | [D] `$c3:$00/v$00` pirateCaptain<br>[P] `$c4:$00/v$00` pirate<br>[P] `$c4:$01/v$00` pirate<br>[P] `$c4:$02/v$00` pirate<br>[P] `$c4:$03/v$00` pirate |
 
-## Maintenance
-
-When implementing or tracing a row:
-
-1. Follow its placement, ID/subid dispatch, script, native handler, and state
-   predicates in the disassembly.
-2. Replace the exact deliberately-unsupported manifest key with an ordinary,
-   specialized, or event-owned classification only after identifying its
-   production owner.
-3. Add a canonical headless regression for the supported branches, including
-   negative predicates and re-entry behavior.
-4. Change the row to **I**, **P**, or **D** based on the resulting production
-   path; never promote it based only on a visual room check.
-5. Recount the snapshot from the generated tables and keep the room entries in
-   source order.
-
-The durable implementation rules remain in
-[NPCs and room events](npcs-and-events.md). This file is the navigable coverage
-ledger; it should not accumulate architectural rules or replace
-[Implementation status](implementation-status.md).
+Implementation guidance is in [NPCs and room events](npcs-and-events.md).

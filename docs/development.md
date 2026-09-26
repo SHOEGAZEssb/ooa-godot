@@ -115,9 +115,14 @@ Development-only controls:
 | F2 | Toggle Link collision |
 | F3 | Arrange a normal Maple encounter |
 | F4 | Spawn enemies and item drops at room coordinates |
+| F5 | Toggle 4× fast forward (also works in the title flow and menus) |
 | V | Warp to the configured debug room (default `4:11`) |
 | Shift + 0-9 | Save a debug savestate |
 | 0-9 | Load a debug savestate |
+
+Fast forward starts disabled and displays `FF x4` beside the room ID while
+enabled. It runs extra complete 60 Hz updates, including audio sequencing;
+audio output may skip as its existing queue bounds latency.
 
 The F4 spawner pauses gameplay. Up/down selects a field; left/right changes
 the category, object ID/sub-ID variant, or coordinate (in eight-pixel steps).

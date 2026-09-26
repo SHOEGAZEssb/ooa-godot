@@ -72,9 +72,10 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         }
         if(Actor.Record.SubId==0&&Actor.Record.Id==0x66)
         {
-            Dance=new(this); Dance.Clear();
+            Dance=new(this);
             Actor.SetBasePalette(Past?2:1);
             _owner.SpawnDancers(IsLinkedGame&&Past);
+            Dance.Initialize();
         }
         string entry = Actor.Record.Id == 0x8b ? $"goronElderScript_subid{Actor.Record.SubId:x2}_body" :
             Actor.Record.SubId switch
@@ -152,7 +153,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         _pending = true;
         return true;
     }
-    internal void Cancel()
+    internal void Cancel(bool deactivateActor = true)
     {
         ReleaseInputControl(); _runner.Clear(); _pending = false;
         Gallery?.Cancel(); BigBang?.Cancel(); Carts?.Cancel(); _generation++; _secretPending=false;
@@ -161,7 +162,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if (GodotObject.IsInstanceValid(Actor))
         {
             Actor.SetScriptButtonSensitive(false);
-            Actor.SetActive(false);
+            if (deactivateActor) Actor.SetActive(false);
         }
     }
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Goron";

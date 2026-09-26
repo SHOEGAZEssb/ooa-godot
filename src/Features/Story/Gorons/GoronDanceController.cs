@@ -23,13 +23,19 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
         for(int i=0;i<10;i++) Write(0xcee0+i,i);
         Write(0xcfde,10);
     }
-    internal void Clear()
+    internal void Initialize()
     {
         for(int address=0xcfc0;address<0xcfe0;address++) Write(address,0);
         Write(0xcfd2,2);
+        _state=1; _substate=0;
+    }
+    internal void Clear()
+    {
+        // scriptHelp.goronDance_clearVariables also turns Link; native
+        // goronSubid00@state0 only clears the dance bytes and animation.
+        Initialize();
         Context.Player.Face(Vector2I.Down);
         Context.Player.SetScriptedLinkAnimationMode(null);
-        _state=1; _substate=0;
     }
     internal void Restart()
     {

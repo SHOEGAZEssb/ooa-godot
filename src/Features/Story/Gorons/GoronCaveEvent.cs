@@ -89,19 +89,34 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     }
     public bool TryInteractNpc(NpcCharacter npc) =>
         _actors.Any(actor => actor.TryInteract(npc));
-    public void Cancel()
+    public void ReleaseOutgoingActors(int group, OracleRoomData room)
     {
-        foreach (var actor in _actors) actor.Cancel();
+        // setObjectsEnabledTo2 retains initialized outgoing interactions for
+        // drawing until clearObjectsWithEnabled2 at scroll completion.
+        if (HasState && context.Entities.ScreenTransitionActive)
+            Cancel(deactivateActors: false);
+    }
+    public void Cancel() => Cancel(deactivateActors: true);
+    private void Cancel(bool deactivateActors)
+    {
+        foreach (var actor in _actors) actor.Cancel(deactivateActors);
         _actors.Clear();
-        foreach (var rock in _rocks) if (GodotObject.IsInstanceValid(rock.Actor)) rock.Actor.SetActive(false);
+        foreach (var rock in _rocks) if (deactivateActors && GodotObject.IsInstanceValid(rock.Actor)) rock.Actor.SetActive(false);
         _rocks.Clear();
-        foreach (var effect in _explosions) if (GodotObject.IsInstanceValid(effect.Actor)) effect.Actor.SetActive(false);
+        foreach (var effect in _explosions) if (deactivateActors && GodotObject.IsInstanceValid(effect.Actor)) effect.Actor.SetActive(false);
         _explosions.Clear();
-        if (_rockSpawner is not null && GodotObject.IsInstanceValid(_rockSpawner)) _rockSpawner.SetActive(false);
+        if (deactivateActors && _rockSpawner is not null && GodotObject.IsInstanceValid(_rockSpawner)) _rockSpawner.SetActive(false);
         _rockSpawner=null;
-        if (_bombFlower is not null && GodotObject.IsInstanceValid(_bombFlower)) _bombFlower.SetActive(false);
+        if (deactivateActors && _bombFlower is not null && GodotObject.IsInstanceValid(_bombFlower)) _bombFlower.SetActive(false);
         _bombFlower = null;
-        RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        if (deactivateActors)
+            RoomEventResources.RetireExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
+        else
+        {
+            _exclamation = null;
+            _exclamationFresh = false;
+            _exclamationCounter = 0;
+        }
         _resources?.ReleaseFullScreenFade();
         _fadeDirection=0; MovingLink=false; _falling=false;
     }

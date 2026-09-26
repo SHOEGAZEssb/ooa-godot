@@ -38,9 +38,10 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 5. Implement the smallest general rule supported by the source. Do not add a
    room exception unless the original has one.
 6. Add or extend a focused headless regression.
-7. Build, run the full suite through `tools/validate_parallel.ps1` with 8
-   workers, and update only documentation whose durable contract or high-level
-   coverage changed.
+7. If actual game source files changed, build and run the full suite through
+   `tools/validate_parallel.ps1` with 8 workers. Documentation-only edits do not
+   require a build or gameplay validation. Update only documentation whose
+   durable contract or high-level coverage changed.
 
 Use `rg` or `rg --files` for searches and `apply_patch` for edits.
 
@@ -139,11 +140,15 @@ git status --short
 Run the importer only when import code or generated inputs changed.
 `verify_oracle_import.ps1` is required for parser, stage-boundary, schema, or
 determinism changes. The build must have zero warnings and errors.
-Agents must always run the full suite through `tools/validate_parallel.ps1`
-using its 8-worker default unless the user explicitly requests a different
-worker count. Build once before launching workers. A serial full-suite run does
-not replace the required parallel run; use serial runs only for additional
-debugging.
+The full gameplay validation suite is required only when actual game source
+files changed in the work being handed off. Documentation-only changes,
+including edits to `AGENTS.md`, require neither a build nor gameplay validation;
+check the diff and relevant documentation links instead. Unrelated pre-existing
+source changes do not make a documentation-only task require validation.
+When required, run the suite through `tools/validate_parallel.ps1` using its
+8-worker default unless the user explicitly requests a different worker count.
+Build once before launching workers. A serial full-suite run does not replace
+the required parallel run; use serial runs only for additional debugging.
 
 For a focused validation during development:
 
@@ -152,7 +157,7 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
 ```
 
-Before every handoff involving repository changes, run
+Before a handoff involving changes to actual game source files, run
 `& .\tools\validate_parallel.ps1` and require success from all workers and the
 complete registered scenario count. Focused validations do not replace this
 check. If the parallel run fails or cannot complete, report the failure rather
@@ -163,8 +168,8 @@ than treating a focused or serial run as sufficient.
 Keep fidelity audits and working findings in untracked files under
 `local-audits/`, excluded through `.git/info/exclude`. Never put audit reports
 in tracked documentation, including `docs/npc-interaction-coverage.md`, or link
-tracked documentation to local audit files. The coverage ledger still records
-statuses, room entries, counts, and dated snapshots.
+tracked documentation to local audit files. The coverage ledger records current
+statuses, room entries, and counts in its tables only.
 
 Documentation explains durable decisions: evidence, ownership, invariants,
 file-format contracts, and contributor workflow. It does not duplicate class
@@ -174,8 +179,12 @@ method contents that are easier to discover with `rg`.
 The intentional exception is the navigable
 `docs/npc-interaction-coverage.md` ledger. Any change that implements, extends,
 partially supports, suppresses, or reclassifies an imported NPC record must
-update its status, room entry, summary counts, and dated snapshot in the same
-change.
+update the affected table entries and summary counts in the same change.
+Only update the tables in this ledger; do not keep a diary, append dated
+snapshots, or add progress notes. Keep bugfix descriptions, implementation
+history, and regression details out of the tables as well. A bugfix that does
+not change NPC coverage requires no ledger update; when coverage does change,
+record only the resulting coverage status.
 
 - Change `README.md` only for project scope, setup, quick start, or navigation.
 - Change a subsystem guide when its ownership or durable contract changes.
