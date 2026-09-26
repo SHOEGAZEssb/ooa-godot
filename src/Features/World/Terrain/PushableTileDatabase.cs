@@ -25,7 +25,7 @@ public sealed class PushableTileDatabase
             if((_somaria[mode].Parameter&15)!=0) throw row.Invalid(2,"nextToPushableBlock dispatch");
             _=row.RequiredString(3);
         }
-        _records = FileAccess.GetFileAsBytes("res://assets/oracle/metadata/pushableTiles.bin");
+        _records = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/pushableTiles.bin");
         int expected = CollisionModeCount * TileCount * RecordSize;
         if (_records.Length != expected)
         {

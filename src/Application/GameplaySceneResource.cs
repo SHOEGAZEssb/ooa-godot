@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -28,5 +29,14 @@ internal sealed class GameplaySceneResource
             throw new InvalidOperationException($"Could not load gameplay scene {GameSceneGraph.ScenePath}.");
         _requested = false;
         return _scene;
+    }
+
+    internal IEnumerable<bool> Prepare()
+    {
+        BeginPreload();
+        while (_requested && ResourceLoader.LoadThreadedGetStatus(GameSceneGraph.ScenePath) ==
+            ResourceLoader.ThreadLoadStatus.InProgress)
+            yield return false;
+        _ = Load();
     }
 }

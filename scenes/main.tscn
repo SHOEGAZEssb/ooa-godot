@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource path="res://src/Application/GameRoot.cs" type="Script" id="1_game"]
 [ext_resource path="res://src/Features/Audio/OracleSoundEngine.cs" type="Script" id="2_sound"]
+[ext_resource path="res://scenes/boot_loading.tscn" type="PackedScene" id="3_loading"]
 
 [node name="OracleOfAges" type="Node2D"]
 script = ExtResource("1_game")
@@ -9,3 +10,6 @@ script = ExtResource("1_game")
 [node name="SoundEngine" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("2_sound")
+
+[node name="BootLoading" parent="." instance=ExtResource("3_loading")]
+unique_name_in_owner = true

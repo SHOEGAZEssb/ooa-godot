@@ -161,8 +161,13 @@ public partial class DialogueBox : Node2D
     private int CurrentWindowGlyphCount =>
         CurrentLine(0).Glyphs.Count + CurrentLine(1).Glyphs.Count;
 
-    public override void _Ready()
+    private bool _resourcesPrepared;
+    public override void _Ready() => PrepareResources();
+
+    internal void PrepareResources()
     {
+        if (_resourcesPrepared) return;
+        _resourcesPrepared = true;
         _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
         _tradeItemSource = LoadSourceImage(

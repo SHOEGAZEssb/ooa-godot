@@ -97,6 +97,30 @@ actors stop.
 
 ## Frontend ownership
 
+Before the original logos, a port-only loading screen presents
+a black backdrop, Nayru's imported singing animation and alternating floating
+music notes, with only a small progress bar. These presentation actors are
+independent of room entities and never run the story event.
+Its aspect-preserving 480 by 270 canvas
+expands to the host display; exit and cancellation restore the original game
+viewport before the logos. Its progress counts completed resource
+preparation steps. Presentation runs on host time while the original frontend,
+audio sequencer, input buffer, and shared RNG remain stopped. Once resources
+are ready, it fades out and starts the original frontend at its first update;
+loading time is never replayed as catch-up updates. Return-to-title bypasses
+this startup screen. The new-game intro screen, dialogue resources and all its
+sprite cells are also prepared and retained here; selecting a new file reveals
+that screen and binds its name and text speed without rebuilding it. The original
+360-update lead-in before the quest dialogue is unchanged. File-specific gameplay
+preparation remains at file launch.
+
+Startup reads packaged data and tokenizes TSVs on a cancellable worker. It then
+warms source graphics incrementally on the main thread; scene-tree changes and
+GPU uploads never run on the data worker. Shared inputs survive file selection,
+while mutable room layouts and file-dependent owners remain isolated. Menu
+backgrounds use bulk pixel composition and HUD tiles share texture atlases to
+avoid long per-pixel native-call and texture-upload batches during loading.
+
 The application owns one frontend controller from the clean-US Capcom screen
 through the attract cinematic and title idle/replay states. It shares the same
 `OracleRandom` instance later used by gameplay: ordered bird respawns consume

@@ -38,6 +38,12 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
+For a cold-start timing profile, run Godot with `-- --validate --profile-startup`.
+This bypasses the suite's already-warmed gameplay fixture, measures the actual
+boot frames and a fresh new-file handoff, and exits without writing a save.
+Use a rendered run when assessing animation smoothness; desktop timings do not
+establish Android frame times.
+
 8 workers is the launcher default. Override it with `-Workers` (1–64).
 For a serial run when debugging:
 

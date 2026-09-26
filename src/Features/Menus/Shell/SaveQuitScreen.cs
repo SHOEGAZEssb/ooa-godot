@@ -53,17 +53,29 @@ public partial class SaveQuitScreen : Node2D
         }
     }
 
+    private bool _resourcesPrepared;
     public override void _Ready()
     {
+        foreach (bool _ in PrepareResources()) { }
+    }
+
+    internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
+    {
+        if (_resourcesPrepared) yield break;
         _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
         _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
         _standardBackground = BuildBackground(gameOver: false);
+        yield return false;
         _gameOverBackground = BuildBackground(gameOver: true);
+        yield return false;
         using (Image original = _standardBackground.GetImage())
         {
             for (int i = 0; i < 8; i++)
+            {
                 _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
                     original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
+                yield return false;
+            }
             _standardBackground = SaveOptionsPresentation.BuildSave(original);
         }
         _background = _standardBackground;
@@ -78,6 +90,7 @@ public partial class SaveQuitScreen : Node2D
             ZIndex = 1
         };
         AddChild(_saveError);
+        _resourcesPrepared = true;
     }
 
     public void Open(bool gameOver = false)

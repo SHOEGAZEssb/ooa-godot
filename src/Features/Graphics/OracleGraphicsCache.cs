@@ -115,7 +115,7 @@ internal static class OracleGraphicsCache
             return cached;
         }
 
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
+        byte[] bytes = OracleAssetCache.ReadBytes(path);
         if (bytes.Length != expectedByteLength)
         {
             throw new InvalidOperationException(

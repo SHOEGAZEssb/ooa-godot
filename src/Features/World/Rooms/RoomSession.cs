@@ -46,20 +46,23 @@ public sealed class RoomSession
         Action resetAnimationTick,
         OracleSaveData saveData,
         bool countAsRoomEntry = true,
-        Func<byte>? toggleState = null)
+        Func<byte>? toggleState = null,
+        RoomSessionResources? resources = null,
+        OracleWorldData? world = null)
     {
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
         _toggleState = toggleState ?? (() => 0);
-        World = new OracleWorldData();
-        _singleTileChanges = new SingleTileChangeDatabase();
-        _tileChanges = new RoomTileChangeDatabase();
-        _keyDoors = new DungeonKeyDoorDatabase();
-        _standardTileSubstitutions = new StandardTileSubstitutionDatabase();
-        _toggleTiles = new DungeonToggleTileDatabase();
-        _gashaSpots = new GashaSpotDatabase();
-        DungeonMaps = new DungeonMapDatabase();
+        World = world ?? new OracleWorldData();
+        resources ??= new RoomSessionResources();
+        _singleTileChanges = resources.SingleTileChanges;
+        _tileChanges = resources.TileChanges;
+        _keyDoors = resources.KeyDoors;
+        _standardTileSubstitutions = resources.StandardTileSubstitutions;
+        _toggleTiles = resources.ToggleTiles;
+        _gashaSpots = resources.GashaSpots;
+        DungeonMaps = resources.DungeonMaps;
         ActiveGroup = startingGroup;
         if (countAsRoomEntry)
             _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
@@ -83,6 +86,15 @@ public sealed class RoomSession
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
         return CurrentRoom;
+    }
+
+    internal void EnterPreparedRoom()
+    {
+        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
+        CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
+        World.SetCurrentPaletteRoom(CurrentRoom);
+        MarkRoomVisited(ActiveGroup, CurrentRoom.Id);
+        CurrentRoom.UpdateAnimation(_animationTick());
     }
 
     /// <summary>

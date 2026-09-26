@@ -36,7 +36,7 @@ internal static class StatusBarLayout
         string layout = equippedB == InventoryState.ItemBiggoronSword
             ? "biggoron_sword" : maxHealth >= 57 ? "extra_hearts" : "normal";
         string path = $"res://assets/oracle/hud/{(attributes ? "flg" : "map")}_hud_{layout}.bin";
-        byte[] data = FileAccess.GetFileAsBytes(path);
+        byte[] data = OracleAssetCache.ReadBytes(path);
         if (data.Length != 64)
             throw new InvalidOperationException($"GFXH_HUD_LAYOUT: {path} must contain 64 bytes.");
         return data;

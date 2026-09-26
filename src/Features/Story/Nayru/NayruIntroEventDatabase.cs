@@ -280,7 +280,7 @@ public sealed class NayruIntroEventDatabase
 
     private static Color[,] ReadPalettes(string path, int count, bool transparentZero)
     {
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
+        byte[] bytes = OracleAssetCache.ReadBytes(path);
         if (bytes.Length != count * 4 * 3)
             throw new InvalidOperationException(
                 $"{path} should contain {count * 12} palette bytes, got {bytes.Length}.");

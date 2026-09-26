@@ -113,8 +113,13 @@ public partial class MapScreen : Node2D
         10 * 8 + _dungeonLinkCell.X * 8,
         5 * 8 + _dungeonLinkCell.Y * 8 - 8);
 
-    public override void _Ready()
+    private bool _resourcesPrepared;
+    public override void _Ready() => PrepareResources();
+
+    internal void PrepareResources()
     {
+        if (_resourcesPrepared) return;
+        _resourcesPrepared = true;
         _commonTiles = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/map/tiles_common.png");
         _presentTiles1 = OracleGraphicsCache.LoadImage(

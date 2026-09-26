@@ -34,7 +34,7 @@ public sealed class NewGameIntroController
         OracleSoundEngine sound)
     {
         _screen = screen;
-        _record = new NewGameIntroDatabase().Record;
+        _record = screen.Record;
         _complete = complete;
         _sound = sound;
         _screen.Dialogue.SetSoundPlayer(_sound.PlaySound);

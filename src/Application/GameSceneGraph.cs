@@ -10,6 +10,21 @@ namespace oracleofages;
 /// </summary>
 public partial class GameSceneGraph : Node2D
 {
+    internal System.Collections.Generic.IEnumerable<bool> PreparePresentation()
+    {
+        Unique<Hud>("Hud").PrepareResources();
+        yield return false;
+        Unique<DialogueBox>("Dialogue").PrepareResources();
+        yield return false;
+        Unique<MapScreen>("MapScreen").PrepareResources();
+        yield return false;
+        Unique<InventoryScreen>("InventoryScreen").PrepareResources();
+        yield return false;
+        Unique<RingMenuScreen>("RingMenuScreen").PrepareResources();
+        yield return false;
+        foreach (bool step in Unique<SaveQuitScreen>("SaveQuitScreen").PrepareResources())
+            yield return step;
+    }
     public const string ScenePath = "res://scenes/gameplay.tscn";
 
     public Node2D WorldRoot { get; private set; } = null!;

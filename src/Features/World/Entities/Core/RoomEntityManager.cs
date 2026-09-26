@@ -629,6 +629,8 @@ public sealed class RoomEntityManager : IDisposable
         _runtimeState.Changed -= RefreshNpcState;
     }
 
+    internal IEnumerable<bool> PrepareResources() => _factory.PrepareResources();
+
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
     internal IEnumerable<T> EntityAdapters<T>() where T : IRoomEntity =>
         _activeEntities.OfType<T>();

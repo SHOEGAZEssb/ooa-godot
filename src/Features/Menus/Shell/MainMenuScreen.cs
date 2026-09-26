@@ -75,7 +75,15 @@ public partial class MainMenuScreen : Node2D
     internal bool TitleBlinkVisible => _titleBlink;
     internal int? EraseHealth => _eraseHealth;
 
+    internal bool DeferPreparation { get; set; }
+
     public override void _Ready()
+    {
+        if (!DeferPreparation)
+            foreach (bool _ in PrepareResources()) { }
+    }
+
+    internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
         _fadeMaterial = new ShaderMaterial
         {
@@ -99,33 +107,57 @@ public partial class MainMenuScreen : Node2D
         };
         Material = _fadeMaterial;
         _titleSprites = LoadPng("res://assets/oracle/menu/spr_titlescreen_sprites.png");
+        yield return false;
         _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
+        yield return false;
         _linkSprites = LoadPng("res://assets/oracle/gfx/spr_link.png");
+        yield return false;
         _nayruSprites = LoadPng("res://assets/oracle/menu/spr_nayru_1.png");
+        yield return false;
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
+        yield return false;
         _titleSpritePalette = LoadPalette("res://assets/oracle/menu/palette_title_sprites.bin");
+        yield return false;
         _fileSpritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
+        yield return false;
         _fileBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_bg.bin");
+        yield return false;
         _eraseBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_erase_bg.bin");
+        yield return false;
         _font = BuildFontTexture(new Color(0x08 / 31.0f, 0x1f / 31.0f, 0x00));
+        yield return false;
         // gfx_font is 1bpp with white glyph pixels and a black background.
         // File-menu palette 6 therefore displays names as white on black.
         _fileFont = BuildFontTexture(_fileBgPalette[6, 0]);
+        yield return false;
         // The name buffer's expanded 2bpp tiles use color 3 for the yellow
         // field and color 0 for the glyph, opposite the filename strips.
         _nameEntryFont = BuildFontTexture(_fileBgPalette[5, 0]);
+        yield return false;
         _nameKeyboardGlyphFont = BuildFontTexture(_fileSpritePalette[1, 2]);
+        yield return false;
         _fileHudTileTextures = BuildHudTileTextures(_fileBgPalette);
+        yield return false;
         _eraseHudTileTextures = BuildHudTileTextures(_eraseBgPalette);
+        yield return false;
         _title = BuildTitleTexture();
+        yield return false;
         _fileMenu = BuildFileMenuTexture();
+        yield return false;
         _copyMenu = BuildCopyMenuTexture();
+        yield return false;
         _eraseMenu = BuildEraseMenuTexture();
+        yield return false;
         _newFileMenu = BuildNewFileMenuTexture();
-        _nameEntryMenus = new[] {
-            BuildNameEntryTexture(0), BuildNameEntryTexture(1), BuildNameEntryTexture(2)
-        };
+        yield return false;
+        _nameEntryMenus = new Texture2D[3];
+        for (int slot = 0; slot < _nameEntryMenus.Length; slot++)
+        {
+            _nameEntryMenus[slot] = BuildNameEntryTexture(slot);
+            yield return false;
+        }
         _textSpeedMenu = BuildTextSpeedMenuTexture();
+        yield return false;
     }
 
     public override void _Draw()
@@ -605,17 +637,22 @@ public partial class MainMenuScreen : Node2D
         int columns = source.GetWidth() / 8;
         int count = columns * (source.GetHeight() / 8);
         var textures = new Texture2D[count];
+        using Image colors = Image.CreateEmpty(4, 1, false, Image.Format.Rgba8);
+        for (int shade = 0; shade < 4; shade++)
+            colors.SetPixel(shade, 0, palette[6, shade]);
+        byte[] colorPixels = colors.GetData();
+        byte[] pixels = source.GetData();
+        for (int offset = 0; offset < pixels.Length; offset += 4)
+            colorPixels.AsSpan((255 - pixels[offset] + 42) / 85 * 4, 4).CopyTo(pixels.AsSpan(offset, 4));
+        using Image output = Image.CreateFromData(source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8, pixels);
+        Texture2D atlas = ImageTexture.CreateFromImage(output);
         for (int tile = 0; tile < count; tile++)
         {
-            Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
+            textures[tile] = new AtlasTexture
             {
-                Color pixel = source.GetPixel(
-                    tile % columns * 8 + x, tile / columns * 8 + y);
-                output.SetPixel(x, y, palette[6, Shade(pixel)]);
-            }
-            textures[tile] = ImageTexture.CreateFromImage(output);
+                Atlas = atlas,
+                Region = new Rect2(tile % columns * 8, tile / columns * 8, 8, 8)
+            };
         }
         return textures;
     }
@@ -761,7 +798,7 @@ public partial class MainMenuScreen : Node2D
     private static Texture2D BuildScreenTexture(byte[] map, byte[] flags, Color[,] palette,
         params (string Path, int Destination, int Bank, bool Interleaved)[] sources)
     {
-        var tiles = new (Image? Source, int Tile)[2, 256];
+        var tiles = new OracleVramTileMap();
         foreach ((string path, int destination, int bank, bool interleaved) in sources)
         {
             Image source = LoadPng(path);
@@ -772,38 +809,27 @@ public partial class MainMenuScreen : Node2D
             for (int tile = 0; tile < count; tile++)
             {
                 int sourceTile = SourceTileIndex(tile, source.GetWidth() / 8, interleaved);
-                tiles[bank, (firstTile + tile) & 0xff] = (source, sourceTile);
+                tiles.MapTile(source, sourceTile, (firstTile + tile) & 0xff, bank);
             }
         }
 
-        Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
+        byte[] compactMap = new byte[20 * 18];
+        byte[] compactFlags = new byte[20 * 18];
         for (int row = 0; row < 18; row++)
         for (int column = 0; column < 20; column++)
         {
             int offset = row * MapStride + column;
-            byte attributes = flags[offset];
-            (Image? source, int tile) = tiles[(attributes >> 3) & 1, map[offset]];
-            if (source is null)
-            {
-                int paletteIndex = attributes & 7;
-                int bank = (attributes >> 3) & 1;
-                // $c0-$e1 are the live 8x16 filename tiles written into VRAM
-                // by textInput_updateEntryCursor. Their untouched pixels are
-                // font color 1 (black), not palette color 0 (white).
-                bool filenameBuffer = bank == 1 && paletteIndex == 6 &&
-                    map[offset] is >= 0xc0 and <= 0xe1;
-                bool nameEntryBuffer = bank == 1 && paletteIndex == 5 &&
-                    map[offset] is >= 0xc0 and <= 0xc9;
-                int shade = filenameBuffer || nameEntryBuffer ? 3 : 0;
-                Color blank = palette[paletteIndex, shade];
-                for (int y = 0; y < 8; y++)
-                for (int x = 0; x < 8; x++)
-                    output.SetPixel(column * 8 + x, row * 8 + y, blank);
-                continue;
-            }
-            DrawBackgroundTile(output, source, tile, attributes, palette, column * 8, row * 8);
+            compactMap[row * 20 + column] = map[offset];
+            compactFlags[row * 20 + column] = flags[offset];
         }
-        return ImageTexture.CreateFromImage(output);
+        return OracleTileRenderer.BuildTileMapTexture(compactMap, compactFlags, tiles, palette, 20, 18,
+            static (tile, attributes) =>
+            {
+                // The untouched live filename and name-entry buffers use shade 3.
+                bool filename = (attributes & 15) == 14 && tile is >= 0xc0 and <= 0xe1;
+                bool nameEntry = (attributes & 15) == 13 && tile is >= 0xc0 and <= 0xc9;
+                return filename || nameEntry ? 3 : 0;
+            });
     }
 
     private static int SourceTileIndex(int tile, int columns, bool interleaved)
@@ -956,10 +982,14 @@ public partial class MainMenuScreen : Node2D
     private static Texture2D BuildFontTexture(Color color)
     {
         Image source = LoadPng("res://assets/oracle/gfx/gfx_font.png");
-        Image output = Image.CreateEmpty(source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8);
-        for (int y = 0; y < source.GetHeight(); y++)
-        for (int x = 0; x < source.GetWidth(); x++)
-            output.SetPixel(x, y, source.GetPixel(x, y).R > 0.5f ? color : Colors.Transparent);
+        using Image colors = Image.CreateEmpty(2, 1, false, Image.Format.Rgba8);
+        colors.SetPixel(0, 0, Colors.Transparent);
+        colors.SetPixel(1, 0, color);
+        byte[] palette = colors.GetData();
+        byte[] pixels = source.GetData();
+        for (int offset = 0; offset < pixels.Length; offset += 4)
+            palette.AsSpan(pixels[offset] > 127 ? 4 : 0, 4).CopyTo(pixels.AsSpan(offset, 4));
+        using Image output = Image.CreateFromData(source.GetWidth(), source.GetHeight(), false, Image.Format.Rgba8, pixels);
         return ImageTexture.CreateFromImage(output);
     }
 

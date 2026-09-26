@@ -10,7 +10,7 @@ internal static class OracleGraphicsData
 
     public static byte[] ReadBytes(string path, int expectedLength)
     {
-        byte[] data = FileAccess.GetFileAsBytes(path);
+        byte[] data = OracleAssetCache.ReadBytes(path);
         if (data.Length != expectedLength)
         {
             throw new InvalidOperationException(

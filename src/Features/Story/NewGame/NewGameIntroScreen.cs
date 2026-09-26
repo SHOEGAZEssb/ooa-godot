@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -27,15 +28,26 @@ public partial class NewGameIntroScreen : Node2D
         : _linkVisible && (_clock & 1) == 0;
 
     public DialogueBox Dialogue { get; private set; } = null!;
+    internal bool DeferPreparation { get; set; }
+    internal bool ResourcesPrepared { get; private set; }
+    internal NewGameIntroRecord Record => _record;
 
     public override void _Ready()
     {
+        if (!DeferPreparation)
+            foreach (bool _ in PrepareResources()) { }
+    }
+
+    internal IEnumerable<bool> PrepareResources()
+    {
+        if (ResourcesPrepared) yield break;
         var database = new NewGameIntroDatabase();
         _record = database.Record;
         _linkSpin = database.SpriteFrames("link-spin");
         _linkVanish = database.SpriteFrames("link-vanish");
         _orbDescend = database.SpriteFrames("orb-descend");
         _orbVanish = database.SpriteFrames("orb-vanish");
+        yield return false;
         _renderer = new CutsceneSpriteRenderer();
         Dialogue = new DialogueBox
         {
@@ -44,6 +56,17 @@ public partial class NewGameIntroScreen : Node2D
             Visible = false
         };
         AddChild(Dialogue);
+        yield return false;
+        // Build every imported OAM cell before the screen is presented. Retain
+        // this renderer so file selection and first-draw never recreate them.
+        foreach (IntroSpriteFrame[] animation in new[] { _linkSpin, _linkVanish, _orbDescend, _orbVanish })
+        foreach (IntroSpriteFrame frame in animation)
+        {
+            foreach (IntroOamPart part in frame.Parts)
+                _renderer.CellTexture(frame, part);
+            yield return false;
+        }
+        ResourcesPrepared = true;
         QueueRedraw();
     }
 
@@ -67,6 +90,7 @@ public partial class NewGameIntroScreen : Node2D
 
     public override void _Draw()
     {
+        if (!ResourcesPrepared) return;
         DrawRect(new Rect2(0, 0, 160, 144), Colors.Black);
 
         int z = LinkZForValidation(

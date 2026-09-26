@@ -12,7 +12,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class LinkItemDatabase
 {
-    private static LinkItemDatabase? _shared;
+    private static readonly Lazy<LinkItemDatabase> SharedInstance = new(() => new LinkItemDatabase());
 
     private readonly Dictionary<(string Kind, int Variant, int Phase, int Direction),
         LinkGraphicRecord> _graphics = new();
@@ -31,7 +31,7 @@ internal sealed class LinkItemDatabase
     private readonly string[] _clinkListIds = new string[6];
     private readonly byte[] _parentAnimationFlags = new byte[32];
 
-    internal static LinkItemDatabase Shared => _shared ??= new LinkItemDatabase();
+    internal static LinkItemDatabase Shared => SharedInstance.Value;
 
     internal LinkItemConstants Constants { get; }
     internal IReadOnlyList<SwordArc> SwordArcs => _swordArcs;

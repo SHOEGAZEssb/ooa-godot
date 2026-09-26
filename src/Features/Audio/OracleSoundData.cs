@@ -182,7 +182,7 @@ public sealed class OracleSoundData
 
     private static byte[] LoadExact(string path, int expectedLength)
     {
-        byte[] data = FileAccess.GetFileAsBytes(path);
+        byte[] data = OracleAssetCache.ReadBytes(path);
         if (data.Length != expectedLength)
             throw new InvalidOperationException(
                 $"Generated sound asset {path} has {data.Length} bytes; expected {expectedLength}.");

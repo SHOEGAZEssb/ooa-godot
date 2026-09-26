@@ -236,8 +236,13 @@ public partial class InventoryScreen : Node2D
         }
     }
 
-    public override void _Ready()
+    private bool _resourcesPrepared;
+    public override void _Ready() => PrepareResources();
+
+    internal void PrepareResources()
     {
+        if (_resourcesPrepared) return;
+        _resourcesPrepared = true;
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
         _inventoryHud1 = LoadPng("res://assets/oracle/inventory/gfx_inventory_hud_1.png");
         _presentPastSymbols = LoadPng("res://assets/oracle/inventory/spr_present_past_symbols.png");

@@ -33,8 +33,13 @@ public partial class Hud : Node2D
     public int DungeonIndex { get; set; } = -1;
     public byte TilesetFlags { get; set; }
 
-    public override void _Ready()
+    private bool _resourcesPrepared;
+    public override void _Ready() => PrepareResources();
+
+    internal void PrepareResources()
     {
+        if (_resourcesPrepared) return;
+        _resourcesPrepared = true;
         _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
         _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
         _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");

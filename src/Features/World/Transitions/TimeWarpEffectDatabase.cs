@@ -112,7 +112,7 @@ public sealed class TimeWarpEffectDatabase
             throw new InvalidOperationException($"Expected 8 time-warp particle records, got {particles.Count}.");
         Particles = particles;
 
-        byte[] paletteBytes = FileAccess.GetFileAsBytes(
+        byte[] paletteBytes = OracleAssetCache.ReadBytes(
             "res://assets/oracle/metadata/time_warp_palettes.bin");
         if (paletteBytes.Length != 24)
         {

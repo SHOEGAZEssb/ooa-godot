@@ -49,7 +49,15 @@ internal partial class FrontendIntroScreen : Node2D
 
     internal FrontendIntroScene Scene { get; set; }
 
+    internal bool DeferPreparation { get; set; }
+
     public override void _Ready()
+    {
+        if (!DeferPreparation)
+            foreach (bool _ in PrepareResources()) { }
+    }
+
+    internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
         _fadeMaterial = new ShaderMaterial
         {
@@ -83,11 +91,13 @@ internal partial class FrontendIntroScreen : Node2D
             "res://assets/oracle/intro/palette_castle_bg.bin");
         _templePalette = LoadPalette(
             "res://assets/oracle/intro/palette_temple_bg.bin");
+        yield return false;
         Color[,] treePalette = LoadPalette(
             "res://assets/oracle/intro/palette_tree_bg.bin");
 
         _horseSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_horse_sprites_0.bin");
+        yield return false;
         _horseSpritePalettes = new Color[4][,];
         for (int index = 0; index < _horseSpritePalettes.Length; index++)
         {
@@ -96,47 +106,72 @@ internal partial class FrontendIntroScreen : Node2D
         }
         _faceSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_face_sprites.bin");
+        yield return false;
         _closeupSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_closeup_sprites.bin");
+        yield return false;
         _castleSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_castle_sprites.bin");
+        yield return false;
         _templeSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_temple_sprites.bin");
+        yield return false;
         _treeSpritePalette = LoadPalette(
             "res://assets/oracle/intro/palette_tree_sprites.bin");
+        yield return false;
 
         _horseFarSprites = LoadPng(
             "res://assets/oracle/intro/spr_link_on_horse_far.png");
+        yield return false;
         _horseFrontSprites = LoadPng(
             "res://assets/oracle/intro/spr_link_on_horse_front.png");
+        yield return false;
         _horseSparkleSprites = LoadPng(
             "res://assets/oracle/intro/spr_link_face_shot_sparkle.png");
+        yield return false;
         _closeupSprites = LoadPng(
             "res://assets/oracle/intro/spr_link_on_horse_closeup.png");
+        yield return false;
         _castleSprites = LoadPng(
             "res://assets/oracle/intro/spr_outside_castle.png");
+        yield return false;
         _triforceSprites = LoadPng(
             "res://assets/oracle/intro/spr_triforce.png");
+        yield return false;
         _triforceGlowSprites = LoadPng(
             "res://assets/oracle/intro/spr_triforce_glow.png");
+        yield return false;
         _treeSprites = LoadPng(
             "res://assets/oracle/intro/spr_tree_and_birds.png");
+        yield return false;
         _cloudSprites = LoadPng(
             "res://assets/oracle/intro/spr_clouds.png");
+        yield return false;
         _linkSprites = LoadPng("res://assets/oracle/gfx/spr_link.png");
+        yield return false;
 
         _capcom = BuildCapcom(capcomPalette);
+        yield return false;
         _horseFar = BuildHorseFar(horsePalette);
+        yield return false;
         _horseFront = BuildHorseFront(horseFrontPalette);
+        yield return false;
         _horseFace = BuildHorseFar(facePalette);
+        yield return false;
         _horseCloseup = BuildHorseCloseup(closeupPalette);
+        yield return false;
         _castle = BuildCastle(castlePalette);
+        yield return false;
         _templeAnimations = new OracleAnimationData();
         _temple = BuildTemple(_templePalette);
+        yield return false;
         _animatedTemple = ImageTexture.CreateFromImage(_temple.GetImage());
+        yield return false;
         _templeAnimationSignature = GetAnimationSignature(Array.Empty<int>());
         _tree = BuildTree(treePalette);
+        yield return false;
         _templeWave = BuildTempleWave();
+        yield return false;
         QueueRedraw();
     }
 

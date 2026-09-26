@@ -20,6 +20,11 @@ public sealed partial class ValidationRoot : GameRoot
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--profile-startup"))
+        {
+            BeginStartupProfile();
+            return;
+        }
         base._Ready();
         _sound.AttachPlayRequestAudit();
         _combatEffectAudit = new ValidationCombatEffectAudit();
@@ -40,6 +45,11 @@ public sealed partial class ValidationRoot : GameRoot
 
     public override void _Process(double delta)
     {
+        if (_startupProfile is not null)
+        {
+            AdvanceStartupProfile(delta);
+            return;
+        }
         // Scene entry can retain a just-pressed input edge for the remainder
         // of that real frame. Let it expire without advancing gameplay, since
         // the suite performs many original-engine updates synchronously.
@@ -86,6 +96,7 @@ public sealed partial class ValidationRoot : GameRoot
             // before quitting a suite that creates and tears down output.
             _scene.ProcessMode = ProcessModeEnum.Disabled;
             await CaptureSaveOptionsScreens();
+            await CaptureBootLoadingScreen();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             GetTree().Quit(0);
@@ -213,6 +224,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMainMenu);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateGameplayScenePreload);
+        RunIsolatedValidation(ValidateDeferredGameplayAssets);
+        RunIsolatedValidation(ValidatePreparedIntroHandoff);
+        RunIsolatedValidation(ValidateBootLoading);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateSoundDriverControls);
         RunIsolatedValidation(ValidateSoundDriverHandoffs);

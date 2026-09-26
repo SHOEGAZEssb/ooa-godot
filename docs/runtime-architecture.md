@@ -8,10 +8,25 @@
 and gameplay boundary; replaying or dwelling on the title must advance the same
 state later consumed by room objects.
 
-The new-game intro requests the packed gameplay scene in the background and
-retains it for the handoff. This prepares resources only; instantiation, room
-entry, save changes and object RNG consumption still belong to gameplay
-initialization after the original intro completes.
+Startup retains a detached gameplay hierarchy, prepared UI resources, a world
+data owner and save-independent room tables. The hierarchy is allocated before
+the loading animation begins, then its presentation resources are built in
+small main-thread steps. No gameplay node enters the tree or binds a save until
+file selection. Cancellation frees the detached hierarchy.
+
+The new-game intro prepares file-dependent gameplay owners incrementally across
+host frames, consuming those retained resources. The prepared scene, interface layer and camera remain hidden and
+disabled. Preparation reads the selected save but does not enter the room,
+create room objects, advance gameplay, or consume object RNG. The original
+intro completion commits room entry and enables the scene. An unfinished
+preparation is drained at that boundary; it never shortens the intro.
+
+The entity factory resolves its databases on first use or staged intro
+preparation and retains them for the session. Room-wide gates still evaluate
+their inputs in dispatch order. Link
+similarly constructs alternate-pose and item graphics on first presentation,
+retaining them for the player node's lifetime. Neither optimization advances
+gameplay or substitutes a different room-entry path.
 
 The gameplay scene contains stable nodes whose lifecycle and draw order should
 remain visible in the editor:

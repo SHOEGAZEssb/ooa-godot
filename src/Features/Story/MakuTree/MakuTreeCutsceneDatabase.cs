@@ -66,7 +66,7 @@ internal sealed class MakuTreeCutsceneDatabase
             row.Base64Utf8(30),
             row.Base64Utf8(31));
 
-        byte[] bytes = FileAccess.GetFileAsBytes(
+        byte[] bytes = OracleAssetCache.ReadBytes(
             "res://assets/oracle/metadata/maku_tree_disappear_palettes.bin");
         const int expectedLength = PaletteCount * BackgroundPalettesPerHeader *
             ColorsPerPalette * 3;

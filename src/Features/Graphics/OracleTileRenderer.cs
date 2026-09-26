@@ -84,7 +84,8 @@ internal static class OracleTileRenderer
         OracleVramTileMap tiles,
         Color[,] palettes,
         int columns = 32,
-        int rows = 18)
+        int rows = 18,
+        Func<byte, byte, int>? missingTileShade = null)
     {
         int required = columns * rows;
         if (map.Length != required || flags.Length != required)
@@ -112,6 +113,14 @@ internal static class OracleTileRenderer
                 (attributes >> 3) & 1, map[offset],
                 out Image source, out int sourceTile))
             {
+                if (missingTileShade is not null)
+                {
+                    int blank = ((attributes & 7) * 4 + missingTileShade(map[offset], attributes)) * 4;
+                    for (int y = 0; y < 8; y++)
+                    for (int x = 0; x < 8; x++)
+                        palettePixels.AsSpan(blank, 4).CopyTo(pixels.AsSpan(
+                            ((row * 8 + y) * width + column * 8 + x) * 4, 4));
+                }
                 continue;
             }
             if (!sources.TryGetValue(source, out var captured))

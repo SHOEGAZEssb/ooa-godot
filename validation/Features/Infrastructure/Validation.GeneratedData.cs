@@ -49,6 +49,21 @@ public sealed partial class ValidationRoot
 
     private static void ValidateGeneratedTableReader()
     {
+        const string cachedPath = "res://assets/oracle/metadata/maku_tree_layout_override.tsv";
+        string[] cachedColumns = ["group", "room", "flag-group", "flag-room", "flag-mask", "layout-group"];
+        var cachedSchema = new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+            cachedColumns, headerRequired: true);
+        GeneratedTable cached = GeneratedTable.Load(cachedPath, cachedSchema);
+        FailIf(!ReferenceEquals(cached, GeneratedTable.Load(cachedPath,
+                new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                    cachedColumns, headerRequired: true))),
+            "Equivalent generated-table contracts did not reuse the validated rows.");
+        ExpectGeneratedTableFailure(() => GeneratedTable.Load(cachedPath,
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                cachedColumns, version: 2, headerRequired: true)), cachedPath, "runtime expects 2");
+        ExpectGeneratedTableFailure(() => GeneratedTable.Load(cachedPath,
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                ["group", "wrong"], headerRequired: true)), cachedPath, "header is");
         var singletonSchema = new GeneratedTableSchema(
             "source singleton", GeneratedTableKeySemantics.Ordered, ["id", "source"], [], headerRequired: true);
         const string singletonPath = "validation://singleton.tsv";

@@ -31,7 +31,7 @@ public sealed class ItemDropDatabase
 
     public ItemDropDatabase()
     {
-        _selectionData = FileAccess.GetFileAsBytes("res://assets/oracle/metadata/itemDrops.bin");
+        _selectionData = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/itemDrops.bin");
         if (_selectionData.Length != SelectionDataSize)
         {
             throw new InvalidOperationException(

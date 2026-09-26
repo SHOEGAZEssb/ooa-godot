@@ -124,62 +124,116 @@ public partial class Player : Node2D
     private InventoryState _inventory = null!;
     private OracleRandom _random = null!;
     private Texture2D _texture = null!;
-    private Texture2D _damageTexture = null!;
-    private Texture2D _getItemOneHandTexture = null!;
-    private Texture2D _damageGetItemOneHandTexture = null!;
-    private Texture2D _getItemTwoHandTexture = null!;
-    private Texture2D _damageGetItemTwoHandTexture = null!;
-    private Texture2D _funnyJokeDanceLeftTexture = null!;
-    private Texture2D _damageFunnyJokeDanceLeftTexture = null!;
-    private Texture2D _funnyJokeDanceRightTexture = null!;
-    private Texture2D _damageFunnyJokeDanceRightTexture = null!;
-    private Texture2D _getItemOneHandRightTexture = null!;
-    private Texture2D _damageGetItemOneHandRightTexture = null!;
-    private Texture2D _carriedObjectTexture = null!;
-    private Texture2D _damageCarriedObjectTexture = null!;
-    private Texture2D _minecartLinkTexture = null!;
-    private Texture2D _damageMinecartLinkTexture = null!;
-    private Texture2D _minecartAttackTexture = null!;
-    private Texture2D _damageMinecartAttackTexture = null!;
+    // Build item and alternate-pose atlases only when presented. Their inputs
+    // are immutable imported graphics; keep the result for this player node.
+    private Texture2D? _damageTextureCache;
+    private Texture2D _damageTexture => _damageTextureCache ??= BuildLinkTexture(damagePalette: true);
+    private Texture2D? _getItemOneHandTextureCache;
+    private Texture2D _getItemOneHandTexture => _getItemOneHandTextureCache ??= BuildGetItemOneHandTexture(damagePalette: false);
+    private Texture2D? _damageGetItemOneHandTextureCache;
+    private Texture2D _damageGetItemOneHandTexture => _damageGetItemOneHandTextureCache ??= BuildGetItemOneHandTexture(damagePalette: true);
+    private Texture2D? _getItemTwoHandTextureCache;
+    private Texture2D _getItemTwoHandTexture => _getItemTwoHandTextureCache ??= BuildGetItemTwoHandTexture(damagePalette: false);
+    private Texture2D? _damageGetItemTwoHandTextureCache;
+    private Texture2D _damageGetItemTwoHandTexture => _damageGetItemTwoHandTextureCache ??= BuildGetItemTwoHandTexture(damagePalette: true);
+    private Texture2D? _funnyJokeDanceLeftTextureCache;
+    private Texture2D _funnyJokeDanceLeftTexture => _funnyJokeDanceLeftTextureCache ??= BuildFunnyJokeDanceTexture( right: false, damagePalette: false);
+    private Texture2D? _damageFunnyJokeDanceLeftTextureCache;
+    private Texture2D _damageFunnyJokeDanceLeftTexture => _damageFunnyJokeDanceLeftTextureCache ??= BuildFunnyJokeDanceTexture( right: false, damagePalette: true);
+    private Texture2D? _funnyJokeDanceRightTextureCache;
+    private Texture2D _funnyJokeDanceRightTexture => _funnyJokeDanceRightTextureCache ??= BuildFunnyJokeDanceTexture( right: true, damagePalette: false);
+    private Texture2D? _damageFunnyJokeDanceRightTextureCache;
+    private Texture2D _damageFunnyJokeDanceRightTexture => _damageFunnyJokeDanceRightTextureCache ??= BuildFunnyJokeDanceTexture( right: true, damagePalette: true);
+    private Texture2D? _getItemOneHandRightTextureCache;
+    private Texture2D _getItemOneHandRightTexture => _getItemOneHandRightTextureCache ??= BuildGetItemOneHandRightTexture( damagePalette: false);
+    private Texture2D? _damageGetItemOneHandRightTextureCache;
+    private Texture2D _damageGetItemOneHandRightTexture => _damageGetItemOneHandRightTextureCache ??= BuildGetItemOneHandRightTexture( damagePalette: true);
+    private Texture2D? _carriedObjectTextureCache;
+    private Texture2D _carriedObjectTexture => _carriedObjectTextureCache ??= BuildCarriedObjectLinkTexture(damagePalette: false);
+    private Texture2D? _damageCarriedObjectTextureCache;
+    private Texture2D _damageCarriedObjectTexture => _damageCarriedObjectTextureCache ??= BuildCarriedObjectLinkTexture(damagePalette: true);
+    private Texture2D? _minecartLinkTextureCache;
+    private Texture2D _minecartLinkTexture => _minecartLinkTextureCache ??= BuildMinecartLinkTexture(damagePalette: false);
+    private Texture2D? _damageMinecartLinkTextureCache;
+    private Texture2D _damageMinecartLinkTexture => _damageMinecartLinkTextureCache ??= BuildMinecartLinkTexture(damagePalette: true);
+    private Texture2D? _minecartAttackTextureCache;
+    private Texture2D _minecartAttackTexture => _minecartAttackTextureCache ??= BuildMinecartAttackTexture(damagePalette: false);
+    private Texture2D? _damageMinecartAttackTextureCache;
+    private Texture2D _damageMinecartAttackTexture => _damageMinecartAttackTextureCache ??= BuildMinecartAttackTexture(damagePalette: true);
     private Texture2D? _companionRideTexture;
     private Texture2D? _damageCompanionRideTexture;
     private Vector2 _companionRideTextureOffset;
     private int _companionRideZFixed;
-    private Texture2D[,] _braceletActionTextures = null!;
-    private Texture2D[,] _damageBraceletActionTextures = null!;
-    private Texture2D _shieldLinkTexture = null!;
-    private Texture2D _damageShieldLinkTexture = null!;
-    private Texture2D _pushTexture = null!;
-    private Texture2D _damagePushTexture = null!;
-    private Texture2D _attackTexture = null!;
-    private Texture2D _damageAttackTexture = null!;
-    private Texture2D[,] _seedShooterLinkTextures = null!;
-    private Texture2D[] _seedShooterWeaponTextures = null!;
-    private Texture2D[,] _seedShooterPoseTextures = null!;
-    private Texture2D[,] _damageSeedShooterPoseTextures = null!;
-    private Vector2[,] _seedShooterPoseOffsets = null!;
-    private Texture2D _underwaterAttackTexture = null!;
-    private Texture2D _damageUnderwaterAttackTexture = null!;
-    private Texture2D _swordTexture = null!;
-    private Texture2D _chargedSwordTexture = null!;
-    private Texture2D _shovelLinkTexture = null!;
-    private Texture2D _damageShovelLinkTexture = null!;
-    private Texture2D _drownTexture = null!;
-    private Texture2D _damageDrownTexture = null!;
-    private Texture2D _topDownSwimTexture = null!;
-    private Texture2D _damageTopDownSwimTexture = null!;
-    private Texture2D _topDownDiveTexture = null!;
-    private Texture2D _damageTopDownDiveTexture = null!;
-    private Texture2D _sideScrollSwimTexture = null!;
-    private Texture2D _damageSideScrollSwimTexture = null!;
-    private Texture2D _sideScrollMermaidTexture = null!;
-    private Texture2D _damageSideScrollMermaidTexture = null!;
-    private Texture2D _fallInHoleTexture = null!;
-    private Texture2D _damageFallInHoleTexture = null!;
-    private Texture2D _ledgeJumpTexture = null!;
-    private Texture2D _damageLedgeJumpTexture = null!;
-    private Texture2D _sideScrollSquishXTexture = null!;
-    private Texture2D _sideScrollSquishYTexture = null!;
+    private Texture2D[,]? _braceletActionTexturesCache;
+    private Texture2D[,] _braceletActionTextures => _braceletActionTexturesCache ??= BuildBraceletActionTextures(damagePalette: false);
+    private Texture2D[,]? _damageBraceletActionTexturesCache;
+    private Texture2D[,] _damageBraceletActionTextures => _damageBraceletActionTexturesCache ??= BuildBraceletActionTextures(damagePalette: true);
+    private Texture2D? _shieldLinkTextureCache;
+    private Texture2D _shieldLinkTexture => _shieldLinkTextureCache ??= BuildShieldLinkTexture(damagePalette: false);
+    private Texture2D? _damageShieldLinkTextureCache;
+    private Texture2D _damageShieldLinkTexture => _damageShieldLinkTextureCache ??= BuildShieldLinkTexture(damagePalette: true);
+    private Texture2D? _pushTextureCache;
+    private Texture2D _pushTexture => _pushTextureCache ??= BuildPushLinkTexture(damagePalette: false);
+    private Texture2D? _damagePushTextureCache;
+    private Texture2D _damagePushTexture => _damagePushTextureCache ??= BuildPushLinkTexture(damagePalette: true);
+    private Texture2D? _attackTextureCache;
+    private Texture2D _attackTexture => _attackTextureCache ??= BuildAttackLinkTexture(damagePalette: false);
+    private Texture2D? _damageAttackTextureCache;
+    private Texture2D _damageAttackTexture => _damageAttackTextureCache ??= BuildAttackLinkTexture(damagePalette: true);
+    private (Texture2D[,] LinkTextures, Texture2D[] WeaponTextures,
+        Texture2D[,] Poses, Texture2D[,] DamagePoses, Vector2[,] Offsets)? _seedShooterTexturesCache;
+    private (Texture2D[,] LinkTextures, Texture2D[] WeaponTextures,
+        Texture2D[,] Poses, Texture2D[,] DamagePoses, Vector2[,] Offsets) SeedShooterTextures =>
+        _seedShooterTexturesCache ??= BuildSeedShooterPoseTextures();
+    private Texture2D[,] _seedShooterLinkTextures => SeedShooterTextures.LinkTextures;
+    private Texture2D[] _seedShooterWeaponTextures => SeedShooterTextures.WeaponTextures;
+    private Texture2D[,] _seedShooterPoseTextures => SeedShooterTextures.Poses;
+    private Texture2D[,] _damageSeedShooterPoseTextures => SeedShooterTextures.DamagePoses;
+    private Vector2[,] _seedShooterPoseOffsets => SeedShooterTextures.Offsets;
+    private Texture2D? _underwaterAttackTextureCache;
+    private Texture2D _underwaterAttackTexture => _underwaterAttackTextureCache ??= BuildUnderwaterAttackLinkTexture( damagePalette: false);
+    private Texture2D? _damageUnderwaterAttackTextureCache;
+    private Texture2D _damageUnderwaterAttackTexture => _damageUnderwaterAttackTextureCache ??= BuildUnderwaterAttackLinkTexture( damagePalette: true);
+    private Texture2D? _swordTextureCache;
+    private Texture2D _swordTexture => _swordTextureCache ??= BuildSwordTexture(chargedPalette: false);
+    private Texture2D? _chargedSwordTextureCache;
+    private Texture2D _chargedSwordTexture => _chargedSwordTextureCache ??= BuildSwordTexture(chargedPalette: true);
+    private Texture2D? _shovelLinkTextureCache;
+    private Texture2D _shovelLinkTexture => _shovelLinkTextureCache ??= BuildShovelLinkTexture(damagePalette: false);
+    private Texture2D? _damageShovelLinkTextureCache;
+    private Texture2D _damageShovelLinkTexture => _damageShovelLinkTextureCache ??= BuildShovelLinkTexture(damagePalette: true);
+    private Texture2D? _drownTextureCache;
+    private Texture2D _drownTexture => _drownTextureCache ??= BuildDrownTexture(damagePalette: false);
+    private Texture2D? _damageDrownTextureCache;
+    private Texture2D _damageDrownTexture => _damageDrownTextureCache ??= BuildDrownTexture(damagePalette: true);
+    private Texture2D? _topDownSwimTextureCache;
+    private Texture2D _topDownSwimTexture => _topDownSwimTextureCache ??= BuildTopDownSwimTexture(damagePalette: false);
+    private Texture2D? _damageTopDownSwimTextureCache;
+    private Texture2D _damageTopDownSwimTexture => _damageTopDownSwimTextureCache ??= BuildTopDownSwimTexture(damagePalette: true);
+    private Texture2D? _topDownDiveTextureCache;
+    private Texture2D _topDownDiveTexture => _topDownDiveTextureCache ??= BuildTopDownDiveTexture(damagePalette: false);
+    private Texture2D? _damageTopDownDiveTextureCache;
+    private Texture2D _damageTopDownDiveTexture => _damageTopDownDiveTextureCache ??= BuildTopDownDiveTexture(damagePalette: true);
+    private Texture2D? _sideScrollSwimTextureCache;
+    private Texture2D _sideScrollSwimTexture => _sideScrollSwimTextureCache ??= BuildSideScrollSwimTexture( mermaidSuit: false, damagePalette: false);
+    private Texture2D? _damageSideScrollSwimTextureCache;
+    private Texture2D _damageSideScrollSwimTexture => _damageSideScrollSwimTextureCache ??= BuildSideScrollSwimTexture( mermaidSuit: false, damagePalette: true);
+    private Texture2D? _sideScrollMermaidTextureCache;
+    private Texture2D _sideScrollMermaidTexture => _sideScrollMermaidTextureCache ??= BuildSideScrollSwimTexture( mermaidSuit: true, damagePalette: false);
+    private Texture2D? _damageSideScrollMermaidTextureCache;
+    private Texture2D _damageSideScrollMermaidTexture => _damageSideScrollMermaidTextureCache ??= BuildSideScrollSwimTexture( mermaidSuit: true, damagePalette: true);
+    private Texture2D? _fallInHoleTextureCache;
+    private Texture2D _fallInHoleTexture => _fallInHoleTextureCache ??= BuildFallInHoleTexture(damagePalette: false);
+    private Texture2D? _damageFallInHoleTextureCache;
+    private Texture2D _damageFallInHoleTexture => _damageFallInHoleTextureCache ??= BuildFallInHoleTexture(damagePalette: true);
+    private Texture2D? _ledgeJumpTextureCache;
+    private Texture2D _ledgeJumpTexture => _ledgeJumpTextureCache ??= BuildLedgeJumpTexture(damagePalette: false);
+    private Texture2D? _damageLedgeJumpTextureCache;
+    private Texture2D _damageLedgeJumpTexture => _damageLedgeJumpTextureCache ??= BuildLedgeJumpTexture(damagePalette: true);
+    private Texture2D? _sideScrollSquishXTextureCache;
+    private Texture2D _sideScrollSquishXTexture => _sideScrollSquishXTextureCache ??= BuildSideScrollSquishTexture( vertical: false);
+    private Texture2D? _sideScrollSquishYTextureCache;
+    private Texture2D _sideScrollSquishYTexture => _sideScrollSquishYTextureCache ??= BuildSideScrollSquishTexture( vertical: true);
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
     private LinkItemDatabase _linkItems = null!;
@@ -188,7 +242,8 @@ public partial class Player : Node2D
     private LinkTerrainEffectDatabase _terrainEffects = null!;
     private int _terrainWalkUpdates;
     private bool _terrainWalkSoundParameter;
-    private Texture2D _deathTexture = null!;
+    private Texture2D? _deathTextureCache;
+    private Texture2D _deathTexture => _deathTextureCache ??= BuildDeathTexture();
     private TransformedLinkDatabase _transformedLink = null!;
     private Vector2 _precisePosition;
     private Vector2 _minecartMainObjectPosition;
@@ -946,75 +1001,10 @@ public partial class Player : Node2D
         _sideScrollPlayerData = SideScrollPlayerDatabase.Shared;
         _topDownSwimmingData = TopDownSwimmingDatabase.Shared;
         _texture = BuildLinkTexture(damagePalette: false);
-        _damageTexture = BuildLinkTexture(damagePalette: true);
-        _getItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: false);
-        _damageGetItemOneHandTexture = BuildGetItemOneHandTexture(damagePalette: true);
-        _getItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: false);
-        _damageGetItemTwoHandTexture = BuildGetItemTwoHandTexture(damagePalette: true);
-        _funnyJokeDanceLeftTexture = BuildFunnyJokeDanceTexture(
-            right: false, damagePalette: false);
-        _damageFunnyJokeDanceLeftTexture = BuildFunnyJokeDanceTexture(
-            right: false, damagePalette: true);
-        _funnyJokeDanceRightTexture = BuildFunnyJokeDanceTexture(
-            right: true, damagePalette: false);
-        _damageFunnyJokeDanceRightTexture = BuildFunnyJokeDanceTexture(
-            right: true, damagePalette: true);
-        _getItemOneHandRightTexture = BuildGetItemOneHandRightTexture(
-            damagePalette: false);
-        _damageGetItemOneHandRightTexture = BuildGetItemOneHandRightTexture(
-            damagePalette: true);
-        _carriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: false);
-        _damageCarriedObjectTexture = BuildCarriedObjectLinkTexture(damagePalette: true);
-        _minecartLinkTexture = BuildMinecartLinkTexture(damagePalette: false);
-        _damageMinecartLinkTexture = BuildMinecartLinkTexture(damagePalette: true);
-        _minecartAttackTexture = BuildMinecartAttackTexture(damagePalette: false);
-        _damageMinecartAttackTexture = BuildMinecartAttackTexture(damagePalette: true);
-        _braceletActionTextures = BuildBraceletActionTextures(damagePalette: false);
-        _damageBraceletActionTextures = BuildBraceletActionTextures(damagePalette: true);
-        _shieldLinkTexture = BuildShieldLinkTexture(damagePalette: false);
-        _damageShieldLinkTexture = BuildShieldLinkTexture(damagePalette: true);
-        _pushTexture = BuildPushLinkTexture(damagePalette: false);
-        _damagePushTexture = BuildPushLinkTexture(damagePalette: true);
-        _attackTexture = BuildAttackLinkTexture(damagePalette: false);
-        _damageAttackTexture = BuildAttackLinkTexture(damagePalette: true);
-        (_seedShooterLinkTextures, _seedShooterWeaponTextures,
-            _seedShooterPoseTextures, _damageSeedShooterPoseTextures,
-            _seedShooterPoseOffsets) = BuildSeedShooterPoseTextures();
-        _underwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
-            damagePalette: false);
-        _damageUnderwaterAttackTexture = BuildUnderwaterAttackLinkTexture(
-            damagePalette: true);
-        _swordTexture = BuildSwordTexture(chargedPalette: false);
-        _chargedSwordTexture = BuildSwordTexture(chargedPalette: true);
-        _shovelLinkTexture = BuildShovelLinkTexture(damagePalette: false);
-        _damageShovelLinkTexture = BuildShovelLinkTexture(damagePalette: true);
-        _drownTexture = BuildDrownTexture(damagePalette: false);
-        _damageDrownTexture = BuildDrownTexture(damagePalette: true);
-        _topDownSwimTexture = BuildTopDownSwimTexture(damagePalette: false);
-        _damageTopDownSwimTexture = BuildTopDownSwimTexture(damagePalette: true);
-        _topDownDiveTexture = BuildTopDownDiveTexture(damagePalette: false);
-        _damageTopDownDiveTexture = BuildTopDownDiveTexture(damagePalette: true);
-        _sideScrollSwimTexture = BuildSideScrollSwimTexture(
-            mermaidSuit: false, damagePalette: false);
-        _damageSideScrollSwimTexture = BuildSideScrollSwimTexture(
-            mermaidSuit: false, damagePalette: true);
-        _sideScrollMermaidTexture = BuildSideScrollSwimTexture(
-            mermaidSuit: true, damagePalette: false);
-        _damageSideScrollMermaidTexture = BuildSideScrollSwimTexture(
-            mermaidSuit: true, damagePalette: true);
-        _fallInHoleTexture = BuildFallInHoleTexture(damagePalette: false);
-        _damageFallInHoleTexture = BuildFallInHoleTexture(damagePalette: true);
-        _ledgeJumpTexture = BuildLedgeJumpTexture(damagePalette: false);
-        _damageLedgeJumpTexture = BuildLedgeJumpTexture(damagePalette: true);
-        _sideScrollSquishXTexture = BuildSideScrollSquishTexture(
-            vertical: false);
-        _sideScrollSquishYTexture = BuildSideScrollSquishTexture(
-            vertical: true);
         TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
         _terrainShadowTexture = terrainShadow.Texture;
         _terrainShadowOffset = terrainShadow.Offset;
         _terrainEffects = new LinkTerrainEffectDatabase();
-        _deathTexture = BuildDeathTexture();
         _transformedLink = new TransformedLinkDatabase();
         EndNewGameSlowFall();
         EndRoomWarpFall();
@@ -7588,7 +7578,7 @@ public partial class Player : Node2D
         return phase == 8 ? 0 : phase;
     }
 
-    private static Texture2D BuildLinkTexture(bool damagePalette)
+    internal static Texture2D BuildLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/spr_link.png");

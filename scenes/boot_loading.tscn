@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/Features/Menus/Shell/BootLoadingScreen.cs" id="1_loading"]
+
+[node name="BootLoading" type="Node2D"]
+visible = false
+z_index = 300
+texture_filter = 1
+script = ExtResource("1_loading")

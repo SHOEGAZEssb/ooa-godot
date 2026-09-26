@@ -28,7 +28,7 @@ internal sealed class DiggingEnemyDatabase
                 row.RequiredString(6), row.HexByte(3), row.HexByte(4), row.HexByte(5),
                 "data/ages/objectCollisionTable.s");
         }
-        BeetleCounters = FileAccess.GetFileAsBytes("res://assets/oracle/metadata/beetle_counters.bin");
+        BeetleCounters = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/beetle_counters.bin");
         if (index != 8 || BeetleCounters.Length != 8)
             throw new InvalidOperationException("itemDrop_spawnEnemy / beetle_chooseRandomAngleAndCounter1: expected eight table entries.");
     }

@@ -12,7 +12,7 @@ internal sealed class EnemySpawnTileDatabase
 {
     private const int CollisionModeCount = 6;
     private const int TilesPerMode = 256;
-    private readonly byte[] _unspawnable = FileAccess.GetFileAsBytes(
+    private readonly byte[] _unspawnable = OracleAssetCache.ReadBytes(
         "res://assets/oracle/metadata/enemyUnspawnableTiles.bin");
 
     internal int RecordCount { get; }

@@ -157,7 +157,7 @@ public sealed class OracleWorldData
                 }
         }
 
-        byte[] layout = Godot.FileAccess.GetFileAsBytes(roomPath);
+        byte[] layout = OracleAssetCache.ReadBytes(roomPath);
         var result = new OracleRoomData(
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,

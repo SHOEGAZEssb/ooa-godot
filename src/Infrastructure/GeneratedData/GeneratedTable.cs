@@ -1,6 +1,8 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
@@ -10,6 +12,7 @@ namespace oracleofages;
 
 internal sealed class GeneratedTable
 {
+    private static readonly ConcurrentDictionary<string, Lazy<GeneratedTable>> Cache = new(StringComparer.Ordinal);
     public string Path { get; }
     public GeneratedTableSchema Schema { get; }
     public IReadOnlyList<GeneratedTableRow> Rows { get; }
@@ -26,6 +29,16 @@ internal sealed class GeneratedTable
 
     public static GeneratedTable Load(string path, GeneratedTableSchema schema)
     {
+        // Include the entire contract so a cache hit cannot bypass validation.
+        string key = string.Join('\u001e', path, schema.Name, schema.Version,
+            schema.KeySemantics, schema.HeaderRequired, string.Join('\u001f', schema.Columns),
+            string.Join(',', schema.KeyColumns));
+        return Cache.GetOrAdd(key, _ => new Lazy<GeneratedTable>(
+            () => LoadUncached(path, schema), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+    }
+
+    private static GeneratedTable LoadUncached(string path, GeneratedTableSchema schema)
+    {
         if (!path.StartsWith("res://assets/oracle/", StringComparison.Ordinal))
         {
             throw new ArgumentException(
@@ -34,19 +47,9 @@ internal sealed class GeneratedTable
         if (!FileAccess.FileExists(path))
             throw new InvalidOperationException($"Generated table '{path}' does not exist.");
 
-        byte[] bytes = FileAccess.GetFileAsBytes(path);
+        byte[] bytes = OracleAssetCache.ReadBytes(path);
         GeneratedTableManifest.ValidateAsset(path, schema.Version, bytes);
-        string source;
-        try
-        {
-            source = new UTF8Encoding(false, true).GetString(bytes);
-        }
-        catch (DecoderFallbackException exception)
-        {
-            throw new InvalidOperationException(
-                $"Generated table '{path}' is not valid UTF-8.", exception);
-        }
-        GeneratedTable table = Parse(path, source, schema);
+        GeneratedTable table = Parse(path, GeneratedTableSource.Load(path), schema);
         GeneratedTableManifest.ValidateRecordCount(path, table.Rows.Count);
         return table;
     }
@@ -64,49 +67,34 @@ internal sealed class GeneratedTable
     internal static GeneratedTable ParseForValidation(
         string path,
         string source,
-        GeneratedTableSchema schema) => Parse(path, source, schema);
+        GeneratedTableSchema schema) => Parse(path, new GeneratedTableSource(source), schema);
 
     private static GeneratedTable Parse(
         string path,
-        string source,
+        GeneratedTableSource source,
         GeneratedTableSchema schema)
     {
         var rows = new List<GeneratedTableRow>();
         var uniqueKeys = new Dictionary<string, int>(StringComparer.Ordinal);
         bool matchingHeaderFound = false;
-        ReadOnlySpan<char> remaining = source.AsSpan();
-        int lineNumber = 0;
-        while (!remaining.IsEmpty)
+        foreach (GeneratedTableSource.SourceLine line in source.Lines)
         {
-            lineNumber++;
-            int newline = remaining.IndexOf('\n');
-            ReadOnlySpan<char> line = (newline < 0 ? remaining : remaining[..newline]).TrimEnd('\r');
-            remaining = newline < 0 ? default : remaining[(newline + 1)..];
-            if (line.IsWhiteSpace())
-                continue;
-            if (line[0] == '#')
+            int lineNumber = line.Number;
+            if (line.IsHeader)
             {
-                string candidate = line[1..].TrimStart().ToString().Replace("`t", "\t");
-                if (candidate.Contains('\t'))
-                {
-                    string[] header = candidate.Split('\t');
-                    if (header.SequenceEqual(schema.Columns, StringComparer.Ordinal))
-                    {
-                        matchingHeaderFound = true;
-                    }
-                    else if (header.Length > 0 &&
-                        string.Equals(header[0], schema.Columns[0], StringComparison.Ordinal))
-                    {
-                        throw new InvalidOperationException(
-                            $"{path}:{lineNumber}: schema '{schema.Name}' header is " +
-                            $"[{string.Join(", ", header)}], expected " +
-                            $"[{string.Join(", ", schema.Columns)}].");
-                    }
-                }
+                string[] header = line.Columns;
+                if (header.SequenceEqual(schema.Columns, StringComparer.Ordinal))
+                    matchingHeaderFound = true;
+                else if (header.Length > 0 &&
+                    string.Equals(header[0], schema.Columns[0], StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        $"{path}:{lineNumber}: schema '{schema.Name}' header is " +
+                        $"[{string.Join(", ", header)}], expected " +
+                        $"[{string.Join(", ", schema.Columns)}].");
                 continue;
             }
 
-            int columnCount = line.Count('\t') + 1;
+            int columnCount = line.Columns.Length;
             if (columnCount != schema.Columns.Count)
             {
                 throw new InvalidOperationException(
@@ -115,15 +103,7 @@ internal sealed class GeneratedTable
                     $"got {columnCount}.");
             }
 
-            // Materialize only retained fields, not another copy of every row.
-            string[] columns = new string[columnCount];
-            for (int column = 0; column < columnCount - 1; column++)
-            {
-                int tab = line.IndexOf('\t');
-                columns[column] = line[..tab].ToString();
-                line = line[(tab + 1)..];
-            }
-            columns[^1] = line.ToString();
+            string[] columns = line.Columns;
             var row = new GeneratedTableRow(path, lineNumber, schema, columns);
             if (schema.KeySemantics == GeneratedTableKeySemantics.Unique)
             {

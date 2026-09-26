@@ -1,6 +1,8 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace oracleofages;
 
@@ -10,6 +12,21 @@ public partial class GameRoot : Node2D
     private readonly ApplicationInputBuffer _applicationInput = new();
     private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
+    private IEnumerator<bool>? _gameplayPreparation;
+    internal bool GameplayPrepared { get; private set; }
+    private BootLoadingScreen? _bootLoading;
+    private readonly Queue<System.Func<IEnumerator<bool>?>> _bootTasks = new();
+    private IEnumerator<bool>? _bootResourceSteps;
+    private int _bootCompletedTasks;
+    private int _bootTaskCount;
+    private int _bootHostFrames;
+    private bool _bootFinishing;
+    private CancellationTokenSource? _bootCancellation;
+    private Task<PreparedBootData>? _bootDataTask;
+    private sealed record PreparedBootData(string[] Images, RoomSessionResources Rooms);
+    private GameSceneGraph? _preparedGameplayScene;
+    private OracleWorldData? _preparedWorld;
+    private RoomSessionResources? _preparedRoomResources;
 
     // Internal aliases and state form the narrow host surface used by the
     // friend validation assembly. Production transition state remains owned
@@ -138,7 +155,7 @@ public partial class GameRoot : Node2D
 
         if (_launchOptions.ShowMainMenu)
         {
-            StartFrontend(startAtTitle: false);
+            BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"));
             return;
         }
 
@@ -151,6 +168,7 @@ public partial class GameRoot : Node2D
 
     public override void _Input(InputEvent @event)
     {
+        if (_bootLoading is not null) return;
         if (@event is InputEventKey
             {
                 PhysicalKeycode: Key.F5, Pressed: true, Echo: false,
@@ -236,12 +254,16 @@ public partial class GameRoot : Node2D
         if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone))
         {
             _gameplaySceneResource.BeginPreload();
-            _newGameIntroScreen = new NewGameIntroScreen
+            if (_newGameIntroScreen is null)
             {
-                Name = "NewGameIntro",
-                ZIndex = 200
-            };
-            AddChild(_newGameIntroScreen);
+                _newGameIntroScreen = new NewGameIntroScreen
+                {
+                    Name = "NewGameIntro",
+                    ZIndex = 200
+                };
+                AddChild(_newGameIntroScreen);
+            }
+            _newGameIntroScreen.Visible = true;
             _newGameIntroScreen.Dialogue.ApplicationUpdateOwned = true;
             _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
             _newGameIntroScreen.Dialogue.SetLinkNameProvider(
@@ -250,6 +272,12 @@ public partial class GameRoot : Node2D
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
                 _sound);
+            // Depleted interrupted files need the ordinary health-restoration
+            // path. A healthy file can prepare its dormant owners read-only.
+            if (save.ReadWramByte(0xc6aa) is > 0 and < 0x80)
+                _gameplayPreparation = InitializeGameplaySteps(save,
+                    initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene,
+                    prepare: true).GetEnumerator();
             return;
         }
 
@@ -272,14 +300,138 @@ public partial class GameRoot : Node2D
         };
         AddChild(_frontendIntroScreen);
         AddChild(_mainMenuScreen);
+        StartFrontendController(startAtTitle);
+    }
+
+    private void StartFrontendController(bool startAtTitle)
+    {
         _frontendIntro = new FrontendIntroController(
-            _frontendIntroScreen,
-            _mainMenuScreen,
+            _frontendIntroScreen!,
+            _mainMenuScreen!,
             _random,
             _sound.RestartSound,
             _sound.PlaySound,
             OpenFileSelectFromFrontend,
             startAtTitle);
+    }
+
+    internal void BeginBootLoading(BootLoadingScreen screen)
+    {
+        if (_bootLoading is not null)
+            throw new InvalidOperationException("Boot loading is already active.");
+        _bootLoading = screen;
+        _bootHostFrames = 0;
+        _bootCompletedTasks = 0;
+        _bootFinishing = false;
+        // Allocate the dormant hierarchy before the first animation frame.
+        // Its resource preparation is staged below; it never enters the tree
+        // or binds a save until selection. First-time script/node registration
+        // must not interrupt Nayru once the loading presentation is visible.
+        _preparedGameplayScene = _gameplaySceneResource.Load().Instantiate<GameSceneGraph>();
+        screen.Begin();
+        _bootCancellation = new CancellationTokenSource();
+        CancellationToken cancellation = _bootCancellation.Token;
+        _bootDataTask = Task.Run(() =>
+        {
+            string[] images = OracleAssetCache.Preload(cancellation);
+            cancellation.ThrowIfCancellationRequested();
+            // These constructors parse immutable managed records only. Scene
+            // nodes, images, texture uploads and gameplay stay on the main thread.
+            _ = LinkItemDatabase.Shared;
+            _ = SideScrollPlayerDatabase.Shared;
+            _ = TopDownSwimmingDatabase.Shared;
+            _ = EnemyBehaviorTables.Shared;
+            _ = FrontendIntroDatabase.Shared;
+            _ = new NpcDatabase();
+            _ = new EnemyDatabase();
+            _ = new TreasureDatabase();
+            _ = new WarpDatabase();
+            return new PreparedBootData(images, new RoomSessionResources());
+        }, cancellation);
+        _gameplaySceneResource.BeginPreload();
+        // Only retained resources are warmed here. A selected file and its
+        // gameplay owners are still created by their normal later handoff.
+        _bootTasks.Enqueue(() => PrepareBootSources().GetEnumerator());
+        _bootTasks.Enqueue(() => _gameplaySceneResource.Prepare().GetEnumerator());
+        _bootTasks.Enqueue(() => PrepareGameplayPresentation().GetEnumerator());
+        _bootTasks.Enqueue(() =>
+        {
+            _frontendIntroScreen = new FrontendIntroScreen
+                { Name = "FrontendIntro", ZIndex = 200, Visible = false, DeferPreparation = true };
+            AddChild(_frontendIntroScreen);
+            return _frontendIntroScreen.PrepareResources().GetEnumerator();
+        });
+        _bootTasks.Enqueue(() =>
+        {
+            _mainMenuScreen = new MainMenuScreen
+                { Name = "MainMenu", ZIndex = 200, Visible = false, DeferPreparation = true };
+            AddChild(_mainMenuScreen);
+            return _mainMenuScreen.PrepareResources().GetEnumerator();
+        });
+        _bootTasks.Enqueue(() =>
+        {
+            _newGameIntroScreen = new NewGameIntroScreen
+                { Name = "NewGameIntro", ZIndex = 200, Visible = false, DeferPreparation = true };
+            AddChild(_newGameIntroScreen);
+            return _newGameIntroScreen.PrepareResources().GetEnumerator();
+        });
+        _bootTaskCount = _bootTasks.Count;
+    }
+
+    private IEnumerable<bool> PrepareBootSources()
+    {
+        Task<PreparedBootData> task = _bootDataTask!;
+        while (!task.IsCompleted) yield return false;
+        PreparedBootData prepared = task.GetAwaiter().GetResult();
+        _preparedRoomResources = prepared.Rooms;
+        string[] images = prepared.Images;
+        for (int index = 0; index < images.Length; index++)
+        {
+            _ = OracleGraphicsCache.LoadImage(images[index]);
+            _bootLoading!.SetProgress((_bootCompletedTasks + (index + 1.0f) / images.Length) / _bootTaskCount);
+            yield return false;
+        }
+    }
+
+    private IEnumerable<bool> PrepareGameplayPresentation()
+    {
+        _preparedWorld = new OracleWorldData();
+        yield return false;
+        foreach (bool step in _preparedGameplayScene!.PreparePresentation())
+            yield return step;
+    }
+
+    private void AdvanceBootLoading(double delta)
+    {
+        BootLoadingScreen screen = _bootLoading!;
+        screen.AdvancePresentation(delta);
+        // Give the vignette a rendered frame before executing resource work.
+        if (++_bootHostFrames < 2) return;
+        if (_bootResourceSteps is not null)
+        {
+            if (_bootResourceSteps.MoveNext()) return;
+            _bootResourceSteps.Dispose();
+            _bootResourceSteps = null;
+            screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);
+            return;
+        }
+        if (_bootTasks.TryDequeue(out var prepare))
+        {
+            _bootResourceSteps = prepare();
+            if (_bootResourceSteps is null)
+                screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);
+            return;
+        }
+        if (!_bootFinishing)
+        {
+            _bootFinishing = true;
+            screen.Finish();
+        }
+        if (!screen.Finished) return;
+        screen.End();
+        _bootLoading = null;
+        _applicationInput.Clear();
+        StartFrontendController(startAtTitle: false);
     }
 
     private void OpenFileSelectFromFrontend()
@@ -304,9 +456,16 @@ public partial class GameRoot : Node2D
         _newGameIntroScreen?.QueueFree();
         _newGameIntroScreen = null;
         _newGameIntro = null;
-        InitializeGameplay(
-            save,
-            initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene);
+        if (_gameplayPreparation is not null)
+        {
+            while (_gameplayPreparation.MoveNext()) { }
+            _gameplayPreparation.Dispose();
+            _gameplayPreparation = null;
+            GameplayPrepared = false;
+        }
+        else
+            InitializeGameplay(save,
+                initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene);
 
         // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
         // arrival room and initializes the divisor-2 white fade/wave.
@@ -329,6 +488,17 @@ public partial class GameRoot : Node2D
         DebugSavestateData? debugSavestate = null,
         InitialRoomLoadKind initialRoomLoadKind = InitialRoomLoadKind.Ordinary)
     {
+        foreach (bool _ in InitializeGameplaySteps(save, forceDeathRespawn,
+            debugSavestate, initialRoomLoadKind)) { }
+    }
+
+    private IEnumerable<bool> InitializeGameplaySteps(
+        OracleSaveData save,
+        bool forceDeathRespawn = false,
+        DebugSavestateData? debugSavestate = null,
+        InitialRoomLoadKind initialRoomLoadKind = InitialRoomLoadKind.Ordinary,
+        bool prepare = false)
+    {
         // initializeGame restores depleted saved/live health before Link is
         // constructed. Save and Continue deliberately leaves the disk image
         // at zero health until the next explicit save.
@@ -340,9 +510,11 @@ public partial class GameRoot : Node2D
         _random ??= new OracleRandom();
         _runtimeState = new OracleRuntimeState();
         _treasures = new TreasureDatabase();
+        yield return false;
         bool useDebugSavestate = debugSavestate is not null;
         bool useSavedSpawn = !useDebugSavestate && (forceDeathRespawn ||
-            (!_launchOptions.HasWorldOverride && _persistSaveData));
+            (!_launchOptions.HasWorldOverride && (_persistSaveData ||
+                initialRoomLoadKind == InitialRoomLoadKind.LinkSummonedCutscene)));
         if (useSavedSpawn)
         {
             CompanionRuntimeState.RestoreRememberedFromDeathRespawn(
@@ -363,14 +535,28 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData,
-            countAsRoomEntry: !useDebugSavestate,
-            toggleState: () => _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress));
+            countAsRoomEntry: !useDebugSavestate && !prepare,
+            toggleState: () => _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress),
+            resources: _preparedRoomResources,
+            world: _preparedWorld);
+        _preparedRoomResources = null;
+        _preparedWorld = null;
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
         _rooms.RoomChanged += ApplyRoomMusic;
+        yield return false;
         PackedScene gameplayScene = _gameplaySceneResource.Load();
-        _scene = gameplayScene.Instantiate<GameSceneGraph>();
+        _scene = _preparedGameplayScene ?? gameplayScene.Instantiate<GameSceneGraph>();
+        _preparedGameplayScene = null;
+        if (prepare)
+        {
+            _scene.ProcessMode = ProcessModeEnum.Disabled;
+            _scene.Visible = false;
+            _scene.GetNode<CanvasLayer>("Interface").Visible = false;
+            _scene.GetNode<Camera2D>("World/RoomCamera").Enabled = false;
+        }
         AddChild(_scene);
+        yield return false;
         _dialogue.ApplicationUpdateOwned = true;
         _player.ApplicationUpdateOwned = true;
         _dialogue.SetSoundPlayer(_sound.PlaySound);
@@ -388,7 +574,17 @@ public partial class GameRoot : Node2D
         _ringMenuScreen.Initialize(_inventory);
         _debugFlagScreen.Initialize(
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
-        CreateControllers();
+        foreach (bool step in CreateControllersSteps())
+            yield return step;
+        if (prepare)
+        {
+            foreach (bool step in _entities.PrepareResources())
+                yield return step;
+            // Stop here until CUTSCENE_PREGAME_INTRO completes. No room
+            // objects exist and no original game update has run in this graph.
+            yield return true;
+            _rooms.EnterPreparedRoom();
+        }
 
         Vector2 spawn = useDebugSavestate
             ? debugSavestate!.PlayerPosition
@@ -435,6 +631,13 @@ public partial class GameRoot : Node2D
         _transitions.ResetCamera();
         ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
         _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
+        if (prepare)
+        {
+            _scene.ProcessMode = ProcessModeEnum.Inherit;
+            _scene.Visible = true;
+            _scene.InterfaceLayer.Visible = true;
+            _roomCamera.Enabled = true;
+        }
     }
 
     internal bool TryDisplayEraInfoAfterInitialRoomLoad(
@@ -454,6 +657,12 @@ public partial class GameRoot : Node2D
 
     public override void _ExitTree()
     {
+        _preparedGameplayScene?.Free();
+        _preparedGameplayScene = null;
+        _bootCancellation?.Cancel();
+        _bootCancellation?.Dispose();
+        _bootResourceSteps?.Dispose();
+        _gameplayPreparation?.Dispose();
         // The original engine does not write SRAM merely because play stops.
         // Unsaved changes remain only in the live WRAM-style save image.
         OracleGraphicsCache.Shutdown();
@@ -461,11 +670,31 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        if (_bootLoading is not null)
+        {
+            AdvanceBootLoading(delta);
+            return;
+        }
         _applicationInput.CaptureHostFrame();
         // Debug speed changes the number of complete original updates, never
         // their 1/60 delta, input-edge consumption, or subsystem order.
         _applicationUpdates.Advance(
             delta * (_debugFastForward ? 4 : 1), AdvanceApplicationUpdate);
+        AdvanceGameplayPreparation();
+    }
+
+    internal void AdvanceGameplayPreparation()
+    {
+        if (_gameplayPreparation is null || GameplayPrepared) return;
+        // Godot images and nodes stay on the main thread. Spread construction
+        // over host frames, independently of original-update batching.
+        var budget = System.Diagnostics.Stopwatch.StartNew();
+        do
+        {
+            if (!_gameplayPreparation.MoveNext())
+                throw new InvalidOperationException("Gameplay preparation missed its handoff boundary.");
+            GameplayPrepared = _gameplayPreparation.Current;
+        } while (!GameplayPrepared && budget.Elapsed.TotalMilliseconds < 2);
     }
 
     private void AdvanceApplicationUpdate()
@@ -721,10 +950,11 @@ public partial class GameRoot : Node2D
         return false;
     }
 
-    private void CreateControllers()
+    private IEnumerable<bool> CreateControllersSteps()
     {
         var timePortals = new TimePortalDatabase();
         var enemies = new EnemyDatabase();
+        yield return false;
         _entities = new RoomEntityManager(
             _scene.WorldRoot, new NpcDatabase(), enemies,
             new ItemDropDatabase(), timePortals, _random, _saveData,
@@ -734,6 +964,7 @@ public partial class GameRoot : Node2D
             treasures: _treasures,
             rooms: _rooms);
         _entities.DisplayedHealthSource = () => _statusBar.DisplayedHealth;
+        yield return false;
         _pushBlocks = new PushBlockController(
             _rooms, new PushableTileDatabase(), _roomView,
             () => (long)_animationTicks, _sound.PlaySound,
@@ -783,13 +1014,16 @@ public partial class GameRoot : Node2D
         _entities.NativeChannelVolumeWritten += _sound.SetNativeChannelVolume;
         _entities.RoomMusicRequested += _sound.PlayRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
+        yield return false;
         _entities.EnemyDefeated += _inventory.RecordEnemyKill;
         _entities.RoomTileChanged += _roomView.QueueRedraw;
         _roomEvents = new RoomEventController(
             _rooms, _entities, _transitions, _dialogue, _player, _roomView,
             _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
-            _sound, _roomCamera);
+            _sound, _roomCamera, deferPreparation: true);
+        foreach (bool step in _roomEvents.PrepareResources())
+            yield return step;
         _interactions = new InteractionController(
             _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
@@ -799,6 +1033,7 @@ public partial class GameRoot : Node2D
                 _statusBar.DisplayedHealth == _inventory.HealthQuarters,
             _roomEvents.InteractionHandlers,
             () => _statusBar.DisplayedRupees == _inventory.Rupees);
+        yield return false;
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
         _keyholes.MessageRequested += message =>
@@ -856,6 +1091,7 @@ public partial class GameRoot : Node2D
         _entities.Somaria = new SomariaController(_scene.WorldRoot,_rooms,_entities,_sound.PlaySound);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
+        yield return false;
         _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;
         _terrain = new TerrainController(
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
@@ -1136,6 +1372,22 @@ public partial class GameRoot : Node2D
     /// </summary>
     internal void ReinitializeGameplayForValidation()
     {
+        _bootLoading?.End();
+        _bootLoading = null;
+        _bootTasks.Clear();
+        _bootResourceSteps?.Dispose();
+        _bootResourceSteps = null;
+        _bootCancellation?.Cancel();
+        _bootCancellation?.Dispose();
+        _bootCancellation = null;
+        _bootDataTask = null;
+        _preparedGameplayScene?.Free();
+        _preparedGameplayScene = null;
+        _preparedWorld = null;
+        _preparedRoomResources = null;
+        _gameplayPreparation?.Dispose();
+        _gameplayPreparation = null;
+        GameplayPrepared = false;
         if (_persistSaveData)
         {
             throw new InvalidOperationException(

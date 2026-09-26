@@ -110,7 +110,7 @@ internal static class GeneratedTableManifest
                 $"Generated table manifest '{ManifestPath}' is missing; " +
                 "rerun tools/import_oracles.ps1.");
         }
-        byte[] manifestBytes = FileAccess.GetFileAsBytes(ManifestPath);
+        byte[] manifestBytes = OracleAssetCache.ReadBytes(ManifestPath);
         string source;
         try
         {
@@ -191,7 +191,7 @@ internal static class GeneratedTableManifest
         foreach ((string relative, Entry entry) in entries)
         {
             string path = Root + relative;
-            byte[] bytes = FileAccess.GetFileAsBytes(path);
+            byte[] bytes = OracleAssetCache.ReadBytes(path);
             string actualHash = Hash(bytes);
             if (!string.Equals(actualHash, entry.Sha256, StringComparison.OrdinalIgnoreCase))
             {

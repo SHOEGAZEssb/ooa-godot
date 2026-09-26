@@ -66,6 +66,12 @@ content. Every table or binary format must have:
 Use the shared generated-table writer and reader for TSV data. Preserve empty
 cells and escaping; do not split rows independently in feature databases.
 Binary readers validate exact expected byte counts or explicit format versions.
+Packaged binary inputs and schema-neutral TSV tokens are cached for the session
+and can be prepared by the startup I/O worker. Binary consumers receive copies,
+so live layouts cannot modify the cached inputs. Parsed tables are retained by
+their complete schema contract; first use still validates manifest hashes,
+versions, headers, key rules and row counts. Changing generated files requires
+restarting the running game.
 When a format changes, update its importer, runtime reader, manifest expectation,
 and regression in the same change.
 

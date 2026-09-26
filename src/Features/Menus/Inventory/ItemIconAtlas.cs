@@ -85,7 +85,7 @@ public static class ItemIconAtlas
 
     public static Color[,] LoadStandardSpritePalettes()
     {
-        byte[] bytes = FileAccess.GetFileAsBytes(StandardSpritePalettePath);
+        byte[] bytes = OracleAssetCache.ReadBytes(StandardSpritePalettePath);
         if (bytes.Length != 6 * 4 * 3)
             throw new System.InvalidOperationException(
                 $"{StandardSpritePalettePath} should contain 72 bytes, got {bytes.Length}.");

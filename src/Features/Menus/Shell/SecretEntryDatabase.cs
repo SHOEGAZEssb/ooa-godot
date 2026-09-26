@@ -15,7 +15,7 @@ internal sealed class SecretEntryDatabase
     }
     internal SecretEntryDatabase()
     {
-        _keyboard = Godot.FileAccess.GetFileAsBytes("res://assets/oracle/menu/map_secret_entry_middle.bin");
+        _keyboard = OracleAssetCache.ReadBytes("res://assets/oracle/menu/map_secret_entry_middle.bin");
         Glyphs = GeneratedTable.Load("res://assets/oracle/menu/secret_glyphs.tsv",
             new GeneratedTableSchema("Secret-entry glyphs", GeneratedTableKeySemantics.Ordered,
                 ["index", "glyph"], ["index"], headerRequired: true)).Rows.Select(row => (byte)row.HexByte(1)).ToArray();

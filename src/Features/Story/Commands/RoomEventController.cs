@@ -13,9 +13,10 @@ namespace oracleofages;
 public sealed class RoomEventController
 {
     private readonly RoomEventContext _context;
-    private readonly IRoomEvent[] _eventsByPriority;
-    private readonly NpcInteractionHandler[] _interactionHandlers;
-    private readonly Dictionary<Type, IRoomEvent> _eventsByType;
+    private IRoomEvent[] _eventsByPriority = [];
+    private NpcInteractionHandler[] _interactionHandlers = [];
+    private Dictionary<Type, IRoomEvent> _eventsByType = new();
+    private bool _preparationStarted;
 
     public RoomEventController(
         RoomSession rooms,
@@ -32,7 +33,8 @@ public sealed class RoomEventController
         InventoryState inventory,
         TreasureDatabase treasures,
         OracleSoundEngine sound,
-        Camera2D roomCamera)
+        Camera2D roomCamera,
+        bool deferPreparation = false)
     {
         _context = new RoomEventContext(
             rooms,
@@ -50,82 +52,101 @@ public sealed class RoomEventController
             treasures,
             sound,
             roomCamera);
+        if (!deferPreparation)
+            foreach (bool _ in PrepareResources()) { }
+    }
+
+    internal IEnumerable<bool> PrepareResources()
+    {
+        if (_preparationStarted)
+            throw new InvalidOperationException("Room event resources have already begun preparation.");
+        _preparationStarted = true;
         var tokayInteractions = new TokayInteractionDatabase();
+        yield return false;
         var impa = new ImpaIntroEvent(_context);
+        yield return false;
         var remoteMakuThirdEssence = new RemoteMakuThirdEssenceEvent(_context);
+        yield return false;
         // Entry precedence is explicit. Construction and typed lookup share this
         // one registration; A-button routing below has its own source order.
-        _eventsByPriority =
+        Func<IRoomEvent>[] factories =
         [
-            new HarpOfAgesEvent(_context),
-            new DungeonEssenceEvent(_context),
-            new DefeatedMoblinEvent(_context),
-            new RemoteMakuFirstEssenceEvent(_context),
-            new RemoteMakuSecondEssenceEvent(_context),
-            new RemoteMakuFourthEssenceEvent(_context),
-            new RemoteMakuFifthEssenceEvent(_context),
-            new RemoteMakuHarpEvent(_context),
-            new RemoteMakuWingDungeonEvent(_context),
-            new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),
-            remoteMakuThirdEssence,
-            new CompanionForestEvent(_context),
-            new FairiesWoodsEvent(_context),
-            new WingDungeonCollapseEvent(
+            () => new HarpOfAgesEvent(_context),
+            () => new DungeonEssenceEvent(_context),
+            () => new DefeatedMoblinEvent(_context),
+            () => new RemoteMakuFirstEssenceEvent(_context),
+            () => new RemoteMakuSecondEssenceEvent(_context),
+            () => new RemoteMakuFourthEssenceEvent(_context),
+            () => new RemoteMakuFifthEssenceEvent(_context),
+            () => new RemoteMakuHarpEvent(_context),
+            () => new RemoteMakuWingDungeonEvent(_context),
+            () => new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),
+            () => remoteMakuThirdEssence,
+            () => new CompanionForestEvent(_context),
+            () => new FairiesWoodsEvent(_context),
+            () => new WingDungeonCollapseEvent(
                 _context, () => Get<RemoteMakuWingDungeonEvent>().StartWarning()),
-            new NayruIntroEvent(_context, impa),
-            new GraveyardGateEvent(_context),
-            new CrownDungeonEntranceEvent(_context),
-            new RickyGlovesEvent(_context),
-            new TingleEvent(_context),
-            new CarpenterEvent(_context),
-            new SymmetryEvent(_context),
-            new PatchEvent(_context),
-            new BombUpgradeFairyEvent(_context),
-            new MooshRescueEvent(_context),
-            new MakuSproutRescueEvent(_context),
-            new DekuForestSoldierEvent(_context),
-            new DekuForestPalaceEvent(_context),
-            new BusinessScrubEvent(_context),
-            new LynnaShopEvent(_context),
-            new VasuShopEvent(_context),
-            new ShootingGalleryEvent(_context),
-            new ComedianEvent(_context),
-            new MaskSalesmanEvent(_context),
-            new OldZoraEvent(_context),
-            new GoronCaveEvent(_context),
-            new DumbbellManEvent(_context),
-            new TokkeyEvent(_context),
-            new ChevalEvent(_context),
-            new RalphAfterChevalEvent(_context),
-            new RalphAfterRaftonEvent(_context),
-            new RaftwreckEvent(_context),
-            new TokayTheftEvent(_context),
-            new TokayCookEvent(_context, tokayInteractions),
-            new TokayHoldingItemEvent(_context, tokayInteractions),
-            new TokayRunningFromRosaEvent(_context, tokayInteractions),
-            new TokayDimitriEvent(_context, tokayInteractions),
-            new TokaySeedlingPlotEvent(
+            () => new NayruIntroEvent(_context, impa),
+            () => new GraveyardGateEvent(_context),
+            () => new CrownDungeonEntranceEvent(_context),
+            () => new RickyGlovesEvent(_context),
+            () => new TingleEvent(_context),
+            () => new CarpenterEvent(_context),
+            () => new SymmetryEvent(_context),
+            () => new PatchEvent(_context),
+            () => new BombUpgradeFairyEvent(_context),
+            () => new MooshRescueEvent(_context),
+            () => new MakuSproutRescueEvent(_context),
+            () => new DekuForestSoldierEvent(_context),
+            () => new DekuForestPalaceEvent(_context),
+            () => new BusinessScrubEvent(_context),
+            () => new LynnaShopEvent(_context),
+            () => new VasuShopEvent(_context),
+            () => new ShootingGalleryEvent(_context),
+            () => new ComedianEvent(_context),
+            () => new MaskSalesmanEvent(_context),
+            () => new OldZoraEvent(_context),
+            () => new GoronCaveEvent(_context),
+            () => new DumbbellManEvent(_context),
+            () => new TokkeyEvent(_context),
+            () => new ChevalEvent(_context),
+            () => new RalphAfterChevalEvent(_context),
+            () => new RalphAfterRaftonEvent(_context),
+            () => new RaftwreckEvent(_context),
+            () => new TokayTheftEvent(_context),
+            () => new TokayCookEvent(_context, tokayInteractions),
+            () => new TokayHoldingItemEvent(_context, tokayInteractions),
+            () => new TokayRunningFromRosaEvent(_context, tokayInteractions),
+            () => new TokayDimitriEvent(_context, tokayInteractions),
+            () => new TokaySeedlingPlotEvent(
                 _context, tokayInteractions, new TokaySeedlingPlotDatabase()),
-            new TokayShieldUpgradeEvent(_context, tokayInteractions),
-            new TokayVineExplanationEvent(_context, tokayInteractions),
-            new RosaShovelEvent(_context, tokayInteractions),
-            new TokayTradingEvent(_context, tokayInteractions, new TokayShopDatabase()),
-            new WildTokayGameEvent(_context, tokayInteractions, new WildTokayGameDatabase()),
-            new RaftonEvent(_context),
-            new DepressedBoyEvent(_context),
-            new ToiletHandEvent(_context),
-            new PoeEvent(_context),
-            new MakuTreeSavedEvent(_context),
-            new MakuTreeAdviceEvent(_context),
-            new MakuTreeDisappearanceEvent(_context),
-            new RalphPortalEvent(_context),
-            new PreBlackTowerEvent(_context),
-            new BlackTowerDoorwayEvent(_context),
-            new BlackTowerEntranceEvent(_context),
-            new EnterPastEvent(_context),
-            new GraveyardGhostKidsEvent(_context),
-            impa,
+            () => new TokayShieldUpgradeEvent(_context, tokayInteractions),
+            () => new TokayVineExplanationEvent(_context, tokayInteractions),
+            () => new RosaShovelEvent(_context, tokayInteractions),
+            () => new TokayTradingEvent(_context, tokayInteractions, new TokayShopDatabase()),
+            () => new WildTokayGameEvent(_context, tokayInteractions, new WildTokayGameDatabase()),
+            () => new RaftonEvent(_context),
+            () => new DepressedBoyEvent(_context),
+            () => new ToiletHandEvent(_context),
+            () => new PoeEvent(_context),
+            () => new MakuTreeSavedEvent(_context),
+            () => new MakuTreeAdviceEvent(_context),
+            () => new MakuTreeDisappearanceEvent(_context),
+            () => new RalphPortalEvent(_context),
+            () => new PreBlackTowerEvent(_context),
+            () => new BlackTowerDoorwayEvent(_context),
+            () => new BlackTowerEntranceEvent(_context),
+            () => new EnterPastEvent(_context),
+            () => new GraveyardGhostKidsEvent(_context),
+            () => impa,
         ];
+        var events = new List<IRoomEvent>();
+        foreach (var factory in factories)
+        {
+            events.Add(factory());
+            yield return false;
+        }
+        _eventsByPriority = events.ToArray();
         _eventsByType = _eventsByPriority.ToDictionary(roomEvent => roomEvent.GetType());
         _context.NativeDialogueScreen = () =>
             (UpdateOwner as IRoomEventDialogueContext)?.DialogueScreen;
@@ -204,10 +225,10 @@ public sealed class RoomEventController
                 "tokayShopItem.s:interactionCode81",
                 Get<TokayTradingEvent>().TryInteractPlayer)
         ];
-        entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        _context.Entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
         Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
-        entities.ObjectFellInHole += NotifyObjectFellInHole;
-        entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
+        _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
+        _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
     }
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
