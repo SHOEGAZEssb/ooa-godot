@@ -3,6 +3,7 @@ name: Validation
 on:
   push:
     paths:
+      - '.github/workflows/validation.yml'
       - 'src/**'
       - 'scenes/**'
       - 'validation/**'
