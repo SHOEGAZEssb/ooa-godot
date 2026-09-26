@@ -101,7 +101,9 @@ public sealed class LinkedGameNpcDatabase
             }
         }
 
-        if (_records.Count != 3 ||
+        if (_records.Count != 4 ||
+            Get(3, 0xf8, 0x3d, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
+                BeganFlag: 0x59, OfferTextId: 0x4d2d, FinalTextId: 0x4d31, HasExtraText: true } ||
             Get(0, 0x5d, 0xcb, 0x00) is not
                 {
                     SecretIndex: 0x01,

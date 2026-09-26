@@ -93,6 +93,7 @@ public sealed class RoomEventController
             () => new TingleEvent(_context),
             () => new CarpenterEvent(_context),
             () => new SymmetryEvent(_context),
+            () => new PlenEvent(_context),
             () => new PatchEvent(_context),
             () => new BombUpgradeFairyEvent(_context),
             () => new MooshRescueEvent(_context),
@@ -157,6 +158,7 @@ public sealed class RoomEventController
         _interactionHandlers =
         [
             Npc("goron.s:scriptTable;goronElder.s;shootingGallery.s", Get<GoronCaveEvent>().TryInteractNpc),
+            Npc("plen.s:plenSubid0Script", Get<PlenEvent>().TryInteractNpc),
             Npc("symmetryNpc.s:scriptTable",
                 Get<SymmetryEvent>().TryInteractNpc),
             Npc("patch.s:interactionCode94", Get<PatchEvent>().TryInteractNpc),
@@ -255,6 +257,7 @@ public sealed class RoomEventController
     {
         Get<WildTokayGameEvent>().SetSecretMenuOpener(opener);
         Get<SymmetryEvent>().OpenSecretMenu = opener;
+        Get<PlenEvent>().OpenSecretMenu = opener;
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>

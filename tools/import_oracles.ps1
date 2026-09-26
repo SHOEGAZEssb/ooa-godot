@@ -200,6 +200,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-carpenters' 'Import-CarpenterData.ps1' `
         -inputs @('allTexts', 'globalFlagValues') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-plen' 'Import-PlenData.ps1' `
+        -inputs @('allTexts', 'globalFlagValues') `
+        -functionInputs @('New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-symmetry' 'Import-SymmetryData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'makuStopSound', 'soundIds', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')

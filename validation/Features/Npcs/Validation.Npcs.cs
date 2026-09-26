@@ -431,7 +431,7 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
-            ["objects/linked_game_npcs.tsv|\\secret1"] = 4,
+            ["objects/linked_game_npcs.tsv|\\secret1"] = 5,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
@@ -538,10 +538,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 55,
+                [NpcImplementationClassification.OrdinaryGeneric] = 56,
                 [NpcImplementationClassification.SpecializedNative] = 176,
-                [NpcImplementationClassification.EventOwned] = 99,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 127
+                [NpcImplementationClassification.EventOwned] = 100,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 125
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -554,7 +554,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "55 ordinary, 176 specialized, 99 event-owned, and 127 " +
+            "56 ordinary, 176 specialized, 100 event-owned, and 125 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -790,6 +790,7 @@ public sealed partial class ValidationRoot
         [
             "blossom.s:MENU_KIDNAME",
             "goron.s:scriptTable;goronElder.s;shootingGallery.s",
+            "plen.s:plenSubid0Script",
             "symmetryNpc.s:scriptTable",
             "patch.s:interactionCode94",
             "carpenter.s:room025Scripts",

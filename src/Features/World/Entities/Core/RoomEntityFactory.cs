@@ -1278,7 +1278,9 @@ internal sealed class RoomEntityFactory(
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
-                        yield return record is { Id: 0x72, SubId: 0 }
+                        yield return record is { Id: 0xcc, SubId: 0 }
+                            ? new PlenRoomEntity(CreateNpcCharacter(record))
+                            : record is { Id: 0x72, SubId: 0 }
                             ? new DefeatedMoblinActorRoomEntity(CreateNpcCharacter(record))
                             : record is { Id: 0x83, SubId: 0 }
                             ? new BombUpgradeFairyRoomEntity(CreateNpcCharacter(record))

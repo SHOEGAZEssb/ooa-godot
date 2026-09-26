@@ -994,6 +994,8 @@ function Resolve-NpcImplementation(
         return 'event-owned'
     }
     if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
+    if ($id -eq 0xcc -and $subid -eq 0) { return 'event-owned' }
+    if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
     return 'deliberately-unsupported'
@@ -4798,10 +4800,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 55 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 56 -or
     $npcImplementationCounts['specialized-native'] -ne 104 -or
-    $npcImplementationCounts['event-owned'] -ne 99 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 127 -or
+    $npcImplementationCounts['event-owned'] -ne 100 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 125 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5138,6 +5140,11 @@ foreach ($linkedNpc in @(
         Group = 0x02; Room = 0xf6; Id = 0x66; SubId = 0x0f
         SecretIndex = 0x08; BeganFlag = 'GLOBALFLAG_BEGAN_BIGGORON_SECRET'
         Source = 'goron.s:goronSubid0f;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x03; Room = 0xf8; Id = 0x3d; SubId = 0x05
+        SecretIndex = 0x09; BeganFlag = 'GLOBALFLAG_BEGAN_RUUL_SECRET'
+        Source = 'oldLady.s:@initSubid5;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
