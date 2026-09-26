@@ -38,6 +38,13 @@ come from the OAM cells. Preserve byte-wrapped coordinates near screen edges.
 Logical actor positions remain unchanged while camera and transition offsets
 alter presentation.
 
+For entities allocated in the native interaction pool, equal-priority sprites
+retain ascending slot precedence from the original OAM queue. The entity
+manager reverses their Godot sibling painting order, including reused slots,
+without changing allocation or gameplay update order. Link-relative priority
+remains owned by each interaction's native handler; height or screen Y does not
+introduce an additional sorting rule.
+
 Animation definitions and assembled frames are immutable shared data. Changing
 an actor animation selects cached definitions; it does not rebuild textures.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,

@@ -39,7 +39,26 @@ public sealed partial class ValidationRoot
             FailIf(!birds.Select(b => b.Record.SubId).SequenceEqual(order),
                 "Room 3:f7 lost its ten $e3 slots in source order $08,$09,$06,$07,$04,$05,$02,$03,$00,$01.");
             var observations = new List<string>();
-            void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
+            void CheckDrawOrder(KnowItAllBirdCharacter[] actors)
+            {
+                if (actors.Length == 0) return;
+                var parent = (Node2D)actors[0].GetParent();
+                // bank0 queues each visible&3 bucket by ascending interaction
+                // address; CGB's earlier OAM entry wins. Compare the resulting
+                // foreground-to-background order, not just each bird's ZIndex.
+                int[] expected = actors.OrderByDescending(b => b.ZIndex)
+                    .ThenBy(b => _entities.InteractionSlot(b)).Select(b => b.Record.SubId).ToArray();
+                int[] actual = actors.OrderByDescending(b => b.ZIndex)
+                    .ThenByDescending(b => b.GetIndex()).Select(b => b.Record.SubId).ToArray();
+                FailIf(!expected.SequenceEqual(actual) || actors.Any(b => b.GetParent() != parent) ||
+                    parent.YSortEnabled,
+                    "3:f7 equal-priority birds must draw earlier interaction slots above later slots, without Y sorting.");
+            }
+            void Step(int count)
+            {
+                StepGameplayUpdates(count, Vector2.Zero, batched: batched);
+                CheckDrawOrder(_entities.Entities<KnowItAllBirdCharacter>().ToArray());
+            }
             var random = (OracleRandom)typeof(RoomEntityManager).GetField("_random",
                 BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_entities)!;
             var rng = random.CaptureState();
@@ -54,7 +73,8 @@ public sealed partial class ValidationRoot
             Step(1);
             FailIf(_entities.RandomCalls != rng.Calls + 10 ||
                 !birds.Select(b => b.Direction).SequenceEqual(directions) ||
-                birds.Any(b => b.TurnCounter != 30 || !b.ScriptVisible || b.ScriptButtonSensitive),
+                birds.Any(b => b.TurnCounter != 30 || !b.ScriptVisible || b.ScriptButtonSensitive || b.ZIndex != 9) ||
+                !birds.Select(b => _entities.InteractionSlot(b)).SequenceEqual(Enumerable.Range(2, 10)),
                 "Room 3:f7 $e3 state 0 lost its ordered RNG, 30-update counter, visibility, or deferred script init.");
             Step(29);
             FailIf(_entities.RandomCalls != rng.Calls + 10 || birds.Any(b => b.TurnCounter != 1),
@@ -81,11 +101,15 @@ public sealed partial class ValidationRoot
                     }
                 }
                 Step(1);
+                foreach (var actor in birds)
+                    FailIf(actor.ZIndex != (actor.Position.Y > (int)_player.Position.Y + 0x0b ? 11 : 9),
+                        $"$e3:${actor.Record.SubId:x2} has incorrect Link-relative priority at {_player.Position}.");
                 FailIf(_rooms.CurrentRoom.IsSolid(_player.Position) || _entities.BlocksLink(_player.Position),
                     $"3:f7 approach placed Link inside solid geometry at {_player.Position}.");
             }
             void Open(KnowItAllBirdCharacter bird)
             {
+                int retainedPriority = bird.ZIndex;
                 _player.Face(bird.Position.X < 80 ? Vector2I.Left : Vector2I.Right);
                 FailIf(!bird.CanTalkTo(_player), $"$e3:${bird.Record.SubId:x2} is unreachable from {_player.Position}.");
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
@@ -99,6 +123,8 @@ public sealed partial class ValidationRoot
                 Step(1);
                 FailIf(!_dialogue.IsOpen || !_dialogue.ChoiceActive || bird.ZFixed != firstZ,
                     $"$e3:${bird.Record.SubId:x2} did not open its prompt and start hopping.");
+                FailIf(bird.ZIndex != retainedPriority,
+                    "$e3 must retain its last idle priority when entering the talking substate.");
             }
 
             int flags = _saveData.GetRoomFlags(3, 0xf7);
@@ -121,12 +147,14 @@ public sealed partial class ValidationRoot
                 int z = bird.ZFixed, speed = bird.SpeedZ;
                 int idleCalls = _entities.RandomCalls;
                 int idleCounter = bird.TurnCounter;
+                int talkingPriority = bird.ZIndex;
                 for (int tick = 0; tick < 30; tick++)
                 {
                     z += speed;
                     if (z >= 0) { z = 0; speed = -0xc0; } else speed += 0x20;
                     Step(1);
-                    FailIf(bird.ZFixed != z || bird.SpeedZ != speed || bird.ScriptDrawOffset.Y != (z >> 8),
+                    FailIf(bird.ZFixed != z || bird.SpeedZ != speed || bird.ScriptDrawOffset.Y != (z >> 8) ||
+                        bird.ZIndex != talkingPriority,
                         $"$e3:${subid:x2} talk jump differs at update {tick}.");
                 }
                 FailIf(_entities.RandomCalls != idleCalls + 9 || bird.TurnCounter != idleCounter ||
@@ -202,6 +230,7 @@ public sealed partial class ValidationRoot
             int callsBeforeScroll = _entities.RandomCalls;
             _entities.BeginScreenTransition(3, _world.LoadRoom(3, 0xf7), new Vector2(160, 0), _player);
             var incoming = _entities.Entities<KnowItAllBirdCharacter>().ToArray();
+            CheckDrawOrder(incoming);
             FailIf(incoming.Length != 10 || incoming.Any(b => !b.Initialized || b.TurnCounter != 30),
                 "3:f7 incoming bird state 0 was not preloaded in source order.");
             int afterPreload = _entities.RandomCalls;

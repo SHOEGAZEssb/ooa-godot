@@ -820,8 +820,14 @@ internal sealed class DekuForestPalaceEvent :
 
     private NpcCharacter Spawn(string name, NpcRecord record)
     {
+        // soldierSubid02/09 call objectPreventLinkFromPassing; subid07
+        // uses interactionAnimateAsNpc before entering its generic NPC loop.
+        // The wrapper must expose these capabilities for SetBlocksLink and
+        // the ordinary guard conversation to reach the gameplay router.
+        bool entranceGuard = record.Id == 0x40 && record.SubId is 0x02 or 0x07 or 0x09;
         NpcCharacter actor = _context.Entities.Spawn<NpcCharacter>(
-            new CutsceneNpcSpawn(record, $"DekuForestPalace{name}"));
+            new CutsceneNpcSpawn(record, $"DekuForestPalace{name}",
+                Talkable: entranceGuard, Solid: entranceGuard));
         actor.SetAnimationRate(0.0f);
         actor.SetScriptVisible(true);
         _actors.Add(name, actor);

@@ -266,6 +266,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRooms171And181);
         RunIsolatedValidation(ValidateDekuForestSoldierCutscene);
         RunIsolatedValidation(ValidateDekuForestPalaceCutscene);
+        RunIsolatedValidation(ValidatePalaceEntranceGuardCollision);
         RunIsolatedValidation(ValidateRoom173SoldierPair);
         RunIsolatedValidation(ValidateRoom174PastOldLady);
         RunIsolatedValidation(ValidateRooms182And192NpcInteractions);

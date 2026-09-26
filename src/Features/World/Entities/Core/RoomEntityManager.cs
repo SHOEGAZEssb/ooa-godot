@@ -2188,19 +2188,7 @@ public sealed class RoomEntityManager : IDisposable
         }
         _worldRoot.AddChild(entity.Node);
         if (_interactionSlots.TryGetValue(entity, out int drawSlot))
-        {
-            // bank0.queueDrawEverything visits $d040..$df40 in ascending
-            // slot order. Within a visible&3 priority bucket the earlier
-            // OAM entry wins. Godot's equal-Z siblings paint in the opposite
-            // direction, so insert later slots before earlier slots. Keep
-            // the update list and slot allocation order unchanged.
-            IRoomEntity? lowerSlot = _interactionSlots
-                .Where(pair => pair.Value < drawSlot && pair.Key.Node.GetParent() == _worldRoot)
-                .OrderByDescending(pair => pair.Value)
-                .Select(pair => pair.Key).FirstOrDefault();
-            if (lowerSlot is not null)
-                _worldRoot.MoveChild(entity.Node, lowerSlot.Node.GetIndex());
-        }
+            ApplyInteractionDrawOrder(entity, drawSlot);
         if (entity is IFixedRoomEntity)
         {
             // Entering the tree can enable an overridden _PhysicsProcess
@@ -2209,6 +2197,21 @@ public sealed class RoomEntityManager : IDisposable
             entity.Node.SetPhysicsProcess(false);
         }
         return entity;
+    }
+
+    private void ApplyInteractionDrawOrder(IRoomEntity entity, int slot)
+    {
+        // bank0.queueDrawEverything visits $d040..$df40 in ascending
+        // slot order. Within a visible&3 priority bucket the earlier
+        // OAM entry wins. Godot's equal-Z siblings paint in the opposite
+        // direction, so insert later slots before earlier slots. Keep
+        // the update list and slot allocation order unchanged.
+        IRoomEntity? lowerSlot = _interactionSlots
+            .Where(pair => pair.Value < slot && pair.Key.Node.GetParent() == _worldRoot)
+            .OrderByDescending(pair => pair.Value)
+            .Select(pair => pair.Key).FirstOrDefault();
+        if (lowerSlot is not null)
+            _worldRoot.MoveChild(entity.Node, lowerSlot.Node.GetIndex());
     }
 
     private void ProcessSpawns(RoomEntityFrame? frame = null)
@@ -2709,6 +2712,7 @@ public sealed class RoomEntityManager : IDisposable
         var entity = _factory.Create(new RockDebrisSpawn(position),_roomForActiveEntities);
         AddEntity(entity);
         _interactionSlots[entity] = FindFreeInteractionSlot();
+        ApplyInteractionDrawOrder(entity, _interactionSlots[entity]);
         return true;
     }
 
