@@ -2,6 +2,7 @@ using Godot;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -47,12 +48,32 @@ public sealed partial class ValidationRoot
             rightNote.Position.Y >= nayru.Position.Y,
             "Loading Nayru did not alternate to a rising right music note.");
         float progress = 0;
+        int stepsThisHost = 0;
+        int mostStepsPerHost = 0;
+        var tasks = (Queue<System.Func<IEnumerator<bool>?>>)typeof(GameRoot)
+            .GetField("_bootTasks", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(this)!;
+        var originalTasks = tasks.ToArray();
+        tasks.Clear();
+        foreach (var prepare in originalTasks)
+            tasks.Enqueue(() => CountSteps(prepare()).GetEnumerator());
+        IEnumerable<bool> CountSteps(IEnumerator<bool>? steps)
+        {
+            if (steps is null) yield break;
+            using (steps)
+                while (steps.MoveNext())
+                {
+                    stepsThisHost++;
+                    yield return steps.Current;
+                }
+        }
         double longestHostMs = 0;
         var bootDeadline = System.Diagnostics.Stopwatch.StartNew();
         for (int host = 0; _frontendIntro is null && bootDeadline.Elapsed.TotalSeconds < 30; host++)
         {
             var hostTime = System.Diagnostics.Stopwatch.StartNew();
+            stepsThisHost = 0;
             base._Process(1.0 / 60.0);
+            mostStepsPerHost = System.Math.Max(mostStepsPerHost, stepsThisHost);
             longestHostMs = System.Math.Max(longestHostMs, hostTime.Elapsed.TotalMilliseconds);
             // Allow the I/O worker to progress while this synchronous headless
             // scenario pumps artificial host frames much faster than real time.
@@ -65,6 +86,8 @@ public sealed partial class ValidationRoot
         FailIf(_frontendIntro is null || screen.Visible || screen.Progress != 1 ||
             _frontendIntro.Stage != FrontendIntroStage.Boot || _frontendIntro.FrameCounter != 0,
             "Loading did not hand off to the untouched original Nintendo/Capcom sequence.");
+        FailIf(mostStepsPerHost <= 1,
+            "Boot loading imposed one rendered frame per resource instead of batching inexpensive work.");
         const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
         var preparedIntro = (NewGameIntroScreen)typeof(GameRoot)
             .GetField("_newGameIntroScreen", fields)!.GetValue(this)!;

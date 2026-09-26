@@ -14,6 +14,11 @@ the loading animation begins, then its presentation resources are built in
 small main-thread steps. No gameplay node enters the tree or binds a save until
 file selection. Cancellation frees the detached hierarchy.
 
+Boot resource steps share a soft 3 ms work budget per host frame. Small steps
+can finish together; asset count must not impose one rendered frame per asset.
+The budget is checked between operations, so an individual resource load can
+exceed it. A pending data worker yields immediately instead of busy-polling.
+
 The new-game intro prepares file-dependent gameplay owners incrementally across
 host frames, consuming those retained resources. The prepared scene, interface layer and camera remain hidden and
 disabled. Preparation reads the selected save but does not enter the room,

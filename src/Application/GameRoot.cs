@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,6 +22,7 @@ public partial class GameRoot : Node2D
     private int _bootTaskCount;
     private int _bootHostFrames;
     private bool _bootFinishing;
+    private const double BootWorkBudgetMilliseconds = 3;
     private CancellationTokenSource? _bootCancellation;
     private Task<PreparedBootData>? _bootDataTask;
     private sealed record PreparedBootData(string[] Images, RoomSessionResources Rooms);
@@ -407,21 +409,29 @@ public partial class GameRoot : Node2D
         screen.AdvancePresentation(delta);
         // Give the vignette a rendered frame before executing resource work.
         if (++_bootHostFrames < 2) return;
-        if (_bootResourceSteps is not null)
+        // A pending data worker cannot make progress by polling it repeatedly
+        // within one host frame. Leave the render thread available immediately.
+        if (_bootDataTask is { IsCompleted: false }) return;
+        // Yield on elapsed work, not on asset count: one tiny image per frame
+        // imposed seconds of idle waiting at 60 Hz. Individual Godot operations
+        // remain atomic, so this is a soft budget checked between operations.
+        long started = Stopwatch.GetTimestamp();
+        while (Stopwatch.GetElapsedTime(started).TotalMilliseconds < BootWorkBudgetMilliseconds)
         {
-            if (_bootResourceSteps.MoveNext()) return;
-            _bootResourceSteps.Dispose();
-            _bootResourceSteps = null;
-            screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);
-            return;
-        }
-        if (_bootTasks.TryDequeue(out var prepare))
-        {
+            if (_bootResourceSteps is not null)
+            {
+                if (_bootResourceSteps.MoveNext()) continue;
+                _bootResourceSteps.Dispose();
+                _bootResourceSteps = null;
+                screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);
+                continue;
+            }
+            if (!_bootTasks.TryDequeue(out var prepare)) break;
             _bootResourceSteps = prepare();
             if (_bootResourceSteps is null)
                 screen.SetProgress((float)++_bootCompletedTasks / _bootTaskCount);
-            return;
         }
+        if (_bootResourceSteps is not null || _bootTasks.Count != 0) return;
         if (!_bootFinishing)
         {
             _bootFinishing = true;

@@ -38,11 +38,22 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
-For a cold-start timing profile, run Godot with `-- --validate --profile-startup`.
+For a cold-start timing profile, run Godot with
+`--max-fps 60 -- --validate --profile-startup`.
 This bypasses the suite's already-warmed gameplay fixture, measures the actual
 boot frames and a fresh new-file handoff, and exits without writing a save.
-Use a rendered run when assessing animation smoothness; desktop timings do not
-establish Android frame times.
+It reports setup, per-resource-stage work, total loading time, host frame
+intervals and file-selection preparation. Use a rendered run and a realistic
+frame cap when assessing animation and elapsed loading time: uncapped runs can
+hide waits imposed by frame scheduling. Desktop timings do not establish
+Android frame times.
+
+For APK smoke testing on a Windows Android emulator, export the `Android
+Emulator` preset to `builds/android/oracle-of-ages-emulator.apk`. This uses
+x86-64; the normal `Android` preset remains ARM64 for phones. Install the
+emulator APK with `adb -s <emulator-serial> install -r <apk-path>` and collect
+logcat while checking startup and file selection. Emulator timings include
+host virtualization and graphics overhead and are not phone benchmarks.
 
 8 workers is the launcher default. Override it with `-Workers` (1–64).
 For a serial run when debugging:
