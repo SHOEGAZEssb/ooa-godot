@@ -20,7 +20,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     private int _direction;
     private Vector2I _target;
     internal ImportedEnemyDefinition Record { get; private set; }
-    internal bool IsChild => Record.Id == 0x11;
+    internal bool IsChild => Record.Id == EnemyId.EyesoarChild;
     internal bool IsSpawner => !IsChild && Record.SubId == 0;
     internal EyesoarActor? Parent { get; private set; }
     internal EyesoarActor? Body { get; private set; }
@@ -52,7 +52,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     internal void Initialize(ImportedEnemyDefinition record, EyesoarEnvironment world, Vector2 position)
     {
         Record = record; _world = world; _movement = new(this, world.Room);
-        CollisionMode = record.Id == 0x11 ? 0x15 : 0x6d;
+        CollisionMode = record.Id == EnemyId.EyesoarChild ? EnemyCollisionMode.EyesoarChild : EnemyCollisionMode.Eyesoar;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         Name = $"Eyesoar_{record.Id:x2}_{record.SubId:x2}";
         ZIndex = 10;
@@ -62,7 +62,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     internal EyesoarActor CreateChild(int index)
     {
         var actor = new EyesoarActor();
-        actor.Initialize(_world.Bosses.Enemy(index == 0 ? 0x7b : 0x11, index == 0 ? 1 : 4 - index), _world, Position.Floor());
+        actor.Initialize(_world.Bosses.Enemy(index == 0 ? EnemyId.Eyesoar : EnemyId.EyesoarChild, index == 0 ? 1 : 4 - index), _world, Position.Floor());
         if (index == 0) Body = actor;
         else { actor.Parent = Body!; Body!._children.Add(actor); }
         return actor;
@@ -82,7 +82,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         Counter = 60; _zFixed = -0x200; Speed = 0x14;
         if (!IsSpawner) { State = 8; return; }
         State = 0x15; // Source writes SPEED_80+1 before falling through state1.
-        _world.EnableLink(); _world.Sound(OracleSoundEngine.SndCtrlStopMusic);
+        _world.EnableLink(); _world.Sound(SoundId.SndCtrlStopMusic);
         if (!_world.EnemySlotsAvailable(5))
             throw new InvalidOperationException("ENEMY_EYESOAR $7b:$00 state0: five free ENEMY slots required; source would retain invalid state $15.");
         for (int i = 0; i < 5; i++) spawns.Add(new EyesoarChildSpawn(this, i));
@@ -99,11 +99,11 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
             if (Parent!.Health == 0)
             {
                 if (_world.InteractionSlotAvailable())
-                    spawns.Add(new EnemyDeathPuffSpawn(Position + Vector2.Down * (_zFixed >> 8), EnemyId: 0x11));
+                    spawns.Add(new EnemyDeathPuffSpawn(Position + Vector2.Down * (_zFixed >> 8), EnemyId: EnemyId.EyesoarChild));
                 Finish(); return;
             }
             if (_world.InteractionSlotAvailable())
-                spawns.Add(new PuzzlePuffSpawn(Position + Vector2.Down * (_zFixed >> 8), OracleSoundEngine.SndPoof));
+                spawns.Add(new PuzzlePuffSpawn(Position + Vector2.Down * (_zFixed >> 8), SoundId.SndPoof));
             State = 12; Counter = 30; Distance = 0; _collision = false; Health = 4; Visible = false;
         }
         if (IsChild) UpdateChild(player, frame, spawns);
@@ -128,7 +128,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
                 if (--Counter != 0) { Visible = !Visible; return; }
                 Counter = 60; FormationCounter = 180; ReadyFlags = 0xff; State = 9; Visible = true; return;
             case 9:
-                if (--Counter == 0) { State = 10; Counter = 1; _world.EnableLink(); _world.Sound(OracleSoundEngine.MusBoss); }
+                if (--Counter == 0) { State = 10; Counter = 1; _world.EnableLink(); _world.Sound(SoundId.MusBoss); }
                 AdvanceAnimation(); return;
             case 10:
                 UpdateFormation(frame);
@@ -146,7 +146,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
                 AdvanceAnimation(); return;
             case 12:
                 if (DecCounter() != 0) { AdvanceAnimation(); return; }
-                State = 13; CollisionMode = 0x6d; RestartAnimation(0);
+                State = 13; CollisionMode = EnemyCollisionMode.Eyesoar; RestartAnimation(0);
                 goto case 13;
             case 13:
                 _zFixed -= 0x80;
@@ -182,7 +182,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         int random;
         do { random = _world.Random.Next().Value & 15; } while (random >= 9);
         int quadrant = (High(Position.Y) >= 0x58 ? 1 : 0) | (High(Position.X) >= 0x88 ? 2 : 0);
-        Angle = (Data.CenterAngle(quadrant) + random) & 31;
+        Angle = (Data.CenterAngle(quadrant) + random) & ObjectAngle.Mask;
     }
 
     private void UpdateChild(Player player, int frame, ICollection<RoomEntitySpawn> spawns)
@@ -227,8 +227,8 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
                 { Angle = OrbitAngle(); State = 16; Distance = 0x18; AdvanceAnimation(); return; }
                 if ((frame & 15) == 0)
                 {
-                    int difference = (Angle - OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition)) & 31;
-                    if (difference != 0) Angle = (Angle + (difference < 16 ? -1 : 1)) & 31;
+                    int difference = (Angle - OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition)) & ObjectAngle.Mask;
+                    if (difference != 0) Angle = (Angle + (difference < 16 ? -1 : 1)) & ObjectAngle.Mask;
                 }
                 Move();
                 Angle = EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle,
@@ -253,13 +253,13 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         SetHighPosition(Parent!.HighPosition() + OracleObjectMovement.Shared.CircleArcOffset(Distance, Angle));
         AdvanceAnimation();
     }
-    private int OrbitAngle() => (Data.ChildAngle(Record.SubId) + Parent!.OrbitRotation) & 31;
+    private int OrbitAngle() => (Data.ChildAngle(Record.SubId) + Parent!.OrbitRotation) & ObjectAngle.Mask;
     private void UpdateHook()
     {
         switch (Substate)
         {
             case 0:
-                Flags |= 0x0a; Formation = (Formation & 7) | 0x18; CollisionMode = 0x4c;
+                Flags |= 0x0a; Formation = (Formation & 7) | 0x18; CollisionMode = EnemyCollisionMode.EyesoarVulnerable;
                 Counter = 150; _direction = 0; Substate = 1; return;
             case 1: return;
             case 2:
@@ -288,12 +288,12 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         {
             foreach (var child in _children) { child.Health = 0; child._collision = false; }
             _dying = true; _collision = false; Counter = 120;
-            _world.DisableLink(); _world.Sound(OracleSoundEngine.SndBossDead);
+            _world.DisableLink(); _world.Sound(SoundId.SndBossDead);
         }
         if (--Counter != 0) { Visible = !Visible; return; }
         Counter = 1;
         if (!_world.PartSlotAvailable()) return;
-        spawns.Add(new BossDeathExplosionSpawn(Position, 0x7b)); Finish();
+        spawns.Add(new BossDeathExplosionSpawn(Position, EnemyId.Eyesoar)); Finish();
     }
     private int DecCounter() => Counter = (Counter - 1) & 255;
     private void MoveToward(Vector2I target) { Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target); Move(); }

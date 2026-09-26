@@ -37,7 +37,7 @@ internal static class OracleObjectMath
     /// Selects the cardinal octant used by objects that intentionally ignore
     /// the low three angle bits.
     /// </summary>
-    public static Vector2 CardinalVector(int angle) => (angle & 0x18) switch
+    public static Vector2 CardinalVector(int angle) => (angle & ObjectAngle.CardinalMask) switch
     {
         0x00 => Vector2.Up,
         0x08 => Vector2.Right,
@@ -50,10 +50,10 @@ internal static class OracleObjectMath
     /// </summary>
     public static Vector2 StrictCardinalVector(int angle) => angle switch
     {
-        0x00 => Vector2.Up,
-        0x08 => Vector2.Right,
-        0x10 => Vector2.Down,
-        0x18 => Vector2.Left,
+        ObjectAngle.Up => Vector2.Up,
+        ObjectAngle.Right => Vector2.Right,
+        ObjectAngle.Down => Vector2.Down,
+        ObjectAngle.Left => Vector2.Left,
         _ => throw new InvalidOperationException(
             $"Unsupported cardinal object angle ${angle:x2}.")
     };

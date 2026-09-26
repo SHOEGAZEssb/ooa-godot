@@ -11,9 +11,9 @@ public sealed partial class ValidationRoot
     {
         ReinitializeGameplayForValidation();
         ResetValidationInput();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
-        if (mermaid) _inventory.GiveTreasure(TreasureDatabase.TreasureMermaidSuit, 0);
+        _inventory.GiveTreasure(TreasureId.Flippers, 0);
+        _inventory.GiveTreasure(TreasureId.Sword, 0);
+        if (mermaid) _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
         LoadValidationRoom(7, room);
         // Room 7:05's actual left shaft contains water $1b from (24,8)
         // through (40,72). The room's right shaft contains a dry ladder.
@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
     private void ValidateSideScrollSwimmingGameplay()
     {
         PrepareSwimmingRoom();
-        _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
+        _inventory.SetScriptedEquippedItems(TreasureId.None, TreasureId.Sword);
         Vector2 start = _player.PrecisePosition;
         StepGameplayUpdates(1, Vector2.Up, ["move_up", "attack"], ["move_up", "attack"]);
         FailIf(_player.IsAttacking || _player.SideScrollSwimBurstState != 1 ||
@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             "Room 7:05 A-button Flippers burst did not complete after 25 updates.");
 
         PrepareSwimmingRoom();
-        _inventory.SetScriptedEquippedItems(InventoryState.ItemSword, InventoryState.ItemNone);
+        _inventory.SetScriptedEquippedItems(TreasureId.Sword, TreasureId.None);
         start = _player.PrecisePosition;
         StepGameplayUpdates(1, Vector2.Up, ["move_up", "item"], ["move_up", "item"]);
         FailIf(!_player.IsAttacking || _player.SwordUsesUnderwaterAnimation ||
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             "Room 7:05 repeated B attack lost the Flippers sword animation.");
 
         PrepareSwimmingRoom(mermaid: true);
-        _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
+        _inventory.SetScriptedEquippedItems(TreasureId.None, TreasureId.Sword);
         StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
         FailIf(!_player.SwordUsesUnderwaterAnimation || _player.SideScrollSwimBurstState != 0,
             "Room 7:05 Mermaid Suit A sword did not use animation $2d without a Flippers burst.");
@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
         string Cadence(bool batched, bool mermaid)
         {
             PrepareSwimmingRoom(mermaid: mermaid);
-            _inventory.SetScriptedEquippedItems(InventoryState.ItemSword, InventoryState.ItemNone);
+            _inventory.SetScriptedEquippedItems(TreasureId.Sword, TreasureId.None);
             StepGameplayUpdates(19, Vector2.Up, ["move_up", "item"], ["move_up", "item"], batched);
             StepGameplayUpdates(25, Vector2.Zero, batched: batched);
             return $"{_player.PrecisePosition}:{_player.SideScrollAngle}:{_player.SideScrollSpeedRaw}:" +
@@ -219,7 +219,7 @@ public sealed partial class ValidationRoot
     private void ValidateSideScrollSwimmingKinematics()
     {
         var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
-        inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
+        inventory.GiveTreasure(TreasureId.Flippers, 0);
         SideScrollTerrainState water = new(0x1b, 0x1b,
             SideScrollTileType.Water, SideScrollTileType.Water);
         var world = new ValidationRingPlayerWorld { SideScrolling = true, SideScrollTerrain = water };

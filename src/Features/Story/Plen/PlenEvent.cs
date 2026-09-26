@@ -136,8 +136,8 @@ internal sealed class PlenEvent : InteractiveCutsceneCommandHost, IRoomEntryEven
                     (int)Context.Player.Position.Y, (int)Context.Player.Position.X,
                     "TREASURE_OBJECT_RING_00", "scriptHelper.s:plenSubid0Script:giveRingAToLink")
                 {
-                    SpawnMode = 0,
-                    GrabMode = 2,
+                    SpawnMode = TreasureSpawnMode.Instant,
+                    GrabMode = TreasureGrabMode.TwoHands,
                     InventoryWrite = GroundTreasureInventoryWrite.UnappraisedRing,
                     InventoryParameter = 0x2f,
                     RoomFlagTiming = GroundTreasureRoomFlagTiming.Never

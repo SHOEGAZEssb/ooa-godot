@@ -10,9 +10,6 @@ namespace oracleofages;
 /// </summary>
 internal sealed class OwlStatueDatabase
 {
-    internal const int PartId = 0x13;
-    internal const int MysterySeedItem = 0x24;
-
     private readonly Dictionary<int, OwlStatueRecord> _records = new();
 
     internal OwlStatueDatabase()

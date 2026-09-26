@@ -41,9 +41,9 @@ internal sealed class PolsVoiceRoomEntity
     {
         int expectedEffect = knockbackStrength switch
         {
-            EnemyKnockbackStrength.Low => 0x0c,
-            EnemyKnockbackStrength.Normal => 0x0d,
-            EnemyKnockbackStrength.High => 0x0e,
+            EnemyKnockbackStrength.Low => CollisionEffect.BumpLowKnockback,
+            EnemyKnockbackStrength.Normal => CollisionEffect.Bump,
+            EnemyKnockbackStrength.High => CollisionEffect.BumpHighKnockback,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(knockbackStrength), knockbackStrength,
                 "Pols Voice received an unknown sword collision strength.")
@@ -51,9 +51,9 @@ internal sealed class PolsVoiceRoomEntity
         RequireCollisionEffect(
             knockbackStrength switch
             {
-                EnemyKnockbackStrength.Low => 0x04,
-                EnemyKnockbackStrength.Normal => 0x05,
-                _ => 0x08
+                EnemyKnockbackStrength.Low => ItemCollisionType.L1Sword,
+                EnemyKnockbackStrength.Normal => ItemCollisionType.L2Sword,
+                _ => ItemCollisionType.SwordSpin
             },
             expectedEffect);
         return base.ApplySwordHit(
@@ -107,11 +107,11 @@ internal sealed class PolsVoiceRoomEntity
         }
         switch (seedItem)
         {
-            case 0x20: // ITEM_EMBER_SEED -> COLLISIONEFFECT_20, no health damage.
-                RequireCollisionEffect(0x1b, 0x20);
+            case ItemId.EmberSeed: // ITEM_EMBER_SEED -> COLLISIONEFFECT_20, no health damage.
+                RequireCollisionEffect(ItemCollisionType.EmberSeed, CollisionEffect.Effect20);
                 return SeedHitResult.Activate;
-            case 0x21: // ITEM_SCENT_SEED -> COLLISIONEFFECT_BUMP.
-                RequireCollisionEffect(0x1c, 0x0d);
+            case ItemId.ScentSeed: // ITEM_SCENT_SEED -> COLLISIONEFFECT_BUMP.
+                RequireCollisionEffect(ItemCollisionType.ScentSeed, CollisionEffect.Bump);
                 return base.ApplySwordHit(
                     hitbox,
                     sourcePosition,
@@ -120,8 +120,8 @@ internal sealed class PolsVoiceRoomEntity
                     spawns)
                         ? SeedHitResult.Activate
                         : SeedHitResult.None;
-            case 0x24: // ITEM_MYSTERY_SEED -> COLLISIONEFFECT_20 special path.
-                RequireCollisionEffect(0x1a, 0x20);
+            case ItemId.MysterySeed: // ITEM_MYSTERY_SEED -> COLLISIONEFFECT_20 special path.
+                RequireCollisionEffect(ItemCollisionType.MysterySeed, CollisionEffect.Effect20);
                 return SeedHitResult.Activate;
             default:
                 return SeedHitResult.None;
@@ -166,14 +166,14 @@ internal sealed class PolsVoiceRoomEntity
         int collisionType = (int)collision;
         RequireCollisionEffect(
             collisionType,
-            collision == RoomEntityItemCollision.Bomb ? 0x0a : 0x09);
+            collision == RoomEntityItemCollision.Bomb ? CollisionEffect.SwordHighKnockback : CollisionEffect.Sword);
         if (!CombatDescriptor.Combat.Intersects(hitbox) ||
             !Entity.TakeDamagingHit(sourcePosition, damage))
         {
             return false;
         }
         Entity.ApplySwordKnockback(sourcePosition, knockbackStrength);
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 
@@ -184,7 +184,7 @@ internal sealed class PolsVoiceRoomEntity
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        RequireCollisionEffect((int)collision, 0x0d);
+        RequireCollisionEffect((int)collision, CollisionEffect.Bump);
         return base.ApplySwordHit(
             hitbox,
             sourcePosition,

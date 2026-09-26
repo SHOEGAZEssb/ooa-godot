@@ -55,7 +55,7 @@ public partial class ValidationRoot
                 {
                     while (_entities.InteractionSlotAvailable &&
                         (mode == "full-interactions" || FreeSlot("FindFreeInteractionSlot") != 15))
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), 0));
+                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
                 }
                 if (mode == "text")
                 {
@@ -80,7 +80,7 @@ public partial class ValidationRoot
                 int puffSlot = _entities.InteractionSlot(puff);
                 FailIf(State() != 0x0a || actor.Visible || actor.CollisionEnabled || actor.Health != 0 ||
                     puff.ElapsedUpdates != 1 || puff.Position != OracleObjectMath.ToPixelPosition(stopped) ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndPoof) != 1,
                     $"{mode}: state9 must hide the defeated enemy and initialize PUFF$02 later that update.");
                 if (mode == "last-interaction")
                     FailIf(puffSlot != 15, "The transformation must use final INTERACTION slot$df.");

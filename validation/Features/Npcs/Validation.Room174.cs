@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x74,
-                Id: 0x45,
+                Id: InteractionId.PastOldLady,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x180a,
@@ -107,14 +107,14 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             !oldLady.Active ||
             !oldLady.Visible ||
             oldLady.TextId != 0x180a,
             "An unrelated global flag hid room 1:74's old lady or changed TX_180a.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             oldLady.Active ||
             oldLady.Visible ||
@@ -123,7 +123,7 @@ public sealed partial class ValidationRoot
             "GLOBALFLAG_FINISHEDGAME did not live-delete room 1:74's old lady.");
 
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         FailIf(
             !oldLady.Active ||
@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
             "Clearing GLOBALFLAG_FINISHEDGAME did not restore room 1:74's " +
             "immutable TX_180a actor.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         manager.LoadRoom(1, rooms.CurrentRoom);
         oldLady = manager.Entities<NpcCharacter>().Single();
         FailIf(

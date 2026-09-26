@@ -122,7 +122,7 @@ public sealed class CombatController
         int collisionSet = Math.Clamp(room.ActiveCollisions, 0, 5);
         if (_linkItems.IsBombableClinkTile(collisionSet, tile))
         {
-            _sound.PlaySound(OracleSoundEngine.SndClink2);
+            _sound.PlaySound(SoundId.SndClink2);
             SpawnClinkEffect(point, flickers: false);
             return true;
         }

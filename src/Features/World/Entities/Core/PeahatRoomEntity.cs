@@ -30,9 +30,9 @@ internal sealed class PeahatRoomEntity
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect is not (0x0b or 0x1c) || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        if (effect is not (CollisionEffect.SwordNoKnockback or CollisionEffect.Effect1c) || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
         hook.NotifyObjectCollision();
-        if (effect == 0x0b) CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        if (effect == CollisionEffect.SwordNoKnockback) CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 

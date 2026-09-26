@@ -66,7 +66,7 @@ internal partial class SparkCharacter : EnemyCharacter
             return;
         }
 
-        int wallAngle = (_angle - 0x08) & 0x18;
+        int wallAngle = (_angle - 0x08) & ObjectAngle.CardinalMask;
         if (!WallInDirection(wallAngle))
         {
             int coordinate = (_angle & 0x08) == 0
@@ -77,7 +77,7 @@ internal partial class SparkCharacter : EnemyCharacter
         }
         else if (WallInDirection(_angle))
         {
-            _angle = (_angle + 0x08) & 0x18;
+            _angle = (_angle + 0x08) & ObjectAngle.CardinalMask;
         }
 
         Position = ApplyMovementSpeed(
@@ -118,7 +118,7 @@ internal partial class SparkCharacter : EnemyCharacter
 
     private bool WallInDirection(int angle)
     {
-        int direction = (angle & 0x18) >> 3;
+        int direction = (angle & ObjectAngle.CardinalMask) >> 3;
         Vector2I center = new(
             Mathf.FloorToInt(Position.X),
             Mathf.FloorToInt(Position.Y));

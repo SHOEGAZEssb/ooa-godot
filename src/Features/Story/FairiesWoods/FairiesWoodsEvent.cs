@@ -84,7 +84,7 @@ internal sealed class FairiesWoodsEvent :
         // Later Jabu and linked-game variants remain unsupported. Companion
         // search hints $0e-$10 have their own imported predicates and owner.
         for (int subId = 0; subId < 0x0e; subId++)
-            _context.DeactivateNpcs(0x49, subId);
+            _context.DeactivateNpcs(InteractionId.ForestFairy, subId);
     }
 
     public void ReleaseOutgoingActors(int group, OracleRoomData room)
@@ -419,7 +419,7 @@ internal sealed class FairiesWoodsEvent :
             _record.StartRoom,
             0x64,
             0,
-            3);
+            WarpDestinationTransition.EnterScreen);
         _context.Transitions.ApplyWarp(_context.Player, warp);
     }
 
@@ -604,7 +604,7 @@ internal sealed class FairiesWoodsEvent :
         var record = new NpcRecord(
             _record.Group,
             _context.Rooms.CurrentRoom.Id,
-            0x49,
+            InteractionId.ForestFairy,
             subId,
             y,
             x,

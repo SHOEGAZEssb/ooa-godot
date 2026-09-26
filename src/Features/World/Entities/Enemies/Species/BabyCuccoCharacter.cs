@@ -47,7 +47,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         Action<int> soundRequested,
         Action<Rect2, int, int, int> applyThrownObjectHit)
     {
-        if (record.Id != 0x33 || record.SubId != 0x00 ||
+        if (record.Id != EnemyId.BabyCucco || record.SubId != 0x00 ||
             record.Animations.Length != 2)
         {
             throw new InvalidOperationException(
@@ -63,7 +63,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         _applyThrownObjectHit = applyThrownObjectHit;
         _movement = new EnemyTerrainMovement(this, room);
         _state = BabyCuccoState.Uninitialized;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _carried = new CarriedObjectMotion(position);
         InitializeEnemy(
             position,

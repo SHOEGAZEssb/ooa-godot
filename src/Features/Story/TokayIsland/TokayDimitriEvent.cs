@@ -57,7 +57,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (HasState || !npc.Active || npc.Record.Id != 0x48 ||
+        if (HasState || !npc.Active || npc.Record.Id != InteractionId.Tokay ||
             npc.Record.SubId is not (0x0f or 0x10))
         {
             return false;
@@ -129,7 +129,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
                 BeginWait(30, TokayDimitriStage.IntroSecondText);
                 break;
             case TokayDimitriStage.TradeIntro:
-                if (!Context.Inventory.HasTreasure(0x20) || Context.Inventory.EmberSeeds == 0)
+                if (!Context.Inventory.HasTreasure(TreasureId.EmberSeeds) || Context.Inventory.EmberSeeds == 0)
                     FinishInteraction();
                 else
                 {
@@ -150,7 +150,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
                 }
                 break;
             case TokayDimitriStage.TradeAccepted:
-                Context.Inventory.TryConsumeSeedsFromScript(0x20, 1);
+                Context.Inventory.TryConsumeSeedsFromScript(TreasureId.EmberSeeds, 1);
                 foreach (int subid in new[] { 0x0f, 0x10 })
                     ((TokayCharacter)FindActor(subid)!).NativeAnimation = TokayAnimationMode.Still;
                 FindActor(0x10)!.SetFacingDirection(Vector2I.Down);
@@ -257,7 +257,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
         if (--counter != 0)
         {
             actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-                ref position, Interactions.DimitriDepartureSpeed, 0x18));
+                ref position, Interactions.DimitriDepartureSpeed, ObjectAngle.Left));
             // Preserve unsigned 8.8 room coordinates; OAM's left-edge wrap is
             // presentation. At x=$fa the actor is still partly visible at -6.
             actor.SetScriptDrawOffset(position.X >= 0xf0 ? new Vector2(-256, 0) : Vector2.Zero);
@@ -287,7 +287,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
 
     private NpcCharacter? FindActor(int subId) =>
         Context.Entities.Entities<NpcCharacter>()
-            .FirstOrDefault(npc => npc.Record.Id == 0x48 && npc.Record.SubId == subId);
+            .FirstOrDefault(npc => npc.Record.Id == InteractionId.Tokay && npc.Record.SubId == subId);
 
     private void FaceActorToLink(NpcCharacter actor) =>
         actor.SetFacingDirection(RoomEventResources.DirectionToward(actor.Position, Context.Player.Position));

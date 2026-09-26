@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             "lever constants, or PALH_a3 palette.");
 
         _dialogue.Close();
-        _inventory.LoseTreasure(TreasureDatabase.TreasureFlippers);
+        _inventory.LoseTreasure(TreasureId.Flippers);
         _saveData.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlagItem, value: false);
         LoadValidationRoom(group, roomId);
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
         // The $6b script falls through from state 0 to its collection check,
         // disables input, grants the item, and retains that lease for 30
         // updates after the get-item textbox closes.
-        _inventory.LoseTreasure(TreasureDatabase.TreasureFlippers);
+        _inventory.LoseTreasure(TreasureId.Flippers);
         _saveData.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlagItem, value: false);
         LoadValidationRoom(group, roomId);
@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
         _entities.Update(frame, _player);
         FailIf(
             pickup.State != PickupState.Waiting ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureFlippers),
+            _inventory.HasTreasure(TreasureId.Flippers),
             "Room 5:bf's $6b:$0c collected at objectCheckLinkWithinDistance's " +
             "excluded Manhattan-distance $0e boundary.");
         _player.WarpTo(new Vector2(0xbf, 0x22), recordSafe: false);
@@ -102,7 +102,7 @@ public sealed partial class ValidationRoot
         FailIf(
             pickup.State != PickupState.Collected ||
             !pickup.Held ||
-            !_inventory.HasTreasure(TreasureDatabase.TreasureFlippers) ||
+            !_inventory.HasTreasure(TreasureId.Flippers) ||
             !_saveData.HasRoomFlag(
                 group, roomId, OracleSaveData.RoomFlagItem) ||
             !_dialogue.IsOpen ||
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
             "Room 5:bf's $6b:$0c did not delete and release input on the " +
             "30th post-dialogue update.");
 
-        _inventory.LoseTreasure(TreasureDatabase.TreasureFlippers);
+        _inventory.LoseTreasure(TreasureId.Flippers);
         _saveData.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlagItem, value: false);
         LoadValidationRoom(group, roomId);
@@ -180,13 +180,13 @@ public sealed partial class ValidationRoot
             PullLever(Vector2.Down);
         FailIf(
             lever.PullDistance != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
             "Room 5:bf's SPEED_40 lever advanced its high byte or move sound " +
             "before four quarter-pixel updates.");
         PullLever(Vector2.Down);
         FailIf(
             lever.PullDistance != 1 || lever.Position.Y != 0x11 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
             "Room 5:bf's SPEED_40 lever lost its first four-update pixel/sound boundary.");
         for (int update = 4; update < 376; update++)
             PullLever(Vector2.Down);
@@ -198,8 +198,8 @@ public sealed partial class ValidationRoot
             connection.Position != new Vector2(0x78, 0x30) ||
             blocks[0].PullOffset != 15 ||
             blocks[1].PullOffset != 15 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 7 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 7 ||
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1,
             "Room 5:bf's lever did not reach flagged distance $c0 after 376 " +
             "parent updates (256 SPEED_40 updates, six 20-update rests), seven move sounds, one open sound, and the " +
             "same-pass five-phase connection update.");
@@ -273,7 +273,7 @@ public sealed partial class ValidationRoot
             blocks[1].Position.X != 0xc0 ||
             connection.Phase != 0 ||
             connection.Position.Y != 0x10 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1,
             "Room 5:bf's lever, blocks, and connection did not return to " +
             "their source base state without replaying SND_OPENCHEST.");
 

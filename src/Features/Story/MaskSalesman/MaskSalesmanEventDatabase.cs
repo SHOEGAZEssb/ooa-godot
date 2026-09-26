@@ -57,14 +57,14 @@ internal sealed class MaskSalesmanEventDatabase
             {
                 Group: 2,
                 Room: 0xe6,
-                InteractionId: 0x5c,
+                InteractionId: InteractionId.MaskSalesman,
                 SubId: 0,
                 InitialAnimation: 0,
                 CollisionRadiusY: 4,
                 CollisionRadiusX: 6,
                 RoomFlag: OracleSaveData.RoomFlagItem,
                 RequiredTradeItem: 0x03,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x04,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_04",
                 InitialScriptUpdates: 1,
@@ -101,7 +101,7 @@ internal sealed class MaskSalesmanEventDatabase
                 { Value: 0, TargetCommand: 24 } ||
             Commands[38] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureTradeItem,
+                    TreasureId: TreasureId.TradeItem,
                     Parameter: 0x04
                 } ||
             Commands[41] is not CutsceneShowTextCommand { TextId: 0x0b15 } ||

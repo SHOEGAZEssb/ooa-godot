@@ -82,10 +82,10 @@ public sealed partial class ValidationRoot
             FailIf(!npc.CanTalkTo(_player), $"Patch is unreachable through room collision from {_player.Position}; control={_player.CutsceneControlled}, text={_dialogue.IsOpen}/{_dialogue.CurrentMessage}, state={patch.State}, script={patch.ScriptIndex}, transitioning={IsTransitioning}.");
             PressA(); Step(2);
         }
-        _saveData.SetGlobalFlag(0x1f, false);
+        _saveData.SetGlobalFlag(GlobalFlag.PatchRepairedEverything, false);
         _saveData.SetRoomFlag(1, 0xbe, 6, false);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureTradeItem);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureTuniNut);
+        _inventory.LoseTreasure(TreasureId.TradeItem);
+        _inventory.LoseTreasure(TreasureId.TuniNut);
         LoadValidationRoom(1, 0x23); // $90:$10, not room-load blanket clearing.
         LoadValidationRoom(3, 0xbe);
         ApproachAndTalk(); Text("I haven't had");
@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
         Choice(0); Text("You don't seem"); Close(); Step(3);
         ApproachAndTalk(); Text("I am Patch"); Choice(1); Text("You must have"); Close(); Step(3);
 
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 0);
+        _inventory.GiveTreasure(TreasureId.TuniNut, 0);
         LoadValidationRoom(3, 0xbe); // var38 is sampled at state 0.
         ApproachAndTalk(); Text("I am Patch"); Choice(0); Text("Heh, heh!");
         FailIf(!_dialogue.CurrentMessage.Contains("Tuni Nut", StringComparison.Ordinal), "Patch TX_5804 lost dynamic item-name substitution.");
@@ -210,7 +210,7 @@ public sealed partial class ValidationRoot
         Text("Hmm..."); Close(); Text("Here you go."); Close();
         Until(() => _inventory.TuniNutState == 2, 30, "restored Tuni Nut reward");
         Close(); Text("Bring me any-"); Close(); Until(() => patch.State == 4, 30, "completed NPC state");
-        FailIf(_player.CutsceneControlled || _saveData.HasGlobalFlag(0x1f) || _entities.RuntimeState.ReadWramByte(0xcfd3) != 1,
+        FailIf(_player.CutsceneControlled || _saveData.HasGlobalFlag(GlobalFlag.PatchRepairedEverything) || _entities.RuntimeState.ReadWramByte(0xcfd3) != 1,
             "Tuni Nut completion retained control, set the sword-only completion flag, or lost wonMinigame.");
         ApproachAndTalk(); Text("Bring me any-"); Close();
         LoadValidationRoom(5, 0xe8); Step(3); ApproachAndTalk(); Text("Bring me any-"); Close();
@@ -222,10 +222,10 @@ public sealed partial class ValidationRoot
         // its initial delay under individual updates and one host-frame batch.
         foreach (int swordLevel in new[] { 1, 2 })
         {
-            _saveData.SetGlobalFlag(0x1f, false);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSword, swordLevel);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureTradeItem, 0x0b);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 0);
+            _saveData.SetGlobalFlag(GlobalFlag.PatchRepairedEverything, false);
+            _inventory.GiveTreasure(TreasureId.Sword, swordLevel);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 0x0b);
+            _inventory.GiveTreasure(TreasureId.TuniNut, 0);
             LoadValidationRoom(1, 0x23); LoadValidationRoom(3, 0xbe);
             ApproachAndTalk(); Text("I haven't seen");
             FailIf(_entities.RuntimeState.ReadWramByte(0xcfd0) != 1 ||
@@ -273,7 +273,7 @@ public sealed partial class ValidationRoot
             Text("Bring me any-"); Close(); Until(() => patch.State == 4, 30, "sword completion");
             Step();
             FailIf(_player.IsHoldingItemOneHand || _player.IsAttacking, "Patch's completed sword ceremony retained the forced pose.");
-            FailIf(!_saveData.HasGlobalFlag(0x1f) || _inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.PatchRepairedEverything) || _inventory.HasTreasure(TreasureId.TradeItem) ||
                 _inventory.TuniNutState != 0 || _player.CutsceneControlled, "Patch sword reward lost completion, trade removal, or inventory/control boundaries.");
             LoadValidationRoom(1, 0x23); LoadValidationRoom(3, 0xbe);
             ApproachAndTalk(); Text("There is nothing"); Close(); Step(3);
@@ -282,8 +282,8 @@ public sealed partial class ValidationRoot
 
         // Cancellation is a host room-event operation. It must release owned
         // visuals/control without inventing a persistent minigame reset.
-        _saveData.SetGlobalFlag(0x1f, false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 0);
+        _saveData.SetGlobalFlag(GlobalFlag.PatchRepairedEverything, false);
+        _inventory.GiveTreasure(TreasureId.TuniNut, 0);
         LoadValidationRoom(1, 0x23); LoadValidationRoom(3, 0xbe);
         ApproachAndTalk(); Text("I am Patch"); Choice(0); Text("Heh, heh!"); Choice(0);
         Text("You are willing"); Close(); Until(() => !patch.HasState, 250, "cancellation setup departure");

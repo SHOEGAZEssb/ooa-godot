@@ -33,7 +33,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
     internal bool TryInteractNpc(NpcCharacter npc)
     {
         if (HasState || !npc.Active ||
-            npc.Record is not { Group: 1, Room: 0xcb, Id: 0x68, SubId: 0x00 })
+            npc.Record is not { Group: 1, Room: 0xcb, Id: InteractionId.Rosa, SubId: 0x00 })
         {
             return false;
         }
@@ -79,7 +79,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
             }
             else if (--_counter != 0)
                 actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-                    ref _position, _native.Constant("speed-020"), 0x08));
+                    ref _position, _native.Constant("speed-020"), ObjectAngle.Right));
             return;
         }
         if (_stage is RosaShovelStage.MoveWait or RosaShovelStage.SecondTextWait or
@@ -180,7 +180,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
                 _reward = Context.GrantScriptTreasure(
                     Context.Rooms.ActiveGroup,
                     Context.Rooms.CurrentRoom.Id,
-                    TreasureDatabase.TreasureShovel,
+                    TreasureId.Shovel,
                     1,
                     "TREASURE_OBJECT_SHOVEL_01",
                     "scripts/ages:rosa_subid00Script",

@@ -29,7 +29,7 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
     {
         // Native state $02 observes the shared Tuni Nut slot's signal before
         // interactionRunScript (which itself remains frozen by active text).
-        if (_listensForNut && (Context.Entities.RuntimeState.ReadWramByte(0xcfc0) & 1) != 0)
+        if (_listensForNut && (Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) != 0)
         {
             _listensForNut = false;
             _runner.Start(_owner.Database.Commands, _owner.Database.Entry(0x0d));
@@ -77,11 +77,11 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
             return Context.Rooms.SaveData.HasGlobalFlag(flag) ? 1 : 0;
         return binding switch
         {
-            "Treasure:TREASURE_TUNI_NUT" => Context.Inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) ? 1 : 0,
-            "Treasure:TREASURE_RING_BOX" => Context.Inventory.HasTreasure(TreasureDatabase.TreasureRingBox) ? 1 : 0,
+            "Treasure:TREASURE_TUNI_NUT" => Context.Inventory.HasTreasure(TreasureId.TuniNut) ? 1 : 0,
+            "Treasure:TREASURE_RING_BOX" => Context.Inventory.HasTreasure(TreasureId.RingBox) ? 1 : 0,
             "wTmpcfc0.genericCutscene.cfc1" => Context.Entities.RuntimeState.ReadWramByte(0xcfc1),
             "wTextInputResult" => _secretResult,
-            "wTextNumberSubstitution" => Context.Entities.RuntimeState.ReadWramByte(0xcba8),
+            "wTextNumberSubstitution" => Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTextNumberSubstitution),
             _ => throw UnsupportedCommand($"read symmetry memory '{binding}'")
         };
     }
@@ -100,9 +100,9 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
     {
         string name = (treasureId, parameter) switch
         {
-            (TreasureDatabase.TreasureTuniNut, 0) => "TREASURE_OBJECT_TUNI_NUT_00",
-            (TreasureDatabase.TreasureRingBox, 1) => "TREASURE_OBJECT_RING_BOX_01",
-            (TreasureDatabase.TreasureRingBox, 2) => "TREASURE_OBJECT_RING_BOX_02",
+            (TreasureId.TuniNut, 0) => "TREASURE_OBJECT_TUNI_NUT_00",
+            (TreasureId.RingBox, 1) => "TREASURE_OBJECT_RING_BOX_01",
+            (TreasureId.RingBox, 2) => "TREASURE_OBJECT_RING_BOX_02",
             _ => throw UnsupportedCommand($"give symmetry treasure ${treasureId:x2}:${parameter:x2}")
         };
         var item = Context.Treasures.GetObject(name);
@@ -126,15 +126,15 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
             case "symmetryNpc_setRoomFlagIfTalkedToRightSister": OrRoomFlag(Npc.Record.SubId - 8); break;
             case "symmetryNpc_getTuniNutState":
             case "symmetryNpc_getTuniNutStateForSister":
-                int state = Context.Inventory.HasTreasure(TreasureDatabase.TreasureTuniNut)
+                int state = Context.Inventory.HasTreasure(TreasureId.TuniNut)
                     ? (Context.Inventory.TuniNutState == 0 ? 1 : 2) : 0;
                 if (state == 0 && handler.EndsWith("ForSister", StringComparison.Ordinal))
                     state = (RoomFlags & 0x0f) == Npc.Record.SubId - 8 ? 0 : 3;
                 Context.Entities.RuntimeState.SetWramByte(0xcfc1, (byte)state);
                 break;
             case "symmetryNpc_getUpgradeCapacityForText":
-                int capacity = !Context.Inventory.HasTreasure(TreasureDatabase.TreasureRingBox) || Context.Inventory.RingBoxLevel == 1 ? 3 : 5;
-                Context.Entities.RuntimeState.SetWramByte(0xcba8, (byte)capacity);
+                int capacity = !Context.Inventory.HasTreasure(TreasureId.RingBox) || Context.Inventory.RingBoxLevel == 1 ? 3 : 5;
+                Context.Entities.RuntimeState.SetWramByte(WramAddress.wTextNumberSubstitution, (byte)capacity);
                 Context.Entities.RuntimeState.SetWramByte(0xcba9, 0);
                 break;
             case "AskSecret":

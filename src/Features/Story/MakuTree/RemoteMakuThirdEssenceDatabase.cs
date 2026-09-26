@@ -16,7 +16,7 @@ internal sealed class RemoteMakuThirdEssenceDatabase : RemoteMakuEventDatabase
     {
         if (Record is not
             {
-                Group: 0, Room: 0xba, InteractionId: 0x8a,
+                Group: 0, Room: 0xba, InteractionId: InteractionId.RemoteMakuCutscene,
                 SubId: 0, Var03: 4, EssenceMask: 0x04,
                 RequiredTreasure: 0xff, RoomFlag: 0x40,
                 StandardTextId: 0x05b4, LinkedTextId: 0x05c4,

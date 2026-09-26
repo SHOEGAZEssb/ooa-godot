@@ -24,7 +24,7 @@ internal sealed partial class ToiletHandCharacter : NpcCharacter
             {
                 Group: 2,
                 Room: 0x3e,
-                Id: 0x5b,
+                Id: InteractionId.ToiletHand,
                 SubId: 0x00,
                 Var03: 0x00
             })

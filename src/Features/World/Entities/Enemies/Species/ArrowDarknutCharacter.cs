@@ -7,10 +7,10 @@ internal sealed partial class ArrowDarknutCharacter : ArrowMoblinCharacter
 {
     protected override bool FollowsScentSeeds => false;
     protected override bool SupportsRecord(ImportedEnemyDefinition record) =>
-        record.Id == 0x21 && record.SubId is 0 or 1;
+        record.Id == EnemyId.ArrowDarknut && record.SubId is 0 or 1;
 
     protected override int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
         (random.Next().Value & EnemyBehaviorTables.Shared.ArrowDarknutDirectionMask[0].Value) == 0
-            ? (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & 0x18
+            ? (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & ObjectAngle.CardinalMask
             : random.NextCardinalAngle();
 }

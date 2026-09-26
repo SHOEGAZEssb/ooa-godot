@@ -137,7 +137,7 @@ internal sealed class TopDownSwimmingDatabase
             parameters.BurstAccelerateUpdates != 0x0d ||
             parameters.BurstDecelerateUpdates != 0x0c ||
             parameters.BurstSpeedStep != 0x05 ||
-            parameters.SwimSound != OracleSoundEngine.SndLinkSwim ||
+            parameters.SwimSound != SoundId.SndLinkSwim ||
             !parameters.AnimationFrameDurations.AsSpan().SequenceEqual([6, 6]) ||
             parameters.DiveUpdates != 0x78 ||
             !parameters.DiveAnimationFrameDurations.AsSpan()

@@ -32,7 +32,7 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
         int[] positions=data.Bytes("crystal-configuration"+configuration);
         _position=new(positions[subid*2+1],positions[subid*2]);
         _behaviour=data.Bytes("crystal-behaviourTable")[configuration*16+subid];
-        _counter=0x20; _angle=_behaviour==2?0x18:0; _state=1;
+        _counter=0x20; _angle=_behaviour==2?ObjectAngle.Left:ObjectAngle.Up; _state=1;
         Entity.SetAnimationRate(0); Entity.Position=_position;
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)

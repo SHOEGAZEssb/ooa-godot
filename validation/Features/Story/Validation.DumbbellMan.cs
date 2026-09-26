@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             const int address = 0xc6a2; // TREASURE_TRADEITEM $41 obtained bit.
             _saveData.WriteWramByte(address, (byte)(
                 (_saveData.ReadWramByte(address) & ~2) | (obtained ? 2 : 0)));
-            _saveData.WriteWramByte(0xc6c0, (byte)value);
+            _saveData.WriteWramByte(WramAddress.wTradeItem, (byte)value);
             _saveData.CommitInventoryChange();
             typeof(InventoryState).GetMethod("LoadFromSaveData",
                 BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_inventory, null);
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
         SetTrade(0x05, obtained: false);
         LoadValidationRoom(2, 0xe8);
         DumbbellManCharacter man = Man();
-        FailIf(man.Record is not { Id: 0x51, SubId: 0, SpriteName: "spr_gymnast_troy_scrub" } ||
+        FailIf(man.Record is not { Id: InteractionId.DumbbellMan, SubId: 0, SpriteName: "spr_gymnast_troy_scrub" } ||
             man.Position != new Vector2(0x50, 0x18) ||
             man.CurrentScriptAnimationSource != record.Animation0 ||
             man.CurrentAnimationTextureSize != new Vector2I(16, 24) ||
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
             !_player.IsHoldingItemTwoHands || _inventory.TradeItem != 0x06 ||
             !_saveData.HasRoomFlag(2, 0xe8, 0x20) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(_treasures.GetObject(record.RewardObject).Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "Room 2:e8 failed Cheesy Mustache $41:$06 presentation, audio, inventory, or room flag.");
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();
@@ -177,7 +177,7 @@ public sealed partial class ValidationRoot
 
         FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
             restored is null || !restored.HasRoomFlag(2, 0xe8, 0x20) ||
-            restored.ReadWramByte(0xc6c0) != 0x06,
+            restored.ReadWramByte(WramAddress.wTradeItem) != 0x06,
             "Room 2:e8 trade state did not survive save serialization.");
         LoadValidationRoom(0, 0x56);
         SetTrade(0x05); // The room flag takes precedence even if Link holds a Dumbbell again.

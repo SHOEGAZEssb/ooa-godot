@@ -55,7 +55,7 @@ internal sealed class GoronCaveDatabase
             row.UnsignedDecimal(3), Bytes($"palette-{id:x2}")[0], 2, true, Animation(id, 0), Animation(id, 1),
             Animation(id, 2), Animation(id, 3), "", NpcImplementationClassification.EventOwned);
     }
-    internal NpcRecord BombRecord => new(0,0,0x49,0,0,0,0,0,
+    internal NpcRecord BombRecord => new(0,0,InteractionId.ForestFairy,0,0,0,0,0,
         _rows["sprite:49"].RequiredString(2),0x10,4,0,false,
         Animation(0x49,0),Animation(0x49,0),Animation(0x49,0),Animation(0x49,0),"",
         NpcImplementationClassification.EventOwned);

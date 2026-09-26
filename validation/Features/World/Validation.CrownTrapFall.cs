@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(trap.State != 1 || trap.Counter != 30 || _entities.PlayerUpdatesFrozen ||
                 _player.NativeInteractionCollisionsEnabled || _player.NativeNormalStateForInteraction ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 0,
+                _sound.PlayRequestsFor(SoundId.SndError) != 0,
                 "Native state02 hole falling must reject trap resets and normal-state collision handlers.");
             _currentRoom.SetPositionTileAndCollision(new(136, 152), 0x2e, 0x0f, (long)_animationTicks);
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);

@@ -14,7 +14,7 @@ internal sealed class SpikedBeetleRoomEntity
 
     // spikedBeetle.s changes enemyCollisionMode while overturned; its
     // ENEMYCOLLISION_SPIKED_BEETLE_FLIPPED $51 mouth row is not edible.
-    public override int DimitriCollisionMode => Entity.FlippedCollision ? 0x51 : base.DimitriCollisionMode;
+    public override int DimitriCollisionMode => Entity.FlippedCollision ? EnemyCollisionMode.SpikedBeetleFlipped : base.DimitriCollisionMode;
 
     public SpikedBeetleRoomEntity(
         SpikedBeetleCharacter beetle,
@@ -64,7 +64,7 @@ internal sealed class SpikedBeetleRoomEntity
                     Entity.Position,
                     response.LinkInvincibilityFrames,
                     response.LinkKnockbackFrames);
-                _soundRequested(OracleSoundEngine.SndBombLand);
+                _soundRequested(SoundId.SndBombLand);
             }
             return;
         }
@@ -83,7 +83,7 @@ internal sealed class SpikedBeetleRoomEntity
             return false;
         }
 
-        _soundRequested(OracleSoundEngine.SndBombLand);
+        _soundRequested(SoundId.SndBombLand);
         return true;
     }
 
@@ -105,7 +105,7 @@ internal sealed class SpikedBeetleRoomEntity
         {
             if (vulnerable)
             {
-                _soundRequested(OracleSoundEngine.SndDamageEnemy);
+                _soundRequested(SoundId.SndDamageEnemy);
             }
             else
             {
@@ -116,7 +116,7 @@ internal sealed class SpikedBeetleRoomEntity
                     CollisionMidpoint(
                         Entity.Position,
                         hitbox.GetCenter())));
-                _soundRequested(OracleSoundEngine.SndBombLand);
+                _soundRequested(SoundId.SndBombLand);
             }
         }
         return hit;
@@ -176,16 +176,16 @@ internal sealed class SpikedBeetleRoomEntity
         {
             return SeedHitResult.None;
         }
-        if (seedItem == 0x24)
+        if (seedItem == ItemId.MysterySeed)
             return SeedHitResult.Activate;
-        if (seedItem == 0x21)
+        if (seedItem == ItemId.ScentSeed)
         {
             return Entity.FlippedCollision
                 ? base.ApplySeedHit(
                     hitbox, sourcePosition, seedItem, spawns)
                 : SeedHitResult.Activate;
         }
-        if (seedItem == 0x20)
+        if (seedItem == ItemId.EmberSeed)
         {
             return Entity.FlippedCollision
                 ? base.ApplySeedHit(

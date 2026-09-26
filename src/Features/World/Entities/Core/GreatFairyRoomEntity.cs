@@ -52,9 +52,9 @@ internal sealed class GreatFairyRoomEntity
         {
             _appearanceState = GreatFairyAppearanceState.Appearing;
             _appearanceCounter = AppearanceWait;
-            _soundRequested(OracleSoundEngine.SndKillEnemy);
+            _soundRequested(SoundId.SndKillEnemy);
             spawns.Add(new PuzzlePuffSpawn(
-                Entity.Position, OracleSoundEngine.SndPoof));
+                Entity.Position, SoundId.SndPoof));
             return;
         }
 
@@ -64,7 +64,7 @@ internal sealed class GreatFairyRoomEntity
             if (_appearanceCounter != 0)
                 return;
 
-            _soundRequested(OracleSoundEngine.MusFairyFountain);
+            _soundRequested(SoundId.MusFairyFountain);
             Entity.SetScriptVisible(true);
             _appearanceState = GreatFairyAppearanceState.Ready;
         }
@@ -100,7 +100,7 @@ internal sealed class GreatFairyRoomEntity
             {
                 Group: 0,
                 Room: 0x83,
-                Id: 0xd5,
+                Id: InteractionId.GreatFairy,
                 SubId: 0x00,
                 Var03: 0x00,
                 Implementation:

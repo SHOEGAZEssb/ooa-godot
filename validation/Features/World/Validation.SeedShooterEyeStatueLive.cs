@@ -24,7 +24,7 @@ public partial class ValidationRoot
             var eye = eyes.Single(eye => eye.Position == new Vector2(120,56));
             Step();
             var seeds = new SeedSatchelDatabase();
-            FailIf(!seeds.TryGet(0x20,out var seed),"Missing Ember Seed fixture.");
+            FailIf(!seeds.TryGet(ItemId.EmberSeed,out var seed),"Missing Ember Seed fixture.");
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 var projectile = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(_player.Position,Vector2I.Up,seed,4,SeedLaunchKind.Shooter));

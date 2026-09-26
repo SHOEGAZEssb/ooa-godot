@@ -43,9 +43,9 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
 
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("ENEMY_GIBDO $12 requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_GIBDO $12 requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
@@ -56,22 +56,22 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         int effect = EnemyBehaviorTables.Shared.GibdoCollisionEffects[collisionType].Value;
         switch (effect)
         {
-            case 0: return new(true, SeedHitResult.None, false);
-            case 0x0b:
+            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
+            case CollisionEffect.SwordNoKnockback:
                 Entity.BeginScentHit(origin, -(sbyte)seed.Damage);
-                CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); break;
-            case 0x27:
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
+            case CollisionEffect.Burn:
                 Entity.BeginEmberHit();
                 if (_canSpawnPart()) spawns.Add(new BurningEnemySpawn(this));
                 break;
-            case 0x28:
+            case CollisionEffect.PegasusSeed:
                 Entity.BeginPegasusHit();
-                CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); break;
-            case 0x29:
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
+            case CollisionEffect.GaleSeed:
                 Entity.ClearSeedStun(); BeginNativeGale(origin, _random); break;
             default: throw new NotSupportedException($"ENEMY_GIBDO $12 seed collision${collisionType:x2}, effect${effect:x2} is unsupported.");
         }
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != 0x0b);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordNoKnockback);
     }
     public override void HandleLinkContact(Player player)
     {

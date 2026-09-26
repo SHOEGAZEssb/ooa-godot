@@ -70,7 +70,7 @@ internal sealed class SkullDungeonDatabase
         Essence = new(essence.UnsignedDecimal(0), message, new Warp(4, 0x69, -1, 0, 0,
             essence.Decimal(4, 0, 7), essence.HexByte(5), essence.HexByte(6), 0, essence.HexByte(7)));
         if (Essence.Index != 3 || essence.HexWord(1) != 0x0011 || Essence.ExitWarp is not
-            { DestinationGroup: 0, DestinationRoom: 3, DestinationPosition: 0x35, DestinationTransition: 0x0e })
+            { DestinationGroup: 0, DestinationRoom: 3, DestinationPosition: 0x35, DestinationTransition: WarpDestinationTransition.XShifted })
             throw new InvalidOperationException("Skull Dungeon Essence source mapping is incomplete.");
         var patterns = GeneratedTable.Load("res://assets/oracle/objects/skull_dungeon_patterns.tsv",
             new GeneratedTableSchema("Skull Dungeon tile patterns", GeneratedTableKeySemantics.Unique,

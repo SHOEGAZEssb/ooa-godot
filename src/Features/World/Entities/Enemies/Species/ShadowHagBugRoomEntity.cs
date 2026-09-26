@@ -32,7 +32,7 @@ internal sealed class ShadowHagBugRoomEntity
                     {
                         _ = source;
                         _ = strength;
-                        soundRequested(OracleSoundEngine.SndDamageEnemy);
+                        soundRequested(SoundId.SndDamageEnemy);
                     }),
                 countsAsEnemy: false,
                 killableEnemyIndex: 0,

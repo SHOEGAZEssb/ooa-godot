@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(4, 0x9e);
             _entities.Clear();
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+            _inventory.GiveTreasure(TreasureId.Bracelet, 1);
             _player.WarpTo(new(120, 136));
             // Isolate a lower-slot child awaiting its next interaction pass.
             FailIf(!(bool)allocate.Invoke(_entities, [(byte)0x37, 0])!,
@@ -34,11 +34,11 @@ public sealed partial class ValidationRoot
             FailIf(!block.Active || !block.NativeInitialized || block.ActiveTile != tile ||
                 block.BlockTopLeft != new Vector2(112, 47.5f) || target.Layout[0x37] != 0xa0 ||
                 _rooms.BlockPushAngle != 0x80 || _entities.InteractionSlot(block) != slot ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+                _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
                 "Scroll state0 must read the current tile, initialize native $14, replace its floor and move once.");
             StepGameplayUpdates(8, Vector2.Zero, batched: batched);
             FailIf(block.BlockTopLeft != new Vector2(112, 47.5f) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 || target.Layout[0x27] != destination,
+                _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 || target.Layout[0x27] != destination,
                 "After state0 falls through, the initialized outgoing block must freeze without destination writes.");
             _entities.FinishScreenTransition();
             FailIf(_entities.OutgoingEntities<PushBlockController>().Count != 0,

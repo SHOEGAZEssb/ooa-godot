@@ -13,8 +13,8 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0);
             LoadValidationRoom(4, 0xa1);
             _inventory.RefillHealth();
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
-            _inventory.EquipA(InventoryState.ItemSword);
+            _inventory.GiveTreasure(TreasureId.Sword, 0);
+            _inventory.EquipA(TreasureId.Sword);
             _player.WarpTo(new(120, 56));
             var orb = _entities.Entities<DungeonOrbRoomEntity>().Single();
             var toggle = _entities.FloorToggle!;
@@ -34,16 +34,16 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(covered, 0x10, null, (long)_animationTicks);
             if (fullPool)
                 while (_entities.InteractionSlotAvailable)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), 0));
+                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
             Vector2 held = _player.Position;
             int lockout = orb.HitLockout;
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndDoorClose);
             StepGameplayUpdates(1, Vector2.Right);
             FailIf(toggle.State != 1 || toggle.Counter != 6 || _player.Position != held,
                 "Toggle state0 must establish freeze and counter6 without moving Link.");
             StepGameplayUpdates(1, Vector2.Right);
             FailIf(toggle.State != 2 || toggle.Counter != 6 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != sounds + 1,
+                _sound.PlayRequestsFor(SoundId.SndDoorClose) != sounds + 1,
                 "Toggle state1 must upload the intermediate graphics and sound without decrementing6.");
             StepGameplayUpdates(5, Vector2.Right, batched: batched);
             FailIf(toggle.Counter != 1 || _player.Position != held || orb.HitLockout != lockout ||
@@ -54,8 +54,8 @@ public sealed partial class ValidationRoot
                 _currentRoom.GetMetatile(raised) != 0x28 || _currentRoom.GetTerrainInfo(raised).Collision != 0 ||
                 _currentRoom.GetMetatile(covered) != 0x0f || _currentRoom.GetTerrainInfo(covered).Collision != 0x1e ||
                 _currentRoom.GetUnderlyingMetatile(covered) != 0x0f ||
-                _runtimeState.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress) != 1,
-                $"Sixth delay update must rewrite buffers and restore updates: state={toggle.State}, Link={_player.Position}/{held}, raised=${_currentRoom.GetMetatile(raised):x2}/{_currentRoom.GetTerrainInfo(raised).Collision:x2}, covered=${_currentRoom.GetMetatile(covered):x2}/{_currentRoom.GetTerrainInfo(covered).Collision:x2}, buffer=${_currentRoom.GetUnderlyingMetatile(covered):x2}, last={_runtimeState.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress)}.");
+                _runtimeState.ReadWramByte(WramAddress.wLastToggleBlocksState) != 1,
+                $"Sixth delay update must rewrite buffers and restore updates: state={toggle.State}, Link={_player.Position}/{held}, raised=${_currentRoom.GetMetatile(raised):x2}/{_currentRoom.GetTerrainInfo(raised).Collision:x2}, covered=${_currentRoom.GetMetatile(covered):x2}/{_currentRoom.GetTerrainInfo(covered).Collision:x2}, buffer=${_currentRoom.GetUnderlyingMetatile(covered):x2}, last={_runtimeState.ReadWramByte(WramAddress.wLastToggleBlocksState)}.");
             var debris = _entities.Entities<RockDebrisEffect>();
             FailIf(debris.Count != (fullPool ? 0 : 1) || !fullPool && debris[0].ElapsedUpdates != 1,
                 "Covered-floor debris must honor the interaction pool and initialize in the completion object pass.");
@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(8, Vector2.Zero, batched: batched);
             FailIf(toggle.Active || orb.IsOn || _currentRoom.GetMetatile(raised) != 0x0e ||
                 _currentRoom.GetMetatile(covered) != 0x29 ||
-                _runtimeState.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress) != 0,
+                _runtimeState.ReadWramByte(WramAddress.wLastToggleBlocksState) != 0,
                 "A repeated actual hit must restore both floor colors and complete the reverse toggle.");
         }
         _runtimeState.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0);

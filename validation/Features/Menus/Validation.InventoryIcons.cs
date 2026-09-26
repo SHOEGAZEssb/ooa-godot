@@ -63,12 +63,12 @@ public partial class ValidationRoot
 
         var save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
-        inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 2);
-        FailIf(_treasures.GetButtonDisplay(0x04, inventory).LeftSprite != 0x97 ||
-            _treasures.GetButtonDisplay(0x0f, inventory).LeftSprite != 0x81 ||
-            _treasures.GetButtonDisplay(0x16, inventory).LeftSprite != 0x98 ||
-            _treasures.GetButtonDisplay(0x06, inventory).ExtraMode != 0xff ||
-            _treasures.GetButtonDisplay(0x17, inventory).ExtraMode != 0xff,
+        inventory.GiveTreasure(TreasureId.Bracelet, 2);
+        FailIf(_treasures.GetButtonDisplay(TreasureId.CaneOfSomaria, inventory).LeftSprite != 0x97 ||
+            _treasures.GetButtonDisplay(TreasureId.Shooter, inventory).LeftSprite != 0x81 ||
+            _treasures.GetButtonDisplay(TreasureId.Bracelet, inventory).LeftSprite != 0x98 ||
+            _treasures.GetButtonDisplay(TreasureId.Boomerang, inventory).ExtraMode != 0xff ||
+            _treasures.GetButtonDisplay(TreasureId.Feather, inventory).ExtraMode != 0xff,
             "Clean-US Cane/Shooter/Power Glove selection or Boomerang/Feather label changed.");
         for (int sprite = 0x80; sprite < 0xa3; sprite++)
         for (int palette = 0; palette < 6; palette++)
@@ -107,7 +107,7 @@ public partial class ValidationRoot
         screen.Initialize(_treasures, inventory);
         for (int count = 1; count <= 4; count++)
         {
-            inventory.GiveTreasure(0x4b, 1);
+            inventory.GiveTreasure(TreasureId.Slate, 1);
             var overlay = screen.QuantityOverlayForValidation(0x4b);
             FailIf(overlay is not { } value || value.TensTile != 0x1b || value.OnesTile != 0x10 + count ||
                 value.Attributes != 7 || value.Offset != new Vector2(8, 8),
@@ -139,9 +139,9 @@ public partial class ValidationRoot
         for (int song = 0; song < 4; song++)
         {
             var save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6b2, 1);
-            save.WriteWramByte(0xc6b7, (byte)song);
-            save.WriteWramByte(0xc672, 3);
+            save.WriteWramByte(WramAddress.wSwordLevel, 1);
+            save.WriteWramByte(WramAddress.wSelectedHarpSong, (byte)song);
+            save.WriteWramByte(WramAddress.wDungeonSmallKeys, 3);
             var inventory = new InventoryState(_treasures, save);
             var hud = new Hud
             {

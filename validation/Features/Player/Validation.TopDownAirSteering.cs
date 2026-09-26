@@ -13,8 +13,8 @@ public sealed partial class ValidationRoot
         var speedField = typeof(Player).GetField("_topDownAirSpeedRaw", flags)!;
         int Angle() => (int)angleField.GetValue(_player)!;
         int Speed() => (int)speedField.GetValue(_player)!;
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.GiveTreasure(TreasureId.Sword, 0);
         foreach (bool batch in new[] { false, true })
         foreach (string scenario in new[] { "turn", "reverse", "neutral", "sword" })
         {
@@ -24,14 +24,14 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new Vector2(120, 144));
             Step(32, Vector2.Up);
             FailIf(_player.Position != new Vector2(120, 112), "Air-steering fixture must walk through Skull Dungeon's actual entrance.");
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.EquipA(TreasureId.Feather);
             Step(movement: Vector2.Right, attack: true);
             FailIf(!_player.TopDownAirborne || Angle() != 8 || Speed() != 0x28 || _player.TopDownAirSpeedZ != -0x1c0,
                 "Feather must start at angle $08/SPEED_100 and consume the first gravity-$20 update.");
             Vector2 direction = scenario == "neutral" ? Vector2.Zero : scenario == "reverse" ? Vector2.Left : Vector2.Up;
             if (scenario == "sword")
             {
-                _inventory.EquipA(InventoryState.ItemSword);
+                _inventory.EquipA(TreasureId.Sword);
                 Step(movement: direction, attack: true);
                 Step(12, direction);
             }
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             FailIf(Angle() != 8 || Speed() != 0x28 || _player.TopDownAirSpeedZ != -0x20,
                 $"{scenario}: rising Link must retain his takeoff velocity through update14, including a newly started sword.");
             Step(movement: direction);
-            FailIf(_player.TopDownAirSpeedZ != 0 || Angle() != (scenario is "turn" or "sword" ? 7 : 8) ||
+            FailIf(_player.TopDownAirSpeedZ != 0 || Angle() != (scenario is "turn" or "sword" ? 7 : ObjectAngle.Right) ||
                 Speed() != (scenario == "reverse" ? 0x23 : 0x28),
                 $"{scenario}: update15 must run func_5933 after speedZ becomes nonnegative, before movement.");
             Step(7, direction);
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
             FailIf(_player.TopDownAirborne || _player.IsFallingInHole || _player.IsDying,
                 "Air-steering fixture must finish on the actual entrance floor.");
             for (int i = 0; _player.IsAttacking && i < 60; i++) Step();
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.EquipA(TreasureId.Feather);
             Step(movement: Vector2.Left, attack: true);
             LoadValidationRoom(4, 0x91);
             FailIf(_player.TopDownAirborne || Angle() != 0xff || Speed() != 0,

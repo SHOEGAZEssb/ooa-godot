@@ -27,7 +27,7 @@ internal sealed class PastBipinScriptHost : NpcInteractionCommandHost
     internal GroundTreasurePickup? Treasure => _treasure;
 
     protected override bool MatchesAndPrepare(NpcCharacter npc) =>
-        npc.Record is { Id: 0x28, SubId: 0x0a };
+        npc.Record is { Id: InteractionId.Bipin, SubId: 0x0a };
 
     public override bool RoomFlagSet(int flag)
     {
@@ -60,7 +60,7 @@ internal sealed class PastBipinScriptHost : NpcInteractionCommandHost
 
     public override void GiveItem(int treasureId, int parameter)
     {
-        if (treasureId != TreasureDatabase.TreasureGashaSeed ||
+        if (treasureId != TreasureId.GashaSeed ||
             parameter != 0x08)
         {
             throw new InvalidOperationException(
@@ -112,8 +112,8 @@ internal sealed class PastBipinScriptHost : NpcInteractionCommandHost
             treasure.Name,
             source)
         {
-            SpawnMode = 0,
-            GrabMode = 2,
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands,
             DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
             CompletionOwner = GroundTreasureCompletionOwner.Caller,
             ExpectedTreasureId = expectedTreasure,

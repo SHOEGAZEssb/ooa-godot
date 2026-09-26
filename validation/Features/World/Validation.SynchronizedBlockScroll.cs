@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
                 FailIf(!_transitions.ScrollActive || !_pushBlocks.Active ||
                     _pushBlocks.BlockTopLeft != primaryPoint || partner.BlockTopLeft != partnerPoint ||
                     _pushBlocks.Position != partner.Position ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+                    _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
                     "Reserved and dynamic blocks must freeze equally and share the outgoing scroll offset.");
             }
             for (int i = 0; _transitions.ScrollActive && i < 100; i++)

@@ -120,7 +120,7 @@ public partial class ValidationRoot
             (SwordActionState.Spin, 2, 0, -20) })
         {
             var soldier = new BallChainSoldierCharacter();
-            soldier.Initialize(new EnemyDatabase().ImportedEnemy(0x4b), Room060MovementFixture(), new(64,64), new());
+            soldier.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
             soldier.UpdateFrame(new(64,100), new(64,100), 4, () => { });
             var ball = new SpikedBallPart(soldier, visual, 0);
             var adapter = new SpikedBallRoomEntity(ball, _ => { });
@@ -154,7 +154,7 @@ public partial class ValidationRoot
             ball.Free(); soldier.Free();
         }
         var parent = new BallChainSoldierCharacter();
-        parent.Initialize(new EnemyDatabase().ImportedEnemy(0x4b), Room060MovementFixture(), new(64,64), new());
+        parent.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
         parent.UpdateFrame(new(64,100), new(64,100), 4, () => { });
         var head = new SpikedBallPart(parent, visual, 0);
         var target = new SpikedBallRoomEntity(head, _ => { });
@@ -190,7 +190,7 @@ public partial class ValidationRoot
     {
         var random = new OracleRandom();
         var soldier = new BallChainSoldierCharacter();
-        soldier.Initialize(new EnemyDatabase().ImportedEnemy(0x4b), Room060MovementFixture(), new(64,64), random);
+        soldier.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), random);
         var movementMemory = new OracleRuntimeState();
         soldier.BindMovementMemory(movementMemory);
         var visual = new SpikedBallDatabase();
@@ -215,7 +215,7 @@ public partial class ValidationRoot
         var ball = parts[0];
         // Clean US $c09b + 7*$50 + angle1*2 contains -251/+49.
         // The final chain link scales by radius2 after the head and links1/2.
-        FailIf(movementMemory.ReadWramByte(0xcec0) != 0x0a || movementMemory.ReadWramByte(0xcec1) != 0xfe ||
+        FailIf(movementMemory.ReadWramByte(WramAddress.wTmpcec0) != 0x0a || movementMemory.ReadWramByte(0xcec1) != 0xfe ||
             movementMemory.ReadWramByte(0xcec2) != 0x62 || movementMemory.ReadWramByte(0xcec3) != 0,
             "The final spiked-chain part must leave its scaled radius2/angle1 words in shared movement scratch.");
         FailIf(soldier.State != 8 || random.Calls != 3 || ball.State != 1 || ball.Angle != 1 || ball.Radius != 10 ||
@@ -244,7 +244,7 @@ public partial class ValidationRoot
         Tick();
         FailIf(ball.Radius != 29 || ball.ExtensionSpeed != 0x2c0,
             "$2a fourth extension must use speed high$02, retaining the low-byte deceleration remainder.");
-        ball.PublishCollision(4);
+        ball.PublishCollision(ItemCollisionType.L1Sword);
         Tick();
         FailIf(ball.ExtensionSpeed != -0x20 || ball.Radius != 29 || soldier.InvincibilityCounter != -12,
             "$2a pending sword collision must protect parent and stop outward speed before its next radius update.");
@@ -319,7 +319,7 @@ public partial class ValidationRoot
             string.Concat(data.BallMask.Select(v => v.Value)) != "11111111110000000000011101111110" ||
             !data.PartData.Select(v => v.Value).SequenceEqual(new[] { 0x99,0x74,0x66,0xfc,0x40,8,2,0 }),
             "$4b collision$37 and PART_SPIKED_BALL $2a collision$74 source masks/effects/properties changed.");
-        var enemy = new EnemyDatabase().ImportedEnemy(0x4b);
+        var enemy = new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier);
         FailIf(enemy.Health != 8 || enemy.DamageQuarters != 2 || enemy.TileBase != 0 ||
             enemy.Palette != 2 || enemy.RadiusX != 6 || enemy.RadiusY != 6 ||
             enemy.Animations.Length != 2 ||

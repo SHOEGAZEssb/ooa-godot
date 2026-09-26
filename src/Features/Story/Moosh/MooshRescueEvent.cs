@@ -105,7 +105,7 @@ internal sealed class MooshRescueEvent :
         _screenTransitionsDisabled = true;
         // companionScript_subid00 leaves this room-local gate set until loading.
         _context.Entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
+            WramAddress.wDiggingUpEnemiesForbidden, 1);
         _lanes.StartLane(Ghini0, _database.Ghini0);
         _lanes.StartLane(Ghini1, _database.Ghini1);
         _lanes.StartLane(Ghini2, _database.Ghini2);
@@ -226,7 +226,7 @@ internal sealed class MooshRescueEvent :
         _companion = _context.Entities.Spawn<MooshCompanionRoomEntity>(
             new MooshCompanionSpawn(
                 new Vector2(_record.MooshX, _record.MooshY),
-                2,
+                ObjectDirection.Down,
                 _record.Group,
                 _record.Room));
     }
@@ -440,7 +440,7 @@ internal sealed class MooshRescueEvent :
         if (update == 0)
             return false;
 
-        int angle = (_record.GhiniAngle + 1 - update) & 0x1f;
+        int angle = (_record.GhiniAngle + 1 - update) & ObjectAngle.Mask;
         OracleObjectPosition position = OracleObjectMovement.Shared.ApplySpeed(
             _positions[actor], _record.GhiniSpeed, angle);
         _positions[actor] = position;

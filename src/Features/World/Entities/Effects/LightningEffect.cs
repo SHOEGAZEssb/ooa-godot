@@ -39,7 +39,7 @@ internal sealed class LightningEffect
         }
         if (_state == 1)
         {
-            _sound(OracleSoundEngine.SndLightning); _actor.SetScriptVisible(true); _state = 2; return;
+            _sound(SoundId.SndLightning); _actor.SetScriptVisible(true); _state = 2; return;
         }
         _actor.AdvanceAnimationUpdates(1);
         if (--_counter == 0)

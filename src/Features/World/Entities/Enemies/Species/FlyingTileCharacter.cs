@@ -48,7 +48,7 @@ internal partial class FlyingTileCharacter : EnemyCharacter
         _state = FlyingTileState.Initializing;
         _counter = 0;
         _zFixed = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _debrisPending = false;
         _collisionBreakPending = false;
         InitializeEnemy(

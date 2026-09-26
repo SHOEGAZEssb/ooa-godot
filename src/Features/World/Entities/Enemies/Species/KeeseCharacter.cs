@@ -177,7 +177,7 @@ public partial class KeeseCharacter : EnemyCharacter
 
             _angle = (OracleObjectMovement.Shared.RelativeAngle(
                 Position, linkPosition) +
-                _turnAmount) & 0x1f;
+                _turnAmount) & ObjectAngle.Mask;
             _counter1 = _behavior.KeeseState.TurningInterval;
             _counter2 = _behavior.KeeseState.TurningIntervals;
             _speed = _behavior.KeeseState.ApproachSpeedRaw;
@@ -192,7 +192,7 @@ public partial class KeeseCharacter : EnemyCharacter
         if (_counter1 == 0)
         {
             _counter1 = _behavior.KeeseState.TurningInterval;
-            _angle = (_angle + _turnAmount) & 0x1f;
+            _angle = (_angle + _turnAmount) & ObjectAngle.Mask;
             _counter2--;
             if (_counter2 == 0)
             {

@@ -20,7 +20,7 @@ internal sealed class GoronTargetCartsController(GoronCaveScriptHost host)
             if(!reload||(Wram.ReadWramByte(0xcfdd)&(1<<i))==0)
             {
                 if(!Context.Entities.EnemySlotAvailable) return;
-                if(!Context.Entities.TrySpawnEnemy(0x63,i,Vector2.Zero,"scriptHelper.s:goron_targetCarts_loadCrystals",out string error))
+                if(!Context.Entities.TrySpawnEnemy(EnemyId.TargetCartCrystal,i,Vector2.Zero,"scriptHelper.s:goron_targetCarts_loadCrystals",out string error))
                     throw new System.InvalidOperationException(error);
             }
     }
@@ -57,14 +57,14 @@ internal sealed class GoronTargetCartsController(GoronCaveScriptHost host)
         foreach(int address in new[]{0xcfdb,0xcfdd,0xcfde,0xcfdc}) Wram.SetWramByte(address,0);
         host.OrRoomFlag(0x80);
     }
-    internal void End()=>Context.Rooms.SaveData.SetRoomFlag(Context.Rooms.ActiveGroup,Context.Rooms.CurrentRoom.Id,0x80,false);
+    internal void End()=>Context.Rooms.SaveData.SetRoomFlag(Context.Rooms.ActiveGroup,Context.Rooms.CurrentRoom.Id,OracleSaveData.RoomFlag80,false);
     internal void Cancel()
     {
         // The course crosses two rooms. Its saved equipment belongs to the
         // WRAM session, and must survive the normal $5:d8 <-> $5:d9 scroll.
         if(Context.Rooms.ActiveGroup==5&&Context.Rooms.CurrentRoom.Id is 0xd8 or 0xd9) return;
-        if(!Context.Rooms.SaveData.HasRoomFlag(5,0xd8,0x80)) return;
+        if(!Context.Rooms.SaveData.HasRoomFlag(5,0xd8,OracleSaveData.RoomFlag80)) return;
         RestoreInventory();
-        Context.Rooms.SaveData.SetRoomFlag(5,0xd8,0x80,false);
+        Context.Rooms.SaveData.SetRoomFlag(5,0xd8,OracleSaveData.RoomFlag80,false);
     }
 }

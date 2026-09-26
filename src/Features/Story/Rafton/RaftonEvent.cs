@@ -150,7 +150,7 @@ internal sealed class RaftonEvent :
             throw new InvalidOperationException(
                 $"rafton_subid01Script cannot compare trade item ${value:x2}.");
         }
-        return Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        return Context.Inventory.HasTreasure(TreasureId.TradeItem) &&
             Context.Inventory.TradeItem == value;
     }
 

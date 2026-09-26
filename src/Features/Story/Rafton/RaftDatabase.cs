@@ -84,7 +84,7 @@ internal sealed class RaftDatabase
             a9.Count != 1 || a9[0] is not { SubId: 0, Y: 0x38, X: 0x78 } ||
             Behavior is not
             {
-                InteractionId: 0xe6, SpecialObjectId: 0x13,
+                InteractionId: InteractionId.Raft, SpecialObjectId: 0x13,
                 ChangedRoomsFlag: 0x26, DimitriStateAddress: 0xc647,
                 DimitriMask: 0x40, PastTilesetMask: 0x80,
                 MountRadius: 9, Speed: 0x23, KnockbackSpeed: 0x28,

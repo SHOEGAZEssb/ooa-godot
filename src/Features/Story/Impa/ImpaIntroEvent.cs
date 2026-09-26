@@ -408,7 +408,7 @@ internal sealed class ImpaIntroEvent :
                     // Octoroks have already updated. They observe it on the
                     // following original-engine update.
                     _encounterSignal = 0x01;
-                    _context.Sound.PlaySound(OracleSoundEngine.SndClink);
+                    _context.Sound.PlaySound(SoundId.SndClink);
                     _stage = ImpaIntroEventStage.WaitingForScript;
                 }
                 break;
@@ -723,8 +723,8 @@ internal sealed class ImpaIntroEvent :
 
         int direction = Math.Sign(target - coordinate);
         int angle = horizontal
-            ? direction > 0 ? 0x08 : 0x18
-            : direction > 0 ? 0x10 : 0x00;
+            ? direction > 0 ? ObjectAngle.Right : ObjectAngle.Left
+            : direction > 0 ? ObjectAngle.Down : ObjectAngle.Up;
         Vector2 objectDelta = OracleObjectMovement.Shared.Delta(
             _stoneRecord.Timing.LinkSpeed, angle);
         float movement = horizontal ? objectDelta.X : objectDelta.Y;
@@ -863,7 +863,7 @@ internal sealed class ImpaIntroEvent :
     {
         if (_stoneMoveCounter <= 0)
             return;
-        int angle = _pushedRight ? 0x08 : 0x18;
+        int angle = _pushedRight ? ObjectAngle.Right : ObjectAngle.Left;
 
         // updateAllObjects runs Link's special object before interactions.
         // linkCutscene6 falls through from initialization to substate 0, so it
@@ -1002,7 +1002,7 @@ internal sealed class ImpaIntroEvent :
                     {
                         // impaOctorokCode plays this before entering the
                         // boundary-checked movement substate.
-                        _context.Sound.PlaySound(OracleSoundEngine.SndThrow);
+                        _context.Sound.PlaySound(SoundId.SndThrow);
                         state.Stage = FakeOctorokStage.Moving;
                     }
                     break;
@@ -1349,7 +1349,7 @@ internal sealed class ImpaIntroEvent :
         int room = _context.Rooms.CurrentRoom.Id;
         if (room is 0x39 or 0x49)
             return;
-        _context.Sound.PlayMusicIfChanged(OracleSoundEngine.MusFairyFountain);
+        _context.Sound.PlayMusicIfChanged(SoundId.MusFairyFountain);
         _context.Sound.SetMusicVolume(3);
     }
 

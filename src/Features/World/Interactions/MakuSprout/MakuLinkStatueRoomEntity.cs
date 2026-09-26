@@ -22,7 +22,7 @@ internal sealed class MakuLinkStatueRoomEntity
             {
                 Group: 1,
                 Room: 0x38,
-                Id: 0x6b,
+                Id: InteractionId.Miscellaneous1,
                 SubId: 0x15,
                 Y: 0x40,
                 X: 0x84

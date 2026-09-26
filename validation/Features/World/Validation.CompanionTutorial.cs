@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
         {
             FailIf(CompanionMovement.FacingWallMask(0xff, walls) != 0,
                 $"Idle companion angle $ff collided with wall mask ${walls:x2}.");
-            for (int angle = 0; angle < masks.Length; angle++)
+            for (int angle = ObjectAngle.Up; angle < masks.Length; angle++)
                 FailIf(CompanionMovement.FacingWallMask(angle, walls) != (walls & masks[angle]),
                     $"Companion angle ${angle:x2} selected the wrong walls from ${walls:x2}.");
         }
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
         int[] sine = [0,49,97,142,181,212,236,251,256,251,236,212,181,142,97,49,
             0,-49,-97,-142,-181,-212,-236,-251,-256,-251,-236,-212,-181,-142,-97,-49];
         for (int walls = 0; walls < 256; walls++)
-        for (int angle = 0; angle < 32; angle++)
+        for (int angle = ObjectAngle.Up; angle < 32; angle++)
         {
             int direction = angle;
             int blocked = walls;
@@ -101,7 +101,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             room,
             new Vector2(record.X - 8, record.Y),
-            direction: 1);
+            direction: ObjectDirection.Right);
         LoadValidationRoom(group, room);
 
         CompanionTutorialRoomEntity tutorial =
@@ -119,7 +119,7 @@ public sealed partial class ValidationRoot
             "INTERAC_COMPANION_TUTORIAL state 0 did not consume exactly its " +
             "first update without showing text.");
 
-        int tutorialSoundRequests = _sound.PlayRequestsFor(0xc5);
+        int tutorialSoundRequests = _sound.PlayRequestsFor(SoundId.SndMoosh);
         StepRoomEventFrames(1);
         FailIf(
             tutorial.State != 2 || !tutorial.TextShown || !_dialogue.IsOpen ||
@@ -127,7 +127,7 @@ public sealed partial class ValidationRoot
             "Mounted Moosh did not show imported TX_2207 on the state-1 update.");
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(0xc5) != tutorialSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndMoosh) != tutorialSoundRequests + 1,
             "TX_2207 did not execute its leading source `\\sfx(0xc5)` cue.");
         _dialogue.Close();
 
@@ -138,7 +138,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             room,
             new Vector2(record.X, record.Y),
-            direction: 1);
+            direction: ObjectDirection.Right);
         tutorial.UpdateFrame(frame, spawns);
         FailIf(
             tutorial.Finished ||
@@ -151,7 +151,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             room,
             new Vector2(record.X + 1, record.Y),
-            direction: 1);
+            direction: ObjectDirection.Right);
         tutorial.UpdateFrame(frame, spawns);
         FailIf(
             !tutorial.Finished ||
@@ -186,7 +186,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             leftNeighbor,
             new Vector2(0x88, record.Y),
-            direction: 1);
+            direction: ObjectDirection.Right);
         LoadValidationRoom(group, leftNeighbor);
         if (!_rooms.TryGetNeighbor(Vector2I.Right, out int target) ||
             target != room)

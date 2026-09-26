@@ -30,7 +30,7 @@ internal sealed class DefeatedMoblinDatabase
     internal NpcRecord Actor(int subid,int index,int y,int x)
     {
         var v=_visuals[subid]; string animation=v.Animations[v.Animation];
-        return new(0,9,0x72,subid,y,x,index,0,v.Sprite,v.Tile,v.Palette,v.Animation,false,
+        return new(0,9,InteractionId.KingMoblinDefeated,subid,y,x,index,0,v.Sprite,v.Tile,v.Palette,v.Animation,false,
             animation,animation,animation,animation,string.Empty,NpcImplementationClassification.EventOwned);
     }
 }

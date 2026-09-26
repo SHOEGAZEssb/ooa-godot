@@ -61,7 +61,7 @@ public partial class ValidationRoot
             }
             else { Step(); Step(); }
             FailIf(!actor.Finished || _currentRoom.GetMetatile(Point(test.Chest)) != 0xf1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                 "Completed Crown pattern must immediately spawn its chest and play the solve cue only once.");
             _saveData.SetRoomFlag(4,test.Room,0x20,true);
             LoadValidationRoom(4,test.Room); Step();

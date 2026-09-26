@@ -33,7 +33,7 @@ internal sealed partial class LightableTorchScannerRoomEntity :
         : base(record, $"LightableTorchScanner_{record.Order}")
     {
         if (record is not
-            { Id: 0xc7, SubId: 0x08, PackedPosition: 0x06, Parameter: 0x10 })
+            { Id: InteractionId.CreateObjectAtEachTileIndex, SubId: 0x08, PackedPosition: 0x06, Parameter: 0x10 })
         {
             throw new ArgumentOutOfRangeException(nameof(record));
         }

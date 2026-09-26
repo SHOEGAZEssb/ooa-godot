@@ -116,32 +116,32 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
         void Death() => Entity.UpdateBossDeath(position =>
             {
                 if (!environment.PartSlotAvailable()) return false;
-                spawns.Add(new BossDeathExplosionSpawn(position,0x7c)); return true;
+                spawns.Add(new BossDeathExplosionSpawn(position,EnemyId.Smog)); return true;
             },environment.DisableLinkCollisionsAndMenu,() => _marked = true,environment.RestoreRoomMusic,sound);
         Entity.UpdateNativeFrame(environment.Frozen(),frame.Counter,environment.NextRandom,Handler,Death);
     }
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     public int CollisionZ => 0;
     public bool MeleeReportsContact => true;
     public void SetLinkSwordState(SwordActionState state, int level) =>
         _swordCollision = SwordCollision.Type(state, level);
-    private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && (Entity.ContactFlags & 0x80) == 0 &&
+    private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && (Entity.ContactFlags & ObjectCollisionFlags.JustHit) == 0 &&
         data.Enabled(collision) && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
     public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.InvincibilityCounter != 0 || !Overlaps(_swordCollision, hitbox)) return false;
         int effect = data.Effect(Entity.CollisionMode,_swordCollision);
-        if (effect == 0x1f)
+        if (effect == CollisionEffect.Effect1f)
         {
-            Entity.PublishCollision(0x80 | _swordCollision);
+            Entity.PublishCollision(ObjectCollisionFlags.JustHit | _swordCollision);
             Entity.InvincibilityCounter = -28;
-            sound(OracleSoundEngine.SndClink2);
+            sound(SoundId.SndClink2);
         }
-        else if (effect == 0x21)
+        else if (effect == CollisionEffect.Effect21)
         {
             Entity.ApplyLargeSwordCollision(damage,_swordCollision,sourcePosition);
-            sound(OracleSoundEngine.SndBossDamage);
+            sound(SoundId.SndBossDamage);
         }
         else throw new NotSupportedException($"ENEMY_SMOG $7c sword effect${effect:x2} is not represented.");
         return true;
@@ -151,17 +151,17 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
         // enemyCheckCollisions skips items during enemy invincibility but still
         // reaches checkLinkVulnerable. Do not reuse the sword's invincibility gate.
         if (!player.NativeObjectVulnerable || !player.EnemyContactHeightOverlaps(0) ||
-            !Overlaps(0,new(player.EnemyContactPosition - new Vector2(6,6),new(12,12)))) return;
+            !Overlaps(ItemCollisionType.Link,new(player.EnemyContactPosition - new Vector2(6,6),new(12,12)))) return;
         int effect = data.Effect(Entity.CollisionMode,0);
-        if (effect == 0x36)
+        if (effect == CollisionEffect.ElectricShock)
         {
             Entity.PublishCollision(0xa0); Entity.DisableCollision();
             player.ApplyElectricShock(Entity.Position);
         }
-        else if (effect == 0x3c)
+        else if (effect == CollisionEffect.DamageLinkWithRingModifier)
         {
             // $7c is absent from effect3c's ring-protection IDs: ordinary fc damage.
-            if (player.ApplyEnemyContactDamage(Entity.Position,2,RingDamageSource.Generic,34,15)) Entity.PublishCollision(0x80);
+            if (player.ApplyEnemyContactDamage(Entity.Position,2,RingDamageSource.Generic,34,15)) Entity.PublishCollision(ObjectCollisionFlags.JustHit);
         }
         else throw new NotSupportedException($"ENEMY_SMOG $7c Link effect${effect:x2} is not represented.");
     }

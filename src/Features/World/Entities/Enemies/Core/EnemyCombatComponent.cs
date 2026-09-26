@@ -136,7 +136,7 @@ internal sealed class EnemyCombatDescriptor
         Func<Vector2>? deathPuffPosition = null,
         Func<bool>? deathPuffAllowed = null,
         Func<RoomEnemyOutcome>? completedOutcome = null,
-        int acceptedHitSound = OracleSoundEngine.SndDamageEnemy,
+        int acceptedHitSound = SoundId.SndDamageEnemy,
         bool dropsItem = true)
     {
         var combat = EnemyCombatComponent.WithContactDamage(

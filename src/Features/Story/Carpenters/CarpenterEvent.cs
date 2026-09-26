@@ -134,7 +134,7 @@ internal sealed class CarpenterEvent : InteractiveCutsceneCommandHost, IRoomEntr
         if (found == Database.Constant("found-mask"))
             Context.Transitions.ApplyWarpWithFadeOut(Context.Player,
                 new Warp(0, Context.Rooms.CurrentRoom.Id, -1, 0, 0, 0,
-                    Database.Constant("return-room"), Database.Constant("return-position"), 0, 0));
+                    Database.Constant("return-room"), Database.Constant("return-position"), 0, WarpDestinationTransition.Basic));
     }
 
     private void UpdateExit()

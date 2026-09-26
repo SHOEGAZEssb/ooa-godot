@@ -48,7 +48,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         ZIndex = NpcCharacter.BehindLinkZIndex;
         Visible = false;
         if (save?.HasGlobalFlag(npcs.Constant("placed-flag")) == true) FinishPosition();
-        else State = inventory?.HasTreasure(TreasureDatabase.TreasureTuniNut) == true && inventory.TuniNutState == 2 ? 1 : -1;
+        else State = inventory?.HasTreasure(TreasureId.TuniNut) == true && inventory.TuniNutState == 2 ? 1 : -1;
     }
     private EnemyAnimationPlayer Load(TimedSparkleVisual visual)
     {
@@ -103,7 +103,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
                         if (--_counter == 0) { CenterOnTile(); _substate++; }
                         break;
                     case 2:
-                        _precisePosition += OracleObjectMovement.Shared.Delta(_data.Constant("speed"), 0);
+                        _precisePosition += OracleObjectMovement.Shared.Delta(_data.Constant("speed"), ObjectAngle.Up);
                         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                         if (Mathf.FloorToInt(Position.Y) < _data.Constant("placed-y")) { CenterOnTile(); _substate++; }
                         break;
@@ -122,12 +122,12 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
                     case 5:
                         if (_paletteDirection != 0) break;
                         context.Rooms.SaveData.SetGlobalFlag(_npcs.Constant("placed-flag"));
-                        context.Inventory.LoseTreasure(TreasureDatabase.TreasureTuniNut);
+                        context.Inventory.LoseTreasure(TreasureId.TuniNut);
                         foreach (int room in new[] { 0x02, 0x03, 0x04, 0x12, 0x13, 0x14 })
                             context.Rooms.SaveData.SetRoomFlag(0, room, 1);
                         owner.SetInputEnabled(true);
-                        context.Entities.RuntimeState.SetWramByte(0xcfc0,
-                            (byte)(context.Entities.RuntimeState.ReadWramByte(0xcfc0) | 1));
+                        context.Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0,
+                            (byte)(context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) | 1));
                         context.Sound.PlayRoomMusic(context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id);
                         FinishPosition();
                         break;
@@ -138,7 +138,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         if (_sparkleActive)
         {
             if (_sparkleJustCreated) { _sparkleJustCreated = false; _sparkleVisible = true; }
-            else if ((context.Entities.RuntimeState.ReadWramByte(0xcfc0) & 1) != 0) _sparkleActive = false;
+            else if ((context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) != 0) _sparkleActive = false;
             else { _sparkle.Advance(); _sparkleVisible = (context.Entities.FrameCounter & 1) == 0; }
         }
         _sparkleSprite.Visible = _sparkleActive && _sparkleVisible;

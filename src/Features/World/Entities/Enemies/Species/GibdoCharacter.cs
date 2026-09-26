@@ -115,7 +115,7 @@ internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy
     {
         // collisionEffect2e uses Link's position for the reserved weapon slot.
         _stunCounter = KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
         State = 3;
         SwitchHookSubstate = 0;
     }

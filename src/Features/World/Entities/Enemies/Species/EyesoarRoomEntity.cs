@@ -65,27 +65,27 @@ internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarAc
     {
         if (!Eligible(item, hitbox)) return false;
         int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, item);
-        MeleeReportsContact = effect != 0;
+        MeleeReportsContact = effect != CollisionEffect.None;
         switch (effect)
         {
-            case 0: return melee;
-            case 0x0b: Entity.ApplyNativeHit(item, damage, 32); CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); return true;
-            case 0x21: Entity.ApplyNativeHit(item, damage, 32); CombatDescriptor.RequestSound(OracleSoundEngine.SndBossDamage); return true;
-            case 0x1b:
+            case CollisionEffect.None: return melee;
+            case CollisionEffect.SwordNoKnockback: Entity.ApplyNativeHit(item, damage, 32); CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); return true;
+            case CollisionEffect.Effect21: Entity.ApplyNativeHit(item, damage, 32); CombatDescriptor.RequestSound(SoundId.SndBossDamage); return true;
+            case CollisionEffect.Effect1b:
                 Entity.ApplyNativeHit(item, 0, -20); spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, source))); return true;
-            case 0x1c:
-            case 0x20: Entity.MarkContact(item); return true;
+            case CollisionEffect.Effect1c:
+            case CollisionEffect.Effect20: Entity.MarkContact(item); return true;
             default: throw new NotSupportedException($"ENEMY_EYESOAR ${Entity.Record.Id:x2}:${Entity.Record.SubId:x2}: item ${item:x2}, effect ${effect:x2} is unsupported.");
         }
     }
     public override bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
         if (!RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) || !Eligible(13, hook.CollisionBounds)) return false;
-        int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, 13);
-        if (effect == 0x2e) { Entity.BeginSwitchHook(linkPosition); hook.LatchEnemy(Entity); return true; }
-        if (effect == 0x0b)
-        { Entity.ApplyNativeHit(13, hook.HitDamage, 32); hook.NotifyObjectCollision(); CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); return true; }
-        return effect == 0;
+        int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, ItemCollisionType.SwitchHook);
+        if (effect == CollisionEffect.SwitchHook) { Entity.BeginSwitchHook(linkPosition); hook.LatchEnemy(Entity); return true; }
+        if (effect == CollisionEffect.SwordNoKnockback)
+        { Entity.ApplyNativeHit(13, hook.HitDamage, 32); hook.NotifyObjectCollision(); CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); return true; }
+        return effect == CollisionEffect.None;
     }
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 sourcePosition, int seedItem, ICollection<RoomEntitySpawn> spawns)
         => throw new InvalidOperationException("ENEMY_EYESOAR $7b / CHILD $11 seed collision requires the projectile's imported attributes and live collision type.");
@@ -96,9 +96,9 @@ internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarAc
         // Mystery Seed's selected collision type intact, including damage.
         if (!Eligible(collisionType, hitbox)) return default;
         int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, collisionType);
-        if (effect == 0) return new(true, SeedHitResult.None, false);
+        if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
         Hit(collisionType, hitbox, sourcePosition, -(sbyte)seed.Damage, spawns);
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect == 0x20);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect == CollisionEffect.Effect20);
     }
     public override void HandleLinkContact(Player player)
     {
@@ -107,7 +107,7 @@ internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarAc
         {
             if (!player.CanAcceptShieldCollision) return;
             int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, player.Inventory.ShieldLevel);
-            var (invincibility, recoil) = effect switch { 5 => (8, 11), 6 => (15, 19), 7 => (22, 25),
+            var (invincibility, recoil) = effect switch { CollisionEffect.Effect05 => (8, 11), CollisionEffect.Effect06 => (15, 19), CollisionEffect.Effect07 => (22, 25),
                 _ => throw new NotSupportedException($"ENEMY_EYESOAR shield effect ${effect:x2} is unsupported.") };
             player.ApplyShieldCollisionRecoil(Entity.Position, invincibility, recoil); Entity.MarkContact(player.Inventory.ShieldLevel); return;
         }

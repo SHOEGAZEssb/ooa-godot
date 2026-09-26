@@ -14,8 +14,8 @@ public sealed partial class ValidationRoot
         RoomObjectRecord source = database.GetRoomObjects(2, 0xcf).Single();
         EnemyHandlerDescriptor handler =
             database.EnemyHandlers.ResolveHandler(source);
-        ImportedEnemyDefinition definition = database.ImportedEnemy(0x36);
-        ImportedEnemyDefinition giantDefinition = database.ImportedEnemy(0x3b);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.Cucco);
+        ImportedEnemyDefinition giantDefinition = database.ImportedEnemy(EnemyId.GiantCucco);
         CuccoBehaviorProfile behavior = EnemyBehaviorTables.Shared.Cucco;
         GiantCuccoBehaviorProfile giantBehavior =
             EnemyBehaviorTables.Shared.GiantCucco;
@@ -178,13 +178,13 @@ public sealed partial class ValidationRoot
         SeedHitResult mysteryResult = secondAdapter.ApplySeedHit(
             cuccos[1].CollisionBounds.Grow(1),
             cuccos[1].Position,
-            OwlStatueDatabase.MysterySeedItem,
+            TreasureId.MysterySeeds,
             transformationSpawns);
         FailIf(
             mysteryResult != SeedHitResult.Consume ||
             cuccos[1].State != CuccoState.Transforming ||
             cuccos[1].Visible ||
-            transformationSpawns is not [PuzzlePuffSpawn { Sound: 0 }],
+            transformationSpawns is not [PuzzlePuffSpawn { Sound: SoundId.MusNone }],
             "A Mystery Seed did not hide the calm Cucco and create " +
             "INTERAC_PUFF $05:$02.");
         _entities.Spawn<PuzzlePuffEffect>(transformationSpawns[0]);
@@ -241,12 +241,12 @@ public sealed partial class ValidationRoot
         mysteryResult = angryAdapter.ApplySeedHit(
             cucco.CollisionBounds.Grow(1),
             cucco.Position,
-            OwlStatueDatabase.MysterySeedItem,
+            TreasureId.MysterySeeds,
             giantSpawns);
         FailIf(
             mysteryResult != SeedHitResult.Consume ||
             cucco.State != CuccoState.Transforming ||
-            giantSpawns is not [PuzzlePuffSpawn { Sound: 0 }],
+            giantSpawns is not [PuzzlePuffSpawn { Sound: SoundId.MusNone }],
             "A Mystery Seed did not begin the aggressive Cucco's source " +
             "ENEMY_GIANT_CUCCO replacement.");
         _entities.Spawn<PuzzlePuffEffect>(giantSpawns[0]);

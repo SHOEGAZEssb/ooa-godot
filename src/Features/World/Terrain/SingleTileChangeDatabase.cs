@@ -90,7 +90,7 @@ public sealed class SingleTileChangeDatabase
         0xf1 => save.IsLinkedGame,
         // The source comment describes this as an unlinked completion row;
         // executed code tests GLOBALFLAG_FINISHEDGAME directly.
-        0xf2 => save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame),
+        0xf2 => save.HasGlobalFlag(GlobalFlag.FinishedGame),
         _ => (save.GetRoomFlags(group, room) & mask) != 0
     };
 }

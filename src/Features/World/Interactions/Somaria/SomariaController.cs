@@ -17,7 +17,7 @@ internal sealed class SomariaController(Node world,RoomSession rooms,RoomEntityM
         Parent=new(_swing,underwater,player.CompanionRideActive||player.MinecartRideActive,player.RaftRideActive);
         Weapon=new(_swing,_placement,_graphics,player.Position,player.EnemyContactZ);
         world.AddChild(Weapon);
-        player.NotifyParentItemAnimationStarted(InventoryState.ItemSomaria);
+        player.NotifyParentItemAnimationStarted(TreasureId.CaneOfSomaria);
     }
     internal void UpdateParent() => Parent?.Update();
     internal void UpdateItem(Player player,bool frozen) => Weapon?.UpdateItem(frozen,Active?Parent!.Parameter:0,player.Position,
@@ -27,9 +27,9 @@ internal sealed class SomariaController(Node world,RoomSession rooms,RoomEntityM
     internal void UpdatePost(Player player)
     {
         // postUpdate.s reads shared wLinkRaisedFloorOffset ($cc69).
-        Weapon?.UpdatePost(Active?InventoryState.ItemSomaria:0,Active?Parent!.Parameter:0,
+        Weapon?.UpdatePost(Active?TreasureId.CaneOfSomaria:0,Active?Parent!.Parameter:0,
             player.Position,CarriedObjectMotion.DirectionIndex(player.FacingVector),player.EnemyContactZ,
-            unchecked((sbyte)entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress)));
+            unchecked((sbyte)entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset)));
         if(Weapon?.Finished==true) { Weapon.Free(); Weapon=null; }
     }
     internal void ClearParent() => Parent?.Cancel();

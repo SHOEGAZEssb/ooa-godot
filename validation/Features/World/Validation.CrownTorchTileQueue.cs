@@ -27,14 +27,14 @@ public partial class ValidationRoot
             var torches = _entities.Entities<LightableTorchRoomEntity>().ToArray();
             FailIf(torches.Length!=4 || torches.Any(t=>!t.Initialized),"Torch queue fixture requires four initialized source parts.");
             foreach(var torch in torches)
-                FailIf(torch.ApplySeedHit(torch.CollisionBounds,torch.Position,0x20,new List<RoomEntitySpawn>())!=SeedHitResult.Consume,
+                FailIf(torch.ApplySeedHit(torch.CollisionBounds,torch.Position,ItemId.EmberSeed,new List<RoomEntitySpawn>())!=SeedHitResult.Consume,
                     "Torch queue fixture must register each Ember collision.");
             for(int i=0;i<(full?31:9);i++)
                 FailIf(!_rooms.TrySetTile(0x53,0xa0),"Fixture failed to fill the native queue with repeated floor writes.");
             _sound.ClearPlayRequestAudit();
             Step();
             FailIf(_entities.Entities<LightableTorchRoomEntity>().Count!=0 || (_entities.ActiveTriggers&1)==0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)!=4 ||
+                _sound.PlayRequestsFor(SoundId.SndLightTorch)!=4 ||
                 _rooms.PendingTileGraphics!=(full?27:9) ||
                 positions.Any(p=>_currentRoom.Layout[p]!=(full?0x08:0x09)) ||
                 positions.Where((p,i)=>!Graphics(p).SequenceEqual(before[i])).Any(),
@@ -58,7 +58,7 @@ public partial class ValidationRoot
                     positions.Where((p,i)=>!Graphics(p).SequenceEqual(before[i])).Any(),
                     "Freeing queue capacity must not retry a deleted torch or reconstruct its rejected write.");
             }
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)!=4,"Queue drain must not replay torch sounds.");
+            FailIf(_sound.PlayRequestsFor(SoundId.SndLightTorch)!=4,"Queue drain must not replay torch sounds.");
             LoadValidationRoom(0,0x60);
             FailIf(_rooms.PendingTileGraphics!=0,"Room departure must clear the changed-tile queue.");
         }

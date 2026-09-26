@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogSmallCloud()
     {
-        var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.Smog,0);
         foreach (int subid in new[] { 2, 0x82 })
         {
             var actor = new SmogCharacter();

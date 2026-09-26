@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
         FailIf(record.SeedItem != 0x22 || record.TileBase != 0x16 || record.Palette != 1 || record.Collision != 0x9d ||
             record.Damage != 0xff || record.CollisionRadiusX != 4 || record.CollisionRadiusY != 4 ||
             record.CollisionEffectTileBase != 0x18 || record.CollisionEffectOamFlags != 9 || record.CollisionEffectCounter != 0 ||
-            record.CollisionEffectSound != OracleSoundEngine.SndLightTorch,
+            record.CollisionEffectSound != SoundId.SndLightTorch,
             "Pegasus projectile lost itemData/attributes or seeds.s @data's own $09/$18/$00 effect row.");
         var animation = OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         FailIf(!animation.Frames.Select(f => (f.Duration, f.Parameter)).SequenceEqual(new[] { (1, 0), (3, 0), (3, 0), (3, 0), (127, 255) }),
@@ -38,11 +38,11 @@ public sealed partial class ValidationRoot
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             _seedSatchel.Pegasus.Clear();
             _seedSatchel.InterruptShooter();
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x0f, 1);
-            _inventory.GiveTreasure(0x22, 0x20);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.Shooter, 1);
+            _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);
             _inventory.SelectShooterSeeds(2);
-            _inventory.EquipA(InventoryState.ItemShooter);
+            _inventory.EquipA(TreasureId.Shooter);
             LoadValidationRoom(4, 0x91);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
             _player.WarpTo(new Vector2(120, 144));
@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
             FailIf(seed.State != EmberState.Dissipating || seed.AnimationFrame != 1 || gibdo.Health != health ||
                 gibdo.InvincibilityCounter != -15 || gibdo.StunCounter != 240 - (_entities.FrameCounter & 1) || gibdo.Position != hitPosition,
                 $"The next item/enemy update must consume the Pegasus hit and first stun update exactly once: seed={seed.State}/{seed.AnimationFrame}, inv={gibdo.InvincibilityCounter}, stun={gibdo.StunCounter}, health={gibdo.Health}, position={gibdo.Position}/{hitPosition}.");
-            FailIf(!sounds.SequenceEqual(new[] { OracleSoundEngine.SndDamageEnemy, OracleSoundEngine.SndLightTorch }),
+            FailIf(!sounds.SequenceEqual(new[] { SoundId.SndDamageEnemy, SoundId.SndLightTorch }),
                 "Pegasus stun must play ENEMYDMG_38's enemy sound before the projectile's state3 activation sound.");
             Step(8);
             FailIf(seed.Finished || seed.AnimationFrame != 3 || _entities.ActiveScentSeedTarget().HasValue,

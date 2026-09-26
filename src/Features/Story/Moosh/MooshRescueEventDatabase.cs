@@ -161,15 +161,15 @@ internal sealed class MooshRescueEventDatabase
                 MooshId: 0x0d, MooshY: 0x28, MooshX: 0x58,
                 MooshSprite: "spr_moosh", MooshTileBase: 0, MooshPalette: 1,
                 GhiniSpeed: 0x32, GhiniAngle: 0x18, GhiniFrames: 32,
-                ShakeFrames: 60, EnemyId: 0x17, EnemySubId: 0,
+                ShakeFrames: 60, EnemyId: EnemyId.Ghini, EnemySubId: 0,
                 ExclamationId: 0x9f, ExclamationSubId: 0,
                 ExclamationYOffset: -16, ExclamationXOffset: 0,
-                ExclamationFrames: 30, DingSound: OracleSoundEngine.SndDing,
-                ExclamationSound: OracleSoundEngine.SndClink,
-                JumpSound: OracleSoundEngine.SndJump,
-                ChargeSound: OracleSoundEngine.SndChargeSword,
-                StompSound: OracleSoundEngine.SndScentSeed,
-                MinibossMusic: OracleSoundEngine.MusMiniboss
+                ExclamationFrames: 30, DingSound: SoundId.SndDing,
+                ExclamationSound: SoundId.SndClink,
+                JumpSound: SoundId.SndJump,
+                ChargeSound: SoundId.SndChargeSword,
+                StompSound: SoundId.SndScentSeed,
+                MinibossMusic: SoundId.MusMiniboss
             } ||
             string.IsNullOrWhiteSpace(Record.MooshAnimation) ||
             string.IsNullOrWhiteSpace(Record.ExclamationAnimation) ||
@@ -182,7 +182,7 @@ internal sealed class MooshRescueEventDatabase
                 LinkSourceOffsets.Length: 51,
                 WaterHazard: 1, WaterHoverFrames: 60,
                 WaterExclamationZOffset: -32,
-                WaterExclamationSound: OracleSoundEngine.SndClink
+                WaterExclamationSound: SoundId.SndClink
             } ||
             Visual.LinkSourceOffsets[0x1b] != 0x20c0 ||
             Visual.LinkSourceOffsets[0x1d] != 0x2100 ||
@@ -191,7 +191,7 @@ internal sealed class MooshRescueEventDatabase
             Ghini0[1] is not CutsceneNativeBlockingCommand
                 { Handler: "CircleGhini", Frames: 32 } ||
             Ghini1[8] is not CutsceneSetMusicCommand
-                { Music: OracleSoundEngine.MusMiniboss } ||
+                { Music: SoundId.MusMiniboss } ||
             Ghini2[5] is not CutsceneNativeCommand
                 { Handler: "SpawnEnemyGhini2" } ||
             Companion[5] is not CutsceneMemoryGateCommand

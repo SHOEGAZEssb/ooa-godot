@@ -104,8 +104,8 @@ internal sealed class MakuSproutRescueDatabase
             Sprout[0] is not CutsceneNativeYieldCommand { Handler: "SpawnController" } ||
             FearfulSproutAnimation == Actors["Sprout"].DownAnimation ||
             Controller[56] is not CutsceneNativeYieldCommand { Handler: "SpawnGateOpening" } ||
-            Controller[59] is not CutsceneSetGlobalFlagCommand { Flag: 0x3f } ||
-            Controller[62] is not CutsceneSetGlobalFlagCommand { Flag: 0x12 } ||
+            Controller[59] is not CutsceneSetGlobalFlagCommand { Flag: GlobalFlag.MakuGivesAdviceFromPastMap } ||
+            Controller[62] is not CutsceneSetGlobalFlagCommand { Flag: GlobalFlag.MakuTreeSaved } ||
             MoblinLeft[18] is not CutsceneNativeCommand { Handler: "SpawnMaskedMoblinLeft" } ||
             MoblinRight[19] is not CutsceneNativeCommand { Handler: "SpawnMaskedMoblinRight" })
         {

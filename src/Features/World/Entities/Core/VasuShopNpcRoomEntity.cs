@@ -26,20 +26,20 @@ internal sealed class VasuShopNpcRoomEntity
         : base(npc, npc.SetTransitionDrawOffset)
     {
         _database = database;
-        _vasu = npc.Record is { Id: 0x89, SubId: 0x00 };
-        _snake = npc.Record.Id == 0x89 && npc.Record.SubId != 0;
+        _vasu = npc.Record is { Id: InteractionId.Vasu, SubId: 0x00 };
+        _snake = npc.Record.Id == InteractionId.Vasu && npc.Record.SubId != 0;
         npc.SetDialogue(0, string.Empty, canFace: false, database.TextboxPosition);
         npc.SetScriptButtonSensitive(true);
         if (_vasu)
         {
             npc.SetCollisionRadii(database.VasuRadiusY, database.VasuRadiusX);
-            _idleAnimation = database.Animation(0x89, 0);
+            _idleAnimation = database.Animation(InteractionId.Vasu, 0);
             npc.SetScriptAnimation(_idleAnimation);
         }
         else if (_snake)
         {
             npc.SetCollisionRadii(database.SnakeRadius, database.SnakeRadius);
-            _idleAnimation = database.Animation(0x89, npc.Record.SubId);
+            _idleAnimation = database.Animation(InteractionId.Vasu, npc.Record.SubId);
             npc.SetScriptAnimation(_idleAnimation);
         }
         else
@@ -47,7 +47,7 @@ internal sealed class VasuShopNpcRoomEntity
             npc.SetCollisionRadii(database.SnakeRadius, database.SnakeRadius);
             // interactionInitGraphics leaves both books on the graphics
             // record's default animation $00. Subid $01 changes only palette.
-            _idleAnimation = database.Animation(0xe5, 0);
+            _idleAnimation = database.Animation(InteractionId.RingHelpBook, 0);
             npc.SetScriptAnimation(_idleAnimation);
         }
     }

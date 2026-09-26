@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
                 Enumerable.Range(114, 13).Any(x => _currentRoom.IsSolid(new Vector2(x, y)))),
                 "Zol observation approach must walk through the real 4:91 floor.");
             _player.SetBraceletLiftCollisionsDisabled(true);
-            FailIf(!_entities.TrySpawnEnemy(0x34, subid, new Vector2(120, 80), "Skull Zol lifecycle", out string error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Zol, subid, new Vector2(120, 80), "Skull Zol lifecycle", out string error), error);
             var zol = _entities.Entities<ZolCharacter>().Single();
             int randomBefore = _random.Calls;
             FailIf(zol.State != ZolState.Uninitialized || zol.CollisionEnabled || zol.Visible,
@@ -46,14 +46,14 @@ public sealed partial class ValidationRoot
                     FailIf(zol.State != ZolState.GreenEmerging || zol.Counter2 != 4 || AnimationRemaining(zol) != 16,
                         "Green Zol proximity must start emergence with four hops and its untouched first animation frame.");
                     Step(32);
-                    FailIf(zol.AnimationParameter != 1 || zol.ZFixed != 0 || _sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump) != sounds,
+                    FailIf(zol.AnimationParameter != 1 || zol.ZFixed != 0 || _sound.PlayRequestsFor(SoundId.SndEnemyJump) != sounds,
                         "Zol's 16+16 emergence animation must publish parameter1 before movement or jump sound.");
                     Step();
-                    FailIf(zol.ZFixed != -512 || _sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump) != sounds + 1,
+                    FailIf(zol.ZFixed != -512 || _sound.PlayRequestsFor(SoundId.SndEnemyJump) != sounds + 1,
                         "Green Zol must play its emergence sound once on the first native Z update.");
                     Step(26);
                     FailIf(zol.State != ZolState.GreenWaiting || zol.Counter1 != 48 || !zol.CollisionEnabled ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump) != sounds + 1,
+                        _sound.PlayRequestsFor(SoundId.SndEnemyJump) != sounds + 1,
                         "Green Zol emergence must land after27 gravity updates without replaying its sound.");
                     for (int hop = 0; hop < 4; hop++)
                     {
@@ -61,8 +61,8 @@ public sealed partial class ValidationRoot
                         FailIf(zol.State != ZolState.GreenWaiting || zol.Counter1 != 1, "Green Zol wait ended before48 updates.");
                         Step();
                         FailIf(zol.State != ZolState.GreenHopping || AnimationRemaining(zol) != 126 ||
-                            _sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump) != sounds + hop + 2,
-                            $"Green Zol hop must play SND_ENEMY_JUMP and fall through to one Animate call after selecting animation2: state={zol.State}, timer={AnimationRemaining(zol)}, sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump)}, cycle={cycle}, hop={hop}.");
+                            _sound.PlayRequestsFor(SoundId.SndEnemyJump) != sounds + hop + 2,
+                            $"Green Zol hop must play SND_ENEMY_JUMP and fall through to one Animate call after selecting animation2: state={zol.State}, timer={AnimationRemaining(zol)}, sounds={_sound.PlayRequestsFor(SoundId.SndEnemyJump)}, cycle={cycle}, hop={hop}.");
                         Step(27);
                         FailIf(zol.Counter2 != 3 - hop || zol.ZFixed != 0 ||
                             zol.State != (hop == 3 ? ZolState.GreenDisappearing : ZolState.GreenWaiting),
@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
                             "Red Zol must select its shake animation without advancing it on the decision update.");
                         Step(31); Step();
                         FailIf(zol.State != ZolState.RedHopping || AnimationRemaining(zol) != 127 ||
-                            _sound.PlayRequestsFor(OracleSoundEngine.SndEnemyJump) != hops,
+                            _sound.PlayRequestsFor(SoundId.SndEnemyJump) != hops,
                             "Red Zol's32nd shake update must start its hop/sound without the green animation fallthrough.");
                         Step(27);
                     }

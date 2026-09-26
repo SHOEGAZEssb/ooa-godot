@@ -47,7 +47,7 @@ internal sealed class ColorChangingGelRoomEntity
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect is not (0x1c or 0x0b) || !Entity.TakeSwitchHookHit(hook.HitDamage)) return false;
+        if (effect is not (CollisionEffect.Effect1c or CollisionEffect.SwordNoKnockback) || !Entity.TakeSwitchHookHit(hook.HitDamage)) return false;
         hook.NotifyObjectCollision();
         return true;
     }
@@ -56,10 +56,10 @@ internal sealed class ColorChangingGelRoomEntity
         int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (!CombatDescriptor.Combat.Intersects(hitbox)) return SeedHitResult.None;
-        if (seedItem == 0x24)
+        if (seedItem == ItemId.MysterySeed)
             return Entity.TakeMysterySeedHit() ? SeedHitResult.Activate : SeedHitResult.None;
-        if (seedItem == 0x21)
-            return Entity.TakeSeedHit(0x1c, 2) ? SeedHitResult.Activate : SeedHitResult.None;
+        if (seedItem == ItemId.ScentSeed)
+            return Entity.TakeSeedHit(ItemCollisionType.ScentSeed, 2) ? SeedHitResult.Activate : SeedHitResult.None;
         // Matching-color seeds use effect20/ENEMYDMG44. They activate their
         // own effect without igniting, stunning or damaging the Gel.
         if (Entity.CollisionMode == EnemyBehaviorTables.Shared.ColorChangingGel.ImmuneCollisionMode &&

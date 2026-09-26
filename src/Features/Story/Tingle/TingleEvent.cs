@@ -255,8 +255,8 @@ internal sealed class TingleEvent : IRoomEvent
 
     private void RefillSeedSatchel()
     {
-        for (int treasure = TreasureDatabase.TreasureEmberSeeds;
-             treasure <= TreasureDatabase.TreasureEmberSeeds + 4;
+        for (int treasure = TreasureId.EmberSeeds;
+             treasure <= TreasureId.EmberSeeds + 4;
              treasure++)
         {
             if (_context.Inventory.HasTreasure(treasure))

@@ -42,8 +42,8 @@ public sealed partial class ValidationRoot
             "TX_0509 must include the unterminated fallthrough into TX_050a, with formatting and bottom position.");
 
         _saveData.SetMakuTreeState(7);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeSaved);
+        _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
+        _saveData.SetGlobalFlag(GlobalFlag.MakuTreeSaved);
         _saveData.SetRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap, false);
         _saveData.SetRoomFlag(1, 0x48, OracleSaveData.RoomFlagLayoutSwap, false);
         LoadValidationRoom(0, 0x38);

@@ -52,16 +52,16 @@ public partial class ValidationRoot
             _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
             _currentRoom.SetPositionTileAndCollision(new(24,56), bombable ? (byte)0xc1 : (byte)0x3a, 0x0f, 0);
             for (int i = 0; i < 14 - free; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(104,104),0));
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(104,104),SoundId.MusNone));
             _sound.ClearPlayRequestAudit();
             _combat.ApplySwordTileHit(_player, 0, swordPoke: true);
             FailIf(_entities.Entities<ClinkEffect>().Count != free ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != (bombable ? 1 : 0),
+                _sound.PlayRequestsFor(SoundId.SndClink) != 0 ||
+                _sound.PlayRequestsFor(SoundId.SndClink2) != (bombable ? 1 : 0),
                 "Sword-wall allocation must skip a full pool; only bombable sound precedes allocation.");
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batch);
             Step(1);
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndClink) != (bombable ? 0 : free),
+            FailIf(_sound.PlayRequestsFor(SoundId.SndClink) != (bombable ? 0 : free),
                 "Ordinary wall sound requires successful allocation and a later state0 update.");
             Step(21);
             FailIf(_entities.Entities<ClinkEffect>().Count != 0,

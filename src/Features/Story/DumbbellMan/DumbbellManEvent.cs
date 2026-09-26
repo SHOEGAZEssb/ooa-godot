@@ -74,7 +74,7 @@ internal sealed class DumbbellManEvent :
             throw new InvalidOperationException(
                 $"dumbbellManScript cannot compare trade item ${value:x2}.");
         }
-        return Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        return Context.Inventory.HasTreasure(TreasureId.TradeItem) &&
             Context.Inventory.TradeItem == value;
     }
 

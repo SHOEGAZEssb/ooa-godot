@@ -24,9 +24,9 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     internal int StunCounter => _stunCounter;
     internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
     internal bool BurnKilled { get; private set; }
-    internal bool IsDarknut => Record.Id == 0x48;
-    internal int CollisionMode => SwordBlocking ? (IsDarknut ? 0x56 : 0x55)
-        : IsDarknut ? 0x20 : 0x11;
+    internal bool IsDarknut => Record.Id == EnemyId.SwordDarknut;
+    internal int CollisionMode => SwordBlocking ? (IsDarknut ? EnemyCollisionMode.DarknutBlockedWithSword : EnemyCollisionMode.StalfosBlockedWithSword)
+        : IsDarknut ? EnemyCollisionMode.Darknut : EnemyCollisionMode.BurnableEnemy;
     private int ChaseSpeed => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[0].Value : _behavior.ChaseSpeedRaw;
     private int TurnIntervalMask => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[1].Value : _behavior.TurnIntervalMask;
     internal int SwitchHookSubstate { get; private set; }
@@ -44,7 +44,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     {
         get
         {
-            int direction = ((_angle + 4) & 0x18) >> 3;
+            int direction = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
             int frame = AnimationParameter & 1;
             var offsets = EnemyBehaviorTables.Shared.EnemySwordOffsets;
             int index = direction * 4 + frame * 2;
@@ -57,7 +57,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     {
         get
         {
-            int direction = ((_angle + 4) & 0x18) >> 3;
+            int direction = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
             var radii = EnemyBehaviorTables.Shared.EnemySwordRadii;
             int index = (direction & 1) * 2;
             Vector2 radius = new(radii[index + 1].Value, radii[index].Value);
@@ -137,7 +137,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
         {
             _state = SwordEnemyState.Wandering;
             _speedRaw = _behavior.WanderSpeedRaw;
-            _angle = (_angle + 4) & 0x18;
+            _angle = (_angle + 4) & ObjectAngle.CardinalMask;
             _counter2 = _behavior.CooldownFrames[
                 Record.SubId];
             SetDirectionalAnimation();
@@ -214,7 +214,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
                 {
                     _state = SwordEnemyState.Wandering;
                     _speedRaw = _behavior.WanderSpeedRaw;
-                    _angle = (_angle + 4) & 0x18;
+                    _angle = (_angle + 4) & ObjectAngle.CardinalMask;
                     _counter2 = _behavior.CooldownFrames[
                         Record.SubId];
                     SetDirectionalAnimation();
@@ -259,7 +259,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
         _angle = (result.Low &
             _behavior.TowardLinkMask) == 0
             ? (OracleObjectMovement.Shared.RelativeAngle(
-                Position, linkPosition) + 4) & 0x18
+                Position, linkPosition) + 4) & ObjectAngle.CardinalMask
             : _random.NextCardinalAngle();
         SetDirectionalAnimation();
     }
@@ -273,7 +273,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
         {
             int difference = (index - AnimationIndex) & 0xff;
             if (difference == 7 || ((difference - 3) & 0xff) < 2) return;
-            index = ((_angle + 4) & 0x18) >> 3;
+            index = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
         }
         SetAnimation(index);
     }
@@ -311,7 +311,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
     public void BeginSwitchHook(Vector2 linkPosition)
     {
         KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
         _state = SwordEnemyState.SwitchHook;
         SwitchHookSubstate = 0;
     }
@@ -362,12 +362,12 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
 
     private static int NudgeAngle(int angle, int target)
     {
-        int clockwise = (target - angle) & 0x1f;
+        int clockwise = (target - angle) & ObjectAngle.Mask;
         if (clockwise == 0)
             return angle;
         return clockwise <= 0x10
-            ? (angle + 1) & 0x1f
-            : (angle - 1) & 0x1f;
+            ? (angle + 1) & ObjectAngle.Mask
+            : (angle - 1) & ObjectAngle.Mask;
     }
 }
 

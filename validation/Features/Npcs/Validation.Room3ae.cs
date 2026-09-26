@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         HarpOfAgesEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -42,10 +42,10 @@ public sealed partial class ValidationRoot
             if (_dialogue.IsOpen)
                 _dialogue.Close();
             SetTreasure(
-                _saveData, TreasureDatabase.TreasureHarp, value: false);
+                _saveData, TreasureId.Harp, value: false);
             SetTreasure(
                 _saveData,
-                TreasureDatabase.TreasureTuneOfEchoes,
+                TreasureId.TuneOfEchoes,
                 value: false);
             reloadInventory.Invoke(_inventory, null);
 
@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
                 harp.Position != new Vector2(record.HarpX, record.HarpY) ||
                 harp.PixelHash == 0 ||
                 sparkle.Record is not
-                    { Id: 0x84, SubId: 0x0c, DefaultAnimation: 0 } ||
+                    { Id: InteractionId.Sparkle, SubId: 0x0c, DefaultAnimation: 0 } ||
                 sparkle.Position != harp.Position ||
                 sparkle.Record.DownAnimation != sparkleVisual.Animation0 ||
                 sparkleVisual.SourceOffset != 0x1c00 ||
@@ -141,7 +141,7 @@ public sealed partial class ValidationRoot
                 harpEvent.Stage != HarpOfAgesEventStage.AwaitingTextOpen ||
                 !_player.CutsceneControlled ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndCtrlStopMusic) != 1,
+                    SoundId.SndCtrlStopMusic) != 1,
                 "Harp state 1 did not lift the reward, keep the sparkle " +
                 "attached, stop music, and disable Link on the following update.");
             InitializeGetItemStateForValidation();
@@ -211,7 +211,7 @@ public sealed partial class ValidationRoot
                 harpEvent.Stage != HarpOfAgesEventStage.NayruFlicker ||
                 harpEvent.StageCounter != record.NayruFlicker ||
                 nayru.Record is not
-                    { Id: 0x36, SubId: 0x07 } ||
+                    { Id: InteractionId.Nayru, SubId: 0x07 } ||
                 nayru.Position !=
                     new Vector2(record.SpawnerX, record.SpawnerY) ||
                 nayru.SourceGraphicsWidth != 256 ||
@@ -383,8 +383,8 @@ public sealed partial class ValidationRoot
                 echoReward.Record.TreasureObject != record.EchoesObject ||
                 echoReward.Record is not
                 {
-                    SpawnMode: 0,
-                    GrabMode: 2,
+                    SpawnMode: TreasureSpawnMode.Instant,
+                    GrabMode: TreasureGrabMode.TwoHands,
                     InventoryWrite:
                         GroundTreasureInventoryWrite.TreasureObject,
                     RoomFlagTiming:
@@ -405,7 +405,7 @@ public sealed partial class ValidationRoot
                     DialogueBox.PlainText(echoObject.Message) ||
                 _dialogue.TextboxFlagsForValidation != record.TextboxFlags ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndGetItem) != 1,
+                    SoundId.SndGetItem) != 1,
                 "giveitem TREASURE_TUNE_OF_ECHOES $00 did not use the " +
                 "two-hand reward lifecycle, TX_0072, inventory bit, and " +
                 "single explicit SND_GETITEM.");
@@ -493,7 +493,7 @@ public sealed partial class ValidationRoot
             _roomEvents.CommandTraceSink = null;
             if (_dialogue.IsOpen)
                 _dialogue.Close();
-            _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+            _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
             _saveData.CommitInventoryChange();
             reloadInventory.Invoke(_inventory, null);
             RestoreRoomFlags(originalRoomFlags);

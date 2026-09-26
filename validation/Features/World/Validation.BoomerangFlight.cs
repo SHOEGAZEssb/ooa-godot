@@ -44,7 +44,7 @@ public partial class ValidationRoot
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 _player.WarpTo(new(40, 80));
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(56.25f, 80.5f), 8));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(56.25f, 80.5f), ObjectAngle.Right));
                 var adapter = _entities.EntityAdapters<BoomerangRoomEntity>().Single();
                 FailIf(_entities.DynamicItemSlotOf(adapter) != 0xd7 || item.Visible || item.CollisionEnabled,
                     "An uninitialized boomerang reserves native dynamic slot$d7 without showing or colliding.");
@@ -57,7 +57,7 @@ public partial class ValidationRoot
                 // are update numbers AFTER initialization, with Link(40,80).
                 Step(39);
                 FailIf(item.State != 1 || item.Counter != 1 || item.PrecisePosition != new Vector2(119.625f, 80.5f) ||
-                    _sound.PlayRequestsFor(0x78) != 5,
+                    _sound.PlayRequestsFor(SoundId.SndBoomerang) != 5,
                     "39 outward updates must retain state1/counter1 and signal sound on updates7/15/23/31/39.");
                 Step();
                 FailIf(item.State != 2 || item.Counter != 0 || item.Angle != 24 || item.PrecisePosition.X != 118,
@@ -87,8 +87,8 @@ public partial class ValidationRoot
                 Room();
                 _currentRoom.SetPositionTileAndCollision(new(104, 88), 0x2e, 0x0f, 0);
                 if (full)
-                    for (int i = 0; i < 14; i++) _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), 0));
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(95.5f, 80.5f), 8, -5));
+                    for (int i = 0; i < 14; i++) _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(95.5f, 80.5f), ObjectAngle.Right, -5));
                 _sound.ClearPlayRequestAudit();
                 Step(2);
                 FailIf(item.State != 1 || item.PrecisePosition.X != 97.125f || _entities.Entities<ClinkEffect>().Count != 0,
@@ -96,7 +96,7 @@ public partial class ValidationRoot
                 Step();
                 var clinks = _entities.Entities<ClinkEffect>();
                 FailIf(item.State != 2 || item.Angle != 24 || item.PrecisePosition.X != 95.5f ||
-                    clinks.Count != (full ? 0 : 1) || _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != (full ? 0 : 1),
+                    clinks.Count != (full ? 0 : 1) || _sound.PlayRequestsFor(SoundId.SndClink) != (full ? 0 : 1),
                     "Wall contact must reverse immediately; checked clink allocation controls sound without blocking return.");
                 if (!full) FailIf(clinks[0].Position != new Vector2(97, 80) || clinks[0].ZHigh != -5 ||
                     clinks[0].ElapsedFrames != 1 || clinks[0].Flickers,
@@ -115,7 +115,7 @@ public partial class ValidationRoot
                 {
                     if (dialogue) _entities.TextActiveSource = () => true;
                     else _entities.NonInteractionObjectsDisabledSource = () => true;
-                    var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(80.25f, 80.5f), 8));
+                    var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(80.25f, 80.5f), ObjectAngle.Right));
                     Step(4);
                     FailIf(item.State != 1 || item.Counter != 40 || item.PrecisePosition.X != 80.25f,
                         "Restricted item dispatch must initialize state0 once, then freeze flight.");

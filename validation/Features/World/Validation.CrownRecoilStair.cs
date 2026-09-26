@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             FailIf(!_player.ApplyEnemyContactDamage(_player.Position + new Vector2(0, 12),
                 lethal ? _player.HealthQuarters : 1),
                 "The isolated collision result must begin northward recoil.");
-            _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, warpDisabled ? (byte)1 : (byte)0);
+            _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, warpDisabled ? (byte)1 : (byte)0);
             bool observedRecoil = false;
             var observer = new ItemPhaseValidationEntity(() =>
             {
@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
             FailIf(IsTransitioning || _player.Position.Y != 26,
                 "The first three SPEED_140 recoil updates must remain outside the stair bound.");
@@ -47,11 +47,11 @@ public sealed partial class ValidationRoot
                 $"Grounded recoil must select the stair at its first accepted position and respect wWarpsDisabled (lethal={lethal}).");
             if (warpDisabled)
             {
-                _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
+                _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
                 StepGameplayUpdates(1, Vector2.Zero);
             }
             FailIf(!IsTransitioning || _transitions.AwaitingLinkWarpState ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds + 1,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds + 1,
                 "Dungeon floor fallback must dispatch its direct fade even during lethal recoil.");
             if (lethal)
                 ValidateDeathFloorStair(batched);
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, room);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 1);
+            _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 1);
             _player.WarpTo(new(120, 40));
             StepGameplayUpdates(15, Vector2.Up, batched: batched);
             FailIf(_player.Position != new Vector2(120, 25) || IsTransitioning,
@@ -73,8 +73,8 @@ public sealed partial class ValidationRoot
             FailIf(!_player.ApplyDamage(_player.HealthQuarters), "The isolated damage result must be lethal.");
             StepGameplayUpdates(10, Vector2.Zero, batched: batched);
             FailIf(!_player.DeathAnimationActive, "Death must be spinning before releasing the warp gate.");
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
-            _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
+            _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(!IsTransitioning || _transitions.AwaitingLinkWarpState != (room == 0xa3),
                 "An active death spin must distinguish the explicit warp request from the floor fallback's direct fade.");
@@ -97,15 +97,15 @@ public sealed partial class ValidationRoot
         typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [enemy, 0]);
         typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [enemy]);
         typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [interaction]);
-        var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), 0));
+        var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
         var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new(200, 104)));
         int dropZ = drop.ZFixed, dropSpeed = drop.SpeedZ, dropCounter = drop.Counter;
         // updateItems still initializes state0 under mask$1e, then freezes
         // state1. ITEM$06 has a nil post handler, so clearing Link's parent
         // does not delete or advance the independent child here.
         Vector2 boomerangStart = new(200.25f, 104.5f);
-        var boomerang = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(boomerangStart, 8));
-        int slowFades = _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut);
+        var boomerang = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(boomerangStart, ObjectAngle.Right));
+        int slowFades = _sound.PlayRequestsFor(SoundId.SndCtrlSlowFadeOut);
         int gameOverRequests = 0;
         void ObserveGameOver() => gameOverRequests++;
         _player.GameOverRequested += ObserveGameOver;
@@ -122,13 +122,13 @@ public sealed partial class ValidationRoot
             FailIf(_currentRoom.Id != 0xa3 || !_transitions.AwaitingLinkWarpState ||
                 !_player.DeathAnimationActive || gameOverRequests != 0 ||
                 boomerang.Finished || boomerang.Counter != 40 || boomerang.PrecisePosition != boomerangStart ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != entranceSounds,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != entranceSounds,
                 "Pending lethal warp must stay in the source room while its death animation advances.");
             for (int update = 0; update < 200 && gameOverRequests == 0; update++)
                 StepGameplayUpdates(1, Vector2.Zero);
             FailIf(gameOverRequests != 1 || _currentRoom.Id != 0xa3 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != slowFades ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != entranceSounds,
+                _sound.PlayRequestsFor(SoundId.SndCtrlSlowFadeOut) != slowFades ||
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != entranceSounds,
                 "Death must reach game over in the source room without starting the selected stair warp.");
         }
         finally
@@ -141,8 +141,8 @@ public sealed partial class ValidationRoot
     {
         // bank4.findWarpSourceAndDest @warpSourceNotFound writes transition2
         // directly, unlike an explicit warp. cutscene03 then owns the fade.
-        int deadSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLinkDead);
-        int slowFades = _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut);
+        int deadSounds = _sound.PlayRequestsFor(SoundId.SndLinkDead);
+        int slowFades = _sound.PlayRequestsFor(SoundId.SndCtrlSlowFadeOut);
         Vector2 departure = _player.Position;
         float recoil = _player.KnockbackFrames;
         bool spinning = _player.DeathAnimationActive;
@@ -164,8 +164,8 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!_player.DeathAnimationActive || _player.DeathAnimationFrame != 2 ||
             _player.DeathAnimationCounter != 8 || _player.DeathSpinLoopsRemaining != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkDead) != deadSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != slowFades,
+            _sound.PlayRequestsFor(SoundId.SndLinkDead) != deadSounds + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlSlowFadeOut) != slowFades,
             "Death must start from its initial frame after arrival without replaying the global slow fade.");
     }
 }

@@ -44,7 +44,7 @@ public partial class PushBlockController : Node2D
 
     public bool Active => _active;
     internal byte ActiveTile { get; private set; }
-    internal int PushAngle => _rooms.BlockPushAngle & 0x1f;
+    internal int PushAngle => _rooms.BlockPushAngle & ObjectAngle.Mask;
     internal bool NativeInitialized => _active && _pendingPosition < 0;
     internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
@@ -98,7 +98,7 @@ public partial class PushBlockController : Node2D
         // miss, leaving the freshly allocated var32..var34 bytes zero. A
         // pending state0 can observe a tile changed since its allocation.
         _tiles.TryGet(_rooms.CurrentRoom.ActiveCollisions,tile,out var record);
-        Vector2I direction = (angle & 0x1f) switch {
+        Vector2I direction = (angle & ObjectAngle.Mask) switch {
             0 => Vector2I.Up, 8 => Vector2I.Right, 16 => Vector2I.Down, 24 => Vector2I.Left,
             _ => throw new NotSupportedException($"INTERAC $14: unsupported push angle ${angle:x2}.") };
         StartMovement(topLeft,tile,direction,record,braceletLevel,dispatchSomaria: false);
@@ -112,7 +112,7 @@ public partial class PushBlockController : Node2D
     {
         // nextToPushableBlock returns before touching the shared counter
         // underwater. ITEM$18 dispatch precedes reserved INTERAC_PUSHBLOCK.
-        if ((_rooms.CurrentRoom.TilesetFlags & 0x40) != 0)
+        if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
             return;
         if (_active && !_tiles.TryGetSomaria(_rooms.CurrentRoom.ActiveCollisions,
             _rooms.CurrentRoom.GetMetatile(linkPosition+InteractableTilePushGeometry.FrontTileOffset(facing)),out _))
@@ -325,7 +325,7 @@ public partial class PushBlockController : Node2D
             : record.SourceReplacement;
         _rooms.TrySetTile((byte)room.GetPackedPosition(topLeft + Vector2.One * 8),replacement);
         _roomView.QueueRedraw();
-        _playSound(OracleSoundEngine.SndMoveBlock);
+        _playSound(SoundId.SndMoveBlock);
         QueueRedraw();
     }
 
@@ -373,7 +373,7 @@ public partial class PushBlockController : Node2D
             _roomView.QueueRedraw();
         }
         if (hazard == HazardType.None && _record.PlaysSecretSound)
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
+            _playSound(SoundId.SndSolvePuzzle);
         Cancel();
     }
 

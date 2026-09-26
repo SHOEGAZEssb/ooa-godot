@@ -13,12 +13,12 @@ public sealed partial class ValidationRoot
         var trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         _saveData.SetRoomFlag(3, 0x8f, 0x40, false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
+        _inventory.GiveTreasure(TreasureId.Harp, 0);
+        _inventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
         _inventory.SelectHarpSong(1);
         LoadValidationRoom(3, 0x8f);
         NpcCharacter Actor() => _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x9d);
-        byte Signal() => _entities.RuntimeState.ReadWramByte(0xcfc0);
+        byte Signal() => _entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0);
         void StepRoomEventFrames(int frames)
         {
             for (int frame = 0; frame < frames; frame++)
@@ -183,7 +183,7 @@ public sealed partial class ValidationRoot
         bool reachedLesson = false;
         int songUpdates = 0;
         bool wasSong = false;
-        for (int update = 0; update < 4000 && !_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfCurrents); update++)
+        for (int update = 0; update < 4000 && !_inventory.HasTreasure(TreasureId.TuneOfCurrents); update++)
         {
             states.Add(tokkey.State);
             int sourceState = tokkey.State;
@@ -195,7 +195,7 @@ public sealed partial class ValidationRoot
             FailIf(_entities.RandomCalls != randomCalls + expectedRandomCalls,
                 $"Tokkey state ${sourceState:x2} consumed the wrong shared RNG count on frame ${_entities.FrameCounter:x2}.");
             if (_player.HarpPoseActive && !_player.IsUsingHarp) { songUpdates++; wasSong = true; }
-            if (_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfCurrents)) break;
+            if (_inventory.HasTreasure(TreasureId.TuneOfCurrents)) break;
             if (!_dialogue.IsOpen) continue;
             ExpectText(0x2c03);
             FailIf(!_dialogue.CurrentMessage.EndsWith("you'll return to\nthe past.", StringComparison.Ordinal) ||
@@ -209,7 +209,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
         }
         FailIf(!reachedLesson || !states.SetEquals(new[] { 2, 3, 4 }) || !wasSong || songUpdates != 209 ||
-            !_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfCurrents) || (Signal() & 0x80) == 0,
+            !_inventory.HasTreasure(TreasureId.TuneOfCurrents) || (Signal() & 0x80) == 0,
             $"Tokkey failed the full dance/response/reward: states={string.Join(',', states)}, song={songUpdates}, command={tokkey.CommandIndex}.");
         FailIf(_saveData.HasRoomFlag(3, 0x8f, 0x40),
             "Tokkey committed room flag $40 before the Tune of Currents reward dialogue completed.");
@@ -222,7 +222,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) || restored is null ||
             !restored.HasRoomFlag(3, 0x8f, 0x40) ||
-            !new InventoryState(_treasures, restored).HasTreasure(TreasureDatabase.TreasureTuneOfCurrents),
+            !new InventoryState(_treasures, restored).HasTreasure(TreasureId.TuneOfCurrents),
             "Tokkey's Tune of Currents and completion flag did not survive save serialization.");
         LoadValidationRoom(0, 0x56);
         LoadValidationRoom(3, 0x8f);

@@ -20,13 +20,13 @@ public sealed partial class ValidationRoot
 
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         manager.LoadRoom(1, rooms.CurrentRoom);
 
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x82,
-                Id: 0x44,
+                Id: InteractionId.MiscMan2,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x1620,
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x82,
-                Id: 0x3f,
+                Id: InteractionId.Boy2,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x2910,
@@ -184,7 +184,7 @@ public sealed partial class ValidationRoot
         interactions.Update(frame, _player);
 
         SetEssences(0xff);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
         FailIf(
             !hobo.Active ||
@@ -193,7 +193,7 @@ public sealed partial class ValidationRoot
             boy.TextId != 0x2910,
             "Unrelated essence, global, or room flags changed room 1:82.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             !hobo.Active ||
             !hobo.Visible ||
@@ -222,7 +222,7 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         FailIf(
             !hobo.Active ||
             hobo.TextId != 0x1620 ||
@@ -230,7 +230,7 @@ public sealed partial class ValidationRoot
             boy.TextId != 0x2910,
             "Clearing GLOBALFLAG_0b did not restore room 1:82's first phase.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             hobo.Active ||
             hobo.Visible ||
@@ -240,7 +240,7 @@ public sealed partial class ValidationRoot
             manager.BlocksLink(boy.Position),
             "GLOBALFLAG_FINISHEDGAME did not delete both room 1:82 NPCs.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         FailIf(
             !hobo.Active ||
@@ -256,7 +256,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x92,
-                Id: 0x43,
+                Id: InteractionId.PastGuy,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x1710,
@@ -306,7 +306,7 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             pastGuy.Active ||
             pastGuy.Visible ||
@@ -317,14 +317,14 @@ public sealed partial class ValidationRoot
             "GLOBALFLAG_0b did not live-delete room 1:92's var03-$00 " +
             "past guy while selecting immutable-base TX_1711.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         FailIf(
             !pastGuy.Active ||
             !pastGuy.Visible ||
             pastGuy.TextId != 0x1710,
             "Clearing GLOBALFLAG_0b did not restore room 1:92 TX_1710.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         manager.LoadRoom(1, _world.LoadRoom(1, 0x92));
         pastGuy = manager.Entities<NpcCharacter>().Single();
         FailIf(

@@ -126,7 +126,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
 
     private void Nudge(int target)
     {
-        if (Angle != target) Angle = (Angle + (((Angle - target) & 0x1f) < 0x10 ? -1 : 1)) & 0x1f;
+        if (Angle != target) Angle = (Angle + (((Angle - target) & ObjectAngle.Mask) < 0x10 ? -1 : 1)) & ObjectAngle.Mask;
     }
 
     private bool Within(Vector2 link, int radius) =>

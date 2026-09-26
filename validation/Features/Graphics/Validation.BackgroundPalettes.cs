@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (bool placed in new[] { false, true })
         for (int visit = 0; visit < 2; visit++)
         {
-            _saveData.SetGlobalFlag(0x29, placed);
+            _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, placed);
             LoadValidationRoom(5, 0xf6);
             _player.WarpTo(new Vector2(0x78, _currentRoom.Height + 2));
             CheckRoomExit(_player);
@@ -46,8 +46,8 @@ public sealed partial class ValidationRoot
         }
 
         // Cancellation within the same room must still undo active darkening.
-        _saveData.SetGlobalFlag(0x29, false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 2);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, false);
+        _inventory.GiveTreasure(TreasureId.TuniNut, 2);
         LoadValidationRoom(5, 0xf6);
         _player.WarpTo(new Vector2(0x78, 0x30));
         StepRoomEventFrames(3);

@@ -38,7 +38,7 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (_active || !npc.Active || npc.Record is not { Id: 0x48, SubId: 0x1e })
+        if (_active || !npc.Active || npc.Record is not { Id: InteractionId.Tokay, SubId: 0x1e })
             return false;
         _actor = (TokayCharacter)npc;
 
@@ -50,7 +50,7 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
             return false;
         _context.Player.BeginCutsceneControl(owner: this);
         int angle = OracleObjectMovement.Shared.RelativeAngle(_actor.Position, _context.Player.Position);
-        Vector2 facing = OracleObjectMath.StrictCardinalVector((angle + 4) & 0x18);
+        Vector2 facing = OracleObjectMath.StrictCardinalVector((angle + 4) & ObjectAngle.CardinalMask);
         _actor.SetFacingDirection(new Vector2I((int)facing.X, (int)facing.Y));
         if (!explained)
         {

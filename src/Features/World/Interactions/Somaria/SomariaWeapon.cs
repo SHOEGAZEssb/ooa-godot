@@ -42,7 +42,7 @@ internal sealed partial class SomariaWeapon : TransitionOffsetNode2D
         transferKnockback();
         if(State==0)
         {
-            State=1; _visual.SetAnimation(0); sound(OracleSoundEngine.SndSwordSlash); Visible=true;
+            State=1; _visual.SetAnimation(0); sound(SoundId.SndSwordSlash); Visible=true;
         }
         else if(State==1 && parentParameter==_placement.CreateParameter)
         {

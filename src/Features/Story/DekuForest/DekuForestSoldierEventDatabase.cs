@@ -139,7 +139,7 @@ internal sealed class DekuForestSoldierEventDatabase
             {
                 Group: 1,
                 Room: 0x81,
-                InteractionId: 0x40,
+                InteractionId: InteractionId.Soldier,
                 SubId: 0x0a,
                 TriggerTreasure: 0x24,
                 RoomFlag: OracleSaveData.RoomFlag40,
@@ -157,13 +157,13 @@ internal sealed class DekuForestSoldierEventDatabase
                 EffectY: -13,
                 EffectX: 0,
                 EffectFrames: 0x28,
-                ClinkSound: OracleSoundEngine.SndClink,
+                ClinkSound: SoundId.SndClink,
                 DestinationGroup: 1,
                 DestinationRoom: 0x46,
                 DestinationPosition: 0x34,
                 DestinationParameter: 0,
                 SourceTransition: 0,
-                DestinationTransition: 3,
+                DestinationTransition: WarpDestinationTransition.EnterScreen,
                 TextId: 0x590b
             } ||
             string.IsNullOrEmpty(Record.Animation0) ||
@@ -188,7 +188,7 @@ internal sealed class DekuForestSoldierEventDatabase
             Commands[7] is not CutsceneMoveCommand
             {
                 Actor: "Soldier",
-                Angle: 0x08,
+                Angle: ObjectAngle.Right,
                 Counter: 0x4b,
                 EncodedAnimation: var rightAnimation
             } ||
@@ -211,7 +211,7 @@ internal sealed class DekuForestSoldierEventDatabase
             Commands[14] is not CutsceneMoveCommand
             {
                 Actor: "Soldier",
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Counter: 0x1e,
                 EncodedAnimation: var moveUpAnimation
             } ||

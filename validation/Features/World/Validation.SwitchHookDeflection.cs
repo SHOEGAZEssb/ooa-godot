@@ -13,8 +13,8 @@ public sealed partial class ValidationRoot
         var pending = typeof(SwitchHookItem).GetField("_objectCollisionPending", flags)!;
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
 
         bool isolateTarget = true;

@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
                 var fillers = Enumerable.Range(0, 16 - free).Select(_ =>
                     _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new(216, 152)))).ToArray();
                 for (int offset = 0; offset < 0x40; offset++) _runtimeState.SetWramByte(0xc0c0 + offset, 0x66);
-                FailIf(!_entities.TrySpawnEnemy(0x4b, 0, new(120, 88), "Isolated Crown PART allocation", out string error), error);
+                FailIf(!_entities.TrySpawnEnemy(EnemyId.BallAndChainSoldier, 0, new(120, 88), "Isolated Crown PART allocation", out string error), error);
                 var soldier = _entities.Entities<BallChainSoldierCharacter>().Single();
                 int randomCalls = _entities.RandomCalls;
                 Step();

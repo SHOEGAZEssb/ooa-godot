@@ -55,7 +55,7 @@ internal struct CompanionHazard
             setAnimation(water ? waterAnimation : holeAnimation);
             if (!water)
             {
-                playSound(OracleSoundEngine.SndLinkFall);
+                playSound(SoundId.SndLinkFall);
                 return false;
             }
         }

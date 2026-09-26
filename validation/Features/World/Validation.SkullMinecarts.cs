@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
         AssertInitialBuffer();
         _dialogue.Close();
 
-        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         // The room transitions/endpoints follow dungeon04Layout and the native
         // track bytes, not the runtime's track routing table.
         var cases = new[] {

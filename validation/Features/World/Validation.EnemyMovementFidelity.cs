@@ -26,14 +26,14 @@ public sealed partial class ValidationRoot
         // commonCode.s slides by signed $0060, setting hFF8D only below
         // SPEED_140 ($32). Both cumulative probe tables use these same bits.
         Vector2 center = new(64.5f, 64.5f);
-        Check("upper right probe, slow", center, 0x2d, 0x08, 2, center + new Vector2(0, 0.375f), true);
-        Check("upper right probe, charge", center, 0x32, 0x08, 2, center + new Vector2(0, 0.375f), false);
-        Check("lower right probe, charge", center, 0x32, 0x08, 1, center + new Vector2(0, -0.375f), false);
-        Check("left upward probe, charge", center, 0x32, 0x00, 8, center + new Vector2(0.375f, 0), false);
-        Check("right upward probe, charge", center, 0x32, 0x00, 4, center + new Vector2(-0.375f, 0), false);
+        Check("upper right probe, slow", center, 0x2d, ObjectAngle.Right, 2, center + new Vector2(0, 0.375f), true);
+        Check("upper right probe, charge", center, 0x32, ObjectAngle.Right, 2, center + new Vector2(0, 0.375f), false);
+        Check("lower right probe, charge", center, 0x32, ObjectAngle.Right, 1, center + new Vector2(0, -0.375f), false);
+        Check("left upward probe, charge", center, 0x32, ObjectAngle.Up, 8, center + new Vector2(0.375f, 0), false);
+        Check("right upward probe, charge", center, 0x32, ObjectAngle.Up, 4, center + new Vector2(-0.375f, 0), false);
         Check("two slides, charge", center, 0x32, 0x0c, 9, center + new Vector2(0.375f, -0.375f), false);
         Check("two slides, slow", center, 0x2d, 0x0c, 9, center + new Vector2(0.375f, -0.375f), true);
-        Check("full wall", center, 0x32, 0x08, 3, center, false);
+        Check("full wall", center, 0x32, ObjectAngle.Right, 3, center, false);
 
         // bank3.objectSpeedTable gives +/-$16 at SPEED_20, angle $04/$0c,
         // and +/-$3e for X at SPEED_140, angle $01/$1f. A negative low byte
@@ -44,8 +44,8 @@ public sealed partial class ValidationRoot
         Check("small positive component with carry", new(64.5f, 64.96875f), 0x05, 0x0c, 3, new(64.5f, 65.0546875f), true);
         Check("charge component below $60", center, 0x32, 0x01, 0x0c, center + new Vector2(62 / 256.0f, 0), false);
         Check("negative charge component", center, 0x32, 0x1f, 0x0c, center + new Vector2(-62 / 256.0f, 0), true);
-        Check("X word overflow", new(255.875f, 64.5f), 0x0a, 0x08, 0, new(0.125f, 64.5f), true);
-        Check("Y word underflow", new(64.5f, 0), 0x05, 0x00, 0, new(64.5f, 255.875f), true);
+        Check("X word overflow", new(255.875f, 64.5f), 0x0a, ObjectAngle.Right, 0, new(0.125f, 64.5f), true);
+        Check("Y word underflow", new(64.5f, 0), 0x05, ObjectAngle.Up, 0, new(64.5f, 255.875f), true);
         var memory = new OracleRuntimeState();
         node.BindMovementMemory(memory);
         for (int repeat = 0; repeat < 2; repeat++)
@@ -63,14 +63,14 @@ public sealed partial class ValidationRoot
                 for (int offset = 0; offset < 5; offset++) memory.SetWramByte(0xcec0 + offset, 0xa5);
                 // Pure lookup is also used by geometry/rendering. It must not
                 // publish a native getPositionOffsetForVelocity execution.
-                OracleObjectMovement.Shared.Velocity(0x28, 0);
-                FailIf(memory.ReadWramByte(0xcec0) != 0xa5,
+                OracleObjectMovement.Shared.Velocity(0x28, ObjectAngle.Up);
+                FailIf(memory.ReadWramByte(WramAddress.wTmpcec0) != 0xa5,
                     "A geometry-only velocity lookup must not overwrite live scratch.");
                 Vector2 before = node.Position;
                 movement.MoveGivenAdjacentWalls(sample.Angle, sample.Speed,
                     new EnemyAdjacentWallProbe(0x0f, true, true));
                 FailIf(node.Position != before ||
-                    memory.ReadWramByte(0xcec0) != (sample.Y & 0xff) ||
+                    memory.ReadWramByte(WramAddress.wTmpcec0) != (sample.Y & 0xff) ||
                     memory.ReadWramByte(0xcec1) != (sample.Y >> 8) ||
                     memory.ReadWramByte(0xcec2) != (sample.X & 0xff) ||
                     memory.ReadWramByte(0xcec3) != (sample.X >> 8) ||
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
         })
         {
             Vector2I offset = node.MovementCircleArcOffset(255, sample.Angle);
-            FailIf(offset != sample.Offset || memory.ReadWramByte(0xcec0) != (sample.Y & 255) ||
+            FailIf(offset != sample.Offset || memory.ReadWramByte(WramAddress.wTmpcec0) != (sample.Y & 255) ||
                 memory.ReadWramByte(0xcec1) != (sample.Y >> 8) || memory.ReadWramByte(0xcec2) != (sample.X & 255) ||
                 memory.ReadWramByte(0xcec3) != (sample.X >> 8) || memory.ReadWramByte(0xcec4) != 0xa5,
                 "Scaled circle movement must publish wrapping words and return their signed high bytes.");

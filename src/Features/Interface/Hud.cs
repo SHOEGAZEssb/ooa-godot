@@ -89,7 +89,7 @@ public partial class Hud : Node2D
     {
         if (_treasures is null || _inventory is null)
             return;
-        if (EquippedB == InventoryState.ItemBiggoronSword)
+        if (EquippedB == TreasureId.BiggoronSword)
         {
             StatusBarLayout.DrawBiggoronSword(this, output: output);
             return;
@@ -102,10 +102,10 @@ public partial class Hud : Node2D
             _treasures.GetButtonDisplay(EquippedA, _inventory);
         DrawItemIcon(
             equippedB,
-            new Vector2(EquippedB == InventoryState.ItemHarp ? 16 : 8, 0), output);
+            new Vector2(EquippedB == TreasureId.Harp ? 16 : 8, 0), output);
         DrawItemIcon(
             equippedA,
-            new Vector2((EquippedA == InventoryState.ItemHarp ? 56 : 48) +
+            new Vector2((EquippedA == TreasureId.Harp ? 56 : 48) +
                 8 * StatusBarLayout.ExtraHeartOffset(MaxHealthQuarters), 0), output);
         // drawTreasureExtraTiles writes attribute $80. Nonzero BG pixels
         // therefore have priority over the overlapping equipped-item OAM.
@@ -338,7 +338,7 @@ public partial class Hud : Node2D
     }
 
     internal bool DungeonKeyDisplayActive =>
-        DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x10) == 0;
+        DungeonIndex is >= 0 and < 16 && (TilesetFlags & (int)oracleofages.TilesetFlags.LargeIndoors) == 0;
     internal bool StatusBarHidden => _statusBarHidden;
     internal float HiddenStatusBarFadeAlphaForValidation =>
         _hiddenStatusBarFade.A;

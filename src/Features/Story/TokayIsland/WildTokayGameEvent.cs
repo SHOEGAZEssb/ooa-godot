@@ -68,7 +68,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         if (group == _database.PastGameGroup &&
             room.Id == _database.PastGameRoom &&
             FindActor(0x48, 0x0d) is { Active: true } &&
-            Context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet))
+            Context.Inventory.HasTreasure(TreasureId.Bracelet))
         {
             PreparePrize();
         }
@@ -76,7 +76,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (HasState || !npc.Active || npc.Record.Id != 0x48)
+        if (HasState || !npc.Active || npc.Record.Id != InteractionId.Tokay)
             return false;
 
         switch (npc.Record.SubId)
@@ -163,7 +163,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
 
     private void BeginPastManager()
     {
-        if (!Context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet))
+        if (!Context.Inventory.HasTreasure(TreasureId.Bracelet))
         {
             ShowDialogueOnly(0x0a1c);
             return;
@@ -309,7 +309,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
                 BeginGameFade();
                 break;
             case WildTokayGameStage.FadeIn:
-                Context.Sound.PlaySound(OracleSoundEngine.MusMinigame);
+                Context.Sound.PlaySound(SoundId.MusMinigame);
                 BeginFade(WildTokayGameStage.FadeIn);
                 break;
             case WildTokayGameStage.StartText:
@@ -440,7 +440,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         _savedEquippedA = Context.Inventory.EquippedA;
         _savedEquippedB = Context.Inventory.EquippedB;
         Context.Inventory.SetScriptedEquippedItems(
-            InventoryState.ItemNone, InventoryState.ItemBracelet);
+            TreasureId.None, TreasureId.Bracelet);
         _inventoryOverridden = true;
         Context.Player.SetScriptedCoordinateHigh(
             horizontal: false, coordinate: _database.GameLinkY);
@@ -452,7 +452,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         _meats.Clear();
         foreach (NpcCharacter statue in Context.Entities.Entities<NpcCharacter>())
         {
-            if (_present && statue.Record is { Id: 0x48, SubId: >= 0x1a and <= 0x1c })
+            if (_present && statue.Record is { Id: InteractionId.Tokay, SubId: >= 0x1a and <= 0x1c })
                 statue.SetActive(false);
         }
         EventResources.LockInput(onlyIfUnlocked: true);
@@ -461,7 +461,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
 
     private void BeginGameFade()
     {
-        Context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+        Context.Sound.PlaySound(SoundId.SndCtrlMediumFadeOut);
         BeginFade(WildTokayGameStage.FadeOut);
     }
 
@@ -681,7 +681,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             new Vector2(visual.XOffset, visual.YOffset);
         NpcRecord parent = participant.Actor.BaseRecord;
         var record = new NpcRecord(
-            parent.Group, parent.Room, 0x63, 0x73,
+            parent.Group, parent.Room, InteractionId.Accessory, 0x73,
             Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
             0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
             visual.EncodedAnimation, visual.EncodedAnimation,
@@ -751,7 +751,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
             _database.Prize(_ringPrize ? 5 : _wildLevel);
         Vector2 position = manager.Position + new Vector2(0, -12);
         var record = new NpcRecord(
-            manager.Record.Group, manager.Record.Room, 0x63,
+            manager.Record.Group, manager.Record.Room, InteractionId.Accessory,
             visual.AccessorySubId,
             Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
             0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
@@ -893,8 +893,8 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
                 Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
                 "TREASURE_OBJECT_RING_00", "scriptHelper.s:tokayGame_givePrizeToLink@giveRingToLink")
             {
-                SpawnMode = 0,
-                GrabMode = 2,
+                SpawnMode = TreasureSpawnMode.Instant,
+                GrabMode = TreasureGrabMode.TwoHands,
                 InventoryWrite = GroundTreasureInventoryWrite.UnappraisedRing,
                 InventoryParameter = ring,
                 RoomFlagTiming = GroundTreasureRoomFlagTiming.Never
@@ -907,10 +907,10 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         (int treasure, int parameter, string name) = _wildLevel switch
         {
             0 => (0x4d, 0, "TREASURE_OBJECT_SCENT_SEEDLING_00"),
-            1 => (TreasureDatabase.TreasureRupees, 0x0e, "TREASURE_OBJECT_RUPEES_0e"),
-            2 => (TreasureDatabase.TreasureRupees, 0x0f, "TREASURE_OBJECT_RUPEES_0f"),
-            3 => (TreasureDatabase.TreasureGashaSeed, 0, "TREASURE_OBJECT_GASHA_SEED_00"),
-            _ => (TreasureDatabase.TreasureRupees, 0x10, "TREASURE_OBJECT_RUPEES_10")
+            1 => (TreasureId.Rupees, 0x0e, "TREASURE_OBJECT_RUPEES_0e"),
+            2 => (TreasureId.Rupees, 0x0f, "TREASURE_OBJECT_RUPEES_0f"),
+            3 => (TreasureId.GashaSeed, 0, "TREASURE_OBJECT_GASHA_SEED_00"),
+            _ => (TreasureId.Rupees, 0x10, "TREASURE_OBJECT_RUPEES_10")
         };
         _reward = Grant(treasure, parameter, name, "tokayGame_givePrizeToLink");
         if (_wildLevel < 4)
@@ -1003,7 +1003,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
     {
         if (_actor is TokayCharacter actor) actor.ScriptOwnsNativeUpdate = false;
         if (_actor?.Record.SubId == 0x0d &&
-            Context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet))
+            Context.Inventory.HasTreasure(TreasureId.Bracelet))
             PreparePrize();
         RemovePrizeAccessory();
         RestoreFadePresentation();

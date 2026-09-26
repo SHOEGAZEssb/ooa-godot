@@ -45,14 +45,14 @@ internal sealed class ZolRoomEntity
     {
         if (!Entity.TakeSomariaHit(block.Position, -block.Damage))
             throw new InvalidOperationException("ENEMY$34 rejected an eligible Somaria effect$2f collision.");
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x0b || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        if (effect != CollisionEffect.SwordNoKnockback || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
         hook.NotifyObjectCollision();
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 

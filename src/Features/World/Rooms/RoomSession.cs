@@ -148,7 +148,7 @@ public sealed class RoomSession
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
             : group;
-        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(0xc610),
+        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(WramAddress.wAnimalCompanion),
             World.ResolveLayoutOverride(group, room, _saveData));
         byte roomFlags = _saveData.GetRoomFlags(group, room);
         _singleTileChanges.Apply(
@@ -189,8 +189,8 @@ public sealed class RoomSession
                 (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)));
             if ((flags & 0x10) == 0 && (flags & 0x09) != 0)
             {
-                _saveData.WriteWramByte(0xc63c, (byte)(cell.Y * 8 + cell.X));
-                _saveData.WriteWramByte(0xc63d, (byte)cell.Floor);
+                _saveData.WriteWramByte(WramAddress.wMinimapDungeonMapPosition, (byte)(cell.Y * 8 + cell.X));
+                _saveData.WriteWramByte(WramAddress.wMinimapDungeonFloor, (byte)cell.Floor);
             }
         }
         if ((flags & 0x30) == 0 && (flags & 0x09) != 0)

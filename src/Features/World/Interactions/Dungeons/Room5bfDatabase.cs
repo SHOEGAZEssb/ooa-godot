@@ -134,7 +134,7 @@ internal sealed class Room5bfDatabase
                 Group: 5,
                 Room: 0xbf,
                 ItemRoomFlag: 0x20,
-                TreasureId: 0x2e,
+                TreasureId: TreasureId.Flippers,
                 TreasureSubId: 0x00,
                 TreasureParameter: 0x00,
                 LeverLength: 0x40,
@@ -153,8 +153,8 @@ internal sealed class Room5bfDatabase
                 CollisionRadiusY: 0x02,
                 CollisionRadiusX: 0x02,
                 PickupDistance: 0x0e,
-                MoveSound: OracleSoundEngine.SndMoveBlock,
-                FullSound: OracleSoundEngine.SndOpenChest
+                MoveSound: SoundId.SndMoveBlock,
+                FullSound: SoundId.SndOpenChest
             })
         {
             throw new InvalidOperationException(

@@ -13,7 +13,7 @@ internal sealed class GopongaFlowerRoomEntity(GopongaFlowerCharacter enemy,
         IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
 {
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     public void SetLinkSwordState(SwordActionState state, int level) => _swordCollision = SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 origin, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
@@ -21,19 +21,19 @@ internal sealed class GopongaFlowerRoomEntity(GopongaFlowerCharacter enemy,
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 origin,
         int damage, ICollection<RoomEntitySpawn> spawns) => Hit((int)collision, hitbox, origin, damage, spawns);
     public bool ApplyExpertPunch(Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>
-        Hit(0x0b, hitbox, origin, damage, spawns);
+        Hit(ItemCollisionType.ExpertPunch, hitbox, origin, damage, spawns);
 
     private bool Hit(int collision, Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns)
     {
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 || !hitbox.Intersects(Entity.CollisionBounds)) return false;
         int effect = EnemyBehaviorTables.Shared.GopongaFlowerCollisionEffects[collision].Value;
-        if (effect == 0x0b) return base.ApplySwordHit(hitbox, origin, damage, EnemyKnockbackStrength.Low, spawns);
-        if (effect == 0x1c)
+        if (effect == CollisionEffect.SwordNoKnockback) return base.ApplySwordHit(hitbox, origin, damage, EnemyKnockbackStrength.Low, spawns);
+        if (effect == CollisionEffect.Effect1c)
         {
             spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, hitbox.GetCenter())));
             return true;
         }
-        if (effect is 0 or 0x20) return false;
+        if (effect is CollisionEffect.None or CollisionEffect.Effect20) return false;
         throw new InvalidOperationException($"gopongaFlower.s collision ${collision:x2}: unsupported effect ${effect:x2}.");
     }
 

@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
                 StartRoom: 0x82,
                 ExitRoom: 0x92,
                 ResetRoom: 0x93,
-                EssenceTreasure: TreasureDatabase.TreasureEssence,
+                EssenceTreasure: TreasureId.Essence,
                 ActiveAddress: 0xcfd0,
                 FoundAddress: 0xcfd1,
                 SignalAddress: 0xcfd2,

@@ -52,9 +52,9 @@ internal sealed class PreBlackTowerEvent :
         _impaRunner = new CutsceneCommandRunner(this);
         _nayruRunner = new CutsceneCommandRunner(this);
         _zeldaRunner = new CutsceneCommandRunner(this);
-        if (_record.MakuSeedTreasure != TreasureDatabase.TreasureMakuSeed ||
-            _record.CompletionFlag != OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone ||
-            _record.RalphEnteredFlag != OracleSaveData.GlobalFlagRalphEnteredBlackTower)
+        if (_record.MakuSeedTreasure != TreasureId.MakuSeed ||
+            _record.CompletionFlag != GlobalFlag.PreBlackTowerCutsceneDone ||
+            _record.RalphEnteredFlag != GlobalFlag.RalphEnteredBlackTower)
         {
             throw new InvalidOperationException(
                 "Pre-Black Tower imported save identifiers no longer match runtime constants.");
@@ -196,7 +196,7 @@ internal sealed class PreBlackTowerEvent :
         _zeldaRunner.Start(_database.ZeldaLinked);
         // Zelda's initializer writes SPEED_100 and angle $08 before loading
         // zeldaSubid04Script; its first applyspeed consumes those bytes.
-        _zeldaRunner.SetInitialMotionRegisters("Zelda", 0x28, 0x08);
+        _zeldaRunner.SetInitialMotionRegisters("Zelda", 0x28, ObjectAngle.Right);
     }
 
     private void UpdateLinked()
@@ -317,7 +317,7 @@ internal sealed class PreBlackTowerEvent :
                     _ralphRunner.Start(_database.RalphUnlinked);
                     // Ralph's native substate $00 wrote SPEED_180 before the
                     // script lane became active.
-                    _ralphRunner.SetInitialMotionRegisters("Ralph", 0x3c, 0x10);
+                    _ralphRunner.SetInitialMotionRegisters("Ralph", 0x3c, ObjectAngle.Down);
                     _stage = PreBlackTowerEventStage.RalphUnlinkedScript;
                 }
                 break;

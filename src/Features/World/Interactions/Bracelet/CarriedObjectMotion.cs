@@ -21,7 +21,7 @@ internal struct CarriedObjectMotion
         Direction = Vector2I.Zero;
         ZFixed = 0;
         SpeedZ = 0;
-        SpeedRaw = 0;
+        SpeedRaw = ObjectSpeed.Speed0;
     }
 
     internal void Hold(Player player)
@@ -44,7 +44,7 @@ internal struct CarriedObjectMotion
             ? 0
             : bracelet.InitialSpeedZ;
         SpeedRaw = releaseDirection == Vector2I.Zero
-            ? 0
+            ? ObjectSpeed.Speed0
             : RingEffects.UsesStrongThrow(player.Inventory)
                 ? bracelet.TossSpeedRaw
                 : bracelet.SpeedRaw;
@@ -62,7 +62,7 @@ internal struct CarriedObjectMotion
         if (blocksMovement(edge))
         {
             Direction = Vector2I.Zero;
-            SpeedRaw = 0;
+            SpeedRaw = ObjectSpeed.Speed0;
             return true;
         }
         OracleObjectMovement.Shared.ApplySpeed(
@@ -82,14 +82,14 @@ internal struct CarriedObjectMotion
         {
             ZFixed = 0;
             SpeedZ = 0;
-            SpeedRaw = 0;
+            SpeedRaw = ObjectSpeed.Speed0;
             Direction = Vector2I.Zero;
             return false;
         }
 
         SpeedZ = rebound;
         SpeedRaw = throwing.ReducedBounceSpeed(SpeedRaw);
-        if (SpeedRaw == 0)
+        if (SpeedRaw == ObjectSpeed.Speed0)
             Direction = Vector2I.Zero;
         return true;
     }

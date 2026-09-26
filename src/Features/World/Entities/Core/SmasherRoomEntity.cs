@@ -112,7 +112,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     }
     private bool _marked;
     private bool _outcomeTaken;
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.Shared.Smasher;
     public int CollisionZ => Entity.ZFixed >> 8;
     public bool MeleeReportsContact { get; private set; }
@@ -129,26 +129,26 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && _data.ActiveCollisions[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
-    private int Effect(int collision) => (Entity.CollisionMode == 0x63 ? _data.BallEffects : _data.ParentEffects)[collision].Value;
+    private int Effect(int collision) => (Entity.CollisionMode == EnemyCollisionMode.SmasherBall ? _data.BallEffects : _data.ParentEffects)[collision].Value;
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
         if (!item.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7) ||
-            !Overlaps(0x17, item.CollisionBounds)) return default;
-        int effect = Effect(0x17);
-        if (effect == 0) return new(true, false);
-        if (effect != 0x1c) throw new NotSupportedException($"ENEMY_SMASHER $74 mode${Entity.CollisionMode:x2}: boomerang effect${effect:x2}.");
+            !Overlaps(ItemCollisionType.L1Boomerang, item.CollisionBounds)) return default;
+        int effect = Effect(ItemCollisionType.L1Boomerang);
+        if (effect == CollisionEffect.None) return new(true, false);
+        if (effect != CollisionEffect.Effect1c) throw new NotSupportedException($"ENEMY_SMASHER $74 mode${Entity.CollisionMode:x2}: boomerang effect${effect:x2}.");
         Entity.PublishCollision();
         return new(true, true);
     }
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     {
         if (!block.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, block.ZHigh, 7) ||
-            !Overlaps(0x15, block.CollisionBounds)) return false;
-        int effect = Effect(0x15);
+            !Overlaps(ItemCollisionType.SomariaBlock, block.CollisionBounds)) return false;
+        int effect = Effect(ItemCollisionType.SomariaBlock);
         switch (effect)
         {
-            case 0: return true;
-            case 0x2d:
+            case CollisionEffect.None: return true;
+            case CollisionEffect.Effect2d:
                 // Both Smasher modes ($45/$63) destroy Somaria via var2f.
                 // This does not hit/retract the boss or reset its ball timer.
                 block.Flags |= 0x20;
@@ -159,10 +159,10 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
         if (!hook.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ,hook.ZHigh,7) ||
-            !Overlaps(0x0d,hook.CollisionBounds)) return false;
-        int effect = Effect(0x0d);
-        if (effect == 0) return true;
-        if (effect != 0x1c)
+            !Overlaps(ItemCollisionType.SwitchHook,hook.CollisionBounds)) return false;
+        int effect = Effect(ItemCollisionType.SwitchHook);
+        if (effect == CollisionEffect.None) return true;
+        if (effect != CollisionEffect.Effect1c)
             throw new NotSupportedException($"ENEMY_SMASHER $74 mode ${Entity.CollisionMode:x2}: Switch Hook effect ${effect:x2} is not represented.");
         // collisionEffect1c writes JUST_HIT to both objects. The hook's next
         // item update retracts; Smasher receives no damage, stun or recoil.
@@ -176,12 +176,12 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         if (!Overlaps(collision, bounds)) return false;
         switch (Effect(collision))
         {
-            case 0: return true; // Ends this enemy's item scan without a contact flag.
-            case 0x1c:
+            case CollisionEffect.None: return true; // Ends this enemy's item scan without a contact flag.
+            case CollisionEffect.Effect1c:
                 Entity.PublishCollision();
                 MeleeReportsContact = true;
                 return true; // ENEMYDMG_1c only writes var2a; no HP/recoil/invincibility.
-            case 0x20: return true; // Consumed projectile; no enemy-side status.
+            case CollisionEffect.Effect20: return true; // Consumed projectile; no enemy-side status.
             default: throw new NotSupportedException($"ENEMY_SMASHER $74 mode ${Entity.CollisionMode:x2}, weapon ${collision:x2}: effect ${Effect(collision):x2} is not represented.");
         }
     }
@@ -189,21 +189,21 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         ICollection<RoomEntitySpawn> spawns) => ApplyWeapon(_swordCollision, bounds);
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin, int damage,
         ICollection<RoomEntitySpawn> spawns) => ApplyWeapon((int)collision, bounds);
-    public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) => ApplyWeapon(0x0b, bounds);
+    public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) => ApplyWeapon(ItemCollisionType.ExpertPunch, bounds);
     public SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("ENEMY_SMASHER $74 requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_SMASHER $74 requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(bounds, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
         ICollection<RoomEntitySpawn> spawns)
     {
         if (!Overlaps(collision, bounds)) return default;
         int effect = Effect(collision);
-        if (effect == 0) return new(true, SeedHitResult.None, false);
-        if (effect != 0x20) throw new NotSupportedException($"ENEMY_SMASHER $74 seed ${collision:x2}: effect ${effect:x2} is not represented.");
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true);
+        if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
+        if (effect != CollisionEffect.Effect20) throw new NotSupportedException($"ENEMY_SMASHER $74 seed ${collision:x2}: effect ${effect:x2} is not represented.");
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -216,13 +216,13 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         bool Puff(Vector2 position)
         {
             if (!world.InteractionSlotAvailable()) return false;
-            spawns.Add(new PuzzlePuffSpawn(position.Floor(), OracleSoundEngine.SndPoof, ZHigh: Entity.ZFixed >> 8));
+            spawns.Add(new PuzzlePuffSpawn(position.Floor(), SoundId.SndPoof, ZHigh: Entity.ZFixed >> 8));
             return true;
         }
         bool Explosion(Vector2 position)
         {
             if (!world.PartSlotAvailable()) return false;
-            spawns.Add(new BossDeathExplosionSpawn(position.Floor(), 0x74, Entity.ZFixed >> 8));
+            spawns.Add(new BossDeathExplosionSpawn(position.Floor(), EnemyId.Smasher, Entity.ZFixed >> 8));
             return true;
         }
         void Drop()
@@ -266,10 +266,10 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
             RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, player.ShieldCollisionBounds))
         {
             if (!player.CanAcceptShieldCollision) return;
-            if (Effect(shield) != 5) throw new NotSupportedException($"ENEMY_SMASHER $74 shield effect ${Effect(shield):x2} is not represented.");
+            if (Effect(shield) != CollisionEffect.Effect05) throw new NotSupportedException($"ENEMY_SMASHER $74 shield effect ${Effect(shield):x2} is not represented.");
             player.ApplyShieldCollisionRecoil(Entity.Position, 8, 11); // LINKDMG_10, ENEMYDMG_1c.
             Entity.PublishCollision();
-            world.Sound(OracleSoundEngine.SndBombLand);
+            world.Sound(SoundId.SndBombLand);
             return;
         }
         if (Player.EnemyCollisionOverlaps(player.EnemyContactPosition, Entity.CollisionBounds) &&

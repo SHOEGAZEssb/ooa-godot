@@ -34,7 +34,7 @@ internal sealed class CarpenterRoomEntity : NpcCharacterRoomEntityAdapter, IRoom
                 if (!Returned) npc.SetActive(false);
                 else if (found == database.Constant("found-mask")) ScriptSubid += 4;
             }
-            else if (foundWorker || save?.ReadWramByte(0xc610) != npc.Record.SubId >> 4)
+            else if (foundWorker || save?.ReadWramByte(WramAddress.wAnimalCompanion) != npc.Record.SubId >> 4)
                 npc.SetActive(false);
         }
         else if (subid == 0 && found == database.Constant("found-mask"))

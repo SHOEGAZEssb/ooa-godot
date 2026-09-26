@@ -42,7 +42,7 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
         {
             _initialized = true;
             SetTile(_endpoint, _data.Constant("yellow-floor"));
-            spawns.Add(new PuzzlePuffSpawn(Position, OracleSoundEngine.SndPoof));
+            spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
         }
         Vector2 link = OracleObjectMath.ToPixelPosition(frame.Player.Position);
         int packed = (((int)link.Y + 5) & 0xf0) | (((int)link.X >> 4) & 15);
@@ -53,7 +53,7 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
         _endpoint = packed;
         SetTile(previous, _data.Constant("red-floor"));
         SetTile(packed, _data.Constant("yellow-floor"));
-        _playSound(OracleSoundEngine.SndGetSeed);
+        _playSound(SoundId.SndGetSeed);
     }
 
     private void SetTile(int packed, int tile)

@@ -75,7 +75,7 @@ public sealed class MapDataDatabase
                     : 0x0300 | entrance.FallbackText;
 
             case 2: // Moblin's Keep / ruins.
-                return save.HasGlobalFlag(0x1a) ? 0x0317 : 0x0318;
+                return save.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) ? 0x0317 : 0x0318;
 
             case 3: // Animal companion region.
                 return presentation.AnimalCompanionAreaTextId;
@@ -199,8 +199,8 @@ public sealed class MapPresentationState
             _ => throw new ArgumentOutOfRangeException(nameof(group))
         };
         int metFlag = past
-            ? OracleSaveData.GlobalFlagMakuGivesAdviceFromPastMap
-            : OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap;
+            ? GlobalFlag.MakuGivesAdviceFromPastMap
+            : GlobalFlag.MakuGivesAdviceFromPresentMap;
         if (!_save.HasGlobalFlag(metFlag))
             return past ? 0x0324 : 0x0323;
 

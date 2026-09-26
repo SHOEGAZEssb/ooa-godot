@@ -30,7 +30,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
     internal Texture2D CurrentTexture => _animation.CurrentTexture;
     internal int PartSlot { get; private set; }
     internal bool ShadowDrawn => Visible && Z < 0 && ((_frameCounter ^ PartSlot) & 1) != 0 &&
-        (_room.TilesetFlags & 0x20) == 0 && 16 - _worldToScreen(Vector2.Zero).Y < 0x97;
+        (_room.TilesetFlags & (int)TilesetFlags.Sidescroll) == 0 && 16 - _worldToScreen(Vector2.Zero).Y < 0x97;
 
     internal FallingBoulder(int subId, Vector2 position, FallingBoulderDatabase data,
         OracleRandom random, Action<int> sound, OracleRoomData room, Func<Vector2, Vector2> worldToScreen)
@@ -110,7 +110,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
         do { value = _random.Next().Value & 7; } while (value == 7);
         Angle = value + 0x0d;
         Visible = true;
-        _sound(0xb3); // SND_RUMBLE, fallingBoulderSpawner.s:@bounceRandomlyDownwards.
+        _sound(SoundId.SndRumble); // SND_RUMBLE, fallingBoulderSpawner.s:@bounceRandomlyDownwards.
     }
 
     private void RestoreHighBytes()

@@ -28,7 +28,7 @@ internal partial class BeetleCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, byte[] counters, Action<int> playSound)
     {
-        if (record.Id != 0x51 || record.SubId is not (2 or 3))
+        if (record.Id != EnemyId.Beetle || record.SubId is not (2 or 3))
             throw new InvalidOperationException($"beetle.s: unsupported dynamic enemy ${record.Id:x2}:${record.SubId:x2}.");
         Record = record;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
@@ -59,7 +59,7 @@ internal partial class BeetleCharacter : EnemyCharacter
                     Counter = 30;
                     Angle = (OracleObjectMovement.Shared.RelativeAngle(
                         OracleObjectMath.ToPixelPosition(Position),
-                        OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
+                        OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & ObjectAngle.CardinalMask;
                 }
                 else
                 {
@@ -93,7 +93,7 @@ internal partial class BeetleCharacter : EnemyCharacter
                         return;
                     }
                     _speedZ = bouncedSpeed;
-                    _playSound(OracleSoundEngine.SndBombLand);
+                    _playSound(SoundId.SndBombLand);
                 }
                 if ((_speedZ >> 8) == 0)
                     _collision = true;

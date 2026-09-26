@@ -18,9 +18,9 @@ public sealed partial class ValidationRoot
         RoomEntityManager manager = fixture.Manager;
         InteractionController interactions = fixture.Interactions;
         DialogueBox dialogue = fixture.Dialogue;
-        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x04);
+        inventory.GiveTreasure(TreasureId.Bombs, 0x04);
         inventory.GiveTreasure(
-            TreasureDatabase.TreasureEmberSeeds +
+            TreasureId.EmberSeeds +
                 ItemDropDatabase.MysterySeeds -
                 ItemDropDatabase.EmberSeeds,
             0x20);
@@ -54,9 +54,9 @@ public sealed partial class ValidationRoot
             "Room 1:83 did not retain its source-ordered heart, Mystery " +
             "Seed, heart, and Bomb drop producers.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         manager.LoadRoom(1, rooms.CurrentRoom);
 
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x83,
-                Id: 0x41,
+                Id: InteractionId.MiscMan,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x2606,
@@ -240,21 +240,21 @@ public sealed partial class ValidationRoot
             "Room 1:83's four source-ordered tile changes did not create " +
             "the exact immediately updated item drops.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             man.Active ||
             man.Visible ||
             man.CanTalkTo(_player) ||
             manager.BlocksLink(man.Position),
             "GLOBALFLAG_0b did not live-delete room 1:83's misc man.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         FailIf(
             !man.Active ||
             !man.Visible ||
             man.TextId != 0x2606,
             "Clearing GLOBALFLAG_0b did not restore room 1:83's misc man.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             man.Active ||
             man.Visible ||
@@ -262,7 +262,7 @@ public sealed partial class ValidationRoot
             manager.BlocksLink(man.Position),
             "GLOBALFLAG_FINISHEDGAME did not live-delete room 1:83's misc man.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         FailIf(
             !man.Active ||
@@ -270,7 +270,7 @@ public sealed partial class ValidationRoot
             man.TextId != 0x2606,
             "Clearing GLOBALFLAG_FINISHEDGAME did not restore room 1:83.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         manager.ClearRecentEnemyDefeats();
         manager.LoadRoom(1, rooms.CurrentRoom);
         man = manager.Entities<NpcCharacter>().Single();

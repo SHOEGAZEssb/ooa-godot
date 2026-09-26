@@ -154,8 +154,8 @@ internal sealed class RoomEventContext(
             treasureObject,
             source)
         {
-            SpawnMode = 0,
-            GrabMode = 2,
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands,
             TextboxFlags = textboxFlags,
             ExpectedTreasureId = treasureId,
             ExpectedSubId = parameter,

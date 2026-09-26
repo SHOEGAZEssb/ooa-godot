@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(group, roomId);
         ChevalCharacter cheval = Cheval();
         FailIf(
-            cheval.Record is not { Id: 0x6a, SubId: 0x00, Var03: 0x00 } ||
+            cheval.Record is not { Id: InteractionId.Cheval, SubId: 0x00, Var03: 0x00 } ||
             cheval.Position != new Vector2(0x50, 0x40) ||
             cheval.Record.SpriteName != "spr_oldzora_cheval" ||
             cheval.Record.TileBase != 0x1a || cheval.Record.Palette != 0 ||

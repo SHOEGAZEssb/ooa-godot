@@ -32,7 +32,7 @@ internal sealed class GoronGalleryController(GoronCaveScriptHost host)
             }
             else if(_session is {GameComplete:true})
             {
-                Wram.SetWramByte(0xcfc0,1); Wram.SetWramByte(0xcfdc,0); _state=3;
+                Wram.SetWramByte(WramAddress.wTmpcfc0,1); Wram.SetWramByte(0xcfdc,0); _state=3;
                 host.StartScript(host.Actor.Record.SubId==1?"shootingGalleryScript_goronNpc_gameDone":"shootingGalleryScript_goronElderNpc_gameDone");
             }
             else return;
@@ -43,7 +43,7 @@ internal sealed class GoronGalleryController(GoronCaveScriptHost host)
     {
         if(_result)
         { _result=false; _controller!.CompleteResultScript(); return; }
-        if(_state==1) { _state=2; Wram.SetWramByte(0xcfc0,0); return; }
+        if(_state==1) { _state=2; Wram.SetWramByte(WramAddress.wTmpcfc0,0); return; }
         if(_state==3)
         {
             _state=1;
@@ -55,7 +55,7 @@ internal sealed class GoronGalleryController(GoronCaveScriptHost host)
         Wram.SetWramByte(0xcfd7,(byte)Context.Inventory.EquippedB);
         Wram.SetWramByte(0xcfd8,(byte)Context.Inventory.EquippedA);
         _equipped=true;
-        if(biggoron) Context.Inventory.SetScriptedEquippedItems(InventoryState.ItemBiggoronSword,InventoryState.ItemBiggoronSword);
+        if(biggoron) Context.Inventory.SetScriptedEquippedItems(TreasureId.BiggoronSword,TreasureId.BiggoronSword);
         else Context.Inventory.SetScriptedEquippedItems(Context.Inventory.EquippedA==5?0:5,Context.Inventory.EquippedA==5?5:0);
     }
     internal void RestoreEquips()

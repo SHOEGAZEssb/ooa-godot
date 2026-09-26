@@ -27,7 +27,7 @@ public partial class Player : Node2D
         var damage = EnemyBehaviorTables.Shared.LikeLike.LinkDamage;
         _enemyInvincibilityFrames = unchecked((sbyte)damage[1].Value);
         // LINKDMG_2c plays damage audio without subtracting any health.
-        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+        _world.PlaySound(SoundId.SndDamageLink);
         return true;
     }
 
@@ -477,13 +477,13 @@ public partial class Player : Node2D
     // initialization and cleared by checkUseItems. Existing parent state
     // supplies cancellation; this mask records only starts in that update.
     internal bool StartedItemAnimationThisUpdate =>
-        Started(InventoryState.ItemSword, IsAttacking) ||
-        Started(InventoryState.ItemShovel, IsUsingShovel) ||
-        Started(InventoryState.ItemSeedSatchel, IsUsingSeedSatchel) ||
-        Started(InventoryState.ItemShooter, IsUsingSeedShooter) ||
-        Started(InventoryState.ItemSwitchHook, IsUsingSwitchHook) ||
-        Started(InventoryState.ItemSomaria, IsUsingSomaria) ||
-        Started(InventoryState.ItemBoomerang, IsUsingBoomerang) ||
+        Started(TreasureId.Sword, IsAttacking) ||
+        Started(TreasureId.Shovel, IsUsingShovel) ||
+        Started(TreasureId.SeedSatchel, IsUsingSeedSatchel) ||
+        Started(TreasureId.Shooter, IsUsingSeedShooter) ||
+        Started(TreasureId.SwitchHook, IsUsingSwitchHook) ||
+        Started(TreasureId.CaneOfSomaria, IsUsingSomaria) ||
+        Started(TreasureId.Boomerang, IsUsingBoomerang) ||
         Started(0x02, IsUsingPunch);
     private bool Started(int id, bool active) => active && (_startedParentItemAnimations & (1u << id)) != 0;
     internal void NotifyParentItemAnimationStarted(int id)
@@ -933,8 +933,8 @@ public partial class Player : Node2D
     internal int TransformationFrame => _transformationFrame;
     internal int PunchFrame => _punchFrame;
     internal bool IsShieldEquipped => _inventory.ShieldLevel > 0 &&
-        (_inventory.EquippedA == InventoryState.ItemShield ||
-         _inventory.EquippedB == InventoryState.ItemShield);
+        (_inventory.EquippedA == TreasureId.Shield ||
+         _inventory.EquippedB == TreasureId.Shield);
     internal int ShieldGraphicsIndex
     {
         get
@@ -1264,7 +1264,7 @@ public partial class Player : Node2D
             // hazard-table lookup therefore misses and takes @linkCollapsed.
             _roomWarpFallCollapsed = true;
             _roomWarpFallCollapsedCounter = RoomWarpFallCollapsedFrames;
-            _world.PlaySound(OracleSoundEngine.SndSplash);
+            _world.PlaySound(SoundId.SndSplash);
         }
 
         QueueRedraw();
@@ -1566,7 +1566,7 @@ public partial class Player : Node2D
         // LINKDMG_00/_04 select SND_DAMAGE_LINK ($5f) when the collision is
         // accepted. Rejected contacts during Link's invincibility do not
         // enqueue another request.
-        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+        _world.PlaySound(SoundId.SndDamageLink);
         _enemyInvincibilityFrames = invincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, knockbackFrames);
@@ -1651,9 +1651,9 @@ public partial class Player : Node2D
 
         int angle = sourcePosition == Position
             ? ((OracleObjectMovement.Shared.RelativeAngle(
-                Vector2.Zero, -(Vector2)FacingVector)) & 0x18)
+                Vector2.Zero, -(Vector2)FacingVector)) & ObjectAngle.CardinalMask)
             : (OracleObjectMovement.Shared.RelativeAngle(
-                sourcePosition, Position) & 0x18);
+                sourcePosition, Position) & ObjectAngle.CardinalMask);
         _enemyKnockbackFrames = 0x18;
         _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
         _swordCollisionKnockback = false;
@@ -1867,7 +1867,7 @@ public partial class Player : Node2D
             {
                 _electricShockPending = false;
                 _electricShockCounter = 0x2d;
-                _world.PlaySound(OracleSoundEngine.SndShock);
+                _world.PlaySound(SoundId.SndShock);
             }
             else
             {
@@ -2176,7 +2176,7 @@ public partial class Player : Node2D
             !_world.Underwater &&
             (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
                 SideScrollTileType.Water) != 0 &&
-            !_inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit);
+            !_inventory.HasTreasure(TreasureId.MermaidSuit);
         bool primaryPressed =
             Input.IsActionPressed("attack") &&
             !primaryItemInputSuppressed;
@@ -2256,13 +2256,13 @@ public partial class Player : Node2D
                 if (!primaryItemInputSuppressed &&
                     !_world.ItemUsageDisabled &&
                     !_minecartRideControlled &&
-                    _inventory.EquippedA == InventoryState.ItemBomb &&
+                    _inventory.EquippedA == TreasureId.Bombs &&
                     _world.TryUseBomb(this))
                     return;
                 if (!primaryItemInputSuppressed &&
                     !_world.ItemUsageDisabled &&
                     !_minecartRideControlled && !_raftRideControlled &&
-                    _inventory.EquippedA == InventoryState.ItemBracelet &&
+                    _inventory.EquippedA == TreasureId.Bracelet &&
                     _world.TryUseBracelet(this, primaryButton: true))
                     return;
                 if (!primaryItemInputSuppressed &&
@@ -2270,8 +2270,8 @@ public partial class Player : Node2D
                     !_minecartRideControlled && !_raftRideControlled &&
                     RingEffects.CanPunch(
                     _inventory,
-                    _inventory.EquippedA == InventoryState.ItemNone &&
-                    _inventory.EquippedB == InventoryState.ItemNone))
+                    _inventory.EquippedA == TreasureId.None &&
+                    _inventory.EquippedB == TreasureId.None))
                 {
                     StartPunchAction(input);
                     return;
@@ -2289,41 +2289,41 @@ public partial class Player : Node2D
                 // wInShop routes A/B to checkShopInput instead of updating
                 // either equipped parent item. Interaction remains available.
             }
-            else if (_inventory.EquippedA == InventoryState.ItemSword)
+            else if (_inventory.EquippedA == TreasureId.Sword)
                 StartSwordAttack("attack", input);
-            else if (_inventory.EquippedA == InventoryState.ItemSomaria)
+            else if (_inventory.EquippedA == TreasureId.CaneOfSomaria)
                 StartSomariaAction(input, braceletParentAtInput: braceletParentAtInput);
-            else if (_inventory.EquippedA == InventoryState.ItemBoomerang)
+            else if (_inventory.EquippedA == TreasureId.Boomerang)
                 StartBoomerangAction(input);
-            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedA == InventoryState.ItemSwitchHook &&
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedA == TreasureId.SwitchHook &&
                 _world.TryBeginSwitchHook(this, input))
             {
                 _world.CheckTileWarp(this);
                 return;
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA == InventoryState.ItemShovel)
+                _inventory.EquippedA == TreasureId.Shovel)
                 StartShovelAction(input);
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA == InventoryState.ItemFeather)
+                _inventory.EquippedA == TreasureId.Feather)
                 TryStartFeatherJump("attack");
             else if (!_raftRideControlled &&
-                _inventory.EquippedA == InventoryState.ItemSeedSatchel)
+                _inventory.EquippedA == TreasureId.SeedSatchel)
                 StartSeedSatchelAction(input);
-            else if (_inventory.EquippedA == InventoryState.ItemShooter &&
+            else if (_inventory.EquippedA == TreasureId.Shooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: true, input))
             {
                 if (!_topDownAirborne) _world.CheckTileWarp(this);
                 return;
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA is InventoryState.ItemHarp or InventoryState.ItemFlute)
+                _inventory.EquippedA is TreasureId.Harp or TreasureId.Flute)
                 startPrimaryInstrument = true;
         }
         if (_activeTransformation == 0 &&
             (primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") ||
-                _inventory.EquippedA is InventoryState.ItemSomaria or InventoryState.ItemBoomerang ||
-                _inventory.EquippedB is InventoryState.ItemBoomerang or InventoryState.ItemSomaria) &&
+                _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang ||
+                _inventory.EquippedB is TreasureId.Boomerang or TreasureId.CaneOfSomaria) &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
             if (!_minecartRideControlled && !_raftRideControlled &&
@@ -2338,7 +2338,7 @@ public partial class Player : Node2D
             }
             else if ((!IsUsingItem || IsUsingSomaria) &&
                 !_minecartRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemBomb)
+                _inventory.EquippedB == TreasureId.Bombs)
             {
                 if (_world.TryUseBomb(this))
                     return;
@@ -2347,58 +2347,58 @@ public partial class Player : Node2D
                 !_minecartRideControlled && !_raftRideControlled &&
                 RingEffects.CanPunch(
                 _inventory,
-                _inventory.EquippedA == InventoryState.ItemNone &&
-                _inventory.EquippedB == InventoryState.ItemNone))
+                _inventory.EquippedA == TreasureId.None &&
+                _inventory.EquippedB == TreasureId.None))
             {
                 StartPunchAction(input);
             }
             else if ((!IsUsingItem || IsUsingSomaria) &&
                 !_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemBracelet)
+                _inventory.EquippedB == TreasureId.Bracelet)
             {
                 if (_world.TryUseBracelet(this, primaryButton: false))
                     return;
             }
-            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedB == InventoryState.ItemSwitchHook &&
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedB == TreasureId.SwitchHook &&
                 _world.TryBeginSwitchHook(this, input))
             {
                 _world.CheckTileWarp(this);
                 return;
             }
-            else if (_inventory.EquippedB == InventoryState.ItemSword)
+            else if (_inventory.EquippedB == TreasureId.Sword)
             {
                 StartSwordAttack("item", input);
             }
-            else if (!_world.Underwater && _inventory.EquippedB == InventoryState.ItemSomaria)
+            else if (!_world.Underwater && _inventory.EquippedB == TreasureId.CaneOfSomaria)
                 StartSomariaAction(input, primaryItemInputSuppressed, braceletParentAtInput);
-            else if (_inventory.EquippedB == InventoryState.ItemBoomerang)
+            else if (_inventory.EquippedB == TreasureId.Boomerang)
                 StartBoomerangAction(input);
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemShovel)
+                _inventory.EquippedB == TreasureId.Shovel)
             {
                 StartShovelAction(input);
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemFeather)
+                _inventory.EquippedB == TreasureId.Feather)
             {
                 TryStartFeatherJump("item");
             }
             else if (!_raftRideControlled &&
-                _inventory.EquippedB == InventoryState.ItemSeedSatchel)
+                _inventory.EquippedB == TreasureId.SeedSatchel)
             {
                 StartSeedSatchelAction(input);
             }
             else if (!_world.Underwater &&
-                _inventory.EquippedB == InventoryState.ItemShooter &&
+                _inventory.EquippedB == TreasureId.Shooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: false, input))
             {
                 if (!_topDownAirborne) _world.CheckTileWarp(this);
                 return;
             }
             else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB is InventoryState.ItemHarp or InventoryState.ItemFlute)
+                _inventory.EquippedB is TreasureId.Harp or TreasureId.Flute)
             {
-                StartHarpAction(_inventory.EquippedB == InventoryState.ItemFlute);
+                StartHarpAction(_inventory.EquippedB == TreasureId.Flute);
             }
         }
 
@@ -2406,7 +2406,7 @@ public partial class Player : Node2D
         // Instruments must observe a lower-slot parent allocated by B before
         // checkNoOtherParentItemsInUse can enable their global input lock.
         if (startPrimaryInstrument)
-            StartHarpAction(_inventory.EquippedA == InventoryState.ItemFlute);
+            StartHarpAction(_inventory.EquippedA == TreasureId.Flute);
 
         UpdateShieldState(
             primaryPressed,
@@ -2527,7 +2527,7 @@ public partial class Player : Node2D
             // standardGameState replaces wLinkDeathTrigger $ff with $e7 and
             // starts SNDCTRL_SLOW_FADEOUT on the first dying update.
             _deathSlowFadeRequested = true;
-            _world.PlaySound(OracleSoundEngine.SndCtrlSlowFadeOut);
+            _world.PlaySound(SoundId.SndCtrlSlowFadeOut);
         }
 
         if (_deathPending)
@@ -2624,7 +2624,7 @@ public partial class Player : Node2D
         CancelShovelAction();
         _deathSpinLoopsRemaining = 4;
         SetDeathFrame(sequenceIndex: 0, frame: 2, duration: 8);
-        _world.PlaySound(OracleSoundEngine.SndLinkDead);
+        _world.PlaySound(SoundId.SndLinkDead);
     }
 
     private void SetDeathFrame(int sequenceIndex, int frame, int duration)
@@ -3124,7 +3124,7 @@ public partial class Player : Node2D
                 return;
             }
             MoveAwayFromSidePlatform(
-                linkY >= platformY ? 0x00 : 0x10);
+                linkY >= platformY ? ObjectAngle.Up : ObjectAngle.Down);
             return;
         }
 
@@ -3159,10 +3159,10 @@ public partial class Player : Node2D
                 linkY,
                 platformY,
                 radiusY + 6);
-            MoveAwayFromSidePlatform(leftBlocked ? 0x08 : 0x18);
+            MoveAwayFromSidePlatform(leftBlocked ? ObjectAngle.Right : ObjectAngle.Left);
             return;
         }
-        MoveAwayFromSidePlatform(linkX >= platformX ? 0x08 : 0x18);
+        MoveAwayFromSidePlatform(linkX >= platformX ? ObjectAngle.Right : ObjectAngle.Left);
     }
 
     private static bool SidePlatformAxisOverlaps(
@@ -4220,7 +4220,7 @@ public partial class Player : Node2D
             if ((terrain.ActiveType & SideScrollTileType.Hole) != 0 &&
                 terrain.BelowType == SideScrollTileType.None)
             {
-                _world.PlaySound(OracleSoundEngine.SndDamageLink);
+                _world.PlaySound(SoundId.SndDamageLink);
                 BeginSideScrollInstantRespawn();
                 return;
             }
@@ -4935,7 +4935,7 @@ public partial class Player : Node2D
         bool unsupportedSeaWater =
             activeTerrain.Terrain.Type == TerrainType.SeaWater;
         bool hasFlippers =
-            _inventory.HasTreasure(TreasureDatabase.TreasureFlippers);
+            _inventory.HasTreasure(TreasureId.Flippers);
         if (unsupportedSeaWater || !hasFlippers)
         {
             ClearTopDownSwimmingState();
@@ -5015,10 +5015,10 @@ public partial class Player : Node2D
     {
         int angle = terrain switch
         {
-            TerrainType.UpCurrent => 0x00,
-            TerrainType.RightCurrent => 0x08,
-            TerrainType.DownCurrent => 0x10,
-            TerrainType.LeftCurrent => 0x18,
+            TerrainType.UpCurrent => ObjectAngle.Up,
+            TerrainType.RightCurrent => ObjectAngle.Right,
+            TerrainType.DownCurrent => ObjectAngle.Down,
+            TerrainType.LeftCurrent => ObjectAngle.Left,
             _ => 0xff
         };
         if (angle >= 0x80)
@@ -5301,12 +5301,12 @@ public partial class Player : Node2D
         _enemyKnockbackFrames += 10.0f;
         _swordCollisionKnockback = false;
         int knockbackAngle = _sideScrollAngle < 0x80
-            ? (_sideScrollAngle ^ 0x10)
+            ? (_sideScrollAngle ^ ObjectAngle.HalfTurn)
             : 0xff;
         _enemyKnockbackDirection = knockbackAngle < 0x80
             ? OracleObjectMovement.Shared.Direction(knockbackAngle)
             : Vector2.Zero;
-        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+        _world.PlaySound(SoundId.SndDamageLink);
     }
 
     private void AdvanceSideScrollAirAnimation(
@@ -5370,7 +5370,7 @@ public partial class Player : Node2D
             // linkSetSwimmingSpeed leaves var13/var36 intact (including an
             // ice/mermaid velocity interval) and clears the Flippers burst.
             _sideScrollSwimBurstState = 0;
-            if (!_inventory.HasTreasure(TreasureDatabase.TreasureFlippers))
+            if (!_inventory.HasTreasure(TreasureId.Flippers))
             {
                 _sideScrollSwimmingState = 3;
                 StartSideScrollDrowningWithoutEntryEffects();
@@ -5378,7 +5378,7 @@ public partial class Player : Node2D
             else
             {
                 _sideScrollSwimMermaidAnimation = _inventory.HasTreasure(
-                    TreasureDatabase.TreasureMermaidSuit);
+                    TreasureId.MermaidSuit);
                 _sideScrollSwimAnimationFrame = 0;
                 _sideScrollSwimAnimationCounter =
                     _sideScrollPlayerData.SwimmingFrame(
@@ -5400,7 +5400,7 @@ public partial class Player : Node2D
             UpdateFacingFromSideScrollAngle(inputAngle);
             _facing = (Facing)((int)_facing | 1);
             bool mermaidSuit = _inventory.HasTreasure(
-                TreasureDatabase.TreasureMermaidSuit);
+                TreasureId.MermaidSuit);
             if (mermaidSuit)
             {
                 UpdateSideScrollMermaidSuit(
@@ -5532,7 +5532,7 @@ public partial class Player : Node2D
 
         if (movementAllowed && directionJustPressed)
         {
-            _world.PlaySound(OracleSoundEngine.SndSplash);
+            _world.PlaySound(SoundId.SndSplash);
             _sideScrollMermaidImpulseCounter = 4;
         }
         else
@@ -5649,7 +5649,7 @@ public partial class Player : Node2D
         }
         else
         {
-            int relative = (inputAngle - angle + 4) & 0x1f;
+            int relative = (inputAngle - angle + 4) & ObjectAngle.Mask;
             if (relative < 9)
             {
                 speedStep = 5;
@@ -5673,7 +5673,7 @@ public partial class Player : Node2D
                     angleStep = 1;
                     if (relative >= 3 && relative < 6)
                     {
-                        angle = inputAngle ^ 0x10;
+                        angle = inputAngle ^ ObjectAngle.HalfTurn;
                         angleStep = 0;
                     }
                     else if (relative >= 6)
@@ -5693,12 +5693,12 @@ public partial class Player : Node2D
         if (velocityCounter < velocityInterval)
             return;
         velocityCounter = 0;
-        angle = (angle + angleStep) & 0x1f;
+        angle = (angle + angleStep) & ObjectAngle.Mask;
 
         int speed = speedRaw + speedStep;
         if (speed <= 0)
         {
-            speedRaw = 0;
+            speedRaw = ObjectSpeed.Speed0;
             // func_5933 stores l ($12) in var12 when speed reaches zero.
             velocityCounter = 0x12;
             angle = 0xff;
@@ -5751,7 +5751,7 @@ public partial class Player : Node2D
         };
 
     private static bool IsUpwardAngle(int angle) =>
-        angle < 0x80 && ((angle + 4) & 0x1f) < 9;
+        angle < 0x80 && ((angle + 4) & ObjectAngle.Mask) < 9;
 
     private static int FractionalByte(float coordinate) =>
         Mathf.FloorToInt(coordinate * 256.0f) & 0xff;
@@ -5786,7 +5786,7 @@ public partial class Player : Node2D
             _world.SideScrollParameters.RocsCapeSpeedZ;
         _sideScrollReducedGravity = true;
         _rocsCapeButtonAction = null;
-        _world.PlaySound(OracleSoundEngine.SndThrow);
+        _world.PlaySound(SoundId.SndThrow);
     }
 
     private void BeginSideScrollInstantRespawn(bool collisionsDisabled = false)
@@ -5843,7 +5843,7 @@ public partial class Player : Node2D
         if (squish.State == 0)
         {
             CancelNativeItemsForSquishRespawn();
-            _world.PlaySound(OracleSoundEngine.SndDamageEnemy);
+            _world.PlaySound(SoundId.SndDamageEnemy);
             _walking = false;
         }
         squish.Advance(_world.FrameCounter);
@@ -5967,7 +5967,7 @@ public partial class Player : Node2D
         // Projectile modes $06/$07 select COLLISIONEFFECT_$1f for shield
         // collision types $01-$03. LINKDMG_$20 contributes only SND_CLINK2;
         // the projectile receives ENEMYDMG_$34 and enters its bounce state.
-        _world.PlaySound(OracleSoundEngine.SndClink2);
+        _world.PlaySound(SoundId.SndClink2);
         return true;
     }
 
@@ -5977,9 +5977,9 @@ public partial class Player : Node2D
     private void UpdateShieldState(bool attackHeld, bool itemHeld)
     {
         if ((_shieldParentButton == 1 &&
-                (!attackHeld || _inventory.EquippedA != InventoryState.ItemShield)) ||
+                (!attackHeld || _inventory.EquippedA != TreasureId.Shield)) ||
             (_shieldParentButton == 2 &&
-                (!itemHeld || _inventory.EquippedB != InventoryState.ItemShield)))
+                (!itemHeld || _inventory.EquippedB != TreasureId.Shield)))
         {
             ClearShieldParent();
         }
@@ -5998,9 +5998,9 @@ public partial class Player : Node2D
 
         if (_shieldParentButton == 0)
         {
-            if (attackHeld && _inventory.EquippedA == InventoryState.ItemShield)
+            if (attackHeld && _inventory.EquippedA == TreasureId.Shield)
                 _shieldParentButton = 1;
-            else if (itemHeld && _inventory.EquippedB == InventoryState.ItemShield)
+            else if (itemHeld && _inventory.EquippedB == TreasureId.Shield)
                 _shieldParentButton = 2;
         }
 
@@ -6337,7 +6337,7 @@ public partial class Player : Node2D
 
         // LINK_STATE_RESPAWNING parameter $00 starts SND_LINK_FALL ($65) on
         // the same update that it selects LINK_ANIM_MODE_FALLINHOLE.
-        _world.PlaySound(OracleSoundEngine.SndLinkFall);
+        _world.PlaySound(SoundId.SndLinkFall);
 
         // The active hazard tile is selected by the same +5px sample used by
         // objectGetRelativeTile($0500). Carry its center through explicitly so
@@ -6385,7 +6385,7 @@ public partial class Player : Node2D
 
         // overworldSwimmingState1 requests SND_DAMAGE_LINK ($5f) before it
         // selects LINK_ANIM_MODE_DROWN and creates the splash interaction.
-        _world.PlaySound(OracleSoundEngine.SndDamageLink);
+        _world.PlaySound(SoundId.SndDamageLink);
         _world.SpawnDrowningSplash(Position, hazard);
         QueueRedraw();
     }
@@ -6701,12 +6701,12 @@ public partial class Player : Node2D
     {
         // A playing instrument sets wcc95 bit7 before checkUseItems, which
         // skips both input allocations while continuing existing parents.
-        if (!_inventory.HasTreasure(InventoryState.ItemSomaria) || IsCarryingObject || IsUsingHarp) return;
-        int current=IsUsingSwitchHook?InventoryState.ItemSwitchHook:
-            IsAttacking?InventoryState.ItemSword:IsUsingSeedShooter?InventoryState.ItemShooter:
-            _world.BombParentActive?InventoryState.ItemBomb:IsUsingShovel?InventoryState.ItemShovel:
-            braceletParentAtInput?InventoryState.ItemBracelet:
-            IsUsingPunch?InventoryState.TreasurePunch:IsUsingSomaria?InventoryState.ItemSomaria:0;
+        if (!_inventory.HasTreasure(TreasureId.CaneOfSomaria) || IsCarryingObject || IsUsingHarp) return;
+        int current=IsUsingSwitchHook?TreasureId.SwitchHook:
+            IsAttacking?TreasureId.Sword:IsUsingSeedShooter?TreasureId.Shooter:
+            _world.BombParentActive?TreasureId.Bombs:IsUsingShovel?TreasureId.Shovel:
+            braceletParentAtInput?TreasureId.Bracelet:
+            IsUsingPunch?TreasureId.Punch:IsUsingSomaria?TreasureId.CaneOfSomaria:0;
         Span<ParentItemSlotState> slots=stackalloc ParentItemSlotState[4];
         slots.Clear();
         if(current!=0) slots[0]=new((byte)_parentItemUsage.Item(current).Enabled,(byte)current);
@@ -6714,7 +6714,7 @@ public partial class Player : Node2D
         // A's higher-priority reservation still rejects B-Cane when A's state0
         // subsequently clears itself (for example, an empty Bomb or Shooter).
         int primary = _inventory.EquippedA;
-        if (!primaryInputSuppressed && _inventory.EquippedB == InventoryState.ItemSomaria &&
+        if (!primaryInputSuppressed && _inventory.EquippedB == TreasureId.CaneOfSomaria &&
             primary is > 0 and < 0x20)
         {
             var usage = _parentItemUsage.Item(primary);
@@ -6722,11 +6722,11 @@ public partial class Player : Node2D
             if (pressed && usage.Selector == 3 && usage.Enabled > slots[0].Enabled)
                 slots[0] = new((byte)usage.Enabled, (byte)primary);
         }
-        if(_parentItemUsage.ChooseSlot(InventoryState.ItemSomaria,slots)!=2) return;
+        if(_parentItemUsage.ChooseSlot(TreasureId.CaneOfSomaria,slots)!=2) return;
         CancelPunchAction();
         if(input.LengthSquared()>0.01f) UpdateFacing(input);
         bool underwater=_world.Underwater || _world.SideScrolling &&
-            _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+            _inventory.HasTreasure(TreasureId.MermaidSuit) &&
             (_world.GetSideScrollTerrain(_precisePosition).ActiveType&SideScrollTileType.Water)!=0;
         _world.BeginSomaria(this,underwater);
         _walking=false; _pushing=false;
@@ -6741,9 +6741,9 @@ public partial class Player : Node2D
         slots.Clear();
         // L1 Feather clears its parent on the launch update. The satchel's
         // existing input owner occupies ParentItem3 for its throw animation.
-        if (IsUsingSeedSatchel) slots[1] = new(1, InventoryState.ItemSeedSatchel);
-        if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, InventoryState.ItemBoomerang);
-        int slot = _parentItemUsage.ChooseSlot(InventoryState.ItemBoomerang, slots);
+        if (IsUsingSeedSatchel) slots[1] = new(1, TreasureId.SeedSatchel);
+        if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, TreasureId.Boomerang);
+        int slot = _parentItemUsage.ChooseSlot(TreasureId.Boomerang, slots);
         if (slot < 0) return;
         if (!IsUsingItem && input.LengthSquared() > 0.01f) UpdateFacing(input);
         if (!_world.TryBeginBoomerang(this, slot)) return;
@@ -6772,13 +6772,13 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _swordState = SwordActionState.Swing;
-        NotifyParentItemAnimationStarted(InventoryState.ItemSword);
+        NotifyParentItemAnimationStarted(TreasureId.Sword);
         // updateSpecialObjects seeds var2f bit 7 from the tileset;
         // linkState01_sidescroll also sets it for Mermaid Suit water.
         // parentItemLoadAnimationAndIncState latches mode $22/$2d here.
         _swordUnderwaterAnimation = !_raftRideControlled &&
             (_world.Underwater || _world.SideScrolling &&
-                _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+                _inventory.HasTreasure(TreasureId.MermaidSuit) &&
                 (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
                     SideScrollTileType.Water) != 0);
         _swordStateFrame = 0;
@@ -6795,7 +6795,7 @@ public partial class Player : Node2D
         {
             whimsicalRoll = _random.Next().Value;
             if (whimsicalRoll == 0)
-                _world.PlaySound(OracleSoundEngine.SndLightning);
+                _world.PlaySound(SoundId.SndLightning);
         }
         _currentSwordDamage = RingEffects.SwordDamage(
             _inventory, _inventory.SwordLevel, whimsicalRoll);
@@ -6837,7 +6837,7 @@ public partial class Player : Node2D
         if (facingInput.LengthSquared() > 0.01f)
             UpdateFacing(facingInput);
         _usingShovel = true;
-        NotifyParentItemAnimationStarted(InventoryState.ItemShovel);
+        NotifyParentItemAnimationStarted(TreasureId.Shovel);
         _shovelFrame = 0;
         _shovelFrameAccumulator = 0.0;
         _walking = false;
@@ -6926,8 +6926,8 @@ public partial class Player : Node2D
     {
         if (IsUsingItem || !RingEffects.CanPunch(
             _inventory,
-            _inventory.EquippedA == InventoryState.ItemNone &&
-            _inventory.EquippedB == InventoryState.ItemNone))
+            _inventory.EquippedA == TreasureId.None &&
+            _inventory.EquippedB == TreasureId.None))
         {
             return;
         }
@@ -6944,8 +6944,8 @@ public partial class Player : Node2D
         if (_expertPunch)
             _world.ApplyExpertsRingTileHit(this, (int)_facing * 2);
         _world.PlaySound(_expertPunch
-            ? OracleSoundEngine.SndExplosion
-            : OracleSoundEngine.SndStrike);
+            ? SoundId.SndExplosion
+            : SoundId.SndStrike);
         ApplyPunchCollision();
         QueueRedraw();
     }
@@ -7002,7 +7002,7 @@ public partial class Player : Node2D
         if (actionFrames <= 0)
             return;
         _usingSeedSatchel = true;
-        NotifyParentItemAnimationStarted(InventoryState.ItemSeedSatchel);
+        NotifyParentItemAnimationStarted(TreasureId.SeedSatchel);
         _seedSatchelFrame = 0;
         _seedSatchelActionFrames = actionFrames;
         _seedSatchelFrameAccumulator = 0.0;
@@ -7144,7 +7144,7 @@ public partial class Player : Node2D
                     }
                     _swordState = SwordActionState.Charged;
                     _swordStateFrame = 0;
-                    _world.PlaySound(OracleSoundEngine.SndChargeSword);
+                    _world.PlaySound(SoundId.SndChargeSword);
                 }
                 break;
 
@@ -7245,7 +7245,7 @@ public partial class Player : Node2D
         _swordState = SwordActionState.Spin;
         _swordStateFrame = 0;
         _walking = false;
-        _world.PlaySound(OracleSoundEngine.SndSwordSpin);
+        _world.PlaySound(SoundId.SndSwordSpin);
         _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
         ApplySwordCollision();
     }
@@ -7760,7 +7760,7 @@ public partial class Player : Node2D
             "res://assets/oracle/gfx/spr_link.png");
         var result = new Texture2D[3, 4];
         for (int pose = 0; pose < result.GetLength(0); pose++)
-        for (int direction = 0; direction < result.GetLength(1); direction++)
+        for (int direction = ObjectDirection.Up; direction < result.GetLength(1); direction++)
         {
             LinkGraphicRecord record =
                 _linkItems.Graphic("bracelet", pose, 0, direction);
@@ -7851,7 +7851,7 @@ public partial class Player : Node2D
         var poses = new Texture2D[variantCount, angleCount];
         var damagePoses = new Texture2D[variantCount, angleCount];
         var offsets = new Vector2[variantCount, angleCount];
-        for (int angle = 0; angle < angleCount; angle++)
+        for (int angle = ObjectAngle.Up; angle < angleCount; angle++)
         {
             (Texture2D weapon, Vector2 weaponOffset) =
                 NpcCharacter.BuildPositionedOamTexture(
@@ -8059,7 +8059,7 @@ public partial class Player : Node2D
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         for (int frame = 0; frame < 2; frame++)
-        for (int direction = 0; direction < 4; direction++)
+        for (int direction = ObjectDirection.Up; direction < 4; direction++)
         {
             TopDownSwimmingFrame record =
                 _topDownSwimmingData.Frame(frame, direction);
@@ -8118,7 +8118,7 @@ public partial class Player : Node2D
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         for (int frame = 0; frame < 2; frame++)
-        for (int direction = 0; direction < 4; direction++)
+        for (int direction = ObjectDirection.Up; direction < 4; direction++)
         {
             SideScrollSwimmingFrame record =
                 _sideScrollPlayerData.SwimmingFrame(

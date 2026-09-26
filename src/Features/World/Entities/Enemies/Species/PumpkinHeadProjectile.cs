@@ -21,7 +21,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
         int angle)
     {
         _room = room;
-        _angle = angle & 0x1f;
+        _angle = angle & ObjectAngle.Mask;
         _delay = _behavior.DelayFrames;
         Position = position;
         Name = "PumpkinHeadProjectile";

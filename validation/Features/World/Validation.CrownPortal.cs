@@ -33,7 +33,7 @@ public partial class ValidationRoot
                 for(int i=0;!_player.CutsceneControlled && i<48;i++) Step(movement:Vector2.Up);
                 FailIf(!_player.IsCutsceneControlOwner(portal) || _player.Position!=new Vector2(120,88) ||
                     (int)counter.GetValue(portal)! != 0x30 || warp.HasValue ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport)!=1,
+                    _sound.PlayRequestsFor(SoundId.SndTeleport)!=1,
                     "Fresh floor contact must pin Link to Crown's portal, acquire control and load counter$30 once.");
                 // Source spins on global frame multiples of4. Let state08
                 // initialize first, then four updates must turn exactly once.
@@ -49,9 +49,9 @@ public partial class ValidationRoot
                     "Crown portal must retain counter1 after47 spin updates.");
                 Step();
                 int destination=source==0xbb ? 0xb4 : 0xbb;
-                FailIf(warp is not {SourceGroup:4,SourcePosition:0x57,SourceTransition:2,
+                FailIf(warp is not {SourceGroup:4,SourcePosition:0x57,SourceTransition:WarpSourceTransition.FadeOut,
                         DestinationGroup:4,DestinationPosition:0x57,DestinationParameter:0,
-                        DestinationTransition:0,DirectFadeOut:true} ||
+                        DestinationTransition:WarpDestinationTransition.Basic,DirectFadeOut:true} ||
                     warp.Value.SourceRoom!=source || warp.Value.DestinationRoom!=destination,
                     "Crown portal must use the source $b4/$bb pair and direct-fade $57 exit on update48.");
                 for(int i=0;IsTransitioning && i<180;i++) Step();
@@ -61,11 +61,11 @@ public partial class ValidationRoot
                 warp=null;
                 Step(8);
                 FailIf(warp.HasValue || _player.CutsceneControlled ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport)!=1,
+                    _sound.PlayRequestsFor(SoundId.SndTeleport)!=1,
                     "Arrival overlap must not immediately retrigger the destination portal.");
                 Step(16,Vector2.Down);
                 for(int i=0;!_player.CutsceneControlled && i<48;i++) Step(movement:Vector2.Up);
-                FailIf(!_player.CutsceneControlled || _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport)!=2,
+                FailIf(!_player.CutsceneControlled || _sound.PlayRequestsFor(SoundId.SndTeleport)!=2,
                     "Leaving and approaching the destination portal again must permit a fresh use.");
                 // Cancellation removes the owning entity while it holds Link.
                 _entities.Clear();

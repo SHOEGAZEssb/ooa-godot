@@ -12,8 +12,8 @@ public sealed partial class ValidationRoot
         foreach (bool whisp in new[] { false, true })
         {
             LoadValidationRoom(4, whisp ? 0x9f : 0xa8);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
-            _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
+            _inventory.GiveTreasure(TreasureId.Sword, 0);
+            _inventory.SetScriptedEquippedItems(TreasureId.None, TreasureId.Sword);
             for (int row = 2; row <= 5; row++)
             for (int column = 1; column <= 4; column++)
                 _currentRoom.SetPositionTileAndCollision(new(column * 16 + 8, row * 16 + 8), 0xa0, 0, 0);

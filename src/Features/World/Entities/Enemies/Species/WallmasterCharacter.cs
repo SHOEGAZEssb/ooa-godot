@@ -86,7 +86,7 @@ internal partial class WallmasterCharacter : EnemyCharacter
                 _active = true;
                 Visible = true;
                 _state = WallmasterState.Falling;
-                soundRequested(OracleSoundEngine.SndFallInHole);
+                soundRequested(SoundId.SndFallInHole);
                 break;
 
             case WallmasterState.Falling:

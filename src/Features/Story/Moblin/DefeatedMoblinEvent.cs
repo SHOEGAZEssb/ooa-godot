@@ -24,8 +24,8 @@ internal sealed class DefeatedMoblinEvent : RoomCutsceneCommandHost, IRoomEntryE
     public void Start(OracleRoomData room)
     {
         Cancel();
-        var king=Context.RequireNpc(0,9,0x72,0,"INTERAC_KING_MOBLIN_DEFEATED");
-        if(!Context.Rooms.SaveData.HasGlobalFlag(0x1a) || Context.Rooms.SaveData.HasRoomFlag(0,9,0x40))
+        var king=Context.RequireNpc(0,9,InteractionId.KingMoblinDefeated,0,"INTERAC_KING_MOBLIN_DEFEATED");
+        if(!Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) || Context.Rooms.SaveData.HasRoomFlag(0,9,OracleSaveData.RoomFlag40))
         {king.SetActive(false);return;}
         _actors.Add(new(this,king,Context.Entities.InteractionSlot(king)));
         _active=true;
@@ -96,7 +96,7 @@ internal sealed class DefeatedMoblinEvent : RoomCutsceneCommandHost, IRoomEntryE
     internal void SpawnRemote()
     {
         if(!Context.Entities.InteractionSlotAvailable)return;
-        var actor=Context.Entities.Spawn<NpcCharacter>(new DefeatedMoblinActorSpawn(Database.Actor(0,0,0,0) with {Id=0x8a,Var03=6}));
+        var actor=Context.Entities.Spawn<NpcCharacter>(new DefeatedMoblinActorSpawn(Database.Actor(0,0,0,0) with {Id=InteractionId.RemoteMakuCutscene,Var03=6}));
         actor.SetScriptVisible(false);
         _actors.Add(new(this,actor,Context.Entities.InteractionSlot(actor),remote:true));
     }

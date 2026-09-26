@@ -18,8 +18,8 @@ public partial class ValidationRoot
             // enemyData.s:group4Map9bEnemyObjectData, PART$13:$00 at$58.
             FailIf(owl.Position!=new Vector2(136,88),"Crown owl must occupy source tile$58.");
             while(_entities.InteractionSlotAvailable)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
-            owl.ApplySeedHit(owl.CollisionBounds,owl.Position,0x24,new List<RoomEntitySpawn>());
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
+            owl.ApplySeedHit(owl.CollisionBounds,owl.Position,ItemId.MysterySeed,new List<RoomEntitySpawn>());
             Step(18);
             FailIf(owl.Counter!=32 || _entities.Entities<InteractionSparkleEffect>().Count!=0,
                 "Full INTERACTION pool must skip owl sparkles at counters$30/$28/$20 without stopping its countdown.");

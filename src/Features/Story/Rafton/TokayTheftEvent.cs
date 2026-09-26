@@ -93,7 +93,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _linkFrame = 0;
         _linkFrameCounter = _database.LinkFrames[0].Duration;
         _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
     }
 
     public void UpdateFrame()
@@ -132,7 +132,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             if (_waveCounter != 0) _waveCounter--;
             else
             {
-                _context.Sound.PlaySound(0xaa); // SND_WAVE
+                _context.Sound.PlaySound(SoundId.SndWave); // SND_WAVE
                 _waveCounter = _native.Constant($"wave-{_context.Entities.NextRandomValue() & 3}");
             }
         }
@@ -175,12 +175,12 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
 
         int treasure = _database.Record.StolenItems[_stolenCount++];
         _context.Inventory.LoseTreasure(treasure);
-        if (treasure == TreasureDatabase.TreasureSeedSatchel)
+        if (treasure == TreasureId.SeedSatchel)
         {
-            _context.Inventory.LoseTreasure(TreasureDatabase.TreasureEmberSeeds);
-            _context.Inventory.LoseTreasure(TreasureDatabase.TreasureEmberSeeds + 4);
+            _context.Inventory.LoseTreasure(TreasureId.EmberSeeds);
+            _context.Inventory.LoseTreasure(TreasureId.EmberSeeds + 4);
         }
-        _context.Sound.PlaySound(OracleSoundEngine.SndUnknown5);
+        _context.Sound.PlaySound(SoundId.SndUnknown5);
     }
 
     private void AdvanceScripts()
@@ -196,13 +196,13 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
                 _context.Player.Face(Vector2I.Down);
                 _linkZFixed = 0;
                 _linkSpeedZ = -0x200;
-                _context.Sound.PlaySound(OracleSoundEngine.SndJump);
-                _context.Sound.PlaySound(OracleSoundEngine.SndStrike);
+                _context.Sound.PlaySound(SoundId.SndJump);
+                _context.Sound.PlaySound(SoundId.SndStrike);
                 SetStage(ScriptStage.Down, 0x10);
                 return;
 
             case ScriptStage.Down:
-                ApplyCommonSpeed(_database.Record.DownSpeed, 0x10);
+                ApplyCommonSpeed(_database.Record.DownSpeed, ObjectAngle.Down);
                 if (--_scriptCounter == 0)
                     SetStage(ScriptStage.DownWait, 30);
                 return;
@@ -213,7 +213,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
                 return;
 
             case ScriptStage.FirstRight:
-                ApplyCommonSpeed(_database.Record.RightSpeed, 0x08);
+                ApplyCommonSpeed(_database.Record.RightSpeed, ObjectAngle.Right);
                 if (--_scriptCounter == 0)
                     SetStage(ScriptStage.FirstFreeze, 60);
                 return;
@@ -224,7 +224,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
                 return;
 
             case ScriptStage.SecondRight:
-                ApplyCommonSpeed(_database.Record.RightSpeed, 0x08);
+                ApplyCommonSpeed(_database.Record.RightSpeed, ObjectAngle.Right);
                 if (--_scriptCounter == 0)
                     SetStage(ScriptStage.FinalFreeze, 60);
                 return;
@@ -262,7 +262,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             thief.Actor.SetScriptAnimation(_database.Animation(5));
             thief.Accessory = SpawnAccessory(thief);
         }
-        _context.Sound.PlaySound(OracleSoundEngine.SndGetItem);
+        _context.Sound.PlaySound(SoundId.SndGetItem);
     }
 
     private NpcCharacter SpawnAccessory(ThiefState thief)
@@ -270,7 +270,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         TokayAccessoryRecord visual = _database.Accessory(thief.SubId);
         Vector2 position = thief.Actor.Position + new Vector2(0, -12);
         var npc = new NpcRecord(
-            _database.Record.Group, _database.Record.Room, 0x63, visual.SubId,
+            _database.Record.Group, _database.Record.Room, InteractionId.Accessory, visual.SubId,
             Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X), 0, 0,
             visual.Sprite, visual.TileBase, visual.Palette, 0, false,
             visual.Animation, visual.Animation, visual.Animation, visual.Animation,
@@ -350,7 +350,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         // tokayThief_jump uses specialObjectAnimate once after forcing its
         // animCounter to one.
         thief.Actor.AdvanceAnimationUpdates(1);
-        _context.Sound.PlaySound(OracleSoundEngine.SndJump);
+        _context.Sound.PlaySound(SoundId.SndJump);
     }
 
     private bool AdvanceThiefJump(ThiefState thief, bool moveWhileAirborne)

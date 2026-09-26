@@ -54,8 +54,8 @@ public partial class ValidationRoot
         for(int i=0;i<5;i++) bombs[i]=_entities.Spawn<BombEffect>(new BombSpawn(_player,record,_rooms.ActiveGroup,_=>{}));
         FailIf(_entities.DynamicItemSlotAvailable || _entities.TrySpawnSwordBeam(_player.Position,0),
             "Live bombs must fill the shared item pool and block a sword-beam allocation.");
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook,1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook,1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         Step("attack"); Step();
         var hook=_entities.SwitchHook!.Item!;
         FailIf(hook.ChainAllocated || hook.ChainVisible,

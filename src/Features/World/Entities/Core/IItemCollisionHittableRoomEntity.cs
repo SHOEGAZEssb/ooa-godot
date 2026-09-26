@@ -19,9 +19,9 @@ internal interface IItemCollisionHittableRoomEntity
 
 internal enum RoomEntityItemCollision
 {
-    ExpertPunch = 0x0b,
-    ThrownObject = 0x16,
-    Boomerang = 0x17,
-    Bomb = 0x18,
-    SwordBeam = 0x19
+    ExpertPunch = ItemCollisionType.ExpertPunch,
+    ThrownObject = ItemCollisionType.ThrownObject,
+    Boomerang = ItemCollisionType.L1Boomerang,
+    Bomb = ItemCollisionType.Bomb,
+    SwordBeam = ItemCollisionType.SwordBeam
 }

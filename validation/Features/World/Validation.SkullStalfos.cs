@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
                 _entities.Entities<StalfosCharacter>().Any(s => s.Record.SubId != 2),
                 $"Room 4:{room:x2} lost its enemyData.s $31:$02 placements.");
         }
-        var record = ResolveStalfos(database, RoomEnemyPlacements(database, 4, 0x7e, 0x31, 2)[0]);
+        var record = ResolveStalfos(database, RoomEnemyPlacements(database, 4, 0x7e, EnemyId.Stalfos, 2)[0]);
         FailIf(record.Health != 4 || record.Palette != 3 || record.SpeedRaw != 20,
             "Blue Stalfos lost its source health $04, palette $03 or SPEED_80.");
         Vector2 origin = new(120, 88);
@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
         }
 
         var boneRecord = StalfosBoneRecord.Load();
-        FailIf(boneRecord is not { TileBase: 10, Palette: 2, RadiusX: 2, RadiusY: 2, DamageQuarters: 2, SpeedRaw: 60 } ||
+        FailIf(boneRecord is not { TileBase: 10, Palette: 2, RadiusX: 2, RadiusY: 2, DamageQuarters: 2, SpeedRaw: ObjectSpeed.Speed180 } ||
             boneRecord.Animation != "4@8,0,0,0;8,8,0,96|4@8,0,0,64;8,8,0,32",
             "PART_STALFOS_BONE lost part1c properties or the aliased partAnimation5b98c/OAM stream.");
         var bone = new StalfosBoneProjectile();
@@ -111,8 +111,8 @@ public sealed partial class ValidationRoot
         bone.Free();
         void Step(int count, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
+        _inventory.EquipA(TreasureId.Sword);
         var snapshot = CaptureOracleRandomForValidation();
         (Vector2, int, StalfosState)[] Run(bool batched)
         {

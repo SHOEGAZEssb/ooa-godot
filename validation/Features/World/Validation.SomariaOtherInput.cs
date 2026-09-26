@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
         // Usage selectors: Shield$01=5, Boomerang$06=2, Bracelet$16=3
         // (priority$10), Cane$04=3 (priority$00). Shield retains its slot but
         // checkNoOtherParentItemsInUse prevents raising it during Cane's swing.
-        foreach (int other in new[] { InventoryState.ItemShield, InventoryState.ItemBoomerang,
-            InventoryState.ItemBracelet })
+        foreach (int other in new[] { TreasureId.Shield, TreasureId.Boomerang,
+            TreasureId.Bracelet })
         foreach (bool canePrimary in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
@@ -19,10 +19,10 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
             _inventory.GiveTreasure(other, 1);
-            _inventory.EquipA(canePrimary ? InventoryState.ItemSomaria : other);
-            _inventory.EquipB(canePrimary ? other : InventoryState.ItemSomaria);
+            _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : other);
+            _inventory.EquipB(canePrimary ? other : TreasureId.CaneOfSomaria);
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
                 _player.Face(Vector2I.Down);
                 StepGameplayUpdates(1, Vector2.Zero);
                 StepGameplayUpdates(1, Vector2.Zero, ["attack", "item"], ["attack", "item"]);
-                if (other == InventoryState.ItemBracelet)
+                if (other == TreasureId.Bracelet)
                 {
                     FailIf(_player.IsUsingSomaria || _bracelet.State != BraceletState.SeekingWall,
                         "Bracelet priority$10 must win over Cane$00 even without a wall to grab.");
@@ -56,13 +56,13 @@ public sealed partial class ValidationRoot
                 else
                 {
                     FailIf(!_player.IsUsingSomaria || _player.IsUsingShield ||
-                        _player.IsUsingBoomerang != (other == InventoryState.ItemBoomerang),
+                        _player.IsUsingBoomerang != (other == TreasureId.Boomerang),
                         "Cane must coexist with Boomerang and suppress the held Shield in either button assignment.");
                     HoldOther(9);
                     FailIf(!_player.IsUsingSomaria || _player.IsUsingBoomerang || _player.IsUsingShield,
                         "Boomerang parent completion must not release Cane's remaining swing lock.");
                     HoldOther(9);
-                    FailIf(_player.IsUsingSomaria || _player.IsUsingShield != (other == InventoryState.ItemShield),
+                    FailIf(_player.IsUsingSomaria || _player.IsUsingShield != (other == TreasureId.Shield),
                         "Cane parent completion must allow an already-held Shield to rise without a fresh press.");
                     HoldOther(5);
                 }

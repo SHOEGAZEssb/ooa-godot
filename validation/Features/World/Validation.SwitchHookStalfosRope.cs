@@ -8,12 +8,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookStalfosAndRope()
     {
-        FailIf(SwitchHookCollisionDatabase.Shared.Effect(0x14) != 8,
+        FailIf(SwitchHookCollisionDatabase.Shared.Effect(EnemyCollisionMode.SwitchHookDamageEnemy) != 8,
             "Rope's source collision mode $14 maps the hook to low-knockback damage $08.");
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
 
         (EnemyCharacter Enemy, ISwitchHookEnemy? Target, Vector2 Origin) Prepare(bool rope)
@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
 
         // State-machine probes complement the real gameplay path above.
         var database = new EnemyDatabase();
-        var record = ResolveStalfos(database, RoomEnemyPlacements(database, 4, 0x7e, 0x31, 2)[0]);
+        var record = ResolveStalfos(database, RoomEnemyPlacements(database, 4, 0x7e, EnemyId.Stalfos, 2)[0]);
         LoadValidationRoom(4, 0x7e);
         Vector2 center = new(120, 88);
         var skeleton = new StalfosCharacter();

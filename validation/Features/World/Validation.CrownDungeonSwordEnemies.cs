@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
                 enemy.Position != before + Vector2.Right * (id == 0x48 ? 0.75f : 0.625f),
                 $"Sword enemy ${id:x2}:${subid:x2} lost source SPEED_c0/SPEED_a0 chase movement.");
             enemy.UpdateFrame(enemy.Position + Vector2.Left * 32);
-            FailIf(enemy.Angle != (id == 0x48 ? 9 : 8),
+            FailIf(enemy.Angle != (id == 0x48 ? 9 : ObjectAngle.Right),
                 "Darknuts must turn every second chase update; Sword Moblins turn every fourth.");
             enemy.UpdateFrame(enemy.Position + Vector2.Down * 32, enemy.Position + Vector2.Down * 32);
             FailIf((enemy.State == SwordEnemyState.FollowingScentSeed) != (id == 0x3d),
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(target.Position + Vector2.Down * 24, recordSafe: false);
             FailIf(_currentRoom.IsSolid(_player.Position), "Sword Moblin seed fixture must use $4:$b7's open floor.");
             Step();
-            Shoot(target, 0x22);
+            Shoot(target, ItemId.PegasusSeed);
             for (int i = 0; i < 12 && target.StunCounter == 0; i++) Step();
             FailIf(target.StunCounter != 240 || target.Health != 3 || target.InvincibilityCounter != -16,
                 "Pegasus Seed must apply ENEMYDMG_38 ($f0 stun, $f0 invincibility) without damaging the Moblin.");
@@ -101,7 +101,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(target.Position + Vector2.Down * 24, recordSafe: false);
             Step();
             int count = _entities.RoomEnemyCount;
-            Shoot(target, 0x20);
+            Shoot(target, ItemId.EmberSeed);
             for (int i = 0; i < 12 && target.Health != 0; i++) Step();
             FailIf(target.Health != 0 || target.IsDead || target.CollisionEnabled,
                 "Ember must clear Sword Moblin health/collision before the delayed flame handoff.");

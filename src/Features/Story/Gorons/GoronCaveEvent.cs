@@ -25,18 +25,18 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     internal bool PaletteBusy => _fadeDirection != 0;
     internal bool MovingLink { get; private set; }
     internal IReadOnlyList<GoronCaveScriptHost> Actors => _actors;
-    internal int DanceJumpZ => _actors.FirstOrDefault(a=>a.Actor.Record is {Id:0x66,SubId:2}&&a.Actor.Active)?.JumpZ??0;
+    internal int DanceJumpZ => _actors.FirstOrDefault(a=>a.Actor.Record is {Id:InteractionId.Goron,SubId:2}&&a.Actor.Active)?.JumpZ??0;
     public bool HasState => _actors.Count != 0;
     public bool BlocksGameplay => _actors.Any(actor => actor.InputLocked);
     public bool MenusDisabled => BlocksGameplay||_actors.Any(actor=>actor.MenusDisabled);
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool Matches(int group, OracleRoomData room) => context.Entities.Entities<NpcCharacter>().Any(n =>
-        n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is 0x66 or 0x8b||n.Record is {Id:0x30,SubId:1}));
+        n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1}));
     public void Start(OracleRoomData room)
     {
         _resources = new(context, this);
         foreach (var actor in context.Entities.Entities<NpcCharacter>().Where(n =>
-            n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is 0x66 or 0x8b||n.Record is {Id:0x30,SubId:1})).ToArray())
+            n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1})).ToArray())
         {
             var host = new GoronCaveScriptHost(this, actor);
             _actors.Add(host);
@@ -202,7 +202,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
         if (!context.Entities.InteractionSlotAvailable) return;
         var item=context.Treasures.GetObject("TREASURE_OBJECT_BOMB_FLOWER_01");
         var visual=context.Treasures.GetObjectVisual(item.Graphic);
-        var record=new NpcRecord(5,0xc3,0x60,0x49,0x60,0x38,1,0,visual.Sprite,visual.TileBase,
+        var record=new NpcRecord(5,0xc3,InteractionId.Treasure,0x49,0x60,0x38,1,0,visual.Sprite,visual.TileBase,
             visual.Palette,visual.DefaultAnimation,false,visual.Animation,visual.Animation,
             visual.Animation,visual.Animation,"",NpcImplementationClassification.EventOwned);
         _bombFlower=SpawnEffect(record,new Vector2(0x38,0x60));
@@ -213,7 +213,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
         if(!context.Entities.InteractionSlotAvailable) return;
         var item=context.Treasures.GetObject(name);
         var visual=context.Treasures.GetObjectVisual(item.Graphic);
-        var record=new NpcRecord(context.Rooms.ActiveGroup,context.Rooms.CurrentRoom.Id,0x60,0,0,0,0,0,
+        var record=new NpcRecord(context.Rooms.ActiveGroup,context.Rooms.CurrentRoom.Id,InteractionId.Treasure,0,0,0,0,0,
             visual.Sprite,visual.TileBase,visual.Palette,visual.DefaultAnimation,false,
             visual.Animation,visual.Animation,visual.Animation,visual.Animation,"",NpcImplementationClassification.EventOwned);
         _bombFlower=SpawnEffect(record,position); _bombFlower.SetScriptDrawOffset(new(0,z));
@@ -235,7 +235,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     }
     internal void CreateDebris(Vector2 position, bool punching)
     {
-        if (!punching) context.Sound.PlaySound(0xa5);
+        if (!punching) context.Sound.PlaySound(SoundId.SndBreakRock);
         int pattern=context.Entities.NextRandomValue() & (punching ? 1 : 3);
         int[] angles=Database.Bytes("angles");
         for (int i=0;i<4;i++)
@@ -245,7 +245,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
             _rocks.Add(new(actor,position,angles[(pattern+(punching?4:0))*4+i],
                 punching?0x28:0x3c,punching?-228:-232,0,false,context.Entities.InteractionSlot(actor)));
         }
-        if (punching) context.Sound.PlaySound(0xa5);
+        if (punching) context.Sound.PlaySound(SoundId.SndBreakRock);
     }
     internal void StartFallingRocks()
     {
@@ -267,7 +267,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
                 if (!context.Entities.InteractionSlotAvailable) return;
                 Vector2 pos=Vector2.Zero;
                 var actor=SpawnEffect(Database.Effect(0x92,1),pos);
-                _rocks.Add(new(actor,pos,0,0,0,
+                _rocks.Add(new(actor,pos,ObjectAngle.Up,0,0,
                     0,true,context.Entities.InteractionSlot(actor)));
             }
         }

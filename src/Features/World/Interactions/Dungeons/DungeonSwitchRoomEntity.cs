@@ -54,7 +54,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         OracleSaveData? save = null)
         : base(record, $"DungeonSwitch_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != 0x05 || record.SubId == 0)
+        if (record.Id != InteractionId.Puff || record.SubId == 0)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;
@@ -113,7 +113,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        TryToggle(hitbox, 0x04);
+        TryToggle(hitbox, ItemCollisionType.L1Sword);
         // LINKDMG_1c does not mark ordinary enemy contact on ITEM_SWORD, so
         // this must not trigger Double-Edged Ring recoil or consume the hit.
         return false;
@@ -131,9 +131,9 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         if (collision == RoomEntityItemCollision.SwordBeam)
             // Effect20 clears the beam's collision bit and delivers part
             // damage $ff through LINKDMG24, making ITEM_SWORD_BEAM clink/delete.
-            return TryToggle(hitbox, 0x19);
+            return TryToggle(hitbox, ItemCollisionType.SwordBeam);
         if (collision == RoomEntityItemCollision.ThrownObject)
-            TryToggle(hitbox, 0x16);
+            TryToggle(hitbox, ItemCollisionType.ThrownObject);
         // Thrown objects use effect26 / LINKDMG1c and remain active.
         return false;
     }
@@ -143,14 +143,14 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         Vector2 sourcePosition,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        TryToggle(hitbox, seedItem == 0x24 ? 0x1a : seedItem - 0x20 + 0x1b)
+        TryToggle(hitbox, seedItem == ItemId.MysterySeed ? ItemCollisionType.MysterySeed : seedItem - 0x20 + 0x1b)
             ? SeedHitResult.Activate
             : SeedHitResult.None;
 
     public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
         if (!RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, hook.ZHigh, 7) ||
-            !TryAcceptHit(hook.CollisionBounds, 0x0d)) return false;
+            !TryAcceptHit(hook.CollisionBounds, ItemCollisionType.SwitchHook)) return false;
         // collisionEffect26 writes var2a=$8d / invincibility=$e4 on the
         // collision pass. The next part update increments $e4 before switch.s
         // toggles the bit; subsequent interactions see it on that update.
@@ -190,7 +190,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
             _room.SetPositionTileAndCollision(Position, 0,
                 _room.GetCollision((byte)_data.OverworldSwitchOnTile),
                 _animationTick(), preserveRenderedTile: true);
-            _save!.SetRoomFlag(_record.Group, _record.Room, 0x40);
+            _save!.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40);
             Finished = true;
         }
         else SetSwitchTile(

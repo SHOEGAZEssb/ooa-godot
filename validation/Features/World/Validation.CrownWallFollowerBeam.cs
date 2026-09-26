@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
                 if (!whisp) typeof(SparkCharacter).GetField("_precisePosition", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .SetValue(actor, actor.Position);
                 var beam = _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(
-                    actor.Position - new Vector2(beamData.OffsetX, beamData.OffsetY), 0));
+                    actor.Position - new Vector2(beamData.OffsetX, beamData.OffsetY), ObjectDirection.Up));
                 int clinks = _entities.EntityAdapters<SwordBeamClinkRoomEntity>().Count();
                 Step();
                 FailIf(!beam.PendingNativeCollision || beam.CollisionEnabled || beam.Finished || actor.Health != health,
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                 Vector2 impact = beam.Position;
                 if (exhausted)
                     while (_entities.InteractionSlotAvailable)
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 24), 0));
+                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone));
                 var text = _entities.TextActiveSource;
                 try
                 {

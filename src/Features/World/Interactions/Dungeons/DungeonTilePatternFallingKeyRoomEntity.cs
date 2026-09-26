@@ -25,7 +25,7 @@ internal sealed partial class DungeonTilePatternFallingKeyRoomEntity : Node2D,
         OracleRoomData room,
         GroundTreasureGrantRequest request)
     {
-        if (record.Id != 0x21 || pattern.Count == 0)
+        if (record.Id != InteractionId.DungeonEvents || pattern.Count == 0)
             throw new ArgumentOutOfRangeException(nameof(record));
         foreach (DungeonTilePatternRecord cell in pattern)
         {

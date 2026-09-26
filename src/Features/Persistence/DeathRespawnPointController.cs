@@ -53,8 +53,8 @@ public sealed class DeathRespawnPointController
         // warpTransition1, warpTransition3's destination completion,
         // warpTransitionB, and warpTransitionE call setDeathRespawnPoint.
         // warpUpdateRespawnPoint suppresses $01/$03/$0e in sidescroll groups.
-        if (destinationTransition == 0x0b ||
-            (_rooms.ActiveGroup < 0x06 && destinationTransition is 0x01 or 0x03 or 0x0e))
+        if (destinationTransition == WarpDestinationTransition.SlowFall ||
+            (_rooms.ActiveGroup < 0x06 && destinationTransition is WarpDestinationTransition.SetRespawn or WarpDestinationTransition.EnterScreen or WarpDestinationTransition.XShifted))
             RecordCurrentPoint();
     }
 

@@ -114,7 +114,7 @@ internal sealed class PreBlackTowerEventDatabase
             RalphLinked[0] is not CutsceneNativeCommand
                 { Handler: "CreateLinkedExclamation" } ||
             ImpaUnlinked[0] is not CutsceneShowTextCommand { TextId: 0x0124 } ||
-            ImpaLinked[^2] is not CutsceneMoveCommand { Actor: "Impa", Angle: 0x00 } ||
+            ImpaLinked[^2] is not CutsceneMoveCommand { Actor: "Impa", Angle: ObjectAngle.Up } ||
             !NayruUnlinked.Any(command => command is CutsceneShowTextCommand { TextId: 0x1d13 }) ||
             !NayruLinked.Any(command => command is CutsceneShowTextCommand { TextId: 0x1d12 }) ||
             !ZeldaLinked.Any(command => command is CutsceneShowTextCommand { TextId: 0x0607 }))

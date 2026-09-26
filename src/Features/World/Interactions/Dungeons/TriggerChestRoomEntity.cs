@@ -39,7 +39,7 @@ internal sealed partial class TriggerChestRoomEntity : DungeonMechanicRoomEntity
         Action<int> playSound)
         : base(record, $"TriggerChest_{record.Id:x2}_{record.Order}")
     {
-        if (record is not { Id: 0x20, SubId: 0x00 })
+        if (record is not { Id: InteractionId.DungeonScript, SubId: 0x00 })
         {
             throw new ArgumentOutOfRangeException(nameof(record));
         }

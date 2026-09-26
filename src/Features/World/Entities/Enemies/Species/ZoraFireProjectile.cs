@@ -27,9 +27,9 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     internal ZoraFireProjectile(ZoraFireSpawn spawn, ZoraFireDatabase data,
         Func<Vector2, Vector2> worldToScreen)
     {
-        if (spawn.PartId is not (0x19 or 0x31)) throw new ArgumentOutOfRangeException(nameof(spawn), "Expected PART $19 or $31.");
+        if (spawn.PartId is not (oracleofages.PartId.ZoraFire or oracleofages.PartId.GopongaProjectile)) throw new ArgumentOutOfRangeException(nameof(spawn), "Expected PART $19 or $31.");
         PartId = spawn.PartId;
-        _damageSource = PartId == 0x19 ? RingDamageSource.ZoraFire : RingDamageSource.Generic;
+        _damageSource = PartId == oracleofages.PartId.ZoraFire ? RingDamageSource.ZoraFire : RingDamageSource.Generic;
         _position = OracleObjectMovement.Shared.PositionFromPixels(spawn.Position);
         Position = _position.PixelPosition;
         _data = data;
@@ -106,4 +106,4 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     }
 }
 
-internal sealed record ZoraFireSpawn(Vector2 Position, int PartId = 0x19) : RoomEntitySpawn;
+internal sealed record ZoraFireSpawn(Vector2 Position, int PartId = oracleofages.PartId.ZoraFire) : RoomEntitySpawn;

@@ -12,8 +12,8 @@ public sealed partial class ValidationRoot
     {
         var data = new SkullDungeonDatabase();
         var records = data.GetRoomRecords(4, 0x71);
-        FailIf(records.Count != 2 || records[0] is not { Order: 2, Id: 0x22, SubId: 0, X: 0x78, Y: 0x58 } ||
-            records[1] is not { Order: 3, Id: 0x15, SubId: 0 }, "4:71 lost its source floor-controller order/coordinates.");
+        FailIf(records.Count != 2 || records[0] is not { Order: 2, Id: InteractionId.FloorColorChanger, SubId: 0, X: 0x78, Y: 0x58 } ||
+            records[1] is not { Order: 3, Id: InteractionId.ToggleFloor, SubId: 0 }, "4:71 lost its source floor-controller order/coordinates.");
         foreach (var (room, order) in new[] { (0x72, 0), (0x79, 1), (0x7b, 1) })
         {
             FailIf(data.GetRoomRecords(4, room).Single(record => record.Id == 0x15) is not { SubId: 0 } record || record.Order != order,
@@ -25,8 +25,8 @@ public sealed partial class ValidationRoot
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, bool jump = false, Vector2 move = default) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.EquipA(TreasureId.Feather);
         var random = CaptureOracleRandomForValidation();
         Vector2 control = new(120, 88);
         byte[] Underlying() => (byte[])((byte[])typeof(OracleRoomData).GetField("_underlyingLayout", flags)!.GetValue(_currentRoom)!).Clone();
@@ -91,7 +91,7 @@ public sealed partial class ValidationRoot
             var after = _random.CaptureState();
             FailIf(changer.WorkerCount != 1 || after.Calls != before.Calls + 256 ||
                 after.PlacementIndex != before.PlacementIndex || !after.PlacementBuffer.SequenceEqual(permutation) ||
-                !Enumerable.Range(0, 256).All(i => _entities.RuntimeState.ReadWramByte(OracleRuntimeState.BigBufferAddress + i) == permutation[i]),
+                !Enumerable.Range(0, 256).All(i => _entities.RuntimeState.ReadWramByte(WramAddress.wBigBuffer + i) == permutation[i]),
                 "Floor child did not perform256 shared RNG calls, replace w4RandomBuffer without resetting its cursor, and copy wBigBuffer.");
             void ConvertExpected(int position)
             {
@@ -151,7 +151,7 @@ public sealed partial class ValidationRoot
         raw.UpdateChildren(frame, spawns);
         Vector2 sample = new(40, 40);
         _currentRoom.SetPositionTileAndCollision(sample, 0x9d, 0, 0);
-        for (int i = 0; i < 256; i++) runtime.SetWramByte(OracleRuntimeState.BigBufferAddress + i, 0x22);
+        for (int i = 0; i < 256; i++) runtime.SetWramByte(WramAddress.wBigBuffer + i, 0x22);
         raw.UpdateChildren(frame, spawns);
         FailIf(_currentRoom.GetMetatile(sample) != 0x9e, "Worker retained a private permutation instead of observing shared wBigBuffer writes.");
         _currentRoom.SetPositionTileAndCollision(control, 0xda, 0, 0);

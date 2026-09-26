@@ -52,7 +52,7 @@ public sealed class ShovelController
                 out BreakableTileRecord record) ||
             !record.AllowsSource(BreakableTileDatabase.SourceShovel))
         {
-            _playSound(OracleSoundEngine.SndClink);
+            _playSound(SoundId.SndClink);
             return false;
         }
         if ((record.Effect & 0x1f) != 0x0a)
@@ -73,7 +73,7 @@ public sealed class ShovelController
                 out BreakableTileBreak result) !=
             BreakableTileBreakStatus.Broken)
         {
-            _playSound(OracleSoundEngine.SndClink);
+            _playSound(SoundId.SndClink);
             return false;
         }
 
@@ -87,7 +87,7 @@ public sealed class ShovelController
             new ShovelDebrisSpawn(result.TileCenter, direction));
         _roomView.QueueRedraw();
         _saveData.AddGashaMaturity(1);
-        _playSound(OracleSoundEngine.SndDig);
+        _playSound(SoundId.SndDig);
         return true;
     }
 }

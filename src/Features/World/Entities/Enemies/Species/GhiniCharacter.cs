@@ -63,9 +63,9 @@ internal partial class GhiniCharacter : EnemyCharacter
             Mathf.Clamp(
                 Position.Y, Record.RadiusY, _room.Height - Record.RadiusY - 1));
         if (horizontal)
-            _angle = (0x20 - _angle) & 0x1f;
+            _angle = (0x20 - _angle) & ObjectAngle.Mask;
         if (vertical)
-            _angle = (0x10 - _angle) & 0x1f;
+            _angle = (0x10 - _angle) & ObjectAngle.Mask;
         if (horizontal || vertical)
             SetAnimation(_angle < 0x10 ? 1 : 0);
         _counter--;

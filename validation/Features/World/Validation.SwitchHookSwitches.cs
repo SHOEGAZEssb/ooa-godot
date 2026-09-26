@@ -24,9 +24,9 @@ public sealed partial class ValidationRoot
             FailIf(collisions.HitLockout(item) != expected,
                 $"PART_SWITCH collision ${item:x2} lost the source mask/effect lockout.");
         }
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
-        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
+        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         var runtime = _entities.RuntimeState;
         foreach (var c in new[] {
             (Room: 0x89, Mask: 4, Switch: 0x62, Rail: 0x67, Off: 0x5c, On: 0x5d, Start: 0x92, Approach: 0x82, Direction: 0, Move: Vector2.Up, Travel: 12),
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                 FailIf(part.HitLockout != 28 || hook.State != 1 ||
                     runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != before ||
                     _currentRoom.GetMetatile(Point(c.Switch)) != switchBefore ||
-                    _currentRoom.GetMetatile(Point(c.Rail)) != railBefore || _sound.PlayRequestsFor(0x7e) != 0,
+                    _currentRoom.GetMetatile(Point(c.Rail)) != railBefore || _sound.PlayRequestsFor(SoundId.SndSwitch) != 0,
                     "Hook collision must set signed lockout $e4 without executing the part handler early.");
                 if (repetition == 0)
                 {
@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
                     runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != (before ^ c.Mask) ||
                     _currentRoom.GetMetatile(Point(c.Switch)) != (on ? 0x0b : 0x0a) ||
                     _currentRoom.GetMetatile(Point(c.Rail)) != (on ? c.On : c.Off) ||
-                    _sound.PlayRequestsFor(0x7e) != 1 || _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0 ||
+                    _sound.PlayRequestsFor(SoundId.SndSwitch) != 1 || _sound.PlayRequestsFor(SoundId.SndClink) != 0 ||
                     _player.PrecisePosition != origin,
                     "The next part update must toggle before the rail interaction, retract without exchange/clink, and decrement $e4->$e3.");
                 Wait(26, batch);
@@ -112,10 +112,10 @@ public sealed partial class ValidationRoot
             for (int n = 0; !beam.Finished && n < 20; n++) Step();
             FailIf(!beam.Finished || part.HitLockout != 0 ||
                 runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != (0x80 | c.Mask) ||
-                _sound.PlayRequestsFor(0x7e) != 1,
+                _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
                 $"Sword beam must flip the switch once and be consumed without the sword/hook lockout: room {c.Room:x2}, " +
                 $"finished {beam.Finished}, lockout {part.HitLockout}, bits {runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress):x2}, " +
-                $"sounds {_sound.PlayRequestsFor(0x7e)}, beam {beam.PrecisePosition}, Link {_player.PrecisePosition}.");
+                $"sounds {_sound.PlayRequestsFor(SoundId.SndSwitch)}, beam {beam.PrecisePosition}, Link {_player.PrecisePosition}.");
             Wait(30, batch);
             // Cancel after contact but before the native part handler: room
             // teardown discards that pending hit rather than toggling a new room.

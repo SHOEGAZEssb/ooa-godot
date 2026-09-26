@@ -26,7 +26,7 @@ internal sealed class HardhatShovelScriptHost : NpcInteractionCommandHost
     }
 
     protected override bool MatchesAndPrepare(NpcCharacter npc) =>
-        npc.Record is { Id: 0x58, SubId: 0x00 };
+        npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x00 };
 
     public override int ReadMemory(string binding)
     {
@@ -83,7 +83,7 @@ internal sealed class HardhatShovelScriptHost : NpcInteractionCommandHost
 
     public override void GiveItem(int treasureId, int parameter)
     {
-        if (treasureId != TreasureDatabase.TreasureShovel || parameter != 0)
+        if (treasureId != TreasureId.Shovel || parameter != 0)
         {
             throw new InvalidOperationException(
                 $"hardhatWorkerSubid00Script requested unexpected reward " +
@@ -114,8 +114,8 @@ internal sealed class HardhatShovelScriptHost : NpcInteractionCommandHost
             shovel.Name,
             "hardhatWorkerSubid00Script:giveitem TREASURE_SHOVEL,$00")
         {
-            SpawnMode = 0,
-            GrabMode = 2,
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands,
             VisualOverride = new GroundTreasureVisualOverride(
                 visual.Sprite,
                 visual.TileBase,

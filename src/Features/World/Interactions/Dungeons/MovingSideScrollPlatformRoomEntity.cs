@@ -170,10 +170,10 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         }
         _angle = command.Direction switch
         {
-            MovingSideScrollPlatformDirection.Up => 0x00,
-            MovingSideScrollPlatformDirection.Right => 0x08,
-            MovingSideScrollPlatformDirection.Down => 0x10,
-            MovingSideScrollPlatformDirection.Left => 0x18,
+            MovingSideScrollPlatformDirection.Up => ObjectAngle.Up,
+            MovingSideScrollPlatformDirection.Right => ObjectAngle.Right,
+            MovingSideScrollPlatformDirection.Down => ObjectAngle.Down,
+            MovingSideScrollPlatformDirection.Left => ObjectAngle.Left,
             _ => throw new InvalidOperationException(
                 $"Unsupported side-platform direction {command.Direction}.")
         };

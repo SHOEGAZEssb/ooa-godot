@@ -28,7 +28,7 @@ internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
         OracleRoomData room,
         GroundTreasureGrantRequest request)
     {
-        if (record.Id != 0x21 || record.SubId != 0x0e)
+        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x0e)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _data = data;

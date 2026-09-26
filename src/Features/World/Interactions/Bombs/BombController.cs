@@ -157,7 +157,7 @@ public sealed class BombController
                     CarriedObjectMotion.HeldOffset(player),
                     Vector2I.Zero,
                     speedZ: 0,
-                    speedRaw: 0);
+                    speedRaw: ObjectSpeed.Speed0);
             }
         }
         _bomb = null;
@@ -212,7 +212,7 @@ public sealed class BombController
             direction,
             dropped ? 0 : _record.InitialSpeedZ,
             dropped
-                ? 0
+                ? ObjectSpeed.Speed0
                 : RingEffects.UsesStrongThrow(_inventory)
                     ? _record.TossSpeedRaw
                     : _record.SpeedRaw);

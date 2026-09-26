@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(spot.Position + new Vector2(0, 15), recordSafe: false);
         plantingManager.Update(1.0 / 60.0, _player);
         FailIf(
-            sounds.Count(sound => sound == OracleSoundEngine.SndCompass) != 1 ||
+            sounds.Count(sound => sound == SoundId.SndCompass) != 1 ||
             !plantingInteractions.TryInteract(_player) ||
             DialogueBox.PlainText(plantingDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(database.Text(0x3509)),
@@ -124,7 +124,7 @@ public sealed partial class ValidationRoot
             !save.IsGashaSpotPlanted(spot.SubId) ||
             save.GetGashaSpotKillCounter(spot.SubId) != 0 ||
             rooms.CurrentRoom.GetMetatile(spot.Position) != database.PlantedSoilTile ||
-            sounds.Count(sound => sound == OracleSoundEngine.SndGetSeed) != 1 ||
+            sounds.Count(sound => sound == SoundId.SndGetSeed) != 1 ||
             roomRedraws != 1,
             "Discovery detection or the Gasha plant/consume/persist transition failed.");
         plantingManager.Clear();
@@ -225,12 +225,12 @@ public sealed partial class ValidationRoot
         FailIf(
             !_player.IsHoldingItemTwoHands ||
             harvest.State != InteractionState.RewardHeld ||
-            sounds.Count(sound => sound == OracleSoundEngine.SndGetItem) != 1,
+            sounds.Count(sound => sound == SoundId.SndGetItem) != 1,
             "Gasha reward presentation did not use Link's two-hand pose.");
         harvest.BeginDisappearance();
         FailIf(
             _player.IsHoldingItemTwoHands ||
-            sounds.Count(sound => sound == OracleSoundEngine.SndFairyCutscene) != 1,
+            sounds.Count(sound => sound == SoundId.SndFairyCutscene) != 1,
             "Gasha tree disappearance did not release Link and play its cue.");
         var disappearanceChecksums = new HashSet<ulong>
         {
@@ -277,7 +277,7 @@ public sealed partial class ValidationRoot
             rewardSave.GashaMaturity != 0,
             "A repeated Gasha Heart Piece did not become a tier-0 ring with two RNG calls and clamped maturity.");
 
-        rewardInventory.GiveTreasure(TreasureDatabase.TreasurePotion, 1);
+        rewardInventory.GiveTreasure(TreasureId.Potion, 1);
         rewardInventory.ApplyDamage(4);
         int potionCalls = 0;
         Result potion = GashaRewardResolver.Give(
@@ -290,10 +290,10 @@ public sealed partial class ValidationRoot
 
         OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
         var maturityInventory = new InventoryState(treasures, maturitySave, () => -1);
-        maturityInventory.GiveTreasure(TreasureDatabase.TreasureEssence, 1);
-        maturityInventory.GiveTreasure(TreasureDatabase.TreasureHeartPiece, 1);
-        maturityInventory.GiveTreasure(TreasureDatabase.TreasureTradeItem, 1);
-        maturityInventory.GiveTreasure(TreasureDatabase.TreasureHeartRefill, 0x18);
+        maturityInventory.GiveTreasure(TreasureId.Essence, 1);
+        maturityInventory.GiveTreasure(TreasureId.HeartPiece, 1);
+        maturityInventory.GiveTreasure(TreasureId.TradeItem, 1);
+        maturityInventory.GiveTreasure(TreasureId.HeartRefill, 0x18);
         FailIf(
             maturitySave.GashaMaturity != 150 + 36 + 100 + 0x18,
             "Essence, Heart Piece, trade-item, and heart-refill maturity sources diverged from giveTreasure.");

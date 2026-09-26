@@ -57,14 +57,14 @@ internal sealed class DumbbellManEventDatabase
             {
                 Group: 2,
                 Room: 0xe8,
-                InteractionId: 0x51,
+                InteractionId: InteractionId.DumbbellMan,
                 SubId: 0,
                 InitialAnimation: 0,
                 CollisionRadiusY: 6,
                 CollisionRadiusX: 6,
                 RoomFlag: OracleSaveData.RoomFlagItem,
                 RequiredTradeItem: 0x05,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x06,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_06",
                 InitialScriptUpdates: 1,
@@ -89,7 +89,7 @@ internal sealed class DumbbellManEventDatabase
             Commands[12] is not CutsceneTradeItemBranchCommand { Value: 0x05, TargetCommand: 15 } ||
             Commands[27] is not CutsceneTextOptionBranchCommand { Value: 0, TargetCommand: 31 } ||
             Commands[37] is not CutsceneSetAnimationCommand { Animation: 1 } ||
-            Commands[38] is not CutsceneGiveItemCommand { TreasureId: 0x41, Parameter: 0x06 } ||
+            Commands[38] is not CutsceneGiveItemCommand { TreasureId: TreasureId.TradeItem, Parameter: 0x06 } ||
             Commands[40] is not CutsceneWaitCommand { Frames: 30 } ||
             Commands[41] is not CutsceneEnableInputCommand ||
             Commands[42] is not CutsceneBranchYieldCommand { TargetCommand: 5 })

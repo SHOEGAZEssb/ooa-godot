@@ -19,7 +19,7 @@ public partial class ValidationRoot
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40));
             for(int y=70;y<=102;y+=16) _currentRoom.SetPositionTileAndCollision(new(72,y),0x0c,0,0);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,level);
+            _inventory.GiveTreasure(TreasureId.Bracelet,level);
             typeof(InventoryState).GetMethod("SetVariable",flags)!.Invoke(_inventory,[TreasureVariable.BraceletLevel,level]);
             void Step(int count,bool down=false) =>
                 StepGameplayUpdates(count, down?Vector2.Down:Vector2.Zero, down?["move_down"]:[], [], batched: batch);
@@ -32,7 +32,7 @@ public partial class ValidationRoot
             {
                 if (!observeMovement) return;
                 byte low = level == 2 ? (byte)0xc0 : (byte)0x80;
-                FailIf(_runtimeState.ReadWramByte(0xcec0) != low ||
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wTmpcec0) != low ||
                     _runtimeState.ReadWramByte(0xcec1) != 0 ||
                     _runtimeState.ReadWramByte(0xcec2) != 0 ||
                     _runtimeState.ReadWramByte(0xcec3) != 0,

@@ -33,7 +33,7 @@ internal sealed partial class TorchTriggerTranslatorRoomEntity :
         Func<IRoomEntity,bool> isOutgoing)
         : base(record, $"TorchTriggerTranslator_{record.Order}")
     {
-        if (record.Id != 0x24 || record.SubId != 0x02 ||
+        if (record.Id != InteractionId.TriggerTranslator || record.SubId != 0x02 ||
             record.Predicate != TriggerPredicate.Exact)
         {
             throw new ArgumentOutOfRangeException(nameof(record));

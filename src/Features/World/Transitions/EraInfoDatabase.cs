@@ -90,7 +90,7 @@ internal sealed class EraInfoDatabase
             Present.PastMask != 0x80 ||
             Present.SuppressGlobalFlag != 0x16 ||
             Present.SentBackAddress !=
-                OracleRuntimeState.SentBackByStrangeForceAddress ||
+                WramAddress.wSentBackByStrangeForce ||
             Present.SentBackValue != 1 ||
             !SharedContractMatches(Past))
         {

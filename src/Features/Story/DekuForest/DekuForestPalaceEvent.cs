@@ -538,7 +538,7 @@ internal sealed class DekuForestPalaceEvent :
         _corridorRunner = _singleRunner;
         _corridorRunner.Start(_database.CorridorCommands);
         _corridorRunner.SetInitialMotionRegisters(
-            CorridorGuard, _record.NormalSpeed, 0x00);
+            CorridorGuard, _record.NormalSpeed, ObjectAngle.Up);
 
         if (room != _record.CorridorRoom1)
             return;
@@ -625,7 +625,7 @@ internal sealed class DekuForestPalaceEvent :
                 {
                     _context.Player.AdvanceCutsceneSimulatedInput(
                         Vector2I.Up,
-                        0x00,
+                        ObjectAngle.Up,
                         _record.NormalSpeed,
                         _record.SlowSpeed);
                 }
@@ -640,7 +640,7 @@ internal sealed class DekuForestPalaceEvent :
                     // wScrollMode=$00 deliberately prevents a room scroll here.
                     _context.Player.AdvanceCutsceneSimulatedInput(
                         Vector2I.Down,
-                        0x10,
+                        ObjectAngle.Down,
                         _record.NormalSpeed,
                         _record.SlowSpeed);
                 }
@@ -673,8 +673,8 @@ internal sealed class DekuForestPalaceEvent :
                 guard.Counter = _record.SideGuardMoveFrames;
                 guard.Angle =
                     OracleObjectPosition.HighByte(guard.Actor.Position.X) == 0x48
-                        ? 0x18
-                        : 0x08;
+                        ? ObjectAngle.Left
+                        : ObjectAngle.Right;
             }
         }
 
@@ -729,7 +729,7 @@ internal sealed class DekuForestPalaceEvent :
                     return;
                 _rewardZFixed = 0;
                 _rewardSpeedZ = _record.RewardJumpSpeedZ;
-                _context.Sound.PlaySound(OracleSoundEngine.SndJump);
+                _context.Sound.PlaySound(SoundId.SndJump);
                 _rewardFlightStage = RewardGuardFlightStage.Airborne;
                 break;
 
@@ -756,7 +756,7 @@ internal sealed class DekuForestPalaceEvent :
 
             case RewardGuardFlightStage.Flying:
                 MoveActorAtSpeed(
-                    RewardGuard, _record.FlightSpeed, 0x10);
+                    RewardGuard, _record.FlightSpeed, ObjectAngle.Down);
                 if (guard.Position.Y > _context.Rooms.CurrentRoom.Height + 8)
                 {
                     guard.SetActive(false);
@@ -824,7 +824,7 @@ internal sealed class DekuForestPalaceEvent :
         // uses interactionAnimateAsNpc before entering its generic NPC loop.
         // The wrapper must expose these capabilities for SetBlocksLink and
         // the ordinary guard conversation to reach the gameplay router.
-        bool entranceGuard = record.Id == 0x40 && record.SubId is 0x02 or 0x07 or 0x09;
+        bool entranceGuard = record.Id == InteractionId.Soldier && record.SubId is 0x02 or 0x07 or 0x09;
         NpcCharacter actor = _context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(record, $"DekuForestPalace{name}",
                 Talkable: entranceGuard, Solid: entranceGuard));

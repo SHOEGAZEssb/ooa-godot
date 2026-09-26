@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             commands[22] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 1 } ||
             commands[24] is not CutsceneMemoryGateCommand { Binding: "CookAwayFromStart", Value: 0 } ||
             commands[25] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 0 } ||
-            commands[29] is not CutsceneGiveItemCommand { TreasureId: 0x41, Parameter: 3 } ||
+            commands[29] is not CutsceneGiveItemCommand { TreasureId: TreasureId.TradeItem, Parameter: 3 } ||
             commands.OfType<CutsceneBranchYieldCommand>().Count() != 4,
             "tokayCookScript lost source waits, $3e/$3f handshake, Tasty Meat or wBigBuffer jump boundaries.");
         var texts = new TokayInteractionDatabase();
@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
         {
             var observations = new List<string>();
             _saveData.SetRoomFlag(2, 0x3f, 0x20, false);
-            _inventory.GiveTreasure(0x41, 2);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 2);
             LoadValidationRoom(2, 0x3f);
             TokayCookEvent cooking = _roomEvents.Get<TokayCookEvent>();
             TokayCharacter cook = _entities.Entities<TokayCharacter>().Single(n => n.Record.SubId == 0x05);
@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
             FailIf(_player.Position.DistanceTo(cook.Position) < 8 ||
                 _rooms.CurrentRoom.GetTerrainInfo(_player.Position).Collision != 0,
                 "Cook fixture bypassed the room's collision geometry.");
-            _inventory.GiveTreasure(0x41, 1);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 1);
             Talk(0x0a00);
             CloseAndWait(30);
             ExpectText(0x0a09);
@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
             Step(3);
             FailIf(cooking.BlocksGameplay || _inventory.TradeItem != 1,
                 "Missing Stink Bag changed inventory or retained input.");
-            _inventory.GiveTreasure(0x41, 2);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 2);
             Talk(0x0a00);
             CloseAndWait(30);
             ExpectText(0x0a01);
@@ -103,12 +103,12 @@ public sealed partial class ValidationRoot
             Step(1);
             ExpectText(0x0a05);
             Vector2 start = cook.Position;
-            int sounds = _sound.PlayRequestsFor(0x53);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndJump);
             Step(10);
             FailIf(cook.Position == start || !_dialogue.IsOpen,
                 $"Cook native tail during TX_0a05: {start} -> {cook.Position}, jumping={cooking.Jumping}, z={cook.ScriptDrawOffset}, command={cooking.CurrentCommandIndex}, dialogue={_dialogue.IsOpen}, batch={batched}, player={_player.Position}.");
             Step(500);
-            FailIf(_sound.PlayRequestsFor(0x53) < sounds + 6,
+            FailIf(_sound.PlayRequestsFor(SoundId.SndJump) < sounds + 6,
                 "Cook did not repeat its six native jump paths during long dialogue.");
             _dialogue.Close();
             int returning = 0;
@@ -148,8 +148,8 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         {
             _saveData.SetRoomFlag(2, 0x3f, 0x20, false);
-            _inventory.GiveTreasure(0x41, 2);
-            _inventory.LoseTreasure(TreasureDatabase.TreasurePotion);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 2);
+            _inventory.LoseTreasure(TreasureId.Potion);
             _player.RefillHealth();
             LoadValidationRoom(2, 0x3f);
             TokayCookEvent cooking = _roomEvents.Get<TokayCookEvent>();

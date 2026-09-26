@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                 FailIf(_player.Position != corner.Value + Vector2.Right,
                     "slideAngleTable's 31/0/1 group must write the adjusted rightward vector before applying it.");
             }
-            _player.AdvanceInteractionVelocity(0, 0);
+            _player.AdvanceInteractionVelocity(0, ObjectAngle.Up);
             Expect(0, 0, 0, 0);
             for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, 0xa5);
             _player.AdvanceInteractionVelocity(0x28, 0xff);

@@ -180,7 +180,7 @@ internal sealed class DungeonEntranceInteractionDatabase
             EntryRadius != 8 || EyeStatueTile != 0xee ||
             EyeInitialYOffset != -2 || PortalPosition != 0x57 ||
             PortalRadius != 3 || PortalSpinUpdates != 0x30 ||
-            PortalSound != OracleSoundEngine.SndTeleport ||
+            PortalSound != SoundId.SndTeleport ||
             PortalSourceTransition != 2 || PortalDestinationTransition != 0 ||
             PortalDestinationParameter != 0 ||
             PortalPairFor(1) is not { MinibossRoom: 0x18, EntranceRoom: 0x24 })

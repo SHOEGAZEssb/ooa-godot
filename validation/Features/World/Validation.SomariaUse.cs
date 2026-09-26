@@ -18,9 +18,9 @@ public partial class ValidationRoot
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40)); _player.Face(Vector2I.Down);
             _currentRoom.SetPositionTileAndCollision(new(72,54),0x0c,0,0);
-            _inventory.GiveTreasure(InventoryState.ItemSomaria,1);
-            _inventory.EquipA(button=="attack"?InventoryState.ItemSomaria:InventoryState.ItemNone);
-            _inventory.EquipB(button=="item"?InventoryState.ItemSomaria:InventoryState.ItemNone);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria,1);
+            _inventory.EquipA(button=="attack"?TreasureId.CaneOfSomaria:TreasureId.None);
+            _inventory.EquipB(button=="item"?TreasureId.CaneOfSomaria:TreasureId.None);
             void Step(int count,bool pressed=false,bool turn=false) =>
                 StepGameplayUpdates(count, turn?Vector2.Right:Vector2.Zero, [button], pressed?[button]:[], batched: batch);
             var cane=_entities.Somaria!;
@@ -59,8 +59,8 @@ public partial class ValidationRoot
         }
         LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40)); _player.Face(Vector2I.Down);
         _currentRoom.SetPositionTileAndCollision(new(72,54),0x0c,0,0);
-        _inventory.GiveTreasure(InventoryState.ItemSword,1);
-        _inventory.EquipA(InventoryState.ItemSomaria); _inventory.EquipB(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword,1);
+        _inventory.EquipA(TreasureId.CaneOfSomaria); _inventory.EquipB(TreasureId.Sword);
         void Buttons(int count,string[] held,string[] pressed)
         { input.CaptureForValidation(held,pressed,Vector2.Zero); scheduler.Advance(count/60.0,update); }
         Buttons(1,["attack"],["attack"]); Buttons(12,[],[]);

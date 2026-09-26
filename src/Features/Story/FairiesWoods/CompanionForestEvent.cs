@@ -44,7 +44,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
         int role = _data.Role(group, room.Id);
         return role switch
         {
-            8 => Flag(0x22) && !Save.HasRoomFlag(group, room.Id, 0x40) &&
+            8 => Flag(0x22) && !Save.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlag40) &&
                 _context.Transitions.ScrollActive && _context.Transitions.ScrollDirection == Vector2I.Left,
             9 => Flag(0x22) && !Flag(0x23),
             10 => Flag(0x24) && !Flag(0x23),
@@ -57,11 +57,11 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     internal void OnRoomLoaded(int group, OracleRoomData room)
     {
         int role = _data.Role(group, room.Id);
-        if (role == 12 && (Save.ReadWramByte(0xc647) & 0x20) != 0)
-            Save.WriteWramByte(0xc647, (byte)(Save.ReadWramByte(0xc647) | 0x40));
+        if (role == 12 && (Save.ReadWramByte(WramAddress.wDimitriState) & 0x20) != 0)
+            Save.WriteWramByte(WramAddress.wDimitriState, (byte)(Save.ReadWramByte(WramAddress.wDimitriState) | 0x40));
         if (role != 8) return;
         for (int address = 0xcfd0; address < 0xcfe0; address++) _context.Entities.RuntimeState.SetWramByte(address, 0);
-        Save.SetGlobalFlag(0x1d, false);
+        Save.SetGlobalFlag(GlobalFlag.CanBuyFlute, false);
         // companionScripts.s:subid08@state0 assigns Moosh without granting a
         // flute, before checking entry direction, carpenter progress or room flags.
         if (_context.Inventory.AnimalCompanion == 0)
@@ -83,9 +83,9 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                 throw new InvalidOperationException($"companionSpawner.s:${(_role == 10 ? 5 : 4):x2} found an occupied companion slot in 0:{room.Id:x2}.");
             _companion = _companionId switch
             {
-                0x0b => _context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, 2, 0, room.Id)),
-                0x0c => _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, 2, 0, room.Id)),
-                0x0d => _context.Entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, 2, 0, room.Id)),
+                0x0b => _context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
+                0x0c => _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
+                0x0d => _context.Entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
                 _ => throw UnsupportedCommand($"spawn forest companion ${_companionId:x2}")
             };
             _companion.UseForestInteraction(_role == 10);
@@ -183,20 +183,20 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                     "ForestCompanionExclamation", Talkable: false, Solid: false));
                 _exclamation.SetAnimationRate(0);
                 _exclamationCounter = 30;
-                _context.Sound.PlaySound(OracleSoundEngine.SndClink);
+                _context.Sound.PlaySound(SoundId.SndClink);
                 break;
             case "SpawnRescueFairy": SpawnFairy(3, 0x0f); break;
-            case "ScrambleForest": Save.SetGlobalFlag(0x2b, false); break;
+            case "ScrambleForest": Save.SetGlobalFlag(GlobalFlag.ForestUnscrambled, false); break;
             case "GiveFlute":
                 _giveFlutePending = true;
                 break;
             case "GiveFluteNow":
-                ShowText((_context.Inventory.HasTreasure(0x0e) ? 0x0069 : 0x0038) + _companionId - 0x0b, string.Empty);
-                Save.WriteWramByte(0xc6b5, (byte)(_companionId - 0x0a));
+                ShowText((_context.Inventory.HasTreasure(TreasureId.Flute) ? 0x0069 : 0x0038) + _companionId - 0x0b, string.Empty);
+                Save.WriteWramByte(WramAddress.wFluteIcon, (byte)(_companionId - 0x0a));
                 int stateAddress = 0xc646 + _companionId - 0x0b;
                 Save.WriteWramByte(stateAddress, (byte)(Save.ReadWramByte(stateAddress) | 0x80));
-                _context.Inventory.GiveTreasure(0x0e, 1);
-                _context.Sound.PlaySound(OracleSoundEngine.SndGetItem);
+                _context.Inventory.GiveTreasure(TreasureId.Flute, 1);
+                _context.Sound.PlaySound(SoundId.SndGetItem);
                 _flute = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                     _data.FluteRecord(_context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id,
                         _context.Player.Position + new Vector2(0, -14), _companionId), "CompanionFluteReward", Talkable: false, Solid: false));
@@ -213,7 +213,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                 break;
             case "WarpOut":
                 _context.Transitions.ApplyWarpWithFadeOut(_context.Player,
-                    new Warp(0, _context.Rooms.CurrentRoom.Id, -1, 0, 0, 0, 0x63, 0x56, 0, 0));
+                    new Warp(0, _context.Rooms.CurrentRoom.Id, -1, 0, 0, 0, 0x63, 0x56, 0, WarpDestinationTransition.Basic));
                 break;
             default: throw UnsupportedCommand($"run forest helper '{handler}'");
         }
@@ -237,7 +237,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
     private void SpawnFairy(int subId, int preset)
     {
         var movement = _fairies.Movements[preset]; var visual = _fairies.Event;
-        var record = new NpcRecord(0, _context.Rooms.CurrentRoom.Id, 0x49, subId,
+        var record = new NpcRecord(0, _context.Rooms.CurrentRoom.Id, InteractionId.ForestFairy, subId,
             movement.InitialY, movement.InitialX, preset, 0, visual.FairySprite, visual.FairyTileBase,
             0, 0, false, visual.Animation0, visual.Animation0, visual.Animation0, visual.Animation0,
             string.Empty, NpcImplementationClassification.EventOwned);

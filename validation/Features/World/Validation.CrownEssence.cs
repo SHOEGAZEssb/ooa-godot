@@ -14,12 +14,12 @@ public partial class ValidationRoot
         var visual=new DungeonInteractionVisualDatabase().Visual("sacred-soil");
         // mainData.s4:b8 and essence.s fifth OAM/text/warp rows, independent
         // of the runtime's chosen definition and collection-state machine.
-        FailIf(data.GetRoomRecords(4,0xb8) is not [{Id:0x7f,SubId:0,Order:0,Y:0x28,X:0x78,Kind:DungeonObjectKind.Essence}] ||
+        FailIf(data.GetRoomRecords(4,0xb8) is not [{Id:InteractionId.Essence,SubId:0,Order:0,Y:0x28,X:0x78,Kind:DungeonObjectKind.Essence}] ||
             data.Essence.Index!=4 || visual.TileBase!=0x0a || visual.Palette!=0 || visual.Animations.Length!=1 ||
             !data.Essence.Message.StartsWith("\\pos(2)",StringComparison.Ordinal) ||
             !data.Essence.Message.Contains("Sacred Soil",StringComparison.Ordinal) ||
             !data.Essence.Message.Contains("nourishing",StringComparison.Ordinal) ||
-            data.Essence.ExitWarp is not {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:1},
+            data.Essence.ExitWarp is not {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:WarpDestinationTransition.SetRespawn},
             "Crown Essence lost its source placement, fifth OAM/text row or respawn-setting exit.");
         foreach(bool batch in new[]{false,true})
         {
@@ -36,8 +36,8 @@ public partial class ValidationRoot
             FailIf(!_dialogue.IsOpen || !essence.ReadyForDialogue || _player.IsHoldingItemTwoHands ||
                 _inventory.Essences!=(priorEssences|0x10) || !_saveData.HasRoomFlag(4,0xb8,OracleSaveData.RoomFlagItem) ||
                 !_dialogue.CurrentMessage.Contains("Sacred Soil",StringComparison.Ordinal) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence)!=1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence)!=1,
+                _sound.PlayRequestsFor(SoundId.SndDropEssence)!=1 ||
+                _sound.PlayRequestsFor(SoundId.MusGetEssence)!=1,
                 "Walking to Crown's pedestal must grant only essence bit$10, persist collection and show TX_0012.");
             FailIf(!_player.NativeNormalStateForInteraction,
                 "Essence state4 requests Link state04 without consuming it during the interaction pass.");

@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
         FailIf(
             tingleEntity.Npc.Record is not
             {
-                Group: 0, Room: 0x79, Id: 0xc8, SubId: 0x00,
+                Group: 0, Room: 0x79, Id: InteractionId.Tingle, SubId: 0x00,
                 SpriteName: "spr_gorondance_tingle_write",
                 TileBase: 4, Palette: 0,
                 Implementation: NpcImplementationClassification.SpecializedNative
@@ -109,7 +109,7 @@ public sealed partial class ValidationRoot
         int explosionCount =
             _entities.Entities<InteractionExplosionEffect>().Count;
         int explosionSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion);
+            _sound.PlayRequestsFor(SoundId.SndExplosion);
         int balloonZAtHit = tingleEntity.CollisionZ;
         bool balloonHit = _entities.ApplySwordHit(
             balloonHitbox,
@@ -146,7 +146,7 @@ public sealed partial class ValidationRoot
             balloonExplosion.AnimationFrame != 0 ||
             balloonExplosion.TextureSize != new Vector2(32, 32) ||
             balloonExplosion.TexturePixelHash != 0x510f3c7716debcb4UL ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) !=
+            _sound.PlayRequestsFor(SoundId.SndExplosion) !=
                 explosionSounds,
             "PART_TINGLE_BALLOON did not allocate visible INTERAC_EXPLOSION " +
             "$56 at offset `$f000, copied Object.z, var03 `$01 priority, " +
@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
         FailIf(
             balloonExplosion.ElapsedUpdates != 1 ||
             balloonExplosion.AnimationFrame != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) !=
+            _sound.PlayRequestsFor(SoundId.SndExplosion) !=
                 explosionSounds + 1,
             "INTERAC_EXPLOSION $56 did not initialize visibly and request " +
             "SND_EXPLOSION on its state-0 update.");
@@ -410,19 +410,19 @@ public sealed partial class ValidationRoot
             departureStart != new Vector2(0x28, 0x38) ||
             departureTransitions[1] is not
                 { Stage: 5, Updates: 40, Position: var observedCliffStart,
-                    Z: 0, Counter: 8, Animation: 0x11, Angle: 0x10 } ||
+                    Z: 0, Counter: 8, Animation: 0x11, Angle: ObjectAngle.Down } ||
             observedCliffStart != cliffStart ||
             departureTransitions[2] is not
                 { Stage: 6, Updates: 65, Position: var landed,
-                    Z: 0, Counter: 8, Animation: 0x18, Angle: 0x10 } ||
+                    Z: 0, Counter: 8, Animation: 0x18, Angle: ObjectAngle.Down } ||
             landed != cliffLanding ||
             departureTransitions[3] is not
                 { Stage: 7, Updates: 147, Position: var exitStart,
-                    Z: 0, Counter: 8, Animation: 0x07, Angle: 0x10 } ||
+                    Z: 0, Counter: 8, Animation: 0x07, Angle: ObjectAngle.Down } ||
             exitStart != cliffLanding ||
             room079Ricky.PrecisePosition !=
                 new Vector2(20.203125f, 143.734375f) ||
-            (_saveData.ReadWramByte(0xc646) & 0x40) == 0 ||
+            (_saveData.ReadWramByte(WramAddress.wCompanionStates) & 0x40) == 0 ||
             CompanionRuntimeState.AnyActive(_runtimeState) ||
             CompanionRuntimeState.ReadRemembered(_runtimeState).Id != 0,
             "Ricky's room 0:79 departure diverged from state-$0a's " +
@@ -443,15 +443,15 @@ public sealed partial class ValidationRoot
                 (byte)(_saveData.ReadWramByte(room089Tutorial.FlagAddress) &
                     ~(1 << room089Tutorial.FlagBit)));
             _saveData.WriteWramByte(
-                0xc646,
-                (byte)(_saveData.ReadWramByte(0xc646) & ~0xc0));
+                WramAddress.wCompanionStates,
+                (byte)(_saveData.ReadWramByte(WramAddress.wCompanionStates) & ~0xc0));
         }
         CompanionRuntimeState.Begin(
             _runtimeState,
             CompanionRuntimeState.RickyId,
             0x89,
             new Vector2(0x38, 0x70),
-            direction: 2);
+            direction: ObjectDirection.Down);
         LoadValidationRoom(0, 0x89);
         RickyCompanionRoomEntity room089Ricky =
             _entities.Entities<RickyCompanionRoomEntity>().Single();
@@ -502,9 +502,9 @@ public sealed partial class ValidationRoot
                 _runtimeState, CompanionRuntimeState.RickyId);
             CompanionRuntimeState.ForgetRemembered(_runtimeState);
             if (_inventory.SeedSatchelLevel == 0)
-                _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 1, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 2, 1);
+                _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds + 1, 1);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds + 2, 1);
             LoadValidationRoom(0, 0x79);
             TingleRoomEntity upgradeTingle =
                 _entities.Entities<TingleRoomEntity>().Single();

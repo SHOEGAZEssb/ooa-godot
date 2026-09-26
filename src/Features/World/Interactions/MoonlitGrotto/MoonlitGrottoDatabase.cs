@@ -102,7 +102,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 0,
                 Kind: DungeonObjectKind.Essence,
-                Id: 0x7f,
+                Id: InteractionId.Essence,
                 SubId: 0x00,
                 Y: 0x28,
                 X: 0x78,
@@ -113,7 +113,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 2,
                 Kind: DungeonObjectKind.BossReward,
-                Id: 0x20,
+                Id: InteractionId.DungeonScript,
                 SubId: 0x01,
                 Y: 0x58,
                 X: 0x78,
@@ -123,7 +123,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 3,
                 Kind: DungeonObjectKind.ShadowHag,
-                Id: 0x7a,
+                Id: InteractionId.Roller,
                 SubId: 0x00,
                 Y: 0x58,
                 X: 0xd8,
@@ -134,7 +134,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 3,
                 Kind: DungeonObjectKind.MinibossReward,
-                Id: 0x20,
+                Id: InteractionId.DungeonScript,
                 SubId: 0x00,
                 Y: 0x58,
                 X: 0x78,
@@ -144,7 +144,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 4,
                 Kind: DungeonObjectKind.Subterror,
-                Id: 0x72,
+                Id: InteractionId.KingMoblinDefeated,
                 SubId: 0x00,
                 Y: 0x18,
                 X: 0x78,

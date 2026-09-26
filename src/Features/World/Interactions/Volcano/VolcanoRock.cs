@@ -22,7 +22,7 @@ internal sealed partial class VolcanoRock : TransitionOffsetNode2D
     internal int PartSlot { get; private set; }
     internal bool ShadowDrawn => State == 3 && Z < 0 &&
         ((_frameCounter ^ PartSlot) & 1) != 0 &&
-        (_room.TilesetFlags & 0x20) == 0 &&
+        (_room.TilesetFlags & (int)TilesetFlags.Sidescroll) == 0 &&
         16 - _worldToScreen(Vector2.Zero).Y < 0x97;
     internal int State { get; private set; }
     internal int Counter { get; private set; }

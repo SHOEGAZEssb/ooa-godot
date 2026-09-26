@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogMergedCloud()
     {
-        var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.Smog,0);
         foreach (int subid in new[] { 3, 0x83 })
         foreach (int enemies in new[] { 0, 1, 2, 3, 4 })
         {
@@ -32,7 +32,7 @@ public partial class ValidationRoot
                 bool large = enemies == 2;
                 string[] expected = large ? ["tile:11:a3", "rng"] : ["interaction-counter:60", "rng"];
                 FailIf(actor.State != 8 || actor.Counter2 != 0 || !actor.Visible || !actor.CollisionEnabled ||
-                    actor.SubId != (large ? 4 : subid) || actor.CollisionMode != (large ? 0x4d : 7) ||
+                    actor.SubId != (large ? 4 : subid) || actor.CollisionMode != (large ? EnemyCollisionMode.Smog : EnemyCollisionMode.ProjectileWithRingMod) ||
                     actor.CollisionBounds.Size != (large ? new Vector2(20,20) : new Vector2(12,12)) ||
                     actor.Speed != (large ? 0x0a : 0x14) || actor.AnimationIndex != (large ? 4 : 2) ||
                     actor.ProjectileCounter != (large ? 20 : 50) || !events.SequenceEqual(expected),

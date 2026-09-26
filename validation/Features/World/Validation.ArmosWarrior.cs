@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
             foreach (var reservation in reservations)
             { partSlots.Remove(reservation); reservation.Node.Free(); }
         }
-        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         _saveData.SetRoomFlag(4, 0x80, 0xff, false);
         LoadValidationRoom(4, 0x86);
         _player.WarpTo(new Vector2(120, 40));
@@ -149,8 +149,8 @@ public sealed partial class ValidationRoot
             _entities.Entities<ArmosWarriorActor>().Count != 1 || body.Health != 10,
             "Three sword/shield hits did not remove both children and expose the body after90 updates.");
         _dialogue.Close();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
+        _inventory.EquipA(TreasureId.Sword);
         _inventory.ApplyDamage(4); // Keep sword beams out of this melee timing regression.
         for (int i = 0; !body.Dying && i < 6000; i++)
         {
@@ -235,7 +235,7 @@ public sealed partial class ValidationRoot
         var data = new ArmosWarriorDatabase();
         for (int subid = 0; subid < 4; subid++)
         {
-            var record = bosses.Enemy(0x73, subid);
+            var record = bosses.Enemy(EnemyId.ArmosWarrior, subid);
             FailIf(record.Sprites is not ["spr_armoswarrior", "spr_armoswarriorshield", "spr_armoswarriorsword"] ||
                 record.Health != new[] { 10, 10, 3, 127 }[subid] || record.Palette != Math.Max(1, subid) ||
                 record.RadiusY != new[] { 6, 6, 12, 0 }[subid] ||
@@ -253,7 +253,7 @@ public sealed partial class ValidationRoot
                 box.RadiusY != boxes[frame * 4 + 2] || box.RadiusX != boxes[frame * 4 + 3],
                 $"Armos sword frame{frame} lost its high-byte offsets/radii.");
         }
-        for (int angle = 0; angle < 32; angle++)
+        for (int angle = ObjectAngle.Up; angle < 32; angle++)
         {
             int offset = (((angle + 2) & 31) / 4) * 2;
             FailIf(data.SwordBoundaries(angle) != new Vector2I(boundaries[offset + 1], boundaries[offset]),
@@ -269,8 +269,8 @@ public sealed partial class ValidationRoot
             FailIf(data.CollisionEnabled(item) != (mask[item] == '1'), "Armos collision mask lost native item bit ordering.");
         foreach (var (mode, sword, hook, beam) in new[] { (0x44,0x21,0x21,0x21), (0x60,0x16,0x1b,0),
             (0x61,0x15,0x1b,0x20), (0x62,0x17,0,0x20) })
-            FailIf(data.CollisionEffect(mode, 4) != sword || data.CollisionEffect(mode, 13) != hook ||
-                data.CollisionEffect(mode, 25) != beam || data.CollisionEffect(mode, 0x1d) != (mode == 0x60 ? 0 : 0x20),
+            FailIf(data.CollisionEffect(mode, ItemCollisionType.L1Sword) != sword || data.CollisionEffect(mode, ItemCollisionType.SwitchHook) != hook ||
+                data.CollisionEffect(mode, ItemCollisionType.SwordBeam) != beam || data.CollisionEffect(mode, ItemCollisionType.PegasusSeed) != (mode == 0x60 ? 0 : 0x20),
                 "Armos protected/shield/sword/unprotected collision modes changed, including Pegasus pass-through versus absorption.");
         FailIf(data.Message(0x2f01).Position != 1 || data.Message(0x2f01).Text !=
             "My mighty sword\nand mighty\nshield shall\ncrush you!" ||
@@ -278,7 +278,7 @@ public sealed partial class ValidationRoot
             "NO!\\stop\nMy mighty sword\nis broken...\nYou'll pay for\nthis!!!",
             "Armos TX_2f01/TX_2f02 lost text, source line breaks, position or stop command.");
 
-        var swordRecord = bosses.Enemy(0x73, 3);
+        var swordRecord = bosses.Enemy(EnemyId.ArmosWarrior, 3);
         var launch = OracleGraphicsCache.GetAnimationDefinition(swordRecord.Animations[10]);
         var spin = OracleGraphicsCache.GetAnimationDefinition(swordRecord.Animations[11]);
         FailIf(launch.Frames.Length != 9 || launch.LoopStart != 1 || launch.Frames[0].Duration != 1 ||

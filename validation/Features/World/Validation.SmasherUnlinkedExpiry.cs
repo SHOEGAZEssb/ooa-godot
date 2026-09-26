@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     {
         var actor = new SmasherCharacter();
         var random = new OracleRandom();
-        actor.InitializePending(new EnemyDatabase().ImportedEnemy(0x74, 0),
+        actor.InitializePending(new EnemyDatabase().ImportedEnemy(EnemyId.Smasher, 0),
             Room060MovementFixture(), new(120, 88), random, 15);
         int initializations = 0, allocations = 0;
         try
@@ -54,13 +54,13 @@ public sealed partial class ValidationRoot
             {
                 actor.Position = new(x, y);
                 actor.CopyCarriedPosition(new(x, y), z);
-                actor.ReleaseGrab(8);
+                actor.ReleaseGrab(ObjectAngle.Right);
                 int sounds = 0, angle = -1;
                 for (int repeat = 1; repeat <= 2; repeat++)
                 {
                     actor.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, sound =>
                     {
-                        FailIf(sound != OracleSoundEngine.SndBossDamage, "Unlinked hit must use SND_BOSS_DAMAGE.");
+                        FailIf(sound != SoundId.SndBossDamage, "Unlinked hit must use SND_BOSS_DAMAGE.");
                         sounds++;
                     }, setReservedItemAngle: value => angle = value);
                     FailIf(sounds != (expectedAngle < 0 ? 0 : repeat) ||
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
         finally { actor.QueueFree(); }
 
         var immediate = new SmasherCharacter();
-        immediate.InitializePending(new EnemyDatabase().ImportedEnemy(0x74, 0),
+        immediate.InitializePending(new EnemyDatabase().ImportedEnemy(EnemyId.Smasher, 0),
             Room060MovementFixture(), new(120, 88), new OracleRandom(), 15);
         try
         {

@@ -102,7 +102,7 @@ public sealed partial class MapMenuController : IOracleMenuLifecycleClient
             bool scrolling = _screen.IsScrolling;
             _screen.AdvanceDungeonInput();
             if (!scrolling && _screen.HandleDirectionInput(_lifecycle.DirectionInputWithAutofire()))
-                _playSound(OracleSoundEngine.SndMenuMove);
+                _playSound(SoundId.SndMenuMove);
             return;
         }
         if (_debugFastTravel && Input.IsActionJustPressed("debug_map_travel"))
@@ -116,7 +116,7 @@ public sealed partial class MapMenuController : IOracleMenuLifecycleClient
             BeginClosing();
         }
         else if (_screen.HandleDirectionInput(_lifecycle.DirectionInputWithAutofire()))
-            _playSound(OracleSoundEngine.SndMenuMove);
+            _playSound(SoundId.SndMenuMove);
         else if (!_debugFastTravel && Input.IsActionJustPressed("attack"))
         {
             // A consumes this update even if an unvisited room has no text.
@@ -135,7 +135,7 @@ public sealed partial class MapMenuController : IOracleMenuLifecycleClient
     {
         if (!IsOpen || !_screen.Navigate(direction))
             return false;
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         return true;
     }
 
@@ -178,7 +178,7 @@ public sealed partial class MapMenuController : IOracleMenuLifecycleClient
 
     private void BeginClosing()
     {
-        if (!_gale || !_galeTravel) _playSound(OracleSoundEngine.SndCloseMenu);
+        if (!_gale || !_galeTravel) _playSound(SoundId.SndCloseMenu);
         _lifecycle.BeginClosing(this);
     }
 
@@ -186,7 +186,7 @@ public sealed partial class MapMenuController : IOracleMenuLifecycleClient
     {
         // menuStateFadeIntoMenu requests SND_OPENMENU ($54) after the fast
         // fade reaches white, immediately before loading MENU_MAP.
-        _playSound(OracleSoundEngine.SndOpenMenu);
+        _playSound(SoundId.SndOpenMenu);
         _setMusicVolume(2);
         _screen.Open(_debugFastTravel);
         if (_gale)

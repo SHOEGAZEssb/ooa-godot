@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         var fairy = _roomEvents.Get<BombUpgradeFairyEvent>();
         var data = fairy.Database;
-        byte Signal() => _entities.RuntimeState.ReadWramByte(0xcfc0);
+        byte Signal() => _entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0);
         NpcCharacter[] Effects(int id, int subid) => _entities.Entities<NpcCharacter>()
             .Where(n => n.Active && n.Record.Id == id && n.Record.SubId == subid).ToArray();
         // These expectations come from scriptHelper.s and text/ages/text.yaml,
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
             _inventory.ApplyFairyBombCapacityUpgrade(capacity);
             _inventory.RefillHealth();
             _inventory.ApplyDamage(_inventory.HealthQuarters - health);
-            _inventory.EquipB(InventoryState.ItemBomb);
+            _inventory.EquipB(TreasureId.Bombs);
             LoadValidationRoom(0, 0x50);
             _player.WarpTo(new Vector2(0x88, 0x68));
             FailIf(_currentRoom.IsSolid(_player.Position) || _currentRoom.GetTerrainInfo(_player.Position).Hazard != HazardType.None,
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
         void Expect(int id)
         {
             string text = expectedTexts[id - 0x0c00];
-            int bcd = _entities.RuntimeState.ReadWramByte(0xcba8);
+            int bcd = _entities.RuntimeState.ReadWramByte(WramAddress.wTextNumberSubstitution);
             text = text.Replace("\\num1", ((bcd >> 4) * 10 + (bcd & 15)).ToString(), StringComparison.Ordinal);
             FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(text),
                 $"$83 expected TX_{id:x4} at script {fairy.ScriptIndex}, counter={fairy.ScriptCounter}; got '{_dialogue.CurrentMessage}'.");

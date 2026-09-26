@@ -168,7 +168,7 @@ internal sealed class BusinessScrubDatabase
 
     private void Validate()
     {
-        if (Group != 1 || Room != 0x81 || InteractionId != 0xce ||
+        if (Group != 1 || Room != 0x81 || InteractionId != oracleofages.InteractionId.BusinessScrub ||
             PlacedSubId != 0x03 || CollisionRadius != 0x06 ||
             ProximityRadius != 0x20 || AButtonPointOffset != 10 ||
             FloorTile != 0x00 || FloorCollision != 0x0f ||

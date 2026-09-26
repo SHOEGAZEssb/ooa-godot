@@ -38,6 +38,14 @@ $godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
+When changing source-backed runtime symbol definitions, also run
+`& .\tools\verify_runtime_symbols.ps1`. It checks annotated constants against
+the active vanilla Ages disassembly through the importer source repository,
+including enum order and game-specific definitions. It accepts `-Disassembly`
+for a checkout outside the default sibling directory. Runtime code never reads
+the disassembly. This check complements the gameplay regressions and does not
+replace them.
+
 For a cold-start timing profile, run Godot with
 `--max-fps 60 -- --validate --profile-startup`.
 This bypasses the suite's already-warmed gameplay fixture, measures the actual

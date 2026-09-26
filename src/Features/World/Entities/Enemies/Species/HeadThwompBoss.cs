@@ -94,7 +94,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             _initialized = true;
             SetSurroundingSolidity(true);
             Visible = true;
-            _playSound(OracleSoundEngine.SndCtrlStopMusic);
+            _playSound(SoundId.SndCtrlStopMusic);
             QueueRedraw();
             return;
         }
@@ -221,12 +221,12 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         Vector2 door = PointForPackedPosition(0xa4);
         _room.SetPositionTileAndCollision(
             door, 0x3d, collision: null, _animationTick());
-        _playSound(OracleSoundEngine.SndDoorClose);
+        _playSound(SoundId.SndDoorClose);
         player.SetLocalRespawnPosition(new Vector2(0x48, 0x98));
         _state = HeadThwompState.Spinning;
         _counter = 18;
         _projectileCounter = 0xf0;
-        _playSound(OracleSoundEngine.MusBoss);
+        _playSound(SoundId.MusBoss);
     }
 
     private bool TryBeginPendingBomb()
@@ -266,7 +266,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         // odd-numbered heads. The post-bomb helper below deliberately plays
         // it on the even, fully selected heads instead.
         if ((_direction & 1) != 0)
-            _playSound(OracleSoundEngine.SndClink2);
+            _playSound(SoundId.SndClink2);
         _counter = RotationSpeeds[
             healthIndex,
             (_direction & 1) == 0 ? 0 : 1];
@@ -277,7 +277,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _direction = (_direction + 1) & 7;
         SetAnimation(animationBase + _direction);
         if ((_direction & 1) == 0)
-            _playSound(OracleSoundEngine.SndClink2);
+            _playSound(SoundId.SndClink2);
     }
 
     private void UpdateDeceleratingSpin()
@@ -392,7 +392,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             spawns.Add(new HeadThwompProjectileSpawn(
                 Position + Vector2.Up * 8,
                 HeadThwompProjectileKind.Circular,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: _spinDelay));
             SetAnimation(_direction);
             return;
@@ -445,7 +445,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
                 _phase = 2;
                 _counter = 120;
                 _screenShake(60);
-                _playSound(OracleSoundEngine.SndStrongPound);
+                _playSound(SoundId.SndStrongPound);
                 return;
             case 2:
                 if (--_counter == 0)
@@ -491,7 +491,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
                     Position + Vector2.Down * 20,
                     UpdateThisFrame: true));
             SetAnimation(0x10);
-            _playSound(OracleSoundEngine.SndBossDamage);
+            _playSound(SoundId.SndBossDamage);
             return;
         }
         if (Health == 0)
@@ -502,7 +502,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             {
                 Position = new Vector2(Position.X, 0x90);
                 _screenShake(60);
-                _playSound(OracleSoundEngine.SndStrongPound);
+                _playSound(SoundId.SndStrongPound);
                 // enemyCode79 observes ENEMYSTATUS_NO_HEALTH and enters the
                 // shared boss-death handler on the following enemy update.
                 _deathPending = true;
@@ -559,7 +559,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         spawns.Add(new HeadThwompProjectileSpawn(
             Position,
             HeadThwompProjectileKind.Fireball,
-            Angle: 0,
+            Angle: ObjectAngle.Up,
             Speed: 0,
             RandomizeLaunch: true));
     }
@@ -571,7 +571,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         _dying = true;
         _deathCounter = 120;
         _disableLink();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 
     private void SetSurroundingSolidity(bool solid)

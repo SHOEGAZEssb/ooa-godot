@@ -142,7 +142,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter
                 ZFixed = unchecked((short)(ZFixed + EnemyBehaviorTables.Shared.FireKeeseZOffsets[Counter >> 4].Value));
                 int toward = OracleObjectMovement.Shared.RelativeAngle(Position, target);
                 if ((Counter & 3) == 0 && Angle != toward)
-                    Angle = (Angle + (((Angle - toward) & 31) < 16 ? -1 : 1)) & 31;
+                    Angle = (Angle + (((Angle - toward) & ObjectAngle.Mask) < 16 ? -1 : 1)) & ObjectAngle.Mask;
                 BounceAndMove();
                 break;
             case 13:

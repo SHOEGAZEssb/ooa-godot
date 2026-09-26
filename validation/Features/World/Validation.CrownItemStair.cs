@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownItemStair()
     {
-        foreach (int item in new[] { InventoryState.ItemSomaria, InventoryState.ItemShooter, InventoryState.ItemSwitchHook })
+        foreach (int item in new[] { TreasureId.CaneOfSomaria, TreasureId.Shooter, TreasureId.SwitchHook })
         foreach (bool primary in new[] { false, true })
         foreach (bool alreadyActive in new[] { false, true })
         foreach (bool batched in new[] { false, true })
@@ -17,11 +17,11 @@ public sealed partial class ValidationRoot
             _player.ApplicationUpdateOwned = true;
             _entities.Clear();
             _inventory.GiveTreasure(item, 1);
-            _inventory.GiveTreasure(0x20, 0x20);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
             _inventory.SelectShooterSeeds(0);
-            _inventory.EquipA(primary ? item : InventoryState.ItemNone);
-            _inventory.EquipB(primary ? InventoryState.ItemNone : item);
-            _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 1);
+            _inventory.EquipA(primary ? item : TreasureId.None);
+            _inventory.EquipB(primary ? TreasureId.None : item);
+            _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 1);
             _player.WarpTo(new(120, 40));
             FailIf(_collision.Collides(_player.Position), "Item/stair approach must begin on actual Crown floor.");
             StepGameplayUpdates(15, Vector2.Up, batched: batched);
@@ -29,8 +29,8 @@ public sealed partial class ValidationRoot
                 "The native warp lock must allow movement onto the stair without taking it.");
             string button = primary ? "attack" : "item";
             _player.Face(Vector2I.Down); // Keep a flying hook over the actual approach floor.
-            bool ItemActive() => item == InventoryState.ItemSomaria ? _player.IsUsingSomaria :
-                item == InventoryState.ItemShooter ? _player.IsUsingSeedShooter : _player.IsUsingSwitchHook;
+            bool ItemActive() => item == TreasureId.CaneOfSomaria ? _player.IsUsingSomaria :
+                item == TreasureId.Shooter ? _player.IsUsingSeedShooter : _player.IsUsingSwitchHook;
             if (alreadyActive)
             {
                 StepGameplayUpdates(1, Vector2.Zero, [button], [button]);
@@ -46,11 +46,11 @@ public sealed partial class ValidationRoot
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
-            _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Zero, [button], alreadyActive ? [] : [button]);
             FailIf(!observed || !IsTransitioning ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds + 1,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds + 1,
                 $"ITEM${item:x2} {(alreadyActive ? "active" : "initial")} update must permit the post-object Crown stair check on button {button}.");
         }
         ReinitializeGameplayForValidation();

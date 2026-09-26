@@ -18,7 +18,7 @@ public partial class ValidationRoot
                 () => true, () => true, () => { }, () => { }, _ => { }, 1, true);
             SmasherRoomEntity Add(SmasherCharacter actor, int subid) => (SmasherRoomEntity)_entities.TryAllocateEnemy(slot =>
             {
-                actor.InitializePending(db.ImportedEnemy(0x74, subid), _currentRoom, new(120, 88), random, slot);
+                actor.InitializePending(db.ImportedEnemy(EnemyId.Smasher, subid), _currentRoom, new(120, 88), random, slot);
                 return new SmasherRoomEntity(actor, world, subid == 0);
             })!;
             var ballAdapter = Add(ball, 0); var parentAdapter = Add(parent, 1);

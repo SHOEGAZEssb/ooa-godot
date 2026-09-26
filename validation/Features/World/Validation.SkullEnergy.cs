@@ -31,9 +31,9 @@ public sealed partial class ValidationRoot
                 var beads = _entities.CreateEnergySwirl(new(120.75f, 88.5f));
                 FailIf(!beads.Select(b => b.Index).SequenceEqual(new[] {7,6,5,4,3,2,1,0}) ||
                     beads.Any(b => b.Initialized || b.Visible), "Swirl allocation must assign7..0 without running PART state0 or drawing.");
-                _entities.RuntimeState.SetWramByte(0xcd2d, 1);
+                _entities.RuntimeState.SetWramByte(WramAddress.wDeleteEnergyBeads, 1);
                 Step();
-                FailIf(_random.Calls != prediction.Calls || _entities.RuntimeState.ReadWramByte(0xcd2d) != 0 ||
+                FailIf(_random.Calls != prediction.Calls || _entities.RuntimeState.ReadWramByte(WramAddress.wDeleteEnergyBeads) != 0 ||
                     beads.Where((b, i) => !b.Initialized || b.Visible || b.Delay != delays[i]).Any(),
                     "PART state0 under text must clear the delete signal and draw eight ordered RNG delays without decrementing them.");
                 bool[] seen = new bool[8];
@@ -60,9 +60,9 @@ public sealed partial class ValidationRoot
                 for (int i = 0; !diagonal.Visible && i < 8; i++) Step();
                 FailIf(!diagonal.Visible || diagonal.PrecisePosition != starts[1] + retainedFraction,
                     "Circle restart must replace only high bytes, preserving the previous flight's fractional bytes.");
-                _entities.RuntimeState.SetWramByte(0xcd2d, 1);
+                _entities.RuntimeState.SetWramByte(WramAddress.wDeleteEnergyBeads, 1);
                 Step();
-                FailIf(_entities.Entities<BlueEnergyBeadRoomEntity>().Count != 0 || _entities.RuntimeState.ReadWramByte(0xcd2d) != 1,
+                FailIf(_entities.Entities<BlueEnergyBeadRoomEntity>().Count != 0 || _entities.RuntimeState.ReadWramByte(WramAddress.wDeleteEnergyBeads) != 1,
                     "The shared delete signal must remove all initialized beads under text without clearing itself.");
                 // Fourteen occupied native PART slots leave only two: allocation
                 // stops immediately, retaining descending indices7 and6.

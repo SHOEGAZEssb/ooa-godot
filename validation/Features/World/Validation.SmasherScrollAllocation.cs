@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
                 _entities.TryAllocateEnemy(slot =>
                 {
                     var actor = new SmasherCharacter();
-                    actor.InitializePending(database.ImportedEnemy(0x74, 0), _currentRoom,
+                    actor.InitializePending(database.ImportedEnemy(EnemyId.Smasher, 0), _currentRoom,
                         new(120, 88), new OracleRandom(), slot);
                     return new SmasherSlotValidationEntity(actor, (_, _) => { });
                 });

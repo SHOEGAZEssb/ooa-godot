@@ -58,14 +58,14 @@ internal sealed class ComedianEventDatabase
             {
                 Group: 0,
                 Room: 0x56,
-                InteractionId: 0x65,
+                InteractionId: InteractionId.Comedian,
                 SubId: 0,
                 CollisionRadiusY: 6,
                 CollisionRadiusX: 6,
                 RoomFlag: OracleSaveData.RoomFlagItem,
                 ProgressBinding: "ComedianProgress",
                 RequiredTradeItem: 0x06,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x07,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_07",
                 InitialScriptUpdates: 2
@@ -100,7 +100,7 @@ internal sealed class ComedianEventDatabase
             Commands[22] is not CutsceneTextOptionBranchCommand
                 { Value: 0, TargetCommand: 25 } ||
             Commands[28] is not CutsceneGiveItemCommand
-                { TreasureId: TreasureDatabase.TreasureTradeItem, Parameter: 0x07 } ||
+                { TreasureId: TreasureId.TradeItem, Parameter: 0x07 } ||
             Commands[33] is not CutsceneBranchCommand { TargetCommand: 8 })
         {
             throw new InvalidOperationException(

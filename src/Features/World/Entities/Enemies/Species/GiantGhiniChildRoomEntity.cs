@@ -29,7 +29,7 @@ internal sealed class GiantGhiniChildRoomEntity
                     (sourcePosition, strength) =>
                     {
                         child.ApplySwordKnockback(sourcePosition, strength);
-                        soundRequested(OracleSoundEngine.SndDamageEnemy);
+                        soundRequested(SoundId.SndDamageEnemy);
                     }),
                 countsAsEnemy: true,
                 killableEnemyIndex: 0,

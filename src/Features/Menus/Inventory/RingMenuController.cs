@@ -85,7 +85,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             if (_pageTransitionStartPending)
             {
                 _pageTransitionStartPending = false;
-                _playSound(OracleSoundEngine.SndOpenMenu);
+                _playSound(SoundId.SndOpenMenu);
                 return;
             }
             _screen.AdvanceAnimation(delta, out bool completed);
@@ -297,7 +297,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             if (!_inventory.HasAppraisedRing(ring))
                 ring = 0xff;
             _inventory.SetRingBoxSlotFromList(_screen.BoxCursor, ring);
-            _playSound(OracleSoundEngine.SndSelectItem);
+            _playSound(SoundId.SndSelectItem);
             ReturnToBox();
             return;
         }
@@ -347,7 +347,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             ScrollPage(direction.X, cursor);
         else
             _screen.SetPageAndCursor(_screen.Page, cursor);
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         RefreshListText();
     }
 
@@ -369,7 +369,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         if (next < 0 || next >= _inventory.RingBoxCapacity)
             return;
         _screen.SetBoxCursor(next);
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         RefreshBoxText();
     }
 

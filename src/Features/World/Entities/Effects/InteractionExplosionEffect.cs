@@ -56,7 +56,7 @@ internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
         if (!_initialized)
         {
             _initialized = true;
-            _playSound(OracleSoundEngine.SndExplosion);
+            _playSound(SoundId.SndExplosion);
             return;
         }
         if (_animation.CurrentParameter == 0xff)

@@ -67,7 +67,7 @@ internal sealed class BlackTowerEntranceEventDatabase
               AftermathFlag: OracleSaveData.RoomFlag40,
               CompleteFlag: OracleSaveData.RoomFlag80,
               MoveSpeed: 0x14, MoveCounter: 0x21,
-              SourceTransition: 0x04, DestinationTransition: 0x0c,
+              SourceTransition: WarpSourceTransition.Instant, DestinationTransition: WarpDestinationTransition.UnknownC,
               ExplanationTextId: 0x1005 } ||
             First.Count != 8 || First[^1] is not CutsceneEndCommand ||
             Aftermath.Count != 16 || Aftermath[^1] is not CutsceneEndCommand ||
@@ -75,7 +75,7 @@ internal sealed class BlackTowerEntranceEventDatabase
             First[3] is not CutsceneOrRoomFlagCommand { Flag: 0x40 } ||
             Aftermath[4] is not CutsceneShowTextCommand { TextId: 0x1006 } ||
             Aftermath[9] is not CutsceneMoveCommand
-                { Actor: "Guard", Angle: 0x08, Counter: 0x21 } ||
+                { Actor: "Guard", Angle: ObjectAngle.Right, Counter: 0x21 } ||
             Aftermath[12] is not CutsceneOrRoomFlagCommand { Flag: 0x80 } ||
             Oam.Count != 16 || Stage1Oam.Count != 26)
         {

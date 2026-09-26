@@ -21,7 +21,7 @@ internal partial class BladeTrapCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, Action<int> sound)
     {
-        if (record is not { Id: 0x0e, SubId: 1 })
+        if (record is not { Id: EnemyId.BladeTrap, SubId: 1 })
             throw new ArgumentException("Blade trap requires imported $0e:$01.", nameof(record));
         Record = record;
         _room = room;
@@ -56,7 +56,7 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 if (walls.Bitset != 0) return;
                 SpeedRaw = _behavior[2].Value;
                 State = BladeTrapState.Charging;
-                _sound(OracleSoundEngine.SndUnknown5);
+                _sound(SoundId.SndUnknown5);
                 return;
             case BladeTrapState.Charging:
                 bool moved = Move();
@@ -67,7 +67,7 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 Angle ^= 0x10;
                 SpeedRaw = _behavior[3].Value;
                 State = BladeTrapState.Retracting;
-                _sound(OracleSoundEngine.SndClink);
+                _sound(SoundId.SndClink);
                 return;
             case BladeTrapState.Retracting:
                 if (Move()) return;
@@ -100,9 +100,9 @@ internal partial class BladeTrapCharacter : EnemyCharacter
         // bladeTrap_checkLinkAligned prefers a vertical attack when both
         // axes qualify, and compares high bytes with unsigned wrapping.
         if (((tx - x + radius) & 0xff) < radius * 2 + 1)
-            Angle = (ty & 0xff) < (y & 0xff) ? 0 : 0x10;
+            Angle = (ty & 0xff) < (y & 0xff) ? ObjectAngle.Up : ObjectAngle.Down;
         else if (((ty - y + radius) & 0xff) < radius * 2 + 1)
-            Angle = (tx & 0xff) < (x & 0xff) ? 0x18 : 8;
+            Angle = (tx & 0xff) < (x & 0xff) ? ObjectAngle.Left : ObjectAngle.Right;
         else return false;
         return true;
     }

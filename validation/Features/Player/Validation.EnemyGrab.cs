@@ -10,13 +10,13 @@ public partial class ValidationRoot
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var precise = typeof(Player).GetField("_precisePosition", flags)!;
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 0);
+        _inventory.EquipA(TreasureId.Sword);
         foreach (bool batch in new[] { false, true })
         {
             void Step(int count = 1, Vector2 movement = default, bool attack = false) =>
                 StepGameplayUpdates(count, movement, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
-            byte Warps() => _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress);
+            byte Warps() => _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(new(120,144));
             Step(32, Vector2.Up);
@@ -72,11 +72,11 @@ public partial class ValidationRoot
             Step();
             FailIf(_player.EnemyGrabActive || _player.EnemyGrabPending || Warps() != 0,
                 "A cancelled pending grab must not initialize on the following update.");
-            _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0x80);
+            _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, 0x80);
             FailIf(_player.RequestLikeLikeGrab(), "collisionEffect3d must reject any nonzero wWarpsDisabled.");
             _player.WarpTo(before);
             FailIf(Warps() != 0x80, "Cancelling an idle capture must not clear another feature's warp lock.");
-            _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
+            _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
         }
         GD.Print("Validated isolated Link grabbed-state request, item cancellation, hold, release, repeat and cancellation in single/batched gameplay updates.");
     }

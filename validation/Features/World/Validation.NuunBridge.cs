@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
         }
         // Exercise the actual F1 item browser and close boundary, without a warp
         // or room re-entry masking a stale displayed layout.
-        _inventory.GiveTreasure(InventoryState.ItemFlute, 0x0d);
+        _inventory.GiveTreasure(TreasureId.Flute, 0x0d);
         LoadValidationRoom(0, 0x36);
         foreach (int companion in new[] { 0x0b, 0x0c, 0x0d, 0x0b })
         {
@@ -85,8 +85,8 @@ public sealed partial class ValidationRoot
                 $"TREASURE_OBJECT_FLUTE_{companion - 0x0b:x2}");
             _debugFlagScreen.ActivateSelection();
             FailIf(_inventory.AnimalCompanion != companion ||
-                _saveData.ReadWramByte(0xc610) != companion ||
-                !_inventory.HasTreasure(InventoryState.ItemFlute),
+                _saveData.ReadWramByte(WramAddress.wAnimalCompanion) != companion ||
+                !_inventory.HasTreasure(TreasureId.Flute),
                 $"F1 did not switch an owned flute directly to companion ${companion:x2}.");
             FailIf(!ReferenceEquals(before, _rooms.CurrentRoom),
                 "F1 reloaded terrain while the debug modal still owned gameplay.");

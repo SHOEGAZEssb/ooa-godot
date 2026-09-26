@@ -85,7 +85,7 @@ internal readonly record struct GroundTreasureGrantRequest(
         }
         if (InventoryWrite == GroundTreasureInventoryWrite.UnappraisedRing)
         {
-            if (treasure.TreasureId != TreasureDatabase.TreasureRing ||
+            if (treasure.TreasureId != TreasureId.Ring ||
                 InventoryParameter is < 0 or > 0xff)
             {
                 throw new InvalidOperationException(

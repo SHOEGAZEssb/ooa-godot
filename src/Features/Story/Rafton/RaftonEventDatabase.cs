@@ -159,7 +159,7 @@ internal sealed class RaftonEventDatabase
                 Group: 2,
                 LeftRoom: 0x1e,
                 RightRoom: 0x1f,
-                InteractionId: 0x69,
+                InteractionId: InteractionId.Rafton,
                 LeftSubId: 0,
                 RightSubId: 1,
                 InitialAnimation: 2,
@@ -173,7 +173,7 @@ internal sealed class RaftonEventDatabase
                 D2EssenceMask: 0x02,
                 D3EssenceMask: 0x04,
                 RequiredTradeItem: 0x09,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x0a,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_0a",
                 Speed: 0x28,
@@ -186,7 +186,7 @@ internal sealed class RaftonEventDatabase
                 EffectY: -13,
                 EffectX: 0,
                 EffectFrames: 60,
-                ClinkSound: OracleSoundEngine.SndClink,
+                ClinkSound: SoundId.SndClink,
                 InitialScriptUpdates: 0
             } ||
             Enumerable.Range(0, 4).Any(index =>
@@ -222,15 +222,15 @@ internal sealed class RaftonEventDatabase
             LeftCommands[31] is not CutsceneNativeCommand
                 { Handler: "LoseChevalRope" } ||
             LeftCommands[35] is not CutsceneSetGlobalFlagCommand
-                { Flag: 0x15 } ||
+                { Flag: GlobalFlag.GaveRopeToRafton } ||
             LeftCommands[41] is not CutsceneWriteObjectByteCommand
                 { Actor: "Rafton", Address: 0x20, Value: 0x7f } ||
             LeftCommands[45] is not CutsceneMoveCommand
             {
-                Actor: "Rafton", Angle: 0x08, Counter: 0x40
+                Actor: "Rafton", Angle: ObjectAngle.Right, Counter: 0x40
             } ||
             LeftCommands[46] is not CutsceneSetGlobalFlagCommand
-                { Flag: 0x26 } ||
+                { Flag: GlobalFlag.RaftonChangedRooms } ||
             LeftCommands[48] is not CutsceneEndCommand ||
             LeftCommands[52] is not CutsceneReturnCommand)
         {
@@ -255,7 +255,7 @@ internal sealed class RaftonEventDatabase
                 { Value: 0, TargetCommand: 23 } ||
             RightCommands[25] is not CutsceneGiveItemCommand
             {
-                TreasureId: TreasureDatabase.TreasureTradeItem,
+                TreasureId: TreasureId.TradeItem,
                 Parameter: 0x0a
             } ||
             RightCommands[29] is not CutsceneBranchCommand

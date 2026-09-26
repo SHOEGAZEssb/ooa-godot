@@ -68,16 +68,16 @@ internal sealed class GroundTreasureDatabase
                 string.IsNullOrWhiteSpace(record.TreasureObject) ||
                 string.IsNullOrWhiteSpace(record.Sprite) ||
                 string.IsNullOrWhiteSpace(record.Animation) ||
-                record.SpawnMode is not (0 or 5) ||
-                record.GrabMode is not (1 or 2) ||
+                record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.Buried) ||
+                record.GrabMode is not (TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands) ||
                 record.StateValue != (record.StateValue & record.StateMask) ||
                 record.StateAddress == 0 &&
                     (record.StateMask != 0 || record.StateValue != 0) ||
                 record.StateAddress != 0 && record.StateMask == 0 ||
-                record.SpawnMode == 0 &&
+                record.SpawnMode == TreasureSpawnMode.Instant &&
                     (record.BuriedInitialSpeedZ != 0 ||
                      record.Gravity != 0 || record.BuriedMoveSpeed != 0) ||
-                record.SpawnMode == 5 &&
+                record.SpawnMode == TreasureSpawnMode.Buried &&
                     (record.BuriedInitialSpeedZ >= 0 ||
                      record.Gravity <= 0 || record.BuriedMoveSpeed == 0) ||
                 record.TreasureObject == "TREASURE_OBJECT_HEART_PIECE_00" &&
@@ -145,8 +145,8 @@ internal readonly record struct GroundTreasureDatabaseRecord(
     int CompletionTextId,
     string CompletionMessage,
     string Source,
-    int SpawnMode = 0,
-    int GrabMode = 2,
+    int SpawnMode = TreasureSpawnMode.Instant,
+    int GrabMode = TreasureGrabMode.TwoHands,
     int SpawnDelayFrames = 0,
     int InitialZPixels = 0,
     int BounceCount = 0,

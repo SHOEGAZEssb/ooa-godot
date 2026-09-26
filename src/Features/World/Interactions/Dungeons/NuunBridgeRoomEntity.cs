@@ -50,17 +50,17 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
         if (_state == 0)
         {
             _state = 1;
-            if (_save.HasRoomFlag(_record.Group, _record.Room, 0x40))
+            if (_save.HasRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40))
                 Finished = true;
             else
-                spawns.Add(new DungeonSwitchSpawn(_record with { Id = 0x05, SubId = _record.Parameter }));
+                spawns.Add(new DungeonSwitchSpawn(_record with { Id = InteractionId.Puff, SubId = _record.Parameter }));
             return;
         }
         if (_state == 1)
         {
             if (_runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0)
             {
-                _save.SetRoomFlag(_record.Group, _record.Room, 0x40);
+                _save.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40);
                 _state = 2;
             }
             return;

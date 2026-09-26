@@ -14,7 +14,7 @@ public partial class ValidationRoot
         {
             _saveData.SetRoomFlag(4,0xb4,0x80,false);
             LoadValidationRoom(4,0xb4); _player.WarpTo(new(64,88));
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1); _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.GiveTreasure(TreasureId.Bracelet,1); _inventory.EquipA(TreasureId.Bracelet);
             void Step(int count,Vector2 movement = default,bool press = false) =>
                 StepGameplayUpdates(count, movement, press ? ["attack"] : [], press ? ["attack"] : [], batched: batch);
             Step(2); Step(12,Vector2.Right); Step(1,press:true); Step(13);
@@ -139,8 +139,8 @@ public partial class ValidationRoot
         {
             var parent = new SmasherCharacter(); var ball = new SmasherCharacter();
             var random = new OracleRandom();
-            ball.InitializeLinked(db.ImportedEnemy(0x74,0),room,new(80,64),random,parent);
-            parent.InitializeLinked(db.ImportedEnemy(0x74,1),room,new(112,64),random,ball);
+            ball.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,0),room,new(80,64),random,parent);
+            parent.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,1),room,new(112,64),random,ball);
             ball.UpdateNormalFrame(Vector2.Zero,1,_ => true,() => { },_ => { });
             int sounds = 0;
             var hook = new SwitchHookItem(new SwitchHookDatabase(),1,new(64,64),1,_ => sounds++);
@@ -174,7 +174,7 @@ public partial class ValidationRoot
             () => true, () => true, () => { }, () => { }, _ => { }, 1, true);
         SmasherRoomEntity Add(SmasherCharacter actor, int subId) => (SmasherRoomEntity)_entities.TryAllocateEnemy(slot =>
         {
-            actor.InitializePending(db.ImportedEnemy(0x74,subId), _currentRoom,new(120,88),random,slot);
+            actor.InitializePending(db.ImportedEnemy(EnemyId.Smasher,subId), _currentRoom,new(120,88),random,slot);
             return new SmasherRoomEntity(actor,world,subId == 0);
         })!;
         var ballAdapter = Add(ball,0); Add(parent,1);
@@ -219,17 +219,17 @@ public partial class ValidationRoot
         {
             LoadValidationRoom(4,0xb4); _entities.Clear();
             _player.WarpTo(new(120,88));
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
-            _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.GiveTreasure(TreasureId.Bracelet,1);
+            _inventory.EquipA(TreasureId.Bracelet);
             var db = new EnemyDatabase(); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
-            parent.InitializePending(db.ImportedEnemy(0x74,1), _currentRoom, new(120,88), random, 1);
+            parent.InitializePending(db.ImportedEnemy(EnemyId.Smasher,1), _currentRoom, new(120,88), random, 1);
             var world = new SmasherRoomEnvironment(_ => parent, () => { }, () => { },
                 () => _entities.InteractionSlotAvailable, () => _entities.PartSlotAvailable,
                 () => { }, () => { }, _ => { }, 1, true);
             var adapter = (SmasherRoomEntity)_entities.TryAllocateEnemy(slot =>
             {
-                ball.InitializePending(db.ImportedEnemy(0x74,0), _currentRoom, new(120,88), random, slot);
+                ball.InitializePending(db.ImportedEnemy(EnemyId.Smasher,0), _currentRoom, new(120,88), random, slot);
                 return new SmasherRoomEntity(ball, world, true);
             })!;
             void Step(int count, Vector2 movement = default, bool press = false) =>
@@ -294,7 +294,7 @@ public partial class ValidationRoot
             if (shield != 0)
             {
                 inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{shield-1}"));
-                inventory.EquipA(InventoryState.ItemShield);
+                inventory.EquipA(TreasureId.Shield);
             }
             var player = new Player(); AddChild(player);
             player.Initialize(new ValidationRingPlayerWorld(), inventory, new(72,72), new OracleRandom());
@@ -303,11 +303,11 @@ public partial class ValidationRoot
             Vector2 position = shield == 0 ? new(80,72) : new(85,player.ShieldCollisionBounds.GetCenter().Y);
             var parent = new SmasherCharacter(); var ball = new SmasherCharacter();
             var db = new EnemyDatabase(); var room = Room060MovementFixture(); var random = new OracleRandom();
-            ball.InitializeLinked(db.ImportedEnemy(0x74,0),room,new(32,32),random,parent);
-            parent.InitializeLinked(db.ImportedEnemy(0x74,1),room,position,random,ball);
+            ball.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,0),room,new(32,32),random,parent);
+            parent.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,1),room,position,random,ball);
             int sounds = 0, health = player.HealthQuarters;
             var world = new SmasherRoomEnvironment(_ => null, () => { }, () => { }, () => true, () => true,
-                () => { }, () => { }, sound => { FailIf(sound != OracleSoundEngine.SndBombLand,"$74 shield used the wrong sound."); sounds++; },1,true);
+                () => { }, () => { }, sound => { FailIf(sound != SoundId.SndBombLand,"$74 shield used the wrong sound."); sounds++; },1,true);
             var adapter = new SmasherRoomEntity(parent,world,false);
             parent.InvincibilityCounter = enemyInvincibility;
             if (shield != 0) FailIf(Player.EnemyCollisionOverlaps(player.Position,parent.CollisionBounds),"Shield fixture must exclude Link's body.");
@@ -338,13 +338,13 @@ public partial class ValidationRoot
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             // Isolate the ground ball; its linked parent does not run AI and
             // therefore cannot pick it up during this contact check.
-            parent.InitializePending(db.ImportedEnemy(0x74,1), _currentRoom, new(120,88), random, 1);
+            parent.InitializePending(db.ImportedEnemy(EnemyId.Smasher,1), _currentRoom, new(120,88), random, 1);
             var world = new SmasherRoomEnvironment(_ => parent, () => { }, () => { },
                 () => _entities.InteractionSlotAvailable, () => _entities.PartSlotAvailable,
                 () => { }, () => { }, _ => { }, 1, true);
             _entities.TryAllocateEnemy(slot =>
             {
-                ball.InitializePending(db.ImportedEnemy(0x74,0), _currentRoom, new(120,88), random, slot);
+                ball.InitializePending(db.ImportedEnemy(EnemyId.Smasher,0), _currentRoom, new(120,88), random, slot);
                 return new SmasherRoomEntity(ball, world, true);
             });
             void Step(int count, Vector2 movement = default) =>
@@ -375,8 +375,8 @@ public partial class ValidationRoot
     {
         var room = Room060MovementFixture(); var db = new EnemyDatabase(); var random = new OracleRandom();
         var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
-        ball.InitializeLinked(db.ImportedEnemy(0x74,0), room, new(80,64), random, parent);
-        parent.InitializeLinked(db.ImportedEnemy(0x74,1), room, new(112,64), random, ball);
+        ball.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,0), room, new(80,64), random, parent);
+        parent.InitializeLinked(db.ImportedEnemy(EnemyId.Smasher,1), room, new(112,64), random, ball);
         var world = new SmasherRoomEnvironment(_ => null, () => { }, () => { }, () => true, () => true,
             () => { }, () => { }, _ => { }, 1, true);
         var ballAdapter = new SmasherRoomEntity(ball, world, true);
@@ -449,13 +449,13 @@ public partial class ValidationRoot
             SmasherRoomEntity Create(int slot, bool placed)
             {
                 var actor = new SmasherCharacter();
-                actor.InitializePending(db.ImportedEnemy(0x74, placed ? 0 : 1), room, new(120,88), random, slot);
+                actor.InitializePending(db.ImportedEnemy(EnemyId.Smasher, placed ? 0 : 1), room, new(120,88), random, slot);
                 return new(actor, world, placed);
             }
             world = new(
                 _ => ((SmasherRoomEntity?)_entities.TryAllocateEnemy(slot => Create(slot, false)))?.Character,
                 () => initialized++, () => began++, () => _entities.InteractionSlotAvailable, () => _entities.PartSlotAvailable,
-                () => disabled++, () => restored++, sound => { if (sound == OracleSoundEngine.SndBossDead) deathSounds++; },
+                () => disabled++, () => restored++, sound => { if (sound == SoundId.SndBossDead) deathSounds++; },
                 KillableEnemyIndex: 1, Counted: true);
             _entities.TryAllocateEnemy(slot => Create(slot, true));
             void Step(int count) =>
@@ -533,7 +533,7 @@ public partial class ValidationRoot
                 {
                     FailIf(slot != expectedSlot, "Native ENEMY allocation must scan slots from low to high.");
                     var actor = new SmasherCharacter();
-                    actor.InitializePending(db.ImportedEnemy(0x74,0), room, new(120,88), random, slot);
+                    actor.InitializePending(db.ImportedEnemy(EnemyId.Smasher,0), room, new(120,88), random, slot);
                     return new SmasherSlotValidationEntity(actor, (self, frame) =>
                     {
                         if (self.NativeSlot != 2) return; // Other slots only occupy the pool.
@@ -544,7 +544,7 @@ public partial class ValidationRoot
                             var allocated = _entities.TryAllocateEnemy(childSlot =>
                             {
                                 child = new SmasherCharacter();
-                                child.InitializePending(db.ImportedEnemy(0x74,1), room, Vector2.Zero, random, childSlot);
+                                child.InitializePending(db.ImportedEnemy(EnemyId.Smasher,1), room, Vector2.Zero, random, childSlot);
                                 return new SmasherSlotValidationEntity(child, (linked, linkedFrame) =>
                                 {
                                     visits.Add(linked.NativeSlot);
@@ -580,7 +580,7 @@ public partial class ValidationRoot
         {
             var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase();
             var placed = new SmasherCharacter(); var child = new SmasherCharacter();
-            placed.InitializePending(db.ImportedEnemy(0x74,0), room, new(120.5f,88.25f), random, 5);
+            placed.InitializePending(db.ImportedEnemy(EnemyId.Smasher,0), room, new(120.5f,88.25f), random, 5);
             FailIf(placed.Visible || placed.CollisionEnabled || random.Calls != 0, "$74 pending slot must not load properties before dispatch.");
             int roomInitializations = 0, allocationAttempts = 0;
             void InitializeRoom() => roomInitializations++;
@@ -595,7 +595,7 @@ public partial class ValidationRoot
             placed.UpdateInitializationFrame(4, InitializeRoom, () =>
             {
                 allocationAttempts++;
-                child.InitializePending(db.ImportedEnemy(0x74,1), room, new(0.75f,0.5f), random, allocatedSlot);
+                child.InitializePending(db.ImportedEnemy(EnemyId.Smasher,1), room, new(0.75f,0.5f), random, allocatedSlot);
                 return child;
             });
             bool swapped = allocatedSlot < 5;
@@ -623,8 +623,8 @@ public partial class ValidationRoot
         var room = Room060MovementFixture(); var random = new OracleRandom();
         var database = new EnemyDatabase();
         var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
-        ball.InitializeLinked(database.ImportedEnemy(0x74,0), room, new(80,64), random, parent);
-        parent.InitializeLinked(database.ImportedEnemy(0x74,1), room, new(112,64), random, ball);
+        ball.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,0), room, new(80,64), random, parent);
+        parent.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,1), room, new(112,64), random, ball);
         ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { });
         ball.BeginGrab();
         parent.Health = 0;
@@ -633,7 +633,7 @@ public partial class ValidationRoot
         void ParentDeath() => parent.UpdateDeathFrame(_ => throw new InvalidOperationException("Parent must use explosion."),
             position => { attempts++; FailIf(position != parent.Position, "$74 explosion lost parent XY."); return available; },
             () => locks++, () => marked++, () => { FailIf(marked != 1, "$74 music must follow room-kill marking."); restored++; },
-            sound => { FailIf(sound != OracleSoundEngine.SndBossDead, "$74 wrong death sound."); sounds++; },
+            sound => { FailIf(sound != SoundId.SndBossDead, "$74 wrong death sound."); sounds++; },
             () => throw new InvalidOperationException("Parent cannot directly drop Link."));
         void ParentStep(int frame) => parent.UpdateNormalFrame(Vector2.Zero, frame, _ => true, () => { }, _ => { }, handleDeath: ParentDeath);
         ParentStep(1);
@@ -667,8 +667,8 @@ public partial class ValidationRoot
             // Isolate the item-parent lifecycle from the room's enemies.
             _entities.Clear();
             _player.WarpTo(new(72,40));
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
-            _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.GiveTreasure(TreasureId.Bracelet,1);
+            _inventory.EquipA(TreasureId.Bracelet);
             void Step(int count) =>
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             void BeginLift()
@@ -702,34 +702,34 @@ public partial class ValidationRoot
         {
             var room = Room060MovementFixture(); var database = new EnemyDatabase(); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
-            ball.InitializeLinked(database.ImportedEnemy(0x74,0), room, new(80.5f,64.25f), random, parent);
+            ball.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,0), room, new(80.5f,64.25f), random, parent);
             var memory = new OracleRuntimeState();
             ball.BindMovementMemory(memory);
-            parent.InitializeLinked(database.ImportedEnemy(0x74,1), room, new(140,32), random, ball);
+            parent.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,1), room, new(140,32), random, ball);
             ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { }); ball.BeginGrab();
             var motion = new SmasherBraceletThrow(ball, room, new BraceletWeightDatabase(), new BombDatabase().Data);
             motion.Hold(new(80.75f,64.5f), -4, 2, 1);
             FailIf(ball.Position != new Vector2(80.5f,64.25f) || ball.ZFixed != -18*256 || motion.Active,
                 "$74 held copy must include LinkZ and retain enemy fractions without creating the throw item.");
-            motion.Begin(1,8,toss);
+            motion.Begin(1,ObjectAngle.Right,toss);
             FailIf(motion.Position != new Vector2(81,64) || motion.ZFixed != -18*256 ||
                 motion.SpeedZ != -0xe0 || motion.Speed != (toss ? 0x64 : 0x41) || ball.GrabSubstate != 2,
                 "$74 new reserved item must zero fractions, apply the facing offset and select weight2/Toss launch values.");
             int landings = 0;
             motion.Update(_ => landings++);
             float firstX = toss ? 83.5f : 82.625f;
-            FailIf(memory.ReadWramByte(0xcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
+            FailIf(memory.ReadWramByte(WramAddress.wTmpcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
                 memory.ReadWramByte(0xcec2) != (toss ? 0x80 : 0xa0) ||
                 memory.ReadWramByte(0xcec3) != (toss ? 2 : 1),
                 "The reserved Smasher throw must publish its actual weight2/Toss X velocity before copying position to the enemy.");
             FailIf(motion.Position != new Vector2(firstX,64) || motion.ZFixed != -18*256-0xe0 || motion.SpeedZ != -0xb8 ||
                 ball.Position != new Vector2(Mathf.Floor(firstX)+0.5f,64.25f) || ball.ZFixed != -19*256,
                 "$74 first reserved-item update must apply weight2 motion before copying high bytes to its enemy.");
-            motion.SetAngle(24); motion.Update(_ => landings++);
+            motion.SetAngle(ObjectAngle.Left); motion.Update(_ => landings++);
             FailIf(motion.Position != new Vector2(81,64) || ball.Angle != 8,
                 "$74 rebound must change item direction without mirroring it into the enemy's angle.");
             room.SetPositionTileAndCollision(new(80,64), 0xff, 15, 0);
-            motion.SetAngle(8); motion.Update(_ => landings++);
+            motion.SetAngle(ObjectAngle.Right); motion.Update(_ => landings++);
             FailIf(motion.Angle != 0xff || motion.Speed != (toss ? 0x64 : 0x41) || motion.Position != new Vector2(81,64),
                 "Native item wall collision must clear angle but retain speed and position.");
             FailIf(Enumerable.Range(0, 4).Any(offset => memory.ReadWramByte(0xcec0 + offset) != 0),
@@ -738,7 +738,7 @@ public partial class ValidationRoot
             motion.Update(_ => landings++);
             FailIf(Enumerable.Range(0, 4).Any(offset => memory.ReadWramByte(0xcec0 + offset) != 0xa5),
                 "A later angle-$ff throw must return before movement and preserve scratch.");
-            motion.SetAngle(24); motion.Update(_ => landings++);
+            motion.SetAngle(ObjectAngle.Left); motion.Update(_ => landings++);
             FailIf(motion.Position.X != (toss ? 78.5f : 79.375f),
                 "Native item rebound must resume movement using the retained speed.");
             for (int i = 0; i < 128 && motion.Active; i++)
@@ -762,8 +762,8 @@ public partial class ValidationRoot
         {
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             var room = Room060MovementFixture(); var random = new OracleRandom();
-            ball.InitializeLinked(database.ImportedEnemy(0x74,0), room, new(80,64), random, parent);
-            parent.InitializeLinked(database.ImportedEnemy(0x74,1), room, new(80,64), random, ball);
+            ball.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,0), room, new(80,64), random, parent);
+            parent.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,1), room, new(80,64), random, ball);
             ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { });
             ball.BeginGrab();
             int grab = 0, angle = -1, sounds = 0;
@@ -773,7 +773,7 @@ public partial class ValidationRoot
             FailIf(ball.GrabSubstate != 1 || grab != 0x20 || ball.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
                 "$74 just-grabbed dispatch must set wLinkGrabState2=$20 and visible$c1.");
             ball.CopyCarriedPosition(new(80+x,64), z);
-            ball.ReleaseGrab(0);
+            ball.ReleaseGrab(ObjectAngle.Up);
             Ball(3);
             FailIf(parent.Health != (hit ? 4 : 5) || parent.KnockbackCounter != (hit ? 16 : 0) ||
                 parent.InvincibilityCounter != (hit ? 32 : 0) || sounds != (hit ? 1 : 0) || ball.Angle != 0,
@@ -797,8 +797,8 @@ public partial class ValidationRoot
         }
         var held = new SmasherCharacter(); var owner = new SmasherCharacter();
         var fixture = Room060MovementFixture(); var rng = new OracleRandom();
-        held.InitializeLinked(database.ImportedEnemy(0x74,0), fixture, new(80,64), rng, owner);
-        owner.InitializeLinked(database.ImportedEnemy(0x74,1), fixture, new(80,64), rng, held);
+        held.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,0), fixture, new(80,64), rng, owner);
+        owner.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,1), fixture, new(80,64), rng, held);
         held.UpdateNormalFrame(Vector2.Zero, 1, _ => false, () => { }, _ => { }); held.BeginGrab();
         int drops = 0;
         for (int frame = 2; frame <= 360; frame++)
@@ -820,8 +820,8 @@ public partial class ValidationRoot
         var parent = new SmasherCharacter();
         var random = new OracleRandom();
         var room = Room060MovementFixture();
-        ball.InitializeLinked(database.ImportedEnemy(0x74, 0), room, new(120,88), random, parent);
-        parent.InitializeLinked(database.ImportedEnemy(0x74, 1), room, new(120,88), random, ball);
+        ball.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher, 0), room, new(120,88), random, parent);
+        parent.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher, 1), room, new(120,88), random, ball);
         int frame = 0, begins = 0, puffs = 0;
         bool puffAvailable = true;
         void Tick()
@@ -918,8 +918,8 @@ public partial class ValidationRoot
         var data = EnemyBehaviorTables.Shared.Smasher;
         FailIf(data.DeathFrames != 120, "commonBossCode.s enemyBoss_dead must retain its 120-update counter.");
         var weights = new BraceletWeightDatabase();
-        BraceletWeight[] expectedWeights = [new(0x1c,-0xf0,0x3c,0x64),new(0x20,-0x100,0x14,0x28),
-            new(0x28,-0xe0,0x41,0x64),new(0x20,-0x100,0x14,0x28),new(0x20,-0x20,0x32,0x3c),new(0x20,-0x100,0x14,0x28)];
+        BraceletWeight[] expectedWeights = [new(0x1c,-0xf0,ObjectSpeed.Speed180,0x64),new(0x20,-0x100,ObjectSpeed.Speed80,0x28),
+            new(0x28,-0xe0,ObjectSpeed.Speed1a0,0x64),new(0x20,-0x100,ObjectSpeed.Speed80,0x28),new(0x20,-0x20,ObjectSpeed.Speed140,0x3c),new(0x20,-0x100,ObjectSpeed.Speed80,0x28)];
         for (int weight = 0; weight < 6; weight++)
             FailIf(weights.Weight(weight) != expectedWeights[weight], $"Ages itemWeights[{weight}] lost its native throw profile.");
         int[] smasherLift = [-8,0,0,7,6,0,0,-8,-6,0,-8,3,4,0,-8,-4,
@@ -948,7 +948,7 @@ public partial class ValidationRoot
         var enemies = new EnemyDatabase();
         foreach (int subid in new[] { 0, 1 })
         {
-            var record = enemies.ImportedEnemy(0x74, subid);
+            var record = enemies.ImportedEnemy(EnemyId.Smasher, subid);
             FailIf(record.Health != 5 || record.DamageQuarters != 2 || record.RadiusX != 6 || record.RadiusY != 6 ||
                 record.TileBase != 0 || record.Palette != 3 || !record.SourceGrayscaleInverted ||
                 !record.Sprites.SequenceEqual(new[] { "spr_smasher" }) || !record.Animations.SequenceEqual(animations),

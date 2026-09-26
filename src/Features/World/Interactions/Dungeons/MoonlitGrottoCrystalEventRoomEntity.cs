@@ -48,7 +48,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
         Action<int, string, Vector2> showText,
         Func<bool> dialogueOpen)
     {
-        if (record.Id != 0x21 || record.SubId != 0x0d)
+        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x0d)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _data = data;
@@ -88,7 +88,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
             case MoonlitCrystalEventPhase.FirstWait:
                 if (--_counter != 0)
                     return;
-                _playSound(OracleSoundEngine.SndCtrlStopSfx);
+                _playSound(SoundId.SndCtrlStopSfx);
                 _beginScreenShake(_data.MoonlitRumbleWait);
                 _playSound(_data.MoonlitRumbleSound);
                 _counter = _data.MoonlitRumbleWait;

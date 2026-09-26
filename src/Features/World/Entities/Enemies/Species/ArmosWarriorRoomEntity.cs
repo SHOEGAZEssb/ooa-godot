@@ -68,24 +68,24 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
         if (!Eligible(item, hitbox)) return false;
         int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, item);
         _attackerRecoil = 0;
-        MeleeReportsContact = effect != 0;
+        MeleeReportsContact = effect != CollisionEffect.None;
         switch (effect)
         {
-            case 0: return melee;
-            case 0x21:
-                Entity.ApplyNativeHit(damage, 32); CombatDescriptor.RequestSound(OracleSoundEngine.SndBossDamage); return true;
-            case 0x15:
-            case 0x16:
-            case 0x17:
+            case CollisionEffect.None: return melee;
+            case CollisionEffect.Effect21:
+                Entity.ApplyNativeHit(damage, 32); CombatDescriptor.RequestSound(SoundId.SndBossDamage); return true;
+            case CollisionEffect.Effect15:
+            case CollisionEffect.Effect16:
+            case CollisionEffect.Effect17:
                 var profile = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
-                _attackerRecoil = effect == 0x15 ? profile.LowFrames : effect == 0x16 ? profile.NormalFrames : profile.HighFrames;
+                _attackerRecoil = effect == CollisionEffect.Effect15 ? profile.LowFrames : effect == CollisionEffect.Effect16 ? profile.NormalFrames : profile.HighFrames;
                 Entity.ApplyNativeHit(0, -28);
                 spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, source))); return true;
-            case 0x1b:
+            case CollisionEffect.Effect1b:
                 Entity.ApplyNativeHit(0, -20);
                 spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, source))); return true;
-            case 0x1c:
-            case 0x20: Entity.MarkContact(); return true;
+            case CollisionEffect.Effect1c:
+            case CollisionEffect.Effect20: Entity.MarkContact(); return true;
             default:
                 throw new System.NotSupportedException($"ENEMY_ARMOS_WARRIOR $73:${Entity.SubId:x2}: item ${item:x2}, collision effect ${effect:x2} is unsupported.");
         }
@@ -97,12 +97,12 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
     }
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect == 0x1b)
+        if (effect == CollisionEffect.Effect1b)
         { Entity.ApplyNativeHit(0, -20); hook.NotifyObjectCollision(CollisionMidpoint(Entity.Position, hook.Position)); return true; }
-        if (effect == 0x21)
+        if (effect == CollisionEffect.Effect21)
         {
             Entity.ApplyNativeHit(hook.HitDamage, 32); hook.NotifyObjectCollision();
-            CombatDescriptor.RequestSound(OracleSoundEngine.SndBossDamage); return true;
+            CombatDescriptor.RequestSound(SoundId.SndBossDamage); return true;
         }
         return false;
     }
@@ -110,8 +110,8 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
     {
         if (!RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) ||
             !Eligible(0x0d, hook.CollisionBounds)) return false;
-        int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, 0x0d);
-        return effect == 0 || TryApplySwitchHookEffect(effect, hook, linkPosition);
+        int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, ItemCollisionType.SwitchHook);
+        return effect == CollisionEffect.None || TryApplySwitchHookEffect(effect, hook, linkPosition);
     }
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 sourcePosition, int seedItem,
         ICollection<RoomEntitySpawn> spawns)
@@ -123,9 +123,9 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
         // its selected collision type before reloading the chosen effect.
         if (!Eligible(collisionType, hitbox)) return default;
         int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, collisionType);
-        if (effect == 0) return new(true, SeedHitResult.None, false);
+        if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
         Hit(collisionType, hitbox, sourcePosition, -(sbyte)seed.Damage, spawns);
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect == 0x20);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect == CollisionEffect.Effect20);
     }
     public override void HandleLinkContact(Player player)
     {
@@ -137,9 +137,9 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
             int effect = Entity.Data.CollisionEffect(Entity.CollisionMode, player.Inventory.ShieldLevel);
             var (invincibility, recoil) = effect switch
             {
-                5 => (8, 11), // collisionEffect05: LINK10.
-                6 => (15, 19), // collisionEffect06: LINK14.
-                7 => (22, 25), // collisionEffect07: LINK18.
+                CollisionEffect.Effect05 => (8, 11), // collisionEffect05: LINK10.
+                CollisionEffect.Effect06 => (15, 19), // collisionEffect06: LINK14.
+                CollisionEffect.Effect07 => (22, 25), // collisionEffect07: LINK18.
                 _ => throw new System.NotSupportedException($"ENEMY_ARMOS_WARRIOR $73:${Entity.SubId:x2}: shield collision effect ${effect:x2} is unsupported.")
             };
             player.ApplyShieldCollisionRecoil(Entity.Position, invincibility, recoil);

@@ -54,7 +54,7 @@ internal sealed class PortalRevealRoomEntity
             return;
         _roomTileChanged();
         _save.SetRoomFlag(_record.Group, _record.Room, _record.RoomFlag);
-        _playSound(OracleSoundEngine.SndSolvePuzzle);
+        _playSound(SoundId.SndSolvePuzzle);
         Finished = true;
     }
 }

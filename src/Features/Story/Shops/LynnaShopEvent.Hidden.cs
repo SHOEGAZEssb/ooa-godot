@@ -31,7 +31,7 @@ internal sealed partial class LynnaShopEvent
         {
             _chestPrizeVisual.Advance(1.0 / 60);
             if (_chestPrizeVisual.Finished)
-                _context.Sound.PlaySound(OracleSoundEngine.SndGetItem);
+                _context.Sound.PlaySound(SoundId.SndGetItem);
         }
         if (_chestPrizeVisual.Finished && !_context.DialogueOpen)
             ClearChestPrizeVisual();
@@ -53,7 +53,7 @@ internal sealed partial class LynnaShopEvent
         // shopkeeperState0 samples this once, before any purchase in this visit.
         _chestGame = _database.Hidden &&
             (_context.Rooms.SaveData.ReadWramByte(_database.BoughtItems1Address) & 0x0f) == 0x0f;
-        ShopMemory.SetWramByte(0xcca2, 0x80);
+        ShopMemory.SetWramByte(WramAddress.wcca2, 0x80);
     }
 
     private void MarkHiddenPurchase(int subId)
@@ -107,7 +107,7 @@ internal sealed partial class LynnaShopEvent
         {
             _hiddenDirection = move.Direction;
             _counter = move.Counter;
-            _shopkeeper!.SetScriptAnimation(_database.Animation(0x46, AnimationForDirection(move.Direction)));
+            _shopkeeper!.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, AnimationForDirection(move.Direction)));
             _stage = LynnaShopEventStage.HiddenMove;
             return;
         }
@@ -139,18 +139,18 @@ internal sealed partial class LynnaShopEvent
             return false;
         // nextToChestTile: wcca2=$80 locks both chests before a game; any
         // nonzero position locks the second chest until state5 consumes it.
-        if (ShopMemory.ReadWramByte(0xcca2) != 0)
+        if (ShopMemory.ReadWramByte(WramAddress.wcca2) != 0)
             return true;
-        ShopMemory.SetWramByte(0xcca2, (byte)room.GetPackedPosition(point));
+        ShopMemory.SetWramByte(WramAddress.wcca2, (byte)room.GetPackedPosition(point));
         room.ReplaceMetatile(point, 0xf1, 0xf0, _context.AnimationTick());
         _context.RoomView.QueueRedraw();
-        _context.Sound.PlaySound(OracleSoundEngine.SndOpenChest);
+        _context.Sound.PlaySound(SoundId.SndOpenChest);
         return true;
     }
 
     private void CloseShopChest()
     {
-        int position = ShopMemory.ReadWramByte(0xcca2);
+        int position = ShopMemory.ReadWramByte(WramAddress.wcca2);
         if ((position & 0x80) != 0)
             return;
         Vector2 point = new((position & 15) * 16 + 8, (position >> 4) * 16 + 8);
@@ -161,7 +161,7 @@ internal sealed partial class LynnaShopEvent
     private void BeginChestPreparation()
     {
         _shopkeeper!.SetScriptButtonSensitive(true);
-        _shopkeeper.SetScriptAnimation(_database.Animation(0x46, 1));
+        _shopkeeper.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, 1));
         if (_correctChest == 0)
             CloseShopChest();
         _chestWait = 60;
@@ -174,7 +174,7 @@ internal sealed partial class LynnaShopEvent
         // the previous chest and clearing the shared tile handshake.
         _correctChest = _context.Entities.NextRandomValue() & 1;
         CloseShopChest();
-        ShopMemory.SetWramByte(0xcca2, 0);
+        ShopMemory.SetWramByte(WramAddress.wcca2, 0);
         _prizeTier = 0;
         _shopkeeper!.SetScriptButtonSensitive(true);
         _stage = LynnaShopEventStage.ChestSelection;
@@ -205,8 +205,8 @@ internal sealed partial class LynnaShopEvent
             (int)_context.Player.Position.Y, (int)_context.Player.Position.X,
             "TREASURE_OBJECT_RING_00", "shopkeeper.s:shopkeeperState4/giveRingToLink")
         {
-            SpawnMode = 0,
-            GrabMode = 1,
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.OneHand,
             InventoryWrite = GroundTreasureInventoryWrite.UnappraisedRing,
             InventoryParameter = ring,
             RoomFlagTiming = GroundTreasureRoomFlagTiming.Never,
@@ -269,7 +269,7 @@ internal sealed partial class LynnaShopEvent
             case LynnaShopEventStage.ChestPrepareRight:
                 if (--_chestWait == 0)
                 {
-                    _shopkeeper!.SetScriptAnimation(_database.Animation(0x46, 3));
+                    _shopkeeper!.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, 3));
                     if (_correctChest == 1) CloseShopChest();
                     _chestWait = 60;
                     _stage = LynnaShopEventStage.ChestPrepareLeft;
@@ -278,7 +278,7 @@ internal sealed partial class LynnaShopEvent
             case LynnaShopEventStage.ChestPrepareLeft:
                 if (--_chestWait == 0)
                 {
-                    _shopkeeper!.SetScriptAnimation(_database.Animation(0x46, 2));
+                    _shopkeeper!.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, 2));
                     ShowText(_round == 0 ? 0x0e10 : 0x0e18);
                     _stage = LynnaShopEventStage.ChestInstructions;
                 }
@@ -294,9 +294,9 @@ internal sealed partial class LynnaShopEvent
                 }
                 return true;
             case LynnaShopEventStage.ChestSelection:
-                int opened = ShopMemory.ReadWramByte(0xcca2);
+                int opened = ShopMemory.ReadWramByte(WramAddress.wcca2);
                 if (opened == 0) return true;
-                _shopkeeper ??= _context.RequireNpc(2, 0x7e, 0x46, 1, "hidden shopkeeper");
+                _shopkeeper ??= _context.RequireNpc(2, 0x7e, InteractionId.Shopkeeper, 1, "hidden shopkeeper");
                 if ((opened & 15) != (_correctChest == 0 ? 7 : 5))
                 {
                     _round = 0;

@@ -77,8 +77,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal byte ShooterElevation => _shooterElevation;
     internal int SeedItem => _record.SeedItem;
     internal SeedRecord Record => _record;
-    internal int CollisionType => (_record.Collision & 0x7f) +
-        (_record.SeedItem == 0x24 ? 1 + _mysteryEffect : 0);
+    internal int CollisionType => (_record.Collision & ObjectCollisionFlags.TypeMask) +
+        (_record.SeedItem == ItemId.MysterySeed ? 1 + _mysteryEffect : 0);
     internal Vector2? ScentTarget =>
         _state == EmberState.Scent && _scentPublished
             ? _precisePosition
@@ -109,7 +109,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         int mysteryEffect = 0,
         Action<ObjectFellInHoleKind>? objectFellInHole = null,
         SeedLaunchKind launchKind = SeedLaunchKind.Satchel,
-        int angle = 0,
+        int angle = ObjectAngle.Up,
         int linkZFixed = 0)
     {
         _record = record;
@@ -135,9 +135,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             throw new ArgumentOutOfRangeException(nameof(angle));
         // Vanilla Ages initializes Item.var34 to three for all seed launches.
         _bouncesRemaining = _shooter.Bounces;
-        if (record.SeedItem == 0x24 && mysteryEffect is < 0 or > 3)
+        if (record.SeedItem == ItemId.MysterySeed && mysteryEffect is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(mysteryEffect));
-        _mysteryEffect = record.SeedItem == 0x24 ? mysteryEffect : -1;
+        _mysteryEffect = record.SeedItem == ItemId.MysterySeed ? mysteryEffect : -1;
         _precisePosition = linkPosition +
             (launchKind == SeedLaunchKind.Shooter
                 ? _shooter.Offsets[angle]
@@ -183,7 +183,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _flyingFrames,
             record.CollisionEffectTileBase,
             record.CollisionEffectPalette);
-        if (record.SeedItem == 0x23)
+        if (record.SeedItem == ItemId.GaleSeed)
             InitializeGaleTextures(flameSource);
     }
 
@@ -289,20 +289,20 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         AdvanceAnimation();
         switch (_record.SeedItem)
         {
-            case 0x20:
+            case ItemId.EmberSeed:
                 BeginBurning();
                 break;
-            case 0x21:
+            case ItemId.ScentSeed:
                 BeginScent();
                 break;
-            case 0x22:
+            case ItemId.PegasusSeed:
                 Finish();
                 break;
-            case 0x23:
+            case ItemId.GaleSeed:
                 TryBreakTile(spawns);
                 BeginGale(landed: true);
                 break;
-            case 0x24:
+            case ItemId.MysterySeed:
                 BeginMystery();
                 break;
             default:
@@ -339,7 +339,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 throw new ArgumentNullException(nameof(bounceTarget));
             // Vanilla func_50f4 has no subid gate: Satchel seeds reflect too.
             BounceFrom(bounceTarget, spawns);
-            _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != 0x23 && _state != EmberState.Flying;
+            _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != ItemId.GaleSeed && _state != EmberState.Flying;
             return;
         }
         _collisionEnabled = false;
@@ -350,7 +350,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         }
         if (result == SeedHitResult.ActivateRandomSeed)
         {
-            if (_record.SeedItem != 0x24 || _state != EmberState.Flying)
+            if (_record.SeedItem != ItemId.MysterySeed || _state != EmberState.Flying)
                 throw new InvalidOperationException("seeds.s @mysteryCollidedWithEnemy requires a flying ITEM24.");
             // The first @seedCollidedWithEnemy animates Mystery, then changes
             // Item.id and reloads attributes/animation. Its recursive dispatch
@@ -361,8 +361,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             LoadSeedGraphics(selected);
             result = SeedHitResult.Activate;
         }
-        _collisionUpdatePending = beforeItemUpdate && _state == EmberState.Flying && _record.SeedItem != 0x23;
-        if (_record.SeedItem == 0x23)
+        _collisionUpdatePending = beforeItemUpdate && _state == EmberState.Flying && _record.SeedItem != ItemId.GaleSeed;
+        if (_record.SeedItem == ItemId.GaleSeed)
         {
             AdvanceAnimation();
             if (wall) TryBreakTile(spawns ?? throw new InvalidOperationException("Gale reflector activation requires the item-phase spawn collector."));
@@ -370,14 +370,14 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _galeCollisionPending = beforeItemUpdate;
             return;
         }
-        if (_record.SeedItem == 0x24)
+        if (_record.SeedItem == ItemId.MysterySeed)
         {
             if (_state == EmberState.Flying)
                 AdvanceAnimation();
             BeginMystery();
             return;
         }
-        if (_record.SeedItem is 0x21 or 0x22)
+        if (_record.SeedItem is ItemId.ScentSeed or ItemId.PegasusSeed)
         {
             if (_state == EmberState.Flying)
                 AdvanceAnimation();
@@ -577,7 +577,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     {
         if (_breakables.TryBreak(
                 _room,
-                _record.SeedItem == 0x23 ? 0x0d : BreakableTileDatabase.SourceEmberSeed,
+                _record.SeedItem == ItemId.GaleSeed ? 0x0d : BreakableTileDatabase.SourceEmberSeed,
                 Position,
                 _saveData,
                 _group,
@@ -725,18 +725,18 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         AdvanceAnimation();
         switch (_record.SeedItem)
         {
-            case 0x20:
+            case ItemId.EmberSeed:
                 BeginBurning();
                 break;
-            case 0x21:
-            case 0x22:
+            case ItemId.ScentSeed:
+            case ItemId.PegasusSeed:
                 BeginDissipating();
                 break;
-            case 0x23:
+            case ItemId.GaleSeed:
                 TryBreakTile(spawns ?? throw new InvalidOperationException("Gale wall activation requires the item-phase spawn collector."));
                 BeginGale(landed: false, wall: true);
                 break;
-            case 0x24:
+            case ItemId.MysterySeed:
                 BeginMystery();
                 break;
             default:
@@ -797,10 +797,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     private ObjectFellInHoleKind SeedHoleKind() => _record.SeedItem switch
     {
-        0x20 => ObjectFellInHoleKind.EmberSeed,
-        0x21 => ObjectFellInHoleKind.ScentSeed,
-        0x23 => ObjectFellInHoleKind.GaleSeed,
-        0x24 => ObjectFellInHoleKind.MysterySeed,
+        ItemId.EmberSeed => ObjectFellInHoleKind.EmberSeed,
+        ItemId.ScentSeed => ObjectFellInHoleKind.ScentSeed,
+        ItemId.GaleSeed => ObjectFellInHoleKind.GaleSeed,
+        ItemId.MysterySeed => ObjectFellInHoleKind.MysterySeed,
         _ => throw new InvalidOperationException(
             $"Unsupported hole reaction for ITEM ${_record.SeedItem:x2}.")
     };

@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             Step(16, Vector2.Up);
             FailIf(_player.Position != new Vector2(120, 112), "Moldorm sword-part fixture must use the actual entrance approach.");
             _player.SetBraceletLiftCollisionsDisabled(true);
-            FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Moldorm PART_ENEMY_SWORD write", out string error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Moldorm PART_ENEMY_SWORD write", out string error), error);
             Step(3);
             var head = _entities.Entities<MoldormCharacter>().Single();
             _entities.EntityAdapters<MoldormRoomEntity>().Single(owner => owner.Node == head)
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
             pending.Add(new KeeseFireSpawn(new Vector2(72, 80), 0));
             pending.Add(new KeeseFireSpawn(new Vector2(88, 80), 0));
             process.Invoke(_entities, [null]);
-            FailIf(!_entities.TrySpawnEnemy(0x49, 0, new Vector2(88, 56), "Native Sword Stalfos blade allocation", out error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.SwordShroudedStalfos, 0, new Vector2(88, 56), "Native Sword Stalfos blade allocation", out error), error);
             Step();
             var fighter = _entities.Entities<SwordEnemyCharacter>().Single();
             var blade = slots.Keys.OfType<EnemySwordRoomEntity>().Single();

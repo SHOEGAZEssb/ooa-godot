@@ -26,13 +26,13 @@ public sealed partial class ValidationRoot
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             _seedSatchel.Pegasus.Clear();
             _seedSatchel.InterruptShooter();
-            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x0f, 1);
-            _inventory.GiveTreasure(0x22, 0x20);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.Shooter, 1);
+            _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);
             _inventory.SelectShooterSeeds(2);
-            _inventory.EquipA(InventoryState.ItemShooter);
+            _inventory.EquipA(TreasureId.Shooter);
             _saveData.SetRoomFlag(4, armos ? 0x80 : 0x6b, 0xff, false);
             LoadValidationRoom(4, armos ? 0x86 : 0x6c);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
@@ -96,8 +96,8 @@ public sealed partial class ValidationRoot
                 }
             }
             finally { _entities.SoundRequested -= sounds.Add; }
-            FailIf(sounds.Contains(OracleSoundEngine.SndDamageEnemy) || sounds.Contains(OracleSoundEngine.SndBossDamage) ||
-                sounds.Count(s => s == OracleSoundEngine.SndLightTorch) != 2,
+            FailIf(sounds.Contains(SoundId.SndDamageEnemy) || sounds.Contains(SoundId.SndBossDamage) ||
+                sounds.Count(s => s == SoundId.SndLightTorch) != 2,
                 "Boss Pegasus effect20 must play only the seed activation sound, never a damage/stun sound.");
             var result = (_inventory.PegasusSeeds, _inventory.HealthQuarters, _entities.RandomCalls, _player.Position);
             FailIf(results.TryGetValue(armos, out var prior) && prior != result,

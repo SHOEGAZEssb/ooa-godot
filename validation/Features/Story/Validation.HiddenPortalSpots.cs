@@ -39,13 +39,13 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(_currentRoom.GetMetatile(left) != 0x3a ||
             (_saveData.GetRoomFlags(0, 0x13) & 0x06) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
             "$dc:$03 state 0 revealed the 0:13/$42 marker before its separate state-1 update.");
         Step();
         FailIf(_currentRoom.GetMetatile(left) != 0xd7 || _currentRoom.IsSolid(left) ||
             _currentRoom.GetMetatile(right) != 0xc5 ||
             (_saveData.GetRoomFlags(0, 0x13) & 0x06) != 0x02 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
             _entities.EntityAdapters<PortalRevealRoomEntity>().Count() != 1 ||
             _entities.Entities<TimePortal>().Any(portal => portal.Active || portal.Visible),
             "$dc:$03 did not reveal only 0:13/$42, set flag $02, play one solve sound, and delete.");
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
         FailIf(_currentRoom.GetMetatile(left) != 0xd7 ||
             _currentRoom.GetMetatile(right) != 0xc5 ||
             _entities.EntityAdapters<PortalRevealRoomEntity>().Count() != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
             "Room 0:13 re-entry did not persist only the left marker and silently delete $dc:$03.");
 
         // The shared handler compares specifically against $3a, not merely
@@ -67,14 +67,14 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(_currentRoom.GetMetatile(right) != 0xd2 ||
             (_saveData.GetRoomFlags(0, 0x13) & 0x04) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
             "$dc:$04 incorrectly accepted tile $d2 instead of standard ground $3a.");
         _currentRoom.ReplaceMetatile(right, 0xd2, 0xc5, (long)_animationTicks);
         Cut(right);
         Step();
         FailIf(_currentRoom.GetMetatile(right) != 0xd7 ||
             (_saveData.GetRoomFlags(0, 0x13) & 0x06) != 0x06 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
             _entities.EntityAdapters<PortalRevealRoomEntity>().Any(),
             "$dc:$04 did not reveal 0:13/$47, preserve flag $02, set $04, sound once, and delete.");
 
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
         FailIf(_currentRoom.GetMetatile(left) != 0xd7 ||
             _currentRoom.GetMetatile(right) != 0xd7 ||
             _entities.EntityAdapters<PortalRevealRoomEntity>().Any() ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0 ||
             _entities.Entities<TimePortal>().Any(portal => portal.Active || portal.Visible),
             "Room 0:13 re-entry must preserve both markers, leave portals dormant, and not replay reveal sounds.");
         GD.Print("Validated room 0:13 hidden portal markers: bush cuts, separate initialization, " +

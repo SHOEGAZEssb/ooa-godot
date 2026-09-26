@@ -39,7 +39,7 @@ internal sealed class BlackTowerDoorwayEventDatabase
     private void Validate()
     {
         if (Data is not
-            { Group: 1, Room: 0x76, InteractionId: 0xdc, SubId: 0x10,
+            { Group: 1, Room: 0x76, InteractionId: InteractionId.Miscellaneous2, SubId: 0x10,
               Y: 0x42, X: 0x50, ClearPositionA: 0x44, ClearPositionB: 0x45,
               ObjectRadiusY: 0x04, ObjectRadiusX: 0x10,
               LinkRadiusY: 0x06, LinkRadiusX: 0x06,
@@ -47,7 +47,7 @@ internal sealed class BlackTowerDoorwayEventDatabase
               ClearDestinationGroup: 4, ClearDestinationRoom: 0xe7,
               SetDestinationGroup: 4, SetDestinationRoom: 0xf3,
               WarpTransition: 0x93, DestinationPosition: 0xff,
-              WarpTransition2: 0x01, Sound: OracleSoundEngine.SndEnterCave } ||
+              WarpTransition2: 0x01, Sound: SoundId.SndEnterCave } ||
             string.IsNullOrWhiteSpace(Data.Source))
         {
             throw new InvalidOperationException(

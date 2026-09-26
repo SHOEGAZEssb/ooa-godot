@@ -73,7 +73,7 @@ internal partial class MoldormCharacter : EnemyCharacter
         _preciseHeadPosition = position;
         State = 0;
         _turnCounter = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _angularSpeed = _behavior.InitialAngularSpeed;
 
         EnemyCharacterConfiguration configuration =

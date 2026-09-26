@@ -119,7 +119,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
             Spot.Position, (byte)_database.PlantedSoilTile, 0, _animationTick());
         _save.SetGashaSpotPlanted(Spot.SubId, true);
         _save.SetGashaSpotKillCounter(Spot.SubId, 0);
-        _soundRequested(OracleSoundEngine.SndGetSeed);
+        _soundRequested(SoundId.SndGetSeed);
         _roomTileChanged();
         State = InteractionState.Finished;
         return true;
@@ -211,7 +211,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
             if (_inventory is not null &&
                 RingEffects.DetectsSoftSoil(_inventory))
             {
-                _soundRequested(OracleSoundEngine.SndCompass);
+                _soundRequested(SoundId.SndCompass);
             }
             return ScreenTransitionPresentation.Hidden;
         }
@@ -243,7 +243,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         Visible = true;
         State = InteractionState.RewardHeld;
         if (rewardType != 0)
-            _soundRequested(OracleSoundEngine.SndGetItem);
+            _soundRequested(SoundId.SndGetItem);
     }
 
     internal void BeginDisappearance()
@@ -254,7 +254,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         _heldBy = null;
         Position = Spot.Position;
         Visible = false;
-        _soundRequested(OracleSoundEngine.SndFairyCutscene);
+        _soundRequested(SoundId.SndFairyCutscene);
         _database.BeginDisappearance(_room, Spot, _animationTick());
         _roomTileChanged();
         State = InteractionState.Disappearing;

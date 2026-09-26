@@ -27,7 +27,7 @@ internal sealed class RiverZoraRoomEntity : CombatEnemyRoomEntityAdapter<RiverZo
     {
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !hitbox.Intersects(Entity.CollisionBounds)) return SeedHitResult.None;
-        if (seedItem == 0x20)
+        if (seedItem == ItemId.EmberSeed)
         {
             // Motionless collision mode $0f uses collisionEffect34: create a
             // free flame and kill immediately, not PART_BURNING_ENEMY's stun.

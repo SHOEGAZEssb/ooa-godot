@@ -145,7 +145,7 @@ public sealed class OracleWorldData
         // updateTilesetFlagsForIndoorRoomInAltWorld. The room-byte $38
         // exception applies regardless of group. Only metatiles $40-$7f
         // and palette bits 6 change; flips, priority and VRAM bank survive.
-        if (activeCollisions == 0 && (tilesetFlags & 0x80) != 0 && room != 0x38)
+        if (activeCollisions == 0 && (tilesetFlags & (int)TilesetFlags.Past) != 0 && room != 0x38)
         {
             mappings = (byte[])mappings.Clone();
             for (int tile = 0x40; tile < 0x80; tile++)

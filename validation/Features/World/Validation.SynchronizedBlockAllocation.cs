@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
                 "Allocation fixture must stop one input update before pushing source $35.");
             var fillers = new List<PuzzlePuffEffect>();
             while (slots.Count < 14 - free)
-                fillers.Add(_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), 0)));
+                fillers.Add(_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone)));
             StepGameplayUpdates(1, Vector2.Down);
             var first = _entities.Entities<PushBlockController>();
             FailIf(!_pushBlocks.Active || first.Count != free ||

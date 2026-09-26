@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonGibdos()
     {
         var database = new EnemyDatabase();
-        var definition = database.ImportedEnemy(0x12);
+        var definition = database.ImportedEnemy(EnemyId.Gibdo);
         FailIf(string.Concat(EnemyBehaviorTables.Shared.GibdoActiveCollisions.Select(v => v.Value)) != "11111111111101110000011111111110",
             "Gibdo active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 8, DamageQuarters: 4, RadiusX: 6, RadiusY: 6, Palette: 2, TileBase: 0 } ||
@@ -128,7 +128,7 @@ public sealed partial class ValidationRoot
             var targetAdapter = (GibdoRoomEntity)active.Single(e => e.Node == fullTarget);
             var pending = new List<RoomEntitySpawn>();
             if (lethal) fullTarget.Health = 1;
-            FailIf(targetAdapter.ApplySeedHit(fullTarget.CollisionBounds, fullTarget.Position, 0x20, pending) != SeedHitResult.Activate || pending.Count != 0,
+            FailIf(targetAdapter.ApplySeedHit(fullTarget.CollisionBounds, fullTarget.Position, ItemId.EmberSeed, pending) != SeedHitResult.Activate || pending.Count != 0,
                 "Full shared part pool must reject the flame without rejecting the Ember collision.");
             Step();
             FailIf(fullTarget.Health != (lethal ? 0 : 6) || fullTarget.Counter != 30, "Failed flame allocation incorrectly held Gibdo health at one.");

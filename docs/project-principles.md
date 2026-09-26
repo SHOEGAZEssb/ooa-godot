@@ -38,6 +38,14 @@ replace them with undocumented clone-specific rules.
   treasure mode into a silent no-op.
 - Retain original hexadecimal identifiers in diagnostics, source comments, and
   validation failures.
+- Name semantic IDs, modes, flags, addresses, and timing limits at their owning
+  boundary. Use disassembly symbols and retain their source paths beside the
+  definitions. Reference these definitions directly instead of duplicating
+  their catalogs as forwarding constants. Keep treasure IDs, physical item IDs,
+  collision types, and collision effects separate even when their numeric values coincide. Shared
+  WRAM unions require context-specific names; an address match alone does not
+  establish a field's meaning. Keep independent source expectations literal in
+  validations and importer guards.
 
 ## Architecture consequences
 

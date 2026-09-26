@@ -52,8 +52,8 @@ internal sealed class TopDownAirDatabase
             parameters.MaximumFallSpeed != 0x0300 ||
             parameters.JumpSpeedZ != -0x01e0 ||
             parameters.HoleStandingCounter != 4 ||
-            parameters.JumpSound != OracleSoundEngine.SndJump ||
-            parameters.LandSound != OracleSoundEngine.SndLand ||
+            parameters.JumpSound != SoundId.SndJump ||
+            parameters.LandSound != SoundId.SndLand ||
             parameters.CompanionJumpSpeedRaw != 0x14 ||
             parameters.CompanionJumpSpeedZ != -0x01c0 ||
             parameters.CompanionDismountZ != -8 ||

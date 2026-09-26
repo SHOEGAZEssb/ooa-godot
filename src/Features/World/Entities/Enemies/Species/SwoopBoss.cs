@@ -122,7 +122,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         {
             _introStarted = true;
             _disableLink();
-            _playSound(OracleSoundEngine.SndCtrlStopMusic);
+            _playSound(SoundId.SndCtrlStopMusic);
         }
 
         switch (_state)
@@ -139,7 +139,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
             case SwoopState.IntroDialogue:
                 if (!_dialogueOpen())
                 {
-                    _playSound(OracleSoundEngine.MusMiniboss);
+                    _playSound(SoundId.MusMiniboss);
                     BeginFlyingUp();
                 }
                 break;
@@ -176,7 +176,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if (_dying || !base.TakeSwordHit(sourcePosition, damage))
             return false;
         _acceptedGroundHit = true;
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (IsDead)
             BeginDeath();
         return true;
@@ -221,7 +221,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
             _bounces--;
             _speedZ = -0x180;
             _screenShake(10);
-            _playSound(OracleSoundEngine.SndDoorClose);
+            _playSound(SoundId.SndDoorClose);
             return;
         }
         SetAnimation(0);
@@ -245,7 +245,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if ((_counter % 0x30) == 0)
         {
             _speedZ = -0x100;
-            _playSound(OracleSoundEngine.SndJump);
+            _playSound(SoundId.SndJump);
         }
         _zFixed += _speedZ;
         _speedZ += 0x08;
@@ -271,7 +271,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if (AnimationParameter != 0)
         {
             _speedZ = -0x100;
-            _playSound(OracleSoundEngine.SndJump);
+            _playSound(SoundId.SndJump);
         }
         _zFixed += _speedZ;
         _speedZ += 0x08;
@@ -398,7 +398,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
     private void HitGround(ICollection<RoomEntitySpawn> spawns)
     {
         _screenShake(0x30);
-        _playSound(OracleSoundEngine.SndDoorClose);
+        _playSound(SoundId.SndDoorClose);
         Vector2 point = Position + Vector2.Down * 5;
         TerrainInfo terrain = _room.GetTerrainInfo(point);
         byte tile = terrain.Tile;
@@ -428,7 +428,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         _dying = true;
         _deathCounter = 120;
         _disableLink();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 }
 

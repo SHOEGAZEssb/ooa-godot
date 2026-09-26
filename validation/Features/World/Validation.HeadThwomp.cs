@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 new Vector2(0x78, 0x50),
                 HeadThwompProjectileKind.Fireball,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 0,
                 RandomizeLaunch: true),
             fireballVisual,
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                 ((expectedAngle.Value & 0x10) + 0x08) ||
             randomFireball.Speed !=
                 fireballSpeeds[expectedSpeed.Value & 0x03] ||
-            fireballSounds is not [OracleSoundEngine.SndFallInHole],
+            fireballSounds is not [SoundId.SndFallInHole],
             "PART_HEAD_THWOMP_FIREBALL did not defer its two launch RNG " +
             "calls, visibility, and SND_FALLINHOLE to its creation update.");
         randomFireball.Free();
@@ -64,7 +64,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 new Vector2(0x60, 0x60),
                 HeadThwompProjectileKind.Circular,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 2),
             circularVisual,
             impactVisual: null,
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
                 $"turn interval at moving update {index + 1}.");
         }
         FailIf(
-            circularSounds is not [OracleSoundEngine.SndBeam] ||
+            circularSounds is not [SoundId.SndBeam] ||
             circular.DeflectWithSword(),
             "PART_HEAD_THWOMP_CIRCULAR_PROJECTILE did not request SND_BEAM " +
             "once or incorrectly accepted a sword collision outside active " +
@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 contactPlayer.Position,
                 HeadThwompProjectileKind.Fireball,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 0),
             fireballVisual,
             fireballImpactVisual,
@@ -130,7 +130,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 contactPlayer.Position,
                 HeadThwompProjectileKind.Circular,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 2),
             circularVisual,
             impactVisual: null,
@@ -143,7 +143,7 @@ public sealed partial class ValidationRoot
             !contactProjectile.Finished ||
             contactPlayer.HealthQuarters != contactHealth - 4 ||
             contactWorld.Sounds.Count(sound =>
-                sound == OracleSoundEngine.SndDamageLink) != 1,
+                sound == SoundId.SndDamageLink) != 1,
             "PART_HEAD_THWOMP_CIRCULAR_PROJECTILE did not apply partData " +
             "damage $f8 as four quarter-hearts through mode $06.");
         contactProjectile.Free();
@@ -153,7 +153,7 @@ public sealed partial class ValidationRoot
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
-        shieldInventory.EquipA(InventoryState.ItemShield);
+        shieldInventory.EquipA(TreasureId.Shield);
         var shieldWorld = new ValidationRingPlayerWorld();
         var shieldPlayer = new Player { Name = "HeadThwompBeamShieldPlayer" };
         AddChild(shieldPlayer);
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 shieldPlayer.ShieldCollisionBounds.GetCenter(),
                 HeadThwompProjectileKind.Circular,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 2),
             circularVisual,
             impactVisual: null,
@@ -184,7 +184,7 @@ public sealed partial class ValidationRoot
             !woodenShieldProjectile.Finished ||
             shieldPlayer.HealthQuarters != woodenShieldHealth - 4 ||
             shieldWorld.Sounds.Count(sound =>
-                sound == OracleSoundEngine.SndClink2) != 0,
+                sound == SoundId.SndClink2) != 0,
             "PART $3c incorrectly allowed ITEMCOLLISION_L1_SHIELD to use " +
             "mode $06's COLLISIONEFFECT_$1f response.");
         woodenShieldProjectile.Free();
@@ -194,7 +194,7 @@ public sealed partial class ValidationRoot
         var ironInventory = new InventoryState(_treasures, ironSave);
         ironInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
-        ironInventory.EquipA(InventoryState.ItemShield);
+        ironInventory.EquipA(TreasureId.Shield);
         var ironWorld = new ValidationRingPlayerWorld();
         var ironPlayer = new Player { Name = "HeadThwompBeamIronShieldPlayer" };
         AddChild(ironPlayer);
@@ -212,7 +212,7 @@ public sealed partial class ValidationRoot
             new HeadThwompProjectileSpawn(
                 ironPlayer.ShieldCollisionBounds.GetCenter(),
                 HeadThwompProjectileKind.Circular,
-                Angle: 0,
+                Angle: ObjectAngle.Up,
                 Speed: 2),
             circularVisual,
             impactVisual: null,
@@ -225,7 +225,7 @@ public sealed partial class ValidationRoot
             !ironShieldProjectile.Finished ||
             ironPlayer.HealthQuarters != ironShieldHealth ||
             ironWorld.Sounds.Count(sound =>
-                sound == OracleSoundEngine.SndClink2) != 1,
+                sound == SoundId.SndClink2) != 1,
             "PART $3c did not accept ITEMCOLLISION_L2_SHIELD and apply " +
             "COLLISIONEFFECT_$1f/LINKDMG_$20 exactly once.");
         ironShieldProjectile.Free();
@@ -253,7 +253,7 @@ public sealed partial class ValidationRoot
             boulderRandom.Calls != 1 ||
             boulder.Position != new Vector2(expectedBoulderX, 0) ||
             boulder.SpeedYFixed != 0x0200 ||
-            boulderSounds is not [OracleSoundEngine.SndFallInHole] ||
+            boulderSounds is not [SoundId.SndFallInHole] ||
             boulder.DeflectWithSword(),
             "PART_3b did not choose its source top-of-camera X coordinate, " +
             "start at speedZ $0200, or request SND_FALLINHOLE once.");
@@ -266,7 +266,7 @@ public sealed partial class ValidationRoot
         FailIf(
             boulder.Finished || !boulder.Breaking ||
             boulderSounds.Count(sound =>
-                sound == OracleSoundEngine.SndBreakRock) != 1,
+                sound == SoundId.SndBreakRock) != 1,
             "PART_3b did not enter its solid-floor impact state and request " +
             "one SND_BREAK_ROCK.");
         using Image impactBoulderImage = boulder.CurrentTexture.GetImage();
@@ -352,7 +352,7 @@ public sealed partial class ValidationRoot
                     Vector2I.Zero,
                     Vector2I.Zero,
                     speedZ: 0,
-                    speedRaw: 0);
+                    speedRaw: ObjectSpeed.Speed0);
                 Step();
                 FailIf(
                     head.State != HeadThwompState.BombPause ||
@@ -377,7 +377,7 @@ public sealed partial class ValidationRoot
                 !head.Visible ||
                 head.State != HeadThwompState.WaitingForLink ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndCtrlStopMusic) != 1 ||
+                    SoundId.SndCtrlStopMusic) != 1 ||
                 CollisionAt(0x46) != 0x01 ||
                 CollisionAt(0x48) != 0x02 ||
                 CollisionAt(0x56) != 0x05 ||
@@ -390,8 +390,8 @@ public sealed partial class ValidationRoot
                 head.State != HeadThwompState.Spinning ||
                 _currentRoom.GetMetatile(PackedPoint(0xa4)) != 0x3d ||
                 _player.LocalRespawnPosition != new Vector2(0x48, 0x98) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.MusBoss) != 1,
+                _sound.PlayRequestsFor(SoundId.SndDoorClose) != 1 ||
+                _sound.PlayRequestsFor(SoundId.MusBoss) != 1,
                 "Head Thwomp did not close $a4, set the local $48/$98 " +
                 "respawn, and request the door and boss sounds on fight start.");
 
@@ -400,12 +400,12 @@ public sealed partial class ValidationRoot
             Step(17);
             FailIf(
                 head.Direction != 0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 0,
+                _sound.PlayRequestsFor(SoundId.SndClink2) != 0,
                 "Head Thwomp rotated before state $09's initial 18-count.");
             Step();
             FailIf(
                 head.Direction != 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1,
+                _sound.PlayRequestsFor(SoundId.SndClink2) != 1,
                 "Head Thwomp's normal rotation did not clink on odd head 1.");
             Step(10);
             FailIf(head.Direction != 1,
@@ -413,7 +413,7 @@ public sealed partial class ValidationRoot
             Step();
             FailIf(
                 head.Direction != 2 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink2) != 1,
+                _sound.PlayRequestsFor(SoundId.SndClink2) != 1,
                 "Head Thwomp's normal rotation incorrectly clinked on even head 2.");
 
             // Green: initialize on the update after selection, then create
@@ -450,7 +450,7 @@ public sealed partial class ValidationRoot
                 firstGreenShot.Speed != firstGreenSpeed ||
                 _random.Calls != greenRandomStart + 2 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndFallInHole) != 1,
+                    SoundId.SndFallInHole) != 1,
                 "The green face's first PART $39 shot did not run state 0 " +
                 "in the source parts phase with two ordered RNG calls.");
             WaitFor(
@@ -460,8 +460,8 @@ public sealed partial class ValidationRoot
             FailIf(
                 _random.Calls != greenRandomStart + 14 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndFallInHole) != 7 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 0,
+                    SoundId.SndFallInHole) != 7 ||
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 0,
                 "The green face did not create exactly seven randomized " +
                 "fireballs and no blue-face beams.");
 
@@ -485,7 +485,7 @@ public sealed partial class ValidationRoot
                 "hold its closed-mouth animation in substate 0.");
             Step(7);
             FailIf(
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 0,
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 0,
                 "The blue face fired before its source 8-update wait ended.");
             Step();
             HeadThwompProjectile firstCircular =
@@ -497,7 +497,7 @@ public sealed partial class ValidationRoot
                 firstCircular.Speed != expectedTurnStep ||
                 CollisionAt(0x47) != 0x03 ||
                 head.AnimationIndex != 2 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 1,
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 1,
                 "The blue face did not open its mouth and create PART $3c " +
                 "eight pixels above itself on the eighth wait update.");
             Step(8);
@@ -511,15 +511,15 @@ public sealed partial class ValidationRoot
             FailIf(
                 head.AnimationIndex != 10 ||
                 CollisionAt(0x47) != 0x00 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 1,
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 1,
                 "The blue face did not close its mouth before the repeated volley.");
             Step(7);
             FailIf(
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 1,
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 1,
                 "The blue face shortened its repeated 8-update wait.");
             Step();
             FailIf(
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 2,
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 2,
                 "The blue face did not create its second volley on schedule.");
             WaitFor(
                 () => head.State == HeadThwompState.Resume,
@@ -527,7 +527,7 @@ public sealed partial class ValidationRoot
                 "The blue face did not finish all eight source volleys.");
             FailIf(
                 _random.Calls != blueRandomStart + 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndBeam) != 8 ||
+                _sound.PlayRequestsFor(SoundId.SndBeam) != 8 ||
                 CollisionAt(0x47) != 0x00 ||
                 head.AnimationIndex != 10,
                 "The blue face did not emit exactly eight SND_BEAM volleys " +
@@ -548,7 +548,7 @@ public sealed partial class ValidationRoot
                 "reserve its source initialization update before falling.");
             WaitFor(
                 () => _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndStrongPound) == 1,
+                    SoundId.SndStrongPound) == 1,
                 90,
                 "The purple face did not pound at Y=$90 with SND_STRONG_POUND.");
             FailIf(
@@ -566,11 +566,11 @@ public sealed partial class ValidationRoot
                 // apiece after that source-owned sequence.
                 _random.Calls != purpleRandomStart + 126 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndFallInHole) != 6 ||
+                    SoundId.SndFallInHole) != 6 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndBreakRock) != 6 ||
+                    SoundId.SndBreakRock) != 6 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndStrongPound) != 1 ||
+                    SoundId.SndStrongPound) != 1 ||
                 CollisionAt(0x46) != 0x01 ||
                 CollisionAt(0x47) != 0x00 ||
                 CollisionAt(0x48) != 0x02 ||
@@ -581,9 +581,9 @@ public sealed partial class ValidationRoot
                 "The purple face did not spawn and finish exactly six PART " +
                 "$3b boulders or restore its five surrounding solid cells " +
                 $"(position={head.Position}, rng={_random.Calls - purpleRandomStart}, " +
-                $"fall={_sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole)}, " +
-                $"break={_sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock)}, " +
-                $"pound={_sound.PlayRequestsFor(OracleSoundEngine.SndStrongPound)}, " +
+                $"fall={_sound.PlayRequestsFor(SoundId.SndFallInHole)}, " +
+                $"break={_sound.PlayRequestsFor(SoundId.SndBreakRock)}, " +
+                $"pound={_sound.PlayRequestsFor(SoundId.SndStrongPound)}, " +
                 $"collisions={CollisionAt(0x46):x2}/{CollisionAt(0x47):x2}/" +
                 $"{CollisionAt(0x48):x2}/{CollisionAt(0x56):x2}/" +
                 $"{CollisionAt(0x57):x2}/{CollisionAt(0x58):x2}, " +
@@ -604,7 +604,7 @@ public sealed partial class ValidationRoot
                         heart.ElapsedFrames == 1 &&
                         heart.Position == head.Position + Vector2.Down * 20) != 1 ||
                     _sound.PlayRequestsFor(
-                        OracleSoundEngine.SndBossDamage) != 1,
+                        SoundId.SndBossDamage) != 1,
                     "The red face did not remove one health point, request " +
                     "SND_BOSS_DAMAGE, and update its nonlethal heart in the " +
                     "same source parts phase " +
@@ -612,7 +612,7 @@ public sealed partial class ValidationRoot
                     $"hearts={hearts.Length}, " +
                     $"fresh={hearts.Count(heart => heart.ElapsedFrames == 1)}, " +
                     $"positions={string.Join(',', hearts.Select(heart => heart.Position))}, " +
-                    $"sound={_sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage)}).");
+                    $"sound={_sound.PlayRequestsFor(SoundId.SndBossDamage)}).");
                 WaitFor(
                     () => head.State == HeadThwompState.Resume,
                     140,
@@ -632,14 +632,14 @@ public sealed partial class ValidationRoot
                     drop.SubId == ItemDropDatabase.Heart &&
                     drop.ElapsedFrames == 1) ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndBossDamage) != 1 ||
+                    SoundId.SndBossDamage) != 1 ||
                 new[] { 0x46, 0x47, 0x48, 0x56, 0x57, 0x58 }
                     .Any(position => CollisionAt(position) != 0x00),
                 "The lethal red face did not use the source no-heart branch " +
                 "and clear all six collision cells.");
             WaitFor(
                 () => _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndStrongPound) == 1,
+                    SoundId.SndStrongPound) == 1,
                 120,
                 "The lethal red face did not pound at Y=$90 before generic death.");
             int landingShake = _entities.ScreenShakeCounter;
@@ -649,7 +649,7 @@ public sealed partial class ValidationRoot
             Step();
             FailIf(
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndBossDead) != 1 ||
+                    SoundId.SndBossDead) != 1 ||
                 _entities.ScreenShakeCounter != landingShake - 1 ||
                 head.Visible,
                 "Head Thwomp generic death did not request SND_BOSS_DEAD, " +
@@ -662,11 +662,11 @@ public sealed partial class ValidationRoot
             FailIf(
                 !head.IsDead ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndBossDead) != 1 ||
+                    SoundId.SndBossDead) != 1 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndBigExplosion) != 1 ||
+                    SoundId.SndBigExplosion) != 1 ||
                 _entities.Entities<BossDeathExplosionEffect>() is not
-                    [{ BossId: 0x79 }],
+                    [{ BossId: EnemyId.HeadThwomp }],
                 "Head Thwomp did not create one source-updated boss explosion " +
                 "and restore room music after exactly 120 death updates.");
         }

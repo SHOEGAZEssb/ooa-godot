@@ -61,8 +61,8 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(1, Vector2.Zero);
         var rawActor = _entities.Entities<WhispCharacter>().First();
         var rawAdapter = _entities.EntityAdapters<WhispRoomEntity>().First();
-        seeds.TryGet(0x24, out var mystery);
-        var result = rawAdapter.ApplySeedCollision(rawActor.CollisionBounds, rawActor.Position, mystery, 0x1a, []);
+        seeds.TryGet(ItemId.MysterySeed, out var mystery);
+        var result = rawAdapter.ApplySeedCollision(rawActor.CollisionBounds, rawActor.Position, mystery, ItemCollisionType.MysterySeed, []);
         Vector2 rawBefore = rawActor.Position;
         StepGameplayUpdates(2, Vector2.Zero);
         FailIf(!result.Contact || result.DisableCollision || rawActor.Health != 0 || rawActor.CollisionEnabled ||

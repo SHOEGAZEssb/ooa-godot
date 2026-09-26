@@ -17,11 +17,11 @@ internal sealed class KingMoblinRoomEntity : CombatEnemyRoomEntityAdapter<KingMo
     public bool DisablesPlayerContact => DisablesSword;
     public bool FreezesPlayerUpdates => DisablesSword;
     public override int DimitriCollisionType => 0x7f;
-    public override int DimitriCollisionMode => 0x50;
+    public override int DimitriCollisionMode => EnemyCollisionMode.KingMoblin;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame(frame,spawns);
     protected override bool TryApplySwitchHookEffect(int effect,SwitchHookItem hook,Vector2 linkPosition)
     {
-        if(effect!=0x1c) return false;
+        if(effect!=CollisionEffect.Effect1c) return false;
         hook.NotifyObjectCollision(); return true;
     }
     public override SeedHitResult ApplySeedHit(Rect2 hitbox,Vector2 origin,int seedItem,ICollection<RoomEntitySpawn> spawns)
@@ -31,8 +31,8 @@ internal sealed class KingMoblinRoomEntity : CombatEnemyRoomEntityAdapter<KingMo
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,hitbox)) return default;
         int effect=Entity.Data.Bytes("collision")[collisionType];
-        if(effect==0) return new(true,SeedHitResult.None,false);
-        if(effect!=0x20) throw new System.NotSupportedException($"ENEMY_KING_MOBLIN $7f: seed collision ${collisionType:x2}, effect ${effect:x2}.");
-        return new(true,seed.SeedItem==0x24?SeedHitResult.ActivateRandomSeed:SeedHitResult.Activate,true);
+        if(effect==CollisionEffect.None) return new(true,SeedHitResult.None,false);
+        if(effect!=CollisionEffect.Effect20) throw new System.NotSupportedException($"ENEMY_KING_MOBLIN $7f: seed collision ${collisionType:x2}, effect ${effect:x2}.");
+        return new(true,seed.SeedItem==ItemId.MysterySeed?SeedHitResult.ActivateRandomSeed:SeedHitResult.Activate,true);
     }
 }

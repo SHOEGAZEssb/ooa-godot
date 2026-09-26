@@ -15,8 +15,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemBoomerang, 2);
-            _inventory.EquipA(InventoryState.ItemBoomerang);
+            _inventory.GiveTreasure(TreasureId.Boomerang, 2);
+            _inventory.EquipA(TreasureId.Boomerang);
             _player.WarpTo(new(72.25f, 80.5f));
             _player.Face(Vector2I.Right);
             for (int y = 64; y <= 96; y += 16)

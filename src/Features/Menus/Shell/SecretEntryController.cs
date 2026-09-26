@@ -70,8 +70,8 @@ internal sealed class SecretEntryController(
         if (pressed == 0) return;
         int selected = 7;
         while ((pressed & (1 << selected)) == 0) selected--;
-        playSound(selected >= 4 ? OracleSoundEngine.SndMenuMove :
-            selected == 1 ? OracleSoundEngine.SndClink : OracleSoundEngine.SndSelectItem);
+        playSound(selected >= 4 ? SoundId.SndMenuMove :
+            selected == 1 ? SoundId.SndClink : SoundId.SndSelectItem);
         switch (selected)
         {
             case 7: _screen!.MoveNameCursor(Vector2I.Down); break;
@@ -109,11 +109,11 @@ internal sealed class SecretEntryController(
             _error = true;
             _errorDelay = 0x10;
             _screen!.ShowSecretError(true);
-            playSound(OracleSoundEngine.SndError);
+            playSound(SoundId.SndError);
             return;
         }
         _result = true;
-        playSound(OracleSoundEngine.SndSolvePuzzle);
+        playSound(SoundId.SndSolvePuzzle);
         lifecycle.BeginClosing(this);
     }
 

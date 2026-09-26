@@ -240,7 +240,7 @@ internal sealed class MakuSproutRescueEvent :
 
     private void GateBurst(int y, int x1, int x2)
     {
-        _context.Sound.PlaySound(OracleSoundEngine.SndKillEnemy);
+        _context.Sound.PlaySound(SoundId.SndKillEnemy);
         foreach (Vector2 position in new[]
         {
             new Vector2(x1, y), new Vector2(x2, y),
@@ -248,10 +248,10 @@ internal sealed class MakuSproutRescueEvent :
         })
         {
             _context.Entities.Spawn<PuzzlePuffEffect>(
-                new PuzzlePuffSpawn(position, OracleSoundEngine.SndPoof));
+                new PuzzlePuffSpawn(position, SoundId.SndPoof));
         }
         _shakeCounter = _record.ShakeCounter;
-        _context.Sound.PlaySound(OracleSoundEngine.SndDoorClose);
+        _context.Sound.PlaySound(SoundId.SndDoorClose);
     }
 
     private void UpdateScreenShake()
@@ -399,7 +399,7 @@ internal sealed class MakuSproutRescueEvent :
                 break;
             case "SpawnInitialPuff":
                 _context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(
-                    new Vector2(0x28, 0x58), OracleSoundEngine.SndPoof));
+                    new Vector2(0x28, 0x58), SoundId.SndPoof));
                 break;
             case "SetInitialGateTile":
                 _context.Rooms.CurrentRoom.SetPositionTileAndCollision(
@@ -407,7 +407,7 @@ internal sealed class MakuSproutRescueEvent :
                     (byte)_record.ClearTile, null, _context.AnimationTick());
                 break;
             case "PlayDisasterMusic":
-                _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
+                _context.Sound.PlaySound(SoundId.MusDisaster);
                 break;
             case "SetLinkUp":
                 _context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Up);

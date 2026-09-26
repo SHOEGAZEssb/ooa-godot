@@ -103,8 +103,8 @@ internal sealed class HarpOfAgesEvent :
             treasure.TextId,
             treasure.Message,
             "harpOfAgesSpawner.s:@state0",
-            SpawnMode: 0,
-            GrabMode: 2);
+            SpawnMode: TreasureSpawnMode.Instant,
+            GrabMode: TreasureGrabMode.TwoHands);
         _harp = _context.Entities.Spawn<GroundTreasurePickup>(
             new GroundTreasureSpawn(pickupRecord));
         _harpPosition = _harp.Position;
@@ -256,7 +256,7 @@ internal sealed class HarpOfAgesEvent :
             throw UnsupportedCommand(
                 "begin the pickup cutscene before ROOMFLAG_ITEM was set");
         }
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
         _context.Player.BeginCutsceneControl(owner: this);
         _stage = HarpOfAgesEventStage.AwaitingTextOpen;
     }

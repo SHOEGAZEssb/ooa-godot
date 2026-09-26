@@ -69,14 +69,14 @@ public sealed partial class ValidationRoot
                 actor.InvincibilityCounter = 0;
                 actor.Health = 9;
                 if (id != 0x13) actor.Position = new(120, 88);
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(actor.Position, 8));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(actor.Position, ObjectAngle.Right));
                 _sound.ClearPlayRequestAudit();
                 Step();
                 FailIf(item.State != 1, "Post-object contact must not turn the item until its next update.");
                 if (effect == 0x22)
                 {
                     FailIf(Stun() != 120 || actor.InvincibilityCounter != -16 || actor.Health != 9 || actor.NativeHitPending ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+                        _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 1,
                         $"Enemy${id:x2}: effect$22 must write stun120/inv-16 without damage or JUST_HIT.");
                     if (actor is ZolCharacter zol) FailIf(zol.DamageHitPending || zol.State == ZolState.RedSplitting,
                         "A boomerang stun must not split the red Zol.");
@@ -117,11 +117,11 @@ public sealed partial class ValidationRoot
                     var clink = _entities.Entities<ClinkEffect>().Single();
                     FailIf(actor.Health != 9 || actor.InvincibilityCounter != -20 || clink.ElapsedFrames != 0 ||
                         clink.Position != BoomerangCollisionResponse.Midpoint(actor.Position, item.Position) ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 0,
+                        _sound.PlayRequestsFor(SoundId.SndClink) != 0,
                         $"Enemy${id:x2}: deflection must reserve an uninitialized clink and set inv-20 without damage.");
                     Step();
                     FailIf(item.State != 2 || actor.InvincibilityCounter != -19 || clink.ElapsedFrames != 1 ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+                        _sound.PlayRequestsFor(SoundId.SndClink) != 1,
                         "The following item/interaction passes must return the boomerang and initialize the checked clink.");
                     _entities.ClearPhysicalPlayerItems();
                     Step(20);
@@ -157,16 +157,16 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new(24, 24));
             Step(2);
             var moblin = _entities.Entities<ArrowMoblinCharacter>().First();
-            _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, 8, -7));
+            _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, ObjectAngle.Right, -7));
             Step();
             FailIf(moblin.StunCounter != 0, "EnemyZ-itemZ=+7 must reject a boomerang contact.");
             _entities.ClearPhysicalPlayerItems();
-            _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, 8, 7));
+            _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, ObjectAngle.Right, 7));
             Step();
             FailIf(moblin.StunCounter != 120, "EnemyZ-itemZ=-7 must accept a boomerang contact.");
             _entities.ClearPhysicalPlayerItems();
             moblin.InvincibilityCounter = 2;
-            var gated = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, 8));
+            var gated = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(moblin.Position, ObjectAngle.Right));
             Step();
             FailIf(moblin.InvincibilityCounter != 1 || gated.State != 1, "Nonzero enemy invincibility must reject contact.");
             Step();
@@ -185,16 +185,16 @@ public sealed partial class ValidationRoot
                 var head = _entities.Entities<SpikedBallPart>().Single(p => p.SubId == 0);
                 if (full)
                     while (_entities.InteractionSlotAvailable)
-                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(208, 144), 0));
+                        _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(208, 144), SoundId.MusNone));
                 int health = head.Health;
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(head.Position, 8, head.ZHigh));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(head.Position, ObjectAngle.Right, head.ZHigh));
                 _sound.ClearPlayRequestAudit();
                 Step();
                 FailIf(head.Health != health || head.InvincibilityCounter != -20 || !head.PendingCollision || item.State != 1 ||
                     _entities.Entities<ClinkEffect>().Count != (full ? 0 : 1),
                     "PART$2a must deflect without damage, even if its checked INTERACTION allocation fails.");
                 Step();
-                FailIf(item.State != 2 || _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != (full ? 0 : 1),
+                FailIf(item.State != 2 || _sound.PlayRequestsFor(SoundId.SndClink) != (full ? 0 : 1),
                     "Spiked-ball deflection must return the child; clink sound requires successful allocation and later initialization.");
             }
 
@@ -206,7 +206,7 @@ public sealed partial class ValidationRoot
             var ball = _entities.Entities<SmasherCharacter>().Single(e => e.IsBall);
             parent.Position = new(48, 48);
             ball.Position = new(120, 88);
-            var ignored = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(ball.Position, 8));
+            var ignored = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(ball.Position, ObjectAngle.Right));
             Step(2);
             FailIf(ignored.State != 1 || ignored.Counter != 39 || ball.PendingCollision,
                 "Smasher's ball accepts effect$00 contact without setting either object's hit flag or returning the item.");
@@ -214,7 +214,7 @@ public sealed partial class ValidationRoot
             ball.Position = new(48, 48);
             parent.Position = new(120, 88);
             int bossHealth = parent.Health;
-            var bossItem = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(parent.Position, 8));
+            var bossItem = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(parent.Position, ObjectAngle.Right));
             Step();
             FailIf(!parent.PendingCollision || parent.Health != bossHealth || parent.InvincibilityCounter != 0 || bossItem.State != 1,
                 "Smasher effect$1c must publish JUST_HIT without damage, invincibility or immediate return.");
@@ -230,7 +230,7 @@ public sealed partial class ValidationRoot
             Step();
             for (int hit = 0; hit < 2; hit++)
             {
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(gel.Position, 8, gel.ZFixed >> 8));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(gel.Position, ObjectAngle.Right, gel.ZFixed >> 8));
                 Step();
                 FailIf(gel.Health != (hit == 0 ? 1 : 0) || gel.InvincibilityCounter != 32 ||
                     gel.KnockbackCounter != 0 || !gel.NativeHitPending || gel.IsDead,

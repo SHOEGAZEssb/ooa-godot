@@ -64,8 +64,8 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _database = database;
         _record = database.Record;
         int seedTypes = 0;
-        for (int treasure = TreasureDatabase.TreasureEmberSeeds;
-             treasure <= TreasureDatabase.TreasureEmberSeeds + 4;
+        for (int treasure = TreasureId.EmberSeeds;
+             treasure <= TreasureId.EmberSeeds + 4;
              treasure++)
         {
             if (inventory.HasTreasure(treasure))

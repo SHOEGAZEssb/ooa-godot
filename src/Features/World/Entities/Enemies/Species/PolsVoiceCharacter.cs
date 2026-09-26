@@ -46,7 +46,7 @@ internal partial class PolsVoiceCharacter : EnemyCharacter
         _movement = new EnemyTerrainMovement(this, room);
         _state = PolsVoiceState.Uninitialized;
         _counter = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _speed = 0;
         _zFixed = 0;
         _speedZ = 0;

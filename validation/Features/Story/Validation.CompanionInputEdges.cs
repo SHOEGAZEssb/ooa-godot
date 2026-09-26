@@ -12,11 +12,11 @@ public partial class ValidationRoot
             PrepareCompanionFidelityRoom();
             IRoomEntity actor = id switch
             {
-                0x0b => _entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(new(72,56), 1, 0, 0x2a, Riding: true)),
-                0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new(72,56), 1, 0, 0x2a, Riding: true)),
-                _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new(72,56), 1, 0, 0x2a, Riding: true))
+                0x0b => _entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(new(72,56), ObjectDirection.Right, 0, 0x2a, Riding: true)),
+                0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new(72,56), ObjectDirection.Right, 0, 0x2a, Riding: true)),
+                _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new(72,56), ObjectDirection.Right, 0, 0x2a, Riding: true))
             };
-            CompanionRuntimeState.Begin(_runtimeState, id, 0x2a, actor.Node.Position, 1);
+            CompanionRuntimeState.Begin(_runtimeState, id, 0x2a, actor.Node.Position, ObjectDirection.Right);
             string Phase() => actor switch
             {
                 RickyCompanionRoomEntity r => r.Phase.ToString(),

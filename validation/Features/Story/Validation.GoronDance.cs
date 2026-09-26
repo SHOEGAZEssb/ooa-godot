@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
         var cave=_roomEvents.Get<GoronCaveEvent>();
         var host=cave.Actors.Single(a=>a.Actor.Record.SubId==0);
         FailIf(cave.Actors.Count!=8||host.Dance is null,"Graceful Goron did not create seven ordered support dancers.");
-        FailIf(cave.Actors.Where(a=>a.Actor.Record.SubId==1).Any(a=>a.Actor.Record.Id!=(batched?0x4e:0x66)),
+        FailIf(cave.Actors.Where(a=>a.Actor.Record.SubId==1).Any(a=>a.Actor.Record.Id!=(batched?InteractionId.Subrosian:InteractionId.Goron)),
             $"Linked past dance hall did not replace its seven supporting Gorons with Subrosians: room {room:x2}, flags {_rooms.CurrentRoom.TilesetFlags:x2}, linked {_saveData.IsLinkedGame}.");
         foreach(var dancer in cave.Actors.Where(a=>a.Actor.Record.SubId==1).ToArray()) TalkGoronFromFloor(dancer);
         _inventory.AddRupees(100);
@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
         FailIf(patterns.Length!=160||!patterns.Take(firstSourcePattern.Length).SequenceEqual(firstSourcePattern),
             "Dance source patterns lost their 10 x 16 shape or source-derived first pattern.");
         int guard=0;
-        while(!_inventory.HasTreasure(0x5b)&&guard++<6000)
+        while(!_inventory.HasTreasure(TreasureId.BrotherEmblem)&&guard++<6000)
         {
             if(_dialogue.IsOpen)
             { if(_dialogue.ChoiceActive) _dialogue.SubmitChoiceForValidation(0); else _dialogue.Close(); }
@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             }
             StepGameplayUpdates(1,Vector2.Zero,buttons,buttons);
         }
-        FailIf(!_inventory.HasTreasure(0x5b)||wram.ReadWramByte(0xcfdb)!=0,
+        FailIf(!_inventory.HasTreasure(TreasureId.BrotherEmblem)||wram.ReadWramByte(0xcfdb)!=0,
             $"Goron dance did not award Brother's Emblem after eight perfect rounds: state {host.Dance.State}/{host.Dance.Substate}, failures {wram.ReadWramByte(0xcfdb)}, beat {wram.ReadWramByte(0xcfdc)}.");
         for(int i=0;i<180;i++)
         { if(_dialogue.IsOpen) _dialogue.Close(); StepGameplayUpdates(1,Vector2.Zero); }

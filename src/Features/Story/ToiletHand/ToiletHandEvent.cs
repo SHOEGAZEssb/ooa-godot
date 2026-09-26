@@ -163,7 +163,7 @@ internal sealed class ToiletHandEvent :
                 $"toiletHandScript cannot compare trade item ${value:x2}.");
         }
         return Context.Inventory.HasTreasure(
-                TreasureDatabase.TreasureTradeItem) &&
+                TreasureId.TradeItem) &&
             Context.Inventory.TradeItem == value;
     }
 
@@ -265,7 +265,7 @@ internal sealed class ToiletHandEvent :
                 Context.Entities.BeginScreenShake(60);
                 break;
             case "toiletHand_playExplosion":
-                Context.Sound.PlaySound(OracleSoundEngine.SndExplosion);
+                Context.Sound.PlaySound(SoundId.SndExplosion);
                 break;
             default:
                 throw new InvalidOperationException(

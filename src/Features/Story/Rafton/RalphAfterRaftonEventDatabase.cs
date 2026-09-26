@@ -92,7 +92,7 @@ internal sealed class RalphAfterRaftonEventDatabase
             {
                 Group: 1,
                 Room: 0x97,
-                InteractionId: 0x37,
+                InteractionId: InteractionId.Ralph,
                 SubId: 0x03,
                 Sprite: "spr_ralph_1",
                 TileBase: 0,
@@ -110,7 +110,7 @@ internal sealed class RalphAfterRaftonEventDatabase
                 PostLookWait: 0x1e,
                 JumpSpeedZ: -0x01c0,
                 JumpGravity: 0x20,
-                JumpSound: OracleSoundEngine.SndJump,
+                JumpSound: SoundId.SndJump,
                 LandingWait: 0x0a,
                 NativeTextId: 0x2a0a,
                 PostTextWait: 0x1e,
@@ -120,7 +120,7 @@ internal sealed class RalphAfterRaftonEventDatabase
                 AlignWait: 0x06,
                 Speed200: 0x50,
                 ExitCounter: 0x44,
-                FadeSound: OracleSoundEngine.SndCtrlFastFadeOut,
+                FadeSound: SoundId.SndCtrlFastFadeOut,
                 CompletionMusic: 0x04,
                 InitialNativeUpdates: 0
             } ||
@@ -147,8 +147,8 @@ internal sealed class RalphAfterRaftonEventDatabase
             Commands[9] is not CutsceneSetSpeedCommand
                 { Actor: "Ralph", Speed: 0x50 } ||
             Commands[10] is not CutsceneMoveCommand
-                { Actor: "Ralph", Angle: 0x00, Counter: 0x44 } ||
-            Commands[11] is not CutscenePlaySoundCommand { Sound: 0xfa } ||
+                { Actor: "Ralph", Angle: ObjectAngle.Up, Counter: 0x44 } ||
+            Commands[11] is not CutscenePlaySoundCommand { Sound: SoundId.SndCtrlFastFadeOut } ||
             Commands[12] is not CutsceneWaitCommand { Frames: 30 } ||
             Commands[13] is not CutsceneOrRoomFlagCommand { Flag: 0x40 } ||
             Commands[14] is not CutsceneEnableInputCommand ||

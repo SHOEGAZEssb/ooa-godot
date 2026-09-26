@@ -18,8 +18,8 @@ public sealed partial class ValidationRoot
             for (int color = 0; color < 3; color++)
                 FailIf(!data.Pattern(subid)[color].SequenceEqual(pattern[color]),
                     $"$21:${subid:x2} color {color} lost its source tile positions.");
-        FailIf(data.GetRoomRecords(4, 0x79)[1] is not { Id: 0x21, SubId: 0x0f, Order: 2 } ||
-            data.GetRoomRecords(4, 0x7b)[0] is not { Id: 0x21, SubId: 0x10, Order: 0, X: 0x68, Y: 0x58 },
+        FailIf(data.GetRoomRecords(4, 0x79)[1] is not { Id: InteractionId.DungeonEvents, SubId: 0x0f, Order: 2 } ||
+            data.GetRoomRecords(4, 0x7b)[0] is not { Id: InteractionId.DungeonEvents, SubId: 0x10, Order: 0, X: 0x68, Y: 0x58 },
             "Skull pattern events lost their native order or falling-key coordinates.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var setTrigger = (Action<int, bool>)typeof(RoomEntityManager).GetMethod("SetTrigger", flags)!.CreateDelegate(typeof(Action<int, bool>), _entities);
@@ -32,8 +32,8 @@ public sealed partial class ValidationRoot
             for (int color = 0; color < 3; color++)
                 foreach (byte packed in pattern[color]) Tile(packed, 0xad + color);
         }
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.EquipA(TreasureId.Feather);
         LoadValidationRoom(4, 0x79);
         _player.WarpTo(new Vector2(168, 120));
         SetPattern(doorPattern);

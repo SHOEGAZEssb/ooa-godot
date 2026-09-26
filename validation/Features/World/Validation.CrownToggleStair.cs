@@ -35,19 +35,19 @@ public sealed partial class ValidationRoot
             FailIf(!orb.ApplySwordHit(orb.CollisionBounds, orb.Position, 1,
                 EnemyKnockbackStrength.Normal, new List<RoomEntitySpawn>()),
                 "The source orb must accept the staged pending collision.");
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Up);
             var toggle = _entities.FloorToggle!;
             FailIf(IsTransitioning || toggle.State != 0 || !orb.IsOn ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds,
                 "Toggle selection must precede func_60e9's stair lookup and its entrance sound.");
             StepGameplayUpdates(8, Vector2.Zero, batched: batched);
             FailIf(IsTransitioning || toggle.Active ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds,
                 "The stair must remain inactive through cutscene02's completion object update.");
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(!IsTransitioning ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds + 1,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds + 1,
                 "The next cutscene01 update must select the stair and play its one entrance sound.");
             for (int i = 0; IsTransitioning && i < 160; i++) StepGameplayUpdates(1, Vector2.Zero);
             FailIf(IsTransitioning || _rooms.ActiveGroup != 4 || _currentRoom.Id != 0xb1 ||

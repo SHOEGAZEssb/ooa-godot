@@ -16,8 +16,8 @@ public sealed partial class ValidationRoot
             "Shrouded Stalfos lost the source hook eligibility bits.");
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
         (EnemyCharacter Enemy, Vector2 Origin) Prepare(bool sword, int subid)
         {
@@ -118,7 +118,7 @@ public sealed partial class ValidationRoot
         Vector2 center = new(184, 88);
         var rng = new OracleRandom();
         var archerProbe = new ArrowMoblinCharacter();
-        archerProbe.Initialize(database.ImportedEnemy(0x22), _currentRoom, center, rng);
+        archerProbe.Initialize(database.ImportedEnemy(EnemyId.ArrowShroudedStalfos), _currentRoom, center, rng);
         archerProbe.UpdateFrame(center + Vector2.Left * 32);
         int duration = archerProbe.Counter, calls = rng.Calls;
         archerProbe.BeginSwitchHook(center + Vector2.Left * 32);
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0x82);
         var swordProbe = new SwordEnemyCharacter();
-        swordProbe.Initialize(database.ImportedEnemy(0x49), _currentRoom, new(120, 104), new OracleRandom());
+        swordProbe.Initialize(database.ImportedEnemy(EnemyId.SwordShroudedStalfos), _currentRoom, new(120, 104), new OracleRandom());
         swordProbe.UpdateFrame(Vector2.Zero);
         // Use the original facing sector, which is blocked by the separate blade.
         Vector2 link = swordProbe.Position + (Vector2)(swordProbe.AnimationIndex switch {

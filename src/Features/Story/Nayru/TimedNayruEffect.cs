@@ -13,5 +13,5 @@ internal sealed class TimedNayruEffect(NpcCharacter actor, int duration, Vector2
     public bool FloatsLeft { get; } = floatsLeft;
     public Vector2 SpawnPosition { get; } = spawnPosition;
     public int SoundId { get; } = soundId;
-    public bool SoundPending { get; set; } = soundId != 0;
+    public bool SoundPending { get; set; } = soundId != oracleofages.SoundId.MusNone;
 }

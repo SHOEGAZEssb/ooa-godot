@@ -51,7 +51,7 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
         Func<long> animationTick,
         Action<int> playSound)
     {
-        if (record.Id != 0x24 ||
+        if (record.Id != InteractionId.TriggerTranslator ||
             record.SubId is not (0x10 or 0x20 or 0x40 or 0x80))
         {
             throw new ArgumentOutOfRangeException(nameof(record));

@@ -35,13 +35,13 @@ internal sealed class DungeonToggleController : IPlayerRestriction
     private void Reset()
     {
         State = -1; Counter = 0;
-        _runtime.SetWramByte(OracleRuntimeState.LastToggleBlocksStateAddress, Current);
+        _runtime.SetWramByte(WramAddress.wLastToggleBlocksState, Current);
     }
 
     internal void CheckAfterObjects()
     {
         if (Active || !_data.Supports(_rooms.CurrentDungeonIndex)) return;
-        if (((Current ^ _runtime.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress)) & 1) != 0)
+        if (((Current ^ _runtime.ReadWramByte(WramAddress.wLastToggleBlocksState)) & 1) != 0)
             State = 0;
     }
 
@@ -51,7 +51,7 @@ internal sealed class DungeonToggleController : IPlayerRestriction
         if (State == 0) { Counter = _data.Delay; State = 1; return; }
         if (State == 1)
         {
-            _sound(OracleSoundEngine.SndDoorClose);
+            _sound(SoundId.SndDoorClose);
             _data.Upload(_rooms.CurrentRoom, 2, _tick());
             State = 2;
             return;

@@ -108,7 +108,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
         switch (State)
         {
             case 0:
-                if ((_room.TilesetFlags & 0x20) != 0)
+                if ((_room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0)
                 {
                     Position = new(Position.X, (byte)((int)Position.Y + ZHigh));
                     ZHigh = 0;

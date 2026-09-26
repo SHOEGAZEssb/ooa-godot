@@ -46,8 +46,8 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         if (!_initialized)
         {
             _initialized = true;
-            if (BossId != 0)
-                _playSound(OracleSoundEngine.SndBigExplosion);
+            if (BossId != EnemyId.Stub00)
+                _playSound(SoundId.SndBigExplosion);
             return;
         }
         if (_terminalFrameReached)

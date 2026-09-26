@@ -138,7 +138,7 @@ internal sealed class ForestFairyFlight
                 if (--_counter2 == 0)
                 {
                     _counter2 = _counter1;
-                    _angle = (_angle + 1) & 31;
+                    _angle = (_angle + 1) & ObjectAngle.Mask;
                     if (--_circleSteps == 0)
                     {
                         Signal = unchecked((byte)(Signal + 1));
@@ -191,12 +191,12 @@ internal sealed class ForestFairyFlight
                 (byte)PositionX,
                 (byte)_targetY,
                 (byte)_targetX);
-            int difference = (_angle - target) & 0x1f;
+            int difference = (_angle - target) & ObjectAngle.Mask;
             if (difference != 0)
             {
                 _angle = difference < 0x10
-                    ? (_angle - 1) & 0x1f
-                    : (_angle + 1) & 0x1f;
+                    ? (_angle - 1) & ObjectAngle.Mask
+                    : (_angle + 1) & ObjectAngle.Mask;
             }
         }
 

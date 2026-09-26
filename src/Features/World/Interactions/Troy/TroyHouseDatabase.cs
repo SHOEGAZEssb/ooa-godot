@@ -80,7 +80,7 @@ internal sealed class TroyHouseDatabase
 
         if (Record is not
             {
-                Group: 3, Room: 0xfb, InteractionId: 0xca, SubId: 0x01,
+                Group: 3, Room: 0xfb, InteractionId: InteractionId.Troy, SubId: 0x01,
                 FirstTalkFlag: 0x40, RandomMask: 0x0f,
                 FirstTextId: 0x2c11, RepeatTextId: 0x2c12
             } ||

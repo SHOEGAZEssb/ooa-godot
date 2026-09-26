@@ -30,12 +30,12 @@ internal sealed class RoomEventResources(RoomEventContext context, object owner)
 
     public static Vector2I DirectionToward(Vector2 origin, Vector2 target)
     {
-        int angle = (OracleObjectMovement.Shared.RelativeAngle(origin, target) + 4) & 0x18;
+        int angle = (OracleObjectMovement.Shared.RelativeAngle(origin, target) + 4) & ObjectAngle.CardinalMask;
         return angle switch
         {
-            0 => Vector2I.Up,
-            8 => Vector2I.Right,
-            16 => Vector2I.Down,
+            ObjectAngle.Up => Vector2I.Up,
+            ObjectAngle.Right => Vector2I.Right,
+            ObjectAngle.Down => Vector2I.Down,
             _ => Vector2I.Left
         };
     }

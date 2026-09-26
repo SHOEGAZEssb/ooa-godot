@@ -13,7 +13,7 @@ public partial class ValidationRoot
         // TX_2f27 is a separate taunt, not part of the introduction.
         const string introduction = "\\pos(2)It's time for\nour little game!\nI break apart.\nIf you can\nforce me back\ntogether and\nblow me away,\nit ends!\nBut before you\ndo, I shall\ntake a bit of\nyour soul!!!\nNow begin!";
         FailIf(database.SmogIntroText != introduction, "Smog TX_2f26 must preserve its position, source lines and terminating boundary.");
-        var record = database.ImportedEnemy(0x7c,0);
+        var record = database.ImportedEnemy(EnemyId.Smog,0);
         FailIf(!record.Sprites.SequenceEqual(new[] { "spr_smog_1", "spr_smog_2" }) || record.TileBase != 0 ||
             record.Palette != 3 || !record.SourceGrayscaleInverted || record.RadiusX != 10 || record.RadiusY != 10 ||
             record.Health != 6 || record.RawDamage != 0xfc,

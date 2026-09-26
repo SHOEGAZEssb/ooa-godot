@@ -105,18 +105,18 @@ public sealed partial class ValidationRoot
         FailIf(
             nativeCount != 17 ||
             data.GetRoomRecords(4, 0x20).Count != 7 ||
-            enemyData.ImportedEnemy(0x0a) is not { Health: 3, DamageQuarters: 2 } ||
-            enemyData.ImportedEnemy(0x0c) is not { Health: 3, DamageQuarters: 2 } ||
-            enemyData.ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
-            enemyData.ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
-            enemyData.ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(EnemyId.BoomerangMoblin) is not { Health: 3, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(EnemyId.ArrowMoblin) is not { Health: 3, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(EnemyId.Rope) is not { Health: 2, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(EnemyId.Ghini) is not { Health: 10, DamageQuarters: 2 } ||
+            enemyData.ImportedEnemy(EnemyId.Wallmaster) is not { Health: 5, DamageQuarters: 2 } ||
             !enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
             enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
-            bosses.Enemy(0x3f) is not
+            bosses.Enemy(EnemyId.GiantGhiniChild) is not
                 { Health: 2, DamageQuarters: 128, SourceGrayscaleInverted: false } ||
-            bosses.Enemy(0x70) is not
+            bosses.Enemy(EnemyId.GiantGhini) is not
                 { Health: 12, DamageQuarters: 1, SourceGrayscaleInverted: false } ||
-            bosses.Enemy(0x78) is not { Health: 8, DamageQuarters: 2 } ||
+            bosses.Enemy(EnemyId.PumpkinHead) is not { Health: 8, DamageQuarters: 2 } ||
             visuals.Visual("colored-cube").Animations.Length != 30 ||
             visuals.Visual("colored-cube").SourceGrayscaleInverted ||
             energyBead is not
@@ -221,7 +221,7 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(4, 0x1d, 0x08) ||
             !_saveData.HasRoomFlag(4, 0x1c, 0x02) ||
             _saveData.GashaMaturity != maturityBeforeWall + 50 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "Burning room 4:1d's left exit did not terminate the Ember flame, " +
             "play SND_SOLVEPUZZLE, open tile $69->$37, and set both linked flags.");
         PrepareRoom(0x1c);
@@ -256,7 +256,7 @@ public sealed partial class ValidationRoot
             _currentRoom.GetPackedPosition(_player.Position) != 0x5e ||
             _currentRoom.IsSolid(_player.Position),
             "Room 4:1d's right-entry scroll left Link stuck in shutter $79.");
-        _saveData.WriteWramByte(0xc65f, (byte)maturityBeforeWall);
+        _saveData.WriteWramByte(WramAddress.wGashaMaturity, (byte)maturityBeforeWall);
         _saveData.WriteWramByte(0xc660, (byte)(maturityBeforeWall >> 8));
 
         // Every room in dungeon01 must parse completely. This catches a later
@@ -283,7 +283,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _entities.Entities<MoblinBoomerangProjectile>() is not
-            [{ Finished: false, Counter: 0x2d, SpeedRaw: 0x50 }],
+            [{ Finished: false, Counter: 0x2d, SpeedRaw: ObjectSpeed.Speed200 }],
             "Room 4:17's Moblins did not create the imported rotating boomerang " +
             "with its state-0 $2d/SPEED_200 initialization.");
         MoblinBoomerangProjectile moblinBoomerang =
@@ -317,7 +317,7 @@ public sealed partial class ValidationRoot
                 damage: 1) ||
             struckMoblin.Health != moblinHealthBeforeHit - 1 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndDamageEnemy) != 1,
+                SoundId.SndDamageEnemy) != 1,
             "Room 4:17's ENEMY_BOOMERANG_MOBLIN did not request exactly " +
             "one SND_DAMAGE_ENEMY for an accepted ordinary sword hit.");
         FailIf(
@@ -326,7 +326,7 @@ public sealed partial class ValidationRoot
                 struckMoblin.Position + Vector2.Left * 16.0f,
                 damage: 1) ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndDamageEnemy) != 1,
+                SoundId.SndDamageEnemy) != 1,
             "Room 4:17's invincible Boomerang Moblin accepted an immediate " +
             "second hit or replayed SND_DAMAGE_ENEMY.");
 
@@ -429,7 +429,7 @@ public sealed partial class ValidationRoot
         FailIf(
             rockDebris.ElapsedUpdates != 1 ||
             rockDebris.AnimationFrame != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBreakRock) != 1,
             "INTERAC_ROCKDEBRIS state 0 did not request SND_BREAK_ROCK " +
             "without advancing animation 0.");
         for (int frame = 1; frame <= 4; frame++)
@@ -450,7 +450,7 @@ public sealed partial class ValidationRoot
             !rockDebris.Finished ||
             rockDebris.ElapsedUpdates != 18 ||
             _entities.Entities<RockDebrisEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBreakRock) != 1,
             "INTERAC_ROCKDEBRIS did not delete one update after its " +
             "terminal frame without replaying SND_BREAK_ROCK.");
 
@@ -497,7 +497,7 @@ public sealed partial class ValidationRoot
             !_entities.ApplySwordHit(
                 new Rect2(Vector2.Zero, new Vector2(240, 176)), damage: 2) ||
             ghini.Health != 8 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 1,
             "The room 4:1e Ghini did not request SND_DAMAGE_ENEMY for an " +
             "accepted ordinary sword hit.");
         StepEntities(21);
@@ -505,7 +505,7 @@ public sealed partial class ValidationRoot
             !_entities.ApplySwordHit(
                 new Rect2(Vector2.Zero, new Vector2(240, 176)), damage: 20) ||
             !ghini.PendingKnockbackDeath ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 2,
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 2,
             "The room 4:1e Ghini did not retain its collision-effect sound " +
             "and begin recoil on the lethal sword hit.");
         while (ghini.KnockbackCounter > 0)
@@ -552,14 +552,14 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _inventory.GetDungeonSmallKeys(1) != keysBeforePickup + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 0,
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 0,
             "Room 4:1e's touched key did not request its SND_GETSEED " +
             "collection behavior before the held-item sound.");
         StepEntities();
         FailIf(
             !fallingKey.Held ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
             "Room 4:1e's key did not enter its held pose with SND_GETITEM " +
             "on the following interaction update.");
 
@@ -577,7 +577,7 @@ public sealed partial class ValidationRoot
                 torch.ApplySeedHit(
                 new Rect2(center - new Vector2(4, 4), new Vector2(8, 8)),
                 center,
-                0x20,
+                ItemId.EmberSeed,
                 directSpawns) != SeedHitResult.Consume,
                 $"Room 4:1b torch ${packed:x2} rejected an Ember collision.");
             torch.UpdateFrame(
@@ -599,7 +599,7 @@ public sealed partial class ValidationRoot
                 4, _currentRoom, 0x2b, 0x45, out Warp braceletStairs) ||
             braceletStairs is not
                 { DestinationGroup: 6, DestinationRoom: 0x10,
-                  DestinationPosition: 0x02, DestinationTransition: 3 } ||
+                  DestinationPosition: 0x02, DestinationTransition: WarpDestinationTransition.EnterScreen } ||
             !_world.HasRoom(6, 0x10) ||
             !_transitions.CheckTileWarp(_player),
             "Room 4:1b's revealed `$45 staircase did not start its source warp to 6:10.");
@@ -679,8 +679,8 @@ public sealed partial class ValidationRoot
                 BelowTileOffset: 8,
                 BottomBoundary: 0xa9,
                 SpikeTile: 0x02,
-                JumpSound: OracleSoundEngine.SndJump,
-                LandSound: OracleSoundEngine.SndLand
+                JumpSound: SoundId.SndJump,
+                LandSound: SoundId.SndLand
             } ||
             !sideParameters.AnimationPhaseDurations.SequenceEqual([9, 9, 6]) ||
             entranceTerrain.ActiveTile != 0x18 ||
@@ -700,7 +700,7 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition != new Vector2(0x28, 0x28) ||
             _player.SideScrollAirborne || !_player.SideScrollClimbing ||
             _player.SideScrollSpeedZ != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            _sound.PlayRequestsFor(SoundId.SndLand) != 0,
             "D1's left side-view ladder did not move Link down exactly one " +
             "pixel per update without starting gravity.");
 
@@ -715,7 +715,7 @@ public sealed partial class ValidationRoot
             !_player.SideScrollAirborne ||
             _player.SideScrollSpeedZ != 0x0240 ||
             _player.SideScrollYFixed != 0x58e0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            _sound.PlayRequestsFor(SoundId.SndLand) != 0,
             "Side-view falling did not preserve the source zero-speed " +
             "initial update, vertical-input lock, or $24 gravity sequence.");
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Up);
@@ -724,7 +724,7 @@ public sealed partial class ValidationRoot
             _player.SideScrollSpeedZ != 0 ||
             _player.SideScrollYFixed != 0x5920 ||
             _player.PrecisePosition.Y != 0x59 + 0x20 / 256.0f ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
+            _sound.PlayRequestsFor(SoundId.SndLand) != 1,
             "Side-view falling did not land on update 17 at Y $59.20 with " +
             "one SND_LAND request and a cleared speedZ.");
 
@@ -745,8 +745,8 @@ public sealed partial class ValidationRoot
             _player.SideScrollAngle != 0x08 ||
             _player.SideScrollSpeedRaw != 0x28 ||
             _player.SideScrollAnimationPhase != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 0,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndLand) != 0,
             "The side-view Feather launch did not use -$0230 speedZ, $24 " +
             "gravity, retained SPEED_100 momentum, jump animation, and SND_JUMP.");
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
@@ -884,8 +884,8 @@ public sealed partial class ValidationRoot
             _entities.ActiveTriggers != 0x01 ||
             _entities.Entities<ColoredCubeFlameRoomEntity>().Any(flame => !flame.Visible) ||
             _entities.Entities<ColoredCubeFlameRoomEntity>().Any(flame => flame.Palette != 2) ||
-            _sound.PlayRequestsFor(0x7f) != 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock2) != 3 ||
+            _sound.PlayRequestsFor(SoundId.SndLightTorch) != 1,
             "Room 4:20 cube did not solve at $4a with color $82 and four matching flames.");
 
         // Leaving clears wRotatingCubeColor with the room session. The new
@@ -1045,8 +1045,8 @@ public sealed partial class ValidationRoot
         BossShadowEffect giantShadow =
             _entities.Entities<BossShadowEffect>().Single();
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusMiniboss) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusMiniboss) != 1 ||
             giantShadow.Size != 1 || giantShadow.YOffset != 12 ||
             giantShadow.Position != giant.Position + Vector2.Down * 12 ||
             giantShadow.AnimationIndex != 2 ||
@@ -1077,7 +1077,7 @@ public sealed partial class ValidationRoot
             respawnPuffSpawns);
         FailIf(
             respawnPuffSpawns is not
-            [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }],
+            [PuzzlePuffSpawn { Sound: SoundId.SndPoof }],
             "A respawned Giant Ghini child did not create the source " +
             "INTERAC_PUFF/SND_POOF appearance effect.");
         respawnedChild.Free();
@@ -1098,7 +1098,7 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
         FailIf(
             giant.Health >= giantHealth ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) != 1,
             "Giant Ghini did not accept Link's real upward sword swing with " +
             "the source boss-damage response.");
         int giantHealthAfterHit = giant.Health;
@@ -1124,8 +1124,8 @@ public sealed partial class ValidationRoot
             !giant.DrawEnabled ||
             !_entities.LinkCollisionsAndMenuDisabled ||
             !_entities.PlayerMenusDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndBossDead) != 1,
             "Giant Ghini did not enter the common 120-update boss death phase.");
         StepEntities();
         FailIf(
@@ -1133,7 +1133,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<PuzzlePuffEffect>().Count != 0 ||
             _entities.Entities<KillEnemyPuffEffect>().Count != 0 ||
             giantDeathEvents != childrenAtBossDeath ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 childrenAtBossDeath,
             "Giant Ghini's parent-death cleanup did not route every live " +
             "child through the ordinary enemy death puff " +
@@ -1142,7 +1142,7 @@ public sealed partial class ValidationRoot
             $"death={_entities.Entities<EnemyDeathPuffEffect>().Count}, " +
             $"puzzle={_entities.Entities<PuzzlePuffEffect>().Count}, " +
             $"kill={_entities.Entities<KillEnemyPuffEffect>().Count}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}).");
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndKillEnemy)}).");
         StepEntities(119);
         BossDeathExplosionEffect giantExplosion =
             _entities.Entities<BossDeathExplosionEffect>().Single();
@@ -1158,9 +1158,9 @@ public sealed partial class ValidationRoot
             _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<MinibossPortal>().Count != 0 ||
             !_entities.LinkCollisionsAndMenuDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusSpiritsGrave) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave,
+            _sound.PlayRequestsFor(SoundId.SndBigExplosion) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusSpiritsGrave) != 1 ||
+            _sound.ActiveMusic != SoundId.MusSpiritsGrave,
             "Giant Ghini did not enter the source 78-update, enemy-counting " +
             "boss explosion without a boss kill-counter event and with the " +
             "complete 48x48 source OAM before its reward wait.");
@@ -1258,9 +1258,9 @@ public sealed partial class ValidationRoot
         FailIf(
             pumpkin.IntroActive ||
             !observedInitialPumpkinShake ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusBoss) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusBoss) != 1 ||
             pumpkin.BodyPalette != 1 ||
             pumpkin.GhostPalette != 5 ||
             pumpkin.HeadPalette != 3 ||
@@ -1282,9 +1282,9 @@ public sealed partial class ValidationRoot
             _entities.Entities<PumpkinHeadProjectile>();
         Vector2 mouthOffset = pumpkin.Angle switch
         {
-            0x00 => new Vector2(0, -4),
-            0x08 => new Vector2(4, 2),
-            0x10 => new Vector2(0, 4),
+            ObjectAngle.Up => new Vector2(0, -4),
+            ObjectAngle.Right => new Vector2(4, 2),
+            ObjectAngle.Down => new Vector2(0, 4),
             _ => new Vector2(-4, 2)
         };
         Vector2 expectedShotPosition =
@@ -1313,7 +1313,7 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(17, buttonHeld: false);
         FailIf(
             pumpkin.BodyHealth >= pumpkinHealth ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) != 1,
             "Pumpkin Head's body did not accept Link's real upward sword swing " +
             "with the source boss-damage response.");
         int pumpkinHealthAfterHit = pumpkin.BodyHealth;
@@ -1336,7 +1336,7 @@ public sealed partial class ValidationRoot
         FailIf(
             pumpkin.State != BossState.HeadExposed ||
             bodyDestructionSpawns is not
-                [PuzzlePuffSpawn { Sound: OracleSoundEngine.SndPoof }],
+                [PuzzlePuffSpawn { Sound: SoundId.SndPoof }],
             "Pumpkin Head's body did not expose its grabbable head with " +
             "the source INTERAC_PUFF/SND_POOF disappearance effect.");
         // The head and ghost first launch with speed -$120 and separate
@@ -1371,7 +1371,7 @@ public sealed partial class ValidationRoot
                 itemButtonJustPressed: false) ||
             _bracelet.State != BraceletState.Idle ||
             !_player.IsCarryingObject ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPickup) != 1,
+            _sound.PlayRequestsFor(SoundId.SndPickup) != 1,
             "Pumpkin Head's shared Bracelet lift did not finish with its carried pose and SND_PICKUP.");
         StepEntities();
 
@@ -1392,7 +1392,7 @@ public sealed partial class ValidationRoot
             pumpkin.HeadHeld ||
             pumpkin.HeadThrowDirection != Vector2I.Right ||
             _bracelet.State != BraceletState.Throwing ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1,
+            _sound.PlayRequestsFor(SoundId.SndThrow) != 1,
             "Pumpkin Head's held head did not use the shared either-button Bracelet throw.");
         StepEntities();
         for (int frame = 0; frame < 120 && pumpkin.HeadThrown; frame++)
@@ -1425,7 +1425,7 @@ public sealed partial class ValidationRoot
         FailIf(
             pumpkin.GhostHealth != 6 ||
             pumpkin.State != BossState.HeadExposed ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) != 1,
             "Pumpkin Head's exposed $5e ghost did not accept Link's normal " +
             "level-one sword damage with its source hit response " +
             $"(health={pumpkin.GhostHealth}, state={pumpkin.State}).");
@@ -1446,8 +1446,8 @@ public sealed partial class ValidationRoot
             pumpkin.State != BossState.Active ||
             pumpkin.Position != firstHeadLandingPosition ||
             pumpkin.GhostHealth != 6 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            _sound.PlayRequestsFor(SoundId.SndPoof) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "Pumpkin Head did not regenerate its full body at the landed " +
             "head's copied position with INTERAC_PUFF/SND_POOF while " +
             "preserving ghost health " +
@@ -1562,9 +1562,9 @@ public sealed partial class ValidationRoot
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
             pumpkinDeathEvents != 0 ||
             !_entities.LinkCollisionsAndMenuDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusSpiritsGrave) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusSpiritsGrave,
+            _sound.PlayRequestsFor(SoundId.SndBigExplosion) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusSpiritsGrave) != 1 ||
+            _sound.ActiveMusic != SoundId.MusSpiritsGrave,
             "Pumpkin Head did not enter the source 78-update, enemy-counting " +
             "boss explosion before its Heart Container reward " +
             $"(bosses={_entities.Entities<PumpkinHeadBoss>().Count}, " +
@@ -1572,7 +1572,7 @@ public sealed partial class ValidationRoot
             $"duration={pumpkinExplosion.AnimationDuration}, " +
             $"flag={_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80)}, " +
             $"treasures={_entities.Entities<GroundTreasurePickup>().Count}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndBigExplosion)}).");
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndBigExplosion)}).");
         _entities.EnemyDefeated -= RecordPumpkinDeath;
         StepEntities(78);
         FailIf(
@@ -1657,7 +1657,7 @@ public sealed partial class ValidationRoot
                     defeatedWallmaster.Position + Vector2.Right * 16.0f,
                     damage: 20) ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndDamageEnemy) != hand,
+                    SoundId.SndDamageEnemy) != hand,
                 $"Wallmaster hand {hand} was not hittable after landing " +
                 "or did not request exactly one SND_DAMAGE_ENEMY.");
             for (int frame = 0;
@@ -1722,15 +1722,15 @@ public sealed partial class ValidationRoot
         FailIf(
             wallmaster.State != WallmasterState.Waiting ||
             wallmaster.Counter != 120 || wallmaster.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0,
             "Room 4:12 Wallmaster spawner did not reject Link's solid tile " +
             "and reload its 120-update delay.");
         _player.WarpTo(new Vector2(0x78, 0x78));
         StepEntities(120);
         FailIf(
             _player.CutsceneControlled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDead) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1,
             "Room 4:12 Wallmaster collided with Link while still $60 pixels overhead.");
         for (int frame = 0; frame < 180 &&
              wallmaster.State != WallmasterState.Grounded;
@@ -1741,7 +1741,7 @@ public sealed partial class ValidationRoot
         StepEntities(12);
         FailIf(
             !_player.CutsceneControlled || _player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDead) != 1,
             "Room 4:12 Wallmaster did not capture and hide Link with the " +
             "original immediate capture sound after landing.");
         for (int frame = 0; frame < 120 && _rooms.CurrentRoom.Id == 0x12; frame++)
@@ -1749,13 +1749,13 @@ public sealed partial class ValidationRoot
         FailIf(
             _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x24 ||
             !_transitions.IsTransitioning ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDead) != 1,
             "Room 4:12 Wallmaster did not request its $24/$87 fall destination " +
             $"(group={_rooms.ActiveGroup:x}, room=${_rooms.CurrentRoom.Id:x2}, " +
             $"transitioning={_transitions.IsTransitioning}, state={wallmaster.State}, " +
             $"counter={wallmaster.Counter}, z=${wallmaster.ZFixed:x}, " +
             $"warp={wallmaster.WarpRequested}, sound=" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndBossDead)}).");
+            $"{_sound.PlayRequestsFor(SoundId.SndBossDead)}).");
         for (int frame = 0; frame < 40 && _transitions.IsTransitioning; frame++)
             _transitions.Update(update);
         FailIf(
@@ -1804,8 +1804,8 @@ public sealed partial class ValidationRoot
             _player.IsHoldingItemTwoHands ||
             !_saveData.HasRoomFlag(4, 0x11, OracleSaveData.RoomFlagItem) ||
             (_inventory.Essences & 0x01) == 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusGetEssence,
+            _sound.PlayRequestsFor(SoundId.MusGetEssence) != 1 ||
+            _sound.ActiveMusic != SoundId.MusGetEssence,
             "The Eternal Spirit did not fall, request the two-hand state, show " +
             "TX_000e, set D1's item bit, and start MUS_GET_ESSENCE.");
         _player.AdvanceApplicationUpdate();
@@ -1842,13 +1842,13 @@ public sealed partial class ValidationRoot
             !_transitions.IsTransitioning || essence.SwirlActive ||
             _roomEvents.Get<DungeonEssenceEvent>().TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+            _sound.PlayRequestsFor(SoundId.SndDropEssence) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlSlowFadeOut) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusGetEssence) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusEssence) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndEnergyThing) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
             "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
             "sound cadence diverged, or its completed event retained the " +
             "source interaction.");

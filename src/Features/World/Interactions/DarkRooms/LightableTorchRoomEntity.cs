@@ -78,7 +78,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem != 0x20 || !_initialized || _hit || Finished ||
+        if (seedItem != ItemId.EmberSeed || !_initialized || _hit || Finished ||
             !hitbox.Intersects(CollisionBounds))
             return SeedHitResult.None;
         _hit = true;

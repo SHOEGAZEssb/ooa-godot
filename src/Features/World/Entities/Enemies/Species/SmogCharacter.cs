@@ -46,10 +46,10 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         int sum = Health + ((-damage) & 255);
         Health = sum >= 256 ? sum & 255 : 0;
         if (Health == 0) DisableCollision();
-        PublishCollision(0x80 | collision);
+        PublishCollision(ObjectCollisionFlags.JustHit | collision);
         InvincibilityCounter = 32;
         KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, source) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, source) ^ ObjectAngle.HalfTurn;
     }
     internal int SubId { get; private set; }
     internal int State { get; private set; }
@@ -58,12 +58,12 @@ internal sealed partial class SmogCharacter : EnemyCharacter
 
     internal void InitializeRoomSentinel(ImportedEnemyDefinition record, int subid, Vector2 position)
     {
-        if (record.Id != 0x7c || subid is not (5 or 6))
+        if (record.Id != EnemyId.Smog || subid is not (5 or 6))
             throw new NotSupportedException($"Smog room initialization requires subid$05/$06, got ${subid:x2}.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _record = record; _dying = false;
         SubId = subid; State = 0; Counter2 = 0; Visible = false;
-        _wall = null; ContactFlags = 0; CollisionMode = 0x4d;
+        _wall = null; ContactFlags = 0; CollisionMode = EnemyCollisionMode.Smog;
         _collisionEnabled = true; Speed = 0;
     }
 
@@ -87,22 +87,22 @@ internal sealed partial class SmogCharacter : EnemyCharacter
 
     internal void InitializeIntro(ImportedEnemyDefinition record, int subid, Vector2 position)
     {
-        if (record.Id != 0x7c || subid is not (0 or 1))
+        if (record.Id != EnemyId.Smog || subid is not (0 or 1))
             throw new NotSupportedException($"smog_state_uninitialized subid${subid:x2}: only intro forms are represented by InitializeIntro.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _record = record; _dying = false;
-        SubId = subid; State = 0; Counter2 = 0; Visible = false; _wall = null; ContactFlags = 0; CollisionMode = 0x4d;
+        SubId = subid; State = 0; Counter2 = 0; Visible = false; _wall = null; ContactFlags = 0; CollisionMode = EnemyCollisionMode.Smog;
         _collisionEnabled = true; Speed = 0;
     }
 
     internal void InitializeSmallCloud(ImportedEnemyDefinition record, int subid, int phase,
         Vector2 position, int direction, Func<int, byte> collision)
     {
-        if (record.Id != 0x7c || subid is not (2 or 0x82) || phase is < 0 or > 3)
+        if (record.Id != EnemyId.Smog || subid is not (2 or 0x82) || phase is < 0 or > 3)
             throw new NotSupportedException($"smog_state_uninitialized subid${subid:x2}, phase${phase:x2}: small-cloud initialization requires $02/$82 and phase0-3.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _record = record; _dying = false;
-        SubId = subid; _phase = phase; State = 0; Counter2 = 0; Visible = false; ContactFlags = 0; CollisionMode = 0x4d;
+        SubId = subid; _phase = phase; State = 0; Counter2 = 0; Visible = false; ContactFlags = 0; CollisionMode = EnemyCollisionMode.Smog;
         _collisionEnabled = true; Speed = 0;
         _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision, MovementVelocity);
         _roomCollision = collision;
@@ -111,14 +111,14 @@ internal sealed partial class SmogCharacter : EnemyCharacter
     internal void InitializeMergedCloud(ImportedEnemyDefinition record, int subid, int phase,
         Vector2 position, int direction, Func<int, byte> collision)
     {
-        if (record.Id != 0x7c || subid is not (3 or 0x83) || phase is < 0 or > 3)
+        if (record.Id != EnemyId.Smog || subid is not (3 or 0x83) || phase is < 0 or > 3)
             throw new NotSupportedException($"smog_state_uninitialized merged subid${subid:x2}, phase${phase:x2} is not represented.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _record = record; _dying = false;
-        SubId = subid; _phase = phase; State = 0; Counter2 = 5; Visible = false; ContactFlags = 0; CollisionMode = 0x4d;
+        SubId = subid; _phase = phase; State = 0; Counter2 = 5; Visible = false; ContactFlags = 0; CollisionMode = EnemyCollisionMode.Smog;
         _collisionEnabled = false; Speed = 0;
         _wall = new(new SmogWallDatabase(), subid, OracleObjectPosition.FromPixels(position), direction, collision, MovementVelocity);
-        _roomCollision = collision; LargeSubstate = 0; Counter1 = 0; Angle = 0;
+        _roomCollision = collision; LargeSubstate = 0; Counter1 = 0; Angle = ObjectAngle.Up;
     }
 
     internal void UpdateMergedInitialization(int enemyCount, Action<int> writeSamePageInteractionCounter2,
@@ -147,7 +147,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
             // the same-page interaction's counter2, not Enemy.counter2 ($87).
             writeSamePageInteractionCounter2(60);
             SetCollisionRadii(6,6);
-            CollisionMode = 7;
+            CollisionMode = EnemyCollisionMode.ProjectileWithRingMod;
             animation = 2;
             Speed = 0x14;
         }
@@ -222,12 +222,12 @@ internal sealed partial class SmogCharacter : EnemyCharacter
                 var record = _record ?? throw new InvalidOperationException("Smog native update requires imported properties.");
                 Health = record.Health;
                 SetCollisionRadii(record.RadiusX,record.RadiusY);
-                CollisionMode = 0x4d; _collisionEnabled = true;
+                CollisionMode = EnemyCollisionMode.Smog; _collisionEnabled = true;
                 RestartAnimation(0);
                 NativeInitialRandom = nextRandom() & 255; // Enemy.var3d; var3e = 1.
                 dispatchHandler();
             }
-            else if ((ContactFlags & 0x80) != 0) dispatchHandler();
+            else if ((ContactFlags & ObjectCollisionFlags.JustHit) != 0) dispatchHandler();
             else if ((KnockbackCounter & 0x7f) != 0)
             {
                 KnockbackCounter--;
@@ -250,14 +250,14 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         Action markKilledInRoom, Action restoreRoomMusic, Action<int> sound)
     {
         if (IsDead) return;
-        if (Health != 0 || (ContactFlags & 0x80) != 0 || (KnockbackCounter & 0x7f) != 0)
+        if (Health != 0 || (ContactFlags & ObjectCollisionFlags.JustHit) != 0 || (KnockbackCounter & 0x7f) != 0)
             throw new InvalidOperationException("enemyBoss_dead for Smog requires native NO_HEALTH dispatch.");
         if (!_dying)
         {
             _dying = true; _collisionEnabled = false;
             Counter1 = 120; // commonBossCode.s:enemyBoss_dead
             disableLinkCollisionsAndMenu();
-            sound(OracleSoundEngine.SndBossDead);
+            sound(SoundId.SndBossDead);
         }
         if (Counter1 != 0) Counter1--;
         if (Counter1 != 0) { Visible = !Visible; return; }
@@ -286,7 +286,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         {
             beginBoss();
             SetCollisionRadii(4,4);
-            CollisionMode = 7; // ENEMYCOLLISION_PROJECTILE_WITH_RING_MOD
+            CollisionMode = EnemyCollisionMode.ProjectileWithRingMod; // ENEMYCOLLISION_PROJECTILE_WITH_RING_MOD
             SetAnimation(0);
             _fireTimer.Reset(SubId, _phase, nextRandom);
             Speed = 0x23;
@@ -300,8 +300,8 @@ internal sealed partial class SmogCharacter : EnemyCharacter
     private void UpdateWallCloud(int roomFlags, Action<Vector2> spawnProjectile,
         Action<Vector2> puff, Action decrementEnemies, Func<int> nextRandom)
     {
-        int collision = ContactFlags & 0x7f;
-        if ((ContactFlags & 0x80) != 0 && collision is >= 4 and <= 9) Counter2 = 30;
+        int collision = ContactFlags & ObjectCollisionFlags.TypeMask;
+        if ((ContactFlags & ObjectCollisionFlags.JustHit) != 0 && collision is >= 4 and <= 9) Counter2 = 30;
         // The native enemy pass clears bit7 after dispatch. This handler only
         // reads it above; retain the low collision ID for subsequent updates.
         ContactFlags &= 0x7f;

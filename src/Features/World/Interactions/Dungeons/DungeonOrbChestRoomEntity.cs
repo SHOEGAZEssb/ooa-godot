@@ -44,7 +44,7 @@ internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, I
         if (Counter < 0)
         {
             if ((_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) & _mask) == 0) return;
-            _sound(OracleSoundEngine.SndSolvePuzzle); spawns.Add(new PuzzlePuffSpawn(Position, OracleSoundEngine.SndPoof));
+            _sound(SoundId.SndSolvePuzzle); spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
             Counter = _wait; return;
         }
         if (--Counter != 0) return;

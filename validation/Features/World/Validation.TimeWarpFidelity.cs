@@ -64,7 +64,7 @@ public sealed partial class ValidationRoot
         FinishTimeWarp();
         FailIf(_activeGroup != 0 || _currentRoom.Id != 0x06 || _saveData.TimePortalGroup != 0xff ||
             _dialogue.IsOpen || _player.InvincibilityFrames != -0x78 ||
-            _entities.RuntimeState.ReadWramByte(0xcddc) != 0 || _entities.RuntimeState.ReadWramByte(0xcde0) != 0,
+            _entities.RuntimeState.ReadWramByte(WramAddress.wLinkTimeWarpTile) != 0 || _entities.RuntimeState.ReadWramByte(WramAddress.wcde0) != 0,
             "Obstructed timewarp did not return silently, suppress a new portal, clear warp state, and grant $88 invincibility.");
         FailIf(_currentRoom.GetMetatile(dugPoint) != 0xd2,
             "Failed timewarp discarded the source room's unsaved dug tile $d2 instead of restoring bank-2 layout.");
@@ -78,22 +78,22 @@ public sealed partial class ValidationRoot
         AdvanceTimeWarpToPhase("TimeWarpArrivalEffect");
         FailIf(_entities.RandomCalls != randomBeforeRestrictedWarp ||
             _entities.Entities<NpcCharacter>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndWarpStart) != 1,
+            _sound.PlayRequestsFor(SoundId.SndWarpStart) != 1,
             "Strange-force initializeRoom must skip object parsing/RNG and create only $7c distortion with SND_WARP_START.");
-        FailIf(_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) != 1,
+        FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) != 1,
             "Room $5b did not publish wSentBackByStrangeForce=$01 before arrival.");
         AdvanceTimeWarpToPhase("TimeWarpReturnFadeOut");
-        FailIf(_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) != 2,
+        FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) != 2,
             "Strange-force return did not increment $01 to $02.");
         AdvanceTimeWarpToPhase("TimeWarpArrivalFadeIn");
         _currentRoom.ReplaceMetatile(_player.Position, _currentRoom.GetMetatile(_player.Position), 0x3a, 0);
         FinishTimeWarp();
         FailIf(_activeGroup != 0 || _currentRoom.Id != 0x5b || !_dialogue.IsOpen ||
-            _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SentBackByStrangeForceAddress) != 0,
+            _entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) != 0,
             "Strange-force return did not finish in room 0:5b with TX_5112 and cleared state.");
         _dialogue.Close();
 
-        _saveData.WriteWramByte(0xc6bf, 0x40); // getGameProgress_1=$03 after d7
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x40); // getGameProgress_1=$03 after d7
         LoadValidationRoom(0, 0x45);
         NpcCharacter boy = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x3f);
         Vector2 npcPoint = boy.Position;

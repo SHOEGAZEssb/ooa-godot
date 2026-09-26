@@ -39,7 +39,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private int _ghostHealth;
     private int _counter;
     private int _walkCounter;
-    private int _angle = 0x10;
+    private int _angle = ObjectAngle.Down;
     private int _invincibility;
     private int _ghostInvincibility;
     private int _headZ = -136;
@@ -171,7 +171,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         if (!_initialized)
         {
             _initialized = true;
-            _playSound(OracleSoundEngine.SndCtrlStopMusic);
+            _playSound(SoundId.SndCtrlStopMusic);
             return;
         }
         switch (_state)
@@ -196,7 +196,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     _bodyLanded = true;
                     _counter = 30;
                     _startScreenShake(30);
-                    _playSound(OracleSoundEngine.SndDoorClose);
+                    _playSound(SoundId.SndDoorClose);
                 }
                 if (!_headLanded)
                 {
@@ -204,7 +204,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                         ref _introHeadZFixed, ref _introHeadSpeedZ, -16, 0x10);
                     _headZ = _introHeadZFixed >> 8;
                     if (_headLanded)
-                        _playSound(OracleSoundEngine.MusBoss);
+                        _playSound(SoundId.MusBoss);
                 }
                 if (_ghostZ < -16)
                 {
@@ -274,7 +274,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     _counter = _stompsRemaining == 0 ? 30 : 15;
                     _state = BossState.StompLanded;
                     _startScreenShake(20);
-                    _playSound(OracleSoundEngine.SndDoorClose);
+                    _playSound(SoundId.SndDoorClose);
                 }
                 break;
             case BossState.StompLanded:
@@ -301,10 +301,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     {
                         spawns.Add(new PumpkinHeadProjectileSpawn(
                             origin,
-                            (_angle + offset.Value) & 0x1f));
+                            (_angle + offset.Value) & ObjectAngle.Mask));
                     }
                     _head.SetAnimation((_angle >> 2) & 6);
-                    _playSound(OracleSoundEngine.SndVeranFairyAttack);
+                    _playSound(SoundId.SndVeranFairyAttack);
                 }
                 if (--_counter == 0)
                 {
@@ -326,7 +326,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 {
                     Visible = false;
                     _state = BossState.Dead;
-                    spawns.Add(new BossDeathExplosionSpawn(Position, BossId: 0x78));
+                    spawns.Add(new BossDeathExplosionSpawn(Position, BossId: EnemyId.PumpkinHead));
                     _restoreRoomMusic();
                 }
                 break;
@@ -349,12 +349,12 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         }
         _bodyHealth = Math.Max(0, _bodyHealth - Math.Max(1, damage));
         _invincibility = 0x20;
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (_bodyHealth == 0)
         {
             ExposeHead();
             spawns?.Add(new PuzzlePuffSpawn(
-                Position, OracleSoundEngine.SndPoof));
+                Position, SoundId.SndPoof));
         }
         return true;
     }
@@ -594,7 +594,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         {
             case ExposedPhase.GhostFleeInit:
                 _counter = 60;
-                _ghostAngle = (CardinalAngleToward(player.Position) + 0x10) & 0x18;
+                _ghostAngle = (CardinalAngleToward(player.Position) + 0x10) & ObjectAngle.CardinalMask;
                 _exposedPhase = ExposedPhase.GhostFlee;
                 return;
 
@@ -711,7 +711,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
             case RegenerationPhase.BodyPuff:
                 spawns.Add(new PuzzlePuffSpawn(
-                    Position, OracleSoundEngine.SndPoof));
+                    Position, SoundId.SndPoof));
                 _counter = 8;
                 _regenerationPhase = RegenerationPhase.BodyAppearDelay;
                 return;
@@ -857,7 +857,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     private void UpdateFacingAnimations()
     {
-        _bodyRadiusX = _angle is 0x08 or 0x18 ? 8 : 12;
+        _bodyRadiusX = _angle is ObjectAngle.Right or ObjectAngle.Left ? 8 : 12;
         _body.SetAnimation(0x0b + (_angle >> 3));
         _head.SetAnimation((_angle >> 2) & 6);
     }
@@ -872,11 +872,11 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     }
 
     private int CardinalAngleToward(Vector2 target) =>
-        (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & 0x18;
+        (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & ObjectAngle.CardinalMask;
 
     private Vector2 ProjectileOriginOffset(int angle) =>
         _behavior.PumpkinHeadProjectileOriginOffsets[
-            (angle & 0x18) >> 3].Vector;
+            (angle & ObjectAngle.CardinalMask) >> 3].Vector;
 
     private static bool UpdateIntroHeight(
         ref int zFixed,
@@ -901,7 +901,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _counter = 120;
         _state = BossState.Dying;
         _disableLinkCollisionsAndMenu();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 
     private bool ApplyGhostHit(Rect2 hitbox, int damage)
@@ -914,7 +914,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
         _ghostHealth = Math.Max(0, _ghostHealth - Math.Max(1, damage));
         _ghostInvincibility = 0x20;
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (_ghostHealth == 0)
             BeginDeath();
         return true;

@@ -35,8 +35,8 @@ public sealed partial class ValidationRoot
                 if (tick == 20) enemies = 0;
                 sounds.Clear();
                 StepGameplayUpdates(1, Vector2.Zero, [], [], batch);
-                int[] expected = tick == start || tick == finish ? [OracleSoundEngine.SndDoorClose]
-                    : scenario == 0 && tick == 7 || scenario == 2 && tick == 21 ? [OracleSoundEngine.SndSolvePuzzle] : [];
+                int[] expected = tick == start || tick == finish ? [SoundId.SndDoorClose]
+                    : scenario == 0 && tick == 7 || scenario == 2 && tick == 21 ? [SoundId.SndSolvePuzzle] : [];
                 FailIf(!sounds.SequenceEqual(expected) ||
                     _currentRoom.GetMetatile(position) != (tick < start ? 0x7a : 0xa0) ||
                     _currentRoom.GetTerrainInfo(position).Collision != (tick < finish ? 0x0f : 0) ||

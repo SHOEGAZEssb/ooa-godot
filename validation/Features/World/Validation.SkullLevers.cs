@@ -33,8 +33,8 @@ public sealed partial class ValidationRoot
         var bracelet = new BraceletDatabase().Data;
         FailIf(bracelet.LeverInitialFrames != 1 || bracelet.LeverPullFrames != 40 || bracelet.LeverRestFrames != 20,
             "LIFT_2 lost its initial $01/$00, pull $28/$01, or rest $14/$00 duration/parameter sequence.");
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
-        _inventory.EquipA(InventoryState.ItemBracelet);
+        _inventory.GiveTreasure(TreasureId.Bracelet, 1);
+        _inventory.EquipA(TreasureId.Bracelet);
         foreach (var c in cases)
         {
             byte[][] groups = c.Groups.Split('/').Select(group => group.Split(',').Select(value => Convert.ToByte(value, 16)).ToArray()).ToArray();
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                 var connection = _entities.Entities<LeverConnectionRoomEntity>().Single();
                 var lava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();
                 FailIf(lever.Position != new Vector2(c.X, c.Y) || lever.PullDistance != 0 || lava.State != 1 ||
-                    _entities.RuntimeState.ReadWramByte(OracleRuntimeState.Lever2PullDistanceAddress) != 0,
+                    _entities.RuntimeState.ReadWramByte(WramAddress.wLever2PullDistance) != 0,
                     "Room initialization retained a stale shared lever signal or lava phase.");
                 byte[] sourceLayout = (byte[])_currentRoom.Layout.Clone();
                 byte[] sourceUnderlying = Underlying();
@@ -116,9 +116,9 @@ public sealed partial class ValidationRoot
                 for (int cycle = 0; cycle < 2; cycle++)
                 {
                     Grab();
-                    int moveSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock);
-                    int fullSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest);
-                    int solveSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle);
+                    int moveSounds = _sound.PlayRequestsFor(SoundId.SndMoveBlock);
+                    int fullSounds = _sound.PlayRequestsFor(SoundId.SndOpenChest);
+                    int solveSounds = _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
                     // Six 20-update rests occur before reaching 256/253
                     // quarter-pixel movement updates (down/up respectively).
                     int pullUpdates = c.Sign > 0 ? 376 : 373;
@@ -133,9 +133,9 @@ public sealed partial class ValidationRoot
                     FailIf(lever.PullDistance != 0xc0 || lever.Position.Y != c.Y + c.Sign * 64 || connection.Phase != 4 ||
                         connection.Position != new Vector2(c.X, c.Y + c.Sign * 32) || lava.State != 2 || lava.Counter != 30,
                         "Lever full flag/connection and the following $d8 dispatch did not share the exact completion update.");
-                    FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != moveSounds + 7 ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != fullSounds + 1 ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != solveSounds + 1,
+                    FailIf(_sound.PlayRequestsFor(SoundId.SndMoveBlock) != moveSounds + 7 ||
+                        _sound.PlayRequestsFor(SoundId.SndOpenChest) != fullSounds + 1 ||
+                        _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != solveSounds + 1,
                         "Pull/rest animation did not reset the move-sound latch, or full extension lost its ordered open/solve sounds.");
                     var textSource = _entities.TextActiveSource;
                     try
@@ -172,7 +172,7 @@ public sealed partial class ValidationRoot
                     Step(3);
                     FailIf(lever.PullDistance != (c.Sign > 0 ? 0x3f : 0xc0),
                         "Upward retraction lost the full-distance flag before fractional Y crossed its first pixel.");
-                    FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != fullSounds + (c.Sign > 0 ? 1 : 4),
+                    FailIf(_sound.PlayRequestsFor(SoundId.SndOpenChest) != fullSounds + (c.Sign > 0 ? 1 : 4),
                         "Upward retraction did not replay updatePullOffset's full-extension sound on its first three fractional updates.");
                     int retractUpdates = c.Sign > 0 ? 253 : 256;
                     Wait(retractUpdates - 4, batch);
@@ -213,7 +213,7 @@ public sealed partial class ValidationRoot
                 LoadValidationRoom(4, 0x91);
                 Step();
                 FailIf(_entities.Entities<LeverRoomEntity>().Count != 0 || _entities.Entities<LeverLavaFillerRoomEntity>().Count != 0 ||
-                    _entities.RuntimeState.ReadWramByte(OracleRuntimeState.Lever1PullDistanceAddress) != 0,
+                    _entities.RuntimeState.ReadWramByte(WramAddress.wLever1PullDistance) != 0,
                     "Leaving a lever room retained its controllers or shared pull byte.");
                 LoadValidationRoom(4, c.Room);
                 var reenteredLava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();

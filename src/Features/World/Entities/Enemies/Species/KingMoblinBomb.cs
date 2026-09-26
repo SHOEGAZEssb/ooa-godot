@@ -50,13 +50,13 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
             case 2:
                 if(_settled) State=4;
                 else if(_released && Position.Y<0x30 && (_motion.ZFixed>>8)==0)
-                { _motion.SpeedZ >>= 1; _motion.SpeedRaw=0x0a; }
+                { _motion.SpeedZ >>= 1; _motion.SpeedRaw=ObjectSpeed.Speed40; }
                 TickFuse(frame.Counter); break;
             case 3:
                 if(!TickFuse(frame.Counter)) break;
                 if(OracleObjectMath.UpdateSpeedZ(ref _motion.ZFixed,ref _motion.SpeedZ,0x20))
                 {
-                    Boss.World.Sound(OracleSoundEngine.SndBombLand);
+                    Boss.World.Sound(SoundId.SndBombLand);
                     int rebound=(-_motion.SpeedZ)>>1;
                     if(rebound> -0x80) {State=4; _motion.ZFixed=0; TickFuse(frame.Counter); break;}
                     _motion.SpeedZ=rebound;
@@ -105,7 +105,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
                 !Boss.World.Throwing.CanPassSolidTile(Boss.World.Room,point));
             if(_motion.AdvanceVertical(Boss.World.Bracelet))
             {
-                Boss.World.Sound(OracleSoundEngine.SndBombLand);
+                Boss.World.Sound(SoundId.SndBombLand);
                 _settled=!_motion.Bounce(Boss.World.Throwing);
             }
         }
@@ -137,7 +137,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
             Sprites=[explosion.ExplosionSprite],TileBase=explosion.ExplosionTileBase,Palette=explosion.ExplosionPalette};
         InitializeEnemy(Position,EnemyCharacterConfiguration.FromImported(record),initialAnimation:1,positionedOam:true);
         ZIndex=Small?NpcCharacter.FixedLowPriorityZIndex:NpcCharacter.BehindLinkZIndex;
-        State=Small?3:5; Radius=0; Boss.World.Sound(OracleSoundEngine.SndExplosion);
+        State=Small?3:5; Radius=0; Boss.World.Sound(SoundId.SndExplosion);
     }
     private Rect2 BlastBounds() => new(Position-new Vector2(Radius,Radius),new Vector2(Radius*2,Radius*2));
     internal void HandleLinkContact(Player player)

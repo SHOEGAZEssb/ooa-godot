@@ -65,7 +65,7 @@ public partial class ValidationRoot
             _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(56,104),2));
             _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(136,104),2));
             int splashes = 0;
-            void Sound(int id) { if (id == OracleSoundEngine.SndSplash) splashes++; }
+            void Sound(int id) { if (id == SoundId.SndSplash) splashes++; }
             _entities.SoundRequested += Sound;
             try
             {

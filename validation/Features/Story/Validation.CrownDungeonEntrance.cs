@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepGameplayUpdates(12, Vector2.Up);
         FailIf(_dialogue.IsOpen, "Crown Dungeon keyhole repeated TX_5109 in the same visit.");
-        _inventory.GiveTreasure(0x43, 1);
+        _inventory.GiveTreasure(TreasureId.CrownKey, 1);
 
         foreach (bool batched in new[] { false, true })
         {
@@ -53,9 +53,9 @@ public sealed partial class ValidationRoot
             Vector2 lockedPosition = _player.Position;
             int randomCalls = _entities.RandomCalls;
             FailIf(!entrance.BlocksGameplay || !_player.CutsceneControlled ||
-                !_saveData.HasRoomFlag(0, 0x0a, 0x80) || !_inventory.HasTreasure(0x43) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1 || entrance.Counter != 0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+                !_saveData.HasRoomFlag(0, 0x0a, 0x80) || !_inventory.HasTreasure(TreasureId.CrownKey) ||
+                _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1 || entrance.Counter != 0 ||
+                _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
                 "Crown Key $43 did not retain the key, set room $80 and stop music before the opening wait.");
             StepGameplayUpdates(1, Vector2.Up);
             FailIf(entrance.Counter != 60, "Crown Dungeon wait 60 was not loaded after setmusic's yield.");
@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(1, Vector2.Up);
                 FailIf(entrance.Phase != phase || entrance.Counter != 30 || Door() != 0xec ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != phase ||
+                    _sound.PlayRequestsFor(SoundId.SndDoorClose) != phase ||
                     _entities.Entities<PuzzlePuffEffect>().Count(p => p.Flickers) != 4,
                     $"Crown Dungeon drawing phase {phase} missed its 30-update wait, SND_DOORCLOSE, or four $05:$81 puffs.");
                 byte expected = phase switch { 1 => 0x4d, 2 => 0x5d, _ => 0x3a };
@@ -90,26 +90,26 @@ public sealed partial class ValidationRoot
             FailIf(!entrance.BlocksGameplay || !_player.CutsceneControlled,
                 "Crown Dungeon released input before miscPuzzles_justOpenedKeyDoor's 45-update wait.");
             StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(!entrance.BlocksGameplay || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+            FailIf(!entrance.BlocksGameplay || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
                 "Crown Dungeon resetmusic did not yield before SND_SOLVEPUZZLE.");
             StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(!entrance.BlocksGameplay || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            FailIf(!entrance.BlocksGameplay || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                 "Crown Dungeon playsound did not yield before enableinput.");
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(entrance.HasState || _player.CutsceneControlled || _roomEvents.FreezesNonInteractionObjects ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                 "Crown Dungeon opening did not restore gameplay and play SND_SOLVEPUZZLE exactly once.");
             StepGameplayUpdates(60, Vector2.Up, batched: batched);
             FailIf(_rooms.ActiveGroup == 0 && _currentRoom.Id == 0x0a,
                 "The opened Crown Dungeon doorway was not enterable through the real player/warp loop.");
             FinishEntry();
             LoadValidationRoom(0, 0x0a);
-            FailIf(entrance.HasState || Door() != 0xee || !_inventory.HasTreasure(0x43),
+            FailIf(entrance.HasState || Door() != 0xee || !_inventory.HasTreasure(TreasureId.CrownKey),
                 "Crown Dungeon did not retain its open entrance and Crown Key on re-entry.");
             _player.WarpTo(new Vector2(0x78, 0x48), recordSafe: false);
             StepGameplayUpdates(60, Vector2.Up, batched: batched);
             FinishEntry();
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1,
+            FailIf(_sound.PlayRequestsFor(SoundId.SndOpenChest) != 1,
                 "Crown Dungeon replayed the key-use event on a repeated approach.");
         }
 

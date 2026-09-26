@@ -40,7 +40,7 @@ public sealed class NewGameIntroController
         _screen.Dialogue.SetSoundPlayer(_sound.PlaySound);
         // Pregame state $0a starts this cue as it creates Link's blue-orb
         // descent presentation.
-        _sound.PlaySound(OracleSoundEngine.MusEssenceRoom);
+        _sound.PlaySound(SoundId.MusEssenceRoom);
         BuildTimeline();
         UpdateScreen();
     }
@@ -99,7 +99,7 @@ public sealed class NewGameIntroController
             {
                 // State $0c stops the cue after the post-vanish $3c hold,
                 // before handing off to the silent playable arrival.
-                _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+                _sound.PlaySound(SoundId.SndCtrlStopMusic);
                 CurrentStage = Stage.Complete;
                 _complete();
             });
@@ -115,7 +115,7 @@ public sealed class NewGameIntroController
     {
         // linkCutsceneB substate 2 requests SND_FAIRYCUTSCENE on the update
         // TX_1213 closes, immediately before creating the glowing orb.
-        _sound.PlaySound(OracleSoundEngine.SndFairyCutscene);
+        _sound.PlaySound(SoundId.SndFairyCutscene);
         SetStage(Stage.Vanishing);
     }
 

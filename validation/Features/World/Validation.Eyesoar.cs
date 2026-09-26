@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         var bosses = new DungeonBossDatabase();
         for (int subid = 0; subid < 2; subid++)
         {
-            var record = bosses.Enemy(0x7b, subid);
+            var record = bosses.Enemy(EnemyId.Eyesoar, subid);
             FailIf(record.Sprites is not ["spr_eyesoar"] || record.TileBase != 0 || record.Palette != 1 ||
                 record.Health != 20 || record.RadiusX != 6 || record.RadiusY != 6 || record.DamageQuarters != 4,
                 "ENEMY_EYESOAR $7b lost source gfx$c4, flags$10 or extra-data$27.");
@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
         }
         for (int subid = 0; subid < 4; subid++)
         {
-            var child = bosses.Enemy(0x11, subid);
+            var child = bosses.Enemy(EnemyId.EyesoarChild, subid);
             FailIf(child.Sprites is not ["spr_eyesoar"] || child.TileBase != 18 || child.Palette != 3 ||
                 child.Health != 4 || child.RadiusX != 4 || child.RadiusY != 4 || child.DamageQuarters != 1,
                 "ENEMY_EYESOAR_CHILD $11 lost source shared gfx$c4, flags$39 or extra-data$2d.");
@@ -46,9 +46,9 @@ public sealed partial class ValidationRoot
             (0x15, 0x0b, 0x0b, 0x20, 0x0b, 0x0b),
             (0x4c, 0x21, 0x2e, 0x20, 0, 0x20),
             (0x6d, 0x1b, 0x2e, 0x20, 0, 0x20) })
-            FailIf(data.CollisionEffect(mode, 4) != sword || data.CollisionEffect(mode, 13) != hook ||
-                data.CollisionEffect(mode, 26) != mystery || data.CollisionEffect(mode, 24) != bomb ||
-                data.CollisionEffect(mode, 25) != beam || data.CollisionEffect(mode, 0x1d) != 0x20,
+            FailIf(data.CollisionEffect(mode, ItemCollisionType.L1Sword) != sword || data.CollisionEffect(mode, ItemCollisionType.SwitchHook) != hook ||
+                data.CollisionEffect(mode, ItemCollisionType.MysterySeed) != mystery || data.CollisionEffect(mode, ItemCollisionType.Bomb) != bomb ||
+                data.CollisionEffect(mode, ItemCollisionType.SwordBeam) != beam || data.CollisionEffect(mode, ItemCollisionType.PegasusSeed) != 0x20,
                 "Eyesoar protected/vulnerable/child collision rows changed, including Pegasus absorption without stun or damage.");
 
         // SPEED_100 cardinal components are $0100; diagonals are $00b5.
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
         for (int octant = 0; octant < 8; octant++)
             FailIf(OracleObjectMovement.Shared.CircleArcOffset(24, octant * 4) != expected[octant],
                 "Eyesoar orbit offset lost signed high-byte multiplication.");
-        FailIf(OracleObjectMovement.Shared.CircleArcOffset(255, 8) != new Vector2I(-1, 0),
+        FailIf(OracleObjectMovement.Shared.CircleArcOffset(255, ObjectAngle.Right) != new Vector2I(-1, 0),
             "Native circle offset must wrap its scaled high byte.");
 
         var visual = new DungeonInteractionVisualDatabase().Visual("eyesoar-spawn");

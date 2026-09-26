@@ -54,14 +54,14 @@ internal sealed partial class DungeonPuzzleChestRoomEntity : Node2D, IRoomEntity
             Finished = true;
         if (Finished || !_conditionMet())
             return;
-        _playSound(OracleSoundEngine.SndSolvePuzzle);
+        _playSound(SoundId.SndSolvePuzzle);
         if (_queuedWrite is not null) _queuedWrite();
         else
         {
             _room.SetPositionTileAndCollision(Position, (byte)_chestTile, null, _animationTick());
             _roomTileChanged();
         }
-        spawns.Add(new PuzzlePuffSpawn(Position, OracleSoundEngine.SndPoof));
+        spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
         Finished = true;
     }
 

@@ -114,7 +114,7 @@ internal sealed class OverworldKeyholeDatabase
             !_records.TryGetValue((0, 0x5c), out OverworldKeyholeDatabaseRecord graveyard) ||
             graveyard is not
             {
-                Treasure: TreasureDatabase.TreasureGraveyardKey,
+                Treasure: TreasureId.GraveyardKey,
                 SubId: 0,
                 Sprite: "spr_map_compass_keys_bookofseals",
                 TileBase: 0x0e,
@@ -127,9 +127,9 @@ internal sealed class OverworldKeyholeDatabase
                 RoomFlag: OracleSaveData.RoomFlag80,
                 InformativeMask: 0x20,
                 PushCounter: 20,
-                OpenSound: OracleSoundEngine.SndOpenChest,
+                OpenSound: SoundId.SndOpenChest,
                 NoKeyTextId: 0x5109,
-                InteractionId: 0x18,
+                InteractionId: InteractionId.OverworldKeySprite,
                 FirstKey: 0x42,
                 InitialSpeedZ: -0x200,
                 Gravity: 0x28,

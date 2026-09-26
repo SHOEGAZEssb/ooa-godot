@@ -18,7 +18,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
 
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, OracleRandom random)
     {
-        if (record.Id != 0x2d || record.SubId != 0)
+        if (record.Id != EnemyId.PodobooTower || record.SubId != 0)
             throw new InvalidOperationException($"podobooTower.s: unsupported ${record.Id:x2}:${record.SubId:x2}.");
         Record = record;
         _random = random;

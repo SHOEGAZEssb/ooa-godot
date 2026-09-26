@@ -89,8 +89,8 @@ internal sealed class SwordBeamDatabase
                 expectedOffsets[record.Direction] ||
             record.Sprite != "spr_common_items" || record.TileBase != 0x38 ||
             record.Palette != 4 || record.RadiusY != 2 || record.RadiusX != 2 ||
-            record.Damage != 2 || record.SpeedRaw != 0x78 ||
-            record.Sound != 0x5d || record.Oam.Length == 0)
+            record.Damage != 2 || record.SpeedRaw != ObjectSpeed.Speed300 ||
+            record.Sound != SoundId.SndSwordBeam || record.Oam.Length == 0)
         {
             throw new InvalidOperationException(
                 $"Invalid ITEM_SWORD_BEAM direction {record.Direction} imported from {record.Source}.");

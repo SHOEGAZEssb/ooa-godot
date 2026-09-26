@@ -125,8 +125,8 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(80, 68));
         FailIf(_currentRoom.IsSolid(_player.Position) || _currentRoom.GetTerrainInfo(_player.Position).Hazard != HazardType.None,
             "4:74's source shore is not a safe Feather approach.");
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.EquipA(TreasureId.Feather);
         var rider = _entities.Entities<MovingPlatformRoomEntity>().Single();
         // Clear the Keese through combat/death dispatch before the long route
         // wait; this regression isolates boarding from enemy combat.
@@ -161,8 +161,8 @@ public sealed partial class ValidationRoot
         // switchHookParent @state0 rejects wLinkObjectIndex bit 0, but
         // permits wLinkRidingObject. interactionCode79 still carries Link
         // by SPEED_80 (half a pixel) during the parent item's movement lock.
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipB(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipB(TreasureId.SwitchHook);
         for (int shot = 0; shot < 4; shot++)
         {
             FailIf(_player.TopDownAirborne || !rider.LinkRiding || _player.IsUsingSwitchHook,

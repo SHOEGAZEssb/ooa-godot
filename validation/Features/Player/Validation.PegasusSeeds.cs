@@ -19,16 +19,16 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(count, movement, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
             pegasus.Clear();
             _saveData.RestoreFrom(initialSave!);
-            _saveData.WriteWramByte(0xc6cc, 1);
-            _saveData.WriteWramByte(0xc6c6, ring ? (byte)RingId.Pegasus : (byte)0xff);
-            _saveData.WriteWramByte(0xc6c5, 0xff);
+            _saveData.WriteWramByte(WramAddress.wRingBoxLevel, 1);
+            _saveData.WriteWramByte(WramAddress.wRingBoxContents, ring ? (byte)RingId.Pegasus : (byte)0xff);
+            _saveData.WriteWramByte(WramAddress.wShooterSelectedSeeds, 0xff);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             if (ring) FailIf(!_inventory.EquipRingAt(0), "Could not equip the Pegasus Ring fixture.");
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x22, 0x20);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);
+            _inventory.GiveTreasure(TreasureId.Feather, 1);
             _inventory.SelectSatchelSeeds(2);
-            _inventory.EquipA(InventoryState.ItemSeedSatchel);
+            _inventory.EquipA(TreasureId.SeedSatchel);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(new Vector2(120, 144));
             Step(32, Vector2.Up);
@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
             FailIf(!pegasus.Active || _inventory.PegasusSeeds != 0x18,
                 "A completed Pegasus use must allow a second real Satchel activation.");
             Step(960 / decrement - 5);
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.EquipA(TreasureId.Feather);
             Step(movement: Vector2.Right, attack: true);
             FailIf(!_player.TopDownAirborne || (int)typeof(Player).GetField("_topDownAirSpeedRaw", flags)!.GetValue(_player)! != 0x3c,
                 "A live Pegasus Feather jump must snapshot SPEED_180 at takeoff.");
@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
             FailIf(_player.TopDownAirborne || _player.IsFallingInHole || _player.IsDying,
                 "The Pegasus jump must finish on the entrance floor.");
             for (int i = 0; _player.Position.X > 120 && i < 70; i++) Step(movement: Vector2.Left);
-            _inventory.EquipA(InventoryState.ItemSeedSatchel);
+            _inventory.EquipA(TreasureId.SeedSatchel);
             Step(attack: true);
             dust = _entities.Entities<PegasusDustRoomEntity>().Single(d => !d.Finished);
             for (int i = 0; !IsTransitioning && i < 130; i++) Step(movement: Vector2.Up);
@@ -106,7 +106,7 @@ public sealed partial class ValidationRoot
             _player.BeginForcedRoomEntryMovement(Vector2I.Up);
             FailIf(pegasus.Active, "LINK_STATE_FORCE_MOVEMENT initialization must clear Pegasus.");
             _player.EndForcedRoomEntryMovement();
-            _entities.RuntimeState.SetWramByte(0xcc6c, 0x11);
+            _entities.RuntimeState.SetWramByte(WramAddress.wPegasusSeedCounter, 0x11);
             Step();
             FailIf(pegasus.RawCounter != (ring ? 0x8010 : 0x800f),
                 "An odd Pegasus counter must retain the dust pulse from either decrement, including the first of two.");

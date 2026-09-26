@@ -41,8 +41,8 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
     internal int SpeedZ => _speedZ;
     private byte Signal
     {
-        get => Context.Entities.RuntimeState.ReadWramByte(0xcfc0);
-        set => Context.Entities.RuntimeState.SetWramByte(0xcfc0, value);
+        get => Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0);
+        set => Context.Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, value);
     }
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -93,7 +93,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
                 _exclamation.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
                 _exclamationCounter = Database.ExclamationFrames;
                 _exclamationFresh = true;
-                Context.Sound.PlaySound(OracleSoundEngine.SndClink);
+                Context.Sound.PlaySound(SoundId.SndClink);
                 _runner.Start(Database.Commands, Database.HeardEntry);
                 State = 2;
             }
@@ -232,7 +232,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         if (update == _song.SongInitialDelay)
         {
             Context.Player.BeginHarpPose();
-            Context.Sound.PlaySound(OracleSoundEngine.SndTuneOfCurrents);
+            Context.Sound.PlaySound(SoundId.SndTuneOfCurrents);
             return;
         }
         int phraseUpdate = update - _song.SongInitialDelay - 1;

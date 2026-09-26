@@ -30,11 +30,11 @@ public sealed partial class ValidationRoot
                     _entities.BeginScreenTransition(4, _currentRoom, new(240, 0), _player);
                     key = Spawn();
                 }
-                FailIf(key.Visible || key.Initialized || _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 0,
+                FailIf(key.Visible || key.Initialized || _sound.PlayRequestsFor(SoundId.SndGetSeed) != 0,
                     "INTERAC$17 allocation must not run state0 or play its sound.");
                 Step(1);
                 FailIf(!key.Visible || !key.Initialized || key.Counter != 8 || key.Z != -4 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != (mode == "scroll" ? 2 : 1),
+                    _sound.PlayRequestsFor(SoundId.SndGetSeed) != (mode == "scroll" ? 2 : 1),
                     $"INTERAC$17 state0 must initialize without consuming a timer update during {mode}.");
                 if (mode != "normal")
                 {

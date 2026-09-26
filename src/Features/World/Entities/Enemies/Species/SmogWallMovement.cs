@@ -106,7 +106,7 @@ internal sealed class SmogWallMovement
         return CheckAdjacentWalls();
     }
     private bool CheckAdjacentWalls() =>
-        (AdjacentWalls & (Angle switch { 0 => 0xc0, 8 => 0x03, 16 => 0x30, 24 => 0x0c,
+        (AdjacentWalls & (Angle switch { ObjectAngle.Up => 0xc0, ObjectAngle.Right => 0x03, ObjectAngle.Down => 0x30, ObjectAngle.Left => 0x0c,
             _ => throw new InvalidOperationException("Smog wall angle must be cardinal.") })) != 0;
     private void ApplySpeed()
     {

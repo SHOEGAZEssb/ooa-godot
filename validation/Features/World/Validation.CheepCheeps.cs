@@ -39,7 +39,7 @@ public partial class ValidationRoot
         foreach (int distance in new[] { 0x20, 0x60, 0, 0x80, 0x81, 0xff })
         {
             var fish = new CheepCheepCharacter();
-            var record = database.ImportedEnemy(0x2c, subid);
+            var record = database.ImportedEnemy(EnemyId.CheepCheep, subid);
             FailIf(record is not { Health: 2, DamageQuarters: 2, RadiusX: 6, RadiusY: 6,
                     TileBase: 6, Palette: 3, Animations.Length: 2 } ||
                 !record.SourceGrayscaleInverted || record.Sprites.Single() != "spr_fireball_cheepcheep",
@@ -53,7 +53,7 @@ public partial class ValidationRoot
             FailIf(!fish.Visible || fish.State != 8 || fish.Position != origin,
                 "Cheep Cheep state 0 did not stop at visible state $08.");
             fish.UpdateFrame();
-            int angle = subid == 0 ? 0x18 : 0x10;
+            int angle = subid == 0 ? ObjectAngle.Left : ObjectAngle.Down;
             int counter = (distance * 2) & 0xff;
             int frames = counter == 0 ? 256 : counter;
             FailIf(fish.State != 9 || fish.Angle != angle || fish.Counter != counter ||

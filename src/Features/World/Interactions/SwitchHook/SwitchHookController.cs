@@ -24,7 +24,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         if (Active || player.Inventory.SwitchHookLevel == 0 || player.TopDownAirborne || player.SideScrollAirborne ||
             player.IsFallingInHole || player.IsPullingIntoHole || player.CompanionRideActive ||
             player.MinecartRideActive || player.RaftRideActive) return false;
-        if ((rooms.CurrentRoom.TilesetFlags & 0x40) != 0)
+        if ((rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
             throw new NotSupportedException("Switch Hook underwater LINK_ANIM_MODE_2e presentation is not implemented.");
         if (Item is not null) { Item.Free(); Item = null; }
         player.SelectCarriedObjectReleaseDirection(input);
@@ -36,7 +36,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         worldRoot.AddChild(Item);
         Active = true;
         player.BeginSwitchHookPose();
-        player.NotifyParentItemAnimationStarted(InventoryState.ItemSwitchHook);
+        player.NotifyParentItemAnimationStarted(TreasureId.SwitchHook);
         return true;
     }
 
@@ -64,7 +64,7 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         entities.Spawn(new EnemyClinkSpawn(point, initializeOnUpdate));
     internal bool CanLiftEnemy(Vector2 position) => !pushBlockActive() &&
         !LinkWallProbe.Shared.SurroundedByWalls(position,
-            (rooms.CurrentRoom.TilesetFlags & 0x20) != 0, rooms.CurrentRoom.IsSolid);
+            (rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0, rooms.CurrentRoom.IsSolid);
     internal bool TryLiftTile(Vector2 position, out BreakableTileBreak result, out Texture2D texture)
     {
         texture = rooms.CurrentRoom.BuildMimickedMetatileTexture(position);

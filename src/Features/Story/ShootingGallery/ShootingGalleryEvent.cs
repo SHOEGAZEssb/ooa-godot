@@ -282,7 +282,7 @@ internal sealed class ShootingGalleryEvent :
             treasureObject = _record.FluteObject;
             objectParameter = _record.FluteObjectParameter;
         }
-        else if (treasureId == TreasureDatabase.TreasureGashaSeed &&
+        else if (treasureId == TreasureId.GashaSeed &&
             parameter == 0)
         {
             treasureObject = _record.GashaObject;
@@ -471,17 +471,17 @@ internal sealed class ShootingGalleryEvent :
         _savedEquippedB = _context.Inventory.EquippedB;
         _savedEquippedA = _context.Inventory.EquippedA;
         _equipsSaved = true;
-        if (_savedEquippedA == TreasureDatabase.TreasureSword)
+        if (_savedEquippedA == TreasureId.Sword)
         {
             _context.Inventory.SetScriptedEquippedItems(
-                InventoryState.ItemNone,
-                TreasureDatabase.TreasureSword);
+                TreasureId.None,
+                TreasureId.Sword);
         }
         else
         {
             _context.Inventory.SetScriptedEquippedItems(
-                TreasureDatabase.TreasureSword,
-                InventoryState.ItemNone);
+                TreasureId.Sword,
+                TreasureId.None);
         }
     }
 

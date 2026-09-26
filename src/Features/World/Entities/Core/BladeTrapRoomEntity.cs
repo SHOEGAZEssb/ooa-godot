@@ -30,7 +30,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x1b || !Entity.TakeSwitchHookHit()) return false;
+        if (effect != CollisionEffect.Effect1b || !Entity.TakeSwitchHookHit()) return false;
         // LINKDMG_$1c ORs the blue trap's var3e=$08 into item.var2a;
         // ENEMYDMG_$28 gives invincibility without health loss or recoil.
         hook.NotifyObjectCollision(CollisionMidpoint(Entity.Position, hook.Position));
@@ -47,7 +47,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
             if (player.CanAcceptShieldCollision)
             {
                 player.ApplyShieldCollisionRecoil(Entity.Position, 0x0f, 0x13);
-                _sound(OracleSoundEngine.SndBombLand);
+                _sound(SoundId.SndBombLand);
             }
             return;
         }
@@ -61,7 +61,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     {
         if (!base.ApplySwordHit(hitbox, sourcePosition, damage, strength, spawns)) return false;
         spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, hitbox.GetCenter())));
-        _sound(OracleSoundEngine.SndBombLand);
+        _sound(SoundId.SndBombLand);
         return true;
     }
 
@@ -97,8 +97,8 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
             !CombatDescriptor.Combat.Intersects(hitbox)) return false;
         return effect switch
         {
-            0x00 => false,
-            0x1c or 0x20 => true,
+            CollisionEffect.None => false,
+            CollisionEffect.Effect1c or CollisionEffect.Effect20 => true,
             _ => throw new InvalidOperationException(
                 $"Blade trap $0e:$01 item collision ${(int)collision:x2} has unsupported effect ${effect:x2}.")
         };

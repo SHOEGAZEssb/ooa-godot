@@ -18,7 +18,7 @@ internal sealed class ItemDropRoomEntity(
         if (!data.PartEnabled(0x01) || !item.CollisionEnabled || !Entity.CanAttachToItem ||
             !RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZFixed >> 8, item.ZHigh, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, item.CollisionBounds)) return default;
-        if (data.Effect(0x01) != 0x24)
+        if (data.Effect(EnemyCollisionMode.Item) != 0x24)
             throw new InvalidOperationException("PART_ITEM_DROP mode$01 column$17 must select collisionEffect24.");
         return new(true, true);
     }

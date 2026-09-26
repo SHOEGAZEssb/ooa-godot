@@ -185,16 +185,16 @@ internal sealed class LedgeJumpDatabase
             Array.Exists(_directions, record => record == default) ||
             Array.Exists(_speedRawByLength, speed => speed == 0) ||
             _directions[0] != new LedgeJumpDirectionRecord(
-                0, 0x00, 0xc0,
+                ObjectDirection.Up, ObjectAngle.Up, 0xc0,
                 new Vector2I(-3, -4), new Vector2I(2, -4)) ||
             _directions[1] != new LedgeJumpDirectionRecord(
-                1, 0x08, 0x03,
+                ObjectDirection.Right, ObjectAngle.Right, 0x03,
                 new Vector2I(4, 0), new Vector2I(4, 5)) ||
             _directions[2] != new LedgeJumpDirectionRecord(
-                2, 0x10, 0x30,
+                ObjectDirection.Down, ObjectAngle.Down, 0x30,
                 new Vector2I(-3, 8), new Vector2I(2, 8)) ||
             _directions[3] != new LedgeJumpDirectionRecord(
-                3, 0x18, 0x0c,
+                ObjectDirection.Left, ObjectAngle.Left, 0x0c,
                 new Vector2I(-5, 0), new Vector2I(-5, 5)) ||
             !_speedRawByLength.AsSpan().SequenceEqual(
                 [0x14, 0x19, 0x23, 0x2d, 0x37, 0x41,
@@ -202,8 +202,8 @@ internal sealed class LedgeJumpDatabase
             InitialSpeedZ != -0x1c0 ||
             TransitionSpeedZ != -0x100 ||
             Gravity != 0x20 ||
-            JumpSound != OracleSoundEngine.SndJump ||
-            LandSound != OracleSoundEngine.SndLand ||
+            JumpSound != SoundId.SndJump ||
+            LandSound != SoundId.SndLand ||
             FeetOffset != 5 ||
             ScanStep != 8 ||
             MaxSpeedLength != 11 ||

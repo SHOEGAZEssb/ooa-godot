@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             fallbacks.ChestNoMatch is not
                 {
                     TreasureObject: "TREASURE_OBJECT_RUPEES_00",
-                    TreasureId: 0x28,
+                    TreasureId: TreasureId.Rupees,
                     SubId: 0x00,
                     Parameter: 0x01,
                     TextId: 0x0001,
@@ -166,55 +166,55 @@ public sealed partial class ValidationRoot
             _dialogue.VisibleGlyphCount != 1,
             "Message speed 4 did not display its first character on update 2.");
 
-        int textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        int textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         _dialogue.ShowMessage("ABC", _player.Position.Y);
         _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests,
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests,
             "SND_TEXT played before the first glyph appeared.");
         _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "The first visible non-space glyph did not request SND_TEXT $66.");
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "SND_TEXT ignored its four-update cooldown.");
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 2,
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 2,
             "SND_TEXT did not become available on the original fourth cooldown update.");
 
-        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         _dialogue.ShowMessage(" A", _player.Position.Y);
         _dialogue.AdvanceCharacterClockForValidation(4.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "Textbox character audio did not suppress spaces or sound the following glyph.");
 
         const int tokayTextSound = 0xb6;
-        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         int tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
         _dialogue.ShowMessage("\\sfx(0xb6)A", _player.Position.Y);
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _dialogue.CurrentMessage != "A" ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1 ||
             _sound.PlayRequestsFor(tokayTextSound) != tokayRequests + 1,
             "Inline \\sfx() did not remain hidden and play beside the next glyph's default cue.");
 
-        textRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndText);
+        textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
         _dialogue.ShowMessage("\\charsfx(0xb6)A", _player.Position.Y);
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _dialogue.CurrentMessage != "A" ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText) != textRequests ||
+            _sound.PlayRequestsFor(SoundId.SndText) != textRequests ||
             _sound.PlayRequestsFor(tokayTextSound) != tokayRequests + 1,
             "Inline \\charsfx() did not replace the per-character SND_TEXT cue.");
 
-        int moveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
-        int selectRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        int moveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        int selectRequests = _sound.PlayRequestsFor(SoundId.SndSelectItem);
         _dialogue.ShowChoiceMessage("\\opt()Yes \\opt()No", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
         FailIf(
@@ -225,12 +225,12 @@ public sealed partial class ValidationRoot
         _dialogue.MoveChoiceForValidation(1);
         FailIf(
             _dialogue.SelectedChoice != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != moveRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != moveRequests + 1,
             "Moving the textbox option cursor did not request SND_MENU_MOVE $84.");
         _dialogue.SubmitChoiceForValidation(1);
         FailIf(
             _dialogue.IsOpen ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectRequests + 1,
             "Confirming a textbox option did not request SND_SELECTITEM $56.");
 
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
@@ -246,8 +246,8 @@ public sealed partial class ValidationRoot
             Input.EndOriginalUpdate();
         }
 
-        moveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
-        selectRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+        moveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        selectRequests = _sound.PlayRequestsFor(SoundId.SndSelectItem);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
             pressed: ["item"], justPressed: ["item"], movement: Vector2.Zero));
         try
@@ -263,8 +263,8 @@ public sealed partial class ValidationRoot
             !_dialogue.ChoiceActive ||
             _dialogue.SelectedChoice != 1 ||
             _dialogue.TryTakeChoiceResult(out _) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != moveRequests + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != moveRequests + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectRequests,
             "B did not move the textbox cursor to the final option without " +
             "accepting it, as textOptionCode_checkBButton specifies.");
 
@@ -282,7 +282,7 @@ public sealed partial class ValidationRoot
             _dialogue.IsOpen ||
             !_dialogue.TryTakeChoiceResult(out int bChoice) ||
             bChoice != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectRequests + 1,
             "A did not accept the final textbox option selected by B on the " +
             "following original update.");
 
@@ -352,12 +352,12 @@ public sealed partial class ValidationRoot
         _dialogue.ShowMessage("First.\nSecond.\nThird.\nFourth.", _player.Position.Y);
         _dialogue.RevealCurrentPageForValidation();
         int continuationRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText2);
+            _sound.PlayRequestsFor(SoundId.SndText2);
         _dialogue.AdvanceOrClose();
         FailIf(
             !_dialogue.IsScrollingText ||
             !Mathf.IsEqualApprox(_dialogue.TextScrollOffset, 8.0f) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndText2) !=
+            _sound.PlayRequestsFor(SoundId.SndText2) !=
                 continuationRequests + 1,
             "The button frame did not request SND_TEXT_2 $89 and perform " +
             "standardTextStateb's first 8px shift.");
@@ -896,7 +896,7 @@ public sealed partial class ValidationRoot
         AddChild(validationRoot);
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSavedNayru, value: false);
+            GlobalFlag.SavedNayru, value: false);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -906,8 +906,8 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
         FailIf(
             actors.Count != 2 ||
-            actors[0].Record is not { Id: 0x3c, SubId: 0x0d } ||
-            actors[1].Record is not { Id: 0x3d, SubId: 0x00 },
+            actors[0].Record is not { Id: InteractionId.Boy, SubId: 0x0d } ||
+            actors[1].Record is not { Id: InteractionId.OldLady, SubId: 0x00 },
             "Room 2:0e did not preserve the source order " +
             "$3c:$0d then $3d:$00.");
         NpcCharacter boy = actors[0];
@@ -977,7 +977,7 @@ public sealed partial class ValidationRoot
             "Before SAVED_NAYRU, room 2:0e did not animate the old lady " +
             "without facing Link while leaving animation $0c's stone boy fixed.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         Room20eNpcStateRecord restoredBoy =
             database.State(boy.Record, savedNayru: true);
         Room20eNpcStateRecord relievedLady =
@@ -1062,7 +1062,7 @@ public sealed partial class ValidationRoot
             actors[1].TextId != 0x3801,
             "Re-entering room 2:0e lost its post-SAVED_NAYRU NPC state.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSavedNayru, value: false);
+            GlobalFlag.SavedNayru, value: false);
         FailIf(
             actors[0].Position != new Vector2(0x38, 0x48) ||
             actors[0].TextId != 0 ||
@@ -1094,10 +1094,10 @@ public sealed partial class ValidationRoot
 
         NpcCharacter PastGuy1() =>
             pastGuyManager.Entities<NpcCharacter>().Single(npc =>
-                npc.Record is { Id: 0x43, SubId: 0x01 });
+                npc.Record is { Id: InteractionId.PastGuy, SubId: 0x01 });
         void SetEssences(byte value)
         {
-            if (pastGuySave.WriteWramByte(0xc6bf, value))
+            if (pastGuySave.WriteWramByte(WramAddress.wEssencesObtained, value))
                 pastGuySave.CommitInventoryChange();
         }
 
@@ -1124,7 +1124,7 @@ public sealed partial class ValidationRoot
             "getGameProgress_2 state $02 did not retain room 1:45's " +
             "$43:$01 with TX_1702.");
 
-        pastGuySave.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        pastGuySave.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 3 ||
             pastGuy.Active || pastGuy.TextId != 0x1703,
@@ -1134,7 +1134,7 @@ public sealed partial class ValidationRoot
         pastGuyManager.LoadRoom(1, _world.LoadRoom(1, 0x68));
         NpcCharacter PastGuy2() =>
             pastGuyManager.Entities<NpcCharacter>().Single(npc =>
-                npc.Record is { Id: 0x43, SubId: 0x02 });
+                npc.Record is { Id: InteractionId.PastGuy, SubId: 0x02 });
         pastGuy = PastGuy2();
         FailIf(
             !pastGuy.Active || pastGuy.Position != new Vector2(0x28, 0x68) ||
@@ -1148,7 +1148,7 @@ public sealed partial class ValidationRoot
             !pastGuy.Active || pastGuy.TextId != 0x1704,
             "getGameProgress_2 state $04 did not retain $43:$02 with TX_1704.");
         pastGuySave.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+            GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 5 ||
             pastGuy.Active || pastGuy.TextId != 0x1707,
@@ -1162,7 +1162,7 @@ public sealed partial class ValidationRoot
             pastGuy.Active || pastGuy.TextId != 0x1707,
             "getGameProgress_2 state $06 did not keep $43:$02 hidden " +
             "with TX_1707.");
-        pastGuySave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        pastGuySave.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(pastGuySave) != 7 ||
             !pastGuy.Active || pastGuy.TextId != 0x1707,
@@ -1208,7 +1208,7 @@ public sealed partial class ValidationRoot
         bipinManager.LoadRoom(3, bipinRooms.CurrentRoom);
         NpcCharacter bipin = bipinManager.Entities<NpcCharacter>().Single();
         FailIf(
-            bipin.Record is not { Id: 0x28, SubId: 0x0a } ||
+            bipin.Record is not { Id: InteractionId.Bipin, SubId: 0x0a } ||
             bipin.Position != new Vector2(0x50, 0x40) ||
             bipin.Record.DefaultAnimation != 9 ||
             !bipin.Active || bipin.TextId != 0x4311 ||
@@ -1245,8 +1245,8 @@ public sealed partial class ValidationRoot
             !bipinManager.Entities<GroundTreasurePickup>().Contains(heldSeed) ||
             heldSeed.Record is not
             {
-                SpawnMode: 0,
-                GrabMode: 2,
+                SpawnMode: TreasureSpawnMode.Instant,
+                GrabMode: TreasureGrabMode.TwoHands,
                 InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
                 SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
@@ -1256,7 +1256,7 @@ public sealed partial class ValidationRoot
             heldSeed.Position != _player.Position + Vector2.Up * 14 ||
             !_player.IsHoldingItemTwoHands ||
             !bipinSounds.SequenceEqual(
-                [OracleSoundEngine.SndGetSeed, OracleSoundEngine.SndGetItem]) ||
+                [SoundId.SndGetSeed, SoundId.SndGetItem]) ||
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(seed.Message),
             "bipinScript3 did not grant TREASURE_GASHA_SEED $08, set " +
@@ -1351,14 +1351,14 @@ public sealed partial class ValidationRoot
         manager.LoadRoom(1, room148);
 
         NpcCharacter Worker() => manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x57, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.PickaxeWorker, SubId: 0x00 });
         NpcCharacter Villager() => manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x3a, SubId: 0x06 });
+            npc.Record is { Id: InteractionId.MaleVillager, SubId: 0x06 });
         NpcCharacter Girl() => manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x38, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.PastGirl, SubId: 0x00 });
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
 
@@ -1396,7 +1396,7 @@ public sealed partial class ValidationRoot
         List<Room148PickaxeDebris> debris =
             manager.Entities<Room148PickaxeDebris>();
         FailIf(
-            sounds.Count != 1 || sounds[0] != OracleSoundEngine.SndClink ||
+            sounds.Count != 1 || sounds[0] != SoundId.SndClink ||
             worker.CurrentAnimationFrame != 1 ||
             worker.CurrentAnimationParameter != 1 || debris.Count != 2 ||
             debris[0].Position != new Vector2(0x2a, 0x5c) ||
@@ -1462,7 +1462,7 @@ public sealed partial class ValidationRoot
         debris = manager.Entities<Room148PickaxeDebris>();
         FailIf(
             sounds.Count != 3 || sounds.Any(sound =>
-                sound != OracleSoundEngine.SndClink) ||
+                sound != SoundId.SndClink) ||
             worker.CurrentAnimationParameter != 2 || debris.Count != 2 ||
             debris.Any(chip => chip.Palette != 2 ||
                 chip.Position != new Vector2(0x46, 0x5c)),
@@ -1511,7 +1511,7 @@ public sealed partial class ValidationRoot
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 2 ||
             !villager.Active || villager.TextId != 0x1402 || girl.Active,
             "getGameProgress_2 state $02 did not keep $3a:$06 with TX_1402 and delete $38:$00.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 ||
             villager.Active || !girl.Active || girl.TextId != 0x1a03,
@@ -1521,7 +1521,7 @@ public sealed partial class ValidationRoot
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 4 ||
             villager.Active || !girl.Active || girl.TextId != 0x1a04,
             "getGameProgress_2 state $04 did not select $38:$00/TX_1a04 after D7.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
             villager.Active || !girl.Active || girl.TextId != 0x1a05,
@@ -1543,7 +1543,7 @@ public sealed partial class ValidationRoot
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 6 ||
             villager.Active || !girl.Active || girl.TextId != 0x1a09,
             "Linked room 4:fc flag $80 did not take precedence as state $06/TX_1a09.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
             villager.Active || !girl.Active || girl.TextId != 0x1a07,
@@ -1554,15 +1554,15 @@ public sealed partial class ValidationRoot
             "Room 1:48 re-entry did not retain getGameProgress_2 state $07.");
 
         OracleSaveData state3Save = OracleSaveData.CreateStandardGame();
-        if (state3Save.WriteWramByte(0xc6bf, 0x08))
+        if (state3Save.WriteWramByte(WramAddress.wEssencesObtained, 0x08))
             state3Save.CommitInventoryChange();
-        state3Save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        state3Save.SetGlobalFlag(GlobalFlag.SavedNayru);
         using var state3ManagerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = state3Save });
         RoomEntityManager state3Manager = state3ManagerFixture.Manager;
         state3Manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
         NpcCharacter state3Villager = state3Manager.Entities<NpcCharacter>().Single(
-            npc => npc.Record is { Id: 0x3a, SubId: 0x07 });
+            npc => npc.Record is { Id: InteractionId.MaleVillager, SubId: 0x07 });
         FailIf(
             !state3Villager.Active || state3Villager.TextId != 0x1403,
             "Villager $3a:$07 did not use unlinked state-$03 TX_1403.");
@@ -1635,7 +1635,7 @@ public sealed partial class ValidationRoot
 
         ulong normalFatherHash = father.CurrentAnimationPixelHash;
         ulong normalObserverHash = observer.CurrentAnimationPixelHash;
-        if (save.WriteWramByte(0xc6bf, 0xbf))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0xbf))
             save.CommitInventoryChange();
         save.SetRoomFlag(4, 0xfc, 0x7f);
         save.SetRoomFlag(4, 0xfb, OracleSaveData.RoomFlag80);
@@ -1650,7 +1650,7 @@ public sealed partial class ValidationRoot
             "room 4:fb bit $80, or group-5 room fc bit $80 changed room " +
             "1:49's pre-D7 family state.");
 
-        if (save.WriteWramByte(0xc6bf, 0xff))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0xff))
             save.CommitInventoryChange();
         FailIf(
             boy.Position != new Vector2(0x48, 0x48) ||
@@ -1680,7 +1680,7 @@ public sealed partial class ValidationRoot
             "Room 4:fc flag $80 did not restore room 1:49's family, ball, " +
             "normal palettes, positions, and TX_251e/TX_1443/TX_1712 live.");
 
-        if (save.WriteWramByte(0xc6bf, 0xbf))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0xbf))
             save.CommitInventoryChange();
         FailIf(
             boy.TextId != 0x251e || father.TextId != 0x1443 ||
@@ -1695,7 +1695,7 @@ public sealed partial class ValidationRoot
             "Clearing room 4:fc flag $80 with D7 essence bit 6 clear did " +
             "not restore room 1:49's pre-D7 state live.");
 
-        if (save.WriteWramByte(0xc6bf, 0xff))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0xff))
             save.CommitInventoryChange();
         FailIf(
             boy.TextId != 0x251b || father.TextId != 0 || observer.TextId != 0 ||
@@ -1769,7 +1769,7 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
         FailIf(
             actors.Count != 1 ||
-            actors[0].Record is not { Id: 0x3b, SubId: 0x05 },
+            actors[0].Record is not { Id: InteractionId.FemaleVillager, SubId: 0x05 },
             "Room 1:57 did not preserve its sole female villager $3b:$05.");
 
         NpcCharacter villager = actors[0];
@@ -1790,7 +1790,7 @@ public sealed partial class ValidationRoot
         }
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
         void SetLinked(bool value)
@@ -1820,7 +1820,7 @@ public sealed partial class ValidationRoot
             !villager.Active || villager.TextId != 0x1512,
             "Room 1:57 state $02 did not select TX_1512.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 ||
             !villager.Active || villager.TextId != 0x1513,
@@ -1832,7 +1832,7 @@ public sealed partial class ValidationRoot
             villager.Active || villager.TextId != 0x1515,
             "Room 1:57's female villager was not deleted in state $04.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
             !villager.Active || villager.TextId != 0x1515,
@@ -1854,7 +1854,7 @@ public sealed partial class ValidationRoot
             "Linked room 4:fc flag $80 did not select room 1:57 " +
             "state $06/TX_1518.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
             villager.Active || villager.TextId != 0x1518,
@@ -1863,7 +1863,7 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x57));
         villager = manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x3b, SubId: 0x05 });
+            npc.Record is { Id: InteractionId.FemaleVillager, SubId: 0x05 });
         FailIf(
             villager.Active || villager.Position != new Vector2(0x48, 0x38) ||
             villager.Record.Palette != 1 || villager.TextId != 0x1518,
@@ -1893,9 +1893,9 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
         FailIf(
             actors.Count != 3 ||
-            actors[0].Record is not { Id: 0x44, SubId: 0x04 } ||
-            actors[1].Record is not { Id: 0x4f, SubId: 0x02 } ||
-            actors[2].Record is not { Id: 0x36, SubId: 0x0d },
+            actors[0].Record is not { Id: InteractionId.MiscMan2, SubId: 0x04 } ||
+            actors[1].Record is not { Id: InteractionId.ImpaNpc, SubId: 0x02 } ||
+            actors[2].Record is not { Id: InteractionId.Nayru, SubId: 0x0d },
             "Room 1:58 did not preserve hobo, Impa, and Nayru object-data order.");
 
         NpcCharacter hobo = actors[0];
@@ -1911,7 +1911,7 @@ public sealed partial class ValidationRoot
 
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
         void SetLinked(bool value)
@@ -1951,7 +1951,7 @@ public sealed partial class ValidationRoot
             !hobo.Active || hobo.TextId != 0x1602,
             "Room 1:58 state $02 did not select TX_1602.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 3 || hobo.Active,
             "Room 1:58's hobo was not deleted only in saved-Nayru state $03.");
@@ -1963,7 +1963,7 @@ public sealed partial class ValidationRoot
             hobo.TextId != 0x1604,
             "Room 1:58 state $04 did not restore the hobo at $48,$48 with TX_1604.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 5 ||
             hobo.TextId != 0x1605,
@@ -1986,16 +1986,16 @@ public sealed partial class ValidationRoot
             "Linked room 4:fc flag $80 did not move the hobo to $58,$78, " +
             "select TX_1609, and retain the pre-flame actor set.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFlameOfDespairLit);
+        save.SetGlobalFlag(GlobalFlag.FlameOfDespairLit);
         FailIf(
             !nayru.Active || nayru.TextId != 0x1d17 || impa.Active ||
             !nayru.Record.CanFace || !CanTalkTo(nayru),
             "GLOBALFLAG_FLAME_OF_DESPAIR_LIT did not reveal talkable " +
             "Nayru $36:$0d/TX_1d17 while retaining Impa's compound gate.");
 
-        SetTreasure(TreasureDatabase.TreasureHarp, value: true);
-        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: true);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone);
+        SetTreasure(TreasureId.Harp, value: true);
+        SetTreasure(TreasureId.MakuSeed, value: true);
+        save.SetGlobalFlag(GlobalFlag.PreBlackTowerCutsceneDone);
         save.SetRoomFlag(1, 0x83, OracleSaveData.RoomFlag80);
         FailIf(
             impa.Active,
@@ -2018,7 +2018,7 @@ public sealed partial class ValidationRoot
             "Room 1:58 Impa or Nayru did not use the imported directional " +
             "animation when Link entered the original $28 facing radius.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             NpcVisibilityRuleDatabase.GetGameProgress2(save) != 7 ||
             !hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
@@ -2031,7 +2031,7 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x58));
         hobo = manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x44, SubId: 0x04 });
+            npc.Record is { Id: InteractionId.MiscMan2, SubId: 0x04 });
         FailIf(
             !hobo.Active || hobo.Position != new Vector2(0x48, 0x48) ||
             hobo.TextId != 0x1607,
@@ -2074,13 +2074,13 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
         FailIf(
             actors.Count != 7 ||
-            actors[0].Record is not { Id: 0x37, SubId: 0x0a } ||
-            actors[1].Record is not { Id: 0x31, SubId: 0x04 } ||
-            actors[2].Record is not { Id: 0x31, SubId: 0x05 } ||
-            actors[3].Record is not { Id: 0x36, SubId: 0x0a } ||
-            actors[4].Record is not { Id: 0xad, SubId: 0x04 } ||
-            actors[5].Record is not { Id: 0x58, SubId: 0x01, Var03: 0x00 } ||
-            actors[6].Record is not { Id: 0x58, SubId: 0x01, Var03: 0x01 },
+            actors[0].Record is not { Id: InteractionId.Ralph, SubId: 0x0a } ||
+            actors[1].Record is not { Id: InteractionId.ImpaInCutscene, SubId: 0x04 } ||
+            actors[2].Record is not { Id: InteractionId.ImpaInCutscene, SubId: 0x05 } ||
+            actors[3].Record is not { Id: InteractionId.Nayru, SubId: 0x0a } ||
+            actors[4].Record is not { Id: InteractionId.Zelda, SubId: 0x04 } ||
+            actors[5].Record is not { Id: InteractionId.HardhatWorker, SubId: 0x01, Var03: 0x00 } ||
+            actors[6].Record is not { Id: InteractionId.HardhatWorker, SubId: 0x01, Var03: 0x01 },
             "Room 1:75 did not preserve its seven pre-Black Tower placements in object order.");
 
         NpcCharacter ralph = actors[0];
@@ -2119,22 +2119,22 @@ public sealed partial class ValidationRoot
             !earlyWorker.Active || lateWorker.Active,
             "Clearing both Black Tower progress bits did not restore hardhat var03 $00 live.");
 
-        SetTreasure(save, TreasureDatabase.TreasureMakuSeed, value: true);
+        SetTreasure(save, TreasureId.MakuSeed, value: true);
         FailIf(
             !ralph.Active || !impaUnlinked.Active || impaLinked.Active ||
             nayru.Active || zelda.Active,
             "Unlinked Maku Seed state did not reveal only Ralph and Impa $31:$04 in room 1:75.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower);
+        save.SetGlobalFlag(GlobalFlag.RalphEnteredBlackTower);
         FailIf(
             ralph.Active || !impaUnlinked.Active,
             "GLOBALFLAG_RALPH_ENTERED_BLACK_TOWER did not remove only Ralph before Impa's scene.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone);
+        save.SetGlobalFlag(GlobalFlag.PreBlackTowerCutsceneDone);
         FailIf(impaUnlinked.Active, "GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE did not remove unlinked Impa.");
 
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+            GlobalFlag.PreBlackTowerCutsceneDone, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+            GlobalFlag.RalphEnteredBlackTower, value: false);
         SetLinked(save, value: true);
         FailIf(
             !ralph.Active || impaUnlinked.Active || !impaLinked.Active ||
@@ -2150,12 +2150,12 @@ public sealed partial class ValidationRoot
         PreBlackTowerEvent roomEvent = _roomEvents.Get<PreBlackTowerEvent>();
         ValidationCutsceneTrace trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
-        SetTreasure(_saveData, TreasureDatabase.TreasureMakuSeed, value: true);
+        SetTreasure(_saveData, TreasureId.MakuSeed, value: true);
         SetLinked(_saveData, value: false);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+            GlobalFlag.PreBlackTowerCutsceneDone, value: false);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+            GlobalFlag.RalphEnteredBlackTower, value: false);
         _player.WarpTo(new Vector2(0x50, 0x10));
         LoadValidationRoom(1, 0x75);
         _player.WarpTo(new Vector2(0x50, 0x10));
@@ -2177,8 +2177,8 @@ public sealed partial class ValidationRoot
         int[] expectedUnlinked = [0x2a19, 0x0124, 0x0125, 0x1d12, 0x0126, 0x1d13];
         FailIf(
             roomEvent.HasState || _player.CutsceneControlled ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower) ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone) ||
+            !_saveData.HasGlobalFlag(GlobalFlag.RalphEnteredBlackTower) ||
+            !_saveData.HasGlobalFlag(GlobalFlag.PreBlackTowerCutsceneDone) ||
             !unlinkedTexts.SequenceEqual(expectedUnlinked),
             "Unlinked room 1:75 did not complete its exact Ralph/Impa/Nayru dialogue and flag sequence. " +
             $"Stage={roomEvent.Stage}, controlled={_player.CutsceneControlled}, " +
@@ -2188,9 +2188,9 @@ public sealed partial class ValidationRoot
         _roomEvents.CommandTraceSink = trace;
         SetLinked(_saveData, value: true);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+            GlobalFlag.PreBlackTowerCutsceneDone, value: false);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagRalphEnteredBlackTower, value: false);
+            GlobalFlag.RalphEnteredBlackTower, value: false);
         LoadValidationRoom(1, 0x75);
         _player.WarpTo(new Vector2(0x50, 0x20));
         FailIf(
@@ -2211,8 +2211,8 @@ public sealed partial class ValidationRoot
         FailIf(
             roomEvent.HasState || _player.CutsceneControlled ||
             roomEvent.SharedSignal != 0x08 ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone) ||
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredBlackTower) ||
+            !_saveData.HasGlobalFlag(GlobalFlag.PreBlackTowerCutsceneDone) ||
+            _saveData.HasGlobalFlag(GlobalFlag.RalphEnteredBlackTower) ||
             !linkedTexts.SequenceEqual(expectedLinked),
             "Linked room 1:75 did not complete its ordered $cfd0 actor lanes and dialogue sequence.");
         _roomEvents.CommandTraceSink = null;
@@ -2230,7 +2230,7 @@ public sealed partial class ValidationRoot
         BlackTowerDoorwayEventDatabaseRecord record = doorway.Database.Data;
         FailIf(
             record is not
-            { InteractionId: 0xdc, SubId: 0x10, Y: 0x42, X: 0x50,
+            { InteractionId: InteractionId.Miscellaneous2, SubId: 0x10, Y: 0x42, X: 0x50,
               ClearPositionA: 0x44, ClearPositionB: 0x45,
               ObjectRadiusY: 0x04, ObjectRadiusX: 0x10,
               LinkRadiusY: 0x06, LinkRadiusX: 0x06,
@@ -2238,7 +2238,7 @@ public sealed partial class ValidationRoot
               ClearDestinationGroup: 4, ClearDestinationRoom: 0xe7,
               SetDestinationGroup: 4, SetDestinationRoom: 0xf3,
               WarpTransition: 0x93, DestinationPosition: 0xff,
-              WarpTransition2: 0x01, Sound: OracleSoundEngine.SndEnterCave },
+              WarpTransition2: 0x01, Sound: SoundId.SndEnterCave },
             "Room 1:76 did not import the exact $dc:$10 doorway record.");
 
         Vector2 firstDoorTile = new(0x48, 0x48);
@@ -2322,7 +2322,7 @@ public sealed partial class ValidationRoot
                 !_transitions.IsTransitioning || doorway.HasState ||
                 _player.Position != new Vector2(0x78, _currentRoom.Height) ||
                 _player.FacingVector != Vector2I.Up ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != 1,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != 1,
                 $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not enter 4:{destination:x2} through $93/$ff/$01 with SND_ENTERCAVE.");
 
             UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
@@ -2360,14 +2360,14 @@ public sealed partial class ValidationRoot
         // Exercise each stock predicate independently of accumulated gameplay
         // validation state.
         OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
-        SetTreasure(predicateSave, TreasureDatabase.TreasureBombs, value: false);
-        SetTreasure(predicateSave, 0x0b, value: false);
-        SetTreasure(predicateSave, 0x0e, value: false);
+        SetTreasure(predicateSave, TreasureId.Bombs, value: false);
+        SetTreasure(predicateSave, TreasureId.SwitchHookChain, value: false);
+        SetTreasure(predicateSave, TreasureId.Flute, value: false);
         predicateSave.SetGlobalFlag(database.GlobalCanBuyFlute, value: false);
         predicateSave.SetLinkedGame(false);
         predicateSave.WriteWramByte(database.BoughtItems1Address, 0);
         predicateSave.WriteWramByte(database.BoughtItems2Address, 0);
-        predicateSave.WriteWramByte(0xc6af, 0);
+        predicateSave.WriteWramByte(WramAddress.wShieldLevel, 0);
         IReadOnlyList<StockRecord> stock =
             database.ResolveStock(predicateSave);
         FailIf(
@@ -2377,7 +2377,7 @@ public sealed partial class ValidationRoot
                 database.BombchuMissingMask) == 0,
             "Room 2:5e base stock did not hide bombs or record missing Bombchus.");
 
-        SetTreasure(predicateSave, TreasureDatabase.TreasureBombs, value: true);
+        SetTreasure(predicateSave, TreasureId.Bombs, value: true);
         stock = database.ResolveStock(predicateSave);
         FailIf(
             stock.Count != 3 || stock[2].Item.SubId != 0x04,
@@ -2390,7 +2390,7 @@ public sealed partial class ValidationRoot
             (predicateSave.ReadWramByte(database.BoughtItems2Address) &
                 database.FluteStockMask) == 0,
             "GLOBALFLAG_CAN_BUY_FLUTE did not replace hearts with the X+4 Strange Flute.");
-        SetTreasure(predicateSave, 0x0e, value: true);
+        SetTreasure(predicateSave, TreasureId.Flute, value: true);
         stock = database.ResolveStock(predicateSave);
         FailIf(
             stock[0].Item.SubId != 0x01 ||
@@ -2409,10 +2409,10 @@ public sealed partial class ValidationRoot
         FailIf(stock[1].Item.SubId != 0x03, "Bought normal-shop Gasha bit $20 did not restore shield stock.");
 
         predicateSave.SetLinkedGame(false);
-        predicateSave.WriteWramByte(0xc6af, 0x02);
+        predicateSave.WriteWramByte(WramAddress.wShieldLevel, 0x02);
         stock = database.ResolveStock(predicateSave);
         FailIf(stock[1].Item.SubId != 0x11, "wShieldLevel bit 1 did not replace L1 with the L2 shield.");
-        predicateSave.WriteWramByte(0xc6af, 0x03);
+        predicateSave.WriteWramByte(WramAddress.wShieldLevel, 0x03);
         stock = database.ResolveStock(predicateSave);
         FailIf(stock[1].Item.SubId != 0x12, "wShieldLevel bits 1+0 did not follow the L1 -> L2 -> L3 chain.");
 
@@ -2431,8 +2431,8 @@ public sealed partial class ValidationRoot
         byte bought1Before = _saveData.ReadWramByte(database.BoughtItems1Address);
         byte bought2Before = _saveData.ReadWramByte(database.BoughtItems2Address);
         byte dimitriBefore = _saveData.ReadWramByte(database.DimitriStateAddress);
-        byte shieldBefore = _saveData.ReadWramByte(0xc6af);
-        int bombsFlagAddress = 0xc69a + TreasureDatabase.TreasureBombs / 8;
+        byte shieldBefore = _saveData.ReadWramByte(WramAddress.wShieldLevel);
+        int bombsFlagAddress = 0xc69a + TreasureId.Bombs / 8;
         byte bombsFlagsBefore = _saveData.ReadWramByte(bombsFlagAddress);
 
         _saveData.SetLinkedGame(false);
@@ -2440,14 +2440,14 @@ public sealed partial class ValidationRoot
         _saveData.WriteWramByte(database.BoughtItems1Address, 0);
         _saveData.WriteWramByte(database.BoughtItems2Address, 0);
         _saveData.WriteWramByte(database.DimitriStateAddress, 0);
-        _saveData.WriteWramByte(0xc6af, 0);
-        SetTreasure(_saveData, TreasureDatabase.TreasureBombs, value: false);
+        _saveData.WriteWramByte(WramAddress.wShieldLevel, 0);
+        SetTreasure(_saveData, TreasureId.Bombs, value: false);
         LoadValidationRoom(group, roomId);
 
         LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
         List<LynnaShopItem> products = _entities.Entities<LynnaShopItem>();
         NpcCharacter shopkeeper = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x46, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.Shopkeeper, SubId: 0x00 });
         FailIf(
             products.Count != 2 ||
             products[0].Record.SubId != 0x01 || products[0].Position != new Vector2(0x80, 0x28) ||
@@ -2456,7 +2456,7 @@ public sealed partial class ValidationRoot
             products[1].PricePosition != new Vector2(0x60, 0x18) ||
             products.Any(item => item.CurrentPixelHash == 0 ||
                 item.DigitPixelHash == 0 || item.DigitColorCount != 2) ||
-            shopkeeper.CurrentScriptAnimationSource != database.Animation(0x46, 3) ||
+            shopkeeper.CurrentScriptAnimationSource != database.Animation(InteractionId.Shopkeeper, 3) ||
             shopkeeper.TextId != 0 || !_entities.PlayerItemUsageDisabled ||
             !_entities.PlayerRingTransformationsDisabled ||
             _entities.PlayerSwordDisabled,
@@ -2508,7 +2508,7 @@ public sealed partial class ValidationRoot
         FailIf(
             shop.Stage != LynnaShopEventStage.TheftDown ||
             _player.Position.Y != database.TheftLinkY || !_player.CutsceneControlled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) == 0,
+            _sound.PlayRequestsFor(SoundId.SndClink) == 0,
             "Crossing shop Y=$69 with held stock did not clamp Link and start theft prevention.");
         StepRoomEventFrames(4 + 12);
         FailIf(
@@ -2587,7 +2587,7 @@ public sealed partial class ValidationRoot
         _saveData.WriteWramByte(database.BoughtItems1Address, bought1Before);
         _saveData.WriteWramByte(database.BoughtItems2Address, bought2Before);
         _saveData.WriteWramByte(database.DimitriStateAddress, dimitriBefore);
-        _saveData.WriteWramByte(0xc6af, shieldBefore);
+        _saveData.WriteWramByte(WramAddress.wShieldLevel, shieldBefore);
         _saveData.WriteWramByte(bombsFlagAddress, bombsFlagsBefore);
         _saveData.CommitInventoryChange();
 
@@ -2605,7 +2605,7 @@ public sealed partial class ValidationRoot
         VasuShopDatabase database = shop.Database;
 
         _saveData.SetGlobalFlag(database.GlobalObtainedRingBox, value: false);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         _saveData.SetLinkedGame(false);
         if (_saveData.WriteWramByte(database.ObtainedRingBoxAddress, 0))
             _saveData.CommitInventoryChange();
@@ -2614,12 +2614,12 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> actors = _entities.Entities<NpcCharacter>();
         FailIf(
             actors.Count != 5 ||
-            actors[0].Record is not { Id: 0x89, SubId: 0x00, Y: 0x28, X: 0x50 } ||
-            actors[1].Record is not { Id: 0x89, SubId: 0x01, Y: 0x38, X: 0x38 } ||
-            actors[2].Record is not { Id: 0x89, SubId: 0x06, Y: 0x38, X: 0x68 } ||
-            actors[3].Record is not { Id: 0xe5, SubId: 0x00, Y: 0x48, X: 0x28,
+            actors[0].Record is not { Id: InteractionId.Vasu, SubId: 0x00, Y: 0x28, X: 0x50 } ||
+            actors[1].Record is not { Id: InteractionId.Vasu, SubId: 0x01, Y: 0x38, X: 0x38 } ||
+            actors[2].Record is not { Id: InteractionId.Vasu, SubId: 0x06, Y: 0x38, X: 0x68 } ||
+            actors[3].Record is not { Id: InteractionId.RingHelpBook, SubId: 0x00, Y: 0x48, X: 0x28,
                 Palette: 1 } ||
-            actors[4].Record is not { Id: 0xe5, SubId: 0x01, Y: 0x48, X: 0x78,
+            actors[4].Record is not { Id: InteractionId.RingHelpBook, SubId: 0x01, Y: 0x48, X: 0x78,
                 Palette: 2 } ||
             actors.Any(actor => actor.TextId != 0 || actor.TextPosition != 2 ||
                 actor.CurrentAnimationOpaquePixels == 0),
@@ -2632,11 +2632,11 @@ public sealed partial class ValidationRoot
         NpcCharacter basicsBook = actors[3];
         NpcCharacter secretsBook = actors[4];
         FailIf(
-            vasu.CurrentScriptAnimationSource != database.Animation(0x89, 0) ||
-            blue.CurrentScriptAnimationSource != database.Animation(0x89, 1) ||
-            red.CurrentScriptAnimationSource != database.Animation(0x89, 6) ||
-            basicsBook.CurrentScriptAnimationSource != database.Animation(0xe5, 0) ||
-            secretsBook.CurrentScriptAnimationSource != database.Animation(0xe5, 0) ||
+            vasu.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 0) ||
+            blue.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 1) ||
+            red.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 6) ||
+            basicsBook.CurrentScriptAnimationSource != database.Animation(InteractionId.RingHelpBook, 0) ||
+            secretsBook.CurrentScriptAnimationSource != database.Animation(InteractionId.RingHelpBook, 0) ||
             database.Text(0x3000).Contains("\\jump", StringComparison.Ordinal) ||
             database.Text(0x300b).Contains("\\jump", StringComparison.Ordinal) ||
             !database.Text(0x300b).Contains("Do you want\nto hear more?", StringComparison.Ordinal),
@@ -2706,7 +2706,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !shop.TryInteractNpc(red) ||
             shop.Stage != EventStage.RedInitial ||
-            red.CurrentScriptAnimationSource != database.Animation(0x89, 7),
+            red.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 7),
             "Red Snake did not select the prelinked TX_3009/talk-animation path.");
         _dialogue.SubmitChoiceForValidation(0);
         StepRoomEventFrames(1);
@@ -2725,17 +2725,17 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             shop.Stage != EventStage.SnakeRetreat ||
-            red.CurrentScriptAnimationSource != database.Animation(0x89, 8),
+            red.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 8),
             "Red Snake did not begin animation $08 cleanup.");
         StepRoomEventFrames(16);
         FailIf(
-            shop.HasState || red.CurrentScriptAnimationSource != database.Animation(0x89, 6),
+            shop.HasState || red.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 6),
             "Red Snake did not return to idle when animation $08 set animParameter.");
 
         // Without a Ring Box, FINISHEDGAME alone must not select the linked
         // snake table. The blue fortune then performs the original 16-bit
         // $0200 counter before reporting the absent cable.
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             !shop.TryInteractNpc(blue) ||
             shop.Stage != EventStage.BlueInitial,
@@ -2756,9 +2756,9 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         StepRoomEventFrames(1 + 16);
         FailIf(
-            shop.HasState || blue.CurrentScriptAnimationSource != database.Animation(0x89, 1),
+            shop.HasState || blue.CurrentScriptAnimationSource != database.Animation(InteractionId.Vasu, 1),
             "Blue Snake did not complete animation $03 cleanup.");
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
 
         // Exercise the ordinary first-time Vasu reward chain through both
         // mandatory ring menus, including the free appraisal and box move.
@@ -2788,7 +2788,7 @@ public sealed partial class ValidationRoot
             _inventory.RingBoxLevel != 1 || !_player.IsHoldingItemTwoHands ||
             vasuRingBox.Record is not
             {
-                GrabMode: 2,
+                GrabMode: TreasureGrabMode.TwoHands,
                 InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.Never,
                 SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
@@ -2796,7 +2796,7 @@ public sealed partial class ValidationRoot
                 CompletionOwner: GroundTreasureCompletionOwner.Caller,
                 TextboxPosition: 2
             } ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "vasu_giveRingBox did not use the manager-owned, caller-completed " +
             "L-1 Ring Box grant with two-hand audio.");
         _dialogue.Close();
@@ -2815,14 +2815,14 @@ public sealed partial class ValidationRoot
             !_player.IsHoldingItemOneHand ||
             vasuRing.Record is not
             {
-                GrabMode: 1,
+                GrabMode: TreasureGrabMode.OneHand,
                 InventoryWrite: GroundTreasureInventoryWrite.UnappraisedRing,
                 InventoryParameter: 0,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.Never,
                 DialogueTiming: GroundTreasureDialogueTiming.AfterGrab,
                 CompletionOwner: GroundTreasureCompletionOwner.Caller
             } ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1,
             "vasu_giveFriendshipRing did not perform its concrete ring-$00 " +
             "inventory write through one-hand TREASURE_RING.");
         _dialogue.Close();
@@ -2894,7 +2894,7 @@ public sealed partial class ValidationRoot
         _saveData.SetLinkedGame(true);
         LoadValidationRoom(group, roomId);
         vasu = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x89, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.Vasu, SubId: 0x00 });
         FailIf(
             !shop.TryInteractNpc(vasu) ||
             shop.Stage != EventStage.VasuLinkedGreeting ||
@@ -2913,7 +2913,7 @@ public sealed partial class ValidationRoot
         // Ring Box plus linked/completed state selects the linked snake table;
         // removing both linked predicates returns to the tutorial table.
         blue = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x89, SubId: 0x01 });
+            npc.Record is { Id: InteractionId.Vasu, SubId: 0x01 });
         FailIf(
             !shop.TryInteractNpc(blue) ||
             shop.Stage != EventStage.BlueLinkedMenu,
@@ -2921,7 +2921,7 @@ public sealed partial class ValidationRoot
         shop.Cancel();
         _dialogue.Close();
         _saveData.SetLinkedGame(false);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         FailIf(
             !shop.TryInteractNpc(blue) ||
             shop.Stage != EventStage.BlueInitial,
@@ -3021,7 +3021,7 @@ public sealed partial class ValidationRoot
             heartAcceptedEvents++;
             heartDialogueInventory.GiveCompletedHeartContainer(
                 _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
-            heartDialogueSounds.Add(OracleSoundEngine.SndFilledHeartContainer);
+            heartDialogueSounds.Add(SoundId.SndFilledHeartContainer);
             heartDialogue.ShowMessage(groundRecords[0].CompletionMessage, 0x48);
         };
         heartDialogue.ShowMessage("Heart!\\heartpiece\nAfter", 0x48);
@@ -3044,7 +3044,7 @@ public sealed partial class ValidationRoot
             heartDialogue.HeartPieceDisplayCount != 4 ||
             fullHeartHash == 0 || fullHeartHash == threeQuarterHash ||
             heartDialogueInventory.HeartPieces != 0 || heartFilledEvents != 1 ||
-            heartDialogueSounds.Count(sound => sound == OracleSoundEngine.SndText2) != 1,
+            heartDialogueSounds.Count(sound => sound == SoundId.SndText2) != 1,
             "The inline Heart Piece control did not fill/reset/sound on update 30.");
         heartDialogue.AdvanceOrClose();
         FailIf(
@@ -3055,7 +3055,7 @@ public sealed partial class ValidationRoot
             heartDialogue.CurrentMessage !=
                 DialogueBox.PlainText(groundRecords[0].CompletionMessage) ||
             heartDialogueSounds.Count(sound =>
-                sound == OracleSoundEngine.SndFilledHeartContainer) != 1,
+                sound == SoundId.SndFilledHeartContainer) != 1,
             "Accepting the full inline Heart did not grant/refill and hand off to TX_0049.");
         heartDialogue.Close();
         RemoveChild(heartDialogue);
@@ -3074,7 +3074,7 @@ public sealed partial class ValidationRoot
         isolatedManager.BeginScreenTransition(
             group, isolatedHeartRoom, isolatedHeartIncomingOffset);
         NpcCharacter isolatedGuard = isolatedManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         GroundTreasurePickup isolatedHeart =
             isolatedManager.Entities<GroundTreasurePickup>().Single();
         FailIf(
@@ -3108,10 +3108,10 @@ public sealed partial class ValidationRoot
         FailIf(
             isolatedManager.Entities<GroundTreasurePickup>().Count != 0,
             "Room flag $20 did not suppress the $dc:$07 Heart Piece on re-entry.");
-        isolatedSave.WriteWramByte(0xc6bf, 0x08);
+        isolatedSave.WriteWramByte(WramAddress.wEssencesObtained, 0x08);
         isolatedSave.CommitInventoryChange();
         NpcCharacter essenceGuard = isolatedManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         FailIf(
             essenceGuard.Active || essenceGuard.Visible,
             "Essence bit $08 did not delete hardhat worker $58:$02.");
@@ -3122,7 +3122,7 @@ public sealed partial class ValidationRoot
 
         // Exercise the reusable ground-treasure interaction before setting
         // the story bits. State 0/1 make it collectible on the second update.
-        _saveData.WriteWramByte(0xc6bf, 0x00);
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x00);
         _saveData.CommitInventoryChange();
         _saveData.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlagItem, value: false);
@@ -3146,7 +3146,7 @@ public sealed partial class ValidationRoot
             _inventory.HeartPieces != (heartPiecesBefore + 1) % 4 ||
             !_saveData.HasRoomFlag(
                 group, roomId, OracleSaveData.RoomFlagItem) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1 ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage.Contains("\\heartpiece", StringComparison.Ordinal),
             "Ground Heart Piece contact did not give the treasure, set $20, play SND_GETITEM, and open TX_0017.");
@@ -3155,7 +3155,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !heart.Held || _player.IsHoldingItemTwoHands ||
             heart.Position != _player.Position + new Vector2(0, -14) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "Ground Heart Piece did not enter its held-item update with the second SND_GETITEM.");
         InitializeGetItemStateForValidation();
         FailIf(!_player.IsHoldingItemTwoHands, "State04 initialization must select the Heart Piece pose.");
@@ -3183,7 +3183,7 @@ public sealed partial class ValidationRoot
         ValidationCutsceneTrace trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         NpcCharacter guard = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         _player.WarpTo(new Vector2(0x54, 0x38));
         _player.Face(Vector2I.Left);
         _sound.ClearPlayRequestAudit();
@@ -3213,7 +3213,7 @@ public sealed partial class ValidationRoot
                     OracleGraphicsCache.PixelHash(background) !=
                         0x353a5833802cb82dUL ||
                     _hud.Visible ||
-                    _sound.ActiveMusic != OracleSoundEngine.MusDisaster ||
+                    _sound.ActiveMusic != SoundId.MusDisaster ||
                     _warpFade.Position != Vector2.Zero ||
                     _warpFade.Size != new Vector2(
                         OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
@@ -3234,7 +3234,7 @@ public sealed partial class ValidationRoot
             {
                 FailIf(
                     !sawAftermath &&
-                    _sound.ActiveMusic != OracleSoundEngine.MusBlackTowerEntrance,
+                    _sound.ActiveMusic != SoundId.MusBlackTowerEntrance,
                     "Room 1:86 did not restore MUS_BLACK_TOWER_ENTRANCE on its same-room return.");
                 sawAftermath = true;
             }
@@ -3243,7 +3243,7 @@ public sealed partial class ValidationRoot
         }
 
         guard = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         int[] scriptTexts = trace.Observations
             .Where(entry => entry.Observation == "Dialogue")
             .Select(entry => entry.Value)
@@ -3261,9 +3261,9 @@ public sealed partial class ValidationRoot
                 OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight) ||
             _warpFade.ZIndex != 15 ||
             !scriptTexts.SequenceEqual(new[] { 0x1003, 0x1006 }) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlMediumFadeOut) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusBlackTowerEntrance) != 1 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusBlackTowerEntrance,
+            _sound.PlayRequestsFor(SoundId.SndCtrlMediumFadeOut) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusBlackTowerEntrance) != 1 ||
+            _sound.ActiveMusic != SoundId.MusBlackTowerEntrance,
             "Room 1:86 did not complete its $40 explanation/$0c return/$80 aftermath sequence exactly.");
 
         _player.WarpTo(new Vector2(0x58, 0x44));
@@ -3273,15 +3273,15 @@ public sealed partial class ValidationRoot
             _dialogue.CurrentMessage != DialogueBox.PlainText(guard.Message),
             "Completed hardhat worker did not enter the ordinary TX_1004 A-button loop.");
         _dialogue.Close();
-        _saveData.WriteWramByte(0xc6bf, 0x08);
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x08);
         _saveData.CommitInventoryChange();
         LoadValidationRoom(group, roomId);
         guard = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         FailIf(
             guard.Active || guard.Visible || roomEvent.HasState,
             "Essence bit $08 did not suppress the guard and its entry event after completion.");
-        _saveData.WriteWramByte(0xc6bf, 0x00);
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x00);
         _saveData.CommitInventoryChange();
         _roomEvents.CommandTraceSink = null;
 
@@ -3401,9 +3401,9 @@ public sealed partial class ValidationRoot
         RoomEntityManager predicateManager = predicateManagerFixture.Manager;
         predicateManager.LoadRoom(4, _world.LoadRoom(4, 0xe1));
         NpcCharacter soldier = predicateManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x40, SubId: 0x0c });
-        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
-        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+            npc.Record is { Id: InteractionId.Soldier, SubId: 0x0c });
+        predicateSave.SetGlobalFlag(GlobalFlag.Flag0b);
+        predicateSave.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             !soldier.Active || !soldier.Visible,
             "GLOBALFLAG_0b/FINISHEDGAME incorrectly hid soldier $40:$0c.");
@@ -3421,7 +3421,7 @@ public sealed partial class ValidationRoot
             "Soldier $40:$0c did not consume one global RNG value and choose its per-talk text.");
         soldierTalk.End();
         NpcCharacter pickaxe = predicateManager.Entities<NpcCharacter>().First(npc =>
-            npc.Record is { Id: 0x57, SubId: 0x03 });
+            npc.Record is { Id: InteractionId.PickaxeWorker, SubId: 0x03 });
         int expectedPickaxeText =
             data.PickaxeText(referenceRandom.Next().Value & 7);
         NpcInteractionTarget pickaxeTalk =
@@ -3461,7 +3461,7 @@ public sealed partial class ValidationRoot
         RoomEntityManager patrolManager = patrolManagerFixture.Manager;
         patrolManager.LoadRoom(4, _world.LoadRoom(4, 0xe2));
         NpcCharacter patroller = patrolManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x03 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x03 });
         _player.WarpTo(new Vector2(0x100, 0x20));
         for (int update = 0; update < 63; update++)
             patrolManager.Update(frame, _player);
@@ -3623,7 +3623,7 @@ public sealed partial class ValidationRoot
             shovelInterface, shovelSounds.Add);
         shovelManager.LoadRoom(4, shovelRooms.CurrentRoom);
         NpcCharacter shovelWorker = shovelManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x00 });
         _player.WarpTo(shovelWorker.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         var shovelTrace = new ValidationCutsceneTrace();
@@ -3638,7 +3638,7 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < data.TalkWait - 1; update++)
             shovelInteractions.Update(frame, _player);
         FailIf(
-            shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            shovelInventory.HasTreasure(TreasureId.Shovel) ||
             shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem),
             "Hardhat giveitem ran before the exact first 30-update wait.");
         shovelInteractions.Update(frame, _player);
@@ -3648,14 +3648,14 @@ public sealed partial class ValidationRoot
             data.Visual("shovel");
         InitializeGetItemStateForValidation();
         FailIf(
-            !shovelInventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            !shovelInventory.HasTreasure(TreasureId.Shovel) ||
             !shovelSave.HasRoomFlag(4, 0xe1, OracleSaveData.RoomFlagItem) ||
             !heldShovel.Held || heldShovel.PixelHash == 0 ||
             !shovelManager.Entities<GroundTreasurePickup>().Contains(heldShovel) ||
             heldShovel.Record is not
             {
-                SpawnMode: 0,
-                GrabMode: 2,
+                SpawnMode: TreasureSpawnMode.Instant,
+                GrabMode: TreasureGrabMode.TwoHands,
                 InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
                 SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
@@ -3669,7 +3669,7 @@ public sealed partial class ValidationRoot
             heldShovel.Position != _player.Position + Vector2.Up * 14 ||
             !_player.IsHoldingItemTwoHands ||
             !shovelSounds.SequenceEqual(
-                [OracleSoundEngine.SndGetItem, OracleSoundEngine.SndGetItem]) ||
+                [SoundId.SndGetItem, SoundId.SndGetItem]) ||
             DialogueBox.PlainText(shovelDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(data.Text(0x0025)),
             "Hardhat giveitem did not grant/set $20 through manager ownership, " +
@@ -3731,7 +3731,7 @@ public sealed partial class ValidationRoot
         shovelRooms.Load(4, 0xe2);
         shovelManager.LoadRoom(4, shovelRooms.CurrentRoom);
         NpcCharacter genericHardhat = shovelManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x00 });
         _player.WarpTo(genericHardhat.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         FailIf(
@@ -3801,7 +3801,7 @@ public sealed partial class ValidationRoot
         FailIf(
             runningBipin is not
             {
-                SpeedRaw: 0x28,
+                SpeedRaw: ObjectSpeed.Speed100,
                 InitialAngle: 0x18,
                 MinimumX: 0x28,
                 SpanX: 0x30,
@@ -3830,11 +3830,11 @@ public sealed partial class ValidationRoot
             save.SetLinkedGame(linked);
             foreach (byte essences in new byte[] { 0x00, 0x04, 0xff })
             {
-                if (save.WriteWramByte(0xc6bf, essences))
+                if (save.WriteWramByte(WramAddress.wEssencesObtained, essences))
                     save.CommitInventoryChange();
                 manager.LoadRoom(2, _world.LoadRoom(2, 0xfd));
                 NpcCharacter rosa = manager.Entities<NpcCharacter>().Single(npc =>
-                    npc.Record is { Id: 0x68, SubId: 0x01 });
+                    npc.Record is { Id: InteractionId.Rosa, SubId: 0x01 });
                 FailIf(rosa.Active != linked || rosa.Visible != linked ||
                     rosa.TextId != 0x1c13,
                     $"Room 2:fd Rosa $68:$01 visibility differs from linked={linked} " +
@@ -3842,12 +3842,12 @@ public sealed partial class ValidationRoot
                 manager.LoadRoom(0, _world.LoadRoom(0, 0x58));
             }
         }
-        if (save.WriteWramByte(0xc6bf, 0))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
         manager.LoadRoom(1, _world.LoadRoom(1, 0x86));
         NpcCharacter towerEntranceGuard = manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x58, SubId: 0x02 });
+            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 });
         NpcRecord towerEntranceBase = towerEntranceGuard.BaseRecord;
         FailIf(
             towerEntranceBase is not
@@ -3954,16 +3954,16 @@ public sealed partial class ValidationRoot
         FailIf(
             introMonkeys.Any(monkey => monkey.CurrentAnimationFrame != 0),
             "Room 0:5a's two-pose monkey animation did not loop after another $20 frames.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        save.SetGlobalFlag(GlobalFlag.IntroDone);
         FailIf(
             introMonkeys.Any(monkey => monkey.Active || monkey.Visible),
             "GLOBALFLAG_INTRO_DONE $0a did not remove room 0:5a's intro monkeys.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        save.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         FailIf(
             introMonkeys.Any(monkey => !monkey.Active || !monkey.Visible),
             "Clearing GLOBALFLAG_INTRO_DONE $0a did not restore room 0:5a's intro monkeys.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        save.SetGlobalFlag(GlobalFlag.IntroDone);
         manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
         List<NpcCharacter> newbornLeftFamily = manager.Entities<NpcCharacter>();
         NpcCharacter? newbornBipin = newbornLeftFamily.Find(npc =>
@@ -4022,9 +4022,9 @@ public sealed partial class ValidationRoot
             "Room 2:eb was not empty during family stage $00.");
 
         bool familySaveChanged = save.WriteWramByte(
-            OracleSaveData.ChildStageAddress, 0x04);
+            WramAddress.wChildStage, 0x04);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.ChildPersonalityAddress, 0x01);
+            WramAddress.wChildPersonality, 0x01);
         if (familySaveChanged)
             save.CommitInventoryChange();
         manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
@@ -4040,23 +4040,23 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> shyStage4Right = manager.Entities<NpcCharacter>();
         FailIf(
             shyStage4Right.Count != 1 ||
-            shyStage4Right[0].Record is not { Id: 0x28, SubId: 0x04 } ||
+            shyStage4Right[0].Record is not { Id: InteractionId.Bipin, SubId: 0x04 } ||
             shyStage4Right[0].TextId != 0x4304,
             "Room 2:eb did not select Bipin for shy family stage $04.");
 
         familySaveChanged = save.WriteWramByte(
-            OracleSaveData.ChildStageAddress, 0x06);
+            WramAddress.wChildStage, 0x06);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.NextChildStageAddress, 0x07);
+            WramAddress.wNextChildStage, 0x07);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.ChildPersonalityAddress, 0x02);
+            WramAddress.wChildPersonality, 0x02);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.ChildStatusAddress, 0x0e);
-        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x01);
+            WramAddress.wChildStatus, 0x0e);
+        familySaveChanged |= save.WriteWramByte(WramAddress.wEssencesObtained, 0x01);
         if (familySaveChanged)
             save.CommitInventoryChange();
         manager.RuntimeState.SetWramByte(
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x02);
+            WramAddress.wSeedTreeRefilledBitset, 0x02);
 
         IReadOnlyList<NpcRecord> rawPlaced =
             npcs.GetRoomNpcs(2, 0xeb);
@@ -4066,10 +4066,10 @@ public sealed partial class ValidationRoot
             rawPlaced.Count != 0 ||
             !foundRawFamily ||
             rawFamily.Count != 34 ||
-            save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x06 ||
-            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x02 ||
+            save.ReadWramByte(WramAddress.wChildStage) != 0x06 ||
+            save.ReadWramByte(WramAddress.wChildPersonality) != 0x02 ||
             manager.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0x02,
+                WramAddress.wSeedTreeRefilledBitset) != 0x02,
             "Reading NpcDatabase for room 2:eb mutated family stage, " +
             "personality, or seed-tree refill state instead of returning its " +
             "34 generated rows unchanged.");
@@ -4081,10 +4081,10 @@ public sealed partial class ValidationRoot
         List<NpcCharacter> gatedStage6Right =
             manager.Entities<NpcCharacter>();
         FailIf(
-            save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x06 ||
-            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x02 ||
+            save.ReadWramByte(WramAddress.wChildStage) != 0x06 ||
+            save.ReadWramByte(WramAddress.wChildPersonality) != 0x02 ||
             manager.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0 ||
+                WramAddress.wSeedTreeRefilledBitset) != 0 ||
             familySaveNotifications != 0 ||
             gatedStage6Right.Count != 2 ||
             gatedStage6Right.Find(npc => npc.Record.Id == 0x2b) is not
@@ -4094,19 +4094,19 @@ public sealed partial class ValidationRoot
             "The family spawner did not reject stage $07 with one Essence " +
             "while still clearing Ages seed-tree refill bit 1.");
 
-        familySaveChanged = save.WriteWramByte(0xc6bf, 0x03);
+        familySaveChanged = save.WriteWramByte(WramAddress.wEssencesObtained, 0x03);
         if (familySaveChanged)
             save.CommitInventoryChange();
         familySaveNotifications = 0;
         manager.RuntimeState.SetWramByte(
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x02);
+            WramAddress.wSeedTreeRefilledBitset, 0x02);
         manager.LoadRoom(2, _world.LoadRoom(2, 0xeb));
         List<NpcCharacter> warriorStage7Right = manager.Entities<NpcCharacter>();
         FailIf(
-            save.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x07 ||
-            save.ReadWramByte(OracleSaveData.ChildPersonalityAddress) != 0x01 ||
+            save.ReadWramByte(WramAddress.wChildStage) != 0x07 ||
+            save.ReadWramByte(WramAddress.wChildPersonality) != 0x01 ||
             manager.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0 ||
+                WramAddress.wSeedTreeRefilledBitset) != 0 ||
             familySaveNotifications != 1 ||
             warriorStage7Right.Count != 2 ||
             warriorStage7Right.Find(npc => npc.Record.Id == 0x2b) is not
@@ -4116,21 +4116,21 @@ public sealed partial class ValidationRoot
             "The family spawner did not advance curious stage $06 to warrior stage $07 " +
             "with one save notification after two Essences and seed-tree refill bit 1.");
         save.Changed -= CountFamilySaveNotification;
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
         FailIf(
             manager.Entities<NpcCharacter>().Count != 0,
             "GLOBALFLAG_FINISHEDGAME $14 did not delete the Bipin/Blossom family spawner.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         familySaveChanged = save.WriteWramByte(
-            OracleSaveData.ChildStageAddress, 0x00);
+            WramAddress.wChildStage, 0x00);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.NextChildStageAddress, 0x00);
+            WramAddress.wNextChildStage, 0x00);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.ChildPersonalityAddress, 0x00);
+            WramAddress.wChildPersonality, 0x00);
         familySaveChanged |= save.WriteWramByte(
-            OracleSaveData.ChildStatusAddress, 0x00);
-        familySaveChanged |= save.WriteWramByte(0xc6bf, 0x00);
+            WramAddress.wChildStatus, 0x00);
+        familySaveChanged |= save.WriteWramByte(WramAddress.wEssencesObtained, 0x00);
         if (familySaveChanged)
             save.CommitInventoryChange();
 
@@ -4140,9 +4140,9 @@ public sealed partial class ValidationRoot
             "Room 0:3a instantiated deliberately unsupported postgame " +
             "actors through the generic NPC path.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+            GlobalFlag.SawTwinrovaBeforeEndgame, value: false);
         manager.LoadRoom(0, _world.LoadRoom(0, 0x7b));
         List<NpcCharacter> graveyardBoys = manager.Entities<NpcCharacter>().Where(npc =>
             (npc.Record.Id == 0x3c && npc.Record.SubId is 0x03 or 0x04) ||
@@ -4189,19 +4189,19 @@ public sealed partial class ValidationRoot
 
         // Restore a coherent immediate-post-intro state before checking all
         // placed members of the Impa/Nayru/Zelda story-state family.
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagGotRingFromZelda, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFlameOfDespairLit, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagReturnedDog, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru, value: false);
+        save.SetGlobalFlag(GlobalFlag.PreBlackTowerCutsceneDone, value: false);
+        save.SetGlobalFlag(GlobalFlag.GotRingFromZelda, value: false);
+        save.SetGlobalFlag(GlobalFlag.FlameOfDespairLit, value: false);
+        save.SetGlobalFlag(GlobalFlag.ReturnedDog, value: false);
+        save.SetGlobalFlag(GlobalFlag.IntroDone);
         save.SetRoomFlag(0, 0x83, OracleSaveData.RoomFlag80, value: false);
         save.SetRoomFlag(0, 0xe7, OracleSaveData.RoomFlag80, value: false);
-        SetTreasure(TreasureDatabase.TreasureHarp, value: false);
-        SetTreasure(TreasureDatabase.TreasureMakuSeed, value: false);
+        SetTreasure(TreasureId.Harp, value: false);
+        SetTreasure(TreasureId.MakuSeed, value: false);
         save.SetLinkedGame(linked: false);
-        if (save.WriteWramByte(0xc6bf, 0))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
         manager.RuntimeState.SetWramByte(
@@ -4225,12 +4225,12 @@ public sealed partial class ValidationRoot
             earlyLynnaOldMan is not { Active: true } ||
             earlyLynnaOldMan.TextId != 0x2600 || !CanTalkTo(earlyLynnaOldMan),
             "Room 0:57 did not load its talkable state-$00 old man with TX_2600.");
-        if (save.WriteWramByte(0xc6bf, 0x04))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x04))
             save.CommitInventoryChange();
         FailIf(
             earlyLynnaOldMan.Active,
             "Room 0:57's $41:$01 old man remained after getGameProgress_1 state $00.");
-        if (save.WriteWramByte(0xc6bf, 0))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x58));
@@ -4239,25 +4239,25 @@ public sealed partial class ValidationRoot
         FailIf(
             rollingRidgeMan is not { Active: false },
             "Room 0:58's $41:$04 man appeared before getGameProgress_1 state $03.");
-        if (save.WriteWramByte(0xc6bf, 0x40))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x40))
             save.CommitInventoryChange();
         FailIf(
             !rollingRidgeMan.Active || rollingRidgeMan.TextId != 0x2603 ||
             !CanTalkTo(rollingRidgeMan),
             "Beating D7 did not reveal room 0:58's talkable TX_2603 state-$03 man.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             rollingRidgeMan.Active,
             "The Maku-seed/Twinrova phase did not retire room 0:58's state-$03 man.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+            GlobalFlag.SawTwinrovaBeforeEndgame, value: false);
         FailIf(
             !rollingRidgeMan.Active,
             "Clearing the later-phase flag did not restore room 0:58's D7-phase man.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(rollingRidgeMan.Active, "Finished-game state did not retire room 0:58's state-$03 man.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
-        if (save.WriteWramByte(0xc6bf, 0))
+        save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x65));
@@ -4293,19 +4293,19 @@ public sealed partial class ValidationRoot
             !CanTalkTo(earlyLynnaMan),
             "Room 0:68's $44:$02 man was visible with TX_1610 but not talkable.");
 
-        if (save.WriteWramByte(0xc6bf, 0x04))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x04))
             save.CommitInventoryChange();
         FailIf(
             !earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1611 ||
             !CanTalkTo(earlyLynnaMan),
             "Room 0:68's $44:$02 man did not switch live to D3 dialogue TX_1611.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             !earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1612 ||
             !CanTalkTo(earlyLynnaMan),
             "Room 0:68's $44:$02 man did not switch live to saved-Nayru dialogue TX_1612.");
 
-        if (save.WriteWramByte(0xc6bf, 0x40))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x40))
             save.CommitInventoryChange();
         FailIf(
             earlyLynnaMan.Active || !lateLynnaWoman.Active ||
@@ -4315,7 +4315,7 @@ public sealed partial class ValidationRoot
             !CanTalkTo(lateLynnaWoman) || !CanTalkTo(seedSatchelBoy),
             "Room 0:68 did not switch to talkable TX_1523/TX_2503 actors in state $03.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(
             earlyLynnaMan.Active || !lateLynnaWoman.Active ||
             lateLynnaWoman.TextId != 0x1524 ||
@@ -4324,7 +4324,7 @@ public sealed partial class ValidationRoot
             !CanTalkTo(makuSeedVillager),
             "Room 0:68 did not select its state-$04 dialogue and talkable villager cast.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             earlyLynnaMan.Active || !lateLynnaWoman.Active ||
             lateLynnaWoman.TextId != 0x1525 ||
@@ -4332,11 +4332,11 @@ public sealed partial class ValidationRoot
             seedSatchelBoy.TextId != 0x2505,
             "Room 0:68 did not select finished-game dialogue and retire its state-$04 villager.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, value: false);
-        if (save.WriteWramByte(0xc6bf, 0))
+            GlobalFlag.SawTwinrovaBeforeEndgame, value: false);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru, value: false);
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
         FailIf(
             !earlyLynnaMan.Active || earlyLynnaMan.TextId != 0x1610 ||
@@ -4389,17 +4389,17 @@ public sealed partial class ValidationRoot
         Span<byte> emptyName = stackalloc byte[6];
         emptyName.Clear();
         bool changed = _saveData.WriteWramBytes(
-            OracleSaveData.ChildNameAddress, emptyName);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStatusAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStageAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.NextChildStageAddress, 0x00);
+            WramAddress.wKidName, emptyName);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildStatus, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildStage, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wNextChildStage, 0x00);
         changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildPersonalityAddress, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildPersonality, 0x00);
         if (changed)
             _saveData.CommitInventoryChange();
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress, 0x00);
+            WramAddress.wSeedTreeRefilledBitset, 0x00);
 
         LoadValidationRoom(2, 0xea);
         NpcCharacter? blossom = _entities.Entities<NpcCharacter>().Find(npc =>
@@ -4461,9 +4461,9 @@ public sealed partial class ValidationRoot
         // nibbles: P=$0, i=$9, p=$0, so Pip selects status $01.
         FailIf(
             _saveData.ChildName != "Pip" || !_saveData.ChildNamed ||
-            _saveData.ReadWramByte(OracleSaveData.ChildStatusAddress) != 0x01 ||
-            _saveData.ReadWramByte(OracleSaveData.ChildStageAddress) != 0x00 ||
-            _saveData.ReadWramByte(OracleSaveData.NextChildStageAddress) != 0x01,
+            _saveData.ReadWramByte(WramAddress.wChildStatus) != 0x01 ||
+            _saveData.ReadWramByte(WramAddress.wChildStage) != 0x00 ||
+            _saveData.ReadWramByte(WramAddress.wNextChildStage) != 0x01,
             "Confirming Pip did not reproduce wKidName/wChildStatus/wc6e2/wNextChildStage writes.");
 
         NpcCharacter? bipin = _entities.Entities<NpcCharacter>().Find(npc =>
@@ -4524,12 +4524,12 @@ public sealed partial class ValidationRoot
             !bipin.Message.Contains("Pip", StringComparison.Ordinal),
             "Reloading room 2:ea lost the named stage-$00 family dialogue state.");
 
-        changed = _saveData.WriteWramBytes(OracleSaveData.ChildNameAddress, emptyName);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStatusAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildStageAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.NextChildStageAddress, 0x00);
+        changed = _saveData.WriteWramBytes(WramAddress.wKidName, emptyName);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildStatus, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildStage, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wNextChildStage, 0x00);
         changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildPersonalityAddress, 0x00);
+        changed |= _saveData.WriteWramByte(WramAddress.wChildPersonality, 0x00);
         if (changed)
             _saveData.CommitInventoryChange();
 

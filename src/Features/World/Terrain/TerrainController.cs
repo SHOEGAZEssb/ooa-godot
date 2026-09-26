@@ -116,7 +116,7 @@ public sealed class TerrainController
 
         LedgeLandingScan landing = ScanForLanding(room, highPosition, direction);
         int speedRaw = landing.CrossesScreen
-            ? 0
+            ? ObjectSpeed.Speed0
             : _ledges.SpeedRaw(landing.CliffLength);
         var plan = new LedgeJumpPlan(
             direction,
@@ -166,7 +166,7 @@ public sealed class TerrainController
         _worldRoot.AddChild(splash);
         splash.SetPhysicsProcess(false);
         _splashes.Add(splash);
-        _playSound(OracleSoundEngine.SndSplash);
+        _playSound(SoundId.SndSplash);
     }
 
     internal void AdvanceApplicationUpdate()

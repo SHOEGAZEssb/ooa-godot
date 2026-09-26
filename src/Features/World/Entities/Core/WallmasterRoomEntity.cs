@@ -35,7 +35,7 @@ internal sealed class WallmasterRoomEntity
                     player =>
                     {
                         if (wallmaster.HandleLinkContact(player))
-                            soundRequested(OracleSoundEngine.SndBossDead);
+                            soundRequested(SoundId.SndBossDead);
                     },
                     wallmaster.TakeDeathPuff,
                     (sourcePosition, strength) =>
@@ -43,7 +43,7 @@ internal sealed class WallmasterRoomEntity
                         wallmaster.ApplySwordKnockback(
                             sourcePosition, strength);
                         soundRequested(
-                            OracleSoundEngine.SndDamageEnemy);
+                            SoundId.SndDamageEnemy);
                     }),
                 EnemySwordResponse.Knockback,
                 completedOutcome: () =>
@@ -69,7 +69,7 @@ internal sealed class WallmasterRoomEntity
             return;
         _warpRequested(new Warp(
             _group, _room, -1, 0, 0,
-            _destinationGroup, _destinationRoom, 0x87, 0, 3));
+            _destinationGroup, _destinationRoom, 0x87, 0, WarpDestinationTransition.EnterScreen));
     }
 
     public override bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)

@@ -11,8 +11,8 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             LoadValidationRoom(4, 0x9f);
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-            _inventory.EquipA(InventoryState.ItemSwitchHook);
+            _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+            _inventory.EquipA(TreasureId.SwitchHook);
             Vector2 stair = new(88, 88);
             FailIf(_currentRoom.GetMetatile(stair) != 0x44,
                 "Exchange fixture requires Crown4:9f's unchanged stair $55.");
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             // invincibility expires. No tile or collision geometry is changed.
             target.Position = stair;
             FailIf(!_entities.SwitchHook!.CanLiftEnemy(stair), "The real stair must permit enemy exchange.");
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
             var hook = _entities.SwitchHook.Item!;
             for (int update = 0; hook.State != 3 && update < 40; update++)
@@ -50,14 +50,14 @@ public sealed partial class ValidationRoot
             for (int update = 0; update < 16; update++)
             {
                 StepGameplayUpdates(1, Vector2.Zero);
-                FailIf(IsTransitioning || _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds,
+                FailIf(IsTransitioning || _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds,
                     "Neither lowering nor the final Z=0 write may bypass the retained Link air state.");
             }
             FailIf(!hook.Finished || !_player.TopDownAirborne || _player.TopDownAirZ != 0,
                 "Hook completion must leave Z=0 with the source's retained air state.");
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_player.TopDownAirborne || !IsTransitioning ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds + 1,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds + 1,
                 "The next Link dispatch clears air before func_60e9 and must activate the stair exactly once.");
         }
         ReinitializeGameplayForValidation();

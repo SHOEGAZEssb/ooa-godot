@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
             FailIf(!_player.IsDrowning || !_player.NativeNormalStateForInteraction ||
                 _player.NativeInteractionCollisionsEnabled || _player.NativePuzzleResetVulnerable ||
                 _player.AcceptsRoomEntityContact || _player.AcceptsGroundInteractionContact,
-                $"Walking into original water must request state02: position={_player.Position}, drowning={_player.IsDrowning}, normal={_player.NativeNormalStateForInteraction}, collisions={_player.NativeInteractionCollisionsEnabled}, flippers={_inventory.HasTreasure(TreasureDatabase.TreasureFlippers)}.");
+                $"Walking into original water must request state02: position={_player.Position}, drowning={_player.IsDrowning}, normal={_player.NativeNormalStateForInteraction}, collisions={_player.NativeInteractionCollisionsEnabled}, flippers={_inventory.HasTreasure(TreasureId.Flippers)}.");
             _player.RequestWallSquish(0, "Drowning pending-state fixture");
             Step();
             FailIf(_player.NativeNormalStateForInteraction || _player.SideScrollSquished || !_player.Visible,

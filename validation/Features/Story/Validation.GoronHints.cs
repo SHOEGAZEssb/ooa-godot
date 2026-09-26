@@ -29,14 +29,14 @@ public sealed partial class ValidationRoot
         }
         ReinitializeGameplayForValidation();
         LoadValidationRoom(2,0xf6); StepGameplayUpdates(4,Vector2.Zero);
-        FailIf(_entities.Entities<NpcCharacter>().Any(n=>n.Record is {Id:0x66,SubId:0x0f}&&n.Active),
+        FailIf(_entities.Entities<NpcCharacter>().Any(n=>n.Record is {Id:InteractionId.Goron,SubId:0x0f}&&n.Active),
             "Biggoron secret NPC appeared in an unlinked game.");
         _saveData.SetLinkedGame(true);
         LoadValidationRoom(2,0xf6); StepGameplayUpdates(4,Vector2.Zero);
-        var goron=_entities.Entities<NpcCharacter>().Single(n=>n.Record is {Id:0x66,SubId:0x0f});
+        var goron=_entities.Entities<NpcCharacter>().Single(n=>n.Record is {Id:InteractionId.Goron,SubId:0x0f});
         ApproachGoronActorFromFloor(goron); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(130,0);
-        FailIf(!_saveData.HasGlobalFlag(0x58)||_saveData.ReadWramByte(0xc6fb)!=0x28,
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganBiggoronSecret)||_saveData.ReadWramByte(WramAddress.wShortSecretIndex)!=0x28,
             "Biggoron secret did not write GLOBALFLAG $58 and short-secret index $28.");
         ApproachGoronActorFromFloor(goron); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         for(int i=0;i<8&&!_dialogue.IsOpen;i++) StepGameplayUpdates(1,Vector2.Zero);

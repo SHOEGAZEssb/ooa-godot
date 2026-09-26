@@ -113,10 +113,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         Vector2 position,
         OracleRoomData room,
         ItemDropDatabaseVisualRecord visual,
-        int angle = 0,
+        int angle = ObjectAngle.Up,
         bool dugUp = false,
         Action<int>? soundRequested = null,
-        int collectionSound = 0,
+        int collectionSound = SoundId.MusNone,
         ItemDropDatabase? itemDrops = null,
         OracleRandom? random = null,
         Func<bool>? maplePresent = null,
@@ -491,10 +491,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         if (Finished || (_zFixed >> 8) < 0 || _room.ActiveCollisions is not (2 or 5)) return;
         int angle = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Type switch
         {
-            TerrainType.UpConveyor => 0,
-            TerrainType.RightConveyor => 8,
-            TerrainType.DownConveyor => 16,
-            TerrainType.LeftConveyor => 24,
+            TerrainType.UpConveyor => ObjectAngle.Up,
+            TerrainType.RightConveyor => ObjectAngle.Right,
+            TerrainType.DownConveyor => ObjectAngle.Down,
+            TerrainType.LeftConveyor => ObjectAngle.Left,
             _ => -1
         };
         if (angle < 0) return;
@@ -654,14 +654,14 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 break;
             case ItemDropDatabase.Bombs:
                 player.Inventory.GiveTreasure(
-                    TreasureDatabase.TreasureBombs,
+                    TreasureId.Bombs,
                     RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
                         ? 0x08
                         : 0x04);
                 break;
             case >= ItemDropDatabase.EmberSeeds and <= ItemDropDatabase.MysterySeeds:
                 player.Inventory.GiveTreasure(
-                    TreasureDatabase.TreasureEmberSeeds + SubId - ItemDropDatabase.EmberSeeds,
+                    TreasureId.EmberSeeds + SubId - ItemDropDatabase.EmberSeeds,
                     RingEffects.DropMultiplier(player.Inventory, RingDropKind.Other) == 2
                         ? 0x0a
                         : 0x05);
@@ -671,7 +671,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 return;
         }
 
-        if (_collectionSound != 0)
+        if (_collectionSound != SoundId.MusNone)
             _soundRequested(_collectionSound);
         Collected = true;
         Finished = true;

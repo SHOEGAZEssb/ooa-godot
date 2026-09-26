@@ -34,8 +34,8 @@ public partial class ValidationRoot
                 "The next child dispatch must copy parent collision radii and animation parameter.");
             var empty = new List<RoomEntitySpawn>();
             Rect2 bounds = new(children[0].Position-Vector2.One*2,Vector2.One*4);
-            FailIf(children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,0,0x1a,empty)!=SeedHitResult.None ||
-                children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,-14,0x1a,empty)!=SeedHitResult.Bounce,
+            FailIf(children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,0,ItemId.Dust,empty)!=SeedHitResult.None ||
+                children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,-14,ItemId.Dust,empty)!=SeedHitResult.Bounce,
                 "PART$33:03 at Z$f2 must reflect a height-matched seed but not a ground-level shooter seed.");
             var shooter = SeedShooterRecord.Load();
             var ember = new SeedSatchelDatabase().Ember;

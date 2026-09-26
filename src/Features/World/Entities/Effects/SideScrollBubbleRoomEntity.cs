@@ -77,7 +77,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
                 _turns = _definition.Turns;
                 _turnStep = -_turnStep;
             }
-            Angle = (Angle + _turnStep) & 0x1f;
+            Angle = (Angle + _turnStep) & ObjectAngle.Mask;
         }
         QueueRedraw();
     }

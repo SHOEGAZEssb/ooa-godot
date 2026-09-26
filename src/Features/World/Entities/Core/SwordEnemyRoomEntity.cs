@@ -61,12 +61,12 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
         ICollection<RoomEntitySpawn> spawns)
     {
         int effect = EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collision);
-        if (effect == 0) return false;
+        if (effect == CollisionEffect.None) return false;
         EnemyKnockbackStrength strength = effect switch
         {
-            8 => EnemyKnockbackStrength.Low,
-            9 => EnemyKnockbackStrength.Normal,
-            10 => EnemyKnockbackStrength.High,
+            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
+            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
+            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
             _ => throw new NotSupportedException($"Sword enemy ${Entity.Record.Id:x2}:${Entity.Record.SubId:x2}, collision ${collision:x2}: effect ${effect:x2}.")
         };
         return base.ApplySwordHit(hitbox, origin, damage, strength, spawns);
@@ -75,9 +75,9 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("Sword enemies require Mystery Seed's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("Sword enemies require Mystery Seed's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
 
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
@@ -89,26 +89,26 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
         int effect = EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collisionType);
         switch (effect)
         {
-            case 0: return new(true, SeedHitResult.None, false);
-            case 0x20: break; // Consume an ineffective seed, including fire against Darknuts.
-            case 0x08:
+            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
+            case CollisionEffect.Effect20: break; // Consume an ineffective seed, including fire against Darknuts.
+            case CollisionEffect.SwordLowKnockback:
                 ApplyDamageCollision(collisionType, hitbox, origin, -(sbyte)seed.Damage, spawns);
                 break;
-            case 0x28:
+            case CollisionEffect.PegasusSeed:
                 Entity.BeginPegasusHit();
-                CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
                 break;
-            case 0x29:
+            case CollisionEffect.GaleSeed:
                 Entity.ClearSeedStun();
                 BeginNativeGale(origin, _random);
                 break;
-            case 0x34:
+            case CollisionEffect.Effect34:
                 Entity.BeginEmberHit();
                 if (_freePartSlot()) spawns.Add(new BurningEnemySpawn(this));
                 break;
             default: throw new NotSupportedException($"Sword enemy ${Entity.Record.Id:x2}:${Entity.Record.SubId:x2}, seed collision ${collisionType:x2}: effect ${effect:x2}.");
         }
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != 0x08);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordLowKnockback);
     }
 
     public override void HandleLinkContact(Player player)

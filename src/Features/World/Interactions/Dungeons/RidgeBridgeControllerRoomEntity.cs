@@ -29,7 +29,7 @@ internal sealed partial class RidgeBridgeControllerRoomEntity : DungeonMechanicR
     private void Initialize()
     {
         _initialized = true;
-        Finished = _save.HasRoomFlag(_record.Group, _record.Room, 0x80);
+        Finished = _save.HasRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
     }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
@@ -46,7 +46,7 @@ internal sealed partial class RidgeBridgeControllerRoomEntity : DungeonMechanicR
         if (_triggers() == 0 || !_freePartSlot()) return;
         spawns.Add(new BridgeSpawnerSpawn(_record.PackedPosition, _record.Parameter,
             _data.RidgeBridgeAngle(_record.SubId)));
-        _save.SetRoomFlag(_record.Group, _record.Room, 0x80);
+        _save.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
         _sound(_data.SolveSound);
         Finished = true;
     }

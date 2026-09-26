@@ -106,8 +106,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _tileBreaker = createTileBreaker(room);
         _group = spawn.Group; _precisePosition = spawn.Position; _direction = spawn.Direction;
         _phase = spawn.Riding ? DimitriPhase.Riding :
-            (save.ReadWramByte(0xc647) & 0x80) == 0 &&
-            ((save.ReadWramByte(0xc647) & 0x40) != 0 || (save.ReadWramByte(0xc647) & 0x20) == 0)
+            (save.ReadWramByte(WramAddress.wDimitriState) & 0x80) == 0 &&
+            ((save.ReadWramByte(WramAddress.wDimitriState) & 0x40) != 0 || (save.ReadWramByte(WramAddress.wDimitriState) & 0x20) == 0)
                 ? DimitriPhase.Harassed : DimitriPhase.Waiting;
         if (spawn.FluteDestination is Vector2 destination)
         {
@@ -127,7 +127,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
 
     internal void BeginIntroResponse()
     {
-        if ((_save.ReadWramByte(0xc647) & 1) == 0)
+        if ((_save.ReadWramByte(WramAddress.wDimitriState) & 1) == 0)
             _phase = DimitriPhase.IntroPending;
     }
 
@@ -147,14 +147,14 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         if (Math.Abs(delta.X) + Math.Abs(delta.Y) > 24 ||
             delta.Dot(player.FacingVector) <= 0) return false;
         if (_forestInteraction) { ForestButtonPressed = true; return true; }
-        if ((_save.ReadWramByte(0xc647) & 2) == 0)
+        if ((_save.ReadWramByte(WramAddress.wDimitriState) & 2) == 0)
         {
             Show(0x2100, player);
             _phase = DimitriPhase.HarassedDialogue;
         }
         else
         {
-            Show(_save.ReadWramByte(0xc610) == 0x0c ? 0x2102 : 0x2101, player);
+            Show(_save.ReadWramByte(WramAddress.wAnimalCompanion) == 0x0c ? 0x2102 : 0x2101, player);
             _phase = DimitriPhase.RescueDialogue;
         }
         return true;
@@ -179,7 +179,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         bool itemPressed = _itemEdge.Read(item);
         // INTERAC_COMPANION_SCRIPTS $71:$06 waits until Dimitri reaches land.
         if (!_goodbye && _data.IsGoodbyeRoom(_group, _room.Id) &&
-            (_save.ReadWramByte(0xc647) & 0x40) == 0 && _water == 0 &&
+            (_save.ReadWramByte(WramAddress.wDimitriState) & 0x40) == 0 && _water == 0 &&
             _phase is DimitriPhase.Riding or DimitriPhase.Waiting)
         {
             _goodbye = true;
@@ -235,7 +235,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 _angle = 0xff;
                 _mountStarted = false;
                 SetAnimation(0);
-                CompanionRuntimeState.Begin(_runtime, 0x0c, _room.Id, _precisePosition, _direction);
+                CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
                 SynchronizePlayer(player, finishMount: true);
                 if (_rescueMount)
                 {
@@ -251,7 +251,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                     _phase = DimitriPhase.Eating; _bitePhase = 0; _swallowed = false;
                     _angle = _direction * 8;
                     SetAnimation(8);
-                    _sound(0xc4);
+                    _sound(SoundId.SndDimitri);
                     spawns.Add(new DimitriMouthSpawn(this, _group, _room.Id));
                     break;
                 }
@@ -281,8 +281,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 if (!_dismountStarted)
                 {
                     _dismountStarted = true;
-                    CompanionRuntimeState.Remember(_runtime, 0x0c, _group, _room.Id, _precisePosition);
-                    CompanionRuntimeState.Clear(_runtime, 0x0c);
+                    CompanionRuntimeState.Remember(_runtime, SpecialObjectId.Dimitri, _group, _room.Id, _precisePosition);
+                    CompanionRuntimeState.Clear(_runtime, SpecialObjectId.Dimitri);
                     if (_goodbye) CompanionRuntimeState.ForgetRemembered(_runtime);
                     player.BeginCompanionDismount(_precisePosition, _direction);
                     SetAnimation(0x1c);
@@ -316,7 +316,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 break;
             case DimitriPhase.ReturningToLand:
                 if (!OracleObjectMath.UpdateSpeedZ(ref _carried.ZFixed, ref _carried.SpeedZ, 0x40)) break;
-                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(SoundId.SndLinkSwim);
                 ApplySpeed(0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();
@@ -326,24 +326,24 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             case DimitriPhase.CliffJump:
                 if (_counter > 0)
                 {
-                    if (--_counter == 0) _sound(OracleSoundEngine.SndJump);
+                    if (--_counter == 0) _sound(SoundId.SndJump);
                     break;
                 }
                 _animation.Advance();
                 ApplySpeed(0x50, collide: false);
                 OracleObjectMath.UpdateSpeedZ(ref _carried.ZFixed, ref _carried.SpeedZ, 0x40);
-                int away = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, AdjacentWalls());
+                int away = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, AdjacentWalls());
                 if (away != 0) _cliffWalls = away;
                 else if (_cliffWalls != 0) { _phase = DimitriPhase.Riding; SetAnimation(0); }
                 break;
             case DimitriPhase.FlutePending:
                 _phase = DimitriPhase.FluteEntering;
                 _counter = 0x3c;
-                _sound(0xc4);
+                _sound(SoundId.SndDimitri);
                 SetAnimation(0);
                 break;
             case DimitriPhase.FluteEntering:
-                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(SoundId.SndLinkSwim);
                 ApplySpeed(_water == 0 ? 0x1e : 0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();
@@ -375,12 +375,12 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 break;
             case DimitriPhase.GoodbyeDialogue:
                 if (_dialogueOpen()) break;
-                _direction = 1; _angle = 8; SetAnimation(0);
-                _sound(0xc4);
+                _direction = 1; _angle = ObjectAngle.Right; SetAnimation(0);
+                _sound(SoundId.SndDimitri);
                 _phase = DimitriPhase.Leaving;
                 break;
             case DimitriPhase.Leaving:
-                if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
+                if ((_animation.CurrentParameter & 0x80) != 0) _sound(SoundId.SndLinkSwim);
                 ApplySpeed(_water == 0 ? 0x1e : 0x28);
                 BreakGroundTile(spawns);
                 _animation.Advance();
@@ -394,7 +394,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         if (LinkRiding)
         {
-            CompanionRuntimeState.Update(_runtime, 0x0c, _room.Id, _precisePosition, _direction);
+            CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
             SynchronizePlayer(player);
         }
         ZIndex = LinkRiding || Position.Y <= player.Position.Y + NpcCharacter.LinkPriorityYOffset
@@ -416,7 +416,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 return; // dimitriState5 returns on an angle change.
             }
             if (TryStartCliffJump()) return;
-            if ((_animation.CurrentParameter & 0x80) != 0) _sound(0x88);
+            if ((_animation.CurrentParameter & 0x80) != 0) _sound(SoundId.SndLinkSwim);
             ApplySpeed(_water == 0 ? 0x1e : 0x28);
             BreakGroundTile(spawns);
             _animation.Advance();
@@ -512,7 +512,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     {
         if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
         byte tile = _room.GetMetatile(_precisePosition + _native.Probes("cliff")[_direction]);
-        if (tile == 0xd4 ? _angle != 0x10 : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
+        if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = DimitriPhase.CliffJump;
         _carried.SpeedZ = -0x2c0;
         _counter = 0x14;
@@ -539,11 +539,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _holder = player;
         _water = 0;
         _direction = CarriedObjectMotion.DirectionIndex(player.FacingVector);
-        CompanionRuntimeState.Begin(_runtime, 0x0c, _room.Id, _precisePosition, _direction, updateMountPoint: false);
+        CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction, updateMountPoint: false);
         SetAnimation(0x18);
         _carried = new CarriedObjectMotion(_precisePosition);
         player.BeginCarriedObjectPose();
-        _save.WriteWramByte(0xc649, (byte)(_save.ReadWramByte(0xc649) | 4));
+        _save.WriteWramByte(WramAddress.wCompanionTutorialTextShown, (byte)(_save.ReadWramByte(WramAddress.wCompanionTutorialTextShown) | 4));
         _carried.Hold(player);
         _precisePosition = _carried.GroundPosition;
         return true;
@@ -580,7 +580,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             _direction = CarriedObjectMotion.DirectionIndex(player.FacingVector);
         _carried.Hold(player);
         _precisePosition = _carried.GroundPosition;
-        CompanionRuntimeState.Update(_runtime, 0x0c, _room.Id, _precisePosition, _direction);
+        CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
     }
 
     private void ReleaseCarried(Player player, Vector2I direction)
@@ -590,7 +590,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _throwOrigin = OracleObjectMath.ToPixelPosition(player.Position);
         _phase = DimitriPhase.Thrown;
         _holder = null;
-        CompanionRuntimeState.Clear(_runtime, 0x0c);
+        CompanionRuntimeState.Clear(_runtime, SpecialObjectId.Dimitri);
     }
 
     private void UpdateThrown(Player player)
@@ -605,13 +605,13 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         if (_precisePosition.X < 4) { _precisePosition.X = 4; stopped = true; }
         if (_precisePosition.X >= maxX) { _precisePosition.X = maxX; stopped = true; }
         _carried.GroundPosition = _precisePosition;
-        if (stopped) _carried.SpeedRaw = 0;
+        if (stopped) _carried.SpeedRaw = ObjectSpeed.Speed0;
         _carried.AdvanceHorizontal(_throwing, static _ => false);
         _precisePosition = _carried.GroundPosition;
         bool landed = _carried.AdvanceVertical(_bracelet);
         if (landed && IsWater(_precisePosition))
         {
-            _angle = OracleObjectMovement.Shared.RelativeAngle(_precisePosition, _throwOrigin) & 0x18;
+            _angle = OracleObjectMovement.Shared.RelativeAngle(_precisePosition, _throwOrigin) & ObjectAngle.CardinalMask;
             _direction = _angle >> 3;
             _water = 4;
             SetAnimation(0);
@@ -623,7 +623,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private void SetAnimation(int animationBase) => _animation.SetAnimation(animationBase + _direction + _water);
     private void SetStateBit(byte mask)
     {
-        if (_save.WriteWramByte(0xc647, (byte)(_save.ReadWramByte(0xc647) | mask))) _save.CommitInventoryChange();
+        if (_save.WriteWramByte(WramAddress.wDimitriState, (byte)(_save.ReadWramByte(WramAddress.wDimitriState) | mask))) _save.CommitInventoryChange();
     }
     private void Show(int textId, Player player) => _showText(textId, _data.Text(textId), player.Position);
     internal void Swallow() => _swallowed = true;
@@ -659,7 +659,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         if (horizontal) _precisePosition.X = coordinate + _precisePosition.X - Mathf.Floor(_precisePosition.X);
         else _precisePosition.Y = coordinate + _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        CompanionRuntimeState.Update(_runtime, 0x0c, _room.Id, _precisePosition, _direction);
+        CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
         SynchronizePlayer(player);
     }
     public void BeginScreenTransition(OracleRoomData destination) => _destination = destination;
@@ -686,13 +686,13 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             player.FinishScrollingTransition(position);
             player.BeginCarriedObjectPose();
             SetCarriedTransitionPosition(position, Vector2.Zero, player);
-            CompanionRuntimeState.Update(_runtime, 0x0c, _room.Id, _precisePosition, _direction);
+            CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
             return;
         }
         _destination = null; _precisePosition = position; Position = OracleObjectMath.ToPixelPosition(position);
         player.SetLocalRespawnPosition(Position);
         CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, Position);
-        CompanionRuntimeState.Update(_runtime, 0x0c, _room.Id, position, _direction);
+        CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, position, _direction);
         SynchronizePlayer(player);
     }
 }

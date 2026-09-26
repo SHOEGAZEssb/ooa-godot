@@ -71,7 +71,7 @@ internal sealed class PoeEventDatabase
             {
                 Group: 0,
                 Room: 0x7c,
-                InteractionId: 0x59,
+                InteractionId: InteractionId.Poe,
                 SubId: 0,
                 FirstVariant: 0,
                 TombVariant: 1,
@@ -86,8 +86,8 @@ internal sealed class PoeEventDatabase
                 FlickerCount: 30,
                 FlickerAddress: 0x3e,
                 FlickerMask: 0x02,
-                PoofSound: OracleSoundEngine.SndPoof,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                PoofSound: SoundId.SndPoof,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_00",
                 Speed100: 0x28,
@@ -115,7 +115,7 @@ internal sealed class PoeEventDatabase
                 { Flag: OracleSaveData.RoomFlag40 } ||
             Commands[6] is not CutsceneWaitCommand { Frames: 40 } ||
             Commands[7] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndPoof } ||
+                { Sound: SoundId.SndPoof } ||
             Commands[8] is not CutsceneWriteObjectByteCommand
                 { Actor: "Poe", Address: 0x3e, Value: 30 } ||
             Commands[9] is not CutsceneFlickerCommand
@@ -139,7 +139,7 @@ internal sealed class PoeEventDatabase
             Commands[24] is not CutsceneShowTextCommand { TextId: 0x0b02 } ||
             Commands[25] is not CutsceneWaitCommand { Frames: 30 } ||
             Commands[26] is not CutsceneGiveItemCommand
-                { TreasureId: TreasureDatabase.TreasureTradeItem, Parameter: 0 } ||
+                { TreasureId: TreasureId.TradeItem, Parameter: 0 } ||
             Commands[27] is not CutsceneBranchCommand { TargetCommand: 6 })
         {
             throw new InvalidOperationException(

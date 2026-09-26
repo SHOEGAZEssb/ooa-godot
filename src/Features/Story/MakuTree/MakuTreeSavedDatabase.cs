@@ -68,11 +68,11 @@ internal sealed class MakuTreeSavedDatabase
             {
                 Group: 0,
                 Room: 0x38,
-                InteractionId: 0x87,
+                InteractionId: InteractionId.MakuTree,
                 SubId: 0x00,
                 TextboxPosition: 2,
-                Music: OracleSoundEngine.MusMakuTree,
-                AdviceFlag: OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap,
+                Music: SoundId.MusMakuTree,
+                AdviceFlag: GlobalFlag.MakuGivesAdviceFromPresentMap,
                 MapTextLow: 0x4f,
                 FallingTreasureObject: "TREASURE_OBJECT_SEED_SATCHEL_02",
                 RespawnTreasureObject: "TREASURE_OBJECT_SEED_SATCHEL_03",
@@ -89,8 +89,8 @@ internal sealed class MakuTreeSavedDatabase
                 BounceCount: 2,
                 Gravity: 0x10,
                 BounceSpeed: -0xaa,
-                SpawnSound: OracleSoundEngine.SndSolvePuzzle,
-                LandingSound: OracleSoundEngine.SndDropEssence
+                SpawnSound: SoundId.SndSolvePuzzle,
+                LandingSound: SoundId.SndDropEssence
             } || string.IsNullOrWhiteSpace(Record.ExtraSprite))
         {
             throw new InvalidOperationException(
@@ -104,7 +104,7 @@ internal sealed class MakuTreeSavedDatabase
             Commands[0] is not CutsceneNativeCommand
                 { Handler: "makuTree_checkSpawnSeedSatchel" } ||
             Commands[1] is not CutsceneSetMusicCommand
-                { Music: OracleSoundEngine.MusMakuTree } ||
+                { Music: SoundId.MusMakuTree } ||
             Commands[2] is not CutsceneSetAnimationContinueCommand
                 { Actor: "MakuTree", Animation: 0 } ||
             Commands[3] is not CutsceneSetCollisionRadiiCommand
@@ -118,7 +118,7 @@ internal sealed class MakuTreeSavedDatabase
             Commands[36] is not CutsceneTextOptionBranchCommand
                 { Value: 0, TargetCommand: 26 } ||
             Commands[51] is not CutsceneSetGlobalFlagCommand
-                { Flag: OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap } ||
+                { Flag: GlobalFlag.MakuGivesAdviceFromPresentMap } ||
             Commands[52] is not CutsceneWriteMemoryCommand
                 { Binding: "wMakuMapTextPresent", Value: 0x4f } ||
             Commands[55] is not CutsceneNativeCommand

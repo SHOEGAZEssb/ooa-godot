@@ -247,7 +247,7 @@ internal sealed class FrontendIntroController
                 HorseSpritePalette = 0;
                 _horseBirdXFixed = 0xc800;
                 HorseBirdAnimationClock = 0;
-                _playSound(OracleSoundEngine.MusIntro1);
+                _playSound(SoundId.MusIntro1);
                 BeginFade(
                     toWhite: false,
                     _data.Timing("horse-fade-divisor"));
@@ -588,7 +588,7 @@ internal sealed class FrontendIntroController
             case 9:
                 if (--Counter != 0)
                     break;
-                _playSound(OracleSoundEngine.SndFadeOut);
+                _playSound(SoundId.SndFadeOut);
                 BeginFade(toWhite: true);
                 State = 10;
                 break;
@@ -635,7 +635,7 @@ internal sealed class FrontendIntroController
             {
                 TriforceState = 1;
                 _templeLinkSubstate = 1;
-                _playSound(OracleSoundEngine.SndDropEssence);
+                _playSound(SoundId.SndDropEssence);
             }
             else TempleLinkAnimationClock++;
         }
@@ -686,12 +686,12 @@ internal sealed class FrontendIntroController
             case 3:
                 _triforceSubstate = 4;
                 _triforceCounter = TriforceTiming(3);
-                _playSound(OracleSoundEngine.SndEnergyThing);
+                _playSound(SoundId.SndEnergyThing);
                 break;
             case 4:
                 _triforceSubstate = 5;
                 TriforceState = 2;
-                _playSound(OracleSoundEngine.SndAquamentusHover);
+                _playSound(SoundId.SndAquamentusHover);
                 break;
         }
     }
@@ -770,7 +770,7 @@ internal sealed class FrontendIntroController
         if (_flashCounter < _data.Timing("temple-flash"))
             return;
         FlashWhite = false;
-        _playSound(OracleSoundEngine.SndFairyCutscene);
+        _playSound(SoundId.SndFairyCutscene);
         Counter = _data.Timing("temple-link-fall");
         TempleLinkAnimation = 5;
         TempleLinkAnimationClock = -1; // The trailing object dispatch installs frame 0.
@@ -797,7 +797,7 @@ internal sealed class FrontendIntroController
                 InitializeBirds();
                 _treeScrollCounter = _data.Timing("tree-scroll-step");
                 BeginFade(toWhite: false);
-                _playSound(OracleSoundEngine.MusIntro2);
+                _playSound(SoundId.MusIntro2);
                 State = 1;
                 break;
             case 1:
@@ -829,7 +829,7 @@ internal sealed class FrontendIntroController
             case 2:
                 UpdateBirds();
                 if (_titleSoundCounter > 0 && --_titleSoundCounter == 0)
-                    _playSound(OracleSoundEngine.SndSwordObtained);
+                    _playSound(SoundId.SndSwordObtained);
                 if ((FrameCounter & 1) != 0)
                     break;
                 if (_titleRevealIndex < 7)
@@ -941,7 +941,7 @@ internal sealed class FrontendIntroController
         if (TreeScrollY == 0x88)
             return;
         OracleObjectVelocity velocity =
-            OracleObjectSpeedTable.Shared.Get(0x05, 0x10);
+            OracleObjectSpeedTable.Shared.Get(0x05, ObjectAngle.Down);
         _cloudOffsetYFixed = unchecked(
             (ushort)(_cloudOffsetYFixed + velocity.YFixed));
     }
@@ -958,14 +958,14 @@ internal sealed class FrontendIntroController
                 ShowTitle();
                 Counter = _data.Timing("title-idle");
                 _titleScreen.SetTitleBlink((Counter & 0x20) == 0);
-                _playSound(OracleSoundEngine.MusTitlescreen);
+                _playSound(SoundId.MusTitlescreen);
                 State = 1;
                 break;
             case 1:
                 if (startPressed)
                 {
-                    _playSound(OracleSoundEngine.SndSelectItem);
-                    _playSound(OracleSoundEngine.SndCtrlFastFadeOut);
+                    _playSound(SoundId.SndSelectItem);
+                    _playSound(SoundId.SndCtrlFastFadeOut);
                     BeginFade(toWhite: true);
                     State = 3;
                     break;
@@ -974,7 +974,7 @@ internal sealed class FrontendIntroController
                 _titleScreen.SetTitleBlink((Counter & 0x20) == 0);
                 if (Counter != 0)
                     break;
-                _playSound(OracleSoundEngine.SndCtrlFastFadeOut);
+                _playSound(SoundId.SndCtrlFastFadeOut);
                 BeginFade(toWhite: true);
                 State = 2;
                 break;

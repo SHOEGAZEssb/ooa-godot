@@ -28,11 +28,11 @@ internal sealed class RopeRoomEntity
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x08 || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        if (effect != CollisionEffect.SwordLowKnockback || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
         // enemyStandardUpdate initializes var3e=$01. Effect08 ORs that
         // into item.var2a; it does not clear the item's collision-enable bit.
         hook.NotifyObjectCollision();
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 

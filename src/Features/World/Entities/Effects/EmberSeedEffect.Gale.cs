@@ -70,7 +70,7 @@ public partial class EmberSeedEffect
         switch (_galeSubstate)
         {
             case 0:
-                if ((_room.TilesetFlags & 1) == 0)
+                if ((_room.TilesetFlags & (int)TilesetFlags.Outdoors) == 0)
                 {
                     _galeSubstate = 3;
                     return;

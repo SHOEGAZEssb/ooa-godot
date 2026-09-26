@@ -53,7 +53,7 @@ internal sealed class GraveyardGateEventDatabase
             {
                 Group: 0,
                 Room: 0x5c,
-                InteractionId: 0xdc,
+                InteractionId: InteractionId.Miscellaneous2,
                 SubId: 0x01,
                 RoomFlag: OracleSaveData.RoomFlag80,
                 ClearTile: 0x3a,
@@ -72,7 +72,7 @@ internal sealed class GraveyardGateEventDatabase
             Record.Phase2Puffs is not [{ X: 0x30, Y: 0x48 }, { X: 0x60, Y: 0x48 }] ||
             Commands.Count != 10 ||
             Commands[0] is not CutsceneSetMusicCommand
-                { Music: OracleSoundEngine.SndCtrlStopMusic } ||
+                { Music: SoundId.SndCtrlStopMusic } ||
             Commands[1] is not CutsceneWaitCommand { Frames: 60 } ||
             Commands[2] is not CutsceneNativeCommand { Handler: "RemoveGateTiles1" } ||
             Commands[3] is not CutsceneWaitCommand { Frames: 45 } ||
@@ -80,7 +80,7 @@ internal sealed class GraveyardGateEventDatabase
             Commands[5] is not CutsceneWaitCommand { Frames: 60 } ||
             Commands[6] is not CutsceneSetMusicCommand { Music: 0xff } ||
             Commands[7] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndSolvePuzzle } ||
+                { Sound: SoundId.SndSolvePuzzle } ||
             Commands[8] is not CutsceneEnableInputCommand ||
             Commands[9] is not CutsceneEndCommand)
         {

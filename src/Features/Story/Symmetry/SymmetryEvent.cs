@@ -24,7 +24,7 @@ internal sealed class SymmetryEvent : InteractiveCutsceneCommandHost, IRoomEntry
     {
         Cancel();
         // objectLoading.s:parseObjectData clears $cfc0 before the room's object stream.
-        Context.Entities.RuntimeState.SetWramByte(0xcfc0, 0);
+        Context.Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 0);
         _nut = Context.Entities.EntityAdapters<TuniNutRoomEntity>().SingleOrDefault();
         foreach (var entity in Context.Entities.EntityAdapters<SymmetryRoomEntity>())
         {

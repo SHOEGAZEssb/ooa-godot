@@ -38,41 +38,41 @@ internal static class NpcStoryState
 
     public static int GetGameProgress1(OracleSaveData save)
     {
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame))
+        if (save.HasGlobalFlag(GlobalFlag.FinishedGame))
             return 5;
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame))
+        if (save.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame))
             return 4;
 
-        byte essences = save.ReadWramByte(0xc6bf);
+        byte essences = save.ReadWramByte(WramAddress.wEssencesObtained);
         if (essences == 0)
             return 0;
         int highestEssence = HighestSetBit(essences);
         if (highestEssence >= 6)
             return 3;
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru))
+        if (save.HasGlobalFlag(GlobalFlag.SavedNayru))
             return 2;
         return highestEssence >= 2 ? 1 : 0;
     }
 
     public static int GetGameProgress2(OracleSaveData save)
     {
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame))
+        if (save.HasGlobalFlag(GlobalFlag.FinishedGame))
             return 7;
         if (save.IsLinkedGame && save.HasRoomFlag(
             4, 0xfc, OracleSaveData.RoomFlag80))
         {
             return 6;
         }
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame))
+        if (save.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame))
             return 5;
 
-        byte essences = save.ReadWramByte(0xc6bf);
+        byte essences = save.ReadWramByte(WramAddress.wEssencesObtained);
         if (essences == 0)
             return 0;
         int highestEssence = HighestSetBit(essences);
         if (highestEssence >= 6)
             return 4;
-        if (save.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru))
+        if (save.HasGlobalFlag(GlobalFlag.SavedNayru))
             return 3;
         if (highestEssence >= 3)
             return 2;

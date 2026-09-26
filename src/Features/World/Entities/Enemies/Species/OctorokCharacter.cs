@@ -136,12 +136,12 @@ public partial class OctorokCharacter : EnemyCharacter
         OctorokState state,
         int counter1 = 0,
         int walkCounter = 0,
-        int angle = 0)
+        int angle = ObjectAngle.Up)
     {
         _state = state;
         _counter1 = counter1;
         _walkCounter = walkCounter;
-        _angle = angle & 0x18;
+        _angle = angle & ObjectAngle.CardinalMask;
         SetAnimationFromAngle();
     }
 
@@ -222,7 +222,7 @@ public partial class OctorokCharacter : EnemyCharacter
 
     private void SetAnimationFromAngle()
     {
-        RestartAnimation((_angle & 0x18) >> 3);
+        RestartAnimation((_angle & ObjectAngle.CardinalMask) >> 3);
     }
 }
 

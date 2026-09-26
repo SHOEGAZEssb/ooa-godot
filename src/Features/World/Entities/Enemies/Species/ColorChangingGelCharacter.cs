@@ -90,7 +90,7 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
             else if (CollisionMode == _behavior.ImmuneCollisionMode && (attack == 0x0d || attack is >= 4 and <= 9))
             {
                 InvincibilityCounter = -_behavior.DeflectionInvincibilityFrames;
-                _sound(OracleSoundEngine.SndDamageEnemy);
+                _sound(SoundId.SndDamageEnemy);
                 // Native signed-counter advancement follows the handler.
                 AdvanceInvincibilityCounter();
             }
@@ -192,7 +192,7 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter
             // JUST_HIT dispatch still precedes health-zero death next update.
             Health = Math.Max(0, Health - damage);
             InvincibilityCounter = 32;
-            _sound(OracleSoundEngine.SndDamageEnemy);
+            _sound(SoundId.SndDamageEnemy);
         }
         return true;
     }

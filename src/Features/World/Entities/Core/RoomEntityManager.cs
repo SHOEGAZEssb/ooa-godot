@@ -117,7 +117,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
     {
-        if (_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0)
+        if (_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0)
             return;
         TryAllocateEnemy(_ => _factory.CreateDiggingEnemy(
             _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
@@ -697,7 +697,7 @@ public sealed class RoomEntityManager : IDisposable
         ReservedPushBlock?.BeginScreenTransition();
         // updateSeedTreeRefillData runs after getNextActiveRoom only when the
         // outgoing tileset is outdoors. Warp/direct loads bypass this path.
-        if ((_roomForActiveEntities.TilesetFlags & 0x01) != 0)
+        if ((_roomForActiveEntities.TilesetFlags & (int)TilesetFlags.Outdoors) != 0)
             _factory.UpdateSeedTreeRefillState(group, room.Id);
         ClearEntities(_outgoingEntities);
         _reservedEnemySlots.ExceptWith(_unownedOutgoingEnemySlots);
@@ -1378,13 +1378,13 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
                 if (target is ISeedCollisionTarget || target is not ISeedHittableRoomEntity hittable ||
-                    (seed.SeedItem is 0x22 or 0x23 || target is ISeedPreMovementCollisionTarget) != preMovement)
+                    (seed.SeedItem is ItemId.PegasusSeed or ItemId.GaleSeed || target is ISeedPreMovementCollisionTarget) != preMovement)
                 {
                     continue;
                 }
-                if (seed.SeedItem == 0x22 && target is IObjectCollisionHeightRoomEntity height &&
+                if (seed.SeedItem == ItemId.PegasusSeed && target is IObjectCollisionHeightRoomEntity height &&
                     !ObjectCollisionZOverlaps(height.CollisionZ, seed.CollisionZ, 7)) continue;
-                SeedHitResult result = seed.SeedItem == 0x23 && target is IGaleSeedTarget gale &&
+                SeedHitResult result = seed.SeedItem == ItemId.GaleSeed && target is IGaleSeedTarget gale &&
                     gale.TryCatchGale(seed.CollisionBounds, seed.CollisionZ, NextRandomValue)
                     ? SeedHitResult.Activate :
                     target is ISeedHeightAwareHittableRoomEntity heightAware
@@ -1709,7 +1709,7 @@ public sealed class RoomEntityManager : IDisposable
         GroundTreasureGrantRequest request,
         Player player)
     {
-        if (request.SpawnMode != 0)
+        if (request.SpawnMode != TreasureSpawnMode.Instant)
         {
             throw new InvalidOperationException(
                 $"Immediate ground-treasure grant from {request.Source} " +
@@ -1730,10 +1730,10 @@ public sealed class RoomEntityManager : IDisposable
             dropType, _random, _inventory, _saveData);
         if (subId.HasValue)
         {
-            int angle = shovelDirection == Vector2I.Up ? 0x00
-                : shovelDirection == Vector2I.Right ? 0x08
-                : shovelDirection == Vector2I.Down ? 0x10
-                : shovelDirection == Vector2I.Left ? 0x18
+            int angle = shovelDirection == Vector2I.Up ? ObjectAngle.Up
+                : shovelDirection == Vector2I.Right ? ObjectAngle.Right
+                : shovelDirection == Vector2I.Down ? ObjectAngle.Down
+                : shovelDirection == Vector2I.Left ? ObjectAngle.Left
                 : throw new ArgumentOutOfRangeException(nameof(shovelDirection));
             Spawn<ItemDropEffect>(new ItemDropSpawn(
                 subId.Value, position, angle, DugUp: true));
@@ -1803,7 +1803,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         // itemCreateChildWithID/getFreeItemSlotWithObjectCap: the existing
         // ITEM$06 still counts while hidden in its four-update catch state.
-        if (_dynamicItems.FindItem(InventoryState.ItemBoomerang) is not null || !DynamicItemSlotAvailable) return false;
+        if (_dynamicItems.FindItem(TreasureId.Boomerang) is not null || !DynamicItemSlotAvailable) return false;
         Spawn<BoomerangItem>(new BoomerangSpawn(position, angle, zHigh));
         return true;
     }
@@ -1824,7 +1824,7 @@ public sealed class RoomEntityManager : IDisposable
             (point,height)=>
             {
                 if (InteractionSlotAvailable)
-                    Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(point,OracleSoundEngine.SndPoof,ZHigh:height));
+                    Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(point,SoundId.SndPoof,ZHigh:height));
             },
             (kind,point,height)=>
             {
@@ -1894,9 +1894,9 @@ public sealed class RoomEntityManager : IDisposable
         // wActiveTriggers is room-local scratch state cleared by room loading.
         _activeTriggers = 0;
         _platformRiding.BeginUpdate(0);
-        _runtimeState.SetWramByte(OracleRuntimeState.Lever1PullDistanceAddress, 0);
-        _runtimeState.SetWramByte(OracleRuntimeState.Lever2PullDistanceAddress, 0);
-        _runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 0);
+        _runtimeState.SetWramByte(WramAddress.wLever1PullDistance, 0);
+        _runtimeState.SetWramByte(WramAddress.wLever2PullDistance, 0);
+        _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 0);
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
         // last-eight-room list before rebuilding w4RandomBuffer.
         _recentEnemyDefeats.BeginRoom(room.Id);
@@ -2306,7 +2306,7 @@ public sealed class RoomEntityManager : IDisposable
         var beads = new List<BlueEnergyBeadRoomEntity>();
         for (int index = BlueEnergyBeadDatabase.Shared.Count - 1; index >= 0 && FindFreePartSlot() >= 0; index--)
             beads.Add((BlueEnergyBeadRoomEntity)AddEntity(_factory.Create(new BlueEnergyBeadSpawn(index, center, duration), _roomForActiveEntities)));
-        OnSoundRequested(OracleSoundEngine.SndEnergyThing);
+        OnSoundRequested(SoundId.SndEnergyThing);
         return beads;
     }
 
@@ -2647,7 +2647,7 @@ public sealed class RoomEntityManager : IDisposable
     private bool TryCreatePuzzlePuff(Vector2 position)
     {
         if (FindFreeInteractionSlot() < 0) return false;
-        AddEntity(_factory.Create(new PuzzlePuffSpawn(position,OracleSoundEngine.SndPoof),_roomForActiveEntities));
+        AddEntity(_factory.Create(new PuzzlePuffSpawn(position,SoundId.SndPoof),_roomForActiveEntities));
         return true;
     }
 
@@ -2655,7 +2655,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (!InteractionSlotAvailable) return -1;
         IRoomEntity puff = AddEntity(_factory.Create(new PuzzlePuffSpawn(
-            position, OracleSoundEngine.SndPoof, AlwaysUpdates: false), _roomForActiveEntities));
+            position, SoundId.SndPoof, AlwaysUpdates: false), _roomForActiveEntities));
         return _interactionSlots[puff];
     }
 
@@ -2953,7 +2953,7 @@ public sealed class RoomEntityManager : IDisposable
                 record.Group, record.Room, OracleSaveData.RoomFlagItem);
         }
 
-        if (record.GrabMode != 3 && record.SoundOrder == GroundTreasureSoundOrder.BehaviourThenGrab)
+        if (record.GrabMode != TreasureGrabMode.SpinSlash && record.SoundOrder == GroundTreasureSoundOrder.BehaviourThenGrab)
             PlayGroundTreasureBehaviourSound(treasureObject);
 
         GroundTreasureCollected?.Invoke(treasure, player);
@@ -2964,7 +2964,7 @@ public sealed class RoomEntityManager : IDisposable
             return;
 
         treasure.BeginGranted(player);
-        if (record.GrabMode != 3 && record.SoundOrder == GroundTreasureSoundOrder.GrabThenBehaviour)
+        if (record.GrabMode != TreasureGrabMode.SpinSlash && record.SoundOrder == GroundTreasureSoundOrder.GrabThenBehaviour)
             PlayGroundTreasureBehaviourSound(treasureObject);
         if (record.DialogueTiming == GroundTreasureDialogueTiming.AfterGrab)
             RequestGroundTreasureDialogue(treasure, treasureObject, player);
@@ -2974,7 +2974,7 @@ public sealed class RoomEntityManager : IDisposable
         TreasureObjectRecord treasure)
     {
         int sound = _treasures.GetBehaviour(treasure.TreasureId).Sound;
-        if (sound != 0)
+        if (sound != SoundId.MusNone)
             OnSoundRequested(sound);
     }
 
@@ -3084,7 +3084,7 @@ internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
 internal sealed record ItemDropSpawn(
     int SubId,
     Vector2 Position,
-    int Angle = 0,
+    int Angle = ObjectAngle.Up,
     bool DugUp = false,
     bool UpdateThisFrame = false,
     int ZHigh = 0) : RoomEntitySpawn(UpdateThisFrame);

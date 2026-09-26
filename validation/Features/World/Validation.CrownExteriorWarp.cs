@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             FailIf(_collision.Collides(_player.Position), "Crown exterior-exit approach must start on real entrance-room floor.");
             for (int i = 0; !_transitions.IsTransitioning && i < 40; i++) StepGameplayUpdates(1, Vector2.Down);
             FailIf(!_transitions.IsTransitioning, "Walking south through Crown's entry must trigger its exterior edge warp.");
-            FailIf(_runtimeState.ReadWramByte(0xcec0) != 0,
+            FailIf(_runtimeState.ReadWramByte(WramAddress.wTmpcec0) != 0,
                 "The matched 4:bb edge source must clear checkScreenEdgeWarps scratch before destination loading.");
             for (int i = 0; _rooms.ActiveGroup == 4 && i < 160; i++) StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_rooms.ActiveGroup != 0 || _rooms.CurrentRoom.Id != 0x0a || _player.Position != new Vector2(120, 24),
@@ -40,13 +40,13 @@ public sealed partial class ValidationRoot
             FailIf(_transitions.IsTransitioning || !_saveData.HasRoomFlag(0, 0x0a, 0x80),
                 "Crown re-entry must finish while retaining the unlocked exterior entrance.");
             FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) != 0 ||
-                _runtimeState.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress) != 0 ||
+                _runtimeState.ReadWramByte(WramAddress.wLastToggleBlocksState) != 0 ||
                 _entities.FloorToggle!.Active,
                 "Dungeon initialization must synchronize its reset toggle byte before live orb checks resume.");
             _dialogue.Close();
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndDoorClose);
             StepGameplayUpdates(10, Vector2.Zero);
-            FailIf(_entities.FloorToggle.Active || _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != sounds,
+            FailIf(_entities.FloorToggle.Active || _sound.PlayRequestsFor(SoundId.SndDoorClose) != sounds,
                 "Crown re-entry must not turn its initialization reset into a delayed floor-toggle cutscene.");
             LoadValidationRoom(0, 0x60);
         }

@@ -19,16 +19,16 @@ public sealed partial class ValidationRoot
                 enemy.Position = new(24, 24);
                 enemy.InvincibilityCounter = 127;
             }
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
-            _inventory.EquipA(InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.Bracelet, 1);
+            _inventory.EquipA(TreasureId.CaneOfSomaria);
             _player.WarpTo(new(120, 56));
             _player.Face(Vector2I.Up);
             FailIf(_collision.Collides(_player.Position), "Throw fixture must start on actual Crown floor.");
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
             StepGameplayUpdates(24, Vector2.Zero, batched: batched);
             var block = _entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
-            _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.EquipA(TreasureId.Bracelet);
             StepGameplayUpdates(8, Vector2.Up, batched: batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
             StepGameplayUpdates(30, Vector2.Zero, ["attack"], batched: batched);

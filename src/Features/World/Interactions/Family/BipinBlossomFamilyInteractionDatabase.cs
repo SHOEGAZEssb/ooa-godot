@@ -56,7 +56,7 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
             runningRow.RequiredString(7),
             runningRow.RequiredString(8),
             runningRow.RequiredString(9));
-        if (RunningBipin.SpeedRaw == 0 ||
+        if (RunningBipin.SpeedRaw == ObjectSpeed.Speed0 ||
             RunningBipin.InitialAngle >= 0x20 ||
             RunningBipin.SpanX == 0 ||
             RunningBipin.ReverseAngleXor >= 0x20 ||

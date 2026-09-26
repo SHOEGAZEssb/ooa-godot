@@ -86,7 +86,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             // still requests SND_ERROR ($5a) exactly once.
             if ((inventoryPressed || mapPressed) && !_normalMenuUnlocked())
             {
-                _playSound(OracleSoundEngine.SndError);
+                _playSound(SoundId.SndError);
                 return;
             }
             if (inventoryPressed && mapPressed && _canOpen())
@@ -161,7 +161,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             bool pending = _screen.PageTransitionPending;
             _screen.UpdatePageTransition(delta);
             if (pending && !_screen.PageTransitionPending)
-                _playSound(OracleSoundEngine.SndOpenMenu);
+                _playSound(SoundId.SndOpenMenu);
             return;
         }
         if (_screen.ItemSubmenuActive)
@@ -334,7 +334,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             throw new InvalidOperationException(
                 "MENU_INVENTORY attempted to open MENU_SAVEQUIT outside its active state.");
         _screen.Close();
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         _gameOver = false;
         _saveScreen.Open();
         _openMenu = OpenMenu.SaveQuit;
@@ -357,14 +357,14 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             if (_readOption is not null && _writeOption is not null)
                 _writeOption(option, !_readOption(option));
             RefreshOptions();
-            _playSound(OracleSoundEngine.SndSelectItem);
+            _playSound(SoundId.SndSelectItem);
             return;
         }
         if (!_gameOver && _saveScreen.Cursor == 3)
         {
             _saveScreen.OpenOptions();
             RefreshOptions();
-            _playSound(OracleSoundEngine.SndSelectItem);
+            _playSound(SoundId.SndSelectItem);
             return;
         }
         if (_saveScreen.Cursor != 0)
@@ -380,7 +380,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             LastSaveError = null;
         }
 
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         _saveScreen.DelayCounter = SaveSelectionDelayFrames;
         _saveSelectionDelay = true;
         _saveDelayElapsed = 0;
@@ -414,7 +414,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             return false;
         }
 
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         return true;
     }
 
@@ -437,7 +437,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.MoveCursor(direction))
             return false;
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         return true;
     }
 
@@ -445,7 +445,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.EquipToA())
             return false;
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         return true;
     }
 
@@ -453,7 +453,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.EquipToB())
             return false;
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         return true;
     }
 
@@ -461,7 +461,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.EquipSelectedRing())
             return false;
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         return true;
     }
 
@@ -469,7 +469,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.MoveItemSubmenu(direction))
             return false;
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         return true;
     }
 
@@ -477,7 +477,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.ConfirmItemSubmenu())
             return false;
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         return true;
     }
 
@@ -485,7 +485,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
     {
         // bank2.s:closeMenu suppresses SND_CLOSEMENU only for MENU_SAVEQUIT.
         if (_openMenu == OpenMenu.Inventory)
-            _playSound(OracleSoundEngine.SndCloseMenu);
+            _playSound(SoundId.SndCloseMenu);
         _lifecycle.BeginClosing(this);
     }
 
@@ -508,7 +508,7 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             _saveScreen.Close();
             // menuStateFadeIntoMenu requests SND_OPENMENU ($54) after the
             // fast fade reaches white, immediately before loading inventory.
-            _playSound(OracleSoundEngine.SndOpenMenu);
+            _playSound(SoundId.SndOpenMenu);
             _screen.Open();
         }
     }

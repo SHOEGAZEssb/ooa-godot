@@ -20,11 +20,11 @@ public sealed partial class ValidationRoot
         random.BeginRoomParse();
         var state = random.CaptureState() with { PlacementBuffer = identity, PlacementIndex = 0 };
         random.RestoreState(state);
-        memory.SetWramByte(0xcec0, 0xff);
-        FailIf(random.NextPlacementValue() != 0 || memory.ReadWramByte(0xcec0) != 0 ||
+        memory.SetWramByte(WramAddress.wTmpcec0, 0xff);
+        FailIf(random.NextPlacementValue() != 0 || memory.ReadWramByte(WramAddress.wTmpcec0) != 0 ||
             random.CaptureState().PlacementIndex != 0,
             "Placement cursor must increment the shared byte with wrap before reading the permutation.");
-        memory.SetWramByte(0xcec0, 0x42);
+        memory.SetWramByte(WramAddress.wTmpcec0, 0x42);
         FailIf(random.NextPlacementValue() != 0x43 || random.Calls != state.Calls,
             "An aliased cursor write must change the next buffered read without consuming RNG.");
 
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             // Dungeon source rejects row0/column0; reserved$11 retries inside
             // getCandidatePositionForEnemy. First returned candidate is$12.
             FailIf(!found || (Vector2)args[4] != new Vector2(40, 24) ||
-                memory.ReadWramByte(0xcec0) != 0x12 || memory.ReadWramByte(0xcec2) != 0x12 ||
+                memory.ReadWramByte(WramAddress.wTmpcec0) != 0x12 || memory.ReadWramByte(0xcec2) != 0x12 ||
                 memory.ReadWramByte(0xcecf) != 0x3f || memory.ReadWramByte(0xced1) != 0x12,
                 "Boundary/reservation retries must consume cursor bytes but only one placement attempt.");
 
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
             // 63 returned candidates: four rows of13, then row5 column11.
             // Attempt64 decrements to zero without reading another candidate.
             FailIf(found || memory.ReadWramByte(0xcecf) != 0 ||
-                memory.ReadWramByte(0xcec0) != 0x5b || memory.ReadWramByte(0xcec2) != 0x5b ||
+                memory.ReadWramByte(WramAddress.wTmpcec0) != 0x5b || memory.ReadWramByte(0xcec2) != 0x5b ||
                 reservations.Count != 0 || random.Calls != state.Calls,
                 "Exhaustion must preserve the63rd rejected candidate and cursor while clearing the attempt counter.");
         }

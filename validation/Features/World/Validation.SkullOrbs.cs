@@ -13,8 +13,8 @@ public sealed partial class ValidationRoot
         FailIf(data.BackgroundTile != 0x0a || data.TileCollision != 0x0f || data.SubidMask != 7 || data.RadiusX != 4 || data.RadiusY != 4,
             "partCode03 state0 must write cfXX=$0a, ceXX=$0f, preserve Zh=0, and derive its mask from subid&7.");
         var random = CaptureOracleRandomForValidation();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 0);
+        _inventory.EquipA(TreasureId.Sword);
         foreach (bool batch in new[] { false, true })
         {
             RestoreOracleRandomForValidation(random);
@@ -139,9 +139,9 @@ public sealed partial class ValidationRoot
         void Step(int count = 1) =>
             StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
         var database = new SkullDungeonDatabase();
-        FailIf(database.GetRoomRecords(4,0x92) is not [{ Id:0x20, SubId:3, Order:0, X:40, Y:104 },
-                { Id:0x0b, SubId:0, Order:1, X:128, Y:72, Var03:2 }] ||
-            database.GetRoomRecords(4,0x74)[1] is not { Id:0x20, SubId:2, Order:2, X:72, Y:88 },
+        FailIf(database.GetRoomRecords(4,0x92) is not [{ Id:InteractionId.DungeonScript, SubId:3, Order:0, X:40, Y:104 },
+                { Id:InteractionId.Id0b, SubId:0, Order:1, X:128, Y:72, Var03:2 }] ||
+            database.GetRoomRecords(4,0x74)[1] is not { Id:InteractionId.DungeonScript, SubId:2, Order:2, X:72, Y:88 },
             "Orb placements must retain source order, pixel coordinates, script dispatch, and raw var03 mask.");
         FailIf(string.Concat(Enumerable.Range(0,32).Select(i => PartOrbDatabase.Shared.HitLockout(i) >= 0 ? '1':'0')) !=
             "00001111111101100000001111111110" || PartOrbDatabase.Shared.Speed != 0x14 ||

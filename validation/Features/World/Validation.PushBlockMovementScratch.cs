@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             int observations = 0;
             var observer = new ItemPhaseValidationEntity(() =>
             {
-                FailIf(_runtimeState.ReadWramByte(0xcec0) != 0x80 ||
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wTmpcec0) != 0x80 ||
                     _runtimeState.ReadWramByte(0xcec1) != 0xff ||
                     _runtimeState.ReadWramByte(0xcec2) != 0 ||
                     _runtimeState.ReadWramByte(0xcec3) != 0,

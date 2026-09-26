@@ -27,7 +27,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
         Func<long> animationTick)
     {
         if (source.Kind != RoomObjectKind.ReservingPart ||
-            source.Id != OwlStatueDatabase.PartId ||
+            source.Id != PartId.OwlStatue ||
             source.SubId != record.SubId ||
             source.PackedPosition < 0)
         {
@@ -135,7 +135,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem != OwlStatueDatabase.MysterySeedItem ||
+        if (seedItem != TreasureId.MysterySeeds ||
             !hitbox.Intersects(CollisionBounds))
         {
             return SeedHitResult.None;

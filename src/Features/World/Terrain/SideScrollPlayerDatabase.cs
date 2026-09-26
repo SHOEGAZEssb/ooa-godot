@@ -174,8 +174,8 @@ internal sealed class SideScrollPlayerDatabase
             parameters.BelowTileOffset != 8 ||
             parameters.BottomBoundary != 0xa9 ||
             parameters.SpikeTile != 0x02 ||
-            parameters.JumpSound != OracleSoundEngine.SndJump ||
-            parameters.LandSound != OracleSoundEngine.SndLand ||
+            parameters.JumpSound != SoundId.SndJump ||
+            parameters.LandSound != SoundId.SndLand ||
             !parameters.AnimationPhaseDurations.AsSpan().SequenceEqual(
                 [9, 9, 6]))
         {

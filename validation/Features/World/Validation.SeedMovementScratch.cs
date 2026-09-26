@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
             _player.WarpTo(new(120, 40));
-            FailIf(!new SeedSatchelDatabase().TryGet(0x20, out var record), "Missing ITEM$20.");
+            FailIf(!new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var record), "Missing ITEM$20.");
             // seeds.s rightward offsets: Satchel (+4,+1), shooter (+12,+5).
             var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                 shooter ? new(108, 35) : new(116, 39), Vector2I.Right, record, 4,

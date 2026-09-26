@@ -74,7 +74,7 @@ public partial class ValidationRoot
             for (int i = 0; i < 5; i++) predictor.Next();
             int cooldown = 0xc0 + (predictor.Next().Value & 7);
             child.UpdateFrame(frame, spawns);
-            FailIf(spawns is not [ZoraFireSpawn { PartId: 0x31 }] || child.Counter1 != cooldown || random.Calls != 6,
+            FailIf(spawns is not [ZoraFireSpawn { PartId: PartId.GopongaProjectile }] || child.Counter1 != cooldown || random.Calls != 6,
                 "$50 must spawn PART $31 and consume exactly one cooldown RNG value.");
             spawns.Clear(); partAvailable = false;
             int next = 0xc0 + (predictor.Next().Value & 7);
@@ -192,7 +192,7 @@ public partial class ValidationRoot
         {
             var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
             inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{shield-1}"));
-            inventory.EquipA(InventoryState.ItemShield);
+            inventory.EquipA(TreasureId.Shield);
             var player = new Player(); AddChild(player);
             player.Initialize(new ValidationRingPlayerWorld(),inventory,new Vector2(72,72),new OracleRandom());
             player.Face(Vector2I.Right); player.UpdateShieldForValidation(true,false);
@@ -211,7 +211,7 @@ public partial class ValidationRoot
         foreach (RingId ring in new[] { RingId.BlueHoly,RingId.RedHoly })
         {
             var save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6cc,1); save.WriteWramByte(0xc6c6,(byte)ring);
+            save.WriteWramByte(WramAddress.wRingBoxLevel,1); save.WriteWramByte(WramAddress.wRingBoxContents,(byte)ring);
             var inventory = new InventoryState(_treasures,save);
             FailIf(!inventory.EquipRingAt(0), "Could not equip fireball ring fixture.");
             var player = new Player(); AddChild(player);

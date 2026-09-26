@@ -108,7 +108,7 @@ internal sealed class ChevalEventDatabase
             {
                 Group: 2,
                 Room: 0x0f,
-                InteractionId: 0x6a,
+                InteractionId: InteractionId.Cheval,
                 SubId: 0,
                 Sprite: "spr_oldzora_cheval",
                 TileBase: 0x1a,
@@ -117,7 +117,7 @@ internal sealed class ChevalEventDatabase
                 CollisionRadiusY: 0x0c,
                 CollisionRadiusX: 0x06,
                 ChevalRopeTreasure: 0x52,
-                TalkedGlobalFlag: OracleSaveData.GlobalFlagTalkedToCheval,
+                TalkedGlobalFlag: GlobalFlag.TalkedToCheval,
                 InitialScriptUpdates: 0
             } ||
             string.IsNullOrWhiteSpace(Record.Animation0) ||
@@ -136,12 +136,12 @@ internal sealed class ChevalEventDatabase
             Commands[3] is not CutsceneCheckAButtonCommand { Actor: "Cheval" } ||
             Commands[4] is not CutsceneShowTextCommand { TextId: 0x270c } ||
             Commands[5] is not CutsceneSetGlobalFlagCommand
-                { Flag: OracleSaveData.GlobalFlagTalkedToCheval } ||
+                { Flag: GlobalFlag.TalkedToCheval } ||
             Commands[6] is not CutsceneBranchCommand { TargetCommand: 3 } ||
             Commands[7] is not CutsceneCheckAButtonCommand { Actor: "Cheval" } ||
             Commands[8] is not CutsceneShowTextCommand { TextId: 0x270d } ||
             Commands[9] is not CutsceneSetGlobalFlagCommand
-                { Flag: OracleSaveData.GlobalFlagTalkedToCheval } ||
+                { Flag: GlobalFlag.TalkedToCheval } ||
             Commands[10] is not CutsceneBranchCommand { TargetCommand: 7 })
         {
             throw new InvalidOperationException(

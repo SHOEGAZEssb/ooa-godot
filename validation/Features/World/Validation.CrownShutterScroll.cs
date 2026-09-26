@@ -34,15 +34,15 @@ public sealed partial class ValidationRoot
             FailIf(outgoing.Finished == initialized || slots.ContainsKey(outgoing) != initialized ||
                 _entities.OutgoingEntities<DungeonDoorRoomEntity>().Count != (initialized ? 1 : 0),
                 "Scroll mode$08 must dispatch/delete outgoing state0 but retain initialized shutter slots.");
-            var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 24), 0));
+            var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone));
             FailIf((_entities.InteractionSlot(puff) == oldSlot) == initialized,
                 "Only a state0 shutter's deleted slot may be reused during the scroll.");
             Step(8);
             FailIf((DoorState)state.GetValue(incoming)! != DoorState.Initialize ||
                 target.GetMetatile(targetPosition) != tile ||
                 initialized && (DoorState)state.GetValue(outgoing)! != oldState ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+                _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0 ||
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
                 "Incoming shutters and initialized outgoing shutters must keep scripts, tiles and sounds frozen through scrolling.");
             _entities.FinishScreenTransition();
             FailIf(slots.ContainsKey(outgoing) || _entities.OutgoingEntities<DungeonDoorRoomEntity>().Count != 0,

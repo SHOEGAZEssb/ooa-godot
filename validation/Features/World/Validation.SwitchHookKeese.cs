@@ -8,12 +8,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookKeese()
     {
-        FailIf(SwitchHookCollisionDatabase.Shared.Effect(0x1f) != 8,
+        FailIf(SwitchHookCollisionDatabase.Shared.Effect(EnemyCollisionMode.Keese) != 8,
             "Keese mode $1f must select hook damage effect $08.");
         void Step(int count = 1, Vector2 movement = default, bool fire = false) =>
             StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         foreach (bool batch in new[] { false, true })
         {
             LoadValidationRoom(4, 0x91);
@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             // status from room-placement RNG and other moving targets.
             for (int repetition = 0; repetition < 2; repetition++)
             {
-                FailIf(!_entities.TrySpawnEnemy(0x32, 0, new Vector2(120, 80), "Keese hook regression", out string error), error);
+                FailIf(!_entities.TrySpawnEnemy(EnemyId.Keese, 0, new Vector2(120, 80), "Keese hook regression", out string error), error);
                 var bat = _entities.Entities<KeeseCharacter>().Single();
                 FailIf(bat.Health != 1 || bat.Record.CollisionRadiusX != 6 || bat.Record.CollisionRadiusY != 4,
                     "Native Keese enemyData $9d/$9f/$07/$00 must retain 1 HP and radii 6/4.");

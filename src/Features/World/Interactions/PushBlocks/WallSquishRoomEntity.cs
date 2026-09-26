@@ -24,7 +24,7 @@ internal sealed partial class WallSquishRoomEntity(OracleRoomData room, Func<int
         Visible = false;
         if (State == 0) { State = 1; return; }
         if (!LinkWallProbe.Shared.SurroundedByWalls(frame.Player.Position,
-                (room.TilesetFlags & 0x20) != 0,
+                (room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0,
                 raisedFloorOffset() != 0 ? room.IsSolidForRaisedFloorLink : room.IsSolid)) return;
         frame.Player.RequestWallSquish(pushAngle(), source);
     }

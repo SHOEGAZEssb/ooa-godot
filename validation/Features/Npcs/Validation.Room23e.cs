@@ -13,9 +13,9 @@ public sealed partial class ValidationRoot
         const int room = 0x3e;
         const int tradeItemAddress = 0xc6c0;
         const int tradeObtainedAddress = 0xc69a +
-            (TreasureDatabase.TreasureTradeItem >> 3);
+            (TreasureId.TradeItem >> 3);
         const int tradeObtainedMask =
-            1 << (TreasureDatabase.TreasureTradeItem & 7);
+            1 << (TreasureId.TradeItem & 7);
 
         ToiletHandEvent toiletEvent = _roomEvents.Get<ToiletHandEvent>();
         ToiletHandEventDatabase database = toiletEvent.Database;
@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         OracleRandomState randomSnapshot = _random.CaptureState();
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -110,7 +110,7 @@ public sealed partial class ValidationRoot
             {
                 Group: group,
                 Room: room,
-                Id: 0x5b,
+                Id: InteractionId.ToiletHand,
                 SubId: 0x00,
                 Var03: 0x00,
                 Implementation:
@@ -225,7 +225,7 @@ public sealed partial class ValidationRoot
         // Once interactionAnimateAsNpc has written a nonzero priority, the
         // source's mistaken bit test sends reactions through the fast retreat.
         int explosionRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion);
+            _sound.PlayRequestsFor(SoundId.SndExplosion);
         _roomEvents.NotifyObjectFellInHole(ObjectFellInHoleKind.Bomb);
         StepRoomEventFrames(1);
         FailIf(
@@ -235,14 +235,14 @@ public sealed partial class ValidationRoot
             "A visible bomb drop did not select animation $02 and the " +
             "fast reaction retreat.");
         AdvanceUntil(
-            () => _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) >
+            () => _sound.PlayRequestsFor(SoundId.SndExplosion) >
                 explosionRequests,
             64,
             "The visible bomb reaction did not retreat, wait 45 updates, " +
             "and request SND_EXPLOSION.");
         FailIf(
             _entities.ScreenShakeCounter != 60 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndExplosion) !=
+            _sound.PlayRequestsFor(SoundId.SndExplosion) !=
                 explosionRequests + 1,
             "The bomb reaction did not start the source 60-update screen " +
             "shake with one explosion cue.");
@@ -372,7 +372,7 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage !=
                 DialogueBox.PlainText(rewardObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "toiletHandScript giveitem did not exchange Stationery for the " +
             "two-hand Stink Bag, set room bit $20, and open TX_005c.");
 
@@ -427,7 +427,7 @@ public sealed partial class ValidationRoot
             "room-specific script opcode.");
 
         LoadValidationRoom(0, 0x55);
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })

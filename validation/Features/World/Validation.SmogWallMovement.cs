@@ -25,7 +25,7 @@ public partial class ValidationRoot
             var move = new SmogWallMovement(data, subid, OracleObjectPosition.FromPixels(new(72,72)), 0, _ => 0, Velocity);
             move.Update(puffs.Add);
             int finalXVelocity = subid == 2 ? 0x00e0 : 0xff20;
-            FailIf(memory.ReadWramByte(0xcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
+            FailIf(memory.ReadWramByte(WramAddress.wTmpcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
                 memory.ReadWramByte(0xcec2) != (finalXVelocity & 255) || memory.ReadWramByte(0xcec3) != (finalXVelocity >> 8),
                 "Smog's second movement must replace the first movement's scratch with the post-turn signed $00e0 vector.");
             FailIf(move.Position.YFixed != 0x4720 || move.Position.XFixed != (subid == 2 ? 0x48e0 : 0x4720) ||

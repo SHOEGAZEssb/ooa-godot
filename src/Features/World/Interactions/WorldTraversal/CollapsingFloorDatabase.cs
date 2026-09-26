@@ -30,7 +30,7 @@ internal sealed class CollapsingFloorDatabase
     internal bool TryGetHoleWarp(int group, int room, int position, out Warp warp)
     {
         var record = InRoom(group, room).SingleOrDefault();
-        warp = record is null ? default : new Warp(group, room, position, 0, 2,
+        warp = record is null ? default : new Warp(group, room, position, 0, WarpSourceTransition.FadeOut,
             record.DestinationGroup, record.DestinationRoom, record.DestinationPosition, 0,
             record.DestinationTransition, DirectFadeOut: true);
         return record is not null;

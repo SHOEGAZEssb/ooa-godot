@@ -195,7 +195,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
             InteractableTilePushGeometry.DirectionIndex(direction) * 8);
         _moveCounter = _record.MoveFrames;
         _moving = true;
-        _playSound(OracleSoundEngine.SndMoveBlock);
+        _playSound(SoundId.SndMoveBlock);
     }
 
     public bool BlocksLink(Vector2 linkCenter)

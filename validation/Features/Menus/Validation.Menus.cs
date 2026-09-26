@@ -141,7 +141,7 @@ public sealed partial class ValidationRoot
         ulong cursorHash =
             _inventoryScreen.SecondaryCursorPixelHashForValidation(0);
         ulong passiveHash =
-            _inventoryScreen.PassiveTreasurePixelHashForValidation(0x2e);
+            _inventoryScreen.PassiveTreasurePixelHashForValidation(TreasureId.Flippers);
         ulong[] seedHashes = Enumerable.Range(0, 5)
             .Select(_inventoryScreen.SeedSubmenuSpritePixelHashForValidation)
             .ToArray();
@@ -389,7 +389,7 @@ public sealed partial class ValidationRoot
         Tick([], ["move_right"]);
         FailIf(copyScreen.NameCursor != 2, "Name autofire missed the $28-update boundary.");
         Tick(["map"]);
-        FailIf(inputSounds[^1] != OracleSoundEngine.SndSelectItem || copyScreen.NameCursor != 2,
+        FailIf(inputSounds[^1] != SoundId.SndSelectItem || copyScreen.NameCursor != 2,
             "US name Select must make the selection sound without changing the keyboard.");
         Tick(["attack"]);
         Tick(["inventory"]);
@@ -411,8 +411,8 @@ public sealed partial class ValidationRoot
         FailIf(inputMenu.Cursor != 3, "Copy did not initialize on Quit.");
         copyScreen.SetCursor(2);
         Tick(["attack"]);
-        FailIf(inputSounds[^1] != OracleSoundEngine.SndError ||
-            inputSounds[^2] != OracleSoundEngine.SndSelectItem,
+        FailIf(inputSounds[^1] != SoundId.SndError ||
+            inputSounds[^2] != SoundId.SndSelectItem,
             "An empty copy source did not request SELECTITEM then ERROR.");
         copyScreen.SetCursor(1);
         Tick(["attack"]);
@@ -669,7 +669,7 @@ public sealed partial class ValidationRoot
         ExpectTransition(FrontendIntroStage.Horse, 1, 1, "horse initialization");
         FailIf(
             !intro.InputsEnabled || intro.FrameCounter != 0 || sounds.Count != 1 ||
-            sounds[0] != OracleSoundEngine.MusIntro1,
+            sounds[0] != SoundId.MusIntro1,
             "The horse scene did not enable skipping and request MUS_INTRO_1.");
         ExpectTransition(FrontendIntroStage.Horse, 2, 350, "sunset");
         FailIf(intro.HorseBirdAnimationClock != 1,
@@ -823,15 +823,15 @@ public sealed partial class ValidationRoot
 
         int[] expectedSounds =
         [
-            OracleSoundEngine.MusIntro1,
-            OracleSoundEngine.SndDropEssence,
-            OracleSoundEngine.SndEnergyThing,
-            OracleSoundEngine.SndAquamentusHover,
-            OracleSoundEngine.SndFairyCutscene,
-            OracleSoundEngine.SndFadeOut,
-            OracleSoundEngine.MusIntro2,
-            OracleSoundEngine.SndSwordObtained,
-            OracleSoundEngine.MusTitlescreen
+            SoundId.MusIntro1,
+            SoundId.SndDropEssence,
+            SoundId.SndEnergyThing,
+            SoundId.SndAquamentusHover,
+            SoundId.SndFairyCutscene,
+            SoundId.SndFadeOut,
+            SoundId.MusIntro2,
+            SoundId.SndSwordObtained,
+            SoundId.MusTitlescreen
         ];
         FailIf(
             !sounds.SequenceEqual(expectedSounds) || restartCount != 2 ||
@@ -851,8 +851,8 @@ public sealed partial class ValidationRoot
         intro.AdvanceOneOriginalUpdate(startPressed: true);
         FailIf(
             sounds.Count < 2 ||
-            sounds[^2] != OracleSoundEngine.SndSelectItem ||
-            sounds[^1] != OracleSoundEngine.SndCtrlFastFadeOut,
+            sounds[^2] != SoundId.SndSelectItem ||
+            sounds[^1] != SoundId.SndCtrlFastFadeOut,
             "Title Start did not request SND_SELECTITEM then SNDCTRL_FAST_FADEOUT.");
         for (int update = 0; update < 31; update++)
             intro.AdvanceOneOriginalUpdate();
@@ -885,7 +885,7 @@ public sealed partial class ValidationRoot
             replay.AdvanceOneOriginalUpdate();
         FailIf(
             replay.Stage != FrontendIntroStage.Title || replay.State != 2 ||
-            replaySounds[^1] != OracleSoundEngine.SndCtrlFastFadeOut,
+            replaySounds[^1] != SoundId.SndCtrlFastFadeOut,
             "The title idle counter did not enter the retail replay fade at $0960.");
         for (int update = 0; update < 32; update++)
             replay.AdvanceOneOriginalUpdate();
@@ -985,14 +985,14 @@ public sealed partial class ValidationRoot
             _debugFlagScreen.Page != FlagPage.Global,
             "Tab did not cycle the debug editor back to global flags.");
 
-        _debugFlagScreen.SelectGlobalFlagForValidation(OracleSaveData.GlobalFlagIntroDone);
+        _debugFlagScreen.SelectGlobalFlagForValidation(GlobalFlag.IntroDone);
         FailIf(
             !_debugFlagScreen.RenderedText.Contains("GLOBALFLAG_INTRO_DONE", StringComparison.Ordinal),
             "The imported name for GLOBALFLAG_INTRO_DONE was not displayed.");
-        bool globalBefore = _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        bool globalBefore = _saveData.HasGlobalFlag(GlobalFlag.IntroDone);
         _debugFlagScreen.ActivateSelection();
         FailIf(
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) == globalBefore,
+            _saveData.HasGlobalFlag(GlobalFlag.IntroDone) == globalBefore,
             "The global flag editor did not toggle flag $0a.");
         _debugFlagScreen.ActivateSelection();
 
@@ -1039,22 +1039,22 @@ public sealed partial class ValidationRoot
         itemScreen.ActivateSelection();
         FailIf(
             itemInventory.SwordLevel != 2 ||
-            !itemInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
-            !itemSave.HasTreasure(TreasureDatabase.TreasureSword),
+            !itemInventory.HasTreasure(TreasureId.Sword) ||
+            !itemSave.HasTreasure(TreasureId.Sword),
             "The debug item grant did not use the imported treasure transaction.");
         itemScreen.ActivateSelection();
         FailIf(
-            itemInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
-            itemSave.HasTreasure(TreasureDatabase.TreasureSword) ||
+            itemInventory.HasTreasure(TreasureId.Sword) ||
+            itemSave.HasTreasure(TreasureId.Sword) ||
             itemInventory.SwordLevel != 2,
             "The debug item toggle did not apply loseTreasure semantics.");
 
         itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_TRADEITEM_02");
         itemScreen.ActivateSelection();
         FailIf(
-            !itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            !itemInventory.HasTreasure(TreasureId.TradeItem) ||
             itemInventory.TradeItem != 0x02 ||
-            itemSave.ReadWramByte(0xc6c0) != 0x02 ||
+            itemSave.ReadWramByte(WramAddress.wTradeItem) != 0x02 ||
             !itemScreen.RenderedText.Contains(
                 "$41 [1] TRADEITEM_02", StringComparison.Ordinal),
             "The debug item toggle did not grant exact trade item $02.");
@@ -1068,7 +1068,7 @@ public sealed partial class ValidationRoot
             "The debug item browser did not distinguish the live wTradeItem value.");
         itemScreen.ActivateSelection();
         FailIf(
-            !itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            !itemInventory.HasTreasure(TreasureId.TradeItem) ||
             itemInventory.TradeItem != 0x03 ||
             !itemScreen.RenderedText.Contains(
                 "$41 [0] TRADEITEM_02", StringComparison.Ordinal) ||
@@ -1077,8 +1077,8 @@ public sealed partial class ValidationRoot
             "The debug item toggle did not switch to exact trade item $03.");
         itemScreen.ActivateSelection();
         FailIf(
-            itemInventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
-            itemSave.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            itemInventory.HasTreasure(TreasureId.TradeItem) ||
+            itemSave.HasTreasure(TreasureId.TradeItem) ||
             itemInventory.TradeItem != 0x03 ||
             !itemScreen.RenderedText.Contains(
                 "$41 [0] TRADEITEM_03", StringComparison.Ordinal),
@@ -1314,12 +1314,12 @@ public sealed partial class ValidationRoot
         _animationTicks = 1234.5;
         const int runtimeAddress = 0xc123;
         _runtimeState.SetWramByte(runtimeAddress, 0xab);
-        _inventory.GiveTreasure(0x60, 0);
-        _inventory.GiveTreasure(0x67, 7);
+        _inventory.GiveTreasure(TreasureId.Id60, 0);
+        _inventory.GiveTreasure(TreasureId.Id67, 7);
         _random.Next();
         _random.Next();
         bool savedFlag =
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+            _saveData.HasGlobalFlag(GlobalFlag.SavedNayru);
         DebugSavestateData captured = CaptureDebugSavestate();
         byte[] expectedSaveImage = captured.CreateSaveData().Serialize();
         OracleRandomState expectedRandom = _random.CaptureState();
@@ -1351,7 +1351,7 @@ public sealed partial class ValidationRoot
                 "Debug-state atomic storage or missing-slot detection failed.");
 
             _saveData.SetGlobalFlag(
-                OracleSaveData.GlobalFlagSavedNayru,
+                GlobalFlag.SavedNayru,
                 !savedFlag);
             _runtimeState.SetWramByte(runtimeAddress, 0x11);
             _random.Next();
@@ -1373,7 +1373,7 @@ public sealed partial class ValidationRoot
         OracleRandomState restoredRandom = _random.CaptureState();
         RoomEntityManagerState restoredEntities = _entities.CaptureDebugState();
         FailIf(!_inventory.HasUpgrade(0) || !_inventory.HasUpgrade(7) ||
-            _runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) != 0x81,
+            _runtimeState.ReadWramByte(WramAddress.wUpgradesObtained) != 0x81,
             "Debug savestate restore lost shared $cca8 upgrade flags for treasures $60/$67.");
         FailIf(
             _rooms.ActiveGroup != 4 ||
@@ -1382,7 +1382,7 @@ public sealed partial class ValidationRoot
             _player.FacingVector != Vector2I.Left ||
             _animationTicks != 1234.5 ||
             _saveData.HasGlobalFlag(
-                OracleSaveData.GlobalFlagSavedNayru) != savedFlag ||
+                GlobalFlag.SavedNayru) != savedFlag ||
             !_saveData.Serialize().AsSpan().SequenceEqual(expectedSaveImage) ||
             _runtimeState.ReadWramByte(runtimeAddress) != 0xab ||
             restoredRandom.Rng1 != expectedRandom.Rng1 ||
@@ -1504,7 +1504,7 @@ public sealed partial class ValidationRoot
             "Unmet present/past Maku advice did not use TX_0323/TX_0324.");
         presentationSave.SetMakuMapTextPresent(0x4f);
         presentationSave.SetGlobalFlag(
-            OracleSaveData.GlobalFlagMakuGivesAdviceFromPresentMap);
+            GlobalFlag.MakuGivesAdviceFromPresentMap);
         FailIf(
             !presentationData.TryResolveAreaText(
                 presentationRooms, presentation, 0, 0x38, out presentAdvice) ||
@@ -1516,7 +1516,7 @@ public sealed partial class ValidationRoot
             "Present Maku advice retained a stale resolved text.");
         presentationSave.SetMakuMapTextPast(0xd6);
         presentationSave.SetGlobalFlag(
-            OracleSaveData.GlobalFlagMakuGivesAdviceFromPastMap);
+            GlobalFlag.MakuGivesAdviceFromPastMap);
         FailIf(
             !presentationData.TryResolveAreaText(
                 presentationRooms, presentation, 1, 0x38, out MapText pastAdvice) ||
@@ -1528,24 +1528,24 @@ public sealed partial class ValidationRoot
             "Past Maku advice retained a stale resolved text.");
 
         LoadValidationRoom(0, 0x11);
-        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        int openMenuRequests = _sound.PlayRequestsFor(SoundId.SndOpenMenu);
         _mapMenu.BeginOpeningForValidation();
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests,
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
             "MENU_MAP played SND_OPENMENU $54 before its opening fade.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
         {
             TickMap();
             FailIf(
                 _mapScreen.Visible ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests,
+                _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
                 "MENU_MAP appeared or played SND_OPENMENU $54 before full white.");
         }
         TickMap();
         FailIf(
             !_mapScreen.Visible ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndOpenMenu ||
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests + 1,
             "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
         for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
             TickMap();
@@ -1557,13 +1557,13 @@ public sealed partial class ValidationRoot
             _player.IsPhysicsProcessing() || _player.IsProcessing(),
             "Link continued updating while the map menu was open.");
 
-        int mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        int mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
         FailIf(
             !_mapMenu.NavigateForValidation(Vector2I.Left) ||
             !_mapMenu.NavigateForValidation(Vector2I.Left) ||
             _mapScreen.CursorRoom != 0x1d ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 2,
+            _sound.LastPlayRequestForValidation() != SoundId.SndMenuMove ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 2,
             $"The overworld cursor did not wrap 11 -> 10 -> 1d with two " +
             $"SND_MENU_MOVE $84 requests; got {_mapScreen.CursorRoom:x2}.");
 
@@ -1621,11 +1621,11 @@ public sealed partial class ValidationRoot
             $"({floorListHash:x16}).");
         _mapMenu.CloseImmediatelyForValidation();
 
-        byte oldCompasses = _saveData.ReadWramByte(0xc684);
-        byte oldMaps = _saveData.ReadWramByte(0xc686);
+        byte oldCompasses = _saveData.ReadWramByte(WramAddress.wDungeonCompasses);
+        byte oldMaps = _saveData.ReadWramByte(WramAddress.wDungeonMaps);
         byte oldRoom30Flags = _saveData.GetRoomFlags(4, 0x30);
-        _saveData.WriteWramByte(0xc684, (byte)(oldCompasses | 0x04));
-        _saveData.WriteWramByte(0xc686, (byte)(oldMaps | 0x04));
+        _saveData.WriteWramByte(WramAddress.wDungeonCompasses, (byte)(oldCompasses | 0x04));
+        _saveData.WriteWramByte(WramAddress.wDungeonMaps, (byte)(oldMaps | 0x04));
         _saveData.SetRoomFlag(4, 0x30, OracleSaveData.RoomFlagItem, value: false);
         var mapInventory = new InventoryState(_treasures, _saveData);
         _mapScreen.Initialize(_rooms, mapInventory);
@@ -1636,7 +1636,7 @@ public sealed partial class ValidationRoot
             dungeon02.CompassFloors != 0x01 ||
             _mapScreen.DisplayedDungeonFloor != 1 || _mapScreen.DungeonTileAt(6, 1) != 0x83,
             "Dungeon 02's map/compass did not reveal its imported boss room and floor mask.");
-        mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
         FailIf(!_mapMenu.NavigateForValidation(Vector2I.Down),
             "Dungeon 02 did not accept the downward scroll.");
         // dungeonMap_scrollingState1 moves ten rows, then unlocks on zero.
@@ -1651,20 +1651,20 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 1,
             "Dungeon 02's floor navigation did not reveal room 30 on floor 0 " +
             $"and request SND_MENU_MOVE $84: floor=${_mapScreen.DisplayedDungeonFloor:x2}, " +
             $"tile=${_mapScreen.DungeonTileAt(5, 1):x2}, scrollY={_mapScreen.DungeonScrollY}, " +
             $"scrolling={_mapScreen.IsScrolling}, open={_mapMenu.IsOpen}, " +
             $"dialogue={_dialogue.BlocksPlayerInput}, " +
-            $"move requests={_sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) - mapMoveRequests}.");
+            $"move requests={_sound.PlayRequestsFor(SoundId.SndMenuMove) - mapMoveRequests}.");
         FailIf(
             _mapMenu.NavigateForValidation(Vector2I.Down) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 1,
             "Blocked dungeon-floor navigation played SND_MENU_MOVE $84.");
         _mapMenu.CloseImmediatelyForValidation();
-        _saveData.WriteWramByte(0xc684, oldCompasses);
-        _saveData.WriteWramByte(0xc686, oldMaps);
+        _saveData.WriteWramByte(WramAddress.wDungeonCompasses, oldCompasses);
+        _saveData.WriteWramByte(WramAddress.wDungeonMaps, oldMaps);
         _saveData.SetRoomFlag(4, 0x30, 0xff, value: false);
         if (oldRoom30Flags != 0)
             _saveData.SetRoomFlag(4, 0x30, oldRoom30Flags);
@@ -1694,7 +1694,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _mapScreen.InteriorGroup != 4 || _mapScreen.CursorRoom != 0x09,
             "Group 4 interior page did not select active room 4:09.");
-        mapMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
         for (int step = 0; step < 10; step++)
         {
             FailIf(
@@ -1703,7 +1703,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             _mapScreen.CursorRoom != 0x0f ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != mapMoveRequests + 10,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 10,
             $"The 16x16 interior cursor did not wrap 09 left to 0f with ten move sounds; " +
             $"got {_mapScreen.CursorRoom:x2}.");
         _mapScreen.CycleDebugPage();
@@ -1762,21 +1762,21 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
         FailIf(
-            !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
-            _inventory.EquippedB != InventoryState.ItemSword ||
+            !_inventory.HasTreasure(TreasureId.Sword) ||
+            _inventory.EquippedB != TreasureId.Sword ||
             _inventory.SwordLevel != 1,
             "Impa's TREASURE_OBJECT_SWORD_00 gift was not added to the first empty " +
             "inventory slot, wInventoryB.");
 
         // The menu swap checks below begin from their established sword-on-A
         // arrangement; move Impa's B-slot gift there through the normal path.
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.EquipA(TreasureId.Sword);
 
         var chests = new ChestDatabase();
         FailIf(
             !chests.TryGet(4, 0x87, 0x65, out ChestRecord switchHookChest) ||
             switchHookChest.TreasureObject != "TREASURE_OBJECT_SWITCH_HOOK_00" ||
-            switchHookChest.TreasureId != TreasureDatabase.TreasureSwitchHook ||
+            switchHookChest.TreasureId != TreasureId.SwitchHook ||
             switchHookChest.Parameter != 1,
             "The original 4:87/$65 Switch Hook chest did not resolve to TREASURE_SWITCH_HOOK parameter 1.");
 
@@ -1790,9 +1790,9 @@ public sealed partial class ValidationRoot
             switchHookChest.Graphic,
             switchHookChest.Message));
         FailIf(
-            !tempInventory.HasTreasure(TreasureDatabase.TreasureSwitchHook) ||
+            !tempInventory.HasTreasure(TreasureId.SwitchHook) ||
             tempInventory.SwitchHookLevel != 1 ||
-            tempInventory.EquippedB != TreasureDatabase.TreasureSwitchHook,
+            tempInventory.EquippedB != TreasureId.SwitchHook,
             "TREASURE_OBJECT_SWITCH_HOOK_00 did not update obtained flags, level, and first free button slot.");
 
         GD.Print("Validated disassembly-backed inventory state, equipped A/B slots, " +
@@ -1805,30 +1805,30 @@ public sealed partial class ValidationRoot
         // rewards instead of inheriting it from earlier gameplay validations.
         _inventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
-        _inventory.EquipA(InventoryState.ItemSword);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfCurrents, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfAges, 0);
+        _inventory.EquipA(TreasureId.Sword);
+        _inventory.GiveTreasure(TreasureId.Harp, 0);
+        _inventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
+        _inventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
+        _inventory.GiveTreasure(TreasureId.TuneOfAges, 0);
 
         ValidateItemIconShadeMapping();
         FailIf(
             !Mathf.IsEqualApprox(InventoryMenuController.FastFadeFrames, 11.0f),
             "The inventory menu must use the 11-update fast palette fade.");
 
-        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        int openMenuRequests = _sound.PlayRequestsFor(SoundId.SndOpenMenu);
         _inventoryMenu.BeginOpening(openSaveMenu: false);
         FailIf(
             !_gameplayPause.IsOwnedBy(_inventoryMenu) ||
             _mapMenu.CanOpenNormalForValidation ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests,
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
             "Inventory opening did not exclusively own the shared menu pause/load state.");
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames - 1; frame++)
         {
             _inventoryMenu.Update(1.0 / 60.0);
             FailIf(
                 _inventoryScreen.Visible ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests,
+                _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
                 "The inventory screen appeared or played SND_OPENMENU $54 before full white.");
         }
         FailIf(
@@ -1837,8 +1837,8 @@ public sealed partial class ValidationRoot
         _inventoryMenu.Update(1.0 / 60.0);
         FailIf(
             !_inventoryScreen.Visible || !Mathf.IsEqualApprox(_scene.MenuFade.Color.A, 1.0f) ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndOpenMenu ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests + 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndOpenMenu ||
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests + 1,
             "The inventory screen did not swap in with SND_OPENMENU $54 at full white.");
         for (int frame = 0; frame < InventoryMenuController.FastFadeFrames; frame++)
             _inventoryMenu.Update(1.0 / 60.0);
@@ -1849,9 +1849,9 @@ public sealed partial class ValidationRoot
             "The inventory opening fade did not finish with the menu open and gameplay frozen.");
 
         FailIf(
-            _inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != InventoryState.ItemNone ||
-            _inventory.EquippedA != InventoryState.ItemSword ||
-            _inventory.EquippedB != InventoryState.ItemHarp ||
+            _inventoryScreen.Cursor != 0 || _inventory.StorageItemAt(0) != TreasureId.None ||
+            _inventory.EquippedA != TreasureId.Sword ||
+            _inventory.EquippedB != TreasureId.Harp ||
             _inventoryScreen.ActiveTextKey != 0 ||
             _inventoryScreen.VisibleTextForValidation != new string(' ', 16),
             "Inventory menu validation expected the sword on A, the " +
@@ -1860,9 +1860,9 @@ public sealed partial class ValidationRoot
         InventoryTextRecord woodenSwordText = _treasures.GetInventoryText(0x23);
         InventoryTextRecord friendshipRingText = _treasures.GetRingText(0x00);
         var swordLevelOverlay = _inventoryScreen.LevelOverlayForValidation(
-            InventoryState.ItemSword);
+            TreasureId.Sword);
         var hudSwordLevelOverlay = _hud.LevelOverlayForValidation(
-            InventoryState.ItemSword, isA: true);
+            TreasureId.Sword, isA: true);
         FailIf(
             woodenSwordText.NameTextId != 0x0923 ||
             woodenSwordText.Message != "Wooden Sword\nA hero's blade." ||
@@ -1889,15 +1889,15 @@ public sealed partial class ValidationRoot
             "bank2.s:itemSubmenu2HeartPieceDisplayData did not map source " +
             "attributes $05/$25 to BG attributes $07/$27 and the original red/black palette.");
 
-        int selectItemRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
-        int inventoryMoveRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+        int selectItemRequests = _sound.PlayRequestsFor(SoundId.SndSelectItem);
+        int inventoryMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
         FailIf(
             !_inventoryMenu.EquipToA() ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndSelectItem ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 1 ||
-            _inventory.EquippedA != InventoryState.ItemNone ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemSword ||
+                SoundId.SndSelectItem ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectItemRequests + 1 ||
+            _inventory.EquippedA != TreasureId.None ||
+            _inventory.StorageItemAt(0) != TreasureId.Sword ||
             _inventoryScreen.ActiveTextKey != 0 ||
             _inventoryScreen.VisibleTextForValidation != new string(' ', 16),
             "@finalizeEquip did not unequip the sword and clear text through func_02_55b2.");
@@ -1926,13 +1926,13 @@ public sealed partial class ValidationRoot
         FailIf(
             !_inventoryMenu.EquipToB() ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndSelectItem ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 2 ||
-            _inventory.EquippedB != InventoryState.ItemSword ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemHarp,
+                SoundId.SndSelectItem ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectItemRequests + 2 ||
+            _inventory.EquippedB != TreasureId.Sword ||
+            _inventory.StorageItemAt(0) != TreasureId.Harp,
             "Pressing B on storage slot 0 did not equip the sword to " +
             $"wInventoryB (lastSound=${_sound.LastPlayRequestForValidation():x2}, " +
-            $"selectRequests={_sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem)}, " +
+            $"selectRequests={_sound.PlayRequestsFor(SoundId.SndSelectItem)}, " +
             $"expected={selectItemRequests + 2}, " +
             $"equippedB=${_inventory.EquippedB:x2}, " +
             $"slot0=${_inventory.StorageItemAt(0):x2}, " +
@@ -1940,12 +1940,12 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_inventoryMenu.MoveCursor(Vector2I.Left) ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndMenuMove ||
             _inventoryScreen.Cursor != 15,
             "Inventory cursor did not wrap left with the original & $0f rule.");
         FailIf(
             !_inventoryMenu.MoveCursor(Vector2I.Right) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 2 ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != inventoryMoveRequests + 2 ||
             _inventoryScreen.Cursor != 0,
             "Inventory cursor did not return to slot 0 after wrapping.");
 
@@ -1958,25 +1958,25 @@ public sealed partial class ValidationRoot
             !_inventoryMenu.EquipToB() ||
             !_inventoryMenu.EquipToA() ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndSelectItem ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) != selectItemRequests + 4 ||
-            _inventory.EquippedA != InventoryState.ItemSword ||
-            _inventory.EquippedB != InventoryState.ItemNone ||
-            _inventory.StorageItemAt(0) != InventoryState.ItemHarp ||
-            _inventory.StorageItemAt(1) != InventoryState.ItemNone,
+                SoundId.SndSelectItem ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) != selectItemRequests + 4 ||
+            _inventory.EquippedA != TreasureId.Sword ||
+            _inventory.EquippedB != TreasureId.None ||
+            _inventory.StorageItemAt(0) != TreasureId.Harp ||
+            _inventory.StorageItemAt(1) != TreasureId.None,
             "Inventory menu did not restore the sword to A through storage swaps.");
 
-        int tabSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        int tabSoundRequests = _sound.PlayRequestsFor(SoundId.SndOpenMenu);
         FailIf(
             !_inventoryMenu.BeginNextSubscreen() ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests,
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != tabSoundRequests,
             "The Select edge must defer SND_OPENMENU $54 to state 3's first dispatch.");
         _inventoryMenu.Update(1.0 / 60.0);
-        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
+        FailIf(_sound.PlayRequestsFor(SoundId.SndOpenMenu) != tabSoundRequests + 1,
             "inventoryMenuState3 did not request SND_OPENMENU $54 on its first dispatch.");
         FailIf(
             _inventoryMenu.BeginNextSubscreen() ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != tabSoundRequests + 1,
             "An in-progress inventory tab scroll replayed SND_OPENMENU $54.");
         for (int frame = 1; frame < InventoryScreen.PageScrollUpdates - 1; frame++)
             _inventoryScreen.UpdatePageTransition(1.0 / 60.0);
@@ -1995,12 +1995,12 @@ public sealed partial class ValidationRoot
             "The empty secondary page did not wrap 0 -> 14 to the left.");
         FailIf(
             !_inventoryMenu.MoveCursor(Vector2I.Right) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 5,
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != inventoryMoveRequests + 5,
             "Secondary inventory cursor movement did not request SND_MENU_MOVE $84.");
 
         OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
-        ringSave.WriteWramByte(0xc6cc, 2);
-        ringSave.WriteWramByte(0xc6c6, 7);
+        ringSave.WriteWramByte(WramAddress.wRingBoxLevel, 2);
+        ringSave.WriteWramByte(WramAddress.wRingBoxContents, 7);
         ringSave.WriteWramByte(0xc6c7, 8);
         ringSave.WriteWramByte(0xc6c8, 9);
         var ringInventory = new InventoryState(_treasures, ringSave);
@@ -2013,7 +2013,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !_inventoryMenu.BeginNextSubscreen() ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != tabSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != tabSoundRequests + 1,
             "The second Select edge must defer SND_OPENMENU $54.");
         for (int frame = 0; frame < InventoryScreen.PageScrollUpdates; frame++)
             _inventoryMenu.Update(1.0 / 60.0);
@@ -2026,8 +2026,8 @@ public sealed partial class ValidationRoot
             !_inventoryMenu.MoveCursor(Vector2I.Right) ||
             !_inventoryMenu.MoveCursor(Vector2I.Down) ||
             !_inventoryMenu.MoveCursor(Vector2I.Down) ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndMenuMove ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) != inventoryMoveRequests + 8 ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndMenuMove ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != inventoryMoveRequests + 8 ||
             !_inventoryScreen.SaveAndQuitSelected || _inventoryScreen.ActiveCursor != 0x82 ||
             _inventoryScreen.ActiveTextKey != 0x60 ||
             _inventoryScreen.VisibleTextForValidation != "  Save Screen   ",
@@ -2101,9 +2101,9 @@ public sealed partial class ValidationRoot
         int gameOverContinues = 0;
         int gameOverQuits = 0;
         int gameOverMoveRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+            _sound.PlayRequestsFor(SoundId.SndMenuMove);
         int gameOverSelectRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+            _sound.PlayRequestsFor(SoundId.SndSelectItem);
         var gameOverMenu = new InventoryMenuController(
             _inventoryScreen,
             _saveQuitScreen,
@@ -2155,7 +2155,7 @@ public sealed partial class ValidationRoot
             gameOverMenu.SaveRequests != 0 ||
             _saveQuitScreen.DelayCounter !=
                 InventoryMenuController.SaveSelectionDelayFrames ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
                 gameOverSelectRequests + 1,
             "Game-over Continue saved the file or missed SND_SELECTITEM " +
             "and its 30-update delay.");
@@ -2189,7 +2189,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !gameOverMenu.MoveSaveCursor(1) ||
             _saveQuitScreen.Cursor != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) !=
                 gameOverMoveRequests + 1,
             "Game-over Save and Continue cursor movement missed SND_MENU_MOVE.");
         gameOverMenu.SelectSaveOption();
@@ -2219,7 +2219,7 @@ public sealed partial class ValidationRoot
             !gameOverMenu.MoveSaveCursor(1) ||
             !gameOverMenu.MoveSaveCursor(1) ||
             _saveQuitScreen.Cursor != 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) !=
                 gameOverMoveRequests + 3,
             "Game-over Save and Quit cursor movement missed its two " +
             "SND_MENU_MOVE requests.");
@@ -2238,7 +2238,7 @@ public sealed partial class ValidationRoot
             gameOverQuits != 1 ||
             gameOverMenu.IsActive ||
             _saveQuitScreen.BackgroundPixelHash != standardSaveBackground ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
                 gameOverSelectRequests + 3,
             "Game-over Save and Quit did not save, delay, close, restore " +
             "the ordinary background, and request title exactly once.");
@@ -2385,7 +2385,7 @@ public sealed partial class ValidationRoot
         beam.UpdateFrame(3, beamSpawns);
         FailIf(
             !beam.CollisionEnabled || beam.PrecisePosition != initialBeamPosition ||
-            beamSounds.Count != 1 || beamSounds[0] != OracleSoundEngine.SndSwordBeam,
+            beamSounds.Count != 1 || beamSounds[0] != SoundId.SndSwordBeam,
             "Sword-beam state 0 offset, collision enable, or sound regressed.");
         beam.UpdateFrame(4, beamSpawns);
         FailIf(
@@ -2416,7 +2416,7 @@ public sealed partial class ValidationRoot
         for (int level = 1; level <= 3; level++)
         {
             OracleSaveData layoutSave = OracleSaveData.CreateStandardGame();
-            layoutSave.WriteWramByte(0xc6cc, (byte)level);
+            layoutSave.WriteWramByte(WramAddress.wRingBoxLevel, (byte)level);
             var layoutInventory = new InventoryState(_treasures, layoutSave);
             var layoutScreen = new RingMenuScreen
             {
@@ -2533,11 +2533,11 @@ public sealed partial class ValidationRoot
         appraisal.ApplyRingAppraisalRefund(duplicate.Refund);
         FailIf(
             appraisal.Rupees != 90 || appraisal.RingsAppraised != 2 ||
-            appraisalSave.ReadWramByte(0xc6ce) != 2,
+            appraisalSave.ReadWramByte(WramAddress.wNumRingsAppraised) != 2,
             "Duplicate refund or wNumRingsAppraised persistence regressed.");
 
         OracleSaveData boxSave = OracleSaveData.CreateStandardGame();
-        boxSave.WriteWramByte(0xc6cc, 2);
+        boxSave.WriteWramByte(WramAddress.wRingBoxLevel, 2);
         var box = new InventoryState(_treasures, boxSave);
         box.GrantAppraisedRingForDebug((int)RingId.Red);
         box.GrantAppraisedRingForDebug((int)RingId.Blue);
@@ -2562,8 +2562,8 @@ public sealed partial class ValidationRoot
         InventoryState Wearing(RingId ring)
         {
             OracleSaveData save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6cc, 1);
-            save.WriteWramByte(0xc6c6, (byte)ring);
+            save.WriteWramByte(WramAddress.wRingBoxLevel, 1);
+            save.WriteWramByte(WramAddress.wRingBoxContents, (byte)ring);
             var inventory = new InventoryState(_treasures, save);
             FailIf(!inventory.EquipRingAt(0), $"Could not equip ring ${(int)ring:x2} for validation.");
             return inventory;
@@ -2576,11 +2576,11 @@ public sealed partial class ValidationRoot
             int maxHealth = 12)
         {
             OracleSaveData save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6cc, 1);
-            save.WriteWramByte(0xc6c6, (byte)ring);
-            save.WriteWramByte(0xc6aa, (byte)health);
-            save.WriteWramByte(0xc6ab, (byte)maxHealth);
-            save.WriteWramByte(0xc6b2, (byte)swordLevel);
+            save.WriteWramByte(WramAddress.wRingBoxLevel, 1);
+            save.WriteWramByte(WramAddress.wRingBoxContents, (byte)ring);
+            save.WriteWramByte(WramAddress.wLinkHealth, (byte)health);
+            save.WriteWramByte(WramAddress.wLinkMaxHealth, (byte)maxHealth);
+            save.WriteWramByte(WramAddress.wSwordLevel, (byte)swordLevel);
             var inventory = new InventoryState(_treasures, save);
             FailIf(!inventory.EquipRingAt(0), $"Could not equip ring ${(int)ring:x2} for Player validation.");
             ValidationRingPlayerWorld world = new ValidationRingPlayerWorld();
@@ -2703,7 +2703,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !fistPlayer.IsUsingPunch || fistPlayer.SwordDamage != 1 ||
             fistWorld.SwordHitCalls != 1 || fistWorld.LastSwordDamage != 1 ||
-            !fistWorld.Sounds.Contains(OracleSoundEngine.SndStrike),
+            !fistWorld.Sounds.Contains(SoundId.SndStrike),
             "Fist Ring did not begin its four-update, one-damage punch collision.");
         fistPlayer.AdvancePunchForValidation(3);
         FailIf(
@@ -2720,7 +2720,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !expertPlayer.IsUsingPunch || expertPlayer.SwordDamage != 4 ||
             expertWorld.ExpertTileHitCalls != 1 || expertWorld.SwordHitCalls != 1 ||
-            !expertWorld.Sounds.Contains(OracleSoundEngine.SndExplosion),
+            !expertWorld.Sounds.Contains(SoundId.SndExplosion),
             "Expert's Ring did not apply source $03 tile breakage and four damage.");
         expertPlayer.AdvancePunchForValidation(14);
         FailIf(expertPlayer.IsUsingPunch, "Expert's Ring LINK_ANIM_MODE_34 did not end at update 14.");
@@ -2774,7 +2774,7 @@ public sealed partial class ValidationRoot
         FailIf(
             energyWorld.SwordBeamCalls != 1 ||
             energyPlayer.SwordState != SwordActionState.Poke ||
-            energyWorld.Sounds.Contains(OracleSoundEngine.SndChargeSword),
+            energyWorld.Sounds.Contains(SoundId.SndChargeSword),
             "Energy Ring did not replace completed charge with a beam and sword poke.");
         foreach (Player validationPlayer in new[]
         {
@@ -2786,31 +2786,31 @@ public sealed partial class ValidationRoot
         }
 
         OracleSaveData slayerSave = OracleSaveData.CreateStandardGame();
-        slayerSave.WriteWramByte(0xc620, 0xe7);
+        slayerSave.WriteWramByte(WramAddress.wTotalEnemiesKilled, 0xe7);
         slayerSave.WriteWramByte(0xc621, 0x03);
         var slayer = new InventoryState(_treasures, slayerSave);
         slayer.RecordEnemyKill();
         slayer.RecordEnemyKill();
         OracleSaveData gashaSave = OracleSaveData.CreateStandardGame();
-        gashaSave.WriteWramByte(0xc6cc, 1);
-        gashaSave.WriteWramByte(0xc6c6, (byte)RingId.Gasha);
+        gashaSave.WriteWramByte(WramAddress.wRingBoxLevel, 1);
+        gashaSave.WriteWramByte(WramAddress.wRingBoxContents, (byte)RingId.Gasha);
         var gasha = new InventoryState(_treasures, gashaSave);
         gasha.EquipRingAt(0);
         gasha.RecordEnemyKill();
         OracleSaveData wealthSave = OracleSaveData.CreateStandardGame();
-        wealthSave.WriteWramByte(0xc627, 0x99);
+        wealthSave.WriteWramByte(WramAddress.wTotalRupeesCollected, 0x99);
         wealthSave.WriteWramByte(0xc628, 0x99);
         var wealth = new InventoryState(_treasures, wealthSave);
         wealth.AddRupees(1);
         FailIf(
-            slayer.TotalEnemiesKilled != 1000 || !slayerSave.HasGlobalFlag(0x00) ||
-            slayerSave.ReadWramByte(0xc641) != 2 ||
-            slayerSave.ReadWramByte(0xc64f) != 2 || slayerSave.GashaMaturity != 6 ||
-            gashaSave.ReadWramByte(0xc641) != 1 ||
+            slayer.TotalEnemiesKilled != 1000 || !slayerSave.HasGlobalFlag(GlobalFlag.Flag1000EnemiesKilled) ||
+            slayerSave.ReadWramByte(WramAddress.wMapleKillCounter) != 2 ||
+            slayerSave.ReadWramByte(WramAddress.wGashaSpotKillCounters) != 2 || slayerSave.GashaMaturity != 6 ||
+            gashaSave.ReadWramByte(WramAddress.wMapleKillCounter) != 1 ||
             Enumerable.Range(0, 0x10).Any(
                 spot => gashaSave.ReadWramByte(0xc64f + spot) != 2) ||
             gashaSave.GashaMaturity != 3 ||
-            wealth.TotalRupeesCollected != 0 || !wealthSave.HasGlobalFlag(0x01),
+            wealth.TotalRupeesCollected != 0 || !wealthSave.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected),
             "Slayer/Rupee awards or Maple/Gasha enemy counters regressed.");
 
         GD.Print("Validated all 64 ring IDs, appraisal/list/box/equip persistence, " +

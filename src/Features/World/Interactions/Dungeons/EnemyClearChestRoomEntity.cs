@@ -100,8 +100,8 @@ internal sealed partial class EnemyClearChestRoomEntity : Node2D,
                 return;
             _appearing = true;
             _counter = _data.Constant("enemy-chest-wait");
-            _playSound(OracleSoundEngine.SndSolvePuzzle);
-            spawns.Add(new PuzzlePuffSpawn(Position, OracleSoundEngine.SndPoof));
+            _playSound(SoundId.SndSolvePuzzle);
+            spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
             return;
         }
         if (--_counter != 0)

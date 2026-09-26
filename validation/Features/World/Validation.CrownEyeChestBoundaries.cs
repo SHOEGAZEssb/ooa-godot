@@ -10,7 +10,7 @@ public partial class ValidationRoot
     private void ValidateCrownEyeChestBoundaries()
     {
         var seeds = new SeedSatchelDatabase();
-        FailIf(!seeds.TryGet(0x20,out var seed),"Missing Ember Seed fixture.");
+        FailIf(!seeds.TryGet(ItemId.EmberSeed,out var seed),"Missing Ember Seed fixture.");
         foreach (bool batch in new[] { false,true })
         foreach (int boundary in new[] { 0,1,2 })
         {
@@ -22,7 +22,7 @@ public partial class ValidationRoot
             // Isolate the post-collision boundary; the projectile/geometry
             // path is exercised independently by ValidateCrownEyeChest.
             foreach (var eye in _entities.Entities<SeedShooterEyeStatueRoomEntity>())
-                FailIf(!eye.ApplySeedCollision(eye.CollisionBounds,eye.Position,seed,0x1a,new List<RoomEntitySpawn>()).Contact,
+                FailIf(!eye.ApplySeedCollision(eye.CollisionBounds,eye.Position,seed,ItemCollisionType.MysterySeed,new List<RoomEntitySpawn>()).Contact,
                     "Crown eye boundary fixture must queue an accepted native seed hit.");
             Step();
             FailIf(script.Counter != 15,"All three pending hits must start the chest delay in the same gameplay update.");

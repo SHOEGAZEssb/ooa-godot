@@ -17,7 +17,7 @@ internal sealed partial class DepressedBoyCharacter : NpcCharacter
             {
                 Group: 2,
                 Room: 0xf3,
-                Id: 0x3c,
+                Id: InteractionId.Boy,
                 SubId: 0x07,
                 Var03: 0x00
             })

@@ -59,8 +59,8 @@ internal sealed partial class DungeonTriggerChestScriptRoomEntity : Node2D,
         if (Counter < 0)
         {
             if (_triggers() != _expected) return;
-            _sound(OracleSoundEngine.SndSolvePuzzle);
-            spawns.Add(new PuzzlePuffSpawn(Position,OracleSoundEngine.SndPoof));
+            _sound(SoundId.SndSolvePuzzle);
+            spawns.Add(new PuzzlePuffSpawn(Position,SoundId.SndPoof));
             Counter = _wait;
             return;
         }

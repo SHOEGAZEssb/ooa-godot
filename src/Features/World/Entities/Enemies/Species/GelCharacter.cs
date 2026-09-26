@@ -220,7 +220,7 @@ public partial class GelCharacter : EnemyCharacter
     {
         _state = GelState.Hopping;
         _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
-        _angle = angle & 0x1f;
+        _angle = angle & ObjectAngle.Mask;
         // gel_beginHop does not alter collisionType. A Gel hopping normally
         // therefore stays enabled, while a Gel whose Link collision disabled
         // it stays disabled until state $0b restores bit 7 on landing.
@@ -236,7 +236,7 @@ public partial class GelCharacter : EnemyCharacter
             : facing == Vector2I.Right ? 0x08
             : facing == Vector2I.Down ? 0x10
             : 0x18;
-        return (linkAngle + 0x10) & 0x1f;
+        return (linkAngle + 0x10) & ObjectAngle.Mask;
     }
 
 }

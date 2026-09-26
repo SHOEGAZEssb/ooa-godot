@@ -125,7 +125,7 @@ public readonly record struct BreakableTileBreak(
         Action<int, Vector2> spawnDrop)
     {
         if ((Record.Effect & 0x40) != 0)
-            playSound(OracleSoundEngine.SndSolvePuzzle);
+            playSound(SoundId.SndSolvePuzzle);
         if (Record.Drop != 0)
             spawnDrop(Record.Drop, TileCenter);
     }
@@ -134,7 +134,7 @@ public readonly record struct BreakableTileBreak(
         Action<int> playSound,
         Func<int, int?> decideDrop,
         ICollection<RoomEntitySpawn> spawns,
-        int angle = 0)
+        int angle = ObjectAngle.Up)
     {
         ApplyCommonEffects(
             playSound,

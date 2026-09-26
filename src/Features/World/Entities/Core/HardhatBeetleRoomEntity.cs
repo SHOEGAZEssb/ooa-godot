@@ -19,7 +19,7 @@ internal sealed class HardhatBeetleRoomEntity
             EnemyCombatDescriptor.WithContactDamage(
                 combatSource,
                 beetle,
-                beetle.Record.Id == 0x5f ? 0 : beetle.Record.DamageQuarters,
+                beetle.Record.Id == EnemyId.HarmlessHardhatBeetle ? 0 : beetle.Record.DamageQuarters,
                 beetle.TakeBumpHit,
                 beetle.TakeBurnHit,
                 beetle.ApplySwordBump,
@@ -31,20 +31,20 @@ internal sealed class HardhatBeetleRoomEntity
     private readonly Action? _fellInHole;
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x0d || !Entity.TakeSwitchHookHit(linkPosition)) return false;
+        if (effect != CollisionEffect.Bump || !Entity.TakeSwitchHookHit(linkPosition)) return false;
         hook.NotifyObjectCollision();
         return true;
     }
 
     public override void HandleLinkContact(Player player)
     {
-        if (Entity.Record.Id != 0x5f || player.IsUsingShield && CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
+        if (Entity.Record.Id != EnemyId.HarmlessHardhatBeetle || player.IsUsingShield && CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         { base.HandleLinkContact(player); return; }
         // Collision $42/$00 selects collisionEffect06: LINKDMG_14 and
         // ENEMYDMG_1c. Only Link recoils, with no health subtraction.
         if (!Entity.IsDead && Entity.CollisionEnabled && Entity.InvincibilityCounter == 0 &&
             player.OverlapsEnemyCollision(Entity.CollisionBounds) && player.TryApplyHarmlessContactRecoil(Entity.Position))
-            CombatDescriptor.RequestSound(OracleSoundEngine.SndBombLand);
+            CombatDescriptor.RequestSound(SoundId.SndBombLand);
     }
     public override void OnFinished(ICollection<RoomEntitySpawn> spawns)
     {
@@ -64,11 +64,11 @@ internal sealed class HardhatBeetleRoomEntity
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.CollisionEnabled &&
         CombatDescriptor.Combat.Intersects(hitbox)
-            ? seedItem == 0x24
+            ? seedItem == ItemId.MysterySeed
                 ? SeedHitResult.Activate
-                : seedItem == 0x21
+                : seedItem == ItemId.ScentSeed
                     ? SeedHitResult.Activate
-                : seedItem == 0x20
+                : seedItem == ItemId.EmberSeed
                     ? SeedHitResult.Consume
                     : SeedHitResult.None
             : SeedHitResult.None;

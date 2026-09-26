@@ -68,7 +68,7 @@ internal sealed class Room5b6Database
                 Var03: 0x01,
                 ItemRoomFlag: 0x20,
                 TreasureObject: "TREASURE_OBJECT_CHEVAL_ROPE_00",
-                TreasureId: 0x52,
+                TreasureId: TreasureId.ChevalRope,
                 TreasureSubId: 0x00,
                 TreasureParameter: 0x00,
                 PostGrantWait: 30,

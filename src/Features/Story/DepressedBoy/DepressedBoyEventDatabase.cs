@@ -62,20 +62,20 @@ internal sealed class DepressedBoyEventDatabase
             {
                 Group: 2,
                 Room: 0xf3,
-                InteractionId: 0x3c,
+                InteractionId: InteractionId.Boy,
                 SubId: 0x07,
                 CollisionRadiusY: 6,
                 CollisionRadiusX: 6,
                 RoomFlag: OracleSaveData.RoomFlagItem,
                 RequiredTradeItem: 0x07,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x08,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_08",
                 DarkenTarget: -9,
                 ApproachY: 0x48,
                 DanceCount: 20,
-                DanceMusic: OracleSoundEngine.MusCrazyDance,
-                RewardSound: OracleSoundEngine.SndSwordObtained,
+                DanceMusic: SoundId.MusCrazyDance,
+                RewardSound: SoundId.SndSwordObtained,
                 SourceAnimationCount: 21,
                 InitialScriptUpdates: 1
             } ||
@@ -136,7 +136,7 @@ internal sealed class DepressedBoyEventDatabase
             Commands[20] is not CutsceneNativeCommand
                 { Handler: "SetLinkNormalDown" } ||
             Commands[22] is not CutsceneSetMusicCommand
-                { Music: OracleSoundEngine.MusCrazyDance } ||
+                { Music: SoundId.MusCrazyDance } ||
             Commands[24] is not CutsceneNativeCommand
                 { Handler: "AdvanceFunnyJokeDance" } ||
             Commands[25] is not CutsceneMemoryBranchYieldOnMissCommand
@@ -144,7 +144,7 @@ internal sealed class DepressedBoyEventDatabase
             Commands[27] is not CutsceneNativeCommand
                 { Handler: "RestartSound" } ||
             Commands[29] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndSwordObtained } ||
+                { Sound: SoundId.SndSwordObtained } ||
             Commands[30] is not CutsceneNativeCommand
                 { Handler: "SetLinkGetItemTwoHand" } ||
             Commands[32] is not CutsceneNativeCommand
@@ -152,7 +152,7 @@ internal sealed class DepressedBoyEventDatabase
             Commands[34] is not CutsceneShowTextCommand { TextId: 0x2516 } ||
             Commands[36] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureTradeItem,
+                    TreasureId: TreasureId.TradeItem,
                     Parameter: 0x08
                 } ||
             Commands[38] is not CutsceneNativeCommand { Handler: "ResetMusic" } ||

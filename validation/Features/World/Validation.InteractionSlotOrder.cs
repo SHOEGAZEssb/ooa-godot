@@ -24,7 +24,7 @@ public partial class ValidationRoot
             void Spawn(string name,int expectedSlot,Action<InteractionSlotValidationEntity>? dispatch = null)
             {
                 var puff = new PuzzlePuffEffect { Name = name };
-                puff.Initialize(new(80,64),0);
+                puff.Initialize(new(80,64),SoundId.MusNone);
                 var actor = new InteractionSlotValidationEntity(puff,self => {
                     trace.Add(name);
                     dispatch?.Invoke(self);

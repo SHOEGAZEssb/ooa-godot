@@ -128,7 +128,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
         NpcCharacter actor = RequireActor();
         int towardAngle = CardinalAngleTowardLink(actor);
         _towardDirection = Direction(towardAngle);
-        _moveAngle = towardAngle ^ 0x10;
+        _moveAngle = towardAngle ^ ObjectAngle.HalfTurn;
         actor.SetFacingDirection(Direction(_moveAngle));
         _precisePosition = actor.Position;
         _counter = _record.MoveCounter;
@@ -175,7 +175,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
 
     private int CardinalAngleTowardLink(NpcCharacter actor) =>
         (OracleObjectMovement.Shared.RelativeAngle(
-            actor.Position, Context.Player.Position) + 0x04) & 0x18;
+            actor.Position, Context.Player.Position) + 0x04) & ObjectAngle.CardinalMask;
 
     private static Vector2I Direction(int angle) =>
         new(

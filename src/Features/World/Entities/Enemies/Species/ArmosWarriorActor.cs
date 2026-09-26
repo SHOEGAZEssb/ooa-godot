@@ -58,7 +58,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
     internal ArmosWarriorActor CreateChild(int subid)
     {
         var child = new ArmosWarriorActor();
-        child.Initialize(_world.Bosses.Enemy(0x73, subid), _world, Position, _zFixed);
+        child.Initialize(_world.Bosses.Enemy(EnemyId.ArmosWarrior, subid), _world, Position, _zFixed);
         switch (subid)
         {
             case 1: Body = child; break;
@@ -81,7 +81,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         {
             State = 1;
             _world.EnableLink();
-            _world.Sound(OracleSoundEngine.SndCtrlStopMusic);
+            _world.Sound(SoundId.SndCtrlStopMusic);
         }
         else { State = 8; Speed = SubId; }
     }
@@ -123,11 +123,11 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
                 if (!_world.ShuttersClosed() || !_world.PartSlotAvailable()) return;
                 spawns.Add(new BossShadowSpawn(() => Position, () => _zFixed >> 8,
                     () => GodotObject.IsInstanceValid(this) && !IsDead, 1, 8));
-                State = 9; Speed = 0x14; CollisionMode = 0x60; Visible = true; ZIndex = 10;
+                State = 9; Speed = 0x14; CollisionMode = EnemyCollisionMode.ArmosWarriorProtected; Visible = true; ZIndex = 10;
                 return;
             case 9: UpdateIntro(spawns); return;
             case 10:
-                int toSword = (OracleObjectMovement.Shared.RelativeAngle(Position, Sword!.Position) + 4) & 0x18;
+                int toSword = (OracleObjectMovement.Shared.RelativeAngle(Position, Sword!.Position) + 4) & ObjectAngle.CardinalMask;
                 if (Angle == toSword) { Angle ^= 16; Turn = -Turn; }
                 State = 11; Counter = 75; AdvanceAnimation(); return;
             case 11:
@@ -141,13 +141,13 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
             case 13:
                 if (--Counter == 0)
                 {
-                    Counter = 30; State = 14; CollisionMode = 0x44; Speed = 0x50;
+                    Counter = 30; State = 14; CollisionMode = EnemyCollisionMode.StandardMiniboss; Speed = 0x50;
                     ShowText(0x2f02); RestartAnimation(1);
                 }
                 else if ((Counter & 7) == 0)
                 {
                     int random = _world.Random.Next().Value;
-                    spawns.Add(new RockDebrisSpawn(Position + new Vector2(random & 15, ((random & 0x70) >> 4) - 4), 0x06));
+                    spawns.Add(new RockDebrisSpawn(Position + new Vector2(random & 15, ((random & 0x70) >> 4) - 4), InteractionId.RockDebris));
                 }
                 return;
             case 14:
@@ -162,7 +162,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
                 else
                 {
                     State = 16; Angle ^= 16; _speedZ = -0x180; Speed = 0x28;
-                    _world.Shake(30); _world.Sound(OracleSoundEngine.SndStrongPound);
+                    _world.Shake(30); _world.Sound(SoundId.SndStrongPound);
                 }
                 return;
             case 16:
@@ -182,20 +182,20 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
                 if (!OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x20)) return;
                 Substate = 1; Counter = 26; _world.Shake(26);
                 Sword!._zFixed = (_zFixed & ~255) | (Sword._zFixed & 255);
-                _world.Sound(OracleSoundEngine.SndStrongPound); return;
+                _world.Sound(SoundId.SndStrongPound); return;
             case 1:
                 if (--Counter == 0) { Substate = 2; ShowText(0x2f01); }
                 return;
             case 2:
                 Substate = 3; Counter = 30; _controlsDisabled = false;
-                _world.EnableLink(); _world.Sound(OracleSoundEngine.MusMiniboss); RestartAnimation(2); return;
+                _world.EnableLink(); _world.Sound(SoundId.MusMiniboss); RestartAnimation(2); return;
             case 3:
                 if (--Counter != 0) return;
-                Counter = 70; Angle = 16; Substate = 4;
+                Counter = 70; Angle = ObjectAngle.Down; Substate = 4;
                 Sword!.SetHighPosition(new(High(Sword.Position.X) - 1, High(Sword.Position.Y) - 2));
                 RestartAnimation(0); return;
             case 4:
-                if (--Counter == 0) { State = 10; Angle = 24; Turn = 8; }
+                if (--Counter == 0) { State = 10; Angle = ObjectAngle.Left; Turn = 8; }
                 Move(); AdvanceAnimation(); return;
             default: throw InvalidState();
         }
@@ -210,7 +210,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         else if (high.X >= 0xc0) high.X = 0xbf;
         else if (high.X < 0x30) high.X = 0x31;
         else corner = false;
-        if (corner) { SetHighPosition(high); Angle = (Angle + Turn) & 0x18; }
+        if (corner) { SetHighPosition(high); Angle = (Angle + Turn) & ObjectAngle.CardinalMask; }
         else Move();
         AdvanceAnimation();
     }
@@ -220,7 +220,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         if (State == 8)
         {
             if (!_world.ShuttersClosed()) return;
-            State = 9; CollisionMode = 0x61; ShieldHits = 3; _shieldAnimationBase = 3;
+            State = 9; CollisionMode = EnemyCollisionMode.ArmosWarriorShield; ShieldHits = 3; _shieldAnimationBase = 3;
             RestartAnimation(3); Visible = true; ZIndex = 11;
         }
         else
@@ -240,7 +240,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         {
             case 8:
                 if (!_world.ShuttersClosed()) return;
-                State = 9; CollisionMode = 0x62; Speed = 5;
+                State = 9; CollisionMode = EnemyCollisionMode.ArmosWarriorSword; Speed = 5;
                 HeldSword(); RestartAnimation(9); Visible = true; ZIndex = 12; return;
             case 9:
                 if (Body!.Substate == 0) { HeldSword(); return; }
@@ -307,7 +307,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         _swordHitShield = true;
         Shield.InvincibilityCounter = 24; Shield.ShieldHits--; Shield._shieldAnimationBase += 2;
         Body!.Counter = 60; Body.State = 12; Body.Speed = 0x78; Body.InvincibilityCounter = 24;
-        _world.Sound(OracleSoundEngine.SndBossDamage);
+        _world.Sound(SoundId.SndBossDamage);
     }
     internal void ApplyNativeHit(int damage, int invincibility)
     { Health = Math.Max(0, Health - damage); InvincibilityCounter = invincibility; _justHit = true; }
@@ -323,12 +323,12 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         if (!_dying)
         {
             _dying = true; Counter = 120; _world.DisableLink();
-            _world.Sound(OracleSoundEngine.SndBossDead);
+            _world.Sound(SoundId.SndBossDead);
         }
         if (--Counter != 0) { Visible = (Counter & 1) != 0; return; }
         Counter = 1;
         if (!_world.PartSlotAvailable()) return;
-        spawns.Add(new BossDeathExplosionSpawn(Position, 0x73));
+        spawns.Add(new BossDeathExplosionSpawn(Position, EnemyId.ArmosWarrior));
         _world.RestoreMusic(); Finish();
     }
     private void ShowText(int id)
@@ -337,7 +337,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         string text = message.Position == 0 ? message.Text : $"\\pos({message.Position})" + message.Text;
         _world.ShowDialogue(id, text, Position);
     }
-    private void Slash(int frame) { if ((frame & 15) == 0) _world.Sound(OracleSoundEngine.SndSwordSlash); }
+    private void Slash(int frame) { if ((frame & 15) == 0) _world.Sound(SoundId.SndSwordSlash); }
     private void Move() => Position += OracleObjectMovement.Shared.Delta(Speed, Angle);
     private static int High(float value) => Mathf.FloorToInt(value) & 255;
     private Vector2I HighPosition() => new(High(Position.X), High(Position.Y));

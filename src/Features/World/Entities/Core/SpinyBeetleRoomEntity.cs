@@ -12,7 +12,7 @@ internal sealed class SpinyBeetleRoomEntity
     // spinyBeetle.s uses ENEMY_BEAMOS's active-collision mask under a rock.
     public override int DimitriCollisionType => Entity.CoverProtects && Entity.Record.SubId >= 2 ? 0x16 : base.DimitriCollisionType;
     protected override int GaleCollisionMode => Entity.CoverProtects
-        ? Entity.Record.SubId < 2 ? 0x40 : 0x52 : base.GaleCollisionMode;
+        ? Entity.Record.SubId < 2 ? EnemyCollisionMode.Bush : EnemyCollisionMode.Rock : base.GaleCollisionMode;
 
     public SpinyBeetleRoomEntity(
         SpinyBeetleCharacter beetle,
@@ -67,7 +67,7 @@ internal sealed class SpinyBeetleRoomEntity
         if (hit && struckCover && SeedBurning)
             CancelSeedBurn();
         if (hit && !struckCover)
-            _soundRequested(OracleSoundEngine.SndDamageEnemy);
+            _soundRequested(SoundId.SndDamageEnemy);
         SpawnCoverDebris(spawns);
         return hit;
     }

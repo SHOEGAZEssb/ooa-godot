@@ -27,13 +27,13 @@ internal static class SpecialObjectMovement
     {
         return angle switch
         {
-            0 => 0xcf,
+            ObjectAngle.Up => 0xcf,
             >= 1 and <= 7 => 0xc3,
-            8 => 0xf3,
+            ObjectAngle.Right => 0xf3,
             >= 9 and <= 15 => 0x33,
-            16 => 0x3f,
+            ObjectAngle.Down => 0x3f,
             >= 17 and <= 23 => 0x3c,
-            24 => 0xfc,
+            ObjectAngle.Left => 0xfc,
             >= 25 and <= 31 => 0xcc,
             _ => 0xff
         };
@@ -44,7 +44,7 @@ internal static class SpecialObjectMovement
         adjustedAngle = angle;
         // slideAngleTable permits each cardinal and its two immediate
         // neighbors (31/0/1, 7/8/9, 15/16/17, 23/24/25).
-        int sector = (angle + 1) & 0x1f;
+        int sector = (angle + 1) & ObjectAngle.Mask;
         if ((sector & 7) > 2) return false;
         switch (sector & 0x18)
         {

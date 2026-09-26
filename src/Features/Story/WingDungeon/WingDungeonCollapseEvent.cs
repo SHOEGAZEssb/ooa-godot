@@ -68,7 +68,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
         // interactiondc_subid02 writes its nonzero interaction page to this
         // boolean gate even while the trigger tile is still covered by a rock.
         _context.Entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
+            WramAddress.wDiggingUpEnemiesForbidden, 1);
     }
 
     internal void RestoreCollapsedEntrance(int group, OracleRoomData room)
@@ -118,7 +118,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
         _context.Player.Face(Vector2I.Right);
         _context.Player.BeginCutsceneControl(interruptBracelet: false, owner: this);
         _context.Player.ResetEnemyInvincibility();
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
         _counter = _record.PickupWait;
         _stage = WingDungeonCollapseStage.PickupWait;
     }
@@ -164,7 +164,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
 
             case WingDungeonCollapseStage.FirstPhase:
                 ApplyPhase(0);
-                _context.Sound.PlaySound(OracleSoundEngine.SndDoorClose);
+                _context.Sound.PlaySound(SoundId.SndDoorClose);
                 _phase = 1;
                 _counter = _record.PhaseWait;
                 _stage = WingDungeonCollapseStage.PhaseWait;
@@ -177,7 +177,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
                 if (--_counter != 0)
                     return;
                 ApplyPhase(_phase);
-                _context.Sound.PlaySound(OracleSoundEngine.SndDoorClose);
+                _context.Sound.PlaySound(SoundId.SndDoorClose);
                 if (_phase == _database.Maps.Count - 1)
                 {
                     _counter = _record.FinalWait;
@@ -227,7 +227,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
             new CutsceneNpcSpawn(
                 _database.CreateExclamationRecord(),
                 $"WingDungeonExclamation{_effectSerial++}"));
-        _context.Sound.PlaySound(OracleSoundEngine.SndClink);
+        _context.Sound.PlaySound(SoundId.SndClink);
         _context.InterruptBracelet(discard: false);
         _context.AdvanceBracelet();
         _counter = _record.ExclamationFrames;
@@ -271,7 +271,7 @@ internal sealed class WingDungeonCollapseEvent : IRoomEntryEvent,
             _record.DustX + xOffset,
             _record.DustY + yOffset);
         PuzzlePuffEffect puff = _context.Entities.Spawn<PuzzlePuffEffect>(
-            new PuzzlePuffSpawn(position, OracleSoundEngine.SndPoof));
+            new PuzzlePuffSpawn(position, SoundId.SndPoof));
         // The source emitter precedes its new puff slot in updateAllObjects.
         puff.UpdateFrame();
     }

@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
 
         _saveData.SetRoomFlag(1, 0xcb, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetLinkedGame(linked: true);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureShovel);
+        _inventory.LoseTreasure(TreasureId.Shovel);
         LoadValidationRoom(1, 0xcb);
         NpcCharacter rosa = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x68);
         TokayAttachedVisualRoomEntity shovel = _entities.Entities<TokayAttachedVisualRoomEntity>().Single();
@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
 
         _saveData.SetRoomFlag(1, 0xbb, OracleSaveData.RoomFlag80, value: false);
         LoadValidationRoom(1, 0xbb);
-        FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 1,
+        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 1,
             "Rosa-escape initialization did not set wDiggingUpEnemiesForbidden $ccde.");
         TokayCharacter escape = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x0b);
         Vector2 escapeStart = escape.Position;
@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
             "Rosa escape did not finish its remaining source moves and room flag.");
         _roomEvents.Get<TokayRunningFromRosaEvent>().Cancel();
         LoadValidationRoom(1, 0xcb);
-        FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0,
+        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0,
             "Room loading retained the previous room's digging restriction.");
 
         _saveData.SetRoomFlag(0, 0xbb, OracleSaveData.RoomFlag40, value: false);
@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(_player.CutsceneControlled, "Vine explanation treated native direction zero as a trigger.");
         _player.WarpTo(vine.Position + Vector2.Right * 20, recordSafe: false);
-        int vineJumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
+        int vineJumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
         StepRoomEventFrames(1);
         FailIf(!_player.CutsceneControlled || _player.FacingVector != Vector2I.Left || _dialogue.IsOpen ||
             !_entities.Entities<TokayAttachedVisualRoomEntity>().Any() ||
@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
         FailIf(_dialogue.IsOpen, "Vine explanation skipped its 30-update reaction.");
         StepRoomEventFrames(1);
         FailIf(_dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a6a)) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != vineJumpSounds,
+            _sound.PlayRequestsFor(SoundId.SndJump) != vineJumpSounds,
             "Vine reaction added a jump sound or lost TX_0a6a.");
         _dialogue.Close();
         StepRoomEventFrames(1);
@@ -116,7 +116,7 @@ public sealed partial class ValidationRoot
         foreach (int level in new[] { 1, 2 })
         {
             _saveData.SetRoomFlag(5, 0xe9, OracleSaveData.RoomFlag40, value: false);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureShield, level);
+            _inventory.GiveTreasure(TreasureId.Shield, level);
             LoadValidationRoom(5, 0xe9);
             TokayCharacter holder = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x1d);
             FailIf(holder.Accessory is null || !_roomEvents.Get<TokayShieldUpgradeEvent>().TryInteractNpc(holder),
@@ -132,13 +132,13 @@ public sealed partial class ValidationRoot
         }
 
         var theft = new TokayTheftEventDatabase();
-        foreach (int treasure in theft.Record.StolenItems.Where(item => item != TreasureDatabase.TreasureShield))
+        foreach (int treasure in theft.Record.StolenItems.Where(item => item != TreasureId.Shield))
             _inventory.GiveTreasure(treasure, 1);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureFeather);
+        _inventory.LoseTreasure(TreasureId.Feather);
         _saveData.SetRoomFlag(5, 0xca, OracleSaveData.RoomFlag40);
         LoadValidationRoom(5, 0xca);
         TokayHoldingItemCharacter returned = _entities.Entities<TokayHoldingItemCharacter>().Single();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         FailIf(returned.ReturnedItemDialogue != 0x0a0c || !_roomEvents.Get<TokayHoldingItemEvent>().TryInteractNpc(returned) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a0c)),
             "Returned holder recomputed its initialization snapshot without leaving.");
@@ -157,8 +157,8 @@ public sealed partial class ValidationRoot
         foreach (int level in new[] { 1, 2, 3 })
         foreach (int room in new[] { 0xbc, 0x90 })
         {
-            _inventory.GiveTreasure(TreasureDatabase.TreasureShield, level);
-            _inventory.LoseTreasure(TreasureDatabase.TreasureShield);
+            _inventory.GiveTreasure(TreasureId.Shield, level);
+            _inventory.LoseTreasure(TreasureId.Shield);
             LoadValidationRoom(1, room);
             BusinessScrubRoomEntity scrub = _entities.EntityAdapters<BusinessScrubRoomEntity>().Single();
             int price = level * 50;
@@ -170,7 +170,7 @@ public sealed partial class ValidationRoot
                 "Island Business Scrub did not show its initialized price.");
             _dialogue.SubmitChoiceForValidation(0);
             StepRoomEventFrames(1);
-            FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureShield) ||
+            FailIf(!_inventory.HasTreasure(TreasureId.Shield) ||
                 _inventory.ShieldLevel != level || _inventory.Rupees != 999 - price,
                 "Island Business Scrub did not restore the priced shield and charge its BCD offer.");
             _dialogue.Close();
@@ -214,7 +214,7 @@ public sealed partial class ValidationRoot
         FailIf(!statues.Select(npc => (npc.CurrentAnimationFrame, npc.CurrentAnimationPixelHash)).SequenceEqual(poses),
             "Wild Tokay museum statues animated autonomously.");
 
-        _inventory.GiveTreasure(0x4f, 0);
+        _inventory.GiveTreasure(TreasureId.TokayEyeball, 0);
         _saveData.SetRoomFlag(1, 0xba, OracleSaveData.RoomFlag80, value: false);
         LoadValidationRoom(1, 0xba);
         TokayEyeballSlotRoomEntity slot = _entities.Entities<TokayEyeballSlotRoomEntity>().Single();

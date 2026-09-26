@@ -43,8 +43,8 @@ internal sealed partial class FountainFairyHeartRoomEntity : TransitionOffsetNod
         if (--_counter == 0)
         {
             _counter = 3;
-            Angle = (Angle - 1) & 0x1f;
-            if (Angle == 0 && _displayedHealth() == frame.Player.MaxHealthQuarters)
+            Angle = (Angle - 1) & ObjectAngle.Mask;
+            if (Angle == ObjectAngle.Up && _displayedHealth() == frame.Player.MaxHealthQuarters)
             {
                 Finished = true;
                 Visible = false;

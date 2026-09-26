@@ -67,7 +67,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             animationTick,
             playSound)
     {
-        if (record.Id != 0x03 || record.SubId > 0x07)
+        if (record.Id != InteractionId.Splash || record.SubId > 0x07)
             throw new ArgumentOutOfRangeException(nameof(record));
     }
 
@@ -148,7 +148,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        return Accept(hitbox, 4);
+        return Accept(hitbox, ItemCollisionType.L1Sword);
     }
 
     public bool ApplyItemCollision(
@@ -167,18 +167,18 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("PART_ORB $03 requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_ORB $03 requires Mystery's live collision type.");
         return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
-            ? ApplySeedCollision(hitbox, sourcePosition, seed, seed.Collision & 0x7f, spawns).Effect : SeedHitResult.None;
+            ? ApplySeedCollision(hitbox, sourcePosition, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect : SeedHitResult.None;
     }
 
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 sourcePosition,
         SeedRecord seed, int collisionType, ICollection<RoomEntitySpawn> spawns) => Accept(hitbox, collisionType)
-        ? new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true) : default;
+        ? new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true) : default;
 
     public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (!RoomEntityManager.ObjectCollisionZOverlaps(0, hook.ZHigh, 7) || !Accept(hook.CollisionBounds, 0x0d)) return false;
+        if (!RoomEntityManager.ObjectCollisionZOverlaps(0, hook.ZHigh, 7) || !Accept(hook.CollisionBounds, ItemCollisionType.SwitchHook)) return false;
         hook.NotifyObjectCollision(); return true;
     }
 

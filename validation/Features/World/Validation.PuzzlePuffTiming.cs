@@ -21,7 +21,7 @@ public partial class ValidationRoot
             void Step(int count = 1) =>
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
             PuzzlePuffEffect Puff() => _entities.Spawn<PuzzlePuffEffect>(
-                new PuzzlePuffSpawn(new(24, 24), 0, Flickers: true));
+                new PuzzlePuffSpawn(new(24, 24), SoundId.MusNone, Flickers: true));
             var even = Puff();
             var odd = Puff();
             FailIf(_entities.InteractionSlot(even) != 2 || _entities.InteractionSlot(odd) != 3,

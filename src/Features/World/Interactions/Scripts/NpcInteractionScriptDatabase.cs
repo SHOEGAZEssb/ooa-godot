@@ -75,7 +75,7 @@ internal sealed class NpcInteractionScriptDatabase
                 } ||
             PastBipin[6] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureGashaSeed,
+                    TreasureId: TreasureId.GashaSeed,
                     Parameter: 0x08
                 } ||
             PastBipin[7] is not CutsceneWaitCommand { Frames: 1 } ||
@@ -104,7 +104,7 @@ internal sealed class NpcInteractionScriptDatabase
                 } ||
             HardhatShovel[8] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureShovel,
+                    TreasureId: TreasureId.Shovel,
                     Parameter: 0
                 } ||
             HardhatShovel[13] is not CutsceneSetAnimationCommand
@@ -150,7 +150,7 @@ internal sealed class NpcInteractionScriptDatabase
                 } ||
             Postman[21] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureTradeItem,
+                    TreasureId: TreasureId.TradeItem,
                     Parameter: 1
                 } ||
             Postman[23] is not CutsceneEndCommand ||

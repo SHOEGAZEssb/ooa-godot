@@ -45,7 +45,7 @@ internal sealed class FlyingTileRoomEntity
         if (player.IsUsingShield &&
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         {
-            int effect = player.Inventory.ShieldLevel == 1 ? 0x07 : 0x06;
+            int effect = player.Inventory.ShieldLevel == 1 ? CollisionEffect.Effect07 : CollisionEffect.Effect06;
             RequireCollisionEffect(
                 Math.Clamp(player.Inventory.ShieldLevel, 1, 3), effect);
             if (player.CanAcceptShieldCollision &&
@@ -53,8 +53,8 @@ internal sealed class FlyingTileRoomEntity
             {
                 player.ApplyShieldCollisionRecoil(
                     Entity.Position,
-                    effect == 0x07 ? 0x16 : 0x0f,
-                    effect == 0x07 ? 0x19 : 0x13);
+                    effect == CollisionEffect.Effect07 ? 0x16 : 0x0f,
+                    effect == CollisionEffect.Effect07 ? 0x19 : 0x13);
             }
             return;
         }
@@ -70,9 +70,9 @@ internal sealed class FlyingTileRoomEntity
     {
         int collisionType = knockbackStrength switch
         {
-            EnemyKnockbackStrength.Low => 0x04,
-            EnemyKnockbackStrength.Normal => 0x05,
-            EnemyKnockbackStrength.High => 0x08,
+            EnemyKnockbackStrength.Low => ItemCollisionType.L1Sword,
+            EnemyKnockbackStrength.Normal => ItemCollisionType.L2Sword,
+            EnemyKnockbackStrength.High => ItemCollisionType.SwordSpin,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(knockbackStrength), knockbackStrength,
                 "Flying Tile received an unknown sword collision strength.")
@@ -112,11 +112,11 @@ internal sealed class FlyingTileRoomEntity
     {
         int collisionType = seedItem switch
         {
-            0x24 => 0x1a,
-            0x20 => 0x1b,
-            0x21 => 0x1c,
-            0x22 => 0x1d,
-            0x23 => 0x1e,
+            ItemId.MysterySeed => ItemCollisionType.MysterySeed,
+            ItemId.EmberSeed => ItemCollisionType.EmberSeed,
+            ItemId.ScentSeed => ItemCollisionType.ScentSeed,
+            ItemId.PegasusSeed => ItemCollisionType.PegasusSeed,
+            ItemId.GaleSeed => ItemCollisionType.GaleSeed,
             _ => -1
         };
         return collisionType >= 0 &&
@@ -134,14 +134,14 @@ internal sealed class FlyingTileRoomEntity
 
     private bool ApplyBreakingCollision(int collisionType, Rect2 hitbox)
     {
-        RequireCollisionEffect(collisionType, 0x1c);
+        RequireCollisionEffect(collisionType, CollisionEffect.Effect1c);
         return hitbox.Intersects(Entity.CollisionBounds) &&
             Entity.QueueCollisionBreak();
     }
 
     private bool ApplyStatusCollision(int collisionType, Rect2 hitbox)
     {
-        RequireCollisionEffect(collisionType, 0x20);
+        RequireCollisionEffect(collisionType, CollisionEffect.Effect20);
         return hitbox.Intersects(Entity.CollisionBounds) &&
             Entity.QueueCollisionBreak();
     }

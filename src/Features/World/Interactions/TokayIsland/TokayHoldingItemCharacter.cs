@@ -43,7 +43,7 @@ internal partial class TokayHoldingItemCharacter : TokayCharacter
         bool itemReturned)
     {
         Initialize(record);
-        if (record.Id != 0x48 || record.SubId != item.SubId ||
+        if (record.Id != InteractionId.Tokay || record.SubId != item.SubId ||
             record.SubId is < 0x06 or > 0x0a)
         {
             throw new InvalidOperationException(

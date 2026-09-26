@@ -17,10 +17,10 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
     { _canSpawnPart = canSpawnPart; _random = random; }
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x08 || !Entity.TakeSwordHit(linkPosition, hook.HitDamage)) return false;
+        if (effect != CollisionEffect.SwordLowKnockback || !Entity.TakeSwordHit(linkPosition, hook.HitDamage)) return false;
         Entity.ApplySwordKnockback(linkPosition, EnemyKnockbackStrength.Low);
         hook.NotifyObjectCollision();
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -52,9 +52,9 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
     }
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("ENEMY_FIRE_KEESE $39 requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_FIRE_KEESE $39 requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
@@ -65,20 +65,20 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
         int effect = EnemyBehaviorTables.Shared.FireKeeseCollisionEffects[collisionType].Value;
         switch (effect)
         {
-            case 0: return new(true, SeedHitResult.None, false);
-            case 0x1c: Entity.NotifyOtherCollision(); break;
-            case 0x08:
+            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
+            case CollisionEffect.Effect1c: Entity.NotifyOtherCollision(); break;
+            case CollisionEffect.SwordLowKnockback:
                 Entity.TakeSwordHit(origin, -(sbyte)seed.Damage);
                 Entity.ApplySwordKnockback(origin, EnemyKnockbackStrength.Low);
-                CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); break;
-            case 0x28:
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
+            case CollisionEffect.PegasusSeed:
                 Entity.BeginPegasusHit();
-                CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); break;
-            case 0x29:
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
+            case CollisionEffect.GaleSeed:
                 Entity.ClearSeedStun(); BeginNativeGale(origin, _random); break;
             default: throw new NotSupportedException($"ENEMY_FIRE_KEESE $39 seed collision${collisionType:x2}, effect${effect:x2} is unsupported.");
         }
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect is 0x28 or 0x29);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect is CollisionEffect.PegasusSeed or CollisionEffect.GaleSeed);
     }
 }
 

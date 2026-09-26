@@ -46,7 +46,7 @@ public partial class ValidationRoot
                 try { _entities.TextActiveSource=()=>true; Step(8); FailIf(bridge.Counter!=8,"Text must freeze bridge delay."); }
                 finally { _entities.TextActiveSource=text; }
                 Step(40);
-                FailIf(bridge.State!=3 || _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=5,
+                FailIf(bridge.State!=3 || _sound.PlayRequestsFor(SoundId.SndDoorClose)!=5,
                     "Five extension writes and a final empty scan must reach the held state.");
                 for (int i=0;bridge.State!=4 && i<40;i++) Step(movement:Vector2.Down);
                 FailIf(bridge.State!=4 || bridge.Counter!=8,"Releasing the actual button must retain the bridge counter.");
@@ -56,7 +56,7 @@ public partial class ValidationRoot
                 FailIf(_currentRoom.Layout[0x59]!=0xf4 || _currentRoom.Layout[0x58]!=0x6d,
                     "Bridge must retract one tile starting from the right.");
                 Step(40);
-                FailIf(bridge.State!=1 || _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=10,
+                FailIf(bridge.State!=1 || _sound.PlayRequestsFor(SoundId.SndDoorClose)!=10,
                     "Bridge must return to waiting after five retractions and the empty scan.");
             }
             // Isolate mid-motion trigger edges without a long movement sequence.

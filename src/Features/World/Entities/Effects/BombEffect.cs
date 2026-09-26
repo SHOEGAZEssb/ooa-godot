@@ -154,7 +154,7 @@ public partial class BombEffect : TransitionOffsetNode2D
         _heldBy = player;
         _heldExplosion = heldExplosion;
         _throwDirection = Vector2I.Zero;
-        _speedRaw = 0;
+        _speedRaw = ObjectSpeed.Speed0;
         _speedZ = 0;
         _sideScrollMerged = false;
         _sideScrollGroundCollisionLastUpdate = false;
@@ -383,7 +383,7 @@ public partial class BombEffect : TransitionOffsetNode2D
                 !_record.CanPassSolidTile(_room, edge))
             {
                 _throwDirection = Vector2I.Zero;
-                _speedRaw = 0;
+                _speedRaw = ObjectSpeed.Speed0;
                 // itemUpdateThrowingLaterally falls through to objectApplySpeed
                 // with angle $ff on this update; later $ff updates return early.
                 NativeObjectMovement.Velocity(_movementMemory, 0, 0xff);
@@ -420,7 +420,7 @@ public partial class BombEffect : TransitionOffsetNode2D
         if (rebound > -0x80)
         {
             _speedZ = 0;
-            _speedRaw = 0;
+            _speedRaw = ObjectSpeed.Speed0;
             _throwDirection = Vector2I.Zero;
             _state = BombState.Grounded;
         }
@@ -716,7 +716,7 @@ public partial class BombEffect : TransitionOffsetNode2D
         return WithinRoomBoundary(point);
     }
 
-    private bool IsSideScrolling() => (_room.TilesetFlags & 0x20) != 0;
+    private bool IsSideScrolling() => (_room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0;
 
     private static bool ZOverlaps(
         int sourceZ,

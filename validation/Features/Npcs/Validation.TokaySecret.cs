@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         var codec = new LinkedGameNpcDatabase();
         var save = OracleSaveData.CreateStandardGame();
-        save.WriteWramByte(0xc600, 0x34);
+        save.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
         save.WriteWramByte(0xc601, 0x12);
         FailIf(!codec.ValidateSecret([0x0b, 0x29, 0x13, 0x18, 0x2f], 0x21, save),
             "Secret decoder rejected the existing source-packing Graveyard fixture.");
@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             code[4] ^= 1;
             FailIf(codec.ValidateSecret(code, index, save), "Secret decoder accepted a corrupt checksum.");
         }
-        _saveData.WriteWramByte(0xc600, 0x34);
+        _saveData.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
         _saveData.WriteWramByte(0xc601, 0x12);
         var database = new WildTokayGameDatabase();
         var texts = new TokayInteractionDatabase();
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         _saveData.SetGlobalFlag(database.DoneSecretFlag);
         FailIf(!game.TryInteractNpc(manager) || _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
-            _saveData.ReadWramByte(0xc6fb) != 0x15,
+            _saveData.ReadWramByte(WramAddress.wShortSecretIndex) != 0x15,
             "Completed Tokay quest did not generate its $15 return secret.");
         game.Cancel();
         _dialogue.Close();

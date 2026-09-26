@@ -12,8 +12,6 @@ namespace oracleofages;
 /// </summary>
 internal sealed class Room149FamilyInteraction
 {
-
-    private const int EssenceAddress = 0xc6bf;
     private const int D7EssenceMask = 0x40;
     private const int VeranRoomGroup = 4;
     private const int VeranRoom = 0xfc;
@@ -132,7 +130,7 @@ internal sealed class Room149FamilyInteraction
     {
         bool veranDefeated = _save?.HasRoomFlag(
             VeranRoomGroup, VeranRoom, VeranDefeatedMask) == true;
-        bool d7Complete = ((_save?.ReadWramByte(EssenceAddress) ?? 0) &
+        bool d7Complete = ((_save?.ReadWramByte(WramAddress.wEssencesObtained) ?? 0) &
             D7EssenceMask) != 0;
         FamilyState next = veranDefeated
             ? FamilyState.PlayingAfterVeran

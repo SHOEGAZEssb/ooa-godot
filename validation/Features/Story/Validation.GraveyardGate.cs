@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             !database.TryGet(group, roomId, out OverworldKeyholeDatabaseRecord keyhole) ||
             keyhole is not
             {
-                Treasure: TreasureDatabase.TreasureGraveyardKey,
+                Treasure: TreasureId.GraveyardKey,
                 SubId: 0,
                 TileBase: 0x0e,
                 Palette: 5
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
         void StepGate() => _roomEvents.Update(update);
 
         FailIf(
-            _inventory.HasTreasure(TreasureDatabase.TreasureGraveyardKey) ||
+            _inventory.HasTreasure(TreasureId.GraveyardKey) ||
             room.ActiveCollisions != 0 || At(0x44) != 0xec ||
             gate.Stage != GraveyardGateEventStage.WaitingForKeyhole ||
             gate.BlocksGameplay || _roomEvents.Active,
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             _dialogue.CurrentMessage != "Huh? This has a\nkeyhole." ||
             !_keyholes.InformativeTextShown ||
             _saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 0,
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 0,
             "Room 0:5c did not show one-time TX_5109 when the Graveyard Key was absent.");
         _dialogue.Close();
         for (int frame = 0; frame < 10; frame++)
@@ -86,12 +86,12 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         Push();
         FailIf(
-            !_inventory.HasTreasure(TreasureDatabase.TreasureGraveyardKey) ||
+            !_inventory.HasTreasure(TreasureId.GraveyardKey) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80) ||
             gate.Stage != GraveyardGateEventStage.Running ||
             !_roomEvents.Active || !_player.CutsceneControlled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 0 ||
             _entities.Entities<OverworldKeyUseEffect>() is not
                 [{ State: 0, Counter: 0, ZFixed: 0, SpeedZ: 0 }],
             "The 0:5c keyhole did not retain key $42, set room flag $80, " +
@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
         StepGate();
         FailIf(
             _sound.ActiveMusic != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1 ||
             gate.CurrentCommandIndex != 1 || gate.Counter != 0,
             "interactiondcSubid01Script did not stop room music before wait 60.");
         StepGate();
@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != randomCalls + 2 ||
             _entities.Entities<PuzzlePuffEffect>() is not
                 [{ ElapsedUpdates: 1 }, { ElapsedUpdates: 1 }] ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 2,
+            _sound.PlayRequestsFor(SoundId.SndPoof) != 2,
             "Phase 1 did not apply the two ordinary/four interleaved tiles, " +
             "two puffs, and ten-update shake in source order.");
 
@@ -162,14 +162,14 @@ public sealed partial class ValidationRoot
             gate.Counter != 60 || gate.ShakeCounter != 9 ||
             _entities.RandomCalls != randomCalls + 22 ||
             _entities.Entities<PuzzlePuffEffect>().Count != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != 4,
+            _sound.PlayRequestsFor(SoundId.SndPoof) != 4,
             "Phase 2 did not finish the gate with four ordinary tiles, two puffs, and a fresh shake.");
 
         for (int frame = 0; frame < 59; frame++)
             StepGate();
         FailIf(
             gate.Counter != 1 || _entities.RandomCalls != randomCalls + 40 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
             "The final wait/shake boundary diverged before resetmusic.");
         StepGate();
         FailIf(
@@ -177,7 +177,7 @@ public sealed partial class ValidationRoot
             "resetmusic did not restore room 0:5c's normal track after wait 60.");
         StepGate();
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
             !_player.CutsceneControlled,
             "The solve cue did not yield once before enabling Link input.");
         StepGate();

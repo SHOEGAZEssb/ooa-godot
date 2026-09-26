@@ -27,20 +27,20 @@ public sealed partial class ValidationRoot
             !warps.TryGetTileWarp(0, exterior, 0x32, 0xdf, out Warp entry) ||
             entry is not
             {
-                SourcePosition: -1, EdgeMask: 0, SourceTransition: 4,
+                SourcePosition: -1, EdgeMask: 0, SourceTransition: WarpSourceTransition.Instant,
                 DestinationGroup: 3, DestinationRoom: 0xfb,
                 DestinationPosition: 0xff, DestinationParameter: 9,
-                DestinationTransition: 3
+                DestinationTransition: WarpDestinationTransition.EnterScreen
             } ||
             !warps.TryGetEdgeWarp(
                 3, 0xfb, Vector2I.Down, new Vector2(0x50, interior.Height + 2),
                 new Vector2(interior.Width, interior.Height), out Warp exit) ||
             exit is not
             {
-                SourcePosition: -1, EdgeMask: 4, SourceTransition: 3,
+                SourcePosition: -1, EdgeMask: 4, SourceTransition: WarpSourceTransition.LeaveScreen,
                 DestinationGroup: 0, DestinationRoom: 0x45,
                 DestinationPosition: 0x52, DestinationParameter: 0,
-                DestinationTransition: 1
+                DestinationTransition: WarpDestinationTransition.SetRespawn
             },
             "Rooms 0:45/3:fb did not retain their wildcard waterfall entry and left-half bottom exit.");
 
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
         referenceRandom.BeginRoomParse();
         manager.LoadRoom(0, exterior);
         NpcCharacter boy = manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x3f, SubId: 0x01 });
+            npc.Record is { Id: InteractionId.Boy2, SubId: 0x01 });
         FailIf(
             boy.Active ||
             boy.Position != new Vector2(0x48, 0x58) ||
@@ -63,22 +63,22 @@ public sealed partial class ValidationRoot
             manager.RandomCalls != 256,
             "Room 0:45 did not load its dormant $3f:$01/TX_2903 placement without extra RNG.");
 
-        if (save.WriteWramByte(0xc6bf, 0x40))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x40))
             save.CommitInventoryChange();
         _player.WarpTo(boy.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         FailIf(
             !boy.Active || manager.FindTalkTarget(_player) != boy,
             "getGameProgress_1 state $03 did not reveal room 0:45's talkable boy.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame);
+        save.SetGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame);
         FailIf(boy.Active, "getGameProgress_1 state $04 did not retire room 0:45's $3f:$01 boy.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+            GlobalFlag.SawTwinrovaBeforeEndgame, value: false);
 
         referenceRandom.BeginRoomParse();
         manager.LoadRoom(3, interior);
         NpcCharacter troy = manager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0xca, SubId: 0x01 });
+            npc.Record is { Id: InteractionId.Troy, SubId: 0x01 });
         _player.WarpTo(troy.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         FailIf(
@@ -118,7 +118,7 @@ public sealed partial class ValidationRoot
             "Troy's repeat talk did not use TX_2c12 and the next shared RNG substitution.");
         repeatTalk.Cancel();
         repeatTalk.Cancel();
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(troy.Active, "GLOBALFLAG_FINISHEDGAME did not delete Troy $ca:$01 from room 3:fb.");
 
         manager.Clear();
@@ -128,15 +128,15 @@ public sealed partial class ValidationRoot
         // Exercise the canonical room pair through the live transition and
         // InteractionController paths in addition to the isolated data test.
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame, value: false);
+            GlobalFlag.FinishedGame, value: false);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSawTwinrovaBeforeEndgame, value: false);
+            GlobalFlag.SawTwinrovaBeforeEndgame, value: false);
         _saveData.SetRoomFlag(3, 0xfb, OracleSaveData.RoomFlag40, value: false);
-        if (_saveData.WriteWramByte(0xc6bf, 0x40))
+        if (_saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x40))
             _saveData.CommitInventoryChange();
         LoadValidationRoom(0, 0x45);
         NpcCharacter liveBoy = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x3f, SubId: 0x01 });
+            npc.Record is { Id: InteractionId.Boy2, SubId: 0x01 });
         FailIf(!liveBoy.Active, "Canonical room 0:45 did not expose its state-$03 boy.");
 
         _player.WarpTo(exteriorDoor);
@@ -155,7 +155,7 @@ public sealed partial class ValidationRoot
         FailIf(IsTransitioning, "Room 3:fb entry fade did not finish on update 32.");
 
         NpcCharacter liveTroy = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0xca, SubId: 0x01 });
+            npc.Record is { Id: InteractionId.Troy, SubId: 0x01 });
         _player.WarpTo(liveTroy.Position + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         int liveRandomCalls = _entities.RandomCalls;
@@ -208,7 +208,7 @@ public sealed partial class ValidationRoot
             "Room 3:fb's exit did not land on deactivated exterior warp 0:45/$52 after its fade.");
 
         _saveData.SetRoomFlag(3, 0xfb, OracleSaveData.RoomFlag40, value: false);
-        if (_saveData.WriteWramByte(0xc6bf, 0))
+        if (_saveData.WriteWramByte(WramAddress.wEssencesObtained, 0))
             _saveData.CommitInventoryChange();
 
         GD.Print("Validated rooms 0:45/3:fb: exact $3f:$01 progress gate, " +

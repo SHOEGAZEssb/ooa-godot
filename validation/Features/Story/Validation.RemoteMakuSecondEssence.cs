@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
                 int group = past ? 1 : 0;
                 int room = past ? 0x83 : 0x03;
                 _presentationSettings.HudBottom = bottom;
-                _saveData.WriteWramByte(0xc6bf, past ? (byte)0x02 : (byte)0x08);
+                _saveData.WriteWramByte(WramAddress.wEssencesObtained, past ? (byte)0x02 : (byte)0x08);
                 _saveData.CommitInventoryChange();
                 _saveData.SetRoomFlag(group, room, 0x40, false);
                 LoadValidationRoom(group, room);
@@ -109,7 +109,7 @@ public sealed partial class ValidationRoot
         RemoteMakuEventRecord record = cutscene.Database.Record;
         var text = (CutsceneShowTextVariantsCommand)
             cutscene.Database.Commands[10];
-        byte originalEssences = _saveData.ReadWramByte(0xc6bf);
+        byte originalEssences = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
         int originalMakuState = _saveData.MakuTreeState;
         int originalPastMapText = _saveData.MakuMapTextPast;
         int originalPresentMapText = _saveData.MakuMapTextPresent;
@@ -122,7 +122,7 @@ public sealed partial class ValidationRoot
 
         void SetEssences(int value)
         {
-            if (_saveData.WriteWramByte(0xc6bf, (byte)value))
+            if (_saveData.WriteWramByte(WramAddress.wEssencesObtained, (byte)value))
                 _saveData.CommitInventoryChange();
         }
 
@@ -188,7 +188,7 @@ public sealed partial class ValidationRoot
                 {
                     Group: group,
                     Room: room,
-                    InteractionId: 0x8a,
+                    InteractionId: InteractionId.RemoteMakuCutscene,
                     SubId: 0x01,
                     Var03: 0x03,
                     EssenceMask: 0x02,
@@ -207,7 +207,7 @@ public sealed partial class ValidationRoot
                 !_player.CutsceneControlled ||
                 cutscene.TextboxFlags != 0x04 ||
                 cutscene.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Room 1:83 remote Maku input lock, alternate textbox " +
                 "palette, or Maku Tree music drifted on its first update.");
             StepRoomEventFrames(1);
@@ -238,7 +238,7 @@ public sealed partial class ValidationRoot
                 cutscene.Confetti.PiecePositions.Single() !=
                     cameraOrigin + new Vector2(0x10, 0x80) ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndMakuTreePast) != 0,
+                    SoundId.SndMakuTreePast) != 0,
                 "Past Maku confetti did not create its first stationary " +
                 "$80,$10 leaf one update after initialization.");
             StepRoomEventFrames(1);
@@ -250,13 +250,13 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(7);
             FailIf(
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndMakuTreePast) != 0,
+                    SoundId.SndMakuTreePast) != 0,
                 "SND_MAKU_TREE_PAST played before the source 10-update " +
                 "initial counter expired.");
             StepRoomEventFrames(1);
             FailIf(
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndMakuTreePast) != 1,
+                    SoundId.SndMakuTreePast) != 1,
                 "SND_MAKU_TREE_PAST did not play on the source 10th " +
                 "spawner update.");
 
@@ -269,7 +269,7 @@ public sealed partial class ValidationRoot
                 cutscene.Confetti is not
                     { Finished: true, SpawnedPieces: 12, LivePieces: 0 } ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndMakuTreePast) != 5 ||
+                    SoundId.SndMakuTreePast) != 5 ||
                 !_hud.StatusBarHidden ||
                 _dialogue.TextboxFlagsForValidation != 0x04,
                 "Room 1:83 did not show standard TX_05b3, write past map " +

@@ -21,7 +21,7 @@ internal sealed class SwitchHookCollisionDatabase
         if (table.Rows.Count != 128) throw new InvalidOperationException("Expected 128 Switch Hook enemy masks.");
         foreach (var row in table.Rows) _enemies[row.HexByte(0)] = row.Decimal(1, 0, 1) != 0;
     }
-    internal bool EnemyEnabled(int collisionType) => collisionType >= 0 && _enemies[collisionType & 0x7f];
+    internal bool EnemyEnabled(int collisionType) => collisionType >= 0 && _enemies[collisionType & ObjectCollisionFlags.TypeMask];
     internal int Effect(int mode) => (mode & 0x7f) < _effects.Length
         ? _effects[mode & 0x7f]
         : throw new NotSupportedException($"Vanilla objectCollisionTable has no mode ${(mode & 0x7f):x2}.");

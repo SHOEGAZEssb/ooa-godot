@@ -14,16 +14,16 @@ public sealed partial class ValidationRoot
         const int room = 0xf3;
         const int tradeItemAddress = 0xc6c0;
         const int tradeObtainedAddress = 0xc69a +
-            (TreasureDatabase.TreasureTradeItem >> 3);
+            (TreasureId.TradeItem >> 3);
         const int tradeObtainedMask =
-            1 << (TreasureDatabase.TreasureTradeItem & 7);
+            1 << (TreasureId.TradeItem & 7);
 
         DepressedBoyEvent boyEvent = _roomEvents.Get<DepressedBoyEvent>();
         DepressedBoyEventDatabase database = boyEvent.Database;
         DepressedBoyEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
 
         DepressedBoyCharacter boy = Boy();
         FailIf(
-            boy.Record is not { Id: 0x3c, SubId: 0x07, Var03: 0x00 } ||
+            boy.Record is not { Id: InteractionId.Boy, SubId: 0x07, Var03: 0x00 } ||
             boy.Position != new Vector2(0x50, 0x28) ||
             boy.Record.SpriteName != "spr_kids" ||
             boy.Record.Implementation !=
@@ -329,7 +329,7 @@ public sealed partial class ValidationRoot
             "Depressed-boy typed trace lost source lines or a required opcode.");
 
         LoadValidationRoom(0, 0x55);
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })

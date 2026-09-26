@@ -89,21 +89,21 @@ internal sealed class HarpItemDatabase
     {
         if (Record is not
             {
-                Item: InventoryState.ItemHarp,
-                HarpTreasure: TreasureDatabase.TreasureHarp,
-                EchoesTreasure: TreasureDatabase.TreasureTuneOfEchoes,
-                CurrentsTreasure: TreasureDatabase.TreasureTuneOfCurrents,
-                AgesTreasure: TreasureDatabase.TreasureTuneOfAges,
+                Item: TreasureId.Harp,
+                HarpTreasure: TreasureId.Harp,
+                EchoesTreasure: TreasureId.TuneOfEchoes,
+                CurrentsTreasure: TreasureId.TuneOfCurrents,
+                AgesTreasure: TreasureId.TuneOfAges,
                 SongFrames: 260,
                 EmptySongFrames: 261,
                 NoteInterval: 32,
                 ProhibitedTilesetMask: 0x7e,
                 PastMask: 0x80,
                 PortalRoomFlag: OracleSaveData.RoomFlagPortalSpotDiscovered,
-                EmptySound: OracleSoundEngine.SndFilledHeartContainer,
-                EchoesSound: OracleSoundEngine.SndTuneOfEchoes,
-                CurrentsSound: OracleSoundEngine.SndTuneOfCurrents,
-                AgesSound: OracleSoundEngine.SndTuneOfAges
+                EmptySound: SoundId.SndFilledHeartContainer,
+                EchoesSound: SoundId.SndTuneOfEchoes,
+                CurrentsSound: SoundId.SndTuneOfCurrents,
+                AgesSound: SoundId.SndTuneOfAges
             } ||
             string.IsNullOrWhiteSpace(Record.NoEffectText) ||
             LinkFrames.Length != 17 ||

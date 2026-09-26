@@ -22,7 +22,7 @@ internal sealed partial class EyesoarSpawnEffect : FixedEffectNode2D
     internal override void UpdateFrame()
     {
         if (Finished) return;
-        if (!_initialized) { _initialized = true; _sound(OracleSoundEngine.SndUnknown5); return; }
+        if (!_initialized) { _initialized = true; _sound(SoundId.SndUnknown5); return; }
         if ((Parameter & 128) != 0) { Finished = true; Visible = false; return; }
         _animation.Advance();
     }

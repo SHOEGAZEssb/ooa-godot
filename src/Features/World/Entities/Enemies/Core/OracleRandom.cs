@@ -44,15 +44,15 @@ internal sealed class OracleRandom
                 "Enemy placement requested before the room object list was parsed.");
         }
 
-        byte index = unchecked((byte)(_placementMemory.ReadWramByte(0xcec0) + 1));
-        _placementMemory.SetWramByte(0xcec0, index);
+        byte index = unchecked((byte)(_placementMemory.ReadWramByte(EnemyPlacementMemory.RandomBufferIndex) + 1));
+        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, index);
         return _placementBuffer[index];
     }
 
     public void BeginRoomParse()
     {
         GeneratePermutation();
-        _placementMemory.SetWramByte(0xcec0, 0);
+        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, 0);
     }
 
     internal byte[] GeneratePermutation()
@@ -78,7 +78,7 @@ internal sealed class OracleRandom
         _rng1,
         _rng2,
         (byte[])_placementBuffer.Clone(),
-        _placementMemory.ReadWramByte(0xcec0),
+        _placementMemory.ReadWramByte(EnemyPlacementMemory.RandomBufferIndex),
         _placementBufferReady,
         Calls,
         LastResult);
@@ -98,7 +98,7 @@ internal sealed class OracleRandom
         _rng1 = state.Rng1;
         _rng2 = state.Rng2;
         state.PlacementBuffer.CopyTo(_placementBuffer, 0);
-        _placementMemory.SetWramByte(0xcec0, state.PlacementIndex);
+        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, state.PlacementIndex);
         _placementBufferReady = state.PlacementBufferReady;
         Calls = state.Calls;
         LastResult = state.LastResult;

@@ -83,7 +83,7 @@ public sealed class RoomTileChangeDatabase
                 ConditionKind.RoomSet =>
                     (save.GetRoomFlags(condition.A, condition.B) & condition.C) != 0,
                 ConditionKind.EssenceSet =>
-                    (save.ReadWramByte(0xc6bf) & (1 << condition.A)) != 0,
+                    (save.ReadWramByte(WramAddress.wEssencesObtained) & (1 << condition.A)) != 0,
                 ConditionKind.TreasureSet => save.HasTreasure(condition.A),
                 ConditionKind.WramMaskEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,

@@ -267,12 +267,12 @@ public sealed partial class ValidationRoot
                 new Vector2(0xff, 0xf8)) != new Vector2(-256, -256) ||
             OracleObjectMath.SourceOamWrapOffset(
                 new Vector2(0xa8, -1)) != Vector2.Zero ||
-            movement.Direction(0x00) != Vector2.Up ||
-            movement.Direction(0x08) != Vector2.Right ||
+            movement.Direction(ObjectAngle.Up) != Vector2.Up ||
+            movement.Direction(ObjectAngle.Right) != Vector2.Right ||
             precise != new Vector2(0x136c / 256.0f, 0xe378 / 256.0f) ||
             pixels != new Vector2(0x13, 0xe3) ||
             OracleObjectMath.CardinalVector(0x0f) != Vector2.Right ||
-            OracleObjectMath.StrictCardinalVector(0x18) != Vector2.Left ||
+            OracleObjectMath.StrictCardinalVector(ObjectAngle.Left) != Vector2.Left ||
             airborneLanded || airborneZ != -0x100 || airborneSpeedZ != -0xe0 ||
             !landed || landingZ != 0 || landingSpeedZ != 0x20 ||
             !rejectedNonCardinal ||
@@ -523,7 +523,7 @@ public sealed partial class ValidationRoot
             warps.TryGetTileWarp(0, room, 0x23, room.GetMetatile(doorPoint), out _),
             "Room 0:3a did not begin with Nayru's house door closed at $23/$a7.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        save.SetGlobalFlag(GlobalFlag.IntroDone);
         room = rooms.Load(0, 0x3a);
         FailIf(
             room.GetMetatile(doorPoint) != 0xee || room.IsSolid(doorPoint) ||
@@ -531,7 +531,7 @@ public sealed partial class ValidationRoot
             warp.DestinationGroup != 3 || warp.DestinationRoom != 0x9e,
             "GLOBALFLAG_INTRO_DONE $0a did not open room 0:3a's $23/$ee door to 3:9e.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        save.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         room = rooms.Load(0, 0x3a);
         FailIf(
             room.GetMetatile(doorPoint) != 0xa7 || !room.IsSolid(doorPoint),
@@ -545,13 +545,13 @@ public sealed partial class ValidationRoot
         FailIf(
             predicateRooms.CurrentRoom.GetMetatile(Point(0x28)) != 0x64,
             "Single-tile predicate $f0 did not apply room 0:48's unlinked-only write.");
-        predicateSave.WriteWramByte(0xc612, 1);
+        predicateSave.WriteWramByte(WramAddress.wFileIsLinkedGame, 1);
         room = predicateRooms.Load(0, 0x48);
         FailIf(
             room.GetMetatile(Point(0x28)) != room.GetOriginalMetatile(Point(0x28)) ||
             predicateRooms.Load(3, 0xd6).GetMetatile(Point(0x55)) != 0xe9,
             "Single-tile predicates $f0/$f1 did not switch with wIsLinkedGame.");
-        predicateSave.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        predicateSave.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             predicateRooms.Load(0, 0x47).GetMetatile(Point(0x36)) != 0xf2,
             "Single-tile predicate $f2 did not follow GLOBALFLAG_FINISHEDGAME.");
@@ -601,7 +601,7 @@ public sealed partial class ValidationRoot
         FailIf(
             room.GetMetatile(Point(0x41)) != elderOriginal,
             "Room 5:b9 changed before essence bit 3 was set.");
-        save.WriteWramByte(0xc6bf, (byte)(1 << 3));
+        save.WriteWramByte(WramAddress.wEssencesObtained, (byte)(1 << 3));
         room = rooms.Load(5, 0xb9);
         FailIf(
             room.GetMetatile(Point(0x41)) != 0xa1 ||
@@ -621,7 +621,7 @@ public sealed partial class ValidationRoot
             "Room 2:90 flag $02 did not draw its imported 2x6 Jabu entrance rectangle.");
 
         // Full-layout copies and ANDed global/current-room conditions.
-        save.SetGlobalFlag(0x0f); // GLOBALFLAG_D3_CRYSTALS
+        save.SetGlobalFlag(GlobalFlag.D3Crystals); // GLOBALFLAG_D3_CRYSTALS
         OracleRoomData sourceRoom = rooms.World.LoadRoom(4, 0x60);
         room = rooms.Load(4, 0x52);
         for (int y = 0; y < room.HeightInTiles; y++)
@@ -828,22 +828,22 @@ public sealed partial class ValidationRoot
     {
         var data = new OracleSoundData();
         OracleSaveData roomMusicSave = OracleSaveData.CreateStandardGame();
-        roomMusicSave.SetGlobalFlag(0x15);
+        roomMusicSave.SetGlobalFlag(GlobalFlag.GaveRopeToRafton);
         roomMusicSave.SetRoomFlag(1, 0x97, OracleSaveData.RoomFlag40, value: false);
         int pendingRalphMusic = data.RoomMusic(1, 0x97, roomMusicSave);
         roomMusicSave.SetRoomFlag(1, 0x97, OracleSaveData.RoomFlag40);
         int completedRalphMusic = data.RoomMusic(1, 0x97, roomMusicSave);
         ChannelStart[] title = data.ChannelsFor(
-            OracleSoundEngine.MusTitlescreen).ToArray();
-        ChannelStart[] getItem = data.ChannelsFor(0x4c).ToArray();
+            SoundId.MusTitlescreen).ToArray();
+        ChannelStart[] getItem = data.ChannelsFor(SoundId.SndGetItem).ToArray();
         ChannelStart[] openMenu = data.ChannelsFor(
-            OracleSoundEngine.SndOpenMenu).ToArray();
+            SoundId.SndOpenMenu).ToArray();
         ChannelStart[] makuDisappear = data.ChannelsFor(
-            OracleSoundEngine.SndMakuDisappear).ToArray();
+            SoundId.SndMakuDisappear).ToArray();
         ChannelStart[] damageLink = data.ChannelsFor(
-            OracleSoundEngine.SndDamageLink).ToArray();
+            SoundId.SndDamageLink).ToArray();
         ChannelStart[] linkFall = data.ChannelsFor(
-            OracleSoundEngine.SndLinkFall).ToArray();
+            SoundId.SndLinkFall).ToArray();
         FailIf(
             title.Length != 4 ||
             !title.Select(channel => channel.Channel).SequenceEqual(new[] { 0, 1, 4, 6 }) ||
@@ -870,9 +870,9 @@ public sealed partial class ValidationRoot
                 .SequenceEqual(new[] { 0, 1, 2, 1, 0, -1, -2, -1 }) ||
             data.RoomMusic(0, 0x11) != 0x03 ||
             data.RoomMusic(0, 0x38) != 0x1e ||
-            data.RoomMusic(0, 0x49) != OracleSoundEngine.MusOverworld ||
+            data.RoomMusic(0, 0x49) != SoundId.MusOverworld ||
             data.RoomMusic(1, 0x11) != 0x04 ||
-            pendingRalphMusic != OracleSoundEngine.MusRalph ||
+            pendingRalphMusic != SoundId.MusRalph ||
             completedRalphMusic != data.RoomMusic(1, 0x97) ||
             !data.TryGetNoise(0x24, out NoiseRecord noise) ||
             noise.Envelope != 0x01 || noise.Frequency != 0x47 ||
@@ -895,13 +895,13 @@ public sealed partial class ValidationRoot
         var sound = new OracleSoundEngine(data, enableOutput: false);
         ValidationSoundRequestAudit soundAudit =
             sound.AttachPlayRequestAudit();
-        sound.PlaySound(OracleSoundEngine.MusTitlescreen);
+        sound.PlaySound(SoundId.MusTitlescreen);
         sound.Tick();
         ChannelState square1 = sound.Channel(0);
         ChannelState square2 = sound.Channel(1);
         ChannelState wave = sound.Channel(4);
         FailIf(
-            sound.ActiveMusic != OracleSoundEngine.MusTitlescreen ||
+            sound.ActiveMusic != SoundId.MusTitlescreen ||
             !square1.Active || square1.DutyOrWaveform != 2 || square1.Volume != 8 ||
             sound.Apu.Frequency(0) != 0x0642 || square1.WaitFrames != 0x17 ||
             !square2.Active || sound.Apu.Frequency(1) != 0x06e7 ||
@@ -920,7 +920,7 @@ public sealed partial class ValidationRoot
             (sound.Apu.Register(0xff12) & 8) != 0,
             "MUS_TITLESCREEN channel 0 rest did not install its period-1 square release.");
 
-        sound.PlaySound(OracleSoundEngine.SndOpenMenu);
+        sound.PlaySound(SoundId.SndOpenMenu);
         sound.Tick();
         ChannelState openMenuHigh = sound.Channel(2);
         ChannelState openMenuLow = sound.Channel(3);
@@ -937,7 +937,7 @@ public sealed partial class ValidationRoot
             sound.Apu.Frequency(1) != 0x002d || openMenuLow.WaitFrames != 0x15,
             "SND_OPENMENU did not start its paired C3/C2 square-channel sweep.");
 
-        sound.PlaySound(OracleSoundEngine.SndDamageLink);
+        sound.PlaySound(SoundId.SndDamageLink);
         sound.Tick();
         ChannelState linkVoice = sound.Channel(5);
         FailIf(
@@ -949,7 +949,7 @@ public sealed partial class ValidationRoot
             $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
             $"frequency=${sound.Apu.Frequency(2):x4}, wait={linkVoice.WaitFrames}.");
 
-        sound.PlaySound(OracleSoundEngine.SndLinkFall);
+        sound.PlaySound(SoundId.SndLinkFall);
         sound.Tick();
         FailIf(
             !linkVoice.Active || !sound.Apu.Voice(2).Enabled || linkVoice.Priority != 1 ||
@@ -960,7 +960,7 @@ public sealed partial class ValidationRoot
             $"waveform=${linkVoice.DutyOrWaveform:x2}, shift={linkVoice.PitchShift}, " +
             $"frequency=${sound.Apu.Frequency(2):x4}, wait={linkVoice.WaitFrames}.");
 
-        sound.PlaySound(OracleSoundEngine.SndMenuMove);
+        sound.PlaySound(SoundId.SndMenuMove);
         sound.Tick();
         ChannelState sfxSquare = sound.Channel(2);
         FailIf(
@@ -971,17 +971,17 @@ public sealed partial class ValidationRoot
             sfxSquare.WaitFrames != 2,
             "SND_MENU_MOVE did not execute its raw-frequency $07a0/$03 command.");
 
-        sound.PlaySound(OracleSoundEngine.SndSwordSlash);
+        sound.PlaySound(SoundId.SndSwordSlash);
         sound.Tick();
         ChannelState rawNoise = sound.Channel(7);
         FailIf(
             !rawNoise.Active || !sound.Apu.Voice(3).Enabled || rawNoise.Priority != 1 ||
             sound.Apu.Register(0xff21) != 0x20 || (sound.Apu.Register(0xff21) >> 4) != 2 ||
             (sound.Apu.Register(0xff21) & 7) != 0 || sound.Apu.Register(0xff22) != 0x47 ||
-            sound.Driver.ReadState(0xc01c) != 0 || rawNoise.WaitFrames != 0,
+            sound.Driver.ReadState(WramAddress.wChannel7TriggerOnNextSound) != 0 || rawNoise.WaitFrames != 0,
             "SND_SWORDSLASH did not retrigger CH4 from its raw NR42/NR43 pair.");
 
-        sound.PlaySound(OracleSoundEngine.SndMakuDisappear);
+        sound.PlaySound(SoundId.SndMakuDisappear);
         sound.Tick();
         ChannelState makuPulse = sound.Channel(2);
         ChannelState makuNoise = sound.Channel(7);
@@ -994,44 +994,44 @@ public sealed partial class ValidationRoot
             !makuNoise.Active || !sound.Apu.Voice(3).Enabled || makuNoise.Priority != 1 ||
             sound.Apu.Register(0xff21) != 0xf0 || (sound.Apu.Register(0xff21) >> 4) != 15 ||
             (sound.Apu.Register(0xff21) & 7) != 0 || sound.Apu.Register(0xff22) != 0x75 ||
-            sound.Driver.ReadState(0xc01c) != 0 || makuNoise.WaitFrames != 0x1b,
+            sound.Driver.ReadState(WramAddress.wChannel7TriggerOnNextSound) != 0 || makuNoise.WaitFrames != 0x1b,
             "SND_MAKUDISAPPEAR did not start its low C2 pulse and raw $f0/$75 CH4 block.");
 
-        sound.PlaySound(0x4c);
+        sound.PlaySound(SoundId.SndGetItem);
         sound.Tick();
         FailIf(
             sound.Channel(2).Priority != 8 || sound.Channel(3).Priority != 8 ||
             sound.Channel(5).Priority != 8 || sound.Channel(7).Priority != 8,
             "SND_GETITEM did not claim all four SFX channels at priority 8.");
-        sound.PlaySound(OracleSoundEngine.SndCtrlStopSfx);
+        sound.PlaySound(SoundId.SndCtrlStopSfx);
         sound.Tick();
         FailIf(
             new[] { 2, 3, 5, 7 }.Any(channel => sound.Channel(channel).Active),
             "SNDCTRL_STOPSFX did not release all SFX channels.");
-        sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        sound.PlaySound(SoundId.SndCtrlStopMusic);
         sound.Tick();
         FailIf(
             sound.ActiveMusic != 0 || new[] { 0, 1, 4, 6 }.Any(channel => sound.Channel(channel).Active),
             "SNDCTRL_STOPMUSIC did not run sound $de's stop channels.");
 
-        sound.PlaySound(OracleSoundEngine.MusTitlescreen);
-        int overworldRequests = sound.PlayRequestsFor(OracleSoundEngine.MusOverworld);
-        sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
-        sound.PlayMusicIfChanged(OracleSoundEngine.MusOverworld);
+        sound.PlaySound(SoundId.MusTitlescreen);
+        int overworldRequests = sound.PlayRequestsFor(SoundId.MusOverworld);
+        sound.PlaySound(SoundId.SndCtrlMediumFadeOut);
+        sound.PlayMusicIfChanged(SoundId.MusOverworld);
         FailIf(
-            sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
-            sound.PlayRequestsFor(OracleSoundEngine.MusOverworld) != overworldRequests + 1,
+            sound.ActiveMusic != SoundId.MusOverworld ||
+            sound.PlayRequestsFor(SoundId.MusOverworld) != overworldRequests + 1,
             "Ordinary room music did not immediately cancel SNDCTRL_MEDIUM_FADEOUT.");
         for (int update = 0; update < 127; update++)
             sound.Tick();
         FailIf(
-            sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
-            sound.PlayRequestsFor(OracleSoundEngine.MusOverworld) != overworldRequests + 1,
+            sound.ActiveMusic != SoundId.MusOverworld ||
+            sound.PlayRequestsFor(SoundId.MusOverworld) != overworldRequests + 1,
             "A cancelled SNDCTRL_MEDIUM_FADEOUT later stopped the replacement room music.");
         FailIf(
             soundAudit.Requests.Count < 3 ||
-            soundAudit.Requests[^2] != OracleSoundEngine.SndCtrlMediumFadeOut ||
-            soundAudit.Requests[^1] != OracleSoundEngine.MusOverworld,
+            soundAudit.Requests[^2] != SoundId.SndCtrlMediumFadeOut ||
+            soundAudit.Requests[^1] != SoundId.MusOverworld,
             "Validation-owned sound observation lost request order.");
 
         var outputSound = new OracleSoundEngine(

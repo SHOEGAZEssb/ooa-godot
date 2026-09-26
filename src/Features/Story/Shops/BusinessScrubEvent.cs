@@ -86,7 +86,7 @@ internal sealed class BusinessScrubEvent : IRoomEvent
 
         _context.Inventory.GiveTreasure(offer.Treasure, offer.Parameter);
         _context.Inventory.AddRupees(-offer.Price);
-        _context.Sound.PlaySound(OracleSoundEngine.SndGetSeed);
+        _context.Sound.PlaySound(SoundId.SndGetSeed);
         ShowResult(_database.SuccessText);
     }
 

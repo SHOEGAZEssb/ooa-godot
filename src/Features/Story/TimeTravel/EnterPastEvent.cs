@@ -21,7 +21,7 @@ internal sealed class EnterPastEvent :
         _context = context;
         _record = _database.Record;
         _runner = new CutsceneCommandRunner(this);
-        if (_record.GlobalFlag != OracleSaveData.GlobalFlagEnterPastCutsceneDone)
+        if (_record.GlobalFlag != GlobalFlag.EnterPastCutsceneDone)
         {
             throw new InvalidOperationException(
                 $"Enter-past event uses global flag ${_record.GlobalFlag:x2}, expected $41.");

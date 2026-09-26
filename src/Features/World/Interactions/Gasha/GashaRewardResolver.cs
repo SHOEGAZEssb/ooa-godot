@@ -28,7 +28,7 @@ internal static class GashaRewardResolver
             rewardType = database.SelectRewardType(
                 spot.Rank, maturityClass, nextRandom());
             if (rewardType == 6 &&
-                inventory.HasTreasure(TreasureDatabase.TreasurePotion))
+                inventory.HasTreasure(TreasureId.Potion))
             {
                 inventory.RefillHealth();
             }
@@ -43,7 +43,7 @@ internal static class GashaRewardResolver
 
         RewardRecord reward = database.GetReward(rewardType);
         int parameter = reward.Parameter;
-        if (reward.TreasureId == TreasureDatabase.TreasureRing)
+        if (reward.TreasureId == TreasureId.Ring)
             parameter = database.SelectRing(parameter, nextRandom());
         int previousHeartPieces = inventory.HeartPieces;
         inventory.GiveTreasure(reward.TreasureId, parameter);
@@ -51,7 +51,7 @@ internal static class GashaRewardResolver
             rewardType,
             reward,
             parameter,
-            reward.TreasureId == TreasureDatabase.TreasureHeartPiece &&
+            reward.TreasureId == TreasureId.HeartPiece &&
                 previousHeartPieces == 3);
     }
 }

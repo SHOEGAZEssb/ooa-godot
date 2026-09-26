@@ -16,9 +16,9 @@ internal sealed class RemoteMakuHarpDatabase : RemoteMakuEventDatabase
     {
         if (Record is not
             {
-                Group: 0, Room: 0x3a, InteractionId: 0x8a,
+                Group: 0, Room: 0x3a, InteractionId: InteractionId.RemoteMakuCutscene,
                 SubId: 0, Var03: 2, EssenceMask: 0,
-                RequiredTreasure: TreasureDatabase.TreasureHarp,
+                RequiredTreasure: TreasureId.Harp,
                 RoomFlag: 0x40,
                 StandardTextId: 0x05b2, LinkedTextId: 0x05c2,
                 StandardMapText: 0xb2, LinkedMapText: 0xc2

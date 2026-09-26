@@ -63,7 +63,7 @@ internal sealed class PostD3RemoteMakuEvent :
         PostD3RemoteMakuRecord record = _database.Record;
         OracleSaveData save = _context.Rooms.SaveData;
         return group == record.Group && room.Id == record.Room &&
-            (save.ReadWramByte(0xc6bf) & record.EssenceMask) != 0 &&
+            (save.ReadWramByte(WramAddress.wEssencesObtained) & record.EssenceMask) != 0 &&
             !save.HasRoomFlag(record.Group, record.Room, (byte)record.RoomFlag);
     }
 
@@ -91,7 +91,7 @@ internal sealed class PostD3RemoteMakuEvent :
             case PostD3RemoteMakuStage.InitialWait:
                 if (--_counter == 0)
                 {
-                    _context.Sound.PlaySound(OracleSoundEngine.SndLightning);
+                    _context.Sound.PlaySound(SoundId.SndLightning);
                     _initialFlashCounter = 1;
                     _stage = PostD3RemoteMakuStage.InitialFlash;
                 }
@@ -303,7 +303,7 @@ internal sealed class PostD3RemoteMakuEvent :
             return;
         }
         _towerFlashCounter = 1;
-        _context.Sound.PlaySound(OracleSoundEngine.SndLightning);
+        _context.Sound.PlaySound(SoundId.SndLightning);
     }
 
     private void LoadReturnRoom()
@@ -328,7 +328,7 @@ internal sealed class PostD3RemoteMakuEvent :
             _ => throw new InvalidOperationException(
                 $"Unsupported Link direction ${record.ReturnDirection:x2}.")
         });
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
         _context.Hud.Visible = true;
         if (!_remoteMaku.PrepareAfterPostD3(
                 record.PastFlagGroup,

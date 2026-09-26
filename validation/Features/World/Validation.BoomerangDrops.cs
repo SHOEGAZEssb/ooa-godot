@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBoomerangDrops()
     {
-        FailIf(!BoomerangCollisionDatabase.Shared.PartEnabled(1) || BoomerangCollisionDatabase.Shared.Effect(1) != 0x24,
+        FailIf(!BoomerangCollisionDatabase.Shared.PartEnabled(1) || BoomerangCollisionDatabase.Shared.Effect(EnemyCollisionMode.Item) != 0x24,
             "PART$01 mode$01 column$17 must attach via source effect$24.");
         foreach (bool batched in new[] { false, true })
         foreach (int outcome in new[] { 0, 1, 2, 3, 4 })
@@ -30,14 +30,14 @@ public sealed partial class ValidationRoot
                     "Boomerang pickup fixture must let the native drop land away from Link.");
                 int counter = drop.Counter;
                 Vector2 fraction = drop.PrecisePosition - drop.PrecisePosition.Floor();
-                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(drop.Position, 8));
+                var item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(drop.Position, ObjectAngle.Right));
                 Step();
                 FailIf(drop.State != DropState.Grounded || drop.Collected || drop.CanAttachToItem || item.State != 1,
                     "effect$24 publishes a pending attachment and return without collecting or moving the drop.");
                 if (outcome == 4)
                 {
                     _entities.ClearPhysicalPlayerItems();
-                    _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 80), 1));
+                    _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 80), ObjectDirection.Right));
                 }
                 Step();
                 FailIf(drop.State != DropState.Attached || drop.Finished || drop.Collected,
@@ -64,9 +64,9 @@ public sealed partial class ValidationRoot
                 {
                     _entities.ClearPhysicalPlayerItems();
                     if (outcome == 2)
-                        item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(152, 80), 0x18));
+                        item = _entities.Spawn<BoomerangItem>(new BoomerangSpawn(new(152, 80), ObjectAngle.Left));
                     if (outcome == 3)
-                        _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 80), 1));
+                        _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 80), ObjectDirection.Right));
                     Step();
                     if (outcome is 1 or 3)
                     {

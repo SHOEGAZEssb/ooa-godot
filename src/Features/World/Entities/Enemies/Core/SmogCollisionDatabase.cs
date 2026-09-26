@@ -9,7 +9,7 @@ internal sealed class SmogCollisionDatabase
     internal bool Enabled(int collision) => collision is >= 0 and < 32 && _enabled[collision];
     internal int Effect(int mode, int collision) => mode switch
     {
-        7 => _cloud[collision], 0x4d => _large[collision],
+        EnemyCollisionMode.ProjectileWithRingMod => _cloud[collision], EnemyCollisionMode.Smog => _large[collision],
         _ => throw new NotSupportedException($"ENEMY_SMOG $7c collision mode${mode:x2} is not represented.")
     };
     internal SmogCollisionDatabase()

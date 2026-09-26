@@ -120,7 +120,7 @@ public partial class ValidationRoot
                         _player.ApplyInteractionInvincibility(signedDuration);
                         Step();
                         FailIf(trap.Counter != 30 || trap.State != 1 || _entities.PlayerMenusDisabled ||
-                            _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 0,
+                            _sound.PlayRequestsFor(SoundId.SndError) != 0,
                             "Either sign of Link invincibility must reject the trap silently and reload its interval.");
                         Step(29);
                     }
@@ -130,7 +130,7 @@ public partial class ValidationRoot
                 _player.ApplyInteractionInvincibility(repeat == 1 ? -1 : 1);
                 Step();
                 FailIf(_player.InvincibilityFrames != 0 || trap.State != 2 || trap.Counter != 60 || !_entities.PlayerUpdatesFrozen ||
-                    !_entities.PlayerMenusDisabled || !_entities.WarpTilesDisabled || _sound.PlayRequestsFor(OracleSoundEngine.SndError) != 1,
+                    !_entities.PlayerMenusDisabled || !_entities.WarpTilesDisabled || _sound.PlayRequestsFor(SoundId.SndError) != 1,
                     "Vulnerable trapped Link must request one error cue and the 60-update Link/menu lock.");
                 if (repeat == 2)
                 {

@@ -136,7 +136,7 @@ public partial class ValidationRoot
                         if (!enemy.SwordBlocking) break;
                     }
                 FailIf(enemy.SwordBlocking != blocking || enemy.CollisionMode !=
-                    (enemy.IsDarknut ? blocking ? 0x56 : 0x20 : blocking ? 0x55 : 0x11),
+                    (enemy.IsDarknut ? blocking ? EnemyCollisionMode.DarknutBlockedWithSword : EnemyCollisionMode.Darknut : blocking ? EnemyCollisionMode.StalfosBlockedWithSword : EnemyCollisionMode.BurnableEnemy),
                     "Somaria fixture must exercise both live sword-enemy collision-mode writers.");
                 enemy.Position = point + new Vector2(8, 0);
                 enemy.Health = 8;

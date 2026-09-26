@@ -16,8 +16,8 @@ public sealed partial class ValidationRoot
         {
             void Step(int count = 1, bool attack = false) => StepGameplayUpdates(
                 count, Vector2.Zero, attack ? ["attack"] : [], attack ? ["attack"] : [], batch);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-            _inventory.EquipA(InventoryState.ItemSwitchHook);
+            _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+            _inventory.EquipA(TreasureId.SwitchHook);
             LoadValidationRoom(4, 0x7c);
             Vector2 origin = new(184, 88);
             Vector2 doorPosition = new(120, 168);

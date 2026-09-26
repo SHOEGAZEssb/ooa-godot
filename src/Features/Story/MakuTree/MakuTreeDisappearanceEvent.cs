@@ -39,7 +39,7 @@ internal sealed class MakuTreeDisappearanceEvent : RoomCutsceneCommandHost, IRoo
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal MakuTreeCutsceneDatabase Database => _database;
     internal bool Completed =>
-        _context.Rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+        _context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared);
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;
@@ -167,12 +167,12 @@ internal sealed class MakuTreeDisappearanceEvent : RoomCutsceneCommandHost, IRoo
         // the same update that it sets GLOBALFLAG_0c and the hardcoded warp.
         // It does not reload the tileset palette first, so PALH_8f must remain
         // on the unswapped room until the fade reaches white and reloads it.
-        _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
+        _context.Sound.PlaySound(SoundId.SndFadeOut);
         _context.Player.EndCutsceneControl(this);
         // makuTreeDisappearingCutsceneHandler sets GLOBALFLAG_0c and room bit
         // 0. The preceding typed native command has already reproduced the
         // interaction script's incMakuTreeState call.
-        _context.Rooms.SaveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+        _context.Rooms.SaveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
         // The cutscene handler sets bit 0 in room 0:38. For overworld rooms,
         // getAdjustedRoomGroup interprets ROOMFLAG_LAYOUTSWAP by loading the
         // corresponding group+2 tileset and layout on re-entry.

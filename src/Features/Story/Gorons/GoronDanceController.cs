@@ -83,7 +83,7 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
         if(_substate==0)
         {
             if(--_counter!=0) return;
-            _substate=1; _counter=90; Context.Sound.PlaySound(0xcc);
+            _substate=1; _counter=90; Context.Sound.PlaySound(SoundId.SndWhistle);
             int remaining=Read(0xcfde);
             if(remaining!=0)
             {
@@ -120,7 +120,7 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
         if(animation==0x50)
         {
             _substate=3; _z=0; _speedZ=-0x200;
-            Context.Sound.PlaySound(0xcd);
+            Context.Sound.PlaySound(SoundId.SndGoronDanceB);
         }
         else { host.SetNativeAnimation(animation); PlayMoveSound(move); }
     }
@@ -128,7 +128,7 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
     {
         if(_substate==0)
         {
-            _substate=1; ResetRound(); Context.Sound.PlaySound(0xcc);
+            _substate=1; ResetRound(); Context.Sound.PlaySound(SoundId.SndWhistle);
             Write(0xcfd2,2); Context.Player.SetScriptedLinkAnimationMode(null); Context.Player.Face(Vector2I.Down); return;
         }
         if(_substate==3)
@@ -168,7 +168,7 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
         }
         UpdateConsecutive(move);
         int presses=Read(0xcfd8);
-        bool linkedPast=Context.Rooms.SaveData.IsLinkedGame&&(Context.Rooms.CurrentRoom.TilesetFlags&0x80)!=0;
+        bool linkedPast=Context.Rooms.SaveData.IsLinkedGame&&(Context.Rooms.CurrentRoom.TilesetFlags&(int)TilesetFlags.Past)!=0;
         int animation=move==1?6:(linkedPast?new[]{2,3,1,3,0,0x50}:new[]{2,3,4,1,0,0x50})[presses];
         if(animation!=0x50) Write(0xcfd2,animation);
         if(move==1) Context.Player.SetScriptedLinkAnimationMode(8);
@@ -189,8 +189,8 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
     private void Fail(int reason)
     {
         Write(0xcfd1,reason); _substate=4; _failureScript=false; _counter=30;
-        Context.Sound.PlaySound(0x5a); Context.Player.SetScriptedLinkAnimationMode(2);
-        bool subrosians=Context.Rooms.SaveData.IsLinkedGame&&(Context.Rooms.CurrentRoom.TilesetFlags&0x80)!=0;
+        Context.Sound.PlaySound(SoundId.SndError); Context.Player.SetScriptedLinkAnimationMode(2);
+        bool subrosians=Context.Rooms.SaveData.IsLinkedGame&&(Context.Rooms.CurrentRoom.TilesetFlags&(int)TilesetFlags.Past)!=0;
         Write(0xcfd2,subrosians?2:4);
     }
     private int NextMove()
@@ -201,5 +201,5 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
     }
     private void UpdateConsecutive(int move) => Write(0xcfd8,move==2?Read(0xcfd8)+1:0);
     private void PlayMoveSound(int move)
-    { if(move==1) Context.Sound.PlaySound(0xc8); else if(move==2) Context.Sound.PlaySound(0xcd); }
+    { if(move==1) Context.Sound.PlaySound(SoundId.SndDing); else if(move==2) Context.Sound.PlaySound(SoundId.SndGoronDanceB); }
 }

@@ -133,7 +133,7 @@ internal abstract class RemoteMakuEventDatabase
     {
         bool commonValid = Record is
             {
-                InteractionId: 0x8a, RoomFlag: 0x40,
+                InteractionId: InteractionId.RemoteMakuCutscene, RoomFlag: 0x40,
                 Music: 0x1e, HudLockByte: 0x77, FadeDelay: 2,
                 FadeFrames: 65, InitialWait: 40,
                 ConfettiHold1: 240, PostTextWait: 1
@@ -155,7 +155,7 @@ internal abstract class RemoteMakuEventDatabase
                     SubId: 0, ConfettiHold2: 180, ConfettiPieces: 5,
                     YOffsetFixed: 0x00c0, SparkleInitialDelay: 0x10,
                     SparkleRepeatDelay: 0x18, SoundInitialCounter: 180,
-                    SoundCounter: 180, Sound: 0x83,
+                    SoundCounter: 180, Sound: SoundId.SndMagicPowder,
                     YSpeedLimit: 0x0100, XSpeedLimit: 0x0200,
                     DeleteY: 0x88, InitialSpeedY: 0,
                     InitialSpeedX: 0, AccelerationX: 0
@@ -176,7 +176,7 @@ internal abstract class RemoteMakuEventDatabase
                     YOffsetFixed: 0, SparkleInitialDelay: 0,
                     SparkleRepeatDelay: 0, SoundInitialCounter: 10,
                     SoundCounter: 45,
-                    Sound: OracleSoundEngine.SndMakuTreePast,
+                    Sound: SoundId.SndMakuTreePast,
                     YSpeedLimit: 0, XSpeedLimit: 0, DeleteY: 0,
                     InitialSpeedY: -0x280, InitialSpeedX: 0x400,
                     AccelerationX: -0x10

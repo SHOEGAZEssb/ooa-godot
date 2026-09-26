@@ -116,7 +116,7 @@ public sealed class NpcVisibilityRuleDatabase
                 rule.Group, rule.Room, (byte)rule.Value),
             FlagKind.Treasure => save.HasTreasure(rule.Value),
             FlagKind.Linked => save.IsLinkedGame,
-            FlagKind.Essence => (save.ReadWramByte(0xc6bf) & rule.Value) != 0,
+            FlagKind.Essence => (save.ReadWramByte(WramAddress.wEssencesObtained) & rule.Value) != 0,
             FlagKind.Wram => (save.ReadWramByte(rule.Room) & rule.Value) != 0,
             FlagKind.RuntimeEquals =>
                 runtimeState.ReadWramByte(rule.Room) == rule.Value,

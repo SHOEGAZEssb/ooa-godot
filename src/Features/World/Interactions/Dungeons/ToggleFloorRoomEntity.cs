@@ -108,7 +108,7 @@ internal sealed partial class ToggleFloorRoomEntity : Node2D,
             point, replacement, null, _animationTick());
         _room.SetUnderlyingMetatile(point, replacement);
         _roomTileChanged();
-        _playSound(OracleSoundEngine.SndGetSeed);
+        _playSound(SoundId.SndGetSeed);
     }
 
     private byte TileAt(int packedPosition) =>

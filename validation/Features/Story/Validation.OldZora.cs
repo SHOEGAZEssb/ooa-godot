@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         {
             var observations = new List<string>();
             _saveData.SetRoomFlag(2, 0xf5, 0x20, false);
-            _inventory.GiveTreasure(0x41, 9);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 9);
             LoadValidationRoom(2, 0xf5);
             OldZoraEvent trade = _roomEvents.Get<OldZoraEvent>();
             OldZoraCharacter zora = _entities.Entities<OldZoraCharacter>().Single();
@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
             }
 
             FailIf(zora.Position != new Vector2(0x68, 0x28) ||
-                zora.Record is not { Id: 0x5a, SubId: 0, SpriteName: "spr_oldzora_cheval" } ||
+                zora.Record is not { Id: InteractionId.OldZora, SubId: 0, SpriteName: "spr_oldzora_cheval" } ||
                 trade.Commands.Count != 23 || !trade.ButtonSensitive || trade.CurrentCommandIndex != 1 ||
                 zora.CurrentAnimationOpaquePixels == 0,
                 "Room 2:f5 lost Old Zora placement, graphics or state-0 script initialization.");
@@ -82,10 +82,10 @@ public sealed partial class ValidationRoot
             FailIf(_inventory.TradeItem != 9 || _saveData.HasRoomFlag(2, 0xf5, 0x20),
                 "Missing Sea Ukulele changed inventory/room flag.");
             // A stale value without the obtained bit must not qualify.
-            _inventory.GiveTreasure(0x41, 0x0a);
-            _inventory.LoseTreasure(0x41);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 0x0a);
+            _inventory.LoseTreasure(TreasureId.TradeItem);
             Talk(); Wait30(); Text(0x0b34, "Back in my day,"); Finish();
-            _inventory.GiveTreasure(0x41, 0x0a);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 0x0a);
             Talk(); Wait30(); Text(0x0b35, "Sea Ukulele");
             FailIf(!_dialogue.ChoiceActive, "TX_0b35 lost Yes/No options.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
             Wait30(); Text(0x0b37, "...What's that?"); Finish();
             Talk(0x0b39, "Ah! What fun!"); Finish();
             // Room flag takes precedence over the current trade item on re-entry.
-            _inventory.GiveTreasure(0x41, 0x0a);
+            _inventory.GiveTreasure(TreasureId.TradeItem, 0x0a);
             LoadValidationRoom(2, 0xf5);
             zora = _entities.Entities<OldZoraCharacter>().Single();
             Approach(); Talk(0x0b39, "Ah! What fun!"); Finish();

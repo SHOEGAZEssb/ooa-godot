@@ -61,14 +61,14 @@ internal sealed class BraceletDatabase
 
     private static void Validate(BraceletDatabaseRecord record)
     {
-        if (record.Item != InventoryState.ItemBracelet ||
-            record.PickupSound != OracleSoundEngine.SndPickup ||
-            record.ThrowSound != OracleSoundEngine.SndThrow ||
+        if (record.Item != TreasureId.Bracelet ||
+            record.PickupSound != SoundId.SndPickup ||
+            record.ThrowSound != SoundId.SndThrow ||
             record.Damage != 3 ||
             record.RadiusY != 6 || record.RadiusX != 6 ||
             record.CollisionZRadius != 7 ||
             record.Gravity != 0x1c || record.InitialSpeedZ != -0xf0 ||
-            record.SpeedRaw != 0x3c || record.TossSpeedRaw != 0x64 ||
+            record.SpeedRaw != ObjectSpeed.Speed180 || record.TossSpeedRaw != 0x64 ||
             record.PushSpeedRaw != 0x14 || record.PushFrames != 0x20 ||
             record.PowerGlovePushSpeedRaw != 0x1e ||
             record.PowerGlovePushFrames != 0x15 ||

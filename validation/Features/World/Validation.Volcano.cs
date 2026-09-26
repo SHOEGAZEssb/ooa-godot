@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     {
         LoadValidationRoom(1, 2);
         var data = new VolcanoDatabase();
-        _saveData.SetGlobalFlag(0x29, false);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, false);
         foreach (int initialFrame in new[] { 0, 1 })
         {
             var random = new OracleRandom();
@@ -90,7 +90,7 @@ public sealed partial class ValidationRoot
             FailIf(data.Placements(1, room).Count != 1 || data.Placements(1, room)[0].SubId != 5,
                 $"Symmetry $1:${room:x2} lost its aliased $dc:$05 shaking controller.");
 
-        _saveData.SetGlobalFlag(0x29, false);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, false);
         LoadValidationRoom(1, 3);
         using Image before = _currentRoom.Texture.GetImage();
         ulong pixels = OracleGraphicsCache.PixelHash(before);
@@ -125,13 +125,13 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0x13);
         FailIf(_entities.Entities<VolcanoRock>().Count != 0 || _entities.ScreenShakeCounter != 0,
             "Leaving the volcano retained room-local rocks or screen shake.");
-        _saveData.SetGlobalFlag(0x29);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced);
         LoadValidationRoom(1, 3);
         for (int tick = 0; tick < 100; tick++) Tick();
         FailIf(_entities.Entities<VolcanoRock>().Count != 0 || _entities.ScreenShakeCounter != 0 ||
             _entities.HorizontalScreenShakeCounter != 0,
             "Restoring the Tuni Nut did not suppress $dc:$06 on room re-entry.");
-        _saveData.SetGlobalFlag(0x29, false);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, false);
         LoadValidationRoom(1, 0x13);
         _transitions.BeginScroll(_player, Vector2I.Up, 3);
         UpdateScrollingTransition(8.0 / 60);

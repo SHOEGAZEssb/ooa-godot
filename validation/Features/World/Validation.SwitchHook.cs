@@ -13,10 +13,10 @@ public sealed partial class ValidationRoot
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, string? button = null, Vector2 movement = default) =>
             StepGameplayUpdates(count, movement, button is null ? [] : [button], button is null ? [] : [button], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureShield, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
-        _inventory.EquipB(InventoryState.ItemShield);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.GiveTreasure(TreasureId.Shield, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
+        _inventory.EquipB(TreasureId.Shield);
         LoadValidationRoom(4, 0x91);
         Vector2 origin = new(120, 136);
         FailIf(_currentRoom.IsSolid(origin), "Skull Dungeon entrance flight fixture must start on real walkable floor.");
@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
         while (_player.IsUsingSwitchHook && completion++ < 120) Step();
         FailIf(_player.IsUsingSwitchHook || !hook.Finished || completion >= 120 || _player.Position != origin,
             "Switch Hook failed to retract/release its parent without displacing Link.");
-        _inventory.EquipB(InventoryState.ItemSwitchHook);
+        _inventory.EquipB(TreasureId.SwitchHook);
         Step(button: "item");
         FailIf(!_player.IsUsingSwitchHook || _entities.SwitchHook.Item == hook,
             "Switch Hook B-button could not repeat after completion.");
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
 
         (int, int, Vector2, Vector2) Run(bool batched)
         {
-            _inventory.EquipA(InventoryState.ItemSwitchHook);
+            _inventory.EquipA(TreasureId.SwitchHook);
             LoadValidationRoom(4, 0x91);
             _player.WarpTo(origin); _player.Face(Vector2I.Up);
             Step(button: "attack");
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
         for (int level = 1; level <= 2; level++)
         {
             var record = database.Level(level);
-            FailIf(record.SpeedRaw != (level == 1 ? 80 : 120) ||
+            FailIf(record.SpeedRaw != (level == 1 ? ObjectSpeed.Speed200 : ObjectSpeed.Speed300) ||
                 record.ExtensionFrames != (level == 1 ? 41 : 38) || record.RetractedFrames != 3 ||
                 record.LiftFrames != 16 || record.SoundMask != 3 || record.FlightSound != 0xa7 ||
                 record.ExchangeSound != 0x8e || record.DiamondTile != 0xdb || record.SomariaTile != 0xda ||

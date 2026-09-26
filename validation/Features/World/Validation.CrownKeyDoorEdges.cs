@@ -47,14 +47,14 @@ public sealed partial class ValidationRoot
                     _entities.WorldToScreen = position => position - center + edge.Point;
                     Step(2);
                     int first = edge.Visible ? 1 : 0;
-                    FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != first ||
+                    FailIf(_sound.PlayRequestsFor(SoundId.SndDoorClose) != first ||
                         !_currentRoom.IsSolid(center) || _keyDoors.OpeningCounter != 6,
                         $"Key-door sound boundary failed at {edge.Point}; camera must not alter collision.");
                     // Each sound samples the current camera, not the start visibility.
                     _entities.WorldToScreen = position => position - center +
                         (edge.Visible ? new Vector2(168, 64) : new Vector2(80, 64));
                     Step(6);
-                    FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1 ||
+                    FailIf(_sound.PlayRequestsFor(SoundId.SndDoorClose) != 1 ||
                         _keyDoors.Opening || _currentRoom.IsSolid(center),
                         "Door completion must resample screen visibility while opening its world tile.");
                 }
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                 Step(1);
                 FailIf(_keyDoors.Opening || _keyDoors.OpeningCounter != 0 ||
                     _currentRoom.GetMetatile(center) != 0xa1 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0 ||
+                    _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0 ||
                     _inventory.GetDungeonSmallKeys(5) != 0,
                     "An already-passable key-door tile must skip animation without overwriting it or refunding the key.");
                 Step(6);

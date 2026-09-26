@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateHarp()
     {
         byte[] originalSave = new byte[OracleSaveData.FileSize];
-        _saveData.ReadWramBytes(0xc5b0, originalSave);
+        _saveData.ReadWramBytes(WramAddress.wFileStart, originalSave);
         OracleRandomValidationSnapshot originalRandom =
             CaptureOracleRandomForValidation();
         ValidateHarpInventorySubmenu();
@@ -20,20 +20,20 @@ public sealed partial class ValidationRoot
         FailIf(
             record is not
             {
-                Item: InventoryState.ItemHarp,
-                HarpTreasure: TreasureDatabase.TreasureHarp,
-                EchoesTreasure: TreasureDatabase.TreasureTuneOfEchoes,
-                CurrentsTreasure: TreasureDatabase.TreasureTuneOfCurrents,
-                AgesTreasure: TreasureDatabase.TreasureTuneOfAges,
+                Item: TreasureId.Harp,
+                HarpTreasure: TreasureId.Harp,
+                EchoesTreasure: TreasureId.TuneOfEchoes,
+                CurrentsTreasure: TreasureId.TuneOfCurrents,
+                AgesTreasure: TreasureId.TuneOfAges,
                 SongFrames: 260,
                 EmptySongFrames: 261,
                 NoteInterval: 32,
                 ProhibitedTilesetMask: 0x7e,
                 PastMask: 0x80,
                 PortalRoomFlag: OracleSaveData.RoomFlagPortalSpotDiscovered,
-                EchoesSound: OracleSoundEngine.SndTuneOfEchoes,
-                CurrentsSound: OracleSoundEngine.SndTuneOfCurrents,
-                AgesSound: OracleSoundEngine.SndTuneOfAges
+                EchoesSound: SoundId.SndTuneOfEchoes,
+                CurrentsSound: SoundId.SndTuneOfCurrents,
+                AgesSound: SoundId.SndTuneOfAges
             } ||
             _harp.Database.LinkFrames.Length != 17 ||
             !_harp.Database.LinkAnimationParameters.SequenceEqual(
@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != randomBefore + 8 ||
             _harp.NoteSpawnCount != notesBefore + 8 ||
             _harp.ActiveMusicNoteCount != 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTuneOfEchoes) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndTuneOfEchoes) != 1 ||
             _interactions.DialogueOpen,
             "Tune of Echoes did not run its 260-update/8-note parent, " +
             "mark the dormant portal, and finish without TX_5110.");
@@ -78,8 +78,8 @@ public sealed partial class ValidationRoot
         _harp.Update(HarpFrame);
         FailIf(
             !dormant.Active ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopSfx) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopSfx) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndTeleport) != 1 ||
             _transitions.TimeWarpActive,
             "Echoes portal did not activate with STOP_SFX/TELEPORT on " +
             "the first update after playback, or accepted contact before state 3.");
@@ -185,7 +185,7 @@ public sealed partial class ValidationRoot
 
         _saveData.ClearTimePortalLocation();
         LoadValidationRoom(0, 0x06);
-        if (_saveData.WriteWramBytes(0xc5b0, originalSave))
+        if (_saveData.WriteWramBytes(WramAddress.wFileStart, originalSave))
             _saveData.CommitInventoryChange();
         RestoreOracleRandomForValidation(originalRandom);
         GD.Print(
@@ -202,16 +202,16 @@ public sealed partial class ValidationRoot
 
     private void ValidateHarpRejectsOtherEquippedItem()
     {
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureSword))
+        if (!_inventory.HasTreasure(TreasureId.Sword))
         {
             _inventory.GiveTreasure(
                 _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
         }
-        _inventory.EquipA(InventoryState.ItemHarp);
-        _inventory.EquipB(InventoryState.ItemSword);
+        _inventory.EquipA(TreasureId.Harp);
+        _inventory.EquipB(TreasureId.Sword);
         FailIf(
-            _inventory.EquippedA != InventoryState.ItemHarp ||
-            _inventory.EquippedB != InventoryState.ItemSword,
+            _inventory.EquippedA != TreasureId.Harp ||
+            _inventory.EquippedB != TreasureId.Sword,
             "Could not arrange ITEM_HARP on A and ITEM_SWORD on B for " +
             "parent-item exclusion validation.");
 
@@ -266,9 +266,9 @@ public sealed partial class ValidationRoot
         }
 
         int swordSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) +
-            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) +
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang);
+            _sound.PlayRequestsFor(SoundId.SndSwordSlash) +
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) +
+            _sound.PlayRequestsFor(SoundId.SndBoomerang);
         FailIf(
             !_player.IsUsingHarp || _player.IsAttacking ||
             target.Health != health ||
@@ -298,13 +298,13 @@ public sealed partial class ValidationRoot
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
-        inventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
-        inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
-        inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfCurrents, 0);
-        inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfAges, 0);
+        inventory.GiveTreasure(TreasureId.Harp, 0);
+        inventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
+        inventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
+        inventory.GiveTreasure(TreasureId.TuneOfAges, 0);
         FailIf(
-            !inventory.HasTreasure(TreasureDatabase.TreasureHarp) ||
-            !inventory.HasTreasure(TreasureDatabase.TreasureTuneOfEchoes) ||
+            !inventory.HasTreasure(TreasureId.Harp) ||
+            !inventory.HasTreasure(TreasureId.TuneOfEchoes) ||
             inventory.SelectedHarpSong != 1,
             "Tune of Echoes did not grant TREASURE_HARP parameter $01.");
         inventory.SwapStorageSlotWithButton(0, isA: false);
@@ -327,14 +327,14 @@ public sealed partial class ValidationRoot
             () => { },
             _sound.PlaySound);
         int selectRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem);
+            _sound.PlayRequestsFor(SoundId.SndSelectItem);
         FailIf(
             menu.EquipToA() ||
             !screen.ItemSubmenuActive ||
             screen.ItemSubmenuReady ||
             screen.ItemSubmenuWidth != 0 ||
             screen.ItemSubmenuHeight != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
                 selectRequests,
             "Equipping a three-song Harp did not enter submenu opening " +
             "state without prematurely swapping or playing SND_SELECTITEM.");
@@ -356,17 +356,17 @@ public sealed partial class ValidationRoot
             screen.ItemSubmenuIndex != 0,
             "Three-song Harp submenu did not finish its width/height expansion.");
         int moveRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove);
+            _sound.PlayRequestsFor(SoundId.SndMenuMove);
         FailIf(
             !menu.MoveItemSubmenu(-1) ||
             screen.ItemSubmenuIndex != 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMenuMove) !=
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) !=
                 moveRequests + 1 ||
             !menu.ConfirmItemSubmenu() ||
             screen.ItemSubmenuActive ||
             inventory.SelectedHarpSong != 3 ||
-            inventory.EquippedA != InventoryState.ItemHarp ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSelectItem) !=
+            inventory.EquippedA != TreasureId.Harp ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
                 selectRequests + 1,
             "Harp submenu did not wrap, select Tune of Ages, equip to A, " +
             "and request the source movement/selection sounds.");
@@ -379,9 +379,9 @@ public sealed partial class ValidationRoot
 
         var twoSongInventory = new InventoryState(
             _treasures, OracleSaveData.CreateStandardGame());
-        twoSongInventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
-        twoSongInventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
-        twoSongInventory.GiveTreasure(TreasureDatabase.TreasureTuneOfCurrents, 0);
+        twoSongInventory.GiveTreasure(TreasureId.Harp, 0);
+        twoSongInventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
+        twoSongInventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
         // TREASURE_TUNE_OF_ECHOES grants and initially equips ITEM_HARP.
         twoSongInventory.SwapStorageSlotWithButton(0, isA: false);
         var twoSongScreen = new InventoryScreen
@@ -418,14 +418,14 @@ public sealed partial class ValidationRoot
 
     private void EnsureHarpAndSongs()
     {
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureHarp))
-            _inventory.GiveTreasure(TreasureDatabase.TreasureHarp, 0);
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfEchoes))
-            _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfEchoes, 0);
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfCurrents))
-            _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfCurrents, 0);
-        if (!_inventory.HasTreasure(TreasureDatabase.TreasureTuneOfAges))
-            _inventory.GiveTreasure(TreasureDatabase.TreasureTuneOfAges, 0);
+        if (!_inventory.HasTreasure(TreasureId.Harp))
+            _inventory.GiveTreasure(TreasureId.Harp, 0);
+        if (!_inventory.HasTreasure(TreasureId.TuneOfEchoes))
+            _inventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
+        if (!_inventory.HasTreasure(TreasureId.TuneOfCurrents))
+            _inventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
+        if (!_inventory.HasTreasure(TreasureId.TuneOfAges))
+            _inventory.GiveTreasure(TreasureId.TuneOfAges, 0);
     }
 
     private void PlaySelectedHarpSong(bool validateNoteSides = false)

@@ -45,11 +45,11 @@ public sealed class SeedSatchelController
 
     public int TryUse(Player player)
     {
-        int seedItem = TreasureDatabase.TreasureEmberSeeds +
+        int seedItem = TreasureId.EmberSeeds +
             _inventory.SatchelSelectedSeeds;
-        if (seedItem == 0x22)
+        if (seedItem == ItemId.PegasusSeed)
         {
-            if ((_rooms.CurrentRoom.TilesetFlags & 0x40) == 0 && !player.TopDownSwimming && !player.SideScrollSwimming)
+            if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) == 0 && !player.TopDownSwimming && !player.SideScrollSwimming)
                 Pegasus.TryUse();
             return 0; // This branch clears the parent without immobilizing Link.
         }
@@ -68,7 +68,7 @@ public sealed class SeedSatchelController
 
         _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
             player.Position, player.FacingVector, record, _rooms.ActiveGroup,
-            LinkZFixed: seedItem == 0x23 ? player.GaleZFixed : 0));
+            LinkZFixed: seedItem == ItemId.GaleSeed ? player.GaleZFixed : 0));
         if (!_inventory.TryConsumeSelectedSatchelSeed(out int consumed) ||
             consumed != seedItem)
         {
@@ -89,7 +89,7 @@ public sealed class SeedSatchelController
             return false;
         }
         _shooterActive = true;
-        player.NotifyParentItemAnimationStarted(InventoryState.ItemShooter);
+        player.NotifyParentItemAnimationStarted(TreasureId.Shooter);
         _shooterPrimaryButton = primaryButton;
         _shooterAngle = movementInput.LengthSquared() > 0.01f
             ? AngleForInput(movementInput)
@@ -143,7 +143,7 @@ public sealed class SeedSatchelController
             ClearShooter();
             return;
         }
-        int seedItem = TreasureDatabase.TreasureEmberSeeds +
+        int seedItem = TreasureId.EmberSeeds +
             _inventory.ShooterSelectedSeeds;
         if (!_database.TryGet(seedItem, out SeedRecord record))
         {
@@ -160,7 +160,7 @@ public sealed class SeedSatchelController
             _rooms.ActiveGroup,
             SeedLaunchKind.Shooter,
             _shooterAngle,
-            seedItem == 0x23 ? player.GaleZFixed : 0));
+            seedItem == ItemId.GaleSeed ? player.GaleZFixed : 0));
         if (!_inventory.TryConsumeSelectedShooterSeed(out int consumed) ||
             consumed != seedItem)
         {
@@ -217,7 +217,7 @@ public sealed class SeedSatchelController
 
     private static Vector2I DirectionForAngle(int angle) => angle switch
     {
-        0 => Vector2I.Up,
+        ObjectAngle.Up => Vector2I.Up,
         1 => new Vector2I(1, -1),
         2 => Vector2I.Right,
         3 => Vector2I.One,
@@ -287,10 +287,10 @@ internal readonly record struct SeedShooterRecord(
             nonBounce, passableTiles, row.RequiredString(9),
             row.HexByte(10), row.HexByte(11), row.Boolean01(12), weaponOam,
             row.RequiredString(14));
-        if (record.Item != InventoryState.ItemShooter ||
-            record.SpeedRaw != 0x78 || record.Bounces != 3 ||
+        if (record.Item != TreasureId.Shooter ||
+            record.SpeedRaw != ObjectSpeed.Speed300 || record.Bounces != 3 ||
             record.AimLockout != 16 || record.PostShotWait != 12 ||
-            record.Sound != 0xcb || offsets.Length != 8 ||
+            record.Sound != SoundId.SndSeedShooter || offsets.Length != 8 ||
             record.NonBounceTiles.Length != 6 ||
             record.NonBounceTiles[0].Length != 9 ||
             record.NonBounceTiles[2].Length != 2 ||

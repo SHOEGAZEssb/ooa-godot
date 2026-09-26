@@ -30,7 +30,7 @@ public partial class ValidationRoot
             var weapon=new SomariaWeapon(data,geometry,graphics,new(80,64),0);
             try
             {
-                int sound=0,transfer=0,marks=0,allocations=0;
+                int sound=SoundId.MusNone,transfer=0,marks=0,allocations=0;
                 var order=new System.Collections.Generic.List<string>();
                 void StepItem(bool frozen) => weapon.UpdateItem(frozen,parent.Parameter,new(80.75f,64.5f),1,-3,
                     ()=>transfer++,id=>{ FailIf(id!=0x74,"Somaria uses fixed SND_SWORDSLASH, not randomized sword sounds."); sound++; },
@@ -132,13 +132,13 @@ public partial class ValidationRoot
                     // Boundary check is before itemBeginThrow's one-pixel
                     // facing displacement, and must suppress the puff.
                     actor.CopyHeldPosition(new(room.Width,64),0,2,1);
-                    actor.Release(8); actor.Update(0,-1,1,12,1);
+                    actor.Release(ObjectAngle.Right); actor.Update(0,-1,1,12,1);
                     FailIf(!actor.Finished || puffs != 0 || drops != 0,
                         "Somaria out-of-room throw must delete without puff or held-owner callback.");
                     continue;
                 }
                 bool drop = mode == 0, toss = mode == 2;
-                actor.Release(drop ? 0xff : 8, dropped:drop);
+                actor.Release(drop ? 0xff : ObjectAngle.Right, dropped:drop);
                 FailIf(actor.Position != new Vector2(72,64) || actor.IsHeld,
                     "Somaria release must defer initial movement to the item update.");
                 if (mode == 3)
@@ -176,7 +176,7 @@ public partial class ValidationRoot
             "Somaria throw landing must use the Y+5 hole probe and hazard effect instead of a puff.");
         hazardRoom.SetPositionTileAndCollision(new(73,54),0x22,15,0);
         motion = new SomariaThrowMotion(hazardRoom,geometry,_runtimeState);
-        motion.Begin(new(72,54),-14,1,8,false);
+        motion.Begin(new(72,54),-14,1,ObjectAngle.Right,false);
         for (int i=0;i<4;i++) _runtimeState.SetWramByte(0xcec0+i,0xa5);
         motion.AdvanceLateral();
         FailIf(motion.Angle!=0xff || motion.Position!=new Vector2(73,54),
@@ -208,7 +208,7 @@ public partial class ValidationRoot
         FailIf(splashes!=1,"Somaria water entry must emit exactly one splash.");
         _currentRoom.SetPositionTileAndCollision(start,0,15,0);
         motion = new SomariaThrowMotion(_currentRoom,geometry);
-        motion.Begin(new(72,54),0,1,8,false);
+        motion.Begin(new(72,54),0,1,ObjectAngle.Right,false);
         landed=motion.AdvanceVertical((_,_,_)=>{},out deleted);
         FailIf(landed || deleted || motion.Position!=new Vector2(73,54) || motion.SpeedZ!=-212,
             "Somaria sideview ceiling must stop displacement while applying gravity.");
@@ -219,7 +219,7 @@ public partial class ValidationRoot
         // Sideview Z merges after lateral motion and before vertical motion.
         _currentRoom.SetPositionTileAndCollision(start,0,0,0);
         motion = new SomariaThrowMotion(_currentRoom,geometry);
-        motion.Begin(new(72,64),-14,1,8,false);
+        motion.Begin(new(72,64),-14,1,ObjectAngle.Right,false);
         motion.AdvanceLateral();
         FailIf(motion.Position!=new Vector2(74,64) || motion.ZHigh!=-14,
             "Somaria sideview lateral motion must precede the high-Z merge.");

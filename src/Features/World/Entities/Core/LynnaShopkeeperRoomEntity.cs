@@ -21,7 +21,7 @@ internal sealed class LynnaShopkeeperRoomEntity
         npc.SetScriptButtonSensitive(true);
         npc.SetCollisionRadii(
             database.ShopkeeperRadiusY, database.ShopkeeperRadiusX);
-        npc.SetScriptAnimation(database.Animation(0x46, database.Hidden ? 0 : 3));
+        npc.SetScriptAnimation(database.Animation(InteractionId.Shopkeeper, database.Hidden ? 0 : 3));
     }
 
     public NpcCharacter Npc => Entity;

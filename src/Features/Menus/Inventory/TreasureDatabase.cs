@@ -5,39 +5,6 @@ namespace oracleofages;
 
 public sealed class TreasureDatabase
 {
-    public const int TreasureNone = 0x00;
-    public const int TreasureShield = 0x01;
-    public const int TreasureBombs = 0x03;
-    public const int TreasureSword = 0x05;
-    public const int TreasureBoomerang = 0x06;
-    public const int TreasureSwitchHook = 0x0a;
-    public const int TreasureShooter = 0x0f;
-    public const int TreasureHarp = 0x11;
-    public const int TreasureSlingshot = 0x13;
-    public const int TreasureShovel = 0x15;
-    public const int TreasureBracelet = 0x16;
-    public const int TreasureFeather = 0x17;
-    public const int TreasureSeedSatchel = 0x19;
-    public const int TreasureEmberSeeds = 0x20;
-    public const int TreasureTuneOfEchoes = 0x25;
-    public const int TreasureTuneOfCurrents = 0x26;
-    public const int TreasureTuneOfAges = 0x27;
-    public const int TreasureRupees = 0x28;
-    public const int TreasureHeartRefill = 0x29;
-    public const int TreasureHeartContainer = 0x2a;
-    public const int TreasureHeartPiece = 0x2b;
-    public const int TreasureRingBox = 0x2c;
-    public const int TreasureRing = 0x2d;
-    public const int TreasureFlippers = 0x2e;
-    public const int TreasurePotion = 0x2f;
-    public const int TreasureGashaSeed = 0x34;
-    public const int TreasureMakuSeed = 0x36;
-    public const int TreasureEssence = 0x40;
-    public const int TreasureTradeItem = 0x41;
-    public const int TreasureGraveyardKey = 0x42;
-    public const int TreasureMermaidSuit = 0x4a;
-    public const int TreasureTuniNut = 0x4c;
-
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
     private readonly List<TreasureObjectRecord> _objectRows = new();
     private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();
@@ -111,22 +78,22 @@ public sealed class TreasureDatabase
 
     public DisplayRecord GetButtonDisplay(int itemId, InventoryState inventory)
     {
-        if (itemId == 0)
+        if (itemId == TreasureId.None)
             return DisplayRecord.Empty;
 
         return itemId switch
         {
-            TreasureShield => GetDisplay(
+            TreasureId.Shield => GetDisplay(
                 "treasureDisplayData_shield", Math.Max(0, inventory.ShieldLevel - 1)),
-            TreasureSword => GetDisplay("treasureDisplayData_sword", Math.Max(0, inventory.SwordLevel - 1)),
-            TreasureBracelet => GetDisplay("treasureDisplayData_bracelet", Math.Max(0, inventory.BraceletLevel - 1)),
-            TreasureSwitchHook => GetDisplay("treasureDisplayData_switchHook", Math.Max(0, inventory.SwitchHookLevel - 1)),
-            TreasureSeedSatchel => GetDisplay("treasureDisplayData_satchel", inventory.SatchelSelectedSeeds),
-            TreasureShooter => GetDisplay("treasureDisplayData_shooter", inventory.ShooterSelectedSeeds),
-            TreasureHarp => GetDisplay("treasureDisplayData_harp", inventory.SelectedHarpSong),
-            InventoryState.ItemFlute => GetDisplay("treasureDisplayData_flute", inventory.FluteIcon),
-            TreasureTradeItem => GetDisplay("treasureDisplayData_trade", inventory.TradeItem),
-            TreasureTuniNut => GetDisplay("treasureDisplayData_tuniNut", inventory.TuniNutState),
+            TreasureId.Sword => GetDisplay("treasureDisplayData_sword", Math.Max(0, inventory.SwordLevel - 1)),
+            TreasureId.Bracelet => GetDisplay("treasureDisplayData_bracelet", Math.Max(0, inventory.BraceletLevel - 1)),
+            TreasureId.SwitchHook => GetDisplay("treasureDisplayData_switchHook", Math.Max(0, inventory.SwitchHookLevel - 1)),
+            TreasureId.SeedSatchel => GetDisplay("treasureDisplayData_satchel", inventory.SatchelSelectedSeeds),
+            TreasureId.Shooter => GetDisplay("treasureDisplayData_shooter", inventory.ShooterSelectedSeeds),
+            TreasureId.Harp => GetDisplay("treasureDisplayData_harp", inventory.SelectedHarpSong),
+            TreasureId.Flute => GetDisplay("treasureDisplayData_flute", inventory.FluteIcon),
+            TreasureId.TradeItem => GetDisplay("treasureDisplayData_trade", inventory.TradeItem),
+            TreasureId.TuniNut => GetDisplay("treasureDisplayData_tuniNut", inventory.TuniNutState),
             _ => GetDisplay("treasureDisplayData_standard", itemId)
         };
     }
@@ -136,17 +103,17 @@ public sealed class TreasureDatabase
 
     public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
     {
-        if (treasureId == 0)
+        if (treasureId == TreasureId.None)
             return DisplayRecord.Empty;
 
         int level = Math.Max(0, parameter - 1);
         return treasureId switch
         {
-            TreasureShield when parameter > 0 =>
+            TreasureId.Shield when parameter > 0 =>
                 GetDisplay("treasureDisplayData_shield", level),
-            TreasureSword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
-            TreasureBracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
-            TreasureSwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),
+            TreasureId.Sword when parameter > 0 => GetDisplay("treasureDisplayData_sword", level),
+            TreasureId.Bracelet when parameter > 0 => GetDisplay("treasureDisplayData_bracelet", level),
+            TreasureId.SwitchHook when parameter > 0 => GetDisplay("treasureDisplayData_switchHook", level),
             _ => GetButtonDisplay(treasureId, inventory)
         };
     }
@@ -293,10 +260,10 @@ public sealed class TreasureDatabase
                     treasure, parameterAmount, row.UnsignedDecimal(2)));
         }
         if (_gashaMaturity.Count != 4 ||
-            GetGashaMaturityGain(TreasureEssence, 0) != 150 ||
-            GetGashaMaturityGain(0x2b, 0) != 36 ||
-            GetGashaMaturityGain(TreasureTradeItem, 0) != 100 ||
-            GetGashaMaturityGain(TreasureHeartRefill, 0x18) != 0x18)
+            GetGashaMaturityGain(TreasureId.Essence, 0) != 150 ||
+            GetGashaMaturityGain(TreasureId.HeartPiece, 0) != 36 ||
+            GetGashaMaturityGain(TreasureId.TradeItem, 0) != 100 ||
+            GetGashaMaturityGain(TreasureId.HeartRefill, 0x18) != 0x18)
         {
             throw new InvalidOperationException(
                 "Treasure Gasha maturity table is incomplete.");
@@ -306,9 +273,9 @@ public sealed class TreasureDatabase
     private static int ParseSound(string sound) => sound switch
     {
         "SND_NONE" => 0,
-        "SND_GETITEM" => OracleSoundEngine.SndGetItem,
-        "SND_GETSEED" => OracleSoundEngine.SndGetSeed,
-        "MUS_GET_ESSENCE" => OracleSoundEngine.MusGetEssence,
+        "SND_GETITEM" => SoundId.SndGetItem,
+        "SND_GETSEED" => SoundId.SndGetSeed,
+        "MUS_GET_ESSENCE" => SoundId.MusGetEssence,
         _ => throw new InvalidOperationException(
             $"Unknown treasure collection sound '{sound}'.")
     };
@@ -481,7 +448,7 @@ internal readonly record struct ExtraTreasureRecord(int TreasureId, int Paramete
 
 public readonly record struct DisplayRecord(int TreasureId, int LeftSprite, int LeftPalette, int RightSprite, int RightPalette, int ExtraMode, int TextLow)
 {
-    public static readonly DisplayRecord Empty = new(0, 0, 0, 0, 0, 0xff, 0x00);
+    public static readonly DisplayRecord Empty = new(oracleofages.TreasureId.None, 0, 0, 0, 0, 0xff, 0x00);
     public bool HasIcon => LeftSprite != 0 || RightSprite != 0;
 }
 

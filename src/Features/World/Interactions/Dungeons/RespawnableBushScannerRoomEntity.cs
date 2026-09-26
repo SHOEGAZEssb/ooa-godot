@@ -22,7 +22,7 @@ internal sealed partial class RespawnableBushScannerRoomEntity :
         OracleRoomData room)
         : base(record, $"RespawnableBushScanner_{record.Order}")
     {
-        if (record is not { Id: 0xc7, SubId: 0x04, PackedPosition: 0x0f } ||
+        if (record is not { Id: InteractionId.CreateObjectAtEachTileIndex, SubId: 0x04, PackedPosition: 0x0f } ||
             (record.Parameter & 0xf0) != 0x10)
         {
             throw new ArgumentOutOfRangeException(nameof(record));

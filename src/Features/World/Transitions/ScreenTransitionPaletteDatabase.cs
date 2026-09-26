@@ -31,7 +31,7 @@ internal sealed class ScreenTransitionPaletteDatabase
     {
         palettes = default;
         // checkSymmetryCityPaletteTransition, GLOBALFLAG_TUNI_NUT_PLACED.
-        if (group == 0 && (room is 0x12 or 0x22 or 0x14 or 0x24) && save.HasGlobalFlag(0x29))
+        if (group == 0 && (room is 0x12 or 0x22 or 0x14 or 0x24) && save.HasGlobalFlag(GlobalFlag.TuniNutPlaced))
             return false;
         int index = direction == Vector2I.Up ? 0 : direction == Vector2I.Right ? 1 : direction == Vector2I.Down ? 2 : 3;
         return _routes.TryGetValue((group, room, index), out palettes);

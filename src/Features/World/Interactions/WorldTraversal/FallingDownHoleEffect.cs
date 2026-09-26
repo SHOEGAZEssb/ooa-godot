@@ -102,7 +102,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
         int speedRaw = row.UnsignedDecimal(2);
-        if (tileBase != 0x16 || palette != 3 || speedRaw != 0x0f)
+        if (tileBase != 0x16 || palette != 3 || speedRaw != ObjectSpeed.Speed60)
         {
             throw new InvalidOperationException(
                 "Imported INTERAC_FALLDOWNHOLE constants do not match the supported handler.");

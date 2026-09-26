@@ -238,7 +238,7 @@ public sealed class ImpaIntroEventDatabase
             EncounterCommands[5] is not CutsceneMoveCommand
             {
                 Actor: "Impa",
-                Angle: 0x10,
+                Angle: ObjectAngle.Down,
                 Counter: var moveFrames,
                 EncodedAnimation: var animation
             } ||
@@ -312,7 +312,7 @@ public sealed class ImpaIntroEventDatabase
                 EncodedAnimation: var rightAnimation
             } || rightAnimation != Record.RightAnimation ||
             StonePrePushCommands[6] is not CutsceneSetAngleCommand
-                { Actor: "Impa", Angle: 0x18 } ||
+                { Actor: "Impa", Angle: ObjectAngle.Left } ||
             StonePrePushCommands[7] is not CutsceneSetSpeedCommand
                 { Actor: "Impa", Speed: var speed } ||
             speed != timing.BackAwaySpeed ||
@@ -378,7 +378,7 @@ public sealed class ImpaIntroEventDatabase
                 TargetCommand: 6
             } ||
             StonePostPushCommands[2] is not CutsceneSetAngleCommand
-                { Actor: "Impa", Angle: 0x10 } ||
+                { Actor: "Impa", Angle: ObjectAngle.Down } ||
             StonePostPushCommands[3] is not CutsceneSetSpeedCommand
                 { Actor: "Impa", Speed: var correctionSpeed } ||
             correctionSpeed != timing.LeftCorrectionSpeed ||
@@ -390,7 +390,7 @@ public sealed class ImpaIntroEventDatabase
                 StonePostPushCommands[6], timing.RightBranchWaitFrames) ||
             !MatchesWait(StonePostPushCommands[7], timing.CommonWaitFrames) ||
             StonePostPushCommands[8] is not CutsceneSetAngleCommand
-                { Actor: "Impa", Angle: 0x08 } ||
+                { Actor: "Impa", Angle: ObjectAngle.Right } ||
             StonePostPushCommands[9] is not CutsceneSetSpeedCommand
                 { Actor: "Impa", Speed: var responseSpeed } ||
             responseSpeed != timing.ResponseRightSpeed ||
@@ -407,7 +407,7 @@ public sealed class ImpaIntroEventDatabase
             StonePostPushCommands[13] is not CutsceneMoveCommand
             {
                 Actor: "Impa",
-                Angle: 0x00,
+                Angle: ObjectAngle.Up,
                 Counter: var correctionFrames,
                 EncodedAnimation: var correctionAnimation
             } || correctionFrames != timing.ResponseUpFrames ||
@@ -434,7 +434,7 @@ public sealed class ImpaIntroEventDatabase
             StonePostPushCommands[21] is not CutsceneMoveCommand
             {
                 Actor: "Impa",
-                Angle: 0x00,
+                Angle: ObjectAngle.Up,
                 Counter: var finalFrames,
                 EncodedAnimation: var finalAnimation
             } || finalFrames != timing.FinalMoveFrames ||

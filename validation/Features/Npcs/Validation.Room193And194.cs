@@ -20,13 +20,13 @@ public sealed partial class ValidationRoot
 
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         manager.LoadRoom(1, rooms.CurrentRoom);
 
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x93,
-                Id: 0x42,
+                Id: InteractionId.MustacheMan,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x0f00,
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x93,
-                Id: 0x40,
+                Id: InteractionId.Soldier,
                 SubId: 0x01,
                 Var03: 0x01,
                 TextId: 0x5902,
@@ -138,7 +138,7 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             !mustacheMan.Active ||
             mustacheMan.TextId != 0x0f01 ||
@@ -176,7 +176,7 @@ public sealed partial class ValidationRoot
         interactions.Update(frame, _player);
 
         SetEssences(0xff);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
         FailIf(
             !mustacheMan.Active ||
@@ -185,7 +185,7 @@ public sealed partial class ValidationRoot
             soldier.TextId != 0x5901,
             "Unrelated essence, global, or room flags changed room 1:93.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             mustacheMan.Active ||
             mustacheMan.Visible ||
@@ -195,7 +195,7 @@ public sealed partial class ValidationRoot
             manager.BlocksLink(soldier.Position),
             "GLOBALFLAG_FINISHEDGAME did not delete both room 1:93 actors.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         FailIf(
             !mustacheMan.Active ||
@@ -212,7 +212,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x94,
-                Id: 0x43,
+                Id: InteractionId.PastGuy,
                 SubId: 0x00,
                 Var03: 0x01,
                 TextId: 0x1710,
@@ -259,7 +259,7 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         FailIf(
             pastGuy.Active ||
             pastGuy.Visible ||
@@ -268,13 +268,13 @@ public sealed partial class ValidationRoot
             "Clearing GLOBALFLAG_0b did not live-delete room 1:94's " +
             "var03-$01 past guy.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             !pastGuy.Active ||
             pastGuy.TextId != 0x1711 ||
             pastGuy.BaseRecord.TextId != 0x1710,
             "Restoring GLOBALFLAG_0b did not reselect room 1:94 TX_1711.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         manager.LoadRoom(1, _world.LoadRoom(1, 0x94));
         pastGuy = manager.Entities<NpcCharacter>().Single();
         FailIf(

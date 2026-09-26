@@ -23,19 +23,19 @@ public sealed partial class ValidationRoot
             respawnFacing,
             respawnY,
             respawnX);
-        _saveData.WriteWramByte(0xc6aa, 0);
+        _saveData.WriteWramByte(WramAddress.wLinkHealth, 0);
         int deathCount = _saveData.DeathCount;
         int saveWrites = _saveWriteRequests;
         int musicRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.MusGameOver);
+            _sound.PlayRequestsFor(SoundId.MusGameOver);
         GameSceneGraph dyingScene = _scene;
         RoomEntityManager dyingEntities = _entities;
 
         BeginGameOverForValidation();
         FailIf(
             _saveData.DeathCount != Math.Min(999, deathCount + 1) ||
-            _sound.ActiveMusic != OracleSoundEngine.MusGameOver ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusGameOver) !=
+            _sound.ActiveMusic != SoundId.MusGameOver ||
+            _sound.PlayRequestsFor(SoundId.MusGameOver) !=
                 musicRequests + 1 ||
             !_inventoryMenu.GameOver ||
             !_saveQuitScreen.Visible ||
@@ -236,15 +236,15 @@ public sealed partial class ValidationRoot
     private void ValidateExplicitSavePersistence()
     {
         int saveWrites = _saveWriteRequests;
-        bool flagWasSet = _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        bool flagWasSet = _saveData.HasGlobalFlag(GlobalFlag.SavedNayru);
         int rupees = _inventory.Rupees;
         int rupeeDelta = rupees == 999 ? -1 : 1;
 
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, !flagWasSet);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, !flagWasSet);
         _inventory.AddRupees(rupeeDelta);
         _ExitTree();
         _inventory.AddRupees(-rupeeDelta);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, flagWasSet);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, flagWasSet);
 
         _inventoryMenu.OpenSaveImmediatelyForValidation();
         int menuSaveRequests = _inventoryMenu.SaveRequests;
@@ -265,19 +265,19 @@ public sealed partial class ValidationRoot
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var standardInventory = new InventoryState(_treasures, save);
         FailIf(
-            save.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
+            save.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             save.GetRoomFlags(0, 0x38) != 0 ||
             save.RespawnGroup != 0 || save.RespawnRoom != 0x8a ||
             save.RespawnStateModifier != 0 || save.RespawnFacing != 0 ||
             save.RespawnY != 0x38 || save.RespawnX != 0x48 ||
-            standardInventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            standardInventory.HasTreasure(TreasureId.Sword) ||
             standardInventory.SwordLevel != 0 ||
-            standardInventory.EquippedA == InventoryState.ItemSword ||
-            standardInventory.EquippedB == InventoryState.ItemSword,
+            standardInventory.EquippedA == TreasureId.Sword ||
+            standardInventory.EquippedB == TreasureId.Sword,
             "A standard file did not begin swordless, with clear flags and the " +
             "original 0:8a/$38/$48 checkpoint.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+        save.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
         save.SetRoomFlag(2, 0x38, OracleSaveData.RoomFlagLayoutSwap);
         save.SetRoomFlag(6, 0x87, OracleSaveData.RoomFlagItem);
         save.SetRoomFlag(7, 0xa6, OracleSaveData.RoomFlag80);
@@ -285,7 +285,7 @@ public sealed partial class ValidationRoot
         save.SetMinimapLocation(1, 0x41);
         save.SetMakuTreeState(1);
         FailIf(
-            !save.HasGlobalFlag(0x0c) ||
+            !save.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             !save.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
             !save.HasRoomFlag(4, 0x87, OracleSaveData.RoomFlagItem) ||
             !save.HasRoomFlag(5, 0xa6, OracleSaveData.RoomFlag80) ||
@@ -308,10 +308,10 @@ public sealed partial class ValidationRoot
 
         var restoredInventory = new InventoryState(_treasures, decoded!);
         FailIf(
-            !restoredInventory.HasTreasure(TreasureDatabase.TreasureSwitchHook) ||
+            !restoredInventory.HasTreasure(TreasureId.SwitchHook) ||
             restoredInventory.SwitchHookLevel != 1 ||
-            restoredInventory.EquippedB != TreasureDatabase.TreasureSwitchHook ||
-            restoredInventory.Rupees != 987 || !decoded!.HasGlobalFlag(0x0c) ||
+            restoredInventory.EquippedB != TreasureId.SwitchHook ||
+            restoredInventory.Rupees != 987 || !decoded!.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             !decoded.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
             decoded.RespawnGroup != 5 || decoded.RespawnRoom != 0xa6 ||
             decoded.RespawnStateModifier != 2 || decoded.RespawnFacing != 3 ||
@@ -322,22 +322,22 @@ public sealed partial class ValidationRoot
         FailIf(OracleSaveData.TryDeserialize(encoded, out _), "A corrupted Ages save checksum was accepted.");
 
         OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
-        deathSave.WriteWramByte(0xc61e, 0x98);
+        deathSave.WriteWramByte(WramAddress.wDeathCounter, 0x98);
         deathSave.WriteWramByte(0xc61f, 0x09);
         deathSave.IncrementDeathCount();
         deathSave.IncrementDeathCount();
-        deathSave.WriteWramByte(0xc6aa, 0x00);
+        deathSave.WriteWramByte(WramAddress.wLinkHealth, 0x00);
         byte[] depletedImage = deathSave.Serialize();
         deathSave.ResetHealthIfDepleted();
         FailIf(
             deathSave.DeathCount != 999 ||
-            deathSave.ReadWramByte(0xc61e) != 0x99 ||
+            deathSave.ReadWramByte(WramAddress.wDeathCounter) != 0x99 ||
             deathSave.ReadWramByte(0xc61f) != 0x09 ||
-            deathSave.ReadWramByte(0xc6aa) != deathSave.MaxHealthQuarters ||
+            deathSave.ReadWramByte(WramAddress.wLinkHealth) != deathSave.MaxHealthQuarters ||
             !OracleSaveData.TryDeserialize(
                 depletedImage,
                 out OracleSaveData? persistedDepleted) ||
-            persistedDepleted!.ReadWramByte(0xc6aa) != 0,
+            persistedDepleted!.ReadWramByte(WramAddress.wLinkHealth) != 0,
             "The live BCD death counter, $999 saturation, or zero-health " +
             "save/load reset boundary regressed.");
 
@@ -440,12 +440,12 @@ public sealed partial class ValidationRoot
         bool SeedSatchelSnapshotComplete() =>
             inventory.SeedSatchelLevel == 1 &&
             inventory.EmberSeeds == 0x20 &&
-            inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
-            inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds) &&
-            save.ReadWramByte(0xc6b4) == 1 &&
-            save.ReadWramByte(0xc6b9) == 0x20 &&
-            save.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
-            save.HasTreasure(TreasureDatabase.TreasureEmberSeeds);
+            inventory.HasTreasure(TreasureId.SeedSatchel) &&
+            inventory.HasTreasure(TreasureId.EmberSeeds) &&
+            save.ReadWramByte(WramAddress.wSeedSatchelLevel) == 1 &&
+            save.ReadWramByte(WramAddress.wNumEmberSeeds) == 0x20 &&
+            save.HasTreasure(TreasureId.SeedSatchel) &&
+            save.HasTreasure(TreasureId.EmberSeeds);
 
         inventory.Changed += () =>
         {
@@ -469,11 +469,11 @@ public sealed partial class ValidationRoot
 
         inventoryCommits = saveCommits = 0;
         inspectSeedSatchelCommit = true;
-        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSeedSatchel, 1));
+        inventory.GiveTreasure(Reward(TreasureId.SeedSatchel, 1));
         inspectSeedSatchelCommit = false;
         FailIf(
             inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
-            save.ReadWramByte(0xc6b9) != 0x20 || inventoryCommits != 1 ||
+            save.ReadWramByte(WramAddress.wNumEmberSeeds) != 0x20 || inventoryCommits != 1 ||
             saveCommits != 1 || !inventorySeedSatchelSnapshotComplete ||
             !saveSeedSatchelSnapshotComplete,
             "The Seed Satchel did not expose and persist its complete compound grant in one callback.");
@@ -487,10 +487,10 @@ public sealed partial class ValidationRoot
 
         bool MaturitySnapshotComplete() =>
             maturityInventory.HeartPieces == 1 &&
-            maturityInventory.HasTreasure(TreasureDatabase.TreasureHeartPiece) &&
+            maturityInventory.HasTreasure(TreasureId.HeartPiece) &&
             maturitySave.GashaMaturity == 36 &&
-            maturitySave.ReadWramByte(0xc6ac) == 1 &&
-            maturitySave.HasTreasure(TreasureDatabase.TreasureHeartPiece);
+            maturitySave.ReadWramByte(WramAddress.wNumHeartPieces) == 1 &&
+            maturitySave.HasTreasure(TreasureId.HeartPiece);
 
         maturityInventory.Changed += () =>
         {
@@ -503,56 +503,56 @@ public sealed partial class ValidationRoot
             maturitySaveSnapshotComplete &= MaturitySnapshotComplete();
         };
         maturityInventory.GiveTreasure(
-            Reward(TreasureDatabase.TreasureHeartPiece, 1));
+            Reward(TreasureId.HeartPiece, 1));
         FailIf(
             maturityInventoryCommits != 1 || maturitySaveCommits != 1 ||
             !maturityInventorySnapshotComplete || !maturitySaveSnapshotComplete,
             "A maturity-bearing treasure exposed partial state or emitted duplicate callbacks.");
 
-        inventory.GiveTreasure(Reward(0x62, 0));
-        inventory.GiveTreasure(Reward(0x20, 0x15));
-        inventory.GiveTreasure(Reward(0x21, 0x09));
-        inventory.GiveTreasure(Reward(0x22, 0x09));
-        inventory.GiveTreasure(Reward(0x23, 0x09));
-        inventory.GiveTreasure(Reward(0x24, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.SatchelUpgrade, 0));
+        inventory.GiveTreasure(Reward(TreasureId.EmberSeeds, 0x15));
+        inventory.GiveTreasure(Reward(TreasureId.ScentSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.PegasusSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.GaleSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.MysterySeeds, 0x09));
         FailIf(
             inventory.SeedSatchelLevel != 2 || inventory.EmberSeeds != 0x35 ||
             inventory.ScentSeeds != 0x09 || inventory.PegasusSeeds != 0x09 ||
             inventory.GaleSeeds != 0x09 || inventory.MysterySeeds != 0x09,
             "Typed mode `$0f seed counters or the satchel capacity table diverged.");
 
-        inventory.GiveTreasure(Reward(0x0d, 0x10));
-        inventory.GiveTreasure(Reward(0x0e, 0x0c));
-        inventory.GiveTreasure(Reward(0x52, 0x07));
-        inventory.GiveTreasure(Reward(0x07, 0x02));
-        inventory.GiveTreasure(Reward(0x08, 0x01));
-        inventory.GiveTreasure(Reward(0x51, 0x22));
-        inventory.GiveTreasure(Reward(0x15, 0x00));
+        inventory.GiveTreasure(Reward(TreasureId.Bombchus, 0x10));
+        inventory.GiveTreasure(Reward(TreasureId.Flute, 0x0c));
+        inventory.GiveTreasure(Reward(TreasureId.ChevalRope, 0x07));
+        inventory.GiveTreasure(Reward(TreasureId.RodOfSeasons, 0x02));
+        inventory.GiveTreasure(Reward(TreasureId.MagnetGloves, 0x01));
+        inventory.GiveTreasure(Reward(TreasureId.FairyPowder, 0x22));
+        inventory.GiveTreasure(Reward(TreasureId.Shovel, 0x00));
         FailIf(
             inventory.Bombchus != 0x10 || inventory.AnimalCompanion != 0x0c ||
             inventory.RememberedCompanionId != 0x07 || inventory.ObtainedSeasons != 0 ||
             inventory.MagnetGlovePolarity != 0 ||
-            save.ReadWramByte(0xc6fb) != 0x23,
+            save.ReadWramByte(WramAddress.wShortSecretIndex) != 0x23,
             "An imported typed WRAM binding did not execute or persist its collection mode.");
 
-        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureBoomerang, 1));
-        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureFeather, 1));
-        inventory.GiveTreasure(Reward(TreasureDatabase.TreasureSlingshot, 1));
+        inventory.GiveTreasure(Reward(TreasureId.Boomerang, 1));
+        inventory.GiveTreasure(Reward(TreasureId.Feather, 1));
+        inventory.GiveTreasure(Reward(TreasureId.Slingshot, 1));
         inventory.SelectSatchelSeeds(2);
         inventory.SelectShooterSeeds(3);
-        inventory.GiveTreasure(Reward(0x60, 0));
+        inventory.GiveTreasure(Reward(TreasureId.Id60, 0));
         FailIf(
-            save.ReadWramByte(0xc700) != 0 || save.ReadWramByte(0xc701) != 0 ||
-            save.ReadWramByte(0xc6ff) != 0 || save.ReadWramByte(0xc6c4) != 2 ||
-            save.ReadWramByte(0xc6c5) != 3 || save.ReadWramByte(0xc705) != 0 ||
-            !inventory.HasUpgrade(0) || !inventory.HasTreasure(0x60),
+            save.ReadWramByte(WramAddress.wGroup0RoomFlags) != 0 || save.ReadWramByte(0xc701) != 0 ||
+            save.ReadWramByte(0xc6ff) != 0 || save.ReadWramByte(WramAddress.wSatchelSelectedSeeds) != 2 ||
+            save.ReadWramByte(WramAddress.wShooterSelectedSeeds) != 3 || save.ReadWramByte(0xc705) != 0 ||
+            !inventory.HasUpgrade(0) || !inventory.HasTreasure(TreasureId.Id60),
             "Item levels, selected seeds, or transient wUpgradesObtained were not updated.");
 
         // Clean US Ages has no Boomerang/Feather level byte. Room flags
         // must neither receive inventory writes nor be interpreted as levels.
         save.SetRoomFlag(0, 0x00, 0x80);
-        inventory.GiveTreasure(Reward(0x20, 0x01));
-        FailIf(save.ReadWramByte(0xc700) != 0x80, "Inventory persistence clobbered room flag $0:$00.");
+        inventory.GiveTreasure(Reward(TreasureId.EmberSeeds, 0x01));
+        FailIf(save.ReadWramByte(WramAddress.wGroup0RoomFlags) != 0x80, "Inventory persistence clobbered room flag $0:$00.");
 
         FailIf(
             !OracleSaveData.TryDeserialize(save.Serialize(), out OracleSaveData? restoredSave),
@@ -568,25 +568,25 @@ public sealed partial class ValidationRoot
 
         OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
         var ringInventory = new InventoryState(_treasures, ringSave);
-        ringInventory.GiveTreasure(Reward(TreasureDatabase.TreasureRing, 0x1e));
+        ringInventory.GiveTreasure(Reward(TreasureId.Ring, 0x1e));
         FailIf(
             ringInventory.UnappraisedRingCount != 1 ||
             ringInventory.UnappraisedRingAt(0) != 0x5e ||
             ringInventory.UnappraisedRingAt(1) != 0xff ||
-            ringSave.ReadWramByte(0xc6cd) != 0x01,
+            ringSave.ReadWramByte(WramAddress.wNumUnappraisedRingsBcd) != 0x01,
             "Treasure mode `$09 did not append an unappraised ring and update its BCD count.");
 
         var fullRings = new byte[0x40];
         Array.Fill(fullRings, (byte)0x41);
-        ringSave.WriteWramBytes(0xc5c0, fullRings);
-        ringSave.WriteWramByte(0xc6cd, 0x64);
+        ringSave.WriteWramBytes(WramAddress.wUnappraisedRings, fullRings);
+        ringSave.WriteWramByte(WramAddress.wNumUnappraisedRingsBcd, 0x64);
         ringInventory = new InventoryState(_treasures, ringSave);
-        ringInventory.GiveTreasure(Reward(TreasureDatabase.TreasureRing, 0x02));
+        ringInventory.GiveTreasure(Reward(TreasureId.Ring, 0x02));
         FailIf(
             ringInventory.UnappraisedRingCount != 0x40 ||
             ringInventory.UnappraisedRingAt(0x3e) != 0x41 ||
             ringInventory.UnappraisedRingAt(0x3f) != 0x42 ||
-            ringSave.ReadWramByte(0xc6cd) != 0x64,
+            ringSave.ReadWramByte(WramAddress.wNumUnappraisedRingsBcd) != 0x64,
             "A full unappraised-ring list did not replace a duplicate like mode `$09.");
 
         GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
@@ -655,15 +655,15 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            save.ReadWramByte(0xc672) != 1 ||
+            save.ReadWramByte(WramAddress.wDungeonSmallKeys) != 1 ||
             save.ReadWramByte(0xc679) != 1 ||
             save.ReadWramByte(0xc67a) != 2 ||
             save.ReadWramByte(0xc681) != 1 ||
-            save.ReadWramByte(0xc682) != 0x81 ||
+            save.ReadWramByte(WramAddress.wDungeonBossKeys) != 0x81 ||
             save.ReadWramByte(0xc683) != 0x81 ||
-            save.ReadWramByte(0xc684) != 0x81 ||
+            save.ReadWramByte(WramAddress.wDungeonCompasses) != 0x81 ||
             save.ReadWramByte(0xc685) != 0x81 ||
-            save.ReadWramByte(0xc686) != 0x81 ||
+            save.ReadWramByte(WramAddress.wDungeonMaps) != 0x81 ||
             save.ReadWramByte(0xc687) != 0x81,
             "Dungeon collectibles did not retain the original 16 key bytes and " +
             "two-byte boss-key/compass/map bitsets in WRAM.");

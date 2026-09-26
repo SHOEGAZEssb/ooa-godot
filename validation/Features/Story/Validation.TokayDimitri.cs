@@ -9,11 +9,11 @@ public sealed partial class ValidationRoot
     {
         void BeginDeparture()
         {
-            _saveData.WriteWramByte(0xc647, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 2);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x20);
+            _saveData.WriteWramByte(WramAddress.wDimitriState, 1);
+            _inventory.GiveTreasure(TreasureId.Essence, 2);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
             LoadValidationRoom(0, 0xaa);
-            NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
+            NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x0f });
             FailIf(!_roomEvents.Get<TokayDimitriEvent>().TryInteractNpc(first), "Tokay $48:$0f refused the Ember Seed trade.");
             _dialogue.Close();
             StepRoomEventFrames(1);
@@ -31,11 +31,11 @@ public sealed partial class ValidationRoot
         }
 
         BeginDeparture();
-        NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
-        NpcCharacter second = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x10 });
+        NpcCharacter first = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x0f });
+        NpcCharacter second = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x10 });
         FailIf(_roomEvents.Get<TokayDimitriEvent>().Stage != TokayDimitriStage.Departing ||
             first.Position != new Vector2(0x18, 0x48) || second.Position != new Vector2(0x38, 0x58) ||
-            !first.Visible || !second.Visible || (_saveData.ReadWramByte(0xc647) & 2) != 0,
+            !first.Visible || !second.Visible || (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) != 0,
             "Closing TX_0a25 must initialize both moveleft counters without moving/deleting actors or completing the rescue.");
         StepRoomEventFrames(1);
         FailIf(first.Position.X != 0x16 || second.Position.X != 0x36,
@@ -51,17 +51,17 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(first.Active || !second.Active || second.Position.X != 0x16 ||
             _roomEvents.Get<TokayDimitriEvent>().MenusDisabled || !_player.CutsceneControlled ||
-            (_saveData.ReadWramByte(0xc647) & 2) != 0,
+            (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) != 0,
             "First Tokay scriptend must delete only $48:$0f and enable menus while $48:$10 continues.");
         StepRoomEventFrames(14);
         FailIf(!second.Visible || second.Position.X != 0xfa || second.ScriptDrawOffset.X != -256,
             "Second Tokay did not retain its left-edge sprite after 31 moves.");
         StepRoomEventFrames(1);
-        FailIf(!second.Active || (_saveData.ReadWramByte(0xc647) & 2) != 0,
+        FailIf(!second.Active || (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) != 0,
             "Tokay $48:$10 completed the rescue on counter2's zero update.");
         StepRoomEventFrames(1);
         FailIf(second.Active || _roomEvents.Get<TokayDimitriEvent>().Stage != TokayDimitriStage.Inactive || _player.CutsceneControlled ||
-            (_saveData.ReadWramByte(0xc647) & 2) == 0,
+            (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) == 0,
             "Second Tokay scriptend did not set wDimitriState bit 1, delete $48:$10, and release Link.");
         LoadValidationRoom(0, 0xaa);
         FailIf(_entities.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x48 &&
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(4);
         _roomEvents.Get<TokayDimitriEvent>().Cancel();
         FailIf(_roomEvents.Get<TokayDimitriEvent>().HasState || _player.CutsceneControlled ||
-            (_saveData.ReadWramByte(0xc647) & 2) != 0 ||
+            (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) != 0 ||
             _entities.Entities<TokayRescueEmberRoomEntity>().Any(effect => !effect.Finished),
             "Cancelling a partial Tokay departure retained input ownership or marked the rescue complete.");
         LoadValidationRoom(0, 0xaa);
@@ -85,8 +85,8 @@ public sealed partial class ValidationRoot
     private void ValidateTokayDimitriScrollEntry()
     {
         const double update = 1.0 / 60.0;
-        _saveData.WriteWramByte(0xc647, 0);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 2);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0);
+        _inventory.GiveTreasure(TreasureId.Essence, 2);
         _saveData.SetRoomFlag(0, 0xba, OracleSaveData.RoomFlag40);
         LoadValidationRoom(0, 0xba);
         _player.WarpTo(new Vector2(0x18, 4));
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             "Room 0:aa lacks Dimitri's preset, source pose, or post-Tokay TX_2100.");
         _dialogue.Close();
         StepRoomEventFrames(1);
-        FailIf((_saveData.ReadWramByte(0xc647) & 1) == 0,
+        FailIf((_saveData.ReadWramByte(WramAddress.wDimitriState) & 1) == 0,
             "Dimitri did not remember the completed introduction in wDimitriState bit 0.");
         GD.Print("Validated room 0:ba -> 0:aa post-D3 Tokay scroll freeze, " +
             "destination-relative top dialogue, 30-update wait, and input release.");
@@ -143,11 +143,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateTokayRescueEmberEffects()
     {
-        _saveData.WriteWramByte(0xc647, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 2);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x20);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 1);
+        _inventory.GiveTreasure(TreasureId.Essence, 2);
+        _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
         LoadValidationRoom(0, 0xaa);
-        NpcCharacter tokay = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: 0x48, SubId: 0x0f });
+        NpcCharacter tokay = _entities.Entities<NpcCharacter>().Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x0f });
         FailIf(!_roomEvents.Get<TokayDimitriEvent>().TryInteractNpc(tokay), "Tokay Ember Seed effect test could not start the trade.");
         _dialogue.Close();
         StepRoomEventFrames(1);
@@ -226,8 +226,8 @@ public sealed partial class ValidationRoot
         }
         CompanionRuntimeState.Clear(_runtimeState, CompanionRuntimeState.Read(_runtimeState).Id);
         CompanionRuntimeState.ForgetRemembered(_runtimeState);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence, 2);
-        _saveData.WriteWramByte(0xc647, 3);
+        _inventory.GiveTreasure(TreasureId.Essence, 2);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 3);
         LoadValidationRoom(0, 0xaa);
         var dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         var database = new DimitriDatabase();
@@ -246,12 +246,12 @@ public sealed partial class ValidationRoot
         }
         FailIf(!_dialogue.IsOpen || !dimitri.LinkRiding || !_player.CompanionRideActive ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x2106)) ||
-            (_saveData.ReadWramByte(0xc647) & 0x20) != 0,
+            (_saveData.ReadWramByte(WramAddress.wDimitriState) & 0x20) != 0,
             $"Dimitri rescue failed its mount/tutorial gate: {dimitri.Phase}, Link={_player.Position}.");
         _dialogue.Close();
         StepRoomEventFrames(1);
-        FailIf((_saveData.ReadWramByte(0xc647) & 0x20) == 0 ||
-            !CompanionRuntimeState.IsActive(_runtimeState, 0x0c) ||
+        FailIf((_saveData.ReadWramByte(WramAddress.wDimitriState) & 0x20) == 0 ||
+            !CompanionRuntimeState.IsActive(_runtimeState, SpecialObjectId.Dimitri) ||
             _player.Position != dimitri.Position + new Vector2(0, -10),
             "Dimitri tutorial completion did not retain the companion slot and source Link offset.");
 
@@ -291,18 +291,18 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
         }
         FailIf(_player.CompanionRideActive || !CompanionRuntimeState.TryGetRemembered(
-            _runtimeState, 0x0c, 0, 0xaa, out _), "Dimitri land dismount lost the remembered companion.");
+            _runtimeState, SpecialObjectId.Dimitri, 0, 0xaa, out _), "Dimitri land dismount lost the remembered companion.");
         Vector2 rememberedPosition = dimitri.Position;
         LoadValidationRoom(0, 0xaa);
         dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.Position != rememberedPosition,
             "Dimitri preset did not preserve the remembered companion after wDimitriState bit $20.");
-        _saveData.WriteWramByte(0xc647, 0x63);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x63);
         CompanionRuntimeState.ForgetRemembered(_runtimeState);
         LoadValidationRoom(0, 0xaa);
         FailIf(_entities.Entities<DimitriCompanionRoomEntity>().Any(),
             "Dimitri preset ignored wDimitriState bit $40.");
-        _saveData.WriteWramByte(0xc647, 0x23);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x23);
         OracleRoomData mainland = _world.LoadRoom(0, 0x98);
         Vector2 landing = (from y in Enumerable.Range(1, 6)
             from x in Enumerable.Range(1, 8).Reverse()
@@ -311,7 +311,7 @@ public sealed partial class ValidationRoot
                 Enumerable.Range((int)point.X - 5, mainland.Width - (int)point.X + 5).All(x =>
                     !mainland.IsSolid(new Vector2(x, point.Y - 5)) &&
                     !mainland.IsSolid(new Vector2(x, point.Y + 8))));
-        CompanionRuntimeState.Begin(_runtimeState, 0x0c, 0x98, landing, 1);
+        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, 0x98, landing, ObjectDirection.Right);
         LoadValidationRoom(0, 0x98);
         dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         for (int frame = 0; frame < 180 && !_dialogue.IsOpen; frame++)

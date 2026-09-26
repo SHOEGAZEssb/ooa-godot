@@ -90,7 +90,7 @@ internal sealed class RalphAfterRaftonEvent :
         _counter = _record.LookCounter;
         _nativeDirection = _record.InitialDirection;
         _speed = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _zFixed = 0;
         _speedZ = 0;
         _active = true;
@@ -158,7 +158,7 @@ internal sealed class RalphAfterRaftonEvent :
         _counter = 0;
         _nativeDirection = 0;
         _speed = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _zFixed = 0;
         _speedZ = 0;
         _active = false;
@@ -211,7 +211,7 @@ internal sealed class RalphAfterRaftonEvent :
         int angle,
         string encodedAnimation)
     {
-        if (angle != 0x00 || encodedAnimation != _record.Animation(0))
+        if (angle != ObjectAngle.Up || encodedAnimation != _record.Animation(0))
         {
             throw new InvalidOperationException(
                 $"ralphSubid03Script requested unsupported movement angle ${angle:x2}.");
@@ -221,7 +221,7 @@ internal sealed class RalphAfterRaftonEvent :
 
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
     {
-        if (speed != _record.Speed200 || angle != 0x00)
+        if (speed != _record.Speed200 || angle != ObjectAngle.Up)
         {
             throw new InvalidOperationException(
                 $"ralphSubid03Script requested unsupported movement " +
@@ -365,13 +365,13 @@ internal sealed class RalphAfterRaftonEvent :
 
         if (linkX >= ralphX)
         {
-            _angle = 0x08;
+            _angle = ObjectAngle.Right;
             SetNativeAnimation(1);
         }
         else
         {
             difference = (-difference) & 0xff;
-            _angle = 0x18;
+            _angle = ObjectAngle.Left;
             SetNativeAnimation(3);
         }
         _counter = difference;

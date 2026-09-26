@@ -41,12 +41,12 @@ public sealed partial class ValidationRoot
         var trace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = trace;
         int ralphMusicStarts =
-            _sound.PlayRequestsFor(OracleSoundEngine.MusRalph);
+            _sound.PlayRequestsFor(SoundId.MusRalph);
         LoadValidationRoom(group, roomId);
 
         RalphAfterRaftonCharacter ralph = Ralph();
         FailIf(
-            ralph.Record is not { Id: 0x37, SubId: 0x03, Var03: 0x00 } ||
+            ralph.Record is not { Id: InteractionId.Ralph, SubId: 0x03, Var03: 0x00 } ||
             ralph.Position != new Vector2(0x38, 0x38) ||
             ralph.Record.SpriteName != "spr_ralph_1" ||
             ralph.Record.TileBase != 0 || ralph.Record.Palette != 1 ||
@@ -60,8 +60,8 @@ public sealed partial class ValidationRoot
             roomEvent.CurrentCommandIndex != -1 ||
             !roomEvent.BlocksGameplay || !roomEvent.MenusDisabled ||
             !_player.CutsceneControlled ||
-            _sound.ActiveMusic != OracleSoundEngine.MusRalph ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusRalph) !=
+            _sound.ActiveMusic != SoundId.MusRalph ||
+            _sound.PlayRequestsFor(SoundId.MusRalph) !=
                 ralphMusicStarts + 1,
             "Room 1:97 did not preserve Ralph's placement, source-state-0 " +
             "$78 counter, animation-$03/direction-$01 split, $01 input/menu " +

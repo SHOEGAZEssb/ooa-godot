@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         for (int repeat = 0; repeat < 2; repeat++)
         {
             var soldier = new BallChainSoldierCharacter();
-            soldier.Initialize(new EnemyDatabase().ImportedEnemy(0x4b), Room060MovementFixture(), new(64, 64), new());
+            soldier.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64, 64), new());
             Vector2 link = new(64, 100);
             void Step() => soldier.UpdateFrame(link, link, 4, () => { });
             Step();

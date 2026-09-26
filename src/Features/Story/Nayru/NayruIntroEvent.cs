@@ -167,8 +167,8 @@ internal sealed class NayruIntroEvent :
 
         // The positioned bear $5d:$02 and portal-departure Ralph $37:$0d are
         // later story variants. $6b:$01 owns the intro actors instead.
-        _context.DeactivateNpcs(0x5d, 0x02);
-        _context.DeactivateNpcs(0x37, 0x0d);
+        _context.DeactivateNpcs(InteractionId.Bear, 0x02);
+        _context.DeactivateNpcs(InteractionId.Ralph, 0x0d);
 
         NpcCharacter nayru = _nayruActors.Spawn("Nayru", "Nayru", solid: true);
         ActorRecord nayruRecord = _nayruDatabase.Actor("Nayru");
@@ -339,7 +339,7 @@ internal sealed class NayruIntroEvent :
                 break;
             case NayruStage.BearMove:
                 _bearObjectPosition = OracleObjectMovement.Shared.ApplySpeed(
-                    _bearObjectPosition, _nayruRecord.BearMoveSpeed, 0x00);
+                    _bearObjectPosition, _nayruRecord.BearMoveSpeed, ObjectAngle.Up);
                 _nayruActors["Bear"].Position = _bearObjectPosition.PixelPosition;
                 if (--_counter == 0)
                 {
@@ -503,7 +503,7 @@ internal sealed class NayruIntroEvent :
     {
         // CUTSCENE_NAYRU_SINGING state 0 uses the menu-close effect before
         // replacing the gameplay tilemap.
-        _context.Sound.PlaySound(OracleSoundEngine.SndCloseMenu);
+        _context.Sound.PlaySound(SoundId.SndCloseMenu);
         _nayruSingingScreen = new NayruSingingScreen(_nayruDatabase);
         _nayruInterfaceLayer.AddChild(_nayruSingingScreen);
         EventResources.CaptureFullScreenFade();
@@ -552,7 +552,7 @@ internal sealed class NayruIntroEvent :
             Input.IsActionJustPressed("attack");
         if (remaining > 0 && !skip)
             return;
-        _context.Sound.PlaySound(OracleSoundEngine.SndCloseMenu);
+        _context.Sound.PlaySound(SoundId.SndCloseMenu);
         _counter = (int)InventoryMenuController.FastFadeFrames;
         _nayruStage = NayruStage.SingingFadeOut;
     }
@@ -834,7 +834,7 @@ internal sealed class NayruIntroEvent :
         // boundaries while cfd0 remains $12, from the pre-charge threat
         // through the slow backward movement.
         if (_nayruGhostRumbling && (_entities.FrameCounter & 0x0f) == 0)
-            _context.Sound.PlaySound(OracleSoundEngine.SndRumble2);
+            _context.Sound.PlaySound(SoundId.SndRumble2);
 
         if (_nayruGhostRevealFlickerRemaining > 0 &&
             _nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
@@ -846,7 +846,7 @@ internal sealed class NayruIntroEvent :
                 ghost.Visible = true;
                 // runVeranGhostSubid0 starts this cue when its initial $5a
                 // flicker counter expires and the ghost appears from Impa.
-                _context.Sound.PlaySound(OracleSoundEngine.MusRoomOfRites);
+                _context.Sound.PlaySound(SoundId.MusRoomOfRites);
             }
         }
 
@@ -920,7 +920,7 @@ internal sealed class NayruIntroEvent :
             if (_nayruVignetteElapsed == 1)
                 _context.Sound.RestartSound();
             else if (_nayruVignetteElapsed == 121)
-                _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
+                _context.Sound.PlaySound(SoundId.MusDisaster);
         }
         switch (_nayruVignetteIndex)
         {
@@ -996,7 +996,7 @@ internal sealed class NayruIntroEvent :
             girl.SetAnimationRate(2.0f);
         }
         if (frame == 727)
-            _context.Sound.PlaySound(OracleSoundEngine.SndJump);
+            _context.Sound.PlaySound(SoundId.SndJump);
         if (frame == 846)
             _nayruActors.SetAnimationIfChanged("VignetteGirl", 0);
         if (frame is >= 876 and <= 937)
@@ -1018,7 +1018,7 @@ internal sealed class NayruIntroEvent :
             {
                 _nayruVignetteOldManZ = 0;
                 _nayruVignetteOldManSpeedZ = -0x200;
-                _context.Sound.PlaySound(OracleSoundEngine.SndJump);
+                _context.Sound.PlaySound(SoundId.SndJump);
             }
             if (!OracleObjectMath.UpdateSpeedZ(
                 ref _nayruVignetteOldManZ,
@@ -1111,7 +1111,7 @@ internal sealed class NayruIntroEvent :
                 state.Actor.SetAnimationRate(0.0f);
                 state.Actor.SetScriptDrawOffset(Vector2.Zero);
                 state.Actor.SetScriptPaletteOverride(_nayruDatabase.StoneSpritePalette);
-                _context.Sound.PlaySound(OracleSoundEngine.SndClink);
+                _context.Sound.PlaySound(SoundId.SndClink);
                 Observe("VignetteMonkeyStone", state.Actor.Name.ToString());
             }
             if (!state.Stone)
@@ -1360,7 +1360,7 @@ internal sealed class NayruIntroEvent :
         actor.SetScriptAnimation(record.Animation(record.InitialAnimation));
         actor.SetAnimationRate(1.0f);
         _nayruEffects.Add(new TimedNayruEffect(
-            actor, duration, Vector2.Zero, false, false, false, position, 0));
+            actor, duration, Vector2.Zero, false, false, false, position, SoundId.MusNone));
         _nayruVignetteExclamationCount++;
         Observe("VignetteExclamation", name, _nayruVignetteExclamationCount, position);
     }
@@ -1392,7 +1392,7 @@ internal sealed class NayruIntroEvent :
             template == "MusicNote",
             floatsLeft,
             position,
-            template == "Lightning" ? OracleSoundEngine.SndLightning : 0));
+            template == "Lightning" ? SoundId.SndLightning : SoundId.MusNone));
         return actor;
     }
 
@@ -1417,7 +1417,7 @@ internal sealed class NayruIntroEvent :
             _nayruActors.IsUsingAnimation("Nayru", 2);
         // Impa substate $0e creates INTERAC_GHOST_VERAN and plays this on
         // the same object update.
-        _context.Sound.PlaySound(OracleSoundEngine.SndBossDead);
+        _context.Sound.PlaySound(SoundId.SndBossDead);
     }
 
     private void BeginGhostRumble() => _nayruGhostRumbling = true;
@@ -1425,7 +1425,7 @@ internal sealed class NayruIntroEvent :
     private void BeginGhostCharge()
     {
         _nayruGhostRumbling = false;
-        _context.Sound.PlaySound(OracleSoundEngine.SndSwordSpin);
+        _context.Sound.PlaySound(SoundId.SndSwordSpin);
         NpcCharacter ghost = _nayruActors["GhostVeran"];
         ghost.Position = new Vector2(0x78, ghost.Position.Y);
         _nayruActors.SetAnimation("Nayru", 2);
@@ -1446,7 +1446,7 @@ internal sealed class NayruIntroEvent :
         _nayruActors.SetAnimation("Nayru", 2);
         if (_nayruActors.IsUsingAnimation("Nayru", 2))
             Observe("PostChargeFacing", "Nayru", 2);
-        _context.Sound.PlaySound(OracleSoundEngine.SndKillEnemy);
+        _context.Sound.PlaySound(SoundId.SndKillEnemy);
     }
 
     private void BeginNayruPossessionRecovery()
@@ -1529,7 +1529,7 @@ internal sealed class NayruIntroEvent :
         {
             SetNayruPossessionPalette(nayru, possessed: true);
             _nayruActors.SetAnimation("Nayru", 5);
-            _context.Sound.PlaySound(OracleSoundEngine.SndSwordObtained);
+            _context.Sound.PlaySound(SoundId.SndSwordObtained);
         }
         if (elapsed < 549)
             return;
@@ -1598,7 +1598,7 @@ internal sealed class NayruIntroEvent :
         NpcCharacter human = _nayruActors.Spawn(
             "HumanVeran", "HumanVeran", _nayruActors["GhostVeran"].Position);
         human.SetScriptAnimation(_nayruDatabase.Actor("HumanVeran").Animation(0));
-        _context.Sound.PlaySound(OracleSoundEngine.SndTeleport);
+        _context.Sound.PlaySound(SoundId.SndTeleport);
     }
 
     private void HideGhostVeranAfterPossession()
@@ -1775,8 +1775,8 @@ internal sealed class NayruIntroEvent :
         ralph.SetScriptAnimation(_nayruDatabase.Actor("AftermathRalph").Animation(9));
         SpawnCollapsedImpa(new Vector2(0x38, 0x68), "AftermathImpaCollapsed");
         // State $0f issues these back-to-back after restoring room 0:39.
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
-        _context.Sound.PlaySound(OracleSoundEngine.MusSadness);
+        _context.Sound.PlaySound(SoundId.SndCtrlMediumFadeOut);
+        _context.Sound.PlaySound(SoundId.MusSadness);
         _player.WarpTo(new Vector2(0x58, 0x38), recordSafe: false);
         _player.Face(Vector2I.Up);
         _nayruTrackAftermathRalphFacing = true;
@@ -1830,7 +1830,7 @@ internal sealed class NayruIntroEvent :
         _player.BeginGetItemOneHandPose();
         // TREASURE_OBJECT_SWORD_00 uses grab mode $01; treasure state 3 plays
         // its collection behavior's SND_GETITEM as Link raises the item.
-        _context.Sound.PlaySound(OracleSoundEngine.SndGetItem);
+        _context.Sound.PlaySound(SoundId.SndGetItem);
         _nayruHud.Refresh();
         Observe("SwordGift", "Player");
     }
@@ -2024,21 +2024,21 @@ internal sealed class NayruIntroEvent :
             case "FacePlayerDown": _player.Face(Vector2I.Down); break;
             case "FacePlayerLeft": _player.Face(Vector2I.Left); break;
             case "FastMusicFadeOut":
-                _context.Sound.PlaySound(OracleSoundEngine.SndCtrlFastFadeOut);
+                _context.Sound.PlaySound(SoundId.SndCtrlFastFadeOut);
                 break;
             case "MediumMusicFadeOut":
-                _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+                _context.Sound.PlaySound(SoundId.SndCtrlMediumFadeOut);
                 break;
             case "PlaySideviewMusic":
-                _context.Sound.PlaySound(OracleSoundEngine.MusLadxSideview);
+                _context.Sound.PlaySound(SoundId.MusLadxSideview);
                 break;
             case "AlarmNayruAudience": AlarmNayruAudience(); break;
             case "SpawnGhostVeran": SpawnGhostVeran(); break;
             case "BeginNayruAudienceEscape": BeginNayruAudienceEscape(); break;
             case "BeginVeranReaction":
                 _ghostReaction = GhostReactionPhase.RalphRetreat;
-                _context.Sound.PlaySound(OracleSoundEngine.SndUnknown5);
-                _context.Sound.PlaySound(OracleSoundEngine.SndUnknown5);
+                _context.Sound.PlaySound(SoundId.SndUnknown5);
+                _context.Sound.PlaySound(SoundId.SndUnknown5);
                 break;
             case "SpawnHumanVeran": SpawnHumanVeran(); break;
             case "HideHumanVeran": _nayruActors.Hide("HumanVeran"); break;
@@ -2066,7 +2066,7 @@ internal sealed class NayruIntroEvent :
                 _context.Sound.PlayRoomMusic(_nayruRecord.Group, _nayruRecord.Room);
                 break;
             case "PlaySwordObtained":
-                _context.Sound.PlaySound(OracleSoundEngine.SndSwordObtained);
+                _context.Sound.PlaySound(SoundId.SndSwordObtained);
                 break;
             default:
                 throw new InvalidOperationException(
@@ -2102,7 +2102,7 @@ internal sealed class NayruIntroEvent :
         if (commandUpdate + 1 >= frames)
             return true;
         _ghostRisePosition = OracleObjectMovement.Shared.ApplySpeed(
-            _ghostRisePosition, Convert.ToInt32(payload, 16), 0);
+            _ghostRisePosition, Convert.ToInt32(payload, 16), ObjectAngle.Up);
         ghost.Position = _ghostRisePosition.PrecisePosition;
         return false;
     }
@@ -2115,7 +2115,7 @@ internal sealed class NayruIntroEvent :
             _nativeZFixed = 0;
             _nativeSpeedZ = _nayruRecord.NpcJumpSpeedZ;
             Observe("RalphJump", actor);
-            _context.Sound.PlaySound(OracleSoundEngine.SndJump);
+            _context.Sound.PlaySound(SoundId.SndJump);
         }
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref _nativeZFixed, ref _nativeSpeedZ, _nayruRecord.NpcJumpGravity);
@@ -2134,7 +2134,7 @@ internal sealed class NayruIntroEvent :
             _nativeZFixed = 0;
             _nativePhase = 0;
             _nayruActors.SetAnimation(actor, 5);
-            _context.Sound.PlaySound(OracleSoundEngine.SndSwordSpin);
+            _context.Sound.PlaySound(SoundId.SndSwordSpin);
         }
         if (_nativePhase == 0)
         {
@@ -2164,7 +2164,7 @@ internal sealed class NayruIntroEvent :
         }
         nayru.SetScriptDrawOffset(Vector2.Zero);
         _nayruActors.SetAnimation(actor, 2);
-        _context.Sound.PlaySound(OracleSoundEngine.SndSlash);
+        _context.Sound.PlaySound(SoundId.SndSlash);
         if (nayru.Position == new Vector2(0x28, 0x38))
             Observe("PortalFlight", actor, position: nayru.Position);
         return true;

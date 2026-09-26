@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(1, 0xba, OracleSaveData.RoomFlag80, value: false);
         for (int subId = 0; subId < 6; subId++)
             _saveData.WriteWramByte(VineSproutDatabase.PositionAddress + subId, 0);
-        _inventory.LoseTreasure(0x4f);
+        _inventory.LoseTreasure(TreasureId.TokayEyeball);
         LoadValidationRoom(1, 0xba);
         FailIf(
             _entities.Entities<TokayEntranceEyeRoomEntity>() is not
@@ -68,17 +68,17 @@ public sealed partial class ValidationRoot
             _player.WarpTo(position, recordSafe: false);
             _player.StartLedgeHop(new LedgeJumpPlan(
                 Vector2I.Down,
-                0x10,
+                ObjectAngle.Down,
                 1,
-                0,
+                ObjectSpeed.Speed0,
                 false,
                 _rooms.CurrentRoom.Height - 7,
                 sourcePosition,
                 speedZ,
                 -0x100,
                 gravity,
-                OracleSoundEngine.SndJump,
-                OracleSoundEngine.SndLand,
+                SoundId.SndJump,
+                SoundId.SndLand,
                 [9, 9, 6]));
             _player._PhysicsProcess(1.0 / 60.0);
         }
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
             _player.LedgeZ != -2 ||
             _entities.Entities<VineSproutRoomEntity>().Count != 0 ||
             cliffDebris is null || cliffDebris.Position != sourcePosition ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBreakRock) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndBreakRock) != 1 ||
             _saveData.ReadWramByte(
                 VineSproutDatabase.PositionAddress + vineRecord.SubId) != 0x16 ||
             _rooms.CurrentRoom.GetMetatile(sourcePosition) != originalVineTile ||
@@ -177,7 +177,7 @@ public sealed partial class ValidationRoot
         vine.UpdatePushAttempt(linkPosition, pushDirection, pushDirection);
         FailIf(
             !vine.Moving || vine.MoveCounter != 22 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 ||
             _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0,
             "ENEMY_VINE_SPROUT did not begin its `$16-update SPEED_c0 move " +
             "and restore the source collision on push update 20.");
@@ -206,7 +206,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<VineSproutRoomEntity>().Single().Position != destination,
             "Room 1:ba did not reload ENEMY_VINE_SPROUT from wVinePositions.");
 
-        _inventory.GiveTreasure(0x4f, 0);
+        _inventory.GiveTreasure(TreasureId.TokayEyeball, 0);
         TokayEyeballSlotRoomEntity slot =
             _entities.Entities<TokayEyeballSlotRoomEntity>().Single();
         Vector2 socketLinkPosition = slot.Position + Vector2.Down * 11.0f;
@@ -249,7 +249,7 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 60; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            _inventory.HasTreasure(0x4f) ||
+            _inventory.HasTreasure(TreasureId.TokayEyeball) ||
             _entities.Entities<TokayEyeballSlotRoomEntity>().Count != 0 ||
             _entities.PlayerMovementDisabled || _entities.PlayerMenusDisabled,
             "Tokay Eyeball insertion did not consume treasure `$4f and release " +
@@ -433,7 +433,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<NpcRecord> islandRecords = npcDatabase.AllRecords
             .Where(record =>
                 (record.Id == 0x48 && record.SubId >= 0x05) ||
-                record is { Group: 1, Room: 0xcb, Id: 0x68, SubId: 0x00 })
+                record is { Group: 1, Room: 0xcb, Id: InteractionId.Rosa, SubId: 0x00 })
             .ToArray();
         FailIf(
             islandRecords.Count != 27 ||
@@ -447,11 +447,11 @@ public sealed partial class ValidationRoot
             "eight ordinary and 19 specialized records.");
 
         NpcRecord[] room1adRecords = islandRecords.Where(record =>
-            record is { Group: 1, Room: 0xad, Id: 0x48, SubId: 0x15 })
+            record is { Group: 1, Room: 0xad, Id: InteractionId.Tokay, SubId: 0x15 })
             .ToArray();
         LoadValidationRoom(1, 0xad);
         NpcCharacter[] room1adTokays = _entities.Entities<NpcCharacter>()
-            .Where(npc => npc.Record is { Id: 0x48, SubId: 0x15 })
+            .Where(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x15 })
             .ToArray();
         FailIf(
             room1adRecords.Length != 1 ||
@@ -467,10 +467,10 @@ public sealed partial class ValidationRoot
             shopDatabase.Room != 0xe4 || shopDatabase.Placements.Count != 3 ||
             wildDatabase.GameReturnPosition != 0x57 ||
             shopDatabase.ItemCollisionRadius != 0x06 ||
-            database.HeldItem(0x06).Treasure != TreasureDatabase.TreasureSword ||
+            database.HeldItem(0x06).Treasure != TreasureId.Sword ||
             database.HeldItem(0x06).GrantParameter != 0x01 ||
             database.HeldItem(0x07).GrantParameter != 0x00 ||
-            database.HeldItem(0x0a).Treasure != TreasureDatabase.TreasureSeedSatchel ||
+            database.HeldItem(0x0a).Treasure != TreasureId.SeedSatchel ||
             wildDatabase.Pattern(4, 0x0f).Pattern != 7 ||
             wildDatabase.StartTiles.Select(record =>
                 (record.Tile, record.PackedPosition)).ToArray() is not
@@ -768,12 +768,12 @@ public sealed partial class ValidationRoot
 
         // Returned-item predicates and the source held-accessory animation.
         _saveData.SetRoomFlag(5, 0xca, OracleSaveData.RoomFlag40, value: false);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureSword);
+        _inventory.LoseTreasure(TreasureId.Sword);
         LoadValidationRoom(5, 0xca);
         TokayHoldingItemCharacter swordHolder = _entities
             .Entities<NpcCharacter>()
             .OfType<TokayHoldingItemCharacter>()
-            .Single(npc => npc.Record is { Id: 0x48, SubId: 0x06 });
+            .Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x06 });
         FailIf(
             swordHolder.CurrentScriptAnimationSource != database.Animation(0x06) ||
             !swordHolder.HeldItemVisible ||
@@ -800,7 +800,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(5, 0xca);
         swordHolder = _entities.Entities<NpcCharacter>()
             .OfType<TokayHoldingItemCharacter>()
-            .Single(npc => npc.Record is { Id: 0x48, SubId: 0x06 });
+            .Single(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x06 });
         FailIf(
             swordHolder.NativeAnimation != TokayAnimationMode.FaceLink ||
             swordHolder.HeldItemVisible ||
@@ -814,13 +814,13 @@ public sealed partial class ValidationRoot
         // route are driven through the same A-button player path as gameplay.
         _saveData.SetGlobalFlag(shopDatabase.BoughtFeatherFlag, value: false);
         _saveData.SetGlobalFlag(shopDatabase.BoughtBraceletFlag, value: false);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureFeather);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureBracelet);
-        _inventory.LoseTreasure(TreasureDatabase.TreasureShovel);
+        _inventory.LoseTreasure(TreasureId.Feather);
+        _inventory.LoseTreasure(TreasureId.Bracelet);
+        _inventory.LoseTreasure(TreasureId.Shovel);
         LoadValidationRoom(2, 0xe4);
         List<TokayShopItem> stock = _entities.Entities<TokayShopItem>();
         NpcCharacter shopkeeper = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x48, SubId: 0x0e });
+            npc.Record is { Id: InteractionId.Tokay, SubId: 0x0e });
         FailIf(
             stock.Count != 2 || stock[0].OriginalSubId != 0 || stock[0].SubId != 0 ||
             stock[0].Position != new Vector2(0x40, 0x40) ||
@@ -860,8 +860,8 @@ public sealed partial class ValidationRoot
         // Returning an equipped Bracelet through the left Feather offer must
         // update the separate right-hand shovel stock. Every source `$81`
         // object rechecks the shared inventory on the next object update.
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
-        _inventory.EquipB(InventoryState.ItemBracelet);
+        _inventory.GiveTreasure(TreasureId.Bracelet, 1);
+        _inventory.EquipB(TreasureId.Bracelet);
         LoadValidationRoom(2, 0xe4);
         stock = _entities.Entities<TokayShopItem>();
         TokayShopItem featherStock = stock.Single(item =>
@@ -870,8 +870,8 @@ public sealed partial class ValidationRoot
             item.OriginalSubId == 1);
         FailIf(
             featherStock.SubId != 0 || braceletStock.SubId != 3 ||
-            braceletStock.Treasure != TreasureDatabase.TreasureShovel ||
-            _inventory.EquippedB != InventoryState.ItemBracelet,
+            braceletStock.Treasure != TreasureId.Shovel ||
+            _inventory.EquippedB != TreasureId.Bracelet,
             "Room 2:e4 did not reproduce the equipped-Bracelet state with " +
             "left Feather `$81:$00` and right shovel `$81:$03` stock.");
         _player.WarpTo(
@@ -888,20 +888,20 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             trading.Stage != TokayTradingStage.ShopReturnText ||
-            !_inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
+            !_inventory.HasTreasure(TreasureId.Bracelet) ||
+            _inventory.HasTreasure(TreasureId.Shovel) ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(database.Text(0x0a28)),
             "The return helper ran before TX_0a28 closed.");
         StepRoomEventFrames(5);
-        FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureBracelet),
+        FailIf(!_inventory.HasTreasure(TreasureId.Bracelet),
             "The return helper changed inventory during TX_0a28.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
             trading.Stage != TokayTradingStage.ShopReward ||
-            !_inventory.HasTreasure(TreasureDatabase.TreasureShovel) ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureBracelet) ||
-            _inventory.EquippedB != InventoryState.ItemShovel ||
+            !_inventory.HasTreasure(TreasureId.Shovel) ||
+            _inventory.HasTreasure(TreasureId.Bracelet) ||
+            _inventory.EquippedB != TreasureId.Shovel ||
             featherStock.SubId != 0 || braceletStock.SubId != 3,
             "tokayShopItem_giveShovelAndLoseBracelet did not preserve its " +
             "same-update equipped inventory and pre-transform stock boundary.");
@@ -909,9 +909,9 @@ public sealed partial class ValidationRoot
         TokayShopPlacementRecord braceletVisual = shopDatabase.Visual(1);
         FailIf(
             featherStock.SubId != 0 ||
-            featherStock.Treasure != TreasureDatabase.TreasureFeather ||
+            featherStock.Treasure != TreasureId.Feather ||
             braceletStock.SubId != 1 ||
-            braceletStock.Treasure != TreasureDatabase.TreasureBracelet ||
+            braceletStock.Treasure != TreasureId.Bracelet ||
             braceletStock.Placement.TileBase != braceletVisual.TileBase ||
             braceletStock.Placement.Palette != braceletVisual.Palette ||
             !_dialogue.IsOpen,
@@ -933,15 +933,15 @@ public sealed partial class ValidationRoot
             "The equipped Bracelet-for-shovel exchange did not finish and " +
             "release Link.");
 
-        _inventory.LoseTreasure(TreasureDatabase.TreasureShovel);
+        _inventory.LoseTreasure(TreasureId.Shovel);
         LoadValidationRoom(2, 0xe4);
         stock = _entities.Entities<TokayShopItem>();
         _player.WarpTo(
             stock[0].Position + Vector2.Down * 10, recordSafe: false);
         _player.Face(Vector2I.Up);
         _inventory.SetMysterySeedsFromScript(0x10);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
-        _inventory.GiveTreasure(0x24, 1);
+        _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+        _inventory.GiveTreasure(TreasureId.MysterySeeds, 1);
         _inventory.SetMysterySeedsFromScript(0x10);
         selectedStock = trading.TryInteractPlayer(_player);
         FailIf(
@@ -983,17 +983,17 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(1, 0xcb);
         FailIf(
             !_entities.Entities<NpcCharacter>().Single(npc =>
-                npc.Record is { Id: 0x48, SubId: 0x07 }).Active ||
+                npc.Record is { Id: InteractionId.Tokay, SubId: 0x07 }).Active ||
             _entities.Entities<NpcCharacter>().Single(npc =>
-                npc.Record is { Id: 0x68, SubId: 0x00 }).Active,
+                npc.Record is { Id: InteractionId.Rosa, SubId: 0x00 }).Active,
             "Unlinked room 1:cb did not retain only the shovel Tokay.");
         _saveData.SetLinkedGame(true);
         LoadValidationRoom(1, 0xcb);
         NpcCharacter rosa = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x68, SubId: 0x00 });
+            npc.Record is { Id: InteractionId.Rosa, SubId: 0x00 });
         FailIf(
             _entities.Entities<NpcCharacter>().Single(npc =>
-                npc.Record is { Id: 0x48, SubId: 0x07 }).Active ||
+                npc.Record is { Id: InteractionId.Tokay, SubId: 0x07 }).Active ||
             !rosa.Active || !rosaShovel.TryInteractNpc(rosa) ||
             rosaShovel.Stage != RosaShovelStage.FirstText,
             "Linked room 1:cb did not replace the shovel Tokay with Rosa's shovel event.");
@@ -1003,11 +1003,11 @@ public sealed partial class ValidationRoot
         // The Wild Tokay manager must save both equipped bytes, force the
         // Bracelet, instantiate the falling meat, and restore equips on any
         // exit (including cancellation and room transitions).
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+        _inventory.GiveTreasure(TreasureId.Bracelet, 1);
         _inventory.AddRupees(20);
         _inventory.SetScriptedEquippedItems(
-            TreasureDatabase.TreasureBombs,
-            TreasureDatabase.TreasureSword);
+            TreasureId.Bombs,
+            TreasureId.Sword);
         LoadValidationRoom(2, 0xde);
         Vector2 wildTokayResultPosition =
             new(wildDatabase.GameLinkX, wildDatabase.GameLinkY);
@@ -1026,7 +1026,7 @@ public sealed partial class ValidationRoot
         int originalFadeZ = _warpFade.ZIndex;
         Color originalFadeColor = _warpFade.Color;
         NpcCharacter manager = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x48, SubId: 0x0d });
+            npc.Record is { Id: InteractionId.Tokay, SubId: 0x0d });
         FailIf(
             !wildTokay.TryInteractNpc(manager),
             "Wild Tokay manager rejected A-button input.");
@@ -1034,13 +1034,13 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(10);
         FailIf(
             _entities.Entities<NpcCharacter>().Any(npc =>
-                npc.Record is { Id: 0x63 }) ||
+                npc.Record is { Id: InteractionId.Accessory }) ||
             wildTokay.Stage != WildTokayGameStage.Wait,
             "Wild Tokay raised its prize before the source 10-update wait.");
         StepRoomEventFrames(1);
         WildTokayPrizeRecord firstPrize = wildDatabase.Prize(0);
         NpcCharacter prizeAccessory = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x63 } && npc.Active);
+            npc.Record is { Id: InteractionId.Accessory } && npc.Active);
         FailIf(
             prizeAccessory.Record.SubId != firstPrize.AccessorySubId ||
             prizeAccessory.Position != manager.Position + new Vector2(0, -12) ||
@@ -1086,7 +1086,7 @@ public sealed partial class ValidationRoot
                 OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
             _warpFade.ZIndex != _hud.ZIndex + 1 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndCtrlMediumFadeOut) != 1,
+                SoundId.SndCtrlMediumFadeOut) != 1,
             "Wild Tokay did not start the manager-owned full-screen white " +
             "fade and medium music fade after its 20-update intro wait.");
         StepRoomEventFrames(31);
@@ -1097,8 +1097,8 @@ public sealed partial class ValidationRoot
             "keeping `$48:$0d alive through the palette thread.");
         StepRoomEventFrames(1);
         FailIf(
-            _inventory.EquippedB != InventoryState.ItemNone ||
-            _inventory.EquippedA != InventoryState.ItemBracelet ||
+            _inventory.EquippedB != TreasureId.None ||
+            _inventory.EquippedA != TreasureId.Bracelet ||
             wildTokay.Stage != WildTokayGameStage.Wait || manager.Active ||
             wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
@@ -1110,7 +1110,7 @@ public sealed partial class ValidationRoot
         FailIf(
             wildTokay.Stage != WildTokayGameStage.FadeIn ||
             !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusMinigame) != 1,
+            _sound.PlayRequestsFor(SoundId.MusMinigame) != 1,
             "Wild Tokay did not hold white for 30 updates before starting " +
             "MUS_MINIGAME and fadeinFromWhite.");
         StepRoomEventFrames(31);
@@ -1167,12 +1167,12 @@ public sealed partial class ValidationRoot
         FailIf(
             thrownMeat.ZFixed >= 0 ||
             _entities.Entities<NpcCharacter>().Any(npc =>
-                npc.Active && npc.Record is { Id: 0x48, SubId: 0x0c }),
+                npc.Active && npc.Record is { Id: InteractionId.Tokay, SubId: 0x0c }),
             "Wild Tokay meat or participant crossed the source 60-update " +
             "initial fall/spawn boundary one update early.");
         StepRoomEventFrames(1);
         NpcCharacter participant = _entities.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: 0x48, SubId: 0x0c } && npc.Active);
+            npc.Record is { Id: InteractionId.Tokay, SubId: 0x0c } && npc.Active);
         FailIf(
             thrownMeat.ZFixed >= 0 || participant.Position.Y != -8 ||
             participant.Position.X is not (24 or 136) ||
@@ -1284,8 +1284,8 @@ public sealed partial class ValidationRoot
         FailIf(
             manager.Active ||
             wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
-            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
-            _inventory.EquippedA != TreasureDatabase.TreasureSword ||
+            _inventory.EquippedB != TreasureId.Bombs ||
+            _inventory.EquippedA != TreasureId.Sword ||
             !_saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
             !Mathf.IsZeroApprox(_warpFade.Color.A) ||
             _warpFade.Position != Vector2.Zero ||
@@ -1299,7 +1299,7 @@ public sealed partial class ValidationRoot
         FailIf(
             wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
             !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) || manager.Active ||
-            _sound.ActiveMusic != OracleSoundEngine.MusMinigame,
+            _sound.ActiveMusic != SoundId.MusMinigame,
             "Wild Tokay loss did not reach full white before recreating the " +
             "manager or replacing MUS_MINIGAME.");
         StepRoomEventFrames(1);
@@ -1345,15 +1345,15 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(21);
         FailIf(
             !manager.Active || wildTokay.Stage != WildTokayGameStage.FadeOut ||
-            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
-            _inventory.EquippedA != TreasureDatabase.TreasureSword,
+            _inventory.EquippedB != TreasureId.Bombs ||
+            _inventory.EquippedA != TreasureId.Sword,
             "Wild Tokay retry did not preserve the manager and restored equips " +
             "while entering its start fade.");
         StepRoomEventFrames((int)RoomTransitionController.WarpFadeFrames);
         FailIf(
             manager.Active || wildTokay.Stage != WildTokayGameStage.Wait ||
-            _inventory.EquippedB != InventoryState.ItemNone ||
-            _inventory.EquippedA != InventoryState.ItemBracelet ||
+            _inventory.EquippedB != TreasureId.None ||
+            _inventory.EquippedA != TreasureId.Bracelet ||
             wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(
                     WildTilePoint(record.PackedPosition)) != record.Tile),
@@ -1390,7 +1390,7 @@ public sealed partial class ValidationRoot
         }
         NpcCharacter catchingParticipant = _entities.Entities<NpcCharacter>()
             .Single(npc =>
-                npc.Record is { Id: 0x48, SubId: 0x0c } && npc.Active);
+                npc.Record is { Id: InteractionId.Tokay, SubId: 0x0c } && npc.Active);
         while (catchingParticipant.Position.Y < 45)
             StepRoomEventFrames(1);
         Vector2I catchThrowDirection =
@@ -1439,7 +1439,7 @@ public sealed partial class ValidationRoot
         {
             StepRoomEventFrames(1);
             meatAccessory = _entities.Entities<NpcCharacter>().FirstOrDefault(npc =>
-                npc.Active && npc.Record is { Id: 0x63, SubId: 0x73 });
+                npc.Active && npc.Record is { Id: InteractionId.Accessory, SubId: 0x73 });
         }
         FailIf(
             meatAccessory is null || !catchMeat.Finished ||
@@ -1502,8 +1502,8 @@ public sealed partial class ValidationRoot
         FailIf(
             wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
             manager.Active ||
-            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
-            _inventory.EquippedA != TreasureDatabase.TreasureSword ||
+            _inventory.EquippedB != TreasureId.Bombs ||
+            _inventory.EquippedA != TreasureId.Sword ||
             !_saveData.HasRoomFlag(2, 0xde, OracleSaveData.RoomFlag40) ||
             !Mathf.IsZeroApprox(_warpFade.Color.A),
             "Wild Tokay win did not restore equipment and enter the source " +
@@ -1512,7 +1512,7 @@ public sealed partial class ValidationRoot
         FailIf(
             wildTokay.Stage != WildTokayGameStage.ReturnFadeOut ||
             !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f) || manager.Active ||
-            _sound.ActiveMusic != OracleSoundEngine.MusMinigame,
+            _sound.ActiveMusic != SoundId.MusMinigame,
             "Wild Tokay win replaced MUS_MINIGAME or recreated its manager " +
             "before the return fade reached full white.");
         StepRoomEventFrames(1);
@@ -1567,8 +1567,8 @@ public sealed partial class ValidationRoot
         wildTokay.Cancel();
         _dialogue.Close();
         FailIf(
-            _inventory.EquippedB != TreasureDatabase.TreasureBombs ||
-            _inventory.EquippedA != TreasureDatabase.TreasureSword ||
+            _inventory.EquippedB != TreasureId.Bombs ||
+            _inventory.EquippedA != TreasureId.Sword ||
             _player.CutsceneControlled || meatAccessory.Active ||
             wildDatabase.StartTiles.Any(record =>
                 _rooms.CurrentRoom.GetMetatile(

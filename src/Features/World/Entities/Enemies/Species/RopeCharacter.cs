@@ -148,7 +148,7 @@ internal partial class RopeCharacter : EnemyCharacter
             _zFixed = (height - 0x100) << 8;
             _state = RopeState.Falling;
             Visible = true;
-            _playSound(OracleSoundEngine.SndFallInHole);
+            _playSound(SoundId.SndFallInHole);
             QueueRedraw();
             return;
         }
@@ -158,7 +158,7 @@ internal partial class RopeCharacter : EnemyCharacter
             {
                 _speedZ = 0;
                 _scentEnabled = true;
-                _playSound(OracleSoundEngine.SndBombLand);
+                _playSound(SoundId.SndBombLand);
                 ChangeDirection();
                 AdvanceAnimation();
             }
@@ -180,7 +180,7 @@ internal partial class RopeCharacter : EnemyCharacter
                 _speed = _behavior.ChargeSpeedRaw;
                 _angle = (OracleObjectMovement.Shared.RelativeAngle(
                     OracleObjectMath.ToPixelPosition(Position),
-                    OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
+                    OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & ObjectAngle.CardinalMask;
                 _state = RopeState.SpawnCharge;
             }
             else
@@ -217,7 +217,7 @@ internal partial class RopeCharacter : EnemyCharacter
                     return;
                 }
                 _speedZ = bouncedSpeed;
-                _playSound(OracleSoundEngine.SndBombLand);
+                _playSound(SoundId.SndBombLand);
             }
             if ((_speedZ >> 8) == 0)
                 _spawnCollision = true;
@@ -232,7 +232,7 @@ internal partial class RopeCharacter : EnemyCharacter
         {
             _angle = (OracleObjectMovement.Shared.RelativeAngle(
                 OracleObjectMath.ToPixelPosition(Position),
-                OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
+                OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & ObjectAngle.CardinalMask;
             _speed = _behavior.ChargeSpeedRaw;
             _state = RopeState.Charging;
             SetAnimationFromAngle();

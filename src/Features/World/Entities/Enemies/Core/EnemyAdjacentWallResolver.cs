@@ -158,7 +158,7 @@ internal sealed class EnemyAdjacentWallResolver
     {
         ValidateAngle(angle);
         if (probe.XBlocked && probe.YBlocked)
-            return (angle + 0x10) & 0x1f;
+            return (angle + 0x10) & ObjectAngle.Mask;
         if (probe.XBlocked)
             return _bounceAngles[0x10 + angle].Angle;
         if (probe.YBlocked)

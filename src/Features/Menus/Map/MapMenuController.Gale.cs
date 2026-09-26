@@ -42,7 +42,7 @@ public sealed partial class MapMenuController
         _galeIndex = _galeDatabase!.Move(_galeRooms!, _galeIndex, offset);
         RefreshGaleSelection();
         if (previous == _galeIndex) return false;
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         return true;
     }
 

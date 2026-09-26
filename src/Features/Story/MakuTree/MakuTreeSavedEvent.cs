@@ -148,7 +148,7 @@ internal sealed class MakuTreeSavedEvent :
             _record.RespawnTreasureObject,
             _record.RespawnY,
             save.MakuTreeSeedSatchelXPosition,
-            spawnMode: 0);
+            spawnMode: TreasureSpawnMode.Instant);
     }
 
     private void DropSeedSatchel()
@@ -171,14 +171,14 @@ internal sealed class MakuTreeSavedEvent :
             _record.FallingTreasureObject,
             _record.DropY,
             x,
-            spawnMode: 2);
+            spawnMode: TreasureSpawnMode.FromScreenTop);
     }
 
     private void SpawnSeedSatchel(string objectName, int y, int x, int spawnMode)
     {
         TreasureObjectRecord treasure =
             Context.Treasures.GetObject(objectName);
-        if (treasure.TreasureId != TreasureDatabase.TreasureSeedSatchel ||
+        if (treasure.TreasureId != TreasureId.SeedSatchel ||
             treasure.Graphic != 0x20)
         {
             throw new InvalidOperationException(
@@ -191,19 +191,19 @@ internal sealed class MakuTreeSavedEvent :
             y,
             x,
             objectName,
-            $"scriptHelper.s:{(spawnMode == 2 ? "makuTree_dropSeedSatchel" : "makuTree_checkSpawnSeedSatchel")}")
+            $"scriptHelper.s:{(spawnMode == TreasureSpawnMode.FromScreenTop ? "makuTree_dropSeedSatchel" : "makuTree_checkSpawnSeedSatchel")}")
         {
             SpawnMode = spawnMode,
-            GrabMode = 1,
+            GrabMode = TreasureGrabMode.OneHand,
             SpawnDelayFrames =
-                spawnMode == 2 ? _record.DropDelayFrames : 0,
-            InitialZPixels = spawnMode == 2 ? _record.InitialZPixels : 0,
-            BounceCount = spawnMode == 2 ? _record.BounceCount : 0,
-            Gravity = spawnMode == 2 ? _record.Gravity : 0,
-            BounceSpeed = spawnMode == 2 ? _record.BounceSpeed : 0,
-            SpawnSound = spawnMode == 2 ? _record.SpawnSound : 0,
-            LandingSound = spawnMode == 2 ? _record.LandingSound : 0,
-            ExpectedTreasureId = TreasureDatabase.TreasureSeedSatchel
+                spawnMode == TreasureSpawnMode.FromScreenTop ? _record.DropDelayFrames : 0,
+            InitialZPixels = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.InitialZPixels : 0,
+            BounceCount = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.BounceCount : 0,
+            Gravity = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.Gravity : 0,
+            BounceSpeed = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.BounceSpeed : 0,
+            SpawnSound = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.SpawnSound : 0,
+            LandingSound = spawnMode == TreasureSpawnMode.FromScreenTop ? _record.LandingSound : 0,
+            ExpectedTreasureId = TreasureId.SeedSatchel
         };
         Context.Entities.SpawnGroundTreasure(request);
     }

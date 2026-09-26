@@ -12,7 +12,7 @@ public partial class ValidationRoot
         for (int level = 0; level <= 3; level++)
         {
             var save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6cc, (byte)level);
+            save.WriteWramByte(WramAddress.wRingBoxLevel, (byte)level);
             var inventory = new InventoryState(_treasures, save);
             var screen = new InventoryScreen { Visible = false };
             AddChild(screen);
@@ -41,8 +41,8 @@ public partial class ValidationRoot
         }
 
         var ringSave = OracleSaveData.CreateStandardGame();
-        ringSave.WriteWramByte(0xc6cc, 2);
-        ringSave.WriteWramByte(0xc6c6, 7);
+        ringSave.WriteWramByte(WramAddress.wRingBoxLevel, 2);
+        ringSave.WriteWramByte(WramAddress.wRingBoxContents, 7);
         ringSave.WriteWramByte(0xc6c7, 0xff);
         var rings = new InventoryState(_treasures, ringSave);
         FailIf(!rings.EquipRingAt(0) || !rings.EquipRingAt(1) || rings.ActiveRing != 0xff ||
@@ -51,9 +51,9 @@ public partial class ValidationRoot
         foreach (bool isA in new[] { false, true })
         {
             var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
-            inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-            inventory.GiveTreasure(TreasureDatabase.TreasureShield, 1);
-            inventory.GiveTreasure(InventoryState.ItemBiggoronSword, 0);
+            inventory.GiveTreasure(TreasureId.Sword, 1);
+            inventory.GiveTreasure(TreasureId.Shield, 1);
+            inventory.GiveTreasure(TreasureId.BiggoronSword, 0);
             int oldB = inventory.EquippedB, oldA = inventory.EquippedA;
             inventory.SwapStorageSlotWithButton(0, isA);
             FailIf(inventory.EquippedB != 0x0c || inventory.EquippedA != 0x0c ||
@@ -67,9 +67,9 @@ public partial class ValidationRoot
         }
 
         var award = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
-        award.GiveTreasure(TreasureDatabase.TreasureSword, 1);
+        award.GiveTreasure(TreasureId.Sword, 1);
         int displacedSword = award.EquippedB;
-        award.GiveTreasure(InventoryState.ItemBiggoronSword, 0);
+        award.GiveTreasure(TreasureId.BiggoronSword, 0);
         FailIf(award.EquippedB != 0x0c || award.EquippedA != 0x0c ||
             award.StorageItemAt(0) != displacedSword,
             "addTreasureToInventory did not equip a newly awarded $0c to both buttons and store the displaced sword.");
@@ -89,7 +89,7 @@ public partial class ValidationRoot
         for (int update = 0; update < 4; update++) Tick(["move_right"], []);
         FailIf(_inventoryScreen.Cursor != ((initial + 3) & 15), "Inventory repeat interval is not four updates.");
         Tick([], []);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
         int oldEquippedA = _inventory.EquippedA;
         int oldEquippedB = _inventory.EquippedB;
         int cursor = _inventoryScreen.Cursor;
@@ -122,9 +122,9 @@ public partial class ValidationRoot
             "inventoryMenuState0 failed to preserve the right-side bit while resetting $cbb9.");
         _inventoryScreen.MoveCursor(Vector2I.Left);
         FailIf(_inventoryScreen.ActiveCursor != 2, "Reopening on the right lost the low essence bits in $cbd2.");
-        int closeSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu);
+        int closeSounds = _sound.PlayRequestsFor(SoundId.SndCloseMenu);
         Tick(["inventory"], ["inventory"]);
-        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != closeSounds + 1,
+        FailIf(_sound.PlayRequestsFor(SoundId.SndCloseMenu) != closeSounds + 1,
             "closeMenu did not request SND_CLOSEMENU $55 on Start.");
         _inventoryMenu.CloseImmediatelyForValidation();
 
@@ -134,7 +134,7 @@ public partial class ValidationRoot
         FailIf(!_inventoryMenu.SaveMenuOpen || _inventoryScreen.Visible,
             "menuStateFadeIntoMenu failed to upgrade held Start+Select to MENU_SAVEQUIT $03.");
         Tick(["item"], ["item"]);
-        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != closeSounds + 1,
+        FailIf(_sound.PlayRequestsFor(SoundId.SndCloseMenu) != closeSounds + 1,
             "MENU_SAVEQUIT cancellation incorrectly requested SND_CLOSEMENU $55.");
         _inventoryMenu.CloseImmediatelyForValidation();
 

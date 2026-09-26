@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             ResetValidationInput();
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+            _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
             LoadValidationRoom(0, 0x3c);
             _player.WarpTo(new Vector2(0x48, 0x48));
             for (int repeat = 0; repeat < 2; repeat++)

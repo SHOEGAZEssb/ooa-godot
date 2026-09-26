@@ -162,7 +162,7 @@ public sealed partial class ValidationRoot
     private void ValidateSoundOutputTiming()
     {
         var data = new OracleSoundData();
-        foreach (int music in new[] { OracleSoundEngine.MusTitlescreen, OracleSoundEngine.MusOverworld })
+        foreach (int music in new[] { SoundId.MusTitlescreen, SoundId.MusOverworld })
         foreach (int mixFrames in new[] { 512, 1024, 2048 })
         foreach (int hostRate in new[] { 60, 30, 120, 0, -1 })
         {
@@ -274,7 +274,7 @@ public sealed partial class ValidationRoot
         var data = new OracleSoundData();
         var save = OracleSaveData.CreateStandardGame();
         save.SetRoomFlag(0, 0x03, 0x01, false);
-        save.SetGlobalFlag(0x29);
+        save.SetGlobalFlag(GlobalFlag.TuniNutPlaced);
         FailIf(data.RoomMusic(0, 0x03) != 0x24 || data.RoomMusic(0, 0x03, save) != 0x1f,
             "checkPlayRoomMusic must replace MUS_SYMMETRY_PRESENT $24 with MUS_SADNESS $1f while room 0:$03 bit 0 is clear, independently of global flag $29.");
         save.SetRoomFlag(0, 0x03, 0x01);
@@ -282,19 +282,19 @@ public sealed partial class ValidationRoot
             "Restoring room 0:$03 bit 0 must restore MUS_SYMMETRY_PRESENT $24.");
         using var fixture = new SoundValidationFixture(data);
         var sound = fixture.Sound;
-        sound.PlaySound(0x01);
+        sound.PlaySound(SoundId.MusTitlescreen);
         FailIf(sound.Channel(0).Active, "bank0.s:playSound must enqueue MUS_TITLESCREEN $01 until timerInterrupt.");
         sound.Tick();
         FailIf(sound.Channel(0).WaitFrames != 0x17, "MUS_TITLESCREEN $01 first note must start on queue drain.");
 
         // Fade values are stored after NR50 was written. At update 7 the
         // backing volume is $66, but NR50 is still $77 until update 8.
-        sound.PlaySound(0xfa);
+        sound.PlaySound(SoundId.SndCtrlFastFadeOut);
         for (int i = 0; i < 6; i++) sound.Tick();
-        FailIf(sound.Driver.ReadState(0xc024) != 0x77 || sound.Apu.Register(0xff24) != 0x77,
+        FailIf(sound.Driver.ReadState(WramAddress.wSoundVolume) != 0x77 || sound.Apu.Register(0xff24) != 0x77,
             "SNDCTRL_FAST_FADEOUT $fa lowered volume before update 7.");
         sound.Tick();
-        FailIf(sound.Driver.ReadState(0xc024) != 0x66 || sound.Apu.Register(0xff24) != 0x77,
+        FailIf(sound.Driver.ReadState(WramAddress.wSoundVolume) != 0x66 || sound.Apu.Register(0xff24) != 0x77,
             "updateSound must publish the previous fade volume to NR50 before decrementing wSoundVolume.");
         sound.Tick();
         FailIf(sound.Apu.Register(0xff24) != 0x66, "$fa update 8 must publish NR50=$66.");
@@ -303,12 +303,12 @@ public sealed partial class ValidationRoot
             "$fa must leave music running at NR50=$00 through update 62.");
         sound.Tick();
         FailIf(Enumerable.Range(0, 8).Any(i => sound.Channel(i).Active) ||
-            sound.Driver.ReadState(0xc014) != 0 || sound.Driver.ReadState(0xc015) != 0,
+            sound.Driver.ReadState(WramAddress.wSoundFadeCounter) != 0 || sound.Driver.ReadState(WramAddress.wSoundFadeDirection) != 0,
             "$fa update 63 must stop all channels and clear fade direction AND counter.");
 
         foreach ((int command, int mask) in new[] { (0xf7, 3), (0xf8, 7), (0xf9, 15), (0xfa, 7), (0xfb, 15), (0xfc, 31) })
         {
-            sound.PlaySound(0x01);
+            sound.PlaySound(SoundId.MusTitlescreen);
             sound.PlaySound(command);
             bool rising = command <= 0xf9;
             int finish = 8 * (mask + 1) - 1;
@@ -317,35 +317,35 @@ public sealed partial class ValidationRoot
                 sound.Tick();
                 int steps = (update + 1) / (mask + 1);
                 int level = rising ? Math.Min(7, steps) : Math.Max(0, 7 - steps);
-                FailIf(sound.Driver.ReadState(0xc024) != level * 0x11 ||
-                    (sound.Driver.ReadState(0xc015) == 0) != (update == finish),
+                FailIf(sound.Driver.ReadState(WramAddress.wSoundVolume) != level * 0x11 ||
+                    (sound.Driver.ReadState(WramAddress.wSoundFadeDirection) == 0) != (update == finish),
                     $"Sound fade ${command:x2} diverged at update {update}; volume/direction boundary is source-derived from updateSound.");
             }
         }
 
         sound.RestartSound();
-        for (int i = 0; i < 16; i++) sound.PlaySound(0x57);
+        for (int i = 0; i < 16; i++) sound.PlaySound(SoundId.SndGainHeart);
         sound.Tick();
         FailIf(sound.Channel(2).Active, "wMusicQueue wraps after 16 writes; equal head/tail is empty.");
-        sound.PlaySound(0x57);
+        sound.PlaySound(SoundId.SndGainHeart);
         sound.RestartSound();
         sound.Tick();
         FailIf(sound.Channel(2).Active, "restartSound/enableTimer must discard queued SND_GAINHEART $57.");
 
-        sound.PlaySound(0x01);
+        sound.PlaySound(SoundId.MusTitlescreen);
         sound.Tick();
         int wait = sound.Channel(0).WaitFrames;
-        sound.PlaySound(0xf5);
+        sound.PlaySound(SoundId.SndCtrlDisable);
         sound.Tick();
         FailIf(!sound.Disabled || sound.Channel(0).WaitFrames != wait ||
             sound.Apu.Register(0xff12) != 8 || sound.Apu.Register(0xff17) != 8 ||
             sound.Apu.Register(0xff1c) != 0 || sound.Apu.Register(0xff21) != 8,
             "$f5 must run updateChannelStuff for all eight channels before freezing the driver; CH5 restores the active music wave at its saved mute level.");
-        sound.PlaySound(0x54);
+        sound.PlaySound(SoundId.SndOpenMenu);
         sound.Tick();
         FailIf(sound.Channel(2).WaitFrames != 0 || !sound.Channel(2).Active,
             "Disabled sound must still accept descriptors without executing their programs.");
-        sound.PlaySound(0xf6);
+        sound.PlaySound(SoundId.SndCtrlEnable);
         sound.Tick();
         FailIf(sound.Disabled || sound.Channel(2).WaitFrames != 0x15,
             "$f6 must resume queued SND_OPENMENU $54 at its first note.");
@@ -357,9 +357,9 @@ public sealed partial class ValidationRoot
         var data = new OracleSoundData();
         using var fixture = new SoundValidationFixture(data);
         var sound = fixture.Sound;
-        sound.PlaySound(0x01);
+        sound.PlaySound(SoundId.MusTitlescreen);
         sound.Tick();
-        sound.PlaySound(0x57); // Three one-update notes, then cmdff.
+        sound.PlaySound(SoundId.SndGainHeart); // Three one-update notes, then cmdff.
         for (int i = 0; i < 4; i++) sound.Tick();
         FailIf(sound.Channel(2).Active || !sound.Channel(0).Active ||
             sound.Channel(0).WaitFrames != 0x13 || sound.Apu.Register(0xff12) != 8,
@@ -373,7 +373,7 @@ public sealed partial class ValidationRoot
 
         sound.RestartSound();
         sound.SetMusicVolume(1);
-        sound.PlaySound(0x11);
+        sound.PlaySound(SoundId.MusFileSelect);
         sound.Tick();
         // fileSelectChannel6: vol $5; note $2a $0e. func_39_478c
         // scales music noise as well as squares: 5 >> 2 = 1, NR42=$11.
@@ -382,15 +382,15 @@ public sealed partial class ValidationRoot
             "MUS_FILESELECT $11 music volume 1 must scale CH4 to $11 and CH3 to $60 before the first notes.");
         sound.SetMusicVolume(0);
         sound.Tick();
-        FailIf(sound.Driver.ReadState(0xc023) != 2 || sound.Apu.Register(0xff12) != 8 ||
+        FailIf(sound.Driver.ReadState(WramAddress.wMusicMuted) != 2 || sound.Apu.Register(0xff12) != 8 ||
             sound.Apu.Register(0xff17) != 8 || sound.Apu.Register(0xff1c) != 0,
             "updateMusicVolume(0) must silence active squares with the old volume gate and latch wc023 after one update.");
 
         sound.RestartSound();
         sound.SetMusicVolume(3);
-        sound.PlaySound(0x11);
+        sound.PlaySound(SoundId.MusFileSelect);
         sound.Tick();
-        sound.PlaySound(0x5f);
+        sound.PlaySound(SoundId.SndDamageLink);
         for (int i = 0; i < 5; i++) sound.Tick();
         // CH5 cmdff restores the current music waveform, but setWaveform
         // writes NR34=$80: only the low frequency byte survives until the
@@ -500,8 +500,8 @@ public sealed partial class ValidationRoot
                 string[] row = expected[id].Trim().Split('\t');
                 FailIf(row[0] != id.ToString("x2") || row[1] != actual,
                     $"Sound ${id:x2} diverged from independently executed clean-ROM state: expected {row[1]}, got {actual}.");
-                sound.PlaySound(0xf1);
-                sound.PlaySound(0xf0);
+                sound.PlaySound(SoundId.SndCtrlStopSfx);
+                sound.PlaySound(SoundId.SndCtrlStopMusic);
                 sound.Tick();
                 FailIf(Enumerable.Range(0, 8).Any(i => sound.Channel(i).Active),
                     $"Sound ${id:x2} retained an active channel after both stop controls.");
@@ -530,15 +530,15 @@ public sealed partial class ValidationRoot
             // requests first, audio boundary last; include disable/cancel/reuse.
             switch (update++)
             {
-                case 0: sound.PlaySound(0x11); break;
-                case 1: sound.PlaySound(0x54); break;
+                case 0: sound.PlaySound(SoundId.MusFileSelect); break;
+                case 1: sound.PlaySound(SoundId.SndOpenMenu); break;
                 case 2: sound.SetMusicVolume(1); break;
-                case 3: sound.PlaySound(0xf5); break;
-                case 4: sound.PlaySound(0x5f); break;
-                case 5: sound.PlaySound(0xf6); break;
-                case 7: sound.PlaySound(0xf1); break;
-                case 8: sound.PlaySound(0xfa); break;
-                case 9: sound.PlaySound(0x57); break;
+                case 3: sound.PlaySound(SoundId.SndCtrlDisable); break;
+                case 4: sound.PlaySound(SoundId.SndDamageLink); break;
+                case 5: sound.PlaySound(SoundId.SndCtrlEnable); break;
+                case 7: sound.PlaySound(SoundId.SndCtrlStopSfx); break;
+                case 8: sound.PlaySound(SoundId.SndCtrlFastFadeOut); break;
+                case 9: sound.PlaySound(SoundId.SndGainHeart); break;
             }
             sound.AdvanceApplicationUpdate();
         }
@@ -560,10 +560,10 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             ResetValidationInput();
             _saveData.SetMakuTreeState(3);
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
             LoadValidationRoom(0, 0x38);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-            _inventory.SetScriptedEquippedItems(InventoryState.ItemNone, InventoryState.ItemSword);
+            _inventory.GiveTreasure(TreasureId.Sword, 1);
+            _inventory.SetScriptedEquippedItems(TreasureId.None, TreasureId.Sword);
             _player.WarpTo(new Vector2(136, 40));
             FailIf(_collision.Collides(_player.Position),
                 "Sword/audio fixture must stand on clear room 0:$38 geometry at ($88,$28).");

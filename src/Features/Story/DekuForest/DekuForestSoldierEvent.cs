@@ -170,8 +170,8 @@ internal sealed class DekuForestSoldierEvent :
     {
         int animation = angle switch
         {
-            0x00 => 0,
-            0x08 => 1,
+            ObjectAngle.Up => 0,
+            ObjectAngle.Right => 1,
             _ => throw new InvalidOperationException(
                 $"Unsupported soldier movement angle ${angle:x2}.")
         };
@@ -186,8 +186,8 @@ internal sealed class DekuForestSoldierEvent :
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
     {
         bool supported =
-            speed == _record.SlowSpeed && angle == 0x08 ||
-            speed == _record.FastSpeed && angle == 0x00;
+            speed == _record.SlowSpeed && angle == ObjectAngle.Right ||
+            speed == _record.FastSpeed && angle == ObjectAngle.Up;
         if (!supported)
         {
             throw new InvalidOperationException(

@@ -11,7 +11,7 @@ internal sealed class SmogProjectileRoomEntity(SmogProjectilePart projectile, Sm
         ISwordHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity,
         IPostObjectLinkContactRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     public bool Finished => Entity.Finished;
     public int CollisionZ => 0;
     public bool MeleeReportsContact => Entity.SubId == 0;
@@ -30,11 +30,11 @@ internal sealed class SmogProjectileRoomEntity(SmogProjectilePart projectile, Sm
     {
         if (!Eligible(_swordCollision, hitbox)) return false;
         int effect = data.Effect(Entity.SubId, _swordCollision);
-        if (effect == 0) return true;
-        if (effect != 0x1f) throw new NotSupportedException($"PART$4a sword collision ${_swordCollision:x2}: effect ${effect:x2} is not represented.");
-        Entity.PublishCollision(0x80 | _swordCollision);
+        if (effect == CollisionEffect.None) return true;
+        if (effect != CollisionEffect.Effect1f) throw new NotSupportedException($"PART$4a sword collision ${_swordCollision:x2}: effect ${effect:x2} is not represented.");
+        Entity.PublishCollision(ObjectCollisionFlags.JustHit | _swordCollision);
         Entity.InvincibilityCounter = -28; // ENEMYDMG_34; LINKDMG_20 has sound, no recoil.
-        sound(OracleSoundEngine.SndClink2);
+        sound(SoundId.SndClink2);
         return true;
     }
     public void HandleLinkContact(Player player)
@@ -44,9 +44,9 @@ internal sealed class SmogProjectileRoomEntity(SmogProjectilePart projectile, Sm
         if (!player.AcceptsRoomEntityContact || !player.EnemyContactHeightOverlaps(0) ||
             !Eligible(0, new(player.EnemyContactPosition - new Vector2(6,6), new(12,12)))) return;
         int effect = data.Effect(Entity.SubId, 0);
-        if (effect != 2) throw new NotSupportedException($"PART$4a Link collision: effect ${effect:x2} is not represented.");
+        if (effect != CollisionEffect.DamageLink) throw new NotSupportedException($"PART$4a Link collision: effect ${effect:x2} is not represented.");
         if (player.ApplyEnemyContactDamage(Entity.Position, (0x100 - data.RawDamage) / 2,
-            RingDamageSource.Generic, 34, 15)) Entity.PublishCollision(0x80);
+            RingDamageSource.Generic, 34, 15)) Entity.PublishCollision(ObjectCollisionFlags.JustHit);
     }
 }
 

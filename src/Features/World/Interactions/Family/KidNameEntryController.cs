@@ -45,13 +45,13 @@ internal sealed class KidNameEntryController(
         if (movement != Vector2I.Zero)
         {
             _screen.MoveNameCursor(movement);
-            playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+            playSound?.Invoke(SoundId.SndMenuMove);
         }
 
         if (Input.IsActionJustPressed("item"))
         {
             _screen.DeleteNameCharacter();
-            playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+            playSound?.Invoke(SoundId.SndMenuMove);
         }
         else if (Input.IsActionJustPressed("inventory"))
         {
@@ -93,7 +93,7 @@ internal sealed class KidNameEntryController(
         if (_screen!.TryGetSelectedNameCharacter(out char character))
         {
             _screen.AppendNameCharacter(character);
-            playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+            playSound?.Invoke(SoundId.SndSelectItem);
             return;
         }
 
@@ -101,11 +101,11 @@ internal sealed class KidNameEntryController(
         {
             case 0:
                 _screen.MoveNameEntryPosition(-1);
-                playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+                playSound?.Invoke(SoundId.SndMenuMove);
                 break;
             case 1:
                 _screen.MoveNameEntryPosition(1);
-                playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+                playSound?.Invoke(SoundId.SndMenuMove);
                 break;
             default:
                 Commit();
@@ -116,7 +116,7 @@ internal sealed class KidNameEntryController(
     private void Commit()
     {
         _result = _screen!.EnteredName;
-        playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+        playSound?.Invoke(SoundId.SndSelectItem);
         CloseScreen();
     }
 

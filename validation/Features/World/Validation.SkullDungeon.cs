@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonBladeTraps()
     {
         var database = new EnemyDatabase();
-        var definition = database.ImportedEnemy(0x0e, 1);
+        var definition = database.ImportedEnemy(EnemyId.BladeTrap, 1);
         FailIf(definition is not { Health: 127, DamageQuarters: 2, RadiusX: 4, RadiusY: 4,
             TileBase: 0, Palette: 1, Animations.Length: 3 },
             "$0e:$01 lost enemy0eSubidData's extra-data $02, blue palette or trap OAM.");
@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
             "Repeating blade trap preload must not rerun state0 RNG or dispatch state8's target acquisition.");
         trap.UpdateFrame(target);
         FailIf(trap.State != BladeTrapState.Charging || trap.Angle != 0x10 || trap.SpeedRaw != 60 ||
-            trap.Position != origin || !sounds.SequenceEqual(new[] { OracleSoundEngine.SndUnknown5 }),
+            trap.Position != origin || !sounds.SequenceEqual(new[] { SoundId.SndUnknown5 }),
             $"Room 4:70 upper-left trap did not activate through its original corridor: {trap.State}, angle={trap.Angle:x2}.");
         // SPEED_180 is 1.5 pixels/update; first center-band position is 81.
         for (int i = 0; i < 37; i++) trap.UpdateFrame(target);
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
             "Blue trap retracted before entering the inclusive $58 +/- 7 center band.");
         trap.UpdateFrame(target);
         FailIf(trap.State != BladeTrapState.Retracting || trap.Position != new Vector2(40, 81) ||
-            trap.Angle != 0 || trap.SpeedRaw != 30 || sounds.Last() != OracleSoundEngine.SndClink,
+            trap.Angle != 0 || trap.SpeedRaw != 30 || sounds.Last() != SoundId.SndClink,
             "Blue trap lost the center-band boundary, reversed angle, SPEED_c0 or SND_CLINK.");
         for (int i = 0; i < 100 && trap.State == BladeTrapState.Retracting; i++) trap.UpdateFrame(target);
         FailIf(trap.State != BladeTrapState.Cooldown || trap.Counter != 16,
@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
             var sounds = new System.Collections.Generic.List<int>();
             var rope = new RopeCharacter();
             Vector2 start = starts[0];
-            rope.Initialize(database.ImportedEnemy(0x10, 1), _currentRoom, start, random, sounds.Add, () => camera);
+            rope.Initialize(database.ImportedEnemy(EnemyId.Rope, 1), _currentRoom, start, random, sounds.Add, () => camera);
             int scentCounter = prediction.Next().Value;
             int delay = (prediction.Next().Value & 0x38) + 1;
             rope.UpdateFrame(Vector2.Zero, start + Vector2.Right * 32);
@@ -197,7 +197,7 @@ public sealed partial class ValidationRoot
             if (a < 128) a = 128;
             int initialZ = (a - 256) * 256;
             FailIf(rope.ZFixed != initialZ || rope.SpeedZ != 256 || !rope.CollisionEnabled ||
-                rope.Position != start || !sounds.SequenceEqual(new[] { OracleSoundEngine.SndFallInHole }),
+                rope.Position != start || !sounds.SequenceEqual(new[] { SoundId.SndFallInHole }),
                 "$10:$01 did not preserve ecom_setZAboveScreen's camera/carry clamp, speedZ=$0100 and falling sound.");
             int fallUpdates = 0;
             // Source integrates speed before adding $0e gravity: after n
@@ -210,7 +210,7 @@ public sealed partial class ValidationRoot
             rope.UpdateFrame(Vector2.Zero, start + Vector2.Right * 32);
             FailIf(rope.State != RopeState.Wandering || rope.ZFixed != 0 || rope.SpeedZ != 0 ||
                 rope.Angle != (turn.High & 0x18) || rope.Counter != 0x70 + (turn.Low & 0x70) ||
-                random.Calls != 3 || sounds.Last() != OracleSoundEngine.SndBombLand,
+                random.Calls != 3 || sounds.Last() != SoundId.SndBombLand,
                 "$10:$01 landing lost its exact boundary, direction roll, cleared speedZ or SND_BOMB_LAND.");
             rope.UpdateFrame(Vector2.Zero, start + Vector2.Right * 32);
             FailIf(rope.State != RopeState.FollowingScentSeed,
@@ -245,9 +245,9 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x8f);
         var swords = _entities.Entities<SwordEnemyCharacter>().ToArray();
         var archer = _entities.Entities<ArrowMoblinCharacter>().Single();
-        FailIf(swords.Length != 2 || swords.Any(enemy => enemy.Record is not { Id: 0x49, SubId: 1 }) ||
+        FailIf(swords.Length != 2 || swords.Any(enemy => enemy.Record is not { Id: EnemyId.SwordShroudedStalfos, SubId: 1 }) ||
             !swords.Select(enemy => enemy.Position).SequenceEqual(new Vector2[] { new(0x88, 0x98), new(0xc8, 0x78) }) ||
-            archer.Record is not { Id: 0x22, SubId: 1 } || archer.Position != new Vector2(0xc8, 0x28),
+            archer.Record is not { Id: EnemyId.ArrowShroudedStalfos, SubId: 1 } || archer.Position != new Vector2(0xc8, 0x28),
             "group4Map8fEnemyObjectData lost the two $49:$01 swords followed by the $22:$01 archer.");
         Step();
         FailIf(swords.Any(enemy => enemy.Counter2 != 0x10 || enemy.State != SwordEnemyState.Wandering) ||
@@ -262,7 +262,7 @@ public sealed partial class ValidationRoot
         var random = new OracleRandom();
         var prediction = new OracleRandom();
         var isolated = new ArrowMoblinCharacter();
-        isolated.Initialize(database.ImportedEnemy(0x22, 1), _currentRoom, new Vector2(0xc8, 0x28), random);
+        isolated.Initialize(database.ImportedEnemy(EnemyId.ArrowShroudedStalfos, 1), _currentRoom, new Vector2(0xc8, 0x28), random);
         int initialScentCounter = prediction.Next().Value;
         int initialAngle = prediction.Next().Value & 0x18;
         int initialCounter = 0x30 + (prediction.Next().Value & 0x3f);

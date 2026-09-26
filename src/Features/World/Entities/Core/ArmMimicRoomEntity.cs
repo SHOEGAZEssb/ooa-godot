@@ -47,7 +47,7 @@ internal sealed class ArmMimicRoomEntity
         int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        RequireCollisionEffect(0x0b, 0x0a);
+        RequireCollisionEffect(ItemCollisionType.ExpertPunch, CollisionEffect.SwordHighKnockback);
         return ApplyDamage(
             hitbox,
             sourcePosition,
@@ -96,12 +96,12 @@ internal sealed class ArmMimicRoomEntity
 
         switch (seedItem)
         {
-            case 0x20: // Ember Seed -> collisionEffect27 / burn.
-                RequireCollisionEffect(0x1b, 0x27);
+            case ItemId.EmberSeed: // Ember Seed -> collisionEffect27 / burn.
+                RequireCollisionEffect(ItemCollisionType.EmberSeed, CollisionEffect.Burn);
                 return base.ApplySeedHit(
                     hitbox, sourcePosition, seedItem, spawns);
-            case 0x21: // Scent Seed -> collisionEffect08 / low recoil.
-                RequireCollisionEffect(0x1c, 0x08);
+            case ItemId.ScentSeed: // Scent Seed -> collisionEffect08 / low recoil.
+                RequireCollisionEffect(ItemCollisionType.ScentSeed, CollisionEffect.SwordLowKnockback);
                 return ApplyDamage(
                     hitbox,
                     sourcePosition,
@@ -110,8 +110,8 @@ internal sealed class ArmMimicRoomEntity
                     spawns)
                         ? SeedHitResult.Activate
                         : SeedHitResult.None;
-            case 0x24: // Mystery Seed -> collisionEffect35 / forced death.
-                RequireCollisionEffect(0x1a, 0x35);
+            case ItemId.MysterySeed: // Mystery Seed -> collisionEffect35 / forced death.
+                RequireCollisionEffect(ItemCollisionType.MysterySeed, CollisionEffect.Effect35);
                 return ApplyDamage(
                     hitbox,
                     sourcePosition,

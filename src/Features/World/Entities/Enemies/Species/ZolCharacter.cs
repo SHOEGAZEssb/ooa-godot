@@ -158,7 +158,7 @@ public partial class ZolCharacter : EnemyCharacter
                 if (!_emergeSoundPlayed)
                 {
                     _emergeSoundPlayed = true;
-                    _sound(OracleSoundEngine.SndEnemyJump);
+                    _sound(SoundId.SndEnemyJump);
                 }
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
@@ -176,7 +176,7 @@ public partial class ZolCharacter : EnemyCharacter
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
-                _sound(OracleSoundEngine.SndEnemyJump);
+                _sound(SoundId.SndEnemyJump);
                 AdvanceAnimation(); // stateA falls through to zol_animate.
                 return UpdateEvent.None;
 
@@ -266,7 +266,7 @@ public partial class ZolCharacter : EnemyCharacter
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
                     Position, linkPosition);
                 RestartAnimation(2);
-                _sound(OracleSoundEngine.SndEnemyJump);
+                _sound(SoundId.SndEnemyJump);
                 return UpdateEvent.None;
 
             case ZolState.RedHopping:
@@ -356,9 +356,9 @@ public partial class ZolCharacter : EnemyCharacter
         bool hitHorizontal = Position.X <= 5 || Position.X >= _room.Width - 6;
         bool hitVertical = Position.Y <= 4 || Position.Y >= _room.Height - 7;
         if (hitHorizontal)
-            _angle = (0x20 - _angle) & 0x1f;
+            _angle = (0x20 - _angle) & ObjectAngle.Mask;
         if (hitVertical)
-            _angle = (0x10 - _angle) & 0x1f;
+            _angle = (0x10 - _angle) & ObjectAngle.Mask;
     }
 
     private static int ManhattanDistance(Vector2 first, Vector2 second) =>

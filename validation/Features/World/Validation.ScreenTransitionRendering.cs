@@ -22,8 +22,8 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             ResetValidationInput();
             _saveData.SetMakuTreeState(3);
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared);
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagMakuTreeSaved);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeSaved);
             LoadValidationRoom(0, 0x38);
             _player.WarpTo(new Vector2(0x88 + 0.625f, 0x30 + 0.19921875f));
             FailIf(_collision.Collides(_player.Position), "Room-pack fixture must approach through clear geometry.");
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
 
         foreach (bool repaired in new[] { false, true })
         {
-            _rooms.SaveData.SetGlobalFlag(0x29, repaired);
+            _rooms.SaveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, repaired);
             FailIf(routes.TryGet(0, 0x12, Vector2I.Up, _rooms.SaveData, out _) == repaired ||
                 !routes.TryGet(1, 0x12, Vector2I.Up, _rooms.SaveData, out _) ||
                 routes.TryGet(0, 0x12, Vector2I.Left, _rooms.SaveData, out _),

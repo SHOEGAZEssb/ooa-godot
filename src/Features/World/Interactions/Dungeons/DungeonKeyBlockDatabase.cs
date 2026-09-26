@@ -44,11 +44,11 @@ internal sealed class DungeonKeyBlockDatabase
         if (Record.ClosedTile != 0x1e || Record.KeyGraphic != 0x42 ||
             Record.OpenTile != 0xa0 || Record.RoomFlag != 0x80 ||
             Record.PushCounter != 20 ||
-            Record.OpenSound != OracleSoundEngine.SndOpenChest ||
-            Record.KeySound != OracleSoundEngine.SndGetSeed ||
+            Record.OpenSound != SoundId.SndOpenChest ||
+            Record.KeySound != SoundId.SndGetSeed ||
             Record.NoKeyTextId != 0x5102 ||
             string.IsNullOrWhiteSpace(Record.NoKeyMessage) ||
-            Record.PuffSound != OracleSoundEngine.SndPoof ||
+            Record.PuffSound != SoundId.SndPoof ||
             !_activeCollisionModes.Contains(1) ||
             !_activeCollisionModes.Contains(2) ||
             !_activeCollisionModes.Contains(5) ||

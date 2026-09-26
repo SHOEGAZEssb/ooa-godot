@@ -48,7 +48,7 @@ internal sealed class CrownDungeonDatabase
         Essence = new(essence.UnsignedDecimal(0),message,new Warp(4,0xb8,-1,0,0,
             essence.Decimal(4,0,7),essence.HexByte(5),essence.HexByte(6),0,essence.HexByte(7)));
         if(Essence.Index!=4 || essence.HexWord(1)!=0x0012 || Essence.ExitWarp is not
-            {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:1})
+            {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:WarpDestinationTransition.SetRespawn})
             throw new InvalidOperationException("Crown Essence source text/exit mapping is incomplete.");
         var bridge = GeneratedTable.Load("res://assets/oracle/objects/crown_button_bridge.tsv",
             new GeneratedTableSchema("Crown button bridge",GeneratedTableKeySemantics.Unique,

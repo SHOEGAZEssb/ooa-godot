@@ -8,43 +8,10 @@ public sealed class InventoryState
 {
     public const int InventoryCapacity = 16;
     public const int NumInventoryItems = 0x20;
-    public const int ItemNone = 0x00;
-    public const int ItemShield = 0x01;
-    public const int ItemBomb = 0x03;
-    public const int ItemSomaria = 0x04;
-    public const int ItemSword = 0x05;
-    public const int ItemBoomerang = 0x06;
-    public const int ItemSwitchHook = 0x0a;
-    public const int ItemBiggoronSword = 0x0c;
-    public const int ItemShooter = 0x0f;
-    public const int ItemFlute = 0x0e;
-    public const int ItemHarp = 0x11;
-    public const int ItemShovel = 0x15;
-    public const int ItemBracelet = 0x16;
-    public const int ItemFeather = 0x17;
-    public const int ItemSeedSatchel = 0x19;
-    public const int TreasurePunch = 0x02;
 
-    private const int UnappraisedRingsAddress = 0xc5c0;
-    private const int DummyC608Address = 0xc608;
-    private const int AnimalCompanionAddress = 0xc610;
-    private const int RingsObtainedAddress = 0xc616;
     private const int RingsObtainedByteCount = 8;
-    private const int TotalEnemiesKilledAddress = 0xc620;
-    private const int TotalRupeesCollectedAddress = 0xc627;
-    private const int MapleKillCounterAddress = 0xc641;
-    private const int GashaSpotKillCountersAddress = 0xc64f;
     private const int GashaSpotCount = 0x10;
     private const int RememberedCompanionIdAddress = 0xc631;
-    private const int BombchusAddress = 0xc6b3;
-    private const int EmberSeedsAddress = 0xc6b9;
-    private const int UnappraisedRingCountAddress = 0xc6cd;
-    private const int RingsAppraisedAddress = 0xc6ce;
-    private const int ShortSecretIndexAddress = 0xc6fb;
-    // Clean US treasureDisplayData1, not hack-base's relocated RAM symbols.
-    // $c700 onward belongs exclusively to the present room-flag table.
-    private const int SatchelSelectedSeedsAddress = 0xc6c4;
-    private const int ShooterSelectedSeedsAddress = 0xc6c5;
     private const int UnappraisedRingCapacity = 0x40;
 
     private static readonly int[] RupeeValues =
@@ -89,8 +56,8 @@ public sealed class InventoryState
     public int ShieldLevel { get; private set; }
     public int BraceletLevel { get; private set; }
     public int SwitchHookLevel { get; private set; }
-    public int BoomerangLevel => HasTreasure(TreasureDatabase.TreasureBoomerang) ? 1 : 0;
-    public int FeatherLevel => HasTreasure(TreasureDatabase.TreasureFeather) ? 1 : 0;
+    public int BoomerangLevel => HasTreasure(TreasureId.Boomerang) ? 1 : 0;
+    public int FeatherLevel => HasTreasure(TreasureId.Feather) ? 1 : 0;
     public int SlingshotLevel => 0;
     public int SeedSatchelLevel { get; private set; }
     public int SatchelSelectedSeeds => _satchelSelectedSeeds;
@@ -116,7 +83,7 @@ public sealed class InventoryState
     public int TotalRupeesCollected { get; private set; }
     public int RingBoxCapacity => RingBoxLevel switch { 1 => 1, 2 => 3, >= 3 => 5, _ => 0 };
     public int AnimalCompanion { get; private set; }
-    public int FluteIcon => _saveData?.ReadWramByte(0xc6b5) ?? 0;
+    public int FluteIcon => _saveData?.ReadWramByte(WramAddress.wFluteIcon) ?? 0;
     public int RememberedCompanionId { get; private set; }
     public int ObtainedSeasons => 0;
     public int MagnetGlovePolarity => 0;
@@ -165,10 +132,10 @@ public sealed class InventoryState
 
     internal bool HasTreasureObjectForDebug(TreasureObjectRecord treasureObject) =>
         HasTreasure(treasureObject.TreasureId) &&
-        (treasureObject.TreasureId != ItemFlute ||
+        (treasureObject.TreasureId != TreasureId.Flute ||
             (AnimalCompanion == treasureObject.Parameter &&
-             (_saveData is null || _saveData.ReadWramByte(0xc6b5) == treasureObject.Parameter - 0x0a))) &&
-        (treasureObject.TreasureId != TreasureDatabase.TreasureTradeItem ||
+             (_saveData is null || _saveData.ReadWramByte(WramAddress.wFluteIcon) == treasureObject.Parameter - 0x0a))) &&
+        (treasureObject.TreasureId != TreasureId.TradeItem ||
             TradeItem == treasureObject.Parameter);
 
     internal void CompleteHeartPieceSet(
@@ -193,7 +160,7 @@ public sealed class InventoryState
         TreasureObjectRecord heartContainer)
     {
         if (HeartPieces != 0 ||
-            heartContainer.TreasureId != TreasureDatabase.TreasureHeartContainer)
+            heartContainer.TreasureId != TreasureId.HeartContainer)
         {
             throw new InvalidOperationException(
                 "A completed Heart Piece display requires its reset counter and Heart Container treasure.");
@@ -204,7 +171,7 @@ public sealed class InventoryState
     }
 
     public int StorageItemAt(int index) =>
-        index >= 0 && index < InventoryCapacity ? _inventoryStorage[index] : ItemNone;
+        index >= 0 && index < InventoryCapacity ? _inventoryStorage[index] : TreasureId.None;
 
     public int RingAt(int index) =>
         index >= 0 && index < RingBoxCapacity ? _ringBoxContents[index] : 0xff;
@@ -319,30 +286,30 @@ public sealed class InventoryState
 
     public bool HasUpgrade(int bit) =>
         bit is >= 0 and < 8 &&
-        (_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) & (1 << bit)) != 0;
+        (_runtimeState.ReadWramByte(WramAddress.wUpgradesObtained) & (1 << bit)) != 0;
 
     internal int LevelForInventoryDisplay(int treasure) => treasure switch
     {
-        TreasureDatabase.TreasureShield => ShieldLevel,
-        TreasureDatabase.TreasureSword => SwordLevel,
-        TreasureDatabase.TreasureBracelet => BraceletLevel,
-        TreasureDatabase.TreasureSwitchHook => SwitchHookLevel,
-        TreasureDatabase.TreasureBoomerang => BoomerangLevel,
-        TreasureDatabase.TreasureFeather => FeatherLevel,
+        TreasureId.Shield => ShieldLevel,
+        TreasureId.Sword => SwordLevel,
+        TreasureId.Bracelet => BraceletLevel,
+        TreasureId.SwitchHook => SwitchHookLevel,
+        TreasureId.Boomerang => BoomerangLevel,
+        TreasureId.Feather => FeatherLevel,
         _ => 0
     };
 
     internal int BcdAmountForInventoryDisplay(int treasure) => treasure switch
     {
-        TreasureDatabase.TreasureBombs => Bombs,
-        0x0d => Bombchus,
-        TreasureDatabase.TreasureEmberSeeds => EmberSeeds,
-        0x21 => ScentSeeds,
-        0x22 => PegasusSeeds,
-        0x23 => GaleSeeds,
-        0x24 => MysterySeeds,
-        TreasureDatabase.TreasureRing => ToBcd(UnappraisedRingCount),
-        0x34 => GashaSeeds,
+        TreasureId.Bombs => Bombs,
+        TreasureId.Bombchus => Bombchus,
+        TreasureId.EmberSeeds => EmberSeeds,
+        TreasureId.ScentSeeds => ScentSeeds,
+        TreasureId.PegasusSeeds => PegasusSeeds,
+        TreasureId.GaleSeeds => GaleSeeds,
+        TreasureId.MysterySeeds => MysterySeeds,
+        TreasureId.Ring => ToBcd(UnappraisedRingCount),
+        TreasureId.GashaSeed => GashaSeeds,
         _ => 0
     };
 
@@ -350,7 +317,7 @@ public sealed class InventoryState
     {
         int selected = _satchelSelectedSeeds;
         return selected is >= 0 and < 5 &&
-            BcdAmountForInventoryDisplay(TreasureDatabase.TreasureEmberSeeds + selected) != 0;
+            BcdAmountForInventoryDisplay(TreasureId.EmberSeeds + selected) != 0;
     }
 
     internal bool TryConsumeSelectedSatchelSeed(out int seedItem)
@@ -361,7 +328,7 @@ public sealed class InventoryState
         int selected = _shooterSelectedSeeds;
         return selected is >= 0 and < 5 &&
             BcdAmountForInventoryDisplay(
-                TreasureDatabase.TreasureEmberSeeds + selected) != 0;
+                TreasureId.EmberSeeds + selected) != 0;
     }
 
     internal bool TryConsumeSelectedShooterSeed(out int seedItem)
@@ -369,7 +336,7 @@ public sealed class InventoryState
 
     private bool TryConsumeSelectedSeed(int selectedSeed, out int seedItem)
     {
-        seedItem = TreasureDatabase.TreasureEmberSeeds + selectedSeed;
+        seedItem = TreasureId.EmberSeeds + selectedSeed;
         TreasureVariable? variable = selectedSeed switch
         {
             0 => TreasureVariable.EmberSeeds,
@@ -406,7 +373,7 @@ public sealed class InventoryState
     public void SelectHarpSong(int song)
     {
         if (song is < 1 or > 3 ||
-            !HasTreasure(TreasureDatabase.TreasureTuneOfEchoes + song - 1))
+            !HasTreasure(TreasureId.TuneOfEchoes + song - 1))
         {
             throw new InvalidOperationException(
                 $"Cannot select unowned Harp song ${song:x2}.");
@@ -422,7 +389,7 @@ public sealed class InventoryState
         var seeds = new List<int>(5);
         for (int seed = 0; seed < 5; seed++)
         {
-            if (HasTreasure(TreasureDatabase.TreasureEmberSeeds + seed))
+            if (HasTreasure(TreasureId.EmberSeeds + seed))
                 seeds.Add(seed);
         }
         return seeds.ToArray();
@@ -433,7 +400,7 @@ public sealed class InventoryState
         var songs = new List<int>(3);
         for (int song = 1; song <= 3; song++)
         {
-            if (HasTreasure(TreasureDatabase.TreasureTuneOfEchoes + song - 1))
+            if (HasTreasure(TreasureId.TuneOfEchoes + song - 1))
                 songs.Add(song);
         }
         return songs.ToArray();
@@ -459,8 +426,8 @@ public sealed class InventoryState
     /// </summary>
     internal void SetScriptedEquippedItems(int equippedB, int equippedA)
     {
-        if (equippedB is < ItemNone or >= NumInventoryItems ||
-            equippedA is < ItemNone or >= NumInventoryItems)
+        if (equippedB is < TreasureId.None or >= NumInventoryItems ||
+            equippedA is < TreasureId.None or >= NumInventoryItems)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(equippedB),
@@ -479,20 +446,20 @@ public sealed class InventoryState
         int buttonSlot = isA ? 1 : 0;
         // bank2.s:inventoryMenuState1@equipItem: the two-handed sword
         // vacates the selected slot first, then stores B before A.
-        if (_inventoryStorage[storageIndex] == ItemBiggoronSword)
+        if (_inventoryStorage[storageIndex] == TreasureId.BiggoronSword)
         {
             _inventoryStorage[storageIndex] = (byte)GetInventorySlot(buttonSlot);
-            SetInventorySlot(buttonSlot, ItemNone);
+            SetInventorySlot(buttonSlot, TreasureId.None);
             StoreInFirstBlankSlot(EquippedB);
             StoreInFirstBlankSlot(EquippedA);
-            EquippedB = EquippedA = ItemBiggoronSword;
+            EquippedB = EquippedA = TreasureId.BiggoronSword;
             NotifyChanged();
             return;
         }
-        if (GetInventorySlot(buttonSlot) == ItemBiggoronSword)
+        if (GetInventorySlot(buttonSlot) == TreasureId.BiggoronSword)
         {
-            EquippedB = EquippedA = ItemNone;
-            SetInventorySlot(buttonSlot, ItemBiggoronSword);
+            EquippedB = EquippedA = TreasureId.None;
+            SetInventorySlot(buttonSlot, TreasureId.BiggoronSword);
         }
         int oldButtonItem = GetInventorySlot(buttonSlot);
         SetInventorySlot(buttonSlot, _inventoryStorage[storageIndex]);
@@ -502,8 +469,8 @@ public sealed class InventoryState
 
     private void StoreInFirstBlankSlot(int item)
     {
-        if (item == ItemNone) return;
-        int slot = Array.IndexOf(_inventoryStorage, (byte)ItemNone);
+        if (item == TreasureId.None) return;
+        int slot = Array.IndexOf(_inventoryStorage, (byte)TreasureId.None);
         if (slot < 0)
             throw new InvalidOperationException(
                 "inventoryMenuState1@putItemInFirstBlankSlot: no storage for " +
@@ -522,14 +489,14 @@ public sealed class InventoryState
         {
             using (_saveData?.BeginMutation())
             {
-                if (treasureObject.TreasureId == ItemFlute)
+                if (treasureObject.TreasureId == TreasureId.Flute)
                 {
                     // companionScripts.s:companionScript_subid0a_state2 sets
                     // wFluteIcon separately from the Strange Flute treasure.
                     // Debug grants provide the callable flute, without advancing
                     // the forest quest. Retail collection retains mode $08.
                     SetVariable(TreasureVariable.AnimalCompanion, treasureObject.Parameter);
-                    _saveData?.WriteWramByte(0xc6b5, checked((byte)(treasureObject.Parameter - 0x0a)));
+                    _saveData?.WriteWramByte(WramAddress.wFluteIcon, checked((byte)(treasureObject.Parameter - 0x0a)));
                 }
                 GiveTreasure(treasureObject);
             }
@@ -540,8 +507,8 @@ public sealed class InventoryState
         {
             // The debug toggle explicitly edits upgrade state; the original
             // loseTreasure_helper deliberately leaves this byte alone.
-            _runtimeState.SetWramByte(OracleRuntimeState.UpgradesObtainedAddress,
-                (byte)(_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) &
+            _runtimeState.SetWramByte(WramAddress.wUpgradesObtained,
+                (byte)(_runtimeState.ReadWramByte(WramAddress.wUpgradesObtained) &
                     ~(1 << (treasureObject.TreasureId & 7))));
             ClearTreasureFlag(treasureObject.TreasureId);
             NotifyChanged();
@@ -572,7 +539,7 @@ public sealed class InventoryState
             // for $60-$67. It never clears transient wUpgradesObtained.
 
             if (slot >= 0)
-                SetInventorySlot(slot, ItemNone);
+                SetInventorySlot(slot, TreasureId.None);
             NotifyChanged();
         }
         return true;
@@ -587,7 +554,7 @@ public sealed class InventoryState
     {
         if (ring is < 0 or >= 0x40)
             throw new ArgumentOutOfRangeException(nameof(ring));
-        GiveTreasure(TreasureDatabase.TreasureRing, ring);
+        GiveTreasure(TreasureId.Ring, ring);
     }
 
     internal bool ConsumeGashaSeed()
@@ -642,9 +609,9 @@ public sealed class InventoryState
             throw new ArgumentOutOfRangeException(nameof(amount));
         int current = treasure switch
         {
-            TreasureDatabase.TreasureEmberSeeds => EmberSeeds,
-            0x21 => ScentSeeds,
-            0x24 => MysterySeeds,
+            TreasureId.EmberSeeds => EmberSeeds,
+            TreasureId.ScentSeeds => ScentSeeds,
+            TreasureId.MysterySeeds => MysterySeeds,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(treasure), $"Treasure ${treasure:x2} is not a seed count.")
         };
@@ -652,9 +619,9 @@ public sealed class InventoryState
         if (count < amount)
             return false;
         int next = ToBcd(count - amount);
-        if (treasure == TreasureDatabase.TreasureEmberSeeds)
+        if (treasure == TreasureId.EmberSeeds)
             EmberSeeds = next;
-        else if (treasure == 0x21)
+        else if (treasure == TreasureId.ScentSeeds)
             ScentSeeds = next;
         else
             MysterySeeds = next;
@@ -673,8 +640,8 @@ public sealed class InventoryState
     {
         using (_saveData?.BeginMutation())
         {
-            GiveTreasureCore(0x24, 0x99);
-            for (int treasure = TreasureDatabase.TreasureEmberSeeds;
+            GiveTreasureCore(TreasureId.MysterySeeds, 0x99);
+            for (int treasure = TreasureId.EmberSeeds;
                  treasure <= 0x24;
                  treasure++)
             {
@@ -703,7 +670,7 @@ public sealed class InventoryState
     internal void ApplyFairyBombCapacityUpgrade(int capacity)
     {
         MaxBombs = capacity;
-        GiveTreasureCore(TreasureDatabase.TreasureBombs, capacity);
+        GiveTreasureCore(TreasureId.Bombs, capacity);
         NotifyChanged();
     }
 
@@ -767,7 +734,7 @@ public sealed class InventoryState
             case 10:
             {
                 // $0a is TREASURE_SWITCH_HOOK in this mistaken check.
-                if (!HasTreasure(0x0a))
+                if (!HasTreasure(TreasureId.SwitchHook))
                     return false;
                 int count = FromBcd(Bombs);
                 if (count < 4)
@@ -829,10 +796,10 @@ public sealed class InventoryState
         // wLinkDeathTrigger is armed. The potion is not an inventory slot
         // item, so loseTreasure clears only its obtained flag.
         if (HealthQuarters == 0 &&
-            HasTreasure(TreasureDatabase.TreasurePotion))
+            HasTreasure(TreasureId.Potion))
         {
             HealthQuarters = MaxHealthQuarters;
-            ClearTreasureFlag(TreasureDatabase.TreasurePotion);
+            ClearTreasureFlag(TreasureId.Potion);
         }
 
         HealthChanged?.Invoke();
@@ -899,22 +866,22 @@ public sealed class InventoryState
         // enemyDie stops only the lifetime Slayer counter after its award flag
         // is set. Maple, every planted Gasha spot, and Gasha maturity continue
         // advancing for every counted enemy death.
-        if (_saveData?.HasGlobalFlag(0x00) != true)
+        if (_saveData?.HasGlobalFlag(GlobalFlag.Flag1000EnemiesKilled) != true)
         {
             TotalEnemiesKilled = Math.Min(0xffff, TotalEnemiesKilled + 1);
             if (TotalEnemiesKilled >= 1000)
-                _saveData?.SetGlobalFlag(0x00);
+                _saveData?.SetGlobalFlag(GlobalFlag.Flag1000EnemiesKilled);
         }
         if (_saveData is not null)
         {
-            int maple = _saveData.ReadWramByte(MapleKillCounterAddress);
+            int maple = _saveData.ReadWramByte(WramAddress.wMapleKillCounter);
             _saveData.WriteWramByte(
-                MapleKillCounterAddress, (byte)Math.Min(0xff, maple + 1));
+                WramAddress.wMapleKillCounter, (byte)Math.Min(0xff, maple + 1));
 
             int credits = RingEffects.GashaKillCredits(this);
             for (int spot = 0; spot < GashaSpotCount; spot++)
             {
-                int address = GashaSpotKillCountersAddress + spot;
+                int address = WramAddress.wGashaSpotKillCounters + spot;
                 int count = _saveData.ReadWramByte(address);
                 _saveData.WriteWramByte(
                     address, (byte)Math.Min(0xff, count + credits));
@@ -926,7 +893,7 @@ public sealed class InventoryState
 
     private bool RecordCollectedRupees(int amount)
     {
-        if (_saveData?.HasGlobalFlag(0x01) == true)
+        if (_saveData?.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected) == true)
             return false;
         long total = (long)TotalRupeesCollected + amount;
         if (total >= 10000)
@@ -934,7 +901,7 @@ public sealed class InventoryState
             // addDecimalToHlRef is a two-byte BCD addition. Its carry sets
             // GLOBALFLAG_10000_RUPEES_COLLECTED while the counter itself wraps.
             TotalRupeesCollected = (int)(total % 10000);
-            _saveData?.SetGlobalFlag(0x01);
+            _saveData?.SetGlobalFlag(GlobalFlag.Flag10000RupeesCollected);
         }
         else
         {
@@ -952,116 +919,116 @@ public sealed class InventoryState
         MaxBombs = 0x10;
         HealthQuarters = 0x0c;
         MaxHealthQuarters = 0x0c;
-        SetTreasureFlag(TreasurePunch);
+        SetTreasureFlag(TreasureId.Punch);
     }
 
     private void LoadFromSaveData()
     {
-        EquippedB = _saveData!.ReadWramByte(0xc688);
-        EquippedA = _saveData.ReadWramByte(0xc689);
-        _saveData.ReadWramBytes(0xc68a, _inventoryStorage);
-        _saveData.ReadWramBytes(0xc69a, _obtainedTreasureFlags);
-        _saveData.ReadWramBytes(0xc672, _dungeonSmallKeys);
-        _saveData.ReadWramBytes(0xc682, _dungeonBossKeys);
-        _saveData.ReadWramBytes(0xc684, _dungeonCompasses);
-        _saveData.ReadWramBytes(0xc686, _dungeonMaps);
-        _saveData.ReadWramBytes(0xc6c6, _ringBoxContents);
-        _saveData.ReadWramBytes(RingsObtainedAddress, _ringsObtained);
-        TotalEnemiesKilled = _saveData.ReadWramByte(TotalEnemiesKilledAddress) |
-            _saveData.ReadWramByte(TotalEnemiesKilledAddress + 1) << 8;
+        EquippedB = _saveData!.ReadWramByte(WramAddress.wInventoryB);
+        EquippedA = _saveData.ReadWramByte(WramAddress.wInventoryA);
+        _saveData.ReadWramBytes(WramAddress.wInventoryStorage, _inventoryStorage);
+        _saveData.ReadWramBytes(WramAddress.wObtainedTreasureFlags, _obtainedTreasureFlags);
+        _saveData.ReadWramBytes(WramAddress.wDungeonSmallKeys, _dungeonSmallKeys);
+        _saveData.ReadWramBytes(WramAddress.wDungeonBossKeys, _dungeonBossKeys);
+        _saveData.ReadWramBytes(WramAddress.wDungeonCompasses, _dungeonCompasses);
+        _saveData.ReadWramBytes(WramAddress.wDungeonMaps, _dungeonMaps);
+        _saveData.ReadWramBytes(WramAddress.wRingBoxContents, _ringBoxContents);
+        _saveData.ReadWramBytes(WramAddress.wRingsObtained, _ringsObtained);
+        TotalEnemiesKilled = _saveData.ReadWramByte(WramAddress.wTotalEnemiesKilled) |
+            _saveData.ReadWramByte(WramAddress.wTotalEnemiesKilled + 1) << 8;
         TotalRupeesCollected = FromBcdWord(
-            _saveData.ReadWramByte(TotalRupeesCollectedAddress) |
-            _saveData.ReadWramByte(TotalRupeesCollectedAddress + 1) << 8);
-        _saveData.ReadWramBytes(UnappraisedRingsAddress, _unappraisedRings);
-        _dummyC608 = _saveData.ReadWramByte(DummyC608Address);
-        AnimalCompanion = _saveData.ReadWramByte(AnimalCompanionAddress);
+            _saveData.ReadWramByte(WramAddress.wTotalRupeesCollected) |
+            _saveData.ReadWramByte(WramAddress.wTotalRupeesCollected + 1) << 8);
+        _saveData.ReadWramBytes(WramAddress.wUnappraisedRings, _unappraisedRings);
+        _dummyC608 = _saveData.ReadWramByte(WramAddress.wc608);
+        AnimalCompanion = _saveData.ReadWramByte(WramAddress.wAnimalCompanion);
         RememberedCompanionId = _saveData.ReadWramByte(RememberedCompanionIdAddress);
-        HealthQuarters = _saveData.ReadWramByte(0xc6aa);
-        MaxHealthQuarters = _saveData.ReadWramByte(0xc6ab);
-        HeartPieces = _saveData.ReadWramByte(0xc6ac);
+        HealthQuarters = _saveData.ReadWramByte(WramAddress.wLinkHealth);
+        MaxHealthQuarters = _saveData.ReadWramByte(WramAddress.wLinkMaxHealth);
+        HeartPieces = _saveData.ReadWramByte(WramAddress.wNumHeartPieces);
         Rupees = FromBcdWord(
-            _saveData.ReadWramByte(0xc6ad) | _saveData.ReadWramByte(0xc6ae) << 8);
-        ShieldLevel = _saveData.ReadWramByte(0xc6af);
-        Bombs = _saveData.ReadWramByte(0xc6b0);
-        MaxBombs = _saveData.ReadWramByte(0xc6b1);
-        SwordLevel = _saveData.ReadWramByte(0xc6b2);
-        Bombchus = _saveData.ReadWramByte(BombchusAddress);
-        SeedSatchelLevel = _saveData.ReadWramByte(0xc6b4);
-        SwitchHookLevel = _saveData.ReadWramByte(0xc6b6);
-        SelectedHarpSong = _saveData.ReadWramByte(0xc6b7);
-        BraceletLevel = _saveData.ReadWramByte(0xc6b8);
-        EmberSeeds = _saveData.ReadWramByte(EmberSeedsAddress);
-        ScentSeeds = _saveData.ReadWramByte(EmberSeedsAddress + 1);
-        PegasusSeeds = _saveData.ReadWramByte(EmberSeedsAddress + 2);
-        GaleSeeds = _saveData.ReadWramByte(EmberSeedsAddress + 3);
-        MysterySeeds = _saveData.ReadWramByte(EmberSeedsAddress + 4);
-        GashaSeeds = _saveData.ReadWramByte(0xc6be);
-        Essences = _saveData.ReadWramByte(0xc6bf);
-        TradeItem = _saveData.ReadWramByte(0xc6c0);
-        TuniNutState = _saveData.ReadWramByte(0xc6c2);
-        Slates = _saveData.ReadWramByte(0xc6c3);
-        ActiveRing = _saveData.ReadWramByte(0xc6cb);
-        RingBoxLevel = _saveData.ReadWramByte(0xc6cc);
-        RingsAppraised = _saveData.ReadWramByte(RingsAppraisedAddress);
-        _shortSecretIndex = _saveData.ReadWramByte(ShortSecretIndexAddress);
-        _satchelSelectedSeeds = _saveData.ReadWramByte(SatchelSelectedSeedsAddress);
-        _shooterSelectedSeeds = _saveData.ReadWramByte(ShooterSelectedSeedsAddress);
+            _saveData.ReadWramByte(WramAddress.wNumRupees) | _saveData.ReadWramByte(0xc6ae) << 8);
+        ShieldLevel = _saveData.ReadWramByte(WramAddress.wShieldLevel);
+        Bombs = _saveData.ReadWramByte(WramAddress.wNumBombs);
+        MaxBombs = _saveData.ReadWramByte(WramAddress.wMaxBombs);
+        SwordLevel = _saveData.ReadWramByte(WramAddress.wSwordLevel);
+        Bombchus = _saveData.ReadWramByte(WramAddress.wNumBombchus);
+        SeedSatchelLevel = _saveData.ReadWramByte(WramAddress.wSeedSatchelLevel);
+        SwitchHookLevel = _saveData.ReadWramByte(WramAddress.wSwitchHookLevel);
+        SelectedHarpSong = _saveData.ReadWramByte(WramAddress.wSelectedHarpSong);
+        BraceletLevel = _saveData.ReadWramByte(WramAddress.wBraceletLevel);
+        EmberSeeds = _saveData.ReadWramByte(WramAddress.wNumEmberSeeds);
+        ScentSeeds = _saveData.ReadWramByte(WramAddress.wNumEmberSeeds + 1);
+        PegasusSeeds = _saveData.ReadWramByte(WramAddress.wNumEmberSeeds + 2);
+        GaleSeeds = _saveData.ReadWramByte(WramAddress.wNumEmberSeeds + 3);
+        MysterySeeds = _saveData.ReadWramByte(WramAddress.wNumEmberSeeds + 4);
+        GashaSeeds = _saveData.ReadWramByte(WramAddress.wNumGashaSeeds);
+        Essences = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
+        TradeItem = _saveData.ReadWramByte(WramAddress.wTradeItem);
+        TuniNutState = _saveData.ReadWramByte(WramAddress.wTuniNutState);
+        Slates = _saveData.ReadWramByte(WramAddress.wNumSlates);
+        ActiveRing = _saveData.ReadWramByte(WramAddress.wActiveRing);
+        RingBoxLevel = _saveData.ReadWramByte(WramAddress.wRingBoxLevel);
+        RingsAppraised = _saveData.ReadWramByte(WramAddress.wNumRingsAppraised);
+        _shortSecretIndex = _saveData.ReadWramByte(WramAddress.wShortSecretIndex);
+        _satchelSelectedSeeds = _saveData.ReadWramByte(WramAddress.wSatchelSelectedSeeds);
+        _shooterSelectedSeeds = _saveData.ReadWramByte(WramAddress.wShooterSelectedSeeds);
     }
 
     private void NotifyChanged()
     {
         if (_saveData is not null)
         {
-            _saveData.WriteWramByte(0xc688, (byte)EquippedB);
-            _saveData.WriteWramByte(0xc689, (byte)EquippedA);
-            _saveData.WriteWramBytes(0xc68a, _inventoryStorage);
-            _saveData.WriteWramBytes(0xc69a, _obtainedTreasureFlags);
-            _saveData.WriteWramBytes(0xc672, _dungeonSmallKeys);
-            _saveData.WriteWramBytes(0xc682, _dungeonBossKeys);
-            _saveData.WriteWramBytes(0xc684, _dungeonCompasses);
-            _saveData.WriteWramBytes(0xc686, _dungeonMaps);
-            _saveData.WriteWramBytes(0xc6c6, _ringBoxContents);
-            _saveData.WriteWramBytes(RingsObtainedAddress, _ringsObtained);
+            _saveData.WriteWramByte(WramAddress.wInventoryB, (byte)EquippedB);
+            _saveData.WriteWramByte(WramAddress.wInventoryA, (byte)EquippedA);
+            _saveData.WriteWramBytes(WramAddress.wInventoryStorage, _inventoryStorage);
+            _saveData.WriteWramBytes(WramAddress.wObtainedTreasureFlags, _obtainedTreasureFlags);
+            _saveData.WriteWramBytes(WramAddress.wDungeonSmallKeys, _dungeonSmallKeys);
+            _saveData.WriteWramBytes(WramAddress.wDungeonBossKeys, _dungeonBossKeys);
+            _saveData.WriteWramBytes(WramAddress.wDungeonCompasses, _dungeonCompasses);
+            _saveData.WriteWramBytes(WramAddress.wDungeonMaps, _dungeonMaps);
+            _saveData.WriteWramBytes(WramAddress.wRingBoxContents, _ringBoxContents);
+            _saveData.WriteWramBytes(WramAddress.wRingsObtained, _ringsObtained);
             _saveData.WriteWramByte(
-                TotalEnemiesKilledAddress, (byte)TotalEnemiesKilled);
+                WramAddress.wTotalEnemiesKilled, (byte)TotalEnemiesKilled);
             _saveData.WriteWramByte(
-                TotalEnemiesKilledAddress + 1, (byte)(TotalEnemiesKilled >> 8));
+                WramAddress.wTotalEnemiesKilled + 1, (byte)(TotalEnemiesKilled >> 8));
             int totalRupeesBcd = ToBcdWord(TotalRupeesCollected);
             _saveData.WriteWramByte(
-                TotalRupeesCollectedAddress, (byte)totalRupeesBcd);
+                WramAddress.wTotalRupeesCollected, (byte)totalRupeesBcd);
             _saveData.WriteWramByte(
-                TotalRupeesCollectedAddress + 1, (byte)(totalRupeesBcd >> 8));
-            _saveData.WriteWramBytes(UnappraisedRingsAddress, _unappraisedRings);
-            _saveData.WriteWramByte(0xc6aa, (byte)HealthQuarters);
-            _saveData.WriteWramByte(0xc6ab, (byte)MaxHealthQuarters);
-            _saveData.WriteWramByte(0xc6ac, (byte)HeartPieces);
+                WramAddress.wTotalRupeesCollected + 1, (byte)(totalRupeesBcd >> 8));
+            _saveData.WriteWramBytes(WramAddress.wUnappraisedRings, _unappraisedRings);
+            _saveData.WriteWramByte(WramAddress.wLinkHealth, (byte)HealthQuarters);
+            _saveData.WriteWramByte(WramAddress.wLinkMaxHealth, (byte)MaxHealthQuarters);
+            _saveData.WriteWramByte(WramAddress.wNumHeartPieces, (byte)HeartPieces);
             int rupeesBcd = ToBcdWord(Rupees);
-            _saveData.WriteWramByte(0xc6ad, (byte)rupeesBcd);
+            _saveData.WriteWramByte(WramAddress.wNumRupees, (byte)rupeesBcd);
             _saveData.WriteWramByte(0xc6ae, (byte)(rupeesBcd >> 8));
-            _saveData.WriteWramByte(0xc6af, (byte)ShieldLevel);
-            _saveData.WriteWramByte(0xc6b0, (byte)Bombs);
-            _saveData.WriteWramByte(0xc6b1, (byte)MaxBombs);
-            _saveData.WriteWramByte(0xc6b2, (byte)SwordLevel);
-            _saveData.WriteWramByte(BombchusAddress, (byte)Bombchus);
-            _saveData.WriteWramByte(0xc6b4, (byte)SeedSatchelLevel);
-            _saveData.WriteWramByte(0xc6b6, (byte)SwitchHookLevel);
-            _saveData.WriteWramByte(0xc6b7, (byte)SelectedHarpSong);
-            _saveData.WriteWramByte(0xc6b8, (byte)BraceletLevel);
-            _saveData.WriteWramByte(EmberSeedsAddress, (byte)EmberSeeds);
-            _saveData.WriteWramByte(EmberSeedsAddress + 1, (byte)ScentSeeds);
-            _saveData.WriteWramByte(EmberSeedsAddress + 2, (byte)PegasusSeeds);
-            _saveData.WriteWramByte(EmberSeedsAddress + 3, (byte)GaleSeeds);
-            _saveData.WriteWramByte(EmberSeedsAddress + 4, (byte)MysterySeeds);
-            _saveData.WriteWramByte(0xc6be, (byte)GashaSeeds);
-            _saveData.WriteWramByte(0xc6bf, (byte)Essences);
-            _saveData.WriteWramByte(0xc6c0, (byte)TradeItem);
-            _saveData.WriteWramByte(0xc6c2, (byte)TuniNutState);
-            _saveData.WriteWramByte(0xc6c3, (byte)Slates);
-            _saveData.WriteWramByte(0xc6cb, (byte)ActiveRing);
-            _saveData.WriteWramByte(0xc6cc, (byte)RingBoxLevel);
-            _saveData.WriteWramByte(RingsAppraisedAddress, (byte)RingsAppraised);
+            _saveData.WriteWramByte(WramAddress.wShieldLevel, (byte)ShieldLevel);
+            _saveData.WriteWramByte(WramAddress.wNumBombs, (byte)Bombs);
+            _saveData.WriteWramByte(WramAddress.wMaxBombs, (byte)MaxBombs);
+            _saveData.WriteWramByte(WramAddress.wSwordLevel, (byte)SwordLevel);
+            _saveData.WriteWramByte(WramAddress.wNumBombchus, (byte)Bombchus);
+            _saveData.WriteWramByte(WramAddress.wSeedSatchelLevel, (byte)SeedSatchelLevel);
+            _saveData.WriteWramByte(WramAddress.wSwitchHookLevel, (byte)SwitchHookLevel);
+            _saveData.WriteWramByte(WramAddress.wSelectedHarpSong, (byte)SelectedHarpSong);
+            _saveData.WriteWramByte(WramAddress.wBraceletLevel, (byte)BraceletLevel);
+            _saveData.WriteWramByte(WramAddress.wNumEmberSeeds, (byte)EmberSeeds);
+            _saveData.WriteWramByte(WramAddress.wNumEmberSeeds + 1, (byte)ScentSeeds);
+            _saveData.WriteWramByte(WramAddress.wNumEmberSeeds + 2, (byte)PegasusSeeds);
+            _saveData.WriteWramByte(WramAddress.wNumEmberSeeds + 3, (byte)GaleSeeds);
+            _saveData.WriteWramByte(WramAddress.wNumEmberSeeds + 4, (byte)MysterySeeds);
+            _saveData.WriteWramByte(WramAddress.wNumGashaSeeds, (byte)GashaSeeds);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, (byte)Essences);
+            _saveData.WriteWramByte(WramAddress.wTradeItem, (byte)TradeItem);
+            _saveData.WriteWramByte(WramAddress.wTuniNutState, (byte)TuniNutState);
+            _saveData.WriteWramByte(WramAddress.wNumSlates, (byte)Slates);
+            _saveData.WriteWramByte(WramAddress.wActiveRing, (byte)ActiveRing);
+            _saveData.WriteWramByte(WramAddress.wRingBoxLevel, (byte)RingBoxLevel);
+            _saveData.WriteWramByte(WramAddress.wNumRingsAppraised, (byte)RingsAppraised);
             _saveData.WriteWramByte(
-                UnappraisedRingCountAddress, (byte)ToBcd(UnappraisedRingCount));
+                WramAddress.wNumUnappraisedRingsBcd, (byte)ToBcd(UnappraisedRingCount));
             PersistAuxiliaryVariables();
             _saveData.CommitInventoryChange();
         }
@@ -1104,7 +1071,7 @@ public sealed class InventoryState
         int maturity = _treasures.GetGashaMaturityGain(treasure, parameter);
         if (maturity != 0)
             _saveData?.AddGashaMaturity(maturity);
-        if (treasure == TreasureDatabase.TreasureRingBox && RingBoxLevel == 0)
+        if (treasure == TreasureId.RingBox && RingBoxLevel == 0)
         {
             Array.Fill(_ringBoxContents, (byte)0xff);
             ActiveRing = 0xff;
@@ -1163,8 +1130,8 @@ public sealed class InventoryState
                 SetVariable(variable, GetVariable(variable) + parameter);
                 return;
             case CollectionMode.SetUpgradeBit:
-                _runtimeState.SetWramByte(OracleRuntimeState.UpgradesObtainedAddress,
-                    (byte)(_runtimeState.ReadWramByte(OracleRuntimeState.UpgradesObtainedAddress) |
+                _runtimeState.SetWramByte(WramAddress.wUpgradesObtained,
+                    (byte)(_runtimeState.ReadWramByte(WramAddress.wUpgradesObtained) |
                         (1 << (parameter & 7))));
                 return;
             case CollectionMode.AddCapped:
@@ -1223,19 +1190,19 @@ public sealed class InventoryState
             return;
         }
 
-        int empty = FindInventoryItem(ItemNone);
+        int empty = FindInventoryItem(TreasureId.None);
         if (empty >= 0)
         {
             SetInventorySlot(empty, item);
             // treasureAndDrops.s:addTreasureToInventory handles a newly
             // awarded Biggoron sword in either button by moving the other
             // button's old item to the first available slot.
-            if (item == ItemBiggoronSword && empty < 2)
+            if (item == TreasureId.BiggoronSword && empty < 2)
             {
                 int other = empty ^ 1;
                 int displaced = GetInventorySlot(other);
                 SetInventorySlot(other, item);
-                if (displaced != ItemNone)
+                if (displaced != TreasureId.None)
                     AddTreasureToInventory(displaced);
             }
         }
@@ -1568,10 +1535,10 @@ public sealed class InventoryState
     private void PersistAuxiliaryVariables()
     {
         _dummyC608 = PersistAuxiliaryVariable(
-            TreasureVariable.DummyC608, DummyC608Address, _dummyC608);
+            TreasureVariable.DummyC608, WramAddress.wc608, _dummyC608);
         AnimalCompanion = PersistAuxiliaryVariable(
             TreasureVariable.AnimalCompanion,
-            AnimalCompanionAddress,
+            WramAddress.wAnimalCompanion,
             AnimalCompanion);
         RememberedCompanionId = PersistAuxiliaryVariable(
             TreasureVariable.RememberedCompanionId,
@@ -1579,15 +1546,15 @@ public sealed class InventoryState
             RememberedCompanionId);
         _shortSecretIndex = PersistAuxiliaryVariable(
             TreasureVariable.ShortSecretIndex,
-            ShortSecretIndexAddress,
+            WramAddress.wShortSecretIndex,
             _shortSecretIndex);
         _satchelSelectedSeeds = PersistAuxiliaryVariable(
             TreasureVariable.SatchelSelectedSeeds,
-            SatchelSelectedSeedsAddress,
+            WramAddress.wSatchelSelectedSeeds,
             _satchelSelectedSeeds);
         _shooterSelectedSeeds = PersistAuxiliaryVariable(
             TreasureVariable.ShooterSelectedSeeds,
-            ShooterSelectedSeedsAddress,
+            WramAddress.wShooterSelectedSeeds,
             _shooterSelectedSeeds);
 
     }

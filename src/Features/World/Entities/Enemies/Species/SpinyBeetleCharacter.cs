@@ -142,7 +142,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
                 _angle = CardinalAngleToward(player.Position);
                 // The proximity path uniquely refuses to charge upward.
-                if (_angle == 0 || HasTopDownWallOrHole(_angle))
+                if (_angle == ObjectAngle.Up || HasTopDownWallOrHole(_angle))
                     return;
                 BeginCharge();
                 return;
@@ -441,7 +441,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     private int CardinalAngleToward(Vector2 target) =>
         (OracleObjectMovement.Shared.RelativeAngle(
             OracleObjectMath.ToPixelPosition(Position),
-            OracleObjectMath.ToPixelPosition(target)) + 4) & 0x18;
+            OracleObjectMath.ToPixelPosition(target)) + 4) & ObjectAngle.CardinalMask;
 
     private bool HasTopDownWallOrHole(int angle) =>
         EnemyAdjacentWallResolver.Shared.ProbeTopDown(

@@ -190,7 +190,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x81,
-                Id: 0xce,
+                Id: InteractionId.BusinessScrub,
                 SubId: 0x03,
                 Var03: 0x00,
                 TextId: 0x0000,
@@ -309,7 +309,7 @@ public sealed partial class ValidationRoot
         FailIf(
             PlainWords(dialogue.CurrentMessage) !=
                 "You don't have enough Rupees!" ||
-            inventory.HasTreasure(TreasureDatabase.TreasureShield),
+            inventory.HasTreasure(TreasureId.Shield),
             "A zero-Rupee Business Scrub purchase did not show TX_4507 " +
             "without granting a shield.");
         dialogue.Close();
@@ -317,7 +317,7 @@ public sealed partial class ValidationRoot
 
         inventory.AddRupees(30);
         int getSeedSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed);
+            _sound.PlayRequestsFor(SoundId.SndGetSeed);
         FailIf(
             !interactions.TryInteract(_player),
             "Business Scrub could not restart its offer for a valid purchase.");
@@ -325,10 +325,10 @@ public sealed partial class ValidationRoot
         scrubEvent.UpdateFrame();
         FailIf(
             PlainWords(dialogue.CurrentMessage) != "Thank you!" ||
-            !inventory.HasTreasure(TreasureDatabase.TreasureShield) ||
+            !inventory.HasTreasure(TreasureId.Shield) ||
             inventory.ShieldLevel != 1 ||
             inventory.Rupees != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) !=
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) !=
                 getSeedSounds + 1,
             "The valid 30-Rupee Business Scrub purchase did not grant " +
             "shield level 1, deduct rupees, play SND_GETSEED, and show TX_4505.");

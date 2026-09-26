@@ -93,12 +93,12 @@ public sealed class EnemyDatabase
             }
         }
         if (_importedDefinitions.Count != 67 ||
-            ImportedEnemy(0x24) is not
+            ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
-            ImportedEnemy(0x0a) is not
+            ImportedEnemy(EnemyId.BoomerangMoblin) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
-            ImportedEnemy(0x0b) is not
+            ImportedEnemy(EnemyId.Leever) is not
                 {
                     TileBase: 14,
                     Palette: 2,
@@ -108,10 +108,10 @@ public sealed class EnemyDatabase
                     DamageQuarters: 2,
                     Animations.Length: 3
                 } ||
-            ImportedEnemy(0x0c) is not
+            ImportedEnemy(EnemyId.ArrowMoblin) is not
                 { Health: 3, DamageQuarters: 2, Animations.Length: 4 } ||
-            ImportedEnemy(0x10) is not { Health: 2, DamageQuarters: 2 } ||
-            ImportedEnemy(0x52, 0x00) is not
+            ImportedEnemy(EnemyId.Rope) is not { Health: 2, DamageQuarters: 2 } ||
+            ImportedEnemy(EnemyId.FlyingTile, 0x00) is not
                 {
                     TileBase: 22,
                     Palette: 5,
@@ -120,8 +120,8 @@ public sealed class EnemyDatabase
                     Health: 2,
                     DamageQuarters: 2
                 } ||
-            ImportedEnemy(0x52, 0x02) is not { Health: 2 } ||
-            ImportedEnemy(0x14) is not
+            ImportedEnemy(EnemyId.FlyingTile, 0x02) is not { Health: 2 } ||
+            ImportedEnemy(EnemyId.SpikedBeetle) is not
                 {
                     TileBase: 8,
                     Palette: 1,
@@ -131,8 +131,8 @@ public sealed class EnemyDatabase
                     DamageQuarters: 2,
                     Animations.Length: 2
                 } ||
-            ImportedEnemy(0x17) is not { Health: 10, DamageQuarters: 2 } ||
-            ImportedEnemy(0x1d) is not
+            ImportedEnemy(EnemyId.Ghini) is not { Health: 10, DamageQuarters: 2 } ||
+            ImportedEnemy(EnemyId.Armos) is not
                 {
                     TileBase: 18,
                     Palette: 0,
@@ -142,7 +142,7 @@ public sealed class EnemyDatabase
                     DamageQuarters: 4,
                     Animations.Length: 1
                 } ||
-            ImportedEnemy(0x1a) is not
+            ImportedEnemy(EnemyId.SandCrab) is not
                 {
                     TileBase: 0,
                     Palette: 3,
@@ -152,9 +152,9 @@ public sealed class EnemyDatabase
                     DamageQuarters: 2,
                     Animations.Length: 1
                 } ||
-            ImportedEnemy(0x1b, 0x01) is not
+            ImportedEnemy(EnemyId.SpinyBeetle, 0x01) is not
                 { Health: 2, DamageQuarters: 2, Animations.Length: 1 } ||
-            ImportedEnemy(0x23) is not
+            ImportedEnemy(EnemyId.PolsVoice) is not
                 {
                     TileBase: 0,
                     Palette: 3,
@@ -164,8 +164,8 @@ public sealed class EnemyDatabase
                     DamageQuarters: 2,
                     Animations.Length: 5
                 } ||
-            ImportedEnemy(0x28) is not { Health: 5, DamageQuarters: 2 } ||
-            ImportedEnemy(0x33) is not
+            ImportedEnemy(EnemyId.Wallmaster) is not { Health: 5, DamageQuarters: 2 } ||
+            ImportedEnemy(EnemyId.BabyCucco) is not
                 {
                     TileBase: 14,
                     Palette: 3,
@@ -175,7 +175,7 @@ public sealed class EnemyDatabase
                     DamageQuarters: 128,
                     Animations.Length: 2
                 } ||
-            ImportedEnemy(0x36) is not
+            ImportedEnemy(EnemyId.Cucco) is not
                 {
                     TileBase: 0,
                     Palette: 2,
@@ -185,7 +185,7 @@ public sealed class EnemyDatabase
                     DamageQuarters: 128,
                     Animations.Length: 2
                 } ||
-            ImportedEnemy(0x3b) is not
+            ImportedEnemy(EnemyId.GiantCucco) is not
                 {
                     TileBase: 0,
                     Palette: 2,
@@ -195,9 +195,9 @@ public sealed class EnemyDatabase
                     DamageQuarters: 2,
                     Animations.Length: 2
                 } ||
-            ImportedEnemy(0x4d) is not
+            ImportedEnemy(EnemyId.HardhatBeetle) is not
                 { Health: 4, DamageQuarters: 2, Animations.Length: 1 } ||
-            ImportedEnemy(0x4e) is not
+            ImportedEnemy(EnemyId.ArmMimic) is not
                 {
                     TileBase: 0,
                     Palette: 3,
@@ -207,7 +207,7 @@ public sealed class EnemyDatabase
                     DamageQuarters: 4,
                     Animations.Length: 4
                 } ||
-            ImportedEnemy(0x4f) is not
+            ImportedEnemy(EnemyId.Moldorm) is not
                 {
                     TileBase: 14,
                     Palette: 0,
@@ -287,7 +287,7 @@ public sealed class EnemyDatabase
                 row.UnsignedDecimal(8),
                 row.RequiredString(9),
                 row.RequiredString(10), row.HexByte(11));
-            if (definition.Id != 0x32 ||
+            if (definition.Id != EnemyId.Keese ||
                 !_keeseDefinitions.TryAdd(definition.SubId, definition))
             {
                 throw row.Invalid(0, "unique ENEMY_KEESE $32 definition");
@@ -326,7 +326,7 @@ public sealed class EnemyDatabase
                 row.RequiredString(11),
                 row.RequiredString(12),
                 row.RequiredString(13));
-            if (definition.Id != 0x41 ||
+            if (definition.Id != EnemyId.Crow ||
                 !_crowDefinitions.TryAdd(definition.SubId, definition))
             {
                 throw row.Invalid(0, "unique ENEMY_CROW $41 definition");
@@ -370,7 +370,7 @@ public sealed class EnemyDatabase
                 row.RequiredString(12),
                 row.RequiredString(13),
                 row.RequiredString(14));
-            if (definition.Id != 0x09 ||
+            if (definition.Id != EnemyId.Octorok ||
                 !_octorokDefinitions.TryAdd(definition.SubId, definition))
             {
                 throw row.Invalid(0, "unique ENEMY_OCTOROK $09 definition");
@@ -407,7 +407,7 @@ public sealed class EnemyDatabase
                 row.UnsignedDecimal(9),
                 row.RequiredString(10),
                 row.RequiredString(11));
-            if (definition.Id != 0x31 ||
+            if (definition.Id != EnemyId.Stalfos ||
                 !_stalfosDefinitions.TryAdd(definition.SubId, definition))
             {
                 throw row.Invalid(0, "unique ENEMY_STALFOS $31 definition");
@@ -451,7 +451,7 @@ public sealed class EnemyDatabase
                 row.RequiredString(12),
                 row.RequiredString(13),
                 row.RequiredString(14), row.HexByte(15));
-            if (definition.Id != 0x34 ||
+            if (definition.Id != EnemyId.Zol ||
                 !_zolDefinitions.TryAdd(definition.SubId, definition))
             {
                 throw row.Invalid(0, "unique ENEMY_ZOL $34 definition");
@@ -487,7 +487,7 @@ public sealed class EnemyDatabase
             gel.RequiredString(9),
             gel.RequiredString(10),
             gel.RequiredString(11), gel.HexByte(12));
-        if (Gel is not { Id: 0x43, SubId: 0x00 })
+        if (Gel is not { Id: EnemyId.Gel, SubId: 0x00 })
             throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
 
         table = GeneratedTable.Load(
@@ -818,24 +818,24 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
-        EnemyHandlerKind.KingMoblin => descriptor.Id == 0x7f && descriptor.SubId == 0 &&
+        EnemyHandlerKind.KingMoblin => descriptor.Id == EnemyId.KingMoblin && descriptor.SubId == 0 &&
             new KingMoblinDatabase().Actor(0x7f).Health == 6,
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
-        EnemyHandlerKind.TargetCartCrystal => descriptor.Id==0x63 && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
+        EnemyHandlerKind.TargetCartCrystal => descriptor.Id==EnemyId.TargetCartCrystal && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
         EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),
         EnemyHandlerKind.PodobooTower => HasImportedDefinition(descriptor, 0x2d),
         EnemyHandlerKind.BuzzBlob => HasImportedDefinition(descriptor, 0x18),
         EnemyHandlerKind.Octorok =>
-            descriptor.Id == 0x09 &&
+            descriptor.Id == EnemyId.Octorok &&
             _octorokDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.BoomerangMoblin =>
             HasImportedDefinition(descriptor, 0x0a),
         EnemyHandlerKind.Leever =>
             HasImportedDefinition(descriptor, 0x0b),
         EnemyHandlerKind.ArrowMoblin =>
-            descriptor.Id is 0x0c or 0x22 &&
+            descriptor.Id is EnemyId.ArrowMoblin or EnemyId.ArrowShroudedStalfos &&
             _importedDefinitions.ContainsKey(
                 (descriptor.Id, descriptor.SubId)),
         EnemyHandlerKind.MaskedMoblin =>
@@ -870,7 +870,7 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.ColorChangingGel =>
             HasImportedDefinition(descriptor, 0x47),
         EnemyHandlerKind.SwordEnemy =>
-            descriptor.Id is 0x3d or 0x48 or 0x49 or 0x4a &&
+            descriptor.Id is EnemyId.SwordMoblin or EnemyId.SwordDarknut or EnemyId.SwordShroudedStalfos or EnemyId.SwordMaskedMoblin &&
             _importedDefinitions.ContainsKey(
                 (descriptor.Id, descriptor.SubId)),
         EnemyHandlerKind.Ghini =>
@@ -882,10 +882,10 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.Wallmaster =>
             HasImportedDefinition(descriptor, 0x28),
         EnemyHandlerKind.Stalfos =>
-            descriptor.Id == 0x31 &&
+            descriptor.Id == EnemyId.Stalfos &&
             _stalfosDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.Keese =>
-            descriptor.Id == 0x32 &&
+            descriptor.Id == EnemyId.Keese &&
             _keeseDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.BabyCucco =>
             HasImportedDefinition(descriptor, 0x33),
@@ -895,15 +895,15 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x38),
         EnemyHandlerKind.Beamos =>
             HasImportedDefinition(descriptor, 0x16),
-        EnemyHandlerKind.FireballShooter => descriptor.Id == 0x50 && descriptor.SubId == 1,
+        EnemyHandlerKind.FireballShooter => descriptor.Id == EnemyId.FireballShooter && descriptor.SubId == 1,
         EnemyHandlerKind.Zol =>
-            descriptor.Id == 0x34 &&
+            descriptor.Id == EnemyId.Zol &&
             _zolDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.Crow =>
-            descriptor.Id == 0x41 &&
+            descriptor.Id == EnemyId.Crow &&
             _crowDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.VineSprout =>
-            descriptor.Id == 0x62 && VineSprouts.HasSubId(descriptor.SubId),
+            descriptor.Id == EnemyId.VineSprout && VineSprouts.HasSubId(descriptor.SubId),
         EnemyHandlerKind.Gel =>
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>

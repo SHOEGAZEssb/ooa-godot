@@ -28,7 +28,7 @@ internal sealed class SmasherBraceletThrow(SmasherCharacter ball, OracleRoomData
 
     internal void Begin(int direction, int angle, bool tossRing)
     {
-        if ((room.TilesetFlags & 0x20) != 0)
+        if ((room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0)
             throw new NotSupportedException("Smasher $74 reserved bracelet throw requires its top-down room.");
         if (!ball.IsBall || ball.State != 2 || ball.GrabSubstate >= 2)
             throw new InvalidOperationException("$74 release requires a held ball before creating reserved item C.");
@@ -58,7 +58,7 @@ internal sealed class SmasherBraceletThrow(SmasherCharacter ball, OracleRoomData
         if (ball.IsDead || ball.State != 2 || ball.GrabSubstate >= 3) { Active = false; return; }
         if (Angle != 0xff)
         {
-            var offset = commonThrow.EdgeOffsets[(Angle & 0x18) >> 3];
+            var offset = commonThrow.EdgeOffsets[(Angle & ObjectAngle.CardinalMask) >> 3];
             var probe = new Vector2((byte)((int)Position.X + offset.X), (byte)((int)Position.Y + offset.Y));
             if (probe.Y < 0xb0 && room.IsSolid(probe) && !commonThrow.CanPassSolidTile(room, probe)) Angle = 0xff;
             // A newly blocked throw falls through objectApplySpeed with $ff,
@@ -68,7 +68,7 @@ internal sealed class SmasherBraceletThrow(SmasherCharacter ball, OracleRoomData
         }
         if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, _weight.Gravity))
         {
-            sound(OracleSoundEngine.SndBombLand);
+            sound(SoundId.SndBombLand);
             int rebound = unchecked((short)-_speedZ) >> 1;
             if ((ushort)rebound > 0xff80 || rebound == 0)
             {

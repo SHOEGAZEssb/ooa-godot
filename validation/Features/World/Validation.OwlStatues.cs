@@ -163,7 +163,7 @@ public sealed partial class ValidationRoot
             owl.ApplySeedHit(
                 owl.CollisionBounds,
                 owl.Position,
-                0x20,
+                ItemId.EmberSeed,
                 directSpawns) != SeedHitResult.None ||
             owl.State != OwlStatueState.Idle,
             "PART_OWL_STATUE accepted an Ember Seed instead of collision `$9a.");
@@ -185,7 +185,7 @@ public sealed partial class ValidationRoot
             owl.State != OwlStatueState.Activating ||
             owl.Counter != 49 ||
             sounds.Count(sound =>
-                sound == OracleSoundEngine.SndMysterySeed) != 1,
+                sound == SoundId.SndMysterySeed) != 1,
             "ITEM_MYSTERY_SEED did not consume one RNG value, activate on " +
             "the Owl Statue, disable collision, and request SND_MYSTERY_SEED.");
         int retainedCounter = owl.Counter;

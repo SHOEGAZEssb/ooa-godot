@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
             FailIf(!GameplayPrepared || intro.CurrentStage != Stage.Dialogue ||
                 !before.SequenceEqual(save.Serialize()) || _random.Calls != rng ||
                 _entities.EntityAdapters<IRoomEntity>().Any() ||
-                _sound.ActiveMusic != OracleSoundEngine.MusEssenceRoom ||
+                _sound.ActiveMusic != SoundId.MusEssenceRoom ||
                 !_runtimeState.CaptureState().Wram.SequenceEqual(new OracleRuntimeState().CaptureState().Wram),
                 "Prepared intro did not stop at the dormant, side-effect-free handoff boundary.");
             Read<NewGameIntroScreen>("_newGameIntroScreen")!.Dialogue.Close();
@@ -57,8 +57,8 @@ public sealed partial class ValidationRoot
             base._Process(1.0 / 60.0);
             GD.Print($"Prepared intro handoff: {timer.Elapsed.TotalMilliseconds:F2} ms.");
             FailIf(Read<NewGameIntroController>("_newGameIntro") is not null || GameplayPrepared ||
-                !save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone) ||
-                !save.HasGlobalFlag(OracleSaveData.GlobalFlagLinkSummoned) ||
+                !save.HasGlobalFlag(GlobalFlag.PregameIntroDone) ||
+                !save.HasGlobalFlag(GlobalFlag.LinkSummoned) ||
                 !save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited) ||
                 save.GashaMaturity != 5 ||
                 _random.Calls <= rng || _player.Visible ||

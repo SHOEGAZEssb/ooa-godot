@@ -16,16 +16,16 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         _player.WarpTo(new Vector2(8, 8));
         _player.SetLocalRespawnCoordinates(new Vector2(40, 40));
-        _saveData.WriteWramByte(0xc646, 0x80);
-        _saveData.WriteWramByte(0xc647, 0x80);
-        _saveData.WriteWramByte(0xc648, 0x80);
+        _saveData.WriteWramByte(WramAddress.wCompanionStates, 0x80);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
+        _saveData.WriteWramByte(WramAddress.wMooshState, 0x80);
     }
 
     private IRoomEntity SpawnFidelityCompanion(int id, Vector2 position) => id switch
     {
-        0x0b => _entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, 2, 0, 0x2a)),
-        0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, 2, 0, 0x2a)),
-        _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, 2, 0, 0x2a))
+        0x0b => _entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, ObjectDirection.Down, 0, 0x2a)),
+        0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, ObjectDirection.Down, 0, 0x2a)),
+        _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, ObjectDirection.Down, 0, 0x2a))
     };
 
     private void ValidateCompanionWaitingFidelity()
@@ -68,8 +68,8 @@ public sealed partial class ValidationRoot
     {
         PrepareCompanionFidelityRoom();
         _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 72), 0xd4, 3, 0);
-        var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 64), 2, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_runtimeState, 0x0d, 0x2a, moosh.Position, 2);
+        var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 64), ObjectDirection.Down, 0, 0x2a, Riding: true));
+        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Down);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_down"], justPressed: [], movement: Vector2.Down));
         try
         {
@@ -81,10 +81,10 @@ public sealed partial class ValidationRoot
         Vector2 initial = moosh.Position;
         _sound.ClearPlayRequestAudit();
         for (int frame = 0; frame < 19; frame++) _entities.Update(1.0 / 60, _player);
-        FailIf(moosh.Position != initial || _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 0,
+        FailIf(moosh.Position != initial || _sound.PlayRequestsFor(SoundId.SndJump) != 0,
             "Moosh's $14 cliff anticipation moved or sounded early.");
         _entities.Update(1.0 / 60, _player);
-        FailIf(moosh.Position != initial || moosh.AnimationIndex != 0x0b || _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1,
+        FailIf(moosh.Position != initial || moosh.AnimationIndex != 0x0b || _sound.PlayRequestsFor(SoundId.SndJump) != 1,
             "Moosh's zero-counter cliff boundary lost SND_JUMP or animation $0b.");
         _entities.Update(1.0 / 60, _player);
         FailIf(moosh.Position.Y != initial.Y + 2 || moosh.ZFixed >= 0,
@@ -99,8 +99,8 @@ public sealed partial class ValidationRoot
     private void ValidateCompanionAttackFidelity()
     {
         PrepareCompanionFidelityRoom();
-        var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 56), 1, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_runtimeState, 0x0d, 0x2a, moosh.Position, 1);
+        var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 56), ObjectDirection.Right, 0, 0x2a, Riding: true));
+        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Right);
         _rooms.CurrentRoom.SetPositionTileAndCollision(moosh.Position, 0x04, 0, 0);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_right"], justPressed: [], movement: Vector2.Right));
         try

@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
             typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
-            bomb.Throw(_player, new(8, -8), Vector2I.Right, -240, 0x3c);
+            bomb.Throw(_player, new(8, -8), Vector2I.Right, -240, ObjectSpeed.Speed180);
             expected = blocked ? [0, 0, 0, 0] : [0, 0, 0x80, 1];
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             FailIf(observations != 2 || bomb.PrecisePosition != start.Value + (blocked ? Vector2.Zero : new Vector2(1.5f, 0)),
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 // Source bounceSpeedReductionMapping maps SPEED_020 ($05)
                 // to SPEED_000 without clearing the angle.
-                bomb.Throw(_player, new(8, -8), Vector2I.Right, -240, 0x05);
+                bomb.Throw(_player, new(8, -8), Vector2I.Right, -240, ObjectSpeed.Speed20);
                 expected = [0, 0, 0x20, 0];
                 int updates = 0;
                 while (bomb.SpeedRaw != 0 && updates++ < 40)

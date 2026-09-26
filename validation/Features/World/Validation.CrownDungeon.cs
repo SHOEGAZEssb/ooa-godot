@@ -10,10 +10,10 @@ public partial class ValidationRoot
         // enemy0cSubidData: $11/$10 selects extraEnemyData[$11]
         // ($06,$06,$fc,$05), palette 1 and the shared four animations.
         var database = new EnemyDatabase();
-        var definition = database.ImportedEnemy(0x0c, 0x01);
+        var definition = database.ImportedEnemy(EnemyId.ArrowMoblin, 0x01);
         FailIf(definition is not
             {
-                Id: 0x0c, SubId: 0x01, Sprites: ["spr_moblin"],
+                Id: EnemyId.ArrowMoblin, SubId: 0x01, Sprites: ["spr_moblin"],
                 TileBase: 0, Palette: 1, RadiusY: 6, RadiusX: 6,
                 DamageQuarters: 2, Health: 5, Animations.Length: 4
             }, "ENEMY_ARROW_MOBLIN $0c:$01 lost its source palette, combat properties or animations.");

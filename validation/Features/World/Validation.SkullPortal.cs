@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                 for (int i = 0; !_player.CutsceneControlled && i < 40; i++) Step(movement: Vector2.Up);
                 FailIf(!_player.CutsceneControlled || IsTransitioning || _player.Position != new Vector2(120,88) ||
                     !_entities.PlayerPassesNpcs || !_entities.PlayerContactDisabled ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndTeleport) != 1,
                     $"Walking into 4:{room:x2}'s portal did not begin its source spin/contact handoff.");
                 Vector2 pinned = _player.PrecisePosition;
                 if (trip == 0)
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                     "Portal must hold through counter1 and rotate only on global frame multiples of4.");
                 Step();
                 FailIf(!IsTransitioning || _player.FacingVector != facing || _player.ZIndex != 9 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != 0,
+                    _sound.PlayRequestsFor(SoundId.SndEnterCave) != 0,
                     "The 48th spin update must request direct fadeout without entering-cave sound.");
                 for (int i = 0; IsTransitioning && i < 200; i++) Step();
                 room = room == 0x80 ? 0x91 : 0x80;
@@ -93,8 +93,8 @@ public sealed partial class ValidationRoot
         {
             batch = batched;
             LoadValidationRoom(4, 0x80);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-            _inventory.EquipA(InventoryState.ItemSword);
+            _inventory.GiveTreasure(TreasureId.Sword, 1);
+            _inventory.EquipA(TreasureId.Sword);
             _player.WarpTo(new Vector2(110, 88));
             Step();
             FailIf(_collision.Collides(_player.Position), "Portal sword approach must begin on clear room floor.");
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
                 $"Walking into the portal with a sword parent must retain that parent on activation: controlled={_player.CutsceneControlled}, sword={_player.IsAttacking}, position={_player.Position}.");
             // An existing ITEM child remains eligible while state08 clears
             // parent items. Keep its trajectory on the room's open floor.
-            new SeedSatchelDatabase().TryGet(0x20, out var ember);
+            new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var ember);
             var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                 new Vector2(80, 88), Vector2I.Up, ember, 4, SeedLaunchKind.Shooter));
             Vector2 seedStart = seed.PrecisePosition;
@@ -128,8 +128,8 @@ public sealed partial class ValidationRoot
         // The overlap helper permits ordinary low jumps, but the signed
         // [-7,6] Z window must reject passing above the portal at the apex.
         LoadValidationRoom(4, 0x80);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.EquipA(TreasureId.Feather);
         _player.WarpTo(new Vector2(102,88));
         Step(movement: Vector2.Right);
         Step(movement: Vector2.Right, jump: true);

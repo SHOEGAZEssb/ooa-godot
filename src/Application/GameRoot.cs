@@ -250,10 +250,10 @@ public partial class GameRoot : Node2D
         // The playable intro begins with no active room music. This also
         // prevents MUS_FILE_SELECT from leaking into an interrupted pre-intro
         // file, even though the original does not expose saving in this span.
-        if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone))
-            _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        if (!save.HasGlobalFlag(GlobalFlag.IntroDone))
+            _sound.PlaySound(SoundId.SndCtrlStopMusic);
 
-        if (!save.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone))
+        if (!save.HasGlobalFlag(GlobalFlag.PregameIntroDone))
         {
             _gameplaySceneResource.BeginPreload();
             if (_newGameIntroScreen is null)
@@ -276,7 +276,7 @@ public partial class GameRoot : Node2D
                 _sound);
             // Depleted interrupted files need the ordinary health-restoration
             // path. A healthy file can prepare its dormant owners read-only.
-            if (save.ReadWramByte(0xc6aa) is > 0 and < 0x80)
+            if (save.ReadWramByte(WramAddress.wLinkHealth) is > 0 and < 0x80)
                 _gameplayPreparation = InitializeGameplaySteps(save,
                     initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene,
                     prepare: true).GetEnumerator();
@@ -479,7 +479,7 @@ public partial class GameRoot : Node2D
 
         // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
         // arrival room and initializes the divisor-2 white fade/wave.
-        _sound.PlaySound(OracleSoundEngine.SndWarpStart);
+        _sound.PlaySound(SoundId.SndWarpStart);
         _newGameArrivalTicks = 0.0;
         _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
         _newGameArrivalFrames = record.SummonFrames;
@@ -580,7 +580,7 @@ public partial class GameRoot : Node2D
         _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound);
         _mapScreen.Initialize(_rooms, _inventory);
         _inventoryScreen.Initialize(_treasures, _inventory,
-            () => (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0, _hud);
+            () => (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0, _hud);
         _ringMenuScreen.Initialize(_inventory);
         _debugFlagScreen.Initialize(
             _saveData, new GlobalFlagDatabase(), _treasures, _inventory);
@@ -1078,7 +1078,7 @@ public partial class GameRoot : Node2D
             _entities,
             _rooms,
             _sound.PlaySound,
-            () => (_rooms.CurrentRoom.TilesetFlags & 0x40) != 0);
+            () => (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0);
         _roomEvents.SetBraceletActions(
             discard => _bracelet.Interrupt(_player, discard),
             () => _bracelet.Update(
@@ -1146,18 +1146,18 @@ public partial class GameRoot : Node2D
                 !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
-            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
+            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
             FastTravelFromMap, _sound.PlaySound, _sound.SetMusicVolume);
         _mapMenu.ConfigureGale(_rooms,
             target => _transitions.ApplyWarp(_player, new Warp(
                 _rooms.ActiveGroup, _rooms.CurrentRoom.Id, 0, 0, 0,
-                _rooms.ActiveGroup, target.Room, target.Position, 0, 5)),
+                _rooms.ActiveGroup, target.Room, target.Position, 0, WarpDestinationTransition.Fall)),
             () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y));
         _entities.GaleMenuRequested += _mapMenu.OpenGale;
         _inventoryMenu = new InventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
-            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone),
-            () => _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
+            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
+            () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone) &&
                 !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
                 !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
@@ -1331,7 +1331,7 @@ public partial class GameRoot : Node2D
     {
         _sound.RestartSound();
         _saveData.IncrementDeathCount();
-        _sound.PlaySound(OracleSoundEngine.MusGameOver);
+        _sound.PlaySound(SoundId.MusGameOver);
         _inventoryMenu.BeginGameOver();
     }
 
@@ -1460,7 +1460,7 @@ public partial class GameRoot : Node2D
         _sound.ApplicationUpdateOwned = true;
         _sound.RestartSound();
         if (_sound.Disabled)
-            _sound.PlaySound(OracleSoundEngine.SndCtrlEnable);
+            _sound.PlaySound(SoundId.SndCtrlEnable);
         _sound.SetMusicVolume(3);
 
         _random = new OracleRandom();
@@ -1480,8 +1480,8 @@ public partial class GameRoot : Node2D
             return;
 
         bool playableIntro =
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone) &&
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+            _saveData.HasGlobalFlag(GlobalFlag.PregameIntroDone) &&
+            !_saveData.HasGlobalFlag(GlobalFlag.IntroDone);
         if (!playableIntro)
         {
             _sound.PlayRoomMusic(group, room.Id, _saveData);
@@ -1519,7 +1519,7 @@ public partial class GameRoot : Node2D
 
     private void PlayNayruApproachMusic()
     {
-        _sound.PlayMusicIfChanged(OracleSoundEngine.MusNayru);
+        _sound.PlayMusicIfChanged(SoundId.MusNayru);
         _sound.SetMusicVolume(2);
     }
 
@@ -1581,7 +1581,7 @@ public partial class GameRoot : Node2D
         // room launches bypass that retail warp, so reproduce the group switch
         // here when the requested dungeon room is side-scrolling.
         if (group is 4 or 5 &&
-            (loaded.TilesetFlags & 0x20) != 0 &&
+            (loaded.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0 &&
             _world.HasRoom(group + 2, room))
         {
             loaded = _rooms.Load(group + 2, room);

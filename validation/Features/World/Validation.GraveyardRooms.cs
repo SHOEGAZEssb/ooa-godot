@@ -19,19 +19,19 @@ public sealed partial class ValidationRoot
         NpcRecord ghini = npcs.GetRoomNpcs(0, 0x5d).Single(npc =>
             npc.Id == 0xcb && npc.SubId == 0x00);
         List<RoomObjectRecord> crowPlacements =
-            EnemyPlacements(enemies, 0x41, 0x00);
+            EnemyPlacements(enemies, EnemyId.Crow, 0x00);
         CrowRecord room05dCrow = ResolveCrow(
             enemies,
-            RoomEnemyPlacements(enemies, 0, 0x5d, 0x41, 0x00).Single());
+            RoomEnemyPlacements(enemies, 0, 0x5d, EnemyId.Crow, 0x00).Single());
 
         FailIf(
             crowPlacements.Count != 3 ||
             crowPlacements.Sum(source => source.Count) != 3 ||
             room05dCrow is not
-                { Y: 0x78, X: 0x78, SpeedRaw: 0x32, Health: 1,
+                { Y: 0x78, X: 0x78, SpeedRaw: ObjectSpeed.Speed140, Health: 1,
                   CollisionRadiusY: 6, CollisionRadiusX: 6, DamageQuarters: 2 } ||
-            RoomEnemyPlacements(enemies, 0, 0x6d, 0x41, 0x00).Count != 2 ||
-            RoomEnemyPlacements(enemies, 0, 0x7d, 0x41, 0x00).Count != 0 ||
+            RoomEnemyPlacements(enemies, 0, 0x6d, EnemyId.Crow, 0x00).Count != 2 ||
+            RoomEnemyPlacements(enemies, 0, 0x7d, EnemyId.Crow, 0x00).Count != 0 ||
             ghini is not { Y: 0x68, X: 0x88, TextId: 0x4d05, Palette: 2 } ||
             visibility.ShouldShow(ghini, predicateSave, runtime),
             "Rooms 0:5d/0:6d/0:7d lost their imported Crow/Ghini roster or initial predicate.");
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
         FailIf(
             visibility.ShouldShow(ghini, predicateSave, runtime),
             "The room 0:5d Ghini appeared in a linked file before D1 was obtained.");
-        predicateSave.WriteWramByte(0xc6bf, 0x01);
+        predicateSave.WriteWramByte(WramAddress.wEssencesObtained, 0x01);
         FailIf(
             !visibility.ShouldShow(ghini, predicateSave, runtime),
             "The room 0:5d Ghini did not appear for linked + D1.");
@@ -53,8 +53,8 @@ public sealed partial class ValidationRoot
         var save = OracleSaveData.CreateStandardGame();
         var treasures = new TreasureDatabase();
         var inventory = new InventoryState(treasures, save);
-        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x04);
-        inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x05);
+        inventory.GiveTreasure(TreasureId.Bombs, 0x04);
+        inventory.GiveTreasure(TreasureId.EmberSeeds, 0x05);
         using var fixture = RoomEntityValidationFixture.ForRoot(
             root, new()
             {
@@ -188,26 +188,26 @@ public sealed partial class ValidationRoot
             "The generated linked-secret XOR/symbol tables lost their " +
             "complete bank3.s/bank0.s source order.");
         LinkedGameNpcDatabaseRecord ghiniData =
-            linkedNpcData.Get(0, 0x5d, 0xcb, 0x00);
+            linkedNpcData.Get(0, 0x5d, InteractionId.LinkedGameGhini, 0x00);
         var secretSave = OracleSaveData.CreateStandardGame();
-        secretSave.WriteWramByte(0xc600, 0x34);
+        secretSave.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
         secretSave.WriteWramByte(0xc601, 0x12);
         byte[] secret =
             linkedNpcData.GenerateSecretValues(ghiniData, secretSave);
         FailIf(
             !secret.SequenceEqual(new byte[] { 0x0b, 0x29, 0x13, 0x18, 0x2f }) ||
-            secretSave.ReadWramByte(0xc6fb) != 0x21,
+            secretSave.ReadWramByte(WramAddress.wShortSecretIndex) != 0x21,
             "The five-character Graveyard secret lost its source bit packing, checksum, or XOR cipher.");
 
         bool linkedBefore = _saveData.IsLinkedGame;
-        byte essencesBefore = _saveData.ReadWramByte(0xc6bf);
-        byte gameIdLowBefore = _saveData.ReadWramByte(0xc600);
+        byte essencesBefore = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
+        byte gameIdLowBefore = _saveData.ReadWramByte(WramAddress.wUnappraisedRingsEnd);
         byte gameIdHighBefore = _saveData.ReadWramByte(0xc601);
-        byte shortSecretBefore = _saveData.ReadWramByte(0xc6fb);
+        byte shortSecretBefore = _saveData.ReadWramByte(WramAddress.wShortSecretIndex);
         bool beganBefore = _saveData.HasGlobalFlag(ghiniData.BeganFlag);
         _saveData.SetLinkedGame(true);
-        _saveData.WriteWramByte(0xc6bf, (byte)(essencesBefore | 0x01));
-        _saveData.WriteWramByte(0xc600, 0x34);
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, (byte)(essencesBefore | 0x01));
+        _saveData.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
         _saveData.WriteWramByte(0xc601, 0x12);
         _saveData.SetGlobalFlag(ghiniData.BeganFlag, value: false);
         _saveData.CommitInventoryChange();
@@ -258,7 +258,7 @@ public sealed partial class ValidationRoot
             !_dialogue.ChoiceActive ||
             _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
             !_saveData.HasGlobalFlag(ghiniData.BeganFlag) ||
-            _saveData.ReadWramByte(0xc6fb) != 0x21,
+            _saveData.ReadWramByte(WramAddress.wShortSecretIndex) != 0x21,
             "The Ghini did not generate/substitute the Graveyard secret and set its began flag.");
         _dialogue.SubmitChoiceForValidation(1);
         CompleteLinkedChoiceWait();
@@ -305,10 +305,10 @@ public sealed partial class ValidationRoot
         _interactions.NpcScriptsForValidation.TraceSink = null;
 
         _saveData.SetLinkedGame(linkedBefore);
-        _saveData.WriteWramByte(0xc6bf, essencesBefore);
-        _saveData.WriteWramByte(0xc600, gameIdLowBefore);
+        _saveData.WriteWramByte(WramAddress.wEssencesObtained, essencesBefore);
+        _saveData.WriteWramByte(WramAddress.wUnappraisedRingsEnd, gameIdLowBefore);
         _saveData.WriteWramByte(0xc601, gameIdHighBefore);
-        _saveData.WriteWramByte(0xc6fb, shortSecretBefore);
+        _saveData.WriteWramByte(WramAddress.wShortSecretIndex, shortSecretBefore);
         _saveData.SetGlobalFlag(ghiniData.BeganFlag, beganBefore);
         _saveData.CommitInventoryChange();
 

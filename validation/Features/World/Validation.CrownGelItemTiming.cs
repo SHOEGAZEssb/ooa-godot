@@ -13,8 +13,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0x9d);
             _player.ApplicationUpdateOwned = true;
             _entities.Clear();
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.EquipA(InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.EquipA(TreasureId.CaneOfSomaria);
             _player.WarpTo(new(136, 128));
             _player.Face(Vector2I.Up);
             FailIf(_collision.Collides(_player.Position), "Gel input fixture requires actual Crown floor.");

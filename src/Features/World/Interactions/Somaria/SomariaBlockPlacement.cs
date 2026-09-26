@@ -11,12 +11,12 @@ internal sealed class SomariaBlockPlacement(OracleRoomData room, SomariaPlacemen
     internal bool CanAppear(int group,Vector2 position,int z)
     {
         if (!data.RoomAllowed(group,room.Id) || !data.HeightAllowed(z) ||
-            room.GetTerrainInfo(position).Collision!=0 || (room.TilesetFlags&0x40)!=0) return false;
+            room.GetTerrainInfo(position).Collision!=0 || (room.TilesetFlags&(int)TilesetFlags.Underwater)!=0) return false;
         return SupportedBelow(position);
     }
     internal bool SupportedBelow(Vector2 position)
     {
-        if ((room.TilesetFlags&0x20)==0) return true;
+        if ((room.TilesetFlags&(int)TilesetFlags.Sidescroll)==0) return true;
         int below=(room.GetPackedPosition(position)+0x10)&0xff;
         return room.GetTerrainInfo(new((below&15)*16+8,(below>>4)*16+8)).Collision==data.Collision;
     }

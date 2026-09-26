@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             FailIf(_player.Position != new Vector2(120, 112), "Moldorm item/switch fixture must approach through the actual entrance floor.");
             _player.SetBraceletLiftCollisionsDisabled(true);
             typeof(InventoryState).GetProperty(nameof(InventoryState.Rupees))!.SetValue(_inventory, 0);
-            FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "US Moldorm item/switch PART write", out string error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "US Moldorm item/switch PART write", out string error), error);
             Step(3);
             var head = _entities.Entities<MoldormCharacter>().Single();
             _entities.EntityAdapters<MoldormRoomEntity>().Single(owner => owner.Node == head)
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
             if (!initialized)
             {
                 FailIf(drop.Finished || drop.Collected || _inventory.Rupees != 0 || !crystal.CollisionEnabled ||
-                    _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80 || _sound.PlayRequestsFor(0x7e) != 0,
+                    _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80 || _sound.PlayRequestsFor(SoundId.SndSwitch) != 0,
                     "State-zero part properties must overwrite earlier raw health/collision writes before item or switch handlers dispatch.");
                 Step(3);
                 FailIf(drop.Finished || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80,
@@ -62,25 +62,25 @@ public sealed partial class ValidationRoot
             }
             FailIf(!drop.Collected || _inventory.Rupees != 5 || _entities.Entities<ItemDropEffect>().Count != 0 ||
                 crystal.CollisionEnabled || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x84 ||
-                _currentRoom.GetMetatile(crystal.Position) != 0x0b || _sound.PlayRequestsFor(0x7e) != 1,
+                _currentRoom.GetMetatile(crystal.Position) != 0x0b || _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
                 "Initialized PART_ITEM_DROP must grant five rupees remotely; PART_SWITCH must XOR mask4 and set tile$0b despite disabled collision.");
-            FailIf(crystal.ApplySeedHit(crystal.CollisionBounds, _player.Position, 0x20, pending) != SeedHitResult.None,
+            FailIf(crystal.ApplySeedHit(crystal.CollisionBounds, _player.Position, ItemId.EmberSeed, pending) != SeedHitResult.None,
                 "The raw-cleared switch collision bit must reject further item contacts.");
             Step(3);
             FailIf(_inventory.Rupees != 5 || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80 ||
-                _currentRoom.GetMetatile(crystal.Position) != 0x0a || _sound.PlayRequestsFor(0x7e) != 4,
+                _currentRoom.GetMetatile(crystal.Position) != 0x0a || _sound.PlayRequestsFor(SoundId.SndSwitch) != 4,
                 "Persistent switch health0 must toggle and sound once every PART dispatch without granting the item again.");
             var text = _entities.TextActiveSource;
             try
             {
                 _entities.TextActiveSource = () => true;
                 Step(4);
-                FailIf(_sound.PlayRequestsFor(0x7e) != 4 || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80,
+                FailIf(_sound.PlayRequestsFor(SoundId.SndSwitch) != 4 || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80,
                     "Dialogue must freeze the initialized switch's repeated DEAD-status toggles.");
             }
             finally { _entities.TextActiveSource = text; }
             Step();
-            FailIf(_sound.PlayRequestsFor(0x7e) != 5 || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x84,
+            FailIf(_sound.PlayRequestsFor(SoundId.SndSwitch) != 5 || _runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x84,
                 "The affected switch must resume toggling on its first unfrozen PART pass.");
             LoadValidationRoom(4, 0x91);
             FailIf(_entities.Entities<DungeonSwitchRoomEntity>().Count != 0 ||

@@ -129,7 +129,7 @@ internal sealed class BombUpgradeFairyEvent : InteractiveCutsceneCommandHost, IR
                 case "silver": Spawn("puff", actor.Position); return;
                 case "bomb": return;
                 case "puff": Context.Sound.PlaySound(Database.PoofSound); break;
-                case "debris": Context.Sound.PlaySound(OracleSoundEngine.SndKillEnemy); break;
+                case "debris": Context.Sound.PlaySound(SoundId.SndKillEnemy); break;
             }
             actor.SetScriptVisible(true); return;
         }

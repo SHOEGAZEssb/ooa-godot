@@ -94,7 +94,7 @@ public partial class DebugFlagScreen : Control
         _treasureObjects.Clear();
         foreach (TreasureObjectRecord record in treasures.Objects)
         {
-            if (record.TreasureId != TreasureDatabase.TreasureNone)
+            if (record.TreasureId != TreasureId.None)
                 _treasureObjects.Add(record);
         }
         _inventoryCursor = Math.Clamp(_inventoryCursor, 0, _treasureObjects.Count);

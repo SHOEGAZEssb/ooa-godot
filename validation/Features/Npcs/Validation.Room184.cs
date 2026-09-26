@@ -22,14 +22,14 @@ public sealed partial class ValidationRoot
 
         void SetEssences(byte value)
         {
-            if (save.WriteWramByte(0xc6bf, value))
+            if (save.WriteWramByte(WramAddress.wEssencesObtained, value))
                 save.CommitInventoryChange();
         }
 
         SetEssences(0x00);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
         save.SetRoomFlag(
             4, 0xfc, OracleSaveData.RoomFlag80, value: false);
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                 {
                     Group: 1,
                     Room: 0x84,
-                    Id: 0x4b,
+                    Id: InteractionId.Rabbit,
                     SubId: 0x06,
                     Var03: 0x00,
                     TextId: 0x0000,
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x84,
-                Id: 0x40,
+                Id: InteractionId.Soldier,
                 SubId: 0x01,
                 Var03: 0x00,
                 TextId: 0x5902,
@@ -173,14 +173,14 @@ public sealed partial class ValidationRoot
             "Static stone-rabbit state advanced animation $06 or consumed " +
             "RNG during its native update loop.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             soldier.Active ||
             soldier.Visible ||
             rabbits.Any(rabbit => !rabbit.Active || !rabbit.Visible),
             "GLOBALFLAG_FINISHEDGAME did not delete only room 1:84's soldier.");
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame,
+            GlobalFlag.FinishedGame,
             value: false);
 
         save.SetRoomFlag(4, 0xfc, 0x7f);
@@ -213,14 +213,14 @@ public sealed partial class ValidationRoot
             "Clearing D7 essence bit $40 did not suppress only the rabbits.");
         SetEssences(0x40);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             soldier.Active ||
             soldier.Visible ||
             rabbits.Any(rabbit => !rabbit.Active || !rabbit.Visible),
             "GLOBALFLAG_0b did not delete room 1:84's var03-$00 soldier " +
             "without affecting the rabbits.");
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
 
         save.SetRoomFlag(4, 0xfc, OracleSaveData.RoomFlag80);
         manager.LoadRoom(1, rooms.CurrentRoom);

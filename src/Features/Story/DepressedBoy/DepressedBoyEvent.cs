@@ -111,7 +111,7 @@ internal sealed class DepressedBoyEvent :
             throw new InvalidOperationException(
                 $"boySubid07Script cannot compare trade item ${value:x2}.");
         }
-        return Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        return Context.Inventory.HasTreasure(TreasureId.TradeItem) &&
             Context.Inventory.TradeItem == value;
     }
 

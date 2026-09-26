@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             Step(16, Vector2.Up);
             FailIf(_player.Position != new Vector2(120, 112), "Moldorm PART fixture must approach through the actual entrance floor.");
             _player.SetBraceletLiftCollisionsDisabled(true);
-            FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "US Moldorm PART-page write", out string error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "US Moldorm PART-page write", out string error), error);
             Step(3);
             var head = _entities.Entities<MoldormCharacter>().Single();
             FailIf(head.Tail1Slot != 2 || head.Tail2Slot != 3, "Moldorm fixture lost source tail pages $d2/$d3.");

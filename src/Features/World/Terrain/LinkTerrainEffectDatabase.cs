@@ -59,7 +59,7 @@ internal sealed class LinkTerrainEffectDatabase
                 sprite != "spr_common_sprites" ||
                 tileBase != 0 || palette != 0 ||
                 duration != (kind == "grass" ? 0 : 8) ||
-                sound != (kind == "grass" ? 0 : OracleSoundEngine.SndSplash) ||
+                sound != (kind == "grass" ? SoundId.MusNone : SoundId.SndSplash) ||
                 soundStart != (kind == "grass" ? 0 : 3) ||
                 soundPeriod != (kind == "grass" ? 0 : 18) ||
                 soundDuration != (kind == "grass" ? 0 : 6))

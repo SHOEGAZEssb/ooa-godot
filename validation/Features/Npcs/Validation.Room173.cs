@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x72,
-                Id: 0x40,
+                Id: InteractionId.Soldier,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x5900,
@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
             "Room 1:72 did not load the pre-GLOBALFLAG_0b soldier " +
             "$40:$00 var03 $00 at $58,$28 with TX_5900.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             earlySoldier.Active ||
             earlySoldier.Visible ||
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 1,
                 Room: 0x73,
-                Id: 0x40,
+                Id: InteractionId.Soldier,
                 SubId: 0x00,
                 Var03: 0x01,
                 TextId: 0x5900,
@@ -120,13 +120,13 @@ public sealed partial class ValidationRoot
         dialogue.Close();
         interactions.Update(frame, _player);
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         FailIf(
             !lateSoldier.Active ||
             lateSoldier.TextId != 0x5901,
             "An unrelated global flag hid room 1:73's soldier or changed its text.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b, value: false);
+        save.SetGlobalFlag(GlobalFlag.Flag0b, value: false);
         FailIf(
             lateSoldier.Active ||
             lateSoldier.Visible ||
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             "Clearing GLOBALFLAG_0b did not live-delete room 1:73's " +
             "var03-$01 soldier.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlag0b);
+        save.SetGlobalFlag(GlobalFlag.Flag0b);
         FailIf(
             !lateSoldier.Active ||
             !lateSoldier.Visible ||
@@ -143,7 +143,7 @@ public sealed partial class ValidationRoot
             "Restoring GLOBALFLAG_0b did not live-restore room 1:73's " +
             "soldier with TX_5901.");
 
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagFinishedGame);
+        save.SetGlobalFlag(GlobalFlag.FinishedGame);
         FailIf(
             lateSoldier.Active ||
             lateSoldier.Visible ||

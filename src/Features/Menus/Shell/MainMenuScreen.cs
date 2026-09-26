@@ -459,7 +459,7 @@ public partial class MainMenuScreen : Node2D
             return;
         }
 
-        if ((save.ReadWramByte(0xc613) & 1) != 0)
+        if ((save.ReadWramByte(WramAddress.wFileIsHeroGame) & 1) != 0)
             foreach (MenuOamPart part in MenuPresentationDatabase.Shared.FileOam("hero-file"))
                 DrawFileOamPart(part, Vector2.Zero);
 

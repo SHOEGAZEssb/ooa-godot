@@ -35,8 +35,8 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
         _context.Player.BeginCutsceneControl(owner: this);
         _context.Player.Face(Vector2I.Up);
         _context.RoomView.SetBackgroundFade(Colors.Black, 0.35f);
-        _context.Sound.PlaySound(OracleSoundEngine.SndDropEssence);
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlSlowFadeOut);
+        _context.Sound.PlaySound(SoundId.SndDropEssence);
+        _context.Sound.PlaySound(SoundId.SndCtrlSlowFadeOut);
     }
 
     public void UpdateFrame()
@@ -60,12 +60,12 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                     _essence.Room,
                     OracleSaveData.RoomFlagItem);
                 _context.Inventory.GiveTreasure(
-                    TreasureDatabase.TreasureEssence,
+                    TreasureId.Essence,
                     _essence.EssenceIndex);
                 // TREASURE_ESSENCE's collection row requests
                 // MUS_GET_ESSENCE while TX_000e is open. The later native
                 // script deliberately replaces it with MUS_ESSENCE.
-                _context.Sound.PlaySound(OracleSoundEngine.MusGetEssence);
+                _context.Sound.PlaySound(SoundId.MusGetEssence);
                 _phase = DungeonEssenceEventPhase.Dialogue;
                 return;
 
@@ -79,7 +79,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                 return;
 
             case DungeonEssenceEventPhase.StartingScript:
-                _context.Sound.PlaySound(OracleSoundEngine.MusEssence);
+                _context.Sound.PlaySound(SoundId.MusEssence);
                 _essence?.StartEnergySwirl();
                 _counter = 360;
                 _phase = DungeonEssenceEventPhase.Swirl;
@@ -88,7 +88,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
             case DungeonEssenceEventPhase.Swirl:
                 if (--_counter != 0)
                     return;
-                _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
+                _context.Sound.PlaySound(SoundId.SndFadeOut);
                 _counter = 20;
                 _fadeStep = 0;
                 _phase = DungeonEssenceEventPhase.FadeCadence;
@@ -98,7 +98,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                 if (--_counter != 0)
                     return;
                 _fadeStep++;
-                _context.Sound.PlaySound(OracleSoundEngine.SndFadeOut);
+                _context.Sound.PlaySound(SoundId.SndFadeOut);
                 if (_fadeStep < 3)
                 {
                     _counter = _fadeStep == 2 ? 40 : 20;
@@ -137,7 +137,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
     private void Finish()
     {
         _context.Player.EndCutsceneControl(this);
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
         _context.Transitions.ApplyWarpWithDelayedFadeOut(
             _context.Player,
             _essence?.ExitWarp ?? throw new InvalidOperationException(

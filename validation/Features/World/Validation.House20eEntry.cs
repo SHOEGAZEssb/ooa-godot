@@ -12,8 +12,8 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             ResetValidationInput();
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
-            _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru, savedNayru);
+            _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
+            _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, savedNayru);
             LoadValidationRoom(0, 0x56);
             _player.WarpTo(new Vector2(0x88, 0x38));
             for (int repeat = 0; repeat < 3; repeat++)

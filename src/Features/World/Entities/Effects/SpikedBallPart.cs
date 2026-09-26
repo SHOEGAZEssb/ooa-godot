@@ -85,7 +85,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
             case 3:
                 // Source BC=origin, hFF8F/E=target, then XOR$10. Retain
                 // that order even for coincident positions and byte wraps.
-                int target = OracleObjectMovement.Shared.RelativeAngle(enemyTarget, Origin()) ^ 0x10;
+                int target = OracleObjectMovement.Shared.RelativeAngle(enemyTarget, Origin()) ^ ObjectAngle.HalfTurn;
                 if (((target - 6 - Angle + 1) & _data.AngleMask) >= 3) Rotate(_data.FastRotation);
                 else { Angle = (target - 3) & _data.AngleMask; Radius = _data.ReleaseRadius; State = 4; }
                 break;

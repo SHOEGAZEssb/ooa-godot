@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
                 0x31 => _inventory.HasDungeonBossKey(dungeon),
                 0x32 => _inventory.HasDungeonCompass(dungeon),
                 0x33 => _inventory.HasDungeonMap(dungeon),
-                _ => _inventory.HasTreasure(0x04)
+                _ => _inventory.HasTreasure(TreasureId.CaneOfSomaria)
             };
             bool otherDungeon = Owns(4);
             int keys = _inventory.GetDungeonSmallKeys(5);

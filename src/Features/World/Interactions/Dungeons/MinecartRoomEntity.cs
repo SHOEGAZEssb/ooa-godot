@@ -156,7 +156,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             return;
 
         int boardingAngle = OracleObjectMovement.Shared.RelativeAngle(
-            Position, player.PrecisePosition) ^ 0x10;
+            Position, player.PrecisePosition) ^ ObjectAngle.HalfTurn;
         _phase = MinecartPhase.Mounting;
         player.BeginMinecartJump(
             player.PrecisePosition,

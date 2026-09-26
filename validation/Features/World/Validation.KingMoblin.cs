@@ -17,10 +17,10 @@ public sealed partial class ValidationRoot
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
         void Step(Vector2 movement=default,bool fire=false) =>
             StepGameplayUpdates(1, movement, fire?["attack"]:[], fire?["attack"]:[], batched: true);
-        _saveData.SetGlobalFlag(0x1a,false);
+        _saveData.SetGlobalFlag(GlobalFlag.MoblinsKeepDestroyed,false);
         LoadValidationRoom(2,0xaf); _player.WarpTo(new Vector2(24,88));
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
-        _inventory.EquipA(InventoryState.ItemBracelet);
+        _inventory.GiveTreasure(TreasureId.Bracelet,1);
+        _inventory.EquipA(TreasureId.Bracelet);
         var slots=(System.Collections.Generic.HashSet<int>)typeof(RoomEntityManager).GetField("_reservedEnemySlots",flags)!.GetValue(_entities)!;
         for(int i=1;i<15;i++) slots.Add(i);
         int rng=_entities.RandomCalls;
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
         FailIf(boss.State!=8 || boss.Minions.Any(m=>m is not {State:1}),"King Moblin later minion slots must initialize in their creation update.");
         for(int i=0;boss.State==8 && i<100;i++) Step(Vector2.Right);
         LoadValidationRoom(2,0xaf); _player.WarpTo(new Vector2(24,88)); Step();
-        FailIf(_entities.PlayerMovementDisabled || _dialogue.IsOpen || _saveData.HasGlobalFlag(0x1a),
+        FailIf(_entities.PlayerMovementDisabled || _dialogue.IsOpen || _saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),
             "Cancelling King Moblin's intro must release controls without completing the keep.");
         boss=_entities.Entities<KingMoblinBoss>().Single();
         for(int i=0;!_dialogue.IsOpen && i<150;i++) Step(boss.State==8?Vector2.Right:Vector2.Zero);
@@ -51,21 +51,21 @@ public sealed partial class ValidationRoot
         FailIf(!_player.IsCarryingObject,"King Moblin cancellation fixture could not pick up its bomb.");
         LoadValidationRoom(2,0xae); Step();
         FailIf(_player.IsCarryingObject || _entities.Entities<KingMoblinBomb>().Count!=0 ||
-            _entities.PlayerMovementDisabled || _saveData.HasGlobalFlag(0x1a),
+            _entities.PlayerMovementDisabled || _saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),
             "Leaving with PART $3f held must discard its reserved-item owner without setting the completion flag.");
     }
     private void RunKingMoblinFight(bool batch)
     {
         void Step(int count=1,Vector2 movement=default,bool fire=false) =>
             StepGameplayUpdates(count, movement, fire?["attack"]:[], fire?["attack"]:[], batched: batch);
-        _saveData.SetGlobalFlag(0x1a,false); _saveData.SetGlobalFlag(0x16,false);
-        _saveData.WriteWramByte(0xc612,(byte)(batch?1:0));
+        _saveData.SetGlobalFlag(GlobalFlag.MoblinsKeepDestroyed,false); _saveData.SetGlobalFlag(GlobalFlag.SuppressEraInfoOnce,false);
+        _saveData.WriteWramByte(WramAddress.wFileIsLinkedGame,(byte)(batch?1:0));
         _saveData.SetRoomFlag(0,0x09,1,false);
         LoadValidationRoom(2,0xaf);
         _player.WarpTo(new Vector2(0x18,0x58)); _player.Face(Vector2I.Right);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
-        _inventory.EquipA(InventoryState.ItemBracelet);
-        for(int i=0;i<11;i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer,4);
+        _inventory.GiveTreasure(TreasureId.Bracelet,1);
+        _inventory.EquipA(TreasureId.Bracelet);
+        for(int i=0;i<11;i++) _inventory.GiveTreasure(TreasureId.HeartContainer,4);
         _inventory.RefillHealth();
         FailIf(_currentRoom.IsSolid(_player.Position),"King Moblin entrance 2:af/$61 must be reachable floor.");
         Step();
@@ -152,12 +152,12 @@ public sealed partial class ValidationRoot
         // phases need not finish the escape on the same update.
         FailIf(boss.State!=21 || boss.Counter!=98 || !boss.EscapeSignal || !boss.Minions.Any(m=>m!.IsDead),
             $"King Moblin minions failed to signal escape: boss=${boss.State:x2}, minions={string.Join(',',boss.Minions.Select(m=>m!.State))}.");
-        Step(97); FailIf(_saveData.HasGlobalFlag(0x1a),"King Moblin keep flag was set before explosion counter98.");
+        Step(97); FailIf(_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),"King Moblin keep flag was set before explosion counter98.");
         FailIf(_entities.Entities<KingMoblinMinion>().Count!=0,"Both King Moblin minions must finish escaping before the final warp.");
         Step();
         // checkDisplayEraOrSeasonInfo consumes GLOBALFLAG_16 during destination loading.
-        FailIf(!_saveData.HasGlobalFlag(0x1a) || _saveData.HasGlobalFlag(0x16) || !_saveData.HasRoomFlag(0,0x09,1),
-            $"King Moblin defeat flags: keep={_saveData.HasGlobalFlag(0x1a)}, $16={_saveData.HasGlobalFlag(0x16)}, room09={_saveData.HasRoomFlag(0,0x09,1)}, state={boss.State}, counter={boss.Counter}, room={_currentRoom.Group}:{_currentRoom.Id:x2}, batch={batch}.");
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) || _saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce) || !_saveData.HasRoomFlag(0,0x09,1),
+            $"King Moblin defeat flags: keep={_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed)}, $16={_saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce)}, room09={_saveData.HasRoomFlag(0,0x09,1)}, state={boss.State}, counter={boss.Counter}, room={_currentRoom.Group}:{_currentRoom.Id:x2}, batch={batch}.");
         for(int i=0;IsTransitioning && i<180;i++) Step();
         FailIf(_currentRoom.Id!=0x09 || _currentRoom.Group!=0,"King Moblin defeat did not warp to room0:09.");
         FailIf(!_roomEvents.Get<DefeatedMoblinEvent>().HasState,

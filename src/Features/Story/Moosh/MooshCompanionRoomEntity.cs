@@ -58,7 +58,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         {
             _flutePending = false;
             _fluteCounter = 0x3c;
-            _playSound(0xc5);
+            _playSound(SoundId.SndMoosh);
             SetAnimation(0x0f + _direction);
             return;
         }
@@ -585,9 +585,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
         _phase = MooshCompanionPhase.StompRecovery;
         if (_saveData is not null)
-            _saveData.WriteWramByte(0xc649, (byte)(_saveData.ReadWramByte(0xc649) | 0x20));
+            _saveData.WriteWramByte(WramAddress.wCompanionTutorialTextShown, (byte)(_saveData.ReadWramByte(WramAddress.wCompanionTutorialTextShown) | 0x20));
         _screenShakeRequested(0x0f);
-        _playSound(OracleSoundEngine.SndCtrlStopSfx);
+        _playSound(SoundId.SndCtrlStopSfx);
         _playSound(_record.StompSound);
         spawns.Add(new MooshStompAttackSpawn(
             player.Position + new Vector2(0, 16),
@@ -787,7 +787,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _phase = MooshCompanionPhase.HazardFalling;
         _zFixed = 0;
         _speedZ = 0;
-        _playSound(OracleSoundEngine.SndSplash);
+        _playSound(SoundId.SndSplash);
         return true;
     }
 
@@ -888,7 +888,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
         byte tile = _room.GetMetatile(_precisePosition + _terrain.Probes("cliff")[_direction]);
-        if (tile == 0xd4 ? _angle != 0x10 : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
+        if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = MooshCompanionPhase.CliffJump;
         _speedZ = -0x2c0;
         _cliffCounter = 0x14;
@@ -910,7 +910,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _animation.Advance();
         OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, 0x50, _angle);
         OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
-        int away = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, AdjacentWalls());
+        int away = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, AdjacentWalls());
         if (away != 0) _cliffWalls = away;
         else if (_cliffWalls != 0)
         {

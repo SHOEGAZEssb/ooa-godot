@@ -30,7 +30,7 @@ internal sealed class TokkeyDatabase
     internal int HeardEntry => _row.UnsignedDecimal(11);
     internal string WrongPositionText => _row.Base64Utf8(12);
     internal int WrongPositionTextboxPosition => _row.UnsignedDecimal(17);
-    internal NpcRecord Exclamation(int x, int y) => new(Group, Room, 0x9f, 0,
+    internal NpcRecord Exclamation(int x, int y) => new(Group, Room, InteractionId.ExclamationMark, 0,
         y, x, 0, 0, _row.RequiredString(13), _row.UnsignedDecimal(14),
         _row.UnsignedDecimal(15), 0, false, _row.RequiredString(16),
         _row.RequiredString(16), _row.RequiredString(16), _row.RequiredString(16),

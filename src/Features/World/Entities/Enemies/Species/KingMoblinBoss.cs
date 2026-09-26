@@ -38,20 +38,20 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
         if(State==0)
         {
             World.Random.Next(); // enemyStandardUpdate retries state zero, including its RNG draw.
-            World.Sound(OracleSoundEngine.SndCtrlStopMusic); World.EnableLink();
+            World.Sound(SoundId.SndCtrlStopMusic); World.EnableLink();
             if(!World.EnemySlots(2)) return;
             spawns.Add(new KingMoblinMinionSpawn(this,0)); spawns.Add(new KingMoblinMinionSpawn(this,1));
             State=8; Speed=0x1e; Visible=true; RestartAnimation(2); return;
         }
         if(_hit)
         {
-            _hit=false; World.Sound(OracleSoundEngine.SndBossDamage);
+            _hit=false; World.Sound(SoundId.SndBossDamage);
             // enemyStandardUpdate gives JUST_HIT priority over NO_HEALTH.
             if(Health>0) Speed=Data.Bytes("speeds")[Health-1];
         }
         else if(Health==0 && frame.Player.PatchCollisionsEnabled)
         {
-            State=0x12; Health=1; _angle=0; Speed=0x78; InvincibilityCounter=0; RestartAnimation(6);
+            State=0x12; Health=1; _angle=ObjectAngle.Up; Speed=0x78; InvincibilityCounter=0; RestartAnimation(6);
         }
         if(InvincibilityCounter!=0) { AdvanceInvincibilityCounter(); return; }
         switch(State)
@@ -63,7 +63,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
                     if(!frame.Player.BombFairyVulnerable) return;
                     frame.Player.ClearNativeItemParents();
                     Tile(new(0x18,0x68),0xa0);
-                    if(World.InteractionSlot()) spawns.Add(new PuzzlePuffSpawn(new(0x18,0x68),OracleSoundEngine.SndPoof));
+                    if(World.InteractionSlot()) spawns.Add(new PuzzlePuffSpawn(new(0x18,0x68),SoundId.SndPoof));
                     State=9; Counter=0x18;
                 }
                 AdvanceAnimation(); break;
@@ -78,7 +78,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
             case 10:
                 State=11; Counter=30;
                 foreach(var minion in Minions) minion!.StartFight();
-                World.EnableLink(); World.Sound(OracleSoundEngine.MusBoss); RestartAnimation(0); break;
+                World.EnableLink(); World.Sound(SoundId.MusBoss); RestartAnimation(0); break;
             case 11:
                 if(Counter>0) Counter--;
                 if(Counter!=0) { AdvanceAnimation(); break; }
@@ -116,7 +116,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
                 if((byte)(_targetX-(int)Position.X+8)<17) Grab(); else AdvanceAnimation(); break;
             case 18:
                 Move();
-                if((int)Position.Y<12) {State=19; _angle=16; Speed=0x14; _speedZ=-0x160; World.Shake(60);}
+                if((int)Position.Y<12) {State=19; _angle=ObjectAngle.Down; Speed=0x14; _speedZ=-0x160; World.Shake(60);}
                 break;
             case 19:
                 if(Bounce()) {State=20; Counter=150; Position=new(Position.X,0x20);} else Move(); break;
@@ -130,7 +130,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
                     World.Save?.SetRoomFlag(0,0x09,1);
                     World.Save?.SetGlobalFlag(Data.Bytes("GLOBALFLAG_MOBLINS_KEEP_DESTROYED")[0]);
                     World.Save?.SetGlobalFlag(Data.Bytes("GLOBALFLAG_16")[0]);
-                    World.Warp(new Warp(2,World.Room.Id,-1,0,0,0,0x09,0x45,0,3));
+                    World.Warp(new Warp(2,World.Room.Id,-1,0,0,0,0x09,0x45,0,WarpDestinationTransition.EnterScreen));
                     Finish();
                 }
                 else if(((Counter-1)&31)==0 && World.InteractionSlot())
@@ -163,7 +163,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
         if(Centred()) {State=11; Counter=30; RestartAnimation(0);} else Walk((byte)((int)Position.X-0x4e)<0xb0,16);
         return true;
     }
-    private void Walk(bool left,int state) {_angle=left?24:8; State=state; RestartAnimation(left?3:1);}
+    private void Walk(bool left,int state) {_angle=left?ObjectAngle.Left:ObjectAngle.Right; State=state; RestartAnimation(left?3:1);}
     private void Move() {var p=Position; OracleObjectMovement.Shared.ApplySpeed(ref p,Speed,_angle); Position=p;}
 }
 

@@ -12,8 +12,8 @@ public sealed partial class ValidationRoot
         foreach (byte scratch in new byte[] { 0, 0x10 })
         {
             LoadValidationRoom(4, 0x9b);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.GiveTreasure(TreasureId.Feather, 1);
+            _inventory.EquipA(TreasureId.Feather);
             _player.WarpTo(new(136, 40));
             FailIf(_currentRoom.IsSolid(_player.Position) || _currentRoom.Layout[0x18] != 0xf7,
                 "Trap boundary fixture must start on original floor $28 below pit tile $18.");
@@ -42,13 +42,13 @@ public sealed partial class ValidationRoot
                     trap.Counter != (trapped ? 60 : 30) || _entities.PlayerUpdatesFrozen != trapped ||
                     _entities.PlayerMenusDisabled != trapped ||
                     _entities.WarpTilesDisabled != trapped ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndError) != (trapped ? 1 : 0),
+                    _sound.PlayRequestsFor(SoundId.SndError) != (trapped ? 1 : 0),
                     "The live airborne scan must use raw $cef8: zero rejects; nonzero starts the60-update reset lock.");
                 Vector2 point = _player.PrecisePosition;
                 StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                 FailIf(trap.Counter != (trapped ? 58 : 28) ||
                     trapped && _player.PrecisePosition != point ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndError) != (trapped ? 1 : 0),
+                    _sound.PlayRequestsFor(SoundId.SndError) != (trapped ? 1 : 0),
                     "Trap state must retain its timer and request the error cue only once.");
             }
             finally { _entities.RuntimeState.SetWramByte(0xcef8, 0); }

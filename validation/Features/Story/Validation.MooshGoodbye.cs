@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
             "SPECIALOBJECT_MOOSH state `$0a did not disable objects/menu and " +
             "select animation `$01 on its source initialization update.");
 
-        int mooshSoundRequests = _sound.PlayRequestsFor(0xc5);
+        int mooshSoundRequests = _sound.PlayRequestsFor(SoundId.SndMoosh);
         StepRoomEventFrames(1);
         FailIf(
             !_dialogue.IsOpen ||
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
             "Moosh's state-$0a initializer.");
         _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
         FailIf(
-            _sound.PlayRequestsFor(0xc5) != mooshSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndMoosh) != mooshSoundRequests + 1,
             "TX_2208 did not execute its leading source `\\sfx(0xc5)` cue.");
 
         _dialogue.Close();

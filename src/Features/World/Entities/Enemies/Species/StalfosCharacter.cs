@@ -91,10 +91,10 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
             _jumpCollision = false;
             // Despite its name, ecom_updateCardinalAngleAwayFromTarget does
             // not round: it XORs the full objectGetAngleTowardEnemyTarget.
-            _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition) ^ 0x10;
+            _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition) ^ ObjectAngle.HalfTurn;
             SetAnimation(1);
             Visible = true;
-            _sound(OracleSoundEngine.SndEnemyJump);
+            _sound(SoundId.SndEnemyJump);
             return false;
         }
 
@@ -168,7 +168,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
     public void BeginSwitchHook(Vector2 linkPosition)
     {
         KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
         _state = StalfosState.SwitchHook;
         SwitchHookSubstate = 0;
     }

@@ -70,7 +70,7 @@ internal sealed partial class HeadThwompBoulder
             _yFixed = 0;
             _speedYFixed = 0x0200;
             Visible = true;
-            _playSound(OracleSoundEngine.SndFallInHole);
+            _playSound(SoundId.SndFallInHole);
             QueueRedraw();
             return;
         }
@@ -92,7 +92,7 @@ internal sealed partial class HeadThwompBoulder
         {
             _breaking = true;
             _impactAnimation.SetAnimation(0);
-            _playSound(OracleSoundEngine.SndBreakRock);
+            _playSound(SoundId.SndBreakRock);
             QueueRedraw();
             return;
         }

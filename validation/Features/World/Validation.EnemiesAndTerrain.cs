@@ -81,8 +81,8 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         RoomObjectRecord source = RoomEnemyPlacements(
-            database, 4, 0x2e, 0x3e, 0x00).Single();
-        ImportedEnemyDefinition record = database.ImportedEnemy(0x3e);
+            database, 4, 0x2e, EnemyId.Peahat, 0x00).Single();
+        ImportedEnemyDefinition record = database.ImportedEnemy(EnemyId.Peahat);
         EnemyCombatSourceDescriptor combatSource =
             database.EnemyHandlers.ResolveHandler(source)
                 .CombatSource(source, killableEnemyIndex: 1);
@@ -194,7 +194,7 @@ public sealed partial class ValidationRoot
             !groundedHit || groundedPeahat.Health != record.Health - 1 ||
             groundedPeahat.InvincibilityCounter != 0x20 ||
             soundRequests.Count != 1 ||
-            soundRequests[0] != OracleSoundEngine.SndDamageEnemy,
+            soundRequests[0] != SoundId.SndDamageEnemy,
             "Grounded ENEMY_PEAHAT $3e:$00 did not retain the vulnerable " +
             "sword-no-knockback collision path.");
 
@@ -242,7 +242,7 @@ public sealed partial class ValidationRoot
             "0:b9/c9/cb or ENEMY_LEEVER $0b:$00 in past rooms " +
             "1:ab/ca/cc/db.");
 
-        ImportedEnemyDefinition leeverRecord = database.ImportedEnemy(0x0b);
+        ImportedEnemyDefinition leeverRecord = database.ImportedEnemy(EnemyId.Leever);
         OracleRoomData pastRoom = _world.LoadRoom(1, 0xab);
         int[] expectedOffsets =
         [
@@ -343,12 +343,12 @@ public sealed partial class ValidationRoot
             !leeverHit || leever.Health != 2 ||
             leever.InvincibilityCounter != 0x15 ||
             leever.KnockbackCounter != 0x0b ||
-            sounds is not [OracleSoundEngine.SndDamageEnemy] ||
+            sounds is not [SoundId.SndDamageEnemy] ||
             spawns.Count != 0,
             "Collision-enabled ENEMY_LEEVER $0b:$00 did not use standard " +
             "damage, invincibility, and knockback handling.");
 
-        ImportedEnemyDefinition crabRecord = database.ImportedEnemy(0x1a);
+        ImportedEnemyDefinition crabRecord = database.ImportedEnemy(EnemyId.SandCrab);
         OracleRoomData presentRoom = _world.LoadRoom(0, 0xcb);
         var crabRandom = new OracleRandom();
         crabRandom.Next();
@@ -503,10 +503,10 @@ public sealed partial class ValidationRoot
         {
             int speed = speedIndex * 5;
             int fixedMagnitude = speedIndex * 0x20;
-            OracleObjectVelocity up = speeds.Get(speed, 0x00);
-            OracleObjectVelocity right = speeds.Get(speed, 0x08);
-            OracleObjectVelocity down = speeds.Get(speed, 0x10);
-            OracleObjectVelocity left = speeds.Get(speed, 0x18);
+            OracleObjectVelocity up = speeds.Get(speed, ObjectAngle.Up);
+            OracleObjectVelocity right = speeds.Get(speed, ObjectAngle.Right);
+            OracleObjectVelocity down = speeds.Get(speed, ObjectAngle.Down);
+            OracleObjectVelocity left = speeds.Get(speed, ObjectAngle.Left);
             FailIf(
                 up.YFixed != -fixedMagnitude || up.XFixed != 0 ||
                 right.YFixed != 0 || right.XFixed != fixedMagnitude ||
@@ -1354,7 +1354,7 @@ public sealed partial class ValidationRoot
             expectedCombat.Count != 61 ||
             implementedHandler is not
             {
-                Id: 0x32,
+                Id: EnemyId.Keese,
                 SubId: 0x00,
                 CollisionMode: 0x9f,
                 Classification:
@@ -1366,7 +1366,7 @@ public sealed partial class ValidationRoot
             } ||
             dynamicHandler is not
             {
-                Id: 0x20,
+                Id: EnemyId.MaskedMoblin,
                 SubId: 0x00,
                 CollisionMode: 0x91,
                 Classification:
@@ -1378,7 +1378,7 @@ public sealed partial class ValidationRoot
             } ||
             spinyHandler is not
             {
-                Id: 0x1b,
+                Id: EnemyId.SpinyBeetle,
                 SubId: 0x01,
                 CollisionMode: 0x90,
                 Classification:
@@ -1390,7 +1390,7 @@ public sealed partial class ValidationRoot
             } ||
             dynamicCombat is not
             {
-                Id: 0x20,
+                Id: EnemyId.MaskedMoblin,
                 SubId: 0x00,
                 CollisionMode: 0x91,
                 ObjectFlags: 0,
@@ -1431,13 +1431,13 @@ public sealed partial class ValidationRoot
             "Shared scratch writes must be visible to reservation reads without a mirrored position array.");
         placementRuntime.SetWramByte(0xcec1, 0xf0);
         wrappedReservations.Add(0x78);
-        FailIf(placementRuntime.ReadWramByte(0xcfc0) != 0x78 || wrappedReservations.Count != 1,
+        FailIf(placementRuntime.ReadWramByte(WramAddress.wTmpcfc0) != 0x78 || wrappedReservations.Count != 1,
             "A stale count$f0 must write$ced0+$f0=$cfc0 before masking the increment to1.");
         placementRuntime.SetWramByte(0xcedf, 0x99);
         placementRuntime.SetWramByte(0xcee0, 0x42);
         EnemyPlacementReservations.BeginRoomParse(placementRuntime);
         FailIf(Enumerable.Range(0xcec0, 0x20).Any(address => placementRuntime.ReadWramByte(address) != 0) ||
-            placementRuntime.ReadWramByte(0xcfc0) != 0 || placementRuntime.ReadWramByte(0xcee0) != 0x42,
+            placementRuntime.ReadWramByte(WramAddress.wTmpcfc0) != 0 || placementRuntime.ReadWramByte(0xcee0) != 0x42,
             "parseObjectData must clear exactly its32-byte scratch block and$cfc0, preserving the following scratch region.");
 
         var validationRoot = new Node { Name = "EnemyPlacementOrderValidation" };
@@ -1514,10 +1514,10 @@ public sealed partial class ValidationRoot
             4, 0x65, OracleSaveData.RoomFlagItem, value: false);
         var database = new EnemyDatabase();
         List<RoomObjectRecord> placements =
-            EnemyPlacements(database, 0x23, 0x00);
+            EnemyPlacements(database, EnemyId.PolsVoice, 0x00);
         List<RoomObjectRecord> roomPlacements =
-            RoomEnemyPlacements(database, 4, 0x65, 0x23, 0x00);
-        ImportedEnemyDefinition definition = database.ImportedEnemy(0x23);
+            RoomEnemyPlacements(database, 4, 0x65, EnemyId.PolsVoice, 0x00);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.PolsVoice);
         EnemyHandlerDescriptor handler = database.EnemyHandlers.ResolveHandler(
             roomPlacements[0]);
         FailIf(
@@ -1530,7 +1530,7 @@ public sealed partial class ValidationRoot
                 { Order: 6, Y: 0x68, X: 0x90, PackedPosition: 0x69 } ||
             definition is not
             {
-                Id: 0x23,
+                Id: EnemyId.PolsVoice,
                 SubId: 0x00,
                 TileBase: 0,
                 Palette: 3,
@@ -1542,7 +1542,7 @@ public sealed partial class ValidationRoot
             } ||
             handler is not
             {
-                Id: 0x23,
+                Id: EnemyId.PolsVoice,
                 SubId: 0x00,
                 CollisionMode: 0xa1,
                 Classification:
@@ -1655,7 +1655,7 @@ public sealed partial class ValidationRoot
         live[1].Position = new Vector2(0x20, 0x70);
         int swordHealth = swordTarget.Health;
         int swordDamageSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy);
         FailIf(
             !_entities.ApplySwordHit(
                 swordTarget.CollisionBounds,
@@ -1664,7 +1664,7 @@ public sealed partial class ValidationRoot
             swordTarget.Health != swordHealth ||
             swordTarget.InvincibilityCounter != -16 ||
             swordTarget.KnockbackCounter != 8 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) !=
                 swordDamageSounds,
             "ITEMCOLLISION_L1_SWORD did not apply Pols Voice effect $0c: " +
             "an unharmed 16-update bump with eight recoil updates and no " +
@@ -1806,7 +1806,7 @@ public sealed partial class ValidationRoot
             "$58,$88 with its TREASURE_OBJECT_MAP_02 closed-chest record.");
         int harpRandomCalls = _entities.RandomCalls;
         int killSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         int defeats = 0;
         void RecordDefeat() => defeats++;
         _entities.EnemyDefeated += RecordDefeat;
@@ -1823,7 +1823,7 @@ public sealed partial class ValidationRoot
                 [new Vector2(0xa0, 0x58), new Vector2(0x90, 0x68)]) ||
             _entities.RoomEnemyCount != 2 || defeats != 2 ||
             _entities.RandomCalls != harpRandomCalls ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSounds + 2,
             "The Harp phase did not instantly replace both room 4:65 Pols " +
             "Voices with same-update PART_ENEMY_DESTROYED effects while " +
@@ -1833,7 +1833,7 @@ public sealed partial class ValidationRoot
             $"{string.Join(',', puffs.Select(puff => puff.ElapsedFrames))}, " +
             $"roomCount={_entities.RoomEnemyCount}, defeats={defeats}, " +
             $"rng={_entities.RandomCalls - harpRandomCalls}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - killSounds}).");
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndKillEnemy) - killSounds}).");
 
         int deathPuffDuration = puffs[0].DurationFrames;
         for (int frame = 1; frame < deathPuffDuration - 1; frame++)
@@ -1848,8 +1848,8 @@ public sealed partial class ValidationRoot
             "PART_ENEMY_DESTROYED effects released wNumEnemies.");
 
         int solveSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle);
-        int poofSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndPoof);
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
+        int poofSounds = _sound.PlayRequestsFor(SoundId.SndPoof);
         _entities.Update(update, _player);
         FailIf(
             _entities.RoomEnemyCount != 0 ||
@@ -1858,9 +1858,9 @@ public sealed partial class ValidationRoot
                 [{ Counter: 30 }] ||
             _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) !=
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) !=
                 solveSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPoof) != poofSounds + 1,
+            _sound.PlayRequestsFor(SoundId.SndPoof) != poofSounds + 1,
             "Room 4:65 did not begin the solve/poof and exact 30-update " +
             "enemy-clear chest reveal after wNumEnemies reached zero.");
         for (int frame = 0; frame < 29; frame++)
@@ -1895,10 +1895,10 @@ public sealed partial class ValidationRoot
         const double update = 1.0 / 60.0;
         var database = new EnemyDatabase();
         List<RoomObjectRecord> placements =
-            EnemyPlacements(database, 0x4f, 0x00);
+            EnemyPlacements(database, EnemyId.Moldorm, 0x00);
         List<RoomObjectRecord> roomPlacements =
-            RoomEnemyPlacements(database, 4, 0x62, 0x4f, 0x00);
-        ImportedEnemyDefinition definition = database.ImportedEnemy(0x4f);
+            RoomEnemyPlacements(database, 4, 0x62, EnemyId.Moldorm, 0x00);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.Moldorm);
         EnemyHandlerDescriptor handler = database.EnemyHandlers.ResolveHandler(
             roomPlacements[0]);
         FailIf(
@@ -1915,7 +1915,7 @@ public sealed partial class ValidationRoot
             ] ||
             definition is not
             {
-                Id: 0x4f,
+                Id: EnemyId.Moldorm,
                 SubId: 0x00,
                 TileBase: 14,
                 Palette: 0,
@@ -1927,7 +1927,7 @@ public sealed partial class ValidationRoot
             } ||
             handler is not
             {
-                Id: 0x4f,
+                Id: EnemyId.Moldorm,
                 SubId: 0x00,
                 CollisionMode: 0xba,
                 Classification:
@@ -1943,11 +1943,11 @@ public sealed partial class ValidationRoot
         var movementRandom = new OracleRandom();
         var movement = new MoldormCharacter();
         Vector2 start = new(0x78, 0x58);
-        movement.Initialize(database.ImportedEnemy(0x4f, 1), room, start, movementRandom);
+        movement.Initialize(database.ImportedEnemy(EnemyId.Moldorm, 1), room, start, movementRandom);
         var tail1 = new MoldormTailCharacter();
         var tail2 = new MoldormTailCharacter();
-        tail1.Initialize(database.ImportedEnemy(0x4f, 2), room, start, movementRandom, movement);
-        tail2.Initialize(database.ImportedEnemy(0x4f, 3), room, start, movementRandom, tail1);
+        tail1.Initialize(database.ImportedEnemy(EnemyId.Moldorm, 2), room, start, movementRandom, movement);
+        tail2.Initialize(database.ImportedEnemy(EnemyId.Moldorm, 3), room, start, movementRandom, tail1);
         movement.Tail1 = tail1; movement.Tail2 = tail2;
         void StepMoldorm() { movement.UpdateFrame(); tail1.UpdateFrame(); tail2.UpdateFrame(); }
         movement.PrepareForScreenTransition();
@@ -2143,15 +2143,15 @@ public sealed partial class ValidationRoot
         FailIf(
             openFrames > 40 || room.GetMetatile(rightShutter) != 0xa0 ||
             room.IsSolid(rightShutter) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
             "Room 4:62's right shutter did not complete its solve wait and " +
             "six-update opening after both Moldorm death puffs finished " +
             $"(frames={openFrames}, tile=${room.GetMetatile(rightShutter):x2}, " +
             $"solid={room.IsSolid(rightShutter)}, doors=" +
             $"{_entities.Entities<DungeonDoorRoomEntity>().Count}, solve=" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)}, " +
-            $"doorSounds={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}).");
+            $"{_sound.PlayRequestsFor(SoundId.SndSolvePuzzle)}, " +
+            $"doorSounds={_sound.PlayRequestsFor(SoundId.SndDoorClose)}).");
 
         GD.Print(
             "Validated all 17 ENEMY_MOLDORM $4f:$00 records / 23 instances, " +
@@ -2165,13 +2165,13 @@ public sealed partial class ValidationRoot
         const double update = 1.0 / 60.0;
         var database = new EnemyDatabase();
         List<RoomObjectRecord> hardhatPlacements =
-            EnemyPlacements(database, 0x4d, 0x00);
+            EnemyPlacements(database, EnemyId.HardhatBeetle, 0x00);
         List<RoomObjectRecord> spinyPlacements =
-            EnemyPlacements(database, 0x1b, 0x01);
+            EnemyPlacements(database, EnemyId.SpinyBeetle, 0x01);
         ImportedEnemyDefinition hardhatDefinition =
-            database.ImportedEnemy(0x4d);
+            database.ImportedEnemy(EnemyId.HardhatBeetle);
         ImportedEnemyDefinition spinyDefinition =
-            database.ImportedEnemy(0x1b, 0x01);
+            database.ImportedEnemy(EnemyId.SpinyBeetle, 0x01);
         FailIf(
             hardhatPlacements.Count != 12 ||
             hardhatPlacements.Sum(source => source.Count) != 15 ||
@@ -2224,9 +2224,9 @@ public sealed partial class ValidationRoot
                 }
                 EnemyAdjacentWallProbe walls = topDown
                     ? EnemyAdjacentWallResolver.Shared.ProbeTopDown(
-                        position, 0x08, point => Blocks(room, point))
+                        position, ObjectAngle.Right, point => Blocks(room, point))
                     : EnemyAdjacentWallResolver.Shared.Probe(
-                        position, 0x08, point => Blocks(room, point));
+                        position, ObjectAngle.Right, point => Blocks(room, point));
                 if (walls.Bitset == 0)
                     return position;
             }
@@ -2280,7 +2280,7 @@ public sealed partial class ValidationRoot
 
         int hardhatHealth = hardhat.Health;
         int hardhatDamageSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy);
         FailIf(
             !_entities.ApplySwordHit(
                 hardhat.CollisionBounds.Grow(0.25f),
@@ -2289,7 +2289,7 @@ public sealed partial class ValidationRoot
             hardhat.InvincibilityCounter != -21 ||
             hardhat.KnockbackCounter != 11 ||
             _entities.RoomEnemyCount != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) !=
                 hardhatDamageSounds,
             "The Hardhat Beetle's ordinary sword collision did not preserve " +
             "health, apply 21-update invincibility / 11-update recoil, and " +
@@ -2355,9 +2355,9 @@ public sealed partial class ValidationRoot
         _entities.Update(update, _player);
         int spinyHealth = spiny.Health;
         int spinyDamageSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy);
         int spinyCutSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass);
+            _sound.PlayRequestsFor(SoundId.SndCutGrass);
         FailIf(
             !_entities.ApplySwordHit(
                 spiny.CollisionBounds.Grow(0.25f),
@@ -2368,7 +2368,7 @@ public sealed partial class ValidationRoot
             !spiny.ParentVisible ||
             spiny.KnockbackCounter != 0 ||
             _entities.Entities<GrassDebrisEffect>().Count != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) !=
                 spinyDamageSounds,
             "Cutting the Spiny Beetle's protective bush damaged/recoiled the " +
             "parent, omitted grass debris, or requested enemy-hit audio.");
@@ -2378,7 +2378,7 @@ public sealed partial class ValidationRoot
             spiny.State != SpinyBeetleState.ExposedWaiting ||
             spiny.Counter1 != 60 ||
             spiny.CollisionBounds.Size != new Vector2(12, 12) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCutGrass) !=
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) !=
                 spinyCutSounds + 1,
             "The uncovered Spiny Beetle did not enter its visible " +
             "60-update reveal wait with radius 6 and one cut-grass sound.");
@@ -2529,7 +2529,7 @@ public sealed partial class ValidationRoot
                         speed += 5;
                     Vector2 before = probe.Position;
                     if (!movement.MoveUsingAdjacentWalls(
-                        0x08,
+                        ObjectAngle.Right,
                         speed,
                         allowHoles: false,
                         topDown: false) ||
@@ -2551,9 +2551,9 @@ public sealed partial class ValidationRoot
         OracleRandomState randomSnapshot = _random.CaptureState();
         var database = new EnemyDatabase();
         List<RoomObjectRecord> placements =
-            EnemyPlacements(database, 0x14, 0x00);
+            EnemyPlacements(database, EnemyId.SpikedBeetle, 0x00);
         ImportedEnemyDefinition definition =
-            database.ImportedEnemy(0x14, 0x00);
+            database.ImportedEnemy(EnemyId.SpikedBeetle, 0x00);
         FailIf(
             placements.Count != 6 ||
             placements.Sum(source => source.Count) != 6 ||
@@ -2647,18 +2647,18 @@ public sealed partial class ValidationRoot
         Vector2 expectedClinkPosition =
             armored.Position + Vector2.Left * 2;
         int clinkSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+            _sound.PlayRequestsFor(SoundId.SndClink);
         int armoredBombLandSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+            _sound.PlayRequestsFor(SoundId.SndBombLand);
         FailIf(
             !_combat.ApplySwordHit(_player, armoredSwordHitbox) ||
             armored.Health != armoredHealth ||
             armored.InvincibilityCounter != -28 ||
             armored.KnockbackCounter != 0 ||
             _entities.RoomEnemyCount != 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
+            _sound.PlayRequestsFor(SoundId.SndClink) !=
                 clinkSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+            _sound.PlayRequestsFor(SoundId.SndBombLand) !=
                 armoredBombLandSounds + 1 ||
             _player.KnockbackFrames != 0,
             "The normal Spiked Beetle shell did not preserve health, request " +
@@ -2720,7 +2720,7 @@ public sealed partial class ValidationRoot
         SpikedBeetleCharacter flipped = beetles[0];
         Vector2 flipStart = flipped.Position;
         int bombLandSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+            _sound.PlayRequestsFor(SoundId.SndBombLand);
         FailIf(
             !_entities.ApplyShovelHit(
                 flipped.CollisionBounds.Grow(0.25f),
@@ -2729,7 +2729,7 @@ public sealed partial class ValidationRoot
             !flipped.FlipHitPending ||
             flipped.InvincibilityCounter != -16 ||
             flipped.KnockbackCounter != 8 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+            _sound.PlayRequestsFor(SoundId.SndBombLand) !=
                 bombLandSounds + 1,
             "ITEM_SHOVEL did not write the Spiked Beetle's pending just-hit " +
             "status with ENEMYDMG_$10 and its collision sound.");
@@ -2744,7 +2744,7 @@ public sealed partial class ValidationRoot
             flipped.ZFixed != 0 ||
             flipped.SpeedZ != -384 ||
             flipped.AnimationIndex != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) !=
+            _sound.PlayRequestsFor(SoundId.SndBombLand) !=
                 bombLandSounds + 2,
             "The shovel just-hit update did not enter flipped state `$0b`, " +
             "switch collision/animation, reverse its recovery angle, and jump.");
@@ -2914,7 +2914,7 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         List<RoomObjectRecord> keesePlacements =
-            EnemyPlacements(database, 0x32, 0x00, 0x01);
+            EnemyPlacements(database, EnemyId.Keese, 0x00, 0x01);
         FailIf(
             keesePlacements.Count != 53 ||
             keesePlacements.Sum(source => source.Count) != 158,
@@ -2945,9 +2945,9 @@ public sealed partial class ValidationRoot
                 StringComparison.Ordinal) ||
             adjacentWalls.BounceAngleRecord(0).Angle != 0x10 ||
             adjacentWalls.BounceAngleRecord(0x18).Angle != 0x18 ||
-            EnemyAdjacentWallResolver.OctantForAngle(0x00) != 0 ||
+            EnemyAdjacentWallResolver.OctantForAngle(ObjectAngle.Up) != 0 ||
             EnemyAdjacentWallResolver.OctantForAngle(0x04) != 1 ||
-            EnemyAdjacentWallResolver.OctantForAngle(0x08) != 2 ||
+            EnemyAdjacentWallResolver.OctantForAngle(ObjectAngle.Right) != 2 ||
             EnemyAdjacentWallResolver.OctantForAngle(0x1f) != 7,
             "The imported ecom adjacent-wall offsets, bounce angles, " +
             "source identity, or rounded-octant lookup changed.");
@@ -3037,7 +3037,7 @@ public sealed partial class ValidationRoot
         EnemyDatabaseEnemyRecord boundaryRecord =
             ResolveKeese(
                 database,
-                RoomEnemyPlacements(database, 4, 0xcb, 0x32, 0x00)[0]);
+                RoomEnemyPlacements(database, 4, 0xcb, EnemyId.Keese, 0x00)[0]);
         OracleRoomData boundaryRoom = _world.LoadRoom(4, 0xcb);
         (string Axis, int SkippedCalls, int InitialAngle,
             Vector2 Position, int ReflectedAngle)[] keeseBoundaryCases =
@@ -3079,21 +3079,21 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         _player.WarpTo(normalKeese.Position, recordSafe: false);
         int healthBeforeContact = _player.HealthQuarters;
-        int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
+        int damageSoundRequests = _sound.PlayRequestsFor(SoundId.SndDamageLink);
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _player.HealthQuarters != healthBeforeContact - 2 ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
             !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f) ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndDamageLink ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+                SoundId.SndDamageLink ||
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
             "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
             "15 knockback updates, and SND_DAMAGE_LINK $5f.");
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             _player.HealthQuarters != healthBeforeContact - 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
             "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
 
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
@@ -3102,7 +3102,7 @@ public sealed partial class ValidationRoot
             Vector2.Down * normalKeese.SpriteHeight;
         int countBeforeSword = _entities.Entities<KeeseCharacter>().Count;
         int killSoundsBeforeSword =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         FailIf(
             !_entities.ApplySwordHit(
                 normalKeese.CollisionBounds.Grow(1.0f),
@@ -3110,7 +3110,7 @@ public sealed partial class ValidationRoot
             !normalKeese.PendingKnockbackDeath ||
             normalKeese.CollisionEnabled ||
             _entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSoundsBeforeSword,
             "The lethal level-1 sword hit did not retain ENEMY_KEESE for " +
             "its collision-disabled recoil.");
@@ -3119,14 +3119,14 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<KeeseCharacter>().Count != countBeforeSword ||
             normalKeese.KnockbackCounter != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSoundsBeforeSword,
             "Lethal ENEMY_KEESE recoil did not complete before the death update.");
         normalKeese.UpdateFrame(_player.Position, 0x08);
         _entities.Update(0.0, _player);
         FailIf(
             _entities.Entities<KeeseCharacter>().Count != countBeforeSword - 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSoundsBeforeSword + 1,
             "ENEMY_KEESE did not die with one SND_KILLENEMY request on " +
             "the update after recoil.");
@@ -3168,7 +3168,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(152, 112), recordSafe: false);
         int keeseBeforeBurn = _entities.Entities<KeeseCharacter>().Count;
         int killSoundsBeforeBurn =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         SeedRecord emberRecord =
             new SeedSatchelDatabase().Ember;
         EmberSeedEffect attachedFlame = _entities.Spawn<EmberSeedEffect>(
@@ -3207,7 +3207,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != keeseBeforeBurn - 1 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSoundsBeforeBurn + 1,
             "PART_BURNING_ENEMY did not resolve Ember damage and enemy death on update 59.");
 
@@ -3236,7 +3236,7 @@ public sealed partial class ValidationRoot
             edgeKeese.Record.CollisionRadiusX - 1.0f;
         edgeKeese.Position = landedFlame.Position + Vector2.Right * edgeOverlap;
         int edgeKillSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         _entities.Update(1.0 / 60.0, _player);
         KeeseState edgeState = edgeKeese.State;
         int edgeCounter1 = edgeKeese.Counter1;
@@ -3257,7 +3257,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             _entities.Entities<KeeseCharacter>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 edgeKillSounds + 1,
             "An edge-contact Ember burn left ENEMY_KEESE inactive instead of resolving its death.");
 
@@ -3312,7 +3312,7 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         List<RoomObjectRecord> octorokPlacements =
-            EnemyPlacements(database, 0x09, 0x00, 0x01, 0x02);
+            EnemyPlacements(database, EnemyId.Octorok, 0x00, 0x01, 0x02);
         FailIf(
             octorokPlacements.Count != 33 ||
             octorokPlacements.Sum(source => source.Count) != 48,
@@ -3379,7 +3379,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(144, 120), recordSafe: false);
         otherBlue.SetStateForValidation(OctorokState.Standing, counter1: 1000);
         blue.SetStateForValidation(
-            OctorokState.Shooting, counter1: 0x10, angle: 0x18);
+            OctorokState.Shooting, counter1: 0x10, angle: ObjectAngle.Left);
         for (int frame = 1; frame < 0x10; frame++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
@@ -3458,9 +3458,9 @@ public sealed partial class ValidationRoot
 
         OctorokCharacter transitionOctorok = _entities.Entities<OctorokCharacter>()[0];
         transitionOctorok.SetStateForValidation(
-            OctorokState.Standing, counter1: 1000, angle: 0x00);
+            OctorokState.Standing, counter1: 1000, angle: ObjectAngle.Up);
         OctorokRockProjectile transitionRock = _entities.Spawn<OctorokRockProjectile>(
-            new OctorokRockSpawn(transitionOctorok.Position, Angle: 0x00));
+            new OctorokRockSpawn(transitionOctorok.Position, Angle: ObjectAngle.Up));
         OracleRoomData incomingRoom = _world.LoadRoom(0, 0x74);
         _entities.BeginScreenTransition(0, incomingRoom, Vector2.Left * incomingRoom.Width);
         int frozenCounter = transitionOctorok.Counter1;
@@ -3486,8 +3486,8 @@ public sealed partial class ValidationRoot
                 octorokProbabilityRolls++;
         }
         FailIf(
-            drops.EnemyTableRecord(0x09) != 0x8e || octorokProbabilityRolls != 24 ||
-            drops.ChooseDrop(0x09, 0, 0) != ItemDropDatabase.Heart,
+            drops.EnemyTableRecord(EnemyId.Octorok) != 0x8e || octorokProbabilityRolls != 24 ||
+            drops.ChooseDrop(EnemyId.Octorok, 0, 0) != ItemDropDatabase.Heart,
             "ENEMY_OCTOROK `$09 did not preserve drop record `$8e, its 24-of-64 " +
             "probability `$04, and supported heart/rupee set `$0e.");
 
@@ -3516,7 +3516,7 @@ public sealed partial class ValidationRoot
         OctorokCharacter struck = blues[0];
         blues[1].Position = new Vector2(0x18, 0x68);
         struck.SetStateForValidation(
-            OctorokState.Standing, counter1: 1000, angle: 0x18);
+            OctorokState.Standing, counter1: 1000, angle: ObjectAngle.Left);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         _sound.ClearPlayRequestAudit();
         EmberSeedEffect collided = _entities.Spawn<EmberSeedEffect>(
@@ -3529,8 +3529,8 @@ public sealed partial class ValidationRoot
         FailIf(
             collided.State != EmberState.Dissipating ||
             collided.ScentTarget is not null || struck.Health != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndPirateBell) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+            _sound.PlayRequestsFor(SoundId.SndPirateBell) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 1,
             "ITEM_SCENT_SEED's standard `$9c collision did not apply damage " +
             "`$fe and enter the short, non-attracting collision effect.");
 
@@ -3540,9 +3540,9 @@ public sealed partial class ValidationRoot
         follower.Position = new Vector2(0x28, 0x38);
         blues[1].Position = new Vector2(0x18, 0x68);
         follower.SetStateForValidation(
-            OctorokState.Standing, counter1: 1000, angle: 0x00);
+            OctorokState.Standing, counter1: 1000, angle: ObjectAngle.Up);
         blues[1].SetStateForValidation(
-            OctorokState.Standing, counter1: 1000, angle: 0x18);
+            OctorokState.Standing, counter1: 1000, angle: ObjectAngle.Left);
         Vector2 scentPoint = (
             from y in Enumerable.Range(5, 2)
             from x in Enumerable.Range(6, 3)
@@ -3577,7 +3577,7 @@ public sealed partial class ValidationRoot
         _entities.Update(update, _player);
         FailIf(
             follower.ScentAttractionCounter != 0xf0 ||
-            follower.Angle is not (0x08 or 0x10),
+            follower.Angle is not (ObjectAngle.Right or ObjectAngle.Down),
             "The Octorok did not acquire and cardinalize the target on scent " +
             "attraction update 16.");
         int remainingUpdates = 0;
@@ -3661,7 +3661,7 @@ public sealed partial class ValidationRoot
         FailIf(
             crab.State != SandCrabState.FollowingScentSeed ||
             crab.ScentAttractionCounter != 0xff ||
-            crab.SpeedRaw is not (0x0a or 0x28),
+            crab.SpeedRaw is not (ObjectSpeed.Speed40 or ObjectSpeed.Speed100),
             "ENEMY_SAND_CRAB did not use its axis-specific scent speed.");
         crab.UpdateFrame();
         FailIf(crab.State != SandCrabState.ChoosingDirection,
@@ -3700,24 +3700,24 @@ public sealed partial class ValidationRoot
         static Vector2 OnScreenTarget(Vector2 origin, int angle) =>
             angle switch
             {
-                0x00 => new Vector2(origin.X, 0),
-                0x08 => new Vector2(
+                ObjectAngle.Up => new Vector2(origin.X, 0),
+                ObjectAngle.Right => new Vector2(
                     OracleRoomData.ViewportWidth - 1, origin.Y),
-                0x10 => new Vector2(
+                ObjectAngle.Down => new Vector2(
                     origin.X, OracleRoomData.ViewportHeight - 1),
-                0x18 => new Vector2(0, origin.Y),
+                ObjectAngle.Left => new Vector2(0, origin.Y),
                 _ => throw new InvalidOperationException(
                     $"Invalid cardinal Arrow Moblin angle ${angle:x2}.")
             };
 
         var database = new EnemyDatabase();
-        ImportedEnemyDefinition definition = database.ImportedEnemy(0x0c);
+        ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.ArrowMoblin);
         IReadOnlyList<RoomObjectRecord> roomRecords =
             database.GetRoomObjects(0, 0x84);
         FailIf(
             definition is not
             {
-                Id: 0x0c,
+                Id: EnemyId.ArrowMoblin,
                 SubId: 0x00,
                 Sprites: ["spr_moblin"],
                 TileBase: 0,
@@ -3916,13 +3916,13 @@ public sealed partial class ValidationRoot
             database.OctorokProjectile,
             room,
             rockOrigin,
-            angle: 0x08);
+            angle: ObjectAngle.Right);
         var arrow = new EnemyArrowProjectile();
         arrow.Initialize(
             database.EnemyArrow,
             room,
             Vector2.Zero,
-            angle: 0x08);
+            angle: ObjectAngle.Right);
         arrow.Position = collisionPosition;
         var arrowMemory = new OracleRuntimeState();
         arrow.BindMovementMemory(arrowMemory);
@@ -3963,7 +3963,7 @@ public sealed partial class ValidationRoot
         arrow.UpdateFrame(_player);
         Vector2 firstBouncePosition =
             collisionPosition + Vector2.Left * 0.25f;
-        FailIf(arrowMemory.ReadWramByte(0xcec0) != 0 || arrowMemory.ReadWramByte(0xcec1) != 0 ||
+        FailIf(arrowMemory.ReadWramByte(WramAddress.wTmpcec0) != 0 || arrowMemory.ReadWramByte(0xcec1) != 0 ||
             arrowMemory.ReadWramByte(0xcec2) != 0xc0 || arrowMemory.ReadWramByte(0xcec3) != 0xff,
             "Arrow bounce must publish SPEED_40 angle$18 as Y=$0000/X=$ffc0.");
         FailIf(
@@ -4083,7 +4083,7 @@ public sealed partial class ValidationRoot
             acceptedOctorokHits++;
             FailIf(
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndDamageEnemy) != acceptedOctorokHits,
+                    SoundId.SndDamageEnemy) != acceptedOctorokHits,
                 $"ENEMY_OCTOROK's accepted {strength} sword hit did not " +
                 "request exactly one SND_DAMAGE_ENEMY through the common " +
                 "collision effect.");
@@ -4231,7 +4231,7 @@ public sealed partial class ValidationRoot
             zol.InvincibilityCounter != 0x20 ||
             zol.KnockbackCounter != 0 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndDamageEnemy) != 1,
+                SoundId.SndDamageEnemy) != 1,
             "ENEMYCOLLISION_ZOL did not apply its sword-no-knockback " +
             "$20 invincibility response with one SND_DAMAGE_ENEMY request.");
         _entities.ApplySwordHit(
@@ -4242,7 +4242,7 @@ public sealed partial class ValidationRoot
         _entities.ResolvePostObjectCollisions(_player);
         FailIf(zol.Health != 2 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndDamageEnemy) != 1,
+                SoundId.SndDamageEnemy) != 1,
             "The Zol no-knockback invincibility window accepted an " +
             "immediate second sword hit or replayed its damage sound.");
         zol.UpdateFrame(_player.Position);
@@ -4349,13 +4349,13 @@ public sealed partial class ValidationRoot
             "enemy keys and 17 deliberately non-combat placed keys, including ENEMY $16, $50:$01 and $63:$05-$0b.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
-            database, 0, 0x74, 0x09, 0x00)[0];
+            database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         OracleRoomData octorokRoom = _world.LoadRoom(0, 0x74);
         var shieldSave = OracleSaveData.CreateStandardGame();
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
-        shieldInventory.EquipA(InventoryState.ItemShield);
+        shieldInventory.EquipA(TreasureId.Shield);
         var shieldWorld = new ValidationRingPlayerWorld();
         var shieldPlayer = new Player { Name = "EnemyShieldBumpPlayer" };
         AddChild(shieldPlayer);
@@ -4391,7 +4391,7 @@ public sealed partial class ValidationRoot
             shieldPlayer.HealthQuarters != linkHealth ||
             shieldPlayer.InvincibilityFrames != -0x0f ||
             shieldPlayer.KnockbackFrames != 0x13 ||
-            sounds is not [OracleSoundEngine.SndBombLand],
+            sounds is not [SoundId.SndBombLand],
             "A raised Wooden Shield did not route an ordinary Octorok " +
             "through COLLISIONEFFECT_$10's LINKDMG/ENEMYDMG_$14 response " +
             "exactly once.");
@@ -4455,8 +4455,8 @@ public sealed partial class ValidationRoot
             shieldPlayer.InvincibilityFrames != -0x08 ||
             shieldPlayer.KnockbackFrames != 0x0b ||
             sounds is not
-                [OracleSoundEngine.SndBombLand,
-                 OracleSoundEngine.SndBombLand],
+                [SoundId.SndBombLand,
+                 SoundId.SndBombLand],
             "A raised Iron Shield did not route an ordinary Octorok through " +
             "COLLISIONEFFECT_$0f's LINKDMG/ENEMYDMG_$10 response.");
 
@@ -4478,20 +4478,20 @@ public sealed partial class ValidationRoot
             EnemyAdjacentWallResolver.Shared;
         EnemyAdjacentWallProbe startProbe = wallResolver.Probe(
             wallBumpStart,
-            0x08,
+            ObjectAngle.Right,
             point => BlocksEnemyMovement(octorokRoom, point));
         EnemyAdjacentWallProbe stopProbe = wallResolver.Probe(
             wallStop,
-            0x08,
+            ObjectAngle.Right,
             point => BlocksEnemyMovement(octorokRoom, point));
         EnemyAdjacentWallProbe sideviewEscapeProbe = wallResolver.Probe(
             wallStop,
-            0x18,
+            ObjectAngle.Left,
             point => BlocksEnemyMovement(octorokRoom, point));
         EnemyAdjacentWallProbe topDownEscapeProbe =
             wallResolver.ProbeTopDown(
                 wallStop,
-                0x18,
+                ObjectAngle.Left,
                 point => BlocksEnemyMovement(octorokRoom, point));
         FailIf(
             startProbe.XBlocked ||
@@ -4506,7 +4506,7 @@ public sealed partial class ValidationRoot
             new EnemyTerrainMovement(sideviewMover, octorokRoom);
         FailIf(
             !sideviewMovement.MoveAtAngle(
-                0x18,
+                ObjectAngle.Left,
                 octorok.Record.SpeedRaw,
                 allowHoles: false) ||
             !sideviewMover.Position.IsEqualApprox(
@@ -4523,7 +4523,7 @@ public sealed partial class ValidationRoot
         wallOctorok.SetStateForValidation(
             OctorokState.Walking,
             walkCounter: 10,
-            angle: 0x18);
+            angle: ObjectAngle.Left);
         FailIf(
             !wallOctorok.TryApplyShieldBump(
                 wallOctorok.CollisionBounds.Grow(1),
@@ -4546,9 +4546,9 @@ public sealed partial class ValidationRoot
             "The room 0:74 Octorok remained stuck after a Wooden Shield " +
             "bump instead of escaping through top-down adjacent-wall movement.");
 
-        EnemyCombatSourceDescriptor ghini = CombatSource(0x17, 0x00);
-        EnemyCombatSourceDescriptor hardhat = CombatSource(0x4d, 0x00);
-        EnemyCombatSourceDescriptor spark = CombatSource(0x13, 0x00);
+        EnemyCombatSourceDescriptor ghini = CombatSource(EnemyId.Ghini, 0x00);
+        EnemyCombatSourceDescriptor hardhat = CombatSource(EnemyId.HardhatBeetle, 0x00);
+        EnemyCombatSourceDescriptor spark = CombatSource(EnemyId.Spark, 0x00);
         FailIf(
             ghini.ShieldBumpResponse(1) is not null ||
             ghini.ShieldBumpResponse(2) is not null ||
@@ -4570,13 +4570,13 @@ public sealed partial class ValidationRoot
             attackHeld: true,
             itemHeld: false);
         RoomObjectRecord spikedSource =
-            EnemyPlacements(database, 0x14, 0x00)[0];
+            EnemyPlacements(database, EnemyId.SpikedBeetle, 0x00)[0];
         OracleRoomData spikedRoom =
             _world.LoadRoom(spikedSource.Group, spikedSource.Room);
         var spikedSounds = new List<int>();
         var spiked = new SpikedBeetleCharacter();
         spiked.Initialize(
-            database.ImportedEnemy(0x14),
+            database.ImportedEnemy(EnemyId.SpikedBeetle),
             spikedRoom,
             shieldPlayer.ShieldCollisionBounds.GetCenter(),
             new OracleRandom(),
@@ -4593,7 +4593,7 @@ public sealed partial class ValidationRoot
             spiked.KnockbackCounter != 0x08 ||
             shieldPlayer.InvincibilityFrames != -0x08 ||
             shieldPlayer.KnockbackFrames != 0x0b ||
-            spikedSounds is not [OracleSoundEngine.SndBombLand],
+            spikedSounds is not [SoundId.SndBombLand],
             "The custom Spiked Beetle shield-flip path did not apply both " +
             "halves of the Iron Shield's COLLISIONEFFECT_$0f response.");
 
@@ -4631,7 +4631,7 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         RoomObjectRecord octorokSource =
-            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0];
+            RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         OctorokRecord record = ResolveOctorok(database, octorokSource);
         EnemyCombatSourceDescriptor octorokCombat =
             database.EnemyHandlers.ResolveHandler(octorokSource)
@@ -4674,12 +4674,12 @@ public sealed partial class ValidationRoot
             waterSplash.Position != waterEnemy.Position,
             "A water-deleted enemy did not request INTERAC_SPLASH at its final position.");
         int splashSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+            _sound.PlayRequestsFor(SoundId.SndSplash);
         SplashEffect splash = _entities.Spawn<SplashEffect>(waterSplash);
         FailIf(
             splash.IsLava || splash.Position != waterEnemy.Position ||
             splash.DurationFrames != 12 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+            _sound.PlayRequestsFor(SoundId.SndSplash) !=
                 splashSounds + 1,
             "Enemy water deletion did not create the 12-update " +
             "INTERAC_SPLASH with one SND_SPLASH `$87 request.");
@@ -4711,7 +4711,7 @@ public sealed partial class ValidationRoot
             holeEnemy, octorokCombat, _sound.PlaySound);
         int initialAnimationFrame = holeEnemy.CurrentAnimationFrame;
         int fallSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole);
+            _sound.PlayRequestsFor(SoundId.SndFallInHole);
 
         holeEnemy.UpdateFrame(_player.Position);
         Vector2 pullOrigin = holeEntry + Vector2.Left;
@@ -4722,7 +4722,7 @@ public sealed partial class ValidationRoot
             !holeEnemy.Visible || holeEnemy.CollisionEnabled ||
             holeEnemy.Position != pullOrigin ||
             holeEnemy.TakeSwordHit(Vector2.Zero) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) !=
                 fallSounds,
             "A hole-touching enemy did not remain visible, disable collision, " +
             "clear combat, and defer SND_FALLINHOLE `$59 during its pull.");
@@ -4748,7 +4748,7 @@ public sealed partial class ValidationRoot
             holeEnemy.UpdateFrame(_player.Position);
         FailIf(
             holeEnemy.IsDead || !holeEnemy.IsFallingIntoHole ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) !=
                 fallSounds,
             "Enemy hole pull ended or played SND_FALLINHOLE before update 60.");
         holeEnemy.UpdateFrame(_player.Position);
@@ -4773,7 +4773,7 @@ public sealed partial class ValidationRoot
         FailIf(
             fallingEffect.Position !=
                 OracleObjectMath.ToPixelPosition(holeEnemy.Position) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) !=
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) !=
                 fallSounds + 1,
             "Completed enemy hole pull did not begin its imported falling " +
             "animation and request SND_FALLINHOLE `$59 exactly once.");
@@ -4807,7 +4807,7 @@ public sealed partial class ValidationRoot
         var database = new EnemyDatabase();
         OctorokRecord record = ResolveOctorok(
             database,
-            RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0]);
+            RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0]);
         var enemy = new OctorokCharacter();
         enemy.Initialize(
             record,
@@ -4857,9 +4857,9 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         List<RoomObjectRecord> stalfosPlacements =
-            EnemyPlacements(database, 0x31, 0x00);
+            EnemyPlacements(database, EnemyId.Stalfos, 0x00);
         List<StalfosRecord> room406 =
-            RoomEnemyPlacements(database, 4, 0x06, 0x31, 0x00)
+            RoomEnemyPlacements(database, 4, 0x06, EnemyId.Stalfos, 0x00)
                 .Select(source => ResolveStalfos(database, source))
                 .ToList();
         FailIf(
@@ -4922,7 +4922,7 @@ public sealed partial class ValidationRoot
             "The Stalfos did not move at SPEED_80 while advancing its four-update walk animation.");
 
         List<StalfosRecord> room41f =
-            RoomEnemyPlacements(database, 4, 0x1f, 0x31, 0x00)
+            RoomEnemyPlacements(database, 4, 0x1f, EnemyId.Stalfos, 0x00)
                 .Select(source => ResolveStalfos(database, source))
                 .ToList();
         OracleRoomData potRoom = _world.LoadRoom(4, 0x1f);
@@ -5024,9 +5024,9 @@ public sealed partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         List<RoomObjectRecord> zolPlacements =
-            EnemyPlacements(database, 0x34, 0x00, 0x01);
+            EnemyPlacements(database, EnemyId.Zol, 0x00, 0x01);
         List<RoomObjectRecord> gelPlacements =
-            EnemyPlacements(database, 0x43, 0x00);
+            EnemyPlacements(database, EnemyId.Gel, 0x00);
         FailIf(
             zolPlacements.Count != 61 ||
             zolPlacements.Sum(source => source.Count) != 79 ||
@@ -5038,7 +5038,7 @@ public sealed partial class ValidationRoot
             $"{gelPlacements.Count} / " +
             $"{gelPlacements.Sum(source => source.Count)}.");
         FailIf(
-            database.Gel is not { Id: 0x43, SubId: 0x00 } ||
+            database.Gel is not { Id: EnemyId.Gel, SubId: 0x00 } ||
             database.Gel.TileBase != 0 ||
             database.Gel.Palette != 2 || database.Gel.CollisionRadiusY != 2 ||
             database.Gel.CollisionRadiusX != 2 || database.Gel.DamageQuarters != 2 ||
@@ -5074,7 +5074,7 @@ public sealed partial class ValidationRoot
 
         ZolRecord greenRecord = ResolveZol(
             database,
-            RoomEnemyPlacements(database, 4, 0xcc, 0x34, 0x00)[0]);
+            RoomEnemyPlacements(database, 4, 0xcc, EnemyId.Zol, 0x00)[0]);
         FailIf(
             greenRecord.Id != 0x34 || greenRecord.Health != 2 ||
             greenRecord.DamageQuarters != 2 || greenRecord.Palette != 0,
@@ -5188,14 +5188,14 @@ public sealed partial class ValidationRoot
             red.State != ZolState.RedSplitting ||
             _entities.Entities<ZolCharacter>().Count != redRoomCount ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "A sword-hit red Zol did not enter its special split state without a normal death puff.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             red.State != ZolState.RedSplitDelay || red.Counter2 != 18 ||
             red.Visible || red.CollisionEnabled || _entities.Entities<KillEnemyPuffEffect>().Count != 1 ||
             _entities.Entities<KillEnemyPuffEffect>()[0].DurationFrames != 22 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1,
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 1,
             "Red Zol did not create the 22-update INTERAC_KILLENEMYPUFF and begin its 18-update delay.");
         for (int frame = 0; frame < 17; frame++)
             _entities.Update(1.0 / 60.0, _player);
@@ -5228,7 +5228,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GelCharacter>().Count != gelCount - 1 || _entities.Entities<EnemyDeathPuffEffect>().Count != 1 ||
             _entities.Entities<EnemyDeathPuffEffect>()[0].EnemyId != 0x43 ||
             _entities.RoomEnemyCount != splitGelRoomEnemyCount ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 2 ||
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 2 ||
             redDeathEvents != 1,
             "The one-health ENEMY_GEL did not die to one level-1 sword " +
             $"hit with a counted `$43 death puff (gels=" +
@@ -5237,7 +5237,7 @@ public sealed partial class ValidationRoot
             $"puffId={_entities.Entities<EnemyDeathPuffEffect>().FirstOrDefault()?.EnemyId}, " +
             "roomCount=" +
             $"{_entities.RoomEnemyCount}/{splitGelRoomEnemyCount}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy)}, " +
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndKillEnemy)}, " +
             $"events={redDeathEvents}).");
 
         GelCharacter secondDefeatedGel =
@@ -5360,8 +5360,8 @@ public sealed partial class ValidationRoot
             holeGel.CollisionEnabled ||
             _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
             _entities.Entities<EnemyDeathPuffEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "A Gel entering a hole did not remain visible/collisionless " +
             "and defer its fall interaction and sound during pull update 1.");
         for (int update = 2; update < 20; update++)
@@ -5372,7 +5372,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_entities.Entities<GelCharacter>().Contains(holeGel) ||
             _entities.Entities<FallingDownHoleEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0,
             "The centered Gel completed its eight-update SPEED_80 hole " +
             "pull before the update-20 center check.");
         holeGel.UpdateFrame(
@@ -5390,8 +5390,8 @@ public sealed partial class ValidationRoot
             hazardDeathEvents != 0 ||
             !afterHazardDefeats.KilledEnemies.AsSpan().SequenceEqual(
                 hazardRecentDefeats.KilledEnemies) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
             "without a recent-defeat mark or Slayer/Maple/Gasha event.");
         _entities.EnemyDefeated -= RecordHazardDeath;
@@ -5412,13 +5412,13 @@ public sealed partial class ValidationRoot
         var database = new ItemDropDatabase();
         FailIf(
             ItemDropDatabase.SelectionDataSize != 720 ||
-            database.EnemyTableRecord(0x32) != 0xae,
+            database.EnemyTableRecord(EnemyId.Keese) != 0xae,
             "ENEMY_KEESE `$32 did not retain item-drop record `$ae in the 720-byte selection data.");
         FailIf(
-            database.EnemyTableRecord(0x70) != 0xef ||
-            database.ChooseDrop(0x70, 0, 0) != ItemDropDatabase.Fairy ||
-            database.ChooseDrop(0x70, 0x3f, 0x1f) != ItemDropDatabase.Fairy ||
-            database.EnemyTableRecord(0x78) != 0xff,
+            database.EnemyTableRecord(EnemyId.GiantGhini) != 0xef ||
+            database.ChooseDrop(EnemyId.GiantGhini, 0, 0) != ItemDropDatabase.Fairy ||
+            database.ChooseDrop(EnemyId.GiantGhini, 0x3f, 0x1f) != ItemDropDatabase.Fairy ||
+            database.EnemyTableRecord(EnemyId.PumpkinHead) != 0xff,
             "Boss drop records no longer preserve Giant Ghini `$70 -> `$ef " +
             "(guaranteed fairy) and Pumpkin Head `$78 -> `$ff (no drop).");
 
@@ -5440,8 +5440,8 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             allowedProbabilityRolls != 32 || allowedRoll < 0 || deniedRoll < 0 ||
-            database.ChooseDrop(0x32, (byte)deniedRoll, 0).HasValue ||
-            database.ChooseDrop(0x32, (byte)allowedRoll, 0) != ItemDropDatabase.Heart,
+            database.ChooseDrop(EnemyId.Keese, (byte)deniedRoll, 0).HasValue ||
+            database.ChooseDrop(EnemyId.Keese, (byte)allowedRoll, 0) != ItemDropDatabase.Heart,
             "Keese probability set 5 did not preserve its original 32-of-64 drop chance.");
 
         int hearts = 0;
@@ -5478,7 +5478,7 @@ public sealed partial class ValidationRoot
             "Fairy/heart/rupee PART_ITEM_DROP visuals do not match spriteData tile bases " +
             "`$00/`$02/`$04/`$06/`$08.");
         FailIf(
-            OracleObjectMovement.Shared.Velocity(0x0a, 0x18) is not
+            OracleObjectMovement.Shared.Velocity(0x0a, ObjectAngle.Left) is not
                 { YFixed: 0, XFixed: -64 } ||
             OracleObjectMovement.Shared.Velocity(0x28, 0x04) is not
                 { YFixed: -181, XFixed: 181 },
@@ -5496,7 +5496,7 @@ public sealed partial class ValidationRoot
         for (int defeated = 0; defeated < 5; defeated++)
         {
             lifecycleManager.Spawn<EnemyDeathPuffEffect>(
-                new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x32));
+                new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.Keese));
             for (int frame = 0; frame < 20; frame++)
                 lifecycleManager.Update(1.0 / 60.0, _player);
             FailIf(
@@ -5712,7 +5712,7 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         _player.ApplyDamage(4);
         _statusBar.SynchronizeHealth();
-        int heartSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart);
+        int heartSoundRequests = _sound.PlayRequestsFor(SoundId.SndGainHeart);
         int displayedHealthBefore = _hud.HealthQuarters;
         var heartDrop = new ItemDropEffect();
         heartDrop.Initialize(
@@ -5725,7 +5725,7 @@ public sealed partial class ValidationRoot
             !heartDrop.Collected || !heartDrop.Finished ||
             _player.HealthQuarters != _player.MaxHealthQuarters ||
             _hud.HealthQuarters != displayedHealthBefore ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests,
+            _sound.PlayRequestsFor(SoundId.SndGainHeart) != heartSoundRequests,
             "Collecting ITEM_DROP_HEART did not restore live health immediately while " +
             "leaving wDisplayedHearts and SND_GAINHEART pending.");
         heartDrop.Free();
@@ -5746,12 +5746,12 @@ public sealed partial class ValidationRoot
             healthDisplayUpdates.Count != 4 ||
             healthDisplayUpdates.Skip(1).Zip(healthDisplayUpdates, (next, prior) => next - prior)
                 .Any(interval => interval != 4) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndGainHeart) != heartSoundRequests + 1,
             "ITEM_DROP_HEART did not fill one displayed quarter every four updates and " +
             "request SND_GAINHEART `$57 on the completed-heart boundary.");
 
         _statusBar.SynchronizeHealth();
-        heartSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart);
+        heartSoundRequests = _sound.PlayRequestsFor(SoundId.SndGainHeart);
         var fullHealthDrop = new ItemDropEffect();
         fullHealthDrop.Initialize(
             ItemDropDatabase.Heart, dropPosition, _currentRoom, heartVisual);
@@ -5762,7 +5762,7 @@ public sealed partial class ValidationRoot
         fullHealthDrop.UpdateFrame(_player, 37);
         FailIf(
             !fullHealthDrop.Collected || _player.HealthQuarters != _player.MaxHealthQuarters ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGainHeart) != heartSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndGainHeart) != heartSoundRequests + 1,
             "ITEM_DROP_HEART collected at full health did not request SND_GAINHEART `$57 immediately.");
         fullHealthDrop.Free();
 
@@ -5848,18 +5848,18 @@ public sealed partial class ValidationRoot
         var treasures = new TreasureDatabase();
         var unowned = new InventoryState(treasures);
         var owned = new InventoryState(treasures);
-        owned.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        owned.GiveTreasure(TreasureId.Bombs, 0);
         for (int seed = 0; seed < 5; seed++)
         {
             owned.GiveTreasure(
-                TreasureDatabase.TreasureEmberSeeds + seed, 0);
+                TreasureId.EmberSeeds + seed, 0);
         }
 
         FailIf(
-            database.EnemyTableRecord(0x0a) != 0x86 ||
-            database.EnemyTableRecord(0x0c) != 0xac ||
-            database.EnemyTableRecord(0x10) != 0x81 ||
-            database.EnemyTableRecord(0x41) != 0x6d,
+            database.EnemyTableRecord(EnemyId.BoomerangMoblin) != 0x86 ||
+            database.EnemyTableRecord(EnemyId.ArrowMoblin) != 0xac ||
+            database.EnemyTableRecord(EnemyId.Rope) != 0x81 ||
+            database.EnemyTableRecord(EnemyId.Crow) != 0x6d,
             "Inventory-dependent source records changed: Boomerang Moblin `$0a/`$86, " +
             "Arrow Moblin `$0c/`$ac, Rope `$10/`$81, or Crow `$41/`$6d.");
 
@@ -5887,7 +5887,7 @@ public sealed partial class ValidationRoot
 
         var saveOnly = OracleSaveData.CreateStandardGame();
         var saveOnlyInventory = new InventoryState(treasures, saveOnly);
-        saveOnlyInventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        saveOnlyInventory.GiveTreasure(TreasureId.Bombs, 0);
         FailIf(
             !ItemDropDatabase.IsAvailable(
             ItemDropDatabase.Bombs, inventory: null, saveData: saveOnly),
@@ -5904,9 +5904,9 @@ public sealed partial class ValidationRoot
         int unavailableCalls = unavailableRandom.Calls;
         int availableCalls = availableRandom.Calls;
         FailIf(
-            database.DecideDrop(0x0a, unavailableRandom, unowned).HasValue ||
+            database.DecideDrop(EnemyId.BoomerangMoblin, unavailableRandom, unowned).HasValue ||
             unavailableRandom.Calls != unavailableCalls + 2 ||
-            database.DecideDrop(0x0a, availableRandom, owned) !=
+            database.DecideDrop(EnemyId.BoomerangMoblin, availableRandom, owned) !=
                 ItemDropDatabase.Bombs ||
             availableRandom.Calls != availableCalls + 2,
             "Boomerang Moblin `$0a/set `$06 did not consume probability and " +
@@ -5948,7 +5948,7 @@ public sealed partial class ValidationRoot
 
         random.RestoreState(targetState);
         manager.Spawn<EnemyDeathPuffEffect>(
-            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
+            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.BoomerangMoblin));
         for (int update = 0; update < 20; update++)
             manager.Update(1.0 / 60.0, _player);
         FailIf(
@@ -5957,10 +5957,10 @@ public sealed partial class ValidationRoot
             "The common death puff did not suppress Boomerang Moblin `$0a's " +
             "selected Bomb after exactly two RNG calls while TREASURE_BOMBS was unowned.");
 
-        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        inventory.GiveTreasure(TreasureId.Bombs, 0);
         random.RestoreState(targetState);
         manager.Spawn<EnemyDeathPuffEffect>(
-            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: 0x0a));
+            new EnemyDeathPuffSpawn(new Vector2(24, 24), EnemyId: EnemyId.BoomerangMoblin));
         for (int update = 0; update < 20; update++)
             manager.Update(1.0 / 60.0, _player);
         FailIf(
@@ -5991,12 +5991,12 @@ public sealed partial class ValidationRoot
             int maxHealth = 0x0c)
         {
             OracleSaveData save = OracleSaveData.CreateStandardGame();
-            save.WriteWramByte(0xc6aa, (byte)health);
-            save.WriteWramByte(0xc6ab, (byte)maxHealth);
+            save.WriteWramByte(WramAddress.wLinkHealth, (byte)health);
+            save.WriteWramByte(WramAddress.wLinkMaxHealth, (byte)maxHealth);
             if (ring.HasValue)
             {
-                save.WriteWramByte(0xc6cc, 1);
-                save.WriteWramByte(0xc6c6, (byte)ring.Value);
+                save.WriteWramByte(WramAddress.wRingBoxLevel, 1);
+                save.WriteWramByte(WramAddress.wRingBoxContents, (byte)ring.Value);
             }
             var inventory = new InventoryState(treasures, save);
             FailIf(
@@ -6026,13 +6026,13 @@ public sealed partial class ValidationRoot
         }
 
         InventoryState bombs = CreateInventory();
-        bombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        bombs.GiveTreasure(TreasureId.Bombs, 0);
         Collect(bombs, ItemDropDatabase.Bombs);
         InventoryState goldBombs = CreateInventory(RingId.GoldJoy);
-        goldBombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0);
+        goldBombs.GiveTreasure(TreasureId.Bombs, 0);
         Collect(goldBombs, ItemDropDatabase.Bombs);
         InventoryState fullBombs = CreateInventory();
-        fullBombs.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        fullBombs.GiveTreasure(TreasureId.Bombs, 0x10);
         Collect(fullBombs, ItemDropDatabase.Bombs);
         FailIf(
             bombs.Bombs != 0x04 || goldBombs.Bombs != 0x08 ||
@@ -6040,7 +6040,7 @@ public sealed partial class ValidationRoot
             "ITEM_DROP_BOMBS did not grant 4/Gold-Joy 8 Bombs or retain " +
             "the source capacity cap while remaining collectible.");
 
-        int mysteryTreasure = TreasureDatabase.TreasureEmberSeeds + 4;
+        int mysteryTreasure = TreasureId.EmberSeeds + 4;
         InventoryState seeds = CreateInventory();
         seeds.GiveTreasure(mysteryTreasure, 0);
         Collect(seeds, ItemDropDatabase.MysterySeeds);
@@ -6078,7 +6078,7 @@ public sealed partial class ValidationRoot
         _statusBar.SynchronizeRupees();
         int rupeesBefore = _player.Rupees;
         int displayedBefore = _hud.Rupees;
-        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
+        int soundRequests = _sound.PlayRequestsFor(SoundId.SndRupee);
         _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
         var drop = new ItemDropEffect();
         var rupeeRandom = new OracleRandom();
@@ -6093,7 +6093,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !drop.Collected || _player.Rupees != Mathf.Min(999, rupeesBefore + amount) ||
             _hud.Rupees != displayedBefore ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests,
+            _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests,
             $"Collecting PART_ITEM_DROP ${subId:x2} did not update the wallet immediately " +
             "while leaving wDisplayedRupees and SND_RUPEE pending for updateStatusBar_body.");
         for (int update = 1; update <= amount; update++)
@@ -6101,7 +6101,7 @@ public sealed partial class ValidationRoot
             _statusBar.Update(1.0 / 60.0);
             FailIf(
                 _hud.Rupees != displayedBefore + update ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update,
+                _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + update,
                 $"PART_ITEM_DROP ${subId:x2} rupee display update {update}/{amount} did not " +
                 "advance by one and request SND_RUPEE `$61 exactly once.");
         }
@@ -6112,14 +6112,14 @@ public sealed partial class ValidationRoot
     {
         _statusBar.SynchronizeRupees();
         int displayedBefore = _hud.Rupees;
-        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
+        int soundRequests = _sound.PlayRequestsFor(SoundId.SndRupee);
         _inventory.AddRupees(-3);
         for (int update = 1; update <= 3; update++)
         {
             _statusBar.Update(1.0 / 60.0);
             FailIf(
                 _hud.Rupees != displayedBefore - update ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + update,
+                _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + update,
                 $"Rupee display countdown update {update}/3 did not subtract one and " +
                 "request SND_RUPEE `$61 exactly once.");
         }
@@ -6134,7 +6134,7 @@ public sealed partial class ValidationRoot
         int restoreRupees = _player.Rupees;
         _inventory.AddRupees(999 - restoreRupees);
         _statusBar.SynchronizeRupees();
-        int soundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRupee);
+        int soundRequests = _sound.PlayRequestsFor(SoundId.SndRupee);
 
         _player.WarpTo(position + Vector2.Right * 40.0f, recordSafe: false);
         var drop = new ItemDropEffect();
@@ -6146,11 +6146,11 @@ public sealed partial class ValidationRoot
         _statusBar.Update(1.0 / 60.0);
         FailIf(
             !drop.Collected || _player.Rupees != 999 || _hud.Rupees != 999 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndRupee) != soundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + 1,
             "A PART_ITEM_DROP rupee collected at the `$0999 cap did not retain the cap " +
             "and request the mode `$0e overflow SND_RUPEE `$61 exactly once; got " +
             $"collected={drop.Collected}, wallet={_player.Rupees}, displayed={_hud.Rupees}, " +
-            $"sound requests={_sound.PlayRequestsFor(OracleSoundEngine.SndRupee) - soundRequests}.");
+            $"sound requests={_sound.PlayRequestsFor(SoundId.SndRupee) - soundRequests}.");
         drop.Free();
 
         _inventory.AddRupees(restoreRupees - _player.Rupees);
@@ -6170,7 +6170,7 @@ public sealed partial class ValidationRoot
             "Canonical room 0:b8 position `$00 is not water for PART_ITEM_DROP validation.");
 
         _player.WarpTo(safePosition, recordSafe: false);
-        int splashSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+        int splashSoundRequests = _sound.PlayRequestsFor(SoundId.SndSplash);
         SplashEffect? priorSplash = _terrain.ActiveSplash;
         ItemDropEffect drop = _entities.Spawn<ItemDropEffect>(
             new ItemDropSpawn(ItemDropDatabase.OneRupee, waterCenter));
@@ -6189,7 +6189,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<ItemDropEffect>().Count != 0 || splash is null ||
             ReferenceEquals(splash, priorSplash) || splash.IsLava ||
             splash.Position != waterCenter || splash.DurationFrames != 12 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndSplash) != splashSoundRequests + 1,
             $"PART_ITEM_DROP did not become INTERAC_SPLASH with SND_SPLASH `$87 on " +
             $"ground-height update 24 in room {group:x1}:{room:x2}.");
     }
@@ -6434,7 +6434,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(holeSafe);
         Vector2 offCenterHoleEntry = holeCenter + new Vector2(3, -2);
         int beforeHoleHealth = _player.HealthQuarters;
-        int fallSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall);
+        int fallSoundRequests = _sound.PlayRequestsFor(SoundId.SndLinkFall);
         _player.WarpTo(offCenterHoleEntry, recordSafe: false);
         Vector2 expectedHoleCenter = GetActiveTerrain(_player.Position).TileCenter;
         _player._PhysicsProcess(1.0 / 60.0);
@@ -6445,13 +6445,13 @@ public sealed partial class ValidationRoot
             _player.HealthQuarters != beforeHoleHealth,
             "Hole damage was applied before the pull/fall animation finished.");
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests,
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) != fallSoundRequests,
             "Hole pull-in played SND_LINK_FALL $65 before the fall began.");
 
         AdvanceHolePullUntilFall(expectedHoleCenter);
         FailIf(
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLinkFall ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndLinkFall ||
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) != fallSoundRequests + 1,
             "The fall-in-hole animation did not start exactly one SND_LINK_FALL $65 request.");
         AdvanceHoleFallUntilRespawn(holeSafe);
         FailIf(
@@ -6461,7 +6461,7 @@ public sealed partial class ValidationRoot
             _player.HealthQuarters != beforeHoleHealth - 2,
             "Hole terrain did not apply half-heart damage after respawn.");
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) != fallSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) != fallSoundRequests + 1,
             "Hole respawn replayed SND_LINK_FALL $65.");
 
         ValidateLargeRoomHoleCameraRecovery();
@@ -6688,8 +6688,8 @@ public sealed partial class ValidationRoot
         Vector2 hazardPosition = _player.Position;
         int healthBeforeDrowning = _player.HealthQuarters;
         int worldChildCount = _scene.WorldRoot.GetChildCount();
-        int damageSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
-        int splashSoundRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+        int damageSoundRequests = _sound.PlayRequestsFor(SoundId.SndDamageLink);
+        int splashSoundRequests = _sound.PlayRequestsFor(SoundId.SndSplash);
 
         _player._PhysicsProcess(1.0 / 60.0);
         SplashEffect? splash = _terrain.ActiveSplash;
@@ -6722,9 +6722,9 @@ public sealed partial class ValidationRoot
             !_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0,
             $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
         FailIf(
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndSplash ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != splashSoundRequests + 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndSplash ||
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndSplash) != splashSoundRequests + 1,
             $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
             "the splash interaction's SND_SPLASH `$87 exactly once.");
         FailIf(
@@ -6776,7 +6776,7 @@ public sealed partial class ValidationRoot
             $"{terrainName} did not apply one half-heart and the source " +
             "$3c damage-blink counter after Link reappeared.");
         FailIf(
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) != damageSoundRequests + 1,
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
             $"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
     }
 
@@ -6791,17 +6791,17 @@ public sealed partial class ValidationRoot
         LedgeJumpDirectionRecord left = ledges.Direction(Vector2I.Left);
         FailIf(
             up != new LedgeJumpDirectionRecord(
-                0, 0x00, 0xc0, new Vector2I(-3, -4), new Vector2I(2, -4)) ||
+                ObjectDirection.Up, ObjectAngle.Up, 0xc0, new Vector2I(-3, -4), new Vector2I(2, -4)) ||
             right != new LedgeJumpDirectionRecord(
-                1, 0x08, 0x03, new Vector2I(4, 0), new Vector2I(4, 5)) ||
+                ObjectDirection.Right, ObjectAngle.Right, 0x03, new Vector2I(4, 0), new Vector2I(4, 5)) ||
             down != new LedgeJumpDirectionRecord(
-                2, 0x10, 0x30, new Vector2I(-3, 8), new Vector2I(2, 8)) ||
+                ObjectDirection.Down, ObjectAngle.Down, 0x30, new Vector2I(-3, 8), new Vector2I(2, 8)) ||
             left != new LedgeJumpDirectionRecord(
-                3, 0x18, 0x0c, new Vector2I(-5, 0), new Vector2I(-5, 5)) ||
-            !ledges.IsCliffTile(0, 0x05, 0x10) ||
-            ledges.IsCliffTile(3, 0x05, 0x10) ||
-            ledges.IsCliffTile(0, 0x05, 0x08) ||
-            !ledges.IsCliffTile(2, 0xc4, 0x08) ||
+                ObjectDirection.Left, ObjectAngle.Left, 0x0c, new Vector2I(-5, 0), new Vector2I(-5, 5)) ||
+            !ledges.IsCliffTile(0, 0x05, ObjectAngle.Down) ||
+            ledges.IsCliffTile(3, 0x05, ObjectAngle.Down) ||
+            ledges.IsCliffTile(0, 0x05, ObjectAngle.Right) ||
+            !ledges.IsCliffTile(2, 0xc4, ObjectAngle.Right) ||
             !ledges.IsLandableSolidTile(1, 0x0e) ||
             ledges.IsLandableSolidTile(0, 0x0e) ||
             ledges.SpeedRaw(1) != 0x14 ||
@@ -6811,8 +6811,8 @@ public sealed partial class ValidationRoot
             ledges.InitialSpeedZ != -0x1c0 ||
             ledges.TransitionSpeedZ != -0x100 ||
             ledges.Gravity != 0x20 ||
-            ledges.JumpSound != OracleSoundEngine.SndJump ||
-            ledges.LandSound != OracleSoundEngine.SndLand ||
+            ledges.JumpSound != SoundId.SndJump ||
+            ledges.LandSound != SoundId.SndLand ||
             !ledges.AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]),
             "Imported ledge collision, probe, speed, physics, sound, or animation data changed.");
 
@@ -6831,8 +6831,8 @@ public sealed partial class ValidationRoot
             new Vector2(1, 1)),
             "A diagonal movement attempt incorrectly started a ledge jump.");
 
-        int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
-        int landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
+        int jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
+        int landSounds = _sound.PlayRequestsFor(SoundId.SndLand);
         FailIf(
             !TryStartLedgeHop(_player, _player.Position, Vector2.Down),
             "Room 0:11's two $64 south-cliff probes did not start a ledge jump.");
@@ -6845,8 +6845,8 @@ public sealed partial class ValidationRoot
             _player.LedgeAnimationPhase != 0 ||
             _player.IsGroundedForFloorButton ||
             _player.AcceptsRoomEntityContact ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndLand) != landSounds,
             "Room 0:11 did not initialize LINK_STATE_JUMPING_DOWN_LEDGE exactly.");
 
         int healthBeforeContact = _player.HealthQuarters;
@@ -6891,7 +6891,7 @@ public sealed partial class ValidationRoot
             !_player.PrecisePosition.IsEqualApprox(new Vector2(24, 80.5f)) ||
             _player.Position != new Vector2(24, 80) ||
             _player.LedgeZ != -2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            _sound.PlayRequestsFor(SoundId.SndLand) != landSounds,
             "The ledge jump landed before the original 29th airborne update.");
         _player._PhysicsProcess(1.0 / 60.0);
         Vector2 ordinaryLanding = new(24, 81.375f);
@@ -6900,8 +6900,8 @@ public sealed partial class ValidationRoot
             !_player.PrecisePosition.IsEqualApprox(ordinaryLanding) ||
             _player.Position != new Vector2(24, 81) ||
             _player.LocalRespawnPosition != ledgeStart ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLand,
+            _sound.PlayRequestsFor(SoundId.SndLand) != landSounds + 1 ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndLand,
             "The in-room ledge jump did not land on update 29 with SND_LAND $a3.");
 
         _player.WarpTo(ledgeStart);
@@ -6947,8 +6947,8 @@ public sealed partial class ValidationRoot
         Vector2 transitionStart = new(80, 120);
         _player.WarpTo(transitionStart);
         _player.Face(Vector2I.Down);
-        jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
-        landSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndLand);
+        jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
+        landSounds = _sound.PlayRequestsFor(SoundId.SndLand);
         FailIf(
             !TryStartLedgeHop(_player, _player.Position, Vector2.Down) ||
             _player.LedgeJumpPhase != LedgeJumpState.AirborneBeforeScroll ||
@@ -6958,7 +6958,7 @@ public sealed partial class ValidationRoot
             _player.LedgeZ != -1 ||
             _player.PrecisePosition != new Vector2(80, 121) ||
             _player.LedgeShadowDrawn ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1,
+            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 1,
             "Room 0:00 did not initialize the source's down-cliff screen-transition branch.");
 
         _player._PhysicsProcess(17.0 / 60.0);
@@ -7019,15 +7019,15 @@ public sealed partial class ValidationRoot
             _player.LedgeSpeedZ != 0x220 ||
             _player.LedgeAnimationPhase != 3 ||
             _player.LocalRespawnPosition != transitionStart ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds,
+            _sound.PlayRequestsFor(SoundId.SndLand) != landSounds,
             "The post-scroll ledge fall landed before its ninth retained-speed update.");
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
             _player.LedgeJumpPhase != LedgeJumpState.None ||
             _player.PrecisePosition != new Vector2(80, 22) ||
             _player.LocalRespawnPosition != new Vector2(80, 22) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != landSounds + 1 ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndLand,
+            _sound.PlayRequestsFor(SoundId.SndLand) != landSounds + 1 ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndLand,
             "The post-scroll ledge fall did not land, update local respawn, and play SND_LAND.");
         RestoreOracleRandomForValidation(randomSnapshot);
     }

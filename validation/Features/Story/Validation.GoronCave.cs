@@ -87,9 +87,9 @@ public sealed partial class ValidationRoot
     private string RunGoronEntry(int progress,bool batched)
     {
         _player.ApplicationUpdateOwned = true;
-        _saveData.SetGlobalFlag(0x2f,progress!=0);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedGoronElder,progress!=0);
         _saveData.SetRoomFlag(5,0xc3,0x40,progress!=0);
-        if(progress==2) _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
+        if(progress==2) _inventory.GiveTreasure(TreasureId.Essence,4);
         var observations=new List<string>();
         for(int repeat=0;repeat<2;repeat++)
         {
@@ -129,7 +129,7 @@ public sealed partial class ValidationRoot
                 active.Any(a=>a.Actor.Record.Id==0x66&&
                     (progress==2?a.Actor.Record is not {SubId:5,Var03:3 or 4}:a.Actor.Record is {SubId:5,Var03:3 or 4})),
                 $"Room $5:c3 exposed the wrong Goron population during entry, progress {progress}.");
-            FailIf(active.Where(a=>a.Actor.Record is {Id:0x66,SubId:5}).Any(a=>
+            FailIf(active.Where(a=>a.Actor.Record is {Id:InteractionId.Goron,SubId:5}).Any(a=>
                 a.Actor.CurrentScriptAnimationSource!=cave.Database.Animation(0x66,4)),
                 "Room $5:c3 exposed standing sprites before the initial Goron nap animation $04.");
             string frozen=Snapshot();
@@ -188,15 +188,15 @@ public sealed partial class ValidationRoot
         _dialogue.Close(); Step(10);
         FailIf(!cave.BlocksGameplay,"Pacing Goron failed to retain input during its wait 30.");
         cave.Cancel(); cave.Cancel();
-        FailIf(_player.CutsceneControlled||cave.HasState||_saveData.HasGlobalFlag(0x2f),
+        FailIf(_player.CutsceneControlled||cave.HasState||_saveData.HasGlobalFlag(GlobalFlag.SavedGoronElder),
             "Cancellation during the Goron wait committed rescue or retained input.");
-        _saveData.SetGlobalFlag(0x2f);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedGoronElder);
         _saveData.SetRoomFlag(5,0xc3,0x40);
         LoadValidationRoom(5,0xc3); Step(3);
         var elder=cave.Actors.Single(a=>a.Actor.Record.Id==0x8b);
         FailIf(!elder.Actor.Active||_dialogue.IsOpen||cave.BlocksGameplay,
             "Saved elder re-entry replayed the Crown Key cutscene.");
-        _saveData.SetGlobalFlag(0x14);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
         LoadValidationRoom(5,0xc3); Step(3);
         FailIf(cave.Actors.Any(a=>a.Actor.Record.Id==0x8b&&a.Actor.Active),
             "Goron elder ignored GLOBALFLAG_FINISHEDGAME suppression.");
@@ -213,8 +213,8 @@ public sealed partial class ValidationRoot
     private string RunGoronCave(bool batched)
     {
         var observations=new List<string>();
-        _saveData.SetGlobalFlag(0x2f, false);
-        _saveData.SetGlobalFlag(0x14, false);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedGoronElder, false);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, false);
         _saveData.SetRoomFlag(5,0xc3,0x40,false);
         LoadValidationRoom(5,0xc3);
         var cave=_roomEvents.Get<GoronCaveEvent>();
@@ -279,7 +279,7 @@ public sealed partial class ValidationRoot
             FailIf(cave.BlocksGameplay||_player.CutsceneControlled,
                 "Goron $66:$06 conversation retained input after wait 30.");
         }
-        _inventory.GiveTreasure(0x49,0);
+        _inventory.GiveTreasure(TreasureId.BombFlower,0);
         _player.WarpTo(new Vector2(0x78,0x98));
         StepGameplayUpdates(40,Vector2.Left,["move_left"],["move_left"],batched);
         for(int i=0;i<300&&!_dialogue.IsOpen;i++) Step(1);
@@ -295,9 +295,9 @@ public sealed partial class ValidationRoot
         for(int i=0;i<1500&&!_dialogue.IsOpen;i++) Step(1);
         FailIf(!_dialogue.IsOpen,
             $"Room 5:c3 rescue did not reach elder dialogue; worker command {right.CommandIndex}.");
-        for(int i=0;i<1000&&!_saveData.HasGlobalFlag(0x2f);i++)
+        for(int i=0;i<1000&&!_saveData.HasGlobalFlag(GlobalFlag.SavedGoronElder);i++)
         { if(_dialogue.IsOpen) _dialogue.Close(); Step(1); }
-        FailIf(!_saveData.HasGlobalFlag(0x2f)||!_inventory.HasTreasure(0x43)||!_saveData.HasRoomFlag(5,0xc3,0x40),
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.SavedGoronElder)||!_inventory.HasTreasure(TreasureId.CrownKey)||!_saveData.HasRoomFlag(5,0xc3,0x40),
             "Goron elder must award Crown Key $43 and persist global $2f / room $40.");
         Observe();
         if(_dialogue.IsOpen) _dialogue.Close(); Step(40);
@@ -311,7 +311,7 @@ public sealed partial class ValidationRoot
             FailIf(_rooms.CurrentRoom.GetMetatile(new Vector2(x*16+8,y*16+8))!=(((x+y)&1)==0?0xa2:0xa1),
                 $"Room 5:c3 persisted barrier tile ${y*16+x:x2} differs from source.");
         Observe();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
+        _inventory.GiveTreasure(TreasureId.Essence,4);
         LoadValidationRoom(5,0xc3); Step(4);
         FailIf(cave.Actors.Count(a=>a.Actor.Active)!=2 || cave.Actors.Any(a=>a.Actor.Active &&
             a.Actor.Record is not {SubId:5,Var03:3 or 4}),

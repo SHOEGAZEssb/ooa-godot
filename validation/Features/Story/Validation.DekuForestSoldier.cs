@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
                 entry.Phase == phase &&
                 entry.Counter == counter;
         }
-        int clinks = _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+        int clinks = _sound.PlayRequestsFor(SoundId.SndClink);
         LoadValidationRoom(group, room);
 
         NpcCharacter soldier = _entities.Entities<NpcCharacter>().Single(npc =>
@@ -59,12 +59,12 @@ public sealed partial class ValidationRoot
                 DestinationPosition: 0x34,
                 DestinationParameter: 0,
                 SourceTransition: 0,
-                DestinationTransition: 3,
+                DestinationTransition: WarpDestinationTransition.EnterScreen,
                 TextId: 0x590b
             } ||
             soldier.Record is not
             {
-                Id: 0x40,
+                Id: InteractionId.Soldier,
                 SubId: 0x0a,
                 Y: 0x68,
                 X: 0xf0,
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
             exclamation is null ||
             exclamation.Record is not
             {
-                Id: 0x9f,
+                Id: InteractionId.ExclamationMark,
                 SubId: 0,
                 Y: 0x5b,
                 X: 0x27,
@@ -170,7 +170,7 @@ public sealed partial class ValidationRoot
             exclamation.Position != new Vector2(0x27, 0x5b) ||
             exclamation.AnimationRate != 0.0f ||
             soldier.CurrentScriptAnimationSource != record.Animation0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != clinks + 1,
+            _sound.PlayRequestsFor(SoundId.SndClink) != clinks + 1,
             "The soldier reaction did not select animation $00, create " +
             "INTERAC_EXCLAMATION_MARK at offset -13/0, play SND_CLINK, " +
             "and install wait 60.");

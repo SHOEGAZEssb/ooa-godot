@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
                         animationTicks[index] += calls;
                         FailIf(p.AnimationFrame != (animationTicks[index] / 4 & 1) ||
                             AnimationRemaining(p) != 4 - animationTicks[index] % 4 ||
-                            p.CollisionMode != (old.ZHigh == 0 ? 0x2e : 0x58),
+                            p.CollisionMode != (old.ZHigh == 0 ? EnemyCollisionMode.PeahatVulnerable : EnemyCollisionMode.Peahat),
                             $"Room 4:7b Peahat {index} lost source animation/mode timing at update {tick}, state {old.State}->{p.State}, counter {old.Counter}->{p.Counter}, frame {globalFrame}, animation {p.AnimationFrame}/{AnimationRemaining(p)}, calls {animationTicks[index]}, mode {p.CollisionMode:x2}.");
                     }
                 }
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             if (room.GetTerrainInfo(new Vector2(x,y)).Hazard != HazardType.None) hazard = new Vector2(x,y);
         FailIf(hazard is null, "Peahat hazard fixture needs a source room hazard.");
         var overHazard = new PeahatCharacter();
-        overHazard.Initialize(new EnemyDatabase().ImportedEnemy(0x3e), room, hazard!.Value, new OracleRandom());
+        overHazard.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.Peahat), room, hazard!.Value, new OracleRandom());
         for (int i = 0; i < 60; i++) overHazard.UpdateFrame(i);
         FailIf(overHazard.IsDead || overHazard.DiedInHazard || overHazard.State != PeahatState.Accelerating ||
             overHazard.Counter != 69 || overHazard.ZHigh != 0, "Peahat incorrectly entered a hazard handler while grounded.");

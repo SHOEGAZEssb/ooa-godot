@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             record.Room,
             new Vector2(0x30, 0x30),
-            direction: 2);
+            direction: ObjectDirection.Down);
         LoadValidationRoom(record.Group, record.Room);
         FailIf(
             rickyEvent.HasState || rickyEvent.RickyActor is not null ||

@@ -88,7 +88,7 @@ internal sealed partial class FireballShooterRoomEntity : TransitionOffsetNode2D
                 if (LinkIsNear(frame.Player.Position)) return;
                 Counter1 = (Counter1 - 1) & 0xff;
                 if (Counter1 != 0) return;
-                if (_partSlotAvailable()) spawns.Add(new ZoraFireSpawn(Position, 0x31));
+                if (_partSlotAvailable()) spawns.Add(new ZoraFireSpawn(Position, PartId.GopongaProjectile));
                 Counter1 = _data.CooldownBase + (_random.Next().Value & _data.CooldownMask);
                 return;
             default: throw new InvalidOperationException($"ENEMY_FIREBALL_SHOOTER $50:${SubId:x2}: state ${State:x2}.");

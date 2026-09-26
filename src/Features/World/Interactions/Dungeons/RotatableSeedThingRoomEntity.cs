@@ -54,7 +54,7 @@ internal sealed partial class RotatableSeedThingRoomEntity :
         Func<long> animationTick,
         Func<RotatableSeedThingRoomEntity,Vector2,int,bool> createChild)
     {
-        if (record.Id != 0x33 || record.SubId is not (0x0a or 0x08 or 0x88) ||
+        if (record.Id != InteractionId.SmogBoss || record.SubId is not (0x0a or 0x08 or 0x88) ||
             (record.SubId & 3) == 2 && record.Parameter == 0)
         {
             throw new ArgumentOutOfRangeException(nameof(record));

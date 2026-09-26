@@ -60,7 +60,7 @@ internal sealed class TokayCookEvent :
             Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, (byte)flag);
 
     public override bool TradeItemEquals(int value) =>
-        Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        Context.Inventory.HasTreasure(TreasureId.TradeItem) &&
         Context.Inventory.TradeItem == value;
 
     public override bool TextOptionEquals(int value) =>
@@ -91,7 +91,7 @@ internal sealed class TokayCookEvent :
 
     public override void GiveItem(int treasureId, int parameter)
     {
-        if (treasureId != 0x41 || parameter != 0x03)
+        if (treasureId != TreasureId.TradeItem || parameter != 0x03)
             throw UnsupportedCommand($"give treasure ${treasureId:x2}:${parameter:x2}");
         _reward = Context.GrantScriptTreasure(
             Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id,

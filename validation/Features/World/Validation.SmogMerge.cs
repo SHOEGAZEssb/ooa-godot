@@ -19,7 +19,7 @@ public partial class ValidationRoot
                 new((x & 255) + 0.75f,(y & 255) + 0.25f),new(0.125f,0.875f));
             FailIf(actual != expected, $"Smog merge byte boundaries changed at wall={wall}, X={x}, Y={y}.");
         }
-        var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.Smog,0);
         SmogCharacter Cloud(Vector2 position,int subid = 2)
         {
             var actor = new SmogCharacter();
@@ -95,7 +95,7 @@ public partial class ValidationRoot
                     i < 2 ? new(72 + i * 2,72 + i * 2) : new(120,40 + i * 24),2,2,1));
             Step();
             for (int i = 0; i < 3; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
             var puff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
                 _entities.InteractionSlot(entity.Node) == 4);
             var effect = (PuzzlePuffEffect)puff.Node;
@@ -112,7 +112,7 @@ public partial class ValidationRoot
             Step();
             FailIf(!effect.Finished, "The aliased puff must still delete on update20.");
             for (int i = 0; i < 3; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),SoundId.MusNone));
             var replacementPuff = _entities.EntityAdapters<PuzzlePuffRoomEntity>().Single(entity =>
                 _entities.InteractionSlot(entity.Node) == 4);
             FailIf(replacementPuff.Counter2Alias != 0,

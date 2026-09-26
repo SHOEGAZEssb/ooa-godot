@@ -68,7 +68,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         {
             _initialized = true;
             Visible = true;
-            if (_sound != 0)
+            if (_sound != SoundId.MusNone)
                 _playSound(_sound);
             return;
         }

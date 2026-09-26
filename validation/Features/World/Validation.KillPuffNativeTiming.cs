@@ -10,9 +10,9 @@ public partial class ValidationRoot
         foreach (string mode in new[] { "normal", "text", "freeze", "scroll" })
         {
             LoadValidationRoom(0, 0x60); _entities.Clear(); _player.WarpTo(new(24,24));
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndKillEnemy);
             var puff = _entities.Spawn<KillEnemyPuffEffect>(new KillEnemyPuffSpawn(new(24,24)));
-            FailIf(puff.Visible || puff.Initialized || _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != sounds,
+            FailIf(puff.Visible || puff.Initialized || _sound.PlayRequestsFor(SoundId.SndKillEnemy) != sounds,
                 "INTERAC$08 must wait for state0 before showing or playing its sound.");
             var freeze = _entities.NonInteractionObjectsDisabledSource;
             var text = _entities.TextActiveSource;
@@ -24,7 +24,7 @@ public partial class ValidationRoot
                 if (mode == "scroll") _entities.BeginScreenTransition(4, _currentRoom, new(240,0), _player);
                 Step();
                 FailIf(!puff.Visible || !puff.Initialized || puff.AnimationFrame != 0 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != sounds + 1,
+                    _sound.PlayRequestsFor(SoundId.SndKillEnemy) != sounds + 1,
                     "Kill-puff state0 must show frame0 and play its sound once.");
                 Step();
                 FailIf(puff.AnimationFrame != 0, "Kill-puff frame0 must last two animation updates.");
@@ -34,7 +34,7 @@ public partial class ValidationRoot
                 FailIf(puff.Finished || puff.AnimationFrame != 6 || puff.ElapsedFrames != 21,
                     "Kill-puff must retain its terminal frame on update21.");
                 Step();
-                FailIf(!puff.Finished || _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != sounds + 1,
+                FailIf(!puff.Finished || _sound.PlayRequestsFor(SoundId.SndKillEnemy) != sounds + 1,
                     "Kill-puff must delete on update22 without replaying its initialization sound.");
             }
             finally

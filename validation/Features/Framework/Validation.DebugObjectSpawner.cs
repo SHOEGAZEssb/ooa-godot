@@ -119,14 +119,14 @@ public sealed partial class ValidationRoot
 
         foreach (Vector2 invalid in new[] { new Vector2(240, 80), new Vector2(80, 176),
             new Vector2(-1, 0), new Vector2(float.NaN, 0), new Vector2(1.5f, 8) })
-            FailIf(_entities.TrySpawnDebugEnemy(0x32, 0, invalid, out _),
+            FailIf(_entities.TrySpawnDebugEnemy(EnemyId.Keese, 0, invalid, out _),
                 "Debug spawn accepted padding, an out-of-room position, or fractional/invalid coordinates.");
         FailIf(_entities.TrySpawnDebugEnemy(0xff, 0xff, new Vector2(80, 80), out string error) ||
             !error.Contains("$ff:$ff", StringComparison.Ordinal) || _random.Calls != randomCalls,
             "Unsupported enemy must produce hexadecimal diagnostics without consuming RNG.");
 
         int allocated = 1;
-        while (_entities.TrySpawnDebugEnemy(0x32, 0, new Vector2(80, 80), out error))
+        while (_entities.TrySpawnDebugEnemy(EnemyId.Keese, 0, new Vector2(80, 80), out error))
         {
             FailIf(++allocated > 16, "Debug enemies exceeded the shared $10-slot pool.");
         }
@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0x04);
         FailIf(_entities.Entities<KeeseCharacter>().Count != before ||
-            !_entities.TrySpawnDebugEnemy(0x32, 0, new Vector2(80, 80), out _),
+            !_entities.TrySpawnDebugEnemy(EnemyId.Keese, 0, new Vector2(80, 80), out _),
             "Room reload retained debug entities or leaked enemy-slot reservations.");
 
         // Exercise every advertised standalone enemy variant through its real factory.
@@ -148,7 +148,7 @@ public sealed partial class ValidationRoot
         }
         LoadValidationRoom(0, 0x11);
         randomCalls = _random.Calls;
-        FailIf(_entities.TrySpawnDebugEnemy(0x28, 0, new Vector2(80, 80), out _) ||
+        FailIf(_entities.TrySpawnDebugEnemy(EnemyId.Wallmaster, 0, new Vector2(80, 80), out _) ||
             _random.Calls != randomCalls,
             "Wallmaster $28:$00 outside dungeon metadata must be rejected before RNG/allocation.");
         FailIf(_entities.TrySpawnDebugItemDrop(0xfe, new Vector2(80, 80), out _),

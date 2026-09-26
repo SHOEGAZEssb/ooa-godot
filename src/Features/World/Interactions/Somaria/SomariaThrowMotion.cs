@@ -17,7 +17,7 @@ internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDa
     internal int SpeedZ => _speedZ;
     internal int Angle { get; private set; }
     internal int Speed { get; private set; }
-    private bool Sideview => (room.TilesetFlags & 0x20) != 0;
+    private bool Sideview => (room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0;
 
     internal void Begin(Vector2 position, int zHigh, int direction, int angle, bool tossRing)
     {
@@ -36,7 +36,7 @@ internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDa
         if (Angle == 0xff) return;
         if (Angle != 0xff)
         {
-            Vector2I offset = _common.EdgeOffsets[(Angle & 0x18) >> 3];
+            Vector2I offset = _common.EdgeOffsets[(Angle & ObjectAngle.CardinalMask) >> 3];
             Vector2 probe = new((byte)((int)Position.X+offset.X), (byte)((int)Position.Y+offset.Y));
             if (probe.Y < 0xb0 && room.IsSolid(probe) && !_passage.CanPass(room, probe, Angle)) Angle = 0xff;
         }

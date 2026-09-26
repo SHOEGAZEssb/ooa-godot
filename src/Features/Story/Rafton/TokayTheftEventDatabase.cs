@@ -124,7 +124,7 @@ internal sealed class TokayTheftEventDatabase
     {
         if (Record is not
             {
-                Group: 1, Room: 0xaa, InteractionId: 0x48,
+                Group: 1, Room: 0xaa, InteractionId: InteractionId.Tokay,
                 RoomFlag: 0x40, MainSubId: 2, LinkWait: 0xf0,
                 StealFirstWait: 0x46, StealRepeatWait: 0x0a,
                 ItemWait: 0x5a, FinalWait: 0x3c,

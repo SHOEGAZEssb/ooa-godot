@@ -205,7 +205,7 @@ public sealed partial class ValidationRoot
                         _ => record.NormalSpeed
                     };
                     int expectedDelta = OracleObjectMovement.Shared
-                        .Velocity(expectedSpeed, angle: 0x00)
+                        .Velocity(expectedSpeed, angle: ObjectAngle.Up)
                         .YFixed;
                     int actualDelta =
                         Fixed(_player.PrecisePosition.Y) -

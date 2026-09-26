@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidateMountedCompanionHurtbox()
     {
         var database = new EnemyDatabase();
-        RoomObjectRecord source = RoomEnemyPlacements(database, 0, 0x74, 0x09, 0x00)[0];
+        RoomObjectRecord source = RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         var texture = ImageTexture.CreateFromImage(Image.CreateEmpty(1, 1, false, Image.Format.Rgba8));
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         for (int direction = 0; direction < 4; direction++)
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
                 FailIf(_player.OverlapsEnemyCollision(centered, -7 + difference) != (difference >= -7 && difference < 7),
                     $"Companion ${id:x2}: relative Z {difference} lost the source $07/$0e window.");
 
-            var rock = _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(point, 0));
+            var rock = _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(point, ObjectAngle.Up));
             rock.UpdateFrame(_player);
             rock.UpdateFrame(_player);
             FailIf(rock.Finished || _player.HealthQuarters != health,

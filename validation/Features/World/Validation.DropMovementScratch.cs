@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
             FailIf(start is null, "Crown4:a1 must provide clear item-drop floor.");
             var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(
                 mode == 2 ? ItemDropDatabase.Fairy : ItemDropDatabase.OneRupee,
-                start!.Value, Angle: 8, DugUp: mode == 1));
+                start!.Value, Angle: ObjectAngle.Right, DugUp: mode == 1));
             byte[] expected = [0xa5, 0xa5, 0xa5, 0xa5];
             void Stage()
             {

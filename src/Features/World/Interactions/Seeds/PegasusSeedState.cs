@@ -13,12 +13,12 @@ public sealed class PegasusSeedState
 
     internal int RawCounter
     {
-        get => _entities.RuntimeState.ReadWramByte(OracleRuntimeState.PegasusSeedCounterAddress) |
-            (_entities.RuntimeState.ReadWramByte(OracleRuntimeState.PegasusSeedCounterAddress + 1) << 8);
+        get => _entities.RuntimeState.ReadWramByte(WramAddress.wPegasusSeedCounter) |
+            (_entities.RuntimeState.ReadWramByte(WramAddress.wPegasusSeedCounter + 1) << 8);
         private set
         {
-            _entities.RuntimeState.SetWramByte(OracleRuntimeState.PegasusSeedCounterAddress, (byte)value);
-            _entities.RuntimeState.SetWramByte(OracleRuntimeState.PegasusSeedCounterAddress + 1, (byte)(value >> 8));
+            _entities.RuntimeState.SetWramByte(WramAddress.wPegasusSeedCounter, (byte)value);
+            _entities.RuntimeState.SetWramByte(WramAddress.wPegasusSeedCounter + 1, (byte)(value >> 8));
         }
     }
     public bool Active => RawCounter != 0;

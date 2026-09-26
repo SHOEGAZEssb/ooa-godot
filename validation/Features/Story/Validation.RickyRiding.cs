@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
         var companion = _entities.Spawn<RickyCompanionRoomEntity>(
             new RickyCompanionSpawn(
                 mountPosition,
-                Direction: 1,
+                Direction: ObjectDirection.Right,
                 record.Group,
                 record.Room,
                 Riding: true));
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.RickyId,
             record.Room,
             mountPosition,
-            direction: 1);
+            direction: ObjectDirection.Right);
         StepRickyApplicationInput(pressed: [], justPressed: []);
         FailIf(
             companion.Phase != RickyCompanionPhase.Riding ||

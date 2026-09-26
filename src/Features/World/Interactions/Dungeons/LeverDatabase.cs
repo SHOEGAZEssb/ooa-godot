@@ -38,7 +38,7 @@ internal readonly record struct LeverProfile(string Sprite, int TileBase, int Pa
     internal NpcRecord ToNpcRecord(DungeonObjectRecord record, bool connection = false)
     {
         string animation = connection ? Connections[0] : Animation;
-        return new NpcRecord(record.Group, record.Room, 0x61, connection ? 0x80 : record.SubId,
+        return new NpcRecord(record.Group, record.Room, InteractionId.Lever, connection ? 0x80 : record.SubId,
             record.Y, record.X, 0, 0, Sprite, TileBase, Palette, connection ? 2 : record.SubId & 1,
             false, animation, animation, animation, animation, string.Empty,
             NpcImplementationClassification.SpecializedNative);

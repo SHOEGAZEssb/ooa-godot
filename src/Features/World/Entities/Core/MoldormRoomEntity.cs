@@ -37,9 +37,9 @@ internal sealed class MoldormRoomEntity
 
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 0x08 || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
+        if (effect != CollisionEffect.SwordLowKnockback || !Entity.TakeSwitchHookHit(linkPosition, hook.HitDamage)) return false;
         hook.NotifyObjectCollision();
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 
@@ -58,7 +58,7 @@ internal sealed class MoldormRoomEntity
         int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        RequireCollisionEffect(0x0b, 0x0a);
+        RequireCollisionEffect(ItemCollisionType.ExpertPunch, CollisionEffect.SwordHighKnockback);
         return base.ApplySwordHit(
             hitbox,
             sourcePosition,
@@ -108,11 +108,11 @@ internal sealed class MoldormRoomEntity
 
         switch (seedItem)
         {
-            case 0x20: // ITEM_EMBER_SEED -> COLLISIONEFFECT_20.
-                RequireCollisionEffect(0x1b, 0x20);
+            case ItemId.EmberSeed: // ITEM_EMBER_SEED -> COLLISIONEFFECT_20.
+                RequireCollisionEffect(ItemCollisionType.EmberSeed, CollisionEffect.Effect20);
                 return SeedHitResult.Activate;
-            case 0x21: // ITEM_SCENT_SEED -> COLLISIONEFFECT_08.
-                RequireCollisionEffect(0x1c, 0x08);
+            case ItemId.ScentSeed: // ITEM_SCENT_SEED -> COLLISIONEFFECT_08.
+                RequireCollisionEffect(ItemCollisionType.ScentSeed, CollisionEffect.SwordLowKnockback);
                 return base.ApplySwordHit(
                     hitbox,
                     sourcePosition,
@@ -121,8 +121,8 @@ internal sealed class MoldormRoomEntity
                     spawns)
                         ? SeedHitResult.Activate
                         : SeedHitResult.None;
-            case 0x24: // ITEM_MYSTERY_SEED -> COLLISIONEFFECT_20.
-                RequireCollisionEffect(0x1a, 0x20);
+            case ItemId.MysterySeed: // ITEM_MYSTERY_SEED -> COLLISIONEFFECT_20.
+                RequireCollisionEffect(ItemCollisionType.MysterySeed, CollisionEffect.Effect20);
                 return SeedHitResult.Activate;
             default:
                 return SeedHitResult.None;

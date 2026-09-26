@@ -125,18 +125,18 @@ internal sealed class HarpOfAgesEventDatabase
                 SpawnerY: 0x28, SpawnerX: 0x58,
                 HarpY: 0x38, HarpX: 0x58,
                 RoomFlag: OracleSaveData.RoomFlagItem,
-                HarpTreasure: TreasureDatabase.TreasureHarp,
+                HarpTreasure: TreasureId.Harp,
                 HarpObject: "TREASURE_OBJECT_HARP_00",
                 SparkleId: 0x84, SparkleSubId: 0x0c,
                 FadeDelay: 2, FadeFrames: 65, BlackHold: 40,
                 NayruId: 0x36, NayruSubId: 0x07,
-                NayruFlicker: 30, NayruMusic: OracleSoundEngine.MusNayru,
+                NayruFlicker: 30, NayruMusic: SoundId.MusNayru,
                 TextboxFlags: 0x04,
-                SongSound: OracleSoundEngine.SndTuneOfEchoes,
+                SongSound: SoundId.SndTuneOfEchoes,
                 SongInitialDelay: 4, SongPhaseFrames: 52, SongPhases: 4,
                 SongNativeFrames: 214,
                 FinalFadeDelay: 4, FinalFadeFrames: 129,
-                EchoesTreasure: TreasureDatabase.TreasureTuneOfEchoes,
+                EchoesTreasure: TreasureId.TuneOfEchoes,
                 EchoesObject: "TREASURE_OBJECT_TUNE_OF_ECHOES_00"
             } ||
             _visuals.Count != 2 ||
@@ -171,7 +171,7 @@ internal sealed class HarpOfAgesEventDatabase
             Commands[4] is not CutsceneSetAnimationCommand
                 { Actor: "Nayru", Animation: 0x07 } ||
             Commands[6] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndTuneOfEchoes } ||
+                { Sound: SoundId.SndTuneOfEchoes } ||
             Commands[7] is not CutsceneWaitCommand { Frames: 210 } ||
             Commands[8] is not CutsceneNativeCommand
                 { Handler: "ToggleNayruAnimation" } ||
@@ -183,7 +183,7 @@ internal sealed class HarpOfAgesEventDatabase
                 { Handler: "PlayHarpSong", Frames: 214 } ||
             Commands[17] is not CutsceneWaitCommand { Frames: 36 } ||
             Commands[19] is not CutsceneGiveItemCommand
-                { TreasureId: TreasureDatabase.TreasureTuneOfEchoes,
+                { TreasureId: TreasureId.TuneOfEchoes,
                     Parameter: 0 } ||
             Commands[20] is not CutsceneWaitCommand { Frames: 16 } ||
             Commands[21] is not CutsceneEndCommand)

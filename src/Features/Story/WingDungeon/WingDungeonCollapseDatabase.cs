@@ -119,7 +119,7 @@ internal sealed class WingDungeonCollapseDatabase
             {
                 Group: 0,
                 Room: 0x83,
-                InteractionId: 0xdc,
+                InteractionId: InteractionId.Miscellaneous2,
                 SubId: 0x02,
                 Y: 0x48,
                 X: 0x38,

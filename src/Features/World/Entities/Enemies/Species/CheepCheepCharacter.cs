@@ -19,7 +19,7 @@ internal partial class CheepCheepCharacter : EnemyCharacter
         Record = record;
         _precisePosition = position;
         _travelCounter = distance;
-        State = Counter = Angle = 0;
+        State = Counter = Angle = ObjectAngle.Up;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain,
             precisePosition: () => _precisePosition,
@@ -41,7 +41,7 @@ internal partial class CheepCheepCharacter : EnemyCharacter
                 return;
             case 8:
                 State = 9;
-                Angle = Record.SubId == 0 ? 0x18 : 0x10;
+                Angle = Record.SubId == 0 ? ObjectAngle.Left : ObjectAngle.Down;
                 // Both subid state-8 handlers double var03 as an eight-bit add.
                 _travelCounter = (_travelCounter * 2) & 0xff;
                 Counter = _travelCounter;

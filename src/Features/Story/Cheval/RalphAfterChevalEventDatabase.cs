@@ -78,14 +78,14 @@ internal sealed class RalphAfterChevalEventDatabase
             {
                 Group: 1,
                 Room: 0x79,
-                InteractionId: 0x37,
+                InteractionId: InteractionId.Ralph,
                 SubId: 0x10,
                 Sprite: "spr_ralph_1",
                 TileBase: 0,
                 Palette: 1,
                 InitialAnimation: 2,
                 RoomFlag: OracleSaveData.RoomFlag40,
-                TalkedGlobalFlag: OracleSaveData.GlobalFlagTalkedToCheval,
+                TalkedGlobalFlag: GlobalFlag.TalkedToCheval,
                 WarpDestination: 0x17,
                 Music: 0x35,
                 Speed200: 0x50,
@@ -115,15 +115,15 @@ internal sealed class RalphAfterChevalEventDatabase
             Commands[3] is not CutsceneSetSpeedCommand
                 { Actor: "Ralph", Speed: 0x50 } ||
             Commands[4] is not CutsceneMoveCommand
-                { Actor: "Ralph", Angle: 0x00, Counter: 0x18 } ||
+                { Actor: "Ralph", Angle: ObjectAngle.Up, Counter: 0x18 } ||
             Commands[5] is not CutsceneNativeYieldCommand
                 { Handler: "IncrementSubstate" } ||
             Commands[6] is not CutsceneSetSpeedCommand { Speed: 0x28 } ||
             Commands[7] is not CutsceneMoveCommand
-                { Angle: 0x00, Counter: 0x20 } ||
+                { Angle: ObjectAngle.Up, Counter: 0x20 } ||
             Commands[8] is not CutsceneSetSpeedCommand { Speed: 0x14 } ||
             Commands[9] is not CutsceneMoveCommand
-                { Angle: 0x00, Counter: 0x20 } ||
+                { Angle: ObjectAngle.Up, Counter: 0x20 } ||
             Commands[10] is not CutsceneNativeYieldCommand
                 { Handler: "IncrementSubstate" } ||
             Commands[11] is not CutsceneWaitCommand { Frames: 30 } ||
@@ -133,7 +133,7 @@ internal sealed class RalphAfterChevalEventDatabase
             Commands[15] is not CutsceneNativeYieldCommand
                 { Handler: "SetSubstate0" } ||
             Commands[16] is not CutsceneMoveCommand
-                { Angle: 0x10, Counter: 0x38 } ||
+                { Angle: ObjectAngle.Down, Counter: 0x38 } ||
             Commands[17] is not CutsceneOrRoomFlagCommand { Flag: 0x40 } ||
             Commands[18] is not CutsceneWaitCommand { Frames: 30 } ||
             Commands[19] is not CutsceneNativeYieldCommand

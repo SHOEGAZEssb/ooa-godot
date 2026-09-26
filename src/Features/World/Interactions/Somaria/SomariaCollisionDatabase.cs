@@ -16,7 +16,7 @@ internal sealed class SomariaCollisionDatabase
                 ["mode", "swing-effect", "block-effect", "source"], ["mode"], headerRequired: true));
         if (table.Rows.Count != _effects.Length)
             throw new InvalidOperationException("objectCollisionTable: expected $7d vanilla Somaria collision modes.");
-        for (int mode = 0; mode < _effects.Length; mode++)
+        for (int mode = EnemyCollisionMode.Mode00; mode < _effects.Length; mode++)
         {
             var row = table.Rows[mode];
             if (row.HexByte(0) != mode)
@@ -48,10 +48,10 @@ internal sealed class SomariaCollisionDatabase
     internal SomariaCollisionEffects Effects(byte mode) => (mode & 0x7f) < _effects.Length
         ? _effects[mode & 0x7f]
         : throw new NotSupportedException($"Vanilla objectCollisionTable has no mode ${(mode & 0x7f):x2}.");
-    internal SomariaCollisionEligibility Enemy(byte collisionType) => _enemies[collisionType & 0x7f];
+    internal SomariaCollisionEligibility Enemy(byte collisionType) => _enemies[collisionType & ObjectCollisionFlags.TypeMask];
     internal SomariaCollisionEligibility Part(byte collisionType)
     {
-        int id = collisionType & 0x7f;
+        int id = collisionType & ObjectCollisionFlags.TypeMask;
         if (id >= _parts.Length)
             throw new NotSupportedException($"partActiveCollisions has no mask for type ${id:x2}; Somaria eligibility is undefined.");
         return _parts[id];

@@ -127,25 +127,25 @@ internal sealed class DungeonBossDatabase
     private void ValidateContract()
     {
         if (_enemies.Count != 18 ||
-            Enemy(0x7b, 0) is not { Health: 20, RadiusY: 6, RadiusX: 6, DamageQuarters: 4, Animations.Length: 2 } ||
-            Enemy(0x7b, 1) is not { Health: 20, Sprites.Length: 1 } ||
-            Enemy(0x11, 0) is not { Health: 4, RadiusY: 4, RadiusX: 4, DamageQuarters: 1, Animations.Length: 1 } ||
-            Enemy(0x3f) is not
+            Enemy(EnemyId.Eyesoar, 0) is not { Health: 20, RadiusY: 6, RadiusX: 6, DamageQuarters: 4, Animations.Length: 2 } ||
+            Enemy(EnemyId.Eyesoar, 1) is not { Health: 20, Sprites.Length: 1 } ||
+            Enemy(EnemyId.EyesoarChild, 0) is not { Health: 4, RadiusY: 4, RadiusX: 4, DamageQuarters: 1, Animations.Length: 1 } ||
+            Enemy(EnemyId.GiantGhiniChild) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
-            Enemy(0x42) is not
+            Enemy(EnemyId.ShadowHagBug) is not
                 { Health: 2, DamageQuarters: 1, Sprites.Length: 1 } ||
-            Enemy(0x70) is not
+            Enemy(EnemyId.GiantGhini) is not
                 { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
-            Enemy(0x71).Sprites is not ["spr_swoop", "spr_pound"] ||
-            Enemy(0x72) is not
+            Enemy(EnemyId.Swoop).Sprites is not ["spr_swoop", "spr_pound"] ||
+            Enemy(EnemyId.Subterror) is not
                 { Health: 20, DamageQuarters: 2, Sprites.Length: 3 } ||
-            Enemy(0x73, 0) is not { Health: 10, Sprites.Length: 3 } ||
-            Enemy(0x73, 1) is not { Health: 10, Palette: 1, Animations.Length: 12 } ||
-            Enemy(0x73, 2) is not { Health: 3, Palette: 2, RadiusY: 12, RadiusX: 6 } ||
-            Enemy(0x73, 3) is not { Health: 127, Palette: 3, RadiusY: 0, RadiusX: 0 } ||
-            Enemy(0x78) is not { Health: 8, Sprites.Length: 3 } ||
-            Enemy(0x79).Sprites.Length != 3 ||
-            Enemy(0x7a) is not
+            Enemy(EnemyId.ArmosWarrior, 0) is not { Health: 10, Sprites.Length: 3 } ||
+            Enemy(EnemyId.ArmosWarrior, 1) is not { Health: 10, Palette: 1, Animations.Length: 12 } ||
+            Enemy(EnemyId.ArmosWarrior, 2) is not { Health: 3, Palette: 2, RadiusY: 12, RadiusX: 6 } ||
+            Enemy(EnemyId.ArmosWarrior, 3) is not { Health: 127, Palette: 3, RadiusY: 0, RadiusX: 0 } ||
+            Enemy(EnemyId.PumpkinHead) is not { Health: 8, Sprites.Length: 3 } ||
+            Enemy(EnemyId.HeadThwomp).Sprites.Length != 3 ||
+            Enemy(EnemyId.ShadowHag) is not
                 { Health: 12, DamageQuarters: 3, Sprites.Length: 2 } ||
             _constants.Count != 2 ||
             Constant("pumpkin-body-palette") != 1 ||

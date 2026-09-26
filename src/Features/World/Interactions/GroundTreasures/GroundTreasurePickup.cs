@@ -40,7 +40,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     internal int BuriedAngle => _buriedAngle;
     internal bool UpdatesDuringDialogue =>
         _state == PickupState.Collected ||
-        Record.SpawnMode == 2 && _state == PickupState.Waiting;
+        Record.SpawnMode == TreasureSpawnMode.FromScreenTop && _state == PickupState.Waiting;
 
     internal void Initialize(
         GroundTreasureDatabaseRecord record,
@@ -49,14 +49,14 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         OracleRoomData? room = null)
     {
         Record = record;
-        if (record.SpawnMode is not (0 or 2 or 5) ||
-            record.GrabMode is not (1 or 2 or 3))
+        if (record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.FromScreenTop or TreasureSpawnMode.Buried) ||
+            record.GrabMode is not (TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands or TreasureGrabMode.SpinSlash))
         {
             throw new InvalidOperationException(
                 $"Ground treasure from {record.Source} uses unsupported " +
                 $"spawn/grab mode ${record.SpawnMode:x2}/${record.GrabMode:x2}.");
         }
-        if (record.SpawnMode == 2 &&
+        if (record.SpawnMode == TreasureSpawnMode.FromScreenTop &&
             (record.SpawnDelayFrames <= 0 ||
              record.InitialZAboveScreen &&
                  (record.AboveScreenMargin < 0 || record.AboveScreenFallback >= 0) ||
@@ -67,7 +67,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
             throw new InvalidOperationException(
                 $"Falling ground treasure from {record.Source} has invalid motion metadata.");
         }
-        if (record.SpawnMode == 5 && room is null)
+        if (record.SpawnMode == TreasureSpawnMode.Buried && room is null)
         {
             throw new InvalidOperationException(
                 $"Buried ground treasure from {record.Source} requires its room.");
@@ -105,7 +105,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         // parseObjectData initializes a static treasure's graphics before the
         // destination room begins scrolling. Keep state 0 pending, but expose
         // spawn-mode $00 at the incoming room's transition draw offset.
-        Visible = record.SpawnMode == 0;
+        Visible = record.SpawnMode == TreasureSpawnMode.Instant;
         QueueRedraw();
     }
 
@@ -113,7 +113,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     {
         if (Finished)
             return;
-        if (_state == PickupState.Collected && Record.GrabMode == 3)
+        if (_state == PickupState.Collected && Record.GrabMode == TreasureGrabMode.SpinSlash)
         {
             UpdateSwordGrab(player);
             return;
@@ -122,13 +122,13 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
         {
             case PickupState.Initializing:
                 _state = PickupState.Spawning;
-                Visible = Record.SpawnMode == 0;
+                Visible = Record.SpawnMode == TreasureSpawnMode.Instant;
                 QueueRedraw();
                 return;
             case PickupState.Spawning:
-                if (Record.SpawnMode == 0)
+                if (Record.SpawnMode == TreasureSpawnMode.Instant)
                     _state = PickupState.Waiting;
-                else if (Record.SpawnMode == 2)
+                else if (Record.SpawnMode == TreasureSpawnMode.FromScreenTop)
                     UpdateFallingSpawn();
                 else
                     UpdateBuriedSpawn(player);
@@ -137,13 +137,13 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 Held = true;
                 _zFixed = 0;
                 Position = player.Position + new Vector2(
-                    Record.GrabMode == 1 ? -4 : 0, -14);
+                    Record.GrabMode == TreasureGrabMode.OneHand ? -4 : 0, -14);
                 // treasure.s queues state04 with bit7 set: text closure
                 // releases Link regardless of the surrounding object mask.
                 player.RequestGetItemState(
-                    Record.GrabMode == 1 ? (byte)0x80 : (byte)0x81,
+                    Record.GrabMode == TreasureGrabMode.OneHand ? (byte)0x80 : (byte)0x81,
                     static () => false);
-                _soundRequested(OracleSoundEngine.SndGetItem);
+                _soundRequested(SoundId.SndGetItem);
                 Visible = true;
                 QueueRedraw();
                 return;
@@ -163,7 +163,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
     private bool TryCollectCore(Player player, bool checkDefaultDistance)
     {
         bool collectible = _state == PickupState.Waiting ||
-            (Record.SpawnMode == 2 &&
+            (Record.SpawnMode == TreasureSpawnMode.FromScreenTop &&
              _state == PickupState.Spawning && _spawnSubstate == 2 &&
              Math.Abs(_zFixed >> 8) < 7);
         if (!collectible || Finished || player.CutsceneControlled ||
@@ -199,7 +199,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
 
     internal void NotifyTileDug(int packedPosition)
     {
-        if (Record.SpawnMode == 5 &&
+        if (Record.SpawnMode == TreasureSpawnMode.Buried &&
             packedPosition == ((Record.Y >> 4) << 4 | (Record.X >> 4)))
         {
             _buriedTileDug = true;
@@ -212,7 +212,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
             return;
         // Ordinary state04 restores its own animation on Link's dispatch.
         // The sword-spin path instead changes a pose while state08 owns Link.
-        if (Record.GrabMode == 3)
+        if (Record.GrabMode == TreasureGrabMode.SpinSlash)
             player.EndGetItemOneHandPose();
         Held = false;
         Finished = true;
@@ -237,7 +237,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
                 _swordGrabState = 3; Held = true;
                 Position = player.Position + new Vector2(-4, -14); Visible = true;
                 player.BeginGetItemOneHandPose();
-                _soundRequested(OracleSoundEngine.SndSwordObtained); return;
+                _soundRequested(SoundId.SndSwordObtained); return;
             case 3:
                 if (!player.CutsceneControlled) Finish(player);
                 return;
@@ -362,7 +362,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D
             return;
         }
 
-        _soundRequested(OracleSoundEngine.SndDropEssence);
+        _soundRequested(SoundId.SndDropEssence);
         int nextSpeedZ = -_speedZ / 2;
         if (nextSpeedZ > -0x80)
         {

@@ -77,7 +77,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
                 EnterStage(_nextStage);
             else if (--_counter != 0)
                 actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _position,
-                    _native.Constant("speed-180"), _moveDirection == Vector2.Up ? 0 : 0x18));
+                    _native.Constant("speed-180"), _moveDirection == Vector2.Up ? ObjectAngle.Up : ObjectAngle.Left));
             return;
         }
         if (_stage == TokayRunningFromRosaStage.Jumping)
@@ -192,7 +192,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
 
     private NpcCharacter? FindActor() =>
         Context.Entities.Entities<NpcCharacter>()
-            .FirstOrDefault(npc => npc.Record is { Id: 0x48, SubId: 0x0b });
+            .FirstOrDefault(npc => npc.Record is { Id: InteractionId.Tokay, SubId: 0x0b });
 
     private void FinishInteraction()
     {

@@ -37,8 +37,8 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
     internal int ScentAttractionCounter => _scentAttraction.Counter;
     protected virtual bool FollowsScentSeeds => true;
     protected virtual bool SupportsRecord(ImportedEnemyDefinition record) =>
-        record.Id == 0x0c && record.SubId is 0 or 1 ||
-        record.Id == 0x22 && record.SubId is 0 or 1;
+        record.Id == EnemyId.ArrowMoblin && record.SubId is 0 or 1 ||
+        record.Id == EnemyId.ArrowShroudedStalfos && record.SubId is 0 or 1;
     protected virtual int ChooseRouteAngle(OracleRandom random, Vector2 target) =>
         random.NextCardinalAngle();
 
@@ -61,7 +61,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
         _movement = new EnemyTerrainMovement(this, room);
         _state = ArrowMoblinState.Uninitialized;
         _counter = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _moveCycles = 0;
 
         InitializeEnemy(
@@ -167,7 +167,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
                 int towardLink =
                     (OracleObjectMovement.Shared.RelativeAngle(
                         Position, linkPosition) + 4) &
-                    0x18;
+                    ObjectAngle.CardinalMask;
                 return (_moveCycles & 1) != 0 && _angle == towardLink
                     ? _angle
                     : -1;
@@ -184,7 +184,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
             (_random.Next().Value & _behavior.MoveCounterMask);
         _state = ArrowMoblinState.Moving;
         // ecom_updateAnimationFromAngle preserves the clock for the same direction.
-        SetAnimation((_angle & 0x18) >> 3);
+        SetAnimation((_angle & ObjectAngle.CardinalMask) >> 3);
     }
 
     public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead && !DiedInHazard &&
@@ -193,7 +193,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
     public void BeginSwitchHook(Vector2 linkPosition)
     {
         KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
         _state = ArrowMoblinState.SwitchHook;
         SwitchHookSubstate = 0;
     }

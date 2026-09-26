@@ -20,7 +20,7 @@ internal sealed class PodobooTowerRoomEntity(PodobooTowerCharacter enemy,
         int damage, ICollection<RoomEntitySpawn> spawns)
     {
         int effect = EnemyBehaviorTables.Shared.PodobooTowerCollisionEffects[(int)collision].Value;
-        if (effect != 0x0b)
+        if (effect != CollisionEffect.SwordNoKnockback)
             throw new InvalidOperationException($"podobooTower.s: collision ${(int)collision:x2} effect ${effect:x2} is unsupported.");
         return base.ApplySwordHit(hitbox, origin, damage, EnemyKnockbackStrength.Low, spawns);
     }
@@ -35,7 +35,7 @@ internal sealed class PodobooTowerRoomEntity(PodobooTowerCharacter enemy,
         if (seed == 0x24)
         {
             Entity.KillWithMysterySeed();
-            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position, EnemyId: 0x2d,
+            spawns.Add(new EnemyDeathPuffSpawn(Entity.Position, EnemyId: EnemyId.PodobooTower,
                 DecrementsRoomCount: false, DropsItem: false));
             return SeedHitResult.Activate;
         }

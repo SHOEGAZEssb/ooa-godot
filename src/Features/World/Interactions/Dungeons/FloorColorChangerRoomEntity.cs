@@ -72,7 +72,7 @@ internal sealed partial class FloorColorChangerRoomEntity : Node2D,
                 worker.ControlTile = currentControlTile;
                 byte[] permutation = _random.GeneratePermutation();
                 for (int i = 0; i < permutation.Length; i++)
-                    _runtime.SetWramByte(OracleRuntimeState.BigBufferAddress + i, permutation[i]);
+                    _runtime.SetWramByte(WramAddress.wBigBuffer + i, permutation[i]);
             }
             if (currentControlTile != worker.ControlTile &&
                 currentControlTile != _data.Constant("somaria-block"))
@@ -97,7 +97,7 @@ internal sealed partial class FloorColorChangerRoomEntity : Node2D,
 
     private void Convert(Worker worker)
     {
-        int packedPosition = _runtime.ReadWramByte(OracleRuntimeState.BigBufferAddress + worker.Index--);
+        int packedPosition = _runtime.ReadWramByte(WramAddress.wBigBuffer + worker.Index--);
         int controllerPosition = _room.GetPackedPosition(_record.Position);
         int column = packedPosition & 0x0f;
         int row = packedPosition >> 4;

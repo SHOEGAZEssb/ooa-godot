@@ -33,8 +33,8 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
         {
             if (!_triggerActive(1))
                 return;
-            spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x48), 0));
-            spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x58), 0));
+            spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x48), SoundId.MusNone));
+            spawns.Add(new PuzzlePuffSpawn(new Vector2(0x78, 0x58), SoundId.MusNone));
             _counter = _spawnWait;
             _state = 1;
             return;
@@ -43,7 +43,7 @@ internal sealed partial class SpiritsGraveMovingPlatformSpawner : Node2D,
             return;
         spawns.Add(new MovingPlatformSpawn(
             new Vector2(0x78, 0x50), 0x09));
-        _playSound(OracleSoundEngine.SndSolvePuzzle);
+        _playSound(SoundId.SndSolvePuzzle);
         Finished = true;
     }
 

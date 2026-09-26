@@ -72,10 +72,10 @@ internal sealed class OracleObjectSpeedTable
         {
             int speed = (speedIndex + 1) * 5;
             int magnitude = (speedIndex + 1) * 0x20;
-            EnsureCardinal(speed, 0x00, -magnitude, 0);
-            EnsureCardinal(speed, 0x08, 0, magnitude);
-            EnsureCardinal(speed, 0x10, magnitude, 0);
-            EnsureCardinal(speed, 0x18, 0, -magnitude);
+            EnsureCardinal(speed, ObjectAngle.Up, -magnitude, 0);
+            EnsureCardinal(speed, ObjectAngle.Right, 0, magnitude);
+            EnsureCardinal(speed, ObjectAngle.Down, magnitude, 0);
+            EnsureCardinal(speed, ObjectAngle.Left, 0, -magnitude);
         }
     }
 

@@ -16,8 +16,8 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             ResetValidationInput();
-            _saveData.SetGlobalFlag(0x0b, completed);
-            _saveData.SetGlobalFlag(0x10, completed);
+            _saveData.SetGlobalFlag(GlobalFlag.Flag0b, completed);
+            _saveData.SetGlobalFlag(GlobalFlag.Flag10, completed);
             foreach (int x in new[] { 0x48, 0x58 })
             {
                 LoadValidationRoom(1, 0x46);
@@ -42,19 +42,19 @@ public sealed partial class ValidationRoot
             // Exercise the source gate on the real entrance actors, then
             // cancellation/re-entry so stale non-solid actors cannot survive.
             ReinitializeGameplayForValidation();
-            _inventory.GiveTreasure(0x24, 0x20);
+            _inventory.GiveTreasure(TreasureId.MysterySeeds, 0x20);
             LoadValidationRoom(1, 0x46);
             var palace = _roomEvents.Get<DekuForestPalaceEvent>();
             var guards = _entities.Entities<NpcCharacter>()
                 .Where(npc => npc.Record.Id == 0x40 && npc.Record.SubId is 0x02 or 0x09).ToArray();
             FailIf(guards.Length != 2 || guards.Any(npc => !_entities.BlocksLink(npc.Position)),
                 "1:46 entrance guards must block before GLOBALFLAG_10.");
-            palace.SetGlobalFlag(0x10);
+            palace.SetGlobalFlag(GlobalFlag.Flag10);
             FailIf(guards.Any(npc => _entities.BlocksLink(npc.Position)),
                 "1:46 escort guards must allow passage after GLOBALFLAG_10 and before GLOBALFLAG_0b.");
             palace.Cancel();
             FailIf(guards.Any(npc => npc.Active), "1:46 cancellation retained active guards.");
-            _saveData.SetGlobalFlag(0x0b);
+            _saveData.SetGlobalFlag(GlobalFlag.Flag0b);
             LoadValidationRoom(1, 0x46);
             FailIf(!_entities.BlocksLink(new Vector2(0x48, 0x28)) ||
                 !_entities.BlocksLink(new Vector2(0x58, 0x28)),

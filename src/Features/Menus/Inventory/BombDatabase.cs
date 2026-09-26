@@ -187,20 +187,20 @@ public sealed class BombDatabase
         AnimationDefinition explosion =
             OracleGraphicsCache.GetAnimationDefinition(
                 record.ExplosionAnimation);
-        if (record.Item != InventoryState.ItemBomb ||
-            record.TreasureId != TreasureDatabase.TreasureBombs ||
+        if (record.Item != TreasureId.Bombs ||
+            record.TreasureId != TreasureId.Bombs ||
             record.Sprite != "spr_common_items" ||
             record.TileBase != 0x10 || record.Palette != 0x04 ||
-            record.Collision != 0x18 ||
+            record.Collision != ItemCollisionType.Bomb ||
             record.RadiusY != 4 || record.RadiusX != 4 ||
             record.BaseDamage != 4 ||
             record.ExplosionSprite != "spr_common_sprites" ||
             record.ExplosionTileBase != 0x0c ||
             record.ExplosionOamFlags != 0x0a ||
-            record.PickupSound != OracleSoundEngine.SndPickup ||
-            record.ThrowSound != OracleSoundEngine.SndThrow ||
-            record.LandingSound != OracleSoundEngine.SndBombLand ||
-            record.ExplosionSound != OracleSoundEngine.SndExplosion ||
+            record.PickupSound != SoundId.SndPickup ||
+            record.ThrowSound != SoundId.SndThrow ||
+            record.LandingSound != SoundId.SndBombLand ||
+            record.ExplosionSound != SoundId.SndExplosion ||
             record.Gravity != 0x1c || record.InitialSpeedZ != -0xf0 ||
             record.SpeedRaw != 0x3c || record.TossSpeedRaw != 0x64 ||
             record.ConveyorSpeedRaw != 0x14 ||

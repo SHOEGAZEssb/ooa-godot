@@ -26,10 +26,10 @@ internal sealed class MoldormTailRoomEntity
     }
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
-        if (effect != 8 || !Entity.TakeSwordHit(linkPosition, hook.HitDamage)) return false;
+        if (effect != CollisionEffect.SwordLowKnockback || !Entity.TakeSwordHit(linkPosition, hook.HitDamage)) return false;
         Entity.ApplySwordKnockback(linkPosition, EnemyKnockbackStrength.Low);
         hook.NotifyObjectCollision();
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
         return true;
     }
 }

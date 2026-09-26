@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
                 [{
                     Order: 0,
                     Kind: DungeonObjectKind.Essence,
-                    Id: 0x7f,
+                    Id: InteractionId.Essence,
                     SubId: 0x00,
                     Y: 0x28,
                     X: 0x78,
@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
                     DestinationRoom: 0xba,
                     DestinationPosition: 0x55,
                     DestinationParameter: 0,
-                    DestinationTransition: 1
+                    DestinationTransition: WarpDestinationTransition.SetRespawn
                 } ||
             _currentRoom.GetTerrainInfo(
                 new Vector2(0x78, 0x28)).Collision != 0x0f ||
@@ -84,10 +84,10 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(
                 4, 0x49, OracleSaveData.RoomFlagItem) ||
             (_inventory.Essences & 0x04) == 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndDropEssence) != 1 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndCtrlSlowFadeOut) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1,
+                SoundId.SndCtrlSlowFadeOut) != 1 ||
+            _sound.PlayRequestsFor(SoundId.MusGetEssence) != 1,
             "Room 4:49's Echoing Howl did not approach, fall, request the " +
             "two-hand state, show TX_0010, set ROOMFLAG_ITEM/D3's Essence bit, " +
             "and start the source sounds.");
@@ -104,8 +104,8 @@ public sealed partial class ValidationRoot
         FailIf(
             !essence.SwirlActive ||
             _roomEvents.Get<DungeonEssenceEvent>().Counter != 360 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusEssence) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndEnergyThing) != 1,
+            _sound.PlayRequestsFor(SoundId.MusEssence) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndEnergyThing) != 1,
             "Echoing Howl did not begin the common 360-update inward-energy " +
             "swirl on the state6 update after installing its script.");
         for (int frame = 0;
@@ -118,8 +118,8 @@ public sealed partial class ValidationRoot
             !_transitions.IsTransitioning || essence.SwirlActive ||
             _roomEvents.Get<DungeonEssenceEvent>().TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+            _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
             "Room 4:49 did not finish the common 360/20/20/40/30 Essence " +
             "cadence and begin its delayed white exit warp.");
 
@@ -221,14 +221,14 @@ public sealed partial class ValidationRoot
                     (3, DungeonObjectKind.ShadowHag, 0x7a, 0x00,
                         0x58, 0xd8)
                 ] ||
-            bosses.Enemy(0x7a) is not
+            bosses.Enemy(EnemyId.ShadowHag) is not
                 {
                     Health: 12, DamageQuarters: 3,
                     RadiusY: 9, RadiusX: 9,
                     Palette: 3, Sprites.Length: 2,
                     Animations.Length: 7
                 } ||
-            bosses.Enemy(0x42) is not
+            bosses.Enemy(EnemyId.ShadowHagBug) is not
                 {
                     Health: 2, DamageQuarters: 1,
                     RadiusY: 6, RadiusX: 6,
@@ -263,7 +263,7 @@ public sealed partial class ValidationRoot
             preloadedBoss.State != ShadowHagState.IntroWaitingForDoors ||
             preloadedBoss.TransitionDrawOffset != incomingOffset ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndCtrlStopMusic) != 1,
+                SoundId.SndCtrlStopMusic) != 1,
             "Incoming room 4:4a did not resolve Shadow Hag's hidden state 0 " +
             "before exposing the scrolling destination.");
         _entities.Update(1.0, _player);
@@ -363,7 +363,7 @@ public sealed partial class ValidationRoot
             !_entities.LinkCollisionsAndMenuDisabled ||
             boss.Position.X >= 0x78 ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndCtrlStopMusic) != 1,
+                SoundId.SndCtrlStopMusic) != 1,
             "Shadow Hag did not close room 4:4a, slide left from Link's " +
             "position, emerge, and open TX_2f2b with Link locked.");
         _dialogue.Close();
@@ -376,7 +376,7 @@ public sealed partial class ValidationRoot
         FailIf(
             boss.State != ShadowHagState.GroundEyes || boss.IntroActive ||
             _entities.LinkCollisionsAndMenuDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusBoss) != 1,
+            _sound.PlayRequestsFor(SoundId.MusBoss) != 1,
             "Shadow Hag did not honor the post-dialogue eight-update delay, " +
             "start boss music, and restore Link.");
 
@@ -471,7 +471,7 @@ public sealed partial class ValidationRoot
             "Shadow Hag accepted sword damage despite collision mode $4b.");
         FailIf(
             !boss.TakeSeedHit(2) || boss.Health != health - 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) != 1,
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) != 1,
             "Shadow Hag rejected source seed damage during state $11.");
 
         Vector2I spawnFacing = _player.FacingVector;
@@ -687,7 +687,7 @@ public sealed partial class ValidationRoot
             preloadedBoss.DirtCounter != 7 || preloadedBoss.Speed != 0x3c ||
             preloadedBoss.TransitionDrawOffset != incomingOffset ||
             _sound.PlayRequestsFor(
-                OracleSoundEngine.SndCtrlStopMusic) != 1,
+                SoundId.SndCtrlStopMusic) != 1,
             "Incoming room 4:4d did not resolve Subterror's hidden source " +
             "state 0 before exposing the scrolling destination.");
         _entities.Update(1.0, _player);
@@ -706,7 +706,7 @@ public sealed partial class ValidationRoot
         FailIf(
             boss.Record is not
                 {
-                    Id: 0x72, Health: 20, DamageQuarters: 2,
+                    Id: EnemyId.Subterror, Health: 20, DamageQuarters: 2,
                     RadiusY: 6, RadiusX: 6, Palette: 1,
                     Sprites.Length: 3
                 } ||
@@ -736,8 +736,8 @@ public sealed partial class ValidationRoot
             boss.Substate != 3 || boss.Position.Y != 0x58 + 0x80 / 256.0f ||
             !_dialogue.IsOpen ||
             !_entities.LinkCollisionsAndMenuDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDig) == 0 ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndDig) == 0 ||
             observedDirtHash != expectedDirtHash ||
             _entities.Entities<SubterrorDirtEffect>().Count != 0,
             "Subterror did not close room 4:4d, trail finite brown " +
@@ -750,7 +750,7 @@ public sealed partial class ValidationRoot
             boss.State != SubterrorState.Digging || boss.IntroActive ||
             _entities.LinkCollisionsAndMenuDisabled ||
             _entities.PlayerMenusDisabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.MusMiniboss) != 1,
+            _sound.PlayRequestsFor(SoundId.MusMiniboss) != 1,
             "Subterror did not begin the fight and restore Link after TX_2f03.");
 
         for (int frame = 0;
@@ -771,12 +771,12 @@ public sealed partial class ValidationRoot
             boss.DrillingCollisionEnabled,
             "Subterror became visible or collidable before drill tell " +
             "counter2 reached zero.");
-        int shockSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndShock);
+        int shockSounds = _sound.PlayRequestsFor(SoundId.SndShock);
         Step();
         FailIf(
             boss.Counter2 != 0 || !boss.Visible ||
             !boss.DrillingCollisionEnabled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndShock) !=
+            _sound.PlayRequestsFor(SoundId.SndShock) !=
                 shockSounds + 1,
             "Subterror did not expose its damaging drill and request " +
             "SND_SHOCK on the exact counter2-zero update.");
@@ -1214,7 +1214,7 @@ public sealed partial class ValidationRoot
 
         EmberSeedEffect downwardSeed = SpawnShooterSeed(
             bouncer.Position + Vector2.Left * 4,
-            angle: 0);
+            angle: ObjectAngle.Up);
         Step();
         Step();
         FailIf(
@@ -1263,7 +1263,7 @@ public sealed partial class ValidationRoot
 
         EmberSeedEffect centeredBounceSeed = SpawnShooterSeed(
             bouncer.Position + Vector2.Down * 13,
-            angle: 0);
+            angle: ObjectAngle.Up);
         Step();
         Step();
         FailIf(
@@ -1314,14 +1314,14 @@ public sealed partial class ValidationRoot
             orbs[0].Palette != 2 || orbs[0].HitLockout != 0 ||
             firstOrbSeed.State != EmberState.Burning ||
             firstOrbSeed.CollisionEnabled || bouncer.Orientation != 3 ||
-            _sound.PlayRequestsFor(0x7e) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
             "A shooter-fired Ember Seed did not pass the orb's logical tile$0a, queue its native collision, " +
             "then XOR bit$04, activate and rotate " +
             "the seed bouncer without sword-style invincibility " +
             $"(flight={firstOrbFlightUpdates}, toggle=${_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}, " +
             $"palette={orbs[0].Palette}, lockout={orbs[0].HitLockout}, " +
             $"seed={firstOrbSeed.State}/{firstOrbSeed.PrecisePosition}, " +
-            $"bouncer={bouncer.Orientation}, switchSounds={_sound.PlayRequestsFor(0x7e)}).");
+            $"bouncer={bouncer.Orientation}, switchSounds={_sound.PlayRequestsFor(SoundId.SndSwitch)}).");
 
         EmberSeedEffect secondOrbSeed = SpawnShooterSeed(
             orbs[1].Position - new Vector2(12, 0), angle: 2);
@@ -1341,7 +1341,7 @@ public sealed partial class ValidationRoot
             orbs[1].Palette != 2 || orbs[1].HitLockout != 0 ||
             secondOrbSeed.State != EmberState.Burning ||
             secondOrbSeed.CollisionEnabled || bouncer.Orientation != 0 ||
-            _sound.PlayRequestsFor(0x7e) != 2,
+            _sound.PlayRequestsFor(SoundId.SndSwitch) != 2,
             "The second shooter seed did not toggle room 4:4e orb bit `$08, " +
             "rotate the seed bouncer, and play SND_SWITCH once.");
 
@@ -1407,7 +1407,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(Point(0x39)) != 0x6d ||
             room.GetMetatile(Point(0x62)) != 0xf4 ||
             room.GetMetatile(Point(0x6c)) != 0xf4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 3,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 3,
             "The three room 4:4e bridge streams did not apply their first " +
             "source tile together with SND_DOORCLOSE on update ten.");
         Step(30);
@@ -1422,7 +1422,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(Point(0x4c)) != 0xf4 ||
             room.GetMetatile(Point(0x5c)) != 0xf4 ||
             room.GetMetatile(Point(0x6c)) != 0xf4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 10,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 10,
             "Room 4:4e did not finish the source-ordered horizontal creation " +
             "and paired vertical removals at ten-update intervals.");
         Step(10);
@@ -1500,7 +1500,7 @@ public sealed partial class ValidationRoot
         var data = new DungeonMechanicDatabase();
         FailIf(
             data.GetRoomRecords(4, 0x56) is not
-                [{ Order: 0, Id: 0x21, SubId: 0x0a }],
+                [{ Order: 0, Id: InteractionId.DungeonEvents, SubId: 0x0a }],
             "Room 4:56 lost its source-order INTERAC_DUNGEON_EVENTS $21:$0a.");
 
         _saveData.SetRoomFlag(
@@ -1705,7 +1705,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !bombAccepted || !armos.IsDead ||
             bombSpawns is not [EnemyDeathPuffSpawn
-                { EnemyId: 0x1d, DecrementsRoomCount: true }],
+                { EnemyId: EnemyId.Armos, DecrementsRoomCount: true }],
             "The red-Armos collision row did not apply bomb damage without " +
             "knockback and transfer its room count to the death puff.");
 
@@ -1768,8 +1768,8 @@ public sealed partial class ValidationRoot
         var data = new DungeonMechanicDatabase();
         FailIf(
             data.GetRoomRecords(4, 0x5e) is not
-                [{ Order: 0, Id: 0x21, SubId: 0x0c },
-                 { Order: 1, Id: 0x09, SubId: 0x00,
+                [{ Order: 0, Id: InteractionId.DungeonEvents, SubId: 0x0c },
+                 { Order: 1, Id: InteractionId.SnowDebris, SubId: 0x00,
                    PackedPosition: 0x19 }],
             "Room 4:5e lost its source-ordered $21:$0c event and one-shot " +
             "PART_BUTTON $09:$00 at $19.");
@@ -1804,7 +1804,7 @@ public sealed partial class ValidationRoot
             room.GetMetatile(buttonPosition) != data.PressedButtonTile ||
             _entities.Entities<GroundButtonRoomEntity>().Count != 0 ||
             _entities.Entities<ArmosCharacter>().Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSplash) != 1,
             "Room 4:5e's one-shot button must publish trigger bit 0 in the " +
             "part pass before $21:$0c allocates the enemy spawner.");
 
@@ -1870,7 +1870,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 !accepted || !enemy.IsDead ||
                 deathSpawns is not [EnemyDeathPuffSpawn
-                    { EnemyId: 0x1d, DecrementsRoomCount: true }],
+                    { EnemyId: EnemyId.Armos, DecrementsRoomCount: true }],
                 "Room 4:5e's active red Armos did not retain its bomb-only " +
                 "damage/death-count behavior.");
         }
@@ -1899,7 +1899,7 @@ public sealed partial class ValidationRoot
             fallingKey.State != PickupState.Spawning ||
             fallingKey.SpawnSubstate != 1 || fallingKey.SpawnCounter != 40 ||
             fallingKey.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "Room 4:5e's key did not begin its source 40-update hidden " +
             "SND_SOLVEPUZZLE delay.");
         for (int frame = 0;
@@ -1917,7 +1917,7 @@ public sealed partial class ValidationRoot
             fallingKey.State != PickupState.Collected ||
             _inventory.GetDungeonSmallKeys(dungeon) != keysBeforePickup + 1 ||
             !_saveData.HasRoomFlag(4, 0x5e, OracleSaveData.RoomFlagItem) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1,
             "Room 4:5e's landed key did not grant one dungeon-$03 small key " +
             "and set ROOMFLAG_ITEM on contact.");
 
@@ -1977,7 +1977,7 @@ public sealed partial class ValidationRoot
         var mechanics = new DungeonMechanicDatabase();
         FailIf(
             mechanics.GetRoomRecords(4, 0x58) is not
-                [{ Order: 0, Id: 0x12, SubId: 0x02,
+                [{ Order: 0, Id: InteractionId.DungeonStuff, SubId: 0x02,
                    PackedPosition: 0x59, Parameter: 0x00,
                    Predicate: TriggerPredicate.None,
                    CountSourceComplete: true }],
@@ -1989,11 +1989,11 @@ public sealed partial class ValidationRoot
             shooterChest is not
                 {
                     TreasureObject: "TREASURE_OBJECT_SHOOTER_00",
-                    TreasureId: 0x0f, SubId: 0x00, Parameter: 0x01
+                    TreasureId: TreasureId.Shooter, SubId: 0x00, Parameter: 0x01
                 },
             "Room 4:58's $59 chest lost its Seed Shooter treasure row.");
 
-        ImportedEnemyDefinition definition = enemyData.ImportedEnemy(0x4e);
+        ImportedEnemyDefinition definition = enemyData.ImportedEnemy(EnemyId.ArmMimic);
         EnemyHandlerDescriptor handler =
             enemyData.EnemyHandlers.ResolveHandler(objects[0]);
         FailIf(
@@ -2043,7 +2043,7 @@ public sealed partial class ValidationRoot
         var expectedMovement = new EnemyTerrainMovement(
             expectedNode, movementRoom);
         expectedMovement.MoveUsingAdjacentWalls(
-            0x18,
+            ObjectAngle.Left,
             movementMimic.SpeedRaw,
             allowHoles: false,
             topDown: false);
@@ -2109,12 +2109,12 @@ public sealed partial class ValidationRoot
             mystery.ApplySeedHit(
                 mysteryMimic.CollisionBounds,
                 mysteryMimic.Position,
-                seedItem: 0x24,
+                seedItem: ItemId.MysterySeed,
                 combatSpawns) != SeedHitResult.Activate ||
             !mysteryMimic.IsDead ||
             combatSpawns is not
                 [EnemyDeathPuffSpawn
-                    { EnemyId: 0x4e, DecrementsRoomCount: true }],
+                    { EnemyId: EnemyId.ArmMimic, DecrementsRoomCount: true }],
             "Arm Mimic's Mystery Seed collision effect $35 did not force " +
             "zero health and transfer its enemy count to the death puff.");
         mysteryMimic.Free();
@@ -2125,7 +2125,7 @@ public sealed partial class ValidationRoot
             ember.ApplySeedHit(
                 emberMimic.CollisionBounds,
                 emberMimic.Position,
-                seedItem: 0x20,
+                seedItem: ItemId.EmberSeed,
                 combatSpawns) != SeedHitResult.Ignite,
             "Arm Mimic rejected its collisionEffect27 Ember burn.");
         ember.CompleteSeedBurn(combatSpawns);
@@ -2239,7 +2239,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<MoldormCharacter>().Count != 0 ||
             chest.Counter != 30 ||
             _entities.Entities<PuzzlePuffEffect>().Count != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "Room 4:58 did not clear all four enemies and immediately " +
             "start the chest's exact 30-update solve wait, puff, and sound.");
         Step(29);
@@ -2284,9 +2284,9 @@ public sealed partial class ValidationRoot
         var mechanics = new DungeonMechanicDatabase();
         FailIf(
             mechanics.GetRoomRecords(4, 0x5b) is not
-                [{ Order: 0, Id: 0x1e, SubId: 0x0b,
+                [{ Order: 0, Id: InteractionId.DoorController, SubId: 0x0b,
                    PackedPosition: 0x50 },
-                 { Order: 1, Id: 0x1e, SubId: 0x0a,
+                 { Order: 1, Id: InteractionId.DoorController, SubId: 0x0a,
                    PackedPosition: 0xa7 }],
             "Room 4:5b lost its left/down enemy-shutter stream.");
 
@@ -2423,7 +2423,7 @@ public sealed partial class ValidationRoot
                 4 => adapter.ApplySeedHit(
                     tile.CollisionBounds,
                     tile.Position,
-                    seedItem: 0x20,
+                    seedItem: ItemId.EmberSeed,
                     collisionSpawns) == SeedHitResult.Activate,
                 _ => adapter.ApplySwordHit(
                     tile.CollisionBounds,
@@ -2500,7 +2500,7 @@ public sealed partial class ValidationRoot
         // precise SPEED_1c0 movement and breaks at allow-holes wall collision.
         var wallTile = new FlyingTileCharacter();
         wallTile.Initialize(
-            enemyData.ImportedEnemy(0x52, 0x00),
+            enemyData.ImportedEnemy(EnemyId.FlyingTile, 0x00),
             room,
             Point(0x23),
             roomTileChanged: static () => { },
@@ -2532,7 +2532,7 @@ public sealed partial class ValidationRoot
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
-        shieldInventory.EquipA(InventoryState.ItemShield);
+        shieldInventory.EquipA(TreasureId.Shield);
         var shieldPlayer = new Player { Name = "FlyingTileShieldPlayer" };
         AddChild(shieldPlayer);
         shieldPlayer.Initialize(
@@ -2546,7 +2546,7 @@ public sealed partial class ValidationRoot
             itemHeld: false);
         var shieldTile = new FlyingTileCharacter();
         shieldTile.Initialize(
-            enemyData.ImportedEnemy(0x52, 0x00),
+            enemyData.ImportedEnemy(EnemyId.FlyingTile, 0x00),
             room,
             shieldPlayer.ShieldCollisionBounds.GetCenter(),
             roomTileChanged: static () => { },
@@ -2590,10 +2590,10 @@ public sealed partial class ValidationRoot
         IReadOnlyList<DungeonMechanicDatabaseRecord> records =
             data.GetRoomRecords(4, 0x64);
         IReadOnlyList<DungeonTilePatternRecord> pattern =
-            data.TilePattern(0x21, 0x09);
+            data.TilePattern(InteractionId.DungeonEvents, 0x09);
         FailIf(
             records is not
-                [{ Order: 0, Id: 0x21, SubId: 0x09,
+                [{ Order: 0, Id: InteractionId.DungeonEvents, SubId: 0x09,
                    PackedPosition: 0x68, Parameter: 0xb8 }] ||
             pattern.Select(cell =>
                     (cell.Order, cell.Tile, cell.PackedPosition)).ToArray() is not
@@ -2655,7 +2655,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 !_pushBlocks.Active || room.GetMetatile(source) != 0xa0 ||
                 room.GetMetatile(Point(goalPacked)) != 0xa0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) !=
+                _sound.PlayRequestsFor(SoundId.SndMoveBlock) !=
                     expectedMoveSounds,
                 $"Room 4:64 block ${sourcePacked:x2} did not begin its " +
                 "source 20-update push over floor $a0.");
@@ -2730,13 +2730,13 @@ public sealed partial class ValidationRoot
             fallingKey.State != PickupState.Collected ||
             _inventory.GetDungeonSmallKeys(dungeon) != keysBeforePickup + 1 ||
             !_saveData.HasRoomFlag(4, 0x64, OracleSaveData.RoomFlagItem) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1,
             "Room 4:64's landed key did not grant one dungeon-$03 small key, " +
             "SND_GETSEED, and ROOMFLAG_ITEM on contact.");
         Step();
         FailIf(
             !fallingKey.Held ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
             "Room 4:64's collected key did not enter its held SND_GETITEM pose.");
 
         LoadValidationRoom(4, 0x64);
@@ -2943,7 +2943,7 @@ public sealed partial class ValidationRoot
             fallingKey.State != PickupState.Spawning ||
             fallingKey.SpawnSubstate != 1 ||
             fallingKey.SpawnCounter != 40 || fallingKey.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "Room 4:61's key did not begin its source 40-update hidden " +
             "SND_SOLVEPUZZLE delay.");
         Step(_entities, _player, 39);
@@ -2990,7 +2990,7 @@ public sealed partial class ValidationRoot
         FailIf(
             fallingKey.State != PickupState.Waiting ||
             !becameVisibleWhileFalling || !fallingKey.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 2,
+            _sound.PlayRequestsFor(SoundId.SndDropEssence) != 2,
             "Room 4:61's key did not visibly fall and complete both source " +
             "bounces with SND_DROPESSENCE.");
 
@@ -3091,7 +3091,7 @@ public sealed partial class ValidationRoot
             scriptedEvent.Phase != MoonlitCrystalEventPhase.Rumbling ||
             scriptedEvent.Counter != 180 ||
             !sounds.SequenceEqual(
-                [OracleSoundEngine.SndCtrlStopSfx, data.MoonlitRumbleSound]) ||
+                [SoundId.SndCtrlStopSfx, data.MoonlitRumbleSound]) ||
             !shakes.SequenceEqual([180]),
             "The first crystal script did not stop SFX, shake 180, and play " +
             "SND_RUMBLE2 on the wait-30 boundary.");

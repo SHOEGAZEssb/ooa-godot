@@ -33,7 +33,7 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter
         OracleRandom random,
         int hitCount)
     {
-        if (cuccoRecord.Id != 0x36 || cuccoRecord.Animations.Length != 2)
+        if (cuccoRecord.Id != EnemyId.Cucco || cuccoRecord.Animations.Length != 2)
         {
             throw new InvalidOperationException(
                 "PART_CUCCO_ATTACKER requires the shared ENEMY_CUCCO visual.");
@@ -45,7 +45,7 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter
         _hitCount = hitCount;
         _state = CuccoAttackerState.Uninitialized;
         _counter = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _speed = 0;
         _precisePosition = Vector2.Zero;
         string sourceDuration = "8@";

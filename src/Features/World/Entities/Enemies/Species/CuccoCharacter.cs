@@ -74,14 +74,14 @@ internal partial class CuccoCharacter : EnemyCharacter
         Action<int> screenShakeRequested,
         Action<Rect2, int, int, int> applyThrownObjectHit)
     {
-        if (record.Id != 0x36 || record.SubId != 0x00 ||
+        if (record.Id != EnemyId.Cucco || record.SubId != 0x00 ||
             record.Animations.Length != 2)
         {
             throw new InvalidOperationException(
                 $"CuccoCharacter requires ENEMY_CUCCO $36:$00, got " +
                 $"${record.Id:x2}:${record.SubId:x2}.");
         }
-        if (giantRecord.Id != 0x3b || giantRecord.SubId != 0x00 ||
+        if (giantRecord.Id != EnemyId.GiantCucco || giantRecord.SubId != 0x00 ||
             giantRecord.Animations.Length != 2)
         {
             throw new InvalidOperationException(
@@ -102,7 +102,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         _state = CuccoState.Uninitialized;
         _counter1 = 0;
         _counter2 = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _hitCount = 0;
         _revengeCounter = 0;
         _heldSoundCounter = 0;
@@ -174,7 +174,7 @@ internal partial class CuccoCharacter : EnemyCharacter
 
             case CuccoState.Runaway:
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
-                    Position, player.Position) ^ 0x10;
+                    Position, player.Position) ^ ObjectAngle.HalfTurn;
                 SetDirectionalAnimation();
                 _movement.MoveUsingAdjacentWalls(
                     _angle,
@@ -238,7 +238,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         _heldSoundCounter = 0;
         player.BeginCarriedObjectPose();
         RestartAnimation(HeldAnimationIndex(player.FacingVector));
-        _soundRequested(OracleSoundEngine.SndChicken);
+        _soundRequested(SoundId.SndChicken);
         UpdateHeld(player, justGrabbed: true);
         return true;
     }
@@ -269,9 +269,9 @@ internal partial class CuccoCharacter : EnemyCharacter
             if ((_hitCount & 0x20) == 0)
                 _hitCount++;
         }
-        _soundRequested(OracleSoundEngine.SndDamageEnemy);
+        _soundRequested(SoundId.SndDamageEnemy);
         if (!_giant)
-            _soundRequested(OracleSoundEngine.SndChicken);
+            _soundRequested(SoundId.SndChicken);
         QueueRedraw();
         return true;
     }
@@ -291,7 +291,7 @@ internal partial class CuccoCharacter : EnemyCharacter
             _hitCount >= _behavior.RevengeHitThreshold;
         _transformationCounter = 19;
         Visible = false;
-        spawns.Add(new PuzzlePuffSpawn(Position, Sound: 0));
+        spawns.Add(new PuzzlePuffSpawn(Position, Sound: SoundId.MusNone));
         QueueRedraw();
     }
 
@@ -321,7 +321,7 @@ internal partial class CuccoCharacter : EnemyCharacter
             if ((_heldSoundCounter & 0x1f) == 0 &&
                 InvincibilityCounter == 0)
             {
-                _soundRequested(OracleSoundEngine.SndChicken);
+                _soundRequested(SoundId.SndChicken);
             }
         }
         _carried.Hold(player);
@@ -420,7 +420,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         _state = CuccoState.Uninitialized;
         _counter1 = 0;
         _counter2 = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _carried = new CarriedObjectMotion(position);
         _hitCount = 0;
         _revengeCounter = 0;

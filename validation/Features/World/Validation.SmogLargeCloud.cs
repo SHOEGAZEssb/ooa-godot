@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogLargeCloud()
     {
-        var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.Smog,0);
         var memory = new OracleRuntimeState();
         SmogCharacter Create(int phase, int random, System.Func<int,byte> collision)
         {
@@ -29,7 +29,7 @@ public partial class ValidationRoot
                 int counter = large.Counter1;
                 large.UpdateLargeCloud(new(200,72),shots.Add,() => { draws++; return 3; });
                 if (tick is 1 or 21)
-                    FailIf(memory.ReadWramByte(0xcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
+                    FailIf(memory.ReadWramByte(WramAddress.wTmpcec0) != 0 || memory.ReadWramByte(0xcec1) != 0 ||
                         memory.ReadWramByte(0xcec2) != (tick == 1 ? 0 : 0x20) || memory.ReadWramByte(0xcec3) != 0,
                         "Large Smog must publish zero-speed and SPEED_020 movement scratch at the actual dispatch boundary.");
                 if (tick is 195 or 206)
@@ -81,7 +81,7 @@ public partial class ValidationRoot
             try
             {
                 large.UpdateLargeCloud(new(200,72),_ => { },() => 3);
-                FailIf(large.Angle != (collision == 0xff ? 24 : 8),
+                FailIf(large.Angle != (collision == 0xff ? ObjectAngle.Left : ObjectAngle.Right),
                     $"Large Smog boundary probes must accept only raw$ff, not collision${collision:x2}.");
             }
             finally { large.Free(); }

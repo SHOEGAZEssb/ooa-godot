@@ -13,9 +13,9 @@ public sealed partial class ValidationRoot
         const int room = 0x7c;
         const int tradeItemAddress = 0xc6c0;
         const int tradeObtainedAddress = 0xc69a +
-            (TreasureDatabase.TreasureTradeItem >> 3);
+            (TreasureId.TradeItem >> 3);
         const int tradeObtainedMask =
-            1 << (TreasureDatabase.TreasureTradeItem & 7);
+            1 << (TreasureId.TradeItem & 7);
 
         PoeEvent poeEvent = _roomEvents.Get<PoeEvent>();
         PoeEventDatabase database = poeEvent.Database;
@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
         byte originalTombFlags =
             _saveData.GetRoomFlags(record.TombGroup, record.TombRoom);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
         FailIf(
             first.Record is not
             {
-                Id: 0x59,
+                Id: InteractionId.Poe,
                 SubId: 0,
                 Var03: 0,
                 X: 0x68,
@@ -285,7 +285,7 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage !=
                 DialogueBox.PlainText(rewardObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "poeScript giveitem did not grant the Poe Clock through grab " +
             "mode $02 with text, sounds, inventory, and room bit $20.");
 
@@ -330,7 +330,7 @@ public sealed partial class ValidationRoot
                 !commandStarts.Any(entry => entry.Source.Opcode == opcode)),
             "Poe typed trace lost source lines or a required script opcode.");
 
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
@@ -462,7 +462,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 2,
                 Room: 0x2e,
-                Id: 0x59,
+                Id: InteractionId.Poe,
                 SubId: 0,
                 Var03: 1,
                 X: 0x50,

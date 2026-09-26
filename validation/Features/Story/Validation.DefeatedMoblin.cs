@@ -17,10 +17,10 @@ public sealed partial class ValidationRoot
         void Step(int count=1) =>
             StepGameplayUpdates(count, Vector2.Zero, [], [], batched: batch);
         var sequence=_roomEvents.Get<DefeatedMoblinEvent>();
-        _saveData.SetGlobalFlag(0x1a,false);_saveData.SetRoomFlag(0,9,0x40,false);
+        _saveData.SetGlobalFlag(GlobalFlag.MoblinsKeepDestroyed,false);_saveData.SetRoomFlag(0,9,0x40,false);
         LoadValidationRoom(0,9);Step();
         FailIf(sequence.HasState || _entities.Entities<NpcCharacter>().Any(n=>n.Record.Id==0x72 && n.Active),"Room 0:09/$72 must be absent before the keep is destroyed.");
-        _saveData.SetGlobalFlag(0x1a);_saveData.WriteWramByte(0xc612,(byte)(batch?1:0));
+        _saveData.SetGlobalFlag(GlobalFlag.MoblinsKeepDestroyed);_saveData.WriteWramByte(WramAddress.wFileIsLinkedGame,(byte)(batch?1:0));
         LoadValidationRoom(0,9);_player.WarpTo(new Vector2(0x58,0x48));_player.Face(Vector2I.Down);
         Step();
         var king=sequence.Actors.Single(a=>a.Actor.Record.SubId==0);
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             {
                 cancelledAfterReward=true;
                 LoadValidationRoom(0,0x19);Step();
-                FailIf(!_inventory.HasTreasure(0x49) || _saveData.HasRoomFlag(0,9,0x40) || _player.CutsceneControlled,
+                FailIf(!_inventory.HasTreasure(TreasureId.BombFlower) || _saveData.HasRoomFlag(0,9,0x40) || _player.CutsceneControlled,
                     "Cancelling after the Bomb Flower reward must retain the item, release input, and leave the remote-Maku replay flag clear.");
                 trace.Entries.Clear();trace.Observations.Clear();messages.Clear();completed.Clear();
                 LoadValidationRoom(0,9);_player.WarpTo(new Vector2(0x58,0x48));
@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
         FailIf(!messages[4].Replace('\n',' ').Contains("old Goron tales!",StringComparison.Ordinal) ||
             trace.Observations.Count(e=>e.Observation=="Treasure" && e.Value==0x49)!=1,
             "Defeated Moblin must grant Bomb Flower once and select remote Maku TX_05b6/TX_05c6.");
-        FailIf(!_inventory.HasTreasure(0x49) || !_saveData.HasRoomFlag(0,9,0x40) ||
+        FailIf(!_inventory.HasTreasure(TreasureId.BombFlower) || !_saveData.HasRoomFlag(0,9,0x40) ||
             _saveData.MakuTreeState!=initialMaku+1 || _saveData.MakuMapTextPresent!=(batch?0xc6:0xb6) ||
             _player.CutsceneControlled || _entities.RuntimeState.ReadWramByte(0xcfd0)!=2,
             "Defeated Moblin Bomb Flower / remote Maku completion state mismatch.");

@@ -28,7 +28,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
 
     internal void Initialize(ImportedEnemyDefinition definition, OracleRoomData room, Vector2 position, OracleRandom random)
     {
-        if (definition.Id != 0x4b || definition.SubId != 0)
+        if (definition.Id != EnemyId.BallAndChainSoldier || definition.SubId != 0)
             throw new NotSupportedException("ballAndChainSoldier.s: handler requires ENEMY $4b:$00.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(definition), positionedOam: true);
         Record = definition;
@@ -151,7 +151,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
         var profile = EnemyBehaviorTables.Shared.EnemySwordDamageProfiles[1];
         InvincibilityCounter = profile.First;
         KnockbackCounter = profile.Second;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), origin.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), origin.Floor()) ^ ObjectAngle.HalfTurn;
         return true;
     }
 
@@ -160,7 +160,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
     public void BeginSwitchHook(Vector2 linkPosition)
     {
         KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition) ^ ObjectAngle.HalfTurn;
         State = 3; SwitchHookSubstate = 0;
     }
     public void CopySwitchHookPosition(Vector2 position, int zHigh)

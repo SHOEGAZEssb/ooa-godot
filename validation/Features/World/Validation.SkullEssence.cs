@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(count, movement, [], [], batched: batched);
         var data = new SkullDungeonDatabase();
         var visual = new DungeonInteractionVisualDatabase().Visual("burning-flame");
-        FailIf(data.GetRoomRecords(4, 0x69) is not [{ Id: 0x7f, SubId: 0, Order: 0, Y: 0x28, X: 0x78,
+        FailIf(data.GetRoomRecords(4, 0x69) is not [{ Id: InteractionId.Essence, SubId: 0, Order: 0, Y: 0x28, X: 0x78,
                 Kind: DungeonObjectKind.Essence, Predicate: DungeonObjectCondition.Always }] ||
             data.Essence.Index != 3 || visual.TileBase != 8 || visual.Palette != 2 ||
             !data.Essence.Message.StartsWith("\\pos(2)", StringComparison.Ordinal) ||
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(4, 0x6b, OracleSaveData.RoomFlag80);
             _saveData.SetRoomFlag(4, 0x6b, OracleSaveData.RoomFlagItem);
             _saveData.SetRoomFlag(0, 3, 0x40, false);
-            _saveData.WriteWramByte(0xc6bf, 7); _saveData.CommitInventoryChange();
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, 7); _saveData.CommitInventoryChange();
             _saveData.SetMakuTreeState(3);
             _saveData.SetMakuMapTextPast(0x5a);
             _saveData.SetMakuMapTextPresent(0);
@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
             FailIf(IsTransitioning || _currentRoom.Id != 0x69, "Essence-room scroll failed.");
             var essence = _entities.Entities<DungeonEssence>().Single();
             FailIf(essence.EssenceIndex != 3 || essence.Collected || essence.Position != new Vector2(120, 40) ||
-                essence.ExitWarp is not { DestinationGroup: 0, DestinationRoom: 3, DestinationPosition: 0x35, DestinationTransition: 0x0e } ||
+                essence.ExitWarp is not { DestinationGroup: 0, DestinationRoom: 3, DestinationPosition: 0x35, DestinationTransition: WarpDestinationTransition.XShifted } ||
                 _currentRoom.GetTerrainInfo(essence.Position).Collision != 15,
                 "Burning Flame lost its pedestal collision or TRANSITION_DEST_X_SHIFTED exit mapping.");
             _sound.ClearPlayRequestAudit();
@@ -94,8 +94,8 @@ public sealed partial class ValidationRoot
             FailIf(!_dialogue.IsOpen || !essence.ReadyForDialogue || _player.IsHoldingItemTwoHands ||
                 (_inventory.Essences & 8) == 0 || !_saveData.HasRoomFlag(4, 0x69, OracleSaveData.RoomFlagItem) ||
                 !_dialogue.CurrentMessage.Contains("Burning Flame", StringComparison.Ordinal) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.MusGetEssence) != 1,
+                _sound.PlayRequestsFor(SoundId.SndDropEssence) != 1 ||
+                _sound.PlayRequestsFor(SoundId.MusGetEssence) != 1,
                 "Walking to the pedestal did not collect Burning Flame through the actual gameplay loop.");
             Step();
             FailIf(_player.IsHoldingItemTwoHands || _player.NativeNormalStateForInteraction,
@@ -118,11 +118,11 @@ public sealed partial class ValidationRoot
             FailIf(energyParts.Any(part => !part.Initialized || part.Visible || part.Delay is < 1 or > 8),
                 "The first energy PART update must initialize all eight delays without revealing a bead.");
             Step(358);
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 0, "Essence fade cadence started before360 swirl updates.");
+            FailIf(_sound.PlayRequestsFor(SoundId.SndFadeOut) != 0, "Essence fade cadence started before360 swirl updates.");
             Step();
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 1, "Essence fade cadence missed the360-update boundary.");
+            FailIf(_sound.PlayRequestsFor(SoundId.SndFadeOut) != 1, "Essence fade cadence missed the360-update boundary.");
             Step(20); Step(20); Step(40);
-            FailIf(essence.SwirlActive || _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 4,
+            FailIf(essence.SwirlActive || _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4,
                 "Essence fade sound/stop-swirl cadence lost source20/20/40 waits.");
             FailIf(_roomEvents.Get<DungeonEssenceEvent>().Counter != 29,
                 "Essence scriptend must fall through to state7 and decrement its new30 counter in that same update.");

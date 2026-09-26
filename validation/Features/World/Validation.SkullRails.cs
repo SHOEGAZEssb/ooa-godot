@@ -19,12 +19,12 @@ public sealed partial class ValidationRoot
         // switchTileToggler.s @tileReplacement $0b/$0c; mainData.s
         // and replaceSwitchTiles @group4SwitchData independently agree.
         FailIf(railData.SwitchTiles(0x0b) != (0x5c, 0x5d) || railData.SwitchTiles(0x0c) != (0x59, 0x5e) ||
-            data.GetRoomRecords(4, 0x89) is not [{ Id: 0x78, SubId: 4, Y: 0x67, X: 0x0b, Order: 0 }] ||
-            data.GetRoomRecords(4, 0x8f) is not [{ Id: 0x78, SubId: 8, Y: 0x52, X: 0x0c, Order: 0 }],
+            data.GetRoomRecords(4, 0x89) is not [{ Id: InteractionId.SwitchTileToggler, SubId: 4, Y: 0x67, X: 0x0b, Order: 0 }] ||
+            data.GetRoomRecords(4, 0x8f) is not [{ Id: InteractionId.SwitchTileToggler, SubId: 8, Y: 0x52, X: 0x0c, Order: 0 }],
             "Skull rail junctions lost source placement, switch masks, or replacement table rows.");
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        _inventory.EquipA(InventoryState.ItemSword);
-        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
+        _inventory.EquipA(TreasureId.Sword);
+        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0);
         LoadValidationRoom(4, 0x89);
         _player.WarpTo(Point(0x82));
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                     FailIf(runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != (before ^ c.Mask) ||
                         _currentRoom.GetMetatile(Point(c.Switch)) != (on ? 0x0b : 0x0a) ||
                         _currentRoom.GetMetatile(Point(c.Rail)) != (on ? c.On : c.Off) ||
-                        _sound.PlayRequestsFor(0x7e) != 1,
+                        _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
                         $"4:{c.Room:x2} sword switch did not update only mask ${c.Mask:x2}, its rail, and SND_SWITCH once.");
                     if (batch) Step(40); else for (int n = 0; n < 40; n++) Step();
                     FailIf(_entities.Entities<DungeonSwitchRoomEntity>().Single().HitLockout != 0 || _player.IsAttacking,

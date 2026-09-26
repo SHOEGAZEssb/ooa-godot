@@ -69,7 +69,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             if (Read(0xcfd2) == 1) { _patch.SetActive(false); _patch = null; return; }
             if (Context.Rooms.SaveData.HasGlobalFlag(Database.Constant("repaired-flag")))
                 StartScript("upstairsRepairedEverythingScript");
-            else if (Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) && Context.Inventory.TradeItem == 0x0b)
+            else if (Context.Inventory.HasTreasure(TreasureId.TradeItem) && Context.Inventory.TradeItem == 0x0b)
             {
                 Write(0xcfd7, 0x13); Write(0xcfd0, 1); Write(0xcfd1, Context.Inventory.SwordLevel & 1);
                 StartScript("upstairsRepairSwordScript_body");
@@ -77,7 +77,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             else
             {
                 Write(0xcfd7, 0x12); Write(0xcfd0, 0);
-                _var38 = Context.Inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) && Context.Inventory.TuniNutState == 0 ? 0 : 1;
+                _var38 = Context.Inventory.HasTreasure(TreasureId.TuniNut) && Context.Inventory.TuniNutState == 0 ? 0 : 1;
                 StartScript("upstairsRepairTuniNutScript");
             }
         }
@@ -98,14 +98,14 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         if (State == 1)
         {
             Write(0xcfd4, 0); Write(0xcfd5, 0); Write(0xcfd6, 0);
-            Write(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
+            Write(WramAddress.wDiggingUpEnemiesForbidden, 1);
         }
         StartScript(State == 4 ? "downstairsAfterBeatingMinigameScript" : "downstairsScript_body");
     }
     private void StartScript(string name)
     {
         _runner.Start(Database.Commands, Database.Entry(name));
-        _runner.SetInitialMotionRegisters("Patch", Database.Constant("speed"), 0);
+        _runner.SetInitialMotionRegisters("Patch", Database.Constant("speed"), ObjectAngle.Up);
     }
     public void UpdateFrame()
     {
@@ -175,7 +175,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                 if (_runner.Active) { _patch!.FaceLinkAndAnimateOneUpdate(Context.Player); return; }
                 Write(0xcfd4, 1);
                 Context.Sound.PlaySound(Database.Constant("whistle"));
-                Context.Sound.PlaySound(0x2d); // MUS_MINIBOSS
+                Context.Sound.PlaySound(SoundId.MusMiniboss); // MUS_MINIBOSS
                 _managerState = 1; _managerCounter = Database.Constant("beetle-delay");
                 _extraPending = _extraSpawned = 0;
                 ClearHoleBuffer();
@@ -251,7 +251,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                 if ((x & 15) != 8 || (y & 15) != 8) return;
                 int packed = ((y >> 4) << 4) | (x >> 4);
                 int tile = Context.Rooms.CurrentRoom.GetMetatile(_cart.Position);
-                int angle = packed == 0x15 ? 8 : tile switch { 0x5c => 16, 0x5a => 24, 0x5b => 0, 0x59 => 8, _ => -1 };
+                int angle = packed == 0x15 ? ObjectAngle.Right : tile switch { 0x5c => ObjectAngle.Down, 0x5a => ObjectAngle.Left, 0x5b => ObjectAngle.Up, 0x59 => ObjectAngle.Right, _ => -1 };
                 if (angle < 0) return;
                 _cartAngle = angle; _cart.SetScriptAnimation(Database.Animation((angle & 8) == 0 ? 7 : 8)); return;
             case 3: if (Read(0xcfd4) == 0) _cartState = 1; return;
@@ -294,7 +294,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     {
         var position = new Vector2((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);
         SpawnPuff(position);
-        if (!Context.Entities.TrySpawnEnemy(0x5f, 0, position, "patch.s:@spawnBeetle", out string error))
+        if (!Context.Entities.TrySpawnEnemy(EnemyId.HarmlessHardhatBeetle, 0, position, "patch.s:@spawnBeetle", out string error))
         {
             if (error.Contains("slots are occupied", StringComparison.Ordinal)) return false;
             throw new InvalidOperationException($"patch.s:@spawnBeetle: {error}");
@@ -333,7 +333,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     private NpcCharacter SpawnVisual(int subid, Vector2 position)
     {
         var visual = Database.Visual(subid);
-        var record = new NpcRecord(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, 0x94, subid,
+        var record = new NpcRecord(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, InteractionId.Patch, subid,
             (int)position.Y, (int)position.X, 0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
             visual.Animation, visual.Animation, visual.Animation, visual.Animation, string.Empty, NpcImplementationClassification.EventOwned);
         var actor = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(record, $"PatchItem{subid:x2}"));
@@ -344,7 +344,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             ? NpcCharacter.FixedLowPriorityZIndex : NpcCharacter.InFrontOfLinkZIndex);
         return actor;
     }
-    private void SpawnPuff(Vector2 position) => Context.Entities.Spawn(new PuzzlePuffSpawn(position, OracleSoundEngine.SndPoof));
+    private void SpawnPuff(Vector2 position) => Context.Entities.Spawn(new PuzzlePuffSpawn(position, SoundId.SndPoof));
     private void SetTile(int packed, int tile) => Context.Rooms.CurrentRoom.SetPositionTileAndCollision(
         new Vector2((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8), (byte)tile, null, Context.AnimationTick());
     private void SetAnimation(int animation) => _patch!.SetScriptAnimation(Database.Animation(animation));
@@ -425,7 +425,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     }
     public override void GiveItem(int treasureId, int parameter)
     {
-        string name = treasureId == TreasureDatabase.TreasureTuniNut ? "TREASURE_OBJECT_TUNI_NUT_01" : $"TREASURE_OBJECT_SWORD_{parameter:x2}";
+        string name = treasureId == TreasureId.TuniNut ? "TREASURE_OBJECT_TUNI_NUT_01" : $"TREASURE_OBJECT_SWORD_{parameter:x2}";
         var item = Context.Treasures.GetObject(name);
         var policy = Database.Reward(name);
         _rewards.Add(Context.Entities.GrantGroundTreasure(new GroundTreasureGrantRequest(
@@ -446,7 +446,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             case "patch_jump": _speedZ = -0x180; SetInputEnabled(false); Context.Sound.PlaySound(Database.Constant("jump-sound")); break;
             case "patch_updateTextSubstitution": Write(0xcbaf, Read(0xcfd7)); break;
             case "patch_turnToFaceLink":
-                SetAnimation(((OracleObjectMovement.Shared.RelativeAngle(_patch!.Position, Context.Player.Position) + 4) & 0x18) >> 3); break;
+                SetAnimation(((OracleObjectMovement.Shared.RelativeAngle(_patch!.Position, Context.Player.Position) + 4) & ObjectAngle.CardinalMask) >> 3); break;
             case "patch_setStairTile:160": _stairsClosed = true; SetTile(0x49, 0xa0); SpawnPuff(new Vector2(0x98, 0x48)); break;
             case "patch_restoreControlAndStairs": _stairsClosed = false; ReleaseInputControl(); SetTile(0x49, 0x44); SpawnPuff(new Vector2(0x98, 0x48)); break;
             case "patch_moveLinkPositionAtMinigameEnd":
@@ -460,7 +460,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             case "fadeoutToWhiteWithDelay:2": BeginFade(1, 2); break;
             case "fadeinFromWhiteWithDelay:2": BeginFade(-1, 2); break;
             case "fadeinFromWhiteWithDelay:4": BeginFade(-1, 4); break;
-            case "loseTreasure:65": Context.Inventory.LoseTreasure(TreasureDatabase.TreasureTradeItem); break;
+            case "loseTreasure:65": Context.Inventory.LoseTreasure(TreasureId.TradeItem); break;
             default: throw UnsupportedCommand($"run Patch helper {handler}");
         }
     }

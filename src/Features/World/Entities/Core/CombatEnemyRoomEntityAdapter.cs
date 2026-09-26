@@ -31,7 +31,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         $"Enemy${DimitriCollisionType:x2} mode${DimitriCollisionMode:x2}: boomerang effect$35 has no transformation owner.");
     protected virtual void DamageByBoomerang(BoomerangItem item, int effect, ICollection<RoomEntitySpawn> spawns)
     {
-        var strength = effect == 8 ? EnemyKnockbackStrength.Low : effect == 10 ? EnemyKnockbackStrength.High : EnemyKnockbackStrength.Normal;
+        var strength = effect == CollisionEffect.SwordLowKnockback ? EnemyKnockbackStrength.Low : effect == CollisionEffect.SwordHighKnockback ? EnemyKnockbackStrength.High : EnemyKnockbackStrength.Normal;
         if (!combatDescriptor.Combat.ApplyDamageAfterCollision(item.Position, item.Damage, strength, spawns, combatDescriptor.CountsAsEnemy))
             throw new InvalidOperationException($"Enemy${DimitriCollisionType:x2} rejected eligible boomerang damage effect${effect:x2}.");
         MarkBoomerangHit();
@@ -46,23 +46,23 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int effect = data.Effect(DimitriCollisionMode);
         switch (effect)
         {
-            case 0: return new(true, false);
-            case 8: case 9: case 10: case 11:
+            case CollisionEffect.None: return new(true, false);
+            case CollisionEffect.SwordLowKnockback: case CollisionEffect.Sword: case CollisionEffect.SwordHighKnockback: case CollisionEffect.SwordNoKnockback:
                 DamageByBoomerang(item, effect, spawns);
                 break;
-            case 0x1b:
+            case CollisionEffect.Effect1b:
                 Entity.InvincibilityCounter = data.DeflectionInvincibility;
                 MarkBoomerangHit();
                 return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
-            case 0x1c:
+            case CollisionEffect.Effect1c:
                 MarkBoomerangHit();
                 break;
-            case 0x22:
+            case CollisionEffect.Stun:
                 Entity.ApplyBoomerangStun(data.StunCounter);
                 Entity.InvincibilityCounter = data.StunInvincibility;
-                combatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+                combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
                 break;
-            case 0x35:
+            case CollisionEffect.Effect35:
                 TransformByBoomerang();
                 break;
             default: throw new NotSupportedException($"Enemy${DimitriCollisionType:x2} mode${DimitriCollisionMode:x2}: " +
@@ -77,8 +77,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             !combatDescriptor.Combat.Intersects(hitbox) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, seedZ, 7)) return false;
         int effect = GaleSeedCollisionDatabase.Shared.Effect(GaleCollisionMode);
-        if (effect == 0x20) return true;
-        if (effect != 0x29) return false;
+        if (effect == CollisionEffect.Effect20) return true;
+        if (effect != CollisionEffect.GaleSeed) return false;
         _seedBurning = false;
         _gale.Begin(hitbox.GetCenter(), CollisionZ, random);
         return true;
@@ -108,8 +108,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int effect = collisions.Effect(DimitriCollisionMode);
         // Even a no-op collision returns out of this enemy's collision scan,
         // so Link contact is skipped for this enemy while later enemies run.
-        if (effect == 0) return true;
-        if (effect == 0x2e && Entity.Health > 0 && Entity is ISwitchHookEnemy target)
+        if (effect == CollisionEffect.None) return true;
+        if (effect == CollisionEffect.SwitchHook && Entity.Health > 0 && Entity is ISwitchHookEnemy target)
         {
             target.BeginSwitchHook(linkPosition);
             hook.LatchEnemy(target);
@@ -174,9 +174,9 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int effect = SomariaCollisionDatabase.Shared.Effects((byte)DimitriCollisionMode).Block;
         switch (effect)
         {
-            case 0: return true;
-            case 0x2d: block.Flags |= 0x20; return true;
-            case 0x2f:
+            case CollisionEffect.None: return true;
+            case CollisionEffect.Effect2d: block.Flags |= 0x20; return true;
+            case CollisionEffect.Effect2f:
                 // LINKDMG_30 precedes ENEMYDMG_04. Ordinary enemy initialization
                 // sets var3e=$01; the block receives the enemy's raw damage,
                 // without Link's ring or contact-damage policy.
@@ -231,7 +231,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
                     Entity.Position,
                     response.LinkInvincibilityFrames,
                     response.LinkKnockbackFrames);
-                combatDescriptor.RequestSound(OracleSoundEngine.SndBombLand);
+                combatDescriptor.RequestSound(SoundId.SndBombLand);
             }
             return;
         }
@@ -261,7 +261,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x21)
+        if (seedItem == ItemId.ScentSeed)
         {
             if (_seedBurning || !Entity.CollisionEnabled ||
                 !combatDescriptor.Combat.Intersects(hitbox))
@@ -292,9 +292,9 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         {
             return SeedHitResult.None;
         }
-        if (seedItem == 0x24)
+        if (seedItem == ItemId.MysterySeed)
             return SeedHitResult.Activate;
-        if (seedItem != 0x20)
+        if (seedItem != ItemId.EmberSeed)
             return SeedHitResult.None;
         _seedBurning = true;
         return SeedHitResult.Ignite;

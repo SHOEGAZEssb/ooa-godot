@@ -14,7 +14,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     private int _attackerFrames;
     private Vector2? _shieldClink;
     public bool Finished => Entity.Finished;
@@ -44,24 +44,24 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
         var data = BoomerangCollisionDatabase.Shared;
-        if (!item.CollisionEnabled || !data.PartEnabled(0x2a) || !Overlaps(0x17, item.CollisionBounds) ||
+        if (!item.CollisionEnabled || !data.PartEnabled(0x2a) || !Overlaps(ItemCollisionType.L1Boomerang, item.CollisionBounds) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7)) return default;
-        int effect = data.Effect(0x74);
-        if (effect != 0x1b) throw new NotSupportedException($"PART_SPIKED_BALL $2a: boomerang effect${effect:x2}.");
+        int effect = data.Effect(EnemyCollisionMode.SpikedBall);
+        if (effect != CollisionEffect.Effect1b) throw new NotSupportedException($"PART_SPIKED_BALL $2a: boomerang effect${effect:x2}.");
         Entity.InvincibilityCounter = data.DeflectionInvincibility;
-        Entity.PublishCollision(0x17);
+        Entity.PublishCollision(ItemCollisionType.L1Boomerang);
         return new(true, true, BoomerangCollisionResponse.Midpoint(Entity.Position, item.Position));
     }
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     {
         if (!block.CollisionEnabled || !SomariaCollisionDatabase.Shared.Part(0x2a).Block ||
             !RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZHigh, block.ZHigh, 7) ||
-            !Overlaps(0x15, block.CollisionBounds)) return false;
-        int effect = SomariaCollisionDatabase.Shared.Effects(0x74).Block;
+            !Overlaps(ItemCollisionType.SomariaBlock, block.CollisionBounds)) return false;
+        int effect = SomariaCollisionDatabase.Shared.Effects(EnemyCollisionMode.SpikedBall).Block;
         switch (effect)
         {
-            case 0: return true;
-            case 0x2d:
+            case CollisionEffect.None: return true;
+            case CollisionEffect.Effect2d:
                 // collisionEffect2d only marks the ITEM for deletion. It does
                 // not publish a PART hit, recoil, sound, or pending damage.
                 block.Flags |= 0x20;
@@ -74,7 +74,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin, int damage,
         ICollection<RoomEntitySpawn> spawns) => ApplyItem((int)collision, bounds, spawns);
     public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>
-        ApplyItem(0x0b, bounds, spawns);
+        ApplyItem(ItemCollisionType.ExpertPunch, bounds, spawns);
     private bool ApplyItem(int collision, Rect2 bounds, ICollection<RoomEntitySpawn> spawns)
     {
         if (!Overlaps(collision, bounds)) return false;
@@ -82,18 +82,18 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         _attackerFrames = 0;
         switch (effect)
         {
-            case 0: return true;
-            case 0x20: return true;
-            case 0x1c: Entity.PublishCollision(collision); return true;
-            case 0x15:
-            case 0x16:
-            case 0x17:
+            case CollisionEffect.None: return true;
+            case CollisionEffect.Effect20: return true;
+            case CollisionEffect.Effect1c: Entity.PublishCollision(collision); return true;
+            case CollisionEffect.Effect15:
+            case CollisionEffect.Effect16:
+            case CollisionEffect.Effect17:
                 Entity.InvincibilityCounter = -28; // ENEMYDMG_34=$60,$e4,0,0.
                 var recoil = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
-                _attackerFrames = effect == 0x15 ? recoil.LowFrames : effect == 0x16 ? recoil.NormalFrames : recoil.HighFrames;
-                sound(OracleSoundEngine.SndBombLand);
+                _attackerFrames = effect == CollisionEffect.Effect15 ? recoil.LowFrames : effect == CollisionEffect.Effect16 ? recoil.NormalFrames : recoil.HighFrames;
+                sound(SoundId.SndBombLand);
                 break;
-            case 0x1b:
+            case CollisionEffect.Effect1b:
                 Entity.InvincibilityCounter = -20; // ENEMYDMG_28=$60,$ec,0,0.
                 break;
             default: throw new NotSupportedException($"PART_SPIKED_BALL $2a collision ${collision:x2}: effect ${effect:x2} is not represented.");
@@ -115,15 +115,15 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
     {
         if (!Overlaps(collision, bounds)) return default;
         int effect = _data.BallEffects[collision].Value;
-        if (effect == 0) return new(true, SeedHitResult.None, false);
-        if (effect != 0x20) throw new NotSupportedException($"PART_SPIKED_BALL $2a seed collision ${collision:x2}: effect ${effect:x2} is not represented.");
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true);
+        if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
+        if (effect != CollisionEffect.Effect20) throw new NotSupportedException($"PART_SPIKED_BALL $2a seed collision ${collision:x2}: effect ${effect:x2} is not represented.");
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true);
     }
     public SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("PART_SPIKED_BALL $2a requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_SPIKED_BALL $2a requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(bounds, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public void HandleLinkContact(Player player)
     {
@@ -135,17 +135,17 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
             if (!player.CanAcceptShieldCollision) return;
             int level = Math.Clamp(player.Inventory.ShieldLevel, 1, 3);
             int effect = _data.BallEffects[level].Value;
-            if (effect is not (0x16 or 0x17)) throw new NotSupportedException($"PART_SPIKED_BALL $2a shield effect ${effect:x2} is not represented.");
+            if (effect is not (CollisionEffect.Effect16 or CollisionEffect.Effect17)) throw new NotSupportedException($"PART_SPIKED_BALL $2a shield effect ${effect:x2} is not represented.");
             Entity.InvincibilityCounter = -28;
             Entity.PublishCollision(level);
             _shieldClink = OracleObjectMath.ToPixelPosition((Entity.Position +
                 OracleObjectMath.ToPixelPosition(player.ShieldCollisionBounds.GetCenter())) / 2);
-            player.ApplyShieldCollisionRecoil(Entity.Position, effect == 0x17 ? 22 : 15, effect == 0x17 ? 25 : 19);
-            sound(OracleSoundEngine.SndBombLand);
+            player.ApplyShieldCollisionRecoil(Entity.Position, effect == CollisionEffect.Effect17 ? 22 : 15, effect == CollisionEffect.Effect17 ? 25 : 19);
+            sound(SoundId.SndBombLand);
             return;
         }
         if (player.OverlapsEnemyCollision(Entity.CollisionBounds) &&
             player.ApplyEnemyContactDamage(Entity.Position, 2, RingDamageSource.Generic, 34, 15))
-            Entity.PublishCollision(0);
+            Entity.PublishCollision(ItemCollisionType.Link);
     }
 }

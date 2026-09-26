@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
                 : _roomEvents.Get<RemoteMakuFirstEssenceEvent>();
             int group = past ? 1 : 0;
             int room = past ? 0x83 : 0x8d;
-            _saveData.WriteWramByte(0xc6bf, 3);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, 3);
             _saveData.SetRoomFlag(group, room, 0x40, false);
             LoadValidationRoom(group, room);
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
         RemoteMakuFirstEssenceEvent cutscene =
             _roomEvents.Get<RemoteMakuFirstEssenceEvent>();
         RemoteMakuEventRecord record = cutscene.Database.Record;
-        byte originalEssences = _saveData.ReadWramByte(0xc6bf);
+        byte originalEssences = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
         int originalMakuState = _saveData.MakuTreeState;
         int originalMapText = _saveData.MakuMapTextPresent;
         bool originalLinked = _saveData.IsLinkedGame;
@@ -182,14 +182,14 @@ public sealed partial class ValidationRoot
             // subsequent entries even when that Essence remains owned.
             SetRoomFlag(false);
             _saveData.WriteWramByte(
-                0xc6bf, (byte)(originalEssences & ~record.EssenceMask));
+                WramAddress.wEssencesObtained, (byte)(originalEssences & ~record.EssenceMask));
             LoadValidationRoom(group, room);
             FailIf(
                 cutscene.HasState || _roomEvents.Active,
                 "Room 0:8d remote Maku event ignored its first-Essence predicate.");
 
             _saveData.WriteWramByte(
-                0xc6bf, (byte)(originalEssences | record.EssenceMask));
+                WramAddress.wEssencesObtained, (byte)(originalEssences | record.EssenceMask));
             SetRoomFlag(true);
             LoadValidationRoom(group, room);
             FailIf(
@@ -214,7 +214,7 @@ public sealed partial class ValidationRoot
                 !_player.CutsceneControlled ||
                 cutscene.TextboxFlags != 0x04 ||
                 cutscene.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Remote Maku disableinput/textbox-palette/setmusic commands " +
                 "lost their first script update.");
             StepRoomEventFrames(1);
@@ -275,7 +275,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 cutscene.Confetti is not
                 { SpawnedPieces: 1, LivePieces: 1 } ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 1,
+                _sound.PlayRequestsFor(SoundId.SndMagicPowder) != 1,
                 "Present Maku confetti did not spawn its first $e8/$38 piece " +
                 "and SND_MAGIC_POWDER one update after initialization.");
             Vector2 firstPosition = cutscene.Confetti.PiecePositions.Single();
@@ -290,7 +290,7 @@ public sealed partial class ValidationRoot
             StepRoomEventFrames(1);
             FailIf(
                 cutscene.Confetti.SpawnedPieces != 2 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) != 2,
+                _sound.PlayRequestsFor(SoundId.SndMagicPowder) != 2,
                 "Present Maku confetti did not spawn piece two after exactly $32 updates.");
 
             StepUntilDialogue();
@@ -299,7 +299,7 @@ public sealed partial class ValidationRoot
                 !message.Contains("Western Woods", StringComparison.Ordinal) ||
                 !message.Contains("Can you go", StringComparison.Ordinal) ||
                 _saveData.MakuMapTextPresent != record.StandardMapText ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree ||
+                _sound.ActiveMusic != SoundId.MusMakuTree ||
                 _roomView.BackgroundFadeAlpha != 1.0f ||
                 !_hud.Visible ||
                 !_hud.StatusBarHidden ||
@@ -318,7 +318,7 @@ public sealed partial class ValidationRoot
                 _dialogue.GlyphColorForValidation(0, 4, 0) != 3 ||
                 _dialogue.GlyphColorForValidation(0, 4, 13) != 4 ||
                 cutscene.Confetti is not { Finished: true } ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMagicPowder) <
+                _sound.PlayRequestsFor(SoundId.SndMagicPowder) <
                     record.ConfettiPieces,
                 "Remote Maku standard TX_05b0, map text $b0, black palette, " +
                 "PALH_0d dialogue colors, or complete present confetti " +
@@ -371,7 +371,7 @@ public sealed partial class ValidationRoot
             _roomEvents.CommandTraceSink = null;
             if (_dialogue.IsOpen)
                 _dialogue.Close();
-            _saveData.WriteWramByte(0xc6bf, originalEssences);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, originalEssences);
             _saveData.SetMakuTreeState(originalMakuState);
             _saveData.SetMakuMapTextPresent(originalMapText);
             _saveData.SetLinkedGame(originalLinked);
@@ -463,7 +463,7 @@ public sealed partial class ValidationRoot
                 cutscene.Record.Room != record.Room ||
                 cutscene.Record.Var03 != 0x02 ||
                 cutscene.Record.RequiredTreasure !=
-                    TreasureDatabase.TreasureHarp,
+                    TreasureId.Harp,
                 "Room 0:3a did not select its imported $8a:$00/v$02 " +
                 "post-Harp lane.");
 
@@ -471,7 +471,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 !_player.CutsceneControlled ||
                 cutscene.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Room 0:3a post-Harp lane lost the shared first-update " +
                 "input lock, script order, or Maku Tree music.");
             StepUntilDialogue();

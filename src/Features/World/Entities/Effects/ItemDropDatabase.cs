@@ -74,13 +74,13 @@ public sealed class ItemDropDatabase
 
     internal static int TreasureForDrop(int subId) => subId switch
     {
-        Fairy or Heart => TreasureDatabase.TreasureHeartRefill,
+        Fairy or Heart => TreasureId.HeartRefill,
         OneRupee or FiveRupees or OneHundredRupeesOrEnemy =>
-            TreasureDatabase.TreasureRupees,
-        Bombs => TreasureDatabase.TreasureBombs,
+            TreasureId.Rupees,
+        Bombs => TreasureId.Bombs,
         >= EmberSeeds and <= MysterySeeds =>
-            TreasureDatabase.TreasureEmberSeeds + subId - EmberSeeds,
-        _ => TreasureDatabase.TreasureNone
+            TreasureId.EmberSeeds + subId - EmberSeeds,
+        _ => TreasureId.None
     };
 
     internal static bool IsAvailable(
@@ -93,7 +93,7 @@ public sealed class ItemDropDatabase
         if (subId is >= Fairy and <= FiveRupees or OneHundredRupeesOrEnemy)
             return true;
         int treasure = TreasureForDrop(subId);
-        return treasure != TreasureDatabase.TreasureNone &&
+        return treasure != TreasureId.None &&
             (inventory?.HasTreasure(treasure) ??
                 saveData?.HasTreasure(treasure) == true);
     }

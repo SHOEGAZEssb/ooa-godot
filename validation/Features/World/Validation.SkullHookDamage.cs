@@ -10,14 +10,14 @@ public sealed partial class ValidationRoot
     private void ValidateSkullHookDamage()
     {
         var collisions = SwitchHookCollisionDatabase.Shared;
-        FailIf(collisions.Effect(0x29) != 0x0b || collisions.Effect(0x2b) != 8 ||
-            collisions.Effect(0x2e) != 0x0b || collisions.Effect(0x58) != 0x1c || collisions.Effect(0x3a) != 8,
+        FailIf(collisions.Effect(EnemyCollisionMode.Zol) != 0x0b || collisions.Effect(EnemyCollisionMode.FireKeese) != 8 ||
+            collisions.Effect(EnemyCollisionMode.PeahatVulnerable) != 0x0b || collisions.Effect(EnemyCollisionMode.Peahat) != 0x1c || collisions.Effect(EnemyCollisionMode.Moldorm) != 8,
             "Skull ordinary enemies lost source hook effects $0b/$08/$1c.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, bool fire = false, Vector2 movement = default) =>
             StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
         foreach (bool batch in new[] { false, true })
         foreach (string scenario in new[] { "red", "red-lethal", "green", "fire", "moldorm", "peahat", "peahat-air" })

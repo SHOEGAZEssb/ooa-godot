@@ -37,7 +37,7 @@ internal sealed class NayruHouseDatabase
             {
                 Group: 3,
                 Room: 0x9e,
-                InteractionId: 0x4f,
+                InteractionId: InteractionId.ImpaNpc,
                 SubId: 0x00,
                 StairPosition: 0x22,
                 StairTile: 0x45,
@@ -54,8 +54,8 @@ internal sealed class NayruHouseDatabase
         npc.Group == Record.Group &&
         npc.Room == Record.Room &&
         (npc.Id == Record.InteractionId && npc.SubId == Record.SubId ||
-         npc.Id == 0x36 && npc.SubId == 0x0b ||
-         npc.Id == 0xad && npc.SubId == 0x07);
+         npc.Id == InteractionId.Nayru && npc.SubId == 0x0b ||
+         npc.Id == InteractionId.Zelda && npc.SubId == 0x07);
 }
 
 internal readonly record struct NayruHouseRecord(

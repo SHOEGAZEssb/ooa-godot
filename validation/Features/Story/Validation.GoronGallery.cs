@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(40,Vector2.Zero);
         if(_dialogue.IsOpen) _dialogue.Close();
         StepGameplayUpdates(40,Vector2.Zero);
-        FailIf(keeper.Gallery.Session is not {GameComplete:true,Round:10}||_inventory.HasTreasure(0x5a)||
+        FailIf(keeper.Gallery.Session is not {GameComplete:true,Round:10}||_inventory.HasTreasure(TreasureId.LavaJuice)||
             _inventory.EquippedB!=b||_inventory.EquippedA!=a||cave.BlocksGameplay,
             "Goron gallery zero-hit game did not complete ten rounds, withhold Lava Juice, restore equipment, and release input.");
         ApproachGoronFromFloor(keeper); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
@@ -49,9 +49,9 @@ public sealed partial class ValidationRoot
         // Ball scoring is covered separately; start here at its script handoff.
         keeper.Gallery.Session!.Score=100; keeper.Gallery.Session.GameComplete=true;
         AdvanceGoronDialogue(500,1);
-        FailIf(!_inventory.HasTreasure(0x5a)||_inventory.EquippedA!=a||_inventory.EquippedB!=b,
+        FailIf(!_inventory.HasTreasure(TreasureId.LavaJuice)||_inventory.EquippedA!=a||_inventory.EquippedB!=b,
             "Goron gallery score 100 did not award Lava Juice and restore equipment.");
-        _saveData.SetGlobalFlag(0x14);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
         LoadValidationRoom(3,0xe7); StepGameplayUpdates(4,Vector2.Zero);
         var elder=cave.Actors.Single(actor=>actor.Actor.Record.Id==0x8b);
         ApproachGoronFromFloor(elder);
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
         FailIf(!_dialogue.ChoiceActive,"Postgame Goron Elder did not offer its secret conversation.");
         _dialogue.SubmitChoiceForValidation(1); StepGameplayUpdates(31,Vector2.Zero);
         if(_dialogue.IsOpen) _dialogue.Close(); StepGameplayUpdates(3,Vector2.Zero);
-        FailIf(_saveData.HasGlobalFlag(0x6c)||cave.BlocksGameplay,"Declining the Elder secret committed a flag or retained input.");
+        FailIf(_saveData.HasGlobalFlag(GlobalFlag.BeganElderSecret)||cave.BlocksGameplay,"Declining the Elder secret committed a flag or retained input.");
         ApproachGoronFromFloor(elder); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         for(int i=0;i<100&&!_secretEntry.IsActive;i++) AdvanceGoronDialogue(1);
         FailIf(!_secretEntry.IsActive,"Elder did not open the shared secret-entry screen.");
@@ -68,19 +68,19 @@ public sealed partial class ValidationRoot
         _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(0x08,_saveData));
         for(int i=0;i<22;i++) _secretEntry.Update(1.0/60.0);
         for(int i=0;i<1200&&elder.Gallery!.Session is null;i++) AdvanceGoronDialogue(1);
-        FailIf(!_saveData.HasGlobalFlag(0x6c)||elder.Gallery!.Session is null||
-            _inventory.EquippedA!=InventoryState.ItemBiggoronSword||_inventory.EquippedB!=InventoryState.ItemBiggoronSword,
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganElderSecret)||elder.Gallery!.Session is null||
+            _inventory.EquippedA!=TreasureId.BiggoronSword||_inventory.EquippedB!=TreasureId.BiggoronSword,
             "Accepted Elder secret did not begin the Biggoron-sword gallery with both equipment slots reserved.");
         StepGameplayUpdates(1,Vector2.Zero);
         elder.Gallery.Session!.Score=300; elder.Gallery.Session.GameComplete=true;
         AdvanceGoronDialogue(500,1);
-        FailIf(!_inventory.HasTreasure(0x0c)||!_saveData.HasGlobalFlag(0x76)||
-            _inventory.EquippedA!=InventoryState.ItemBiggoronSword||_inventory.EquippedB!=InventoryState.ItemBiggoronSword,
-            $"Elder gallery score 300: sword {_inventory.HasTreasure(0x0c)}, flag {_saveData.HasGlobalFlag(0x76)}, equips {_inventory.EquippedA:x2}/{_inventory.EquippedB:x2} versus {a:x2}/{b:x2}, score {elder.Gallery.Score}, blocked {cave.BlocksGameplay}.");
+        FailIf(!_inventory.HasTreasure(TreasureId.BiggoronSword)||!_saveData.HasGlobalFlag(GlobalFlag.DoneElderSecret)||
+            _inventory.EquippedA!=TreasureId.BiggoronSword||_inventory.EquippedB!=TreasureId.BiggoronSword,
+            $"Elder gallery score 300: sword {_inventory.HasTreasure(TreasureId.BiggoronSword)}, flag {_saveData.HasGlobalFlag(GlobalFlag.DoneElderSecret)}, equips {_inventory.EquippedA:x2}/{_inventory.EquippedB:x2} versus {a:x2}/{b:x2}, score {elder.Gallery.Score}, blocked {cave.BlocksGameplay}.");
         ApproachGoronFromFloor(elder); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(8);
         cave.Cancel();
-        FailIf(_inventory.EquippedA!=InventoryState.ItemBiggoronSword||_inventory.EquippedB!=InventoryState.ItemBiggoronSword||_player.CutsceneControlled,
+        FailIf(_inventory.EquippedA!=TreasureId.BiggoronSword||_inventory.EquippedB!=TreasureId.BiggoronSword||_player.CutsceneControlled,
             "Cancelling the Elder gallery failed to restore equipment and input.");
     }
 }

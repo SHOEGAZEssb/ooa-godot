@@ -187,7 +187,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         _phase = SpinnerPhase.Turning;
         player.BeginSpinnerTurn(Position + _linkOffset, _exitDirection);
         _beginScreenShake(4);
-        _playSound(OracleSoundEngine.SndOpenChest);
+        _playSound(SoundId.SndOpenChest);
     }
 
     private void UpdateTurning(Player player)
@@ -211,7 +211,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
                     (_positionBase + parameter) & 0x0f];
                 player.SetSpinnerTurnPosition(
                     Position + _linkOffset, _exitDirection);
-                _playSound(OracleSoundEngine.SndDoorClose);
+                _playSound(SoundId.SndDoorClose);
             }
         }
         _spinnerAnimation.Advance();

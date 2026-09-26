@@ -34,7 +34,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         Func<int> triggerState,
         GroundTreasureGrantRequest? buttonKey)
     {
-        if (record.Id != 0x21 || record.SubId is not (0x0a or 0x0c) ||
+        if (record.Id != InteractionId.DungeonEvents || record.SubId is not (0x0a or 0x0c) ||
             record.SubId == 0x0a && buttonKey is not null ||
             record.SubId == 0x0c && buttonKey is null)
         {

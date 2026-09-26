@@ -33,7 +33,7 @@ internal sealed class ArmosRoomEntity
                     () => armos.Position,
                     armos.Record.DamageQuarters,
                     () => armos.IsDead && !armos.DiedInHazard
-                        ? new EnemyDeathPuffSpawn(armos.Position, EnemyId: 0x1d)
+                        ? new EnemyDeathPuffSpawn(armos.Position, EnemyId: EnemyId.Armos)
                         : null),
                 countsAsEnemy: true,
                 killableEnemyIndex: 0,
@@ -60,8 +60,8 @@ internal sealed class ArmosRoomEntity
     {
         int collisionType = SwordCollision.Type(_swordState, _swordLevel);
         int expectedEffect = _swordState == SwordActionState.Spin
-            ? 0x16
-            : 0x15;
+            ? CollisionEffect.Effect16
+            : CollisionEffect.Effect15;
         RequireCollisionEffect(collisionType, expectedEffect);
         if (!Entity.CollisionEnabled ||
             !hitbox.Intersects(Entity.CollisionBounds) ||
@@ -99,13 +99,13 @@ internal sealed class ArmosRoomEntity
         return collision switch
         {
             RoomEntityItemCollision.Bomb => ApplyDamage(
-                (int)collision, 0x0b, hitbox, sourcePosition, damage, spawns),
+                (int)collision, CollisionEffect.SwordNoKnockback, hitbox, sourcePosition, damage, spawns),
             RoomEntityItemCollision.ThrownObject => ApplyHarmless(
-                collision, 0x1c, hitbox),
+                collision, CollisionEffect.Effect1c, hitbox),
             RoomEntityItemCollision.SwordBeam => ApplyHarmless(
-                collision, 0x20, hitbox),
+                collision, CollisionEffect.Effect20, hitbox),
             RoomEntityItemCollision.ExpertPunch => ApplyHarmless(
-                collision, 0x00, hitbox),
+                collision, CollisionEffect.None, hitbox),
             _ => false
         };
     }
@@ -123,25 +123,25 @@ internal sealed class ArmosRoomEntity
         }
         switch (seedItem)
         {
-            case 0x20:
-                RequireCollisionEffect(0x1b, 0x20);
+            case ItemId.EmberSeed:
+                RequireCollisionEffect(ItemCollisionType.EmberSeed, CollisionEffect.Effect20);
                 return Entity.InvincibilityCounter == 0
                     ? SeedHitResult.Activate
                     : SeedHitResult.None;
-            case 0x21:
+            case ItemId.ScentSeed:
                 return ApplyDamage(
-                    0x1c,
-                    0x0b,
+                    ItemCollisionType.ScentSeed,
+                    CollisionEffect.SwordNoKnockback,
                     hitbox,
                     sourcePosition,
                     damage: 2,
                     spawns)
                         ? SeedHitResult.Activate
                         : SeedHitResult.None;
-            case 0x24:
+            case ItemId.MysterySeed:
                 return ApplyDamage(
-                    0x1a,
-                    0x35,
+                    ItemCollisionType.MysterySeed,
+                    CollisionEffect.Effect35,
                     hitbox,
                     sourcePosition,
                     damage: 0x7f,

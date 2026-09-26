@@ -35,7 +35,7 @@ internal sealed class RemoteMakuThirdEssenceEvent : RemoteMakuEvent
         OracleSaveData save = Context.Rooms.SaveData;
         if (Context.Rooms.ActiveGroup != record.Group ||
             Context.Rooms.CurrentRoom.Id != record.Room ||
-            (save.ReadWramByte(0xc6bf) & record.EssenceMask) == 0 ||
+            (save.ReadWramByte(WramAddress.wEssencesObtained) & record.EssenceMask) == 0 ||
             save.HasRoomFlag(record.Group, record.Room, (byte)record.RoomFlag))
         {
             return false;

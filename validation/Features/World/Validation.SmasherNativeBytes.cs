@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                 int direction = ball.Direction, animation = ball.AnimationIndex;
                 Step(2);
                 FailIf(ball.Direction != direction || ball.AnimationIndex != animation ||
-                    ball.Angle != (side == 1 ? 8 : 24) ||
+                    ball.Angle != (side == 1 ? ObjectAngle.Right : ObjectAngle.Left) ||
                     ball.Position != new Vector2(88 + side * 1.25f, 88),
                     "Smasher pickup must move at SPEED_a0 and update angle without changing direction or animation.");
             }

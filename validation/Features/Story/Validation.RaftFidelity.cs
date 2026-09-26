@@ -87,10 +87,10 @@ public sealed partial class ValidationRoot
         // parentItemCode_shooter allows the raft; parentItemCode_satchel has
         // an explicit SPECIALOBJECT_RAFT rejection instead.
         _inventory.GiveTreasure(new TreasureObjectRecord(
-            "VALIDATION_RAFT_SHOOTER", InventoryState.ItemShooter, 0, 1, 0xff, 0, string.Empty));
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 0x20);
+            "VALIDATION_RAFT_SHOOTER", TreasureId.Shooter, 0, 1, 0xff, 0, string.Empty));
+        _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
         _inventory.SelectShooterSeeds(0);
-        _inventory.EquipA(InventoryState.ItemShooter);
+        _inventory.EquipA(TreasureId.Shooter);
         Input.ActionPress("attack");
         Step();
         FailIf(!_player.IsUsingSeedShooter, "SPECIALOBJECT_RAFT $13 incorrectly disabled the Seed Shooter.");
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
         FailIf(_player.IsAttacking,
             "SPECIALOBJECT_RAFT $13 allowed swordParent state $06 to enter held/charging state.");
 
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        _inventory.GiveTreasure(TreasureId.Bombs, 0x10);
         FailIf(!_bomb.TryUse(_player), "SPECIALOBJECT_RAFT $13 incorrectly rejected ITEM_BOMB.");
         before = raft.PrecisePosition;
         InputStep("move_left");
@@ -181,12 +181,12 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 11; update++)
         {
             Step();
-            FailIf(!raft.DisablesMenus || !CompanionRuntimeState.IsActive(_entities.RuntimeState, 0x13),
+            FailIf(!raft.DisablesMenus || !CompanionRuntimeState.IsActive(_entities.RuntimeState, SpecialObjectId.Raft),
                 "SPECIALOBJECT_RAFT $13 released its slot/menu before counter $0c reached zero.");
         }
         Step();
         FailIf(raft.DisablesMenus || raft.UsesSpecialObjectSlot ||
-            CompanionRuntimeState.IsActive(_entities.RuntimeState, 0x13) ||
+            CompanionRuntimeState.IsActive(_entities.RuntimeState, SpecialObjectId.Raft) ||
             raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex,
             "SPECIALOBJECT_RAFT $13 state $02 did not recreate INTERAC_RAFT $e6:$02 on its zero update.");
 
@@ -232,7 +232,7 @@ public sealed partial class ValidationRoot
         raft.CancelRaftwreckControl(_player);
 
         // Subid $00 falls through to the same flag-$26 gate as subid $01.
-        CompanionRuntimeState.Clear(_entities.RuntimeState, 0x13);
+        CompanionRuntimeState.Clear(_entities.RuntimeState, SpecialObjectId.Raft);
         CompanionRuntimeState.ForgetRemembered(_entities.RuntimeState);
         _saveData.SetGlobalFlag(behavior.ChangedRoomsFlag, false);
         _saveData.WriteWramByte(behavior.DimitriStateAddress, (byte)behavior.DimitriMask);

@@ -17,7 +17,7 @@ internal sealed class RosaNpcRoomEntity(NpcCharacter npc, InventoryState invento
     }
     internal void RunNativeUpdate(Player player)
     {
-        if (inventory.HasTreasure(TreasureDatabase.TreasureShovel))
+        if (inventory.HasTreasure(TreasureId.Shovel))
             Entity.FaceLinkAndAnimateOneUpdate(player);
         else
             Entity.AnimateAsNpcOneUpdate(player);

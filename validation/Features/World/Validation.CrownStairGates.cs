@@ -29,18 +29,18 @@ public sealed partial class ValidationRoot
                     "The gate must be published after Link reaches the stair, in the later object pass.");
                 if (gate == -2) _entities.LockSmogLinkAndMenu();
                 else if (gate == -1) _dialogue.ShowMessage("Stair gate.", 120);
-                else _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, (byte)gate);
+                else _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, (byte)gate);
             });
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Up);
             FailIf(!published || IsTransitioning || _currentRoom.Id != 0xa1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds,
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds,
                 $"The post-object tile-warp dispatcher must observe gate {gate} before stair lookup.");
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
-            FailIf(IsTransitioning || _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds,
+            FailIf(IsTransitioning || _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds,
                 "A retained gate must prevent stair activation without consuming it.");
             if (gate == -2)
             {
@@ -55,12 +55,12 @@ public sealed partial class ValidationRoot
             }
             else
             {
-                FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != gate,
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wWarpsDisabled) != gate,
                     "Stair rejection must not clear its owner's warp-disable byte.");
-                _runtimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
+                _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
             }
             StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(!IsTransitioning || _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != sounds + 1,
+            FailIf(!IsTransitioning || _sound.PlayRequestsFor(SoundId.SndEnterCave) != sounds + 1,
                 "Clearing the owner gate must allow the same stair on the next eligible update.");
         }
         ReinitializeGameplayForValidation();

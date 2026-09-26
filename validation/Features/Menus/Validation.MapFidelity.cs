@@ -64,10 +64,10 @@ public partial class ValidationRoot
 
         LoadValidationRoom(0, 0x45);
         _mapMenu.OpenImmediatelyForValidation();
-        int closeSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu);
+        int closeSounds = _sound.PlayRequestsFor(SoundId.SndCloseMenu);
         Tick(["item"], ["item"]);
         int closingPopupSize = _mapScreen.PopupSize;
-        FailIf(_mapMenu.IsOpen || _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != closeSounds + 1,
+        FailIf(_mapMenu.IsOpen || _sound.PlayRequestsFor(SoundId.SndCloseMenu) != closeSounds + 1,
             "closeMenu did not request SND_CLOSEMENU $55 on the B edge.");
         for (int i = 0; i < 10; i++) Tick();
         FailIf(_mapScreen.PopupSize != closingPopupSize || !_mapScreen.Visible || _sound.MusicVolume != 2,

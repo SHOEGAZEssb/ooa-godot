@@ -67,14 +67,14 @@ public partial class ValidationRoot
             Step();
             FailIf(!cane.Active || cane.Weapon is null,
                 "Consuming a squish request must not clear item parents before state$11 initialization.");
-            FailIf(_player.SquishAnimation is not { State:0 } || _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 0,
+            FailIf(_player.SquishAnimation is not { State:0 } || _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 0,
                 "Forced-state consumption must return before squish initialization and sound.");
             Step();
             FailIf(cane.Active || cane.Weapon is not null,
                 "Squish initialization must clear the Cane parent; its ITEM$04 retires in the post pass.");
             var live = _player.SquishAnimation!;
             FailIf(live.State != 1 || live.AnimationCounter != 44 || _player.PatchCollisionsEnabled ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+                _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 1,
                 "Squish initialization must disable collisions, sound once and animate immediately.");
             Step(43);
             FailIf(live.AnimationCounter != 1 || live.State != 1,"Live squish lost its initial-frame boundary.");

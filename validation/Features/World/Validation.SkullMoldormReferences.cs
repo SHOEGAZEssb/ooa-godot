@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             Step(16, Vector2.Up);
             FailIf(_player.Position != new Vector2(120, 112), "Moldorm reference test must approach through D4's actual entrance floor.");
             _player.SetBraceletLiftCollisionsDisabled(true);
-            FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Moldorm native reference fixture", out string error), error);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Moldorm native reference fixture", out string error), error);
             Step(3);
             var head = _entities.Entities<MoldormCharacter>().Single();
             var tail1 = head.Tail1!;
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             bool occupiedZero = reserved.Add(0);
             try
             {
-                FailIf(!_entities.TrySpawnEnemy(0x34, 1, replacementPosition, "Reused Moldorm parent ENEMY page", out error), error);
+                FailIf(!_entities.TrySpawnEnemy(EnemyId.Zol, 1, replacementPosition, "Reused Moldorm parent ENEMY page", out error), error);
             }
             finally { if (occupiedZero) reserved.Remove(0); }
             var replacement = _entities.Entities<ZolCharacter>().Single();

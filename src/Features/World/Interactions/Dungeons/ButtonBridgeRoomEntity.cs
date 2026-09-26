@@ -39,7 +39,7 @@ internal sealed partial class ButtonBridgeRoomEntity(ButtonBridgeData data, Orac
             if ((tile == data.Hole) != (State == 2)) continue;
             if (State == 4 && tile == data.Diamond) _ = debris(Position);
             writeTile((byte)p,State == 2 ? data.Bridge : data.Hole);
-            sound(OracleSoundEngine.SndDoorClose);
+            sound(SoundId.SndDoorClose);
             return;
         }
         State = State == 2 ? 3 : 1;

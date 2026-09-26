@@ -74,7 +74,7 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
         _state = SpikedBeetleState.Uninitialized;
         _counter1 = 0;
         _counter2 = 0;
-        _angle = 0;
+        _angle = ObjectAngle.Up;
         _speed = 0;
         _zFixed = 0;
         _speedZ = 0;
@@ -295,9 +295,9 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
         _counter1 = _behavior.FlippedWaitFrames;
         _zFixed = 0;
         _speedZ = _behavior.InitialSpeedZ;
-        _angle = KnockbackAngle ^ 0x10;
+        _angle = KnockbackAngle ^ ObjectAngle.HalfTurn;
         SetAnimation(1);
-        _soundRequested(OracleSoundEngine.SndBombLand);
+        _soundRequested(SoundId.SndBombLand);
         QueueRedraw();
     }
 
@@ -354,7 +354,7 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter
     {
         _angle = (OracleObjectMovement.Shared.RelativeAngle(
             OracleObjectMath.ToPixelPosition(Position),
-            OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & 0x18;
+            OracleObjectMath.ToPixelPosition(linkPosition)) + 4) & ObjectAngle.CardinalMask;
         _state = SpikedBeetleState.Charging;
         _counter2 = _behavior.ChargeCounter;
         _speed = _behavior.ChargeInitialSpeedRaw;

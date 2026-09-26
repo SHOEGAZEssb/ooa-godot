@@ -161,7 +161,7 @@ public partial class CrowCharacter : EnemyCharacter
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, linkPosition);
         int offset = (_random.Next().Value & 0x04) == 0 ? -4 : 4;
-        _angle = (_angle + offset) & 0x1f;
+        _angle = (_angle + offset) & ObjectAngle.Mask;
         SetDirectionalAnimation(flight: true);
     }
 
@@ -184,12 +184,12 @@ public partial class CrowCharacter : EnemyCharacter
 
     private void NudgeAngleToward(int target)
     {
-        int difference = (_angle - target) & 0x1f;
+        int difference = (_angle - target) & ObjectAngle.Mask;
         if (difference == 0)
             return;
         _angle = difference < 0x10
-            ? (_angle - 1) & 0x1f
-            : (_angle + 1) & 0x1f;
+            ? (_angle - 1) & ObjectAngle.Mask
+            : (_angle + 1) & ObjectAngle.Mask;
     }
 
     private bool WithinChargeScreenBounds()

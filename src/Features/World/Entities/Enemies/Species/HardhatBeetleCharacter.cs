@@ -29,7 +29,7 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
     {
         Record = record;
         Dictionary<int, Color[]>? palettes = null;
-        if (record.Id == 0x5f)
+        if (record.Id == EnemyId.HarmlessHardhatBeetle)
         {
             var source = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/harmless_beetle_palette.bin", 1, 6);
             var colors = new Color[4];

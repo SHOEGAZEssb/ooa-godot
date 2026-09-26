@@ -14,9 +14,9 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(6, 0x93);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.EquipA(button == "attack" ? InventoryState.ItemSomaria : InventoryState.ItemNone);
-            _inventory.EquipB(button == "item" ? InventoryState.ItemSomaria : InventoryState.ItemNone);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.EquipA(button == "attack" ? TreasureId.CaneOfSomaria : TreasureId.None);
+            _inventory.EquipB(button == "item" ? TreasureId.CaneOfSomaria : TreasureId.None);
             Vector2? start = null;
             for (int y = 24; y < _currentRoom.Height - 24 && start is null; y += 16)
             for (int x = 24; x < _currentRoom.Width - 40 && start is null; x += 16)

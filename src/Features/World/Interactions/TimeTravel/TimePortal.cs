@@ -142,8 +142,8 @@ public partial class TimePortal : TransitionOffsetNode2D
             Visible = false;
             if (_playingInstrument() != 0)
                 return;
-            _playSound(OracleSoundEngine.SndCtrlStopSfx);
-            _playSound(OracleSoundEngine.SndTeleport);
+            _playSound(SoundId.SndCtrlStopSfx);
+            _playSound(SoundId.SndTeleport);
             _state = TimePortalState.Active;
             // interactionCodee1 state 2 returns after interactionIncState.
             // Presentation and contact belong to the following state-3 update.

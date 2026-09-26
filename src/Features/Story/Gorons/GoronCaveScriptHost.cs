@@ -33,7 +33,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     private int _jumpZ, _jumpSpeedZ;
     private bool _dancing;
     internal int JumpZ => _jumpZ;
-    private bool Past => (Context.Rooms.CurrentRoom.TilesetFlags & 0x80) != 0;
+    private bool Past => (Context.Rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0;
     private int _explosionCounter, _explosionIndex, _soundCounter;
     private Vector2 _position;
     internal bool InputLocked => InputControlHeld;
@@ -55,29 +55,29 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if(_initialized || !Actor.Active) return;
         _initialized = true;
         Actor.SetAnimationRate(0);
-        if(Actor.Record is {Id:0x66,SubId:0x0b}) BigBang=new(this);
-        if(Actor.Record is {Id:0x66,SubId:9}) { Carts=new(this); Carts.Initialize(); }
-        if(Actor.Record.Id==0x30||Actor.Record is {Id:0x8b,SubId:2})
+        if(Actor.Record is {Id:InteractionId.Goron,SubId:0x0b}) BigBang=new(this);
+        if(Actor.Record is {Id:InteractionId.Goron,SubId:9}) { Carts=new(this); Carts.Initialize(); }
+        if(Actor.Record.Id==InteractionId.ShootingGallery||Actor.Record is {Id:InteractionId.GoronElder,SubId:2})
         {
             Gallery=new(this); Wram.SetWramByte(0xcfdc,0);
             StartScript(Actor.Record.SubId==1?"shootingGalleryScript_goronNpc":"shootingGalleryScript_goronElderNpc");
             AdvanceScript(); Animate(); return;
         }
-        if(Actor.Record.SubId==2&&Actor.Record.Id==0x66)
+        if(Actor.Record.SubId==2&&Actor.Record.Id==InteractionId.Goron)
         {
             Actor.SetScriptVisible(false); _jumpSpeedZ=-0x200;
             Context.Player.Face(Vector2I.Up); Context.Player.SetScriptedLinkAnimationMode(null);
-            Wram.SetWramByte(0xcfd2,0); Context.Sound.PlaySound(0xcd);
+            Wram.SetWramByte(0xcfd2,0); Context.Sound.PlaySound(SoundId.SndGoronDanceB);
             UpdateDanceJump(); return;
         }
-        if(Actor.Record.SubId==0&&Actor.Record.Id==0x66)
+        if(Actor.Record.SubId==0&&Actor.Record.Id==InteractionId.Goron)
         {
             Dance=new(this);
             Actor.SetBasePalette(Past?2:1);
             _owner.SpawnDancers(IsLinkedGame&&Past);
             Dance.Initialize();
         }
-        string entry = Actor.Record.Id == 0x8b ? $"goronElderScript_subid{Actor.Record.SubId:x2}_body" :
+        string entry = Actor.Record.Id == InteractionId.GoronElder ? $"goronElderScript_subid{Actor.Record.SubId:x2}_body" :
             Actor.Record.SubId switch
             {
                 4 => "goron_subid04Script",
@@ -87,7 +87,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                 0 or 1 or 3 or 7 or 8 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x10 => $"goron_subid{Actor.Record.SubId:x2}Script",
                 _ => throw new InvalidOperationException($"Unsupported Goron ${Actor.Record.SubId:x2}.")
             };
-        if (Actor.Record.SubId == 6 && Actor.Record.Id == 0x66)
+        if (Actor.Record.SubId == 6 && Actor.Record.Id == InteractionId.Goron)
         {
             if (Actor.Record.Var03 == 0) Wram.SetWramByte(0xcfdd, 0);
             else for (int address = 0xcfc0; address < 0xcfe0; address++) Wram.SetWramByte(address, 0);
@@ -96,7 +96,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         _runner.Start(Data.Commands, Data.Entry(entry));
         // $66 state 0 explicitly calls the script before falling through state 1.
         _runner.AdvanceFrame();
-        if (Actor.Record.Id == 0x66 && Actor.Record.SubId>=3 && Actor.Active) _runner.AdvanceFrame();
+        if (Actor.Record.Id == InteractionId.Goron && Actor.Record.SubId>=3 && Actor.Active) _runner.AdvanceFrame();
         Animate();
     }
     internal void Update()
@@ -104,7 +104,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if (!Actor.Active) return;
         if (!_initialized) { Initialize(); return; }
         if(Gallery is not null) { Gallery.Update(); Animate(); return; }
-        if(Actor.Record.SubId==2&&Actor.Record.Id==0x66) { UpdateDanceJump(); return; }
+        if(Actor.Record.SubId==2&&Actor.Record.Id==InteractionId.Goron) { UpdateDanceJump(); return; }
         if(Dance is not null) { Dance.Update(); if(Dance.State==1) Animate(); return; }
         if(Actor.Record.SubId==1)
         {
@@ -143,7 +143,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if (!Actor.Active) return;
         if(BigBang is not null&&_var3e!=0) return;
         if(Dance is not null) { if(Dance.State==1) Actor.FaceLinkAndAnimateOneUpdate(Context.Player); return; }
-        if (_fixedAnimation || Actor.Record.SubId is 3 or 4 && Actor.Record.Id == 0x66)
+        if (_fixedAnimation || Actor.Record.SubId is 3 or 4 && Actor.Record.Id == InteractionId.Goron)
             Actor.AnimateAsNpcOneUpdate(Context.Player);
         else Actor.FaceLinkAndAnimateOneUpdate(Context.Player);
     }
@@ -157,7 +157,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     {
         ReleaseInputControl(); _runner.Clear(); _pending = false;
         Gallery?.Cancel(); BigBang?.Cancel(); Carts?.Cancel(); _generation++; _secretPending=false;
-        if(Dance is not null || Actor.Record is {Id:0x66,SubId:2})
+        if(Dance is not null || Actor.Record is {Id:InteractionId.Goron,SubId:2})
         { Context.Player.SetCutsceneDrawZFixed(0); Context.Player.SetScriptedLinkAnimationMode(null); }
         if (GodotObject.IsInstanceValid(Actor))
         {
@@ -194,13 +194,13 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     }
     private void FaceDown()
     {
-        _angle = 0x10;
+        _angle = ObjectAngle.Down;
         _fixedAnimation = false;
         Actor.FaceDownAndResetNativeNpcCooldown();
     }
     private void Move() => Actor.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, _speed, _angle);
     private bool HasEssence => (Context.Inventory.Essences & 0x10) != 0;
-    private bool SavedElder => Context.Rooms.SaveData.HasGlobalFlag(0x2f);
+    private bool SavedElder => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.SavedGoronElder);
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;
     public override int ReadMemory(string binding) => binding switch
     {
@@ -216,19 +216,19 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         "Interaction.var3e" => _var3e,
         "Interaction.animParameter" => Actor.CurrentAnimationParameter,
         "GLOBALFLAG_SAVED_GORON_ELDER" => SavedElder ? 1 : 0,
-        "GLOBALFLAG_FINISHEDGAME" => Context.Rooms.SaveData.HasGlobalFlag(0x14) ? 1 : 0,
-        "GLOBALFLAG_BEGAN_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(0x6c) ? 1 : 0,
-        "GLOBALFLAG_DONE_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(0x76) ? 1 : 0,
+        "GLOBALFLAG_FINISHEDGAME" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame) ? 1 : 0,
+        "GLOBALFLAG_BEGAN_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.BeganElderSecret) ? 1 : 0,
+        "GLOBALFLAG_DONE_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.DoneElderSecret) ? 1 : 0,
         "wTmpcfc0.shootingGallery.disableGoronNpcs" => Wram.ReadWramByte(0xcfdc),
         "FinalRound" => Gallery?.FinalRound==true?1:0,
         "wTextInputResult" => _secretResult,
-        "wTmpcfc0.bigBangGame.gameStatus" => Wram.ReadWramByte(0xcfc0),
+        "wTmpcfc0.bigBangGame.gameStatus" => Wram.ReadWramByte(WramAddress.wTmpcfc0),
         "wTmpcfc0.bigBangGame.prizeIndex" => Wram.ReadWramByte(0xcfd6),
         "wTmpcfc0.targetCarts.prizeIndex" => Wram.ReadWramByte(0xcfd6),
         "wTmpcfc0.targetCarts.beginGameTrigger" => Wram.ReadWramByte(0xcfdb),
         "wTmpcfc0.goronCutscenes.elderVar_cfdd" => Wram.ReadWramByte(0xcfdd),
-        "wTmpcfc0.genericCutscene.state" => Wram.ReadWramByte(0xcfc0),
-        "wTmpcfc0.goronCutscenes.goronGuardMovedAside" => Wram.ReadWramByte(0xcfc0),
+        "wTmpcfc0.genericCutscene.state" => Wram.ReadWramByte(WramAddress.wTmpcfc0),
+        "wTmpcfc0.goronCutscenes.goronGuardMovedAside" => Wram.ReadWramByte(WramAddress.wTmpcfc0),
         "wPaletteThread_mode" => _owner.PaletteBusy ? 1 : 0,
         "w1Link.id" => _owner.MovingLink ? 1 : 0,
         "wSelectedTextOption" => EventResources.RequireDialogueChoice("Goron dance difficulty has no choice."),
@@ -286,7 +286,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     public override bool UpdateNativeHandler(string handler, CutsceneActorId? actor, int commandUpdate, int frames, string payload)
     {
         if(handler is "MoveLeft" or "MoveRight")
-        { if(commandUpdate==0) { _angle=handler=="MoveLeft"?0x18:8; Animation(handler=="MoveLeft"?3:1,true); } }
+        { if(commandUpdate==0) { _angle=handler=="MoveLeft"?ObjectAngle.Left:ObjectAngle.Right; Animation(handler=="MoveLeft"?3:1,true); } }
         else if (handler != "ApplySpeed") throw UnsupportedCommand(handler);
         if (commandUpdate >= frames) return true;
         if (commandUpdate != 0) Move();
@@ -303,7 +303,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             case "Delete": Actor.SetActive(false); _runner.Clear(); return;
             case "goron_targetCarts_spawnPrize":
                 int cartPrize=RoomFlagSet(0x20)?new[]{1,1,1,1,1,1,1,1,2,2,2,3,3,4,4,4}[Context.Entities.NextRandomValue()&15]:0;
-                if(cartPrize==4&&Context.Inventory.HasTreasure(6)) cartPrize=3;
+                if(cartPrize==4&&Context.Inventory.HasTreasure(TreasureId.Boomerang)) cartPrize=3;
                 Wram.SetWramByte(0xcfd6,(byte)cartPrize);
                 _owner.DisplayPrize(new[]{"TREASURE_OBJECT_ROCK_BRISKET_01","TREASURE_OBJECT_RUPEES_11","TREASURE_OBJECT_RUPEES_12","TREASURE_OBJECT_GASHA_SEED_06","TREASURE_OBJECT_BOOMERANG_01"}[cartPrize],new(0x78,0x78),0); return;
             case "goron_targetCarts_deleteCrystals": Carts!.DeleteCrystals(); return;
@@ -318,7 +318,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             case "goron_targetCarts_setLinkPositionAfterGame": Context.Player.SetScriptedPosition(new(0xa8,0x78)); Context.Player.Face(Vector2I.Right); return;
             case "goron_checkLinkNotInAir": _zero=!Context.Player.MinecartJumpActive; return;
             case "goron_targetCarts_setupNumTargetsHitText":
-                int hits=Wram.ReadWramByte(0xcfde); Wram.SetWramByte(0xcba8,(byte)((hits/10)*16+hits%10)); Wram.SetWramByte(0xcba9,0); return;
+                int hits=Wram.ReadWramByte(0xcfde); Wram.SetWramByte(WramAddress.wTextNumberSubstitution,(byte)((hits/10)*16+hits%10)); Wram.SetWramByte(0xcba9,0); return;
             case "goron_targetCarts_checkHitAllTargets": _zero=Wram.ReadWramByte(0xcfde)==12; return;
             case "goron_targetCarts_checkHit9OrMoreTargets": _carry=Wram.ReadWramByte(0xcfde)>=9; return;
             case "Random:Interaction.var3d":
@@ -375,14 +375,14 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             case "goronDance_restartGame": Dance!.Restart(); return;
             case "goronDance_checkNumFailedRounds":
                 _zero=Wram.ReadWramByte(0xcfdb)==0;
-                Wram.SetWramByte(0xcba8,(byte)(8-Wram.ReadWramByte(0xcfdb)));
+                Wram.SetWramByte(WramAddress.wTextNumberSubstitution,(byte)(8-Wram.ReadWramByte(0xcfdb)));
                 Wram.SetWramByte(0xcba9,0); return;
             case "goronDance_giveRandomRingPrize":
                 int ringIndex=(Context.Entities.NextRandomValue()&1)+(Past&&Wram.ReadWramByte(0xcfdd)==0?0:2);
                 if(!Context.Entities.InteractionSlotAvailable) return;
                 Context.Entities.GrantGroundTreasure(new GroundTreasureGrantRequest(Context.Rooms.ActiveGroup,Context.Rooms.CurrentRoom.Id,
                     0,(int)Context.Player.Position.Y,(int)Context.Player.Position.X,"TREASURE_OBJECT_RING_00","scriptHelper.s:goronDance_giveRandomRingPrize")
-                    {SpawnMode=0,GrabMode=2,InventoryWrite=GroundTreasureInventoryWrite.UnappraisedRing,
+                    {SpawnMode=TreasureSpawnMode.Instant,GrabMode=TreasureGrabMode.TwoHands,InventoryWrite=GroundTreasureInventoryWrite.UnappraisedRing,
                         InventoryParameter=new[]{0x19,0x3f,0x30,0x1e}[ringIndex],RoomFlagTiming=GroundTreasureRoomFlagTiming.Never},Context.Player); return;
             case "goron_showText_differentForPresent": Text(Convert.ToInt32(parts[1][4..],16)+(Past?0:0x20)); return;
             case "goron_decideTextToShow_differentForLinkedInPast": Text(Convert.ToInt32(parts[1][4..],16)+(Past?(IsLinkedGame?0x20:0):0x10)); return;
@@ -390,8 +390,8 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             case "removeRupeeValue": Context.Inventory.AddRupees(-int.Parse(parts[1][9..],CultureInfo.InvariantCulture)); return;
             case "giveRupees": Context.Inventory.AddRupees(int.Parse(parts[1][9..],CultureInfo.InvariantCulture)); return;
             case "goron_determineTextForGenericNpc":
-                int state = Context.Rooms.SaveData.HasGlobalFlag(0x14) ? (Past ? 2 : 3) :
-                    Past ? (SavedElder ? 1 : 0) : Context.Rooms.SaveData.HasGlobalFlag(0x1a) ? 2 :
+                int state = Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame) ? (Past ? 2 : 3) :
+                    Past ? (SavedElder ? 1 : 0) : Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) ? 2 :
                     (Context.Inventory.Essences & 8) != 0 ? 1 : 0;
                 int low = Data.Bytes($"generic-{Actor.Record.SubId:x2}")[Actor.Record.Var03 * 4 + state];
                 if (low == 0x27 && !IsLinkedGame) low = 0xff;
@@ -404,13 +404,13 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                     do { tip++; } while (tip < 8 && !Context.Inventory.HasTreasure(treasures[tip - 1]));
                 }
                 if (tip == 3)
-                { if (Context.Inventory.HasTreasure(0x5a)) tip = 9; }
-                else if (tip >= 5 && Context.Rooms.SaveData.HasRoomFlag(3,0x3e,0x40)) tip = 10;
+                { if (Context.Inventory.HasTreasure(TreasureId.LavaJuice)) tip = 9; }
+                else if (tip >= 5 && Context.Rooms.SaveData.HasRoomFlag(3,0x3e,OracleSaveData.RoomFlag40)) tip = 10;
                 Text((Past ? 0x3143 : 0x314f) + tip); return;
             case "Write:Interaction.oamFlags": Actor.SetBasePalette(arg); return;
             case "Write:Interaction.var3c": _var3c=arg; return;
             case "goron_checkGracefulGoronQuestStatus":
-                _var3e=!Context.Inventory.HasTreasure(0x5a) ? 2 : !Context.Inventory.HasTreasure(0x45) ? 1 : 0; return;
+                _var3e=!Context.Inventory.HasTreasure(TreasureId.LavaJuice) ? 2 : !Context.Inventory.HasTreasure(TreasureId.OldMermaidKey) ? 1 : 0; return;
             case "goron_checkInPresent": _zero=!Past; return;
             case "goron_showText_differentForPast":
                 Text(Convert.ToInt32(parts[1][4..],16)+(Past?0:12)); return;
@@ -419,21 +419,21 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                     "TREASURE_GORONADE"=>0x5d,
                     _ when parts[1].StartsWith('$')=>arg, _=>throw UnsupportedCommand(handler) };
                 Context.Inventory.LoseTreasure(treasure); return;
-            case "goron_clearRefillBit": Wram.SetWramByte(0xcc4d,(byte)(Wram.ReadWramByte(0xcc4d)&0xfe)); return;
-            case "goron_checkEnoughTimePassed": _zero=(Wram.ReadWramByte(0xcc4d)&1)!=0; return;
+            case "goron_clearRefillBit": Wram.SetWramByte(WramAddress.wSeedTreeRefilledBitset,(byte)(Wram.ReadWramByte(WramAddress.wSeedTreeRefilledBitset)&0xfe)); return;
+            case "goron_checkEnoughTimePassed": _zero=(Wram.ReadWramByte(WramAddress.wSeedTreeRefilledBitset)&1)!=0; return;
             case "goron_tryTakeEmberSeedsAndBombs":
-                _zero=Context.Inventory.HasTreasure(0x19)&&Context.Inventory.HasTreasure(0x20)&&
-                    Context.Inventory.HasTreasure(3)&&Context.Inventory.EmberSeeds>=0x20&&Context.Inventory.Bombs>=0x20;
+                _zero=Context.Inventory.HasTreasure(TreasureId.SeedSatchel)&&Context.Inventory.HasTreasure(TreasureId.EmberSeeds)&&
+                    Context.Inventory.HasTreasure(TreasureId.Bombs)&&Context.Inventory.EmberSeeds>=0x20&&Context.Inventory.Bombs>=0x20;
                 if (_zero)
                 {
                     for(int i=0;i<20;i++) Context.Inventory.TryConsumeBomb();
-                    Context.Inventory.TryConsumeSeedsFromScript(0x20,20);
+                    Context.Inventory.TryConsumeSeedsFromScript(TreasureId.EmberSeeds,20);
                 }
                 return;
             case "checkEssenceObtained": _zero = HasEssence; return;
             case "checkEssenceNotObtained": _zero = !HasEssence; return;
             case "goron_beginWalkingLeft":
-                _speed = 0x14; _angle = 0x18; _movement = 0x40; _walkingAnimation = 3;
+                _speed = 0x14; _angle = ObjectAngle.Left; _movement = 0x40; _walkingAnimation = 3;
                 Animation(3, true); return;
             case "goron_decMovementCounter": _movement = Math.Max(0, _movement - 1); _zero = _movement == 0; return;
             case "goron_reverseWalkingDirection":
@@ -458,10 +458,10 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             case "goron_createRockDebrisToRight": _owner.CreateDebris(Actor.Position + new Vector2(6, -10), true); return;
             case "goron_checkLinkApproachedWithBombFlower":
                 Vector2 offset = OracleObjectMath.ToPixelPosition(Context.Player.Position) - new Vector2(0x58, 0x88);
-                _carry = Context.Inventory.HasTreasure(0x49) && offset.X >= -14 && offset.X < 14 && offset.Y >= -30 && offset.Y < 30; return;
+                _carry = Context.Inventory.HasTreasure(TreasureId.BombFlower) && offset.X >= -14 && offset.X < 14 && offset.Y >= -30 && offset.Y < 30; return;
             case "goron_putLinkInState08": Context.Player.BeginCutsceneControl(owner: this); return;
             case "forceLinkDirection": Context.Player.Face(Vector2I.Left); return;
-            case "goron_setSpeedToMoveDown": _speed=0x28; _angle=0x10; Animation(2,true); return;
+            case "goron_setSpeedToMoveDown": _speed=0x28; _angle=ObjectAngle.Down; Animation(2,true); return;
             case "goron_cpLinkY": _zero=(int)Actor.Position.Y == (int)Context.Player.Position.Y; return;
             case "goron_checkReachedLinkHorizontally": _zero=(int)Actor.Position.X == (int)Context.Player.Position.X-14; return;
             case "goron_cpXTo48": _zero=(int)Actor.Position.X==0x48; return;
@@ -481,7 +481,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                 return;
             case "goron_countdownToPlayRockSoundAndShakeScreen":
                 if (--_soundCounter != 0) return;
-                _soundCounter=5; Context.Sound.PlaySound(0xa5); Context.Entities.BeginScreenShake(4); return;
+                _soundCounter=5; Context.Sound.PlaySound(SoundId.SndBreakRock); Context.Entities.BeginScreenShake(4); return;
             case "fadeoutToWhiteWithDelay": _owner.BeginFade(true, arg); return;
             case "fadeinFromWhite": _owner.BeginFade(false, 1); return;
             case "goron_clearRockBarrier": _owner.ClearBarrier(); return;

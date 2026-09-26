@@ -35,7 +35,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
 
     internal void Initialize(
         Vector2 position,
-        int interactionId = 0x00,
+        int interactionId = oracleofages.InteractionId.GrassDebris,
         bool flickers = false,
         bool underwater = false,
         Action<int>? playSound = null)
@@ -51,7 +51,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         }
 
         _record = record;
-        _animation = underwater && interactionId == 0x00
+        _animation = underwater && interactionId == oracleofages.InteractionId.GrassDebris
             ? record.UnderwaterAnimation
             : record.Animation;
         Flickers = flickers;
@@ -145,12 +145,12 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             int palette = row.UnsignedDecimal(3);
             int underwaterPalette = row.UnsignedDecimal(4);
             int sound = row.HexByte(5);
-            if (interactionId is not (0x00 or 0x01) ||
+            if (interactionId is not (oracleofages.InteractionId.GrassDebris or oracleofages.InteractionId.RedGrassDebris) ||
                 sprite != "spr_common_sprites" ||
                 tileBase != 0x00 ||
                 palette != 0 ||
-                underwaterPalette != (interactionId == 0x00 ? 6 : 0) ||
-                sound != OracleSoundEngine.SndCutGrass)
+                underwaterPalette != (interactionId == oracleofages.InteractionId.GrassDebris ? 6 : 0) ||
+                sound != SoundId.SndCutGrass)
             {
                 throw new InvalidOperationException(
                     $"Imported INTERAC_GRASSDEBRIS ${interactionId:x2} " +

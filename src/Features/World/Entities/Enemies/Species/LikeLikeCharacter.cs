@@ -30,7 +30,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position, OracleRandom random)
     {
-        if (record.Id != 0x24 || record.SubId != 0)
+        if (record.Id != EnemyId.LikeLike || record.SubId != 0)
             throw new NotSupportedException($"likelike.s: ordinary handler requires $24:$00, got ${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _room = room; _random = random;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
@@ -83,7 +83,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
             if (_capturePending)
             {
                 _capturePending = false;
-                if (LinkWallProbe.Shared.SurroundedByWalls(Position, (_room.TilesetFlags & 0x20) != 0, _room.IsSolid))
+                if (LinkWallProbe.Shared.SurroundedByWalls(Position, (_room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0, _room.IsSolid))
                 { ReleaseLink(player); return; }
                 State = 11; Counter1 = 0; Counter2 = _data.HoldFrames;
                 _enabled = false;
@@ -128,9 +128,9 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
                         break;
                     }
                     Counter2 = _data.CooldownFrames; State = 12;
-                    if (Counter1 < _data.ShieldEscapePresses && player.Inventory.HasTreasure(TreasureDatabase.TreasureShield))
+                    if (Counter1 < _data.ShieldEscapePresses && player.Inventory.HasTreasure(TreasureId.Shield))
                     {
-                        player.Inventory.LoseTreasure(TreasureDatabase.TreasureShield);
+                        player.Inventory.LoseTreasure(TreasureId.Shield);
                         shieldLost();
                     }
                     Angle = _random.Next().Value & _data.AngleMask;
@@ -181,7 +181,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
     public void BeginSwitchHook(Vector2 linkPosition)
     {
         _stun = KnockbackCounter = 0;
-        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ 0x10;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
         State = 3; SwitchHookSubstate = 0;
     }
     public void CopySwitchHookPosition(Vector2 position, int zHigh)

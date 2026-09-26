@@ -286,7 +286,7 @@ public sealed class BraceletController
             heldOffset,
             Vector2I.Zero,
             speedZ: 0,
-            speedRaw: 0);
+            speedRaw: ObjectSpeed.Speed0);
         _state = BraceletState.Projectile;
     }
 
@@ -501,7 +501,7 @@ public sealed class BraceletController
             direction,
             dropped ? 0 : _record.InitialSpeedZ,
             dropped
-                ? 0
+                ? ObjectSpeed.Speed0
                 : RingEffects.UsesStrongThrow(player.Inventory)
                     ? _record.TossSpeedRaw
                     : _record.SpeedRaw);

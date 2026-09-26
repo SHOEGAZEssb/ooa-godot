@@ -15,8 +15,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
-            _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.GiveTreasure(TreasureId.Bracelet, 1);
+            _inventory.EquipA(TreasureId.Bracelet);
             for (int y = 32; y <= 112; y += 16)
             for (int x = 96; x <= 144; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
@@ -101,8 +101,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
-            _inventory.EquipA(InventoryState.ItemBracelet);
+            _inventory.GiveTreasure(TreasureId.Bracelet, 1);
+            _inventory.EquipA(TreasureId.Bracelet);
             for (int y = 48; y <= 112; y += 16)
             for (int x = 96; x <= 128; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);

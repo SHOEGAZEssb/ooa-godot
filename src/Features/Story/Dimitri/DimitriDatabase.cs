@@ -23,8 +23,8 @@ internal sealed class DimitriDatabase
     private (int Group, int Room) _presetRoom;
     internal Vector2 PresetPosition { get; private set; }
     internal bool ShouldSpawnPreset(int group, int room, OracleSaveData save) =>
-        _presetRoom == (group, room) && (save.ReadWramByte(0xc6bf) & 4) != 0 &&
-        (save.ReadWramByte(0xc647) & 0x40) == 0;
+        _presetRoom == (group, room) && (save.ReadWramByte(WramAddress.wEssencesObtained) & 4) != 0 &&
+        (save.ReadWramByte(WramAddress.wDimitriState) & 0x40) == 0;
     internal bool IsGoodbyeRoom(int group, int room) => _goodbyeRooms.Contains((group, room));
 
     internal DimitriDatabase()

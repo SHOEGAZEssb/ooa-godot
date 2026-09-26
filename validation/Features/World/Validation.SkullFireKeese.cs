@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonFireKeese()
     {
         var database = new EnemyDatabase();
-        var definition = database.ImportedEnemy(0x39);
+        var definition = database.ImportedEnemy(EnemyId.FireKeese);
         FailIf(string.Concat(EnemyBehaviorTables.Shared.FireKeeseActiveCollisions.Select(v => v.Value)) != "10111111110101110000011111111110",
             "Fire Keese active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 2, DamageQuarters: 2, RadiusX: 6, RadiusY: 4, Palette: 5, TileBase: 0, Animations.Length: 4 },
@@ -144,8 +144,8 @@ public sealed partial class ValidationRoot
         FailIf(contactInventory.HealthQuarters != health - 2 || contactPlayer.InvincibilityFrames != 25 || contactPlayer.KnockbackFrames != 7,
             "PART_FIRE contact must use LINKDMG_00's25 invincibility/7 knockback updates and two-quarter damage.");
         hazard.Free();
-        contactInventory.GiveTreasure(TreasureDatabase.TreasureShield, 3);
-        contactInventory.EquipA(InventoryState.ItemShield);
+        contactInventory.GiveTreasure(TreasureId.Shield, 3);
+        contactInventory.EquipA(TreasureId.Shield);
         contactPlayer.WarpTo(contactPoint);
         contactPlayer.Face(Vector2I.Up);
         contactPlayer.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
         health = contactInventory.HealthQuarters;
         shieldFire.HandleLinkContact(contactPlayer);
         FailIf(contactInventory.HealthQuarters != health || contactPlayer.InvincibilityFrames != 0 || contactPlayer.KnockbackFrames != 16 ||
-            !shieldSounds.SequenceEqual(new[] { OracleSoundEngine.SndClink2 }) || shieldFire.Counter != 180 || shieldFire.Finished,
+            !shieldSounds.SequenceEqual(new[] { SoundId.SndClink2 }) || shieldFire.Counter != 180 || shieldFire.Finished,
             "Mirror Shield must use LINKDMG_28 recoil/SND_CLINK2 without damage, invincibility or deleting the fire.");
         shieldFire.Free();
         contactPlayer.Free();

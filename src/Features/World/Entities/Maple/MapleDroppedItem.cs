@@ -192,7 +192,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
             return;
         _mapleVehicle = vehicle;
         _maplePosition = maplePosition;
-        _speedRaw = vehicle == 1 ? 0x14 : 0x28;
+        _speedRaw = vehicle == 1 ? ObjectSpeed.Speed80 : ObjectSpeed.Speed100;
         _state = MapleDroppedItemState.MaplePulling;
     }
 
@@ -215,7 +215,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D
         _maplePosition = null;
         _zFixed = 0;
         _speedZ = 0;
-        _speedRaw = 0;
+        _speedRaw = ObjectSpeed.Speed0;
         _state = MapleDroppedItemState.Grounded;
         QueueRedraw();
     }

@@ -30,6 +30,22 @@ public partial class ValidationRoot
         queue.UpdateGraphics(0x10,graphics.Add);
         FailIf(graphics.Count != 35,"An empty queue must not replay stale entries.");
 
+        // setTile masks both cursors to $1f. Clearing after a wrap must restore
+        // all 31 usable slots, with the same four-write graphics budget.
+        queue.TryWrite(0x21, 0xa3, logical.Add);
+        queue.Clear();
+        var afterClear = new List<ChangedTileWrite>();
+        for (int i = 0; i < 31; i++)
+            FailIf(!queue.TryWrite(0x22, (byte)i, _ => { }),
+                "Clearing wrapped tile cursors must restore 31 usable slots.");
+        FailIf(queue.TryWrite(0x23, 0xff, _ => { }),
+            "Clearing must preserve the empty slot required by the $1f ring mask.");
+        queue.UpdateGraphics(0, afterClear.Add);
+        FailIf(afterClear.Count != 4 || queue.Count != 27 ||
+            afterClear[0].Tile != 0 || afterClear[3].Tile != 3,
+            "A cleared queue must drain four new entries without replaying pre-clear writes.");
+        queue.Clear();
+
         // INTERAC$33's source cursor retries against real queue saturation.
         for (int i = 0; i < 31; i++) queue.TryWrite(0x22,0xa3,logical.Add);
         var sequence = new SmogTileSequence();

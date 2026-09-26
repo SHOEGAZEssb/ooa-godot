@@ -54,7 +54,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
 
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, player.Position);
-        int direction = ((angle + 0x14) & 0x18) switch
+        int direction = ((angle + 0x14) & ObjectAngle.CardinalMask) switch
         {
             0x00 => 0,
             0x08 => 1,
@@ -161,7 +161,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
             return;
 
         int oldDistance = _state.PullDistance;
-        player.AdvanceInteractionVelocity(_constants.PullSpeed, _sign > 0 ? 0x10 : 0x00);
+        player.AdvanceInteractionVelocity(_constants.PullSpeed, _sign > 0 ? ObjectAngle.Down : ObjectAngle.Up);
         Vector2 linkPrecise = player.PrecisePosition;
 
         int leverY = Mathf.FloorToInt(linkPrecise.Y) -
@@ -187,7 +187,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
     private void Retract()
     {
         SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _constants.PullSpeed, _sign > 0 ? 0x00 : 0x10));
+            ref _precisePosition, _constants.PullSpeed, _sign > 0 ? ObjectAngle.Up : ObjectAngle.Down));
         int y = Mathf.FloorToInt(Position.Y);
         // The native helper runs before the retraction cap and also sets bit
         // 7/plays OPENCHEST while an upward lever still has its full YHIGH

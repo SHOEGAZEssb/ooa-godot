@@ -51,12 +51,12 @@ public sealed partial class ValidationRoot
             {
                 SourcePosition: -1,
                 EdgeMask: 4,
-                SourceTransition: 3,
+                SourceTransition: WarpSourceTransition.LeaveScreen,
                 DestinationGroup: group,
                 DestinationRoom: roomId,
                 DestinationPosition: 0x17,
                 DestinationParameter: 0,
-                DestinationTransition: 1
+                DestinationTransition: WarpDestinationTransition.SetRespawn
             },
             $"Room 2:0f did not retain its source exit into 1:79/$17 ({warp}).");
 
@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
 
         RalphAfterChevalCharacter ralph = Ralph();
         FailIf(
-            ralph.Record is not { Id: 0x37, SubId: 0x10, Var03: 0x00 } ||
+            ralph.Record is not { Id: InteractionId.Ralph, SubId: 0x10, Var03: 0x00 } ||
             ralph.Position != new Vector2(0x78, 0x90) ||
             ralph.Record.SpriteName != "spr_ralph_1" ||
             ralph.Record.TileBase != 0 || ralph.Record.Palette != 1 ||

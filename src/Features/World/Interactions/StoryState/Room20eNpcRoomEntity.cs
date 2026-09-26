@@ -62,7 +62,7 @@ internal sealed class Room20eNpcRoomEntity
     public void RefreshSaveState()
     {
         bool savedNayru = _save?.HasGlobalFlag(
-            OracleSaveData.GlobalFlagSavedNayru) == true;
+            GlobalFlag.SavedNayru) == true;
         Room20eNpcStateRecord state =
             _database.State(Entity.Record, savedNayru);
         string phase = state.SavedNayru

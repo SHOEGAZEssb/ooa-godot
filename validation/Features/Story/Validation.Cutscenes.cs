@@ -29,20 +29,20 @@ public sealed partial class ValidationRoot
             introDatabase.SpriteFrames("orb-vanish");
         int descendFrames = record.InitialWaitFrames + record.VoiceWaitFrames;
         int fairySoundRequests =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene);
+            _sound.PlayRequestsFor(SoundId.SndFairyCutscene);
         ChannelStart fairySoundChannel =
-            _sound.Data.ChannelsFor(OracleSoundEngine.SndFairyCutscene).Single();
+            _sound.Data.ChannelsFor(SoundId.SndFairyCutscene).Single();
 
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusEssenceRoom,
+            _sound.ActiveMusic != SoundId.MusEssenceRoom,
             "Pregame state $0a did not start MUS_ESSENCE_ROOM for the blue-orb descent.");
 
         FailIf(
             record.InitialWaitFrames != 300 || record.VoiceWaitFrames != 60 ||
             record.PostVanishWaitFrames != 60 || record.SummonFrames != 128 ||
             record.LinkX != 0x50 || record.LinkY != 0xd0 ||
-            record.LinkSummonedFlag != OracleSaveData.GlobalFlagLinkSummoned ||
-            record.PregameIntroDoneFlag != OracleSaveData.GlobalFlagPregameIntroDone ||
+            record.LinkSummonedFlag != GlobalFlag.LinkSummoned ||
+            record.PregameIntroDoneFlag != GlobalFlag.PregameIntroDone ||
             record.TextId != 0x1213 || record.TextPosition != 2 ||
             record.SpinFrameDuration != 4 || record.SpinGraphics.Length != 8 ||
             record.VanishDurations.Length != 4 || record.VanishGraphics.Length != 4 ||
@@ -118,7 +118,7 @@ public sealed partial class ValidationRoot
             !screen.Dialogue.IsOpen ||
             screen.Dialogue.CurrentMessage != "Accept our\nquest, hero!" ||
             screen.Dialogue.Position.Y != 80 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) != fairySoundRequests,
+            _sound.PlayRequestsFor(SoundId.SndFairyCutscene) != fairySoundRequests,
             "CUTSCENE_PREGAME_INTRO did not open TX_1213 at position 2 " +
             "without starting SND_FAIRYCUTSCENE early.");
 
@@ -129,8 +129,8 @@ public sealed partial class ValidationRoot
             intro.StageFrame != 0 ||
             !screen.OrbVisible ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndFairyCutscene ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
+                SoundId.SndFairyCutscene ||
+            _sound.PlayRequestsFor(SoundId.SndFairyCutscene) !=
                 fairySoundRequests + 1,
             "Closing TX_1213 did not queue SND_FAIRYCUTSCENE with the vanish timeline at frame zero.");
         // bank0.s:timerInterrupt drains the request queue, then executes the
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
             intro.CurrentStage != Stage.Complete ||
             intro.StageFrame != record.PostVanishWaitFrames ||
             _sound.ActiveMusic != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFairyCutscene) !=
+            _sound.PlayRequestsFor(SoundId.SndFairyCutscene) !=
                 fairySoundRequests + 1,
             "The new-game intro did not stop music and hand off to the summon transition exactly once.");
 
@@ -219,10 +219,10 @@ public sealed partial class ValidationRoot
         Vector2I previousFacing = _player.FacingVector;
         LoadDebugRoom(0, 0x47);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSuppressEraInfoOnce,
+            GlobalFlag.SuppressEraInfoOnce,
             value: false);
         _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SentBackByStrangeForceAddress,
+            WramAddress.wSentBackByStrangeForce,
             0);
         FailIf(
             TryDisplayEraInfoAfterInitialRoomLoad(
@@ -263,7 +263,7 @@ public sealed partial class ValidationRoot
         var database = new TimePortalDatabase();
         var effectDatabase = new TimeWarpEffectDatabase();
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagEnterPastCutsceneDone,
+            GlobalFlag.EnterPastCutsceneDone,
             value: false);
         _enterPastCommandTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = _enterPastCommandTrace;
@@ -418,7 +418,7 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             _transitions.ActiveTimeWarpEffect is not null ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpInitiated) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndTimewarpInitiated) != 0 ||
             !_player.Visible,
             "The tilemap reload substep created the source effect early.");
         UpdateRoomWarpTransition(1.0 / 60.0);
@@ -430,7 +430,7 @@ public sealed partial class ValidationRoot
             sourceEffect.BackgroundZIndex != NpcCharacter.BehindLinkZIndex ||
             sourceEffect.ForegroundZIndex != NpcCharacter.InFrontOfLinkZIndex ||
             sourceEffect.UsesIndoorBeamPalette != sourceUsesIndoorBeamPalette ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpInitiated) != 1,
+            _sound.PlayRequestsFor(SoundId.SndTimewarpInitiated) != 1,
             "The source effect did not begin with priority-3 ground below Link, its " +
             "priority-2 beam layer above Link, and SND_TIMEWARP_INITIATED $d1.");
         UpdateRoomWarpTransition(119.0 / 60.0);
@@ -532,12 +532,12 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(15.0 / 60.0);
         FailIf(
             _player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 0,
+            _sound.PlayRequestsFor(SoundId.SndTimewarpCompleted) != 0,
             "Link or SND_TIMEWARP_COMPLETED appeared before update 16.");
         UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             !_player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndTimewarpCompleted) != 1 ||
             _transitions.TimeWarpPhaseName != "TimeWarpArrivalFlicker" ||
             !arrivalEffect.BeamVisible || arrivalEffect.BeamContracting,
             "Destination update 16 did not reveal Link and play SND_TIMEWARP_COMPLETED $d4.");
@@ -566,7 +566,7 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(11.0 / 60.0);
         FailIf(
             IsTransitioning || !_player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTimewarpCompleted) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndTimewarpCompleted) != 1 ||
             !_player.CutsceneControlled || !_roomEvents.Get<EnterPastEvent>().HasState ||
             ValidationEnterPastState.Stage(_roomEvents.Get<EnterPastEvent>()) != EnterPastEventStage.PreJumpWait ||
             _roomEvents.Get<EnterPastEvent>().Counter !=
@@ -614,7 +614,7 @@ public sealed partial class ValidationRoot
                 GreenInitialWait: 60,
                 JumpSpeedZ: -0x1c0,
                 JumpGravity: 0x20,
-                JumpSound: OracleSoundEngine.SndJump,
+                JumpSound: SoundId.SndJump,
                 PostJumpWait: 30,
                 GreenPostTextWait: 30,
                 RedFreezeWait: 32,
@@ -872,7 +872,7 @@ public sealed partial class ValidationRoot
     {
         ValidateTimeTravelCommandImports();
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagEnterPastCutsceneDone,
+            GlobalFlag.EnterPastCutsceneDone,
             value: false);
         _enterPastCommandTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = _enterPastCommandTrace;
@@ -908,7 +908,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             _activeGroup != record.Group || _currentRoom.Id != record.Room ||
-            record.GlobalFlag != OracleSaveData.GlobalFlagEnterPastCutsceneDone ||
+            record.GlobalFlag != GlobalFlag.EnterPastCutsceneDone ||
             !enterPast.HasState || enterPast.Completed ||
             ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PreJumpWait ||
             enterPast.Counter != 33 ||
@@ -921,18 +921,18 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(33 - 1);
         FailIf(
             enterPast.Counter != 1 || ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.PreJumpWait ||
-            enterPast.ZFixed != 0 || _sound.PlayRequestsFor(0x53) != 0,
+            enterPast.ZFixed != 0 || _sound.PlayRequestsFor(SoundId.SndJump) != 0,
             "The remaining pre-jump wait ended early after the time-warp arrival.");
         StepRoomEventFrames(1);
         FailIf(
             ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.BeginJump ||
-            _sound.PlayRequestsFor(0x53) != 0,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 0,
             "wait 40 did not return to jumpAndWaitUntilLanded on its zero update.");
         StepRoomEventFrames(1);
         FailIf(
             ValidationEnterPastState.Stage(enterPast) != EnterPastEventStage.Jump ||
             enterPast.ZFixed != -0x200 || villager.ScriptDrawOffset.Y != -2 ||
-            _sound.PlayRequestsFor(0x53) != 1,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 1,
             "beginJump did not apply speedZ -$0200 and SND_JUMP $53 on its own update.");
         StepRoomEventFrames(21);
         FailIf(
@@ -1077,8 +1077,8 @@ public sealed partial class ValidationRoot
         FailIf(
             enterPast.HasState || !enterPast.Completed || villager.Active ||
             _player.CutsceneControlled ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagEnterPastCutsceneDone) ||
-            _sound.PlayRequestsFor(0x53) != 1,
+            !_saveData.HasGlobalFlag(GlobalFlag.EnterPastCutsceneDone) ||
+            _sound.PlayRequestsFor(SoundId.SndJump) != 1,
             "The first-past-arrival script did not set flag $41, delete the villager, and restore input.");
 
         LoadValidationRoom(record.Group, record.Room);
@@ -1148,9 +1148,9 @@ public sealed partial class ValidationRoot
         NayruIntroEvent nayruIntro = _roomEvents.Get<NayruIntroEvent>();
         ValidationCutsceneTrace encounterTrace = new ValidationCutsceneTrace();
         _roomEvents.CommandTraceSink = encounterTrace;
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
-        _sound.PlaySound(OracleSoundEngine.SndCtrlStopMusic);
+        _saveData.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+        _saveData.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
+        _sound.PlaySound(SoundId.SndCtrlStopMusic);
         _sound.ClearPlayRequestAudit();
         _saveData.SetRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(0, 0x6a, OracleSaveData.RoomFlag40, value: false);
@@ -1217,7 +1217,7 @@ public sealed partial class ValidationRoot
             $"0:7a -> 0:6a placed Link at {linkStart}, expected $76/$38.");
         FailIf(
             !_player.CutsceneControlled || impaEvent.Counter != 120 ||
-            _sound.ActiveMusic != OracleSoundEngine.MusFairyFountain ||
+            _sound.ActiveMusic != SoundId.MusFairyFountain ||
             _sound.MusicVolume != 3 ||
             _player.Position != linkStart || _player.FacingVector != Vector2I.Up,
             "linkCutscene1 state 0 did not install its $78 counter, upward animation, " +
@@ -1249,8 +1249,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             _player.Position != new Vector2(0x48, 0x48) ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndClink ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndClink ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1,
             "Link did not finish exactly 46 pixels above his entry point and play SND_CLINK.");
 
         StepRoomEventFrames(1);
@@ -1279,8 +1279,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             octoroks[1].Position != fakeStarts[1] ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndThrow ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndThrow ||
+            _sound.PlayRequestsFor(SoundId.SndThrow) != 1,
             "Fake Octorok var03=$01 did not play SND_THROW on its stationary substate update.");
         StepRoomEventFrames(1);
         FailIf(
@@ -1295,7 +1295,7 @@ public sealed partial class ValidationRoot
             !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
             !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
             octoroks[0].Active || octoroks[1].Active || octoroks[2].Active ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndThrow) != 3,
+            _sound.PlayRequestsFor(SoundId.SndThrow) != 3,
             "TX_0102, automatic TX_0101 call, textbox placement, fake-Octorok cleanup, " +
             "or the three staggered SND_THROW calls diverged.");
 
@@ -1464,7 +1464,7 @@ public sealed partial class ValidationRoot
             returningFollower.FacingVector != Vector2I.Left,
             "The rebuilt path did not retain Impa at the right edge facing left on its first update.");
 
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         _saveData.SetRoomFlag(0, 0x39, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(0, 0x39, OracleSaveData.RoomFlag80, value: false);
         _transitions.BeginScroll(_player, Vector2I.Right, 0x39);
@@ -2240,8 +2240,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(61);
         FailIf(
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndCtrlStopMusic ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != 1,
+                SoundId.SndCtrlStopMusic ||
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
             "The Maku Tree did not stop its music after the 60-update post-text wait.");
         StepRoomEventFrames(1);
         FailIf(
@@ -2255,8 +2255,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(57);
         FailIf(
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndMakuDisappear ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 1,
+                SoundId.SndMakuDisappear ||
+            _sound.PlayRequestsFor(SoundId.SndMakuDisappear) != 1,
             "The first SND_MAKUDISAPPEAR did not start with the palette-cycling disappearance.");
 
         StepRoomEventFrames(1);
@@ -2274,8 +2274,8 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndMakuDisappear ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 2,
+                SoundId.SndMakuDisappear ||
+            _sound.PlayRequestsFor(SoundId.SndMakuDisappear) != 2,
             "TX_0540 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         StepRoomEventFrames(211);
         FailIf(
@@ -2287,24 +2287,24 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndMakuDisappear ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMakuDisappear) != 3,
+                SoundId.SndMakuDisappear ||
+            _sound.PlayRequestsFor(SoundId.SndMakuDisappear) != 3,
             "TX_0541 did not replay SND_MAKUDISAPPEAR when its textbox closed.");
         StepRoomEventFrames(151);
         FailIf(
             !makuEvent.HasState || makuEvent.Completed || IsTransitioning ||
             _saveData.MakuTreeState != 1 ||
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared),
+            _saveData.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared),
             "The Maku Tree script did not increment wMakuTreeState and defer its native handler by one update.");
         StepRoomEventFrames(1);
         FailIf(
             !makuEvent.Completed || _roomEvents.Active || !IsTransitioning ||
             _activeGroup != 0 || _currentRoom.Id != 0x38 ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagMakuTreeDisappeared) ||
+            !_saveData.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             !_saveData.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
             _saveData.MakuTreeState != 1 ||
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndFadeOut ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndFadeOut) != 1,
+            _sound.LastPlayRequestForValidation() != SoundId.SndFadeOut ||
+            _sound.PlayRequestsFor(SoundId.SndFadeOut) != 1,
             "The Maku Tree event did not persist GLOBALFLAG_0c, wMakuTreeState, room bit 0, " +
             "and initiate its hardcoded same-room warp after 150 updates.");
         Color fadeStartGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
@@ -2590,8 +2590,8 @@ public sealed partial class ValidationRoot
             _currentRoom.GetMetatile(GatePoint(record.GateInnerLeft)) != record.ClearTile ||
             _currentRoom.GetMetatile(GatePoint(record.GateInnerRight)) != record.ClearTile ||
             _currentRoom.GetMetatile(GatePoint(record.GateRight)) != record.ClearTile ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDing) != 4 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 4 ||
+            _sound.PlayRequestsFor(SoundId.SndDing) != 4 ||
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 4 ||
             _roomCamera.Offset != Vector2.Zero,
             "Room 1:38 did not complete its Moblin fight, dialogue, four gate phases, " +
             "up-facing Link handoff, lower exit textbox, music/flag/layout mutations, " +
@@ -2617,7 +2617,7 @@ public sealed partial class ValidationRoot
             returnPortal.Position != new Vector2(0x58, 0x48) ||
             !returnPortal.Active ||
             _currentRoom.GetMetatile(returnPortal.Position) != 0xd7 ||
-            _saveData.HasTreasure(TreasureDatabase.TreasureSeedSatchel),
+            _saveData.HasTreasure(TreasureId.SeedSatchel),
             "The post-rescue layout swap did not expose and activate room 1:48's " +
             "$e1:$02 portal for a Seed-Satchel-less Link.");
 
@@ -2651,15 +2651,15 @@ public sealed partial class ValidationRoot
         EnemyArrowRecord arrowRecord = enemyDatabase.EnemyArrow;
         FailIf(
             masked is not
-            { Id: 0x20, SubId: 0, CollisionRadiusY: 6, CollisionRadiusX: 6,
-              DamageQuarters: 2, Health: 2, SpeedRaw: 0x14,
+            { Id: EnemyId.MaskedMoblin, SubId: 0, CollisionRadiusY: 6, CollisionRadiusX: 6,
+              DamageQuarters: 2, Health: 2, SpeedRaw: ObjectSpeed.Speed80,
               MoveCounterBase: 0x30, MoveCounterMask: 0x3f, TurnWait: 8 } ||
             arrowRecord is not
-            { DamageQuarters: 2, SpeedRaw: 0x50 },
+            { DamageQuarters: 2, SpeedRaw: ObjectSpeed.Speed200 },
             "The dynamically-created masked Moblin/enemy-arrow records diverged from source.");
         var deflectedArrow = new EnemyArrowProjectile();
         deflectedArrow.Initialize(
-            arrowRecord, _currentRoom, new Vector2(0x50, 0x40), 0x08);
+            arrowRecord, _currentRoom, new Vector2(0x50, 0x40), ObjectAngle.Right);
         FailIf(
             !deflectedArrow.DeflectWithSword() ||
             deflectedArrow.State != HostileProjectileState.Bouncing ||
@@ -2899,7 +2899,7 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         bool originalAdvice = _saveData.HasGlobalFlag(record.AdviceFlag);
         var inventorySnapshot = new byte[0x36];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
 
         _saveData.SetMakuTreeState(1);
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap, false);
@@ -3068,19 +3068,19 @@ public sealed partial class ValidationRoot
             _inventory.SeedSatchelLevel != 1 ||
             _inventory.EmberSeeds != Math.Max(emberSeedsBefore, 0x20) ||
             !_dialogue.IsOpen ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
             "Touching the respawned Satchel did not grant its level, 20 Ember Seeds, " +
             $"$20, text, and sound (tracked={ReferenceEquals(_interactions.GroundTreasureForValidation, respawned)}, " +
             $"flag={_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem)}, " +
             $"level={_inventory.SeedSatchelLevel}, seeds={_inventory.EmberSeeds}/" +
             $"{emberSeedsBefore}, dialogue={_dialogue.IsOpen}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndGetItem)}).");
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndGetItem)}).");
         _interactions.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
             !respawned.Held || _player.IsHoldingItemOneHand ||
             respawned.Position != _player.Position + new Vector2(-4, -14) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "Seed Satchel collection did not use grab mode $01 and its -4/-14 offset.");
         InitializeGetItemStateForValidation();
         FailIf(!_player.IsHoldingItemOneHand, "State04 initialization must apply the Satchel's one-hand pose.");
@@ -3117,7 +3117,7 @@ public sealed partial class ValidationRoot
             !commandStarts.Any(entry => entry.Source.Opcode == "setmusic"),
             "Saved Maku Tree typed trace lost its source lines or new branch/input/music opcodes.");
         LoadValidationRoom(0, 0x39);
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
@@ -3155,16 +3155,16 @@ public sealed partial class ValidationRoot
         const int essencesAddress = 0xc6bf;
         const int tradeItemAddress = 0xc6c0;
         const int tradeObtainedAddress = 0xc69a +
-            (TreasureDatabase.TreasureTradeItem >> 3);
+            (TreasureId.TradeItem >> 3);
         const int tradeObtainedMask =
-            1 << (TreasureDatabase.TreasureTradeItem & 7);
+            1 << (TreasureId.TradeItem & 7);
 
         ComedianEvent comedianEvent = _roomEvents.Get<ComedianEvent>();
         ComedianEventDatabase database = comedianEvent.Database;
         ComedianEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         System.Reflection.MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             System.Reflection.BindingFlags.Instance |
@@ -3234,10 +3234,10 @@ public sealed partial class ValidationRoot
             (actors.ElementAtOrDefault(1) as ComedianCharacter)!;
         FailIf(
             actors.Count != 2 ||
-            actors[0].Record is not { Id: 0x3a, SubId: 0x04 } ||
+            actors[0].Record is not { Id: InteractionId.MaleVillager, SubId: 0x04 } ||
             actors[0].Position != new Vector2(0x68, 0x48) ||
             comedian is null ||
-            comedian.Record is not { Id: 0x65, SubId: 0x00 } ||
+            comedian.Record is not { Id: InteractionId.Comedian, SubId: 0x00 } ||
             comedian.Position != new Vector2(0x78, 0x48) ||
             !comedianEvent.HasState || comedianEvent.BlocksGameplay ||
             !comedianEvent.ButtonSensitive ||
@@ -3283,7 +3283,7 @@ public sealed partial class ValidationRoot
         FinishSimpleTalk();
 
         _inventory.GiveTreasure(
-            TreasureDatabase.TreasureTradeItem, record.RequiredTradeItem);
+            TreasureId.TradeItem, record.RequiredTradeItem);
         LoadValidationRoom(group, room);
         BeginTalk();
         ExpectDialogue(0x0b2e, "trade preamble");
@@ -3330,7 +3330,7 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(rewardObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "comedianScript giveitem did not grant the Funny Joke through " +
             "grab mode $02 with text, sounds, inventory, and room flag $20.");
 
@@ -3380,7 +3380,7 @@ public sealed partial class ValidationRoot
             "Comedian typed trace lost source lines or a room-specific script opcode.");
 
         LoadValidationRoom(0, 0x55);
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
@@ -3432,43 +3432,43 @@ public sealed partial class ValidationRoot
         byte sourcePortalTile = sourceRoom.GetMetatile(portalPoint);
         if (sourcePortalTile != 0x3a)
             sourceRoom.ReplaceMetatile(portalPoint, sourcePortalTile, 0x3a, (long)_animationTicks);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagPregameIntroDone);
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone, value: false);
+        _saveData.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+        _saveData.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag40, value: false);
         _saveData.SetRoomFlag(group, roomId, OracleSaveData.RoomFlag80, value: false);
-        _sound.PlayMusicIfChanged(OracleSoundEngine.MusFairyFountain);
+        _sound.PlayMusicIfChanged(SoundId.MusFairyFountain);
         _sound.SetMusicVolume(3);
         LoadValidationRoom(group, 0x59);
         _transitions.BeginScroll(_player, Vector2I.Up, 0x49);
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusFairyFountain ||
+            _sound.ActiveMusic != SoundId.MusFairyFountain ||
             _sound.MusicVolume != 3,
             "INTERAC_PLAY_NAYRU_MUSIC $2f ran before the 0:59 -> 0:49 scroll completed.");
         FinishActiveScrollingTransitionForValidation();
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 2,
             "Room 0:49 did not start MUS_NAYRU with volume 2 after its incoming scroll.");
         _transitions.BeginScroll(_player, Vector2I.Up, roomId);
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 2,
             "The 0:49 -> 0:39 scroll changed Nayru's volume before her interaction resumed.");
         FinishActiveScrollingTransitionForValidation();
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 2,
             "Nayru's destination interaction changed music during the 0:39 scroll.");
 
         FailIf(
-            _inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            _inventory.HasTreasure(TreasureId.Sword) ||
             _inventory.SwordLevel != 0 || _inventoryMenu.CanOpenForValidation ||
             _mapMenu.CanOpenNormalForValidation,
             "The pre-intro save retained the development sword or allowed Start/Select " +
             "before GLOBALFLAG_INTRO_DONE $0a.");
 
-        int errorRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndError);
-        int openMenuRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu);
+        int errorRequests = _sound.PlayRequestsFor(SoundId.SndError);
+        int openMenuRequests = _sound.PlayRequestsFor(SoundId.SndOpenMenu);
         foreach (string[] actions in new[]
         {
             new[] { "inventory" },
@@ -3483,9 +3483,9 @@ public sealed partial class ValidationRoot
                 Input.ActionRelease(action);
         }
         FailIf(
-            _sound.LastPlayRequestForValidation() != OracleSoundEngine.SndError ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndError) != errorRequests + 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenMenu) != openMenuRequests ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndError ||
+            _sound.PlayRequestsFor(SoundId.SndError) != errorRequests + 3 ||
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests ||
             _inventoryMenu.IsActive || _mapMenu.IsActive ||
             _inventoryScreen.Visible || _mapScreen.Visible,
             "Pre-GLOBALFLAG_INTRO_DONE $0a Start, Select, and Start+Select did not " +
@@ -3561,7 +3561,7 @@ public sealed partial class ValidationRoot
         }
         StepRoomEventFrames(1);
         FailIf(
-            _sound.ActiveMusic != OracleSoundEngine.MusNayru ||
+            _sound.ActiveMusic != SoundId.MusNayru ||
             _sound.MusicVolume != 3,
             "INTERAC_NAYRU $36:$00 did not restore MUS_NAYRU to volume 3 on its first update.");
         FailIf(
@@ -3734,7 +3734,7 @@ public sealed partial class ValidationRoot
             _hud.Visible || _warpFade.Position != Vector2.Zero ||
             _warpFade.Size != new Vector2(
                 OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 1,
+            _sound.PlayRequestsFor(SoundId.SndCloseMenu) != 1,
             "GFXH_NAYRU_SINGING_CUTSCENE did not play SND_CLOSEMENU and replace the " +
             "room/HUD after 11 updates.");
         StepRoomEventFrames(320);
@@ -3749,7 +3749,7 @@ public sealed partial class ValidationRoot
                 new Vector2(0, OracleRoomData.GameplayScreenTop) ||
             _warpFade.Size != new Vector2(
                 OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) != 2,
+            _sound.PlayRequestsFor(SoundId.SndCloseMenu) != 2,
             "The 600-update singing screen did not replay SND_CLOSEMENU and enter the room script.");
 
         int scriptFrames = 0;
@@ -3800,20 +3800,20 @@ public sealed partial class ValidationRoot
         string nayruDownAnimation = nayruDatabase.Actor("Nayru").Animation(2);
         string impaRevealAnimation = nayruDatabase.Actor("AftermathImpa").Animation(4);
         string ralphFallAnimation = nayruDatabase.Actor("AftermathRalph").Animation(8);
-        while (!_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) &&
+        while (!_saveData.HasGlobalFlag(GlobalFlag.IntroDone) &&
             scriptFrames < 20000)
         {
             NayruActorRegistry currentActors = nayruIntro.ActorRegistry;
             int visitedVignettes = nayruTrace.OrValues("VignetteVisited");
-            sawSideviewMusic |= _sound.ActiveMusic == OracleSoundEngine.MusLadxSideview;
-            sawRoomOfRitesMusic |= _sound.ActiveMusic == OracleSoundEngine.MusRoomOfRites;
+            sawSideviewMusic |= _sound.ActiveMusic == SoundId.MusLadxSideview;
+            sawRoomOfRitesMusic |= _sound.ActiveMusic == SoundId.MusRoomOfRites;
             sawVignetteRestartSilence |= nayruIntro.CurrentVignetteIndex == 0 &&
                 nayruIntro.VignetteElapsed is >= 1 and <= 120 && _sound.ActiveMusic == 0;
             sawDisasterMusic |= visitedVignettes != 0 &&
                 !currentActors.ContainsKey("AftermathRalph") &&
-                _sound.ActiveMusic == OracleSoundEngine.MusDisaster;
+                _sound.ActiveMusic == SoundId.MusDisaster;
             sawSadnessMusic |= currentActors.ContainsKey("AftermathRalph") &&
-                _sound.ActiveMusic == OracleSoundEngine.MusSadness;
+                _sound.ActiveMusic == SoundId.MusSadness;
             if (visitedVignettes != 0 && _roomEvents.Active)
             {
                 sawHudDuringVignetteSequence |= _hud.Visible;
@@ -4054,26 +4054,26 @@ public sealed partial class ValidationRoot
         bool completeCommandTrace = nayruStarts.Length == nayruDatabase.Commands.Count &&
             nayruStarts.Select(entry => entry.Source.CommandIndex)
                 .SequenceEqual(Enumerable.Range(0, nayruDatabase.Commands.Count));
-        int rumbleRequests = _sound.PlayRequestsFor(OracleSoundEngine.SndRumble2);
+        int rumbleRequests = _sound.PlayRequestsFor(SoundId.SndRumble2);
         bool exactCutsceneSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCloseMenu) == 2 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) == 4 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDead) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) == 4 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin) == 8 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndTeleport) == 2 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordObtained) == 2 &&
+            _sound.PlayRequestsFor(SoundId.SndCloseMenu) == 2 &&
+            _sound.PlayRequestsFor(SoundId.SndJump) == 4 &&
+            _sound.PlayRequestsFor(SoundId.SndBossDead) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) == 4 &&
+            _sound.PlayRequestsFor(SoundId.SndSwordSpin) == 8 &&
+            _sound.PlayRequestsFor(SoundId.SndTeleport) == 2 &&
+            _sound.PlayRequestsFor(SoundId.SndSwordObtained) == 2 &&
             rumbleRequests is >= 13 and <= 15 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSwordSlash) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) == 6 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSlash) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndWarpStart) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) == 10 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBoomerang) == 1 &&
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) == 1;
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndSwordSlash) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndLightning) == 6 &&
+            _sound.PlayRequestsFor(SoundId.SndSlash) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndWarpStart) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndClink) == 10 &&
+            _sound.PlayRequestsFor(SoundId.SndBoomerang) == 1 &&
+            _sound.PlayRequestsFor(SoundId.SndGetItem) == 1;
         FailIf(
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagIntroDone) ||
+            !_saveData.HasGlobalFlag(GlobalFlag.IntroDone) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag40) ||
             _currentRoom.GetMetatile(portalPoint) != 0xd7 ||
             nayruIntro.CurrentStage != 0 || nayruIntro.ActorRegistry.Count != 0 ||
@@ -4118,9 +4118,9 @@ public sealed partial class ValidationRoot
             !sawSideviewMusic || !sawRoomOfRitesMusic ||
             !sawVignetteRestartSilence || !sawDisasterMusic || !sawSadnessMusic ||
             !exactCutsceneSounds ||
-            _sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
+            _sound.ActiveMusic != SoundId.MusOverworld ||
             _sound.MusicVolume != 3 ||
-            !_inventory.HasTreasure(TreasureDatabase.TreasureSword) ||
+            !_inventory.HasTreasure(TreasureId.Sword) ||
             _inventory.SwordLevel != 1 || !_inventoryMenu.CanOpenForValidation ||
             !_mapMenu.CanOpenNormalForValidation ||
             scriptFrames >= 20000,
@@ -4154,10 +4154,10 @@ public sealed partial class ValidationRoot
             $"{nayruTrace.Saw("PortalFlight")}, trace={nayruStarts.Length}/" +
             $"{nayruDatabase.Commands.Count}, " +
             $"sfx={exactCutsceneSounds}:jump" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndJump)}/" +
-            $"spin{_sound.PlayRequestsFor(OracleSoundEngine.SndSwordSpin)}/" +
-            $"clink{_sound.PlayRequestsFor(OracleSoundEngine.SndClink)}/" +
-            $"lightning{_sound.PlayRequestsFor(OracleSoundEngine.SndLightning)}/" +
+            $"{_sound.PlayRequestsFor(SoundId.SndJump)}/" +
+            $"spin{_sound.PlayRequestsFor(SoundId.SndSwordSpin)}/" +
+            $"clink{_sound.PlayRequestsFor(SoundId.SndClink)}/" +
+            $"lightning{_sound.PlayRequestsFor(SoundId.SndLightning)}/" +
             $"rumble{rumbleRequests}, " +
             $"music={sawSideviewMusic}/{sawRoomOfRitesMusic}/" +
             $"{sawVignetteRestartSilence}/{sawDisasterMusic}/{sawSadnessMusic}/" +
@@ -4213,9 +4213,9 @@ public sealed partial class ValidationRoot
         // Ralph's departure is the immediate post-possession room-entry
         // event. Declare that story fixture here instead of inheriting
         // GLOBALFLAG_INTRO_DONE from the Nayru validation.
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagIntroDone);
+        _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
         _saveData.SetGlobalFlag(
-            OracleSaveData.GlobalFlagRalphEnteredPortal, value: false);
+            GlobalFlag.RalphEnteredPortal, value: false);
         // @initSubid0d deletes the object on a direct room load because
         // wScreenTransitionDirection is not DIR_RIGHT ($01).
         LoadValidationRoom(0, 0x39);
@@ -4307,8 +4307,8 @@ public sealed partial class ValidationRoot
         FailIf(
             ralphEvent.Counter != 45 || ralphEvent.Flickering ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndMysterySeed ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMysterySeed) != 1,
+                SoundId.SndMysterySeed ||
+            _sound.PlayRequestsFor(SoundId.SndMysterySeed) != 1,
             "Ralph's var3f=$2d and SND_MYSTERY_SEED commands lost their script updates.");
         StepRoomEventFrames(1);
         bool firstFlickerVisibility = (_entities.FrameCounter & 1) != 0;
@@ -4330,8 +4330,8 @@ public sealed partial class ValidationRoot
         FailIf(
             _roomEvents.Active || !ralphEvent.Completed || ralph.Active ||
             _player.CutsceneControlled ||
-            _sound.ActiveMusic != OracleSoundEngine.MusOverworld ||
-            !_saveData.HasGlobalFlag(OracleSaveData.GlobalFlagRalphEnteredPortal),
+            _sound.ActiveMusic != SoundId.MusOverworld ||
+            !_saveData.HasGlobalFlag(GlobalFlag.RalphEnteredPortal),
             "Ralph's departure did not set GLOBALFLAG_RALPH_ENTERED_PORTAL $40 and restore input.");
 
         LoadValidationRoom(0, 0x39);

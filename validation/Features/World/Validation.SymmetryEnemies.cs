@@ -64,8 +64,8 @@ public partial class ValidationRoot
     {
         var database = new EnemyDatabase();
         OracleRoomData room = _world.LoadRoom(0, 0x11);
-        FailIf(database.ImportedEnemy(0x21, 0) is not { Health: 6, DamageQuarters: 2, Palette: 2 } ||
-            database.ImportedEnemy(0x21, 1) is not { Health: 9, DamageQuarters: 4, Palette: 1 },
+        FailIf(database.ImportedEnemy(EnemyId.ArrowDarknut, 0) is not { Health: 6, DamageQuarters: 2, Palette: 2 } ||
+            database.ImportedEnemy(EnemyId.ArrowDarknut, 1) is not { Health: 9, DamageQuarters: 4, Palette: 1 },
             "enemy21SubidData/enemy48SubidData alias lost red/blue Darknut attributes.");
         var source = database.GetRoomObjects(0, 0x11).Single(row => row.Id == 0x21);
         foreach (int subid in new[] { 0, 1 })
@@ -73,7 +73,7 @@ public partial class ValidationRoot
             var random = new OracleRandom();
             var predictor = new OracleRandom();
             var enemy = new ArrowDarknutCharacter();
-            enemy.Initialize(database.ImportedEnemy(0x21, subid), room, new Vector2(0x88, 0x18), random);
+            enemy.Initialize(database.ImportedEnemy(EnemyId.ArrowDarknut, subid), room, new Vector2(0x88, 0x18), random);
             predictor.Next(); // bank0.s:enemyStandardUpdate initializes var3d.
             int angle = predictor.NextCardinalAngle();
             int counter = 0x30 + (predictor.Next().Value & 0x3f);
@@ -94,7 +94,7 @@ public partial class ValidationRoot
                 sawHoming |= homing;
                 sawRandom |= !homing;
                 target = new Vector2(0, enemy.Position.Y);
-                angle = homing ? 0x18 : predictor.NextCardinalAngle();
+                angle = homing ? ObjectAngle.Left : predictor.NextCardinalAngle();
                 counter = 0x30 + (predictor.Next().Value & 0x3f);
                 int previousAngle = enemy.Angle;
                 int previousFrame = enemy.AnimationFrame;
@@ -122,7 +122,7 @@ public partial class ValidationRoot
             enemy.Free();
         }
         var fighter = new ArrowDarknutCharacter();
-        fighter.Initialize(database.ImportedEnemy(0x21), room, new Vector2(0x88, 0x18), new OracleRandom());
+        fighter.Initialize(database.ImportedEnemy(EnemyId.ArrowDarknut), room, new Vector2(0x88, 0x18), new OracleRandom());
         fighter.UpdateFrame(Vector2.Zero);
         var adapter = new ArrowDarknutRoomEntity(fighter,
             database.EnemyHandlers.ResolveHandler(source).CombatSource(source, 1), _ => { });
@@ -145,7 +145,7 @@ public partial class ValidationRoot
         var predictor = new OracleRandom();
         var tower = new PodobooTowerCharacter();
         var position = new Vector2(source.X, source.Y);
-        tower.Initialize(database.ImportedEnemy(0x2d), position, random);
+        tower.Initialize(database.ImportedEnemy(EnemyId.PodobooTower), position, random);
         var spawns = new List<RoomEntitySpawn>();
         int frame = 0;
         void Step() => tower.UpdateFrame(++frame, spawns);
@@ -204,7 +204,7 @@ public partial class ValidationRoot
             "Podoboo mystery-seed death lost its uncounted/no-drop outcome or death-puff count transfer.");
         tower.Free();
         var ordinary = new PodobooTowerCharacter();
-        ordinary.Initialize(database.ImportedEnemy(0x2d), position, new OracleRandom());
+        ordinary.Initialize(database.ImportedEnemy(EnemyId.PodobooTower), position, new OracleRandom());
         var ordinaryAdapter = new PodobooTowerRoomEntity(ordinary,
             database.EnemyHandlers.ResolveHandler(source).CombatSource(source, 1), _ => { });
         spawns.Clear();
@@ -222,7 +222,7 @@ public partial class ValidationRoot
             "Podoboo ordinary death lost its counted no-drop puff or recent-defeat mark.");
         ordinary.Free();
         var puff = new EnemyDeathPuffEffect();
-        puff.Initialize(position, enemyId: 0x2d);
+        puff.Initialize(position, enemyId: EnemyId.PodobooTower);
         var dropRandom = new OracleRandom();
         var puffAdapter = new DeathPuffRoomEntity(puff, new ItemDropDatabase(), dropRandom,
             _inventory, _saveData, decrementsRoomCount: true, dropsItem: false);

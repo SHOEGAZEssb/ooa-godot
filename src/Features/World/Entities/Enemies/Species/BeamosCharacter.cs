@@ -59,7 +59,7 @@ internal sealed partial class BeamosCharacter : EnemyCharacter
             if (--Counter == 0)
             {
                 Counter = _data.RotationFrames;
-                Angle = (Angle + 1) & 0x1f;
+                Angle = (Angle + 1) & ObjectAngle.Mask;
                 SetAnimation(_data.AngleAnimations[Angle].Value);
             }
             if (Cooldown != 0) Cooldown--;
@@ -78,7 +78,7 @@ internal sealed partial class BeamosCharacter : EnemyCharacter
             State = 8;
             return;
         }
-        if (Counter == _data.SoundCounter) { _sound(OracleSoundEngine.SndBeam); return; }
+        if (Counter == _data.SoundCounter) { _sound(SoundId.SndBeam); return; }
         if (Counter > _data.SoundCounter || !_partAvailable()) return;
         spawns.Add(new BeamosBeamSpawn(Position, Angle, Counter & _data.BeamBlinkMask));
     }

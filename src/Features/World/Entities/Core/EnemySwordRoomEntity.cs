@@ -78,15 +78,15 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
         if (!CollisionEnabled || _invincibility != 0 || !_bounds.Intersects(hitbox)) return false;
         int collision = SwordCollision.Type(_swordState, _swordLevel);
         int effect = EnemyBehaviorTables.Shared.EnemySwordCollisionEffects[collision].Value;
-        if (effect == 0) return false;
-        if (effect == 0x14)
+        if (effect == CollisionEffect.None) return false;
+        if (effect == CollisionEffect.BumpWithClinkHighKnockback)
         {
             _invincibility = -26;
             _knockback = 15;
         }
-        else if (effect is 0x32 or 0x33)
+        else if (effect is CollisionEffect.Effect32 or CollisionEffect.Effect33)
         {
-            _pendingRecoil = effect == 0x32 ? 6 : 8;
+            _pendingRecoil = effect == CollisionEffect.Effect32 ? 6 : 8;
             _invincibility = -(_pendingRecoil + 3);
             _knockback = _pendingRecoil + 1;
         }
@@ -120,7 +120,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
             _knockback = level1 ? 11 : 8;
             PublishBump(player.ShieldCollisionBounds.GetCenter());
             player.ApplyShieldCollisionRecoil(_node.Position, level1 ? 15 : 8, level1 ? 19 : 11);
-            _soundRequested(OracleSoundEngine.SndClink);
+            _soundRequested(SoundId.SndClink);
             return;
         }
         if (player.OverlapsEnemyCollision(_bounds))
@@ -132,7 +132,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
         _pendingBumpSource = sourcePosition;
         _knockbackAngle = OracleObjectMovement.Shared.RelativeAngle(
             OracleObjectMath.ToPixelPosition(_node.Position),
-            OracleObjectMath.ToPixelPosition(sourcePosition)) ^ 0x10;
+            OracleObjectMath.ToPixelPosition(sourcePosition)) ^ ObjectAngle.HalfTurn;
     }
 }
 

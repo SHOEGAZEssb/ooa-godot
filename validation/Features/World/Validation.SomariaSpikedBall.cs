@@ -74,7 +74,7 @@ public partial class ValidationRoot
             var block = blockAdapter.Block;
             Step(10);
             filler?.Discard();
-            FailIf(!new SeedSatchelDatabase().TryGet(0x21, out var record), "Missing source Scent Seed.");
+            FailIf(!new SeedSatchelDatabase().TryGet(ItemId.ScentSeed, out var record), "Missing source Scent Seed.");
             var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                 point, Vector2I.Down, record, 4, SeedLaunchKind.Shooter));
             Step(1);
@@ -89,7 +89,7 @@ public partial class ValidationRoot
                 FailIf(target.ApplySomariaBlockCollision(block, []), "PART$2a must reject ITEM$18 for either sign of invincibility.");
             }
             ball.InvincibilityCounter = 0;
-            ball.PublishCollision(0x15);
+            ball.PublishCollision(ItemCollisionType.SomariaBlock);
             FailIf(target.ApplySomariaBlockCollision(block, []), "PART$2a pending var2a must suppress the entire next collision check.");
             ball.UpdateFrame(_player.Position);
             ball.Position = point;

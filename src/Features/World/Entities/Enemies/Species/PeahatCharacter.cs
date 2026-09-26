@@ -45,7 +45,7 @@ internal partial class PeahatCharacter : EnemyCharacter
         if (_hookHitPending)
         {
             _hookHitPending = false;
-            if (CollisionMode != 0x58)
+            if (CollisionMode != EnemyCollisionMode.Peahat)
             {
                 AdvanceInvincibilityCounter();
                 return;
@@ -58,7 +58,7 @@ internal partial class PeahatCharacter : EnemyCharacter
             _random.Next(); // enemyStandardUpdate var3d.
             RestartAnimation(0); // enemyLoadGraphicsAndProperties.
         }
-        CollisionMode = _zHigh == 0 ? 0x2e : 0x58;
+        CollisionMode = _zHigh == 0 ? EnemyCollisionMode.PeahatVulnerable : EnemyCollisionMode.Peahat;
 
         switch (_state)
         {
@@ -123,7 +123,7 @@ internal partial class PeahatCharacter : EnemyCharacter
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (CollisionMode != 0x2e)
+        if (CollisionMode != EnemyCollisionMode.PeahatVulnerable)
             return false;
         return TakeSwitchHookHit(sourcePosition, damage);
     }
@@ -133,7 +133,7 @@ internal partial class PeahatCharacter : EnemyCharacter
 
     internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
     {
-        if (CollisionMode == 0x2e && !TakeDeferredNoKnockbackHit(linkPosition, damage)) return false;
+        if (CollisionMode == EnemyCollisionMode.PeahatVulnerable && !TakeDeferredNoKnockbackHit(linkPosition, damage)) return false;
         _hookHitPending = true;
         return true;
     }

@@ -18,8 +18,8 @@ public sealed partial class ValidationRoot
     {
         // bank3.objectSpeedTable has 40 words per speed. Halving PART $49's
         // $2d byte yields $16, an offset into SPEED_80, not SPEED_60.
-        var half=OracleObjectSpeedTable.Shared.GetRaw(0x16,0);
-        var quarter=OracleObjectSpeedTable.Shared.GetRaw(0x0b,0);
+        var half=OracleObjectSpeedTable.Shared.GetRaw(0x16,ObjectAngle.Up);
+        var quarter=OracleObjectSpeedTable.Shared.GetRaw(0x0b,ObjectAngle.Up);
         FailIf(half.YFixed!=0x80||half.XFixed!=0||quarter.YFixed!=0||quarter.XFixed!=0x40,
             "PART $49 raw halved speeds did not preserve the source's unaligned sine-table reads.");
         LoadValidationRoom(3,0x3e); StepGameplayUpdates(4,Vector2.Zero);
@@ -27,11 +27,11 @@ public sealed partial class ValidationRoot
         var host=cave.Actors.Single();
         TalkGoronFromFloor(host);
         FailIf(_saveData.HasRoomFlag(3,0x3e,0x40),"Big Bang attendant accepted absent Goronade.");
-        _inventory.GiveTreasure(0x5d,0);
+        _inventory.GiveTreasure(TreasureId.Goronade,0);
         _inventory.AddRupees(100);
         ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         for(int i=0;i<1600&&host.BigBang?.Playing!=true;i++) AdvanceGoronDialogue(1);
-        FailIf(host.BigBang?.Playing!=true||_inventory.HasTreasure(0x5d)||!_saveData.HasRoomFlag(3,0x3e,0x40)||_inventory.Rupees!=100,
+        FailIf(host.BigBang?.Playing!=true||_inventory.HasTreasure(TreasureId.Goronade)||!_saveData.HasRoomFlag(3,0x3e,0x40)||_inventory.Rupees!=100,
             "Big Bang first game did not consume Goronade, save its trade, and waive the fee.");
         var game=host.BigBang!;
         int health=_inventory.HealthQuarters;
@@ -45,9 +45,9 @@ public sealed partial class ValidationRoot
             "Big Bang wave did not initialize its later PART slot in the same update.");
         for(int i=0;i<1800&&game.Playing;i++) AdvanceGoronDialogue(1,1);
         AdvanceGoronDialogue(400,1);
-        FailIf(game.Playing||_inventory.HealthQuarters!=health||!_inventory.HasTreasure(0x45)||cave.BlocksGameplay||
+        FailIf(game.Playing||_inventory.HealthQuarters!=health||!_inventory.HasTreasure(TreasureId.OldMermaidKey)||cave.BlocksGameplay||
             _rooms.CurrentRoom.GetMetatile(new(0x18,0x18))!=0xef,
-            $"Big Bang completion: playing={game.Playing}, health={_inventory.HealthQuarters}/{health}, key={_inventory.HasTreasure(0x45)}, blocked={cave.BlocksGameplay}, tile={_rooms.CurrentRoom.GetMetatile(new(0x18,0x18)):x2}, command={host.CommandIndex}, counter={host.Counter}, invincibility={_player.InvincibilityFrames}, parts={game.Parts.Count}, status={_entities.RuntimeState.ReadWramByte(0xcfc0)}.");
+            $"Big Bang completion: playing={game.Playing}, health={_inventory.HealthQuarters}/{health}, key={_inventory.HasTreasure(TreasureId.OldMermaidKey)}, blocked={cave.BlocksGameplay}, tile={_rooms.CurrentRoom.GetMetatile(new(0x18,0x18)):x2}, command={host.CommandIndex}, counter={host.Counter}, invincibility={_player.InvincibilityFrames}, parts={game.Parts.Count}, status={_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0)}.");
         ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(100,1);
         FailIf(_inventory.Rupees!=100||cave.BlocksGameplay,"Declining a repeat Big Bang game charged money or locked input.");
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
     }
     private void ValidateGoronTargetCarts()
     {
-        _inventory.GiveTreasure(0x0f,0); _inventory.AddRupees(100);
+        _inventory.GiveTreasure(TreasureId.Shooter,0); _inventory.AddRupees(100);
         LoadValidationRoom(5,0xd8); StepGameplayUpdates(4,Vector2.Zero);
         var cave=_roomEvents.Get<GoronCaveEvent>();
         var left=cave.Actors.Single(a=>a.Actor.Record.Var03==0);
@@ -119,7 +119,7 @@ public sealed partial class ValidationRoot
             $"Target-cart ride did not return to its scoring attendant: {_rooms.ActiveGroup}:{_rooms.CurrentRoom.Id:x2}, Link {_player.Position}.");
         AdvanceGoronDialogue(600,1);
         FailIf(_inventory.EquippedB!=b||_inventory.EquippedA!=a||_inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80)||
-            _inventory.HasTreasure(0x5e)||_roomEvents.Active,
+            _inventory.HasTreasure(TreasureId.RockBrisket)||_roomEvents.Active,
             "Target-cart zero-hit result did not restore inventory, clear play state, and withhold Rock Brisket.");
         right=cave.Actors.Single(h=>h.Actor.Record.Var03==1); TalkGoronFromFloor(right);
         left=cave.Actors.Single(h=>h.Actor.Record.Var03==0);
@@ -146,7 +146,7 @@ public sealed partial class ValidationRoot
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=12||fired.Count!=12,
             $"Target-cart return lost a crystal hit or respawned a destroyed first-room target: hits {_entities.RuntimeState.ReadWramByte(0xcfde)}, fired {fired.Count}, room {_rooms.CurrentRoom.Id:x2}, remaining {string.Join(',',_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Select(c=>c.SubId))}.");
         AdvanceGoronDialogue(650,1);
-        FailIf(!_inventory.HasTreasure(0x5e)||_inventory.EquippedB!=b||_inventory.EquippedA!=a||
+        FailIf(!_inventory.HasTreasure(TreasureId.RockBrisket)||_inventory.EquippedB!=b||_inventory.EquippedA!=a||
             _inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80),
             "Twelve target hits did not award Rock Brisket and restore the pre-game inventory.");
         right=cave.Actors.Single(h=>h.Actor.Record.Var03==1); TalkGoronFromFloor(right);
@@ -174,7 +174,7 @@ public sealed partial class ValidationRoot
             _entities.RuntimeState.SetWramByte(0xcfd4,(byte)configuration);
             var room=_rooms.CurrentRoom;
             _entities.BeginScreenTransition(5,room,Vector2.Up*room.Height);
-            FailIf(_entities.TrySpawnDebugEnemy(0x63,0,new Vector2(8,8),out _),
+            FailIf(_entities.TrySpawnDebugEnemy(EnemyId.TargetCartCrystal,0,new Vector2(8,8),out _),
                 "Debug spawning must remain disabled during scrolling even though native state-zero spawns are eligible.");
             var crystals=_entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray();
             FailIf(crystals.Length!=7,"Room $5:d9 did not preload seven ENEMY $63 crystals.");
@@ -211,7 +211,7 @@ public sealed partial class ValidationRoot
     }
     private void ValidateGoronTunnel()
     {
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
+        _inventory.GiveTreasure(TreasureId.Essence,4);
         LoadValidationRoom(0,0x0a);
         var maku=_roomEvents.Get<RemoteMakuFifthEssenceEvent>();
         FailIf(!maku.HasState,"Fifth Essence did not activate remote Maku in $0:0a.");

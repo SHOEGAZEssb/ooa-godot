@@ -83,7 +83,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
                 BeginMoving();
                 _moveCycles++;
                 int towardLink = (OracleObjectMovement.Shared.RelativeAngle(
-                    Position, linkPosition) + 4) & 0x18;
+                    Position, linkPosition) + 4) & ObjectAngle.CardinalMask;
                 return (_moveCycles & 1) != 0 && _angle == towardLink
                     ? _angle
                     : -1;
@@ -107,7 +107,7 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
         _counter = _record.MoveCounterBase +
             (_random.Next().Value & _record.MoveCounterMask);
         _state = MoblinState.Moving;
-        RestartAnimation((_angle & 0x18) / 8);
+        RestartAnimation((_angle & ObjectAngle.CardinalMask) / 8);
     }
 }
 

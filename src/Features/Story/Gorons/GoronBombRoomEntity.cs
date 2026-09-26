@@ -32,9 +32,9 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
             int[] xy=_owner.Database.Bytes("bomb-791b");
             _position=new(xy[_subid*2+1],xy[_subid*2]);
             _angle=(OracleObjectMovement.Shared.RelativeAngle(_position,frame.Player.Position)+
-                _owner.Database.Bytes("bomb-790b")[context.Entities.NextRandomValue()&15])&31;
+                _owner.Database.Bytes("bomb-790b")[context.Entities.NextRandomValue()&15])&ObjectAngle.Mask;
             _speed=_owner.Database.Bytes("bomb-79a2")[_owner.Database.Bytes("bomb-7962")[_subid*4+Quadrant()]];
-            _speedZ=-0x280; _state=1; context.Sound.PlaySound(OracleSoundEngine.SndPoof);
+            _speedZ=-0x280; _state=1; context.Sound.PlaySound(SoundId.SndPoof);
         }
         switch(_state)
         {
@@ -83,7 +83,7 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
     {
         _counter=_owner.Database.Bytes("bomb-780f")[_wave*2];
         if(_counter!=0xff) return true;
-        _owner.Context.Entities.RuntimeState.SetWramByte(0xcfc0,1); Finish(); return false;
+        _owner.Context.Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0,1); Finish(); return false;
     }
     private void Explode()
     {
@@ -94,7 +94,7 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
         Entity.SetAnimationRate(0); Entity.SetScriptAnimation(animation);
         Entity.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
         Entity.Position=_position; Entity.SetScriptDrawOffset(new(0,_z>>8));
-        _owner.Context.Sound.PlaySound(OracleSoundEngine.SndExplosion);
+        _owner.Context.Sound.PlaySound(SoundId.SndExplosion);
     }
     public bool TryUseBracelet(Player player,Vector2I releaseDirection)
     {

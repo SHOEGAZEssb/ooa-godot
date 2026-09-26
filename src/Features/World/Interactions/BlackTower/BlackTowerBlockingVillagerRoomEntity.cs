@@ -87,7 +87,7 @@ internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEn
             Vector2 pixels = OracleObjectMovement.Shared.ApplySpeed(
                 ref precise,
                 _data.Speed100,
-                _movingRight ? 0x08 : 0x18);
+                _movingRight ? ObjectAngle.Right : ObjectAngle.Left);
             _savedX = precise.X;
             _movementUpdates++;
             Entity.SetStatePosition(pixels);

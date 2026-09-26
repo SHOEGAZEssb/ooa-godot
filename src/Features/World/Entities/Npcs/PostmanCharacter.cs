@@ -25,7 +25,7 @@ internal sealed partial class PostmanCharacter : NpcCharacter
             {
                 Group: 2,
                 Room: 0x2f,
-                Id: 0x55,
+                Id: InteractionId.Postman,
                 SubId: 0x00,
                 Var03: 0x00
             })

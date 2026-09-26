@@ -143,14 +143,14 @@ internal sealed class DekuForestPalaceEventDatabase
             CorridorCommands[0] is not CutsceneMoveCommand
             {
                 Actor: "CorridorGuard",
-                Angle: 0x00,
+                Angle: ObjectAngle.Up,
                 EncodedAnimation: var corridorAnimation
             } ||
             EscortGuardCommands.Count < 2 ||
             EscortGuardCommands[1] is not CutsceneMoveCommand
             {
                 Actor: "EscortGuard",
-                Angle: 0x00,
+                Angle: ObjectAngle.Up,
                 EncodedAnimation: var throneAnimation
             } ||
             corridorAnimation != throneAnimation)
@@ -173,7 +173,7 @@ internal sealed class DekuForestPalaceEventDatabase
                 ThroneRoom: 0x16,
                 MysterySeeds: 0x24,
                 EntranceFlag: 0x10,
-                CompletionFlag: OracleSaveData.GlobalFlag0b,
+                CompletionFlag: GlobalFlag.Flag0b,
                 NormalSpeed: 0x28,
                 StairsSpeed: 0x19,
                 SlowSpeed: 0x14,
@@ -189,7 +189,7 @@ internal sealed class DekuForestPalaceEventDatabase
                 FadeDelay: 3,
                 FadeFrames: 97,
                 TextboxFlags: 0x04,
-                RewardTreasure: TreasureDatabase.TreasureBombs,
+                RewardTreasure: TreasureId.Bombs,
                 RewardSubId: 0x02,
                 RewardObject: "TREASURE_OBJECT_BOMBS_02",
                 RewardParameter: 0x10,

@@ -106,12 +106,12 @@ internal sealed class RaftwreckEventDatabase
     {
         if (Record is not
             {
-                Group: 1, Room: 0xa8, InteractionId: 0x9b, SubId: 0,
+                Group: 1, Room: 0xa8, InteractionId: InteractionId.RaftwreckCutscene, SubId: 0,
                 RoomFlag: 0x40, InitialY: 0x76, CenterX: 0x50,
                 InitialSpeed: 0x14, FirstFlashWait: 0x78,
                 SecondFlashWait: 0x78, FinishWait: 0x14,
                 DestinationRoom: 0xaa, DestinationPosition: 0x42,
-                DestinationParameter: 0, DestinationTransition: 3
+                DestinationParameter: 0, DestinationTransition: WarpDestinationTransition.EnterScreen
             } || Record.YOscillation is not [0xff, 0xfe, 0xff, 0, 1, 2, 1, 0] ||
             Record.AnglePreset is not
                 [(0x15, 0x0c), (0x16, 0x0c), (0x17, 0x12),

@@ -23,7 +23,7 @@ internal static class BreakableTileEffectSpawn
                 position,
                 interaction,
                 flickers,
-                (room.TilesetFlags & 0x40) != 0);
+                (room.TilesetFlags & (int)TilesetFlags.Underwater) != 0);
         }
         return null;
     }

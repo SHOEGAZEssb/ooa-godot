@@ -32,7 +32,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
     internal MovingOrbRoomEntity(DungeonObjectRecord record, DungeonInteractionVisual visual,
         OracleRuntimeState runtime, Action<int> sound, int switchSound)
     {
-        if (record.Id != 0x0b || record.SubId != 0 || record.Var03 == 0)
+        if (record.Id != InteractionId.Id0b || record.SubId != 0 || record.Var03 == 0)
             throw new InvalidOperationException($"Unsupported moving orb at {record.Source}.");
         Position = record.Position; _mask = record.Var03; _runtime = runtime; _sound = sound; _switchSound = switchSound;
         Name = "MovingOrb"; ZIndex = NpcCharacter.BehindLinkZIndex;
@@ -66,7 +66,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         int high = OracleObjectPosition.HighByte(Position.X);
         if (State == 9 ? high < target : high > target)
         {
-            var velocity = OracleObjectMovement.Shared.Velocity(_data.Speed, State == 9 ? 8 : 24);
+            var velocity = OracleObjectMovement.Shared.Velocity(_data.Speed, State == 9 ? ObjectAngle.Right : ObjectAngle.Left);
             Position = OracleObjectPosition.FromPixels(Position).Add(velocity.YFixed, velocity.XFixed).PrecisePosition;
         }
         else
@@ -85,18 +85,18 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns) => Accept(hitbox, collisionType)
-        ? new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true) : default;
+        ? new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true) : default;
     public SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("PART_MOVING_ORB $0b requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_MOVING_ORB $0b requires Mystery's live collision type.");
         return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
-            ? ApplySeedCollision(hitbox, origin, seed, seed.Collision & 0x7f, spawns).Effect : SeedHitResult.None;
+            ? ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect : SeedHitResult.None;
     }
     public bool ApplySwordHit(Rect2 hitbox, Vector2 origin, int damage, EnemyKnockbackStrength strength,
-        ICollection<RoomEntitySpawn> spawns) => Accept(hitbox, 4);
+        ICollection<RoomEntitySpawn> spawns) => Accept(hitbox, ItemCollisionType.L1Sword);
     public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 origin)
     {
-        if (!RoomEntityManager.ObjectCollisionZOverlaps(0, hook.ZHigh, 7) || !Accept(hook.CollisionBounds, 0x0d)) return false;
+        if (!RoomEntityManager.ObjectCollisionZOverlaps(0, hook.ZHigh, 7) || !Accept(hook.CollisionBounds, ItemCollisionType.SwitchHook)) return false;
         hook.NotifyObjectCollision(); return true;
     }
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 source, int damage,

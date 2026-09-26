@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
         FailIf(!foundDeepWater,
             "Room 1:a8 no longer exposes a non-solid collision-$10 ocean tile.");
         var oceanRaft = new RaftRoomEntity(
-            new RaftSpawn(deepWater, 0, 1, 0xa8, Riding: true),
+            new RaftSpawn(deepWater, ObjectDirection.Up, 1, 0xa8, Riding: true),
             oceanRoom, behavior, _entities.RuntimeState);
         FailIf(
             oceanRaft.CanDismountAt(deepWater),
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
             "INTERAC_RAFT did not initialize direction&1 animation $00.");
 
         _player.WarpTo(new Vector2(0x78, 0x53), recordSafe: false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         _player.AdvanceTopDownAirUpdateForValidation(startJump: true);
         for (int update = 0; update < 8; update++)
         {
@@ -102,13 +102,13 @@ public sealed partial class ValidationRoot
         RememberedCompanion remembered =
             CompanionRuntimeState.ReadRemembered(_entities.RuntimeState);
         FailIf(
-            remembered is not { Id: 0x13, Group: 1, Room: 0xa7, Y: 0x58, X: 0x78 },
+            remembered is not { Id: SpecialObjectId.Raft, Group: 1, Room: 0xa7, Y: 0x58, X: 0x78 },
             "SPECIALOBJECT_RAFT did not save its initial local respawn and " +
             "remembered companion position.");
 
         Vector2 expected = raft.PrecisePosition;
         OracleObjectMovement.Shared.ApplySpeed(
-            ref expected, behavior.Speed, 0x18);
+            ref expected, behavior.Speed, ObjectAngle.Left);
         Input.ActionPress("move_left");
         _entities.Update(1.0 / 60.0, _player);
         Input.ActionRelease("move_left");
@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
             _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
             raft.PrecisePosition, raft.Direction);
         _entities.Clear();
-        _player.EndRaftRide(_player.PrecisePosition, 0);
+        _player.EndRaftRide(_player.PrecisePosition, ObjectDirection.Up);
         LoadValidationRoom(1, 0xa7);
         FailIf(
             _entities.Entities<RaftRoomEntity>().Count != 0,
@@ -181,11 +181,11 @@ public sealed partial class ValidationRoot
         FailIf(
             record is not
             {
-                Group: 1, Room: 0xa8, InteractionId: 0x9b, SubId: 0,
+                Group: 1, Room: 0xa8, InteractionId: InteractionId.RaftwreckCutscene, SubId: 0,
                 RoomFlag: 0x40, InitialY: 0x76, CenterX: 0x50,
                 FirstFlashWait: 0x78, SecondFlashWait: 0x78,
                 DestinationRoom: 0xaa, DestinationPosition: 0x42,
-                DestinationTransition: 3
+                DestinationTransition: WarpDestinationTransition.EnterScreen
             } || raftwreck.Database.Commands.Count != 44 ||
             raftwreck.Database.Helper(3).Count != 5 ||
             raftwreck.Database.Helper(4).Count != 16 ||
@@ -198,7 +198,7 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.ForgetRemembered(_entities.RuntimeState);
         CompanionRuntimeState.Begin(
             _entities.RuntimeState, CompanionRuntimeState.RaftId, 0xa8,
-            new Vector2(0x60, record.InitialY), direction: 3);
+            new Vector2(0x60, record.InitialY), direction: ObjectDirection.Left);
         LoadValidationRoom(1, 0xa8);
         RaftRoomEntity raft = _entities.Entities<RaftRoomEntity>().Single();
         int mountedAnimation = raft.AnimationIndex;
@@ -231,8 +231,8 @@ public sealed partial class ValidationRoot
             "Raftwreck native centering omitted its zero-counter movement or " +
             "changed the disabled raft animation.");
 
-        int lightningBefore = _sound.PlayRequestsFor(OracleSoundEngine.SndLightning);
-        int debrisSoundsBefore = _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+        int lightningBefore = _sound.PlayRequestsFor(SoundId.SndLightning);
+        int debrisSoundsBefore = _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         int randomCallsBefore = _random.Calls;
         var flashSamples = new Dictionary<int, List<float>>();
         var flashStarts = new List<int>();
@@ -244,10 +244,10 @@ public sealed partial class ValidationRoot
         while (raftwreck.HasState && frames < 3000)
         {
             int priorLightning =
-                _sound.PlayRequestsFor(OracleSoundEngine.SndLightning);
+                _sound.PlayRequestsFor(SoundId.SndLightning);
             StepRoomEventFrames(1);
             frames++;
-            if (_sound.PlayRequestsFor(OracleSoundEngine.SndLightning) >
+            if (_sound.PlayRequestsFor(SoundId.SndLightning) >
                 priorLightning)
             {
                 lightningSounds.Add(frames);
@@ -290,9 +290,9 @@ public sealed partial class ValidationRoot
             _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xa8 ||
             !_transitions.IsTransitioning || flashMismatch ||
             _random.Calls != randomCallsBefore + 39 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) !=
+            _sound.PlayRequestsFor(SoundId.SndLightning) !=
                 lightningBefore + 5 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) !=
+            _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 debrisSoundsBefore + 6 ||
             !flashStarts.SequenceEqual([322, 357]) ||
             !lightningSounds.SequenceEqual([322, 357, 958, 999, 1090]) ||
@@ -309,8 +309,8 @@ public sealed partial class ValidationRoot
             $"room={_rooms.ActiveGroup:x1}:{_rooms.CurrentRoom.Id:x2}, transition=" +
             $"{_transitions.IsTransitioning}, rng=" +
             $"{_random.Calls - randomCallsBefore}, lightning=" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndLightning) - lightningBefore}, debris=" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) - debrisSoundsBefore}, " +
+            $"{_sound.PlayRequestsFor(SoundId.SndLightning) - lightningBefore}, debris=" +
+            $"{_sound.PlayRequestsFor(SoundId.SndKillEnemy) - debrisSoundsBefore}, " +
             $"flash-starts={string.Join(',', flashStarts)}, " +
             $"lightning-frames={string.Join(',', lightningSounds)}, " +
             $"lightning-positions={string.Join(';', lightningPositions)}, " +
@@ -366,7 +366,7 @@ public sealed partial class ValidationRoot
         TokayTheftEventRecord record = tokay.Database.Record;
         FailIf(record is not
             {
-                Group: 1, Room: 0xaa, InteractionId: 0x48,
+                Group: 1, Room: 0xaa, InteractionId: InteractionId.Tokay,
                 RoomFlag: 0x40, MainSubId: 2, LinkWait: 0xf0,
                 StealFirstWait: 0x46, StealRepeatWait: 0x0a,
                 ItemWait: 0x5a, FinalWait: 0x3c,
@@ -378,13 +378,13 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(1, 0xaa, record.RoomFlag, value: false);
         foreach (int treasure in record.StolenItems)
             _inventory.GiveTreasure(treasure, treasure == 0x03 ? 0x10 : 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds + 4, 0x20);
+        _inventory.GiveTreasure(TreasureId.EmberSeeds + 4, 0x20);
 
-        int theftSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5);
-        int jumpSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndJump);
-        int strikeSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndStrike);
-        int itemSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem);
-        int stopMusic = _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic);
+        int theftSounds = _sound.PlayRequestsFor(SoundId.SndUnknown5);
+        int jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
+        int strikeSounds = _sound.PlayRequestsFor(SoundId.SndStrike);
+        int itemSounds = _sound.PlayRequestsFor(SoundId.SndGetItem);
+        int stopMusic = _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic);
         LoadValidationRoom(1, 0xaa);
         NpcCharacter[] firstEntryThieves = _npcNodes.Where(npc =>
             npc.Record.Id == record.InteractionId &&
@@ -393,7 +393,7 @@ public sealed partial class ValidationRoot
             firstEntryThieves.Length != 5 ||
             tokay.ScriptCounter != 0xf0 || !_player.CutsceneControlled ||
             _player.CutsceneSpriteFrame != tokay.Database.LinkFrames[0] ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndCtrlStopMusic) != stopMusic + 1,
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != stopMusic + 1,
             "Room 1:aa did not initialize linkCutscene7 graphic $04 and five " +
             "Tokay thieves before its first rendered frame.");
 
@@ -406,16 +406,16 @@ public sealed partial class ValidationRoot
             "Tokay subid $02 stole the sword before var38's 70th update.");
         StepRoomEventFrames(1);
         FailIf(tokay.StolenCount != 1 ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureSword),
+            _inventory.HasTreasure(TreasureId.Sword),
             "Tokay subid $02 did not steal the sword on var38 update 70.");
         StepRoomEventFrames(80);
         FailIf(tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 30,
             "linkCutscene7 changed the 180-update passed-out frame early.");
         bool retainedTreasure = record.StolenItems.Any(_inventory.HasTreasure);
         FailIf(tokay.StolenCount != 9 || retainedTreasure ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds) ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureEmberSeeds + 4) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndUnknown5) != theftSounds + 9,
+            _inventory.HasTreasure(TreasureId.EmberSeeds) ||
+            _inventory.HasTreasure(TreasureId.EmberSeeds + 4) ||
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) != theftSounds + 9,
             "Tokay subid $02 did not steal the ordered nine-item table at " +
             "70/10-update boundaries, including Ember and Mystery Seeds.");
 
@@ -427,8 +427,8 @@ public sealed partial class ValidationRoot
             "linkCutscene7 did not switch to looping passed-out graphic $56.");
         StepRoomEventFrames(60);
         FailIf(tokay.ScriptCounter != 0x10 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndStrike) != strikeSounds + 1,
+            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndStrike) != strikeSounds + 1,
             "The 240-update Tokay wait did not start Link's jump and common movement.");
         StepRoomEventFrames(230);
         FailIf(tokay.AccessoryCount != 5 || tokay.ActiveThiefCount != 5 ||
@@ -438,7 +438,7 @@ public sealed partial class ValidationRoot
                     { X: 16, Y: 16 }, { X: 16, Y: 16 },
                     { X: 8, Y: 16 }
                 ] ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != itemSounds + 1,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != itemSounds + 1,
             "Tokay common scripts did not preserve 15/31/60/31/60 movement " +
             "and raise the five source accessories with full-width harp and " +
             "flippers after 471 updates.");
@@ -450,7 +450,7 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(1, 0xaa, record.RoomFlag) ||
             tokay.ActiveThiefCount != 0 || tokay.AccessoryCount != 0 ||
             _player.CutsceneControlled ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != jumpSounds + 11,
+            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 11,
             "The five Tokays did not perform staggered two-jump exits, leave " +
             "subid $03's 60-update tail, set room bit $40, and restore input.");
 
@@ -502,7 +502,7 @@ public sealed partial class ValidationRoot
         bool originalChangedRooms =
             _saveData.HasGlobalFlag(record.ChangedRoomsFlag);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -530,7 +530,7 @@ public sealed partial class ValidationRoot
             bool suppressLeft = false,
             bool suppressRight = false)
         {
-            _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+            _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
             int essences = _saveData.ReadWramByte(essencesAddress) &
                 ~(record.D2EssenceMask | record.D3EssenceMask);
             if (d2)
@@ -540,7 +540,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(essencesAddress, (byte)essences);
             SetTreasureFlag(record.ChevalRopeTreasure, chevalRope);
             SetTreasureFlag(record.IslandChartTreasure, islandChart);
-            SetTreasureFlag(TreasureDatabase.TreasureTradeItem, magicOar);
+            SetTreasureFlag(TreasureId.TradeItem, magicOar);
             _saveData.WriteWramByte(
                 tradeItemAddress,
                 magicOar ? (byte)record.RequiredTradeItem : (byte)0);
@@ -617,7 +617,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(group, leftRoom);
         RaftonCharacter left = Rafton();
         FailIf(
-            left.Record is not { Id: 0x69, SubId: 0x00 } ||
+            left.Record is not { Id: InteractionId.Rafton, SubId: 0x00 } ||
             left.Position != new Vector2(0x68, 0x48) ||
             left.Record.SpriteName != "spr_masksalesman_rafton" ||
             left.Record.TileBase != 0x10 || left.Record.Palette != 1 ||
@@ -694,7 +694,7 @@ public sealed partial class ValidationRoot
         FailIf(
             raftonEvent.CurrentCommandIndex != 17 || raftonEvent.Counter != 20,
             "Rafton's face-and-freeze subscript did not install wait 20.");
-        int clinks = _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+        int clinks = _sound.PlayRequestsFor(SoundId.SndClink);
         StepRoomEventFrames(19);
         FailIf(
             raftonEvent.Counter != 1 ||
@@ -708,7 +708,7 @@ public sealed partial class ValidationRoot
             exclamation.Position != new Vector2(0x68, 0x3b) ||
             exclamation.Record.SpriteName !=
                 "spr_zz_bubble_exclamation_heart_kid" ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != clinks + 1 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != clinks + 1 ||
             raftonEvent.CurrentCommandIndex != 19 || raftonEvent.Counter != 30,
             "Rafton did not create INTERAC_EXCLAMATION_MARK at -13/0, play " +
             "SND_CLINK, and install wait 30 on the source boundary.");
@@ -842,7 +842,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(group, rightRoom);
         RaftonCharacter right = Rafton();
         FailIf(
-            right.Record is not { Id: 0x69, SubId: 0x01 } ||
+            right.Record is not { Id: InteractionId.Rafton, SubId: 0x01 } ||
             right.Position != new Vector2(0x28, 0x48),
             "Changed-rooms flag $26 did not reveal Rafton at 2:1f $48/$28.");
 
@@ -982,7 +982,7 @@ public sealed partial class ValidationRoot
                 !commandStarts.Any(entry => entry.Source.Opcode == opcode)),
             "Rafton's typed trace lost source lines or a required opcode.");
 
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         _saveData.SetGlobalFlag(record.GaveRopeFlag, originalGaveRope);

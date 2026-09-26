@@ -133,8 +133,8 @@ internal sealed class RalphAfterChevalEvent :
     {
         int direction = angle switch
         {
-            0x00 => 0,
-            0x10 => 2,
+            ObjectAngle.Up => 0,
+            ObjectAngle.Down => 2,
             _ => throw new InvalidOperationException(
                 $"ralphSubid10Script requested unsupported angle ${angle:x2}.")
         };
@@ -149,12 +149,12 @@ internal sealed class RalphAfterChevalEvent :
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
     {
         bool supported =
-            angle == 0x00 &&
+            angle == ObjectAngle.Up &&
                 speed is var upSpeed &&
                 (upSpeed == _record.Speed200 ||
                  upSpeed == _record.Speed100 ||
                  upSpeed == _record.Speed080) ||
-            angle == 0x10 && speed == _record.Speed200;
+            angle == ObjectAngle.Down && speed == _record.Speed200;
         if (!supported)
         {
             throw new InvalidOperationException(
@@ -277,7 +277,7 @@ internal sealed class RalphAfterChevalEvent :
         PuzzlePuffEffect puff = Context.Entities.Spawn<PuzzlePuffEffect>(
             new PuzzlePuffSpawn(
                 position,
-                Sound: 0,
+                Sound: SoundId.MusNone,
                 Flickers: true));
         // Ralph is the first placed interaction in this room, so the next free
         // $05 slot receives state 0 later in the same original interaction pass.

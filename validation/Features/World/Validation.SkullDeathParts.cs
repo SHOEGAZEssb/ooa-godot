@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
                 FailIf(!owner.ApplySwordHit(head.CollisionBounds, head.Position, 0x7f, EnemyKnockbackStrength.Low, pending),
                     "Moldorm's shared combat owner rejected the death-part fixture hit.");
                 int killSoundsAtOutcome = -1;
-                void ObserveOutcome() => killSoundsAtOutcome = _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy);
+                void ObserveOutcome() => killSoundsAtOutcome = _sound.PlayRequestsFor(SoundId.SndKillEnemy);
                 _entities.EnemyDefeated += ObserveOutcome;
                 try { for (int i = 0; !head.IsDead && i < 40; i++) Step(); }
                 finally { _entities.EnemyDefeated -= ObserveOutcome; }
@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
                     "Head death must release two tail counts and retain its own count until PART_ENEMY_DESTROYED completes.");
                 if (full)
                 {
-                    FailIf(_entities.Entities<EnemyDeathPuffEffect>().Count != 0 || _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 0,
+                    FailIf(_entities.Entities<EnemyDeathPuffEffect>().Count != 0 || _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
                         "A full native PART pool must reject the death puff before its kill sound, without retrying.");
                     Step(180);
                     FailIf(slots.Count != 0 || _entities.RoomEnemyCount != 4 || _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                     var puff = _entities.Entities<EnemyDeathPuffEffect>().Single();
                     var puffOwner = _entities.EntityAdapters<DeathPuffRoomEntity>().Single();
                     FailIf(puff.ElapsedFrames != 1 || slots[puffOwner] != 0 || interactions.ContainsKey(puffOwner) ||
-                        _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1,
+                        _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 1,
                         "enemyDie must allocate PART $d0 and animate it once in the same update's later PART pass.");
                     puffOwner.ClearHealthAndCollision(); // partCode02 ignores its own DEAD status.
                     Step(18);
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
             // Fixture: native $64 uses table $e0, probability7 (all bits set)
             // and set0 (32 hearts). This isolates replacement from RNG choice.
             var effect = _entities.Spawn<EnemyDeathPuffEffect>(new EnemyDeathPuffSpawn(new Vector2(120.75f, 80.5f),
-                EnemyId: 0x64, DecrementsRoomCount: true));
+                EnemyId: EnemyId.LinkMimic, DecrementsRoomCount: true));
             var effectOwner = _entities.EntityAdapters<DeathPuffRoomEntity>().Single();
             FailIf(slots[effectOwner] != 3, "Replacement fixture must occupy PART page $d3.");
             // End the earlier fire at its ordinary timer boundary, leaving a

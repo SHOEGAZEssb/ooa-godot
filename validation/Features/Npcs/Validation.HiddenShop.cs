@@ -21,9 +21,9 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             ResetValidationInput();
-            _saveData.WriteWramByte(0xc642, 0);
-            _saveData.WriteWramByte(0xc643, 0);
-            SetTreasure(_saveData, 0x2c, false);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems1, 0);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems2, 0);
+            SetTreasure(_saveData, TreasureId.RingBox, false);
             LoadValidationRoom(2, 0x7e);
             LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
             NpcCharacter keeper = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x46);
@@ -94,17 +94,17 @@ public sealed partial class ValidationRoot
                 "Hidden theft return failed to restore the keeper and held-item control.");
             Walk(new Vector2(24,72)); Shelf(96);
             FailIf(stock[1].Held, "Stock could not be returned after the theft script.");
-            _inventory.GiveTreasure(0x2c,1);
+            _inventory.GiveTreasure(TreasureId.RingBox,1);
             _inventory.AddRupees(999-_inventory.Rupees);
             Shelf(64); Merchant();
             FailIf(!_dialogue.CurrentMessage.Contains("300",StringComparison.Ordinal), "$00 price was not 300.");
             _dialogue.SubmitChoiceForValidation(1); Step(2);
-            FailIf(_inventory.Rupees != 999 || _saveData.ReadWramByte(0xc642) != 0 || stock[0].Held,
+            FailIf(_inventory.Rupees != 999 || _saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 0 || stock[0].Held,
                 "Declining hidden shop purchase changed inventory/flags or failed to return stock.");
             Shelf(64); Merchant();
             _dialogue.SubmitChoiceForValidation(0); Step(2); Text(0x0058);
             FailIf(_inventory.RingBoxLevel != 2 || _inventory.Rupees != 699 ||
-                _saveData.ReadWramByte(0xc642) != 1, "$47:$00 failed its L2 upgrade/300 rupee/bit0 transaction.");
+                _saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 1, "$47:$00 failed its L2 upgrade/300 rupee/bit0 transaction.");
             Step(1);
             FailIf(!_player.IsHoldingItemTwoHands || _player.IsCarryingObject || !stock[0].Purchasing,
                 "shopItemState3 did not drop the carried pose and enter Link state04/$01.");
@@ -115,17 +115,17 @@ public sealed partial class ValidationRoot
             _inventory.AddRupees(-_inventory.Rupees);
             Shelf(96); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);
             Text(0x0e06); Close();
-            FailIf(_saveData.ReadWramByte(0xc642) != 1 || stock[1].Held,
+            FailIf(_saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 1 || stock[1].Held,
                 "Insufficient rupees consumed hidden Gasha stock or failed to return it.");
             _inventory.AddRupees(999);
             Shelf(96); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);
             Text(0x004b); Close();
-            FailIf(_saveData.ReadWramByte(0xc642) != 3 || _inventory.Rupees != 699,
+            FailIf(_saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 3 || _inventory.Rupees != 699,
                 "First hidden Gasha seed did not cost 300 and set bit1.");
 
             // Source replacements occur at initialization, never immediately on purchase.
-            _saveData.WriteWramByte(0xc642,2);
-            _saveData.WriteWramByte(0xc643,0x40);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems1,2);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems2,0x40);
             LoadValidationRoom(2,0x7e);
             FailIf(!_entities.Entities<LynnaShopItem>().Select(i=>i.Record.SubId)
                 .SequenceEqual(new[]{0x14,6,5}),
@@ -139,25 +139,25 @@ public sealed partial class ValidationRoot
             _dialogue.SubmitChoiceForValidation(0); Step(2); Text(0x0054);
             FailIf(_random.Calls != ringCalls+1 || _inventory.UnappraisedRingCount != ringCount+1 ||
                 _inventory.UnappraisedRingAt(ringCount) != (0x0a|0x40) ||
-                _inventory.Rupees != 699 || _saveData.ReadWramByte(0xc642) != 0x0a,
+                _inventory.Rupees != 699 || _saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 0x0a,
                 "$47:$05 must buy tier3 CURSED_RING for RNG index0, cost300 and set bit3.");
             Close();
 
             Shelf(64); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);
             Text(0x0059); Close();
-            FailIf(_inventory.RingBoxLevel != 3 || _saveData.ReadWramByte(0xc642) != 0x0b,
+            FailIf(_inventory.RingBoxLevel != 3 || _saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 0x0b,
                 "$47:$14 did not grant the L3 box and set the shared upgrade bit.");
             _inventory.AddRupees(999-_inventory.Rupees);
             Shelf(96); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);
             Text(0x004b); Close();
-            FailIf(_inventory.Rupees != 499 || _saveData.ReadWramByte(0xc642) != 0x0f || shop.ChestGame,
+            FailIf(_inventory.Rupees != 499 || _saveData.ReadWramByte(WramAddress.wBoughtShopItems1) != 0x0f || shop.ChestGame,
                 "$47:$06 must cost500/set bit2 without switching to chest mode during the visit.");
 
-            _saveData.WriteWramByte(0xc642,0);
-            _saveData.WriteWramByte(0xc643,0);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems1,0);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems2,0);
             LoadValidationRoom(2,0x7e);
             _player.WarpTo(new Vector2(64,104));
-            for(int piece=0; piece<3; piece++) _inventory.GiveTreasure(0x2b,1);
+            for(int piece=0; piece<3; piece++) _inventory.GiveTreasure(TreasureId.HeartPiece,1);
             _inventory.AddRupees(999-_inventory.Rupees);
             int healthBefore=_inventory.MaxHealthQuarters;
             Shelf(128); Merchant(); _dialogue.SubmitChoiceForValidation(0); Step(2);
@@ -168,11 +168,11 @@ public sealed partial class ValidationRoot
             }
             Text(0x0049);
             FailIf(_inventory.HeartPieces != 0 || _inventory.MaxHealthQuarters != healthBefore+4 ||
-                _inventory.Rupees != 499 || (_saveData.ReadWramByte(0xc643)&0x40)==0,
+                _inventory.Rupees != 499 || (_saveData.ReadWramByte(WramAddress.wBoughtShopItems2)&0x40)==0,
                 "$47:$15 lost the fourth-piece presentation, heart-container handoff, price or sold flag.");
             Close();
 
-            _saveData.WriteWramByte(0xc642,0x0f);
+            _saveData.WriteWramByte(WramAddress.wBoughtShopItems1,0x0f);
             LoadValidationRoom(2,0x7e);
             keeper = _entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x46);
             FailIf(!shop.ChestGame || _entities.Entities<LynnaShopItem>().Count != 0 ||
@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new Vector2(64,104));
             Merchant(); Text(0x0e0d);
             _dialogue.SubmitChoiceForValidation(1); Step(2); Text(0x0e11); Close();
-            FailIf((_saveData.ReadWramByte(0xc642)&0x80)==0, "First chest-game explanation did not persist bit7.");
+            FailIf((_saveData.ReadWramByte(WramAddress.wBoughtShopItems1)&0x80)==0, "First chest-game explanation did not persist bit7.");
             _player.Face(Vector2I.Left); PressA(); Text(0x0e0e);
             int before = _inventory.Rupees;
             _dialogue.SubmitChoiceForValidation(0); Step(1);
@@ -210,7 +210,7 @@ public sealed partial class ValidationRoot
             FailIf(_saveData.HasRoomFlag(2,0x7e,OracleSaveData.RoomFlagItem) ||
                 _interactions.ChestRewardActive || !_dialogue.IsOpen ||
                 shop.Stage is not (LynnaShopEventStage.ChestWrong or LynnaShopEventStage.ChestCorrect),
-                $"Chest game bypassed its $cca2 signal or leaked normal chest rewards: {shop.Stage}, Link={_player.Position}, signal=${_entities.RuntimeState.ReadWramByte(0xcca2):x2}.");
+                $"Chest game bypassed its $cca2 signal or leaked normal chest rewards: {shop.Stage}, Link={_player.Position}, signal=${_entities.RuntimeState.ReadWramByte(WramAddress.wcca2):x2}.");
             FailIf(shop.Stage != LynnaShopEventStage.ChestCorrect || shop.ChestRound != 1,
                 "Source random bit1 must select left chest $25.");
             for (int round=2; round<=5; round++)

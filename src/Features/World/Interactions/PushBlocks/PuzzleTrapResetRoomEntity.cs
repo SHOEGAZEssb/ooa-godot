@@ -43,7 +43,7 @@ internal sealed partial class PuzzleTrapResetRoomEntity(PuzzleTrapResetRecord da
         byte position = (byte)(((int)frame.Player.Position.Y & 0xf0) | (((int)frame.Player.Position.X & 0xf0) >> 4));
         if (!IsTrapped(position) || !frame.Player.NativePuzzleResetVulnerable) return;
         _locked = true;
-        sound(OracleSoundEngine.SndError);
+        sound(SoundId.SndError);
         Counter = data.Delay;
         State = 2;
     }

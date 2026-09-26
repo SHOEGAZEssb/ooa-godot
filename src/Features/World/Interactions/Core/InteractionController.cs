@@ -206,12 +206,12 @@ public sealed class InteractionController
             _inventory.GiveTreasure(treasureObject);
             int collectionSound = _treasures.GetBehaviour(
                 treasureObject.TreasureId).Sound;
-            if (collectionSound != 0)
+            if (collectionSound != SoundId.MusNone)
                 _playSound(collectionSound);
             if (!string.IsNullOrEmpty(_pendingChest.Message))
                 _dialogue.ShowGameplayMessage(
                     _pendingChest.Message, _worldToScreen(player.Position).Y);
-            _playSound(OracleSoundEngine.SndGetItem);
+            _playSound(SoundId.SndGetItem);
             return;
         }
 
@@ -272,7 +272,7 @@ public sealed class InteractionController
         {
             _inventory.GiveCompletedHeartContainer(
                 _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
-            _playSound(OracleSoundEngine.SndFilledHeartContainer);
+            _playSound(SoundId.SndFilledHeartContainer);
             _dialogue.ShowGameplayMessage(
                 _gashaSpot.Database.Text(0x0049),
                 _worldToScreen(_gashaPlayer!.Position).Y);
@@ -284,7 +284,7 @@ public sealed class InteractionController
             return;
         _inventory.GiveCompletedHeartContainer(
             _treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
-        _playSound(OracleSoundEngine.SndFilledHeartContainer);
+        _playSound(SoundId.SndFilledHeartContainer);
         _dialogue.ShowGameplayMessage(
             _groundTreasure.Record.CompletionMessage,
             _worldToScreen(_groundTreasurePlayer!.Position).Y);
@@ -343,7 +343,7 @@ public sealed class InteractionController
 
     private bool TryStartFamilyNaming(NpcCharacter npc, Player player)
     {
-        if (npc.Record is not { Id: 0x2b, SubId: 0x00 } ||
+        if (npc.Record is not { Id: InteractionId.Blossom, SubId: 0x00 } ||
             _rooms.SaveData.ChildNamed ||
             _familyNamingState != FamilyNamingState.None)
         {
@@ -493,7 +493,7 @@ public sealed class InteractionController
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
         _roomView.QueueRedraw();
-        _playSound(OracleSoundEngine.SndOpenChest);
+        _playSound(SoundId.SndOpenChest);
         _pendingChest = chest;
         _chestTreasure = new ChestTreasureEffect { ZIndex = 12 };
         _chestTreasure.Initialize(
@@ -535,7 +535,7 @@ public sealed class InteractionController
         TreasureObjectRecord treasureObject =
             _treasures.GetObject(treasure.Record.TreasureObject);
         _groundTreasureCompletesHeartContainer =
-            treasureObject.TreasureId == 0x2b && _inventory.HeartPieces == 4;
+            treasureObject.TreasureId == TreasureId.HeartPiece && _inventory.HeartPieces == 4;
         _groundTreasureShowingHeartContainer = false;
         _groundTreasure = treasure;
         _groundTreasurePlayer = player;
@@ -622,7 +622,7 @@ public sealed class InteractionController
                 _inventory.ActiveRing == item.BoostRing
                 ? item.BoostedParameter
                 : item.NormalParameter;
-        if (item.Treasure == TreasureDatabase.TreasureRing)
+        if (item.Treasure == TreasureId.Ring)
         {
             int ring = new GashaSpotDatabase().SelectRing(
                 parameter, _entities.NextRandomValue());
@@ -633,10 +633,10 @@ public sealed class InteractionController
             _inventory.GiveTreasure(item.Treasure, parameter);
         }
 
-        int collectionSound = item.Treasure == TreasureDatabase.TreasurePotion
-            ? OracleSoundEngine.SndGetSeed
+        int collectionSound = item.Treasure == TreasureId.Potion
+            ? SoundId.SndGetSeed
             : _treasures.GetBehaviour(item.Treasure).Sound;
-        if (collectionSound != 0)
+        if (collectionSound != SoundId.MusNone)
             _playSound(collectionSound);
     }
 
@@ -683,7 +683,7 @@ public sealed class InteractionController
         pickup.BeginGranted(player);
         int collectionSound =
             _treasures.GetBehaviour(treasureObject.TreasureId).Sound;
-        if (collectionSound != 0)
+        if (collectionSound != SoundId.MusNone)
             _playSound(collectionSound);
         _dialogue.ShowGameplayMessage(
             treasureObject.Message,

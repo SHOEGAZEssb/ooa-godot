@@ -63,8 +63,8 @@ public partial class ValidationRoot
         _entities.TryCreateSomariaBlock(_player,0,pickupPoint,0);
         InputStep(11,Vector2.Zero,[],[]);
         var carried=_entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
-        _inventory.EquipA(InventoryState.ItemBracelet);
+        _inventory.GiveTreasure(TreasureId.Bracelet,1);
+        _inventory.EquipA(TreasureId.Bracelet);
         InputStep(24,Vector2.Down,["move_down"],["move_down"]);
         FailIf(_player.Position.Y>=64 || _player.Position.Y<54,
             $"Somaria pickup approach must stop outside the solid tile, got Link {_player.Position}.");

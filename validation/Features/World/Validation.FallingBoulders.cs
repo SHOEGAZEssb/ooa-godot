@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
                 rock.UpdateFrame(0);
                 int originY = startY == 8 ? 0 : startY - 4;
                 int y = originY << 8, x = 0x8800, z = 0, speedZ = 0;
-                int counter = (subId + 1) * 45, angle = 0, state = 1;
+                int counter = (subId + 1) * 45, angle = ObjectAngle.Up, state = 1;
                 int rng1 = 0x37, rng2 = 0x0d, calls = 0, bounces = 0, resets = 0, rejects = 0;
                 FailIf(rock.Position != new Vector2(0x88, originY) || rock.Visible || random.Calls != 0,
                     $"PART $45:${subId:x2} state 0 moved, became visible or consumed RNG.");

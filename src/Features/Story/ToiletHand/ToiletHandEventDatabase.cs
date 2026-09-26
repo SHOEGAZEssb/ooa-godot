@@ -64,13 +64,13 @@ internal sealed class ToiletHandEventDatabase
             {
                 Group: 2,
                 Room: 0x3e,
-                InteractionId: 0x5b,
+                InteractionId: InteractionId.ToiletHand,
                 SubId: 0,
                 CollisionRadiusY: 0x06,
                 CollisionRadiusX: 0x06,
                 RoomFlag: OracleSaveData.RoomFlagItem,
                 RequiredTradeItem: 0x01,
-                RewardTreasure: TreasureDatabase.TreasureTradeItem,
+                RewardTreasure: TreasureId.TradeItem,
                 RewardParameter: 0x02,
                 RewardObject: "TREASURE_OBJECT_TRADEITEM_02",
                 InitialScriptUpdates: 1,
@@ -128,7 +128,7 @@ internal sealed class ToiletHandEventDatabase
                 { Value: 0, TargetCommand: 33 } ||
             Commands[41] is not CutsceneGiveItemCommand
                 {
-                    TreasureId: TreasureDatabase.TreasureTradeItem,
+                    TreasureId: TreasureId.TradeItem,
                     Parameter: 0x02
                 } ||
             Commands[53] is not CutsceneMemoryGateCommand

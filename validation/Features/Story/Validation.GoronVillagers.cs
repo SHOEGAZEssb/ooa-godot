@@ -22,9 +22,9 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             _saveData.SetLinkedGame(true);
-            if(state>=1) { _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,3); _saveData.SetGlobalFlag(0x2f); }
-            if(state>=2) _saveData.SetGlobalFlag(0x1a);
-            if(state==3) _saveData.SetGlobalFlag(0x14);
+            if(state>=1) { _inventory.GiveTreasure(TreasureId.Essence,3); _saveData.SetGlobalFlag(GlobalFlag.SavedGoronElder); }
+            if(state>=2) _saveData.SetGlobalFlag(GlobalFlag.MoblinsKeepDestroyed);
+            if(state==3) _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
             foreach(var record in records)
             {
                 LoadValidationRoom(record.Group,record.Room);
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
         }
         // TX_3127 is suppressed in an unlinked game even when its table entry is present.
         ReinitializeGameplayForValidation();
-        _saveData.SetGlobalFlag(0x2f);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedGoronElder);
         LoadValidationRoom(2,0xff); StepGameplayUpdates(4,Vector2.Zero);
         FailIf(_roomEvents.Get<GoronCaveEvent>().Actors.Any(a=>a.Actor.Record is {SubId:0x0c,Var03:5}&&a.Actor.Active),
             "Unlinked TX_3127 Goron must delete itself.");
@@ -96,52 +96,52 @@ public sealed partial class ValidationRoot
             var guard=_roomEvents.Get<GoronCaveEvent>().Actors.Single(a=>a.Actor.Record.SubId==8);
             FailIf(!guard.Actor.Active||_saveData.HasRoomFlag(2,room,0x80),$"Goron guard 2:{room:x2} moved without Brother's Emblem.");
             bool past=(_rooms.CurrentRoom.TilesetFlags&0x80)!=0;
-            _inventory.GiveTreasure(0x5b,0); _inventory.GiveTreasure(past?0x5c:0x5e,0);
+            _inventory.GiveTreasure(TreasureId.BrotherEmblem,0); _inventory.GiveTreasure(past?TreasureId.GoronVase:TreasureId.RockBrisket,0);
             Vector2 start=guard.Actor.Position;
             ApproachGoronFromFloor(guard); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
             AdvanceGoronDialogue(400,1);
             FailIf(!_saveData.HasRoomFlag(2,room,0x80)||_saveData.HasRoomFlag(2,room,0x40)||
-                guard.Actor.Position!=start+Vector2.Left*16||_entities.RuntimeState.ReadWramByte(0xcfc0)!=1,
+                guard.Actor.Position!=start+Vector2.Left*16||_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0)!=1,
                 $"Guard 2:{room:x2} did not move 32 SPEED_80 updates and retain the rejected-trade signal.");
             ApproachGoronFromFloor(guard); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
             AdvanceGoronDialogue(350);
-            FailIf(!_saveData.HasRoomFlag(2,room,0x40)||_inventory.HasTreasure(past?0x5c:0x5e)||!_inventory.HasTreasure(past?0x5d:0x5c),
+            FailIf(!_saveData.HasRoomFlag(2,room,0x40)||_inventory.HasTreasure(past?TreasureId.GoronVase:TreasureId.RockBrisket)||!_inventory.HasTreasure(past?TreasureId.Goronade:TreasureId.GoronVase),
                 $"Guard 2:{room:x2} did not exchange its era-specific quest item.");
             TalkGoronFromFloor(guard);
-            _inventory.LoseTreasure(0x5b);
+            _inventory.LoseTreasure(TreasureId.BrotherEmblem);
         }
         LoadValidationRoom(3,0x1f); StepGameplayUpdates(4,Vector2.Zero);
         var letter=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
-        _inventory.GiveTreasure(0x45,0); _inventory.GiveTreasure(0x5a,0);
+        _inventory.GiveTreasure(TreasureId.OldMermaidKey,0); _inventory.GiveTreasure(TreasureId.LavaJuice,0);
         ApproachGoronFromFloor(letter); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(450);
-        FailIf(!_inventory.HasTreasure(0x59)||_inventory.HasTreasure(0x5a)||!_saveData.HasRoomFlag(3,0x1f,0x40),
+        FailIf(!_inventory.HasTreasure(TreasureId.GoronLetter)||_inventory.HasTreasure(TreasureId.LavaJuice)||!_saveData.HasRoomFlag(3,0x1f,0x40),
             "Introduction-letter Goron did not consume Lava Juice and preserve the Old Mermaid Key.");
         TalkGoronFromFloor(letter);
         ReinitializeGameplayForValidation();
         LoadValidationRoom(2,0xf7); StepGameplayUpdates(4,Vector2.Zero);
         var digger=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
-        _inventory.GiveTreasure(0x19,1); _inventory.GiveTreasure(0x20,0x30); _inventory.GiveTreasure(3,0x30);
+        _inventory.GiveTreasure(TreasureId.SeedSatchel,1); _inventory.GiveTreasure(TreasureId.EmberSeeds,0x30); _inventory.GiveTreasure(TreasureId.Bombs,0x30);
         _inventory.ApplyFairyBombCapacityUpgrade(0x30);
         ApproachGoronFromFloor(digger); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(180);
         FailIf(!_saveData.HasRoomFlag(2,0xf7,0x40)||_inventory.Bombs!=0x10||_inventory.EmberSeeds!=0,
             $"Wall Goron did not take exactly 20 bombs and Ember seeds: {_inventory.Bombs:x2}/{_inventory.EmberSeeds:x2}.");
-        _entities.RuntimeState.SetWramByte(0xcc4d,1);
+        _entities.RuntimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,1);
         LoadValidationRoom(2,0xf7); StepGameplayUpdates(5,Vector2.Zero);
         digger=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
         FailIf(!_saveData.HasRoomFlag(2,0xf7,0x80)||digger.Actor.Position!=new Vector2(0x58,0x38),
             "Seed-tree refill did not complete the wall Goron's room flag and position.");
         ApproachGoronFromFloor(digger); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(160);
-        FailIf(digger.Actor.Position!=new Vector2(0x68,0x28)||_entities.RuntimeState.ReadWramByte(0xcfc0)!=1,
-            $"Choosing the left chest did not move the Goron up then right by 16 pixels each: {digger.Actor.Position}, signal {_entities.RuntimeState.ReadWramByte(0xcfc0):x2}.");
+        FailIf(digger.Actor.Position!=new Vector2(0x68,0x28)||_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0)!=1,
+            $"Choosing the left chest did not move the Goron up then right by 16 pixels each: {digger.Actor.Position}, signal {_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0):x2}.");
         TalkGoronFromFloor(digger);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureEssence,4);
+        _inventory.GiveTreasure(TreasureId.Essence,4);
         LoadValidationRoom(5,0xde); StepGameplayUpdates(4,Vector2.Zero);
         var elder=_roomEvents.Get<GoronCaveEvent>().Actors.Single(a=>a.Actor.Record.Id==0x8b);
         TalkGoronFromFloor(elder);
-        _saveData.SetGlobalFlag(0x14);
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
         LoadValidationRoom(5,0xde); StepGameplayUpdates(4,Vector2.Zero);
         FailIf(_roomEvents.Get<GoronCaveEvent>().Actors.Any(a=>a.Actor.Record.Id==0x8b&&a.Actor.Active),
             "Wandering Goron Elder ignored finished-game deletion.");

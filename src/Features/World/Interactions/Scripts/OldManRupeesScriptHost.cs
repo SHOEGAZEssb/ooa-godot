@@ -19,7 +19,7 @@ internal sealed class OldManRupeesScriptHost : NpcInteractionCommandHost
     }
 
     protected override bool MatchesAndPrepare(NpcCharacter npc) =>
-        npc.Record is { Id: 0x2e, SubId: 0x01 };
+        npc.Record is { Id: InteractionId.OldManWithRupees, SubId: 0x01 };
 
     // bank0.updateInteractions suppresses initialized ordinary actors during
     // scrolling and when wDisabledObjects bit 1 is set, as well as text.
@@ -27,13 +27,13 @@ internal sealed class OldManRupeesScriptHost : NpcInteractionCommandHost
         Entities.ScreenTransitionActive || Entities.InitializedObjectsDisabledSource();
 
     public override bool RoomFlagSet(int flag) => flag == 0x40
-        ? Rooms.SaveData.HasRoomFlag(Rooms.ActiveGroup, Rooms.CurrentRoom.Id, 0x40)
+        ? Rooms.SaveData.HasRoomFlag(Rooms.ActiveGroup, Rooms.CurrentRoom.Id, OracleSaveData.RoomFlag40)
         : throw UnsupportedCommand($"read old man room flag ${flag:x2}");
 
     public override void OrRoomFlag(int flag)
     {
         if (flag != 0x40) throw UnsupportedCommand($"write old man room flag ${flag:x2}");
-        Rooms.SaveData.SetRoomFlag(Rooms.ActiveGroup, Rooms.CurrentRoom.Id, 0x40);
+        Rooms.SaveData.SetRoomFlag(Rooms.ActiveGroup, Rooms.CurrentRoom.Id, OracleSaveData.RoomFlag40);
     }
 
     public override void ShowText(int textId, string message)

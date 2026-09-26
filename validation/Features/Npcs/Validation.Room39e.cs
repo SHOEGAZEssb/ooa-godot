@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
                 record.Implementation ==
                     NpcImplementationClassification.SpecializedNative) != 11 ||
             records.Where(record =>
-                    record is { Id: 0x4f, Var03: 0x01 or 0x0a })
+                    record is { Id: InteractionId.ImpaNpc, Var03: 0x01 or 0x0a })
                 .Any(record => record.DefaultAnimation != 0x00) ||
             records.Where(record =>
                     record.Id == 0x4f &&
@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
                 .Any(record => record.DefaultAnimation != 0x02) ||
             !records.Any(record => record is
                 {
-                    Id: 0x36,
+                    Id: InteractionId.Nayru,
                     SubId: 0x0b,
                     Y: 0x28,
                     X: 0x58,
@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                 }) ||
             !records.Any(record => record is
                 {
-                    Id: 0xad,
+                    Id: InteractionId.Zelda,
                     SubId: 0x07,
                     Y: 0x38,
                     X: 0x78,
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             {
                 Group: group,
                 Room: roomId,
-                InteractionId: 0x4f,
+                InteractionId: InteractionId.ImpaNpc,
                 SubId: 0x00,
                 StairPosition: 0x22,
                 StairTile: 0x45,
@@ -70,22 +70,22 @@ public sealed partial class ValidationRoot
         var save = OracleSaveData.CreateStandardGame();
         save.SetLinkedGame(false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFinishedGame, value: false);
+            GlobalFlag.FinishedGame, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagSavedNayru, value: false);
+            GlobalFlag.SavedNayru, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagGotRingFromZelda, value: false);
+            GlobalFlag.GotRingFromZelda, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagPreBlackTowerCutsceneDone, value: false);
+            GlobalFlag.PreBlackTowerCutsceneDone, value: false);
         save.SetGlobalFlag(
-            OracleSaveData.GlobalFlagFlameOfDespairLit, value: false);
+            GlobalFlag.FlameOfDespairLit, value: false);
         save.SetRoomFlag(
             0, 0x83, OracleSaveData.RoomFlag80, value: false);
         save.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlag80, value: false);
-        SetTreasure(save, TreasureDatabase.TreasureHarp, value: false);
-        SetTreasure(save, TreasureDatabase.TreasureMakuSeed, value: false);
-        if (save.WriteWramByte(0xc6bf, 0))
+        SetTreasure(save, TreasureId.Harp, value: false);
+        SetTreasure(save, TreasureId.MakuSeed, value: false);
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
         var root = new Node { Name = "Room39eInteractionValidation" };
@@ -109,8 +109,8 @@ public sealed partial class ValidationRoot
             actors.Count != 11 ||
             !orderedImpas.Select(npc => npc.Record.Var03)
                 .SequenceEqual(impaVariants) ||
-            actors[9].Record is not { Id: 0x36, SubId: 0x0b } ||
-            actors[10].Record is not { Id: 0xad, SubId: 0x07 } ||
+            actors[9].Record is not { Id: InteractionId.Nayru, SubId: 0x0b } ||
+            actors[10].Record is not { Id: InteractionId.Zelda, SubId: 0x07 } ||
             childOrder.Length != 12 ||
             childOrder[^1].Name != "TileChangeWatcher_3",
             "Room 3:9e did not preserve source order: Impa, Nayru, " +
@@ -144,7 +144,7 @@ public sealed partial class ValidationRoot
                     DestinationGroup: 3,
                     DestinationRoom: 0x9f,
                     DestinationPosition: 0x22,
-                    DestinationTransition: 4
+                    DestinationTransition: WarpDestinationTransition.DontSetRespawn
                 },
             "Impa state 0 did not make concealed tile $22 behave as " +
             "the $45 staircase to room 3:9f without redrawing $e5 " +
@@ -201,7 +201,7 @@ public sealed partial class ValidationRoot
             passageImpa.FacingVector != Vector2I.Up,
             "Passage-state Impa did not restore animation $00 after talk.");
 
-        SetTreasure(save, TreasureDatabase.TreasureHarp);
+        SetTreasure(save, TreasureId.Harp);
         NpcCharacter harpImpa = orderedImpas.Single(
             npc => npc.Record.Var03 == 0x02);
         FailIf(
@@ -211,7 +211,7 @@ public sealed partial class ValidationRoot
             harpImpa.TextId != 0x0122,
             "Obtaining the harp did not select Impa state $02.");
 
-        if (save.WriteWramByte(0xc6bf, 0x04))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0x04))
             save.CommitInventoryChange();
         FailIf(
             ActiveActors().Count != 0,
@@ -220,11 +220,11 @@ public sealed partial class ValidationRoot
                 $"${npc.Record.Id:x2}:${npc.Record.SubId:x2}/" +
                 $"v${npc.Record.Var03:x2}"))}).");
 
-        if (save.WriteWramByte(0xc6bf, 0))
+        if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagGotRingFromZelda);
+        save.SetGlobalFlag(GlobalFlag.GotRingFromZelda);
         NpcCharacter zelda = actors.Single(
-            npc => npc.Record is { Id: 0xad, SubId: 0x07 });
+            npc => npc.Record is { Id: InteractionId.Zelda, SubId: 0x07 });
         FailIf(
             ActiveActors() is not [var unrescuedZelda] ||
             !ReferenceEquals(unrescuedZelda, zelda) ||
@@ -241,11 +241,11 @@ public sealed partial class ValidationRoot
             "Linked state $0d did not retain both Impa and Zelda.");
 
         save.SetLinkedGame(false);
-        save.SetGlobalFlag(OracleSaveData.GlobalFlagSavedNayru);
+        save.SetGlobalFlag(GlobalFlag.SavedNayru);
         NpcCharacter savedImpa = orderedImpas.Single(
             npc => npc.Record.Var03 == 0x05);
         NpcCharacter nayru = actors.Single(
-            npc => npc.Record is { Id: 0x36, SubId: 0x0b });
+            npc => npc.Record is { Id: InteractionId.Nayru, SubId: 0x0b });
         FailIf(
             !savedImpa.Active || !nayru.Active || !zelda.Active ||
             ActiveActors().Count != 3 ||
@@ -263,7 +263,7 @@ public sealed partial class ValidationRoot
         manager.Update(1.0 / 60.0, _player);
         FailIf(nayru.FacingVector != Vector2I.Right, "Nayru did not run npcFaceLinkAndAnimate.");
 
-        SetTreasure(save, TreasureDatabase.TreasureMakuSeed);
+        SetTreasure(save, TreasureId.MakuSeed);
         FailIf(ActiveActors().Count != 0, "The Maku Seed did not retire all room 3:9e story NPCs.");
 
         Vector2 watchedTile = PackedCenter(0x32);

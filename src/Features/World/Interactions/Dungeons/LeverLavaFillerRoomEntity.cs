@@ -48,7 +48,7 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
                 if ((_lever.PullDistance & 0x80) == 0) return;
                 State = 2;
                 Counter = 30;
-                _playSound(OracleSoundEngine.SndSolvePuzzle);
+                _playSound(SoundId.SndSolvePuzzle);
                 _cursor = 0;
                 ToggleLavaSource();
                 return;
@@ -71,7 +71,7 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
                     SetTile(packed, tile);
                 } while (_script.Bytes[_cursor] != 0);
                 _cursor++;
-                _playSound(OracleSoundEngine.SndRumble2);
+                _playSound(SoundId.SndRumble2);
                 return;
             case 3:
                 if (_lever.PullDistance != 0) return;
@@ -79,7 +79,7 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
                 _cursor = 0;
                 // Counter retains counter2 from the final empty drying group.
                 ToggleLavaSource();
-                _playSound(OracleSoundEngine.SndDoorClose);
+                _playSound(SoundId.SndDoorClose);
                 return;
             default:
                 throw new InvalidOperationException($"Invalid lava state ${State:x2} at {_script.Source}.");

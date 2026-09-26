@@ -31,8 +31,8 @@ public sealed partial class ValidationRoot
         foreach (var (room, y, x, cy, cx) in new[] { (0x6f, 0x58, 0xd8, 0x68, 0x78), (0x87, 0x98, 0x28, 0x68, 0x58) })
         {
             var records = data.GetRoomRecords(4, room);
-            FailIf(records.Count != 2 || records[0] is not { Order: 0, Id: 0x25, SubId: 0 } || records[0].X != x || records[0].Y != y ||
-                records[1] is not { Order: 1, Id: 0x21, SubId: 0x11, Predicate: DungeonObjectCondition.ItemClear } || records[1].X != cx || records[1].Y != cy,
+            FailIf(records.Count != 2 || records[0] is not { Order: 0, Id: InteractionId.TileFiller, SubId: 0 } || records[0].X != x || records[0].Y != y ||
+                records[1] is not { Order: 1, Id: InteractionId.DungeonEvents, SubId: 0x11, Predicate: DungeonObjectCondition.ItemClear } || records[1].X != cx || records[1].Y != cy,
                 $"4:{room:x2} lost source tile-filler/chest placements or order.");
         }
         _saveData.SetRoomFlag(4, 0x87, OracleSaveData.RoomFlagItem, false);
@@ -60,8 +60,8 @@ public sealed partial class ValidationRoot
             "Tile filler moved its endpoint onto revisited red or a nonadjacent blue tile.");
         Walk(0x81);
         FailIf(filler.Endpoint != 0x81, "Returning beside the yellow endpoint did not resume the fill path.");
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
+        _inventory.EquipA(TreasureId.Feather);
         Step(move: Vector2.Up, attack: true);
         for (int i = 0; i < 15 && filler.Endpoint != 0x71; i++) Step(move: Vector2.Up);
         FailIf(filler.Endpoint != 0x71 || !_player.TopDownAirborne,
@@ -77,8 +77,8 @@ public sealed partial class ValidationRoot
         var routes = new[] {
             (Room: 0x6f, Count: 105, Chest: 0x67, Route: "5d,4d,3d,2d,1d,1c,2c,3c,4c,5c,6c,6d,7d,8d,9d,9c,9b,8b,7b,6b,5b,4b,4a,3a,39,49,48,58,59,5a,6a,7a,8a,9a,99,98,88,87,97,96,86,85,95,94,93,83,73,72,82,92,91,81,71,61,62,52,42,32,31,21,11,12,13,14,15,16,17,18,19,1a,1b,2b,2a,29,28,27,37,47,57,56,46,36,35,25,24,34,33,43,44,45,55,54,53,63,64,74,75,65,66,76,77,78,68,69,79"),
             (Room: 0x87, Count: 54, Chest: 0x65, Route: "92,91,81,71,61,51,41,31,32,42,52,53,63,64,54,44,34,35,36,37,38,39,49,59,58,68,78,79,89,99,98,97,87,77,67,57,47,46,45,55,56,66,76,75,85,86,96,95,94,84,83,73,72,82") };
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 2);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 2);
+        _inventory.EquipA(TreasureId.Sword);
         foreach (var route in routes)
         {
             byte[] path = route.Route.Split(',').Select(value => Convert.ToByte(value, 16)).ToArray();
@@ -130,8 +130,8 @@ public sealed partial class ValidationRoot
                 _currentRoom.Layout[0x1f] = padding;
                 Step();
                 FailIf(_currentRoom.GetMetatile(Point(route.Chest)) != 0xf1 || _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != path.Length - 1 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndGetSeed) != path.Length - 1 ||
+                    _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                     "Final tile fill did not create one immediate chest after the earlier filler dispatch.");
                 var result = (Convert.ToHexString(_currentRoom.Layout), cursor.Endpoint);
                 // Walk across the completed red path to the chest's south.

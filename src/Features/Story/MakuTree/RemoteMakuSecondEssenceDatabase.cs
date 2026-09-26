@@ -17,7 +17,7 @@ internal sealed class RemoteMakuSecondEssenceDatabase :
     {
         if (Record is not
             {
-                Group: 1, Room: 0x83, InteractionId: 0x8a,
+                Group: 1, Room: 0x83, InteractionId: InteractionId.RemoteMakuCutscene,
                 SubId: 1, Var03: 3, EssenceMask: 0x02,
                 RequiredTreasure: 0xff, RoomFlag: 0x40,
                 StandardTextId: 0x05b3, LinkedTextId: 0x05c3,

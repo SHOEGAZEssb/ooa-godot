@@ -28,13 +28,13 @@ public sealed partial class ValidationRoot
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
             FailIf(!_entities.TryCreateSomariaBlock(_player, 4, point, 0), "Gel fixture must allocate ITEM$18.");
             var block = _entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
-            int sounds = _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy);
+            int sounds = _sound.PlayRequestsFor(SoundId.SndDamageEnemy);
             Step(9);
             FailIf(gel.Health != (survives ? 5 : 1), "Phase-in must reject Gel contact before update10.");
             Step();
             FailIf(gel.Health != (survives ? 1 : 0) || gel.IsDead || !gel.NativeHitPending ||
                 gel.InvincibilityCounter != 21 || gel.KnockbackCounter != 11 || block.Health != 9 ||
-                block.DamageToApply != -4 || _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != sounds + 1,
+                block.DamageToApply != -4 || _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != sounds + 1,
                 "Gel block contact must publish effect$2f damage and counters without immediate death.");
             Vector2 hitPosition = gel.Position;
             int counter = gel.Counter1;

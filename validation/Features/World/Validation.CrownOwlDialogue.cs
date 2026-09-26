@@ -11,10 +11,10 @@ public partial class ValidationRoot
         {
             void Step(int count=1,Vector2 movement=default,bool attack=false) =>
                 StepGameplayUpdates(count,movement,attack?["attack"]:[],attack?["attack"]:[],batch);
-            _inventory.GiveTreasure(0x19,1);
-            _inventory.GiveTreasure(0x24,0x20);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel,1);
+            _inventory.GiveTreasure(TreasureId.MysterySeeds,0x20);
             _inventory.SelectSatchelSeeds(4);
-            _inventory.EquipA(InventoryState.ItemSeedSatchel);
+            _inventory.EquipA(TreasureId.SeedSatchel);
             LoadValidationRoom(4,0x9b);
             _player.WarpTo(new(136,120));
             FailIf(_currentRoom.IsSolid(_player.Position),"Crown owl approach must begin on the actual floor.");

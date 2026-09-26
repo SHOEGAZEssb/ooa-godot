@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
                 _sound.PlaySound, puff);
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [scan]);
             for (int i = 0; i < 13 - freePuffSlots; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 136), 0));
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 136), SoundId.MusNone));
             _entities.Update(1.0 / 60, _player);
             byte[] expected = [0x40, 0x46, 0x47, 0x44, 0x45];
             for (int p = 0; p <= 4; p++)
@@ -69,12 +69,12 @@ public sealed partial class ValidationRoot
             for (int i = 0; !_saveData.HasRoomFlag(4, 0xab, 0x80) && i < 120; i++) Step();
             FailIf(_entities.RoomEnemyCount != 0 || !_saveData.HasRoomFlag(4, 0xab, 0x80) ||
                 _currentRoom.GetMetatile(stairs) != 0x45 || controller.Finished ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1 ||
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
                 _entities.Entities<PuzzlePuffEffect>().Count(puff => puff.Position == stairs) != 1,
                 "The enemy-clear interaction pass must reveal$43->$45, set flag80 and create one puff before deleting.");
             Step();
             FailIf(_entities.Entities<EnemyClearStairsRoomEntity>().Count != 0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                 "The flagged stair controller must delete on the next update without repeating its reward.");
             LoadValidationRoom(0, 0x60);
             LoadValidationRoom(4, 0xab);

@@ -67,7 +67,7 @@ internal sealed class Room2e3Database
                 Var03: 0x00,
                 ItemRoomFlag: 0x20,
                 TreasureObject: "TREASURE_OBJECT_BOMBS_04",
-                TreasureId: 0x03,
+                TreasureId: TreasureId.Bombs,
                 TreasureSubId: 0x04,
                 TreasureParameter: 0x00,
                 PostGrantWait: 30,

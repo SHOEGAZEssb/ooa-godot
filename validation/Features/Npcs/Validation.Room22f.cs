@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
             {
                 Group: 2,
                 Room: 0x2f,
-                Id: 0x55,
+                Id: InteractionId.Postman,
                 SubId: 0x00,
                 Var03: 0x00,
                 TextId: 0x0b03,
@@ -102,12 +102,12 @@ public sealed partial class ValidationRoot
             40,
             "The no-Poe-Clock branch did not return to the A-button loop.");
         FailIf(
-            inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            inventory.HasTreasure(TreasureId.TradeItem) ||
             save.HasRoomFlag(2, 0x2f, OracleSaveData.RoomFlagItem),
             "The no-Poe-Clock branch granted Stationery or set room flag $20.");
 
         // Poe Clock, declined: prompt with TX_0b04, then show TX_0b06.
-        inventory.GiveTreasure(TreasureDatabase.TreasureTradeItem, 0);
+        inventory.GiveTreasure(TreasureId.TradeItem, 0);
         FailIf(
             !interactions.TryInteract(_player),
             "The Postman did not accept a second A-button press.");
@@ -227,15 +227,15 @@ public sealed partial class ValidationRoot
             fixture.Treasures.GetObject("TREASURE_OBJECT_TRADEITEM_01");
         InitializeGetItemStateForValidation();
         FailIf(
-            !inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) ||
+            !inventory.HasTreasure(TreasureId.TradeItem) ||
             inventory.TradeItem != 1 ||
             !save.HasRoomFlag(2, 0x2f, OracleSaveData.RoomFlagItem) ||
             postman.Active ||
             !heldStationery.Held ||
             heldStationery.Record is not
             {
-                SpawnMode: 0,
-                GrabMode: 2,
+                SpawnMode: TreasureSpawnMode.Instant,
+                GrabMode: TreasureGrabMode.TwoHands,
                 InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
                 SoundOrder: GroundTreasureSoundOrder.BehaviourThenGrab,
@@ -250,7 +250,7 @@ public sealed partial class ValidationRoot
                 DialogueBox.PlainText(stationery.Message),
             "The Postman did not exchange the Poe Clock for held Stationery, " +
             "set room flag $20, hide himself, and open TX_005b: " +
-            $"owned={inventory.HasTreasure(TreasureDatabase.TreasureTradeItem)}, " +
+            $"owned={inventory.HasTreasure(TreasureId.TradeItem)}, " +
             $"trade={inventory.TradeItem:x2}, " +
             $"flag={save.HasRoomFlag(2, 0x2f, OracleSaveData.RoomFlagItem)}, " +
             $"active={postman.Active}, held={heldStationery.Held}, " +

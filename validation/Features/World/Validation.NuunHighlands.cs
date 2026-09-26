@@ -107,7 +107,7 @@ public partial class ValidationRoot
         var rng = new OracleRandom();
         var spawns = new List<RoomEntitySpawn>();
         var flower = new GopongaFlowerCharacter();
-        flower.Initialize(database.ImportedEnemy(0x25), new Vector2(72, 72), rng);
+        flower.Initialize(database.ImportedEnemy(EnemyId.GopongaFlower), new Vector2(72, 72), rng);
         flower.PrepareForScreenTransition();
         for (int i = 0; i < 89; i++) flower.UpdateFrame(spawns);
         FailIf(flower.State != 8 || flower.Counter != 1 || rng.Calls != 0, "Goponga initial closed timer is not 90 updates.");
@@ -148,7 +148,7 @@ public partial class ValidationRoot
             room.SetPositionTileAndCollision(new Vector2(x * 16 + 8, y * 16 + 8), 0, 0, 0);
         var red = new LeeverCharacter();
         var redRng = new OracleRandom();
-        red.Initialize(database.ImportedEnemy(0x0b, 1), room, new Vector2(40, 40), redRng);
+        red.Initialize(database.ImportedEnemy(EnemyId.Leever, 1), room, new Vector2(40, 40), redRng);
         red.PrepareForScreenTransition();
         for (int i = 0; i < 120 && red.State == LeeverState.Underground; i++) red.UpdateFrame(new Vector2(88, 88), Vector2I.Down, 0);
         FailIf(red.State != LeeverState.Emerging || redRng.Calls != 2 || red.Position.X > 120 || red.Position.Y > 120,
@@ -169,7 +169,7 @@ public partial class ValidationRoot
         {
             var record = tutorials.GetRoomRecords(0, room).Single();
             _saveData.WriteWramByte(record.FlagAddress, (byte)(_saveData.ReadWramByte(record.FlagAddress) & ~(1 << record.FlagBit)));
-            CompanionRuntimeState.Begin(_runtimeState, 0x0c, room, new Vector2(record.X, record.Y + 16), 0);
+            CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, room, new Vector2(record.X, record.Y + 16), ObjectDirection.Up);
             LoadValidationRoom(0, room);
             _entities.Entities<DimitriCompanionRoomEntity>().Single().UpdatePlayerForcedMovement(_player);
             var tutorial = _entities.Entities<CompanionTutorialRoomEntity>().Single();
@@ -180,7 +180,7 @@ public partial class ValidationRoot
             FailIf(!tutorial.TextShown || !_dialogue.IsOpen || record.TextId != 0x2108,
                 $"Nuun $0:${room:x2} did not show mounted waterfall tutorial TX_2108.");
             _dialogue.Close();
-            CompanionRuntimeState.Update(_runtimeState, 0x0c, room, new Vector2(record.X, record.Y), 0);
+            CompanionRuntimeState.Update(_runtimeState, SpecialObjectId.Dimitri, room, new Vector2(record.X, record.Y), ObjectDirection.Up);
             _player.WarpTo(new Vector2(record.LinkXMax, record.Y), recordSafe: false);
             tutorial.UpdateFrame(frame, effects);
             FailIf(tutorial.Finished, "Waterfall tutorial accepted the excluded upper X boundary.");
@@ -188,10 +188,10 @@ public partial class ValidationRoot
             tutorial.UpdateFrame(frame, effects);
             FailIf(!tutorial.Finished || (_saveData.ReadWramByte(record.FlagAddress) & (1 << record.FlagBit)) == 0,
                 "Waterfall tutorial did not persist completion at its inclusive X/Y boundary.");
-            CompanionRuntimeState.Clear(_runtimeState, 0x0c);
+            CompanionRuntimeState.Clear(_runtimeState, SpecialObjectId.Dimitri);
         }
         // Suppress the already-covered tutorial while testing warp boundaries.
-        _saveData.WriteWramByte(0xc649, (byte)(_saveData.ReadWramByte(0xc649) | 8));
+        _saveData.WriteWramByte(WramAddress.wCompanionTutorialTextShown, (byte)(_saveData.ReadWramByte(WramAddress.wCompanionTutorialTextShown) | 8));
         LoadValidationRoom(0, 0x37);
         _player.WarpTo(new Vector2(32, 24), recordSafe: false);
         var warp = _entities.Entities<WaterfallWarpRoomEntity>().Single();
@@ -203,8 +203,8 @@ public partial class ValidationRoot
         _player.WarpTo(new Vector2(32, 24), recordSafe: false);
         StepRoomEventFrames(1);
         FailIf(_transitions.IsTransitioning, "Waterfall cave admitted Link on foot.");
-        CompanionRuntimeState.Begin(_runtimeState, 0x0c, 0x37, new Vector2(32, 24), 0);
-        _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new Vector2(32, 24), 0, 0, 0x37, true));
+        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, 0x37, new Vector2(32, 24), ObjectDirection.Up);
+        _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new Vector2(32, 24), ObjectDirection.Up, 0, 0x37, true));
         StepRoomEventFrames(1);
         FailIf(!_transitions.IsTransitioning, "Mounted Dimitri did not enter the waterfall cave.");
         for (int i = 0; i < 240 && _transitions.IsTransitioning; i++) _transitions.UpdateWarp(1.0 / 60.0);

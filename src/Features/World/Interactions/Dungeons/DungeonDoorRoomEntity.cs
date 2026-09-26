@@ -67,7 +67,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         Func<bool>? paletteFadeActive = null)
         : base(record, $"DungeonDoor_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != 0x1e || record.SubId is < 0x04 or > 0x0b)
+        if (record.Id != InteractionId.DoorController || record.SubId is < 0x04 or > 0x0b)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;

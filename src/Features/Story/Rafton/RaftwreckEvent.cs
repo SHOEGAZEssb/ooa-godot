@@ -88,7 +88,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             _centerCounter--;
             OracleObjectMovement.Shared.ApplySpeed(
                 ref _position, _database.Record.InitialSpeed,
-                _position.X < _database.Record.CenterX ? 0x08 : 0x18);
+                _position.X < _database.Record.CenterX ? ObjectAngle.Right : ObjectAngle.Left);
             SynchronizeOwner();
             return;
         }
@@ -96,7 +96,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         {
             _runner.Start(_database.Commands);
             _runner.SetInitialMotionRegisters(
-                new CutsceneActorId(Actor), _database.Record.InitialSpeed, 0);
+                new CutsceneActorId(Actor), _database.Record.InitialSpeed, ObjectAngle.Up);
         }
 
         if (_runner.Active)
@@ -241,7 +241,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         // synchronization point for the second flash; do not leave the flash
         // parked on the controller's defensive counter after the sound has
         // already been requested.
-        if (sound == OracleSoundEngine.SndLightning && _flashPhase == 2)
+        if (sound == SoundId.SndLightning && _flashPhase == 2)
             _secondFlashQueued = true;
         base.PlaySound(sound);
     }
@@ -267,7 +267,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             return;
 
         RaftwreckEventRecord record = _database.Record;
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlFastFadeOut);
+        _context.Sound.PlaySound(SoundId.SndCtrlFastFadeOut);
         _context.Rooms.SaveData.SetRoomFlag(
             record.Group, record.Room, record.RoomFlag);
         if (_raft is null)
@@ -393,7 +393,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             {
                 part.State = 2;
                 part.Actor.Visible = true;
-                _context.Sound.PlaySound(OracleSoundEngine.SndLightning);
+                _context.Sound.PlaySound(SoundId.SndLightning);
                 continue;
             }
 
@@ -449,7 +449,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             "Debris", objectId: 0x08,
             fixedPriority: NpcCharacter.BehindLinkZIndex);
         _interactionEffects.Add(new InteractionEffectState(
-            actor, position, 0, 0, 0, record.Duration, debris: true));
+            actor, position, 0, ObjectAngle.Up, 0, record.Duration, debris: true));
     }
 
     private void AdvanceInteractionEffects()
@@ -461,7 +461,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             {
                 effect.Initialized = true;
                 if (effect.Debris)
-                    _context.Sound.PlaySound(OracleSoundEngine.SndKillEnemy);
+                    _context.Sound.PlaySound(SoundId.SndKillEnemy);
                 continue;
             }
 

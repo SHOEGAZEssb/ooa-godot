@@ -68,9 +68,9 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0x9b);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(shield ? TreasureDatabase.TreasureShield : TreasureDatabase.TreasureSword, 1);
-            _inventory.EquipA(shield ? InventoryState.ItemShield : InventoryState.ItemSword);
-            _inventory.EquipB(InventoryState.ItemNone);
+            _inventory.GiveTreasure(shield ? TreasureId.Shield : TreasureId.Sword, 1);
+            _inventory.EquipA(shield ? TreasureId.Shield : TreasureId.Sword);
+            _inventory.EquipB(TreasureId.None);
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 _player.WarpTo(new(136, 136));

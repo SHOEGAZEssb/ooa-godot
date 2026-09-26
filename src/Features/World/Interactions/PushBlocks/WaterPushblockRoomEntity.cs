@@ -52,7 +52,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
         _tileChanged = tileChanged;
         _tick = tick;
         Name = $"WaterPushblock_9e_{record.SubId:x2}";
-        Initialize(new NpcRecord(record.Group, record.Room, 0x9e, record.SubId,
+        Initialize(new NpcRecord(record.Group, record.Room, InteractionId.WaterPushblock, record.SubId,
             record.Y, record.X, 0, 0, record.Sprite, record.TileBase, record.Palette, 0, false,
             record.Animation, record.Animation, record.Animation, record.Animation, string.Empty,
             NpcImplementationClassification.SpecializedNative));
@@ -121,7 +121,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
                 return;
             case 2:
                 Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition,
-                    0x14, _placement.SubId == 0 ? 0x18 : 0x08); // SPEED_80
+                    0x14, _placement.SubId == 0 ? ObjectAngle.Left : ObjectAngle.Right); // SPEED_80
                 PreventPlayerPassing(player);
                 if (--Counter != 0) return;
                 Counter = 70;

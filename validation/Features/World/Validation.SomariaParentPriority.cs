@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
         // parentItemUsage.s checks A then B before updating ParentItem2.
         // itemUsageParameterTable: Cane$04=$03; Shovel$15=$13, Bomb$03=$23,
         // Shooter$0f=$43, Sword$05=$63 and Switch Hook$0a=$73.
-        foreach (int other in new[] { InventoryState.ItemSword, InventoryState.ItemBomb,
-            InventoryState.ItemShovel, InventoryState.ItemShooter, InventoryState.ItemSwitchHook })
+        foreach (int other in new[] { TreasureId.Sword, TreasureId.Bombs,
+            TreasureId.Shovel, TreasureId.Shooter, TreasureId.SwitchHook })
         foreach (bool canePrimary in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
@@ -19,11 +19,11 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.GiveTreasure(other, other == InventoryState.ItemBomb ? 0x10 : 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 5);
-            _inventory.EquipA(canePrimary ? InventoryState.ItemSomaria : other);
-            _inventory.EquipB(canePrimary ? other : InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.GiveTreasure(other, other == TreasureId.Bombs ? 0x10 : 1);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds, 5);
+            _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : other);
+            _inventory.EquipB(canePrimary ? other : TreasureId.CaneOfSomaria);
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
@@ -31,11 +31,11 @@ public sealed partial class ValidationRoot
             string otherButton = canePrimary ? "item" : "attack";
             bool OtherActive() => other switch
             {
-                InventoryState.ItemSword => _player.IsAttacking,
-                InventoryState.ItemBomb => _bomb.Active,
-                InventoryState.ItemShovel => _player.IsUsingShovel,
-                InventoryState.ItemShooter => _player.IsUsingSeedShooter,
-                InventoryState.ItemSwitchHook => _player.IsUsingSwitchHook,
+                TreasureId.Sword => _player.IsAttacking,
+                TreasureId.Bombs => _bomb.Active,
+                TreasureId.Shovel => _player.IsUsingShovel,
+                TreasureId.Shooter => _player.IsUsingSeedShooter,
+                TreasureId.SwitchHook => _player.IsUsingSwitchHook,
                 _ => false
             };
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                 FailIf(_player.IsUsingSomaria || _entities.Entities<SomariaBlock>().Count() != 1,
                     $"After item${other:x2} clears, a new Cane use must complete exactly one block.");
             }
-            if (other is InventoryState.ItemBomb or InventoryState.ItemShooter)
+            if (other is TreasureId.Bombs or TreasureId.Shooter)
             {
                 while (_inventory.TryConsumeBomb()) { }
                 while (_inventory.TryConsumeSelectedShooterSeed(out _)) { }

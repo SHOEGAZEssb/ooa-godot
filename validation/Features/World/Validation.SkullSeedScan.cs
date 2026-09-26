@@ -25,11 +25,11 @@ public sealed partial class ValidationRoot
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             _seedSatchel.InterruptShooter();
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x0f, 1);
-            _inventory.GiveTreasure(0x22, 0x20);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.Shooter, 1);
+            _inventory.GiveTreasure(TreasureId.PegasusSeeds, 0x20);
             _inventory.SelectShooterSeeds(2);
-            _inventory.EquipA(InventoryState.ItemShooter);
+            _inventory.EquipA(TreasureId.Shooter);
             _inventory.RefillHealth();
             _saveData.SetRoomFlag(4, 0x80, 0xff, false);
             LoadValidationRoom(4, 0x86);
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
                 try { LoadValidationRoom(4, 0x86); Step(3); }
                 finally { _entities.SoundRequested -= sounds.Add; }
                 FailIf(_entities.HasActiveShooterSeed || _entities.Entities<EmberSeedEffect>().Count != 0 ||
-                    sounds.Contains(OracleSoundEngine.SndLightTorch),
+                    sounds.Contains(SoundId.SndLightTorch),
                     "Room replacement must discard an unconsumed native collision without playing its future activation sound.");
                 continue;
             }

@@ -16,10 +16,10 @@ public sealed partial class ValidationRoot
             _entities.Clear();
             var runtime = _entities.RuntimeState;
             var detector = new WallSquishRoomEntity(_currentRoom, () => _rooms.BlockPushAngle,
-                () => runtime.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress), "raised-floor validation");
+                () => runtime.ReadWramByte(WramAddress.wLinkRaisedFloorOffset), "raised-floor validation");
             typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .Invoke(_entities, [detector]);
-            int Offset() => unchecked((sbyte)runtime.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress));
+            int Offset() => unchecked((sbyte)runtime.ReadWramByte(WramAddress.wLinkRaisedFloorOffset));
             Vector2 floor = new(120, 104);
             _player.WarpTo(new(120, 120));
             StepGameplayUpdates(1, Vector2.Zero);
@@ -37,8 +37,8 @@ public sealed partial class ValidationRoot
             FailIf(_player.Position.X <= start.X || Offset() != -3,
                 "Raised-floor Link must walk onto the neighboring raised tile.");
 
-            _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.GiveTreasure(TreasureId.Feather, 1);
+            _inventory.EquipA(TreasureId.Feather);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
             FailIf(!_player.TopDownAirborne, "Raised-floor retention check must start an actual feather jump.");
             // Replace all raised tiles after takeoff: airborne Link retains

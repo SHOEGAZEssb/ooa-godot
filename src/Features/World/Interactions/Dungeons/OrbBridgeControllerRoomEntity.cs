@@ -31,7 +31,7 @@ internal sealed partial class OrbBridgeControllerRoomEntity : DungeonMechanicRoo
     {
         if (Finished)
             return;
-        if (_save.HasRoomFlag(_record.Group, _record.Room, 0x40))
+        if (_save.HasRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40))
         {
             Finished = true;
             return;
@@ -42,7 +42,7 @@ internal sealed partial class OrbBridgeControllerRoomEntity : DungeonMechanicRoo
         // updateParts has already run: the new PART_BRIDGE_SPAWNER starts
         // next update, independently of further orb hits.
         spawns.Add(new BridgeSpawnerSpawn(_record.PackedPosition, _record.Parameter));
-        _save.SetRoomFlag(_record.Group, _record.Room, 0x40);
+        _save.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40);
         _playSound(_solveSound);
         Finished = true;
     }

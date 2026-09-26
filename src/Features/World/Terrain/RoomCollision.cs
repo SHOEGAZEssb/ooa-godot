@@ -162,10 +162,10 @@ public sealed class RoomCollision
     {
         return angle switch
         {
-            0 => Vector2.Up,
-            8 => Vector2.Right,
-            16 => Vector2.Down,
-            24 => Vector2.Left,
+            ObjectAngle.Up => Vector2.Up,
+            ObjectAngle.Right => Vector2.Right,
+            ObjectAngle.Down => Vector2.Down,
+            ObjectAngle.Left => Vector2.Left,
             _ => Vector2.Zero
         };
     }
@@ -211,7 +211,7 @@ public sealed class RoomCollision
         OracleRoomData room = _rooms.CurrentRoom;
         if (point.X < 0 || point.X >= room.Width || point.Y < 0 || point.Y >= room.Height)
             return !_hasNeighborFor(point);
-        return _entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress) != 0
+        return _entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset) != 0
             ? room.IsSolidForRaisedFloorLink(point)
             : room.IsSolid(point);
     }

@@ -44,7 +44,7 @@ internal sealed partial class HeadThwompProjectile
         _random = random;
         _playSound = playSound;
         Position = spawn.Position;
-        _angle = spawn.Angle & 0x1f;
+        _angle = spawn.Angle & ObjectAngle.Mask;
         _speed = spawn.Speed;
         _randomizeLaunch = spawn.RandomizeLaunch;
         Name = _kind == HeadThwompProjectileKind.Fireball
@@ -127,14 +127,14 @@ internal sealed partial class HeadThwompProjectile
                 }
                 _counter = 30;
                 _speedZ = -0x3e0;
-                _playSound(OracleSoundEngine.SndFallInHole);
+                _playSound(SoundId.SndFallInHole);
             }
             else
             {
                 _counter = 2;
                 _turnPeriod = 2;
                 _alternateCounter = 0;
-                _playSound(OracleSoundEngine.SndBeam);
+                _playSound(SoundId.SndBeam);
             }
             QueueRedraw();
             return;
@@ -218,7 +218,7 @@ internal sealed partial class HeadThwompProjectile
                 _impactAnimation.SetAnimation(0);
                 _speedZ = 0;
                 _breaking = true;
-                _playSound(OracleSoundEngine.SndBreakRock);
+                _playSound(SoundId.SndBreakRock);
                 return;
             }
             Finish();
@@ -238,7 +238,7 @@ internal sealed partial class HeadThwompProjectile
             _alternateCounter ^= 1;
             _turnPeriod += _alternateCounter;
             _counter = _turnPeriod;
-            _angle = (_angle + (_speed < 0 ? -2 : 2)) & 0x1f;
+            _angle = (_angle + (_speed < 0 ? -2 : 2)) & ObjectAngle.Mask;
         }
         Position += OracleObjectMovement.Shared.Delta(
             0x64, _angle);
@@ -297,8 +297,8 @@ internal sealed partial class HeadThwompProjectile
         ];
         int roundedAngle = (_angle & 7) == 0
             ? _angle
-            : (_angle & 0x18) + 4;
-        Vector2 point = Position + offsets[(roundedAngle & 0x1f) >> 2];
+            : (_angle & ObjectAngle.CardinalMask) + 4;
+        Vector2 point = Position + offsets[(roundedAngle & ObjectAngle.Mask) >> 2];
         return point.X < 0 || point.X >= _room.Width ||
             point.Y < 0 || point.Y >= _room.Height;
     }

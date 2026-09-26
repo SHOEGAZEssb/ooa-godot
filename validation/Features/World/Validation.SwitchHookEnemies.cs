@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
     {
         var collisions = SwitchHookCollisionDatabase.Shared;
         // Independent readings of objectCollisionTable's $0d column.
-        FailIf(collisions.Effect(0x16) != 0x2e || collisions.Effect(0x06) != 0 ||
-            collisions.Effect(0x13) != 0x1b || collisions.Effect(0x02) != 0x1c ||
+        FailIf(collisions.Effect(EnemyCollisionMode.Gibdo) != 0x2e || collisions.Effect(EnemyCollisionMode.Projectile) != 0 ||
+            collisions.Effect(EnemyCollisionMode.BladeTrap) != 0x1b || collisions.Effect(EnemyCollisionMode.Dormant) != 0x1c ||
             !collisions.EnemyEnabled(0x12) || collisions.EnemyEnabled(0x16) ||
             collisions.EnemyEnabled(0x2d), "Switch Hook lost native effect or dbrev eligibility operands.");
         Vector2[] probes = [new(77, 77), new(82, 77), new(77, 87), new(82, 87),
@@ -48,8 +48,8 @@ public sealed partial class ValidationRoot
 
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
         Vector2 origin = new(120.875f, 88.25f);
         GibdoCharacter Prepare()

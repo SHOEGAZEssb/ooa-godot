@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                 _player.WarpTo(new(120, 136));
                 var sourceDoor = _entities.Entities<DungeonDoorRoomEntity>().Single();
                 state.SetValue(sourceDoor, DoorState.ReadyToOpen);
-                var warp = new Warp(4, 0x9d, -1, 0, 2, 4, 0x9d, 0x87, 0, 0);
+                var warp = new Warp(4, 0x9d, -1, 0, WarpSourceTransition.FadeOut, 4, 0x9d, 0x87, 0, WarpDestinationTransition.Basic);
                 if (delayed) _transitions.ApplyWarpWithDelayedFadeOut(_player, warp);
                 else _transitions.ApplyWarpWithFadeOut(_player, warp);
                 void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, [], [], batch);

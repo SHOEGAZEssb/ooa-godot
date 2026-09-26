@@ -57,13 +57,13 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
         Vector2 sourcePosition,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        seedItem == 0x24 && _boss.CollisionBounds.Intersects(hitbox)
+        seedItem == ItemId.MysterySeed && _boss.CollisionBounds.Intersects(hitbox)
             ? SeedHitResult.Activate
             :
-        seedItem == 0x20 &&
+        seedItem == ItemId.EmberSeed &&
         _boss.ApplySwordHit(hitbox, sourcePosition, 2, spawns)
             ? SeedHitResult.Consume
-            : seedItem == 0x21 &&
+            : seedItem == ItemId.ScentSeed &&
                 _boss.ApplySwordHit(hitbox, sourcePosition, 2, spawns)
                 ? SeedHitResult.Activate
             : SeedHitResult.None;

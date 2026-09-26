@@ -80,7 +80,7 @@ internal sealed class MooshGoodbyeEventDatabase
                 ControllerY: 0x38, ControllerX: 0x08,
                 SpawnerId: 0x67, SpawnerSubId: 0x01,
                 MooshId: 0x0d, MooshY: 0x48, MooshX: 0x38,
-                TreasureId: 0x52, MooshStateAddress: 0xc648,
+                TreasureId: TreasureId.ChevalRope, MooshStateAddress: 0xc648,
                 RescuedMask: 0x20, LeftMask: 0x40,
                 DisabledObjects: 0x01, MenuDisabled: 0x01,
                 InitialAnimation: 0x01, FlightAnimation: 0x0b,

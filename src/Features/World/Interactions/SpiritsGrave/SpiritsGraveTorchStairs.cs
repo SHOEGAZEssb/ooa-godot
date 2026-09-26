@@ -67,7 +67,7 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem != 0x20 || _pending >= 0 || Finished)
+        if (seedItem != ItemId.EmberSeed || _pending >= 0 || Finished)
             return SeedHitResult.None;
         foreach (int packed in _unlit)
         {
@@ -98,7 +98,7 @@ internal sealed partial class SpiritsGraveTorchStairs : Node2D,
 
         _save?.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
         _playSound(_solveSound);
-        spawns.Add(new PuzzlePuffSpawn(_record.Position, 0));
+        spawns.Add(new PuzzlePuffSpawn(_record.Position, SoundId.MusNone));
         _room.SetPositionTileAndCollision(
             _record.Position, (byte)_stairsTile, null, _animationTick());
         _roomTileChanged();

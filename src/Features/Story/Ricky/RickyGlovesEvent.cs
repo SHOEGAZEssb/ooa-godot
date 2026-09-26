@@ -236,7 +236,7 @@ internal sealed class RickyGlovesEvent :
         _companion = Context.Entities.Spawn<RickyCompanionRoomEntity>(
             new RickyCompanionSpawn(
                 position,
-                2,
+                ObjectDirection.Down,
                 _record.Group,
                 _record.Room,
                 ForceMount: true));

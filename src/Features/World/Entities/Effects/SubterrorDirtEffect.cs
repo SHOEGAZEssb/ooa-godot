@@ -46,7 +46,7 @@ internal sealed partial class SubterrorDirtEffect : FixedEffectNode2D
         if (!_initialized)
         {
             _initialized = true;
-            _playSound(OracleSoundEngine.SndDig);
+            _playSound(SoundId.SndDig);
         }
         _animation.Advance();
         if (_animation.CurrentParameter == 0)

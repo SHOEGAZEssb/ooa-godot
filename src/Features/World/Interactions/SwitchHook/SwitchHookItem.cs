@@ -120,7 +120,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
             if (room.IsSolid(Position) && !_tilePassage.CanPass(room, Position, Angle))
             {
                 if (_controller is not null) _controller.CreateClink(Position);
-                else _sound(OracleSoundEngine.SndClink);
+                else _sound(SoundId.SndClink);
                 if (_breakables.TryGet(room.ActiveCollisions, room.GetMetatile(Position), out var tile) &&
                     tile.AllowsSource(_level.BreakSource))
                 {

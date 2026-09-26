@@ -41,7 +41,7 @@ internal sealed partial class ColoredCubeSensorRoomEntity : Node2D,
                 _puzzle.CubePosition == _packedPosition)
             {
                 _puzzle.CubeColor |= 0x80;
-                _playSound(OracleSoundEngine.SndLightTorch);
+                _playSound(SoundId.SndLightTorch);
             }
             _lastPosition = _puzzle.CubePosition;
         }

@@ -104,11 +104,11 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     private void InitializeState()
     {
         _speed = 0x3c;
-        _angle = 0x10;
+        _angle = ObjectAngle.Down;
         _counter2 = 30;
         _dirtCounter = 7;
         _dirtEnabled = true;
-        _playSound(OracleSoundEngine.SndCtrlStopMusic);
+        _playSound(SoundId.SndCtrlStopMusic);
     }
 
     internal void UpdateFrame(
@@ -191,7 +191,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         _speedZ = -0x100;
         _speed = 0x28;
         _angle = OracleObjectMovement.Shared.RelativeAngle(
-            Position, _linkPosition) ^ 0x10;
+            Position, _linkPosition) ^ ObjectAngle.HalfTurn;
         SetCollisionRadii(6, 6);
         Visible = true;
         SetAnimation(5);
@@ -203,7 +203,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         if (!Vulnerable || _dying || !base.TakeSwordHit(sourcePosition, damage))
             return false;
         _acceptedHit = true;
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (IsDead)
             BeginDeath();
         return true;
@@ -234,7 +234,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
                 if (OracleObjectPosition.HighByte(Position.Y) < 0x58)
                     return;
 
-                _playSound(OracleSoundEngine.SndDig);
+                _playSound(SoundId.SndDig);
                 Visible = true;
                 _dirtEnabled = false;
                 SetAnimation(6);
@@ -246,7 +246,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
                 AdvanceAnimation();
                 if (AnimationParameter != 0)
                     return;
-                spawns.Add(new RockDebrisSpawn(Position, 0x06));
+                spawns.Add(new RockDebrisSpawn(Position, InteractionId.RockDebris));
                 _substate = 2;
                 _counter1 = 60;
                 _zFixed = 0;
@@ -271,7 +271,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
             case 3:
                 if (_dialogueOpen())
                     return;
-                _playSound(OracleSoundEngine.MusMiniboss);
+                _playSound(SoundId.MusMiniboss);
                 _enableLink();
                 _introActive = false;
                 BeginDigging();
@@ -294,7 +294,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         Visible = false;
         _counter1 = 60;
         _counter2 = DrillAttackWaits[AngerLevel()];
-        _playSound(OracleSoundEngine.SndDig);
+        _playSound(SoundId.SndDig);
         SpawnDirt(spawns);
     }
 
@@ -363,7 +363,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     {
         int target = OracleObjectMovement.Shared.RelativeAngle(
             Position, linkPosition);
-        _angle = ((_angle ^ 0x10) == target)
+        _angle = ((_angle ^ ObjectAngle.HalfTurn) == target)
             ? (target + 8) & 0x1f
             : target;
         _counter1 = 30;
@@ -382,7 +382,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
                 if (_counter2 != 0)
                     return;
                 Visible = true;
-                _playSound(OracleSoundEngine.SndShock);
+                _playSound(SoundId.SndShock);
             }
             AdvanceAnimation();
             _counter1 = DecrementByte(_counter1);
@@ -444,7 +444,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
 
         AdvanceAnimation();
         if (AnimationParameter != 0)
-            _playSound(OracleSoundEngine.SndLand);
+            _playSound(SoundId.SndLand);
         MoveAndBounce();
         _counter1 = DecrementByte(_counter1);
         if (_counter1 == 0)
@@ -507,7 +507,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         _deathCounter = 120;
         _dirtEnabled = false;
         _disableLink();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 
     private static int DecrementByte(int value) => (value - 1) & 0xff;

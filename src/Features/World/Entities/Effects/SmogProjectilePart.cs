@@ -18,7 +18,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
     internal int Angle { get; private set; }
     internal int ContactFlags { get; private set; }
     internal int InvincibilityCounter { get; set; }
-    internal bool PendingCollision => (ContactFlags & 0x80) != 0;
+    internal bool PendingCollision => (ContactFlags & ObjectCollisionFlags.JustHit) != 0;
     internal int CollisionMode => SubId == 0 ? _data.InitialCollisionMode & 0x7f : 4;
     internal bool CollisionEnabled => State == 1 && !Finished && !_collisionCleared;
     internal bool Finished { get; private set; }

@@ -472,7 +472,7 @@ internal sealed class LinkItemDatabase
                 ShovelActionFrames: 23,
                 ShovelDigFrame: 4,
                 ShovelSecondPoseFrame: 8,
-                ShieldSound: OracleSoundEngine.SndShield,
+                ShieldSound: SoundId.SndShield,
                 ShieldCollisionEffect: 0x1f,
                 ShieldLinkResponse: 0x20,
                 ShieldProjectileResponse: 0x34,
@@ -539,7 +539,7 @@ internal sealed class LinkItemDatabase
         for (int direction = 0; direction < 4; direction++)
             result.Add(("attack", 0, phase, direction));
         for (int variant = 0; variant < 3; variant++)
-        for (int angle = 0; angle < 8; angle++)
+        for (int angle = ObjectAngle.Up; angle < 8; angle++)
             result.Add(("shooter", variant, 0, angle));
         for (int phase = 0; phase < 3; phase++)
         for (int direction = 0; direction < 4; direction++)

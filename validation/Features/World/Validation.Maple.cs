@@ -89,11 +89,11 @@ public sealed partial class ValidationRoot
                 { StartY: 0xf0, StartX: 0x70, TurnDelay: 2 } ||
             movement.Steps.Count != 7 ||
             database.Item(0) is not
-                { Value: 0x3c, Treasure: TreasureDatabase.TreasureHeartPiece } ||
+                { Value: 0x3c, Treasure: TreasureId.HeartPiece } ||
             database.Item(10) is not
-                { Value: 4, Treasure: TreasureDatabase.TreasureBombs } ||
+                { Value: 4, Treasure: TreasureId.Bombs } ||
             database.Item(13) is not
-                { Value: 1, Treasure: TreasureDatabase.TreasureRupees } ||
+                { Value: 1, Treasure: TreasureId.Rupees } ||
             string.IsNullOrWhiteSpace(database.Text(0x0700)) ||
             string.IsNullOrWhiteSpace(database.Text(0x0713)) ||
             !database.Text(0x070e).Contains(
@@ -270,15 +270,15 @@ public sealed partial class ValidationRoot
         var treasures = new TreasureDatabase();
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(treasures, save);
-        inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
+        inventory.GiveTreasure(TreasureId.Sword, 1);
+        inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
         FailIf(
             !inventory.TryTakeMapleDrop(5, out int emberDrop) ||
             emberDrop != 5 || inventory.EmberSeeds != 0x15,
             "Maple's erroneous sword check did not remove five packed-BCD Ember Seeds.");
 
-        inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        inventory.GiveTreasure(TreasureId.Bombs, 0x10);
         FailIf(
             !inventory.TryTakeMapleDrop(10, out int bombDrop) ||
             bombDrop != 10 || inventory.Bombs != 0x06,
@@ -290,7 +290,7 @@ public sealed partial class ValidationRoot
             heartDrop != 11 || inventory.HealthQuarters != healthBefore - 4,
             "Maple's item-$0c branch did not take one heart and scatter item $0b.");
 
-        inventory.GiveTreasure(TreasureDatabase.TreasureRupees, 3);
+        inventory.GiveTreasure(TreasureId.Rupees, 3);
         int rupeesBefore = inventory.Rupees;
         FailIf(
             !inventory.TryTakeMapleDrop(13, out int rupeeDrop) ||
@@ -299,7 +299,7 @@ public sealed partial class ValidationRoot
 
         OracleSaveData unavailableSave = OracleSaveData.CreateStandardGame();
         var unavailable = new InventoryState(treasures, unavailableSave);
-        unavailable.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
+        unavailable.GiveTreasure(TreasureId.SeedSatchel, 1);
         FailIf(
             unavailable.TryTakeMapleDrop(7, out _),
             "Maple dropped Pegasus Seeds without the original mistaken treasure-$07 check.");
@@ -397,11 +397,11 @@ public sealed partial class ValidationRoot
         using var harness = new MapleValidationHarness(
             this, group: 1, room: 0x02);
         // Isolate Maple's RNG and horizontal shake from $dc:$05's tremors.
-        harness.Save.SetGlobalFlag(0x29);
+        harness.Save.SetGlobalFlag(GlobalFlag.TuniNutPlaced);
         harness.Inventory.GiveTreasure(
-            TreasureDatabase.TreasureSword, 1);
+            TreasureId.Sword, 1);
         harness.Inventory.GiveTreasure(
-            TreasureDatabase.TreasureSeedSatchel, 1);
+            TreasureId.SeedSatchel, 1);
         harness.Save.SetMapleKillCounter(30);
         harness.Load();
         MapleEncounter maple =
@@ -428,7 +428,7 @@ public sealed partial class ValidationRoot
         harness.Step();
         FailIf(
             maple.Stage != MapleEncounterStage.Flying ||
-            !harness.Sounds.Contains(OracleSoundEngine.MusMapleTheme),
+            !harness.Sounds.Contains(SoundId.MusMapleTheme),
             "Maple's three-update entry delay did not begin her theme and shadow flight.");
 
         AdvanceMapleToCollision(harness, maple);
@@ -444,7 +444,7 @@ public sealed partial class ValidationRoot
             !maple.MenusDisabled ||
             harness.Manager.HorizontalScreenShakeCounter != 14 ||
             harness.Player.KnockbackFrames != 23 ||
-            !harness.Sounds.Contains(OracleSoundEngine.SndScentSeed),
+            !harness.Sounds.Contains(SoundId.SndScentSeed),
             "Maple's collision did not scatter loot, knock both actors back, lock the room, " +
             $"and begin the 15-update horizontal shake (stage={maple.Stage}, " +
             $"drops={dropped}, transitions={maple.ScreenTransitionsDisabled}, " +
@@ -459,7 +459,7 @@ public sealed partial class ValidationRoot
             !maple.Finished ||
             (harness.Save.MapleState & 0x0f) != 1 ||
             !harness.Save.HasGlobalFlag(
-                OracleSaveData.GlobalFlagMapleMetInPast) ||
+                GlobalFlag.MapleMetInPast) ||
             !harness.Dialogues.Contains(0x0712) ||
             !harness.Dialogues.Contains(expectedOutcome) ||
             harness.Manager.ScreenTransitionsDisabled ||
@@ -497,13 +497,13 @@ public sealed partial class ValidationRoot
         harness.Player.WarpTo(new Vector2(16, 112), recordSafe: false);
 
         int potionSoundCount = harness.Sounds.Count(
-            sound => sound == OracleSoundEngine.SndGetSeed);
+            sound => sound == SoundId.SndGetSeed);
         CollectMapleReward(harness, database.Item(4));
         FailIf(
             !harness.Inventory.HasTreasure(
-                TreasureDatabase.TreasurePotion) ||
+                TreasureId.Potion) ||
             harness.Sounds.Count(
-                sound => sound == OracleSoundEngine.SndGetSeed) !=
+                sound => sound == SoundId.SndGetSeed) !=
                     potionSoundCount + 1,
             "Maple's Potion reward did not use its explicit SND_GETSEED override.");
 
@@ -608,7 +608,7 @@ public sealed partial class ValidationRoot
         using var harness = new MapleValidationHarness(
             this, group: 0, room: 0x01);
         harness.Inventory.GiveTreasure(
-            TreasureDatabase.TreasureTradeItem, 0x08);
+            TreasureId.TradeItem, 0x08);
         harness.Save.SetMapleState(0x08);
         harness.Save.SetMapleKillCounter(30);
         harness.Load();

@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
                 Order: 0, Y: 0x28, X: 0x48,
                 TreasureObject: "TREASURE_OBJECT_RICKY_GLOVES_00",
                 Sprite: "spr_quest_items_2", TileBase: 0x1c, Palette: 0x05,
-                SpawnMode: 5, GrabMode: 1,
+                SpawnMode: TreasureSpawnMode.Buried, GrabMode: TreasureGrabMode.OneHand,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.Never,
                 StateAddress: rickyStateAddress,
                 StateMask: talkedMask | completeMask,
@@ -127,7 +127,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             gloves.State != PickupState.Waiting || gloves.ZFixed != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 2,
+            _sound.PlayRequestsFor(SoundId.SndDropEssence) != 2,
             "Spawn mode $05 did not stop after its two source half-speed bounces.");
 
         TreasureObjectRecord gloveObject =
@@ -141,7 +141,7 @@ public sealed partial class ValidationRoot
                 group, room, OracleSaveData.RoomFlagItem) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(gloveObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
             "Touching the landed gloves did not grant treasure $48 without setting " +
             "room flag $20 and open TX_0067.");
 
@@ -151,7 +151,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !gloves.Held || !_player.IsHoldingItemOneHand ||
             gloves.Position != _player.Position + new Vector2(-4, -14) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "Ricky's Gloves did not initialize the requested state $04 one-hand pose.");
 
         _dialogue.Close();

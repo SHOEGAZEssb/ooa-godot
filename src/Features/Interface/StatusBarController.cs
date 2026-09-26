@@ -57,7 +57,7 @@ internal sealed class StatusBarController : IDisposable
                 continue;
 
             _hud.Rupees += Math.Sign(target - _hud.Rupees);
-            _playSound(OracleSoundEngine.SndRupee);
+            _playSound(SoundId.SndRupee);
             changed = true;
         }
 
@@ -102,6 +102,6 @@ internal sealed class StatusBarController : IDisposable
         return true;
     }
 
-    private void PlayGainHeartSound() => _playSound(OracleSoundEngine.SndGainHeart);
-    private void PlayRupeeSound() => _playSound(OracleSoundEngine.SndRupee);
+    private void PlayGainHeartSound() => _playSound(SoundId.SndGainHeart);
+    private void PlayRupeeSound() => _playSound(SoundId.SndRupee);
 }

@@ -75,12 +75,12 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
             return SeedHitResult.None;
         }
 
-        if (seedItem == OwlStatueDatabase.MysterySeedItem && !Entity.IsGiant)
+        if (seedItem == TreasureId.MysterySeeds && !Entity.IsGiant)
         {
             Entity.BeginMysterySeedTransformation(spawns);
             return SeedHitResult.Consume;
         }
-        if (seedItem == 0x21)
+        if (seedItem == ItemId.ScentSeed)
             return Entity.TakeHit()
                 ? SeedHitResult.Activate
                 : SeedHitResult.None;

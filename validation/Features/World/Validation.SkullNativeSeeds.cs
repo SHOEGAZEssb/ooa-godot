@@ -28,12 +28,12 @@ public sealed partial class ValidationRoot
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             _seedSatchel.InterruptShooter();
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x0f, 1);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.Shooter, 1);
             _inventory.GiveTreasure(item, 0x50);
             _inventory.SelectShooterSeeds(item - 0x20);
-            _inventory.EquipA(InventoryState.ItemShooter);
-            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+            _inventory.EquipA(TreasureId.Shooter);
+            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
             LoadValidationRoom(4, fire ? 0x8d : 0x6e);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
@@ -88,11 +88,11 @@ public sealed partial class ValidationRoot
                 Step();
                 FailIf(hit.HasPendingNativeCollision || hit.SeedItem != 0x20 + selected || hit.AnimationFrame != 1,
                     "The next ITEM update must consume the hit once and load Mystery's selected effect.");
-                int activationSound = selected switch { 0 or 2 => OracleSoundEngine.SndLightTorch,
-                    1 => OracleSoundEngine.SndPirateBell, _ => 0x90 /* SND_GALE_SEED */ };
-                int[] expectedSounds = selected is 1 or 2 ? [OracleSoundEngine.SndDamageEnemy, activationSound] : [activationSound];
+                int activationSound = selected switch { 0 or 2 => SoundId.SndLightTorch,
+                    1 => SoundId.SndPirateBell, _ => 0x90 /* SND_GALE_SEED */ };
+                int[] expectedSounds = selected is 1 or 2 ? [SoundId.SndDamageEnemy, activationSound] : [activationSound];
                 // Other live room enemies can jump during these two updates.
-                var seedSounds = sounds.Where(sound => sound != OracleSoundEngine.SndEnemyJump);
+                var seedSounds = sounds.Where(sound => sound != SoundId.SndEnemyJump);
                 FailIf(!seedSounds.SequenceEqual(expectedSounds),
                     $"Native seed sound order fire={fire}, item${item:x2}/{selected}: [{string.Join(',', sounds)}]/[{string.Join(',', expectedSounds)}].");
                 if (lethal)

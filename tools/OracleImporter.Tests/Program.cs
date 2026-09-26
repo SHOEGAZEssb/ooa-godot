@@ -11,6 +11,8 @@ try
     RunManifestTests(temporaryRoot);
     RunImporterBoundaryTests();
     RunBallAndChainSourceContractTests();
+    if (args is ["--verify-runtime-symbols", string disassemblyRoot])
+        RuntimeSourceSymbolTests.Verify(Environment.CurrentDirectory, disassemblyRoot);
     Console.WriteLine("OracleImporter tests passed.");
 }
 finally

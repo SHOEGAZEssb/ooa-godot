@@ -49,7 +49,7 @@ internal abstract class RemoteMakuEvent :
         OracleSaveData save = Context.Rooms.SaveData;
         return group == record.Group &&
             room.Id == record.Room &&
-            (save.ReadWramByte(0xc6bf) & record.EssenceMask) != 0 &&
+            (save.ReadWramByte(WramAddress.wEssencesObtained) & record.EssenceMask) != 0 &&
             !save.HasRoomFlag(
                 record.Group,
                 record.Room,

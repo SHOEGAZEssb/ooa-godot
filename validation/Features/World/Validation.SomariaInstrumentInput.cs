@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         // checkUseItems allocates both inputs before updating ParentItem2..5.
         // Cane initializes in slot2; harpFluteParent state0 subsequently fails
         // checkNoOtherParentItemsInUse in slot5 before setting wcc95 bit7.
-        foreach (int instrument in new[] { InventoryState.ItemHarp, InventoryState.ItemFlute })
+        foreach (int instrument in new[] { TreasureId.Harp, TreasureId.Flute })
         foreach (bool canePrimary in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
@@ -18,10 +18,10 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
             _inventory.GiveTreasure(instrument, 0);
-            _inventory.EquipA(canePrimary ? InventoryState.ItemSomaria : instrument);
-            _inventory.EquipB(canePrimary ? instrument : InventoryState.ItemSomaria);
+            _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : instrument);
+            _inventory.EquipB(canePrimary ? instrument : TreasureId.CaneOfSomaria);
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);

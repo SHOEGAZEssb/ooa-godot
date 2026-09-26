@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             int ballState = ball.State, parentState = parent.State;
             int expiration = ball.ExpirationCounter, counter = parent.Counter1;
             Vector2 ballPosition = ball.Position, parentPosition = parent.Position;
-            _transitions.ApplyWarpWithFadeOut(_player, new Warp(4, 0xb4, -1, 0, 0, 4, 0xb4, 0x83, 0, 0));
+            _transitions.ApplyWarpWithFadeOut(_player, new Warp(4, 0xb4, -1, 0, 0, 4, 0xb4, 0x83, 0, WarpDestinationTransition.Basic));
             Step(31);
             FailIf(ball.State != ballState || parent.State != parentState ||
                 ball.Position != ballPosition || parent.Position != parentPosition ||

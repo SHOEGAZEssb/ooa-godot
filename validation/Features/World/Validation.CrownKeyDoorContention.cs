@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
                 FailIf(_inventory.GetDungeonSmallKeys(5) != 0 || !_keyDoors.Opening ||
                     _keyDoors.RemainingPushFrames != 20 || _keyDoors.OpeningCounter != 0 ||
                     _entities.Entities<DungeonKeyUseEffect>().Count != 1 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndGetSeed) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1,
                     "Reserved0 contention must debit before rejecting allocation, with no second key sprite or restarted opener.");
                 Step(10, Vector2.Right);
                 FailIf(!_dialogue.IsOpen || !_keyDoors.Opening || _inventory.GetDungeonSmallKeys(5) != 0,

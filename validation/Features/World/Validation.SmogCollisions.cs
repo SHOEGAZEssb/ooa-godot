@@ -8,13 +8,13 @@ public partial class ValidationRoot
     private void ValidateSmogCollisions()
     {
         var data = new SmogCollisionDatabase();
-        var record = new EnemyDatabase().ImportedEnemy(0x7c,0);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.Smog,0);
         for (int collision = 0; collision < 32; collision++)
         {
             bool enabled = collision == 0 || collision is >= 4 and <= 9;
             FailIf(data.Enabled(collision) != enabled || enabled &&
-                (data.Effect(7,collision) != (collision == 0 ? 0x3c : 0x1f) ||
-                data.Effect(0x4d,collision) != (collision == 0 ? 0x36 : 0x21)),
+                (data.Effect(EnemyCollisionMode.ProjectileWithRingMod,collision) != (collision == 0 ? 0x3c : 0x1f) ||
+                data.Effect(EnemyCollisionMode.Smog,collision) != (collision == 0 ? 0x36 : 0x21)),
                 $"Smog source mask and mode07/4d enabled effects mismatch at${collision:x2}.");
         }
         SmogCharacter Create(int kind)
@@ -76,7 +76,7 @@ public partial class ValidationRoot
         foreach (bool ring in new[] { false,true })
         {
             var save = OracleSaveData.CreateStandardGame();
-            if (ring) { save.WriteWramByte(0xc6cc,1); save.WriteWramByte(0xc6c6,(byte)RingId.GreenHoly); }
+            if (ring) { save.WriteWramByte(WramAddress.wRingBoxLevel,1); save.WriteWramByte(WramAddress.wRingBoxContents,(byte)RingId.GreenHoly); }
             var inventory = new InventoryState(_treasures,save);
             if (ring) FailIf(!inventory.EquipRingAt(0), "Smog fixture must equip Green Holy Ring.");
             var player = new Player(); AddChild(player);

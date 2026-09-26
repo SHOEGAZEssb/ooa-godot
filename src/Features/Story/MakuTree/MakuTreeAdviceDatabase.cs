@@ -30,7 +30,7 @@ internal sealed class MakuTreeAdviceDatabase
             new GeneratedTableSchema("Maku Tree related flower", GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "animation0", "animation1"], headerRequired: true)).SingleRow();
         string animation = flower.RequiredString(3);
-        Flower = new NpcRecord(Graphics.Group, Graphics.Room, 0x86, 0,
+        Flower = new NpcRecord(Graphics.Group, Graphics.Room, InteractionId.MakuFlower, 0,
             0x40, 0x50, 0, 0, flower.RequiredString(0), flower.UnsignedDecimal(1),
             flower.UnsignedDecimal(2), 0, false, animation, animation, animation, animation,
             string.Empty, NpcImplementationClassification.EventOwned);

@@ -18,11 +18,11 @@ public sealed partial class ValidationRoot
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, Vector2 movement = default, bool fire = false) =>
             StepGameplayUpdates(count, movement, fire ? ["attack"] : [], fire ? ["attack"] : [], batched: batch);
-        while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         _inventory.RefillHealth();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         _saveData.SetRoomFlag(4, 0x6b, 0xff, false);
         LoadValidationRoom(4, 0x6c);
         _inventory.GiveTreasure(new TreasureDatabase().GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
         {
             if (body.Health == 0) { Step(); continue; }
             bool vulnerable = body.State == 12;
-            if (!_player.IsUsingSwitchHook) _inventory.EquipA(vulnerable ? InventoryState.ItemSword : InventoryState.ItemSwitchHook);
+            if (!_player.IsUsingSwitchHook) _inventory.EquipA(vulnerable ? TreasureId.Sword : TreasureId.SwitchHook);
             Vector2 delta = body.Position - _player.Position;
             Vector2 move;
             if (vulnerable) move = delta.Length() > 13 ? delta.Normalized() : Vector2.Zero;
@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
             "State $04 consumption must precede Heart Container pose initialization.");
         Step();
         FailIf(!heart.Held || !_player.IsHoldingItemTwoHands || heart.Position != _player.Position + new Vector2(0, -14) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "State $04 initialization must enter the Heart Container's two-hand pose.");
         Vector2 heldPosition = _player.Position;
         Step(8, Vector2.Right);

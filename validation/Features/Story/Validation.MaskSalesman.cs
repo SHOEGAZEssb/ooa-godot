@@ -16,16 +16,16 @@ public sealed partial class ValidationRoot
         const int exteriorRoom = 0x53;
         const int tradeItemAddress = 0xc6c0;
         const int tradeObtainedAddress = 0xc69a +
-            (TreasureDatabase.TreasureTradeItem >> 3);
+            (TreasureId.TradeItem >> 3);
         const int tradeObtainedMask =
-            1 << (TreasureDatabase.TreasureTradeItem & 7);
+            1 << (TreasureId.TradeItem & 7);
 
         MaskSalesmanEvent maskEvent = _roomEvents.Get<MaskSalesmanEvent>();
         MaskSalesmanEventDatabase database = maskEvent.Database;
         MaskSalesmanEventRecord record = database.Record;
         byte originalRoomFlags = _saveData.GetRoomFlags(group, room);
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
 
         MaskSalesmanCharacter salesman = Salesman();
         FailIf(
-            salesman.Record is not { Id: 0x5c, SubId: 0x00 } ||
+            salesman.Record is not { Id: InteractionId.MaskSalesman, SubId: 0x00 } ||
             salesman.Position != new Vector2(0x70, 0x38) ||
             salesman.Record.SpriteName != "spr_masksalesman_rafton" ||
             !maskEvent.HasState || maskEvent.BlocksGameplay ||
@@ -179,7 +179,7 @@ public sealed partial class ValidationRoot
         FinishHungerPreamble(expectTradePrompt: false);
 
         _inventory.GiveTreasure(
-            TreasureDatabase.TreasureTradeItem, record.RequiredTradeItem);
+            TreasureId.TradeItem, record.RequiredTradeItem);
         LoadValidationRoom(group, room);
         StepRoomEventFrames(1);
         BeginPreamble();
@@ -249,7 +249,7 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagItem) ||
             !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(rewardObject.Message) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "maskSalesmanScript giveitem did not grant the Doggie Mask through " +
             "grab mode $02 with text, sounds, inventory, and room bit $20.");
 
@@ -320,18 +320,18 @@ public sealed partial class ValidationRoot
             !hasEntry ||
             entry is not
             {
-                SourcePosition: -1, EdgeMask: 0, SourceTransition: 4,
+                SourcePosition: -1, EdgeMask: 0, SourceTransition: WarpSourceTransition.Instant,
                 DestinationGroup: 2, DestinationRoom: 0xe6,
                 DestinationPosition: 0xf7, DestinationParameter: 9,
-                DestinationTransition: 3
+                DestinationTransition: WarpDestinationTransition.EnterScreen
             } ||
             !hasExit ||
             exit is not
             {
-                SourcePosition: -1, EdgeMask: 8, SourceTransition: 3,
+                SourcePosition: -1, EdgeMask: 8, SourceTransition: WarpSourceTransition.LeaveScreen,
                 DestinationGroup: 0, DestinationRoom: 0x53,
                 DestinationPosition: 0x52, DestinationParameter: 0,
-                DestinationTransition: 14
+                DestinationTransition: WarpDestinationTransition.XShifted
             },
             "Rooms 0:53/2:e6 did not retain Rafton's two-tile tree entry " +
             $"and right-half bottom exit (positions=" +
@@ -390,7 +390,7 @@ public sealed partial class ValidationRoot
                 !commandStarts.Any(entry => entry.Source.Opcode == opcode)),
             "Mask Salesman typed trace lost source lines or a required script opcode.");
 
-        _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+        _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
         reloadInventory.Invoke(_inventory, null);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })

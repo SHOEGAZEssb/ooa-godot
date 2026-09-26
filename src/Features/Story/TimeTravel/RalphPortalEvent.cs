@@ -20,7 +20,7 @@ internal sealed class RalphPortalEvent :
         _context = context;
         _record = _database.Record;
         _runner = new CutsceneCommandRunner(this);
-        if (_record.GlobalFlag != OracleSaveData.GlobalFlagRalphEnteredPortal)
+        if (_record.GlobalFlag != GlobalFlag.RalphEnteredPortal)
         {
             throw new InvalidOperationException(
                 $"Ralph portal event uses global flag ${_record.GlobalFlag:x2}, expected $40.");
@@ -157,7 +157,7 @@ internal sealed class RalphPortalEvent :
             throw new InvalidOperationException($"Unknown Ralph native script handler '{handler}'.");
         // scriptHelp.ralph_restoreMusic writes MUS_OVERWORLD to both active
         // music slots and restarts it before enableinput and scriptend.
-        _context.Sound.PlaySound(OracleSoundEngine.MusOverworld);
+        _context.Sound.PlaySound(SoundId.MusOverworld);
     }
 
     void ICutsceneCommandHost.ScriptEnded()

@@ -32,7 +32,7 @@ internal sealed class TokayTradingEvent :
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (HasState || !npc.Active || npc.Record is not { Id: 0x48, SubId: 0x0e })
+        if (HasState || !npc.Active || npc.Record is not { Id: InteractionId.Tokay, SubId: 0x0e })
             return false;
 
         ShowDialogueOnly(
@@ -127,17 +127,17 @@ internal sealed class TokayTradingEvent :
         switch (item.SubId)
         {
             case 0:
-                if (OffersSeeds(0x24))
+                if (OffersSeeds(TreasureId.MysterySeeds))
                     ShowChoice(0x0a2b);
-                else if (Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
+                else if (Context.Inventory.HasTreasure(TreasureId.Shovel))
                     ShowChoice(0x0a2c);
                 else
                     ShowChoice(0x0a27);
                 break;
             case 1:
-                if (OffersSeeds(0x21))
+                if (OffersSeeds(TreasureId.ScentSeeds))
                     ShowChoice(0x0a32);
-                else if (Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel))
+                else if (Context.Inventory.HasTreasure(TreasureId.Shovel))
                     ShowChoice(0x0a33);
                 else
                     ShowChoice(0x0a30);
@@ -159,7 +159,7 @@ internal sealed class TokayTradingEvent :
     }
 
     private bool OffersSeeds(int treasure) =>
-        Context.Inventory.HasTreasure(TreasureDatabase.TreasureSeedSatchel) &&
+        Context.Inventory.HasTreasure(TreasureId.SeedSatchel) &&
         Context.Inventory.HasTreasure(treasure);
 
     private void ResolveShopChoice(bool returnTextClosed = false)
@@ -170,10 +170,10 @@ internal sealed class TokayTradingEvent :
         {
             bool firstDecline = item.SubId switch
             {
-                0 => OffersSeeds(0x24) ||
-                    Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
-                1 => OffersSeeds(0x21) ||
-                    Context.Inventory.HasTreasure(TreasureDatabase.TreasureShovel),
+                0 => OffersSeeds(TreasureId.MysterySeeds) ||
+                    Context.Inventory.HasTreasure(TreasureId.Shovel),
+                1 => OffersSeeds(TreasureId.ScentSeeds) ||
+                    Context.Inventory.HasTreasure(TreasureId.Shovel),
                 >= 4 => true,
                 _ => false
             };
@@ -184,8 +184,8 @@ internal sealed class TokayTradingEvent :
 
         InventoryState inventory = Context.Inventory;
         bool returningItem = item.SubId is 2 or 3 ||
-            (item.SubId is 0 or 1 && !OffersSeeds(item.SubId == 0 ? 0x24 : 0x21) &&
-             !inventory.HasTreasure(TreasureDatabase.TreasureShovel));
+            (item.SubId is 0 or 1 && !OffersSeeds(item.SubId == 0 ? TreasureId.MysterySeeds : TreasureId.ScentSeeds) &&
+             !inventory.HasTreasure(TreasureId.Shovel));
         if (returningItem && !returnTextClosed)
         {
             Show(0x0a28);
@@ -201,52 +201,52 @@ internal sealed class TokayTradingEvent :
         int insufficientSeedsText = 0;
         switch (item.SubId)
         {
-            case 0 when OffersSeeds(0x24):
-                giveTreasure = TreasureDatabase.TreasureFeather;
+            case 0 when OffersSeeds(TreasureId.MysterySeeds):
+                giveTreasure = TreasureId.Feather;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_FEATHER_02";
                 globalFlag = _shop.BoughtFeatherFlag;
                 seedTreasure = 0x24;
                 insufficientSeedsText = 0x0a2e;
                 break;
-            case 0 when inventory.HasTreasure(TreasureDatabase.TreasureShovel):
-                giveTreasure = TreasureDatabase.TreasureFeather;
+            case 0 when inventory.HasTreasure(TreasureId.Shovel):
+                giveTreasure = TreasureId.Feather;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_FEATHER_02";
-                loseTreasure = TreasureDatabase.TreasureShovel;
+                loseTreasure = TreasureId.Shovel;
                 break;
             case 0:
-                giveTreasure = TreasureDatabase.TreasureShovel;
+                giveTreasure = TreasureId.Shovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
-                loseTreasure = TreasureDatabase.TreasureBracelet;
+                loseTreasure = TreasureId.Bracelet;
                 break;
-            case 1 when OffersSeeds(0x21):
-                giveTreasure = TreasureDatabase.TreasureBracelet;
+            case 1 when OffersSeeds(TreasureId.ScentSeeds):
+                giveTreasure = TreasureId.Bracelet;
                 parameter = 3;
                 objectName = "TREASURE_OBJECT_BRACELET_03";
                 globalFlag = _shop.BoughtBraceletFlag;
                 seedTreasure = 0x21;
                 insufficientSeedsText = 0x0a34;
                 break;
-            case 1 when inventory.HasTreasure(TreasureDatabase.TreasureShovel):
-                giveTreasure = TreasureDatabase.TreasureBracelet;
+            case 1 when inventory.HasTreasure(TreasureId.Shovel):
+                giveTreasure = TreasureId.Bracelet;
                 parameter = 3;
                 objectName = "TREASURE_OBJECT_BRACELET_03";
-                loseTreasure = TreasureDatabase.TreasureShovel;
+                loseTreasure = TreasureId.Shovel;
                 break;
             case 1:
             case 2:
-                giveTreasure = TreasureDatabase.TreasureShovel;
+                giveTreasure = TreasureId.Shovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
-                loseTreasure = TreasureDatabase.TreasureFeather;
+                loseTreasure = TreasureId.Feather;
                 break;
             case 3:
-                giveTreasure = TreasureDatabase.TreasureShovel;
+                giveTreasure = TreasureId.Shovel;
                 parameter = 2;
                 objectName = "TREASURE_OBJECT_SHOVEL_02";
-                loseTreasure = TreasureDatabase.TreasureBracelet;
+                loseTreasure = TreasureId.Bracelet;
                 break;
             default:
                 if (inventory.ShieldLevel != 0)
@@ -255,7 +255,7 @@ internal sealed class TokayTradingEvent :
                     _stage = TokayTradingStage.ShopResultText;
                     return;
                 }
-                giveTreasure = TreasureDatabase.TreasureShield;
+                giveTreasure = TreasureId.Shield;
                 parameter = item.SubId - 4;
                 objectName = $"TREASURE_OBJECT_SHIELD_{parameter:x2}";
                 seedTreasure = 0x21;
@@ -289,7 +289,7 @@ internal sealed class TokayTradingEvent :
             Context.Rooms.SaveData.SetGlobalFlag(globalFlag);
             item.Remove();
         }
-        if (giveTreasure == TreasureDatabase.TreasureShield)
+        if (giveTreasure == TreasureId.Shield)
             item.Remove();
         _braceletPurchased = globalFlag == _shop.BoughtBraceletFlag;
         _reward = Context.GrantScriptTreasure(
@@ -308,10 +308,10 @@ internal sealed class TokayTradingEvent :
         int treasure,
         int subId) => (treasure, subId) switch
     {
-        (TreasureDatabase.TreasureFeather, 0x02) => 0x01,
-        (TreasureDatabase.TreasureBracelet, 0x03) => 0x01,
-        (TreasureDatabase.TreasureShovel, 0x02) => 0x00,
-        (TreasureDatabase.TreasureShield, >= 0x00 and <= 0x02) => subId + 1,
+        (TreasureId.Feather, 0x02) => 0x01,
+        (TreasureId.Bracelet, 0x03) => 0x01,
+        (TreasureId.Shovel, 0x02) => 0x00,
+        (TreasureId.Shield, >= 0x00 and <= 0x02) => subId + 1,
         _ => throw new InvalidOperationException(
             $"tokayShopItemScript has no reward contract for " +
             $"${treasure:x2}:${subId:x2}.")
@@ -344,27 +344,27 @@ internal sealed class TokayTradingEvent :
         int treasure;
         if (item.OriginalSubId == 0)
         {
-            subId = Context.Inventory.HasTreasure(TreasureDatabase.TreasureFeather)
+            subId = Context.Inventory.HasTreasure(TreasureId.Feather)
                 ? 2
                 : 0;
             treasure = subId == 2
-                ? TreasureDatabase.TreasureShovel
-                : TreasureDatabase.TreasureFeather;
+                ? TreasureId.Shovel
+                : TreasureId.Feather;
         }
         else if (item.OriginalSubId == 1)
         {
-            subId = Context.Inventory.HasTreasure(TreasureDatabase.TreasureBracelet)
+            subId = Context.Inventory.HasTreasure(TreasureId.Bracelet)
                 ? 3
                 : 1;
             treasure = subId == 3
-                ? TreasureDatabase.TreasureShovel
-                : TreasureDatabase.TreasureBracelet;
+                ? TreasureId.Shovel
+                : TreasureId.Bracelet;
         }
         else
         {
             subId = Math.Clamp(
                 4 + Math.Max(0, Context.Inventory.ShieldLevel - 1), 4, 6);
-            treasure = TreasureDatabase.TreasureShield;
+            treasure = TreasureId.Shield;
         }
 
         TokayShopPlacementRecord visual = _shop.Visual(subId) with

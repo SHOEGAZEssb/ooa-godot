@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         RemoteMakuEventRecord remoteRecord = remote.Database.Record;
         var remoteText = (CutsceneShowTextVariantsCommand)
             remote.Database.Commands[10];
-        byte originalEssences = _saveData.ReadWramByte(0xc6bf);
+        byte originalEssences = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
         bool originalRoomFlag = _saveData.HasRoomFlag(
             group, room, (byte)record.RoomFlag);
         bool originalPastFlag = _saveData.HasRoomFlag(
@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
 
         void SetEssences(int value)
         {
-            if (_saveData.WriteWramByte(0xc6bf, (byte)value))
+            if (_saveData.WriteWramByte(WramAddress.wEssencesObtained, (byte)value))
                 _saveData.CommitInventoryChange();
         }
 
@@ -134,13 +134,13 @@ public sealed partial class ValidationRoot
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.InitialWait ||
                 postD3.Counter != 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) != 0,
+                _sound.PlayRequestsFor(SoundId.SndLightning) != 0,
                 "Room 0:ba lightning began before the 90th update.");
             StepRoomEventFrames(1);
             FailIf(
                 postD3.Stage != PostD3RemoteMakuStage.InitialFlash ||
                 postD3.InitialFlashCounter != 1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndLightning) != 1,
+                _sound.PlayRequestsFor(SoundId.SndLightning) != 1,
                 "Room 0:ba did not arm flashScreen b=$01 and play lightning " +
                 "on the 90th update.");
             StepRoomEventFrames(record.FlashFrames);
@@ -165,7 +165,7 @@ public sealed partial class ValidationRoot
                 postD3.Nayru.Position != new Vector2(0x58, 0x28) ||
                 _player.Position != entrancePosition ||
                 _player.Visible ||
-                _sound.ActiveMusic != OracleSoundEngine.MusDisaster,
+                _sound.ActiveMusic != SoundId.MusDisaster,
                 "The cutscene-only room 1:16 load did not create Ambi " +
                 "$4d:$08 and possessed Nayru $36:$0e in source order.");
             StepRoomEventFrames(record.FadeFrames);
@@ -234,12 +234,12 @@ public sealed partial class ValidationRoot
                 postD3.HasState || remote.Stage != RemoteMakuEventStage.Running ||
                 remote.Record is not
                 {
-                    Group: group, Room: room, InteractionId: 0x8a,
+                    Group: group, Room: room, InteractionId: InteractionId.RemoteMakuCutscene,
                     SubId: 0, Var03: 4, EssenceMask: 0x04,
                     ConfettiKind: RemoteMakuConfettiKind.Present
                 } || !_player.CutsceneControlled ||
                 remote.CommandInstruction != 3 ||
-                _sound.ActiveMusic != OracleSoundEngine.MusMakuTree,
+                _sound.ActiveMusic != SoundId.MusMakuTree,
                 "Room 0:ba did not transfer ownership to imported " +
                 "$8a:$00/v$04 after the return fade.");
             StepToRemoteDialogue();

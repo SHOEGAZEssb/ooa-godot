@@ -48,7 +48,7 @@ internal sealed class VineSproutDatabase
                     DefaultPosition: 0x41,
                     TileBase: 0x12,
                     Palette: 0,
-                    SpeedRaw: 0x1e,
+                    SpeedRaw: ObjectSpeed.Speedc0,
                     PushDelay: 20,
                     MoveFrames: 22,
                     CliffOverlapRadius: 6,

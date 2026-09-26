@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonColorGels()
     {
         var data = new EnemyDatabase();
-        var record = data.ImportedEnemy(0x47, 0);
+        var record = data.ImportedEnemy(EnemyId.ColorChangingGel, 0);
         var profile = EnemyBehaviorTables.Shared.ColorChangingGel;
         FailIf(record is not { Health: 1, RadiusX: 2, RadiusY: 2, Palette: 2, TileBase: 28 } ||
             !profile.FloorColors.Select(v => v.Value).SequenceEqual(new[] { 0x9d, 2, 0x9e, 6, 0x9f, 1, 0xad, 2, 0xae, 6, 0xaf, 1 }) ||
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             "Matching-color hook effect1c must only queue the hit signal.");
         gel.UpdateFrame();
         FailIf(gel.InvincibilityCounter != -11 || gel.Counter != before - 1 ||
-            !sounds.SequenceEqual(new[] { OracleSoundEngine.SndDamageEnemy }),
+            !sounds.SequenceEqual(new[] { SoundId.SndDamageEnemy }),
             "Gel JUST_HIT must write -12 before common advancement and continue its normal handler.");
         for (int i = 0; i < 11; i++) gel.UpdateFrame();
         var source = data.GetRoomObjects(4, 0x71).First(r => r.Id == 0x47);
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                 $"Matching seed ${seed:x2} incorrectly damaged, burned or produced sword deflection.");
         }
         FailIf(gel.InvincibilityCounter != 0 ||
-            adapter.ApplySeedHit(gel.CollisionBounds, center, 0x24, spawns) != SeedHitResult.Activate,
+            adapter.ApplySeedHit(gel.CollisionBounds, center, ItemId.MysterySeed, spawns) != SeedHitResult.Activate,
             "Gel did not accept a Mystery Seed after deflection expired.");
         long calls = random.Calls;
         gel.UpdateFrame();
@@ -217,8 +217,8 @@ public sealed partial class ValidationRoot
     {
         void Step(int n = 1, bool press = false) =>
             StepGameplayUpdates(n, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
         (int Health, bool Dead, int Mode, int Counter) Run(bool vulnerable, bool batch)
         {

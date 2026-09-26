@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             // getFreeInteractionSlot searches $d2..$df. Leave the final
             // zero, one or two slots free immediately before completion.
             for (int i = 0; i < 14 - freeSlots; i++)
-                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), 0));
+                _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 120), SoundId.MusNone));
             for (int i = 0; i < queued; i++)
                 FailIf(!_rooms.TrySetTile(0x11, 0xa0), "Toggle fixture must fill the requested queue entries.");
             StepGameplayUpdates(1, Vector2.Zero);

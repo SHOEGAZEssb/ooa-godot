@@ -36,7 +36,7 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
         _precisePosition =
             Center + OracleObjectMovement.Shared.Direction(radialAngle) * 0x35;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        _angle = (radialAngle + 8) & 0x1f;
+        _angle = (radialAngle + 8) & ObjectAngle.Mask;
         Name = $"CircularSideScrollPlatform_{record.SubId}";
         ZIndex = NpcCharacter.FixedLowPriorityZIndex;
         InitializeVisual(visual, Position);
@@ -54,7 +54,7 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
         if (--_counter == 0)
         {
             _counter = 14;
-            _angle = (_angle + 1) & 0x1f;
+            _angle = (_angle + 1) & ObjectAngle.Mask;
         }
         Vector2I previousHigh = new(
             Mathf.FloorToInt(_precisePosition.X),

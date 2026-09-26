@@ -26,7 +26,7 @@ internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
     internal bool TryInteractNpc(NpcCharacter npc)
     {
         if (HasState || !npc.Active ||
-            npc.Record.Id != 0x48 || npc.Record.SubId is < 0x06 or > 0x0a)
+            npc.Record.Id != InteractionId.Tokay || npc.Record.SubId is < 0x06 or > 0x0a)
         {
             return false;
         }
@@ -128,7 +128,7 @@ internal sealed class TokayHoldingItemEvent : TokayScriptEvent, IRoomEvent
         actor.RemoveHeldItem();
         actor.SetFacingDirection(Godot.Vector2I.Down);
         actor.NativeAnimation = TokayAnimationMode.FaceLink;
-        if (item.Treasure == TreasureDatabase.TreasureSeedSatchel)
+        if (item.Treasure == TreasureId.SeedSatchel)
             Context.Inventory.PrepareReturnedTokaySeedSatchel();
         _reward = Context.GrantScriptTreasure(
             Context.Rooms.ActiveGroup,

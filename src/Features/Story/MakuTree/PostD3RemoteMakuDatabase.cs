@@ -97,7 +97,7 @@ internal sealed class PostD3RemoteMakuDatabase
     {
         if (Record is not
             {
-                Group: 0, Room: 0xba, InteractionId: 0x6b, SubId: 0x06,
+                Group: 0, Room: 0xba, InteractionId: InteractionId.Miscellaneous1, SubId: 0x06,
                 EssenceMask: 0x04, RoomFlag: 0x40, InitialWait: 90,
                 FlashFrames: 13, FadeFrames: 32, PalaceGroup: 1,
                 PalaceRoom: 0x16, AmbiId: 0x4d, AmbiSubId: 0x08,
@@ -110,7 +110,7 @@ internal sealed class PostD3RemoteMakuDatabase
                 ReturnY: 0x65, ReturnX: 0x58, ReturnDirection: 0x02,
                 PastFlagGroup: 1, PastFlagRoom: 0x76,
                 PastRoomFlag: 0x01, StandardGlobalFlag: 0x1d,
-                Music: OracleSoundEngine.MusDisaster
+                Music: SoundId.MusDisaster
             } || PossessedNayruPalette.Length != 4)
         {
             throw new InvalidOperationException(

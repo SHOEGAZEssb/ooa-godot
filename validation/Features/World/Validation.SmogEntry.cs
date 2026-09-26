@@ -121,7 +121,7 @@ public partial class ValidationRoot
         // That repeats room initialization in normal scrollMode1, not the
         // scrolling mode8 captured when the placed sentinel was constructed.
         int stops = 0;
-        void Sound(int id) { if (id == OracleSoundEngine.SndCtrlStopMusic) stops++; }
+        void Sound(int id) { if (id == SoundId.SndCtrlStopMusic) stops++; }
         _entities.SoundRequested += Sound;
         try
         {

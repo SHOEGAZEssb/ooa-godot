@@ -63,12 +63,12 @@ public sealed class MainMenuController
         if (startAtFileSelect)
         {
             _screen.ShowFileSelect();
-            _playSound?.Invoke(OracleSoundEngine.MusFileSelect);
+            _playSound?.Invoke(SoundId.MusFileSelect);
         }
         else
         {
             _screen.ShowTitle();
-            _playSound?.Invoke(OracleSoundEngine.MusTitlescreen);
+            _playSound?.Invoke(SoundId.MusTitlescreen);
         }
     }
 
@@ -121,7 +121,7 @@ public sealed class MainMenuController
             }
             _screen.SetEraseHealth(--_eraseHealth);
             if ((_eraseHealth & 3) == 0)
-                _playSound?.Invoke(OracleSoundEngine.SndGainHeart);
+                _playSound?.Invoke(SoundId.SndGainHeart);
             return;
         }
 
@@ -205,13 +205,13 @@ public sealed class MainMenuController
                 7 => Vector2I.Down, 6 => Vector2I.Up,
                 5 => Vector2I.Left, _ => Vector2I.Right
             });
-            _playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+            _playSound?.Invoke(SoundId.SndMenuMove);
         }
         else if (button == 1) Back();
         else if (button == 0) Accept();
         else
         {
-            _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+            _playSound?.Invoke(SoundId.SndSelectItem);
             // US Select deliberately only makes the selection sound.
             if (button == 3 && _screen.SelectNameOkay()) CommitNameEntry();
         }
@@ -225,8 +225,8 @@ public sealed class MainMenuController
 
     internal void BeginTitleStart()
     {
-        _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
-        _playSound?.Invoke(OracleSoundEngine.SndCtrlFastFadeOut);
+        _playSound?.Invoke(SoundId.SndSelectItem);
+        _playSound?.Invoke(SoundId.SndCtrlFastFadeOut);
         BeginFade(FadeDestination.FileSelect);
     }
 
@@ -273,7 +273,7 @@ public sealed class MainMenuController
         if (_screen.Cursor != cursor || _screen.Choice != choice ||
             _screen.NameCursor != nameCursor || _screen.TextSpeed != textSpeed)
         {
-            _playSound?.Invoke(OracleSoundEngine.SndMenuMove);
+            _playSound?.Invoke(SoundId.SndMenuMove);
         }
     }
 
@@ -286,7 +286,7 @@ public sealed class MainMenuController
             return;
         }
         if (_screen.CurrentPage != Page.EraseConfirm)
-            _playSound?.Invoke(OracleSoundEngine.SndSelectItem);
+            _playSound?.Invoke(SoundId.SndSelectItem);
         switch (_screen.CurrentPage)
         {
             case Page.FileSelect:
@@ -366,21 +366,21 @@ public sealed class MainMenuController
                 _screen.SetCursor(_screen.SelectedSlot);
                 break;
             case Page.NameEntry:
-                _playSound?.Invoke(OracleSoundEngine.SndClink);
+                _playSound?.Invoke(SoundId.SndClink);
                 _screen.DeleteNameCharacter();
                 break;
             case Page.CopyDestination:
-                _playSound?.Invoke(OracleSoundEngine.SndClink);
+                _playSound?.Invoke(SoundId.SndClink);
                 _screen.ShowCopySource();
                 _screen.SetCursor(_sourceSlot);
                 break;
             case Page.CopyConfirm:
-                _playSound?.Invoke(OracleSoundEngine.SndClink);
+                _playSound?.Invoke(SoundId.SndClink);
                 _screen.ShowCopyDestination(_sourceSlot);
                 _screen.SetCursor(_screen.SelectedSlot);
                 break;
             case Page.EraseConfirm:
-                _playSound?.Invoke(OracleSoundEngine.SndClink);
+                _playSound?.Invoke(SoundId.SndClink);
                 _screen.ShowEraseSelect();
                 _screen.SetCursor(_screen.SelectedSlot);
                 break;
@@ -462,7 +462,7 @@ public sealed class MainMenuController
         }
         if (_slots[_screen.Cursor] is null)
         {
-            _playSound?.Invoke(OracleSoundEngine.SndError);
+            _playSound?.Invoke(SoundId.SndError);
             return;
         }
         _sourceSlot = _screen.Cursor;
@@ -520,7 +520,7 @@ public sealed class MainMenuController
         _screen.SetWhiteFade(0.0f);
         if (destination == FadeDestination.FileSelect)
         {
-            _playSound?.Invoke(OracleSoundEngine.MusFileSelect);
+            _playSound?.Invoke(SoundId.MusFileSelect);
             OpenFileSelect();
             return;
         }

@@ -27,9 +27,9 @@ public partial class ValidationRoot
             _player.WarpTo(new(56,120));
             _player.Face(Vector2I.Right);
             FailIf(_currentRoom.IsSolid(_player.Position),"Cane must start on actual floor west of button$74.");
-            _inventory.GiveTreasure(InventoryState.ItemSomaria,1);
-            _inventory.EquipA(InventoryState.ItemSomaria);
-            _inventory.EquipB(InventoryState.ItemNone);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria,1);
+            _inventory.EquipA(TreasureId.CaneOfSomaria);
+            _inventory.EquipB(TreasureId.None);
             Step();
             FailIf(_entities.ActiveTriggers!=0x0b || _currentRoom.Layout[0x57]==0xf1,
                 "Three pre-positioned statues must press only bits0,1,3 without creating the chest.");

@@ -37,7 +37,7 @@ public partial class ValidationRoot
         var room = Room060MovementFixture();
         var eye = new BeamosCharacter();
         bool available = true;
-        eye.Initialize(database.ImportedEnemy(0x16), room, new Vector2(72, 72),
+        eye.Initialize(database.ImportedEnemy(EnemyId.Beamos), room, new Vector2(72, 72),
             random, sounds.Add, () => available, () => 0);
         byte tile = room.GetMetatile(eye.Position);
         eye.InitializeState();
@@ -132,7 +132,7 @@ public partial class ValidationRoot
             data.TileBase != 8 || data.Palette != 4 || data.Animations.Length != 8,
             "PART_BEAM $29 source attributes changed.");
         var room = Room060MovementFixture();
-        var beam = new BeamosBeamPart(new(new Vector2(72, 72), 8, 1), data, room);
+        var beam = new BeamosBeamPart(new(new Vector2(72, 72), ObjectAngle.Right, 1), data, room);
         room.SetPositionTileAndCollision(new Vector2(80,72), room.GetMetatile(new Vector2(80,72)), 0x0f, 0);
         beam.UpdateFrame(0);
         beam.UpdateFrame(1);
@@ -152,7 +152,7 @@ public partial class ValidationRoot
         beam.UpdateFrame(2);
         FailIf(beam.Finished || beam.CollisionEnabled, "$29 ignores zero health while retaining a cleared collision bit.");
         beam.Free();
-        beam = new BeamosBeamPart(new(new Vector2(room.Width - 8,72), 8, 0), data, room);
+        beam = new BeamosBeamPart(new(new Vector2(room.Width - 8,72), ObjectAngle.Right, 0), data, room);
         beam.UpdateFrame(0);
         beam.UpdateFrame(1);
         beam.UpdateFrame(2);
@@ -163,14 +163,14 @@ public partial class ValidationRoot
             var save = OracleSaveData.CreateStandardGame();
             var inventory = new InventoryState(_treasures, save);
             inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{level - 1}"));
-            inventory.EquipA(InventoryState.ItemShield);
+            inventory.EquipA(TreasureId.Shield);
             var world = new ValidationRingPlayerWorld();
             var player = new Player();
             AddChild(player);
             player.Initialize(world, inventory, new Vector2(72,72), new OracleRandom());
             player.Face(Vector2I.Right);
             player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-            beam = new BeamosBeamPart(new(player.ShieldCollisionBounds.GetCenter(), 24, 0), data, room);
+            beam = new BeamosBeamPart(new(player.ShieldCollisionBounds.GetCenter(), ObjectAngle.Left, 0), data, room);
             beam.UpdateFrame(0);
             beam.HandleLinkContact(player);
             FailIf(beam.Finished, "$29 must defer its $83 deletion until the next part update.");
@@ -182,14 +182,14 @@ public partial class ValidationRoot
         foreach (bool ring in new[] { false, true })
         {
             var save = OracleSaveData.CreateStandardGame();
-            if (ring) { save.WriteWramByte(0xc6cc, 1); save.WriteWramByte(0xc6c6, (byte)RingId.BlueLuck); }
+            if (ring) { save.WriteWramByte(WramAddress.wRingBoxLevel, 1); save.WriteWramByte(WramAddress.wRingBoxContents, (byte)RingId.BlueLuck); }
             var inventory = new InventoryState(_treasures, save);
             if (ring) FailIf(!inventory.EquipRingAt(0), "Could not equip Blue Luck Ring for $29 collision.");
             var player = new Player();
             AddChild(player);
             player.Initialize(new ValidationRingPlayerWorld(), inventory, new Vector2(72,72), new OracleRandom());
             int health = player.HealthQuarters;
-            beam = new BeamosBeamPart(new(player.Position, 8, 0), data, room);
+            beam = new BeamosBeamPart(new(player.Position, ObjectAngle.Right, 0), data, room);
             beam.UpdateFrame(0);
             beam.HandleLinkContact(player);
             FailIf(player.HealthQuarters != health - (ring ? 1 : 2) || beam.Finished,

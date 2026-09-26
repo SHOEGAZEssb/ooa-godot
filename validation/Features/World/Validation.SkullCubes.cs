@@ -23,14 +23,14 @@ public sealed partial class ValidationRoot
         int[] colors = [1, 0, 0, 2, 2, 1];
         // Keep native enemy contact/knockback active during the puzzle route;
         // equip enough legitimate health to survive the trap-side approach.
-        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+        for (int i = 0; i < 11; i++) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
         _inventory.RefillHealth();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 1);
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.GiveTreasure(TreasureId.Sword, 1);
+        _inventory.EquipA(TreasureId.Sword);
         var database = new SkullDungeonDatabase();
         FailIf(database.GetRoomRecords(4, 0x72) is not [
-            { Id: 0x15 }, { Id: 0x1b, SubId: 0, Order: 1, X: 0xc0, Y: 0x88 },
-            { Id: 0x21, SubId: 7, Order: 2, X: 1, Y: 0x8d }],
+            { Id: InteractionId.ToggleFloor }, { Id: InteractionId.MinecartGate, SubId: 0, Order: 1, X: 0xc0, Y: 0x88 },
+            { Id: InteractionId.DungeonEvents, SubId: 7, Order: 2, X: 1, Y: 0x8d }],
             "4:72 lost its source floor/gate/bit-consumer order.");
         LoadValidationRoom(4, 0x72);
         _player.WarpTo(new Vector2(152, 72));

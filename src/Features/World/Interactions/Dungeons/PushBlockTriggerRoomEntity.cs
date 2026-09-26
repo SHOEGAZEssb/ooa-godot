@@ -32,7 +32,7 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
         Func<long> animationTick)
         : base(record, $"PushBlockTrigger_{record.Order}")
     {
-        if (record is not { Id: 0x13, SubId: 0x01 })
+        if (record is not { Id: InteractionId.PushBlockTrigger, SubId: 0x01 })
             throw new ArgumentOutOfRangeException(nameof(record));
         _room = room;
         _data = data;

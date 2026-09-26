@@ -18,16 +18,16 @@ public sealed partial class ValidationRoot
                 { Order: 0, Id: 0x5a, SubId: 0x06,
                   SeedType: 0, RefillIndex: 6 } ||
             database.Type(0) is not
-                { TreasureId: TreasureDatabase.TreasureEmberSeeds,
+                { TreasureId: TreasureId.EmberSeeds,
                   TileBase: 0x12, Palette: 2, IntroTextId: 0x0029 },
             "The imported 0:78 Ember Seed tree record is incomplete.");
 
         var runtime = new OracleRuntimeState();
         FailIf(
             runtime.ReadWramByte(
-                OracleRuntimeState.SeedTreeRefilledBitsetAddress) != 0xf0 ||
+                WramAddress.wSeedTreeRefilledBitset) != 0xf0 ||
             runtime.ReadWramByte(
-                OracleRuntimeState.SeedTreeRefilledBitsetAddress + 1) != 0xff ||
+                WramAddress.wSeedTreeRefilledBitset + 1) != 0xff ||
             !database.IsRefilled(runtime, canonical.RefillIndex),
             "initializeSeedTreeRefillData did not restore Ages' `$f0,$ff bitset.");
 
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
         var collectionRuntime = new OracleRuntimeState();
         var collectionInventory = new InventoryState(treasures);
         collectionInventory.GiveTreasure(
-            TreasureDatabase.TreasureSeedSatchel, 1);
+            TreasureId.SeedSatchel, 1);
         for (int index = 0; index < 14; index++)
         {
             FailIf(
@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
             database.IsRefilled(collectionRuntime, canonical.RefillIndex) ||
             collectionInventory.EmberSeeds != 0x12 ||
             sounds.Count(sound =>
-                sound == OracleSoundEngine.SndGetSeed) != 1 ||
+                sound == SoundId.SndGetSeed) != 1 ||
             collectionManager.Entities<SeedOnTree>().Count != 2,
             "A collected 0:78 seed did not grant BCD six, play SND_GETSEED, " +
             "notify its controller, and leave its siblings active.");

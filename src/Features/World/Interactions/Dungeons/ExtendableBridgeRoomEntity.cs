@@ -44,14 +44,14 @@ internal sealed partial class ExtendableBridgeRoomEntity :
         Action<int> playSound)
         : base(record, $"ExtendableBridge_{record.Parameter}_{record.Order}")
     {
-        if (record.Id != 0x23 || record.SubId > 0x07 || record.Parameter > 6)
+        if (record.Id != InteractionId.ExtendableBridge || record.SubId > 0x07 || record.Parameter > 6)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;
         _data = data;
         _runtime = runtime;
-        _creation = data.TilePattern(0x23, record.Parameter);
-        _removal = data.TilePattern(0x23, 0x80 | record.Parameter);
+        _creation = data.TilePattern(InteractionId.ExtendableBridge, record.Parameter);
+        _removal = data.TilePattern(InteractionId.ExtendableBridge, 0x80 | record.Parameter);
         if (_creation.Count == 0 || _removal.Count != _creation.Count)
         {
             throw new InvalidOperationException(

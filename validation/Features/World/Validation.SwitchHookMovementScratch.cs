@@ -15,8 +15,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, level);
-            _inventory.EquipA(InventoryState.ItemSwitchHook);
+            _inventory.GiveTreasure(TreasureId.SwitchHook, level);
+            _inventory.EquipA(TreasureId.SwitchHook);
             _player.WarpTo(new(120, 80));
             _player.Face(Vector2I.Up);
             for (int y = 48; y <= 96; y += 16)

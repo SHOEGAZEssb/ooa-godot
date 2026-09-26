@@ -31,8 +31,8 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             ResetValidationInput();
-            _saveData.SetGlobalFlag(0x14, false);
-            _saveData.SetGlobalFlag(0x11, savedNayru);
+            _saveData.SetGlobalFlag(GlobalFlag.FinishedGame, false);
+            _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, savedNayru);
             _saveData.SetLinkedGame(false);
             LoadValidationRoom(3, 0xf8);
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
         foreach (byte essence in new byte[] { 0, 1, 2, 3 })
         {
             _saveData.SetLinkedGame(linked);
-            _saveData.WriteWramByte(0xc6bf, essence);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, essence);
             _saveData.CommitInventoryChange();
             LoadValidationRoom(3, 0xf8);
             bool visible = _entities.Entities<NpcCharacter>().Any(n => n.Record.Id == 0x3d && n.Active);
@@ -76,8 +76,8 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             ResetValidationInput();
             _saveData.SetLinkedGame(true);
-            _saveData.WriteWramByte(0xc6bf, 2);
-            _saveData.SetGlobalFlag(0x59, false);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, 2);
+            _saveData.SetGlobalFlag(GlobalFlag.BeganRuulSecret, false);
             _saveData.CommitInventoryChange();
             LoadValidationRoom(3, 0xf8);
             var lady = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x3d);
@@ -100,11 +100,11 @@ public sealed partial class ValidationRoot
                 "3:f8 explanation lost TX_4d2f.");
             _dialogue.SubmitChoiceForValidation(1);
             StepGameplayUpdates(21, Vector2.Zero, batched: batched);
-            FailIf(!_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 || _saveData.HasGlobalFlag(0x59),
+            FailIf(!_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 || _saveData.HasGlobalFlag(GlobalFlag.BeganRuulSecret),
                 "3:f8 declining the explanation must repeat without setting $59.");
             _dialogue.SubmitChoiceForValidation(0);
             StepGameplayUpdates(21, Vector2.Zero, batched: batched);
-            FailIf(!_saveData.HasGlobalFlag(0x59) || _saveData.ReadWramByte(0xc6fb) != 0x29 ||
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganRuulSecret) || _saveData.ReadWramByte(WramAddress.wShortSecretIndex) != 0x29 ||
                 _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal),
                 "3:f8 Ruul secret must write flag $59 / short index $29 and substitute text.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -121,7 +121,7 @@ public sealed partial class ValidationRoot
                 "3:f8 extra-text NPC must repeat its explanation after completing the secret.");
             _dialogue.Close();
             LoadValidationRoom(3, 0xf8);
-            FailIf(!_saveData.HasGlobalFlag(0x59), "3:f8 Ruul secret flag did not persist across re-entry.");
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganRuulSecret), "3:f8 Ruul secret flag did not persist across re-entry.");
         }
     }
 
@@ -132,10 +132,10 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             ResetValidationInput();
             _saveData.SetLinkedGame(false);
-            _saveData.SetGlobalFlag(0x14);
-            _saveData.SetGlobalFlag(0x11); // FINISHED takes precedence over SAVED_NAYRU.
-            _saveData.SetGlobalFlag(0x67, false);
-            _saveData.SetGlobalFlag(0x71, false);
+            _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
+            _saveData.SetGlobalFlag(GlobalFlag.SavedNayru); // FINISHED takes precedence over SAVED_NAYRU.
+            _saveData.SetGlobalFlag(GlobalFlag.BeganPlenSecret, false);
+            _saveData.SetGlobalFlag(GlobalFlag.DonePlenSecret, false);
             LoadValidationRoom(3, 0xf8);
             var plen = _roomEvents.Get<PlenEvent>();
             ApproachRoom3f8Npc(0x70, batched);
@@ -165,7 +165,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(31, Vector2.Zero, batched: batched);
             FailIf(_secretEntry.IsActive || _gameplayPause.IsLeased ||
                 PlainWords(_dialogue.CurrentMessage) != "What's that?" ||
-                _saveData.HasGlobalFlag(0x67) || _saveData.HasGlobalFlag(0x71),
+                _saveData.HasGlobalFlag(GlobalFlag.BeganPlenSecret) || _saveData.HasGlobalFlag(GlobalFlag.DonePlenSecret),
                 "Cancelling PLEN_SECRET must show TX_3703 without setting $67/$71.");
             _dialogue.Close();
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
@@ -180,27 +180,27 @@ public sealed partial class ValidationRoot
                 "Plen PLEN_SECRET $03 did not acquire MENU_SECRET.");
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
             _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);
-            FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(0x67),
+            FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(GlobalFlag.BeganPlenSecret),
                 "Invalid Plen secret must remain in the menu without setting $67.");
             _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(3, _saveData));
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
             FailIf(_secretEntry.IsActive || _gameplayPause.IsLeased, "Plen secret menu did not close cleanly.");
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);
-            FailIf(_saveData.HasGlobalFlag(0x67), "Plen set BEGAN $67 before the post-menu wait.");
+            FailIf(_saveData.HasGlobalFlag(GlobalFlag.BeganPlenSecret), "Plen set BEGAN $67 before the post-menu wait.");
             StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(!_saveData.HasGlobalFlag(0x67) || _saveData.HasGlobalFlag(0x71) ||
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganPlenSecret) || _saveData.HasGlobalFlag(GlobalFlag.DonePlenSecret) ||
                 !PlainWords(_dialogue.CurrentMessage).Contains("oddly dressed", StringComparison.Ordinal),
                 "Plen valid secret lost BEGAN $67 or TX_3702.");
             int rings = _inventory.UnappraisedRingCount;
             _dialogue.Close();
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);
-            FailIf(_saveData.HasGlobalFlag(0x71) || _inventory.UnappraisedRingCount != rings,
+            FailIf(_saveData.HasGlobalFlag(GlobalFlag.DonePlenSecret) || _inventory.UnappraisedRingCount != rings,
                 "Plen granted the ring before his 30-update reward wait.");
             StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(!_saveData.HasGlobalFlag(0x71) || _inventory.UnappraisedRingCount != rings + 1 ||
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.DonePlenSecret) || _inventory.UnappraisedRingCount != rings + 1 ||
                 // createRingTreasure sets bit 6 on the unappraised ring byte.
                 _inventory.UnappraisedRingAt(rings) != 0x6f,
-                $"Plen must award one unappraised SPIN_RING $2f and set DONE $71: done={_saveData.HasGlobalFlag(0x71)}, rings={_inventory.UnappraisedRingCount}/{rings}, ring=${_inventory.UnappraisedRingAt(rings):x2}, text={_dialogue.CurrentMessage}.");
+                $"Plen must award one unappraised SPIN_RING $2f and set DONE $71: done={_saveData.HasGlobalFlag(GlobalFlag.DonePlenSecret)}, rings={_inventory.UnappraisedRingCount}/{rings}, ring=${_inventory.UnappraisedRingAt(rings):x2}, text={_dialogue.CurrentMessage}.");
             // The wait was installed in the grant update, then frozen by text.
             _dialogue.Close();
             StepGameplayUpdates(29, Vector2.Zero, batched: batched);

@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             int delayed = queued == 31 ? 2 : queued == 30 ? 1 : 0;
             FailIf(_entities.Entities<PushBlockController>().Count != firstCount + delayed ||
                 _currentRoom.Layout[0x57] != 0xa0 || _currentRoom.Layout[0x37] != 0xa0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1 + firstCount + delayed,
+                _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 + firstCount + delayed,
                 "The next state1 scan must allocate duplicates for rejected source writes, then clear those sources.");
             StepGameplayUpdates(29, Vector2.Zero, batched: batched);
             FailIf(_pushBlocks.Active || _entities.Entities<PushBlockController>().Count != delayed ||

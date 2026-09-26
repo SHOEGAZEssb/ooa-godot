@@ -27,7 +27,7 @@ internal sealed partial class RetractableTriggerChestRoomEntity : DungeonMechani
         DungeonMechanicDatabase data,Func<int> triggers,Func<bool> itemFlag,Func<IRoomEntity,bool> outgoing,
         Action<byte,byte> setTile,Func<Vector2,bool> puff,Action<int> sound) : base(record,$"RetractableChest_{record.Order}")
     {
-        if(record.Id!=0x21 || record.SubId!=0x17 || record.Predicate!=TriggerPredicate.Exact)
+        if(record.Id!=InteractionId.DungeonEvents || record.SubId!=0x17 || record.Predicate!=TriggerPredicate.Exact)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record=record; _room=room; _data=data; _triggers=triggers; _itemFlag=itemFlag;
         _outgoing=outgoing; _setTile=setTile; _puff=puff; _sound=sound; Visible=false;

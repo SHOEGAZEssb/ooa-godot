@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateDimitriUnmountedHole()
     {
-        _saveData.WriteWramByte(0xc647, 0x80);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
         LoadValidationRoom(0, 0x2a);
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         _player.SetLocalRespawnCoordinates(new Vector2(40, 40));
         int health = _player.HealthQuarters;
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
-            new DimitriCompanionSpawn(new Vector2(72, 56), 2, 0, 0x2a));
+            new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
         _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Hazard || dimitri.LinkRiding || _player.CompanionRideActive,
             "Unmounted Dimitri entering a hole must not take over Link's companion pose.");
@@ -31,15 +31,15 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriCliff()
     {
-        _saveData.WriteWramByte(0xc647, 0x80);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
         LoadValidationRoom(0, 0x2a);
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 72), 0xd4, 3, 0);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
-            new DimitriCompanionSpawn(new Vector2(72, 64), 2, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_entities.RuntimeState, 0x0c, 0x2a, new Vector2(72, 64), 2);
+            new DimitriCompanionSpawn(new Vector2(72, 64), ObjectDirection.Down, 0, 0x2a, Riding: true));
+        CompanionRuntimeState.Begin(_entities.RuntimeState, SpecialObjectId.Dimitri, 0x2a, new Vector2(72, 64), ObjectDirection.Down);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_down"], justPressed: [], movement: Vector2.Down));
         try
         {
@@ -53,10 +53,10 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         for (int update = 0; update < 19; update++) _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.PrecisePosition != start || dimitri.Counter != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 0,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 0,
             "Dimitri cliff anticipation moved or played its jump sound before counter $14 expired.");
         _entities.Update(1.0 / 60.0, _player);
-        FailIf(dimitri.PrecisePosition != start || _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1,
+        FailIf(dimitri.PrecisePosition != start || _sound.PlayRequestsFor(SoundId.SndJump) != 1,
             "Dimitri cliff counter-zero update must play the sound without moving yet.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.PrecisePosition.Y != start.Y + 2 || dimitri.ZFixed >= 0,
@@ -77,9 +77,9 @@ public sealed partial class ValidationRoot
             "Dimitri mouth lost the Beamos/rock-cover exclusion or Spiny Beetle/Armos collision gates.");
         FailIf(data.Duration(0) != 95 || data.Duration(2) != 255,
             "Flute terminal parameters no longer delimit the source $5f/$ff update songs.");
-        _saveData.WriteWramByte(0xc647, 0x80);
-        _saveData.WriteWramByte(0xc6b5, 2);
-        _inventory.GiveTreasure(InventoryState.ItemFlute, 0x0c);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
+        _saveData.WriteWramByte(WramAddress.wFluteIcon, 2);
+        _inventory.GiveTreasure(TreasureId.Flute, 0x0c);
         LoadValidationRoom(0, 0x2a);
         FailIf(!data.Callable(0x2a), "Flute fixture 0:2a must be in the source callable-room bitmap.");
         for (int y = 8; y < 128; y += 16)
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
         int notes = _harp.NoteSpawnCount, random = _entities.RandomCalls;
-        _inventory.EquipB(InventoryState.ItemFlute);
+        _inventory.EquipB(TreasureId.Flute);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["item"], justPressed: ["item"], movement: Vector2.Zero));
         try { _player.AdvanceApplicationUpdate(); }
         finally { Input.EndOriginalUpdate(); }
@@ -120,18 +120,18 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriCarrying()
     {
-        _saveData.WriteWramByte(0xc647, 0x80);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
+        _inventory.GiveTreasure(TreasureId.Bracelet, 1);
         LoadValidationRoom(0, 0x2a);
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
-            new DimitriCompanionSpawn(new Vector2(72, 56), 2, 0, 0x2a));
+            new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
         _player.Face(Vector2I.Up);
         FailIf(!_bracelet.TryUse(_player, primaryButton: false) || !_player.IsCarryingObject ||
-            dimitri.Phase != DimitriPhase.Carried || (_saveData.ReadWramByte(0xc649) & 4) == 0 ||
+            dimitri.Phase != DimitriPhase.Carried || (_saveData.ReadWramByte(WramAddress.wCompanionTutorialTextShown) & 4) == 0 ||
             dimitri.AnimationIndex != 0x18,
             "Dimitri did not enter native carried state through the shared Bracelet parent.");
         for (int update = 0; update < 40; update++)
@@ -168,14 +168,14 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriWaterReturn()
     {
-        _saveData.WriteWramByte(0xc647, 0x80);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+        _saveData.WriteWramByte(WramAddress.wDimitriState, 0x80);
+        _inventory.GiveTreasure(TreasureId.Bracelet, 1);
         LoadValidationRoom(0, 0x2a);
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), x >= 88 ? (byte)0xfe : (byte)0, 0, 0);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
-            new DimitriCompanionSpawn(new Vector2(72, 56), 2, 0, 0x2a));
+            new DimitriCompanionSpawn(new Vector2(72, 56), ObjectDirection.Down, 0, 0x2a));
         _player.WarpTo(new Vector2(72, 72), recordSafe: false);
         _player.Face(Vector2I.Up);
         FailIf(!_bracelet.TryUse(_player, primaryButton: false), "Dimitri water-return fixture could not lift him.");
@@ -193,7 +193,7 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 180 && dimitri.Phase == DimitriPhase.ReturningToLand; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.InWater || dimitri.ZFixed != 0 ||
-            dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(0x88) == 0,
+            dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(SoundId.SndLinkSwim) == 0,
             "Dimitri did not swim back to land and become mountable after the throw.");
         _bracelet.Interrupt(_player, discard: true);
         GD.Print("Validated thrown Dimitri water detection, cardinal return angle and autonomous return to land.");

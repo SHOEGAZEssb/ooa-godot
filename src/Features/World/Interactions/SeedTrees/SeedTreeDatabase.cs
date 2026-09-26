@@ -58,7 +58,7 @@ internal sealed class SeedTreeDatabase
     {
         ValidateRefillIndex(index);
         int address =
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress + (index >> 3);
+            WramAddress.wSeedTreeRefilledBitset + (index >> 3);
         return (runtime.ReadWramByte(address) & (1 << (index & 7))) != 0;
     }
 
@@ -69,7 +69,7 @@ internal sealed class SeedTreeDatabase
     {
         ValidateRefillIndex(index);
         int address =
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress + (index >> 3);
+            WramAddress.wSeedTreeRefilledBitset + (index >> 3);
         int mask = 1 << (index & 7);
         byte current = runtime.ReadWramByte(address);
         runtime.SetWramByte(
@@ -302,11 +302,11 @@ internal sealed class SeedTreeDatabase
             TreeTopLeftTile != 0x6e ||
             SeedCount != 3 ||
             InitialSpeedZ != -0x140 ||
-            SpeedRaw != 0x28 ||
+            SpeedRaw != ObjectSpeed.Speed100 ||
             Gravity != 0x20 ||
             CollisionDelay != 2 ||
             TreasureParameter != 0x06 ||
-            CollectionSound != OracleSoundEngine.SndGetSeed ||
+            CollectionSound != SoundId.SndGetSeed ||
             NoSatchelTextId != 0x0035 ||
             !_placements.TryGetValues(
                 (0, 0x78),

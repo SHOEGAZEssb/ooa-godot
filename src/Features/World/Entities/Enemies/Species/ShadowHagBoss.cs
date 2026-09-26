@@ -98,8 +98,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         if (_initialized)
             return;
         _initialized = true;
-        _angle = 0x18;
-        _playSound(OracleSoundEngine.SndCtrlStopMusic);
+        _angle = ObjectAngle.Left;
+        _playSound(SoundId.SndCtrlStopMusic);
         Visible = false;
         QueueRedraw();
     }
@@ -139,7 +139,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                     return;
                 Position = new Vector2(player.Position.X, player.Position.Y + 4);
                 _zFixed = -0x100;
-                _angle = 0x18;
+                _angle = ObjectAngle.Left;
                 _state = ShadowHagState.IntroMovingToCenter;
                 spawns.Add(new BossShadowSpawn(
                     () => Position,
@@ -154,7 +154,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 _disableLink();
                 if (OracleObjectPosition.HighByte(Position.X) >= 0x78)
                 {
-                    Move(0x18, 0x14);
+                    Move(ObjectAngle.Left, 0x14);
                     break;
                 }
                 BeginEmerging();
@@ -196,7 +196,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 BeginReturningToGround();
                 _introActive = false;
                 _enableLink();
-                _playSound(OracleSoundEngine.MusBoss);
+                _playSound(SoundId.MusBoss);
                 AdvanceAnimation();
                 break;
 
@@ -356,7 +356,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         {
             return false;
         }
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (IsDead)
             BeginDeath();
         return true;
@@ -476,7 +476,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     {
         int angleToLink = OracleObjectMovement.Shared.RelativeAngle(
             Position, player.Position);
-        int expectedDirection = ((angleToLink + 0x14) & 0x18) >> 3;
+        int expectedDirection = ((angleToLink + 0x14) & ObjectAngle.CardinalMask) >> 3;
         return DirectionIndex(player.FacingVector) == expectedDirection;
     }
 
@@ -489,9 +489,9 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     }
 
     private int CardinalAngleToward(Vector2 target) =>
-        (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & 0x18;
+        (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & ObjectAngle.CardinalMask;
 
-    private static int CardinalAnimation(int angle) => (angle & 0x18) >> 3;
+    private static int CardinalAnimation(int angle) => (angle & ObjectAngle.CardinalMask) >> 3;
 
     private static int DirectionIndex(Vector2I direction) =>
         direction == Vector2I.Up ? 0 :
@@ -507,7 +507,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         _dying = true;
         _deathCounter = 120;
         _disableLink();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 
     private static int DecrementByte(int value) => (value - 1) & 0xff;

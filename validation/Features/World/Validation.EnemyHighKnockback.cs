@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             var observer = new ItemPhaseValidationEntity(() =>
             {
                 if (!observeVelocity) return;
-                FailIf(_runtimeState.ReadWramByte(0xcec0) != 0 ||
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wTmpcec0) != 0 ||
                     _runtimeState.ReadWramByte(0xcec1) != 0 ||
                     _runtimeState.ReadWramByte(0xcec2) != 0 ||
                     _runtimeState.ReadWramByte(0xcec3) != (mode == "normal" ? 2 : 3),
@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
             if (mode == "full")
                 while (_entities.InteractionSlotAvailable)
-                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), 0));
+                    _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
             Step(mode == "wall" ? 1 : 4);
             observeVelocity = false;
             if (mode == "wall")

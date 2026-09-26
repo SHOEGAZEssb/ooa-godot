@@ -172,7 +172,7 @@ public partial class MapScreen : Node2D
         DebugFastTravel = debugFastTravel;
         if (debugFastTravel)
         {
-            MapMode mode = (_rooms.CurrentRoom.TilesetFlags & 0x80) != 0 ? MapMode.Past : MapMode.Present;
+            MapMode mode = (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0 ? MapMode.Past : MapMode.Present;
             _cursorRoom = _rooms.MinimapRoom;
             Array.Fill(_interiorCursors, _cursorRoom);
             if (_rooms.ActiveGroup is >= FirstInteriorGroup and <= LastInteriorGroup)
@@ -370,9 +370,9 @@ public partial class MapScreen : Node2D
 
     private void PrepareOverworld(bool revealAll, MapMode? forcedMode = null)
     {
-        Mode = forcedMode ?? ((_rooms.CurrentRoom.TilesetFlags & 0x80) != 0 ? MapMode.Past : MapMode.Present);
+        Mode = forcedMode ?? ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0 ? MapMode.Past : MapMode.Present);
         _dungeonIndex = -1;
-        _currentMapRoom = (_rooms.CurrentRoom.TilesetFlags & 0x02) != 0 ? 0x38 : _rooms.MinimapRoom;
+        _currentMapRoom = (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Maku) != 0 ? 0x38 : _rooms.MinimapRoom;
         if (!DebugFastTravel)
             _cursorRoom = _currentMapRoom;
         if (DebugFastTravel && ((_cursorRoom & 0x0f) >= OverworldWidth ||
@@ -421,7 +421,7 @@ public partial class MapScreen : Node2D
         Mode = MapMode.Dungeon;
         _dungeonIndex = dungeon;
         DungeonInfo info = _rooms.DungeonMaps.GetDungeon(dungeon);
-        bool sideView = (_rooms.CurrentRoom.TilesetFlags & 0x20) != 0;
+        bool sideView = (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0;
         if (!info.TryGetRoom(_rooms.CurrentRoom.Id, out DungeonCell activeCell) && !sideView)
             throw new InvalidOperationException(
                 $"Dungeon {dungeon:x2} does not place room {_rooms.CurrentRoom.Id:x2} on its floor map.");
@@ -835,7 +835,7 @@ public partial class MapScreen : Node2D
             case 0x0c:
                 return 0x0e;
             case 0x0d:
-                return _rooms.SaveData.HasGlobalFlag(0x1a) ? 0x10 : 0x0f;
+                return _rooms.SaveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) ? 0x10 : 0x0f;
             case 0x0e:
                 if (_rooms.SaveData.HasRoomFlag(0, 0x90, OracleSaveData.RoomFlag40))
                     return 0x13;

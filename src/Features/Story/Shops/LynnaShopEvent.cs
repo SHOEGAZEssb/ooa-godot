@@ -35,7 +35,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
                 _completesHeartContainer = false;
                 context.Inventory.GiveCompletedHeartContainer(
                     context.Treasures.GetObject("TREASURE_OBJECT_HEART_CONTAINER_00"));
-                context.Sound.PlaySound(OracleSoundEngine.SndFilledHeartContainer);
+                context.Sound.PlaySound(SoundId.SndFilledHeartContainer);
                 ShowText(0x0049);
             });
     }
@@ -91,7 +91,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
-        if (!MatchesCurrentRoom() || npc.Record.Id != 0x46 ||
+        if (!MatchesCurrentRoom() || npc.Record.Id != InteractionId.Shopkeeper ||
             npc.Record.SubId != _database.ShopkeeperSubId ||
             _stage is not (LynnaShopEventStage.Inactive or LynnaShopEventStage.Holding or LynnaShopEventStage.ChestSelection))
         {
@@ -110,7 +110,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         {
             if (_item is null)
                 throw new InvalidOperationException("Lynna shop lost its held product.");
-            if (_item.Record.SubId is 0x00 or 0x14 && !_context.Inventory.HasTreasure(0x2c))
+            if (_item.Record.SubId is 0x00 or 0x14 && !_context.Inventory.HasTreasure(TreasureId.RingBox))
             {
                 ShowText(0x0e0b);
                 _stage = LynnaShopEventStage.PurchaseRejected;
@@ -206,7 +206,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         {
             _shopkeeper.SetCollisionRadii(
                 _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
+            _shopkeeper.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, _database.IdleAnimation));
             _shopkeeper.SetScriptButtonSensitive(true);
         }
         _context.Player.EndCutsceneControl(this);
@@ -243,7 +243,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         }
 
         ItemRecord item = _item.Record;
-        _completesHeartContainer = item.TreasureId == 0x2b && _context.Inventory.HeartPieces == 3;
+        _completesHeartContainer = item.TreasureId == TreasureId.HeartPiece && _context.Inventory.HeartPieces == 3;
         _context.Inventory.AddRupees(-item.Price);
         TreasureObjectRecord treasure = new TreasureObjectRecord(
             $"SHOP_ITEM_{item.SubId:x2}",
@@ -253,7 +253,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             item.ItemTextId,
             0,
             _database.Text(item.ItemTextId));
-        if (item.TreasureId == 0)
+        if (item.TreasureId == TreasureId.None)
             GiveRandomRing(item.Parameter);
         else
             _context.Inventory.GiveTreasure(treasure);
@@ -262,8 +262,8 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         if (item.SubId == 0x13)
             SetBoughtItems1Mask(_database.NormalGashaBoughtMask);
 
-        int sound = _context.Treasures.GetBehaviour(item.TreasureId == 0 ? 0x2d : item.TreasureId).Sound;
-        if (sound != 0)
+        int sound = _context.Treasures.GetBehaviour(item.TreasureId == TreasureId.None ? TreasureId.Ring : item.TreasureId).Sound;
+        if (sound != SoundId.MusNone)
             _context.Sound.PlaySound(sound);
         _context.ShowDialogue(treasure.Message, _database.TextboxPosition);
         _stage = LynnaShopEventStage.ItemText;
@@ -280,8 +280,8 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             _context.Inventory.MaxHealthQuarters,
         0x04 => _context.Inventory.Bombs == _context.Inventory.MaxBombs,
         0x03 or 0x11 or 0x12 =>
-            _context.Inventory.HasTreasure(0x01),
-        0x0d => _context.Inventory.HasTreasure(0x0e),
+            _context.Inventory.HasTreasure(TreasureId.Shield),
+        0x0d => _context.Inventory.HasTreasure(TreasureId.Flute),
         0x13 => false,
         _ => throw new InvalidOperationException(
             $"Unsupported normal-shop stock $47:${item.SubId:x2}.")
@@ -318,7 +318,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         {
             _shopkeeper.SetCollisionRadii(
                 _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-            _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
+            _shopkeeper.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, _database.IdleAnimation));
             _shopkeeper.SetScriptButtonSensitive(true);
         }
         _shopkeeper = null;
@@ -343,7 +343,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     private void BeginTheftPrevention()
     {
         _shopkeeper = _context.RequireNpc(
-            _database.Group, _database.Room, 0x46, _database.ShopkeeperSubId, "Lynna shopkeeper");
+            _database.Group, _database.Room, InteractionId.Shopkeeper, _database.ShopkeeperSubId, "Lynna shopkeeper");
         _shopkeeper.SetScriptButtonSensitive(false);
         _shopkeeper.SetCollisionRadii(
             _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusY);
@@ -355,7 +355,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             BeginHiddenTheft();
             return;
         }
-        _context.Sound.PlaySound(OracleSoundEngine.SndClink);
+        _context.Sound.PlaySound(SoundId.SndClink);
         BeginTheftMove(LynnaShopEventStage.TheftDown, Vector2I.Down, 4);
     }
 
@@ -367,7 +367,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         _stage = stage;
         _counter = counter;
         _shopkeeper!.SetScriptAnimation(
-            _database.Animation(0x46, AnimationForDirection(direction)));
+            _database.Animation(InteractionId.Shopkeeper, AnimationForDirection(direction)));
     }
 
     private bool MoveShopkeeper(Vector2 direction, int pixels)
@@ -384,7 +384,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     {
         _shopkeeper!.SetCollisionRadii(
             _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);
-        _shopkeeper.SetScriptAnimation(_database.Animation(0x46, _database.IdleAnimation));
+        _shopkeeper.SetScriptAnimation(_database.Animation(InteractionId.Shopkeeper, _database.IdleAnimation));
         _shopkeeper.SetScriptButtonSensitive(true);
         _shopkeeper = null;
         _context.Player.EndCutsceneControl(this);
@@ -400,7 +400,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             ? (delta.X >= 0 ? Vector2I.Right : Vector2I.Left)
             : (delta.Y >= 0 ? Vector2I.Down : Vector2I.Up);
         _shopkeeper.SetScriptAnimation(
-            _database.Animation(0x46, AnimationForDirection(direction)));
+            _database.Animation(InteractionId.Shopkeeper, AnimationForDirection(direction)));
     }
 
     private static int AnimationForDirection(Vector2I direction) =>

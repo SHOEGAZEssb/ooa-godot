@@ -51,7 +51,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
     internal void InitializePending(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, int nativeSlot)
     {
-        if (record.Id != 0x74 || record.SubId is not (0 or 1))
+        if (record.Id != EnemyId.Smasher || record.SubId is not (0 or 1))
             throw new NotSupportedException("smasher.s requires $74:$00/$01 after native slot normalization.");
         if (nativeSlot is < 0 or >= 16) throw new ArgumentOutOfRangeException(nameof(nativeSlot));
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true, paletteVariants: [1,2]);
@@ -79,7 +79,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
         // enemyStandardUpdate reloads properties and consumes var3d RNG on
         // every failed allocation, including invisible state-zero retries.
         Health = _initialHealth; _propertiesLoaded = true; _collisionEnabled = true;
-        PendingCollision = false; CollisionMode = 0x45;
+        PendingCollision = false; CollisionMode = EnemyCollisionMode.Smasher;
         Palette = 3; RestartAnimation(0); _random.Next();
         if (NativeSubId == 0)
         {
@@ -195,7 +195,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             _dying = true;
             Counter1 = _data.DeathFrames;
             disableLinkCollisionsAndMenu();
-            sound(OracleSoundEngine.SndBossDead);
+            sound(SoundId.SndBossDead);
         }
         if (--Counter1 != 0)
         {
@@ -257,8 +257,8 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 // They cannot establish invincibility for the next release update.
                 // The native handler changes the controlling ITEM's angle;
                 // it does not overwrite the ball's Enemy.angle here.
-                writeAngle(knockbackAngle ^ 0x10);
-                sound(OracleSoundEngine.SndBossDamage); return;
+                writeAngle(knockbackAngle ^ ObjectAngle.HalfTurn);
+                sound(SoundId.SndBossDamage); return;
             case 3: State = 8; ZIndex = NpcCharacter.BehindLinkZIndex; return;
             default: throw new NotSupportedException($"smasher_state_grabbed substate ${GrabSubstate:x2} is not represented.");
         }
@@ -330,7 +330,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
     {
         switch (State)
         {
-            case 8: State = 9; CollisionMode = 0x63; Speed = 0x19; goto case 9; // SPEED_a0
+            case 8: State = 9; CollisionMode = EnemyCollisionMode.SmasherBall; Speed = 0x19; goto case 9; // SPEED_a0
             case 9: groundBallContact?.Invoke(); return;
             case 10:
                 if ((_z >> 8) != _data.CarriedZOffset) _z = unchecked((short)(_z - _data.LiftSpeedZ));
@@ -345,8 +345,8 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             case 11: return;
             case 12:
                 if (Bounce(out bool landed))
-                { State = 8; _collisionEnabled = false; ZIndex = NpcCharacter.BehindLinkZIndex; sound(OracleSoundEngine.SndBombLand); return; }
-                if (landed) { Speed >>= 1; sound(OracleSoundEngine.SndBombLand); }
+                { State = 8; _collisionEnabled = false; ZIndex = NpcCharacter.BehindLinkZIndex; sound(SoundId.SndBombLand); return; }
+                if (landed) { Speed >>= 1; sound(SoundId.SndBombLand); }
                 Angle = EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle,
                     point => point.X < 0 || point.Y < 0 || point.X >= _room.Width || point.Y >= _room.Height ||
                         _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
@@ -368,20 +368,20 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 createPuff(Position); Visible = true; ZIndex = NpcCharacter.InFrontOfLinkZIndex; return;
             case 15:
                 if (Bounce(out bool touched)) { State = 8; ZIndex = NpcCharacter.BehindLinkZIndex; }
-                else if (touched) sound(OracleSoundEngine.SndBombLand);
+                else if (touched) sound(SoundId.SndBombLand);
                 return;
             default: throw new NotSupportedException($"smasher_ball state ${State:x2} is not represented.");
         }
     }
 
     private void BallUnavailable(Vector2 target)
-    { State = 9; Speed = 0x1e; Counter1 = _data.WanderFrames; Palette = 3; Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target) ^ 0x10; UpdateDirection(); }
+    { State = 9; Speed = 0x1e; Counter1 = _data.WanderFrames; Palette = 3; Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target) ^ ObjectAngle.HalfTurn; UpdateDirection(); }
     private int FaceTarget(Vector2 target) { Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target); return UpdateDirection(); }
     private int UpdateDirection()
     {
         // Vertical angle returns A=0 without changing Enemy.direction.
         if ((Angle & 15) == 0) return 0;
-        return Direction = ((Angle & 16) ^ 16) >> 3;
+        return Direction = ((Angle & 16) ^ ObjectAngle.HalfTurn) >> 3;
     }
     private void Move() => Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
     private void SetZHigh(int high) => _z = unchecked((short)((high << 8) | (_z & 255)));

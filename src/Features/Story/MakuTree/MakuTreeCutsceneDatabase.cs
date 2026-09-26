@@ -106,21 +106,21 @@ internal sealed class MakuTreeCutsceneDatabase
             !MatchesText(Commands[6], 0x0564, Record.IntroText) ||
             !MatchesWait(Commands[7], Record.PostIntroFrames) ||
             Commands[8] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndCtrlStopMusic } ||
+                { Sound: SoundId.SndCtrlStopMusic } ||
             !MatchesAnimation(Commands[9], 0x04, Record.Animation4) ||
             !MatchesWait(Commands[10], Record.FrownFrames) ||
             Commands[11] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+                { Sound: SoundId.SndMakuDisappear } ||
             Commands[12] is not CutsceneWriteMemoryCommand
                 { Binding: "wCutsceneTrigger", Value: 0x07 } ||
             !MatchesWait(Commands[13], Record.DisappearanceFrames) ||
             !MatchesText(Commands[14], 0x0540, Record.AhhText) ||
             Commands[15] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+                { Sound: SoundId.SndMakuDisappear } ||
             !MatchesWait(Commands[16], Record.PostAhhFrames) ||
             !MatchesText(Commands[17], 0x0541, Record.HelpText) ||
             Commands[18] is not CutscenePlaySoundCommand
-                { Sound: OracleSoundEngine.SndMakuDisappear } ||
+                { Sound: SoundId.SndMakuDisappear } ||
             !MatchesWait(Commands[19], Record.FinishDelayFrames) ||
             Commands[20] is not CutsceneWriteMemoryCommand
                 { Binding: "wTmpcfc0.genericCutscene.state", Value: 0x01 } ||

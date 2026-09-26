@@ -36,7 +36,7 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
         {
             Group: 2,
             Room: 0x2f,
-            Id: 0x55,
+            Id: InteractionId.Postman,
             SubId: 0x00,
             Var03: 0x00
         };
@@ -61,7 +61,7 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
             throw new InvalidOperationException(
                 $"postmanScript cannot compare trade item ${value:x2}.");
         }
-        return _inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        return _inventory.HasTreasure(TreasureId.TradeItem) &&
             _inventory.TradeItem == PoeClock;
     }
 
@@ -105,7 +105,7 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
 
     public override void GiveItem(int treasureId, int parameter)
     {
-        if (treasureId != TreasureDatabase.TreasureTradeItem ||
+        if (treasureId != TreasureId.TradeItem ||
             parameter != Stationery)
         {
             throw new InvalidOperationException(
@@ -136,8 +136,8 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
             stationery.Name,
             "scriptHelper.s:postmanScript giveitem TREASURE_TRADEITEM,$01")
         {
-            SpawnMode = 0,
-            GrabMode = 2,
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands,
             DialogueTiming = GroundTreasureDialogueTiming.AfterGrab,
             CompletionOwner = GroundTreasureCompletionOwner.Caller,
             ExpectedTreasureId = treasureId,

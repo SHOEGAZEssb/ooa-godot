@@ -23,7 +23,7 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
     }
 
     public bool Matches(int group, OracleRoomData room) => group == 0 && room.Id == 0x0a &&
-        !Context.Rooms.SaveData.HasRoomFlag(group, room.Id, 0x80);
+        !Context.Rooms.SaveData.HasRoomFlag(group, room.Id, OracleSaveData.RoomFlag80);
 
     public void Start(OracleRoomData room)
     {
@@ -41,7 +41,7 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
 
     internal void Trigger(int group, int room)
     {
-        if (!CanTrigger(group, room) || !Context.Rooms.SaveData.HasRoomFlag(group, room, 0x80))
+        if (!CanTrigger(group, room) || !Context.Rooms.SaveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80))
             throw new InvalidOperationException($"miscPuzzles_subid11 cannot trigger in {group:x}:{room:x2}.");
         _armed = false;
         Context.Player.BeginCutsceneControl(owner: this);
@@ -94,14 +94,14 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
         DrawFrame(Context.Rooms.CurrentRoom, phase);
         Phase = phase;
         Context.Entities.BeginScreenShake(0x0f);
-        Context.Sound.PlaySound(OracleSoundEngine.SndDoorClose);
+        Context.Sound.PlaySound(SoundId.SndDoorClose);
         for (int x = 0x60; x <= 0x90; x += 0x10)
         {
             // scriptHelp.@spawnPuff returns on a failed allocation; each
             // later position still gets its own attempt.
             if (!Context.Entities.InteractionSlotAvailable) continue;
             // INTERAC_PUFF subid $81 suppresses sound and flickers.
-            var puff = Context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(x, 0x20), 0, Flickers: true));
+            var puff = Context.Entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(x, 0x20), SoundId.MusNone, Flickers: true));
             puff.UpdateFrame();
         }
         // Room events follow the entity pass; apply this first shake after

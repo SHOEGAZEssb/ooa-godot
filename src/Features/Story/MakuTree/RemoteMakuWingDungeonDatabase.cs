@@ -16,7 +16,7 @@ internal sealed class RemoteMakuWingDungeonDatabase : RemoteMakuEventDatabase
     {
         if (Record is not
             {
-                Group: 0, Room: 0x83, InteractionId: 0x8a,
+                Group: 0, Room: 0x83, InteractionId: InteractionId.RemoteMakuCutscene,
                 SubId: 0, Var03: 1, EssenceMask: 0,
                 RequiredTreasure: 0xff, RoomFlag: 0x40,
                 StandardTextId: 0x05b1, LinkedTextId: 0x05c1,

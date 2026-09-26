@@ -17,7 +17,7 @@ internal sealed class OldZoraEvent : InteractiveInfiniteScriptHost<OldZoraCharac
 
     public void Start(OracleRoomData room)
     {
-        var actor = Context.RequireNpc(2, room.Id, 0x5a, 0, "INTERAC_OLD_ZORA")
+        var actor = Context.RequireNpc(2, room.Id, InteractionId.OldZora, 0, "INTERAC_OLD_ZORA")
             as OldZoraCharacter ?? throw new InvalidOperationException(
                 "Room 2:f5 INTERAC_OLD_ZORA lacks its native actor.");
         StartInfiniteScript(actor, Commands, 1);
@@ -40,7 +40,7 @@ internal sealed class OldZoraEvent : InteractiveInfiniteScriptHost<OldZoraCharac
         : throw new InvalidOperationException($"oldZoraScript unknown room flag ${flag:x2}.");
 
     bool ICutsceneCommandHost.TradeItemEquals(int value) => value == 0x0a
-        ? Context.Inventory.HasTreasure(TreasureDatabase.TreasureTradeItem) &&
+        ? Context.Inventory.HasTreasure(TreasureId.TradeItem) &&
             Context.Inventory.TradeItem == value
         : throw new InvalidOperationException($"oldZoraScript unknown trade item ${value:x2}.");
 
@@ -61,7 +61,7 @@ internal sealed class OldZoraEvent : InteractiveInfiniteScriptHost<OldZoraCharac
 
     void ICutsceneCommandHost.GiveItem(int treasureId, int parameter)
     {
-        if (treasureId != 0x41 || parameter != 0x0b)
+        if (treasureId != TreasureId.TradeItem || parameter != 0x0b)
             throw new InvalidOperationException($"oldZoraScript unknown reward ${treasureId:x2}:${parameter:x2}.");
         Context.GrantScriptTreasure(2, 0xf5, treasureId, parameter,
             "TREASURE_OBJECT_TRADEITEM_0b", "scriptHelper.s:oldZoraScript giveitem TREASURE_TRADEITEM,$0b");

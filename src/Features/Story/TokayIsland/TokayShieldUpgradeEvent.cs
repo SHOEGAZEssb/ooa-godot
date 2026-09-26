@@ -25,7 +25,7 @@ internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
 
     internal bool TryInteractNpc(NpcCharacter npc)
     {
-        if (HasState || !npc.Active || npc.Record is not { Id: 0x48, SubId: 0x1d })
+        if (HasState || !npc.Active || npc.Record is not { Id: InteractionId.Tokay, SubId: 0x1d })
             return false;
 
         _actor = npc;
@@ -121,7 +121,7 @@ internal sealed class TokayShieldUpgradeEvent : TokayScriptEvent, IRoomEvent
         _reward = Context.GrantScriptTreasure(
             Context.Rooms.ActiveGroup,
             Context.Rooms.CurrentRoom.Id,
-            TreasureDatabase.TreasureShield,
+            TreasureId.Shield,
             parameter,
             $"TREASURE_OBJECT_SHIELD_{parameter:x2}",
             "scripts/ages:tokayGiveShieldUpgradeToLink",

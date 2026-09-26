@@ -39,7 +39,7 @@ internal sealed class HostileProjectileLifecycle
         _room = room;
         _profile = profile;
         _collisionRadii = profile.CollisionRadii;
-        Angle = angle & 0x18;
+        Angle = angle & ObjectAngle.CardinalMask;
     }
 
     public HostileProjectileState State { get; private set; }

@@ -196,7 +196,7 @@ public sealed partial class ValidationRoot
         sidePhysicsPlayer.WarpTo(new Vector2(80, 80), recordSafe: false);
         sidePhysicsWorld.BlockMovement = true;
         Vector2 blockedCarryStart = sidePhysicsPlayer.PrecisePosition;
-        sidePhysicsPlayer.ApplySideScrollMovingPlatformVelocity(0x14, 0x08);
+        sidePhysicsPlayer.ApplySideScrollMovingPlatformVelocity(0x14, ObjectAngle.Right);
         FailIf(
             sidePhysicsPlayer.PrecisePosition != blockedCarryStart,
             "interactionCodea1 carried Link through a wall instead of using " +
@@ -474,7 +474,7 @@ public sealed partial class ValidationRoot
             _pushBlocks.Active ||
             _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames ||
             coloredBlockRoom.GetMetatile(redBlock) != 0x2c ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
             "Room 4:42 allowed a red block to move while blue was selected.");
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
@@ -486,7 +486,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_pushBlocks.Active ||
             coloredBlockRoom.GetMetatile(blueBlock) != 0xa0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
             "Room 4:42 did not move a blue block while blue was selected.");
         for (int frame = 1; frame < PushBlockController.MoveFrames; frame++)
             _pushBlocks.Advance(update);
@@ -555,7 +555,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _interactions.Update(1.0 / 60.0, _player);
         _inventoryMenu.OpenImmediatelyForValidation();
-        _inventory.EquipB(InventoryState.ItemFeather);
+        _inventory.EquipB(TreasureId.Feather);
         _inventoryMenu.CloseImmediatelyForValidation();
         using (Image uploadedFeatherRoom = featherRoom.Texture.GetImage())
         {
@@ -572,7 +572,7 @@ public sealed partial class ValidationRoot
                 _rooms.ActiveGroup != 6 ||
                 !feather.Finished ||
                 _dialogue.IsOpen ||
-                _inventory.EquippedB != InventoryState.ItemFeather ||
+                _inventory.EquippedB != TreasureId.Feather ||
                 !_saveData.HasRoomFlag(
                     4, 0x28, OracleSaveData.RoomFlagItem) ||
                 transparentAnimatedPixel ||
@@ -699,7 +699,7 @@ public sealed partial class ValidationRoot
                 OracleRuntimeState.SwitchStateAddress) != 0x02 ||
             dungeonSwitch.HitLockout != 28 ||
             _currentRoom.GetMetatile(switchPoint) != 0x0b ||
-            _sound.PlayRequestsFor(0x7e) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
             "PART_SWITCH $05:$02 did not use its exact planar/Z collision, " +
             "LINKDMG_1c no-contact response, on tile, sound, and 28-update lockout.");
         Step();
@@ -723,7 +723,7 @@ public sealed partial class ValidationRoot
             dungeonSwitch.HitLockout != 1 ||
             _entities.RuntimeState.ReadWramByte(
                 OracleRuntimeState.SwitchStateAddress) != 0x02 ||
-            _sound.PlayRequestsFor(0x7e) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
             "PART_SWITCH accepted another collision before ENEMYDMG_34's " +
             "signed 28-update lockout reached zero.");
         Step();
@@ -738,7 +738,7 @@ public sealed partial class ValidationRoot
             dungeonSwitch.HitLockout != 27 ||
             _currentRoom.GetMetatile(switchPoint) != 0x0a ||
             _currentRoom.GetMetatile(toggledTilePoint) != 0x5c ||
-            _sound.PlayRequestsFor(0x7e) != 2,
+            _sound.PlayRequestsFor(SoundId.SndSwitch) != 2,
             "PART_SWITCH did not become hittable on update 28 and restore " +
             "its own and INTERAC_SWITCH_TILE_TOGGLER's inactive tiles.");
 
@@ -780,7 +780,7 @@ public sealed partial class ValidationRoot
                     gateTilePoint).GetImage()) != originalGateTileHash ||
             _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x00 ||
             _currentRoom.GetTerrainInfo(gateObjectPoint).Collision != 0x0a ||
-            _sound.PlayRequestsFor(0x7d) != 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 1,
             "Room 4:2f's bit-$10 gate did not close its tile/collision " +
             "immediately and start direction-$00 animation with SND_OPENGATE.");
         _entities.RuntimeState.SetWramByte(
@@ -790,7 +790,7 @@ public sealed partial class ValidationRoot
             minecartGate.Open || minecartGate.Animating ||
             minecartGate.CurrentAnimationFrame != 2 ||
             _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
-            _sound.PlayRequestsFor(0x7d) != 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 1,
             "INTERAC_MINECART_GATE reacted to a switch change before its " +
             "8/8 closing animation reached parameter $ff.");
         Step();
@@ -803,7 +803,7 @@ public sealed partial class ValidationRoot
                 _currentRoom.BuildMimickedMetatileTexture(
                     gateTilePoint).GetImage()) != originalGateTileHash ||
             _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x0c ||
-            _sound.PlayRequestsFor(0x7d) != 2,
+            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 2,
             "INTERAC_MINECART_GATE did not apply the deferred opening state " +
             "and reverse animation on the update after closing completed.");
 
@@ -891,7 +891,7 @@ public sealed partial class ValidationRoot
         // and setTileInRoomLayoutBuffer while leaving the gate open.
         ToggleFloorRoomEntity toggleFloor =
             _entities.Entities<ToggleFloorRoomEntity>().Single();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         // Link's source toggle-floor center window samples yh+$05; one pixel
         // above the metatile center lands on its inclusive upper endpoint.
         _player.WarpTo(
@@ -989,7 +989,7 @@ public sealed partial class ValidationRoot
                 $"Room 4:35/${packed:x2} is not source down-stair tile $45.");
             _player.WarpTo(stair, recordSafe: false);
             int enterCaveSounds =
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+                _sound.PlayRequestsFor(SoundId.SndEnterCave);
             FailIf(
                 !_transitions.CheckTileWarp(_player) ||
                 !IsTransitioning ||
@@ -1001,7 +1001,7 @@ public sealed partial class ValidationRoot
                 _activeGroup != 4 || _currentRoom.Id != 0x2d ||
                 _currentRoom.GetMetatile(stair) != 0x44 ||
                 _currentRoom.GetPackedPosition(_player.Position) != packed ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) !=
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) !=
                     enterCaveSounds + 1,
                 $"Room 4:35/${packed:x2} did not arrive on matching " +
                 $"4:2d/${packed:x2} tile $44 with one SND_ENTERCAVE.");
@@ -1019,7 +1019,7 @@ public sealed partial class ValidationRoot
                 "Room 4:2d's ordinary floor unexpectedly activated a warp.");
             _player.WarpTo(stair, recordSafe: false);
             enterCaveSounds =
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave);
+                _sound.PlayRequestsFor(SoundId.SndEnterCave);
             FailIf(
                 !_transitions.CheckTileWarp(_player),
                 "Room 4:2d/$23 tile $44 did not reverse the dungeon-floor " +
@@ -1028,7 +1028,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 _activeGroup != 4 || _currentRoom.Id != 0x35 ||
                 _currentRoom.GetPackedPosition(_player.Position) != 0x23 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) !=
+                _sound.PlayRequestsFor(SoundId.SndEnterCave) !=
                     enterCaveSounds + 1,
                 "Room 4:2d/$23 did not return Link to matching 4:35/$23 " +
                 "with one SND_ENTERCAVE.");
@@ -1139,8 +1139,8 @@ public sealed partial class ValidationRoot
             minecart.ZIndex != NpcCharacter.BehindLinkZIndex ||
             _player.ZIndex != Player.NormalZIndex ||
             minecart.CurrentAnimationIndex != 2 + (minecart.Direction & 1) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndLand) != 1,
             "Minecart boarding lost the exact falling-Z handoff, moving " +
             "animation selection, priority-group ordering, or jump/land sounds.");
 
@@ -1149,7 +1149,7 @@ public sealed partial class ValidationRoot
         Vector2 rideInputStart = _player.PrecisePosition;
         int rideStartTile = _currentRoom.GetMetatile(minecart.Position);
         int rideStartDirection = minecart.Direction;
-        _inventory.EquipA(InventoryState.ItemSword);
+        _inventory.EquipA(TreasureId.Sword);
         _player.Face(Vector2I.Left);
         _player.StartSwordAttackForValidation(Vector2.Zero);
         _player.UpdateMinecartRideDirection(Vector2.Right);
@@ -1341,7 +1341,7 @@ public sealed partial class ValidationRoot
             // doorController calls objectCheckWithinScreenBoundary before
             // updateAllObjects performs its one-pixel camera update. Two of
             // this loop's interleave boundaries are therefore offscreen.
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 6,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 6,
             "Minecart shutters did not perform the source two-stage audible " +
             "open/close lifecycle around the complete room loop " +
             $"(sourceOpen={sawSourceShutterOpening}, " +
@@ -1350,7 +1350,7 @@ public sealed partial class ValidationRoot
             $"destinationOpen={sawDestinationShutterReopening}, " +
             $"returnClose={sawReturnShutterClosing}, " +
             $"returnClosed={sawReturnShutterClosed}, " +
-            $"sounds={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}).");
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndDoorClose)}).");
 
         int dismountJumpUpdates = 0;
         while ((_player.MinecartJumpActive || minecart.Dismounting) &&
@@ -1685,7 +1685,7 @@ public sealed partial class ValidationRoot
             blockedBodyHit ||
             swordEnemy.Health != swordEnemyHealth ||
             attackerRecoil is not [{ Frames: 8 }] ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
             _entities.Entities<ClinkEffect>().Count != 1,
             "Sword Stalfos did not silently ignore its guarded body while " +
             "PART_ENEMY_SWORD produced one LINKDMG_$38 clink/recoil " +
@@ -1693,7 +1693,7 @@ public sealed partial class ValidationRoot
             $"first={firstBladeHit}, repeat={repeatedBladeHit}, " +
             $"body={blockedBodyHit}, health={swordEnemy.Health}/" +
             $"{swordEnemyHealth}, recoil={string.Join(',', attackerRecoil)}, " +
-            $"sound={_sound.PlayRequestsFor(OracleSoundEngine.SndClink)}, " +
+            $"sound={_sound.PlayRequestsFor(SoundId.SndClink)}, " +
             $"clinks={_entities.Entities<ClinkEffect>().Count}).");
         Step(8);
         blockingSource = swordEnemy.Position +
@@ -1711,7 +1711,7 @@ public sealed partial class ValidationRoot
                 swordState: SwordActionState.Swing,
                 swordLevel: 1) ||
             attackerRecoil.Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1,
             "PART_ENEMY_SWORD accepted a second contact when Link's " +
             "LINKDMG_$38 recoil expired three updates before the part's " +
             "ENEMYDMG_$4c invincibility counter.");
@@ -1737,7 +1737,7 @@ public sealed partial class ValidationRoot
             OracleObjectMath.CardinalVector(
                 (swordEnemy.Angle + 4) & 0x18) * 16.0f;
         int clinksBeforeSpin =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+            _sound.PlayRequestsFor(SoundId.SndClink);
         // This assertion concerns the blade's effect-$00 row. Its rectangle
         // can overlap the parent's body after recoil; that body has its own
         // damage row and cannot establish whether the blade ignored a spin.
@@ -1752,7 +1752,7 @@ public sealed partial class ValidationRoot
                 damage: 4,
                 strength: EnemyKnockbackStrength.High,
                 spawns: spinSpawns) || spinSpawns.Count != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
+            _sound.PlayRequestsFor(SoundId.SndClink) !=
                 clinksBeforeSpin,
             "PART_ENEMY_SWORD did not map the Spin Attack collision row to " +
             "effect $00.");
@@ -1913,8 +1913,8 @@ public sealed partial class ValidationRoot
                 Frames: 11
             } ||
             thwompRecoilSource != ridingThwomp.Position ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndBombLand) != 1 ||
             _entities.Entities<ClinkEffect>() is not
             [
                 {
@@ -1933,8 +1933,8 @@ public sealed partial class ValidationRoot
                 damage: 99,
                 knockbackStrength: EnemyKnockbackStrength.Low,
                 attackerKnockback: _ => { }) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndBombLand) != 1 ||
             _entities.Entities<ClinkEffect>().Count != 1,
             "Thwomp armor accepted a repeated sword collision before its " +
             "negative invincibility counter expired.");
@@ -1948,7 +1948,7 @@ public sealed partial class ValidationRoot
             !air.AnimationPhaseDurations.AsSpan().SequenceEqual([9, 9, 6]),
             "Roc's Feather lost the imported top-down Z and animation table.");
         PrepareRoom(0x2e);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         _sound.ClearPlayRequestAudit();
         int airborneUpdates = 1;
         int minimumZ = 0;
@@ -1964,8 +1964,8 @@ public sealed partial class ValidationRoot
             _player.TopDownAirborne ||
             airborneUpdates != 31 ||
             minimumZ != -15 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndJump) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLand) != 1,
+            _sound.PlayRequestsFor(SoundId.SndJump) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndLand) != 1,
             "Top-down Roc's Feather flight lost its exact 31-update " +
             "-$01e0/$20 arc or jump/landing sounds.");
 
@@ -2079,7 +2079,7 @@ public sealed partial class ValidationRoot
         impactProjectile.UpdateFrame(_player);
         FailIf(
             impactProjectile.Finished || impactProjectile.Breaking ||
-            impactSounds is not [OracleSoundEngine.SndFallInHole],
+            impactSounds is not [SoundId.SndFallInHole],
             "PART_HEAD_THWOMP_FIREBALL $39 did not spend its creation " +
             "update becoming visible and requesting SND_FALLINHOLE.");
         for (int impactUpdate = 0;
@@ -2120,7 +2120,7 @@ public sealed partial class ValidationRoot
             impactProjectile.AnimationIndex != 1 ||
             impactProjectile.AnimationFrameIndex != 0 ||
             impactSounds.Count(sound =>
-                sound == OracleSoundEngine.SndBreakRock) != 1 ||
+                sound == SoundId.SndBreakRock) != 1 ||
             impactHash == flyingFireballHash ||
             impactHash == OracleGraphicsCache.PixelHash(repeatedHalvesImage) ||
             impactHash != OracleGraphicsCache.PixelHash(expectedImpactImage),
@@ -2146,8 +2146,8 @@ public sealed partial class ValidationRoot
             "TREASURE_OBJECT_HEART_CONTAINER_00",
             headRewardDefinition.Source)
         {
-            SpawnMode = 0,
-            GrabMode = 2
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands
         };
         var headRewardWorld = new OracleWorldData();
         OracleRoomData headRewardRoom = headRewardWorld.LoadRoom(6, 0x2b);
@@ -2209,7 +2209,7 @@ public sealed partial class ValidationRoot
                 [PuzzlePuffSpawn
                     {
                         Position: var firstBossPuff,
-                        Sound: OracleSoundEngine.SndPoof
+                        Sound: SoundId.SndPoof
                     }] ||
             firstBossPuff != leftBossStair,
             "Wing Dungeon's boss reward did not set ROOMFLAG $80 and yield " +
@@ -2442,8 +2442,8 @@ public sealed partial class ValidationRoot
             head.Health != headHealthBeforeSword ||
             head.InvincibilityCounter != -20 ||
             head.KnockbackCounter != 0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndBombLand) != 0 ||
             _entities.Entities<ClinkEffect>() is not
             [
                 {
@@ -2460,7 +2460,7 @@ public sealed partial class ValidationRoot
                 head.Position + Vector2.Left * 16,
                 damage: 99,
                 knockbackStrength: EnemyKnockbackStrength.High) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
             _entities.Entities<ClinkEffect>().Count != 1,
             "Head Thwomp accepted a repeated sword collision before its " +
             "negative invincibility counter expired.");
@@ -2509,7 +2509,7 @@ public sealed partial class ValidationRoot
             Vector2I.Zero,
             Vector2I.Zero,
             speedZ: 0,
-            speedRaw: 0);
+            speedRaw: ObjectSpeed.Speed0);
         Step();
         FailIf(
             head.State != HeadThwompState.BombPause ||
@@ -2644,7 +2644,7 @@ public sealed partial class ValidationRoot
         _player.RefillHealth();
         int swoopContactHealth = _player.HealthQuarters;
         int swoopDamageSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink);
+            _sound.PlayRequestsFor(SoundId.SndDamageLink);
         for (int frame = 0;
              frame < 40 && swoop.State == SwoopState.Telegraph;
              frame++)
@@ -2655,7 +2655,7 @@ public sealed partial class ValidationRoot
         int swoopAttackStartZ = swoop.ZFixed >> 8;
         int swoopHealthBeforeHighSword = swoop.Health;
         int swoopBossDamageSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage);
+            _sound.PlayRequestsFor(SoundId.SndBossDamage);
         bool highSwordAccepted = _entities.ApplySwordHit(
             swoop.CollisionBounds.Grow(1),
             _player.Position,
@@ -2669,10 +2669,10 @@ public sealed partial class ValidationRoot
                 swoopAttackStartZ, _player.MeleeItemZ, radius: 0x07) ||
             highSwordAccepted ||
             swoop.Health != swoopHealthBeforeHighSword ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) !=
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) !=
                 swoopBossDamageSounds ||
             _player.HealthQuarters != swoopContactHealth ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) !=
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) !=
                 swoopDamageSounds,
             "Swoop $71 accepted Link or held-sword contact from its 2D stomp " +
             "box before Enemy.zh entered the source $0e/$07 window " +
@@ -2701,7 +2701,7 @@ public sealed partial class ValidationRoot
         FailIf(
             firstContactZ < -7 ||
             _player.HealthQuarters != swoopContactHealth - 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDamageLink) !=
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) !=
                 swoopDamageSounds + 1 ||
             !swoop.OverlapsLinkAtCollisionHeight(
                 swoop.Position + new Vector2(15, 15)) ||
@@ -2727,7 +2727,7 @@ public sealed partial class ValidationRoot
         ulong fallingBodyHash = OracleGraphicsCache.PixelHash(
             swoop.CurrentAnimationTexture.GetImage());
         int stompImpactSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose);
+            _sound.PlayRequestsFor(SoundId.SndDoorClose);
         _player.WarpTo(new Vector2(16, 16), recordSafe: false);
         for (int frame = 0;
              frame < 90 && swoop.State == SwoopState.Stomping;
@@ -2742,7 +2742,7 @@ public sealed partial class ValidationRoot
             swoop.AnimationFrame != 0 ||
             groundedBodyHash != fallingBodyHash ||
             _entities.ScreenShakeCounter != 0x2f ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) !=
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) !=
                 stompImpactSounds + 1,
             "Swoop $71 did not land on its unchanged body frame with the " +
             "source 48-update shake and one SND_DOORCLOSE.");
@@ -2767,7 +2767,7 @@ public sealed partial class ValidationRoot
                 swoop.ZFixed >> 8, _player.MeleeItemZ, radius: 0x07) ||
             !lowSwordAccepted ||
             swoop.Health != swoopHealthBeforeLowSword - 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBossDamage) !=
+            _sound.PlayRequestsFor(SoundId.SndBossDamage) !=
                 swoopBossDamageSounds + 1,
             "Swoop $71 did not accept the held sword after Enemy.zh entered " +
             "the source item-height window.");
@@ -2827,9 +2827,9 @@ public sealed partial class ValidationRoot
         (Vector2 holeCenter, int holePacked) = swoopHoles[0];
         int healthBeforeHoleDescent = _player.HealthQuarters;
         int linkFallSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall);
+            _sound.PlayRequestsFor(SoundId.SndLinkFall);
         int landingSplashSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+            _sound.PlayRequestsFor(SoundId.SndSplash);
         _player.WarpTo(holeCenter, recordSafe: false);
         _player.EndCutsceneControl();
         ActiveTerrainInfo activeSwoopHole =
@@ -2853,7 +2853,7 @@ public sealed partial class ValidationRoot
             _currentRoom.Id != 0x34 ||
             !_player.IsFallingInHole ||
             !_player.Visible ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) !=
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) !=
                 linkFallSounds + 1,
             $"Swoop warphole ${holePacked:x2} did not finish the source " +
             "fall animation and begin its visible dungeon-floor fade " +
@@ -2862,7 +2862,7 @@ public sealed partial class ValidationRoot
             $"falling={_player.IsFallingInHole}, visible={_player.Visible}, " +
             $"riding={_entities.PlayerRidingObject}, " +
             $"cutscene={_player.CutsceneControlled}, dying={_player.IsDying}, " +
-            $"fallSounds={_sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) - linkFallSounds}).");
+            $"fallSounds={_sound.PlayRequestsFor(SoundId.SndLinkFall) - linkFallSounds}).");
 
         bool sawDestinationFall = false;
         bool sawNegativeFallZ = false;
@@ -2890,7 +2890,7 @@ public sealed partial class ValidationRoot
             _player.IsFallingInHole || _player.IsRoomWarpFalling ||
             !sawDestinationFall || !sawNegativeFallZ ||
             collapsedUpdates != 0x1e ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+            _sound.PlayRequestsFor(SoundId.SndSplash) !=
                 landingSplashSounds + 1,
             $"Swoop warphole ${holePacked:x2} did not land Link without " +
             "damage in matching room 4:2c after TRANSITION_DEST_FALL " +

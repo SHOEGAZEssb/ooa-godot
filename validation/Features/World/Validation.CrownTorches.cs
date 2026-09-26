@@ -41,7 +41,7 @@ public partial class ValidationRoot
                 FailIf(_entities.ActiveTriggers!=0x20,"State0 translator must clear only its mask under text.");
                 FailIf(torches.Any(t=>!t.Initialized),"PART$06 state0 must initialize even while text is active.");
                 foreach (var torch in torches)
-                    FailIf(torch.ApplySeedHit(torch.CollisionBounds,torch.Position,0x20,new List<RoomEntitySpawn>())!=SeedHitResult.Consume,
+                    FailIf(torch.ApplySeedHit(torch.CollisionBounds,torch.Position,ItemId.EmberSeed,new List<RoomEntitySpawn>())!=SeedHitResult.Consume,
                         "Initialized PART$06 must accept the isolated Ember collision.");
                 Step(8);
                 FailIf(torches.Any(t=>t.Finished) || positions.Any(p=>_currentRoom.Layout[p]!=0x08),
@@ -52,23 +52,23 @@ public partial class ValidationRoot
             Step();
             FailIf(_entities.Entities<LightableTorchRoomEntity>().Count!=0 ||
                 positions.Any(p=>_currentRoom.Layout[p]!=0x09) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)!=4 || _entities.ActiveTriggers!=0x21 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=0,
+                _sound.PlayRequestsFor(SoundId.SndLightTorch)!=4 || _entities.ActiveTriggers!=0x21 ||
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=0 ||
+                _sound.PlayRequestsFor(SoundId.SndDoorClose)!=0,
                 "The next PART pass must light four torches once, delete them, and publish the count before the translator runs.");
             Step(5); // Door setup resumes at setangle; playsound is script update7.
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1,
+            FailIf(_sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=1,
                 "Torch shutter solve sound must follow its setup, contact and trigger script yields.");
             Step(); // setstate2
             Step();
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=1 || !_currentRoom.IsSolid(door.Position),
+            FailIf(_sound.PlayRequestsFor(SoundId.SndDoorClose)!=1 || !_currentRoom.IsSolid(door.Position),
                 "The next door dispatch must begin interleaving while retaining solid collision.");
             Step(5);
             FailIf(!_currentRoom.IsSolid(door.Position),"The shutter must remain solid until its sixth interleave update.");
             Step();
-            FailIf(_currentRoom.IsSolid(door.Position) || _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)!=2,
+            FailIf(_currentRoom.IsSolid(door.Position) || _sound.PlayRequestsFor(SoundId.SndDoorClose)!=2,
                 "The sixth interleave update must finish opening the torch-room shutter.");
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)!=4,"Deleted torches must not light repeatedly.");
+            FailIf(_sound.PlayRequestsFor(SoundId.SndLightTorch)!=4,"Deleted torches must not light repeatedly.");
 
             LoadValidationRoom(4,0xa6);
             _player.WarpTo(new(56,88));

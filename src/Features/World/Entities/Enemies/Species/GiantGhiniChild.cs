@@ -85,7 +85,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         {
             _spawnPuffPending = false;
             spawns.Add(new PuzzlePuffSpawn(
-                Position, OracleSoundEngine.SndPoof));
+                Position, SoundId.SndPoof));
         }
         switch (_state)
         {

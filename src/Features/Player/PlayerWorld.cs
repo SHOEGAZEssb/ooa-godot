@@ -43,17 +43,17 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool BraceletParentActive => _bracelet.State is not (BraceletState.Idle or BraceletState.Projectile);
     public int RaisedFloorOffset
     {
-        get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress));
-        set => _entities.RuntimeState.SetWramByte(OracleRuntimeState.LinkRaisedFloorOffsetAddress, unchecked((byte)value));
+        get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset));
+        set => _entities.RuntimeState.SetWramByte(WramAddress.wLinkRaisedFloorOffset, unchecked((byte)value));
     }
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
-        _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0 ||
+        _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
     public bool PlayerContactDisabled => _transitions.TimeWarpActive || _entities.PlayerContactDisabled;
     public bool NativeWarpsDisabled =>
-        _entities.RuntimeState.ReadWramByte(OracleRuntimeState.WarpsDisabledAddress) != 0;
+        _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0;
     public void SetNativeWarpsDisabled(bool disabled) =>
-        _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, disabled ? (byte)1 : (byte)0);
+        _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, disabled ? (byte)1 : (byte)0);
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;
@@ -66,7 +66,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryBeginBoomerang(Player player, int parentSlot)
     {
         // boomerangParent state0 rejects these before animation/allocation.
-        if (Underwater || SideScrolling && _inventory.HasTreasure(TreasureDatabase.TreasureMermaidSuit) &&
+        if (Underwater || SideScrolling && _inventory.HasTreasure(TreasureId.MermaidSuit) &&
             (GetSideScrollTerrain(player.PrecisePosition).ActiveType & SideScrollTileType.Water) != 0 ||
             player.TopDownSwimming || player.SideScrollSwimming || SwitchHookActive)
             return false;
@@ -74,7 +74,7 @@ public sealed class PlayerWorld : IPlayerWorld
         if ((angle & 0x80) != 0) angle = CarriedObjectMotion.DirectionIndex(player.FacingVector) * 8;
         if (!_entities.TryCreateBoomerang(player.PrecisePosition, angle, player.ObjectZHigh)) return false;
         _entities.BoomerangParent.Begin(parentSlot, player.MinecartRideActive || player.CompanionRideActive, player.RaftRideActive);
-        player.NotifyParentItemAnimationStarted(InventoryState.ItemBoomerang);
+        player.NotifyParentItemAnimationStarted(TreasureId.Boomerang);
         return true;
     }
     public void UpdateBoomerangParent() => _entities.BoomerangParent.Update();
@@ -94,9 +94,9 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdateSwitchHookParent(Player player) => _entities.SwitchHook?.UpdateParent(player);
     public void InterruptSwitchHook(bool discard) => _entities.SwitchHook?.Interrupt(discard);
     public bool SideScrolling =>
-        (_terrain.CurrentTilesetFlags & 0x20) != 0;
+        (_terrain.CurrentTilesetFlags & (int)TilesetFlags.Sidescroll) != 0;
     public bool Underwater =>
-        (_terrain.CurrentTilesetFlags & 0x40) != 0;
+        (_terrain.CurrentTilesetFlags & (int)TilesetFlags.Underwater) != 0;
     public SideScrollPlayerParameters SideScrollParameters =>
         _terrain.SideScrollParameters;
     public bool RingTransformationsAllowed =>

@@ -47,13 +47,13 @@ internal sealed class CompanionForestDatabase
             new GeneratedTableSchema("Companion exclamation", GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "animation-base64", "source"], headerRequired: true)).SingleRow();
         string animation = mark.Base64Utf8(3);
-        _exclamation = new NpcRecord(0, 0, 0x9f, 0, 0, 0, 0, 0, mark.RequiredString(0),
+        _exclamation = new NpcRecord(0, 0, InteractionId.ExclamationMark, 0, 0, 0, 0, 0, mark.RequiredString(0),
             mark.UnsignedDecimal(1), mark.UnsignedDecimal(2), 0, false,
             animation, animation, animation, animation, string.Empty, NpcImplementationClassification.EventOwned);
     }
 
     internal NpcRecord FluteRecord(int group, int room, Vector2 point, int companion = 0x0c) => new(
-        group, room, 0x71, 0x0a, (int)point.Y, (int)point.X, 0, 0,
+        group, room, InteractionId.CompanionScripts, 0x0a, (int)point.Y, (int)point.X, 0, 0,
         _sprite, _tileBase, ((companion - 0x0a) & 1) * 2 ^ (companion - 0x0a), 0, false, _animation, _animation, _animation, _animation,
         string.Empty, NpcImplementationClassification.EventOwned);
     internal NpcRecord ExclamationRecord(int room, Vector2 point) => _exclamation with { Room = room, X = (int)point.X, Y = (int)point.Y };

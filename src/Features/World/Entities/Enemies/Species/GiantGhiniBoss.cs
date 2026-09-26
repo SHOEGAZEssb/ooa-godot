@@ -76,7 +76,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         {
             _initialized = true;
             _counter = 120;
-            _playSound(OracleSoundEngine.SndCtrlStopMusic);
+            _playSound(SoundId.SndCtrlStopMusic);
             SpawnChildren(spawns);
             return;
         }
@@ -122,7 +122,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
                     return;
                 Visible = true;
                 _state = GiantGhiniBossBossState.Moving;
-                _playSound(OracleSoundEngine.MusMiniboss);
+                _playSound(SoundId.MusMiniboss);
                 ChooseTargetAngle(player.Position);
                 SetAnimation(0);
                 SetChildRespawnTimer();
@@ -188,7 +188,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
     {
         if (_dying || !base.TakeSwordHit(sourcePosition, damage))
             return false;
-        _playSound(OracleSoundEngine.SndBossDamage);
+        _playSound(SoundId.SndBossDamage);
         if (IsDead)
             BeginDeath();
         return true;
@@ -227,7 +227,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         _dying = true;
         _deathCounter = 120;
         _disableLinkCollisionsAndMenu();
-        _playSound(OracleSoundEngine.SndBossDead);
+        _playSound(SoundId.SndBossDead);
     }
 
     private void BeginCharge(Vector2 linkPosition)
@@ -258,7 +258,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         {
             _targetScreenY = targetScreenY;
             _angle = OracleObjectMovement.Shared.RelativeAngle(
-                Position, linkPosition) ^ 0x10;
+                Position, linkPosition) ^ ObjectAngle.HalfTurn;
             _nudgeCounter = 10;
         }
         return OracleObjectMovement.Shared.RelativeAngle(

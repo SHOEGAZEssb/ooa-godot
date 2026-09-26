@@ -40,7 +40,7 @@ internal partial class MoldormSpawnerCharacter : EnemyCharacter
 
     internal IRoomEntity CreateChild(int subid)
     {
-        var definition = _enemies.ImportedEnemy(0x4f, subid);
+        var definition = _enemies.ImportedEnemy(EnemyId.Moldorm, subid);
         if (subid == 1)
         {
             _head = new MoldormCharacter { Name = "MoldormHead", ZIndex = 10, KillRelatedParts = _killParts };

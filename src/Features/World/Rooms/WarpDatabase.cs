@@ -241,7 +241,7 @@ internal readonly record struct DiveWarp(
             SourceRoom,
             SourcePosition,
             EdgeMask: 0,
-            SourceTransition: 2,
+            SourceTransition: WarpSourceTransition.FadeOut,
             DestinationGroup,
             DestinationRoom,
             DestinationPosition,

@@ -28,7 +28,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _forestWaiting = true;
         _phase = RickyCompanionPhase.Waiting;
         // rickyState0: returned Ricky uses $17, while an unmet Ricky uses $00.
-        SetAnimation(((_saveData?.ReadWramByte(0xc646) ?? 0) & 0x60) != 0 ? 0x17 : 0);
+        SetAnimation(((_saveData?.ReadWramByte(WramAddress.wCompanionStates) ?? 0) & 0x60) != 0 ? 0x17 : 0);
     }
 
     public void NoticeForestLink(int animation)
@@ -656,7 +656,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
     private bool TryStartJumpUpCliff(int walls)
     {
-        if ((walls & 0xc0) != 0xc0 || _angle != 0x00)
+        if ((walls & 0xc0) != 0xc0 || _angle != ObjectAngle.Up)
             return false;
         bool oneTile = IsCliffUpProbe(_behavior.CliffUpProbes[0]) &&
             IsCliffUpProbe(_behavior.CliffUpProbes[1]);
@@ -766,7 +766,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _behavior.HopGravity);
         int walls = CalculateAdjacentWallsBitset();
-        int movingAway = CompanionMovement.FacingWallMask((_angle + 0x10) & 0x1f, walls);
+        int movingAway = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, walls);
         if (movingAway != 0)
         {
             _wallCrossingMask = movingAway;
@@ -896,7 +896,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                     _zFixed,
                     _group,
                     _roomId));
-                _playSound(OracleSoundEngine.SndCtrlStopSfx);
+                _playSound(SoundId.SndCtrlStopSfx);
                 _playSound(_behavior.SwordSpinSound);
                 StartPunch(spawns);
             }
@@ -1283,7 +1283,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _phase = RickyCompanionPhase.HazardFalling;
         _zFixed = 0;
         _speedZ = 0;
-        _playSound(OracleSoundEngine.SndSplash);
+        _playSound(SoundId.SndSplash);
         return true;
     }
 

@@ -32,23 +32,23 @@ public sealed partial class ValidationRoot
         FailIf(
             visibility.ShouldShow(fairyRecord, predicateSave, runtime),
             "The room 0:83 Great Fairy appeared before D2 was obtained.");
-        predicateSave.WriteWramByte(0xc6bf, 0x02);
+        predicateSave.WriteWramByte(WramAddress.wEssencesObtained, 0x02);
         FailIf(
             !visibility.ShouldShow(fairyRecord, predicateSave, runtime),
             "The room 0:83 Great Fairy did not appear for linked + D2.");
 
         var linkedNpcs = new LinkedGameNpcDatabase();
         LinkedGameNpcDatabaseRecord fairyData =
-            linkedNpcs.Get(0, 0x83, 0xd5, 0x00);
+            linkedNpcs.Get(0, 0x83, InteractionId.GreatFairy, 0x00);
         var secretSave = OracleSaveData.CreateStandardGame();
-        secretSave.WriteWramByte(0xc600, 0x34);
+        secretSave.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
         secretSave.WriteWramByte(0xc601, 0x12);
         byte[] secret =
             linkedNpcs.GenerateSecretValues(fairyData, secretSave);
         FailIf(
             !secret.SequenceEqual(
                 new byte[] { 0x03, 0x35, 0x27, 0x02, 0x16 }) ||
-            secretSave.ReadWramByte(0xc6fb) != 0x26,
+            secretSave.ReadWramByte(WramAddress.wShortSecretIndex) != 0x26,
             "The Temple secret lost its source bit packing, checksum, " +
             "or XOR cipher.");
 
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
         AddChild(root);
         var save = OracleSaveData.CreateStandardGame();
         save.SetLinkedGame(true);
-        save.WriteWramByte(0xc6bf, 0x02);
+        save.WriteWramByte(WramAddress.wEssencesObtained, 0x02);
         var sounds = new List<int>();
         using var fixture = RoomEntityValidationFixture.ForRoot(
             root, new() { Npcs = npcs, SaveData = save });
@@ -108,8 +108,8 @@ public sealed partial class ValidationRoot
             !sounds.SequenceEqual(
                 new[]
                 {
-                    OracleSoundEngine.SndKillEnemy,
-                    OracleSoundEngine.SndPoof
+                    SoundId.SndKillEnemy,
+                    SoundId.SndPoof
                 }) ||
             puff.ElapsedUpdates != 1 ||
             fairy.Visible ||
@@ -122,14 +122,14 @@ public sealed partial class ValidationRoot
             manager.Update(1.0 / 60.0, _player);
         FailIf(
             fairy.Visible ||
-            sounds.Contains(OracleSoundEngine.MusFairyFountain),
+            sounds.Contains(SoundId.MusFairyFountain),
             "The Great Fairy appeared before its 32-update source wait.");
 
         manager.Update(1.0 / 60.0, _player);
         FailIf(
             !fairy.Visible || !fairy.ScriptVisible ||
             sounds.Count(sound =>
-                sound == OracleSoundEngine.MusFairyFountain) != 1 ||
+                sound == SoundId.MusFairyFountain) != 1 ||
             !ReferenceEquals(manager.FindTalkTarget(_player), fairy),
             "The Great Fairy did not become visible and talkable with " +
             "MUS_FAIRY_FOUNTAIN after update 32.");
@@ -159,10 +159,10 @@ public sealed partial class ValidationRoot
         LinkedGameNpcDatabaseRecord fairyData)
     {
         bool linkedBefore = _saveData.IsLinkedGame;
-        byte essencesBefore = _saveData.ReadWramByte(0xc6bf);
-        byte gameIdLowBefore = _saveData.ReadWramByte(0xc600);
+        byte essencesBefore = _saveData.ReadWramByte(WramAddress.wEssencesObtained);
+        byte gameIdLowBefore = _saveData.ReadWramByte(WramAddress.wUnappraisedRingsEnd);
         byte gameIdHighBefore = _saveData.ReadWramByte(0xc601);
-        byte shortSecretBefore = _saveData.ReadWramByte(0xc6fb);
+        byte shortSecretBefore = _saveData.ReadWramByte(WramAddress.wShortSecretIndex);
         bool beganBefore = _saveData.HasGlobalFlag(fairyData.BeganFlag);
 
         try
@@ -170,8 +170,8 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             _saveData.SetLinkedGame(true);
             _saveData.WriteWramByte(
-                0xc6bf, (byte)(essencesBefore | 0x02));
-            _saveData.WriteWramByte(0xc600, 0x34);
+                WramAddress.wEssencesObtained, (byte)(essencesBefore | 0x02));
+            _saveData.WriteWramByte(WramAddress.wUnappraisedRingsEnd, 0x34);
             _saveData.WriteWramByte(0xc601, 0x12);
             _saveData.SetGlobalFlag(fairyData.BeganFlag, value: false);
             _saveData.CommitInventoryChange();
@@ -245,7 +245,7 @@ public sealed partial class ValidationRoot
                 _dialogue.CurrentMessage.Contains(
                     "\\secret1", StringComparison.Ordinal) ||
                 !_saveData.HasGlobalFlag(fairyData.BeganFlag) ||
-                _saveData.ReadWramByte(0xc6fb) != 0x26,
+                _saveData.ReadWramByte(WramAddress.wShortSecretIndex) != 0x26,
                 "The Great Fairy did not generate/substitute the Temple " +
                 "secret and set GLOBALFLAG_BEGAN_TEMPLE_SECRET.");
             _dialogue.SubmitChoiceForValidation(1);
@@ -268,10 +268,10 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             LoadValidationRoom(0, 0x11);
             _saveData.SetLinkedGame(linkedBefore);
-            _saveData.WriteWramByte(0xc6bf, essencesBefore);
-            _saveData.WriteWramByte(0xc600, gameIdLowBefore);
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, essencesBefore);
+            _saveData.WriteWramByte(WramAddress.wUnappraisedRingsEnd, gameIdLowBefore);
             _saveData.WriteWramByte(0xc601, gameIdHighBefore);
-            _saveData.WriteWramByte(0xc6fb, shortSecretBefore);
+            _saveData.WriteWramByte(WramAddress.wShortSecretIndex, shortSecretBefore);
             _saveData.SetGlobalFlag(fairyData.BeganFlag, beganBefore);
             _saveData.CommitInventoryChange();
         }
@@ -307,7 +307,7 @@ public sealed partial class ValidationRoot
             _saveData.SetMakuMapTextPresent(0);
             _inventory.GiveTreasure(
                 _treasures.GetObject("TREASURE_OBJECT_BRACELET_00"));
-            _inventory.EquipB(InventoryState.ItemBracelet);
+            _inventory.EquipB(TreasureId.Bracelet);
             LoadValidationRoom(0, 0x83);
             byte[] facadeAttributes = ReadRoom083FacadeAttributes();
             FailIf(
@@ -315,7 +315,7 @@ public sealed partial class ValidationRoot
                 _currentRoom.GetMetatile(rock) != 0xc3 ||
                 collapse.Stage != WingDungeonCollapseStage.AwaitingRockLift,
                 "Room 0:83 did not arm $dc:$02 over its source $c3 rock.");
-            FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) == 0,
+            FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) == 0,
                 "Room 0:83 $dc:$02 did not forbid digging enemies while awaiting the rock lift.");
 
             _player.WarpTo(rock + Vector2.Left * 10, recordSafe: false);
@@ -382,7 +382,7 @@ public sealed partial class ValidationRoot
                 !_player.IsCarryingObject ||
                 _player.FacingVector != Vector2I.Right ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndCtrlStopMusic) != 1,
+                    SoundId.SndCtrlStopMusic) != 1,
                 "Completed rock pickup did not face Link right, stop " +
                 "music, and begin the source 30-update hold.");
 
@@ -404,7 +404,7 @@ public sealed partial class ValidationRoot
                 collapse.Counter != 60 ||
                 exclamation.Position != new Vector2(0x38, 0x40) ||
                 _player.IsCarryingObject ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndClink) != 1,
+                _sound.PlayRequestsFor(SoundId.SndClink) != 1,
                 "Update 30 did not create the 60-update exclamation and " +
                 "drop Link's held rock.");
 
@@ -438,7 +438,7 @@ public sealed partial class ValidationRoot
             FailIf(
                 collapse.Counter != 1 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndDoorClose) != 0,
+                    SoundId.SndDoorClose) != 0,
                 "The first collapsing map appeared before the source " +
                 "60-update hold.");
             AdvanceRoom083Collapse(collapse, 1);
@@ -456,7 +456,7 @@ public sealed partial class ValidationRoot
                 collapse.DustCounter != 0x69 ||
                 _entities.Entities<PuzzlePuffEffect>().Count == 0 ||
                 _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndDoorClose) != 1,
+                    SoundId.SndDoorClose) != 1,
                 "The first 6x6 collapse map, door-close sound, or " +
                 "INTERAC_97 puff boundary diverged.");
 
@@ -469,7 +469,7 @@ public sealed partial class ValidationRoot
                     collapse.Maps[phase], facadeAttributes);
                 FailIf(
                     _sound.PlayRequestsFor(
-                    OracleSoundEngine.SndDoorClose) != phase + 1,
+                    SoundId.SndDoorClose) != phase + 1,
                     $"Collapse phase {phase} did not request " +
                     "SND_DOORCLOSE exactly once.");
             }

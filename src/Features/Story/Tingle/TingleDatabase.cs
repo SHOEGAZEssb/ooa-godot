@@ -110,7 +110,7 @@ internal sealed class TingleDatabase
 
         if (Record is not
             {
-                Group: 0, Room: 0x79, InteractionId: 0xc8, SubId: 0x00,
+                Group: 0, Room: 0x79, InteractionId: InteractionId.Tingle, SubId: 0x00,
                 BalloonPart: 0x44, InitialZ: -15, BalloonCounter: 56,
                 BalloonSpeedZ: -16, FallWait: 15, FallGravity: 16,
                 KoolooSpeedZ: -512, KoolooGravity: 32,

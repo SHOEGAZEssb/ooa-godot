@@ -77,7 +77,7 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         _resetRoomMusic = resetRoomMusic;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
-        if (placement is not { Group: 1, Room: 0xba, Id: 0xc4, SubId: 0x04 })
+        if (placement is not { Group: 1, Room: 0xba, Id: InteractionId.Pirate, SubId: 0x04 })
             throw new ArgumentOutOfRangeException(nameof(placement));
         Name = "TokayEyeballSocket";
         Position = new Vector2(placement.X, placement.Y);
@@ -169,7 +169,7 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
             case TokayEyeballSlotState.EyeWait:
                 if (--_counter != 0)
                     return;
-                _playSound(OracleSoundEngine.SndOpening);
+                _playSound(SoundId.SndOpening);
                 _beginScreenShake(_record.ShakeFrames);
                 _counter = _record.ShakeWait;
                 _state = TokayEyeballSlotState.ShakeWait;
@@ -186,7 +186,7 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
             case TokayEyeballSlotState.OpenWait:
                 if (--_counter != 0)
                     return;
-                _playSound(OracleSoundEngine.SndSolvePuzzle);
+                _playSound(SoundId.SndSolvePuzzle);
                 _resetRoomMusic(_record.Group, _record.Room);
                 _inventory.LoseTreasure(_record.Treasure);
                 _state = TokayEyeballSlotState.Finished;
@@ -219,11 +219,11 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
 
     private void BeginInsert(ICollection<RoomEntitySpawn> spawns)
     {
-        _playSound(OracleSoundEngine.SndCtrlStopMusic);
+        _playSound(SoundId.SndCtrlStopMusic);
         _save.SetRoomFlag(
             _record.Group, _record.Room, checked((byte)_record.RoomFlag));
         spawns.Add(new TokayEntranceEyeSpawn(_database.InsertedEye));
-        _playSound(OracleSoundEngine.SndOpenChest);
+        _playSound(SoundId.SndOpenChest);
         _counter = _record.EyeWait;
         _state = TokayEyeballSlotState.EyeWait;
     }
@@ -243,9 +243,9 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
                 _animationTick());
         }
         _roomTileChanged();
-        _playSound(OracleSoundEngine.SndDoorClose);
+        _playSound(SoundId.SndDoorClose);
         spawns.Add(new PuzzlePuffSpawn(
-            new Vector2(_record.PuffX, _record.PuffY), Sound: 0));
+            new Vector2(_record.PuffX, _record.PuffY), Sound: SoundId.MusNone));
     }
 
     private void ResetPush() => _pushCounter = _record.PushDelay;

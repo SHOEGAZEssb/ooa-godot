@@ -217,7 +217,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         // Link, then writes the opposite angle to Object.knockbackAngle.
         // Even coincident positions follow this path: $18 xor $10 = $08.
         KnockbackAngle =
-            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ ObjectAngle.HalfTurn;
         QueueRedraw();
     }
 
@@ -285,7 +285,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Vector2 target =
             OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition);
         KnockbackAngle =
-            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ ObjectAngle.HalfTurn;
         QueueRedraw();
     }
 
@@ -392,7 +392,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Vector2 target =
             OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition);
         KnockbackAngle =
-            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ 0x10;
+            OracleObjectMovement.Shared.RelativeAngle(target, source) ^ ObjectAngle.HalfTurn;
         QueueRedraw();
     }
 

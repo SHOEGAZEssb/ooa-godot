@@ -117,7 +117,7 @@ public sealed partial class ValidationRoot
                 LoadValidationRoom(4, 0x91);
                 Step(70);
                 FailIf(_entities.RoomEnemyCount != 0 || _entities.Entities<MoldormTailCharacter>().Count != 0 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+                    _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0,
                     "Room cancellation must remove all pending Moldorm falls without delayed effects.");
                 continue;
             }
@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
                 "Moldorm falls must retain all three counts through update 59.");
             Step();
             FailIf(!head.IsDead || tails.Any(t => !t.IsDead) || _entities.RoomEnemyCount != countBefore - 3 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 1 ||
+                _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1 ||
                 _entities.Entities<EnemyDeathPuffEffect>().Count != 0,
                 "On update 60 the head falls, then both tails see deleted parent pages and release counts without extra falls or combat puffs.");
         }

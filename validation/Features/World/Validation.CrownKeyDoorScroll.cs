@@ -40,14 +40,14 @@ public sealed partial class ValidationRoot
             Step(8);
             FailIf(!_transitions.ScrollActive || _keyDoors.Opening != (priorUpdates != 0) ||
                 priorUpdates != 0 && _keyDoors.OpeningCounter != counter ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+                _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
                 "Initialized outgoing reserved doors must retain their timer and produce no scroll-time sound.");
             for (int i = 0; _transitions.ScrollActive && i < 100; i++) Step();
             FailIf(_transitions.ScrollActive || _keyDoors.Opening || _rooms.CurrentRoom.Id != target,
                 "Scroll cleanup must release the outgoing reserved door and finish in the imported neighbor.");
             Step();
             FailIf(_keyDoors.Opening || source.GetMetatile(door) != 0xa0 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+                _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
                 "A cleaned-up reserved door must leave no delayed animation or sound after arrival.");
             LoadValidationRoom(0, 0x60);
         }

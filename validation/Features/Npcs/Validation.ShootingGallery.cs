@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             {
                 Group: group,
                 Room: roomId,
-                InteractionId: 0x30,
+                InteractionId: InteractionId.ShootingGallery,
                 SubId: 0,
                 Rounds: 10,
                 InitialDelay: 0x78,
@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
             "Room 2:e9 did not retain its imported script/table closure.");
 
         var inventorySnapshot = new byte[0x39];
-        _saveData.ReadWramBytes(0xc688, inventorySnapshot);
+        _saveData.ReadWramBytes(WramAddress.wInventoryB, inventorySnapshot);
         OracleRandomState randomSnapshot = _random.CaptureState();
         MethodInfo reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
@@ -59,8 +59,8 @@ public sealed partial class ValidationRoot
             if (_inventory.Rupees < record.Cost)
                 _inventory.AddRupees(record.Cost - _inventory.Rupees);
             _inventory.SetScriptedEquippedItems(
-                InventoryState.ItemShield,
-                InventoryState.ItemShovel);
+                TreasureId.Shield,
+                TreasureId.Shovel);
             int originalB = _inventory.EquippedB;
             int originalA = _inventory.EquippedA;
 
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
                 !gallery.HasState ||
                 gallery.BlocksGameplay ||
                 gallery.MenusDisabled ||
-                keeper.Record is not { Id: 0x30, SubId: 0x00 } ||
+                keeper.Record is not { Id: InteractionId.ShootingGallery, SubId: 0x00 } ||
                 keeper.Position != new Vector2(0x88, 0x68) ||
                 gallery.CurrentCommandIndex != 1,
                 "Room 2:e9 did not instantiate its specialized $30:$00 " +
@@ -131,8 +131,8 @@ public sealed partial class ValidationRoot
                 _player.CutsceneControlled ||
                 _player.Position != new Vector2(0x50, 0x60) ||
                 _player.FacingVector != Vector2I.Up ||
-                _inventory.EquippedB != TreasureDatabase.TreasureSword ||
-                _inventory.EquippedA != InventoryState.ItemNone ||
+                _inventory.EquippedB != TreasureId.Sword ||
+                _inventory.EquippedA != TreasureId.None ||
                 TileAt(0x74) != record.EntranceClosedTile0 ||
                 TileAt(0x75) != record.EntranceClosedTile1 ||
                 controller.State != 1 ||
@@ -442,18 +442,18 @@ public sealed partial class ValidationRoot
                 $"command={gallery.CurrentCommandIndex}).");
 
             _inventory.SetScriptedEquippedItems(
-                InventoryState.ItemShield,
-                TreasureDatabase.TreasureSword);
+                TreasureId.Shield,
+                TreasureId.Sword);
             galleryHost.RunNativeHandler("EquipSword");
             FailIf(
-                _inventory.EquippedB != InventoryState.ItemNone ||
-                _inventory.EquippedA != TreasureDatabase.TreasureSword,
+                _inventory.EquippedB != TreasureId.None ||
+                _inventory.EquippedA != TreasureId.Sword,
                 "The gallery did not clear B while retaining a Sword " +
                 "already equipped on A.");
             galleryHost.RunNativeHandler("RestoreEquips");
             FailIf(
-                _inventory.EquippedB != InventoryState.ItemShield ||
-                _inventory.EquippedA != TreasureDatabase.TreasureSword,
+                _inventory.EquippedB != TreasureId.Shield ||
+                _inventory.EquippedA != TreasureId.Sword,
                 "The gallery did not restore its alternate A-Sword loadout.");
 
             GD.Print(
@@ -468,7 +468,7 @@ public sealed partial class ValidationRoot
         }
         finally
         {
-            _saveData.WriteWramBytes(0xc688, inventorySnapshot);
+            _saveData.WriteWramBytes(WramAddress.wInventoryB, inventorySnapshot);
             _saveData.CommitInventoryChange();
             reloadInventory.Invoke(_inventory, null);
             _random.RestoreState(randomSnapshot);

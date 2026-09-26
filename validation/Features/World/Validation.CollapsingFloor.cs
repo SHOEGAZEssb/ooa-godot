@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             var held = _player.Position;
             FailIf(trap.Counter != 30 || !_entities.PlayerUpdatesFrozen ||
                 _entities.EntityAdapters<ExclamationMarkRoomEntity>().Count() != 1 ||
-                _sound.PlayRequestsFor(0x50) != 2,
+                _sound.PlayRequestsFor(SoundId.SndClink) != 2,
                 "$dc:$0b collision must freeze Link and allocate the 30-update exclamation.");
             Step(29, Vector2.Up);
             FailIf(trap.State != 2 || trap.Counter != 1 || _player.Position != held,
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             {
                 FailIf(trap.ScriptIndex != i + 1 || _currentRoom.GetMetatile(Point(expected[i])) != 0x48,
                     $"$dc:$0b tile {i} must break at ${expected[i]:x2}; Link={_player.Position}, state={trap.State}.");
-                FailIf(_sound.PlayRequestsFor(0xb3) != i + 1 || _sound.PlayRequestsFor(OracleSoundEngine.SndFallInHole) != 0,
+                FailIf(_sound.PlayRequestsFor(SoundId.SndRumble) != i + 1 || _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0,
                     "$dc:$0b breakCrackedFloor must rumble once per tile and suppress the hole effect's sound.");
                 Collapse(6);
                 FailIf(trap.ScriptIndex != i + 1, "$dc:$0b must not advance its mini-script before seven updates.");

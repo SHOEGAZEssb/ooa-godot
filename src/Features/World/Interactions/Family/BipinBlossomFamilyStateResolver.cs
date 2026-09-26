@@ -9,7 +9,6 @@ namespace oracleofages;
 /// </summary>
 internal sealed class BipinBlossomFamilyStateResolver
 {
-    private const int EssencesObtainedAddress = 0xc6bf;
     private const int AgesRefillMask = 0x02;
 
     private readonly NpcDatabase _npcs;
@@ -40,7 +39,7 @@ internal sealed class BipinBlossomFamilyStateResolver
             return placed;
         }
         if (save is not null &&
-            save.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame))
+            save.HasGlobalFlag(GlobalFlag.FinishedGame))
         {
             return placed;
         }
@@ -50,12 +49,12 @@ internal sealed class BipinBlossomFamilyStateResolver
         int stage = save is null
             ? 0
             : Math.Clamp(
-                (int)save.ReadWramByte(OracleSaveData.ChildStageAddress),
+                (int)save.ReadWramByte(WramAddress.wChildStage),
                 0,
                 9);
         int personality = stage < 4 || save is null
             ? -1
-            : save.ReadWramByte(OracleSaveData.ChildPersonalityAddress);
+            : save.ReadWramByte(WramAddress.wChildPersonality);
 
         var result = new List<NpcRecord>(placed.Count + family.Count);
         result.AddRange(placed);
@@ -107,12 +106,12 @@ internal sealed class BipinBlossomFamilyStateResolver
     {
         int textId = record.TextId;
         if (save.ChildNamed &&
-            save.ReadWramByte(OracleSaveData.ChildStageAddress) == 0)
+            save.ReadWramByte(WramAddress.wChildStage) == 0)
         {
             textId = record switch
             {
-                { Id: 0x28, SubId: 0x00 } => 0x4301,
-                { Id: 0x2b, SubId: 0x00 } => 0x4409,
+                { Id: InteractionId.Bipin, SubId: 0x00 } => 0x4301,
+                { Id: InteractionId.Blossom, SubId: 0x00 } => 0x4409,
                 _ => textId
             };
         }
@@ -148,12 +147,12 @@ internal sealed class BipinBlossomFamilyStateResolver
         OracleRuntimeState runtime)
     {
         int refillBits = runtime.ReadWramByte(
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress);
+            WramAddress.wSeedTreeRefilledBitset);
         if ((refillBits & AgesRefillMask) == 0)
             return;
 
         int nextStage = save.ReadWramByte(
-            OracleSaveData.NextChildStageAddress);
+            WramAddress.wNextChildStage);
         int requiredEssences = nextStage switch
         {
             1 or 7 => 2,
@@ -162,34 +161,34 @@ internal sealed class BipinBlossomFamilyStateResolver
             _ => 0
         };
         int essenceCount = CountBits(
-            save.ReadWramByte(EssencesObtainedAddress));
+            save.ReadWramByte(WramAddress.wEssencesObtained));
         bool saveChanged = false;
         if (nextStage is >= 0 and <= 9 &&
             essenceCount >= requiredEssences)
         {
             saveChanged |= save.WriteWramByte(
-                OracleSaveData.ChildStageAddress,
+                WramAddress.wChildStage,
                 (byte)nextStage);
             int personality = nextStage switch
             {
                 4 => DecideInitialPersonality(
-                    save.ReadWramByte(OracleSaveData.ChildStatusAddress)),
+                    save.ReadWramByte(WramAddress.wChildStatus)),
                 7 => DecideFinalPersonality(
                     save.ReadWramByte(
-                        OracleSaveData.ChildPersonalityAddress),
-                    save.ReadWramByte(OracleSaveData.ChildStatusAddress)),
+                        WramAddress.wChildPersonality),
+                    save.ReadWramByte(WramAddress.wChildStatus)),
                 _ => -1
             };
             if (personality >= 0)
             {
                 saveChanged |= save.WriteWramByte(
-                    OracleSaveData.ChildPersonalityAddress,
+                    WramAddress.wChildPersonality,
                     (byte)personality);
             }
         }
 
         runtime.SetWramByte(
-            OracleRuntimeState.SeedTreeRefilledBitsetAddress,
+            WramAddress.wSeedTreeRefilledBitset,
             (byte)(refillBits & ~AgesRefillMask));
         if (saveChanged)
             save.CommitInventoryChange();

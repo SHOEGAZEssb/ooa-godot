@@ -10,9 +10,7 @@ namespace oracleofages;
 /// </summary>
 public sealed class LinkedGameNpcDatabase
 {
-    private const int GameIdAddress = 0xc600;
-    private const int PlaytimeCounterAddress = 0xc622;
-    private const int ShortSecretIndexAddress = 0xc6fb;
+    private const int GameIdAddress = WramAddress.wUnappraisedRingsEnd;
     private const int SecretType = 3;
 
     private readonly Dictionary<
@@ -102,9 +100,9 @@ public sealed class LinkedGameNpcDatabase
         }
 
         if (_records.Count != 4 ||
-            Get(3, 0xf8, 0x3d, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
+            Get(3, 0xf8, InteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
                 BeganFlag: 0x59, OfferTextId: 0x4d2d, FinalTextId: 0x4d31, HasExtraText: true } ||
-            Get(0, 0x5d, 0xcb, 0x00) is not
+            Get(0, 0x5d, InteractionId.LinkedGameGhini, 0x00) is not
                 {
                     SecretIndex: 0x01,
                     ShortSecretIndex: 0x21,
@@ -113,7 +111,7 @@ public sealed class LinkedGameNpcDatabase
                     FinalTextId: 0x4d09,
                     HasExtraText: true
                 } ||
-            Get(0, 0x83, 0xd5, 0x00) is not
+            Get(0, 0x83, InteractionId.GreatFairy, 0x00) is not
                 {
                     SecretIndex: 0x06,
                     ShortSecretIndex: 0x26,
@@ -121,7 +119,7 @@ public sealed class LinkedGameNpcDatabase
                     OfferTextId: 0x4d1e,
                     FinalTextId: 0x4d22,
                     HasExtraText: true
-                } || Get(2,0xf6,0x66,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
+                } || Get(2,0xf6,InteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
                     OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false})
         {
             throw new InvalidOperationException(
@@ -190,7 +188,7 @@ public sealed class LinkedGameNpcDatabase
         int gameIdLow = save.ReadWramByte(GameIdAddress);
         int gameIdHigh = save.ReadWramByte(GameIdAddress + 1) & 0x7f;
         save.WriteWramByte(
-            ShortSecretIndexAddress, (byte)shortSecretIndex);
+            WramAddress.wShortSecretIndex, (byte)shortSecretIndex);
 
         int sum = (gameIdLow + gameIdHigh) & 0xff;
         int swappedHighNibble = (shortSecretIndex >> 4) & 0x0f;
@@ -281,9 +279,9 @@ public sealed class LinkedGameNpcDatabase
             return;
         }
 
-        byte low = save.ReadWramByte(PlaytimeCounterAddress);
+        byte low = save.ReadWramByte(WramAddress.wPlaytimeCounter);
         byte high =
-            (byte)(save.ReadWramByte(PlaytimeCounterAddress + 1) & 0x7f);
+            (byte)(save.ReadWramByte(WramAddress.wPlaytimeCounter + 1) & 0x7f);
         if (low == 0 && high == 0)
         {
             // The hardware source repeatedly reads R_DIV until nonzero. A

@@ -79,10 +79,10 @@ internal sealed class ShadowHagBossRoomEntity
         // collisionEffect21 / ENEMYDMG_$30. Mystery, Pegasus, and Gale use
         // collisionEffect20 / ENEMYDMG_$44, which consumes their collision
         // without reducing Shadow Hag's health.
-        if ((seedItem is 0x20 or 0x21) &&
+        if ((seedItem is ItemId.EmberSeed or ItemId.ScentSeed) &&
             !Entity.TakeSeedHit(damage: 2))
             return SeedHitResult.None;
-        return seedItem is 0x21 or 0x24
+        return seedItem is ItemId.ScentSeed or ItemId.MysterySeed
             ? SeedHitResult.Activate
             : SeedHitResult.Consume;
     }

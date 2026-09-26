@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             record.X != 0x28 ||
             record.Var03 != 0 ||
             record.ItemRoomFlag != OracleSaveData.RoomFlagItem ||
-            record.TreasureId != TreasureDatabase.TreasureBombs ||
+            record.TreasureId != TreasureId.Bombs ||
             record.TreasureSubId != 0x04 ||
             record.TreasureParameter != 0 ||
             record.PostGrantWait != 30 ||
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             "ENEMY_BABY_CUCCO $33:$00 handler contract.");
 
         _dialogue.Close();
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBombs, 0x10);
+        _inventory.GiveTreasure(TreasureId.Bombs, 0x10);
         while (_inventory.Bombs != 0x02)
         {
             FailIf(!_inventory.TryConsumeBomb(),
@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
             cuccos.Any(cucco =>
                 cucco.Record is not
                     {
-                        Id: 0x33,
+                        Id: EnemyId.BabyCucco,
                         SubId: 0x00,
                         RadiusY: 6,
                         RadiusX: 6,
@@ -222,7 +222,7 @@ public sealed partial class ValidationRoot
             "Baby Cucco release did not start the shared weight-0 throw path.");
 
         int landingSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+            _sound.PlayRequestsFor(SoundId.SndBombLand);
         for (int update = 0;
             update < 180 && carried.State == BabyCuccoState.Thrown;
             update++)
@@ -231,7 +231,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             carried.State != BabyCuccoState.Following ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) <=
+            _sound.PlayRequestsFor(SoundId.SndBombLand) <=
                 landingSounds ||
             _entities.RoomEnemyCount != 3,
             "Thrown Baby Cucco did not bounce with SND_BOMB_LAND and return " +

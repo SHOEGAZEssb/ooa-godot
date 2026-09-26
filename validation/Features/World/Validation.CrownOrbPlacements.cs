@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         // PART_ORB $03:$00 source placements. Isolate their projectile
         // consumer from the separately checked shooter item parent.
         var seeds = new SeedSatchelDatabase();
-        FailIf(!seeds.TryGet(0x20, out var ember), "Missing Ember Seed data.");
+        FailIf(!seeds.TryGet(ItemId.EmberSeed, out var ember), "Missing Ember Seed data.");
         foreach (var test in new (int Room, int Packed, Vector2 Origin, Vector2I Direction)[]
         {
             (0x9a, 0x5a, new(216, 88), Vector2I.Left),
@@ -45,13 +45,13 @@ public sealed partial class ValidationRoot
             {
                 bool expected = repeat == 0;
                 _player.ApplyInteractionInvincibility(240);
-                int angle = test.Direction == Vector2I.Left ? 6 : 0;
+                int angle = test.Direction == Vector2I.Left ? 6 : ObjectAngle.Up;
                 _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(_player.Position, test.Direction, ember, 4, SeedLaunchKind.Shooter, angle));
                 for (int i = 0; orb.IsOn != expected && i < 80; i++) StepGameplayUpdates(1, Vector2.Zero);
                 FailIf(orb.IsOn != expected, $"Crown4:{test.Room:x2} orb must accept a projectile through its actual geometry, repeat{repeat}; Link={_player.Position}, lockout={orb.HitLockout}, pending={orb.PendingHit}.");
                 StepGameplayUpdates(8, Vector2.Zero, batched: true);
                 FailIf(_entities.FloorToggle!.Active ||
-                    _runtimeState.ReadWramByte(OracleRuntimeState.LastToggleBlocksStateAddress) != (expected ? 1 : 0),
+                    _runtimeState.ReadWramByte(WramAddress.wLastToggleBlocksState) != (expected ? 1 : 0),
                     $"Crown4:{test.Room:x2} orb must complete the shared floor toggle.");
                 StepGameplayUpdates(32, Vector2.Zero);
             }

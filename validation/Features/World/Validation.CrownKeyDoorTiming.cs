@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
                 Hold();
                 Step(1);
                 FailIf(_currentRoom.GetMetatile(center) != 0x71 || _keyDoors.OpeningCounter != 0 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+                    _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
                     "Reserved INTERAC$1e:$00 state0 must yield before animating the key door.");
                 if (mode != "normal")
                 {
@@ -67,10 +67,10 @@ public sealed partial class ValidationRoot
                 }
                 Step(1);
                 FailIf(_currentRoom.GetMetatile(center) != 0xa0 || !_currentRoom.IsSolid(center) ||
-                    _keyDoors.OpeningCounter != 6 || _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1,
+                    _keyDoors.OpeningCounter != 6 || _sound.PlayRequestsFor(SoundId.SndDoorClose) != 1,
                     $"Key-door start failed ({mode}, batch={batch}): tile={_currentRoom.GetMetatile(center):x2}, " +
                     $"counter={_keyDoors.OpeningCounter}, screen={_entities.WorldToScreen(center)}, " +
-                    $"sound={_sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose)}.");
+                    $"sound={_sound.PlayRequestsFor(SoundId.SndDoorClose)}.");
                 Hold();
                 if (mode != "normal")
                 {
@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
                     "Key door must remain solid through five interleave updates.");
                 Step(1);
                 FailIf(_keyDoors.Opening || _currentRoom.IsSolid(center) ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 2 ||
+                    _sound.PlayRequestsFor(SoundId.SndDoorClose) != 2 ||
                     _inventory.GetDungeonSmallKeys(5) != 0,
                     "The sixth interleave update must open collision, play sound and finish without a second key debit.");
             }

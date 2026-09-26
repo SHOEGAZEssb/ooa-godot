@@ -111,7 +111,7 @@ internal sealed partial class HeadThwompRewardScript : Node2D,
         int index) =>
         spawns.Add(new PuzzlePuffSpawn(
             PositionFromPacked(_definition.StairPositions[index]),
-            OracleSoundEngine.SndPoof));
+            SoundId.SndPoof));
 
     private void SetStairTile(int index)
     {

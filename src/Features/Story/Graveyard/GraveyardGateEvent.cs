@@ -104,7 +104,7 @@ internal sealed class GraveyardGateEvent :
 
     void ICutsceneCommandHost.SetMusic(int music)
     {
-        if (music == OracleSoundEngine.SndCtrlStopMusic)
+        if (music == SoundId.SndCtrlStopMusic)
             _context.Sound.PlaySound(music);
         else if (music == 0xff)
             _context.Sound.PlayRoomMusic(_record.Group, _record.Room);
@@ -167,7 +167,7 @@ internal sealed class GraveyardGateEvent :
         foreach (Vector2 position in positions)
         {
             PuzzlePuffEffect puff = _context.Entities.Spawn<PuzzlePuffEffect>(
-                new PuzzlePuffSpawn(position, OracleSoundEngine.SndPoof));
+                new PuzzlePuffSpawn(position, SoundId.SndPoof));
             // The controller precedes its newly allocated puff slots, so each
             // puff receives state 0 in this same original interaction pass.
             puff.UpdateFrame();

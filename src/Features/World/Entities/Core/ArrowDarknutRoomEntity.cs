@@ -13,7 +13,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
         IFixedRoomEntity, ILinkSwordStateAwareRoomEntity, IScreenTransitionPreloadRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
         ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
     public void SetLinkSwordState(SwordActionState state, int level) => _swordCollision = SwordCollision.Type(state, level);
@@ -23,16 +23,16 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 origin,
         int damage, ICollection<RoomEntitySpawn> spawns) => Hit((int)collision, hitbox, origin, damage, spawns);
     public bool ApplyExpertPunch(Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>
-        Hit(0x0b, hitbox, origin, damage, spawns);
+        Hit(ItemCollisionType.ExpertPunch, hitbox, origin, damage, spawns);
 
     private bool Hit(int collision, Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns)
     {
         int effect = EnemyBehaviorTables.Shared.ArrowDarknutCollisionEffects[collision].Value;
         EnemyKnockbackStrength strength = effect switch
         {
-            0x08 => EnemyKnockbackStrength.Low,
-            0x09 => EnemyKnockbackStrength.Normal,
-            0x0a => EnemyKnockbackStrength.High,
+            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
+            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
+            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
             _ => throw new InvalidOperationException($"arrowDarknut.s: collision ${collision:x2} effect ${effect:x2} is unsupported.")
         };
         return base.ApplySwordHit(hitbox, origin, damage, strength, spawns);
@@ -44,7 +44,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 || !hitbox.Intersects(Entity.CollisionBounds))
             return SeedHitResult.None;
         if (seed == 0x21)
-            return Hit(0x1c, hitbox, origin, 2, spawns) ? SeedHitResult.Activate : SeedHitResult.None;
+            return Hit(ItemCollisionType.ScentSeed, hitbox, origin, 2, spawns) ? SeedHitResult.Activate : SeedHitResult.None;
         // Collision row $20 ignores fire; mystery seeds retain the shared effect.
         return seed == 0x24 ? SeedHitResult.Activate : SeedHitResult.None;
     }

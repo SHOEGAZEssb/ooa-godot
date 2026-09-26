@@ -25,7 +25,7 @@ public partial class ValidationRoot
             LoadValidationRoom(4,0x9e);
             FailIf(_rooms.BlockPushAngle != 0,"Room reload must clear wBlockPushAngle ($cca6).");
             _player.WarpTo(Center(0x77));
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
+            _inventory.GiveTreasure(TreasureId.Bracelet,1);
             var synchronizer = _entities.Entities<PushBlockSynchronizerRoomEntity>().Single();
             FailIf(_entities.InteractionSlot(synchronizer) != 3 || _currentRoom.IsSolid(_player.Position),
                 "4:9e must place $bd at slot $d3 and permit the initial floor approach.");
@@ -119,7 +119,7 @@ public partial class ValidationRoot
             var independent = _pushBlocks.CreateSynchronizedController();
             try
             {
-                independent.StartNativeMovement(0x53,0x08,1);
+                independent.StartNativeMovement(0x53,ObjectAngle.Right,1);
                 FailIf(!independent.Active || _rooms.BlockPushAngle != 0x88 || _pushBlocks.PushAngle != 0x08,
                     "A dynamic block must overwrite the shared angle read by $bd/$dc, independent of the reserved block.");
                 independent.Cancel();
@@ -129,7 +129,7 @@ public partial class ValidationRoot
                 FailIf(_rooms.BlockPushAngle != 0x88,"Reading destination room data must preserve the live push signal.");
                 _rooms.SetLoadedRoom(4,preload);
                 FailIf(_rooms.BlockPushAngle != 0,"Scroll-entry room activation must clear wBlockPushAngle.");
-                independent.StartNativeMovement(0x37,0x18,1);
+                independent.StartNativeMovement(0x37,ObjectAngle.Left,1);
                 FailIf(_rooms.BlockPushAngle != 0x98,"Dynamic leftward push must publish $98.");
                 _rooms.LoadCutsceneRoom(4,0x9b);
                 FailIf(_rooms.BlockPushAngle != 0,"Cutscene room loading must clear wBlockPushAngle.");

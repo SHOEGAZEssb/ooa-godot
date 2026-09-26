@@ -40,10 +40,10 @@ public sealed partial class ValidationRoot
         })
         {
             LoadValidationRoom(0, 0x11);
-            _inventory.LoseTreasure(TreasureDatabase.TreasureFlippers);
-            _inventory.LoseTreasure(TreasureDatabase.TreasureMermaidSuit);
-            if (flippers) _inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
-            if (mermaid) _inventory.GiveTreasure(TreasureDatabase.TreasureMermaidSuit, 0);
+            _inventory.LoseTreasure(TreasureId.Flippers);
+            _inventory.LoseTreasure(TreasureId.MermaidSuit);
+            if (flippers) _inventory.GiveTreasure(TreasureId.Flippers, 0);
+            if (mermaid) _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
             _player.WarpTo(new Vector2(155, 56));
             _player.UpdatePushingState(Vector2.Right);
             _currentRoom.SetPositionTileAndCollision(new Vector2(154, 61), tile, 0, 0);
@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(0, 0x11);
         _transitions.ApplyWarpWithDelayedFadeOut(_player,
-            new Warp(0, 0x11, -1, 0, 2, 0, 0x12, 0x44, 0, 0));
+            new Warp(0, 0x11, -1, 0, WarpSourceTransition.FadeOut, 0, 0x12, 0x44, 0, WarpDestinationTransition.Basic));
         for (int tick = 1; tick < 125; tick++)
         {
             _transitions.UpdateWarp(1.0 / 60.0);
@@ -272,7 +272,7 @@ public sealed partial class ValidationRoot
             "Room 5:cc/$12 no longer resolves INTERAC_SPECIAL_WARP " +
             "$1f:$00 route $01 and its exact radius-$02 collision window.");
 
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFlippers, 0);
+        _inventory.GiveTreasure(TreasureId.Flippers, 0);
         _player.WarpTo(sourceCenter, recordSafe: false);
         _player.AdvanceTopDownSwimmingUpdateForValidation(entryAngle: 0xff);
         _terrain.AdvanceApplicationUpdate();
@@ -316,7 +316,7 @@ public sealed partial class ValidationRoot
         UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
         FailIf(IsTransitioning,
             "Room 5:cc/$12 did not finish destination transition `$01.");
-        FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndEnterCave) != 0,
+        FailIf(_sound.PlayRequestsFor(SoundId.SndEnterCave) != 0,
             "INTERAC_SPECIAL_WARP's direct fade added a cave-entry sound to diving.");
 
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
@@ -549,22 +549,22 @@ public sealed partial class ValidationRoot
             _entities.Entities<EraInfoDisplay>().Count != 0,
             "An indoor full room load incorrectly created the outdoor era display.");
 
-        _saveData.SetGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce);
+        _saveData.SetGlobalFlag(GlobalFlag.SuppressEraInfoOnce);
         FailIf(
             _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
-            _saveData.HasGlobalFlag(OracleSaveData.GlobalFlagSuppressEraInfoOnce),
+            _saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce),
             "GLOBALFLAG_16 did not suppress and clear one era-display check before tileset tests.");
 
         LoadDebugRoom(0, 0x47);
         _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SentBackByStrangeForceAddress,
+            WramAddress.wSentBackByStrangeForce,
             1);
         FailIf(
             _transitions.CheckDisplayEraInfoAfterFullRoomLoad() ||
             _entities.Entities<EraInfoDisplay>().Count != 0,
             "wSentBackByStrangeForce=$01 did not suppress the era display.");
         _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SentBackByStrangeForceAddress,
+            WramAddress.wSentBackByStrangeForce,
             0);
     }
 

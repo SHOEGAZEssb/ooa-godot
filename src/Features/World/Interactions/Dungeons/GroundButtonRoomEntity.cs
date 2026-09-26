@@ -41,7 +41,7 @@ internal sealed partial class GroundButtonRoomEntity : DungeonMechanicRoomEntity
         Action<int> playSound)
         : base(record, $"GroundButton_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != 0x09)
+        if (record.Id != InteractionId.SnowDebris)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;

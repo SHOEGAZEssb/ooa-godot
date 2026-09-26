@@ -23,7 +23,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     {
         if (!Entity.TakeSomariaHit(block.Position, -block.Damage))
             throw new InvalidOperationException("ENEMY$4b rejected an eligible Somaria effect$2f collision.");
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
     internal BallChainSoldierRoomEntity(BallChainSoldierCharacter soldier, EnemyCombatSourceDescriptor source,
         Action<int> sound, Func<int, bool> enemySlots, SpikedBallDatabase weapon)
@@ -70,7 +70,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     {
         if (item == 0x24) throw new InvalidOperationException("ENEMY $4b requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(item, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(bounds, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
         ICollection<RoomEntitySpawn> spawns)
@@ -78,10 +78,10 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
         var data = EnemyBehaviorTables.Shared.BallChain;
         if (!Overlaps(bounds) || data.BodyMask[collision].Value == 0) return default;
         int effect = data.BodyEffects[collision].Value;
-        if (effect == 0) return new(true, SeedHitResult.None, false);
-        if (effect == 0x0b) Hit(bounds, origin, -(sbyte)seed.Damage, spawns);
-        else if (effect != 0x20) throw new NotSupportedException($"ENEMY $4b seed collision ${collision:x2}: effect ${effect:x2} is not represented.");
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != 0x0b);
+        if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
+        if (effect == CollisionEffect.SwordNoKnockback) Hit(bounds, origin, -(sbyte)seed.Damage, spawns);
+        else if (effect != CollisionEffect.Effect20) throw new NotSupportedException($"ENEMY $4b seed collision ${collision:x2}: effect ${effect:x2} is not represented.");
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordNoKnockback);
     }
     public override void HandleLinkContact(Player player)
     {
@@ -94,7 +94,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
             bool wooden = player.Inventory.ShieldLevel == 1;
             player.ApplyShieldCollisionRecoil(Entity.Position, wooden ? 15 : 8, wooden ? 19 : 11);
             Entity.MarkContact();
-            CombatDescriptor.RequestSound(OracleSoundEngine.SndBombLand);
+            CombatDescriptor.RequestSound(SoundId.SndBombLand);
             return;
         }
         if (player.OverlapsEnemyCollision(Entity.CollisionBounds) && player.ApplyEnemyContactDamage(

@@ -13,7 +13,7 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
     private readonly Func<bool> _freePart;
     private readonly Func<byte> _random;
     private readonly Action _shieldLost;
-    private int _swordCollision = 4;
+    private int _swordCollision = ItemCollisionType.L1Sword;
     public bool UpdatesDuringDialogue => Entity.State == 0;
     public bool MeleeReportsContact => true;
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
@@ -59,10 +59,10 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         var data = EnemyBehaviorTables.Shared.LikeLike;
         if (data.ActiveCollisions[collision].Value == 0) return false;
         int effect = data.CollisionEffects[collision].Value;
-        if (effect == 0) return false;
+        if (effect == CollisionEffect.None) return false;
         var strength = effect switch
         {
-            8 => EnemyKnockbackStrength.Low, 9 => EnemyKnockbackStrength.Normal, 10 => EnemyKnockbackStrength.High,
+            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low, CollisionEffect.Sword => EnemyKnockbackStrength.Normal, CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
             _ => throw new NotSupportedException($"ENEMY_LIKE_LIKE $24 collision ${collision:x2}: damage effect ${effect:x2} is not represented.")
         };
         return base.ApplySwordHit(bounds, origin, damage, strength, spawns);
@@ -70,9 +70,9 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
 
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
-        if (seedItem == 0x24) throw new InvalidOperationException("ENEMY_LIKE_LIKE $24 requires Mystery's live collision type.");
+        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_LIKE_LIKE $24 requires Mystery's live collision type.");
         if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & 0x7f, spawns).Effect;
+        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
@@ -83,18 +83,18 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         int effect = data.CollisionEffects[collisionType].Value;
         switch (effect)
         {
-            case 0: return new(true, SeedHitResult.None, false);
-            case 0x20: break;
-            case 8: Hit(collisionType, bounds, origin, -(sbyte)seed.Damage, spawns); break;
-            case 0x27:
+            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
+            case CollisionEffect.Effect20: break;
+            case CollisionEffect.SwordLowKnockback: Hit(collisionType, bounds, origin, -(sbyte)seed.Damage, spawns); break;
+            case CollisionEffect.Burn:
                 Entity.BeginEmberHit();
                 if (_freePart()) spawns.Add(new BurningEnemySpawn(this));
                 break;
-            case 0x28: Entity.BeginPegasusHit(); CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy); break;
-            case 0x29: Entity.ClearSeedStun(); BeginNativeGale(origin, _random); break;
+            case CollisionEffect.PegasusSeed: Entity.BeginPegasusHit(); CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
+            case CollisionEffect.GaleSeed: Entity.ClearSeedStun(); BeginNativeGale(origin, _random); break;
             default: throw new NotSupportedException($"ENEMY_LIKE_LIKE $24 seed collision ${collisionType:x2}: effect ${effect:x2} is not represented.");
         }
-        return new(true, seed.SeedItem == 0x24 ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != 8);
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordLowKnockback);
     }
     public bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
     public int BurnTargetId => 0x24;

@@ -75,7 +75,7 @@ internal sealed class EnemyTerrainMovement(EnemyCharacter entity, OracleRoomData
         else if (yWalls != 0x0c)
         {
             bool firstProbeBlocked = (yWalls & 0x08) != 0;
-            int testedAngle = firstProbeBlocked ? angle : angle ^ 0x10;
+            int testedAngle = firstProbeBlocked ? angle : angle ^ ObjectAngle.HalfTurn;
             if (testedAngle < 0x11)
             {
                 ApplyComponent(ref position.X, firstProbeBlocked ? 0x60 : -0x60);
@@ -92,7 +92,7 @@ internal sealed class EnemyTerrainMovement(EnemyCharacter entity, OracleRoomData
         {
             bool lastProbeBlocked = (xWalls & 0x01) != 0;
             int testedAngle =
-                ((lastProbeBlocked ? angle - 0x10 : angle) + 0x08) & 0x1f;
+                ((lastProbeBlocked ? angle - 0x10 : angle) + 0x08) & ObjectAngle.Mask;
             if (testedAngle < 0x11)
             {
                 ApplyComponent(ref position.Y, lastProbeBlocked ? -0x60 : 0x60);

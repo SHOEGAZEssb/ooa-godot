@@ -14,11 +14,11 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 0);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureEmberSeeds, 5);
-            _inventory.EquipA(canePrimary ? InventoryState.ItemSomaria : InventoryState.ItemSeedSatchel);
-            _inventory.EquipB(canePrimary ? InventoryState.ItemSeedSatchel : InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 0);
+            _inventory.GiveTreasure(TreasureId.EmberSeeds, 5);
+            _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : TreasureId.SeedSatchel);
+            _inventory.EquipB(canePrimary ? TreasureId.SeedSatchel : TreasureId.CaneOfSomaria);
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);

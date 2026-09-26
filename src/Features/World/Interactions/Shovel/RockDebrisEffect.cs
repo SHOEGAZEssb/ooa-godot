@@ -33,7 +33,7 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
 
     internal void Initialize(
         Vector2 position,
-        int interactionId = 0x06,
+        int interactionId = InteractionId.RockDebris,
         Action<int>? playSound = null)
     {
         Position = position;
@@ -124,13 +124,13 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
             int sound = row.HexByte(4);
             bool expectedVisual = interactionId switch
             {
-                0x06 => tileBase == 0x02 && palette == 3,
-                0x0c => tileBase == 0x40 && palette == 5,
+                InteractionId.RockDebris => tileBase == 0x02 && palette == 3,
+                InteractionId.RockDebris2 => tileBase == 0x40 && palette == 5,
                 _ => false
             };
             if (sprite != "spr_common_sprites" ||
                 !expectedVisual ||
-                sound != OracleSoundEngine.SndBreakRock)
+                sound != SoundId.SndBreakRock)
             {
                 throw new InvalidOperationException(
                     $"Imported INTERAC_ROCKDEBRIS ${interactionId:x2} constants are invalid.");

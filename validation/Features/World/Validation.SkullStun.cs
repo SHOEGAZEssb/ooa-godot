@@ -28,13 +28,13 @@ public sealed partial class ValidationRoot
             if (fire)
             {
                 var bat = new FireKeeseCharacter();
-                bat.Initialize(new EnemyDatabase().ImportedEnemy(0x39), room, new Vector2(124.625f,88), new OracleRandom());
+                bat.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.FireKeese), room, new Vector2(124.625f,88), new OracleRandom());
                 enemy = bat;
             }
             else
             {
                 var gibdo = new GibdoCharacter();
-                gibdo.Initialize(new EnemyDatabase().ImportedEnemy(0x12), room, new Vector2(124.625f,88), new OracleRandom());
+                gibdo.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.Gibdo), room, new Vector2(124.625f,88), new OracleRandom());
                 enemy = gibdo;
             }
             try

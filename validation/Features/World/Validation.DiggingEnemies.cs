@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                 {
                     spawned++;
                     FailIf(value != roll || subId != 3 || position != point ||
-                        digging.Enemy(value, subId).Id != ((roll & 7) < 3 ? 0x10 : 0x51),
+                        digging.Enemy(value, subId).Id != ((roll & 7) < 3 ? EnemyId.Rope : EnemyId.Beetle),
                         $"itemDrop_spawnEnemy roll ${roll:x2} lost A, var03, position, or table order.");
                 });
             FailIf(rng.Calls != calls, "PART_ITEM_DROP:$0f drew RNG during allocation.");
@@ -128,7 +128,7 @@ public sealed partial class ValidationRoot
             return drop;
         }
 
-        _runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 0x80);
+        _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 0x80);
         int before = _random.Calls;
         ItemDropEffect forbidden = Spawn(0);
         FailIf(!forbidden.Finished || _random.Calls != before + 1 || _entities.RoomEnemyCount != 0,
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
         FailIf(rich.Finished || rich.State != DropState.Bouncing,
             "$ccde incorrectly suppressed the 100-rupee branch.");
         _entities.Clear();
-        _runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 0);
+        _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 0);
 
         ItemDropEffect ropeDrop = Spawn(2);
         RopeCharacter rope = _entities.Entities<RopeCharacter>().Single();
@@ -231,9 +231,9 @@ public sealed partial class ValidationRoot
         FailIf(RunBatch(false) != RunBatch(true),
             "Batched updates changed digging spawn phase, Beetle motion/animation, or shared RNG.");
 
-        _runtimeState.SetWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress, 1);
+        _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 1);
         LoadValidationRoom(0, 0x98);
-        FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 0,
+        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0,
             "Room entry retained the previous room's $ccde restriction.");
         GD.Print("Validated digging enemy selection for all 256 rolls, state-0 RNG, Maple/restriction gates, enemy capacity/counting, and Rope/Beetle $02/$03 entry timing.");
     }
@@ -243,7 +243,7 @@ public sealed partial class ValidationRoot
         int z = 0, speed = -0x102;
         bool collisions = false;
         int calls = _random.Calls;
-        int landingSounds = _sound.PlayRequestsFor(OracleSoundEngine.SndBombLand);
+        int landingSounds = _sound.PlayRequestsFor(SoundId.SndBombLand);
         int impacts = 0;
         for (int update = 1; update < 100; update++)
         {
@@ -265,7 +265,7 @@ public sealed partial class ValidationRoot
             FailIf(actualZ != z || actualSpeed != speed || actualCollision != collisions ||
                 _random.Calls != calls + (done ? 1 : 0),
                 $"Dug enemy bounce update {update}: expected Z={z}, speedZ={speed}, collisions={collisions}; got {actualZ}/{actualSpeed}/{actualCollision}.");
-            FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndBombLand) != landingSounds + impacts,
+            FailIf(_sound.PlayRequestsFor(SoundId.SndBombLand) != landingSounds + impacts,
                 $"Dug enemy bounce update {update} did not request SND_BOMB_LAND only on continuing bounces.");
             if (done) return;
         }

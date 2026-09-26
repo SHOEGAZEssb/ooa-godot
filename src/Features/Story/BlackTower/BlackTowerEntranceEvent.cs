@@ -47,7 +47,7 @@ internal sealed class BlackTowerEntranceEvent :
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room &&
-        (_context.Rooms.SaveData.ReadWramByte(0xc6bf) & _record.EssenceMask) == 0;
+        (_context.Rooms.SaveData.ReadWramByte(WramAddress.wEssencesObtained) & _record.EssenceMask) == 0;
 
     public void Start(OracleRoomData _)
     {
@@ -170,7 +170,7 @@ internal sealed class BlackTowerEntranceEvent :
         _context.InterfaceLayer.AddChild(_screen);
         EventResources.CaptureFullScreenFade(_context.Hud.ZIndex + 1);
         _context.Hud.Visible = false;
-        _context.Sound.PlaySound(OracleSoundEngine.MusDisaster);
+        _context.Sound.PlaySound(SoundId.MusDisaster);
         _fadeFrame = 0;
         _phaseCounter = _record.IntroWait;
         _flashCounter = 0;
@@ -198,13 +198,13 @@ internal sealed class BlackTowerEntranceEvent :
             return;
         // func_6f0b only arms wTmpcbb9; flashScreen begins next update.
         _flashCounter = 1;
-        _context.Sound.PlaySound(OracleSoundEngine.SndLightning);
+        _context.Sound.PlaySound(SoundId.SndLightning);
     }
 
     private void ReturnToRoom()
     {
         RemoveExplanationScreen();
-        _context.Sound.PlaySound(OracleSoundEngine.SndCtrlMediumFadeOut);
+        _context.Sound.PlaySound(SoundId.SndCtrlMediumFadeOut);
         Warp warp = new Warp(
             _record.Group,
             _record.Room,
@@ -270,12 +270,12 @@ internal sealed class BlackTowerEntranceEvent :
     private static Vector2I CardinalDirection(Vector2 origin, Vector2 target)
     {
         int angle = (OracleObjectMovement.Shared.RelativeAngle(
-            origin, target) + 4) & 0x18;
+            origin, target) + 4) & ObjectAngle.CardinalMask;
         return angle switch
         {
-            0x00 => Vector2I.Up,
-            0x08 => Vector2I.Right,
-            0x10 => Vector2I.Down,
+            ObjectAngle.Up => Vector2I.Up,
+            ObjectAngle.Right => Vector2I.Right,
+            ObjectAngle.Down => Vector2I.Down,
             _ => Vector2I.Left
         };
     }

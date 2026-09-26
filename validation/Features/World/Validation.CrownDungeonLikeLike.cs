@@ -87,8 +87,8 @@ public partial class ValidationRoot
             _player.WarpTo(new(120,8));
             Step(16, Vector2.Down);
             var target = _entities.Entities<LikeLikeCharacter>()[1];
-            _inventory.GiveTreasure(TreasureDatabase.TreasureShield, 2);
-            _inventory.EquipA(InventoryState.ItemShield);
+            _inventory.GiveTreasure(TreasureId.Shield, 2);
+            _inventory.EquipA(TreasureId.Shield);
             Step(32, Vector2.Left);
             for (int i = 0; i < 64 && !_player.EnemyGrabPending; i++) Step(movement: Vector2.Down);
             FailIf(!_player.EnemyGrabPending, $"Like Like approach missed: Link {_player.Position}, target {target.Position}.");
@@ -99,7 +99,7 @@ public partial class ValidationRoot
             FailIf(target.Counter2 != 1 || _dialogue.IsOpen, "Shield loss must wait for hold update90.");
             Step();
             FailIf(target.State != 12 || target.Counter2 != 60 || !_dialogue.IsOpen ||
-                _inventory.HasTreasure(TreasureDatabase.TreasureShield) || _player.EnemyGrabSubstate != 4,
+                _inventory.HasTreasure(TreasureId.Shield) || _player.EnemyGrabSubstate != 4,
                 "$4:$9f capture must lose the shield and open TX_510b before Link's release update.");
             Step();
             FailIf(_player.EnemyGrabActive || _player.InvincibilityFrames != -107 || target.Counter2 != 60,
@@ -145,7 +145,7 @@ public partial class ValidationRoot
         FailIf(data.CollisionEffects.Any(v => !v.Source.StartsWith(
             "data/ages/objectCollisionTable.s:objectCollisionTable+$0440")),
             "ENEMY_LIKE_LIKE $24 collision rows lost source identity.");
-        var definition = new EnemyDatabase().ImportedEnemy(0x24);
+        var definition = new EnemyDatabase().ImportedEnemy(EnemyId.LikeLike);
         FailIf(definition.Health != 5 || definition.DamageQuarters != 2 ||
             definition.TileBase != 12 || definition.Palette != 3 ||
             definition.RadiusX != 6 || definition.RadiusY != 6 || definition.Animations.Length != 2,
@@ -163,7 +163,7 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonLikeLikeStateMachine()
     {
         LoadValidationRoom(4, 0x91);
-        var record = new EnemyDatabase().ImportedEnemy(0x24);
+        var record = new EnemyDatabase().ImportedEnemy(EnemyId.LikeLike);
         var room = Room060MovementFixture();
         var random = new OracleRandom();
         var enemy = new LikeLikeCharacter();
@@ -192,8 +192,8 @@ public partial class ValidationRoot
         foreach (int presses in new[] { 0,18,19 })
         {
             _player.WarpTo(new(64,80));
-            _inventory.GiveTreasure(TreasureDatabase.TreasureShield, 2);
-            _inventory.EquipA(InventoryState.ItemShield);
+            _inventory.GiveTreasure(TreasureId.Shield, 2);
+            _inventory.EquipA(TreasureId.Shield);
             random = new(); enemy = new(); textRequests = 0;
             enemy.Initialize(record, room, new(64,64), random);
             Tick(); Tick();
@@ -205,12 +205,12 @@ public partial class ValidationRoot
                 "$24 capture must initialize both counters, eating animation and both collision gates.");
             for (int i = 0; i < 89; i++) Tick(i < presses);
             FailIf(enemy.State != 11 || enemy.Counter2 != 1 || textRequests != 0 ||
-                !_inventory.HasTreasure(TreasureDatabase.TreasureShield),
+                !_inventory.HasTreasure(TreasureId.Shield),
                 "$24 must hold Link for all90 updates, including when19 presses already protected the shield.");
             Tick(true); // The release update does NOT count this button press.
             FailIf(enemy.State != 12 || enemy.Counter2 != 60 || enemy.Counter1 != presses ||
                 enemy.Angle != 0x18 || random.Calls != 3 || textRequests != (presses < 19 ? 1 : 0) ||
-                _inventory.HasTreasure(TreasureDatabase.TreasureShield) != (presses >= 19) ||
+                _inventory.HasTreasure(TreasureId.Shield) != (presses >= 19) ||
                 _inventory.ShieldLevel != 2 || !_player.PatchCollisionsEnabled || _player.EnemyGrabSubstate != 4,
                 "$24 release lost the19-press threshold, late-edge exclusion, shield level retention or single RNG draw.");
             Vector2 released = enemy.Position;

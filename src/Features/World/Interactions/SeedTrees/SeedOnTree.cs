@@ -131,7 +131,7 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
 
         _collisionEnabled = false;
         if (_inventory?.HasTreasure(
-                TreasureDatabase.TreasureSeedSatchel) != true)
+                TreasureId.SeedSatchel) != true)
         {
             // The original clears this part's collision before showing TX_0035.
             // It stays on the tree and is recreated on the next room parse.

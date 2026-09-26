@@ -33,7 +33,7 @@ internal static class StatusBarLayout
 
     internal static byte[] ReadMap(int maxHealth, int equippedB, bool attributes = false)
     {
-        string layout = equippedB == InventoryState.ItemBiggoronSword
+        string layout = equippedB == TreasureId.BiggoronSword
             ? "biggoron_sword" : maxHealth >= 57 ? "extra_hearts" : "normal";
         string path = $"res://assets/oracle/hud/{(attributes ? "flg" : "map")}_hud_{layout}.bin";
         byte[] data = OracleAssetCache.ReadBytes(path);

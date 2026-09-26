@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
                 _pushBlocks.UpdatePushAttempt(_player.Position, Vector2I.Up, Vector2.Up);
             FailIf(!_pushBlocks.Active || _pushBlocks.NativeInitialized || _pushBlocks.Visible ||
                 _currentRoom.Layout[0x57] != 0x2a || _rooms.PendingTileGraphics != 0 ||
-                _rooms.BlockPushAngle != 0 || _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 0,
+                _rooms.BlockPushAngle != 0 || _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
                 "Player input must allocate reserved $14 without performing state0 side effects.");
             if (fullQueue)
                 for (int i = 0; i < 31; i++)
@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
                 FailIf(!_pushBlocks.NativeInitialized || !_pushBlocks.Visible || _pushBlocks.ActiveTile != 0x2a ||
                     _pushBlocks.BlockTopLeft != new Vector2(112, 79.5f) || _rooms.BlockPushAngle != 0x80 ||
                     _currentRoom.Layout[0x57] != (fullQueue ? 0x2a : 0xa0) ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
                     "Eligible state0 must sample queue capacity, publish direction, sound and move once even during text.");
                 StepGameplayUpdates(3, Vector2.Zero, batched: batched);
                 FailIf(_pushBlocks.BlockTopLeft != new Vector2(112, 79.5f),
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(31, Vector2.Zero, batched: batched);
             FailIf(_pushBlocks.Active || _currentRoom.Layout[0x47] != 0x2a ||
                 _currentRoom.Layout[0x57] != (fullQueue ? 0x2a : 0xa0) ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndMoveBlock) != 1,
+                _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
                 "Push completion must occur after32 eligible updates without retrying a rejected source-floor write.");
         }
         foreach (bool batched in new[] { false, true })

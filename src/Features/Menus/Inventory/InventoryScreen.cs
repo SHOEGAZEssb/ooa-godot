@@ -463,18 +463,18 @@ public partial class InventoryScreen : Node2D
         DrawTextureRectRegion(_backgrounds[(int)_subscreen], new Rect2(0, 118, 160, 26),
             new Rect2(0, 118, 160, 26));
         DrawInventoryText(Vector2.Zero);
-        if (_inventory.EquippedB == InventoryState.ItemBiggoronSword)
+        if (_inventory.EquippedB == TreasureId.BiggoronSword)
             StatusBarLayout.DrawBiggoronSword(this);
         else
         {
             DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedB, _inventory),
                 new Vector2(
-                    _inventory.EquippedB == InventoryState.ItemHarp ? 16 : 8,
+                    _inventory.EquippedB == TreasureId.Harp ? 16 : 8,
                     0),
                 spritePalette: true);
             DrawTreasure(_treasures.GetButtonDisplay(_inventory.EquippedA, _inventory),
                 new Vector2(
-                    (_inventory.EquippedA == InventoryState.ItemHarp ? 56 : 48) +
+                    (_inventory.EquippedA == TreasureId.Harp ? 56 : 48) +
                         8 * StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters),
                     0),
                 spritePalette: true);
@@ -494,7 +494,7 @@ public partial class InventoryScreen : Node2D
                     int item = _inventory.StorageItemAt(index);
                     DrawTreasure(_treasures.GetButtonDisplay(_inventory.StorageItemAt(index), _inventory),
                         ItemSlotPosition(index) + drawOffset, spritePalette: false);
-                    if (item == InventoryState.ItemHarp)
+                    if (item == TreasureId.Harp)
                         harpSlot = index;
                 }
                 if (harpSlot >= 0)
@@ -505,7 +505,7 @@ public partial class InventoryScreen : Node2D
             case InventorySubscreen.SecondaryItems:
                 DrawPassiveTreasures(drawOffset);
                 DrawRings(drawOffset, drawCursor);
-                if (_inventory.HasTreasure(0x36))
+                if (_inventory.HasTreasure(TreasureId.MakuSeed))
                 {
                     // Earlier OAM entries win over later ones; the first
                     // two cells are the Maku Seed's foreground mask.
@@ -535,7 +535,7 @@ public partial class InventoryScreen : Node2D
         foreach (PassiveTreasureLayout? treasure in selected)
         {
             if (treasure is not PassiveTreasureLayout value ||
-                value.TreasureId == 0x36)
+                value.TreasureId == TreasureId.MakuSeed)
                 continue;
             DrawTreasure(_treasures.GetButtonDisplay(
                     value.TreasureId, _inventory),
@@ -565,8 +565,8 @@ public partial class InventoryScreen : Node2D
             {
                 int option = _itemSubmenuOptions[_itemSubmenuIndex];
                 int treasure = _itemSubmenuKind == ItemSubmenuKind.HarpSongs
-                    ? TreasureDatabase.TreasureTuneOfEchoes + option - 1
-                    : TreasureDatabase.TreasureEmberSeeds + option;
+                    ? TreasureId.TuneOfEchoes + option - 1
+                    : TreasureId.EmberSeeds + option;
                 submenuKey = _treasures
                     .GetButtonDisplay(treasure, _inventory)
                     .TextLow;
@@ -670,22 +670,22 @@ public partial class InventoryScreen : Node2D
         ItemSubmenuKind kind;
         switch (item)
         {
-            case InventoryState.ItemSeedSatchel:
+            case TreasureId.SeedSatchel:
                 kind = ItemSubmenuKind.SatchelSeeds;
                 options = _inventory.ObtainedSeedTypes();
                 selected = _inventory.SatchelSelectedSeeds;
                 break;
-            case TreasureDatabase.TreasureShooter:
+            case TreasureId.Shooter:
                 kind = ItemSubmenuKind.ShooterSeeds;
                 options = _inventory.ObtainedSeedTypes();
                 selected = _inventory.ShooterSelectedSeeds;
                 break;
-            case TreasureDatabase.TreasureSlingshot:
+            case TreasureId.Slingshot:
                 kind = ItemSubmenuKind.SlingshotSeeds;
                 options = _inventory.ObtainedSeedTypes();
                 selected = _inventory.SlingshotSelectedSeeds;
                 break;
-            case InventoryState.ItemHarp:
+            case TreasureId.Harp:
                 kind = ItemSubmenuKind.HarpSongs;
                 options = _inventory.ObtainedHarpSongs();
                 selected = _inventory.SelectedHarpSong;
@@ -769,7 +769,7 @@ public partial class InventoryScreen : Node2D
                     baseX + seed.X - 8,
                     targetY + seed.Y - 16));
             int amount = _inventory.BcdAmountForInventoryDisplay(
-                TreasureDatabase.TreasureEmberSeeds + option);
+                TreasureId.EmberSeeds + option);
             DrawVramBackgroundTile(
                 0x20 + ((amount >> 4) & 0x0f),
                 0x01,

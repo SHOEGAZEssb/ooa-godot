@@ -77,14 +77,14 @@ internal sealed class LynnaShopDatabase
         foreach (ItemRecord placement in _placements)
         {
             if (placement.SubId == 0x04 &&
-                save is not null && !save.HasTreasure(TreasureDatabase.TreasureBombs))
+                save is not null && !save.HasTreasure(TreasureId.Bombs))
             {
                 continue;
             }
 
             int subId = placement.SubId;
-            if (subId == 0 && save?.HasTreasure(0x2c) == true &&
-                save.ReadWramByte(0xc6cc) != 1)
+            if (subId == 0 && save?.HasTreasure(TreasureId.RingBox) == true &&
+                save.ReadWramByte(WramAddress.wRingBoxLevel) != 1)
                 subId = 0x14;
             if (subId == 0x03 && save?.IsLinkedGame == true)
                 subId = 0x13;
@@ -139,9 +139,9 @@ internal sealed class LynnaShopDatabase
         byte bought2 = save.ReadWramByte(BoughtItems2Address);
         bought2 &= unchecked((byte)~(FluteStockMask |
             BombchuOwnedMask | BombchuMissingMask));
-        if (!save.HasTreasure(0x0e) && save.HasGlobalFlag(GlobalCanBuyFlute))
+        if (!save.HasTreasure(TreasureId.Flute) && save.HasGlobalFlag(GlobalCanBuyFlute))
             bought2 |= (byte)FluteStockMask;
-        bought2 |= (byte)(save.HasTreasure(0x0b)
+        bought2 |= (byte)(save.HasTreasure(TreasureId.SwitchHookChain)
             ? BombchuOwnedMask
             : BombchuMissingMask);
         if (save.WriteWramByte(BoughtItems2Address, bought2))

@@ -222,7 +222,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
             _animationTick());
         if (previousHits == 0)
             _playSound(_record.SwitchSound);
-        for (int angle = 0; angle < _database.Debris.Count; angle++)
+        for (int angle = ObjectAngle.Up; angle < _database.Debris.Count; angle++)
         {
             spawns.Add(new ShootingGalleryTargetDebrisSpawn(
                 PackedPositionCenter(_room.GetPackedPosition(point)),

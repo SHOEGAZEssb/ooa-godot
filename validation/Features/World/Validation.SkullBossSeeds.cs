@@ -27,13 +27,13 @@ public sealed partial class ValidationRoot
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
             typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
             _seedSatchel.InterruptShooter();
-            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureDatabase.TreasureHeartContainer, 4);
+            while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
-            _inventory.GiveTreasure(0x19, 1);
-            _inventory.GiveTreasure(0x0f, 1);
+            _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+            _inventory.GiveTreasure(TreasureId.Shooter, 1);
             _inventory.GiveTreasure(item, 0x20);
             _inventory.SelectShooterSeeds(item - 0x20);
-            _inventory.EquipA(InventoryState.ItemShooter);
+            _inventory.EquipA(TreasureId.Shooter);
             _saveData.SetRoomFlag(4, armos ? 0x80 : 0x6b, 0xff, false);
             LoadValidationRoom(4, armos ? 0x86 : 0x6c);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
@@ -99,21 +99,21 @@ public sealed partial class ValidationRoot
                     Step();
                     EmberState state = selected switch { 0 => EmberState.Burning, 3 => EmberState.Gale, _ => EmberState.Dissipating };
                     int duration = selected switch { 0 => 58, 3 => 50, _ => 9 };
-                    int sound = selected switch { 0 or 2 => OracleSoundEngine.SndLightTorch,
-                        1 => OracleSoundEngine.SndPirateBell, _ => 0x90 /* SND_GALE_SEED */ };
+                    int sound = selected switch { 0 or 2 => SoundId.SndLightTorch,
+                        1 => SoundId.SndPirateBell, _ => SoundId.SndGaleSeed /* SND_GALE_SEED */ };
                     FailIf(target!.Health != health - damage || target.InvincibilityCounter != (damages ? 31 : 0) ||
                         actors.OfType<EyesoarActor>().Any(a => a.MysteryCounter != 0) || seed.State != state || seed.SeedItem != 0x20 + selected || seed.AnimationFrame != 1 ||
                         seed.Record.Damage != (selected >= 2 ? 0xff : 0xfe) ||
                         seed.CollisionEnabled || selected is 0 or 3 && seed.FlameCounter != duration,
                         $"ITEM${item:x2} selection{selected} must consume its pending hit once before the next enemy dispatch: target={target.Name}, hp={target.Health}/{health}, inv={target.InvincibilityCounter}, seed={seed.State}/{seed.AnimationFrame}/{seed.FlameCounter}.");
-                    int[] expectedSounds = damages ? [OracleSoundEngine.SndDamageEnemy, sound] : [sound];
+                    int[] expectedSounds = damages ? [SoundId.SndDamageEnemy, sound] : [sound];
                     // armosWarrior.s emits SND_SWORDSLASH when the shared
                     // frame is divisible by16. This two-update impact window
                     // can contain that independent sword event after scrolling.
-                    int slashes = sounds.Count(value => value == OracleSoundEngine.SndSwordSlash);
+                    int slashes = sounds.Count(value => value == SoundId.SndSwordSlash);
                     FailIf(slashes > 0 && (!armos || slashes != 1 || (_entities.FrameCounter & 15) > 1),
                         "Armos emitted a sword slash outside its global16-update boundary.");
-                    FailIf(!sounds.Where(value => value != OracleSoundEngine.SndSwordSlash).SequenceEqual(expectedSounds),
+                    FailIf(!sounds.Where(value => value != SoundId.SndSwordSlash).SequenceEqual(expectedSounds),
                         $"Armos={armos} seed${item:x2} selected{selected} impact sounds [{string.Join(',', sounds)}] / [{string.Join(',', expectedSounds)}].");
                     Step(duration - 1);
                     FailIf(seed.Finished, "Selected seed effect ended before its source animation/counter boundary.");

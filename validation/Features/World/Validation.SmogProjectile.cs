@@ -23,7 +23,7 @@ public partial class ValidationRoot
             destroy.Frames[2].Duration != 127 || destroy.Frames[2].Parameter != 0xff,
             "Smog projectile intro must loop at frame2; destruction reaches its $ff parameter after two six-update frames.");
         Vector2I[] offsets = [new(0,-5),new(4,-5),new(4,0),new(4,4),new(0,4),new(-5,4),new(-5,0),new(-5,-5)];
-        for (int angle = 0; angle < 32; angle++)
+        for (int angle = ObjectAngle.Up; angle < 32; angle++)
             FailIf(data.FrontOffset(angle) != offsets[((angle + 2) & 0x1c) >> 2], "PART$4a must use the source eight-way rounded front probe.");
         var room = Room060MovementFixture();
         for (int y = 8; y < 128; y += 16)

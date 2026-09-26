@@ -9,7 +9,7 @@ internal static class CompanionMovement
     {
         if (angle == 0xff) return 0;
         int mask = 0;
-        if (angle is not (8 or 0x18)) mask |= ((angle >> 3) & 3) == 0 ? 0xc0 : 0x30;
+        if (angle is not (ObjectAngle.Right or ObjectAngle.Left)) mask |= ((angle >> 3) & 3) == 0 ? 0xc0 : 0x30;
         if ((angle & 15) != 0) mask |= (angle & 0x10) == 0 ? 3 : 0x0c;
         return walls & mask;
     }

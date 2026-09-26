@@ -45,15 +45,15 @@ internal sealed class VasuShopEvent : IRoomEvent
             return false;
         }
 
-        if (npc.Record is { Id: 0x89, SubId: 0x00 })
+        if (npc.Record is { Id: InteractionId.Vasu, SubId: 0x00 })
             BeginVasu(npc);
-        else if (npc.Record is { Id: 0x89, SubId: 0x01 })
+        else if (npc.Record is { Id: InteractionId.Vasu, SubId: 0x01 })
             BeginBlueSnake(npc);
-        else if (npc.Record is { Id: 0x89, SubId: 0x06 })
+        else if (npc.Record is { Id: InteractionId.Vasu, SubId: 0x06 })
             BeginRedSnake(npc);
-        else if (npc.Record is { Id: 0xe5, SubId: 0x00 })
+        else if (npc.Record is { Id: InteractionId.RingHelpBook, SubId: 0x00 })
             BeginBasicsBook(npc);
-        else if (npc.Record is { Id: 0xe5, SubId: 0x01 })
+        else if (npc.Record is { Id: InteractionId.RingHelpBook, SubId: 0x01 })
             BeginSecretsBook(npc);
         else
             return false;
@@ -154,7 +154,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             case EventStage.VasuLinkedGreeting:
                 if (DialogueClosed())
                 {
-                    if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureRingBox))
+                    if (_context.Inventory.HasTreasure(TreasureId.RingBox))
                         CompleteLinkedIntroduction();
                     else
                     {
@@ -383,8 +383,8 @@ internal sealed class VasuShopEvent : IRoomEvent
         RemoveReward();
         if (_npc is not null)
         {
-            if (_npc.Record.Id == 0x89 && _npc.Record.SubId != 0)
-                _npc.SetScriptAnimation(_database.Animation(0x89, _npc.Record.SubId));
+            if (_npc.Record.Id == InteractionId.Vasu && _npc.Record.SubId != 0)
+                _npc.SetScriptAnimation(_database.Animation(InteractionId.Vasu, _npc.Record.SubId));
             _npc.SetScriptButtonSensitive(true);
         }
         _npc = null;
@@ -475,7 +475,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     private void StartSnake(NpcCharacter npc)
     {
         Start(npc);
-        npc.SetScriptAnimation(_database.Animation(0x89, npc.Record.SubId + 1));
+        npc.SetScriptAnimation(_database.Animation(InteractionId.Vasu, npc.Record.SubId + 1));
     }
 
     private void ContinueVasuExplanation(int choice)
@@ -485,7 +485,7 @@ internal sealed class VasuShopEvent : IRoomEvent
             ShowChoice(0x303a);
             return;
         }
-        if (_context.Inventory.HasTreasure(TreasureDatabase.TreasureRingBox))
+        if (_context.Inventory.HasTreasure(TreasureId.RingBox))
         {
             ShowText(0x303f);
             _stage = EventStage.VasuFriendshipOffer;
@@ -577,8 +577,8 @@ internal sealed class VasuShopEvent : IRoomEvent
     }
 
     private bool UseLinkedSnakeScript() =>
-        _context.Inventory.HasTreasure(TreasureDatabase.TreasureRingBox) &&
-        (_context.Rooms.SaveData.HasGlobalFlag(OracleSaveData.GlobalFlagFinishedGame) ||
+        _context.Inventory.HasTreasure(TreasureId.RingBox) &&
+        (_context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame) ||
          _context.Rooms.SaveData.IsLinkedGame);
 
     private void BeginBlueFortune()
@@ -607,15 +607,15 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     private void BeginSnakeRetreat()
     {
-        if (_npc is null || _npc.Record.Id != 0x89 || _npc.Record.SubId == 0)
+        if (_npc is null || _npc.Record.Id != InteractionId.Vasu || _npc.Record.SubId == 0)
             throw new InvalidOperationException("Only a Vasu snake can enter retreat state.");
-        _npc.SetScriptAnimation(_database.Animation(0x89, _npc.Record.SubId + 2));
+        _npc.SetScriptAnimation(_database.Animation(InteractionId.Vasu, _npc.Record.SubId + 2));
         _stage = EventStage.SnakeRetreat;
     }
 
     private void FinishSnakeRetreat()
     {
-        _npc!.SetScriptAnimation(_database.Animation(0x89, _npc.Record.SubId));
+        _npc!.SetScriptAnimation(_database.Animation(InteractionId.Vasu, _npc.Record.SubId));
         Finish();
     }
 
@@ -656,9 +656,9 @@ internal sealed class VasuShopEvent : IRoomEvent
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.X),
             treasure.Name,
-            $"scriptHelper.s:{(treasure.TreasureId == TreasureDatabase.TreasureRingBox ? "vasu_giveRingBox" : "vasu_giveRingInVar3a")}")
+            $"scriptHelper.s:{(treasure.TreasureId == TreasureId.RingBox ? "vasu_giveRingBox" : "vasu_giveRingInVar3a")}")
         {
-            SpawnMode = 0,
+            SpawnMode = TreasureSpawnMode.Instant,
             GrabMode = grabMode,
             InventoryWrite = inventoryWrite,
             InventoryParameter = inventoryParameter,

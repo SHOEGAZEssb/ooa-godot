@@ -10,9 +10,9 @@ internal sealed class GelRoomEntity
 {
     protected override void DamageByBoomerang(BoomerangItem item, int effect, ICollection<RoomEntitySpawn> spawns)
     {
-        if (effect != 0x0b || !Entity.TakeBoomerangHit(item.Position, item.Damage))
+        if (effect != CollisionEffect.SwordNoKnockback || !Entity.TakeBoomerangHit(item.Position, item.Damage))
             throw new InvalidOperationException("ENEMY_GEL $43 rejected eligible boomerang effect$0b.");
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
     public GelRoomEntity(
         GelCharacter gel,
@@ -35,7 +35,7 @@ internal sealed class GelRoomEntity
     {
         if (!Entity.TakeSomariaHit(block.Position, -block.Damage))
             throw new InvalidOperationException("ENEMY$43 rejected an eligible Somaria effect$2f collision.");
-        CombatDescriptor.RequestSound(OracleSoundEngine.SndDamageEnemy);
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
 
     private bool _disablesMovement;
@@ -72,6 +72,6 @@ internal sealed class GelRoomEntity
             (sourcePosition, strength) =>
             {
                 gel.ApplySwordNoKnockback(sourcePosition, strength);
-                soundRequested(OracleSoundEngine.SndDamageEnemy);
+                soundRequested(SoundId.SndDamageEnemy);
             });
 }

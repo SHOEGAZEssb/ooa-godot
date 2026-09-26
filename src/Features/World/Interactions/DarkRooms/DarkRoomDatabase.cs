@@ -130,7 +130,7 @@ internal sealed class DarkRoomDatabase
             TorchCollisionMode != 0x82 || TorchRadiusY != 4 || TorchRadiusX != 4 ||
             FullDarkParameter != 0xf0 || PartialDarkParameter != 0xf7 ||
             FadeSpeed != 1 || LightSound != 0x72 ||
-            RewardSpawnMode != 2 || RewardGrabMode != 1 || SpawnDelay != 40 ||
+            RewardSpawnMode != TreasureSpawnMode.FromScreenTop || RewardGrabMode != TreasureGrabMode.OneHand || SpawnDelay != 40 ||
             BounceCount != 2 || Gravity != 0x10 || BounceSpeed != -0xaa ||
             SpawnSound != 0x4d || LandingSound != 0x77 ||
             AboveScreenMargin != 8 || AboveScreenFallback != -0x80)

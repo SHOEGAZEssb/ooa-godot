@@ -25,7 +25,7 @@ public partial class ValidationRoot
             Step(); _sound.ClearPlayRequestAudit();
             setTrigger(7,true);
             var seeds = new SeedSatchelDatabase();
-            FailIf(!seeds.TryGet(0x20,out var seed),"Missing Ember Seed fixture.");
+            FailIf(!seeds.TryGet(ItemId.EmberSeed,out var seed),"Missing Ember Seed fixture.");
             foreach (var eye in _entities.Entities<SeedShooterEyeStatueRoomEntity>())
             {
                 Vector2 origin = eye.Position + Vector2.Down * 32;
@@ -34,10 +34,10 @@ public partial class ValidationRoot
             }
             for (int i = 0; (_entities.ActiveTriggers & 7) != 7 && i < 24; i++) Step();
             FailIf(_entities.ActiveTriggers != 0x87 || script.Counter != -1 ||
-                _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+                _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
                 "Crown chest must reject trigger87 even when all three eyes are active.");
             setTrigger(7,false); Step();
-            FailIf(script.Counter != 15 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            FailIf(script.Counter != 15 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                 "Exact trigger07 must begin the source solve/puff/wait sequence.");
             setTrigger(2,false); // A lost signal does not cancel an already-started script.
             Step(14);

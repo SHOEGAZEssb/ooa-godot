@@ -25,7 +25,7 @@ public partial class EnemyArrowProjectile
         Vector2 position,
         int angle)
     {
-        int cardinalAngle = angle & 0x18;
+        int cardinalAngle = angle & ObjectAngle.CardinalMask;
         int direction = cardinalAngle / 8;
         Position =
             position + _behavior.EnemyArrowSpawnOffsets[direction].Vector;

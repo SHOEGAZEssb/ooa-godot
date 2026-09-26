@@ -13,9 +13,9 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemBoomerang, 2);
-            _inventory.EquipA(primary ? InventoryState.ItemBoomerang : 0);
-            _inventory.EquipB(primary ? 0 : InventoryState.ItemBoomerang);
+            _inventory.GiveTreasure(TreasureId.Boomerang, 2);
+            _inventory.EquipA(primary ? TreasureId.Boomerang : 0);
+            _inventory.EquipB(primary ? 0 : TreasureId.Boomerang);
             _player.WarpTo(new(72.25f, 80.5f));
             _player.Face(Vector2I.Right);
             for (int y = 8; y < 176; y += 16)
@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
             // Fill all five native child slots without replacing the input
             // owner or its allocation method. These beams are isolated filler.
             for (int i = 0; i < 5; i++)
-                _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 112), 1));
+                _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new(160, 112), ObjectDirection.Right));
             Step(press: true, movement: Vector2.Right);
             FailIf(_entities.Entities<BoomerangItem>().Count != 0 || _entities.BoomerangParent.Active ||
                 _player.StartedItemAnimationThisUpdate || _player.PrecisePosition.X != 73.25f,
@@ -106,9 +106,9 @@ public sealed partial class ValidationRoot
         foreach (bool primary in new[] { true, false })
         {
             Room(primary);
-            _inventory.GiveTreasure(InventoryState.ItemSword, 0);
-            if (primary) _inventory.EquipB(InventoryState.ItemSword);
-            else _inventory.EquipA(InventoryState.ItemSword);
+            _inventory.GiveTreasure(TreasureId.Sword, 0);
+            if (primary) _inventory.EquipB(TreasureId.Sword);
+            else _inventory.EquipA(TreasureId.Sword);
             StepGameplayUpdates(1, Vector2.Zero, ["attack", "item"], ["attack", "item"]);
             FailIf(!_player.IsAttacking || !_player.IsUsingBoomerang || _entities.Entities<BoomerangItem>().Count != 1,
                 "Sword and boomerang must coexist in their separate native parents regardless of button assignment.");
@@ -152,8 +152,8 @@ public sealed partial class ValidationRoot
         foreach (bool mermaid in new[] { false, true })
         {
             PrepareSwimmingRoom(mermaid: mermaid);
-            _inventory.GiveTreasure(InventoryState.ItemBoomerang, 2);
-            _inventory.EquipB(InventoryState.ItemBoomerang);
+            _inventory.GiveTreasure(TreasureId.Boomerang, 2);
+            _inventory.EquipB(TreasureId.Boomerang);
             StepGameplayUpdates(1, Vector2.Zero, ["item"], ["item"]);
             FailIf(_entities.BoomerangParent.Active || _entities.Entities<BoomerangItem>().Count != 0,
                 "Swimming must reject a boomerang even when B input reaches checkUseItems.");

@@ -34,20 +34,20 @@ public partial class ValidationRoot
                 Triggers(0x1f); Step();
                 FailIf(_currentRoom.Layout[0x57]!=0xa4,"Extra trigger bits must reject the exact$0f chest predicate.");
                 Triggers(0x0f); Step();
-                FailIf(_currentRoom.Layout[0x57]!=0xf1 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1,
+                FailIf(_currentRoom.Layout[0x57]!=0xf1 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=1,
                     "State0 chest must appear under text when triggers equal$0f.");
                 Step(2);
-                FailIf(_sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1,"An existing chest must not replay its solve effect.");
+                FailIf(_sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=1,"An existing chest must not replay its solve effect.");
                 _currentRoom.SetUnderlyingMetatile(chest.Position,0xa0);
                 Triggers(0); Step();
-                FailIf(_currentRoom.Layout[0x57]!=0xa0 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=1,
+                FailIf(_currentRoom.Layout[0x57]!=0xa0 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=1,
                     "Retraction must read the live room-layout buffer and omit the solve sound.");
                 for(int i=0;i<31;i++) FailIf(!_rooms.TrySetTile(0x11,0xa0),"Queue-full fixture failed.");
                 Triggers(0x0f); Step();
-                FailIf(_currentRoom.Layout[0x57]!=0xa0 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=2 || chest.Finished,
+                FailIf(_currentRoom.Layout[0x57]!=0xa0 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=2 || chest.Finished,
                     "Failed chest setTile must still request puff/solve and keep its state0 controller alive.");
                 Step();
-                FailIf(_currentRoom.Layout[0x57]!=0xf1 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle)!=3,
+                FailIf(_currentRoom.Layout[0x57]!=0xf1 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle)!=3,
                     "After queue drain, the next exact-trigger dispatch must attempt chest creation again.");
                 _saveData.SetRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem,true);
                 Triggers(0); Step();
@@ -60,7 +60,7 @@ public partial class ValidationRoot
             _saveData.SetRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem,false);
             LoadValidationRoom(4,0xbc);
             var outgoing=_entities.Entities<RetractableTriggerChestRoomEntity>().Single();
-            var outgoingPuff=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(120,88),OracleSoundEngine.SndPoof));
+            var outgoingPuff=_entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(120,88),SoundId.SndPoof));
             FailIf(outgoingPuff.Initialized || outgoingPuff.Visible,"INTERAC$05 allocation must wait for state0 before becoming visible.");
             Step();
             FailIf(!outgoingPuff.Initialized || !outgoingPuff.Visible || outgoingPuff.ElapsedUpdates!=1,
@@ -76,7 +76,7 @@ public partial class ValidationRoot
                 "Scrolling must delete the outgoing controller and dispatch incoming state0.");
             var incomingPuff=_entities.Entities<PuzzlePuffEffect>().Single();
             FailIf(incomingPuff.ElapsedUpdates!=0 || incomingPuff.Visible || outgoingPuff.ElapsedUpdates!=2 ||
-                _entities.InteractionSlot(incomingPuff)!=2 || _sound.PlayRequestsFor(OracleSoundEngine.SndPoof)!=0,
+                _entities.InteractionSlot(incomingPuff)!=2 || _sound.PlayRequestsFor(SoundId.SndPoof)!=0,
                 "Incoming chest must reuse the deleted outgoing controller's lower slot $d2 and defer puff initialization until the next pass.");
             // interactionAnimation5a0f2 is $06,$08,$04, then parameter $ff.
             // State1 tests the parameter BEFORE animation; deletion follows
@@ -92,7 +92,7 @@ public partial class ValidationRoot
             FailIf(incomingPuff.Finished || incomingPuff.CurrentParameter!=0xff,
                 "Lower-slot puff must retain its terminal parameter until its next dispatch.");
             Step();
-            FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=0 || _sound.PlayRequestsFor(OracleSoundEngine.SndPoof)!=1,
+            FailIf(_entities.Entities<PuzzlePuffEffect>().Count!=0 || _sound.PlayRequestsFor(SoundId.SndPoof)!=1,
                 "Incoming puff must finish during scrolling without replaying initialization sound.");
             _entities.FinishScreenTransition();
             LoadValidationRoom(0,0x60);

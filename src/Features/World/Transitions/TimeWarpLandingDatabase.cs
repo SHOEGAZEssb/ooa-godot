@@ -55,16 +55,16 @@ internal sealed class TimeWarpLandingDatabase
     {
         // forestFairy_initNpcFromData belongs to the post-minigame NPCs;
         // the hiding-game fairies never reserve a timewarp landing tile.
-        0x49 => record.SubId >= 0x05,
+        InteractionId.ForestFairy => record.SubId >= 0x05,
         // carpenter.s calls the marker only from @initSubid00/@initSubid09.
-        0x9a => (record.SubId & 0x0f) is 0x00 or 0x09,
+        InteractionId.Carpenter => (record.SubId & 0x0f) is 0x00 or 0x09,
         _ => true
     };
 
     internal bool CanStandOnTile(OracleRoomData room, Vector2 position, bool hasMermaidSuit)
     {
         if (LinkWallProbe.Shared.SurroundedByWalls(position,
-            (room.TilesetFlags & 0x20) != 0, room.IsSolid)) return false;
+            (room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0, room.IsSolid)) return false;
         return !_invalidTiles.TryGetValue(room.GetMetatile(position), out bool requiresSuit) ||
             requiresSuit && hasMermaidSuit;
     }

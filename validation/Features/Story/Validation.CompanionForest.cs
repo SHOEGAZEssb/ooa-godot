@@ -9,14 +9,14 @@ public sealed partial class ValidationRoot
     private void ValidateRoom034Interactions()
     {
         FailIf(_inventory.AnimalCompanion != 0, "Room 0:34 default-companion fixture must start unassigned.");
-        bool hadFlute = _inventory.HasTreasure(0x0e);
-        _saveData.SetGlobalFlag(0x22, false);
-        _saveData.SetGlobalFlag(0x1d);
+        bool hadFlute = _inventory.HasTreasure(TreasureId.Flute);
+        _saveData.SetGlobalFlag(GlobalFlag.TalkedToHeadCarpenter, false);
+        _saveData.SetGlobalFlag(GlobalFlag.CanBuyFlute);
         for (int address = 0xcfd0; address < 0xcfe0; address++)
             _entities.RuntimeState.SetWramByte(address, 0xff);
         LoadValidationRoom(0, 0x34);
-        FailIf(_inventory.AnimalCompanion != 0x0d || _saveData.ReadWramByte(0xc610) != 0x0d ||
-            _inventory.HasTreasure(0x0e) != hadFlute || _saveData.HasGlobalFlag(0x1d) ||
+        FailIf(_inventory.AnimalCompanion != 0x0d || _saveData.ReadWramByte(WramAddress.wAnimalCompanion) != 0x0d ||
+            _inventory.HasTreasure(TreasureId.Flute) != hadFlute || _saveData.HasGlobalFlag(GlobalFlag.CanBuyFlute) ||
             _roomEvents.Get<CompanionForestEvent>().HasState,
             "Room 0:34 must assign Moosh without a flute and clear CAN_BUY_FLUTE before its progress guard.");
         for (int address = 0xcfd0; address < 0xcfe0; address++)
@@ -36,9 +36,9 @@ public sealed partial class ValidationRoot
         foreach (int companion in new[] { 0x0b, 0x0c, 0x0d })
         {
             _inventory.AssignAnimalCompanion(companion);
-            _saveData.SetGlobalFlag(0x22);
-            _saveData.SetGlobalFlag(0x42, false);
-            _saveData.SetGlobalFlag(0x2b);
+            _saveData.SetGlobalFlag(GlobalFlag.TalkedToHeadCarpenter);
+            _saveData.SetGlobalFlag(GlobalFlag.CompanionLostInForest, false);
+            _saveData.SetGlobalFlag(GlobalFlag.ForestUnscrambled);
             _saveData.SetRoomFlag(0, 0x34, 0x40, false);
             LoadValidationRoom(0, 0x35);
             _player.WarpTo(new Vector2(1, 0x48), recordSafe: false);
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
             int choices = 0;
             int messages = 0;
             string description = DialogueBox.PlainText(data.Text(0x1123 + companion - 0x0b));
-            for (int frame = 0; frame < 1200 && !_saveData.HasGlobalFlag(0x42); frame++)
+            for (int frame = 0; frame < 1200 && !_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest); frame++)
             {
                 if (_dialogue.IsOpen)
                 {
@@ -75,8 +75,8 @@ public sealed partial class ValidationRoot
                 }
                 StepRoomEventFrames(1);
             }
-            FailIf(messages != 4 || choices != 2 || !_saveData.HasGlobalFlag(0x42) ||
-                _saveData.HasGlobalFlag(0x2b) || !_saveData.HasRoomFlag(0, 0x34, 0x40) ||
+            FailIf(messages != 4 || choices != 2 || !_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest) ||
+                _saveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled) || !_saveData.HasRoomFlag(0, 0x34, 0x40) ||
                 _inventory.AnimalCompanion != companion || _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
                 $"Room 0:34 failed its fairy dialogue/departure for companion ${companion:x2}.");
             LoadValidationRoom(0, 0x34);
@@ -101,15 +101,15 @@ public sealed partial class ValidationRoot
     private void ValidateDimitriForestRescueRoute(bool linked, int companion = 0x0c, bool fullQuest = false)
     {
         _saveData.SetLinkedGame(linked);
-        _saveData.SetGlobalFlag(0x22);
-        _saveData.SetGlobalFlag(0x42);
-        _saveData.SetGlobalFlag(0x23, false);
-        _saveData.SetGlobalFlag(0x24, false);
+        _saveData.SetGlobalFlag(GlobalFlag.TalkedToHeadCarpenter);
+        _saveData.SetGlobalFlag(GlobalFlag.CompanionLostInForest);
+        _saveData.SetGlobalFlag(GlobalFlag.GotFlute, false);
+        _saveData.SetGlobalFlag(GlobalFlag.SavedCompanionFromForest, false);
         int stateAddress = 0xc646 + companion - 0x0b;
         _saveData.WriteWramByte(stateAddress, 0x60);
         if (companion == 0x0d && fullQuest) _inventory.AssignAnimalCompanion(companion);
-        else _inventory.GiveTreasure(0x0e, companion);
-        bool hadFlute = _inventory.HasTreasure(0x0e);
+        else _inventory.GiveTreasure(TreasureId.Flute, companion);
+        bool hadFlute = _inventory.HasTreasure(TreasureId.Flute);
         if (fullQuest) ValidateForestQuestIntroduction();
         LoadValidationRoom(0, 0x81);
         var animal = _entities.EntityAdapters<IRoomEntity>().OfType<IForestCompanion>().Single();
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
         FailIf(!animal.TryInteract(_player), $"Forest companion ${companion:x2} did not accept the source A-button handoff.");
         var messages = new List<string>();
         bool reward = false;
-        for (int update = 0; update < 2400 && !_saveData.HasGlobalFlag(0x23); update++)
+        for (int update = 0; update < 2400 && !_saveData.HasGlobalFlag(GlobalFlag.GotFlute); update++)
         {
             if (_dialogue.IsOpen)
             {
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
                 FailIf(!frozen.SequenceEqual(_roomEvents.Get<CompanionForestEvent>().Flights.Select(flight =>
                     (flight.XFixed, flight.YFixed, flight.Angle, flight.Counter1, flight.Counter2))),
                     "Companion forest fairy movement advanced while text was active.");
-                if (_saveData.ReadWramByte(0xc6b5) == companion - 0x0a && _player.IsHoldingItemTwoHands)
+                if (_saveData.ReadWramByte(WramAddress.wFluteIcon) == companion - 0x0a && _player.IsHoldingItemTwoHands)
                 {
                     reward = true;
                     FailIf((_saveData.ReadWramByte(stateAddress) & 0x80) == 0 ||
@@ -147,15 +147,15 @@ public sealed partial class ValidationRoot
                 StepRoomEventFrames(1);
             }
         }
-        FailIf(!_saveData.HasGlobalFlag(0x24) || !_saveData.HasGlobalFlag(0x23) ||
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.SavedCompanionFromForest) || !_saveData.HasGlobalFlag(GlobalFlag.GotFlute) ||
             _rooms.CurrentRoom.Id != 0x63 || !reward,
             $"Forest rescue/flute handoff failed: room 0:{_rooms.CurrentRoom.Id:x2}, command {_roomEvents.Get<CompanionForestEvent>().Instruction}, signal {_roomEvents.Get<CompanionForestEvent>().Signal}, messages {messages.Count}.");
-        for (int update = 0; update < 180 && !_saveData.HasGlobalFlag(0x2b); update++)
+        for (int update = 0; update < 180 && !_saveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled); update++)
         {
             if (_dialogue.IsOpen) _dialogue.Close();
             _player.AdvanceApplicationUpdate(); StepRoomEventFrames(1);
         }
-        FailIf(!_saveData.HasGlobalFlag(0x2b) || !_player.CompanionRideActive ||
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled) || !_player.CompanionRideActive ||
             _roomEvents.Get<CompanionForestEvent>().MenusDisabled,
             "Dimitri flute script did not wait for mounting before unscrambling the forest and releasing menus.");
         var text = new CompanionForestDatabase();
@@ -167,8 +167,8 @@ public sealed partial class ValidationRoot
         FailIf(!messages.SequenceEqual(expectedText.Select(id => DialogueBox.PlainText(text.Text(id)))),
             $"Companion ${companion:x2} forest rescue/reward diverged from its eleven source texts (observed {messages.Count}).");
         FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) || restored is null ||
-            !restored.HasGlobalFlag(0x23) || !restored.HasGlobalFlag(0x24) || !restored.HasGlobalFlag(0x2b) ||
-            restored.ReadWramByte(0xc610) != companion || restored.ReadWramByte(0xc6b5) != companion - 0x0a ||
+            !restored.HasGlobalFlag(GlobalFlag.GotFlute) || !restored.HasGlobalFlag(GlobalFlag.SavedCompanionFromForest) || !restored.HasGlobalFlag(GlobalFlag.ForestUnscrambled) ||
+            restored.ReadWramByte(WramAddress.wAnimalCompanion) != companion || restored.ReadWramByte(WramAddress.wFluteIcon) != companion - 0x0a ||
             (restored.ReadWramByte(stateAddress) & 0x80) == 0,
             $"Companion ${companion:x2} forest completion did not survive save-image serialization.");
         if (fullQuest)
@@ -192,8 +192,8 @@ public sealed partial class ValidationRoot
         int[] palettes = [0, 3, 2, 1];
         for (int icon = 0; icon < 4; icon++)
         {
-            _saveData.WriteWramByte(0xc6b5, (byte)icon);
-            DisplayRecord display = _treasures.GetButtonDisplay(InventoryState.ItemFlute, _inventory);
+            _saveData.WriteWramByte(WramAddress.wFluteIcon, (byte)icon);
+            DisplayRecord display = _treasures.GetButtonDisplay(TreasureId.Flute, _inventory);
             FailIf(display.LeftSprite != 0x8b || display.RightSprite != 0x8c + icon ||
                 display.LeftPalette != palettes[icon] || display.RightPalette != palettes[icon] ||
                 display.TextLow != 0x2e + icon || display.ExtraMode != 0xff ||
@@ -246,23 +246,23 @@ public sealed partial class ValidationRoot
     {
         // The retail treasure selects an animal but must remain a Strange Flute
         // until the quest writes wFluteIcon. F1 intentionally grants the upgrade.
-        _inventory.GiveTreasure(InventoryState.ItemFlute, companion);
-        FailIf(_saveData.ReadWramByte(0xc6b5) != 0,
+        _inventory.GiveTreasure(TreasureId.Flute, companion);
+        FailIf(_saveData.ReadWramByte(WramAddress.wFluteIcon) != 0,
             "Retail Strange Flute collection bypassed the forest unlock.");
         LoadValidationRoom(0, 0x2a);
-        bool questBefore = _saveData.HasGlobalFlag(0x23);
+        bool questBefore = _saveData.HasGlobalFlag(GlobalFlag.GotFlute);
         _debugFlagMenu.OpenImmediatelyForValidation();
         _debugFlagScreen.SelectTreasureForValidation($"TREASURE_OBJECT_FLUTE_{companion - 0x0b:x2}");
         _debugFlagScreen.ActivateSelection();
         _debugFlagMenu.CloseImmediatelyForValidation();
-        FailIf(!_inventory.HasTreasure(InventoryState.ItemFlute) ||
+        FailIf(!_inventory.HasTreasure(TreasureId.Flute) ||
             _inventory.AnimalCompanion != companion ||
-            _saveData.ReadWramByte(0xc6b5) != companion - 0x0a ||
-            _saveData.HasGlobalFlag(0x23) != questBefore,
+            _saveData.ReadWramByte(WramAddress.wFluteIcon) != companion - 0x0a ||
+            _saveData.HasGlobalFlag(GlobalFlag.GotFlute) != questBefore,
             $"F1 did not upgrade the owned Strange Flute to callable companion ${companion:x2} without quest progress.");
         FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
-            restored!.ReadWramByte(0xc6b5) != companion - 0x0a ||
-            restored.ReadWramByte(0xc610) != companion,
+            restored!.ReadWramByte(WramAddress.wFluteIcon) != companion - 0x0a ||
+            restored.ReadWramByte(WramAddress.wAnimalCompanion) != companion,
             $"Callable flute ${companion:x2} did not survive save serialization.");
         ValidateAwardedCompanionFlute(companion, primaryButton);
         GD.Print($"Validated F1 callable flute ${companion:x2}, equipped {(primaryButton ? "A" : "B")} input, entrance, waiting, mounting and save state.");
@@ -275,8 +275,8 @@ public sealed partial class ValidationRoot
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);
         _player.WarpTo(new Vector2(72, 100), recordSafe: false);
-        if (primaryButton) _inventory.EquipA(InventoryState.ItemFlute);
-        else _inventory.EquipB(InventoryState.ItemFlute);
+        if (primaryButton) _inventory.EquipA(TreasureId.Flute);
+        else _inventory.EquipB(TreasureId.Flute);
         string button = primaryButton ? "attack" : "item";
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: [button], justPressed: [button], movement: Vector2.Zero));
         try { _player.AdvanceApplicationUpdate(); }
@@ -326,9 +326,9 @@ public sealed partial class ValidationRoot
     {
         for (int bits = 0; bits < 8; bits++)
         {
-            _saveData.SetGlobalFlag(0x23, (bits & 1) != 0);
-            _saveData.SetGlobalFlag(0x2b, (bits & 2) != 0);
-            _saveData.SetGlobalFlag(0x42, (bits & 4) != 0);
+            _saveData.SetGlobalFlag(GlobalFlag.GotFlute, (bits & 1) != 0);
+            _saveData.SetGlobalFlag(GlobalFlag.ForestUnscrambled, (bits & 2) != 0);
+            _saveData.SetGlobalFlag(GlobalFlag.CompanionLostInForest, (bits & 4) != 0);
             LoadValidationRoom(0, 0x82);
             var visible = _entities.Entities<NpcCharacter>().Where(npc => npc.Active && npc.Record.Id == 0x49).ToArray();
             FailIf(visible.Length != (bits == 4 ? 3 : 0), $"Forest hint visibility diverged for flags ${bits:x2}.");
@@ -349,14 +349,14 @@ public sealed partial class ValidationRoot
 
     private void ValidateForestQuestIntroduction()
     {
-        _saveData.SetGlobalFlag(0x42, false);
-        _saveData.SetGlobalFlag(0x2b);
+        _saveData.SetGlobalFlag(GlobalFlag.CompanionLostInForest, false);
+        _saveData.SetGlobalFlag(GlobalFlag.ForestUnscrambled);
         LoadValidationRoom(0, 0x35);
         _player.WarpTo(new Vector2(1, 0x48), recordSafe: false);
         _transitions.BeginScroll(_player, Vector2I.Left, 0x34);
         FinishForestScroll();
         _player.WarpTo(new Vector2(0x4f, 0x48), recordSafe: false);
-        for (int frame = 0; frame < 1200 && !_saveData.HasGlobalFlag(0x42); frame++)
+        for (int frame = 0; frame < 1200 && !_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest); frame++)
         {
             if (_dialogue.IsOpen)
             {
@@ -365,7 +365,7 @@ public sealed partial class ValidationRoot
             }
             StepRoomEventFrames(1);
         }
-        FailIf(!_saveData.HasGlobalFlag(0x42) || _saveData.HasGlobalFlag(0x2b), "Forest quest introduction did not enable the search.");
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest) || _saveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled), "Forest quest introduction did not enable the search.");
         LoadValidationRoom(0, 0x63);
         _player.WarpTo(new Vector2(0x48, 0x7f), recordSafe: false);
         _transitions.BeginScroll(_player, Vector2I.Down, 0x73);
@@ -402,11 +402,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriForestEntry()
     {
-        _inventory.GiveTreasure(0x0e, 0x0c);
-        _saveData.SetGlobalFlag(0x22);
-        _saveData.SetGlobalFlag(0x23, false);
-        _saveData.SetGlobalFlag(0x42, false);
-        _saveData.SetGlobalFlag(0x2b);
+        _inventory.GiveTreasure(TreasureId.Flute, 0x0c);
+        _saveData.SetGlobalFlag(GlobalFlag.TalkedToHeadCarpenter);
+        _saveData.SetGlobalFlag(GlobalFlag.GotFlute, false);
+        _saveData.SetGlobalFlag(GlobalFlag.CompanionLostInForest, false);
+        _saveData.SetGlobalFlag(GlobalFlag.ForestUnscrambled);
         LoadValidationRoom(0, 0x34);
         FailIf(_roomEvents.Get<CompanionForestEvent>().HasState, "Forest $71:$08 triggered without a leftward scroll.");
         LoadValidationRoom(0, 0x35);
@@ -442,7 +442,7 @@ public sealed partial class ValidationRoot
         FailIf(_roomEvents.Get<CompanionForestEvent>().Signal != 2 || flight.Stage != (int)FairyFlightStage.WaitForSignal,
             "Forest fairy circle did not signal exactly on update 64.");
         int choices = 0;
-        for (int frame = 0; frame < 600 && !_saveData.HasGlobalFlag(0x42); frame++)
+        for (int frame = 0; frame < 600 && !_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest); frame++)
         {
             if (_dialogue.IsOpen)
             {
@@ -452,7 +452,7 @@ public sealed partial class ValidationRoot
             }
             StepRoomEventFrames(1);
         }
-        FailIf(choices != 2 || !_saveData.HasGlobalFlag(0x42) || _saveData.HasGlobalFlag(0x2b) ||
+        FailIf(choices != 2 || !_saveData.HasGlobalFlag(GlobalFlag.CompanionLostInForest) || _saveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled) ||
             !_saveData.HasRoomFlag(0, 0x34, 0x40),
             "Forest introduction failed its repeat-choice loop or persistent lost/scrambled flags.");
         _roomEvents.Get<CompanionForestEvent>().Cancel();

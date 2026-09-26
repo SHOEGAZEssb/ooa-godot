@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
             gel.Free();
 
             var moblin = new ArrowMoblinCharacter();
-            moblin.Initialize(database.ImportedEnemy(0x0c, 0), Room060MovementFixture(), new(64, 64), new());
+            moblin.Initialize(database.ImportedEnemy(EnemyId.ArrowMoblin, 0), Room060MovementFixture(), new(64, 64), new());
             moblin.UpdateFrame(new(96, 64));
             counter.SetValue(moblin, value);
             moblin.ApplyBoomerangStun(2);

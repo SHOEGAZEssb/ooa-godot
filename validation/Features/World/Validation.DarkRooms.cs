@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
         FailIf(
             keyObject is not
             {
-                TreasureId: TreasureDatabase.TreasureGraveyardKey,
+                TreasureId: TreasureId.GraveyardKey,
                 SubId: 0x00, Parameter: 0x00, TextId: 0x23, Graphic: 0x44
             } ||
             keyVisual is not
@@ -92,14 +92,14 @@ public sealed partial class ValidationRoot
             _entities.Entities<EmberSeedEffect>().Count != 0 ||
             !left.HitPending || handler.State.LitCount != 1 ||
             room.Layout[0x33] != 0x09 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndLightTorch) != 1 ||
             handler.State.FadeActive,
             "The first 5:ed torch did not consume its Ember Seed in the item " +
             "pass and light in the following part pass with SND_LIGHTTORCH " +
             $"(seeds={_entities.Entities<EmberSeedEffect>().Count}, " +
             $"pending={left.HitPending}, lit={handler.State.LitCount}, " +
             $"tile=${room.Layout[0x33]:x2}, sounds=" +
-            $"{_sound.PlayRequestsFor(OracleSoundEngine.SndLightTorch)}, " +
+            $"{_sound.PlayRequestsFor(SoundId.SndLightTorch)}, " +
             $"fade={handler.State.FadeActive}).");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
@@ -121,7 +121,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<LightableTorchRoomEntity>().Single();
         FailIf(
             right.PackedPosition != 0x3b || right.ApplySeedHit(
-            right.CollisionBounds, right.Position, 0x20, noSpawns) !=
+            right.CollisionBounds, right.Position, ItemId.EmberSeed, noSpawns) !=
             SeedHitResult.Consume,
             "The second 5:ed torch rejected an Ember Seed collision.");
         _entities.Update(1.0 / 60.0, _player);
@@ -137,10 +137,10 @@ public sealed partial class ValidationRoot
             key.Record is not
             {
                 TreasureObject: "TREASURE_OBJECT_GRAVEYARD_KEY_00",
-                SpawnMode: 2, GrabMode: 1, SpawnDelayFrames: 40,
+                SpawnMode: TreasureSpawnMode.FromScreenTop, GrabMode: TreasureGrabMode.OneHand, SpawnDelayFrames: 40,
                 BounceCount: 2, Gravity: 0x10, BounceSpeed: -0xaa,
-                SpawnSound: OracleSoundEngine.SndSolvePuzzle,
-                LandingSound: OracleSoundEngine.SndDropEssence,
+                SpawnSound: SoundId.SndSolvePuzzle,
+                LandingSound: SoundId.SndDropEssence,
                 InitialZAboveScreen: true,
                 InventoryWrite: GroundTreasureInventoryWrite.TreasureObject,
                 RoomFlagTiming: GroundTreasureRoomFlagTiming.OnActivation,
@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
         FailIf(
             key.State != PickupState.Spawning ||
             key.SpawnCounter != 40 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
             "The Graveyard Key did not begin its 40-update SND_SOLVEPUZZLE delay.");
         for (int update = 0; update < 39; update++)
             _entities.Update(1.0 / 60.0, _player);
@@ -176,7 +176,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             key.State != PickupState.Waiting ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDropEssence) != 2 ||
+            _sound.PlayRequestsFor(SoundId.SndDropEssence) != 2 ||
             handler.State.FadeActive || handler.State.RenderedOffset != -1 ||
             room.TemporaryBackgroundPaletteOffset != -1,
             "The Graveyard Key did not bounce twice while the room finished at the original retained $ff offset.");
@@ -185,10 +185,10 @@ public sealed partial class ValidationRoot
         _player.WarpTo(key.Position);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            !_inventory.HasTreasure(TreasureDatabase.TreasureGraveyardKey) ||
+            !_inventory.HasTreasure(TreasureId.GraveyardKey) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlagItem) ||
             key.State != PickupState.Collected ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1 ||
             !_dialogue.IsOpen,
             "Collecting the Graveyard Key did not grant treasure $42, set only ROOMFLAG_ITEM, and open TX_0023.");
         _interactions.Update(1.0 / 60.0, _player);
@@ -197,7 +197,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !key.Held || !_player.IsHoldingItemOneHand ||
             key.Position != _player.Position + new Vector2(-4, -14) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndGetItem) != 2,
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 2,
             "The collected Graveyard Key did not use its one-hand held pose and second SND_GETITEM.");
         _dialogue.Close();
         _player.AdvanceApplicationUpdate();

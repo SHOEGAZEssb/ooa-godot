@@ -14,10 +14,10 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.ApplicationUpdateOwned = true;
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 0);
-            _inventory.EquipA(canePrimary ? InventoryState.ItemSomaria : InventoryState.ItemFeather);
-            _inventory.EquipB(canePrimary ? InventoryState.ItemFeather : InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.Feather, 0);
+            _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : TreasureId.Feather);
+            _inventory.EquipB(canePrimary ? TreasureId.Feather : TreasureId.CaneOfSomaria);
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
@@ -48,9 +48,9 @@ public sealed partial class ValidationRoot
                 FailIf(_player.TopDownAirborne || _player.IsUsingSomaria || _entities.Entities<SomariaBlock>().Any(),
                     "Landing must not retry the airborne Cane's failed block creation.");
             }
-            _inventory.GiveTreasure(InventoryState.ItemSword, 0);
-            _inventory.EquipA(InventoryState.ItemSword);
-            _inventory.EquipB(InventoryState.ItemSomaria);
+            _inventory.GiveTreasure(TreasureId.Sword, 0);
+            _inventory.EquipA(TreasureId.Sword);
+            _inventory.EquipB(TreasureId.CaneOfSomaria);
             Step();
             StepGameplayUpdates(1, Vector2.Zero, ["attack", "item"], ["attack", "item"]);
             FailIf(!_player.IsAttacking || _player.IsUsingSomaria,

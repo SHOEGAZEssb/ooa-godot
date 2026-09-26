@@ -129,13 +129,13 @@ internal sealed class TokayInteractionDatabase
         if (DimitriStateAddress != 0xc647 ||
             _texts.Count != 96 || _animations.Count != 10 ||
             _heldItems.Count != 5 ||
-            HeldItem(0x06).Treasure != TreasureDatabase.TreasureSword ||
+            HeldItem(0x06).Treasure != TreasureId.Sword ||
             HeldItem(0x06).GrantSubId != 0x06 ||
             HeldItem(0x06).GrantParameter != 0x01 ||
             HeldItem(0x07).GrantObject != "TREASURE_OBJECT_SHOVEL_01" ||
             HeldItem(0x07).GrantSubId != 0x01 ||
             HeldItem(0x07).GrantParameter != 0x00 ||
-            HeldItem(0x0a).Treasure != TreasureDatabase.TreasureSeedSatchel ||
+            HeldItem(0x0a).Treasure != TreasureId.SeedSatchel ||
             HeldItem(0x0a).ItemAnimation.Length == 0 ||
             !Text(0x0a01).Contains("Stink Bag", StringComparison.Ordinal) ||
             Text(0x0a13).Contains("\\jump", StringComparison.Ordinal) ||

@@ -22,7 +22,7 @@ public partial class ValidationRoot
         var random = new OracleRandom();
         var spawns = new List<RoomEntitySpawn>();
         var zora = new RiverZoraCharacter();
-        zora.Initialize(database.ImportedEnemy(0x08), room, new Vector2(40, 40), random);
+        zora.Initialize(database.ImportedEnemy(EnemyId.RiverZora), room, new Vector2(40, 40), random);
         zora.UpdateFrame(Vector2.Zero, spawns);
         FailIf(zora.State != 9 || zora.Visible || zora.CollisionEnabled || random.Calls != 0,
             "River Zora $08 state 0 consumed RNG or enabled presentation/collision.");
@@ -60,7 +60,7 @@ public partial class ValidationRoot
 
         var blobRandom = new OracleRandom();
         var blob = new BuzzBlobCharacter();
-        blob.Initialize(database.ImportedEnemy(0x18), room,
+        blob.Initialize(database.ImportedEnemy(EnemyId.Buzzblob), room,
             _entities.Entities<BuzzBlobCharacter>().Single().Position, blobRandom);
         blob.UpdateFrame(null);
         FailIf(blob.State != 8 || blobRandom.Calls != 0, "Buzz Blob $18 state 0 consumed RNG.");
@@ -106,7 +106,7 @@ public partial class ValidationRoot
             "Buzz Blob $18 resumed collisions/Scent attraction before shock update 60.");
         blob.UpdateFrame(null);
         FailIf(blob.State != 8 || !blob.CollisionEnabled, "Buzz Blob $18 failed to recover on shock update 60.");
-        FailIf(adapter.ApplySeedHit(blob.CollisionBounds, blob.Position, 0x24, spawns) != SeedHitResult.Activate ||
+        FailIf(adapter.ApplySeedHit(blob.CollisionBounds, blob.Position, ItemId.MysterySeed, spawns) != SeedHitResult.Activate ||
             !blob.IsCukeman || blob.AnimationIndex != 2 || blob.Health != health,
             "Mystery Seed did not transform Buzz Blob $18 into Cukeman without health damage.");
         int beforeText = blobRandom.Calls;
@@ -150,7 +150,7 @@ public partial class ValidationRoot
         for (int i = 0; i < 1024 && zora.State != 0x0b; i++) zora.UpdateFrame(Vector2.Zero, spawns);
         var zoraAdapter = new RiverZoraRoomEntity(zora,
             database.EnemyHandlers.ResolveHandler(rows[0]).CombatSource(rows[0], 1), _ => { }, () => Vector2.Zero);
-        FailIf(zoraAdapter.ApplySeedHit(zora.CollisionBounds, zora.Position, 0x20, spawns) != SeedHitResult.Activate ||
+        FailIf(zoraAdapter.ApplySeedHit(zora.CollisionBounds, zora.Position, ItemId.EmberSeed, spawns) != SeedHitResult.Activate ||
             !zora.IsDead || !spawns.OfType<EnemyDeathPuffSpawn>().Any(puff => puff.EnemyId == 0x08),
             "River Zora $08 did not die immediately with its counted puff on an Ember collision.");
 

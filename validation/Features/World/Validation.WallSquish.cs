@@ -57,7 +57,7 @@ public partial class ValidationRoot
                     FailIf(_player.SideScrollSquished,"Initialized detector must pause during text.");
                 }
                 finally { _entities.TextActiveSource = text; }
-                _rooms.WriteBlockPushAngle(repeat == 0 ? 0 : 8);
+                _rooms.WriteBlockPushAngle(repeat == 0 ? ObjectAngle.Up : ObjectAngle.Right);
                 _sound.ClearPlayRequestAudit();
                 Step();
                 FailIf(!_player.SideScrollSquished || _player.SquishAnimation is not null,
@@ -107,14 +107,14 @@ public partial class ValidationRoot
                     "Recovery update16 must restore normal state and collisions without executing movement yet.");
                 Step();
                 FailIf(_player.SideScrollSquished || !_player.Visible ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndDamageEnemy) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndDamageEnemy) != 1,
                     "Detected squish must release Link and sound only once before a repeated approach.");
             }
             LoadValidationRoom(4,0x9b);
             _player.WarpTo(new(136,136));
             _player.Face(Vector2I.Up);
             _currentRoom.SetPositionTileAndCollision(new(136,120),0x10,0x0f,(long)_animationTicks);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet,1);
+            _inventory.GiveTreasure(TreasureId.Bracelet,1);
             Step(8,Vector2.Up);
             FailIf(_currentRoom.IsSolid(_player.Position) || !_playerWorld.TryUseBracelet(_player,primaryButton:false),
                 "Held-item squish fixture must begin a pot lift from adjacent floor.");

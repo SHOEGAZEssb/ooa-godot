@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
                 Step(16, Vector2.Up);
                 FailIf(_player.Position != new Vector2(120, 112), "Moldorm spawn-hit fixture must approach through actual entrance geometry.");
                 _player.SetBraceletLiftCollisionsDisabled(true);
-                FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Moldorm melee initialization window", out string error), error);
+                FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Moldorm melee initialization window", out string error), error);
                 bool active = true;
                 // The weapon request precedes the ENEMY pass. Its collision
                 // scan must include head/tails that do not exist yet.
@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
                     LoadValidationRoom(4, 0x91);
                     _player.WarpTo(new Vector2(120, 112));
                     _player.SetBraceletLiftCollisionsDisabled(true);
-                    FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Moldorm after cancelled room request", out error), error);
+                    FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Moldorm after cancelled room request", out error), error);
                 }
                 Step();
                 var head = _entities.Entities<MoldormCharacter>().Single();
@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
                     hit && (head.State != 8 || head.InvincibilityCounter != 15 || head.KnockbackCounter != 8 ||
                         tails.Any(tail => tail.InvincibilityCounter != 15 || tail.KnockbackCounter != 8)),
                     "Head JUST_HIT must return before recoil, while tail JUST_HIT falls through to state8 and disables its collision.");
-                FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Moldorm after melee request expiry", out error), error);
+                FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Moldorm after melee request expiry", out error), error);
                 Step();
                 FailIf(_entities.Entities<MoldormCharacter>().Count != 2 ||
                     _entities.Entities<MoldormCharacter>().Where(h => h != head).Single().Health != 8,
@@ -53,15 +53,15 @@ public sealed partial class ValidationRoot
             }
 
             LoadValidationRoom(4, 0x91);
-            if (_inventory.SwordLevel == 0) _inventory.GiveTreasure(TreasureDatabase.TreasureSword, 0);
+            if (_inventory.SwordLevel == 0) _inventory.GiveTreasure(TreasureId.Sword, 0);
             typeof(InventoryState).GetProperty(nameof(InventoryState.SwordLevel))!.SetValue(_inventory, 1);
-            _inventory.EquipA(InventoryState.ItemSword);
+            _inventory.EquipA(TreasureId.Sword);
             _inventory.RefillHealth();
             _inventory.ApplyDamage(4); // Isolate melee from the full-health sword beam.
             _player.WarpTo(new Vector2(120, 128));
             Step(16, Vector2.Up);
             _player.SetBraceletLiftCollisionsDisabled(true);
-            FailIf(!_entities.TrySpawnEnemy(0x4f, 0, new Vector2(120, 80), "Actual Moldorm sword fight", out string spawnError), spawnError);
+            FailIf(!_entities.TrySpawnEnemy(EnemyId.Moldorm, 0, new Vector2(120, 80), "Actual Moldorm sword fight", out string spawnError), spawnError);
             Step(3);
             var target = _entities.Entities<MoldormCharacter>().Single();
             void ApproachAndSwing(int tick)
@@ -111,7 +111,7 @@ public sealed partial class ValidationRoot
             _sound.ClearPlayRequestAudit();
             for (int i = 0; _entities.Entities<MoldormCharacter>().Count != 0 && i < 480; i++) ApproachAndSwing(i);
             FailIf(_entities.Entities<MoldormCharacter>().Count != 0 || _entities.Entities<MoldormTailCharacter>().Count != 0 ||
-                _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _sound.PlayRequestsFor(OracleSoundEngine.SndKillEnemy) != 1,
+                _entities.Entities<EnemyDeathPuffEffect>().Count != 1 || _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 1,
                 "Repeated actual sword attacks must finish the head's recoil/death, delete both tails, and produce one native death puff.");
             Step(24);
             FailIf(_entities.RoomEnemyCount != 0, "Moldorm sword fight retained a tail or puff count after completion.");

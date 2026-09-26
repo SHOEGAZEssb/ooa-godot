@@ -69,7 +69,7 @@ internal sealed class BuzzBlobRoomEntity : CombatEnemyRoomEntityAdapter<BuzzBlob
     {
         if (SeedBurning || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !hitbox.Intersects(Entity.CollisionBounds)) return SeedHitResult.None;
-        if (seedItem == 0x24)
+        if (seedItem == ItemId.MysterySeed)
         {
             Entity.BecomeCukeman();
             return SeedHitResult.Activate;

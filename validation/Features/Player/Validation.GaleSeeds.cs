@@ -9,13 +9,13 @@ public sealed partial class ValidationRoot
     private void ValidateGaleSeedTutorial()
     {
         LoadValidationRoom(0, 0x13);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSeedSatchel, 1);
-        FailIf(_inventory.HasTreasure(0x23), "Fresh Gale tutorial fixture already owns TREASURE_GALE_SEEDS $23.");
+        _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
+        FailIf(_inventory.HasTreasure(TreasureId.GaleSeeds), "Fresh Gale tutorial fixture already owns TREASURE_GALE_SEEDS $23.");
         SeedOnTree firstGale = _entities.Entities<SeedOnTree>()[0];
         _player.WarpTo(firstGale.Position + new Vector2(0, 24));
         _entities.Update(1.0 / 60.0, _player);
         _entities.ApplySwordHit(firstGale.CollisionBounds, _player.Position);
-        for (int i = 0; i < 120 && !_inventory.HasTreasure(0x23); i++)
+        for (int i = 0; i < 120 && !_inventory.HasTreasure(TreasureId.GaleSeeds); i++)
             base._Process(1.0 / 60.0);
         FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(new SeedTreeDatabase().Type(3).IntroMessage) ||
             _inventory.GaleSeeds != 0x06 || firstGale.State != SeedOnTreeState.AwaitingIntroText,
@@ -114,11 +114,11 @@ public sealed partial class ValidationRoot
         capture.GalePlayer = _player;
         for (int i = 0; i <= arc; i++) capture.UpdateFrame(spawns);
         FailIf(_player.GaleActive, "Gale caught Link on the landing update.");
-        _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 1);
+        _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, 1);
         capture.UpdateFrame(spawns);
         FailIf(_player.GaleActive || capture.FlameCounter != 179,
             "wWarpsDisabled $cc6e did not reject capture while advancing the gale lifetime.");
-        _entities.RuntimeState.SetWramByte(OracleRuntimeState.WarpsDisabledAddress, 0);
+        _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
         capture.UpdateFrame(spawns);
         FailIf(!_player.GaleActive || capture.GaleSubstate != 1 || capture.GaleCounter2 != 60,
             "Gale failed its vulnerable-Link capture gate.");

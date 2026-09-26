@@ -536,7 +536,7 @@ public partial class DialogueBox : Node2D
         }
 
         if (HasContinuation)
-            _playSound(OracleSoundEngine.SndText2);
+            _playSound(SoundId.SndText2);
 
         if (HasAnotherLine)
         {
@@ -763,7 +763,7 @@ public partial class DialogueBox : Node2D
 
     private void SubmitChoice()
     {
-        _playSound(OracleSoundEngine.SndSelectItem);
+        _playSound(SoundId.SndSelectItem);
         _choiceResult = _selectedChoice;
         Close();
         _consumeClosingInput = true;
@@ -779,7 +779,7 @@ public partial class DialogueBox : Node2D
         if (choiceCount == 0)
             return;
 
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         _selectedChoice =
             (_selectedChoice + delta % choiceCount + choiceCount) % choiceCount;
         QueueRedraw();
@@ -795,7 +795,7 @@ public partial class DialogueBox : Node2D
         if (choiceCount == 0)
             return;
 
-        _playSound(OracleSoundEngine.SndMenuMove);
+        _playSound(SoundId.SndMenuMove);
         _selectedChoice = choiceCount - 1;
         QueueRedraw();
     }
@@ -937,7 +937,7 @@ public partial class DialogueBox : Node2D
 
         int pieces = Math.Clamp(_heartPieceCount(), 0, 4);
         _heartPieceDisplayCount = pieces;
-        _playSound(OracleSoundEngine.SndText2);
+        _playSound(SoundId.SndText2);
         if (pieces == 4)
         {
             _heartPieceSetComplete = true;
@@ -1165,7 +1165,7 @@ public partial class DialogueBox : Node2D
         var optionColumns = new List<int>();
         int heartPieceColumn = -1;
         int colorIndex = 0;
-        int characterSound = OracleSoundEngine.SndText;
+        int characterSound = SoundId.SndText;
         int pendingSoundEffect = 0;
         bool skipNextNewline = false;
         slowdownRequested = false;

@@ -16,122 +16,6 @@ public partial class OracleSoundEngine : Node
     private const int MaximumOutputLeadFrames = SampleRate / 10;
     private const int MaximumQueuedOutputFrames = SampleRate / 15;
     private const int OutputBridgeFrames = 64;
-    public const int MusTitlescreen = 0x01;
-    public const int MusMinigame = 0x02;
-    public const int MusOverworld = 0x03;
-    public const int MusEssence = 0x06;
-    public const int MusNayru = 0x08;
-    public const int MusGameOver = 0x09;
-    public const int MusEssenceRoom = 0x0d;
-    public const int MusFairyFountain = 0x0f;
-    public const int MusGetEssence = 0x10;
-    public const int MusFileSelect = 0x11;
-    public const int MusSpiritsGrave = 0x13;
-    public const int MusRoomOfRites = 0x1d;
-    public const int MusMakuTree = 0x1e;
-    public const int MusSadness = 0x1f;
-    public const int MusDisaster = 0x21;
-    public const int MusMapleTheme = 0x2b;
-    public const int MusMapleGame = 0x2c;
-    public const int MusMiniboss = 0x2d;
-    public const int MusBoss = 0x2e;
-    public const int MusLadxSideview = 0x2f;
-    public const int MusCrazyDance = 0x31;
-    public const int MusRalph = 0x35;
-    public const int MusIntro1 = 0x3f;
-    public const int MusIntro2 = 0x40;
-    public const int MusBlackTowerEntrance = 0x46;
-    public const int SndGetItem = 0x4c;
-    public const int SndSolvePuzzle = 0x4d;
-    public const int SndDamageEnemy = 0x4e;
-    public const int SndChargeSword = 0x4f;
-    public const int SndClink = 0x50;
-    public const int SndThrow = 0x51;
-    public const int SndBombLand = 0x52;
-    public const int SndJump = 0x53;
-    public const int SndEnemyJump = 0x8f;
-    public const int SndOpenMenu = 0x54;
-    public const int SndCloseMenu = 0x55;
-    public const int SndSelectItem = 0x56;
-    public const int SndGainHeart = 0x57;
-    public const int SndClink2 = 0x58;
-    public const int SndFallInHole = 0x59;
-    public const int SndError = 0x5a;
-    public const int SndSwordBeam = 0x5d;
-    public const int SndEnergyThing = 0x5c;
-    public const int SndGetSeed = 0x5e;
-    public const int SndDamageLink = 0x5f;
-    public const int SndRupee = 0x61;
-    public const int SndBossDamage = 0x63;
-    public const int SndLinkDead = 0x64;
-    public const int SndLinkFall = 0x65;
-    public const int SndText = 0x66;
-    public const int SndBossDead = 0x67;
-    public const int SndSlash = 0x6a;
-    public const int SndSwordSpin = 0x6b;
-    public const int SndOpenChest = 0x6c;
-    public const int SndCutGrass = 0x6d;
-    public const int SndEnterCave = 0x6e;
-    public const int SndExplosion = 0x6f;
-    public const int SndDoorClose = 0x70;
-    public const int SndDing = 0xc8;
-    public const int SndSeedShooter = 0xcb;
-    public const int SndMoveBlock = 0x71;
-    public const int SndLightTorch = 0x72;
-    public const int SndKillEnemy = 0x73;
-    public const int SndSwordSlash = 0x74;
-    public const int SndUnknown5 = 0x75;
-    public const int SndShield = 0x76;
-    public const int SndDropEssence = 0x77;
-    public const int SndBoomerang = 0x78;
-    public const int SndBigExplosion = 0x79;
-    public const int SndMysterySeed = 0x7b;
-    public const int SndAquamentusHover = 0x7c;
-    public const int SndStrongPound = 0x81;
-    public const int SndMagicPowder = 0x83;
-    public const int SndMenuMove = 0x84;
-    public const int SndScentSeed = 0x85;
-    public const int SndSplash = 0x87;
-    public const int SndText2 = 0x89;
-    public const int SndFilledHeartContainer = 0x8b;
-    public const int SndTeleport = 0x8d;
-    public const int SndFairyCutscene = 0x91;
-    public const int SndCompass = 0xa2;
-    public const int SndWarpStart = 0x95;
-    public const int SndPoof = 0x98;
-    public const int SndBaseball = 0x99;
-    public const int SndPickup = 0x9c;
-    public const int SndChicken = 0xa0;
-    public const int SndLand = 0xa3;
-    public const int SndLinkSwim = 0x88;
-    public const int SndBeam = 0xa4;
-    public const int SndBreakRock = 0xa5;
-    public const int SndStrike = 0xa6;
-    public const int SndVeranFairyAttack = 0xa8;
-    public const int SndDig = 0xa9;
-    public const int SndSwordObtained = 0xab;
-    public const int SndShock = 0xac;
-    public const int SndTuneOfEchoes = 0xad;
-    public const int SndTuneOfCurrents = 0xae;
-    public const int SndTuneOfAges = 0xaf;
-    public const int SndOpening = 0xb0;
-    public const int SndMakuDisappear = 0xb2;
-    public const int SndFadeOut = 0xb4;
-    public const int SndRumble2 = 0xb8;
-    public const int SndWhistle = 0xcc;
-    public const int SndMakuTreePast = 0xce;
-    public const int SndPirateBell = 0xd0;
-    public const int SndTimewarpInitiated = 0xd1;
-    public const int SndLightning = 0xd2;
-    public const int SndTimewarpCompleted = 0xd4;
-    public const int SndCtrlStopMusic = 0xf0;
-    public const int SndCtrlStopSfx = 0xf1;
-    public const int SndCtrlDisable = 0xf5;
-    public const int SndCtrlEnable = 0xf6;
-    public const int SndCtrlFastFadeOut = 0xfa;
-    public const int SndCtrlMediumFadeOut = 0xfb;
-    public const int SndCtrlSlowFadeOut = 0xfc;
-
 
     private readonly OracleSoundData _data;
     private readonly OracleSoundDriver _driver;
@@ -158,7 +42,7 @@ public partial class OracleSoundEngine : Node
     internal bool ApplicationUpdateOwned { get; set; }
 
     public int ActiveMusic { get; private set; }
-    public bool Disabled => _driver.ReadState(0xc01b) != 0;
+    public bool Disabled => _driver.ReadState(WramAddress.wSoundDisabled) != 0;
     public int MusicVolume => _requestedVolume;
     internal OracleSoundData Data => _data;
     internal OracleSoundDriver Driver => _driver;
@@ -224,7 +108,7 @@ public partial class OracleSoundEngine : Node
 
     public void PlayMusicIfChanged(int music)
     {
-        if (music != ActiveMusic) PlaySound(music == 0 ? SndCtrlStopMusic : music);
+        if (music != ActiveMusic) PlaySound(music == 0 ? SoundId.SndCtrlStopMusic : music);
     }
 
     public void SetMusicVolume(int volume)
@@ -246,17 +130,17 @@ public partial class OracleSoundEngine : Node
 
     public void PlaySound(int soundId)
     {
-        if (soundId == 0) return;
+        if (soundId == SoundId.MusNone) return;
         if ((uint)soundId >= OracleSoundData.SoundCount &&
-            soundId is not (SndCtrlStopMusic or SndCtrlStopSfx or SndCtrlDisable or SndCtrlEnable or
-                0xf7 or 0xf8 or 0xf9 or 0xfa or 0xfb or 0xfc))
+            soundId is not (SoundId.SndCtrlStopMusic or SoundId.SndCtrlStopSfx or SoundId.SndCtrlDisable or SoundId.SndCtrlEnable or
+                SoundId.SndctrlFastFadein or SoundId.SndctrlMediumFadein or SoundId.SndctrlSlowFadein or SoundId.SndCtrlFastFadeOut or SoundId.SndCtrlMediumFadeOut or SoundId.SndCtrlSlowFadeOut))
             throw new ArgumentOutOfRangeException(nameof(soundId), $"Unsupported original sound ${soundId:x2}.");
         _requestObserver?.OnSoundRequested(soundId);
         // The original 16-byte ring has no overflow guard. Tail meeting head
         // means empty, including when exactly 16 requests overwrite the queue.
         _requests[_requestTail] = (byte)soundId;
         _requestTail = (_requestTail + 1) & 15;
-        if (soundId == SndCtrlStopMusic) ActiveMusic = 0;
+        if (soundId == SoundId.SndCtrlStopMusic) ActiveMusic = 0;
         else if (soundId < OracleSoundData.MusicCount) ActiveMusic = soundId;
     }
 

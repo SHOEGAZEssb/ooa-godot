@@ -44,7 +44,7 @@ internal sealed class NayruHouseNpcRoomEntity
             _initialized = true;
             if (Entity.Record is
                 {
-                    Id: 0x4f,
+                    Id: InteractionId.ImpaNpc,
                     Var03: 0x01 or 0x0a
                 })
             {
@@ -52,7 +52,7 @@ internal sealed class NayruHouseNpcRoomEntity
             }
             if (Entity.Record is
                 {
-                    Id: 0x4f,
+                    Id: InteractionId.ImpaNpc,
                     SubId: 0x00,
                     Var03: 0x00
                 })
@@ -70,7 +70,7 @@ internal sealed class NayruHouseNpcRoomEntity
 
         if (!Entity.Active)
             return;
-        if (Entity.Record.Id == 0x4f)
+        if (Entity.Record.Id == InteractionId.ImpaNpc)
         {
             if (Entity.Record.Var03 is 0x01 or 0x0a)
                 Entity.AnimateAsNpcOneUpdate(frame.Player);
@@ -94,7 +94,7 @@ internal sealed class NayruHouseNpcRoomEntity
 
     public void OnNpcTalkEnded()
     {
-        if (Entity.Record is { Id: 0x4f, Var03: 0x01 or 0x0a })
+        if (Entity.Record is { Id: InteractionId.ImpaNpc, Var03: 0x01 or 0x0a })
             Entity.SetFacingDirection(Vector2I.Up);
     }
 

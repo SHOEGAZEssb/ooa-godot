@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
 
         List<NpcCharacter> PlacedGhinis() =>
             _entities.Entities<NpcCharacter>()
-                .Where(npc => npc.Record is { Id: 0x73 } &&
+                .Where(npc => npc.Record is { Id: InteractionId.GhiniHarassingMoosh } &&
                     npc.Record.Room == room)
                 .OrderBy(npc => npc.Record.SubId)
                 .ToList();
@@ -264,7 +264,7 @@ public sealed partial class ValidationRoot
             rescue.Signal != 0,
             "Room 0:6c did not preserve its source-order Ghinis, `$67:$00 Moosh " +
             "preset, visuals, or controller initialization.");
-        FailIf(_runtimeState.ReadWramByte(OracleRuntimeState.DiggingUpEnemiesForbiddenAddress) != 1,
+        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 1,
             "companionScript_subid00 did not set the room-local $ccde digging restriction.");
 
         StepRoomEventFrames(1);
@@ -349,15 +349,15 @@ public sealed partial class ValidationRoot
         ulong frightenedMooshPixelHash = moosh.CurrentAnimationPixelHash;
         _dialogue.Close();
         int exclamationClinks =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+            _sound.PlayRequestsFor(SoundId.SndClink);
         StepRoomEventFrames(1);
         FailIf(
             _entities.Entities<NpcCharacter>().Count(npc =>
                 npc.Record.Id == record.ExclamationId && npc.Active) != 1 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
+            _sound.PlayRequestsFor(SoundId.SndClink) !=
                 exclamationClinks + 1 ||
             _sound.LastPlayRequestForValidation() !=
-                OracleSoundEngine.SndClink ||
+                SoundId.SndClink ||
             !rescue.BlocksGameplay || !_player.CutsceneControlled,
             "Moosh did not create the 30-update exclamation with SND_CLINK " +
             "and reapply setdisabledobjectsto11 before turning toward Link.");
@@ -409,7 +409,7 @@ public sealed partial class ValidationRoot
             $"offset={companion.LinkTextureOffset}).");
 
         int equippedA = _inventory.EquippedA;
-        _inventory.EquipA(InventoryState.ItemFeather);
+        _inventory.EquipA(TreasureId.Feather);
         int tutorialJumpSounds = _sound.PlayRequestsFor(record.JumpSound);
         int textAdvanceGuard = 0;
         while (_dialogue.HasNextMessage && textAdvanceGuard++ < 16)
@@ -824,7 +824,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             companion.Phase != MooshCompanionPhase.StompRecovery ||
-            (_saveData.ReadWramByte(0xc649) & 0x20) == 0 ||
+            (_saveData.ReadWramByte(WramAddress.wCompanionTutorialTextShown) & 0x20) == 0 ||
             _sound.PlayRequestsFor(record.StompSound) != stompSounds + 1 ||
             _entities.ScreenShakeCounter <= 0 ||
             _entities.Entities<MooshStompAttackRoomEntity>().Count != 1,
@@ -941,14 +941,14 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Clear(
             _runtimeState, CompanionRuntimeState.MooshId);
         CompanionRuntimeState.Remember(
-            _runtimeState, 0, 0, 0, Vector2.Zero);
+            _runtimeState, SpecialObjectId.Link, 0, 0, Vector2.Zero);
         LoadValidationRoom(holeGroup, holeRoom);
         _player.WarpTo(safePosition);
         _player.Heal(_player.MaxHealthQuarters);
         var holeCompanion = _entities.Spawn<MooshCompanionRoomEntity>(
             new MooshCompanionSpawn(
                 holeCenter,
-                2,
+                ObjectDirection.Down,
                 holeGroup,
                 holeRoom,
                 Riding: true));
@@ -957,24 +957,24 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.MooshId,
             holeRoom,
             holeCenter,
-            2);
+            ObjectDirection.Down);
         int splashSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+            _sound.PlayRequestsFor(SoundId.SndSplash);
         int fallSounds =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall);
+            _sound.PlayRequestsFor(SoundId.SndLinkFall);
         int healthBeforeHole = _player.HealthQuarters;
         StepRoomEventFrames(1);
         FailIf(
             holeCompanion.Phase != MooshCompanionPhase.HazardFalling ||
             holeCompanion.Hazard != HazardType.Hole ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+            _sound.PlayRequestsFor(SoundId.SndSplash) !=
                 splashSounds + 1,
             "Grounded Moosh did not enter state `$04 from the source y+$05 " +
             "hole probe and request SND_SPLASH.");
         StepRoomEventFrames(1);
         FailIf(
             holeCompanion.AnimationIndex != 0x0e ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndLinkFall) !=
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) !=
                 fallSounds + 1,
             "Centered Moosh did not select falling animation `$0e and play " +
             "SND_LINK_FALL.");
@@ -1004,7 +1004,7 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Clear(
             _runtimeState, CompanionRuntimeState.MooshId);
         CompanionRuntimeState.Remember(
-            _runtimeState, 0, 0, 0, Vector2.Zero);
+            _runtimeState, SpecialObjectId.Link, 0, 0, Vector2.Zero);
         LoadValidationRoom(waterGroup, waterRoom);
         _player.WarpTo(waterStart);
         var waterCompanion = _entities.Spawn<MooshCompanionRoomEntity>(
@@ -1022,7 +1022,7 @@ public sealed partial class ValidationRoot
             waterDirection);
         StepRoomEventFrames(1);
         int waterClinks =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink);
+            _sound.PlayRequestsFor(SoundId.SndClink);
         StepMooshApplicationInput(
             pressed: ["attack"],
             justPressed: ["attack"]);
@@ -1053,7 +1053,7 @@ public sealed partial class ValidationRoot
                 new Vector2(
                     0,
                     (waterCompanion.ZFixed >> 8) - 32) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndClink) !=
+            _sound.PlayRequestsFor(SoundId.SndClink) !=
                 waterClinks + 1,
             $"Moosh did not freeze above imported water and create the " +
             $"Z-$20/$3c-update SND_CLINK exclamation (room=" +
@@ -1074,7 +1074,7 @@ public sealed partial class ValidationRoot
             "Moosh did not remove the exclamation and resume gravity on the " +
             "exact `$3c counter boundary.");
         int waterSplashes =
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash);
+            _sound.PlayRequestsFor(SoundId.SndSplash);
         for (int frame = 0; frame < 120 &&
             waterCompanion.Phase != MooshCompanionPhase.HazardFalling; frame++)
         {
@@ -1083,7 +1083,7 @@ public sealed partial class ValidationRoot
         FailIf(
             waterCompanion.Phase != MooshCompanionPhase.HazardFalling ||
             waterCompanion.Hazard != HazardType.Water ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndSplash) !=
+            _sound.PlayRequestsFor(SoundId.SndSplash) !=
                 waterSplashes + 1,
             "Moosh's stationary post-exclamation descent did not enter the " +
             "ordinary water hazard state on landing.");

@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             void Stage()
             {
                 for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, 0xa5);
-                _runtimeState.SetWramByte(0xcec0, 0xff);
+                _runtimeState.SetWramByte(WramAddress.wTmpcec0, 0xff);
             }
             Stage();
             var effect = _entities.Spawn<FallingDownHoleEffect>(

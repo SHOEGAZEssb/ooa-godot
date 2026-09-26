@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
         var sounds = new List<int>();
         for (int subid = 0; subid < 3; subid++)
         {
-            ImportedEnemyDefinition definition = database.ImportedEnemy(0x30, subid);
+            ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.Tektite, subid);
             FailIf(definition.TileBase != 22 || definition.Palette != (subid == 0 ? 3 : 1) ||
                 definition.Health != (subid == 0 ? 2 : 3) || definition.RadiusX != 6 ||
                 definition.RadiusY != 6 || definition.DamageQuarters != 2 || definition.Animations.Length != 3,
@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
         var bigRandom = new OracleRandom();
         bigRandom.RestoreState(bigRandom.CaptureState() with { Rng1 = 0, Rng2 = 0 });
         var big = new TektiteCharacter();
-        big.Initialize(database.ImportedEnemy(0x30), room, new Vector2(0x20, 0x48), bigRandom, sounds.Add);
+        big.Initialize(database.ImportedEnemy(EnemyId.Tektite), room, new Vector2(0x20, 0x48), bigRandom, sounds.Add);
         big.UpdateFrame(new Vector2(0x90, 0x48));
         big.UpdateFrame(new Vector2(0x90, 0x48));
         for (int i = 0; i < 25; i++) big.UpdateFrame(new Vector2(0x90, 0x48));
@@ -105,14 +105,14 @@ public sealed partial class ValidationRoot
         OracleRoomData room = Room060MovementFixture();
         var random = new OracleRandom();
         var enemy = new SwordEnemyCharacter();
-        enemy.Initialize(database.ImportedEnemy(0x4a), room, new Vector2(0x40, 0x40), random);
+        enemy.Initialize(database.ImportedEnemy(EnemyId.SwordMaskedMoblin), room, new Vector2(0x40, 0x40), random);
         enemy.UpdateFrame(new Vector2(0x90, 0x70), swordSlotAvailable: false);
         FailIf(enemy.State != SwordEnemyState.Uninitialized || enemy.Visible || random.Calls != 1,
             "$4a:$00 must retry state0 when no PART_ENEMY_SWORD slot is available, consuming only standard initialization RNG.");
         enemy.Free();
         random = new OracleRandom();
         enemy = new SwordEnemyCharacter();
-        enemy.Initialize(database.ImportedEnemy(0x4a), room, new Vector2(0x40, 0x40), random);
+        enemy.Initialize(database.ImportedEnemy(EnemyId.SwordMaskedMoblin), room, new Vector2(0x40, 0x40), random);
         enemy.UpdateFrame(new Vector2(0x90, 0x70));
         FailIf(enemy.Angle != 0x10 || enemy.Counter1 != 1 || enemy.Counter2 != 20 ||
             enemy.ScentAttractionCounter != 0x5e || random.Calls != 2,
@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
         enemy.Free();
 
         enemy = new SwordEnemyCharacter();
-        enemy.Initialize(database.ImportedEnemy(0x4a), room, new Vector2(0x40, 0x40), new OracleRandom());
+        enemy.Initialize(database.ImportedEnemy(EnemyId.SwordMaskedMoblin), room, new Vector2(0x40, 0x40), new OracleRandom());
         enemy.UpdateFrame(enemy.Position + Vector2.Right * 32);
         for (int i = 0; i < 19; i++) enemy.UpdateFrame(enemy.Position + Vector2.Right * 32);
         FailIf(enemy.State != SwordEnemyState.Wandering || enemy.Counter2 != 1,
@@ -162,7 +162,7 @@ public sealed partial class ValidationRoot
         var random = new OracleRandom();
         random.RestoreState(random.CaptureState() with { Rng1 = 0, Rng2 = 0 });
         var tektite = new TektiteCharacter();
-        tektite.Initialize(database.ImportedEnemy(0x30), room, new Vector2(0x40, 0x48), random, _ => { });
+        tektite.Initialize(database.ImportedEnemy(EnemyId.Tektite), room, new Vector2(0x40, 0x48), random, _ => { });
         RoomObjectRecord source = database.GetRoomObjects(0, 0x60)[2];
         var adapter = new TektiteRoomEntity(tektite,
             database.EnemyHandlers.ResolveHandler(source).CombatSource(source, 2), _ => { });
@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
         int health = _inventory.HealthQuarters;
         adapter.HandleLinkContact(_player);
         FailIf(_inventory.HealthQuarters != health ||
-            adapter.ApplySeedHitAtHeight(tektite.CollisionBounds, tektite.Position, 0, 0x21, spawns) != SeedHitResult.None,
+            adapter.ApplySeedHitAtHeight(tektite.CollisionBounds, tektite.Position, 0, ItemId.ScentSeed, spawns) != SeedHitResult.None,
             "$30 airborne contact or Scent Seed ignored the original Z collision window.");
         FailIf(!adapter.ApplySwordHit(tektite.CollisionBounds, tektite.Position + Vector2.Right * 16,
                 1, EnemyKnockbackStrength.Low, spawns), "$30 did not accept its ordinary sword collision.");
@@ -265,7 +265,7 @@ public sealed partial class ValidationRoot
             tektites.Any(e => e.State != TektiteState.Waiting),
             "Room 0:60 gameplay update did not initialize all four enemies in order with two RNG calls each.");
         for (int i = 0; i < 180; i++) base._Process(1.0 / 60.0);
-        FailIf(_sound.PlayRequestsFor(0x8f) == 0, "Room 0:60 Tektites never reached their source jump sound in gameplay.");
+        FailIf(_sound.PlayRequestsFor(SoundId.SndEnemyJump) == 0, "Room 0:60 Tektites never reached their source jump sound in gameplay.");
 
         // Actual room transition preload runs state0, then freezes its state,
         // animation, coordinates and shared RNG until the scroll completes.

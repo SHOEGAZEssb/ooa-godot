@@ -9,8 +9,8 @@ public sealed partial class ValidationRoot
     {
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureSwitchHook, 1);
-        _inventory.EquipA(InventoryState.ItemSwitchHook);
+        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+        _inventory.EquipA(TreasureId.SwitchHook);
         LoadValidationRoom(4, 0x7c);
         Vector2 diamond = new(136, 88), origin = new(184.875f, 88.25f);
         // Source rooms/ages/large/room047c.bin has $db at packed $58 and

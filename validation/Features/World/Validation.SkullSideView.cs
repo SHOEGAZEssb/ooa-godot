@@ -48,8 +48,8 @@ public sealed partial class ValidationRoot
                 Step(40);
             }
             FailIf(_entities.Entities<KeeseCharacter>().Count != 0, "Side-view Keese combat fixture did not finish.");
-            _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
-            _inventory.EquipA(InventoryState.ItemFeather);
+            _inventory.GiveTreasure(TreasureId.Feather, 1);
+            _inventory.EquipA(TreasureId.Feather);
             int saved = 0;
             void Checkpoint()
             {

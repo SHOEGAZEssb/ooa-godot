@@ -27,7 +27,7 @@ internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEnt
     internal void UpdateDeparture()
     {
         Npc.AdvanceAnimationUpdates(1);
-        Npc.SetStatePosition(Npc.Position + OracleObjectMovement.Shared.Delta(owner.Database.Constant("departure-speed"), 0x18));
+        Npc.SetStatePosition(Npc.Position + OracleObjectMovement.Shared.Delta(owner.Database.Constant("departure-speed"), ObjectAngle.Left));
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Npc.Position))
         {
             Npc.SetActive(false);
@@ -111,7 +111,7 @@ internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEnt
         else if (handler == "FaceLink")
         {
             Vector2 target = Context.Entities.ActiveScentSeedTarget() ?? Context.Player.Position;
-            int direction = ((OracleObjectMovement.Shared.RelativeAngle(Npc.Position, target) + 4) & 0x18) >> 3;
+            int direction = ((OracleObjectMovement.Shared.RelativeAngle(Npc.Position, target) + 4) & ObjectAngle.CardinalMask) >> 3;
             // These four entries are also the movement animations in the imported catalog.
             foreach (var command in owner.Database.Commands)
                 if (command is CutsceneMoveCommand move && move.Angle == direction * 8)

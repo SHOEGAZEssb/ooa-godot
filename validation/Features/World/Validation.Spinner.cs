@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
             !_entities.PlayerMovementDisabled ||
             !_entities.PlayerMenusDisabled ||
             !_player.IsAttacking ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 0,
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 0,
             "The strict 9+6 collision did not enter the one-update spinner " +
             "touch handoff before beginning the turn.");
         Step(_entities, _player);
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
             _player.FacingVector != Vector2I.Left ||
             _player.IsAttacking ||
             _entities.ScreenShakeCounter != 3 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 1,
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1,
             "The blue spinner did not snap an above-entry Link to -12 Y, " +
             "face him left, shake for four source updates, and play " +
             "SND_OPENCHEST once.");
@@ -129,14 +129,14 @@ public sealed partial class ValidationRoot
         FailIf(
             spinner.SpinnerAnimationFrame != 1 ||
             spinner.LinkOffset != new Vector2(0, -12) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 0,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
             "The blue spinner consumed parameter $01 on the transition into " +
             "its frame instead of the following interaction update.");
         Step(_entities, _player);
         FailIf(
             spinner.LinkOffset != new Vector2(-2, -10) ||
             _player.PrecisePosition != spinnerCenter + new Vector2(-2, -10) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 1,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 1,
             "Blue spinner parameter $01 did not move Link to circular point " +
             "$09 and request SND_DOORCLOSE exactly once.");
 
@@ -152,7 +152,7 @@ public sealed partial class ValidationRoot
             spinner.ExitCounter != 0x10 ||
             spinner.LinkOffset != new Vector2(-12, 0) ||
             _player.PrecisePosition != spinnerCenter + new Vector2(-12, 0) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 4,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 4,
             "The blue spinner did not finish after 32 turning updates at " +
             "circular point $0c with four one-shot animation signals.");
 
@@ -206,7 +206,7 @@ public sealed partial class ValidationRoot
         Step(_entities, _player);
         FailIf(
             spinner.LinkOffset != new Vector2(2, -10) ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 5,
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 5,
             "Red spinner parameter $0f did not select clockwise circular " +
             "point $07 exactly once.");
         int redTurnUpdates = 16;
@@ -222,8 +222,8 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition != spinnerCenter + new Vector2(28, 0) ||
             _runtimeState.ReadWramByte(
                 OracleRuntimeState.SpinnerStateAddress) != 0xa0 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndOpenChest) != 2 ||
-            _sound.PlayRequestsFor(OracleSoundEngine.SndDoorClose) != 8,
+            _sound.PlayRequestsFor(SoundId.SndOpenChest) != 2 ||
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 8,
             "The red clockwise pass did not mirror the full source turn, " +
             "exit, sound, and shared-state sequence.");
 

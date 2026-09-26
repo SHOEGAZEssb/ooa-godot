@@ -170,7 +170,7 @@ internal sealed class MakuSproutRoomDatabase
                 SavedFlag: 0x12,
                 SavedTextId: 0x05d5,
                 SavedTextPosition: 0,
-                FinishedFlag: OracleSaveData.GlobalFlagFinishedGame,
+                FinishedFlag: GlobalFlag.FinishedGame,
                 StatueId: 0x6b,
                 StatueSubId: 0x15,
                 StatueY: 0x40,

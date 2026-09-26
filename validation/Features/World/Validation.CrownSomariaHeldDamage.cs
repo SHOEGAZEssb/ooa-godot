@@ -14,18 +14,18 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa1);
             _player.ApplicationUpdateOwned = true;
             _entities.Clear();
-            _inventory.GiveTreasure(InventoryState.ItemSomaria, 1);
-            _inventory.GiveTreasure(TreasureDatabase.TreasureBracelet, 1);
+            _inventory.GiveTreasure(TreasureId.CaneOfSomaria, 1);
+            _inventory.GiveTreasure(TreasureId.Bracelet, 1);
             _player.WarpTo(new(120, 56));
             _player.Face(Vector2I.Up);
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 _player.WarpTo(new(120, 56));
-                _inventory.EquipA(InventoryState.ItemSomaria);
+                _inventory.EquipA(TreasureId.CaneOfSomaria);
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
                 StepGameplayUpdates(24, Vector2.Zero, batched: batched);
                 var block = _entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
-                _inventory.EquipA(InventoryState.ItemBracelet);
+                _inventory.EquipA(TreasureId.Bracelet);
                 StepGameplayUpdates(8, Vector2.Up, batched: batched);
                 FailIf(_collision.Collides(_player.Position), "Held-damage fixture must approach on actual Crown floor.");
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);

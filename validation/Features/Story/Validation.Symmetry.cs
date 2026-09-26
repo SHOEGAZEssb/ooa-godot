@@ -11,23 +11,23 @@ public sealed partial class ValidationRoot
         // loadTilesetData.s:getAdjustedRoomGroup uses ROOMFLAG_LAYOUTSWAP,
         // not GLOBALFLAG_TUNI_NUT_PLACED. tuniNutMain.s sets the six village
         // room bits together; a debug state may independently alter one bit.
-        _saveData.SetGlobalFlag(0x29, false);
+        _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced, false);
         _saveData.SetRoomFlag(0, 0x03, 1, false);
         LoadValidationRoom(0, 0x03);
         byte[] roomFlagsBefore = new byte[0x400];
-        _saveData.ReadWramBytes(0xc700, roomFlagsBefore);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureBoomerang, 1);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _saveData.ReadWramBytes(WramAddress.wGroup0RoomFlags, roomFlagsBefore);
+        _inventory.GiveTreasure(TreasureId.Boomerang, 1);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         for (int seed = 0; seed < 5; seed++)
         {
             _inventory.SelectSatchelSeeds(seed);
             _inventory.SelectShooterSeeds(seed);
-            FailIf(_saveData.ReadWramByte(0xc6c4) != seed ||
-                _saveData.ReadWramByte(0xc6c5) != seed,
+            FailIf(_saveData.ReadWramByte(WramAddress.wSatchelSelectedSeeds) != seed ||
+                _saveData.ReadWramByte(WramAddress.wShooterSelectedSeeds) != seed,
                 "Selected seeds did not use clean US WRAM $c6c4/$c6c5.");
         }
         byte[] roomFlagsAfter = new byte[0x400];
-        _saveData.ReadWramBytes(0xc700, roomFlagsAfter);
+        _saveData.ReadWramBytes(WramAddress.wGroup0RoomFlags, roomFlagsAfter);
         FailIf(!roomFlagsBefore.SequenceEqual(roomFlagsAfter),
             "Inventory acquisition or seed selection corrupted room flags at $c700-$caff.");
         var warps = new WarpDatabase();
@@ -86,8 +86,8 @@ public sealed partial class ValidationRoot
         var quest = _roomEvents.Get<SymmetryEvent>();
         _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"), false);
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"), false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 2);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureFeather, 1);
+        _inventory.GiveTreasure(TreasureId.TuniNut, 2);
+        _inventory.GiveTreasure(TreasureId.Feather, 1);
         LoadValidationRoom(5, 0xf6);
         _player.WarpTo(new Vector2(0x78, 0x30), recordSafe: false);
         var nut = _entities.EntityAdapters<TuniNutRoomEntity>().Single();
@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
             "Ground interaction did not accept Link's descending low Feather arc.");
         var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(new Vector2(32, 96), Vector2I.Up,
             new SeedSatchelDatabase().Scent, 5));
-        var beam = _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new Vector2(32, 96), 0));
+        var beam = _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new Vector2(32, 96), ObjectDirection.Up));
         var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase().Data, 5, _ => { }));
         StepRoomEventFrames(1);
         FailIf(nut.State != 3 || nut.Counter != 60 || _player.TopDownAirborne ||
@@ -148,10 +148,10 @@ public sealed partial class ValidationRoot
             quest = _roomEvents.Get<SymmetryEvent>();
             _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"));
             _saveData.SetGlobalFlag(quest.Database.Constant("placed-flag"));
-            _saveData.SetGlobalFlag(0x6d, false);
-            _saveData.SetGlobalFlag(0x77, false);
+            _saveData.SetGlobalFlag(GlobalFlag.BeganSymmetrySecret, false);
+            _saveData.SetGlobalFlag(GlobalFlag.DoneSymmetrySecret, false);
             _saveData.SetRoomFlag(5, 0xf6, 0x20, false);
-            _inventory.LoseTreasure(TreasureDatabase.TreasureRingBox);
+            _inventory.LoseTreasure(TreasureId.RingBox);
             if (level != 0) _inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_RING_BOX_{level - 1:x2}"));
             Enter();
             Talk(0x2d24);
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
             AwaitText(0x2d25);
             _dialogue.Close();
             StepRoomEventFrames(8);
-            FailIf(quest.BlocksGameplay || _saveData.HasGlobalFlag(0x6d), "Symmetry refusal retained control or began the secret.");
+            FailIf(quest.BlocksGameplay || _saveData.HasGlobalFlag(GlobalFlag.BeganSymmetrySecret), "Symmetry refusal retained control or began the secret.");
             int opened = 0;
             quest.OpenSecretMenu = (index, complete) =>
             {
@@ -173,14 +173,14 @@ public sealed partial class ValidationRoot
             Talk(0x2d24);
             _dialogue.SubmitChoiceForValidation(0);
             AwaitText(0x2d27);
-            FailIf(opened != 1 || _saveData.HasGlobalFlag(0x6d) || _saveData.HasGlobalFlag(0x77),
+            FailIf(opened != 1 || _saveData.HasGlobalFlag(GlobalFlag.BeganSymmetrySecret) || _saveData.HasGlobalFlag(GlobalFlag.DoneSymmetrySecret),
                 "Invalid symmetry secret advanced completion flags.");
             _dialogue.Close();
             quest.OpenSecretMenu = (index, complete) => { opened++; complete(true); return true; };
             Talk(0x2d24);
             _dialogue.SubmitChoiceForValidation(0);
             AwaitText(0x2d26);
-            FailIf(!_saveData.HasGlobalFlag(0x6d) || _saveData.HasGlobalFlag(0x77),
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganSymmetrySecret) || _saveData.HasGlobalFlag(GlobalFlag.DoneSymmetrySecret),
                 "Valid symmetry secret did not set BEGAN $6d before the reward.");
             _dialogue.Close();
             AwaitText(level == 0 ? 0x2d2a : 0x2d28);
@@ -191,7 +191,7 @@ public sealed partial class ValidationRoot
                 $"Symmetry secret gave ring-box level ${_inventory.RingBoxLevel:x2} for starting level ${level:x2}; dialogue='{_dialogue.CurrentMessage}'.");
             _dialogue.Close();
             AwaitText(0x2d2b);
-            FailIf(!_saveData.HasGlobalFlag(0x77) || !_saveData.HasRoomFlag(5, 0xf6, 0x20) || opened != 2,
+            FailIf(!_saveData.HasGlobalFlag(GlobalFlag.DoneSymmetrySecret) || !_saveData.HasRoomFlag(5, 0xf6, 0x20) || opened != 2,
                 "Symmetry reward did not persist DONE $77 and room item flag $20.");
             _dialogue.Close();
             Enter();
@@ -199,7 +199,7 @@ public sealed partial class ValidationRoot
             FailIf(opened != 2, "Completed symmetry secret reopened MENU_SECRET on re-entry.");
             _dialogue.Close();
         }
-        _saveData.SetGlobalFlag(0x77, false);
+        _saveData.SetGlobalFlag(GlobalFlag.DoneSymmetrySecret, false);
         Enter();
         Action<bool>? pending = null;
         quest.OpenSecretMenu = (_, complete) => { pending = complete; return true; };
@@ -219,7 +219,7 @@ public sealed partial class ValidationRoot
         int placedFlag = quest.Database.Constant("placed-flag");
         _saveData.SetGlobalFlag(placedFlag, false);
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"), false);
-        _inventory.GiveTreasure(TreasureDatabase.TreasureTuniNut, 2);
+        _inventory.GiveTreasure(TreasureId.TuniNut, 2);
         LoadValidationRoom(5, 0xf6);
         _player.WarpTo(new Vector2(0x7b, 0x30), recordSafe: false);
         var nut = _entities.EntityAdapters<TuniNutRoomEntity>().Single();
@@ -260,7 +260,7 @@ public sealed partial class ValidationRoot
         FailIf(_saveData.HasGlobalFlag(placedFlag), "Tuni Nut completed before the palette thread's terminal update.");
         StepRoomEventFrames(1);
         FailIf(nut.State != 4 || !_saveData.HasGlobalFlag(placedFlag) || quest.BlocksGameplay || _player.CutsceneControlled ||
-            _inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) || _runtimeState.ReadWramByte(0xcfc0) != 1,
+            _inventory.HasTreasure(TreasureId.TuniNut) || _runtimeState.ReadWramByte(WramAddress.wTmpcfc0) != 1,
             "Tuni Nut completion did not restore input, consume $4c, and signal the sisters.");
         foreach (int room in new[] { 0x02, 0x03, 0x04, 0x12, 0x13, 0x14 })
             FailIf(!_saveData.HasRoomFlag(0, room, 1), $"Tuni Nut omitted present restoration room $0:${room:x2}.");
@@ -278,7 +278,7 @@ public sealed partial class ValidationRoot
         foreach (int room in new[] { 0x6f, 0x6e })
         foreach (bool batched in new[] { false, true })
         {
-            _inventory.LoseTreasure(TreasureDatabase.TreasureTuniNut);
+            _inventory.LoseTreasure(TreasureId.TuniNut);
             _saveData.SetGlobalFlag(data.Constant("sister-flag"));
             _saveData.SetGlobalFlag(data.Constant("brother-flag"));
             _saveData.SetGlobalFlag(data.Constant("placed-flag"), false);
@@ -314,10 +314,10 @@ public sealed partial class ValidationRoot
             _dialogue.SubmitChoiceForValidation(0);
             AwaitText(0x2d05);
             _dialogue.Close();
-            for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut); i++) Step(1);
+            for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureId.TuniNut); i++) Step(1);
             var reward = _interactions.GroundTreasureForValidation;
             InitializeGetItemStateForValidation();
-            FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) || _inventory.TuniNutState != 0 ||
+            FailIf(!_inventory.HasTreasure(TreasureId.TuniNut) || _inventory.TuniNutState != 0 ||
                 !_dialogue.IsOpen || reward is null || !reward.Held || !_player.IsHoldingItemTwoHands,
                 $"Symmetry $3:${room:x2} did not present broken Tuni Nut $4c:$00.");
             Step(8);
@@ -428,8 +428,8 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(0);
         AwaitText(0x2d05);
         _dialogue.Close();
-        for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut); i++) StepRoomEventFrames(1);
-        FailIf(!_inventory.HasTreasure(TreasureDatabase.TreasureTuniNut) || _inventory.TuniNutState != 0,
+        for (int i = 0; i < 150 && !_inventory.HasTreasure(TreasureId.TuniNut); i++) StepRoomEventFrames(1);
+        FailIf(!_inventory.HasTreasure(TreasureId.TuniNut) || _inventory.TuniNutState != 0,
             "Brother $bf:$06 did not grant broken TREASURE_TUNI_NUT $4c:$00.");
         if (_dialogue.IsOpen) _dialogue.Close();
         StepRoomEventFrames(8);
@@ -456,7 +456,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(8);
         Talk(8, 0x2d16);
         _dialogue.Close();
-        _runtimeState.SetWramByte(0xcfc0, 1);
+        _runtimeState.SetWramByte(WramAddress.wTmpcfc0, 1);
         StepRoomEventFrames(8);
         Talk(8, 0x2d18);
         _dialogue.Close();

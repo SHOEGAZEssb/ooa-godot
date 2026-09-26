@@ -71,7 +71,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
                 return;
             case 1:
                 _puff = new PuzzlePuffEffect { Name = "FountainFairyPuff_05_02" };
-                _puff.Initialize(Position + new Vector2(0, Height), OracleSoundEngine.SndPoof,
+                _puff.Initialize(Position + new Vector2(0, Height), SoundId.SndPoof,
                     playSound: _sound);
                 spawns.Add(new FountainFairyPuffSpawn(_puff));
                 _counter = 0x11;
@@ -136,7 +136,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
                 _counter = 60;
                 State = 9;
                 ReleasePlayer();
-                _sound(OracleSoundEngine.SndFairyCutscene);
+                _sound(SoundId.SndFairyCutscene);
                 goto case 9;
             case 9:
                 if (--_counter == 0)
@@ -178,7 +178,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
 
     private void PlayHealingSound(int counter)
     {
-        if ((counter & 7) == 0) _sound(0x8c); // SND_FAIRY_HEAL
+        if ((counter & 7) == 0) _sound(SoundId.SndFairyHeal); // SND_FAIRY_HEAL
     }
 
     internal FountainFairyHeartRoomEntity CreateHeart() => new(this, _database, _displayedHealth);

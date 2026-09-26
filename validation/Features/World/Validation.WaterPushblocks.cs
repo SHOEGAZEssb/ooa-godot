@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
                 FailIf(block.State != 1 || block.Counter != 1 || _entities.PlayerMenusDisabled,
                     "$9e started before the 30th consecutive centered push.");
                 var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new Vector2(0x78, 0x38)));
-                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(0x78, 0x38), 0));
+                var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(0x78, 0x38), SoundId.MusNone));
                 var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase().Data, 1, _ => { }));
                 _sound.ClearPlayRequestAudit();
                 int randomBefore = _entities.RandomCalls;
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
                 Step(1, push);
                 FailIf(block.State != 2 || block.Counter != 0x40 || block.Position != initialBlock ||
                     !_entities.PlayerUpdatesFrozen || !_entities.PlayerMenusDisabled || !_entities.ScreenTransitionsDisabled ||
-                    _sound.PlayRequestsFor(0xf0) != 1 || _sound.PlayRequestsFor(0x71) != 1,
+                    _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1 || _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
                     "$9e push completion must lock $81/menu, stop music, sound $71, and defer movement to next update.");
                 CheckFlags(reverse);
                 int dropElapsed = drop.ElapsedFrames;
@@ -121,10 +121,10 @@ public sealed partial class ValidationRoot
                         $"$9e interleaved ${position:x2} changed collisions before the ordinary tile write.");
                 }
                 Step(69, Vector2.Zero);
-                FailIf(block.Substate != 0 || block.Counter != 1 || _sound.PlayRequestsFor(0xc2) != 0,
+                FailIf(block.Substate != 0 || block.Counter != 1 || _sound.PlayRequestsFor(SoundId.SndFloodgates) != 0,
                     "$9e floodgates started before the 70th wait update.");
                 Step(1, Vector2.Zero);
-                FailIf(block.Substate != 1 || block.Counter != 8 || _sound.PlayRequestsFor(0xc2) != 1 ||
+                FailIf(block.Substate != 1 || block.Counter != 8 || _sound.PlayRequestsFor(SoundId.SndFloodgates) != 1 ||
                     _currentRoom.GetMetatile(Point(0x63)) != 0x1b || _currentRoom.GetMetatile(Point(0x65)) != 0x1b,
                     "$9e first flood phase lost the paired $63/$65 interleaved tiles or $c2 sound.");
                 CheckInterleave(0x63, 0x1b, _currentRoom.Collisions[initialRow[3]]);
@@ -150,11 +150,11 @@ public sealed partial class ValidationRoot
                 FailIf(!actualRow.SequenceEqual(expectedRow),
                     $"$9e:${subid:x2} final channel differs from source: {Convert.ToHexString(actualRow)}.");
                 Step(89, Vector2.Zero);
-                FailIf(block.Substate != 10 || _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 0,
+                FailIf(block.Substate != 10 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
                     "$9e puzzle jingle started before 90 updates.");
                 Step(1, Vector2.Zero);
-                FailIf(block.Substate != 11 || block.Counter != 72 || _sound.PlayRequestsFor(0xf1) != 1 ||
-                    _sound.PlayRequestsFor(OracleSoundEngine.SndSolvePuzzle) != 1,
+                FailIf(block.Substate != 11 || block.Counter != 72 || _sound.PlayRequestsFor(SoundId.SndCtrlStopSfx) != 1 ||
+                    _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
                     "$9e must stop flood sound and start the puzzle jingle on update 90.");
                 Step(71, Vector2.Zero);
                 CheckFlags(reverse);
@@ -236,7 +236,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         EnsureHarpAndSongs();
         _inventory.SelectHarpSong(1);
-        _inventory.EquipB(InventoryState.ItemHarp);
+        _inventory.EquipB(TreasureId.Harp);
         Step(1, Vector2.Zero, ["item"], ["item"]);
         FailIf(!_harp.IsPlaying, "Room 1:41 Echoes did not start through the gameplay item route.");
         Step(60, Vector2.Zero);
@@ -245,7 +245,7 @@ public sealed partial class ValidationRoot
         Step(2, Vector2.Zero);
         FailIf(!_entities.Entities<TimePortal>().Single().Active || block.Counter != 30,
             "Room 1:41 portal did not activate after Echoes, or $9e retained an interrupted push.");
-        _inventory.EquipB(InventoryState.ItemSword);
+        _inventory.EquipB(TreasureId.Sword);
         Step(30, Vector2.Left);
         FailIf(block.State != 2, "$9e failed to push again after harp completion.");
         Step(150, Vector2.Zero);

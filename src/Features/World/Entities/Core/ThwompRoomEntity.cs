@@ -58,7 +58,7 @@ internal sealed class ThwompRoomEntity
         // secondary SND_BOMB_LAND.
         spawns.Add(new EnemyClinkSpawn(
             CollisionMidpoint(Entity.Position, hitbox.GetCenter())));
-        _soundRequested(OracleSoundEngine.SndBombLand);
+        _soundRequested(SoundId.SndBombLand);
         return true;
     }
 
