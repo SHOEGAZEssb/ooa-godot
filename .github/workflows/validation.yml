@@ -107,6 +107,10 @@ jobs:
           -Disassembly $env:ORACLES_DISASSEMBLY
           -Rom $env:ORACLES_ROM
 
+      - name: Test mod catalog and asset resolution
+        shell: pwsh
+        run: dotnet run --project tools\ModSupport.Tests\ModSupport.Tests.csproj --configuration Debug
+
       - name: Install verified Godot 4.7.1 .NET build
         shell: pwsh
         run: |

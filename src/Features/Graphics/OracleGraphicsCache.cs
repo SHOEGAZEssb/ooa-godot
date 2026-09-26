@@ -51,8 +51,9 @@ internal static class OracleGraphicsCache
             return cached;
         }
 
+        ResolvedModAsset asset = ModRuntime.ResolveImage(path);
         Image image;
-        if (ResourceLoader.Exists(path))
+        if (!asset.IsOverride && ResourceLoader.Exists(path))
         {
             Texture2D texture = ResourceLoader.Load<Texture2D>(
                 path, string.Empty, ResourceLoader.CacheMode.Reuse) ??
@@ -66,10 +67,14 @@ internal static class OracleGraphicsCache
             // Godot .import sidecar. Decode that generated source directly so
             // the documented importer -> headless-validation workflow works
             // in a clean checkout without an intervening editor launch.
-            image = Image.LoadFromFile(ProjectSettings.GlobalizePath(path));
+            image = Image.LoadFromFile(
+                asset.IsOverride
+                    ? asset.LoadPath
+                    : ProjectSettings.GlobalizePath(path));
         }
         if (image.IsEmpty())
-            throw new InvalidOperationException($"Graphics resource {path} produced an empty image.");
+            throw new InvalidOperationException(
+                $"Graphics resource {asset.DiagnosticPath} produced an empty image.");
         if (image.GetFormat() != Image.Format.Rgba8)
             image.Convert(Image.Format.Rgba8);
 

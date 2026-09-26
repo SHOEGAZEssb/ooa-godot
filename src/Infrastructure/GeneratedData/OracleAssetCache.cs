@@ -12,12 +12,17 @@ internal static class OracleAssetCache
 {
     private static readonly ConcurrentDictionary<string, Lazy<byte[]>> Bytes = new(StringComparer.Ordinal);
 
-    internal static byte[] ReadBytes(string path) => (byte[])ReadShared(path).Clone();
-
-    private static byte[] ReadShared(string path)
+    internal static byte[] ReadBytes(string path)
     {
         if (!path.StartsWith("res://assets/oracle/", StringComparison.Ordinal))
             throw new ArgumentException($"Not a generated asset: {path}.", nameof(path));
+        return ReadPhysicalBytes(path);
+    }
+
+    internal static byte[] ReadPhysicalBytes(string path) => (byte[])ReadShared(path).Clone();
+
+    private static byte[] ReadShared(string path)
+    {
         return Bytes.GetOrAdd(path, static key => new Lazy<byte[]>(() =>
         {
             if (!FileAccess.FileExists(key))

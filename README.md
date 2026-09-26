@@ -59,6 +59,11 @@ Launch directly into a hexadecimal group and room for development:
 Arguments after `--` belong to the project. Direct room launches bypass normal
 file and checkpoint progression and are not evidence of retail behavior.
 
+Optional generated-asset mods can replace complete imported `.tsv` tables and
+`.png` images without changing the clean-ROM importer or `assets/oracle/`.
+See [Generated-asset mods](docs/modding.md) for manifests, deterministic
+priority ordering, diagnostics, `--mods-dir=`, and `--no-mods`.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

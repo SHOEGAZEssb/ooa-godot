@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OracleImporter", "tools\Ora
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OracleImporter.Tests", "tools\OracleImporter.Tests\OracleImporter.Tests.csproj", "{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModSupport.Tests", "tools\ModSupport.Tests\ModSupport.Tests.csproj", "{D45E3610-C79F-4049-81A9-858D94C18F43}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 	Debug|Any CPU = Debug|Any CPU
@@ -37,5 +39,11 @@ Global
 		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
 		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{6E7AB4B7-F69C-4E47-9456-5B5E1D027682}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{D45E3610-C79F-4049-81A9-858D94C18F43}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

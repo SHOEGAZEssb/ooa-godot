@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Globalization;
+using System.IO;
 
 namespace oracleofages;
 
@@ -14,6 +15,10 @@ public sealed class LaunchOptions
     public int DebugWarpRoom => ParseHex("--debug-warp-room=", 0x11, 0, 0xff);
     public bool HasWorldOverride => HasArgument("--group=") || HasArgument("--room=");
     public bool ShowMainMenu => !HasValidationFlag() && !HasWorldOverride && !Has("--skip-menu");
+    public bool ModsEnabled => !HasValidationFlag() && !Has("--no-mods");
+    public string ModsDirectory => ParsePath(
+        "--mods-dir=",
+        ProjectSettings.GlobalizePath("user://mods"));
     public bool Has(string flag) => Array.Exists(
         _arguments, argument => argument.Equals(flag, StringComparison.OrdinalIgnoreCase));
 
@@ -50,5 +55,18 @@ public sealed class LaunchOptions
                 return parsed;
         }
         return fallback;
+    }
+
+    private string ParsePath(string prefix, string fallback)
+    {
+        foreach (string argument in _arguments)
+        {
+            if (!argument.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+            string value = argument[prefix.Length..].Trim();
+            if (value.Length > 0)
+                return Path.GetFullPath(value);
+        }
+        return Path.GetFullPath(fallback);
     }
 }

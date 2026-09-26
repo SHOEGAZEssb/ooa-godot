@@ -18,7 +18,8 @@ internal sealed class GeneratedTableSource
         {
             try
             {
-                return new GeneratedTableSource(new UTF8Encoding(false, true).GetString(OracleAssetCache.ReadBytes(key)));
+                return new GeneratedTableSource(new UTF8Encoding(false, true).GetString(
+                    OracleAssetCache.ReadPhysicalBytes(key)));
             }
             catch (DecoderFallbackException exception)
             {

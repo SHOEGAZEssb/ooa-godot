@@ -44,13 +44,19 @@ internal sealed class GeneratedTable
             throw new ArgumentException(
                 $"Generated table '{path}' is outside res://assets/oracle/.", nameof(path));
         }
-        if (!FileAccess.FileExists(path))
-            throw new InvalidOperationException($"Generated table '{path}' does not exist.");
+        ResolvedModAsset asset = ModRuntime.ResolveTable(path);
+        if (!FileAccess.FileExists(asset.LoadPath))
+            throw new InvalidOperationException($"Generated table '{asset.DiagnosticPath}' does not exist.");
 
-        byte[] bytes = OracleAssetCache.ReadBytes(path);
-        GeneratedTableManifest.ValidateAsset(path, schema.Version, bytes);
-        GeneratedTable table = Parse(path, GeneratedTableSource.Load(path), schema);
-        GeneratedTableManifest.ValidateRecordCount(path, table.Rows.Count);
+        byte[] bytes = OracleAssetCache.ReadPhysicalBytes(asset.LoadPath);
+        if (!asset.IsOverride)
+            GeneratedTableManifest.ValidateAsset(path, schema.Version, bytes);
+        GeneratedTable table = Parse(
+            asset.DiagnosticPath,
+            GeneratedTableSource.Load(asset.LoadPath),
+            schema);
+        if (!asset.IsOverride)
+            GeneratedTableManifest.ValidateRecordCount(path, table.Rows.Count);
         return table;
     }
 
