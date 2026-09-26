@@ -995,7 +995,18 @@ function Resolve-NpcImplementation(
     }
     if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
+    if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
     return 'deliberately-unsupported'
+}
+
+# knowItAllBird.s owns these palettes, not the graphics header's default.
+$knowItAllBirdSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\knowItAllBird.s')
+$birdPaletteMatch = [regex]::Match($knowItAllBirdSource, '(?m)^@oamFlagsTable:\s+\.db ([^\r\n]+)')
+if (-not $birdPaletteMatch.Success) { throw 'knowItAllBird.s lost @oamFlagsTable.' }
+$birdPalettes = @([regex]::Matches($birdPaletteMatch.Groups[1].Value, '\$([0-9a-f]{2})') | ForEach-Object { [Convert]::ToInt32($_.Groups[1].Value,16) })
+if (($birdPalettes -join ',') -ne '0,1,2,3,2,3,1,0,0,1' -or
+    $knowItAllBirdSource -notmatch '(?s)getRandomNumber_noPreserveVars\s+and \$01.*?interactionSetAlwaysUpdateBit.*?ld \(hl\),30.*?@substate0:.*?add \$02.*?@label_10_337:.*?ld \(hl\),30.*?getRandomNumber\s+and \$07.*?xor \$01.*?@substate1:.*?interactionAnimate.*?ld \(hl\),60.*?@updateSpeedZ:\s+ld c,\$20.*?@beginJump:\s+ld bc,-\$c0') {
+    throw 'knowItAllBird.s initialization, idle RNG, talking animation, or jump physics changed.'
 }
 
 function New-NpcDataRow(
@@ -1012,6 +1023,12 @@ function New-NpcDataRow(
     [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
+    if ($id -eq 0xe3) {
+        if ($subid -ge 10) { throw "Unsupported knowItAllBird subid `$$($subid.ToString('x2'))." }
+        $textIdOverride = 0x3200 + $subid
+        $initialAnimationOverride = 0
+        $canFaceOverride = 0
+    }
     # oldManWithRupees.s overwrites the object-data coordinates in state 0.
     if ($id -eq 0x2e -and $subid -eq 1) {
         $y = 0x38
@@ -1053,6 +1070,7 @@ function New-NpcDataRow(
     } else {
         [int]$graphic.Palette
     }
+    if ($id -eq 0xe3) { $palette = $birdPalettes[$subid] }
     $canFace = if ($canFaceOverride -ge 0) {
         $canFaceOverride -ne 0
     } elseif ($npcCanFaceBySubid.ContainsKey("$id`:$subid")) {
@@ -1083,6 +1101,25 @@ function New-NpcDataRow(
 # Room object data is grouped by room label. Positioned interactions are
 # emitted directly. Unpositioned interactions which derive a visible actor's
 # position from save state are expanded below into mutually exclusive records.
+$birdRows = [Collections.Generic.List[string]]::new()
+$birdRows.Add("# subid`tanimation0`tanimation1`tanimation2`tanimation3`ttutorial-text`tutf8-base64")
+$birdAnimations = @(0..3 | ForEach-Object { Resolve-NpcAnimation 0xe3 $_ })
+for ($subid = 0; $subid -lt 10; $subid++) {
+    $textId = 0x320a + $subid
+    if (-not $allTexts.ContainsKey($textId) -or $birdAnimations.Count -ne 4 -or $birdAnimations.Contains('')) {
+        throw "knowItAllBird `$$($subid.ToString('x2')) has missing tutorial text or animation."
+    }
+    # These twenty messages have no calls, jumps, or text fallthrough.
+    foreach ($id in @($textId, (0x3200 + $subid))) {
+        if ($allTexts[$id] -match '\\(call|jump)\(' -or $allTextFallthroughIds.ContainsKey($id)) {
+            throw "knowItAllBird TX_$($id.ToString('x4')) needs explicit text control-flow resolution."
+        }
+    }
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $birdRows.Add("$($subid.ToString('x2'))`t$($birdAnimations -join "`t")`t$($textId.ToString('x4'))`t$encoded")
+}
+Write-GeneratedTable((Join-Path $destination 'objects\know_it_all_birds.tsv'), $birdRows)
+
 $npcRows = [Collections.Generic.List[string]]::new()
 $npcRows.Add("# group`troom`tid`tsubid`ty`tx`tvar03`ttext-id`tsprite`ttile-base`tpalette`tdefault-animation`tcan-face`tup-animation`tright-animation`tdown-animation`tleft-animation`tutf8-base64`timplementation")
 $mainObjectLines = Select-CleanUsAssemblyLines (
@@ -4762,9 +4799,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 55 -or
-    $npcImplementationCounts['specialized-native'] -ne 94 -or
+    $npcImplementationCounts['specialized-native'] -ne 104 -or
     $npcImplementationCounts['event-owned'] -ne 99 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 137 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 127 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

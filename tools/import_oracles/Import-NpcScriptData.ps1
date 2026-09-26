@@ -3,6 +3,42 @@
 # native presentation, secret generation, and giveitem handoffs stay in
 # dedicated runtime hosts.
 
+# INTERAC_KNOW_IT_ALL_BIRD $e3. Retain every yield in the copied Ages script.
+& {
+$expected = @(
+    @('setcollisionradii', '$08, $08', 'setcollisionradii', 'Bird', '08', '08', ''),
+    @('makeabuttonsensitive', '', 'makeabuttonsensitive', 'Bird', '', '', ''),
+    @('checkabutton', '', 'checkabutton', 'Bird', '', '', ''),
+    @('setdisabledobjectsto91', '', 'setdisabledobjects', '', '91', '', ''),
+    @('cplinkx', 'Interaction.direction', 'native', '', '', '', 'bird_compareLinkX'),
+    @('writeobjectbyte', 'Interaction.var37, $01', 'writeobjectbyte', 'Bird', '37', '01', ''),
+    @('showloadedtext', '', 'showloadedtext', '', '', '', ''),
+    @('jumpiftextoptioneq', '$01, @doneTalking', 'jumpiftextoptioneq', '', '01', '12', ''),
+    @('wait', '30', 'wait', '', '30', '', ''),
+    @('addobjectbyte', 'Interaction.textID, $0a', 'native', '', '', '', 'bird_addText0a'),
+    @('showloadedtext', '', 'showloadedtext', '', '', '', ''),
+    @('addobjectbyte', 'Interaction.textID, -$0a', 'native', '', '', '', 'bird_subtractText0a'),
+    @('enableallobjects', '', 'setdisabledobjects', '', '00', '', ''),
+    @('writeobjectbyte', 'Interaction.var37, $00', 'writeobjectbyte', 'Bird', '37', '00', ''),
+    @('scriptjump', '@loop', 'scriptjumpyield', '', '2', '', '')
+)
+$opcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($spec in $expected) { [void]$opcodes.Add($spec[0]) }
+$commands = @(Read-AssemblyCutsceneCommands (Join-Path $Disassembly 'scripts\ages\scripts.s') 'knowItAllBirdScript' $opcodes)
+if ($commands.Count -ne $expected.Count) { throw 'knowItAllBirdScript command count changed.' }
+$rows = [Collections.Generic.List[string]]::new()
+$rows.Add($cutsceneCommandHeader)
+for ($index = 0; $index -lt $expected.Count; $index++) {
+    $spec = $expected[$index]
+    $command = $commands[$index]
+    if ($command.Opcode -ne $spec[0] -or $command.Operands.Trim() -ne $spec[1]) {
+        throw "knowItAllBirdScript command $index changed at line $($command.Line)."
+    }
+    $rows.Add((New-CutsceneCommandRow 'knowItAllBirdScript' $index $command.Label $command.Line $spec[2] $spec[3] $spec[4] $spec[5] $spec[6]))
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\know_it_all_bird_commands.tsv'), $rows)
+}
+
 # INTERAC_OLD_MAN_WITH_RUPEES $2e:$01. Validate the native initializer and
 # helper as well as the entire script, including the broke branch's text jump.
 & {

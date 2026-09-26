@@ -52,9 +52,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 199 | Traced and covered by named NPC/event scenarios. |
+| **I** | 209 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 137 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 127 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,9 +62,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 55 | 0 | 55 |
-| Specialized native interaction | 94 | 72 | 166 |
+| Specialized native interaction | 104 | 72 | 176 |
 | Event-owned actor | 99 | 0 | 99 |
-| Deliberately unsupported | 137 | 0 | 137 |
+| Deliberately unsupported | 127 | 0 | 127 |
 | **Total** | **385** | **72** | **457** |
 
 ## Bipin and Blossom family variants
@@ -246,7 +246,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:ec` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ed` | [D] `$5f:$80/v$00` syrup |
 | `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
-| `3:f7` | [D] `$e3:$08/v$00` knowItAllBird<br>[D] `$e3:$09/v$00` knowItAllBird<br>[D] `$e3:$06/v$00` knowItAllBird<br>[D] `$e3:$07/v$00` knowItAllBird<br>[D] `$e3:$04/v$00` knowItAllBird<br>[D] `$e3:$05/v$00` knowItAllBird<br>[D] `$e3:$02/v$00` knowItAllBird<br>[D] `$e3:$03/v$00` knowItAllBird<br>[D] `$e3:$00/v$00` knowItAllBird<br>[D] `$e3:$01/v$00` knowItAllBird |
+| `3:f7` | [I] `$e3:$08/v$00` knowItAllBird<br>[I] `$e3:$09/v$00` knowItAllBird<br>[I] `$e3:$06/v$00` knowItAllBird<br>[I] `$e3:$07/v$00` knowItAllBird<br>[I] `$e3:$04/v$00` knowItAllBird<br>[I] `$e3:$05/v$00` knowItAllBird<br>[I] `$e3:$02/v$00` knowItAllBird<br>[I] `$e3:$03/v$00` knowItAllBird<br>[I] `$e3:$00/v$00` knowItAllBird<br>[I] `$e3:$01/v$00` knowItAllBird |
 | `3:f8` | [D] `$cc:$00/v$00` plen<br>[D] `$3d:$05/v$00` oldLady |
 | `3:fa` | [D] `$29:$00/v$00` adlar |
 | `3:fb` | [I] `$ca:$01/v$00` troy |

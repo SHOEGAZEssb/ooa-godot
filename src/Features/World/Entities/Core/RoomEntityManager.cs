@@ -2187,6 +2187,20 @@ public sealed class RoomEntityManager : IDisposable
             }
         }
         _worldRoot.AddChild(entity.Node);
+        if (_interactionSlots.TryGetValue(entity, out int drawSlot))
+        {
+            // bank0.queueDrawEverything visits $d040..$df40 in ascending
+            // slot order. Within a visible&3 priority bucket the earlier
+            // OAM entry wins. Godot's equal-Z siblings paint in the opposite
+            // direction, so insert later slots before earlier slots. Keep
+            // the update list and slot allocation order unchanged.
+            IRoomEntity? lowerSlot = _interactionSlots
+                .Where(pair => pair.Value < drawSlot && pair.Key.Node.GetParent() == _worldRoot)
+                .OrderByDescending(pair => pair.Value)
+                .Select(pair => pair.Key).FirstOrDefault();
+            if (lowerSlot is not null)
+                _worldRoot.MoveChild(entity.Node, lowerSlot.Node.GetIndex());
+        }
         if (entity is IFixedRoomEntity)
         {
             // Entering the tree can enable an overridden _PhysicsProcess
@@ -2390,7 +2404,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
+        KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
         entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or OwlStatueSparkleEffect or DungeonKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity

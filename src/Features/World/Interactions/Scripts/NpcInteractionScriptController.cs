@@ -18,6 +18,7 @@ internal sealed class NpcInteractionScriptController
     private readonly PostmanScriptHost _postman;
     private readonly OldManRupeesScriptHost _oldMan;
     private double _frameAccumulator;
+    private KnowItAllBirdScriptHost? _birdTalk;
 
     public NpcInteractionScriptController(
         RoomSession rooms,
@@ -61,6 +62,13 @@ internal sealed class NpcInteractionScriptController
         _hosts = [_linked, _pastBipin, _hardhat, _postman, _oldMan];
         _handlers =
         [
+            NpcInteractionHandler.ForNpc("knowItAllBirdScript", (target, player) =>
+            {
+                if (target.Npc is not KnowItAllBirdCharacter bird) return false;
+                if (!bird.Script.TryInteract(target, player, dialogue, entities.WorldToScreen)) return false;
+                _birdTalk = bird.Script;
+                return true;
+            }),
             NpcInteractionHandler.ForNpc("oldManScript_takesRupees", _oldMan.TryInteract),
             NpcInteractionHandler.ForNpc(
                 "linkedGameNpcScript",
@@ -122,6 +130,8 @@ internal sealed class NpcInteractionScriptController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        _birdTalk?.Cancel();
+        _birdTalk = null;
         _ = group;
         _ = room;
         foreach (NpcInteractionCommandHost host in _hosts)

@@ -134,6 +134,7 @@ internal sealed class RoomEntityFactory(
     private Room149FamilyDatabase _room149 => _room149Data ??= new();
     private MakuSproutRoomDatabase? _makuSproutRoomData;
     private MakuSproutRoomDatabase _makuSproutRoom => _makuSproutRoomData ??= new();
+    private KnowItAllBirdDatabase? _knowItAllBirds;
     private Room20eNpcDatabase? _room20eData;
     private Room20eNpcDatabase _room20e => _room20eData ??= new();
     private Room2e3Database? _room2e3Data;
@@ -3916,6 +3917,13 @@ internal sealed class RoomEntityFactory(
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (record.Id == 0xe3)
+        {
+            var bird = new KnowItAllBirdCharacter { Name = $"Npc_e3_{record.SubId:x2}" };
+            bird.InitializeBird(record, _knowItAllBirds ??= new(), random, dialogueOpen);
+            return new KnowItAllBirdRoomEntity(bird);
+        }
 
         if (record is { Id: 0x49, SubId: >= 0x0e and <= 0x10 })
             return new ForestHintFairyRoomEntity(CreateNpcCharacter(record));
