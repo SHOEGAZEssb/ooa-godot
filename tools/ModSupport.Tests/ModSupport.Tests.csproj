@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Infrastructure\Mods\ModManifest.cs" Link="ModManifest.cs" />
+    <Compile Include="..\..\src\Infrastructure\Mods\ModCatalog.cs" Link="ModCatalog.cs" />
+    <Compile Include="..\..\src\Infrastructure\Mods\ModAssetResolver.cs" Link="ModAssetResolver.cs" />
+  </ItemGroup>
+</Project>

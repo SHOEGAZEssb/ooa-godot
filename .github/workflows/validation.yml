@@ -28,8 +28,7 @@ env:
   WLA_DX_VERSION: '10.6'
   WLA_DX_ARCHIVE_SHA256: cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091
   ORACLES_DISASM_REPOSITORY: https://github.com/stewmath/oracles-disasm.git
-  ORACLES_DISASM_MASTER_SHA: dfaba5238b102fa2b70f737a977a32219ba80c6b
-  ORACLES_DISASM_IMPORT_SHA: 842c5649b63f5b6fae8ffd55f80f45f86e9c10e7
+  ORACLES_DISASM_MASTER_SHA: 7584d8723afcf8861c5c1c46fb07d747a12bc655
   ORACLE_OF_AGES_MD5: c4639cc61c049e5a085526bb6cac03bb
 
 jobs:
@@ -91,12 +90,6 @@ jobs:
           fi
           mv "$disassembly/ages.gbc" "$source_rom"
 
-          git -C "$disassembly" reset --hard --quiet
-          git -C "$disassembly" clean -ffdx --quiet
-          # Import from the supported vanilla revision documented in docs/data-import.md.
-          git -C "$disassembly" fetch --quiet --depth 1 origin "$ORACLES_DISASM_IMPORT_SHA"
-          git -C "$disassembly" checkout --quiet --detach FETCH_HEAD
-
           {
             echo "ORACLES_DISASSEMBLY=$(cygpath -w "$disassembly")"
             echo "ORACLES_ROM=$(cygpath -w "$source_rom")"
@@ -108,6 +101,10 @@ jobs:
           & .\tools\verify_oracle_import.ps1
           -Disassembly $env:ORACLES_DISASSEMBLY
           -Rom $env:ORACLES_ROM
+
+      - name: Test mod catalog and asset resolution
+        shell: pwsh
+        run: dotnet run --project tools\ModSupport.Tests\ModSupport.Tests.csproj --configuration Debug
 
       - name: Install verified Godot 4.7.1 .NET build
         shell: pwsh

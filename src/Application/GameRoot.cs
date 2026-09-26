@@ -138,6 +138,7 @@ public partial class GameRoot : Node2D
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
+        ModRuntime.Initialize(_launchOptions);
         if (_launchOptions.Has("--validate") && GetType() == typeof(GameRoot))
         {
             GetTree().CallDeferred(

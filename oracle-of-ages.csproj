@@ -14,6 +14,7 @@
     <!-- Import-time source models and their tests are separate tool projects. -->
     <Compile Remove="tools\OracleImporter\**\*.cs" />
     <Compile Remove="tools\OracleImporter.Tests\**\*.cs" />
+    <Compile Remove="tools\ModSupport.Tests\**\*.cs" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>oracle-of-ages.validation</_Parameter1>
     </AssemblyAttribute>

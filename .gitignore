@@ -11,5 +11,7 @@
 /tools/OracleImporter/obj/
 /tools/OracleImporter.Tests/bin/
 /tools/OracleImporter.Tests/obj/
+/tools/ModSupport.Tests/bin/
+/tools/ModSupport.Tests/obj/
 /.vs
 *.old

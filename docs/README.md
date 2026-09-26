@@ -31,6 +31,7 @@ entry point.
 | Menus, dialogue/modal input, fades, or pause ownership | [Menus and input](menus-and-input.md) |
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
 | Imported graphics, OAM, palettes, caching, sound, or audio RNG | [Graphics and audio](graphics-and-audio.md) |
+| Generated-asset mod manifests, ordering, and overrides | [Generated-asset mods](modding.md) |
 | A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
 | Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
 
