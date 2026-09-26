@@ -323,6 +323,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMountedCompanionHurtbox);
         RunIsolatedValidation(ValidateMooshCliffFidelity);
         RunIsolatedValidation(ValidateCompanionAttackFidelity);
+        RunIsolatedValidation(ValidateCompanionInputEdges);
         RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);
@@ -698,6 +699,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCrownEntranceGates);
         RunIsolatedValidation(ValidateCrownPortal);
         RunIsolatedValidation(ValidateCrownOwlAllocation);
+        RunIsolatedValidation(ValidateTingleSparkleLifecycle);
         RunIsolatedValidation(ValidateCrownOwlDialogue);
         RunIsolatedValidation(ValidateCrownShutterContact);
         RunIsolatedValidation(ValidateCrownShutterSwitchHook);

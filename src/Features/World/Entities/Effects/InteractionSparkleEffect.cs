@@ -3,28 +3,36 @@ using Godot;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_SPARKLE ($84:$00), including its setup-only first update and
-/// terminal `$ff animation parameter.
+/// INTERAC_SPARKLE $84:$00. Initialization is a setup-only update;
+/// subsequent updates delete on parameter $ff before advancing animation.
 /// </summary>
-internal sealed partial class OwlStatueSparkleEffect : FixedEffectNode2D
+internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
 {
     private EnemyAnimationPlayer _animation = null!;
     private bool _initialized;
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
+    internal int SourceAngle { get; private set; }
+    internal int AnimationFrame => _animation.FrameIndex;
     internal int AnimationParameter => _initialized ? _animation.CurrentParameter : 0;
+    internal Vector2 RenderedTextureOrigin =>
+        Position + _animation.CurrentOffset;
+    internal Vector2 TextureSize => _animation.CurrentTexture.GetSize();
+    internal ulong TexturePixelHash => OracleGraphicsCache.PixelHash(
+        _animation.CurrentTexture.GetImage());
 
     internal void Initialize(
         Vector2 position,
-        OwlStatueSparkleRecord visual)
+        int sourceAngle,
+        InteractionSparkleVisual visual)
     {
         Position = position;
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+        SourceAngle = sourceAngle;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
-            source,
+            OracleGraphicsCache.LoadImage(
+                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);
@@ -60,7 +68,14 @@ internal sealed partial class OwlStatueSparkleEffect : FixedEffectNode2D
         {
             DrawTexture(
                 _animation.CurrentTexture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
+                _animation.CurrentOffset + TransitionDrawOffset);
         }
     }
 }
+
+internal readonly record struct InteractionSparkleVisual(
+    string Sprite,
+    int TileBase,
+    int Palette,
+    string Animation);
+

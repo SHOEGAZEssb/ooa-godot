@@ -16,12 +16,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
     private int _swordCollision = 4;
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
         ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
-    public void SetLinkSwordState(SwordActionState state, int level) => _swordCollision = state switch
-    {
-        SwordActionState.Spin => 8,
-        SwordActionState.Held or SwordActionState.Charged => 9,
-        _ => level + 3
-    };
+    public void SetLinkSwordState(SwordActionState state, int level) => _swordCollision = SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 origin, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
         Hit(_swordCollision, hitbox, origin, damage, spawns);

@@ -57,7 +57,7 @@ public sealed class RoomCollision
 
         int angle = GetMovementAngle(movement);
         int walls = CalculateAdjacentWallsBitset(playerPosition);
-        if (allowWallSlide && TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
+        if (allowWallSlide && SpecialObjectMovement.TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
         {
             angle = adjustedAngle;
             movement = DirectionForAngle(angle) * movement.Length();
@@ -75,7 +75,7 @@ public sealed class RoomCollision
         if (angle is < 0 or > 31)
             throw new ArgumentOutOfRangeException(nameof(angle), angle, "Link movement requires a source angle $00-$1f or bit7 set.");
         int walls = CalculateAdjacentWallsBitset(position);
-        if (allowWallSlide && TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
+        if (allowWallSlide && SpecialObjectMovement.TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
         {
             angle = adjustedAngle;
             walls = 0;
@@ -87,7 +87,7 @@ public sealed class RoomCollision
 
     private Vector2 ResolveMaskedMovement(Vector2 playerPosition, Vector2 movement, int angle, int walls)
     {
-        int relevantWalls = walls & BitsToCheck(angle);
+        int relevantWalls = walls & SpecialObjectMovement.BitsToCheck(angle);
         Vector2 resolved = movement;
         if ((relevantWalls & 0xf0) != 0)
             resolved.Y = 0.0f;
@@ -168,56 +168,6 @@ public sealed class RoomCollision
             24 => Vector2.Left,
             _ => Vector2.Zero
         };
-    }
-
-    private static int BitsToCheck(int angle)
-    {
-        return angle switch
-        {
-            0 => 0xcf,
-            >= 1 and <= 7 => 0xc3,
-            8 => 0xf3,
-            >= 9 and <= 15 => 0x33,
-            16 => 0x3f,
-            >= 17 and <= 23 => 0x3c,
-            24 => 0xfc,
-            >= 25 and <= 31 => 0xcc,
-            _ => 0xff
-        };
-    }
-
-    private static bool TryAdjustCardinalAngle(int angle, int walls, out int adjustedAngle)
-    {
-        adjustedAngle = angle;
-        // slideAngleTable permits each cardinal and its two immediate
-        // neighbors (31/0/1, 7/8/9, 15/16/17, 23/24/25).
-        int sector = (angle + 1) & 0x1f;
-        if ((sector & 7) > 2) return false;
-        switch (sector & 0x18)
-        {
-            case 0:
-                if ((walls & 0xc3) == 0x80) adjustedAngle = 8;
-                else if ((walls & 0xcc) == 0x40) adjustedAngle = 24;
-                else return false;
-                return true;
-            case 8:
-                if ((walls & 0xc3) == 0x01) adjustedAngle = 0;
-                else if ((walls & 0x33) == 0x02) adjustedAngle = 16;
-                else return false;
-                return true;
-            case 16:
-                if ((walls & 0x33) == 0x20) adjustedAngle = 8;
-                else if ((walls & 0x3c) == 0x10) adjustedAngle = 24;
-                else return false;
-                return true;
-            case 24:
-                if ((walls & 0xcc) == 0x04) adjustedAngle = 0;
-                else if ((walls & 0x3c) == 0x08) adjustedAngle = 16;
-                else return false;
-                return true;
-            default:
-                return false;
-        }
     }
 
     private int CalculateAdjacentWallsBitset(Vector2 playerPosition)

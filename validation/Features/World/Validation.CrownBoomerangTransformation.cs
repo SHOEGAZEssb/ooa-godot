@@ -145,7 +145,7 @@ public partial class ValidationRoot
                     }
                     else if (mode == "lost-puff-owl")
                     {
-                        var replacement = _entities.Spawn<OwlStatueSparkleEffect>(
+                        var replacement = _entities.Spawn<InteractionSparkleEffect>(
                             new OwlStatueSparkleSpawn(stopped, new OwlStatueDatabase().Record(0).Sparkle));
                         FailIf(_entities.InteractionSlot(replacement) != puffSlot || replacement.AnimationParameter != 0,
                             "An uninitialized owl sparkle must reuse the page with animParameter00.");

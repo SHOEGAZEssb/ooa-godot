@@ -21,8 +21,7 @@ internal sealed class WhispRoomEntity
     private bool _meleeReportsContact;
     public bool MeleeReportsContact => _meleeReportsContact;
     public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = state == SwordActionState.Spin ? (level >= 2 ? 8 : 7)
-            : state is SwordActionState.Held or SwordActionState.Charged ? 9 : Math.Clamp(level, 1, 3) + 3;
+        _swordCollision = SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 bounds, Vector2 origin, int damage, EnemyKnockbackStrength strength,
         ICollection<RoomEntitySpawn> spawns) => ApplyMelee(_swordCollision, bounds);
     public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>

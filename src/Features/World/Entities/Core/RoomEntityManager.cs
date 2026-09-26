@@ -2236,6 +2236,13 @@ public sealed class RoomEntityManager : IDisposable
                 ball.Part.Free();
                 continue;
             }
+            if (spawn is TingleKoolooSparkleSpawn tingleSparkle && !InteractionSlotAvailable)
+            {
+                // objectCreateSparkle returns HL=$e040 on failure. Tingle
+                // still writes Interaction.angle ($49), aliasing WRAM $c049.
+                _runtimeState.SetWramByte(0xc049, (byte)tingleSparkle.SourceAngle);
+                continue;
+            }
             if(spawn is TargetCartDebrisSpawn && !InteractionSlotAvailable) continue;
             // swordBeam.s @collision always deletes ITEM$27 after attempting
             // INTERAC_CLINK$81, including when objectCreateInteraction fails.
@@ -2407,9 +2414,9 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
+        TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
-        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or OwlStatueSparkleEffect or DungeonKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
+        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or DungeonKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or MinecartGateRoomEntity
             or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity;
@@ -2662,7 +2669,7 @@ public sealed class RoomEntityManager : IDisposable
             ClinkEffect clink => clink.AnimationParameter,
             KillEnemyPuffEffect puff => puff.AnimationParameter,
             FallingDownHoleEffect fall => fall.CurrentParameter,
-            OwlStatueSparkleEffect sparkle => sparkle.AnimationParameter,
+            InteractionSparkleEffect sparkle => sparkle.AnimationParameter,
             DungeonKeyUseEffect key => key.AnimationParameter,
             KnockbackDustRoomEntity dust => dust.AnimationParameter,
             NpcCharacter npc => npc.CurrentAnimationParameter,

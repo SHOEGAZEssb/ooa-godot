@@ -240,7 +240,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         int knockbackAngle = player.AdvanceRaftKnockback();
         if (knockbackAngle != 0xff)
         {
-            ApplyMovement(
+            SpecialObjectMovement.ApplySpeed(ref _precisePosition,
                 _behavior.KnockbackSpeed, knockbackAngle,
                 CalculateRaftWalls());
             ResetDismount();
@@ -258,7 +258,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
         int walls = CalculateRaftWalls();
         Vector2 before = _precisePosition;
-        ApplyMovement(_behavior.Speed, angle, walls);
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _behavior.Speed, angle, walls);
         if (_precisePosition != before)
         {
             ResetDismount();
@@ -421,62 +421,6 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             point.Y < 0 || point.Y >= _room.Height)
             return true;
         return _room.IsSolid(point);
-    }
-
-    private void ApplyMovement(int speed, int angle, int walls)
-    {
-        int? adjustedAngle = AdjustAngleForTileEdge(angle, walls);
-        int movementAngle = adjustedAngle ?? angle;
-        int[] masks =
-        [
-            0xcf,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,
-            0xf3,0x33,0x33,0x33,0x33,0x33,0x33,0x33,
-            0x3f,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,
-            0xfc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc
-        ];
-        // specialObjectUpdatePositionGivenVelocity clears e after a successful
-        // @tileEdgeAdjust; the original wall mask no longer suppresses either axis.
-        int blocked = adjustedAngle.HasValue ? 0 : walls & masks[movementAngle];
-        Vector2 candidate = _precisePosition;
-        OracleObjectMovement.Shared.ApplySpeed(ref candidate, speed, movementAngle);
-        Vector2 delta = candidate - _precisePosition;
-        if ((blocked & 0xf0) != 0) delta.Y = 0;
-        if ((blocked & 0x0f) != 0) delta.X = 0;
-        _precisePosition += delta;
-    }
-
-    private static int? AdjustAngleForTileEdge(int angle, int walls)
-    {
-        int[] table =
-        [
-            0x80,0x80,0x01,0x02,0x02,0x02,0x03,0x24,
-            0x24,0x24,0x05,0x06,0x06,0x06,0x07,0x48,
-            0x48,0x48,0x09,0x0a,0x0a,0x0a,0x0b,0x1c,
-            0x1c,0x1c,0x0d,0x0e,0x0e,0x0e,0x0f,0x80
-        ];
-        int entry = table[angle];
-        if ((entry & 3) != 0) return null;
-        if ((entry & 0x80) != 0)
-        {
-            if ((walls & 0xc3) == 0x80) return 8;
-            if ((walls & 0xcc) == 0x40) return 0x18;
-        }
-        else if ((entry & 0x40) != 0)
-        {
-            if ((walls & 0x33) == 0x20) return 8;
-            if ((walls & 0x3c) == 0x10) return 0x18;
-        }
-        else if ((entry & 0x20) != 0)
-        {
-            if ((walls & 0xc3) == 1) return 0;
-            if ((walls & 0x33) == 2) return 0x10;
-        }
-        else
-        {
-            if ((walls & 0xcc) == 4) return 0;
-            if ((walls & 0x3c) == 8) return 0x10;
-        }
-        return null;
     }
 
     private void SetDirectionAnimation()

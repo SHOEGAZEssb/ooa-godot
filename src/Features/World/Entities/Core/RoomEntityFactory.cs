@@ -3504,10 +3504,10 @@ internal sealed class RoomEntityFactory(
         RockDebrisSpawn debris => CreateRockDebris(debris),
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         BombSpawn bomb => CreateBomb(bomb, room),
-        OwlStatueSparkleSpawn sparkle => CreateOwlStatueSparkle(sparkle),
+        OwlStatueSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, 0, sparkle.Visual),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         TingleKoolooSparkleSpawn sparkle =>
-            CreateTingleKoolooSparkle(sparkle),
+            CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
         GoronCaveNpcSpawn goron => new GoronCaveRoomEntity(CreateNpcCharacter(goron.Record), goron.Interactive),
         GoronBombSpawn bomb => new GoronBombRoomEntity(CreateNpcCharacter(bomb.Owner.Database.BombRecord),bomb.Owner,bomb.SubId),
         TargetCartDebrisSpawn debris => new TargetCartDebrisRoomEntity(CreateNpcCharacter(debris.Record),debris.Position,debris.Direction),
@@ -5163,18 +5163,6 @@ internal sealed class RoomEntityFactory(
         return new BombRoomEntity(bomb);
     }
 
-    private static IRoomEntity CreateOwlStatueSparkle(
-        OwlStatueSparkleSpawn spawn)
-    {
-        var sparkle = new OwlStatueSparkleEffect
-        {
-            Name = "OwlStatueSparkle",
-            ZIndex = NpcCharacter.BehindLinkZIndex
-        };
-        sparkle.Initialize(spawn.Position, spawn.Visual);
-        return new OwlStatueSparkleRoomEntity(sparkle);
-    }
-
     private IRoomEntity CreateSwordBeam(
         SwordBeamSpawn spawn, OracleRoomData room)
     {
@@ -5264,20 +5252,19 @@ internal sealed class RoomEntityFactory(
             InteractionExplosionEffect>(explosion);
     }
 
-    private static IRoomEntity CreateTingleKoolooSparkle(
-        TingleKoolooSparkleSpawn spawn)
+    private static IRoomEntity CreateInteractionSparkle(
+        Vector2 position, int sourceAngle, InteractionSparkleVisual visual)
     {
-        var sparkle = new TingleKoolooSparkleEffect
+        var sparkle = new InteractionSparkleEffect
         {
-            Name = "TingleKoolooSparkle",
-            // sparkle.s selects objectSetVisible81 for any nonzero angle.
-            ZIndex = spawn.SourceAngle == 0
+            Name = "InteractionSparkle_84_00",
+            // sparkle.s selects visible81 for any nonzero source angle.
+            ZIndex = sourceAngle == 0
                 ? NpcCharacter.BehindLinkZIndex
                 : NpcCharacter.InFrontOfLinkZIndex
         };
-        sparkle.Initialize(spawn.Position, spawn.SourceAngle, spawn.Visual);
-        return new DialogueFixedEffectRoomEntityAdapter<
-            TingleKoolooSparkleEffect>(sparkle);
+        sparkle.Initialize(position, sourceAngle, visual);
+        return new InteractionSparkleRoomEntity(sparkle);
     }
 
     private IRoomEntity CreateEnemySplash(EnemySplashSpawn spawn)

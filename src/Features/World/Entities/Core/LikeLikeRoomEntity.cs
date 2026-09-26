@@ -48,8 +48,7 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
     }
 
     public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = state == SwordActionState.Spin ? (level >= 2 ? 8 : 7)
-            : state is SwordActionState.Held or SwordActionState.Charged ? 9 : level + 3;
+        _swordCollision = SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
         Hit(_swordCollision, hitbox, sourcePosition, damage, spawns);

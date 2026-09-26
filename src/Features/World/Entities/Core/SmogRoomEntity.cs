@@ -124,8 +124,7 @@ internal sealed class SmogRoomEntity(SmogCharacter actor, SmogCollisionDatabase 
     public int CollisionZ => 0;
     public bool MeleeReportsContact => true;
     public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = state == SwordActionState.Spin ? (level >= 2 ? 8 : 7)
-            : state is SwordActionState.Held or SwordActionState.Charged ? 9 : Math.Clamp(level,1,3) + 3;
+        _swordCollision = SwordCollision.Type(state, level);
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && (Entity.ContactFlags & 0x80) == 0 &&
         data.Enabled(collision) && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
     public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,

@@ -149,8 +149,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _attackPressed;
     private bool _attackJustPressed;
     private bool _itemJustPressed;
-    private bool _attackEdgeObserved;
-    private bool _itemEdgeObserved;
+    private ComponentInputEdge _attackEdge;
+    private ComponentInputEdge _itemEdge;
     private bool _chargePaletteActive;
     private bool _dismountInitialized;
     private bool _dismountLandingObserved;
@@ -307,22 +307,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         _ = spawns;
         _attackPressed = Input.IsActionPressed("attack");
-        bool attackEdge = Input.IsActionJustPressed("attack");
-        bool itemEdge = Input.IsActionJustPressed("item");
-        if (Input.OriginalUpdateActive)
-        {
-            _attackJustPressed = attackEdge;
-            _itemJustPressed = itemEdge;
-            _attackEdgeObserved = false;
-            _itemEdgeObserved = false;
-        }
-        else
-        {
-            _attackJustPressed = attackEdge && !_attackEdgeObserved;
-            _itemJustPressed = itemEdge && !_itemEdgeObserved;
-            _attackEdgeObserved = attackEdge;
-            _itemEdgeObserved = itemEdge;
-        }
+        _attackJustPressed = _attackEdge.Read(Input.IsActionJustPressed("attack"));
+        _itemJustPressed = _itemEdge.Read(Input.IsActionJustPressed("item"));
         _chargePaletteActive = false;
 
         if (_fluteEntrance) UpdateFluteEntrance(spawns);
@@ -1219,7 +1205,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     }
 
     private void ApplyCompanionMovement(int speed, int walls) =>
-        CompanionMovement.ApplySpeed(ref _precisePosition, speed, _angle, walls);
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, walls);
 
     private int CalculateAdjacentWallsBitset()
     {

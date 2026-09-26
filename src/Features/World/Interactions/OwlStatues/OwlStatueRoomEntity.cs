@@ -172,4 +172,4 @@ internal enum OwlStatueState
 
 internal sealed record OwlStatueSparkleSpawn(
     Vector2 Position,
-    OwlStatueSparkleRecord Visual) : RoomEntitySpawn;
+    InteractionSparkleVisual Visual) : RoomEntitySpawn;

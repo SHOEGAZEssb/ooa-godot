@@ -59,7 +59,7 @@ internal sealed class OwlStatueDatabase
                 row.UnsignedDecimal(17),
                 row.UnsignedDecimal(18),
                 row.Offsets(19),
-                new OwlStatueSparkleRecord(
+                new InteractionSparkleVisual(
                     row.RequiredString(20),
                     row.HexByte(21),
                     row.HexByte(22),
@@ -126,11 +126,5 @@ internal readonly record struct OwlStatueRecord(
     int SpeakingCounter,
     int TextCounter,
     Vector2[] SparkleOffsets,
-    OwlStatueSparkleRecord Sparkle,
+    InteractionSparkleVisual Sparkle,
     string Source);
-
-internal readonly record struct OwlStatueSparkleRecord(
-    string Sprite,
-    int TileBase,
-    int Palette,
-    string Animation);

@@ -54,9 +54,7 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns)
     {
-        int item = _swordState == SwordActionState.Spin ? (_swordLevel >= 2 ? 8 : 7) :
-            _swordState is SwordActionState.Held or SwordActionState.Charged ? 9 :
-            _swordLevel >= 3 ? 6 : _swordLevel >= 2 ? 5 : 4;
+        int item = SwordCollision.Type(_swordState, _swordLevel);
         return Hit(item, hitbox, sourcePosition, damage, spawns, melee: true);
     }
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 sourcePosition,

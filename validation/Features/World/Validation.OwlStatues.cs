@@ -203,8 +203,8 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 49; update++)
         {
             manager.Update(1.0 / 60.0, _player);
-            foreach (OwlStatueSparkleEffect sparkle in
-                manager.Entities<OwlStatueSparkleEffect>())
+            foreach (InteractionSparkleEffect sparkle in
+                manager.Entities<InteractionSparkleEffect>())
             {
                 sparklePositions.Add(sparkle.Position);
             }
@@ -245,7 +245,7 @@ public sealed partial class ValidationRoot
             owl.State != OwlStatueState.Speaking ||
             owl.Counter != 22 ||
             owl.AnimationIndex != 1 ||
-            manager.Entities<OwlStatueSparkleEffect>().Count != 0,
+            manager.Entities<InteractionSparkleEffect>().Count != 0,
             "TX_3906 did not freeze the Owl Statue at counter `$16 while " +
             "its always-update sparkle children retired.");
 
@@ -257,7 +257,7 @@ public sealed partial class ValidationRoot
             owl.Counter != 0 ||
             owl.AnimationIndex != 0 ||
             manager.Entities<EmberSeedEffect>().Count != 0 ||
-            manager.Entities<OwlStatueSparkleEffect>().Count != 0,
+            manager.Entities<InteractionSparkleEffect>().Count != 0,
             "PART_OWL_STATUE did not restore its idle pose or retire its " +
             "Mystery Seed / sparkle children after the source counters.");
 

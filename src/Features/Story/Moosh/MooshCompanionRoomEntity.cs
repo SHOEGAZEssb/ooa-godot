@@ -64,7 +64,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _animation.Advance();
         Vector2 before = _precisePosition;
-        CompanionMovement.ApplySpeed(ref _precisePosition, 0x1e, _angle, AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x1e, _angle, AdjacentWalls());
         if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
         if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
@@ -130,8 +130,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _itemPressed;
     private bool _attackJustPressed;
     private bool _itemJustPressed;
-    private bool _attackEdgeObserved;
-    private bool _itemEdgeObserved;
+    private ComponentInputEdge _attackEdge;
+    private ComponentInputEdge _itemEdge;
     private bool _chargePaletteActive;
     private bool _dismountInitialized;
     private bool _dismountLandingObserved;
@@ -295,24 +295,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         // that edge from Moosh's last entity update: ordinary entities pause
         // while a textbox owns input, so doing so turns the held button which
         // dismissed the text into a fresh companion action after the pause.
-        bool attackEdge = Input.IsActionJustPressed("attack");
-        bool itemEdge = Input.IsActionJustPressed("item");
-        if (Input.OriginalUpdateActive)
-        {
-            _attackJustPressed = attackEdge;
-            _itemJustPressed = itemEdge;
-            _attackEdgeObserved = false;
-            _itemEdgeObserved = false;
-        }
-        else
-        {
-            // Direct component callers can perform several synchronous
-            // updates during one host frame. Consume its Godot edge once.
-            _attackJustPressed = attackEdge && !_attackEdgeObserved;
-            _itemJustPressed = itemEdge && !_itemEdgeObserved;
-            _attackEdgeObserved = attackEdge;
-            _itemEdgeObserved = itemEdge;
-        }
+        _attackJustPressed = _attackEdge.Read(Input.IsActionJustPressed("attack"));
+        _itemJustPressed = _itemEdge.Read(Input.IsActionJustPressed("item"));
         _chargePaletteActive = false;
 
         if (_fluteEntrance) UpdateFluteEntrance(spawns);
@@ -880,7 +864,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyMovement(ICollection<RoomEntitySpawn> spawns)
     {
-        CompanionMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, AdjacentWalls());
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
     }
 

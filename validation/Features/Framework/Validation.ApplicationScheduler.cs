@@ -7,6 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateApplicationFixedUpdateScheduler()
     {
+        ValidateComponentInputEdges();
         const int updateCount = 9;
         var split = RunSchedulerRegression(
             updateCount,
@@ -59,6 +60,28 @@ public sealed partial class ValidationRoot
             "Validated application-owned 60 Hz update counts, split/" +
             "batched equivalence, and " +
             "single-owner input edges, including absent gameplay debug actions.");
+    }
+
+    private static void ValidateComponentInputEdges()
+    {
+        var edge = new ComponentInputEdge();
+        FailIf(!edge.Read(true) || edge.Read(true) || edge.Read(false) || !edge.Read(true),
+            "Direct component input must consume a host edge once and allow release/repress.");
+        // Snapshot edges are authoritative even if a direct caller observed
+        // the preceding edge or an actor skipped updates during dialogue.
+        foreach (bool pressed in new[] { true, false, false, true })
+        {
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+                pressed: ["attack"], justPressed: pressed ? ["attack"] : [], movement: Vector2.Zero));
+            try
+            {
+                FailIf(edge.Read(Input.IsActionJustPressed("attack")) != pressed,
+                    "Component input must preserve wGameKeysJustPressed and not synthesize a held-button edge after a pause.");
+            }
+            finally { Input.EndOriginalUpdate(); }
+        }
+        FailIf(!edge.Read(true) || edge.Read(true),
+            "Returning to direct component calls must consume the next host edge once.");
     }
 
     private void ValidateDebugFastForward()

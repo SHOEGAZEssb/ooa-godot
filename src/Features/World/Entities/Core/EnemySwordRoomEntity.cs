@@ -76,9 +76,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns)
     {
         if (!CollisionEnabled || _invincibility != 0 || !_bounds.Intersects(hitbox)) return false;
-        int collision = _swordState == SwordActionState.Spin ? (_swordLevel >= 2 ? 8 : 7)
-            : _swordState is SwordActionState.Held or SwordActionState.Charged ? 9
-            : _swordLevel >= 3 ? 6 : _swordLevel >= 2 ? 5 : 4;
+        int collision = SwordCollision.Type(_swordState, _swordLevel);
         int effect = EnemyBehaviorTables.Shared.EnemySwordCollisionEffects[collision].Value;
         if (effect == 0) return false;
         if (effect == 0x14)

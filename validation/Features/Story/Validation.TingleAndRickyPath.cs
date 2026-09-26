@@ -205,13 +205,13 @@ public sealed partial class ValidationRoot
         {
             StepRoomEventFrames(1);
             FailIf(
-                _entities.Entities<TingleKoolooSparkleEffect>().Count != 0,
+                _entities.Entities<InteractionSparkleEffect>().Count != 0,
                 "INTERAC_TINGLE $c8:$00 created a kooloo-limpah sparkle " +
                 "before animation $03's 60-update parameter-$01 boundary.");
         }
         StepRoomEventFrames(1);
-        TingleKoolooSparkleEffect[] koolooSparkles =
-            _entities.Entities<TingleKoolooSparkleEffect>().ToArray();
+        InteractionSparkleEffect[] koolooSparkles =
+            _entities.Entities<InteractionSparkleEffect>().ToArray();
         Vector2[] expectedKoolooSparklePositions =
             tingleRecord.KoolooSparkleOffsets
                 .Select(offset => tingleEntity.Npc.Position + offset)
@@ -243,7 +243,7 @@ public sealed partial class ValidationRoot
                 s.TexturePixelHash.ToString("x16")))}, z={tingleEntity.ZFixed}).");
         int koolooCleanupUpdates = 0;
         while ((tingleEntity.KoolooActive ||
-            _entities.Entities<TingleKoolooSparkleEffect>().Count != 0) &&
+            _entities.Entities<InteractionSparkleEffect>().Count != 0) &&
             koolooCleanupUpdates < 100)
         {
             StepRoomEventFrames(1);
@@ -251,7 +251,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             tingleEntity.KoolooActive || !tingleEntity.KoolooComplete ||
-            _entities.Entities<TingleKoolooSparkleEffect>().Count != 0 ||
+            _entities.Entities<InteractionSparkleEffect>().Count != 0 ||
             koolooCleanupUpdates != 36 ||
             tingleEntity.Npc.CurrentScriptAnimationSource !=
                 tingleDatabase.Animation("tingle", 1),

@@ -21,10 +21,10 @@ public partial class ValidationRoot
                 _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24,24),0));
             owl.ApplySeedHit(owl.CollisionBounds,owl.Position,0x24,new List<RoomEntitySpawn>());
             Step(18);
-            FailIf(owl.Counter!=32 || _entities.Entities<OwlStatueSparkleEffect>().Count!=0,
+            FailIf(owl.Counter!=32 || _entities.Entities<InteractionSparkleEffect>().Count!=0,
                 "Full INTERACTION pool must skip owl sparkles at counters$30/$28/$20 without stopping its countdown.");
             Step(8);
-            var sparkle=_entities.Entities<OwlStatueSparkleEffect>().Single();
+            var sparkle=_entities.Entities<InteractionSparkleEffect>().Single();
             FailIf(owl.Counter!=24 || sparkle.Position!=owl.Position+new Vector2(-6,-4) ||
                 sparkle.ElapsedUpdates!=1 || sparkle.ZIndex!=9,
                 $"Once slots become free, the next sparkle must use offset(-6,-4), same-update state0 and visible82 priority: counter={owl.Counter}, position={sparkle.Position}, updates={sparkle.ElapsedUpdates}, priority={sparkle.ZIndex}.");
@@ -38,7 +38,7 @@ public partial class ValidationRoot
             FailIf(sparkle.ElapsedUpdates!=36 || sparkle.Finished,
                 "Owl sparkle must retain its terminal$ff frame through update36.");
             Step();
-            FailIf(!sparkle.Finished || _entities.OutgoingEntities<OwlStatueSparkleEffect>().Count!=0,
+            FailIf(!sparkle.Finished || _entities.OutgoingEntities<InteractionSparkleEffect>().Count!=0,
                 "Owl sparkle must delete and release its interaction slot on update37 during scroll.");
             _entities.FinishScreenTransition();
             LoadValidationRoom(0,0x60);

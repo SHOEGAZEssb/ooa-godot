@@ -56,7 +56,8 @@ public sealed partial class ValidationRoot
             foreach (var (state, level, expected) in new[]
             {
                 (SwordActionState.Swing, 1, true), (SwordActionState.Swing, 2, true),
-                (SwordActionState.Swing, 3, true), (SwordActionState.Spin, 1, true),
+                // sword.s:@state4 writes $08 at every level; Spark/Whisp exclude it.
+                (SwordActionState.Swing, 3, true), (SwordActionState.Spin, 1, false),
                 (SwordActionState.Spin, 2, false), (SwordActionState.Held, 1, true)
             })
             {
@@ -68,6 +69,29 @@ public sealed partial class ValidationRoot
             }
             FailIf(((IExpertPunchHittableRoomEntity)adapter).ApplyExpertPunch(actor.CollisionBounds, actor.Position, 99, []),
                 "Spark/Whisp mask excludes Expert Punch column$0b.");
+            // Exercise the formerly wrong level-1 spin through the complete
+            // player -> post-object melee path, twice and with host batching.
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                Place(new(200, 136));
+                StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
+                StepGameplayUpdates(17, Vector2.Zero, ["attack"], batched: batched);
+                StepGameplayUpdates(41, Vector2.Zero, ["attack"], batched: batched);
+                FailIf(_player.SwordState != SwordActionState.Charged,
+                    "Level-1 spin fixture must reach the source $28 charge underflow.");
+                StepGameplayUpdates(1, Vector2.Zero);
+                FailIf(_player.SwordState != SwordActionState.Spin,
+                    "Releasing charge must enter the source $08 sword collision state.");
+                Place(_player.GetSwordHitbox().GetCenter() + Vector2.Right * 4);
+                StepGameplayUpdates(1, Vector2.Zero);
+                FailIf(_player.SwordState != SwordActionState.Spin || actor.Health != health ||
+                    ((IPostObjectMeleeCollisionRoomEntity)adapter).MeleeReportsContact,
+                    "Level-1 spin must use excluded collision $08, not $07, against Spark/Whisp.");
+                Place(new(200, 136));
+                StepGameplayUpdates(23, Vector2.Zero, batched: batched);
+                FailIf(_player.SwordState != SwordActionState.None,
+                    "Completed spin must retire before the repeat action.");
+            }
         }
         LoadValidationRoom(0, 0x60);
     }

@@ -58,12 +58,7 @@ internal sealed class ArmosRoomEntity
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        int collisionType = _swordState switch
-        {
-            SwordActionState.Spin => 0x08,
-            SwordActionState.Held or SwordActionState.Charged => 0x09,
-            _ => Math.Clamp(0x03 + _swordLevel, 0x04, 0x06)
-        };
+        int collisionType = SwordCollision.Type(_swordState, _swordLevel);
         int expectedEffect = _swordState == SwordActionState.Spin
             ? 0x16
             : 0x15;

@@ -164,7 +164,7 @@ internal sealed class TingleDatabase
         Record.ExplosionPalette,
         Animation("explosion", 0));
 
-    internal TingleKoolooSparkleVisual KoolooSparkleVisual => new(
+    internal InteractionSparkleVisual KoolooSparkleVisual => new(
         Record.KoolooSparkleSprite,
         Record.KoolooSparkleTileBase,
         Record.KoolooSparklePalette,

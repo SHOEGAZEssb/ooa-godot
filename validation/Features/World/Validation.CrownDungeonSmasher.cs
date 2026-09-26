@@ -390,7 +390,7 @@ public partial class ValidationRoot
         FailIf(ball.CollisionMode != 0x63 || ball.PendingCollision, "$74 ball state8 must select mode$63 and consume JUST_HIT.");
         foreach (var (state, level) in new[] { (SwordActionState.Held,1), (SwordActionState.Spin,1), (SwordActionState.Spin,2) })
         {
-            bool active = !(state == SwordActionState.Spin && level == 2); // Collision$08 mask is clear.
+            bool active = state != SwordActionState.Spin; // sword.s:@state4 writes $08 at every level; its mask is clear.
             foreach (var adapter in new[] { parentAdapter, ballAdapter })
             {
                 var actor = adapter.Character;

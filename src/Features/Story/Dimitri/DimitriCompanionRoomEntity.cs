@@ -36,8 +36,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private bool _landingObserved;
     private bool _goodbye;
     private Vector2 _previousLink;
-    private bool _attackEdge;
-    private bool _itemEdge;
+    private ComponentInputEdge _attackEdge;
+    private ComponentInputEdge _itemEdge;
     private CompanionHazard _hazard;
     private bool _hazardMounted;
     private DimitriPhase _phase;
@@ -175,9 +175,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         Player player = frame.Player;
         bool attack = Input.IsActionPressed("attack") && Input.IsActionJustPressed("attack");
         bool item = Input.IsActionPressed("item") && Input.IsActionJustPressed("item");
-        bool attackPressed = attack && (Input.OriginalUpdateActive || !_attackEdge);
-        bool itemPressed = item && (Input.OriginalUpdateActive || !_itemEdge);
-        _attackEdge = attack; _itemEdge = item;
+        bool attackPressed = _attackEdge.Read(attack);
+        bool itemPressed = _itemEdge.Read(item);
         // INTERAC_COMPANION_SCRIPTS $71:$06 waits until Dimitri reaches land.
         if (!_goodbye && _data.IsGoodbyeRoom(_group, _room.Id) &&
             (_save.ReadWramByte(0xc647) & 0x40) == 0 && _water == 0 &&
@@ -462,7 +461,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private void ApplySpeed(int speed, bool collide = true)
     {
         Vector2 before = _precisePosition;
-        if (collide) CompanionMovement.ApplySpeed(ref _precisePosition, speed, _angle, AdjacentWalls());
+        if (collide) SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, AdjacentWalls());
         else OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, speed, _angle);
         // Source coordinates wrap as bytes. Keep the offscreen top/left flute
         // entrance on the negative side of world space until it crosses zero.

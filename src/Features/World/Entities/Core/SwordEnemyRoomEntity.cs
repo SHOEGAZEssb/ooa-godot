@@ -50,8 +50,7 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
 
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
-        ApplyDamageCollision(_swordState == SwordActionState.Spin ? (_swordLevel >= 2 ? 8 : 7)
-            : _swordState is SwordActionState.Held or SwordActionState.Charged ? 9 : _swordLevel + 3,
+        ApplyDamageCollision(SwordCollision.Type(_swordState, _swordLevel),
             hitbox, sourcePosition, damage, spawns);
 
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox,

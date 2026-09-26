@@ -2,10 +2,10 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-// INTERAC$84:$00 state0 sets enabled bit$80 and visible82. Its handler
+// INTERAC$84:$00 state0 sets enabled bit$80 and angle-dependent visible81/82. Its handler
 // continues during text, disabled-object updates and scrolling.
-internal sealed class OwlStatueSparkleRoomEntity(OwlStatueSparkleEffect effect) :
-    FixedEffectRoomEntityAdapter<OwlStatueSparkleEffect>(effect),
+internal sealed class InteractionSparkleRoomEntity(InteractionSparkleEffect effect) :
+    FixedEffectRoomEntityAdapter<InteractionSparkleEffect>(effect),
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     IAlwaysUpdateDuringScreenTransitionRoomEntity, IScreenTransitionPreloadRoomEntity
 {

@@ -21,8 +21,7 @@ internal sealed class SmogProjectileRoomEntity(SmogProjectilePart projectile, Sm
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.EnemyContactPosition, camera(), roomFlags(), enemyCount());
     public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = state == SwordActionState.Spin ? (level >= 2 ? 8 : 7)
-            : state is SwordActionState.Held or SwordActionState.Charged ? 9 : Math.Clamp(level,1,3) + 3;
+        _swordCollision = SwordCollision.Type(state, level);
     private bool Eligible(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && data.Enabled(collision) &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);

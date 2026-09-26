@@ -33,13 +33,16 @@ public partial class ValidationRoot
             return actor;
         }
         foreach (int kind in new[] { 2,3,4 })
-        for (int collision = 4; collision <= 9; collision++)
+        foreach (var (state, level, collision) in new[] {
+            (SwordActionState.Swing, 1, 0x04), (SwordActionState.Swing, 2, 0x05),
+            (SwordActionState.Swing, 3, 0x06), (SwordActionState.Spin, 1, 0x08),
+            (SwordActionState.Spin, 2, 0x08), (SwordActionState.Spin, 3, 0x08),
+            (SwordActionState.Held, 1, 0x09), (SwordActionState.Charged, 2, 0x09) })
         {
             var actor = Create(kind);
             var sounds = new List<int>();
             var adapter = new SmogRoomEntity(actor,data,sounds.Add);
-            adapter.SetLinkSwordState(collision < 7 ? SwordActionState.Swing : collision < 9 ? SwordActionState.Spin : SwordActionState.Held,
-                collision < 7 ? collision-3 : collision == 8 ? 2 : 1);
+            adapter.SetLinkSwordState(state, level);
             try
             {
                 FailIf(!adapter.ApplySwordHit(actor.CollisionBounds,new(40,72),2,default,[]) ||

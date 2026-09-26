@@ -37,8 +37,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         return ScreenTransitionPresentation.Visible;
     }
     public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = state == SwordActionState.Spin ? (level >= 2 ? 8 : 7)
-            : state is SwordActionState.Held or SwordActionState.Charged ? 9 : Math.Clamp(level, 1, 3) + 3;
+        _swordCollision = SwordCollision.Type(state, level);
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && _data.BallMask[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);

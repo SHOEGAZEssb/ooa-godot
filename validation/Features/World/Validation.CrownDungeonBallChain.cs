@@ -115,7 +115,8 @@ public partial class ValidationRoot
         var visual = new SpikedBallDatabase();
         foreach (var (state, level, recoil, invincibility) in new[] {
             (SwordActionState.Swing, 1, 11, -28),
-            (SwordActionState.Spin, 1, 19, -28),
+            // sword.s:@state4 writes $08 for every level, selecting effect $1b.
+            (SwordActionState.Spin, 1, 0, -20),
             (SwordActionState.Spin, 2, 0, -20) })
         {
             var soldier = new BallChainSoldierCharacter();
@@ -132,7 +133,7 @@ public partial class ValidationRoot
                 "PART $2a sword effects must publish pending status and clink without protecting the parent during collision.");
             bool bumped = adapter.TryGetSwordAttackerKnockback(EnemyKnockbackStrength.Low, out var response);
             FailIf(bumped != (recoil != 0) || response.Frames != recoil,
-                "PART $2a must use distinct L1 swing/spin and L2 spin recoil profiles.");
+                "PART $2a must distinguish swing from the shared $08 spin recoil profile at every level.");
             FailIf(adapter.ApplySwordHit(ball.CollisionBounds, new(64,100), 1, EnemyKnockbackStrength.Low, spawns),
                 "PART $2a must reject a second item collision while invincible/pending.");
             ball.UpdateFrame(new(64,100));

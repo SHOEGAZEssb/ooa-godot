@@ -8,6 +8,7 @@ public sealed partial class ValidationRoot
 {
     private static void ValidateCompanionWallMasks()
     {
+        ValidateSpecialObjectWallMovement();
         // commonCode.s:specialObjectCheckFacingWall, including its original
         // vertical-mask selection for angles $19-$1f.
         int[] masks =
@@ -26,6 +27,58 @@ public sealed partial class ValidationRoot
                     $"Companion angle ${angle:x2} selected the wrong walls from ${walls:x2}.");
         }
         GD.Print("Validated all companion direction and adjacent-wall bitmask combinations.");
+    }
+
+    private static void ValidateSpecialObjectWallMovement()
+    {
+        // Independent transcription of bank0.slideAngleTable and
+        // link.s:@bitsToCheck, not the runtime's sector arithmetic.
+        int[] slide = [0x80,0x80,1,2,2,2,3,0x24,0x24,0x24,5,6,6,6,7,0x48,
+            0x48,0x48,9,10,10,10,11,0x1c,0x1c,0x1c,13,14,14,14,15,0x80];
+        int[] masks = [0xcf,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,0xc3,
+            0xf3,0x33,0x33,0x33,0x33,0x33,0x33,0x33,
+            0x3f,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,0x3c,
+            0xfc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc];
+        // bank3.objectSpeedTable .dwsin/.dwcos at SPEED_100, truncated words.
+        int[] sine = [0,49,97,142,181,212,236,251,256,251,236,212,181,142,97,49,
+            0,-49,-97,-142,-181,-212,-236,-251,-256,-251,-236,-212,-181,-142,-97,-49];
+        for (int walls = 0; walls < 256; walls++)
+        for (int angle = 0; angle < 32; angle++)
+        {
+            int direction = angle;
+            int blocked = walls;
+            if ((slide[angle] & 3) == 0)
+            {
+                (int mask, int value, int result)[] probes = slide[angle] switch
+                {
+                    0x80 => [(0xc3,0x80,8),(0xcc,0x40,24)],
+                    0x48 => [(0x33,0x20,8),(0x3c,0x10,24)],
+                    0x24 => [(0xc3,1,0),(0x33,2,16)],
+                    _ => [(0xcc,4,0),(0x3c,8,16)]
+                };
+                foreach (var probe in probes)
+                    if ((walls & probe.mask) == probe.value)
+                    {
+                        direction = probe.result;
+                        blocked = 0;
+                        break;
+                    }
+            }
+            blocked &= masks[direction];
+            foreach (Vector2 origin in new[] { new Vector2(64.5f,72.25f), new Vector2(0.125f,255.875f) })
+            {
+                int x = (int)(origin.X * 256), y = (int)(origin.Y * 256);
+                if ((blocked & 15) == 0) x = (x + sine[direction]) & 0xffff;
+                if ((blocked & 0xf0) == 0) y = (y - sine[(direction + 8) & 31]) & 0xffff;
+                Vector2 actual = origin;
+                SpecialObjectMovement.ApplySpeed(ref actual, 0x28, angle, walls);
+                FailIf(actual != new Vector2(x / 256.0f, y / 256.0f),
+                    $"specialObjectUpdatePosition angle ${angle:x2}, walls ${walls:x2}, origin {origin}: {actual}.");
+            }
+        }
+        Vector2 idle = new(10.5f,20.25f);
+        SpecialObjectMovement.ApplySpeed(ref idle, 0x28, 0xff, 0xff);
+        FailIf(idle != new Vector2(10.5f,20.25f), "Special-object angle $ff must not move.");
     }
 
     private void ValidateRoom05bCompanionTutorial()
