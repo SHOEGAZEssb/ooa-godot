@@ -137,7 +137,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _shadowOffset = shadow.Offset;
         _bookTexture = LoadBookTexture(database.BookVisual);
         Stage = MapleEncounterStage.Initializing;
-        Visible = true;
+        // checkAndSpawnMaple does not set visible. Unlike ordinary companion
+        // initialization, Maple's state0 is gated by scrolling too.
+        Visible = false;
         QueueRedraw();
     }
 
@@ -243,6 +245,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             setPosition: false);
         SetAnimation(0x19);
         Stage = MapleEncounterStage.EntryDelay;
+        Visible = true; // mapleState0: objectSetVisiblec0, after setting XYZ.
     }
 
     private void UpdateEntryDelay()
