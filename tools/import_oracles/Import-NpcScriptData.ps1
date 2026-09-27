@@ -401,64 +401,6 @@ foreach ($opcode in @(
 }
 $postmanCommands = @(Read-AssemblyCutsceneCommands `
     $postmanScriptPath 'postmanScript' $postmanOpcodes)
-$postmanExpected = @(
-    @('jumpifroomflagset', '$20, mainScripts.stubScript'),
-    @('initcollisions', ''),
-    @('checkabutton', ''),
-    @('disableinput', ''),
-    @('showtextlowindex', '<TX_0b03'),
-    @('wait', '30'),
-    @('jumpiftradeitemeq', 'TRADEITEM_POE_CLOCK, @promptForTrade'),
-    @('scriptjump', '@enableInput'),
-    @('showtextlowindex', '<TX_0b04'),
-    @('wait', '30'),
-    @('jumpiftextoptioneq', '$00, @acceptedTrade'),
-    @('showtextlowindex', '<TX_0b06'),
-    @('enableinput', ''),
-    @('scriptjump', '@npcLoop'),
-    @('showtextlowindex', '<TX_0b05'),
-    @('wait', '30'),
-    @('writeobjectbyte', 'Interaction.var3f, $01'),
-    @('setspeed', 'SPEED_200'),
-    @('moveright', '$1d'),
-    @('movedown', '$39'),
-    @('wait', '30'),
-    @('giveitem', 'TREASURE_TRADEITEM, $01'),
-    @('enableinput', ''),
-    @('scriptend', '')
-)
-if ($postmanCommands.Count -ne $postmanExpected.Count) {
-    throw "postmanScript expected 24 commands, parsed $($postmanCommands.Count)."
-}
-for ($index = 0; $index -lt $postmanExpected.Count; $index++) {
-    $operands = if ($null -eq $postmanCommands[$index].Operands) {
-        ''
-    } else {
-        ([string]$postmanCommands[$index].Operands).Trim()
-    }
-    if ($postmanCommands[$index].Opcode -ne $postmanExpected[$index][0] -or
-        $operands -ne $postmanExpected[$index][1]) {
-        throw "postmanScript command $index changed from " +
-            "$($postmanExpected[$index] -join ' ')."
-    }
-}
-$postmanTargets = @{}
-foreach ($command in $postmanCommands) {
-    if (-not $postmanTargets.ContainsKey($command.Label)) {
-        $postmanTargets[$command.Label] = $command.Index
-    }
-}
-foreach ($entry in @{
-    '@npcLoop' = 2
-    '@promptForTrade' = 8
-    '@enableInput' = 12
-    '@acceptedTrade' = 14
-}.GetEnumerator()) {
-    if (-not $postmanTargets.ContainsKey($entry.Key) -or
-        $postmanTargets[$entry.Key] -ne $entry.Value) {
-        throw "postmanScript label $($entry.Key) moved from command $($entry.Value)."
-    }
-}
 
 $postmanNativeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\postman.s')
@@ -514,42 +456,20 @@ if ($postmanStubCommands.Count -ne 1 -or
     throw 'mainScripts.stubScript no longer contains one scriptend command.'
 }
 
-$postmanCommandSpecs = @(
-    @($postmanCommands[0],  'jumpifroomflagset', '', '20', '24', ''),
-    @($postmanCommands[1],  'initcollisions', 'Postman', '', '', ''),
-    @($postmanCommands[2],  'checkabutton', 'Postman', '', '', ''),
-    @($postmanCommands[3],  'disableinput', '', '', '', ''),
-    @($postmanCommands[4],  'showtext', '', '0b03', '', $allTexts[0x0b03]),
-    @($postmanCommands[5],  'wait', '', '30', '', ''),
-    @($postmanCommands[6],  'jumpiftradeitemeq', '', '00', '8', ''),
-    @($postmanCommands[7],  'scriptjump', '', '12', '', ''),
-    @($postmanCommands[8],  'showtext', '', '0b04', '', $allTexts[0x0b04]),
-    @($postmanCommands[9],  'wait', '', '30', '', ''),
-    @($postmanCommands[10], 'jumpiftextoptioneq', '', '00', '14', ''),
-    @($postmanCommands[11], 'showtext', '', '0b06', '', $allTexts[0x0b06]),
-    @($postmanCommands[12], 'enableinput', '', '', '', ''),
-    @($postmanCommands[13], 'scriptjump', '', '2', '', ''),
-    @($postmanCommands[14], 'showtext', '', '0b05', '', $allTexts[0x0b05]),
-    @($postmanCommands[15], 'wait', '', '30', '', ''),
-    @($postmanCommands[16], 'writeobjectbyte', 'Postman', '3f', '01', ''),
-    @($postmanCommands[17], 'setspeed', 'Postman', '50', '', ''),
-    @($postmanCommands[18], 'move', 'Postman', '08', '1d', $postmanAnimations[1]),
-    @($postmanCommands[19], 'move', 'Postman', '10', '39', $postmanAnimations[2]),
-    @($postmanCommands[20], 'wait', '', '30', '', ''),
-    @($postmanCommands[21], 'giveitem', '', '41', '01', ''),
-    @($postmanCommands[22], 'enableinput', '', '', '', ''),
-    @($postmanCommands[23], 'scriptend', '', '', '', ''),
-    @($postmanStubCommands[0], 'scriptend', '', '', '', '')
-)
-$postmanCommandRows = [Collections.Generic.List[string]]::new()
-$postmanCommandRows.Add($cutsceneCommandHeader)
-for ($index = 0; $index -lt $postmanCommandSpecs.Count; $index++) {
-    $spec = $postmanCommandSpecs[$index]
-    $sourceCommand = $spec[0]
-    $postmanCommandRows.Add((New-CutsceneCommandRow `
-        'postmanScript' $index $sourceCommand.Label $sourceCommand.Line `
-        $spec[1] $spec[2] $spec[3] $spec[4] $spec[5]))
-}
+[Collections.Generic.List[string]]$postmanCommandRows = ConvertTo-CutsceneCommandRows $postmanCommands 'Postman' `
+    -symbols @{
+        'TRADEITEM_POE_CLOCK' = 0x00
+        'TREASURE_TRADEITEM' = 0x41
+        'Interaction.var3f' = 0x3f
+        'SPEED_200' = Resolve-ObjectSpeed '200'
+    } -texts $allTexts -animations $postmanAnimations -yieldOnJump $true `
+    -externalTargets @{ 'mainScripts.stubScript' = $postmanCommands.Count }
+# The body lives in wBigBuffer; this conditional external target lives in ROM.
+# Keep its source identity, without authoring a second copy of the body.
+$postmanStub = $postmanStubCommands[0]
+$postmanCommandRows.Add((New-CutsceneCommandRow 'postmanScript' `
+    $postmanCommands.Count $postmanStub.Label $postmanStub.Line `
+    $postmanStub.Opcode '' '' '' ''))
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\postman_commands.tsv'),
     $postmanCommandRows)

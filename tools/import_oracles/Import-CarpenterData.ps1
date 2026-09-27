@@ -143,6 +143,22 @@ foreach ($subid in @(0,1,2,3,4,5,6,7,8)) {
     $carpenterEntries.Add("$($subid.ToString('x2'))`t$($carpenterLabels[$root])`t$(Resolve-NpcAnimation 0x9a $carpenterStartAnimations[$subid])")
 }
 Write-GeneratedTable((Join-Path $destination 'objects\carpenter_scripts.tsv'), $carpenterEntries)
+# scriptCmd_turnToFaceLink selects interaction animations $00..$03 directly.
+# INTERAC_CARPENTER has one graphics/OAM binding, independent of its subid.
+$carpenterGraphics = Read-ImportText (Join-Path $Disassembly 'data\ages\interactionData.s')
+if ($carpenterGraphics -notmatch '(?m)^\s*/\* \$9a \*/ m_InteractionData \$60 \$00 \$10\s*$') {
+    throw 'interactionData.s: INTERAC_CARPENTER $9a no longer has one shared graphics binding.'
+}
+$carpenterFacing = [Collections.Generic.List[string]]::new()
+$carpenterFacing.Add('# direction`tanimation')
+foreach ($direction in 0..3) {
+    $animation = Resolve-NpcAnimation 0x9a $direction
+    if ([string]::IsNullOrWhiteSpace($animation)) {
+        throw "interactionAnimations.s: missing INTERAC_CARPENTER $9a animation $($direction.ToString('x2'))."
+    }
+    $carpenterFacing.Add("$direction`t$animation")
+}
+Write-GeneratedTable((Join-Path $destination 'objects\carpenter_facing.tsv'), $carpenterFacing)
 $carpenterData = @('# key`tvalue',
     "bridge-flag`t$($globalFlagValues['GLOBALFLAG_SYMMETRY_BRIDGE_BUILT'])",
     "flute-flag`t$($globalFlagValues['GLOBALFLAG_GOT_FLUTE'])",

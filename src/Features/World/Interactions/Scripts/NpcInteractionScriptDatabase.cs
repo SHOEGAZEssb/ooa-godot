@@ -118,46 +118,22 @@ internal sealed class NpcInteractionScriptDatabase
 
     private void ValidatePostman()
     {
-        if (Postman.Count != 25 ||
-            Postman[0] is not CutsceneRoomFlagBranchCommand
-                {
-                    Flag: OracleSaveData.RoomFlagItem,
-                    TargetCommand: 24
-                } ||
-            Postman[1] is not CutsceneInitCollisionsCommand
-                { Actor: "Postman" } ||
-            Postman[2] is not CutsceneCheckAButtonCommand
-                { Actor: "Postman" } ||
-            Postman[6] is not CutsceneTradeItemBranchCommand
-                { Value: 0, TargetCommand: 8 } ||
-            Postman[10] is not CutsceneTextOptionBranchCommand
-                { Value: 0, TargetCommand: 14 } ||
-            Postman[16] is not CutsceneWriteObjectByteCommand
-                { Actor: "Postman", Address: 0x3f, Value: 1 } ||
-            Postman[17] is not CutsceneSetSpeedCommand
-                { Actor: "Postman", Speed: PostmanCharacter.Speed200 } ||
-            Postman[18] is not CutsceneMoveCommand
-                {
-                    Actor: "Postman",
-                    Angle: PostmanCharacter.RightAngle,
-                    Counter: 0x1d
-                } ||
-            Postman[19] is not CutsceneMoveCommand
-                {
-                    Actor: "Postman",
-                    Angle: PostmanCharacter.DownAngle,
-                    Counter: 0x39
-                } ||
-            Postman[21] is not CutsceneGiveItemCommand
-                {
-                    TreasureId: TreasureId.TradeItem,
-                    Parameter: 1
-                } ||
-            Postman[23] is not CutsceneEndCommand ||
-            Postman[24] is not CutsceneEndCommand)
+        // Catalog loading checks schema; Runner.Start checks targets/bindings.
+        // Guard the supported operation surface without prescribing its layout.
+        foreach (CutsceneCommand command in Postman)
         {
-            throw new InvalidOperationException(
-                "postmanScript command stream diverges from its source.");
+            if (command is not (CutsceneRoomFlagBranchCommand or
+                CutsceneInitCollisionsCommand or CutsceneCheckAButtonCommand or
+                CutsceneDisableInputCommand or CutsceneShowTextCommand or
+                CutsceneWaitCommand or CutsceneTradeItemBranchCommand or
+                CutsceneTextOptionBranchCommand or CutsceneBranchCommand or
+                CutsceneBranchYieldCommand or CutsceneWriteObjectByteCommand or
+                CutsceneSetSpeedCommand or CutsceneMoveCommand or
+                CutsceneGiveItemCommand or CutsceneEnableInputCommand or CutsceneEndCommand))
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported Postman operation {command.GetType().Name} at {command.Source}.");
+            }
         }
     }
 }

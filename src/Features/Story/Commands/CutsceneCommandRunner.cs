@@ -37,6 +37,17 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     public int ActorSpeed(CutsceneActorId actor) =>
         _speeds.TryGetValue(actor, out int speed) ? speed : 0;
 
+    // counter2 belongs to a started movement operation, not an ordinary wait
+    // using counter1. On movement's zero update the runner has already yielded
+    // to the next instruction, so this view also reports zero to native tails.
+    public int MovementCounter(CutsceneActorId actor) =>
+        _commandUpdates > 0 && (CurrentCommand switch
+        {
+            CutsceneMoveCommand move => move.ActorId == actor,
+            CutsceneApplySpeedCommand move => move.ActorId == actor,
+            _ => false
+        }) ? Counter : 0;
+
     /// <summary>
     /// Seeds motion bytes written by an interaction initializer before its
     /// script starts. Call only immediately after <see cref="Start"/>.

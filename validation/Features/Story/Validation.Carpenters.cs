@@ -200,6 +200,91 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(!quest.BlocksGameplay, "Room $0:$25 carpenter event did not start after the scroll completed.");
         LoadValidationRoom(0, 0x24);
+        ValidateCarpenterFacing();
         GD.Print("Validated room 0:25 carpenter search choices, linked gating, all returned masks, source-ordered bridge scripts/jumps/columns/departures, dialogue animation, completion, re-entry, scrolling, and cancellation.");
+    }
+
+    private void ValidateCarpenterFacing()
+    {
+        ReinitializeGameplayForValidation();
+        LoadValidationRoom(0, 0x25);
+        CarpenterEvent quest = _roomEvents.Get<CarpenterEvent>();
+        quest.Cancel();
+        CarpenterDatabase data = quest.Database;
+        // interaction9aAnimations $00..$03 -> $5a468/$5a5a6/$5a60c/$5a653;
+        // OAM pointers $502f8/$50325, $50388/$503d0, $5020e/$502a7,
+        // $5037f/$503b5. These literals are traced independently of the importer.
+        string[] facing =
+        [
+            "16@8,0,4,0;8,8,6,0|16@8,0,6,32;8,8,4,32",
+            "16@8,0,10,32;8,8,8,32|16@8,0,14,32;8,8,12,32",
+            "16@8,0,0,0;8,8,2,0|16@8,0,2,32;8,8,0,32",
+            "16@8,0,8,0;8,8,10,0|16@8,0,12,0;8,8,14,0"
+        ];
+        for (int direction = 0; direction < 4; direction++)
+            FailIf(data.FacingAnimation(direction) != facing[direction],
+                $"Carpenter animation ${direction:x2} lost source OAM/duration/flip data.");
+        bool rejected = false;
+        try { _ = data.FacingAnimation(4); }
+        catch (InvalidOperationException error) { rejected = error.Message.Contains("$9a", StringComparison.Ordinal); }
+        FailIf(!rejected, "Carpenter missing-direction diagnostic lost source identity.");
+
+        // No executable movement commands remain in this fixture, and every
+        // unrelated command is reversed. Native facing must use graphics data.
+        var commands = typeof(CarpenterDatabase).GetField("<Commands>k__BackingField",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        commands.SetValue(data, data.Commands.Where(c => c is not CutsceneMoveCommand).Reverse().ToArray());
+        (Vector2 Delta, int Direction)[] targets =
+        [
+            (new(0, -32), 0), (new(32, 0), 1), (new(0, 32), 2), (new(-32, 0), 3),
+            // bank0 objectGetRelativeAngle: max=31 gives threshold=6, so
+            // min=24/25 straddles bands 3/4 before (angle+$04)&$18.
+            (new(24, -31), 0), (new(25, -31), 1),
+            (new(31, 24), 1), (new(31, 25), 2),
+            (new(-24, 31), 2), (new(-25, 31), 3),
+            (new(-31, -24), 3), (new(-31, -25), 0)
+        ];
+        var records = new NpcDatabase().AllRecords.Where(r => r.Id == 0x9a && (r.SubId & 0x0f) <= 4).ToArray();
+        foreach (NpcRecord record in records)
+        {
+            var npc = new NpcCharacter();
+            AddChild(npc);
+            try
+            {
+                npc.Initialize(record);
+                var entity = new CarpenterRoomEntity(npc, data, _runtimeState, _saveData, _currentRoom, 0);
+                npc.SetActive(true);
+                npc.SetStatePosition(new Vector2(80, 64));
+                var host = new CarpenterScriptHost(quest, entity);
+                foreach (var target in targets)
+                {
+                    _player.WarpTo(npc.Position + target.Delta, recordSafe: false);
+                    host.RunNativeHandler("FaceLink");
+                    FailIf(npc.CurrentScriptAnimationSource != facing[target.Direction] ||
+                        npc.CurrentAnimationFrame != 0 || NpcAnimationTicks(npc) != 0 || npc.CurrentAnimationOpaquePixels == 0,
+                        $"Carpenter $9a:${record.SubId:x2} facing {target.Delta} lost quantization/OAM/reset.");
+                    npc.AdvanceAnimationUpdates(19);
+                    host.RunNativeHandler("FaceLink");
+                    FailIf(npc.CurrentAnimationFrame != 0 || NpcAnimationTicks(npc) != 0,
+                        "turnToFaceLink failed to restart an unchanged directional animation.");
+                }
+            }
+            finally { npc.Free(); }
+        }
+        // Publish a real landed Scent Seed in the item pass; FaceLink must
+        // prefer it even when Link is on the opposite side of the carpenter.
+        NpcCharacter actor = _entities.Entities<NpcCharacter>().First(n => n.Record.Id == 0x9a && n.Record.SubId == 0);
+        actor.SetStatePosition(new Vector2(80, 88));
+        _player.WarpTo(new Vector2(120, 88), recordSafe: false);
+        var actorEntity = _entities.EntityAdapters<CarpenterRoomEntity>().Single(e => ReferenceEquals(e.Npc, actor));
+        var scentHost = new CarpenterScriptHost(quest, actorEntity);
+        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        EmberSeedEffect lure = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+            new Vector2(48, 98), Vector2I.Up, scent, _activeGroup));
+        StepGameplayUpdates(10, Vector2.Zero);
+        FailIf(lure.ScentTarget != new Vector2(48, 88), "Carpenter scent fixture did not publish a landed target.");
+        scentHost.RunNativeHandler("FaceLink");
+        FailIf(actor.CurrentScriptAnimationSource != facing[3], "Carpenter FaceLink ignored scent-target priority over Link.");
+        GD.Print("Validated carpenter facing for every affected placement: four directions, angle boundaries, exact OAM/reset, scent priority, and independence from executable movement commands.");
     }
 }

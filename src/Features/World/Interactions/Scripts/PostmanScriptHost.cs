@@ -29,6 +29,12 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
     }
 
     internal GroundTreasurePickup? Treasure => _treasure;
+    internal int MovementCounter => ActorMovementCounter("Postman");
+    internal void Bind(PostmanCharacter postman) => BindObject(postman);
+    internal void Advance(Player player) => AdvanceObject(player);
+
+    public override bool TryInteract(NpcInteractionTarget target, Player player) =>
+        MatchesAndPrepare(target.Npc) && QueueObjectInteraction(target, player);
 
     protected override bool MatchesAndPrepare(NpcCharacter npc) =>
         npc is PostmanCharacter &&
@@ -95,13 +101,13 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
         int angle,
         string encodedAnimation) =>
         RequirePostman(actor).SetMovementAnimation(
-            angle, encodedAnimation, ScriptPlayer);
+            angle, encodedAnimation);
 
     public override void MoveActorAtSpeed(
         string actor,
         int speed,
         int angle) =>
-        RequirePostman(actor).MoveAtSpeed(speed, angle, ScriptPlayer);
+        RequirePostman(actor).MoveAtSpeed(speed, angle);
 
     public override void GiveItem(int treasureId, int parameter)
     {
@@ -155,15 +161,6 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
 
     protected override void BeforeAdvanceFrame()
     {
-        // The final movedown update consumes counter2 before the native tail.
-        // The preceding fixed entity update has already applied that frame's
-        // SPEED_200 animation calls, so clear it for the following wait.
-        if (CurrentCommandIndex == 19 &&
-            CurrentCommandUpdates > 0 &&
-            Counter == 1)
-        {
-            RequirePostman("Postman").CompleteMovement();
-        }
         FinishTreasure();
     }
 

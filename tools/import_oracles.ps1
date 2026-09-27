@@ -6,6 +6,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Windows PowerShell's legacy 4096-variable scope limit is below the complete
+# staged import's symbol count. PowerShell 7 has no such limit.
+if ($PSVersionTable.PSVersion.Major -lt 6) { $MaximumVariableCount = 32768 }
 $importRoot = $PSScriptRoot
 $importModuleRoot = Join-Path $importRoot 'import_oracles'
 
@@ -171,7 +174,7 @@ $stageContracts = @(
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-npc-scripts' 'Import-NpcScriptData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
-        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-trade-quest' 'Import-TradeQuestData.ps1' `
         -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')

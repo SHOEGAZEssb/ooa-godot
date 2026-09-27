@@ -7,7 +7,8 @@ function ConvertTo-CutsceneCommandRows {
         [hashtable]$animations = @{},
         [hashtable]$bindings = @{},
         [hashtable]$positions = @{},
-        [bool]$yieldOnJump = $false)
+        [bool]$yieldOnJump = $false,
+        [hashtable]$externalTargets = @{})
     $targets = @{}
     foreach ($command in $commands) {
         if (-not $targets.ContainsKey($command.Label)) {
@@ -31,6 +32,7 @@ function ConvertTo-CutsceneCommandRows {
         }
         $target = {
             param([string]$operand)
+            if ($externalTargets.ContainsKey($operand)) { return $externalTargets[$operand].ToString() }
             if (-not $targets.ContainsKey($operand)) { throw "$where unresolved branch '$operand'." }
             return $targets[$operand].ToString()
         }
@@ -94,7 +96,17 @@ function ConvertTo-CutsceneCommandRows {
                 }
                 'scriptjump' {
                     & $arity 1; $arg0 = & $target $operands[0]
-                    if ($yieldOnJump) { $opcode = 'scriptjumpyield' }
+                    # scriptCmd_jump relocates copied-buffer local targets and
+                    # returns without carry. A jump out to ROM still continues.
+                    # Conditional branches use scriptFunc_jump_scf instead.
+                    if ($yieldOnJump -and -not $externalTargets.ContainsKey($operands[0])) { $opcode = 'scriptjumpyield' }
+                }
+                { $_ -in @('moveup','moveright','movedown','moveleft') } {
+                    & $arity 1; $commandActor = $actor
+                    $direction = @('moveup','moveright','movedown','moveleft').IndexOf($opcode)
+                    if (-not $animations.ContainsKey($direction)) { throw "$where unbound movement animation $direction." }
+                    $opcode = 'move'; $arg0 = ($direction * 8).ToString('x2')
+                    $arg1 = (& $number $operands[0]).ToString('x2'); $payload = $animations[$direction]
                 }
                 { $_ -in @('giveitem','writeobjectbyte') } {
                     & $arity 2

@@ -87,9 +87,13 @@ doing nothing.
 
 Textbox positions must be forwarded explicitly. A host without positioned-text
 support rejects a supplied position instead of silently using automatic layout.
-Single-actor script hosts share actor binding and queued A-button state; room
-events consume the queued press in their interaction slot, while entity-backed
-conversation hosts retain their immediate script and talk-lifecycle boundary.
+Single-actor script hosts share actor binding and queued A-button state. Entity
+or event owners consume queued presses in their eligible interaction slot when
+script and native work share that slot; conversation-only hosts can retain an
+immediate talk boundary. A script's movement-counter view reports counter2 only
+for started motion, independently of ordinary counter1 waits. Native tails use
+that view after script execution instead of mirroring movement activity or
+inspecting command positions.
 
 Validate all required actors before execution. The host owns actor-specific
 position, animation, visibility, collision, deletion, dialogue, inventory,

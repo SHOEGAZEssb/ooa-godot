@@ -14,10 +14,16 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
     private Vector2 _precisePosition;
     private bool _leaving;
-    private bool _movementCounterActive;
+    private PostmanScriptHost? _script;
 
     internal bool Leaving => _leaving;
-    internal bool MovementCounterActive => _movementCounterActive;
+    internal bool Initialized { get; private set; }
+
+    internal void BindScript(PostmanScriptHost script)
+    {
+        _script = script;
+        script.Bind(this);
+    }
 
     internal void InitializePostman(NpcRecord record)
     {
@@ -37,10 +43,11 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
         Initialize(record);
         ResetNativeNpcFacingState();
-        SetScriptButtonSensitive(true);
+        SetCollisionRadii(0, 0);
+        SetScriptButtonSensitive(false);
         _precisePosition = Position;
         _leaving = false;
-        _movementCounterActive = false;
+        Initialized = false;
     }
 
     internal void SetLeaving()
@@ -50,8 +57,7 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
     internal void SetMovementAnimation(
         int angle,
-        string encodedAnimation,
-        Player player)
+        string encodedAnimation)
     {
         string expected = angle switch
         {
@@ -70,17 +76,9 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
         SetScriptAnimation(encodedAnimation);
         _precisePosition = Position;
-        _movementCounterActive = true;
-
-        // interactionRunScript selects the animation before the native
-        // interactionAnimateBasedOnSpeed tail. The room-entity pass has
-        // already occurred in this runtime update, so apply those three
-        // SPEED_200 animation calls here to preserve the source boundary.
-        AdvanceAnimationUpdates(3);
-        UpdateDrawPriority(player.Position);
     }
 
-    internal void MoveAtSpeed(int speed, int angle, Player player)
+    internal void MoveAtSpeed(int speed, int angle)
     {
         if (speed != Speed200 ||
             angle is not (RightAngle or DownAngle))
@@ -92,17 +90,18 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
         Position = OracleObjectMovement.Shared.ApplySpeed(
             ref _precisePosition, speed, angle);
-        UpdateDrawPriority(player.Position);
-    }
-
-    internal void CompleteMovement()
-    {
-        _movementCounterActive = false;
     }
 
     internal void UpdatePostman(Player player)
     {
-        if (!Active)
+        PostmanScriptHost script = _script ?? throw new InvalidOperationException(
+            "Room 2:2f INTERAC_POSTMAN $55:$00 has no script owner.");
+        Initialized = true;
+        // postman.s state0 falls through into state1. Script and native tail
+        // share this single eligible object visit, including text-opening work.
+        // The reward flag can hide the actor before the runner finishes.
+        script.Advance(player);
+        if (!script.HasState || !Active)
             return;
         if (!_leaving)
         {
@@ -110,13 +109,9 @@ internal sealed partial class PostmanCharacter : NpcCharacter
             return;
         }
 
-        if (_movementCounterActive)
-        {
-            AdvanceAnimationUpdates(3);
-            UpdateDrawPriority(player.Position);
-            return;
-        }
-
-        AnimateAndUpdateDrawPriorityOneUpdate(player);
+        // bank0.interactionAnimateBasedOnSpeed: one call even on counter2's
+        // zero update, with two extra calls for nonzero SPEED_200 movement.
+        AdvanceAnimationUpdates(script.MovementCounter != 0 ? 3 : 1);
+        UpdateDrawPriority(player.Position);
     }
 }

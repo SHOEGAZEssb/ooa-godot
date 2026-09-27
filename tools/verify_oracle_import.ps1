@@ -29,6 +29,7 @@ try {
         throw "OracleImporter unit tests exited with code $LASTEXITCODE."
     }
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportWorkers.ps1')
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CutsceneNormalization.ps1')
 
     $Disassembly = (Resolve-Path -LiteralPath $Disassembly).Path
     $Rom = (Resolve-Path -LiteralPath $Rom).Path

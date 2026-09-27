@@ -9,7 +9,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class PostmanRoomEntity
     : RoomEntityAdapter<PostmanCharacter>, IFixedRoomEntity, IRoomBlocker,
-        ITalkTarget, IOrdinaryNpcEntity
+        ITalkTarget, IOrdinaryNpcEntity, IUpdatesDuringDialogueRoomEntity
 {
     public PostmanRoomEntity(PostmanCharacter postman)
         : base(postman, postman.SetTransitionDrawOffset)
@@ -17,6 +17,7 @@ internal sealed class PostmanRoomEntity
     }
 
     public NpcCharacter Npc => Entity;
+    public bool UpdatesDuringDialogue => !Entity.Initialized;
 
     public void UpdateFrame(
         RoomEntityFrame frame,
@@ -27,5 +28,5 @@ internal sealed class PostmanRoomEntity
         Entity.BlocksLinkCenter(linkCenter);
 
     public NpcCharacter? FindTalkTarget(Player player) =>
-        Entity.CanTalkTo(player) ? Entity : null;
+        Entity.ScriptButtonSensitive && Entity.CanTalkTo(player) ? Entity : null;
 }

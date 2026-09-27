@@ -10,7 +10,8 @@ public sealed partial class ValidationRoot
     // complete gameplay loop. Godot's native just-pressed flags otherwise
     // persist across synchronous validation calls within one host frame.
     private void StepGameplayUpdates(int updates, Vector2 movement,
-        string[]? held = null, string[]? pressed = null, bool batched = false)
+        string[]? held = null, string[]? pressed = null, bool batched = false,
+        Action? afterUpdate = null)
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var input = (ApplicationInputBuffer)typeof(GameRoot)
@@ -19,6 +20,11 @@ public sealed partial class ValidationRoot
             .GetField("_applicationUpdates", flags)!.GetValue(this)!;
         Action advance = typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!
             .CreateDelegate<Action>(this);
+        if (afterUpdate is not null)
+        {
+            Action gameplay = advance;
+            advance = () => { gameplay(); afterUpdate(); };
+        }
         input.CaptureForValidation(held ?? [], pressed ?? [], movement);
         if (batched)
             scheduler.Advance(updates / 60.0, advance);
@@ -27,4 +33,3 @@ public sealed partial class ValidationRoot
     }
 
 }
-

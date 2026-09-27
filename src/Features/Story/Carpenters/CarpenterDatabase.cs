@@ -7,6 +7,7 @@ internal sealed class CarpenterDatabase
 {
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<int, CarpenterScript> _scripts = new();
+    private readonly Dictionary<int, string> _facing = new();
     public IReadOnlyList<CutsceneCommand> Commands { get; }
     internal string LeaveMessage { get; }
 
@@ -24,6 +25,13 @@ internal sealed class CarpenterDatabase
                 ["text-id", "message"], ["text-id"], headerRequired: true));
         LeaveMessage = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(text.Rows[0].RequiredString(1)));
         Commands = CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/carpenter_commands.tsv");
+        var facing = GeneratedTable.Load("res://assets/oracle/objects/carpenter_facing.tsv",
+            new GeneratedTableSchema("INTERAC_CARPENTER $9a directional animations", GeneratedTableKeySemantics.Unique,
+                ["direction", "animation"], ["direction"], headerRequired: true));
+        foreach (var row in facing.Rows)
+            _facing.Add(row.Decimal(0, 0, 3), row.RequiredString(1));
+        for (int direction = 0; direction < 4; direction++)
+            _ = FacingAnimation(direction);
         var scripts = GeneratedTable.Load("res://assets/oracle/objects/carpenter_scripts.tsv",
             new GeneratedTableSchema("carpenter.s script table", GeneratedTableKeySemantics.Unique,
                 ["subid", "entry", "animation"], ["subid"], headerRequired: true));
@@ -39,6 +47,8 @@ internal sealed class CarpenterDatabase
         throw new InvalidOperationException($"carpenter.s: missing native constant '{key}'.");
     public CarpenterScript Script(int subid) => _scripts.TryGetValue(subid, out var script) ? script :
         throw new InvalidOperationException($"carpenter.s: unsupported script subid ${subid:x2}.");
+    public string FacingAnimation(int direction) => _facing.TryGetValue(direction, out string? animation) ? animation :
+        throw new InvalidOperationException($"interactionAnimations.s: INTERAC_CARPENTER $9a has no direction ${direction:x2}.");
 }
 
 internal sealed record CarpenterScript(int Entry, string Animation);

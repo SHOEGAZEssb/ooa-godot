@@ -4,9 +4,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Schedules the independent linked-NPC, past-Bipin, hardhat, and Postman
-/// script lanes. InteractionController delegates matching and fixed-update
-/// advancement here without retaining their talk graphs.
+/// Schedules conversation lanes and binds Postman's entity-owned lane.
+/// InteractionController delegates matching and cancellation here.
 /// </summary>
 internal sealed class NpcInteractionScriptController
 {
@@ -84,6 +83,12 @@ internal sealed class NpcInteractionScriptController
                 _postman.TryInteract)
         ];
         rooms.RoomChanged += OnRoomChanged;
+        entities.RoomEntitiesLoaded += (_, _) =>
+        {
+            _postman.Cancel();
+            foreach (PostmanCharacter postman in entities.Entities<PostmanCharacter>())
+                postman.BindScript(_postman);
+        };
     }
 
     public bool BlocksGameplay
@@ -124,7 +129,7 @@ internal sealed class NpcInteractionScriptController
         {
             _frameAccumulator -= 1.0;
             foreach (NpcInteractionCommandHost host in _hosts)
-                host.AdvanceFrame();
+                if (!ReferenceEquals(host, _postman)) host.AdvanceFrame();
         }
     }
 

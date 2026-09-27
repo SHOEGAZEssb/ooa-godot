@@ -52,13 +52,13 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     public override ICutsceneCommandTraceSink? TraceSink => _traceSink;
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
-    internal int CurrentCommandUpdates => _runner.CurrentCommandUpdates;
     internal int Counter => _runner.Counter;
     internal bool InputDisabled => InputControlHeld;
+    protected int ActorMovementCounter(CutsceneActorId actor) => _runner.MovementCounter(actor);
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;
 
-    public bool TryInteract(
+    public virtual bool TryInteract(
         NpcInteractionTarget target,
         Player player)
     {
@@ -171,6 +171,33 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     }
 
     protected NpcCharacter RequireActor(string actor) => _binding.Require(actor);
+
+    // Entity-owned lanes bind at room loading and advance only in their object
+    // slot. The other conversation hosts retain their immediate talk boundary.
+    protected void BindObject(NpcCharacter npc)
+    {
+        Cancel();
+        _binding.Bind(npc);
+        _runner.Start(Commands);
+    }
+
+    protected bool QueueObjectInteraction(NpcInteractionTarget target, Player player)
+    {
+        if (!_runner.Active || InputControlHeld || !_binding.QueueButton(target.Npc))
+            return false;
+        _interactionTarget = target;
+        _player = player;
+        target.Begin();
+        return true;
+    }
+
+    protected void AdvanceObject(Player player)
+    {
+        if (!_runner.Active) return;
+        _player = player;
+        if (ScriptExecutionBlocked) return;
+        AdvanceFrame();
+    }
 
     protected void ShowDialogue(string message, bool choice, int initialChoice = 0)
     {

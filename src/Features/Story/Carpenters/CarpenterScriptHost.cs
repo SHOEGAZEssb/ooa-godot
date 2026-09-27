@@ -112,14 +112,7 @@ internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEnt
         {
             Vector2 target = Context.Entities.ActiveScentSeedTarget() ?? Context.Player.Position;
             int direction = ((OracleObjectMovement.Shared.RelativeAngle(Npc.Position, target) + 4) & ObjectAngle.CardinalMask) >> 3;
-            // These four entries are also the movement animations in the imported catalog.
-            foreach (var command in owner.Database.Commands)
-                if (command is CutsceneMoveCommand move && move.Angle == direction * 8)
-                {
-                    Npc.SetScriptAnimation(move.EncodedAnimation);
-                    return;
-                }
-            throw UnsupportedCommand($"find carpenter direction ${direction:x2}");
+            Npc.SetScriptAnimation(owner.Database.FacingAnimation(direction));
         }
         else if (handler.StartsWith("BuildColumn:", StringComparison.Ordinal) &&
             int.TryParse(handler.AsSpan(12), System.Globalization.NumberStyles.HexNumber, null, out int position))
