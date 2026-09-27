@@ -5,6 +5,8 @@ namespace oracleofages;
 
 public sealed class ChestDatabase
 {
+    // constants/common/tileIndices.s: TILEINDEX_CHEST
+    internal const byte ClosedTile = 0xf1;
 
     private readonly Dictionary<int, ChestRecord> _records = new();
     private readonly Lookup<int, ChestRecord> _roomRecords = new();

@@ -46,6 +46,8 @@ public sealed class PlayerWorld : IPlayerWorld
         get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset));
         set => _entities.RuntimeState.SetWramByte(WramAddress.wLinkRaisedFloorOffset, unchecked((byte)value));
     }
+    public void UpdateLinkOnChest(Vector2 position, bool airborne) =>
+        _collision.UpdateLinkOnChest(position, airborne);
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
         _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;

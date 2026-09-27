@@ -527,6 +527,15 @@ public sealed class OracleRoomData
         }
     }
 
+    internal void SetPackedTileCollision(byte position, byte? collision)
+    {
+        int index = (position >> 4) * _layoutStride + (position & 15);
+        if (collision.HasValue)
+            _positionCollisionOverrides[index] = collision.Value;
+        else
+            _positionCollisionOverrides.Remove(index);
+    }
+
     internal bool RestoreUnderlyingMetatileRange(
         byte firstTile,
         int count,

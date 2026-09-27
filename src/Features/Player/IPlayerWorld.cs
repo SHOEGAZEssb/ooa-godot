@@ -28,6 +28,7 @@ public interface IPlayerWorld
                 throw new NotSupportedException("Raised-floor Link requires the authoritative wLinkRaisedFloorOffset owner.");
         }
     }
+    void UpdateLinkOnChest(Vector2 position, bool airborne) { }
     bool GaleWarpDisabled => false;
     bool NativeWarpsDisabled => false;
     void SetNativeWarpsDisabled(bool disabled) =>

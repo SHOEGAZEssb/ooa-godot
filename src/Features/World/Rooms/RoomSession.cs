@@ -16,6 +16,7 @@ public sealed class RoomSession
     private readonly Func<byte> _toggleState;
     private readonly GashaSpotDatabase _gashaSpots;
     private readonly ChangedTileQueue _changedTiles = new();
+    private readonly OracleRuntimeState? _runtimeState;
 
     // INTERAC$14 state0 writes this shared byte for reserved and dynamic
     // blocks alike. Finishing/deleting the writer does not clear it.
@@ -48,8 +49,10 @@ public sealed class RoomSession
         bool countAsRoomEntry = true,
         Func<byte>? toggleState = null,
         RoomSessionResources? resources = null,
-        OracleWorldData? world = null)
+        OracleWorldData? world = null,
+        OracleRuntimeState? runtimeState = null)
     {
+        _runtimeState = runtimeState;
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
@@ -77,6 +80,7 @@ public sealed class RoomSession
     {
         BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
         _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
+        ClearActiveTileState();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
@@ -106,6 +110,7 @@ public sealed class RoomSession
     {
         BlockPushAngle = 0;
         _changedTiles.Clear(); // disableLcdAndLoadRoom clears wLinkInAir..wcce9.
+        ClearActiveTileState();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
@@ -118,6 +123,7 @@ public sealed class RoomSession
     {
         BlockPushAngle = 0; // func_49c9 clears wDisabledObjects..$cce0, including $cca6.
         _changedTiles.Clear(); // Scroll-entry func_49c9 clears these indices before loading.
+        ClearActiveTileState();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
@@ -126,6 +132,14 @@ public sealed class RoomSession
         MarkRoomVisited(group, room.Id);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
+    }
+
+    private void ClearActiveTileState()
+    {
+        // clearMemoryOnScreenReload / func_49c9 include $cc99/$cc9a/$cc9f.
+        _runtimeState?.SetWramByte(WramAddress.wActiveTilePos, 0);
+        _runtimeState?.SetWramByte(WramAddress.wActiveTileIndex, 0);
+        _runtimeState?.SetWramByte(WramAddress.wLinkOnChest, 0);
     }
 
     private void SynchronizeAnimation(int previousAnimationGroup, OracleRoomData room)

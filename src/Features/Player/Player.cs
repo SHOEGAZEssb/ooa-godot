@@ -2010,7 +2010,11 @@ public partial class Player : Node2D
         {
             // Native linkApplyTileTypes precedes linkUpdateKnockback too.
             if (!_world.IsTransitioning && !_world.DialogueOpen)
+            {
                 UpdateRaisedFloorOffset();
+                if (!_world.SideScrolling && !_companionRideControlled)
+                    _world.UpdateLinkOnChest(_precisePosition, _topDownAirborne);
+            }
             // Damage suppresses Link's ordinary item-input path, but the
             // released Bracelet item still receives its independent object
             // update. Angle $ff clears lateral and Z speed; gravity starts on
@@ -2159,7 +2163,17 @@ public partial class Player : Node2D
             return;
         }
 
+        // linkState01 checks A-sensitive objects/tiles before applying tile
+        // types and checkAndUpdateLinkOnChest, then enters checkUseItems.
+        if (_activeTransformation == 0 && Input.IsActionJustPressed("attack") &&
+            !_world.SwordDisabled && (!IsUsingItem || IsUsingSomaria) &&
+            !IsUsingSomaria && !_minecartRideControlled && !_raftRideControlled &&
+            _world.TryInteract(this))
+            return;
+
         UpdateRaisedFloorOffset();
+        if (!_world.SideScrolling)
+            _world.UpdateLinkOnChest(_precisePosition, _topDownAirborne);
         if (!_world.SideScrolling &&
             TryAdvanceTopDownSwimming(
                 input,
@@ -2246,13 +2260,6 @@ public partial class Player : Node2D
         {
             if (!IsUsingItem || IsUsingSomaria)
             {
-                // Link's standing-state handler checks A-button-sensitive
-                // objects and interactWithTileBeforeLink before checkUseItems.
-                // A chest/sign/keyhole therefore wins over an equipped
-                // Bracelet when both probes accept the same press.
-                if (!IsUsingSomaria && !_minecartRideControlled && !_raftRideControlled &&
-                    _world.TryInteract(this))
-                    return;
                 if (!primaryItemInputSuppressed &&
                     !_world.ItemUsageDisabled &&
                     !_minecartRideControlled &&

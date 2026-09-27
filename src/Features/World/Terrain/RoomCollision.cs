@@ -50,6 +50,38 @@ public sealed class RoomCollision
         return _entities.BlocksLink(playerPosition) || _pushBlocks.BlocksLink(playerPosition);
     }
 
+    internal void UpdateLinkOnChest(Vector2 position, bool airborne)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRuntimeState state = _entities.RuntimeState;
+        // commonCode.s:linkApplyTileTypes retains the active tile while airborne.
+        // @linkGetActiveTileType samples byte-wrapped Y+$05, X before movement.
+        if (!airborne)
+        {
+            Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
+                unchecked((byte)(Mathf.FloorToInt(position.Y) + 5)));
+            state.SetWramByte(WramAddress.wActiveTilePos, (byte)room.GetPackedPosition(feet));
+            state.SetWramByte(WramAddress.wActiveTileIndex, room.GetMetatile(feet));
+        }
+
+        // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
+        // write, not a Link-only exception. Restore the current tile's collision
+        // on departure, even if another writer replaced the chest meanwhile.
+        byte active = state.ReadWramByte(WramAddress.wActiveTilePos);
+        byte chest = state.ReadWramByte(WramAddress.wLinkOnChest);
+        if (chest == 0)
+        {
+            if (state.ReadWramByte(WramAddress.wActiveTileIndex) != ChestDatabase.ClosedTile) return;
+            state.SetWramByte(WramAddress.wLinkOnChest, active);
+            room.SetPackedTileCollision(active, 0);
+        }
+        else if (active != chest)
+        {
+            room.SetPackedTileCollision(chest, null);
+            state.SetWramByte(WramAddress.wLinkOnChest, 0);
+        }
+    }
+
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
     {
         if (movement == Vector2.Zero)

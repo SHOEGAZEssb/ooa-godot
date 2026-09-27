@@ -548,7 +548,8 @@ public partial class GameRoot : Node2D
             countAsRoomEntry: !useDebugSavestate && !prepare,
             toggleState: () => _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress),
             resources: _preparedRoomResources,
-            world: _preparedWorld);
+            world: _preparedWorld,
+            runtimeState: _runtimeState);
         _preparedRoomResources = null;
         _preparedWorld = null;
         _inventory = new InventoryState(

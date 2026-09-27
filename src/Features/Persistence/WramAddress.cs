@@ -206,6 +206,13 @@ public static class WramAddress
     public const int wSeedTreeRefilledBitset = 0xcc4d;
     // include/wram.s: wLinkRaisedFloorOffset
     public const int wLinkRaisedFloorOffset = 0xcc69;
+
+    // include/wram.s: wActiveTilePos
+    public const int wActiveTilePos = 0xcc99;
+    // include/wram.s: wActiveTileIndex
+    public const int wActiveTileIndex = 0xcc9a;
+    // include/wram.s: wLinkOnChest
+    public const int wLinkOnChest = 0xcc9f;
     // include/wram.s: wPegasusSeedCounter
     public const int wPegasusSeedCounter = 0xcc6c;
     // include/wram.s: wWarpsDisabled

@@ -524,6 +524,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSeedShooterEyeStatueState);
         RunIsolatedValidation(ValidateSeedShooterEyeStatueLive);
         RunIsolatedValidation(ValidateCrownEyeChest);
+        RunIsolatedValidation(ValidateLinkOnSpawnedChest);
         RunIsolatedValidation(ValidateCrownEyeChestBoundaries);
         RunIsolatedValidation(ValidateCrownPatternChests);
         RunIsolatedValidation(ValidateCrownPatternHint);
