@@ -2594,6 +2594,7 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     private static bool UpdatesDuringDialogue(IRoomEntity entity) =>
+        entity.Node is EnemyCharacter enemy ? enemy.InitializationPending :
         entity is IUpdatesDuringDialogueRoomEntity
         {
             UpdatesDuringDialogue: true
@@ -2777,6 +2778,7 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     private bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity) =>
+        entity.Node is EnemyCharacter { InitializationPending: true } ||
         entity is IUpdatesDuringRoomEntityFreeze { UpdatesDuringRoomEntityFreeze: true } ||
         entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true } ||
         EntityPhase(entity) == 2 &&

@@ -8,6 +8,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class ArmMimicCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private readonly ArmMimicBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.ArmMimic;
     private EnemyTerrainMovement _movement = null!;

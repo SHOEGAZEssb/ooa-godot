@@ -7,6 +7,8 @@ namespace oracleofages;
 // this actor owns the represented intro, merge initialization and wall-cloud handlers.
 internal sealed partial class SmogCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly SmogFireTimer _fireTimer = new(new SmogFireTimerDatabase());
     private SmogWallMovement? _wall;
     private int _phase;

@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;

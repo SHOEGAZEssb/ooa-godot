@@ -12,6 +12,11 @@ namespace oracleofages;
 /// </summary>
 public abstract partial class EnemyCharacter : TransitionOffsetNode2D
 {
+    // bank0._updateEnemiesIfStateIsZero admits state/substate $00 during
+    // palette fades. Read the species' live state; visibility is independent.
+    // Species initialized at construction explicitly return false.
+    internal abstract bool InitializationPending { get; }
+
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;

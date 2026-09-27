@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly IReadOnlyList<EnemyBehaviorValue> _behavior = EnemyBehaviorTables.Shared.Gibdo;

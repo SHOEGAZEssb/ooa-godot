@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>Native $4f:$02/$03 tail and its independent eight-byte displacement buffer.</summary>
 internal partial class MoldormTailCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly byte[] _offsets = new byte[8];
     private OracleRandom _random = null!;
     private int _lastY, _lastX, _index;

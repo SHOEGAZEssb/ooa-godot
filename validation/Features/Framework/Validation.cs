@@ -759,6 +759,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCrownKeyDoorScroll);
         RunIsolatedValidation(ValidateCrownStairs);
         RunIsolatedValidation(ValidateCrownStairEnemyFadeInitialization);
+        RunIsolatedValidation(ValidateCrownSwordEnemyFadeInitialization);
         RunIsolatedValidation(ValidateCrownPassageReturns);
         RunIsolatedValidation(ValidateCrownEnemyStairs);
         RunIsolatedValidation(ValidateCrownExteriorWarp);

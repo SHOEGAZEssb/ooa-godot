@@ -10,6 +10,8 @@ namespace oracleofages;
 /// </summary>
 public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => false;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => Z;
 
     private readonly CrowBehaviorProfile _behavior =

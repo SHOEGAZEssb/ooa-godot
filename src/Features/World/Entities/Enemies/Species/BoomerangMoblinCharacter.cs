@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class BoomerangMoblinCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
 
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;

@@ -4,6 +4,8 @@ namespace oracleofages;
 
 public partial class OctorokCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => false;
+
 
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;

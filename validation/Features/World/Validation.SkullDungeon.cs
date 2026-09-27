@@ -135,13 +135,19 @@ public sealed partial class ValidationRoot
         {
             _entities.TextActiveSource = () => true;
             int calls = _random.Calls;
+            // group4Map70 also places two ENEMY $3e:$00 after the traps.
+            // Both categories run state0 under text (bank0.updateEnemies);
+            // enemyStandardUpdate consumes one var3d RNG call per slot.
+            var peahats = _entities.Entities<PeahatCharacter>();
             Step(1);
-            FailIf(_random.Calls != calls + 4 || _entities.Entities<BladeTrapCharacter>().Any(t =>
-                !t.Visible || t.State != BladeTrapState.Initializing || t.SpeedRaw != 8),
-                "Text-active enemy dispatch must run the four state0 traps and their ordered var3d RNG exactly once.");
+            FailIf(_random.Calls != calls + 6 || _entities.Entities<BladeTrapCharacter>().Any(t =>
+                !t.Visible || t.State != BladeTrapState.Initializing || t.SpeedRaw != 8) ||
+                peahats.Count != 2 || peahats.Any(p => !p.Visible || p.State != PeahatState.Stationary || p.Counter != 1),
+                "Text-active 4:$70 dispatch must initialize four traps and two Peahats with six ordered var3d RNG calls.");
             Step(24);
-            FailIf(_random.Calls != calls + 4 || _entities.Entities<BladeTrapCharacter>().Any(t => t.State != BladeTrapState.Initializing),
-                "Initialized blue traps must freeze under text without acquiring Link or consuming RNG.");
+            FailIf(_random.Calls != calls + 6 || _entities.Entities<BladeTrapCharacter>().Any(t => t.State != BladeTrapState.Initializing) ||
+                peahats.Any(p => !p.Visible || p.State != PeahatState.Stationary || p.Counter != 1),
+                "Initialized traps and Peahats must freeze under text without acquiring Link or consuming RNG.");
         }
         finally { _entities.TextActiveSource = textSource; }
         GD.Print("Validated Skull Dungeon blade traps in 4:70/78/8a: ordered placements, non-counting flags, source collision row, common RNG, corridor activation, center limit, retraction and exact cooldown/retrigger.");

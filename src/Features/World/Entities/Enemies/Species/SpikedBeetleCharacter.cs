@@ -10,6 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == SpikedBeetleState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly SpikedBeetleBehaviorProfile _behavior =

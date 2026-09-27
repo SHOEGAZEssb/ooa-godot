@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => !_initialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly RopeBehaviorProfile _behavior =

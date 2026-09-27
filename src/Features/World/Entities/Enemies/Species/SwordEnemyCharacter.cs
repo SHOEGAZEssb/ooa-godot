@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == SwordEnemyState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly SwordEnemyBehaviorProfile _behavior =

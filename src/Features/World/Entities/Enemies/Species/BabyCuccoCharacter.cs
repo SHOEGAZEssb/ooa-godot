@@ -11,6 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == BabyCuccoState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly BabyCuccoBehaviorProfile _behavior =

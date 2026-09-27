@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => !_initialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly WallmasterBehaviorProfile _behavior =

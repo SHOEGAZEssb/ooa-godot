@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>Active subid-$80 form of ENEMY_FLYING_TILE $52.</summary>
 internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == FlyingTileState.Initializing;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly FlyingTileBehaviorProfile _behavior =

@@ -6,6 +6,8 @@ namespace oracleofages;
 
 internal sealed partial class GiantGhiniBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
 
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;

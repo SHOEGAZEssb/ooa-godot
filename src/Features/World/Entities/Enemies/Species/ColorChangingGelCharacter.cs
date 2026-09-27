@@ -6,6 +6,8 @@ namespace oracleofages;
 
 internal partial class ColorChangingGelCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == ColorChangingGelState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly ColorChangingGelBehaviorProfile _behavior =

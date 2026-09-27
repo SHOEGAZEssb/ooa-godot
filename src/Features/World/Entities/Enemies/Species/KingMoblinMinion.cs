@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal sealed partial class KingMoblinMinion : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     internal KingMoblinBoss Boss { get; private set; } = null!;
     internal KingMoblinBomb? Bomb { get; set; }
     internal int State { get; private set; }

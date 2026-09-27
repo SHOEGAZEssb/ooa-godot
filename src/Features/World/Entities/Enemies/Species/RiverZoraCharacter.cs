@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal sealed partial class RiverZoraCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly RiverZoraBehaviorProfile _behavior = EnemyBehaviorTables.Shared.RiverZora;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;

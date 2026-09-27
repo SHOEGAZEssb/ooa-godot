@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal partial class LeeverCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == LeeverState.Uninitialized;
+
     private readonly LeeverBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Leever;
     private OracleRandom _random = null!;

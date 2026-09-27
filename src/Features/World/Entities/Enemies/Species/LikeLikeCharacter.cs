@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly LikeLikeBehaviorProfile _data = EnemyBehaviorTables.Shared.LikeLike;

@@ -7,6 +7,8 @@ namespace oracleofages;
 // grabbed-state motion and common boss death side effects.
 internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     // Both ball and parent initialize through ecom_setSpeedAndState8AndVisible.
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 

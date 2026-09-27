@@ -9,6 +9,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class PolsVoiceCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == PolsVoiceState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly PolsVoiceBehaviorProfile _behavior =

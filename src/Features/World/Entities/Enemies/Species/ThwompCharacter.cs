@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal partial class ThwompCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == ThwompState.Uninitialized;
+
     private const int ArmoredInvincibilityFrames = 28;
     private readonly ArmoredSwordAttackerKnockbackProfile
         _attackerKnockback =

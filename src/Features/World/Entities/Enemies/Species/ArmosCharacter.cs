@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class ArmosCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == ArmosState.Uninitialized;
+
     private readonly ArmosBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Armos;
     private OracleRuntimeState _runtime = null!;

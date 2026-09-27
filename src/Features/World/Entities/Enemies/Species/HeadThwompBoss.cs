@@ -11,6 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class HeadThwompBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private const int ArmoredSwordInvincibilityFrames = 20;
     private static readonly int[,] RotationSpeeds =
     {

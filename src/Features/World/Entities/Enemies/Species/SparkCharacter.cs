@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>ENEMY_SPARK $13 wall-hugging state.</summary>
 internal partial class SparkCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private static readonly Vector2I[,] WallProbeOffsets =
     {
         { new(-4, -9), new(7, 0) },

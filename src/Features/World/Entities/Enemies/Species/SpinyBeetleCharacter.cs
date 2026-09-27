@@ -11,6 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class SpinyBeetleCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == SpinyBeetleState.Uninitialized;
+
     private readonly SpinyBeetleBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SpinyBeetle;
     private OracleRandom _random = null!;

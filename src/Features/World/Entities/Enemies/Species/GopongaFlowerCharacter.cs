@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal sealed partial class GopongaFlowerCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly IReadOnlyList<EnemyBehaviorValue> _profile = EnemyBehaviorTables.Shared.GopongaFlower;
     private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }

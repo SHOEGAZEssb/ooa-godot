@@ -10,6 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == ArrowMoblinState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly ArrowMoblinBehaviorProfile _behavior =

@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>ENEMY_SHADOW_HAG $7a, Moonlit Grotto's main boss.</summary>
 internal sealed partial class ShadowHagBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private static readonly Vector2[] ConvergencePositions =
     [
         new(0x48, 0x38), new(0xb8, 0x38),

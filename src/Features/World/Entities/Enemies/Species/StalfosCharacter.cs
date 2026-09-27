@@ -8,6 +8,8 @@ namespace oracleofages;
 /// </summary>
 public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == StalfosState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly StalfosBehaviorProfile _behavior =

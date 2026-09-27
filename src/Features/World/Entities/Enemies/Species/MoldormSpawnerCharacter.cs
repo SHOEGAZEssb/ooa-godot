@@ -6,6 +6,8 @@ namespace oracleofages;
 
 internal partial class MoldormSpawnerCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private EnemyDatabase _enemies = null!;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;

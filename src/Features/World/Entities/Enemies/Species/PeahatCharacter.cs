@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == PeahatState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly PeahatBehaviorProfile _behavior =

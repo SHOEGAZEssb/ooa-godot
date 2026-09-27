@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>Common enemyCode16: a solid tile with a rotating, charging eye.</summary>
 internal sealed partial class BeamosCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly BeamosBehaviorProfile _data = EnemyBehaviorTables.Shared.Beamos;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;

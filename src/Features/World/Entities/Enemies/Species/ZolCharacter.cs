@@ -5,6 +5,8 @@ namespace oracleofages;
 
 public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => _state == ZolState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     internal int NativeSpeed { get; private set; }

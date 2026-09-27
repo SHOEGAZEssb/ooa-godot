@@ -6,6 +6,8 @@ namespace oracleofages;
 
 internal sealed partial class PodobooTowerCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly IReadOnlyList<EnemyBehaviorValue> _profile = EnemyBehaviorTables.Shared.PodobooTower;
     private OracleRandom _random = null!;
     private int _baseY;

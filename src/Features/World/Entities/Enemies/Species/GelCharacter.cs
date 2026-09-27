@@ -5,6 +5,8 @@ namespace oracleofages;
 
 public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => false;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private readonly GelBehaviorProfile _behavior =

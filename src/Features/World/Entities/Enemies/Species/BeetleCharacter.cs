@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>ENEMY_BEETLE $51:$02/$03, including itemDrop_spawnEnemy's entry states.</summary>
 internal partial class BeetleCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     private OracleRandom _random = null!;

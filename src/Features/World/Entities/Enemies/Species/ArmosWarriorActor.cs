@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>ENEMY_ARMOS_WARRIOR $73's four native enemy slots.</summary>
 internal sealed partial class ArmosWarriorActor : EnemyCharacter
 {
+    internal override bool InitializationPending => Initializing;
+
     private ArmosWarriorEnvironment _world = null!;
     private EnemyTerrainMovement _movement = null!;
     private bool _justHit;

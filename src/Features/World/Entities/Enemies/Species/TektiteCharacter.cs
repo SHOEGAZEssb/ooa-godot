@@ -7,6 +7,8 @@ namespace oracleofages;
 /// separate crouch, ready and launch updates and signed 8.8 jump integration.</summary>
 internal partial class TektiteCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == TektiteState.Uninitialized;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly TektiteBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Tektite;

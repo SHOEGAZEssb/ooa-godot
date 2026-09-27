@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>ENEMY_SUBTERROR $72 native Moonlit Grotto miniboss.</summary>
 internal sealed partial class SubterrorBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private static readonly int[] UndergroundSpeeds = [0x14, 0x28, 0x3c];
     private static readonly int[] DrillAttackWaits = [120, 90, 60];
     private static readonly int[] AboveGroundDurations = [60, 90, 120, 180];

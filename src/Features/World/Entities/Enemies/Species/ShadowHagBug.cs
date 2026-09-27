@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>ENEMY_SHADOW_HAG_BUG $42, an uncounted Shadow Hag child.</summary>
 internal sealed partial class ShadowHagBug : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private ShadowHagBoss _owner = null!;
     private OracleRandom _random = null!;
     private ShadowHagBugState _state;

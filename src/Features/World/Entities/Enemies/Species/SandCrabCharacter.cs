@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal partial class SandCrabCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == SandCrabState.Uninitialized;
+
     private readonly SandCrabBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SandCrab;
     private OracleRandom _random = null!;

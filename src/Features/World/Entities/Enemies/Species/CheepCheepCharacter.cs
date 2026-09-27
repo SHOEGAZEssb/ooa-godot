@@ -5,6 +5,8 @@ namespace oracleofages;
 /// <summary>ENEMY_CHEEP_CHEEP $2c: parameterized horizontal/vertical patrol.</summary>
 internal partial class CheepCheepCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly CheepCheepBehaviorProfile _behavior = EnemyBehaviorTables.Shared.CheepCheep;
     private Vector2 _precisePosition;
     private int _travelCounter;

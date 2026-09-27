@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class GhiniCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == GhiniState.Uninitialized;
+
     private readonly GhiniBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Ghini;
     private OracleRandom _random = null!;

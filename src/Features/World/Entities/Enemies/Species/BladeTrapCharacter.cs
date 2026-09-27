@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>ENEMY_BLADE_TRAP $0e:$01, the blue center-limited trap.</summary>
 internal partial class BladeTrapCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == BladeTrapState.Uninitialized;
+
     private readonly System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue> _behavior =
         EnemyBehaviorTables.Shared.BladeTrap;
     private OracleRoomData _room = null!;

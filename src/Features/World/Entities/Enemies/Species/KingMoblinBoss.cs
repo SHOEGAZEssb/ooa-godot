@@ -7,6 +7,8 @@ namespace oracleofages;
 // ENEMY $7f. The two $56 slots and both bomb parts keep their own dispatches.
 internal sealed partial class KingMoblinBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     internal KingMoblinEnvironment World { get; private set; } = null!;
     internal KingMoblinDatabase Data => World.Data;
     internal int State { get; private set; }

@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>Native ENEMY_EYESOAR $7b and its four ENEMY_EYESOAR_CHILD $11 slots.</summary>
 internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
 {
+    internal override bool InitializationPending => State == 0;
+
     private EyesoarEnvironment _world = null!;
     private EnemyTerrainMovement _movement = null!;
     private readonly List<EyesoarActor> _children = new();

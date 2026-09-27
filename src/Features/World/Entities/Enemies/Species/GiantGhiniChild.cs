@@ -6,6 +6,8 @@ namespace oracleofages;
 
 internal sealed partial class GiantGhiniChild : EnemyCharacter
 {
+    internal override bool InitializationPending => false;
+
 
     private GiantGhiniBoss _owner = null!;
     private ChildState _state;

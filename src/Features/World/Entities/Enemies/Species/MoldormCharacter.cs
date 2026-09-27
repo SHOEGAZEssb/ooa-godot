@@ -8,6 +8,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class MoldormCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly MoldormBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Moldorm;
     private OracleRoomData _room = null!;

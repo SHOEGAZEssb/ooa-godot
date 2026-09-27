@@ -64,6 +64,9 @@ Update eligibility is separate from input ownership. Dialogue, object freezes,
 scrolling, and palette fades can admit state-zero initialization or marked
 effects while freezing initialized actors. Each category samples dialogue at
 entry. Trace the caller's mask as well as the handler's state checks.
+Every enemy character explicitly exposes its pending source initialization
+from its own live state. Palette and object-freeze gates use that eligibility;
+sprite visibility and species-specific dialogue interfaces are not substitutes.
 
 Cross-object signals retain their publication and consumption phases. Link may
 read the preceding enemy or interaction pass before shared signals clear;

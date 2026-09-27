@@ -9,6 +9,8 @@ namespace oracleofages;
 /// </summary>
 public partial class MaskedMoblinCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => _state == MoblinState.Uninitialized;
+
 
     private MaskedMoblinRecord _record;
     private OracleRandom _random = null!;

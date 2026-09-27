@@ -10,6 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal partial class HardhatBeetleCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private readonly HardhatBeetleBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.HardhatBeetle;
     private EnemyTerrainMovement _movement = null!;

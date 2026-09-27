@@ -7,6 +7,8 @@ namespace oracleofages;
 /// <summary>ENEMY_SWOOP $71 native miniboss.</summary>
 internal sealed partial class SwoopBoss : EnemyCharacter
 {
+    internal override bool InitializationPending => false;
+
     private static readonly int[] Speeds = { 0x14, 0x28, 0x3c };
     private static readonly int[] FramesBeforeAttack = { 255, 150, 60 };
 

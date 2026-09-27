@@ -6,6 +6,8 @@ namespace oracleofages;
 /// <summary>ENEMY_WHISP $19 diagonal bouncing state.</summary>
 internal partial class WhispCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => !_initialized;
+
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private bool _initialized;

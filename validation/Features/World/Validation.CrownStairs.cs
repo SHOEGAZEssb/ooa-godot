@@ -5,6 +5,72 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateCrownSwordEnemyFadeInitialization()
+    {
+        foreach (bool batch in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _player.ApplicationUpdateOwned = true;
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                LoadValidationRoom(4, 0xa4);
+                _entities.Clear();
+                Vector2 stair = new(152, 72);
+                FailIf(_currentRoom.GetMetatile(stair) != 0x44,
+                    "4:$a4 stair $49 must retain source tile $44.");
+                Vector2 approach = Vector2.Zero;
+                foreach (Vector2 offset in new[] { Vector2.Down, Vector2.Right, Vector2.Left, Vector2.Up })
+                {
+                    if (_collision.Collides(stair + offset * 16) || _currentRoom.IsSolid(stair + offset * 8))
+                        continue;
+                    approach = -offset;
+                    _player.WarpTo(stair + offset * 16);
+                    break;
+                }
+                FailIf(approach == Vector2.Zero, "4:$a4 stair $49 needs a reachable adjacent floor approach.");
+                for (int i = 0; !IsTransitioning && i < 40; i++)
+                    StepGameplayUpdates(1, approach);
+                FailIf(!IsTransitioning, "Walking onto 4:$a4/$49 must begin the stair warp.");
+                StepGameplayUpdates(32, Vector2.Zero, batched: batch);
+                FailIf(_rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0xb7 ||
+                    !_transitions.PaletteFadeActive || _warpFade.Color.A != 1,
+                    "4:$b7 must load under opaque white before its first destination enemy pass.");
+
+                // enemyData.s group4Mapb7: ENEMY $3d:$00 at Y=$68,X=$78.
+                // swordEnemies.s state0 creates PART $1d, sets state8/visible,
+                // counter1=$01 and subid-$00 chase cooldown=$14.
+                var moblin = _entities.Entities<SwordEnemyCharacter>().Single();
+                FailIf(moblin.Record.Id != 0x3d || moblin.Record.SubId != 0 ||
+                    moblin.Position != new Vector2(120, 104) || !moblin.Visible ||
+                    moblin.State != SwordEnemyState.Wandering || moblin.Counter1 != 1 ||
+                    moblin.Counter2 != 0x14 || moblin.Angle is not (0 or 8 or 16 or 24) ||
+                    _entities.EntityAdapters<EnemySwordRoomEntity>().Count() != 1,
+                    "4:$b7 ENEMY $3d:$00 must finish state0 and create PART $1d while white is opaque.");
+                int angle = moblin.Angle, animation = moblin.AnimationFrame;
+                var random = CaptureOracleRandomForValidation();
+                foreach (int updates in new[] { 1, 14, 16 })
+                {
+                    StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
+                    FailIf(!_transitions.PaletteFadeActive || !moblin.Visible ||
+                        moblin.Position != new Vector2(120, 104) ||
+                        moblin.State != SwordEnemyState.Wandering || moblin.Counter1 != 1 ||
+                        moblin.Counter2 != 0x14 || moblin.Angle != angle ||
+                        moblin.AnimationFrame != animation ||
+                        CaptureOracleRandomForValidation().Calls != random.Calls ||
+                        _entities.EntityAdapters<EnemySwordRoomEntity>().Count() != 1,
+                        "4:$b7 initialized ENEMY $3d must retain visibility, position, counters, animation and RNG through fade update31.");
+                }
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(IsTransitioning || !moblin.Visible || moblin.Counter2 != 0x13,
+                    "4:$b7 ENEMY $3d must resume on terminal fade update32 without popping in.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(!moblin.Visible || moblin.Counter2 != 0x12,
+                    "4:$b7 ENEMY $3d must continue normally after fade completion.");
+            }
+        }
+        ReinitializeGameplayForValidation();
+    }
+
     private void ValidateCrownStairEnemyFadeInitialization()
     {
         foreach (bool batch in new[] { false, true })

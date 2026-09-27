@@ -5,6 +5,8 @@ namespace oracleofages;
 
 internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    internal override bool InitializationPending => State == 0;
+
     int? ITerrainShadowSource.TerrainShadowZHigh => Record.SubId == 0 ? ZFixed >> 8 : null;
 
     private readonly FireKeeseBehaviorProfile _behavior = EnemyBehaviorTables.Shared.FireKeese;

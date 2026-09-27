@@ -4,6 +4,8 @@ namespace oracleofages;
 
 internal sealed partial class BuzzBlobCharacter : EnemyCharacter
 {
+    internal override bool InitializationPending => State == 0;
+
     private readonly BuzzBlobBehaviorProfile _behavior = EnemyBehaviorTables.Shared.BuzzBlob;
     private readonly ScentSeedAttraction _scent = new();
     private OracleRoomData _room = null!;
