@@ -242,7 +242,15 @@ public sealed class RoomCollision
     {
         OracleRoomData room = _rooms.CurrentRoom;
         if (point.X < 0 || point.X >= room.Width || point.Y < 0 || point.Y >= room.Height)
+        {
+            // bank0.s:loadRoomCollisions fills the border with $ff. Link's
+            // checkGivenCollision_allowHoles masks it to special collision
+            // $1f (passable). A synthetic floor here lands side-view Link at
+            // Y=$a9 before his next active/below-tile probes can respawn him.
+            if ((room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0)
+                return false;
             return !_hasNeighborFor(point);
+        }
         return _entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset) != 0
             ? room.IsSolidForRaisedFloorLink(point)
             : room.IsSolid(point);

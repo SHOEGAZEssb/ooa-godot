@@ -609,6 +609,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFallingHoleMovementScratch);
         RunIsolatedValidation(ValidateLinkTopDownSwimming);
         RunIsolatedValidation(ValidateLinkSideScrollSwimming);
+        RunIsolatedValidation(ValidateSideScrollPitRespawn);
         RunIsolatedValidation(ValidateSideScrollSwimmingGameplay);
         RunIsolatedValidation(ValidateLedgeInteractionState);
         RunIsolatedValidation(ValidateFloorDoorRespawnState);
