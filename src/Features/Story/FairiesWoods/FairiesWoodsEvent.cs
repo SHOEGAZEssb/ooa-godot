@@ -198,7 +198,7 @@ internal sealed class FairiesWoodsEvent :
                 break;
 
             case FairiesWoodsStage.CompletionShowInitial:
-                EventResources.CaptureFullScreenFade(zIndex: 48);
+                EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
                 SetFadeAlpha(0.0f);
                 ShowText(0x110a);
                 _stage = FairiesWoodsStage.CompletionWaitInitial;
@@ -429,7 +429,7 @@ internal sealed class FairiesWoodsEvent :
         _savedLinkFacing = _context.Player.FacingVector;
         EventResources.LockInput(onlyIfUnlocked: true);
         CapturePlayerVisibility();
-        EventResources.CaptureFullScreenFade(zIndex: 48);
+        EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
         _fadeCounter = 0;
         _hideRoomIndex = 0;
         _stage = FairiesWoodsStage.HidingFadeOut;
@@ -705,7 +705,7 @@ internal sealed class FairiesWoodsEvent :
 
     private void SetFadeAlpha(float alpha)
     {
-        EventResources.CaptureFullScreenFade(zIndex: 48);
+        EventResources.CaptureFullScreenFade(zIndex: ScreenDrawPriority.DialogueBackdropZIndex);
         _context.Fade.Color = new Color(1, 1, 1, Mathf.Clamp(alpha, 0, 1));
     }
 

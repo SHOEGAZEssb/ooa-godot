@@ -187,7 +187,7 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(raft.DisablesMenus || raft.UsesSpecialObjectSlot ||
             CompanionRuntimeState.IsActive(_entities.RuntimeState, SpecialObjectId.Raft) ||
-            raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex,
+            raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
             "SPECIALOBJECT_RAFT $13 state $02 did not recreate INTERAC_RAFT $e6:$02 on its zero update.");
 
         Step();

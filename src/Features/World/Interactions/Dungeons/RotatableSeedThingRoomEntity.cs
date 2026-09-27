@@ -68,7 +68,7 @@ internal sealed partial class RotatableSeedThingRoomEntity :
         _childZ = data.SeedBouncerChildZ;
         Position = Point(record.PackedPosition);
         Name = $"RotatableSeedThing_{record.Order}";
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
         _rotationStep = (record.SubId & 0x80) != 0 ? -1 : 1;
         if ((record.SubId & 3) == 2 && (record.SubId & 0x40) != 0)

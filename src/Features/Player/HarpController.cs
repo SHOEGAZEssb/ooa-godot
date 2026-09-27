@@ -178,7 +178,7 @@ public sealed class HarpController
                 $"PlayableHarpMusicNote{_noteSerial}"));
         actor.Position = position;
         actor.SetScriptAnimation(effect.Animation);
-        actor.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
         float velocityX = effect.VelocityXFixed / 256.0f;
         if (!floatsRight)
             velocityX = -velocityX;

@@ -261,6 +261,7 @@ public partial class ZolCharacter : EnemyCharacter
                     return UpdateEvent.None;
                 }
                 _state = ZolState.RedHopping;
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
                 NativeSpeed = _behavior.RedHopSpeedRaw;
                 _verticalMotion.SpeedZ = _behavior.InitialSpeedZ;
                 _angle = OracleObjectMovement.Shared.RelativeAngle(
@@ -275,6 +276,7 @@ public partial class ZolCharacter : EnemyCharacter
                 if (!_verticalMotion.Update())
                     return UpdateEvent.None;
                 _state = ZolState.RedWaiting;
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 _counter1 = _behavior.RedWaitFrames;
                 RestartAnimation(4);
                 return UpdateEvent.None;

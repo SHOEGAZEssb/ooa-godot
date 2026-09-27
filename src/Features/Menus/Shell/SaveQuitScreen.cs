@@ -11,6 +11,7 @@ namespace oracleofages;
 /// </summary>
 public partial class SaveQuitScreen : Node2D
 {
+    private const int SaveErrorZIndex = 1;
     private const int MapStride = 32;
     private Texture2D _standardBackground = null!;
     private Texture2D _gameOverBackground = null!;
@@ -87,7 +88,7 @@ public partial class SaveQuitScreen : Node2D
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Visible = false,
-            ZIndex = 1
+            ZIndex = SaveErrorZIndex
         };
         AddChild(_saveError);
         _resourcesPrepared = true;

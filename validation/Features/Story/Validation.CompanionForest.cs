@@ -271,6 +271,11 @@ public sealed partial class ValidationRoot
     private void ValidateAwardedCompanionFlute(int companion, bool primaryButton = false)
     {
         LoadValidationRoom(0, 0x2a);
+        // This is an isolated flute/mount fixture. Live Octorok projectiles
+        // now run in the native PART pass and can knock Link out of the
+        // mounting area; settle the room's threats before calling the animal.
+        foreach (var enemy in _entities.Entities<EnemyCharacter>()) enemy.FinishGale();
+        _entities.Update(1.0 / 60.0, _player);
         for (int y = 8; y < 128; y += 16)
         for (int x = 8; x < 160; x += 16)
             _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(x, y), 0, 0, 0);

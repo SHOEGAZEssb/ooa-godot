@@ -31,7 +31,7 @@ internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2
         _seed.SetAnimation(0);
         _flame.SetAnimation(0);
         Visible = false;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
     }
 
     internal void UpdateNative(bool dialogueOpen)

@@ -33,10 +33,10 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         _lever = lever;
         _connectionStep = connectionStep;
         Name = "LeverConnection";
-        ZIndex = FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Initialize(record);
         SetBlocksLink(false);
-        SetFixedDrawPriority(FixedLowPriorityZIndex);
+        SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
         SetScriptAnimation(animations[0]);
     }
 

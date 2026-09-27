@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
             tingleEntity.ZFixed != tingleRecord.InitialZ << 8 ||
             tingleEntity.BalloonCounter != tingleRecord.BalloonCounter ||
             tingleEntity.BalloonSpeedZ != tingleRecord.BalloonSpeedZ ||
-            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            tingleEntity.Npc.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             tingleEntity.Grounded || tingleEntity.HasEnoughSeedTypes ||
             tutorial079.Record != room079Tutorial ||
             room079Ricky.Phase != RickyCompanionPhase.Waiting,
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
         FailIf(
             tingleEntity.State != 1 || tutorial079.State != 1 ||
             _dialogue.IsOpen ||
-            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+            tingleEntity.Npc.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
             "Room 0:79 state-0 objects did not consume exactly one initial " +
             "update while retaining Tingle's source priority $00 above Link.");
         StepRoomEventFrames(55);
@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
             balloonExplosion.RenderedTextureOrigin !=
                 balloonExplosion.ObjectScreenPosition +
                     new Vector2(-16, -16) ||
-            balloonExplosion.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            balloonExplosion.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             !balloonExplosion.Visible ||
             balloonExplosion.ElapsedUpdates != 0 ||
             balloonExplosion.AnimationFrame != 0 ||
@@ -187,7 +187,7 @@ public sealed partial class ValidationRoot
         FailIf(
             fallUpdates != 25 || !tingleEntity.Grounded ||
             tingleEntity.ZFixed != 0 ||
-            tingleEntity.Npc.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            tingleEntity.Npc.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             _entities.Entities<InteractionExplosionEffect>().Count != 0 ||
             tingleEntity.Npc.CurrentScriptAnimationSource !=
                 tingleDatabase.Animation("tingle", 1),
@@ -196,7 +196,7 @@ public sealed partial class ValidationRoot
 
         StepRoomEventFrames(1);
         FailIf(
-            tingleEntity.Npc.ZIndex != NpcCharacter.BehindLinkZIndex,
+            tingleEntity.Npc.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
             "Tingle's first grounded interactionAnimateAsNpc update did not " +
             "replace fixed airborne priority with Link-relative ordering.");
 
@@ -225,7 +225,7 @@ public sealed partial class ValidationRoot
                 .SequenceEqual(expectedKoolooSparklePositions) ||
             koolooSparkles.Any(sparkle =>
                 sparkle.SourceAngle != 0x10 ||
-                sparkle.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+                sparkle.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
                 sparkle.ElapsedUpdates != 1 || !sparkle.Visible ||
                 sparkle.Finished || sparkle.AnimationFrame != 0 ||
                 sparkle.AnimationParameter != 0 ||
@@ -574,7 +574,7 @@ public sealed partial class ValidationRoot
                 tingleDatabase.UpgradeGlowVisual.SourceOffset != 0x1c00 ||
                 glow.CurrentTexture.GetSize() != new Vector2(48, 48) ||
                 glow.TextureOffset != new Vector2(-24, -24) ||
-                glow.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+                glow.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
                 !glow.CurrentTexture.GetImage().GetUsedRect().HasArea(),
                 "Room 0:79 must initialize visible $84:$04 at Link's Y/X, above Link, without consuming counter1.");
             if (cancelGlow)

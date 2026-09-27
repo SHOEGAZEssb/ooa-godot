@@ -57,7 +57,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
             record.Animation, record.Animation, record.Animation, record.Animation, string.Empty,
             NpcImplementationClassification.SpecializedNative));
         SetAnimationRate(0); // The native handler never calls interactionAnimate.
-        SetFixedDrawPriority(BehindLinkZIndex); // objectSetVisible82
+        SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // objectSetVisible82
         SetScriptVisible(false);
         _precisePosition = Position;
     }

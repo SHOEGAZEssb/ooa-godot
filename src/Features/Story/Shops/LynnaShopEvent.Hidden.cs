@@ -306,7 +306,7 @@ internal sealed partial class LynnaShopEvent
                 else
                 {
                     _round++;
-                    _chestPrizeVisual = new ChestTreasureEffect { ZIndex = 12 };
+                    _chestPrizeVisual = new ChestTreasureEffect { ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
                     _chestPrizeVisual.Initialize(new Vector2(_correctChest == 0 ? 0x78 : 0x58, 0x20),
                         _context.Treasures.GetObjectVisual(_context.Treasures.GetObject("TREASURE_OBJECT_RUPEES_08").Graphic));
                     _context.RoomView.AddChild(_chestPrizeVisual);

@@ -49,7 +49,7 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
         // animation needs positioned bounds; the fixed NPC canvas clips them.
         _syrup.SetScriptAnimation(_data.Animation(0x5f, 0));
         _cucco.SetScriptAnimation(_data.Animation(0xc9, 0));
-        _cucco.ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        _cucco.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // syrupCucco.s: objectSetVisible80
     }
 
     public bool TryInteractPlayer(Player player)

@@ -15,6 +15,18 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private readonly EnemyAnimationPlayer _body;
     private readonly EnemyAnimationPlayer _ghost;
     private readonly EnemyAnimationPlayer _head;
+    private readonly PumpkinHeadDrawLayer[] _drawLayers;
+
+    internal int BodyDrawPriority => _state == BossState.Stomping
+        ? ObjectDrawPriority.InFrontOfLinkZIndex : ObjectDrawPriority.FixedLowPriorityZIndex;
+    internal int GhostDrawPriority => _state is BossState.HeadExposed or BossState.Dying
+        ? ObjectDrawPriority.BehindLinkZIndex
+        : _stompActive && _stompFollowersFalling && !_stompGhostLanded
+            ? ObjectDrawPriority.InFrontOfLinkZIndex : ObjectDrawPriority.FixedLowPriorityZIndex;
+    internal int HeadDrawPriority => _headHeld || _headThrown
+        ? ObjectDrawPriority.InFrontOfLinkZIndex
+        : _stompActive && _stompFollowersFalling && !_stompHeadLanded
+            ? ObjectDrawPriority.FixedHighPriorityZIndex : ObjectDrawPriority.BehindLinkZIndex;
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
     private readonly Action<int> _playSound;
@@ -150,11 +162,22 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _headPosition = position;
         _ghostPosition = position;
         Name = "PumpkinHead";
-        ZIndex = 10;
         Image source = EnemyVisualSource.LoadComposite(record.Sprites);
         _body = BuildAnimation(source, record, _bodyPalette, 0x0d);
         _ghost = BuildAnimation(source, record, _ghostPalette, 0x0a);
         _head = BuildAnimation(source, record, _headPalette, 0x04);
+        _drawLayers = new PumpkinHeadDrawLayer[3];
+        // Source allocation order is body, ghost, head; reverse the painting
+        // order for equal-priority cells. Each part has its own visible byte.
+        for (int part = 2; part >= 0; part--)
+        {
+            _drawLayers[part] = new PumpkinHeadDrawLayer(this, part)
+            {
+                Name = part == 0 ? "Body" : part == 1 ? "Ghost" : "Head",
+                ZAsRelative = false
+            };
+            AddChild(_drawLayers[part]);
+        }
     }
 
     internal void UpdateFrame(
@@ -424,30 +447,38 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     public override void _Draw()
     {
+        _drawLayers[0].ZIndex = BodyDrawPriority;
+        _drawLayers[1].ZIndex = GhostDrawPriority;
+        _drawLayers[2].ZIndex = HeadDrawPriority;
+        foreach (var layer in _drawLayers) layer.QueueRedraw();
+    }
+
+    internal void DrawPart(Node2D canvas, int part)
+    {
         Vector2 offset = TransitionDrawOffset;
         if (_state is BossState.Falling or BossState.Active or
             BossState.PreparingStomp or BossState.Stomping or
             BossState.StompLanded or BossState.Firing)
         {
             int bodyZ = _bodyZFixed >> 8;
-            DrawTexture(
+            if (part == 0) canvas.DrawTexture(
                 _invincibility > 0 && (_frameCounter & 4) == 0
                     ? _body.DamageTexture
                     : _body.CurrentTexture,
                 new Vector2(-16, -16 + bodyZ) + offset);
-            if (_state == BossState.Falling && _introGhostVisible)
+            if (part == 1 && _state == BossState.Falling && _introGhostVisible)
             {
-                DrawTexture(_ghost.CurrentTexture,
+                canvas.DrawTexture(_ghost.CurrentTexture,
                     new Vector2(-16, -16 + _ghostZ) + offset);
             }
-            else if (_stompGhostVisible)
+            else if (part == 1 && _stompGhostVisible)
             {
-                DrawTexture(_ghost.CurrentTexture,
+                canvas.DrawTexture(_ghost.CurrentTexture,
                     _ghostPosition - Position +
                     new Vector2(-16, -16 + _ghostZ) + offset);
             }
             int headDrawZ = _stompActive ? _headZ : _headZ + bodyZ;
-            DrawTexture(_head.CurrentTexture,
+            if (part == 2) canvas.DrawTexture(_head.CurrentTexture,
                 _headPosition - Position + new Vector2(
                     -16, -16 + headDrawZ) + offset);
             return;
@@ -455,10 +486,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         if (_state is BossState.HeadExposed or BossState.Regenerating or
             BossState.Dying)
         {
-            if (_state == BossState.Dying ||
-                _state == BossState.HeadExposed && _ghostVisible)
+            if (part == 1 && (_state == BossState.Dying ||
+                _state == BossState.HeadExposed && _ghostVisible))
             {
-                DrawTexture(
+                canvas.DrawTexture(
                     _ghostInvincibility > 0 && (_frameCounter & 4) == 0
                         ? _ghost.DamageTexture
                         : _ghost.CurrentTexture,
@@ -468,13 +499,13 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             {
                 if (_state != BossState.Regenerating || _regeneratingBodyVisible)
                 {
-                    if (_state == BossState.Regenerating && _regeneratingBodyVisible)
+                    if (part == 0 && _state == BossState.Regenerating && _regeneratingBodyVisible)
                     {
-                        DrawTexture(_body.CurrentTexture,
+                        canvas.DrawTexture(_body.CurrentTexture,
                             new Vector2(-16, -16) + offset);
                     }
                 }
-                DrawTexture(_head.CurrentTexture,
+                if (part == 2) canvas.DrawTexture(_head.CurrentTexture,
                     _headPosition - Position + new Vector2(-16, -16 + _headZ) + offset);
             }
         }

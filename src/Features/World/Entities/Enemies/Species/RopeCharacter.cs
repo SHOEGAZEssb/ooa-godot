@@ -147,6 +147,7 @@ internal partial class RopeCharacter : EnemyCharacter
             if ((height & 0x80) == 0) height = 0x80;
             _zFixed = (height - 0x100) << 8;
             _state = RopeState.Falling;
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             Visible = true;
             _playSound(SoundId.SndFallInHole);
             QueueRedraw();
@@ -158,6 +159,7 @@ internal partial class RopeCharacter : EnemyCharacter
             {
                 _speedZ = 0;
                 _scentEnabled = true;
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 _playSound(SoundId.SndBombLand);
                 ChangeDirection();
                 AdvanceAnimation();

@@ -26,7 +26,7 @@ public partial class ValidationRoot
                     actor.InvincibilityCounter != -3 || actor.State != (tick == 5 ? 8 : 0) || actor.AnimationFrame != 0,
                     "Frozen state0 Smog must reload health and draw var3d RNG on every merge-delay update, without the normal invincibility tail.");
             }
-            FailIf(actor.ProjectileCounter != 40 || actor.ZIndex != NpcCharacter.BehindLinkZIndex,
+            FailIf(actor.ProjectileCounter != 40 || actor.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
                 "Merge completion must consume a separate timer RNG draw after var3d and select visible$c2 priority.");
             actor.UpdateNativeFrame(true,frame++,Random,() => FailIf(true,"Initialized Smog must freeze."),() => { });
             FailIf(randomCalls != 6 || actor.InvincibilityCounter != -3, "Frozen state8 must skip handler/RNG/invincibility.");

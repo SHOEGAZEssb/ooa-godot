@@ -35,7 +35,7 @@ internal sealed partial class Room5bfSlidingBlock : NpcCharacter,
         _baseX = record.X;
         _movesRight = record.Var03 != 0;
         Name = $"Room5bfSlidingBlock_{record.Order}";
-        ZIndex = BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Initialize(record.ToNpcRecord());
         SetCollisionRadii(constants.BlockRadius, constants.BlockRadius);
         SetScriptPaletteOverride(palette);

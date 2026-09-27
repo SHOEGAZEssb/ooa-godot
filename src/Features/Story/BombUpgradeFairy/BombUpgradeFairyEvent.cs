@@ -73,7 +73,7 @@ internal sealed class BombUpgradeFairyEvent : InteractiveCutsceneCommandHost, IR
                 State = 3;
                 _fairy!.Position = new Vector2(_fairy.Position.X, 0x28);
                 Spawn("sparkle", _fairy.Position, alwaysUpdate: true);
-                _fairy.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex); // objectSetVisible81
+                _fairy.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // objectSetVisible81
                 _fairy.SetScriptVisible(true);
                 _runner.Start(Database.Commands);
                 Spawn("silver", new Vector2(0x5a, 0x3c));
@@ -113,7 +113,7 @@ internal sealed class BombUpgradeFairyEvent : InteractiveCutsceneCommandHost, IR
         actor.SetGraphicsSourceOffset(Database.SourceOffset(kind));
         actor.SetSourceGrayscaleInverted(Database.SourceGrayscaleInverted(kind));
         actor.SetScriptVisible(false);
-        actor.SetFixedDrawPriority(kind is "silver" or "bomb" ? NpcCharacter.BehindLinkZIndex : NpcCharacter.FixedHighPriorityZIndex);
+        actor.SetFixedDrawPriority(kind is "silver" or "bomb" ? ObjectDrawPriority.BehindLinkZIndex : ObjectDrawPriority.FixedHighPriorityZIndex);
         var effect = new BombFairyActor(actor, kind, alwaysUpdate, delay);
         _effects.Add(effect);
         return effect;

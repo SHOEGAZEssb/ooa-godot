@@ -95,10 +95,7 @@ internal sealed partial class MinecartGateRoomEntity : DungeonInteractionVisualE
     {
         // Both waiting states and the transition state call
         // objectSetPriorityRelativeToLink using the shared $0b threshold.
-        ZIndex = Position.Y >
-            player.Position.Y + NpcCharacter.LinkPriorityYOffset
-                ? NpcCharacter.InFrontOfLinkZIndex
-                : NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y);
     }
 
     private void ApplyGateState()

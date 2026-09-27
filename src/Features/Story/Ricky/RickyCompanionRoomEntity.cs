@@ -288,7 +288,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         Name = $"Ricky_{_group:x1}_{_roomId:x2}";
         ZIndex = LinkRiding
-            ? NpcCharacter.BehindLinkZIndex
+            ? ObjectDrawPriority.BehindLinkZIndex
             : Player.NormalZIndex;
         Visible = true;
     }
@@ -456,7 +456,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _speedZ = 0;
         _hopCounter = _behavior.HopDelay;
         _screenTransitionsDisabled = false;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         SetAnimation(_behavior.IdleAnimation + _direction);
         CompanionRuntimeState.Begin(
             _runtime,
@@ -1375,12 +1375,10 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if (LinkRiding)
         {
-            ZIndex = NpcCharacter.BehindLinkZIndex;
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex;
             return;
         }
-        ZIndex = Position.Y > player.Position.Y + NpcCharacter.LinkPriorityYOffset
-            ? NpcCharacter.InFrontOfLinkZIndex
-            : NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y, _zFixed >> 8);
     }
 
     public void SetScreenTransitionBoundaryCoordinate(

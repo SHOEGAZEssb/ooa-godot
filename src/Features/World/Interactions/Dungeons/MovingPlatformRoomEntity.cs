@@ -46,7 +46,7 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
         _playingInstrument = playingInstrument;
         _precisePosition = position;
         Name = $"MovingPlatform_{Script}";
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         InitializeVisual(visual, position, positionedOam: true);
         Visible = false;
     }

@@ -19,7 +19,7 @@ internal sealed partial class TokayEntranceEyeRoomEntity : TransitionOffsetNode2
         Record = record;
         Name = $"TokayEntranceEye_{record.SubId:x2}";
         Position = new Vector2(record.X, record.Y);
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             EnemyVisualSource.LoadComposite([record.Sprite]),

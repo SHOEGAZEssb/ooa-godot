@@ -171,8 +171,8 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         }
         _animation.Advance();
         Visible = true;
-        ZIndex = player.Position.Y < Position.Y
-            ? NpcCharacter.InFrontOfLinkZIndex : NpcCharacter.BehindLinkZIndex;
+        ZIndex = (Mathf.FloorToInt(player.Position.Y) & 0xff) < (Mathf.FloorToInt(Position.Y) & 0xff)
+            ? ObjectDrawPriority.InFrontOfLinkZIndex : ObjectDrawPriority.BehindLinkZIndex;
         QueueRedraw();
     }
 

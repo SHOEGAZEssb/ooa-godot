@@ -694,7 +694,7 @@ internal sealed class WildTokayGameEvent : TokayScriptEvent, IRoomEvent
         participant.Accessory.SetAnimationRate(0.0f);
         participant.Accessory.SetBlocksLink(false);
         participant.Accessory.SetFixedDrawPriority(
-            NpcCharacter.InFrontOfLinkZIndex);
+            ObjectDrawPriority.InFrontOfLinkZIndex);
         UpdateParticipantAccessory(participant);
     }
 

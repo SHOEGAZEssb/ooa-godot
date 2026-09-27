@@ -51,7 +51,7 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
             State = 1;
             Counter = 8;
             Visible = true;
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             return;
         }
         if (_healthCleared || _pendingCollision)

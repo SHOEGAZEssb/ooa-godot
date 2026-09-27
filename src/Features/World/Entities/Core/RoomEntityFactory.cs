@@ -1267,7 +1267,7 @@ internal sealed class RoomEntityFactory(
             foreach (StockRecord stock in database.ResolveStock(saveData))
             {
                 var item = new LynnaShopItem { Name = $"SyrupStock_{stock.Order}_{stock.Item.SubId:x2}",
-                    ZIndex = NpcCharacter.FixedLowPriorityZIndex };
+                    ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
                 item.Initialize(stock, room);
                 yield return new LynnaShopItemRoomEntity(item);
             }
@@ -1345,7 +1345,7 @@ internal sealed class RoomEntityFactory(
             var gasha = new GashaSpotInteraction
             {
                 Name = $"GashaSpot_{spot.SubId:x2}",
-                ZIndex = 12
+                ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
             };
             gasha.Initialize(
                 _gashaSpots, spot, room, saveData, inventory,
@@ -1363,7 +1363,7 @@ internal sealed class RoomEntityFactory(
             var treasure = new GroundTreasurePickup
             {
                 Name = $"GroundTreasure_{record.Order}",
-                ZIndex = 12
+                ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
             };
             treasure.Initialize(record, soundRequested, worldToScreen, room);
             yield return new GroundTreasureRoomEntity(
@@ -1412,7 +1412,7 @@ internal sealed class RoomEntityFactory(
             var maple = new MapleEncounter
             {
                 Name = "Maple",
-                ZIndex = 11
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
             };
             maple.Initialize(
                 activeGroup,
@@ -1627,7 +1627,7 @@ internal sealed class RoomEntityFactory(
                 var giantGhini = new GiantGhiniBoss
                 {
                     Name = "GiantGhini",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
                 };
                 giantGhini.Initialize(
                     _dungeonBosses.Enemy(EnemyId.GiantGhini), room, record.Position, random,
@@ -2613,7 +2613,7 @@ internal sealed class RoomEntityFactory(
 
         if (handler.Handler == EnemyHandlerKind.Beamos)
         {
-            var beamos = new BeamosCharacter { Name = $"Beamos_16_{source.Order}_{instance}", ZIndex = 10 };
+            var beamos = new BeamosCharacter { Name = $"Beamos_16_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
             beamos.Initialize(enemies.ImportedEnemy(EnemyId.Beamos), room, position, random,
                 soundRequested, freePartSlotAvailable, animationTick);
             return new BeamosRoomEntity(beamos, (source.Flags & 2) == 0);
@@ -2647,7 +2647,7 @@ internal sealed class RoomEntityFactory(
             var babyCucco = new BabyCuccoCharacter
             {
                 Name = $"BabyCucco_{source.Order}_{instance}",
-                ZIndex = 10
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             babyCucco.Initialize(
                 babyCuccoRecord,
@@ -2670,7 +2670,7 @@ internal sealed class RoomEntityFactory(
             var cucco = new CuccoCharacter
             {
                 Name = $"Cucco_{source.Order}_{instance}",
-                ZIndex = 10
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             cucco.Initialize(
                 cuccoRecord,
@@ -2703,7 +2703,7 @@ internal sealed class RoomEntityFactory(
                 var cheepCheep = new CheepCheepCharacter
                 {
                     Name = $"CheepCheep_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 cheepCheep.Initialize(enemies.ImportedEnemy(source.Id, source.SubId),
                     room, position, source.Var03);
@@ -2718,7 +2718,7 @@ internal sealed class RoomEntityFactory(
                 var keese = new KeeseCharacter
                 {
                     Name = $"Keese_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 keese.Initialize(keeseRecord, room, position, random);
                 return new KeeseRoomEntity(
@@ -2733,7 +2733,7 @@ internal sealed class RoomEntityFactory(
                 var crow = new CrowCharacter
                 {
                     Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
                 };
                 crow.Initialize(crowRecord, room, position, random);
                 return new CrowRoomEntity(
@@ -2748,7 +2748,7 @@ internal sealed class RoomEntityFactory(
                 var octorok = new OctorokCharacter
                 {
                     Name = $"Octorok_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 octorok.Initialize(octorokRecord, room, position, random);
                 return new OctorokRoomEntity(
@@ -2757,28 +2757,28 @@ internal sealed class RoomEntityFactory(
             case EnemyHandlerKind.RiverZora:
                 var zora = new RiverZoraCharacter
                 {
-                    Name = $"RiverZora_{source.Order}_{instance}", ZIndex = 10
+                    Name = $"RiverZora_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
                 };
                 zora.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
                 return new RiverZoraRoomEntity(zora, combatSource, soundRequested,
                     () => new Vector2(0, OracleRoomData.StatusBarHeight) - worldToScreen(Vector2.Zero));
 
             case EnemyHandlerKind.GopongaFlower:
-                var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = 10 };
+                var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
                 flower.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), position, random);
                 return new GopongaFlowerRoomEntity(flower, combatSource, soundRequested);
 
             case EnemyHandlerKind.BuzzBlob:
                 var buzzBlob = new BuzzBlobCharacter
                 {
-                    Name = $"BuzzBlob_{source.Order}_{instance}", ZIndex = 10
+                    Name = $"BuzzBlob_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 buzzBlob.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
                 return new BuzzBlobRoomEntity(buzzBlob, combatSource, soundRequested,
                     (id, _, origin) => roomEntityDialogueRequested(id, enemies.CukemanText(id), origin));
 
             case EnemyHandlerKind.Gibdo:
-                var gibdo = new GibdoCharacter { Name = $"Gibdo_{source.Order}_{instance}", ZIndex = 10 };
+                var gibdo = new GibdoCharacter { Name = $"Gibdo_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 gibdo.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
                 return new GibdoRoomEntity(gibdo, source, combatSource, soundRequested, freePartSlotAvailable, () => random.Next().Value);
 
@@ -2794,7 +2794,7 @@ internal sealed class RoomEntityFactory(
                 return new BallChainSoldierRoomEntity(soldier, combatSource, soundRequested, enemySlotsAvailable, _spikedBall);
 
             case EnemyHandlerKind.FireKeese:
-                var fireKeese = new FireKeeseCharacter { Name = $"FireKeese_{source.Order}_{instance}", ZIndex = 10 };
+                var fireKeese = new FireKeeseCharacter { Name = $"FireKeese_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 fireKeese.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
                 return new FireKeeseRoomEntity(fireKeese, combatSource, soundRequested, freePartSlotAvailable, () => random.Next().Value);
 
@@ -2807,7 +2807,7 @@ internal sealed class RoomEntityFactory(
                 var stalfos = new StalfosCharacter
                 {
                     Name = $"Stalfos_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 stalfos.Initialize(stalfosRecord, room, position, random, soundRequested, replacementZHigh);
                 return new StalfosRoomEntity(
@@ -2822,7 +2822,7 @@ internal sealed class RoomEntityFactory(
                 var zol = new ZolCharacter
                 {
                     Name = $"Zol_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 zol.Initialize(zolRecord, room, position, random, soundRequested);
                 return new ZolRoomEntity(
@@ -2837,7 +2837,7 @@ internal sealed class RoomEntityFactory(
                 var moblin = new BoomerangMoblinCharacter
                 {
                     Name = $"BoomerangMoblin_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 moblin.Initialize(moblinRecord, room, position, random);
                 return new BoomerangMoblinRoomEntity(
@@ -2852,7 +2852,7 @@ internal sealed class RoomEntityFactory(
                 var leever = new LeeverCharacter
                 {
                     Name = $"Leever_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 leever.Initialize(leeverRecord, room, position, random);
                 return new LeeverRoomEntity(
@@ -2861,14 +2861,14 @@ internal sealed class RoomEntityFactory(
             case EnemyHandlerKind.ArrowDarknut:
                 if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition darknutRecord))
                     throw MissingEnemyDefinition(handler, source);
-                var darknut = new ArrowDarknutCharacter { Name = $"ArrowDarknut_{source.Order}_{instance}", ZIndex = 10 };
+                var darknut = new ArrowDarknutCharacter { Name = $"ArrowDarknut_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 darknut.Initialize(darknutRecord, room, position, random);
                 return new ArrowDarknutRoomEntity(darknut, combatSource, soundRequested);
 
             case EnemyHandlerKind.PodobooTower:
                 if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition towerRecord))
                     throw MissingEnemyDefinition(handler, source);
-                var tower = new PodobooTowerCharacter { Name = $"PodobooTower_{source.Order}_{instance}", ZIndex = 10 };
+                var tower = new PodobooTowerCharacter { Name = $"PodobooTower_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 tower.Initialize(towerRecord, position, random);
                 return new PodobooTowerRoomEntity(tower, combatSource, soundRequested);
 
@@ -2881,7 +2881,7 @@ internal sealed class RoomEntityFactory(
                 var arrowMoblin = new ArrowMoblinCharacter
                 {
                     Name = $"ArrowMoblin_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 arrowMoblin.Initialize(
                     arrowMoblinRecord, room, position, random);
@@ -2893,7 +2893,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"MaskedMoblin_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 maskedMoblin.Initialize(
                     enemies.MaskedMoblin, room, position, random);
@@ -2909,7 +2909,7 @@ internal sealed class RoomEntityFactory(
                 var rope = new RopeCharacter
                 {
                     Name = $"Rope_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 rope.Initialize(ropeRecord, room, position, random, soundRequested,
                     () => -(int)worldToScreen(Vector2.Zero).Y);
@@ -2919,7 +2919,7 @@ internal sealed class RoomEntityFactory(
             case EnemyHandlerKind.BladeTrap:
                 if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition trapRecord))
                     throw MissingEnemyDefinition(handler, source);
-                var trap = new BladeTrapCharacter { Name = $"BladeTrap_{source.Order}_{instance}", ZIndex = 10 };
+                var trap = new BladeTrapCharacter { Name = $"BladeTrap_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 trap.Initialize(trapRecord, room, position, random, soundRequested);
                 return new BladeTrapRoomEntity(trap, combatSource, soundRequested);
 
@@ -2932,7 +2932,7 @@ internal sealed class RoomEntityFactory(
                 var polsVoice = new PolsVoiceCharacter
                 {
                     Name = $"PolsVoice_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 polsVoice.Initialize(
                     polsVoiceRecord, room, position, random);
@@ -2948,7 +2948,7 @@ internal sealed class RoomEntityFactory(
                 var moldorm = new MoldormSpawnerCharacter
                 {
                     Name = $"Moldorm_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 moldorm.Initialize(moldormRecord, enemies, room, position, random, combatSource,
                     enemySlotsAvailable, moldormKillRelatedParts, soundRequested);
@@ -2963,7 +2963,7 @@ internal sealed class RoomEntityFactory(
                 var spark = new SparkCharacter
                 {
                     Name = $"Spark_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 spark.Initialize(sparkRecord, room, position);
                 spark.ConfigureTransformation(tryCreateTransformationPuff, interactionAnimationParameter, tryCreateSparkFairy);
@@ -2979,7 +2979,7 @@ internal sealed class RoomEntityFactory(
                 var whisp = new WhispCharacter
                 {
                     Name = $"Whisp_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 whisp.Initialize(whispRecord, room, position, random);
                 whisp.ConfigureTransformation(tryCreateTransformationPuff, interactionAnimationParameter, tryCreateSparkFairy);
@@ -2995,7 +2995,7 @@ internal sealed class RoomEntityFactory(
                 var sandCrab = new SandCrabCharacter
                 {
                     Name = $"SandCrab_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 sandCrab.Initialize(
                     sandCrabRecord, room, position, random);
@@ -3011,7 +3011,7 @@ internal sealed class RoomEntityFactory(
                 var thwomp = new ThwompCharacter
                 {
                     Name = $"Thwomp_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 thwomp.Initialize(thwompRecord, room, position);
                 return new ThwompRoomEntity(
@@ -3026,7 +3026,7 @@ internal sealed class RoomEntityFactory(
                 var peahat = new PeahatCharacter
                 {
                     Name = $"Peahat_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 peahat.Initialize(peahatRecord, room, position, random);
                 return new PeahatRoomEntity(
@@ -3035,7 +3035,7 @@ internal sealed class RoomEntityFactory(
             case EnemyHandlerKind.Tektite:
                 if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition tektiteRecord))
                     throw MissingEnemyDefinition(handler, source);
-                var tektite = new TektiteCharacter { Name = $"Tektite_{source.Order}_{instance}", ZIndex = 10 };
+                var tektite = new TektiteCharacter { Name = $"Tektite_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
                 tektite.Initialize(tektiteRecord, room, position, random, soundRequested);
                 return new TektiteRoomEntity(tektite, combatSource, soundRequested);
 
@@ -3049,7 +3049,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"ColorChangingGel_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 colorGel.Initialize(
                     colorGelRecord,
@@ -3070,7 +3070,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"SwordEnemy_{source.Id:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 swordEnemy.Initialize(
                     swordEnemyRecord, room, position, random);
@@ -3086,7 +3086,7 @@ internal sealed class RoomEntityFactory(
                 var ghini = new GhiniCharacter
                 {
                     Name = $"Ghini_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
                 };
                 ghini.Initialize(ghiniRecord, room, position, random);
                 return new GhiniRoomEntity(
@@ -3102,7 +3102,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"SpikedBeetle_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 spikedBeetle.Initialize(
                     spikedBeetleRecord,
@@ -3123,7 +3123,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"SpinyBeetle_{source.SubId:x2}_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
                 };
                 spinyBeetle.Initialize(
                     spinyBeetleRecord,
@@ -3145,7 +3145,7 @@ internal sealed class RoomEntityFactory(
                 var wallmaster = new WallmasterCharacter
                 {
                     Name = $"Wallmaster_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
                 };
                 wallmaster.Initialize(
                     wallmasterRecord, room, position, source.Y);
@@ -3167,7 +3167,7 @@ internal sealed class RoomEntityFactory(
                 {
                     Name =
                         $"HardhatBeetle_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 hardhatBeetle.Initialize(
                     hardhatBeetleRecord, room, position);
@@ -3186,7 +3186,7 @@ internal sealed class RoomEntityFactory(
                 var armMimic = new ArmMimicCharacter
                 {
                     Name = $"ArmMimic_{source.Order}_{instance}",
-                    ZIndex = 10
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 armMimic.Initialize(
                     armMimicRecord,
@@ -3456,7 +3456,7 @@ internal sealed class RoomEntityFactory(
         VolcanoRockSpawn rock => new VolcanoRockRoomEntity(new VolcanoRock(
             rock.Position, _volcano, room, random, soundRequested, worldToScreen)),
         ZoraFireSpawn fire => new ZoraFireRoomEntity(new ZoraFireProjectile(
-            fire, _zoraFire, worldToScreen) { Name = "ZoraFire", ZIndex = 10 }),
+            fire, _zoraFire, worldToScreen) { Name = "ZoraFire", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex }),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),
         ArmosSpawn armos => CreateArmos(armos, room),
@@ -3519,7 +3519,7 @@ internal sealed class RoomEntityFactory(
         BoomerangSpawn boomerang => new BoomerangRoomEntity(new BoomerangItem(room, boomerang.Position,
             boomerang.Angle, boomerang.ZHigh, () => RingEffects.BoomerangDamage(BoomerangDatabase.Shared.Damage,
                 inventory ?? throw new InvalidOperationException("ITEM_BOOMERANG $06 requires the live inventory ring owner.")),
-            soundRequested, tryCreateBoomerangClink) { Name = "Boomerang", ZIndex = 10 }),
+            soundRequested, tryCreateBoomerangClink) { Name = "Boomerang", ZIndex = ObjectDrawPriority.BehindLinkZIndex }),
         HeadThwompBombDropSpawn drop =>
             CreateHeadThwompBombDrop(drop, room),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
@@ -3704,7 +3704,7 @@ internal sealed class RoomEntityFactory(
         var npc = new NpcCharacter
         {
             Name = "MooshHoverExclamation",
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         npc.Initialize(record);
         soundRequested(visual.WaterExclamationSound);
@@ -3749,7 +3749,7 @@ internal sealed class RoomEntityFactory(
         var seed = new SeedOnTree
         {
             Name = $"SeedOnTree_{index}",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
         };
         seed.Initialize(
             _seedTrees,
@@ -3808,7 +3808,7 @@ internal sealed class RoomEntityFactory(
         var child = new GiantGhiniChild
         {
             Name = $"GiantGhiniChild_{spawn.Index}",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         child.Initialize(
             _dungeonBosses.Enemy(EnemyId.GiantGhiniChild), spawn.Owner, room, spawn.Index);
@@ -3915,7 +3915,7 @@ internal sealed class RoomEntityFactory(
             enemies.MoblinBoomerang)
         {
             Name = "MoblinBoomerang",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         return new MoblinBoomerangRoomEntity(boomerang);
     }
@@ -3925,7 +3925,7 @@ internal sealed class RoomEntityFactory(
         var meat = new WildTokayMeat
         {
             Name = "WildTokayMeat",
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         meat.Initialize(
             _wildTokayMeat,
@@ -3992,7 +3992,7 @@ internal sealed class RoomEntityFactory(
             var holder = new TokayHoldingItemCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             holder.InitializeHoldingItem(
                 record,
@@ -4066,7 +4066,7 @@ internal sealed class RoomEntityFactory(
                 !saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40))
                 shovel = new TokayAttachedVisualRoomEntity(tokayActor,
                     _tokayNative.Visual("rosa-shovel", record.Group, record.Room), new Vector2(0x48, 0x38))
-                    { FollowParent = false, ZIndex = NpcCharacter.InFrontOfLinkZIndex };
+                    { FollowParent = false, ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
             return new RosaNpcRoomEntity(tokayActor, inventory!, shovel);
         }
 
@@ -4078,7 +4078,7 @@ internal sealed class RoomEntityFactory(
             var keeper = new ShootingGalleryCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             keeper.InitializeShootingGallery(record);
             return new ShootingGalleryNpcRoomEntity(keeper);
@@ -4091,7 +4091,7 @@ internal sealed class RoomEntityFactory(
             var comedian = new ComedianCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             comedian.InitializeComedian(record, _comedian.Record);
             return new ComedianRoomEntity(comedian);
@@ -4106,7 +4106,7 @@ internal sealed class RoomEntityFactory(
             var man = new DumbbellManCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             man.InitializeDumbbellMan(record, _dumbbellMan.Record);
             return new DumbbellManRoomEntity(man);
@@ -4116,7 +4116,7 @@ internal sealed class RoomEntityFactory(
             var zora = new OldZoraCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             zora.InitializeOldZora(record);
             return new OldZoraRoomEntity(zora);
@@ -4129,7 +4129,7 @@ internal sealed class RoomEntityFactory(
             var salesman = new MaskSalesmanCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             salesman.InitializeMaskSalesman(record, _maskSalesman.Record);
             return new MaskSalesmanRoomEntity(salesman);
@@ -4139,7 +4139,7 @@ internal sealed class RoomEntityFactory(
             var cheval = new ChevalCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             cheval.InitializeCheval(record, _cheval.Record);
             return new ChevalRoomEntity(cheval, _cheval.Record);
@@ -4149,7 +4149,7 @@ internal sealed class RoomEntityFactory(
             var ralph = new RalphAfterChevalCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             ralph.InitializeRalph(record, _ralphAfterCheval.Record);
             return new RalphAfterChevalRoomEntity(ralph);
@@ -4159,7 +4159,7 @@ internal sealed class RoomEntityFactory(
             var ralph = new RalphAfterRaftonCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             ralph.InitializeRalph(record, _ralphAfterRafton.Record);
             return new RalphAfterRaftonRoomEntity(ralph);
@@ -4169,7 +4169,7 @@ internal sealed class RoomEntityFactory(
             var rafton = new RaftonCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             rafton.InitializeRafton(record, _rafton.Record);
             return new RaftonRoomEntity(rafton);
@@ -4182,7 +4182,7 @@ internal sealed class RoomEntityFactory(
             var boy = new DepressedBoyCharacter
             {
                 Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             boy.InitializeDepressedBoy(record);
             return new DepressedBoyRoomEntity(boy);
@@ -4204,7 +4204,7 @@ internal sealed class RoomEntityFactory(
             {
                 Name =
                     $"Npc_{record.Id:x2}_{record.SubId:x2}_{record.Var03:x2}",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             poe.InitializePoe(record, _poe.Record);
             return new PoeRoomEntity(poe, _poe.Record, saveData);
@@ -4221,7 +4221,7 @@ internal sealed class RoomEntityFactory(
             var postman = new PostmanCharacter
             {
                 Name = "Npc_55_00",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             postman.InitializePostman(record);
             return new PostmanRoomEntity(postman);
@@ -4238,7 +4238,7 @@ internal sealed class RoomEntityFactory(
             var toiletHand = new ToiletHandCharacter
             {
                 Name = "Npc_5b_00",
-                ZIndex = NpcCharacter.BehindLinkZIndex
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             toiletHand.InitializeToiletHand(
                 record, _toiletHand.Record);
@@ -4354,7 +4354,7 @@ internal sealed class RoomEntityFactory(
         var ball = new ShootingGalleryBall
         {
             Name = "ShootingGalleryBall",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         ball.Initialize(
             spawn.Session.VariantDatabase ?? _shootingGallery,
@@ -4373,7 +4373,7 @@ internal sealed class RoomEntityFactory(
         var debris = new ShootingGalleryTargetDebris
         {
             Name = "ShootingGalleryTargetDebris",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         debris.Initialize(_shootingGallery.Debris, spawn);
         return new ShootingGalleryTargetDebrisRoomEntity(debris);
@@ -4456,7 +4456,7 @@ internal sealed class RoomEntityFactory(
         var npc = new NpcCharacter
         {
             Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
-            ZIndex = NpcCharacter.BehindLinkZIndex
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         npc.Initialize(record);
         return npc;
@@ -4603,7 +4603,7 @@ internal sealed class RoomEntityFactory(
             var item = new LynnaShopItem
             {
                 Name = $"ShopItem_{stock.Order}_{stock.Item.SubId:x2}",
-                ZIndex = NpcCharacter.FixedLowPriorityZIndex
+                ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
             };
             item.Initialize(stock, room);
             yield return new LynnaShopItemRoomEntity(item);
@@ -4677,7 +4677,7 @@ internal sealed class RoomEntityFactory(
             var item = new TokayShopItem
             {
                 Name = $"TokayShopItem_{placement.Order}_{subId:x2}",
-                ZIndex = NpcCharacter.FixedLowPriorityZIndex
+                ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
             };
             item.Initialize(
                 visual, placement.PlacedSubId, subId, treasure,
@@ -4836,7 +4836,7 @@ internal sealed class RoomEntityFactory(
         var ball = new Room149Ball
         {
             Name = "Room149Ball",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         ball.Initialize(_room149.Visual("ball"));
         var family = new Room149FamilyInteraction(
@@ -4882,7 +4882,7 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateRock(OctorokRockSpawn spawn, OracleRoomData room)
     {
-        var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = 10 };
+        var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         rock.Initialize(enemies.OctorokProjectile, room, spawn.Position, spawn.Angle);
         return new HostileProjectileRoomEntity<OctorokRockProjectile>(rock);
     }
@@ -4893,7 +4893,7 @@ internal sealed class RoomEntityFactory(
         var moblin = new MaskedMoblinCharacter
         {
             Name = "MaskedMoblin",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         moblin.Initialize(enemies.MaskedMoblin, room, spawn.Position, random);
         EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
@@ -4913,7 +4913,7 @@ internal sealed class RoomEntityFactory(
     private IRoomEntity CreateGhini(GhiniSpawn spawn, OracleRoomData room)
     {
         ImportedEnemyDefinition record = enemies.ImportedEnemy(EnemyId.Ghini, 0x00);
-        var ghini = new GhiniCharacter { Name = spawn.Name, ZIndex = 10 };
+        var ghini = new GhiniCharacter { Name = spawn.Name, ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         ghini.Initialize(record, room, spawn.Position, random);
         const string source =
             "scripts/ages/scripts.s:ghiniHarassingMoosh_*:spawnenemyhere";
@@ -4933,7 +4933,7 @@ internal sealed class RoomEntityFactory(
         var armos = new ArmosCharacter
         {
             Name = "RedArmos",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         armos.Initialize(
             enemies.ImportedEnemy(EnemyId.Armos),
@@ -4953,7 +4953,7 @@ internal sealed class RoomEntityFactory(
         var tile = new FlyingTileCharacter
         {
             Name = "FlyingTile",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         tile.Initialize(
             spawn.Definition,
@@ -4969,7 +4969,7 @@ internal sealed class RoomEntityFactory(
         var attacker = new CuccoAttackerCharacter
         {
             Name = "CuccoAttacker",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         attacker.Initialize(enemies.ImportedEnemy(EnemyId.Cucco), random, spawn.HitCount);
         return new CuccoAttackerRoomEntity(attacker);
@@ -4982,7 +4982,7 @@ internal sealed class RoomEntityFactory(
         var babyCucco = new BabyCuccoCharacter
         {
             Name = "TransformedBabyCucco",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         babyCucco.Initialize(
             enemies.ImportedEnemy(
@@ -4999,28 +4999,28 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
     {
-        var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = 10 };
+        var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle);
         return new HostileProjectileRoomEntity<EnemyArrowProjectile>(arrow);
     }
 
     private IRoomEntity CreateStalfosBone(StalfosBoneSpawn spawn, OracleRoomData room)
     {
-        var bone = new StalfosBoneProjectile { Name = "StalfosBone", ZIndex = 10 };
+        var bone = new StalfosBoneProjectile { Name = "StalfosBone", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         bone.Initialize(StalfosBoneRecord.Load(), room, spawn.Position, worldToScreen, spawn.ZHigh);
         return new StalfosBoneRoomEntity(bone);
     }
 
     private static IRoomEntity CreateBurningEnemy(BurningEnemySpawn spawn)
     {
-        var part = new BurningEnemyPart { Name = "BurningEnemy", ZIndex = 10 };
+        var part = new BurningEnemyPart { Name = "BurningEnemy", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         part.Initialize(spawn.Target);
         return new BurningEnemyRoomEntity(part);
     }
 
     private IRoomEntity CreateKeeseFire(KeeseFireSpawn spawn)
     {
-        var fire = new KeeseFirePart { Name = "KeeseFire", ZIndex = 10 };
+        var fire = new KeeseFirePart { Name = "KeeseFire", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
         fire.Initialize(spawn.Position, spawn.ZHigh, soundRequested);
         return new KeeseFireRoomEntity(fire);
     }
@@ -5030,7 +5030,7 @@ internal sealed class RoomEntityFactory(
         OracleRoomData room,
         EnemyCombatSourceDescriptor? combatSource = null)
     {
-        var gel = new GelCharacter { Name = spawn.Name, ZIndex = 10 };
+        var gel = new GelCharacter { Name = spawn.Name, ZIndex = ObjectDrawPriority.BehindLinkZIndex };
         gel.Initialize(enemies.Gel, room, spawn.Position, random);
         EnemyCombatSourceDescriptor source = combatSource ??
             enemies.EnemyHandlers.ResolveHandler(
@@ -5076,7 +5076,7 @@ internal sealed class RoomEntityFactory(
         var debris = new ShovelDebrisEffect
         {
             Name = "ShovelDebris",
-            ZIndex = 9
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
         };
         debris.Initialize(spawn.Position, spawn.Direction);
         return new DialogueFixedEffectRoomEntityAdapter<ShovelDebrisEffect>(
@@ -5090,7 +5090,7 @@ internal sealed class RoomEntityFactory(
             Name = spawn.InteractionId == InteractionId.RedGrassDebris
                 ? "RedGrassDebris"
                 : "GrassDebris",
-            ZIndex = 12
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
         };
         debris.Initialize(
             spawn.Position,
@@ -5108,7 +5108,7 @@ internal sealed class RoomEntityFactory(
             Name = spawn.InteractionId == InteractionId.RockDebris2
                 ? "RockDebris2"
                 : "RockDebris",
-            ZIndex = 9
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         debris.Initialize(
             spawn.Position, spawn.InteractionId, soundRequested);
@@ -5127,7 +5127,7 @@ internal sealed class RoomEntityFactory(
                 TreasureId.MysterySeeds => "MysterySeed",
                 _ => $"Seed_{spawn.Record.SeedItem:x2}"
             },
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         int mysteryEffect =
             spawn.Record.SeedItem == TreasureId.MysterySeeds
@@ -5163,7 +5163,7 @@ internal sealed class RoomEntityFactory(
         var bomb = new BombEffect
         {
             Name = "Bomb",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         bomb.Initialize(
             spawn.Record,
@@ -5204,7 +5204,7 @@ internal sealed class RoomEntityFactory(
         var beam = new SwordBeamEffect
         {
             Name = "SwordBeam",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         beam.Initialize(
             _swordBeam, room, spawn.LinkPosition, spawn.Direction,
@@ -5217,7 +5217,7 @@ internal sealed class RoomEntityFactory(
         var clink = new ClinkEffect
         {
             Name = "SwordBeamClink",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         // Subid $81 requests the flickering variant; unlike sword-on-wall
         // clinks, the beam collision does not play a second sound.
@@ -5228,7 +5228,7 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateSwordWallClink(SwordWallClinkSpawn spawn)
     {
-        var clink = new ClinkEffect { Name = "SwordWallClink", ZIndex = 10 };
+        var clink = new ClinkEffect { Name = "SwordWallClink", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         clink.Initialize(spawn.Position, spawn.Flickers);
         // Ordinary subid$01 plays its sound in state0; bombable subid$80
         // suppresses it because the item caller already played SND_CLINK2.
@@ -5241,7 +5241,7 @@ internal sealed class RoomEntityFactory(
         var clink = new ClinkEffect
         {
             Name = "EnemyClink",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         clink.Initialize(spawn.Position, flickers: false, spawn.ZHigh);
         clink.SetPhysicsProcess(false);
@@ -5256,7 +5256,7 @@ internal sealed class RoomEntityFactory(
         var puff = new PuzzlePuffEffect
         {
             Name = "PuzzlePuff",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         puff.Initialize(
             spawn.Position,
@@ -5276,7 +5276,7 @@ internal sealed class RoomEntityFactory(
             Name = "InteractionExplosion",
             // var03 bit 0 selects objectSetVisible81 or objectSetVisible82.
             ZIndex = (spawn.Var03 & 1) != 0
-                ? NpcCharacter.InFrontOfLinkZIndex : NpcCharacter.BehindLinkZIndex
+                ? ObjectDrawPriority.InFrontOfLinkZIndex : ObjectDrawPriority.BehindLinkZIndex
         };
         explosion.Initialize(
             spawn.Position,
@@ -5295,8 +5295,8 @@ internal sealed class RoomEntityFactory(
             Name = "InteractionSparkle_84_00",
             // sparkle.s selects visible81 for any nonzero source angle.
             ZIndex = sourceAngle == 0
-                ? NpcCharacter.BehindLinkZIndex
-                : NpcCharacter.InFrontOfLinkZIndex
+                ? ObjectDrawPriority.BehindLinkZIndex
+                : ObjectDrawPriority.InFrontOfLinkZIndex
         };
         sparkle.Initialize(position, sourceAngle, visual);
         return new InteractionSparkleRoomEntity(sparkle);
@@ -5314,7 +5314,7 @@ internal sealed class RoomEntityFactory(
             Name = spawn.Hazard == HazardType.Lava
                 ? "EnemyLavaSplash"
                 : "EnemyWaterSplash",
-            ZIndex = 11
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // breakTileDebris.s: $03/$04 -> priority3.
         };
         effect.Initialize(
             spawn.Position,
@@ -5330,7 +5330,7 @@ internal sealed class RoomEntityFactory(
         var effect = new FallingDownHoleEffect
         {
             Name = "FallingDownHole",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // fallDownHole.s: visible83.
         };
         effect.Initialize(spawn.Position);
         if (!spawn.Silent) soundRequested(SoundId.SndFallInHole);
@@ -5342,7 +5342,7 @@ internal sealed class RoomEntityFactory(
         var effect = new DungeonKeyUseEffect
         {
             Name = "DungeonKeyUse",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex // dungeonKeySprite.s: visible80.
         };
         effect.Initialize(spawn.Position, spawn.Visual,
             () => soundRequested(SoundId.SndGetSeed));
@@ -5354,7 +5354,7 @@ internal sealed class RoomEntityFactory(
         var effect = new OverworldKeyUseEffect
         {
             Name = "OverworldKeyUse",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex // overworldKeySprite.s: visible80.
         };
         effect.Initialize(spawn.Position, spawn.Visual, spawn.Constants);
         return new DialogueFixedEffectRoomEntityAdapter<OverworldKeyUseEffect>(
@@ -5370,7 +5370,7 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
     {
-        var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = 10 };
+        var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
         puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
         soundRequested(SoundId.SndKillEnemy);
         return new DeathPuffRoomEntity(
@@ -5383,7 +5383,7 @@ internal sealed class RoomEntityFactory(
         var explosion = new BossDeathExplosionEffect
         {
             Name = "BossDeathExplosion",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         explosion.Initialize(spawn.Position, spawn.BossId, soundRequested, spawn.ZHigh);
         return new BossDeathExplosionRoomEntity(
@@ -5395,7 +5395,7 @@ internal sealed class RoomEntityFactory(
         var dirt = new SubterrorDirtEffect
         {
             Name = "SubterrorDirt",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
         };
         dirt.Initialize(
             spawn.Position,
@@ -5411,7 +5411,7 @@ internal sealed class RoomEntityFactory(
         var shadow = new BossShadowEffect
         {
             Name = "BossShadow",
-            ZIndex = NpcCharacter.FixedLowPriorityZIndex
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
         };
         shadow.Initialize(
             spawn.ParentPosition,
@@ -5424,7 +5424,7 @@ internal sealed class RoomEntityFactory(
 
     private IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
     {
-        var puff = new KillEnemyPuffEffect { Name = "KillEnemyPuff", ZIndex = 10 };
+        var puff = new KillEnemyPuffEffect { Name = "KillEnemyPuff", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         puff.Initialize(spawn.Position, () => soundRequested(SoundId.SndKillEnemy));
         return new KillPuffRoomEntity(puff);
     }
@@ -5452,7 +5452,7 @@ internal sealed class RoomEntityFactory(
         var drop = new ItemDropEffect
         {
             Name = $"ItemDrop_{spawn.SubId:x2}",
-            ZIndex = 10
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         int treasure = ItemDropDatabase.TreasureForDrop(spawn.SubId);
         int collectionSound = treasure == TreasureId.None
@@ -5471,11 +5471,11 @@ internal sealed class RoomEntityFactory(
         ImportedEnemyDefinition record = enemies.ImportedEnemy(source.Id, source.SubId);
         if (source.Id == EnemyId.Rope)
         {
-            var rope = new RopeCharacter { Name = $"DugRope_{source.SubId:x2}", ZIndex = 10 };
+            var rope = new RopeCharacter { Name = $"DugRope_{source.SubId:x2}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
             rope.Initialize(record, room, position, random, soundRequested);
             return new RopeRoomEntity(rope, source, soundRequested);
         }
-        var beetle = new BeetleCharacter { Name = $"DugBeetle_{source.SubId:x2}", ZIndex = 10 };
+        var beetle = new BeetleCharacter { Name = $"DugBeetle_{source.SubId:x2}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
         beetle.Initialize(record, room, position, random, beetleCounters, soundRequested);
         return new BeetleRoomEntity(beetle, source, soundRequested);
     }
@@ -5488,7 +5488,7 @@ internal sealed class RoomEntityFactory(
         var npc = new NpcCharacter
         {
             Name = spawn.Name,
-            ZIndex = NpcCharacter.BehindLinkZIndex
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         npc.Initialize(spawn.Record);
         return new CutsceneNpcRoomEntity(npc, spawn.Talkable, spawn.Solid);
@@ -5499,7 +5499,7 @@ internal sealed class RoomEntityFactory(
         var treasure = new GroundTreasurePickup
         {
             Name = $"GroundTreasure_{record.TreasureObject}",
-            ZIndex = 12
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         treasure.Initialize(record, soundRequested, worldToScreen);
         return new GroundTreasureRoomEntity(
@@ -5539,7 +5539,7 @@ internal sealed class RoomEntityFactory(
         var pickup = new GroundTreasurePickup
         {
             Name = "Room5b6ChevalRope",
-            ZIndex = 12
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         pickup.Initialize(
             request.Resolve(treasures),
@@ -5586,7 +5586,7 @@ internal sealed class RoomEntityFactory(
         var pickup = new GroundTreasurePickup
         {
             Name = "Room2e3Bombs",
-            ZIndex = 12
+            ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         pickup.Initialize(
             request.Resolve(treasures),
@@ -5642,7 +5642,7 @@ internal sealed class RoomEntityFactory(
                     var pickup = new GroundTreasurePickup
                     {
                         Name = "Room5bfFlippers",
-                        ZIndex = 12
+                        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
                     };
                     pickup.Initialize(
                         request.Resolve(treasures),
@@ -5702,7 +5702,7 @@ internal sealed class RoomEntityFactory(
         var item = new MapleDroppedItem
         {
             Name = $"MapleItem_{spawn.Slot}_{spawn.Record.Index:x2}",
-            ZIndex = 12
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex // itemFromMaple.s: visiblec3.
         };
         item.Initialize(
             spawn.Record,
@@ -5733,7 +5733,7 @@ internal sealed class RoomEntityFactory(
     {
         foreach (PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
         {
-            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = NpcCharacter.BehindLinkZIndex };
+            var portal = new TimePortal { Name = $"TimePortal_{record.SubId:x2}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
             portal.InitializePlaced(
                 record,
                 room,
@@ -5761,7 +5761,7 @@ internal sealed class RoomEntityFactory(
         var portal = new TimePortal
         {
             Name = "TemporaryTimePortal",
-            ZIndex = NpcCharacter.BehindLinkZIndex
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         portal.InitializeTemporary(timePortals.TemporaryVisual, room, position, saveData,
             () => runtimeState.ReadWramByte(WramAddress.wcde0) != 0);

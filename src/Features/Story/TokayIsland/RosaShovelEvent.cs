@@ -161,7 +161,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
                 if (_shovel is { } left)
                 {
                     left.ParentOffset = new Vector2(-9, 0);
-                    left.ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                    left.ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
                 }
                 _actor!.SetFacingDirection(Vector2I.Left);
                 _counter = 30;

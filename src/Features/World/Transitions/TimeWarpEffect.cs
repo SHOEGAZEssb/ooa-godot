@@ -84,14 +84,14 @@ public partial class TimeWarpEffect : Node2D
         _backgroundLayer = new TimeWarpEffectLayer
         {
             Name = "Priority3GroundAndParticles",
-            ZIndex = NpcCharacter.BehindLinkZIndex,
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex,
             ZAsRelative = false,
             DrawContents = DrawBackground
         };
         _foregroundLayer = new TimeWarpEffectLayer
         {
             Name = "Priority1And2BeamTrailSparkles",
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex,
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex,
             ZAsRelative = false,
             DrawContents = DrawForeground
         };

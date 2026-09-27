@@ -49,6 +49,9 @@ internal sealed partial class SubterrorDirtEffect : FixedEffectNode2D
             _playSound(SoundId.SndDig);
         }
         _animation.Advance();
+        // partCode32 copies animParameter into Part.visible every update.
+        ZIndex = ObjectDrawPriority.FromVisible(_animation.CurrentParameter);
+        Visible = (_animation.CurrentParameter & 0x80) != 0;
         if (_animation.CurrentParameter == 0)
         {
             Finished = true;

@@ -62,7 +62,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _pushCounter = record.PushDelay;
         Position = position;
         Name = $"VineSprout_{record.SubId:x2}";
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             EnemyVisualSource.LoadComposite([record.Sprite]),

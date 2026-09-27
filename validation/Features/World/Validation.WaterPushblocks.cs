@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
                 var block = _entities.Entities<WaterPushblockRoomEntity>().Single();
                 FailIf(block.Record.SubId != subid || block.State != 1 || block.Counter != 30 ||
                     block.Position != new Vector2(reverse ? 0x38 : 0x58, 0x68) || !block.Visible ||
-                    block.CurrentAnimationOpaquePixels == 0 || block.ZIndex != NpcCharacter.BehindLinkZIndex ||
+                    block.CurrentAnimationOpaquePixels == 0 || block.ZIndex != ObjectDrawPriority.BehindLinkZIndex ||
                     !_entities.TimeWarpPositionOccupied(new TimeWarpLandingDatabase(), reverse ? 0x63 : 0x65),
                     $"Room 1:41 $9e:${subid:x2} initialization, solid reservation or presentation failed.");
                 FailIf(_entities.Entities<TimePortal>().Single().Position != new Vector2(0x78, 0x28),

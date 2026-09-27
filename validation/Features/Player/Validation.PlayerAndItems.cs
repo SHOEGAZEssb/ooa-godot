@@ -2718,7 +2718,7 @@ public sealed partial class ValidationRoot
             effect.State != EmberState.Scent ||
             effect.PrecisePosition != scentPoint ||
             effect.FlameCounter != 0x96 || effect.ScentTarget is not null ||
-            effect.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            effect.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
             !sounds.SequenceEqual(new[]
             {
                 SoundId.SndBombLand,

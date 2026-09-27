@@ -73,7 +73,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             paletteOverrides: paletteOverrides,
             positionedOam: true);
         Name = "HeadThwomp";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         Visible = false;
     }
 

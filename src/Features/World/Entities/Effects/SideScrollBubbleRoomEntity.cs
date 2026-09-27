@@ -36,7 +36,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
         Position = OracleObjectMath.ToPixelPosition(position);
         Visible = false;
         // objectSetVisible83: behind Link, with room-space coordinates.
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

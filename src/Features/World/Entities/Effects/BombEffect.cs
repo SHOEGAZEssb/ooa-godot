@@ -572,6 +572,7 @@ public partial class BombEffect : TransitionOffsetNode2D
 
     private void InitializeExplosion()
     {
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // bombs.s: objectSetVisible80.
         _state = BombState.Exploding;
         _frameIndex = 0;
         _frameCounter = _explosionFrames[0].Duration;

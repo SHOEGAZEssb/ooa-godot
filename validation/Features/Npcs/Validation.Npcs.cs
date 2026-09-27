@@ -761,11 +761,11 @@ public sealed partial class ValidationRoot
 
         woman.UpdateDrawPriority(woman.Position - Vector2.Down * 12.0f);
         FailIf(
-            woman.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+            woman.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
             "Room 0:66's woman did not cover Link when yh exceeded w1Link.yh+$0b.");
         woman.UpdateDrawPriority(woman.Position - Vector2.Down * 11.0f);
         FailIf(
-            woman.ZIndex != NpcCharacter.BehindLinkZIndex,
+            woman.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
             "Room 0:66's woman covered Link at the strict w1Link.yh+$0b boundary.");
 
         Color linkBlack = Player.RecolorLinkPixel(new Color(0.25f, 0.25f, 0.25f));
@@ -1225,7 +1225,7 @@ public sealed partial class ValidationRoot
         bipinInteractions.NpcScriptsForValidation.TraceSink = bipinTrace;
         FailIf(
             !bipinManager.BlocksLink(bipin.Position) ||
-            bipin.ZIndex != NpcCharacter.BehindLinkZIndex ||
+            bipin.ZIndex != ObjectDrawPriority.BehindLinkZIndex ||
             !bipinInteractions.TryInteract(_player) ||
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(

@@ -83,6 +83,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter
                 Speed = _behavior.OrbitSpeed;
                 ZFixed = _behavior.InitialZ;
                 State = 11;
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // subid0 initialization: visiblec1.
                 RestartAnimation(1);
                 return false;
             case 8:

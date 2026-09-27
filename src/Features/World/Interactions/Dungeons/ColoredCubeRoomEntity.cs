@@ -58,7 +58,7 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
         _orientation = record.SubId;
         ResetCounters();
         Name = "ColoredCubeRoomEntity";
-        ZIndex = 9;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         InitializeVisual(
             visual, record.Position, _orientation,
             paletteOverrides: cubePalettes);

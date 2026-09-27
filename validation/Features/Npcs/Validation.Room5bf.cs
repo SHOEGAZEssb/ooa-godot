@@ -202,7 +202,9 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndOpenChest) != 1,
             "Room 5:bf's lever did not reach flagged distance $c0 after 376 " +
             "parent updates (256 SPEED_40 updates, six 20-update rests), seven move sounds, one open sound, and the " +
-            "same-pass five-phase connection update.");
+            $"same-pass five-phase connection update. distance=${lever.PullDistance:x2}, lever={lever.Position}, Link={_player.Position}, " +
+            $"connection={connection.Phase}/{connection.Position}, blocks={blocks[0].PullOffset}/{blocks[1].PullOffset}, " +
+            $"sounds={_sound.PlayRequestsFor(SoundId.SndMoveBlock)}/{_sound.PlayRequestsFor(SoundId.SndOpenChest)}.");
 
         PullLever(Vector2.Zero);
         FailIf(

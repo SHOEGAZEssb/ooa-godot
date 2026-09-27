@@ -26,6 +26,7 @@ public partial class EmberSeedEffect
 
     private void BeginGale(bool landed, bool wall = false)
     {
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // all three native gale impact routes select visible82.
         _state = EmberState.Gale;
         _collisionEnabled = false;
         _galeLanded = landed;
@@ -88,7 +89,7 @@ public partial class EmberSeedEffect
                 _zFixed = player.GaleZFixed;
                 _galeCounter2 = 0x3c;
                 _galeSubstate = 1;
-                ZIndex = 20;
+                ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // galeSeedTryToWarpLink: visible80.
                 player.BeginGale();
                 return;
             case 1:

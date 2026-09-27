@@ -112,6 +112,7 @@ internal partial class PolsVoiceCharacter : EnemyCharacter
                 }
 
                 _state = PolsVoiceState.Waiting;
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex; // polsVoice_state9: visiblec2.
                 _counter = _behavior.LandingWaitFrames;
                 SetAnimation(1);
                 QueueRedraw();
@@ -180,6 +181,7 @@ internal partial class PolsVoiceCharacter : EnemyCharacter
                 _behavior.TargetAngleMask;
         }
         _state = PolsVoiceState.Jumping;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // polsVoice_state8: visiblec1.
         SetAnimation(0);
         QueueRedraw();
     }

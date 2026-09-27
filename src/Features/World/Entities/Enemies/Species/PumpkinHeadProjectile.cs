@@ -25,7 +25,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
         _delay = _behavior.DelayFrames;
         Position = position;
         Name = "PumpkinHeadProjectile";
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             EnemyVisualSource.LoadComposite(visual.Sprites),

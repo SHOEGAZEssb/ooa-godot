@@ -70,7 +70,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
                     spawnWeapon();
                     State = ReturnState = 8;
                     Visible = true;
-                    ZIndex = NpcCharacter.BehindLinkZIndex;
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                     return;
                 case 3:
                     if (SwitchHookSubstate == 0) SwitchHookSubstate = 1;

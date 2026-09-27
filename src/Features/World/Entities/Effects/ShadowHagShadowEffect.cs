@@ -35,7 +35,7 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
         _owner = owner;
         _angleIndex = angleIndex;
         Position = owner.Position;
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(

@@ -791,6 +791,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateLynnaShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopGraphics);
+        RunIsolatedValidation(ValidateObjectDrawOrder);
+        RunIsolatedValidation(ValidateItemDropDrawPriority);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);

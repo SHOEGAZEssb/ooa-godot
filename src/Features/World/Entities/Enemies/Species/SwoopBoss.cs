@@ -94,7 +94,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(record),
             initialAnimation: 2);
         Name = "Swoop";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
     }
 
@@ -233,6 +233,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
 
     private void BeginFlyingUp()
     {
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // swoop_flyFurtherUp: visible80.
         _state = SwoopState.FlyingUp;
         _counter = 3 * 0x30;
         _speedZ = -0x100;
@@ -337,6 +338,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if (Health >= 0x0a)
         {
             _state = SwoopState.Grounded;
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex; // swoop_setVisible: visible82.
             _counter = 90;
             Visible = true;
             return;
@@ -380,6 +382,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
             return;
         }
         _state = SwoopState.Grounded;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // stomp_substate3: visible82.
         _counter = 90;
         Visible = true;
     }

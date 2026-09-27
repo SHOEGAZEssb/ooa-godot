@@ -126,7 +126,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             Palette = 1; SetAnimation(4);
         }
         Visible = true;
-        ZIndex = NpcCharacter.BehindLinkZIndex; // ecom_setSpeedAndState8AndVisible -> visible$c2.
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // ecom_setSpeedAndState8AndVisible -> visible$c2.
     }
 
     internal void UpdateNormalFrame(Vector2 enemyTarget, int frameCounter, Func<Vector2, bool> createPuff,
@@ -232,7 +232,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
             case 0:
                 GrabSubstate = 1;
                 (setLinkGrabState ?? throw new InvalidOperationException("$74 grab requires wLinkGrabState2 owner."))(0x20);
-                ZIndex = NpcCharacter.InFrontOfLinkZIndex; return;
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; return;
             case 1: return;
             case 2:
                 var writeAngle = setReservedItemAngle ?? throw new InvalidOperationException("$74 release requires reserved item C angle owner.");
@@ -259,7 +259,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 // it does not overwrite the ball's Enemy.angle here.
                 writeAngle(knockbackAngle ^ ObjectAngle.HalfTurn);
                 sound(SoundId.SndBossDamage); return;
-            case 3: State = 8; ZIndex = NpcCharacter.BehindLinkZIndex; return;
+            case 3: State = 8; ZIndex = ObjectDrawPriority.BehindLinkZIndex; return;
             default: throw new NotSupportedException($"smasher_state_grabbed substate ${GrabSubstate:x2} is not represented.");
         }
     }
@@ -341,11 +341,11 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                     Move(); return;
                 }
                 if ((_z >> 8) != _data.CarriedZOffset) return;
-                State = 11; _collisionEnabled = true; Speed = 0x78; ZIndex = NpcCharacter.InFrontOfLinkZIndex; return; // SPEED_300
+                State = 11; _collisionEnabled = true; Speed = 0x78; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; return; // SPEED_300
             case 11: return;
             case 12:
                 if (Bounce(out bool landed))
-                { State = 8; _collisionEnabled = false; ZIndex = NpcCharacter.BehindLinkZIndex; sound(SoundId.SndBombLand); return; }
+                { State = 8; _collisionEnabled = false; ZIndex = ObjectDrawPriority.BehindLinkZIndex; sound(SoundId.SndBombLand); return; }
                 if (landed) { Speed >>= 1; sound(SoundId.SndBombLand); }
                 Angle = EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle,
                     point => point.X < 0 || point.Y < 0 || point.X >= _room.Width || point.Y >= _room.Height ||
@@ -365,9 +365,9 @@ internal sealed partial class SmasherCharacter : EnemyCharacter
                 State = 15; SetZHigh(_data.RespawnZ); _speedZ = 0;
                 var position = _data.RespawnPosition(_random.Next().Value);
                 Position = position + Position - Position.Floor();
-                createPuff(Position); Visible = true; ZIndex = NpcCharacter.InFrontOfLinkZIndex; return;
+                createPuff(Position); Visible = true; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; return;
             case 15:
-                if (Bounce(out bool touched)) { State = 8; ZIndex = NpcCharacter.BehindLinkZIndex; }
+                if (Bounce(out bool touched)) { State = 8; ZIndex = ObjectDrawPriority.BehindLinkZIndex; }
                 else if (touched) sound(SoundId.SndBombLand);
                 return;
             default: throw new NotSupportedException($"smasher_ball state ${State:x2} is not represented.");

@@ -32,7 +32,7 @@ internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisua
         _center = new(OracleObjectPosition.HighByte(center.X), OracleObjectPosition.HighByte(center.Y));
         InitializeVisual(visual, Vector2.Zero, index);
         Name = $"BlueEnergyBead_53_{index:x2}";
-        ZIndex = NpcCharacter.FixedHighPriorityZIndex; // objectSetVisible preserves low bits0.
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // objectSetVisible preserves low bits0.
         Visible = false;
     }
 

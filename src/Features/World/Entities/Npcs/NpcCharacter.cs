@@ -6,15 +6,6 @@ namespace oracleofages;
 
 public partial class NpcCharacter : TransitionOffsetNode2D
 {
-    // objectSetPriorityRelativeToLink compares the NPC's yh against
-    // w1Link.yh+$0b. Interactions are queued before Link, so matching Link's
-    // priority puts the NPC on top; otherwise Link remains on top.
-    internal const float LinkPriorityYOffset = 0x0b;
-    internal const int FixedLowPriorityZIndex = 8;
-    internal const int BehindLinkZIndex = 9;
-    internal const int InFrontOfLinkZIndex = 11;
-    internal const int FixedHighPriorityZIndex = 12; // objectSetVisible80
-
     private readonly List<NpcCharacterAnimationFrame>[] _facingAnimations =
     {
         new(), new(), new(), new()
@@ -487,7 +478,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _animationTicks = 0;
     }
 
-    internal void UpdateDrawPriority(Vector2 linkPosition)
+    internal void UpdateDrawPriority(Vector2 linkPosition, int zHigh = 0)
     {
         if (_fixedDrawPriority is int fixedDrawPriority)
         {
@@ -495,9 +486,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
             return;
         }
 
-        ZIndex = Position.Y > linkPosition.Y + LinkPriorityYOffset
-            ? InFrontOfLinkZIndex
-            : BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, linkPosition.Y, zHigh);
     }
 
     internal void SetFixedDrawPriority(int zIndex)
@@ -771,15 +760,21 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
     internal void SetActive(bool active)
     {
+        bool wasActive = Active;
         _active = active;
         Visible = Active && _scriptVisible;
+        if (wasActive != Active) NativeActivationChanged?.Invoke(Active);
         QueueRedraw();
     }
 
+    internal Action<bool>? NativeActivationChanged { get; set; }
+
     internal void SetFlagVisible(bool visible)
     {
+        bool wasActive = Active;
         _flagVisible = visible;
         Visible = Active && _scriptVisible;
+        if (wasActive != Active) NativeActivationChanged?.Invoke(Active);
         QueueRedraw();
     }
 

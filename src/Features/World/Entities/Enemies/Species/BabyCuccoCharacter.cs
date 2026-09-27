@@ -170,7 +170,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
     {
         _carried.Hold(player);
         Position = _carried.GroundPosition;
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         int animation = HeldAnimationIndex(player.FacingVector);
         if (AnimationIndex != animation)
             RestartAnimation(animation);
@@ -217,7 +217,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
         if (!_carried.Bounce(_throwing))
         {
             _state = BabyCuccoState.Following;
-            ZIndex = 10;
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         }
         else
         {
@@ -227,7 +227,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter
     }
 
     private void UpdatePriority(Player player) =>
-        ZIndex = Position.Y > player.Position.Y + 0x0b ? 11 : 9;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y, _carried.ZFixed >> 8);
 
     private int ManhattanDistance(Vector2 target)
     {

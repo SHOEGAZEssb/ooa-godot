@@ -19,7 +19,7 @@ internal sealed partial class FairiesWoodsSparkleLayer : Node2D
     internal void Initialize(FairiesWoodsEventRecord record)
     {
         _record = record;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     internal void Spawn(Vector2 position)

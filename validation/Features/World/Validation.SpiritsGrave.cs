@@ -1264,6 +1264,7 @@ public sealed partial class ValidationRoot
             pumpkin.BodyPalette != 1 ||
             pumpkin.GhostPalette != 5 ||
             pumpkin.HeadPalette != 3 ||
+            pumpkin.BodyDrawPriority != 8 || pumpkin.GhostDrawPriority != 8 || pumpkin.HeadDrawPriority != 9 ||
             pumpkinShadow.Size != 1 || pumpkinShadow.YOffset != 6 ||
             pumpkinShadow.Position != pumpkin.Position + Vector2.Down * 6 ||
             pumpkinShadow.Visible,
@@ -1351,7 +1352,7 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         FailIf(
             !_playerWorld.TryUseBracelet(_player, primaryButton: false) ||
-            !pumpkin.HeadHeld ||
+            !pumpkin.HeadHeld || pumpkin.HeadDrawPriority != 11 ||
             _bracelet.State != BraceletState.LiftingEntity,
             "Pumpkin Head's exposed head did not enter the shared Bracelet lift parent.");
         for (int frame = 0; frame < 12; frame++)

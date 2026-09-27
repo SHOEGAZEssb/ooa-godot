@@ -121,7 +121,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         if (Held || Removed)
             throw new InvalidOperationException("A shop item cannot be lifted twice.");
         Held = true;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // shopItemState2: objectSetVisible80
         player.BeginCarriedObjectPose();
         UpdateHeldPosition(player);
         QueueRedraw();
@@ -135,7 +135,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         Purchasing = false;
         player.EndCarriedObjectPose();
         Position = _shelfPosition;
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         QueueRedraw();
     }
 

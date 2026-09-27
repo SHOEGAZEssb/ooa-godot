@@ -40,7 +40,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
         _tryCreateSparkle = tryCreateSparkle;
         Name = $"OwlStatue_{record.SubId:x2}";
         // objectSetVisible83 fixes PART_OWL_STATUE at source priority 3.
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Position = new Vector2(
             (source.PackedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
             (source.PackedPosition >> 4) * OracleRoomData.MetatileSize + 8);

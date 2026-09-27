@@ -47,7 +47,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
         InitializeCommonProperties();
         State = 8;
         Visible = true;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     private void InitializeCommonProperties()
@@ -89,7 +89,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
                 _enabled = false;
                 player.CopyLikeLikePosition(Position);
                 RestartAnimation(1);
-                ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
                 return;
             }
             if (_hitPending) { _hitPending = false; return; }
@@ -134,7 +134,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
                         shieldLost();
                     }
                     Angle = _random.Next().Value & _data.AngleMask;
-                    ZIndex = NpcCharacter.BehindLinkZIndex;
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                     ReleaseLink(player);
                     return;
                 case 12:

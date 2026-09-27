@@ -100,7 +100,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         // interactionCodee6 uses visible $83; func_410d @ridingRaft uses
         // $c3. Both select source priority $03, below Link's $c1.
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Visible = true;
         Name = $"Raft_{_group:x1}_{_roomId:x2}";
     }
@@ -141,7 +141,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                 _dismountCounter = 0;
                 _dismountAngle = 0;
                 _mountedAnimation.SetAnimation(0);
-                ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
                 frame.Player.BeginRaftRide(_precisePosition, _direction);
                 SavePosition(frame.Player);
                 break;
@@ -159,7 +159,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                     CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
                     _phase = RaftPhase.Waiting;
                     _supportsLink = false;
-                    ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+                    ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
                     SetDirectionAnimation();
                 }
                 break;

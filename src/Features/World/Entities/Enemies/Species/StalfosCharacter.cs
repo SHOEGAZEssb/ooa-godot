@@ -87,6 +87,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
             Math.Abs(Mathf.FloorToInt(linkPosition.Y) - Mathf.FloorToInt(Position.Y)) < _behavior.DodgeDistance)
         {
             _state = StalfosState.Jumping;
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             _speedZ = _behavior.JumpSpeedZ;
             _jumpCollision = false;
             // Despite its name, ecom_updateCardinalAngleAwayFromTarget does
@@ -143,6 +144,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
                 {
                     _state = StalfosState.Deciding;
                     SetAnimation(0);
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 }
                 else
                 {

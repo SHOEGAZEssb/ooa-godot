@@ -1815,7 +1815,7 @@ internal sealed class NayruIntroEvent :
         RemoveNayruSwordEffect();
         TreasureObjectRecord sword =
             _treasures.GetObject("TREASURE_OBJECT_SWORD_00");
-        _nayruSwordEffect = new ChestTreasureEffect { Name = "NayruSwordGift", ZIndex = 12 };
+        _nayruSwordEffect = new ChestTreasureEffect { Name = "NayruSwordGift", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         _nayruSwordEffect.Initialize(
             // Treasure grab mode $01 calls objectTakePositionWithOffset with
             // b=$f2/c=$fc: 14 pixels above and four pixels left of Link.

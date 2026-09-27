@@ -36,7 +36,7 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
         Direction = _random.Next().Value & 1;
         TurnCounter = 30;
         SelectAnimation(Direction);
-        SetFixedDrawPriority(BehindLinkZIndex); // objectSetVisible82
+        SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // objectSetVisible82
         SetScriptVisible(true);
         Script.Start();
     }

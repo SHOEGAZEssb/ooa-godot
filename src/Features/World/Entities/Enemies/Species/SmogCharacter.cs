@@ -154,7 +154,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
         SetAnimation(animation);
         _fireTimer.Reset(SubId, _phase, nextRandom);
         State = 8; Visible = true;
-        ZIndex = NpcCharacter.BehindLinkZIndex; // objectSetVisiblec2
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // objectSetVisiblec2
     }
 
     internal void UpdateLargeCloud(Vector2 target, Action<Vector2> spawnProjectile, Func<int> nextRandom)
@@ -290,7 +290,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
             SetAnimation(0);
             _fireTimer.Reset(SubId, _phase, nextRandom);
             Speed = 0x23;
-            State = 8; Visible = true; ZIndex = NpcCharacter.BehindLinkZIndex;
+            State = 8; Visible = true; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
             return;
         }
         if (State != 8) throw new NotSupportedException($"smog.s small-cloud state${State:x2} is not represented.");
@@ -336,7 +336,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
             Counter2 = SubId == 0 ? 60 : 120;
             SetAnimation(SubId == 0 ? 4 : 0);
             _fireTimer.Reset(SubId, 0, nextRandom);
-            State = 8; Visible = true; ZIndex = NpcCharacter.BehindLinkZIndex;
+            State = 8; Visible = true; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
             return; // Initialization does not fall through into the countdown.
         }
         if (State != 8) throw new NotSupportedException($"smog.s intro state${State:x2} is not represented.");

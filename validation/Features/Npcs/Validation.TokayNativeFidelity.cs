@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
         FailIf(!shovel.FollowParent || shovel.ParentOffset != new Vector2(9, 0),
             "Rosa's related shovel did not move to +$09 after the source wait.");
         StepRoomEventFrames(20);
-        FailIf(shovel.ParentOffset != new Vector2(-9, 0) || shovel.ZIndex != NpcCharacter.FixedLowPriorityZIndex,
+        FailIf(shovel.ParentOffset != new Vector2(-9, 0) || shovel.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
             "Rosa's shovel did not move to -$09 with priority $83.");
         digging.Cancel();
         _dialogue.Close();

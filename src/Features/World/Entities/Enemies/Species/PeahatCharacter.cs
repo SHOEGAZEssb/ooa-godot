@@ -72,6 +72,7 @@ internal partial class PeahatCharacter : EnemyCharacter
                 if (--_counter != 0)
                     return;
                 _state = PeahatState.Accelerating;
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // peahat_state8: visiblec1.
                 _counter = _behavior.AccelerationFrames;
                 _speedRaw = _behavior.InitialSpeedRaw;
                 AdvanceAnimation();
@@ -111,6 +112,7 @@ internal partial class PeahatCharacter : EnemyCharacter
                 if (_counter == _behavior.SlowdownFrames)
                 {
                     _state = PeahatState.Stationary;
+                    ZIndex = ObjectDrawPriority.BehindLinkZIndex; // peahat_stateB: visiblec2.
                     _counter = _room.IsSolid(Position) ? 1 : 0x80;
                     _zHigh = 0;
                     AdvanceAnimation();

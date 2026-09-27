@@ -34,7 +34,7 @@ internal sealed partial class HeadThwompBoulder
         _random = random;
         _playSound = playSound;
         Name = "HeadThwompBoulder";
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         Visible = false;
 
         _fallAnimation = LoadAnimation(fallVisual);

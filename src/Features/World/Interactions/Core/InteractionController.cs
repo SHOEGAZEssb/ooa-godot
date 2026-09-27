@@ -495,7 +495,7 @@ public sealed class InteractionController
         _roomView.QueueRedraw();
         _playSound(SoundId.SndOpenChest);
         _pendingChest = chest;
-        _chestTreasure = new ChestTreasureEffect { ZIndex = 12 };
+        _chestTreasure = new ChestTreasureEffect { ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         _chestTreasure.Initialize(
             PointForPackedPosition(position) + new Vector2(0, -8),
             _treasures.GetObjectVisual(chest.Graphic));

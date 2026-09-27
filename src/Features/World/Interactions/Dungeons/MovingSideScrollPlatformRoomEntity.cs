@@ -39,7 +39,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         _record = record;
         Name =
             $"MovingSideScrollPlatform_{placement.SubId:x2}_{placement.Order}";
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         // Directions $01-$03 use 48-pixel OAM layouts. The fixed 32x32
         // compositor clips their long axis and makes the source collision
         // radii appear oversized, so preserve the complete positioned frame.

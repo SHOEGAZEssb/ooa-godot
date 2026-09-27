@@ -93,7 +93,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             (placement.PackedPosition >> 4) * 16 + 8);
         Name = $"Spinner_{placement.Group}_{placement.Room:x2}_" +
             $"{placement.PackedPosition:x2}";
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
 
         _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress) &
             placement.StateMask) != 0;

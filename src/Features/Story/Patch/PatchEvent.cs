@@ -85,7 +85,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         {
             Context.Entities.ObjectFellInHole += OnObjectFellInHole;
             _cartPosition = _cart!.Position; _cartAngle = 8; _cartState = 1;
-            _cart.SetFixedDrawPriority(NpcCharacter.BehindLinkZIndex);
+            _cart.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
             Write(OracleRuntimeState.SwitchStateAddress, Context.Entities.ActiveTriggers);
             _switchState = Context.Entities.ActiveTriggers;
             if (Read(0xcfd2) == 0) { _patch.SetActive(false); _patch = null; return; }
@@ -341,7 +341,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         // patch_subid04/05 uses objectSetVisible83: the broken item is behind
         // Patch and the cart. Only the repaired item (06/07) uses visible81.
         actor.SetFixedDrawPriority(subid is 4 or 5
-            ? NpcCharacter.FixedLowPriorityZIndex : NpcCharacter.InFrontOfLinkZIndex);
+            ? ObjectDrawPriority.FixedLowPriorityZIndex : ObjectDrawPriority.InFrontOfLinkZIndex);
         return actor;
     }
     private void SpawnPuff(Vector2 position) => Context.Entities.Spawn(new PuzzlePuffSpawn(position, SoundId.SndPoof));

@@ -50,7 +50,7 @@ internal sealed partial class HeadThwompProjectile
         Name = _kind == HeadThwompProjectileKind.Fireball
             ? "HeadThwompFireball"
             : "HeadThwompCircularProjectile";
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // both source PART handlers use visible82.
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             EnemyVisualSource.LoadComposite(visual.Sprites),

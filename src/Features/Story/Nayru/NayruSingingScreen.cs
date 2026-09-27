@@ -21,7 +21,7 @@ public partial class NayruSingingScreen : Control
         Name = "NayruSingingScreen";
         Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ViewportHeight);
         MouseFilter = MouseFilterEnum.Ignore;
-        ZIndex = 14;
+        ZIndex = ScreenDrawPriority.StoryScreenZIndex;
         _background = BuildBackground(database.SingingBackgroundPalettes);
         _sprites = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/cutscenes/spr_nayru_singing_cutscene.png");

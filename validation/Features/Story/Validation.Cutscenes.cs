@@ -427,8 +427,8 @@ public sealed partial class ValidationRoot
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpSourceEffect" ||
             !sourceEffect.PrimaryVisible || !_player.Visible ||
-            sourceEffect.BackgroundZIndex != NpcCharacter.BehindLinkZIndex ||
-            sourceEffect.ForegroundZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            sourceEffect.BackgroundZIndex != ObjectDrawPriority.BehindLinkZIndex ||
+            sourceEffect.ForegroundZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             sourceEffect.UsesIndoorBeamPalette != sourceUsesIndoorBeamPalette ||
             _sound.PlayRequestsFor(SoundId.SndTimewarpInitiated) != 1,
             "The source effect did not begin with priority-3 ground below Link, its " +
@@ -522,8 +522,8 @@ public sealed partial class ValidationRoot
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpArrivalEffect" || _player.Visible ||
             !arrivalEffect.PrimaryVisible ||
-            arrivalEffect.BackgroundZIndex != NpcCharacter.BehindLinkZIndex ||
-            arrivalEffect.ForegroundZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            arrivalEffect.BackgroundZIndex != ObjectDrawPriority.BehindLinkZIndex ||
+            arrivalEffect.ForegroundZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             arrivalEffect.UsesIndoorBeamPalette != sourceUsesIndoorBeamPalette ||
             ((_currentRoom.TilesetFlags & 0x80) != 0) !=
                 destinationUsesIndoorBeamPalette,
@@ -1646,7 +1646,7 @@ public sealed partial class ValidationRoot
             stoneActor.CurrentAnimationTextureSize != new Vector2I(24, 16) ||
             stoneActor.CurrentAnimationOpaquePixels != 278 ||
             !stoneActor.CurrentAnimationUsesColor(stoneMidtone) ||
-            stoneActor.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            stoneActor.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
             follower.ZIndex <= stoneActor.ZIndex,
             "Room 0:59 did not transfer following Impa or instantiate the centered " +
             "INTERAC_TRIFORCE_STONE $34:$00 with its non-inverted 24x16 sprite, PALH_98, " +
@@ -1663,8 +1663,8 @@ public sealed partial class ValidationRoot
         }
         int retainedStoneCutscenePriority = follower.ZIndex;
         FailIf(
-            stoneActor.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
-            retainedStoneCutscenePriority != NpcCharacter.InFrontOfLinkZIndex,
+            stoneActor.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
+            retainedStoneCutscenePriority != ObjectDrawPriority.InFrontOfLinkZIndex,
             "INTERAC_TRIFORCE_STONE priority 3 did not remain below follower Impa's " +
             "trigger-frame priority 2 after Link approached from below.");
         FailIf(
@@ -1848,7 +1848,7 @@ public sealed partial class ValidationRoot
             !_entities.BlocksLink(follower.Position) ||
             !_collision.Collides(follower.Position) || follower.Record.CanFace ||
             follower.CurrentScriptAnimationSource != impaEvent.Database.Record.RightAnimation ||
-            follower.ZIndex != NpcCharacter.BehindLinkZIndex,
+            follower.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
             "genericNpcScript did not install Impa's $06/$06 collision and TX_010b " +
             "or resume relative priority without changing her animation or enabling " +
             "automatic Link-facing.");

@@ -161,7 +161,7 @@ public sealed class TerrainController
     {
         if (hazard is not (HazardType.Water or HazardType.Lava))
             throw new ArgumentOutOfRangeException(nameof(hazard));
-        var splash = new SplashEffect { ZIndex = 11 };
+        var splash = new SplashEffect { ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
         splash.Initialize(position, hazard);
         _worldRoot.AddChild(splash);
         splash.SetPhysicsProcess(false);

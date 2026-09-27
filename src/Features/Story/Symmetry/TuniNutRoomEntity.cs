@@ -42,10 +42,10 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         _sparkleSprite = new Sprite2D
         {
             Name = "Sparkle", Centered = false, Visible = false,
-            ZAsRelative = false, ZIndex = NpcCharacter.BehindLinkZIndex
+            ZAsRelative = false, ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         AddChild(_sparkleSprite);
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
         if (save?.HasGlobalFlag(npcs.Constant("placed-flag")) == true) FinishPosition();
         else State = inventory?.HasTreasure(TreasureId.TuniNut) == true && inventory.TuniNutState == 2 ? 1 : -1;
@@ -155,7 +155,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
         _paletteDirection = -1;
         context.Sound.PlaySound(_data.Constant("stop-music"));
         Visible = true;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex; // objectSetVisiblec0
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // objectSetVisiblec0
         State = 3;
     }
     private void CenterOnTile()
@@ -168,7 +168,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
     {
         Position = new(_data.Constant("x"), _data.Constant("placed-y"));
         _precisePosition = Position;
-        ZIndex = NpcCharacter.BehindLinkZIndex; // objectSetVisible82
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // objectSetVisible82
         State = 4;
         Visible = true;
     }

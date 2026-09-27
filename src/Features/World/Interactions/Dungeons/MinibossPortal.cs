@@ -17,7 +17,7 @@ internal sealed partial class MinibossPortal : TransitionOffsetNode2D
         Position = new Vector2(
             (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
             (packed >> 4) * OracleRoomData.MetatileSize + 8);
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Visible = false;
 
         DungeonEntranceInteractionDatabaseVisualRecord visual = data.PortalVisual;

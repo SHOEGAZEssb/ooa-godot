@@ -90,7 +90,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
                 _exclamation = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                     Database.Exclamation((int)position.X, (int)position.Y), "TokkeyExclamation"));
                 _exclamation.SetAnimationRate(0);
-                _exclamation.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+                _exclamation.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
                 _exclamationCounter = Database.ExclamationFrames;
                 _exclamationFresh = true;
                 Context.Sound.PlaySound(SoundId.SndClink);
@@ -256,7 +256,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
             $"TokkeyMusicNote{_effectSerial++}"));
         actor.Position = position;
         actor.SetScriptDrawOffset(new Vector2(0, z));
-        actor.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
         _notes.Add(new(actor, _note.Duration,
             new Vector2((right ? 1 : -1) * _note.VelocityXFixed, _note.VelocityYFixed) / 256f));
     }

@@ -57,7 +57,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
             behavior.TornadoPalette);
         _animation.SetAnimation(0);
         Name = "RickyTornado";
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         Visible = false;
     }
 

@@ -33,7 +33,7 @@ internal sealed partial class SeedShooterEyeStatueRoomEntity : DungeonInteractio
         _state = new(record.Subid,record.ActiveCounter,setTrigger);
         Name = $"SeedShooterEyeStatue_{record.Subid:x2}_{record.Order}";
         InitializeVisual(visual,new((record.PackedPosition & 15) * 16 + 8,(record.PackedPosition >> 4) * 16 + 8));
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Visible = false;
     }
 

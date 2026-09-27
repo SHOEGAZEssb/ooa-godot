@@ -25,7 +25,7 @@ internal partial class BlackTowerExplanationScreen : Control
         Name = "BlackTowerExplanationScreen";
         Size = new Vector2(OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight);
         MouseFilter = MouseFilterEnum.Ignore;
-        ZIndex = 14;
+        ZIndex = ScreenDrawPriority.StoryScreenZIndex;
         _oam = database.OamForStage(stage);
         _background = BuildBackground(database.BackgroundPalettes, stage);
         _sprites = OracleGraphicsCache.LoadImage(

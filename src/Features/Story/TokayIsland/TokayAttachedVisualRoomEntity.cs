@@ -26,7 +26,7 @@ internal sealed partial class TokayAttachedVisualRoomEntity : TransitionOffsetNo
         (_texture, _frameOffset) = NpcCharacter.BuildPositionedOamTexture(
             OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{record.SpriteName}.png"),
             frame.EncodedOam, record.TileBase, record.Palette, null, true);
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)

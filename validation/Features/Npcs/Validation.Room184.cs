@@ -147,7 +147,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _player.Position !=
                 firstRabbit.Position + Vector2.Left * 12.0f ||
-            firstRabbit.ZIndex != NpcCharacter.BehindLinkZIndex,
+            firstRabbit.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
             "interactionPushLinkAwayAndUpdateDrawPriority did not separate " +
             "Link from the first stone rabbit on its horizontal tie.");
 
@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         manager.Update(frame, _player);
         FailIf(
-            firstRabbit.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+            firstRabbit.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
             "Room 1:84's stone rabbit did not move in front of Link through " +
             "the native relative-priority helper.");
 

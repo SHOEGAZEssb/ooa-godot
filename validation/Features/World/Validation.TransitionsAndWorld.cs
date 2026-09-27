@@ -400,7 +400,7 @@ public sealed partial class ValidationRoot
             eraInfo.SubId != 0 ||
             eraInfo.Stage != EraInfoStage.Initializing ||
             eraInfo.Visible ||
-            eraInfo.ZIndex != NpcCharacter.InFrontOfLinkZIndex ||
+            eraInfo.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex ||
             eraInfo.TextureSize != new Vector2I(32, 16) ||
             eraInfo.TextureOffset != new Vector2(-16, -8) ||
             eraInfo.PixelHash == 0,

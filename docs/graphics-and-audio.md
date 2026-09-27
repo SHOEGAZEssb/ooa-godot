@@ -38,12 +38,19 @@ come from the OAM cells. Preserve byte-wrapped coordinates near screen edges.
 Logical actor positions remain unchanged while camera and transition offsets
 alter presentation.
 
-For entities allocated in the native interaction pool, equal-priority sprites
-retain ascending slot precedence from the original OAM queue. The entity
-manager reverses their Godot sibling painting order, including reused slots,
-without changing allocation or gameplay update order. Link-relative priority
-remains owned by each interaction's native handler; height or screen Y does not
-introduce an additional sorting rule.
+For entities allocated in native object pools, equal-priority sprites retain
+the original OAM queue order: items, enemies, parts, then interactions, with
+ascending slots within each pool. The entity manager reverses their Godot
+sibling painting order, including reused slots. Event actors may retain a
+managed node after deactivation, but release their native interaction slot;
+reactivation acquires a new slot. Link-relative priority remains owned by each
+native handler and uses unsigned Y high bytes, the wrapping Link Y + $0b
+threshold, and the source positive-Z gate. Screen coordinates and subpixels
+do not introduce an additional sorting rule.
+
+`ObjectDrawPriority` owns the shared world-object Z-index constants and native
+priority mapping. Actors use those constants for assignments and state changes;
+screen-space layers are named separately by `ScreenDrawPriority` or their owner.
 
 Animation definitions and assembled frames are immutable shared data. Changing
 an actor animation selects cached definitions; it does not rebuild textures.

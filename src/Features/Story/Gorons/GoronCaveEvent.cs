@@ -224,7 +224,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
         int[] positions=Database.Bytes("explosion-positions");
         var visual=Database.Effect(0x56,0);
         var actor=SpawnEffect(visual,new Vector2(positions[index*2+1],positions[index*2]));
-        actor.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
         _explosions.Add(new(actor,context.Entities.InteractionSlot(actor)));
     }
     private NpcCharacter SpawnEffect(NpcRecord record, Vector2 position)

@@ -261,7 +261,7 @@ public partial class GameRoot : Node2D
                 _newGameIntroScreen = new NewGameIntroScreen
                 {
                     Name = "NewGameIntro",
-                    ZIndex = 200
+                    ZIndex = ScreenDrawPriority.FrontendZIndex
                 };
                 AddChild(_newGameIntroScreen);
             }
@@ -292,12 +292,12 @@ public partial class GameRoot : Node2D
         _frontendIntroScreen = new FrontendIntroScreen
         {
             Name = "FrontendIntro",
-            ZIndex = 200
+            ZIndex = ScreenDrawPriority.FrontendZIndex
         };
         _mainMenuScreen = new MainMenuScreen
         {
             Name = "MainMenu",
-            ZIndex = 200,
+            ZIndex = ScreenDrawPriority.FrontendZIndex,
             Visible = false
         };
         AddChild(_frontendIntroScreen);
@@ -359,21 +359,21 @@ public partial class GameRoot : Node2D
         _bootTasks.Enqueue(() =>
         {
             _frontendIntroScreen = new FrontendIntroScreen
-                { Name = "FrontendIntro", ZIndex = 200, Visible = false, DeferPreparation = true };
+                { Name = "FrontendIntro", ZIndex = ScreenDrawPriority.FrontendZIndex, Visible = false, DeferPreparation = true };
             AddChild(_frontendIntroScreen);
             return _frontendIntroScreen.PrepareResources().GetEnumerator();
         });
         _bootTasks.Enqueue(() =>
         {
             _mainMenuScreen = new MainMenuScreen
-                { Name = "MainMenu", ZIndex = 200, Visible = false, DeferPreparation = true };
+                { Name = "MainMenu", ZIndex = ScreenDrawPriority.FrontendZIndex, Visible = false, DeferPreparation = true };
             AddChild(_mainMenuScreen);
             return _mainMenuScreen.PrepareResources().GetEnumerator();
         });
         _bootTasks.Enqueue(() =>
         {
             _newGameIntroScreen = new NewGameIntroScreen
-                { Name = "NewGameIntro", ZIndex = 200, Visible = false, DeferPreparation = true };
+                { Name = "NewGameIntro", ZIndex = ScreenDrawPriority.FrontendZIndex, Visible = false, DeferPreparation = true };
             AddChild(_newGameIntroScreen);
             return _newGameIntroScreen.PrepareResources().GetEnumerator();
         });

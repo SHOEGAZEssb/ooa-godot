@@ -25,7 +25,7 @@ internal sealed class KidNameEntryController(
         _screen = new MainMenuScreen
         {
             Name = "KidNameEntry",
-            ZIndex = 60
+            ZIndex = ScreenDrawPriority.NameEntryZIndex
         };
         interfaceLayer.AddChild(_screen);
         _screen.ShowNameEntry(0, initialName);

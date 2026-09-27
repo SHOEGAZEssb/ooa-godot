@@ -55,7 +55,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         CollisionMode = record.Id == EnemyId.EyesoarChild ? EnemyCollisionMode.EyesoarChild : EnemyCollisionMode.Eyesoar;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         Name = $"Eyesoar_{record.Id:x2}_{record.SubId:x2}";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // eyesoar_initGraphics: visiblec2.
         Visible = false;
     }
 

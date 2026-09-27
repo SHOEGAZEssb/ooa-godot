@@ -34,7 +34,7 @@ internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
         _animation.SetAnimation(0);
         // State 0 initializes graphics and objectSetVisible80, then returns
         // without consuming counter1. The event creates this in its script pass.
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         Visible = true;
     }
 

@@ -65,7 +65,7 @@ internal sealed class DefeatedMoblinEvent : RoomCutsceneCommandHost, IRoomEntryE
     private void Initialize(DefeatedMoblinScriptHost host)
     {
         var actor=host.Actor; int subid=actor.Record.SubId,index=actor.Record.Var03;
-        host.Initialized=true;actor.SetAnimationRate(0);actor.SetFixedDrawPriority(NpcCharacter.BehindLinkZIndex);
+        host.Initialized=true;actor.SetAnimationRate(0);actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
         if(subid==0)
         {
             Context.Player.SetLocalRespawnPosition(Context.Player.Position);

@@ -44,7 +44,7 @@ internal partial class MoldormTailCharacter : EnemyCharacter
         ConfigureHazards(room, animateWhileFallingInHole: false);
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain);
         Visible = false;
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     internal void InitializeState()

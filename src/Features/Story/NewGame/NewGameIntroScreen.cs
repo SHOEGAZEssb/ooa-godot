@@ -11,6 +11,7 @@ namespace oracleofages;
 /// </summary>
 public partial class NewGameIntroScreen : Node2D
 {
+    private const int DialogueZIndex = 2;
     private CutsceneSpriteRenderer _renderer = null!;
     private NewGameIntroRecord _record;
     private IntroSpriteFrame[] _linkSpin = null!;
@@ -52,7 +53,7 @@ public partial class NewGameIntroScreen : Node2D
         Dialogue = new DialogueBox
         {
             Name = "IntroDialogue",
-            ZIndex = 2,
+            ZIndex = DialogueZIndex,
             Visible = false
         };
         AddChild(Dialogue);

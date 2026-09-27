@@ -38,7 +38,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
             position,
             EnemyCharacterConfiguration.FromImported(record));
         Name = "ShadowHagBug";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
     }
 

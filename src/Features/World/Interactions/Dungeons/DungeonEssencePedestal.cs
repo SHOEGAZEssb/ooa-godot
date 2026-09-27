@@ -22,7 +22,7 @@ internal sealed partial class DungeonEssencePedestal : DungeonInteractionVisualE
         _room = room; _animationTick = animationTick;
         InitializeVisual(visual, position);
         Name = "EssencePedestal_7f01";
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex; // objectSetVisible83.
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex; // objectSetVisible83.
         Visible = false;
     }
 

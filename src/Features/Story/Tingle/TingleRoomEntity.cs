@@ -82,7 +82,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
             // objectSetVisiblec0 fixes airborne Tingle at source priority $00.
             // His first grounded interactionAnimateAsNpc update replaces this
             // with Link-relative priority.
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         _tingle.Initialize(record);
         _tingle.SetScriptAnimation(database.Animation("tingle", 0));
@@ -107,7 +107,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloon = new NpcCharacter
         {
             Name = "TingleBalloon",
-            ZIndex = NpcCharacter.InFrontOfLinkZIndex
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         _balloon.Initialize(balloonRecord);
         _balloon.SetScriptAnimation(balloonAnimation);

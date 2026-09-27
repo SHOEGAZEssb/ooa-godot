@@ -229,6 +229,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                 }
             }
             Visible = true; // itemDrop_initGfx -> objectSetVisiblec1
+            ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             if (IsSideScrolling())
             {
                 // State 0 increments Part.state twice in a side-scrolling
@@ -262,6 +263,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
             if (_carrierId is null)
             {
                 _carrierId = carrier?.ItemId ?? -1;
+                ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // state3: visible80.
                 _zFixed = unchecked((byte)_zFixed);
                 Visible = true;
             }
@@ -393,6 +395,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
                     // fall-and-bounce path. speedZ is retained but no longer
                     // updated in state 2.
                     _state = DropState.Grounded;
+                    ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex; // @doneBouncing: visiblec3.
                     _counter = LifetimeTicks;
                     _collisionEnabled = false;
                 }
@@ -408,6 +411,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D
         {
             _speedZ = 0;
             _state = DropState.Grounded;
+            ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex; // @doneBouncing: visiblec3.
             _counter = LifetimeTicks;
             _collisionEnabled = SubId != ItemDropDatabase.Fairy;
             return;

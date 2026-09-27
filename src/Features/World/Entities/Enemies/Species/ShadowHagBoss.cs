@@ -89,7 +89,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
             position,
             EnemyCharacterConfiguration.FromImported(record));
         Name = "ShadowHag";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
     }
 
@@ -396,6 +396,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
 
     private void BeginBugSpawnDelay()
     {
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex; // shadowHag_initStateC: visible83.
         _state = ShadowHagState.BugSpawnDelay;
         _counter1 = 30;
         SetCollisionRadii(5, 3);
@@ -405,6 +406,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
 
     private void BeginEmerging()
     {
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // shadowHag_beginEmergingFromShadow: visible82.
         SetAnimation(5);
         _handledAnimationFrame = -1;
         Visible = true;

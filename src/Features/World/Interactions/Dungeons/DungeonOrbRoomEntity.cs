@@ -93,7 +93,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         _toggleMask = toggleMask;
         Name = $"DungeonOrb_{group}_{room:x2}_{packedPosition:x2}";
         Position = Point(packedPosition);
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             EnemyVisualSource.LoadComposite(visual.Sprites),

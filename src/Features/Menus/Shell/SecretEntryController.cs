@@ -119,7 +119,7 @@ internal sealed class SecretEntryController(
 
     public void OpenAtWhite()
     {
-        _screen = new MainMenuScreen { Name = "SecretEntry", ZIndex = 60 };
+        _screen = new MainMenuScreen { Name = "SecretEntry", ZIndex = ScreenDrawPriority.NameEntryZIndex };
         interfaceLayer.AddChild(_screen);
         _screen.ShowSecretEntry();
     }

@@ -24,7 +24,7 @@ internal sealed partial class TokaySeedlingDecorationRoomEntity :
         Record = record;
         Name = "TokayScentSeedling";
         Position = new Vector2(record.X, record.Y);
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             EnemyVisualSource.LoadComposite([record.Sprite]),

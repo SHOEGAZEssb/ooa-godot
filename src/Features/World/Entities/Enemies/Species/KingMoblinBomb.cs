@@ -136,7 +136,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
         var record=Boss.Data.Actor(Small?0x47:0x3f) with {
             Sprites=[explosion.ExplosionSprite],TileBase=explosion.ExplosionTileBase,Palette=explosion.ExplosionPalette};
         InitializeEnemy(Position,EnemyCharacterConfiguration.FromImported(record),initialAnimation:1,positionedOam:true);
-        ZIndex=Small?NpcCharacter.FixedLowPriorityZIndex:NpcCharacter.BehindLinkZIndex;
+        ZIndex=Small?ObjectDrawPriority.FixedLowPriorityZIndex:ObjectDrawPriority.BehindLinkZIndex;
         State=Small?3:5; Radius=0; Boss.World.Sound(SoundId.SndExplosion);
     }
     private Rect2 BlastBounds() => new(Position-new Vector2(Radius,Radius),new Vector2(Radius*2,Radius*2));

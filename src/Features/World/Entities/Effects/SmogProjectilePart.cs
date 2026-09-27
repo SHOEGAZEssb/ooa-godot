@@ -56,7 +56,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
     {
         if (State == 0)
         {
-            State = 1; Visible = true; ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+            State = 1; Visible = true; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             _collisionCleared = false;
             Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target.Floor());
             _animation.SetAnimation(SubId == 0 ? 0 : 2 + (((Angle + 4) >> 3) & 1));

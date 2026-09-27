@@ -123,7 +123,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
                 if (!_world.ShuttersClosed() || !_world.PartSlotAvailable()) return;
                 spawns.Add(new BossShadowSpawn(() => Position, () => _zFixed >> 8,
                     () => GodotObject.IsInstanceValid(this) && !IsDead, 1, 8));
-                State = 9; Speed = 0x14; CollisionMode = EnemyCollisionMode.ArmosWarriorProtected; Visible = true; ZIndex = 10;
+                State = 9; Speed = 0x14; CollisionMode = EnemyCollisionMode.ArmosWarriorProtected; Visible = true; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 return;
             case 9: UpdateIntro(spawns); return;
             case 10:
@@ -221,7 +221,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         {
             if (!_world.ShuttersClosed()) return;
             State = 9; CollisionMode = EnemyCollisionMode.ArmosWarriorShield; ShieldHits = 3; _shieldAnimationBase = 3;
-            RestartAnimation(3); Visible = true; ZIndex = 11;
+            RestartAnimation(3); Visible = true; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         }
         else
         {
@@ -241,7 +241,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
             case 8:
                 if (!_world.ShuttersClosed()) return;
                 State = 9; CollisionMode = EnemyCollisionMode.ArmosWarriorSword; Speed = 5;
-                HeldSword(); RestartAnimation(9); Visible = true; ZIndex = 12; return;
+                HeldSword(); RestartAnimation(9); Visible = true; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; return;
             case 9:
                 if (Body!.Substate == 0) { HeldSword(); return; }
                 if (Body.Substate < 3) return;

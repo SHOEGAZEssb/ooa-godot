@@ -1136,7 +1136,7 @@ public sealed partial class ValidationRoot
             !minecart.Riding ||
             mountJumpUpdates != 26 ||
             _player.MinecartJumpActive ||
-            minecart.ZIndex != NpcCharacter.BehindLinkZIndex ||
+            minecart.ZIndex != ObjectDrawPriority.BehindLinkZIndex ||
             _player.ZIndex != Player.NormalZIndex ||
             minecart.CurrentAnimationIndex != 2 + (minecart.Direction & 1) ||
             _sound.PlayRequestsFor(SoundId.SndJump) != 1 ||

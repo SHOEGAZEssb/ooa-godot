@@ -28,7 +28,7 @@ internal sealed class GaleSeedEnemyMotion(EnemyCharacter entity)
         entity.Position = OracleObjectMath.ToPixelPosition(_position);
         entity.GaleDrawZ = _z >> 8;
         entity.GaleCollisionDisabled = true;
-        entity.ZIndex = 11;
+        entity.ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         entity.QueueRedraw();
     }
 

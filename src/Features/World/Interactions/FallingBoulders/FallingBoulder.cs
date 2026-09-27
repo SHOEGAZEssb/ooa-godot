@@ -47,7 +47,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
         _worldToScreen = worldToScreen;
         Name = $"FallingBoulder_{subId:x2}";
         Visible = false;
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // fallingBoulderSpawner.s: visiblec1.
         _animation = new(this, 1);
         _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png"),
             [data.Animation], data.TileBase, data.Palette,

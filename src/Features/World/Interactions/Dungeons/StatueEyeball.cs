@@ -24,7 +24,7 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
     {
         Name = "StatueEyeball";
         Position = position;
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Visible = false;
         _data = data;
         _animation = new EnemyAnimationPlayer(this, data.EyeVisuals.Count);

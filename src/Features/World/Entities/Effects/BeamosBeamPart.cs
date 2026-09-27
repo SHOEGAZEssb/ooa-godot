@@ -58,7 +58,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
             _velocity.XFixed * _behavior.BeamVelocityScale);
         Position = _position.PixelPosition;
         Visible = (frame & SubId) == 0;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex; // objectSetVisible81.
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // objectSetVisible81.
         if (State == 2 && (Position.X >= _room.Width || Position.Y >= _room.Height ||
             _room.IsSolidForEnemyMovement(Position, holesAreWalls: false))) Delete();
         QueueRedraw();

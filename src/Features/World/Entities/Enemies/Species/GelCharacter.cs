@@ -106,7 +106,8 @@ public partial class GelCharacter : EnemyCharacter
             if (anyButtonJustPressed)
                 _counter2 = Math.Max(1, _counter2 - 3);
             if ((_counter2 & 0x03) == 0)
-                ZIndex = ZIndex <= 10 ? 11 : 9;
+                ZIndex = ZIndex <= Player.NormalZIndex
+                    ? ObjectDrawPriority.InFrontOfLinkZIndex : ObjectDrawPriority.BehindLinkZIndex;
             AttachmentRestrictionActive = true;
             AdvanceAnimation();
             QueueRedraw();
@@ -224,7 +225,7 @@ public partial class GelCharacter : EnemyCharacter
         // gel_beginHop does not alter collisionType. A Gel hopping normally
         // therefore stays enabled, while a Gel whose Link collision disabled
         // it stays disabled until state $0b restores bit 7 on landing.
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         RestartAnimation(0);
     }
 

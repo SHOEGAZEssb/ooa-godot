@@ -240,7 +240,7 @@ public sealed partial class ValidationRoot
         FailIf(nut.Substate != 2 || nut.Height != -0x1000 || nut.Position.Y != 0x28,
             "Tuni Nut rise did not use the global frame parity or preserve logical Y.");
         StepRoomEventFrames(1);
-        FailIf(nut.Position.Y != 0x27 || nut.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+        FailIf(nut.Position.Y != 0x27 || nut.ZIndex != 12,
             "Tuni Nut did not render the high byte of its $40-speed movement at source priority $c0.");
         StepRoomEventFrames(63);
         FailIf(nut.Substate != 2 || nut.Position.Y != 0x18, "Tuni Nut north movement must retain Y=$18 until it crosses below the target.");

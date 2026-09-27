@@ -346,7 +346,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     {
         NpcCharacter actor = SpawnEffect(
             _database.Lightning, row.Y, row.X, "Lightning", objectId: 0x27,
-            fixedPriority: NpcCharacter.InFrontOfLinkZIndex);
+            fixedPriority: ObjectDrawPriority.InFrontOfLinkZIndex);
         actor.Visible = false;
         actor.SetScriptDrawOffset(new Vector2(0, unchecked((sbyte)0xc0)));
         _lightningParts.Add(new LightningState(
@@ -447,7 +447,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         NpcCharacter actor = SpawnEffect(
             record, Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
             "Debris", objectId: 0x08,
-            fixedPriority: NpcCharacter.BehindLinkZIndex);
+            fixedPriority: ObjectDrawPriority.BehindLinkZIndex);
         _interactionEffects.Add(new InteractionEffectState(
             actor, position, 0, ObjectAngle.Up, 0, record.Duration, debris: true));
     }

@@ -82,7 +82,7 @@ public sealed partial class ValidationRoot
             _entities.Update(1.0 / 60.0, _player);
             FailIf(
                 !_player.TopDownAirborne || raft.LinkRiding ||
-                raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+                raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
                 raft.ZIndex >= _player.ZIndex,
                 "Room 1:a7 INTERAC_RAFT $e6 must remain at source priority " +
                 "$03 beneath Link during the ascending Feather jump.");
@@ -129,7 +129,7 @@ public sealed partial class ValidationRoot
         {
             _entities.Update(1.0 / 60.0, _player);
         }
-        FailIf(raft.ZIndex != NpcCharacter.FixedLowPriorityZIndex,
+        FailIf(raft.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex,
             "Dismounted INTERAC_RAFT $e6:$02 did not restore source priority $03.");
         _player.EndForcedRoomEntryMovement();
         _player.WarpTo(raft.PrecisePosition + new Vector2(0, -5), recordSafe: false);
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _entities.Entities<RaftRoomEntity>().Single().LinkRiding ||
             _entities.Entities<RaftRoomEntity>().Single().ZIndex !=
-                NpcCharacter.FixedLowPriorityZIndex,
+                ObjectDrawPriority.FixedLowPriorityZIndex,
             "Remembered INTERAC_RAFT $e6 must reload waiting at source priority $03.");
 
         _saveData.WriteWramByte(behavior.DimitriStateAddress, 0);

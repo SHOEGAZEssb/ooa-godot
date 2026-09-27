@@ -272,7 +272,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
                 : 0x01 + _direction));
         Name = $"Moosh_{_group:x1}_{_roomId:x2}";
         ZIndex = _phase == MooshCompanionPhase.Riding
-            ? NpcCharacter.BehindLinkZIndex
+            ? ObjectDrawPriority.BehindLinkZIndex
             : Player.NormalZIndex;
         Visible = true;
     }
@@ -410,7 +410,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _angle = 0xff;
         _zFixed = 0;
         _speedZ = 0;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         SetAnimation(0x13 + _direction);
         CompanionRuntimeState.Begin(
             _runtime, CompanionRuntimeState.MooshId,
@@ -1009,12 +1009,10 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     {
         if (LinkRiding)
         {
-            ZIndex = NpcCharacter.BehindLinkZIndex;
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex;
             return;
         }
-        ZIndex = Position.Y > player.Position.Y + NpcCharacter.LinkPriorityYOffset
-            ? NpcCharacter.InFrontOfLinkZIndex
-            : NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y, _zFixed >> 8);
     }
 
     public void SetScreenTransitionBoundaryCoordinate(

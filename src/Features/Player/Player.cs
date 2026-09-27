@@ -93,7 +93,7 @@ public partial class Player : Node2D
     }
 
     internal const int NormalZIndex = 10;
-    internal const int DivingZIndex = 8;
+    internal const int DivingZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
     internal const int AlternateTextboxPaletteZIndex = 13;
     private const int NormalTopDownSpeed = 0x28;
     private int _electricShockCounter;
@@ -1029,7 +1029,7 @@ public partial class Player : Node2D
         ZIndex = active
             ? AlternateTextboxPaletteZIndex
             : _forcedState08LowPriority
-                ? NpcCharacter.BehindLinkZIndex
+                ? ObjectDrawPriority.BehindLinkZIndex
             : TopDownDiving
                 ? DivingZIndex
                 : NormalZIndex;

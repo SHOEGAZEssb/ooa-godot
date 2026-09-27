@@ -97,7 +97,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
             position,
             EnemyCharacterConfiguration.FromImported(record));
         Name = "Subterror";
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
     }
 

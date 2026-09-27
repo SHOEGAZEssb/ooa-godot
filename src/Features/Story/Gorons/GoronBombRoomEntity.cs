@@ -92,7 +92,7 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
         Entity.Initialize(_owner.Database.BombRecord with {TileBase=0x0c,Palette=2,
             UpAnimation=animation,RightAnimation=animation,DownAnimation=animation,LeftAnimation=animation});
         Entity.SetAnimationRate(0); Entity.SetScriptAnimation(animation);
-        Entity.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+        Entity.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
         Entity.Position=_position; Entity.SetScriptDrawOffset(new(0,_z>>8));
         _owner.Context.Sound.PlaySound(SoundId.SndExplosion);
     }

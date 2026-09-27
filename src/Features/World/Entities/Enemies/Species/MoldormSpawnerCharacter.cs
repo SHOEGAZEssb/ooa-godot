@@ -26,7 +26,7 @@ internal partial class MoldormSpawnerCharacter : EnemyCharacter
         _slots = slots; _killParts = killParts; _sound = sound;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         RestartAnimation(0);
-        Visible = false; ZIndex = 10;
+        Visible = false; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     internal void UpdateFrame(ICollection<RoomEntitySpawn> spawns)
@@ -43,7 +43,7 @@ internal partial class MoldormSpawnerCharacter : EnemyCharacter
         var definition = _enemies.ImportedEnemy(EnemyId.Moldorm, subid);
         if (subid == 1)
         {
-            _head = new MoldormCharacter { Name = "MoldormHead", ZIndex = 10, KillRelatedParts = _killParts };
+            _head = new MoldormCharacter { Name = "MoldormHead", ZIndex = ObjectDrawPriority.BehindLinkZIndex, KillRelatedParts = _killParts };
             _head.Initialize(definition, _room, Position.Floor(), _random);
             return new MoldormRoomEntity(_head, _source with { SubId = 1 }, _sound);
         }

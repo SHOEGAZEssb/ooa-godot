@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
         peahat.UpdateFrame();
         FailIf(
             peahat.State != PeahatState.Accelerating ||
-            peahat.Counter != 0x7f || peahat.ZHigh != 0,
+            peahat.Counter != 0x7f || peahat.ZHigh != 0 || peahat.ZIndex != 11,
             "ENEMY_PEAHAT $3e:$00 did not enter its source $7f-update " +
             "acceleration state from room 4:2e.");
 

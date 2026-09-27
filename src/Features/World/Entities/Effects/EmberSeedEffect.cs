@@ -428,6 +428,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     private void BeginBurning()
     {
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // @emberStandard: visible82.
         _state = EmberState.Burning;
         _flameCounter = _record.FlameCounter;
         _playSound(_record.FlameSound);
@@ -436,6 +437,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     private void BeginMystery()
     {
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // @mysteryStandard: visible82.
         _state = EmberState.Mystery;
         _collisionEnabled = false;
         _playSound(_record.FlameSound);
@@ -447,7 +449,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _state = EmberState.Scent;
         // @scentLanded calls objectSetVisible83. Source priority 3 is the
         // fixed low-priority group, below normal Link and priority-2 enemies.
-        ZIndex = NpcCharacter.FixedLowPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         _scentPublished = false;
         _collisionEnabled = false;
         _flameCounter = _record.FlameCounter;
@@ -514,6 +516,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     private void BeginEnemyBurn(ISeedBurnTarget target, bool playSound)
     {
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // PART_BURNING_ENEMY: visible80.
         _burnTarget = target;
         _state = EmberState.Burning;
         // PART_BURNING_ENEMY $12 initializes counter1 to 59. Its final

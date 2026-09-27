@@ -326,7 +326,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         }
         _carried.Hold(player);
         Position = _carried.GroundPosition;
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         int animation = HeldAnimationIndex(player.FacingVector);
         if (AnimationIndex != animation)
             RestartAnimation(animation);
@@ -373,7 +373,7 @@ internal partial class CuccoCharacter : EnemyCharacter
         if (!_carried.Bounce(_throwing))
         {
             _state = CuccoState.Runaway;
-            ZIndex = 10;
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         }
         else
         {

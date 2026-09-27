@@ -770,7 +770,7 @@ public partial class ValidationRoot
             void Ball(int frame) => ball.UpdateNormalFrame(Vector2.Zero, frame, _ => false, () => { }, _ => sounds++,
                 value => angle = value, value => grab = value);
             Ball(2);
-            FailIf(ball.GrabSubstate != 1 || grab != 0x20 || ball.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+            FailIf(ball.GrabSubstate != 1 || grab != 0x20 || ball.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
                 "$74 just-grabbed dispatch must set wLinkGrabState2=$20 and visible$c1.");
             ball.CopyCarriedPosition(new(80+x,64), z);
             ball.ReleaseGrab(ObjectAngle.Up);
@@ -791,7 +791,7 @@ public partial class ValidationRoot
                     "$74 lethal hit must finish16 SPEED_200 knockback updates before no-health dispatch, without AI or Z movement.");
             }
             ball.FinishGrabBounce(); Ball(30);
-            FailIf(ball.State != 8 || ball.ZIndex != NpcCharacter.BehindLinkZIndex,
+            FailIf(ball.State != 8 || ball.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
                 "$74 at-rest substate must restore state8/visible$c2 on its next enemy dispatch.");
             ball.Free(); parent.Free();
         }

@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
             "Patch game start did not put Tuni Nut in state $01 and replace stair tile $49.");
         Until(() => _entities.Entities<HardhatBeetleCharacter>().Count() == 4, 65, "four beetle spawns");
         var brokenNut = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x94 && n.Record.SubId == 4);
-        FailIf(brokenNut.ZIndex != NpcCharacter.FixedLowPriorityZIndex || brokenNut.ZIndex >= Actor().ZIndex,
+        FailIf(brokenNut.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex || brokenNut.ZIndex >= Actor().ZIndex,
             "Patch's broken nut $94:$04 lost visible83 priority and draws over Patch.");
         FailIf(_entities.Entities<HardhatBeetleCharacter>().Any(b => b.Record.Id != 0x5f || b.Record.Palette != 6 || b.Record.DamageQuarters != 2),
             "Patch did not spawn harmless ENEMY_HARMLESS_HARDHAT_BEETLE $5f.");
@@ -142,7 +142,7 @@ public sealed partial class ValidationRoot
             FailIf(explosion.Position != new Vector2(0x70, 0x18) || explosion.ZOffset != 0 ||
                 explosion.TextureSize != new Vector2(32, 32) || explosion.RenderedTextureOrigin != new Vector2(0x60, 8) ||
                 explosion.TexturePixelHash != 0x510f3c7716debcb4UL || explosion.AnimationFrame != 0 ||
-                explosion.ZIndex != NpcCharacter.InFrontOfLinkZIndex,
+                explosion.ZIndex != ObjectDrawPriority.InFrontOfLinkZIndex,
                 $"Patch cart-hit explosion $56 has incorrect source graphics, origin or priority (pixels={explosion.TexturePixelHash:x16}).");
             Step(124);
             FailIf(!patch.Fading || patch.State != 5 || _inventory.TuniNutState != 1,

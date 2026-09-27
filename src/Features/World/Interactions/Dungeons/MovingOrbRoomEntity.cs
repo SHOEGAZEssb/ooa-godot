@@ -35,7 +35,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         if (record.Id != InteractionId.Id0b || record.SubId != 0 || record.Var03 == 0)
             throw new InvalidOperationException($"Unsupported moving orb at {record.Source}.");
         Position = record.Position; _mask = record.Var03; _runtime = runtime; _sound = sound; _switchSound = switchSound;
-        Name = "MovingOrb"; ZIndex = NpcCharacter.BehindLinkZIndex;
+        Name = "MovingOrb"; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted, paletteVariants: [1, 2]);

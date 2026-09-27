@@ -2117,7 +2117,9 @@ public sealed class RoomEntityManager : IDisposable
             essence.BindEnergySwirl(center => CreateEnergySwirl(center), () => _runtimeState.SetWramByte(BlueEnergyBeadDatabase.Shared.DeleteAddress, 1));
             essence.BindChildren(CreateEssenceChildren);
         }
-        if (UsesInteractionSlot(entity))
+        if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter && entity.Node is NpcCharacter npcActor)
+            npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
+        if (UsesInteractionSlot(entity) && entity.Node is not NpcCharacter { Active: false })
         {
             int slot = FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
@@ -2187,8 +2189,7 @@ public sealed class RoomEntityManager : IDisposable
             }
         }
         _worldRoot.AddChild(entity.Node);
-        if (_interactionSlots.TryGetValue(entity, out int drawSlot))
-            ApplyInteractionDrawOrder(entity, drawSlot);
+        ApplyNativeDrawOrder(entity);
         if (entity is IFixedRoomEntity)
         {
             // Entering the tree can enable an overridden _PhysicsProcess
@@ -2199,19 +2200,49 @@ public sealed class RoomEntityManager : IDisposable
         return entity;
     }
 
-    private void ApplyInteractionDrawOrder(IRoomEntity entity, int slot)
+    private int? NativeDrawOrder(IRoomEntity entity)
     {
-        // bank0.queueDrawEverything visits $d040..$df40 in ascending
-        // slot order. Within a visible&3 priority bucket the earlier
-        // OAM entry wins. Godot's equal-Z siblings paint in the opposite
-        // direction, so insert later slots before earlier slots. Keep
-        // the update list and slot allocation order unchanged.
-        IRoomEntity? lowerSlot = _interactionSlots
-            .Where(pair => pair.Value < slot && pair.Key.Node.GetParent() == _worldRoot)
-            .OrderByDescending(pair => pair.Value)
-            .Select(pair => pair.Key).FirstOrDefault();
-        if (lowerSlot is not null)
-            _worldRoot.MoveChild(entity.Node, lowerSlot.Node.GetIndex());
+        // bank0.s: queueDrawEverything. Use the actual allocator's slot so
+        // deletion/replacement/reuse and retained scrolling objects agree.
+        int itemSlot = _dynamicItems.SlotOf(entity);
+        if (itemSlot >= 0) return itemSlot - 0xd0;
+        if (entity is PegasusDustRoomEntity) return 0x0f; // reserved ITEM $df
+        if (_enemySlots.TryGetValue(entity, out int enemySlot)) return 0x10 + enemySlot;
+        if (_partSlots.TryGetValue(entity, out int partSlot)) return 0x20 + partSlot;
+        if (entity is DungeonEssenceGlow) return 0x31; // reserved INTERACTION $d1
+        if (_interactionSlots.TryGetValue(entity, out int interactionSlot)) return 0x30 + interactionSlot;
+        return null;
+    }
+
+    private void ApplyNativeDrawOrder(IRoomEntity entity)
+    {
+        if (NativeDrawOrder(entity) is not int order) return;
+        // Godot paints equal-Z siblings last-to-front; Game Boy OAM gives
+        // earlier slots precedence. This changes presentation, never dispatch.
+        IRoomEntity? preceding = _activeEntities.Concat(_outgoingEntities)
+            .Where(other => other != entity && other.Node.GetParent() == _worldRoot &&
+                NativeDrawOrder(other) is int otherOrder && otherOrder < order)
+            .OrderByDescending(other => NativeDrawOrder(other)).FirstOrDefault();
+        if (preceding is not null)
+        {
+            int index = preceding.Node.GetIndex();
+            if (entity.Node.GetIndex() < index) index--;
+            _worldRoot.MoveChild(entity.Node, index);
+        }
+        else
+            _worldRoot.MoveChild(entity.Node, _worldRoot.GetChildCount() - 1);
+    }
+
+    private void SetNpcInteractionActive(IRoomEntity entity, bool active)
+    {
+        // Event actors retain their managed node for script references after
+        // interactionDelete. Their native allocation must still be reusable.
+        if (!active) { _interactionSlots.Remove(entity); return; }
+        if (_interactionSlots.ContainsKey(entity)) return;
+        int slot = FindFreeInteractionSlot();
+        if (slot < 0) throw new InvalidOperationException($"{entity.Node.Name}: native INTERACTION pool full while reactivating actor.");
+        _interactionSlots.Add(entity, slot);
+        if (entity.Node.GetParent() == _worldRoot) ApplyNativeDrawOrder(entity);
     }
 
     private void ProcessSpawns(RoomEntityFrame? frame = null)
@@ -2299,7 +2330,10 @@ public sealed class RoomEntityManager : IDisposable
             or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
-            or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity ? 1 : 2;
+            or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity
+            or CuccoAttackerRoomEntity or MoblinBoomerangRoomEntity or SeedOnTreeRoomEntity or ShootingGalleryBallRoomEntity
+            or HeadThwompBombDropRoomEntity or PumpkinHeadProjectileRoomEntity or ShadowHagShadowRoomEntity or MapleDroppedItemRoomEntity ||
+        entity.Node is OctorokRockProjectile or EnemyArrowProjectile or HeadThwompProjectile or HeadThwompBoulder or SubterrorDirtEffect ? 1 : 2;
 
     internal IReadOnlyList<BlueEnergyBeadRoomEntity> CreateEnergySwirl(Vector2 center, byte duration = 0xff)
     {
@@ -2414,9 +2448,12 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        NpcCharacterRoomEntityAdapter or LynnaShopItemRoomEntity or Room149BallRoomEntity or
+        LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
-        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or DungeonKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
+        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or DungeonKeyUseEffect
+            or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or MinecartGateRoomEntity
             or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity;
@@ -2718,8 +2755,6 @@ public sealed class RoomEntityManager : IDisposable
         if (FindFreeInteractionSlot() < 0) return false;
         var entity = _factory.Create(new RockDebrisSpawn(position),_roomForActiveEntities);
         AddEntity(entity);
-        _interactionSlots[entity] = FindFreeInteractionSlot();
-        ApplyInteractionDrawOrder(entity, _interactionSlots[entity]);
         return true;
     }
 
@@ -2870,6 +2905,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        if (entity.Node is NpcCharacter npc) npc.NativeActivationChanged = null;
         _interactionSlots.Remove(entity);
         _partSlots.Remove(entity);
         if (_enemySlots.Remove(entity, out int enemySlot))

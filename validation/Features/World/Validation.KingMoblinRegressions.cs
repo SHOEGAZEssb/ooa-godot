@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
                 int frame=bomb.AnimationFrame;
                 FailIf(frame>6 || OracleGraphicsCache.PixelHash(bomb.CurrentAnimationTexture.GetImage())!=hashes[Math.Min(frame,5)],
                     $"PART ${(bomb.Minion is null?0x3f:0x47):x2} explosion frame {frame} did not use source common-sprites OAM/palette.");
-                FailIf(bomb.ZIndex!=(bomb.Minion is null?NpcCharacter.BehindLinkZIndex:NpcCharacter.FixedLowPriorityZIndex),
+                FailIf(bomb.ZIndex!=(bomb.Minion is null?ObjectDrawPriority.BehindLinkZIndex:ObjectDrawPriority.FixedLowPriorityZIndex),
                     "PART $3f/$47 explosion lost objectSetVisible82/83 priority.");
                 if(bomb.Minion is null)blastFrames.Add(frame);
             }

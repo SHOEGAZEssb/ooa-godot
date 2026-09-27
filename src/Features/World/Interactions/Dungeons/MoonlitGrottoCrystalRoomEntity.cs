@@ -63,7 +63,7 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
         _playSound = playSound;
         Name = $"GrottoCrystal_{record.Room:x2}_{record.SubId:x2}";
         Position = Point(record.PackedPosition);
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
 
         _crystal = Load(crystalVisual);
         _breakEffect = Load(breakVisual);

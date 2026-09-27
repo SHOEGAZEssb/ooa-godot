@@ -39,7 +39,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         _sign = (record.SubId & 1) == 0 ? 1 : -1;
         _precisePosition = new Vector2(record.X, record.Y);
         Name = "Lever";
-        ZIndex = BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Initialize(record);
         SetCollisionRadii(constants.LeverRadiusY, constants.LeverRadiusX);
     }

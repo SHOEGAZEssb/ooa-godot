@@ -24,7 +24,7 @@ internal sealed partial class DungeonEssenceGlow : TransitionOffsetNode2D,
         _owner = owner;
         Position = owner.Position.Floor(); // objectCopyPosition before parent zh=-$10.
         Name = "EssenceGlow_7f02";
-        ZIndex = NpcCharacter.BehindLinkZIndex; // objectSetVisible82.
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex; // objectSetVisible82.
         Visible = false;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,

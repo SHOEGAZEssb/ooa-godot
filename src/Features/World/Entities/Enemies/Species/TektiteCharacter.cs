@@ -72,7 +72,7 @@ internal partial class TektiteCharacter : EnemyCharacter
                 Gravity = big ? _behavior.BigLeapGravity : _behavior.SmallLeapGravity;
                 Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target);
                 State = TektiteState.Leaping;
-                ZIndex = 11; // objectSetVisiblec1; ground uses objectSetVisiblec2.
+                ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // objectSetVisiblec1; ground uses objectSetVisiblec2.
                 _soundRequested(_behavior.JumpSound);
                 return;
             case TektiteState.Leaping:
@@ -87,7 +87,7 @@ internal partial class TektiteCharacter : EnemyCharacter
                 Counter1 = (_random.Next().Value & _behavior.WaitMask) + _minimumWait;
                 State = TektiteState.Waiting;
                 RestartAnimation(0);
-                ZIndex = 10;
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 QueueRedraw();
                 return;
         }
@@ -106,7 +106,7 @@ internal partial class TektiteCharacter : EnemyCharacter
         Counter1 = (_random.Next().Value & _behavior.WaitMask) + 1;
         State = TektiteState.Waiting;
         Visible = true;
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
     }
 
     internal override bool TakeBurnHit(int damage) => base.TakeBurnHit(Health);

@@ -24,7 +24,7 @@ internal sealed partial class KnockbackDustRoomEntity : TransitionOffsetNode2D,
         Position = OracleObjectMath.ToPixelPosition(position);
         _z = unchecked((sbyte)z);
         Visible = false;
-        ZIndex = NpcCharacter.FixedHighPriorityZIndex;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         var table = GeneratedTable.Load("res://assets/oracle/effects/knockback_dust.tsv",
             new GeneratedTableSchema("INTERAC$0f:$01", GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"], headerRequired: true));

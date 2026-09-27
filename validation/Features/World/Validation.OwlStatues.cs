@@ -135,7 +135,7 @@ public sealed partial class ValidationRoot
             owl.Position != owlPosition ||
             owl.State != OwlStatueState.Idle ||
             owl.AnimationIndex != 0 ||
-            owl.ZIndex != NpcCharacter.FixedLowPriorityZIndex ||
+            owl.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
             !owl.Visible ||
             !owl.TransitionDrawOffset.IsEqualApprox(incomingOffset) ||
             manager.Entities<SeedOnTree>().Count != 3 ||

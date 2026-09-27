@@ -39,7 +39,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
             visual.Animations, visual.TileBase, visual.Palette);
         _animation.SetAnimation(0);
         Visible = false;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
     }
 
     internal void PublishCollision(int itemCollision) => _lastCollision = _pendingCollision = itemCollision & 0x7f;

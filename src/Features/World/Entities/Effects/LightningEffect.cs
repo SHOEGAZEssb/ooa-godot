@@ -27,7 +27,7 @@ internal sealed class LightningEffect
     {
         _actor = actor; _random = random; _sound = sound; _shake = shake; _debris = debris;
         actor.SetAnimationRate(0); actor.SetScriptVisible(false);
-        actor.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex); // objectSetVisible81
+        actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // objectSetVisible81
     }
     internal void UpdateFrame()
     {

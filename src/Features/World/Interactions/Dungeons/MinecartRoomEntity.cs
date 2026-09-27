@@ -82,7 +82,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         // higher ones, so the ridden cart is one complete sprite behind Link;
         // the imported frame offset creates the seated "inside" appearance.
         ZIndex = cart.Riding
-            ? NpcCharacter.BehindLinkZIndex
+            ? ObjectDrawPriority.BehindLinkZIndex
             : Player.NormalZIndex;
         InitializeVisual(
             visual,
@@ -171,7 +171,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             return;
 
         _phase = MinecartPhase.Riding;
-        ZIndex = NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _soundCounter = 0;
         SetAnimation(AnimationForCurrentState());
         MinecartRuntimeState.BeginRide(
@@ -321,9 +321,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     {
         // INTERAC_MINECART uses objectSetPriorityRelativeToLink with the same
         // $0b Y threshold as ordinary interactions.
-        ZIndex = Position.Y > player.Position.Y + NpcCharacter.LinkPriorityYOffset
-            ? NpcCharacter.InFrontOfLinkZIndex
-            : NpcCharacter.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y);
     }
 
     public void SetScreenTransitionBoundaryCoordinate(

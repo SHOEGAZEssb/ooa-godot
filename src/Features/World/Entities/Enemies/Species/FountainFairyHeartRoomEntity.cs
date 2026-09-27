@@ -22,7 +22,7 @@ internal sealed partial class FountainFairyHeartRoomEntity : TransitionOffsetNod
         _owner = owner;
         _displayedHealth = displayedHealth;
         Name = "FountainFairyHeart_30";
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(EnemyVisualSource.LoadComposite([database.HeartSprite]),
             [database.HeartAnimation], database.HeartTileBase, database.HeartPalette,

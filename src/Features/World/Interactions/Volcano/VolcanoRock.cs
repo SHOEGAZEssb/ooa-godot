@@ -39,7 +39,7 @@ internal sealed partial class VolcanoRock : TransitionOffsetNode2D
     {
         Position = position; _data = data; _room = room; _random = random;
         _sound = sound; _worldToScreen = worldToScreen;
-        Name = "VolcanoRock"; Visible = false; ZIndex = 20;
+        Name = "VolcanoRock"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         _radiusX = _radiusY = data.Radius;
         var image = OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png");
         _animation = new(this, 4);
@@ -77,7 +77,7 @@ internal sealed partial class VolcanoRock : TransitionOffsetNode2D
                 }
                 break;
             case 2:
-                if (--Counter == 0) { Counter = 0x10; State = 3; Visible = true; ZIndex = 20; }
+                if (--Counter == 0) { Counter = 0x10; State = 3; Visible = true; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; }
                 break;
             case 3:
                 _animation.Advance();
@@ -92,7 +92,7 @@ internal sealed partial class VolcanoRock : TransitionOffsetNode2D
                     Finish();
                     break;
                 }
-                State = 4; _speedZ = 0; ZIndex = 10;
+                State = 4; _speedZ = 0; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
                 break;
             case 4:
                 _animation.Advance();

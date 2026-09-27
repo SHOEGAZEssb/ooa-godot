@@ -223,7 +223,7 @@ internal sealed class ImpaIntroEvent :
         StoneActor.SetCollisionRadii(stone.CollisionRadiusY, stone.CollisionRadiusX);
         // objectSetVisible83 keeps INTERAC_TRIFORCE_STONE at priority 3;
         // follower Impa is continuously assigned priority 1 or 2 relative to Link.
-        StoneActor.SetFixedDrawPriority(NpcCharacter.FixedLowPriorityZIndex);
+        StoneActor.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
         _stonePrecisePosition = StoneActor.Position;
         _stonePushCounter = _stoneRecord.Timing.PushHoldFrames;
         _stoneMoveCounter = 0;

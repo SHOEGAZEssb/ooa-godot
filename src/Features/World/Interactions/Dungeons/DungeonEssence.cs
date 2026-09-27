@@ -86,7 +86,7 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
         Name = $"DungeonEssence_{definition.Index}";
         Position = record.Position;
         _precisePosition = Position;
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex; // objectSetVisible81.
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // objectSetVisible81.
         Visible = false;
         _essence = Load(essence, 0);
         _pedestalVisual = pedestal; _glowVisual = glow;

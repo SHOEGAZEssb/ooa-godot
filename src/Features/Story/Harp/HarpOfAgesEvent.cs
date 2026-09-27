@@ -122,7 +122,7 @@ internal sealed class HarpOfAgesEvent :
         _sparkle.SetGraphicsSourceOffset(sparkle.SourceOffset);
         _sparkle.SetScriptAnimation(sparkle.Animation0);
         _sparkle.SetBlocksLink(false);
-        _sparkle.SetFixedDrawPriority(NpcCharacter.FixedLowPriorityZIndex);
+        _sparkle.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
         _stage = HarpOfAgesEventStage.AwaitingPickup;
     }
 
@@ -370,7 +370,7 @@ internal sealed class HarpOfAgesEvent :
                 $"HarpMusicNote{_noteSerial}"));
         actor.Position = position;
         actor.SetScriptAnimation(effect.Animation);
-        actor.SetFixedDrawPriority(NpcCharacter.InFrontOfLinkZIndex);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
         float velocityX = effect.VelocityXFixed / 256.0f;
         if (floatsLeft)
             velocityX = -velocityX;

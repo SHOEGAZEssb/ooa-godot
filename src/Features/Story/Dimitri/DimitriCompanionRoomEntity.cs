@@ -397,8 +397,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
             SynchronizePlayer(player);
         }
-        ZIndex = LinkRiding || Position.Y <= player.Position.Y + NpcCharacter.LinkPriorityYOffset
-            ? NpcCharacter.BehindLinkZIndex : NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = LinkRiding ? ObjectDrawPriority.BehindLinkZIndex
+            : ObjectDrawPriority.RelativeToLink(Position.Y, player.Position.Y, _carried.ZFixed >> 8);
         QueueRedraw();
     }
 

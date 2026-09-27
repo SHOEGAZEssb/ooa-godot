@@ -40,7 +40,7 @@ internal sealed partial class EraInfoDisplay : TransitionOffsetNode2D
     {
         _record = record;
         Name = record.SubId == 0 ? "PresentEraInfo" : "PastEraInfo";
-        ZIndex = NpcCharacter.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         Visible = false;
 
         Image image = OracleGraphicsCache.LoadImage(

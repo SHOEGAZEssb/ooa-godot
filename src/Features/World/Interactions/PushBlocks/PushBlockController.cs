@@ -76,7 +76,7 @@ public partial class PushBlockController : Node2D
         _pushBlockPermitted = pushBlockPermitted ?? (_ => true);
         _pushSomaria = pushSomaria;
         _braceletLevelSource = braceletLevelSource;
-        ZIndex = 9;
+        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         if (observeRoomChanges) _rooms.RoomChanged += (_, _) => { if (!_outgoing) Cancel(); };
     }
 

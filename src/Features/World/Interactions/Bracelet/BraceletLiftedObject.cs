@@ -28,7 +28,7 @@ internal partial class BraceletLiftedObject : Node2D
     internal void Initialize(Texture2D texture)
     {
         _texture = texture;
-        ZIndex = 11;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // bracelet.s: objectSetVisiblec0.
         QueueRedraw();
     }
 
@@ -99,7 +99,7 @@ internal partial class BraceletLiftedObject : Node2D
     {
         Vector2 ground = OracleObjectMath.ToPixelPosition(GroundPosition);
         Position = ground + new Vector2(0, _zFixed >> 8);
-        ZIndex = 10;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         QueueRedraw();
     }
 }
