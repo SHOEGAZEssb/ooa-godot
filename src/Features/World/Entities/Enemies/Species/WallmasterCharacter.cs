@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-internal partial class WallmasterCharacter : EnemyCharacter
+internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly WallmasterBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Wallmaster;
     private WallmasterState _state;

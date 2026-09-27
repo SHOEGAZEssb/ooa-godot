@@ -4,6 +4,13 @@ namespace oracleofages;
 
 internal static class TerrainShadow
 {
+    // bank0.s:_drawObjectTerrainEffects, before the terrain-on-ground branch.
+    internal static bool ShouldDraw(int? zHigh, bool visible, int tilesetFlags,
+        int cameraByte, int frameCounter, int objectPage) =>
+        visible && zHigh is int z && (z & 0x80) != 0 &&
+        (tilesetFlags & 0x20) == 0 && (cameraByte & 0xff) < 0x97 &&
+        ((frameCounter ^ objectPage) & 1) != 0;
+
     private static TerrainShadowDefinition? _definition;
 
     internal static TerrainShadowDefinition Load()

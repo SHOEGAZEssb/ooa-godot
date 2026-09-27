@@ -8,8 +8,10 @@ namespace oracleofages;
 /// SPEED_80 routes with an eight-update stand and fires PART_ENEMY_ARROW $1a
 /// on every other route change when the selected direction faces Link.
 /// </summary>
-internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy
+internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly ArrowMoblinBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.ArrowMoblin;
     private OracleRandom _random = null!;

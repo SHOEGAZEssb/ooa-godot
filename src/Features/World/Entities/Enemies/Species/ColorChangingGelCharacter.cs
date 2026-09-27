@@ -4,8 +4,10 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal partial class ColorChangingGelCharacter : EnemyCharacter
+internal partial class ColorChangingGelCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
+
     private readonly ColorChangingGelBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.ColorChangingGel;
 

@@ -8,8 +8,10 @@ namespace oracleofages;
 /// enters from one of four source screen edges, waits 24 updates before
 /// enabling its out-of-bounds deletion check, and flies toward Link.
 /// </summary>
-internal partial class CuccoAttackerCharacter : EnemyCharacter
+internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => _behavior.Z;
+
     private readonly CuccoAttackerBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.CuccoAttacker;
     private OracleRandom _random = null!;

@@ -4,6 +4,7 @@ namespace oracleofages;
 
 internal static class ObjectDrawPriority
 {
+    internal const int TerrainShadowZIndex = 7;
     // Native visible & 3 buckets, ordered ahead of Link within each queue.
     internal const int FixedHighPriorityZIndex = 12; // objectSetVisible80
     internal const int InFrontOfLinkZIndex = 11; // objectSetVisible81

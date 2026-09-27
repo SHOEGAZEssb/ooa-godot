@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy
+internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly LikeLikeBehaviorProfile _data = EnemyBehaviorTables.Shared.LikeLike;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;

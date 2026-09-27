@@ -2163,7 +2163,11 @@ public sealed class RoomEntityManager : IDisposable
                 $"${lifecycle.TalkNpc.Record.SubId:x2}.");
         }
         if (entity.Node is TransitionOffsetNode2D drawable)
+        {
             drawable.SetWorldToScreen(position => WorldToScreen(position));
+            drawable.BindTerrainShadow(_roomForActiveEntities, () => _enemyFrameCounter,
+                () => NativeDrawOrder(entity) ?? 0, () => _screenTransitionActive);
+        }
         _activeEntities.Add(entity);
         // The source collision pass scans objects created during the earlier
         // enemy/part passes too. Retain the weapon request for these targets.

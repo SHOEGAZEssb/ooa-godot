@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -13,6 +14,22 @@ internal partial class BraceletLiftedObject : Node2D
     private Texture2D _texture = null!;
     private int _zFixed;
     private int _speedZ;
+    private Func<bool> _shadowDrawn = static () => false;
+    internal bool TerrainShadowDrawn => _shadowDrawn();
+
+    internal void BindTerrainShadow(OracleRoomData room, Func<int> counter,
+        Func<Vector2, Vector2> worldToScreen)
+    {
+        // ITEM_BRACELET occupies the reserved $dc page. The held sprite's
+        // local Y is its native Z; released sprites also already include Z.
+        _shadowDrawn = () => TerrainShadow.ShouldDraw(
+            Thrown ? _zFixed >> 8 : (int)Position.Y, Visible, room.TilesetFlags,
+            -(int)worldToScreen(Vector2.Zero).Y, counter(), 0xdc);
+        var shadow = new ObjectTerrainShadow();
+        shadow.Initialize(() => TerrainShadowDrawn,
+            () => new Vector2(0, -(Thrown ? _zFixed >> 8 : (int)Position.Y)));
+        AddChild(shadow);
+    }
     private OracleRuntimeState? _movementMemory;
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 

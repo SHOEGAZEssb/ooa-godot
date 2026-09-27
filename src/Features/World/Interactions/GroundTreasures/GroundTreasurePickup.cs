@@ -8,8 +8,11 @@ namespace oracleofages;
 /// State 0 initializes graphics, state 1 performs the selected spawn, and
 /// collection holds the object above Link until its textbox closes.
 /// </summary>
-public partial class GroundTreasurePickup : TransitionOffsetNode2D
+public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    // treasure.s spawn states use visiblec2; the get-item presentation uses 80.
+    int? ITerrainShadowSource.TerrainShadowZHigh =>
+        _state == PickupState.Collected ? null : _zFixed >> 8;
 
     private const float CombinedCollisionRadius = 12.0f;
     private Texture2D _texture = null!;

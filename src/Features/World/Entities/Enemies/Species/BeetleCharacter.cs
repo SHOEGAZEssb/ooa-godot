@@ -4,8 +4,10 @@ using System;
 namespace oracleofages;
 
 /// <summary>ENEMY_BEETLE $51:$02/$03, including itemDrop_spawnEnemy's entry states.</summary>
-internal partial class BeetleCharacter : EnemyCharacter
+internal partial class BeetleCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private byte[] _counters = null!;

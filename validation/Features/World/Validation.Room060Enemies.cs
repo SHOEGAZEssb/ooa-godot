@@ -34,6 +34,8 @@ public sealed partial class ValidationRoot
             Vector2 start = new(0x20, 0x48);
             Vector2 target = new(0x90, 0x48);
             enemy.Initialize(definition, room, start, random, sounds.Add);
+            int shadowFrame = 0;
+            enemy.BindTerrainShadow(room, () => shadowFrame, () => subid, () => false);
             FailIf(enemy.Visible || random.Calls != 0, "$30 consumed RNG or became visible at construction.");
             enemy.UpdateFrame(target);
             // bank0 enemyStandardUpdate: $5e for var3d, then state0: $d4.
@@ -60,10 +62,13 @@ public sealed partial class ValidationRoot
             // Independent closed form: z(n)=-342*n+7*n*(n-1), x(n)=32+1.25*n.
             for (int n = 1; n <= 49; n++)
             {
+                shadowFrame = n;
                 enemy.UpdateFrame(target);
                 FailIf(enemy.ZFixed != -342 * n + 7 * n * (n - 1) ||
                     enemy.Position != start + new Vector2(1.25f * n, 0) || enemy.AnimationIndex != 2,
                     $"$30 smallLeap update {n}: expected independent signed 8.8 arc and SPEED_140.");
+                FailIf(enemy.TerrainShadowDrawn != ((n + subid) % 2 == 1),
+                    "$30 smallLeap must retain visiblec1 terrain effects with native enemy-page phase.");
             }
             Vector2 beforeLanding = enemy.Position;
             enemy.UpdateFrame(target);
@@ -71,6 +76,7 @@ public sealed partial class ValidationRoot
                 enemy.Position != beforeLanding || enemy.Counter1 != 0x69 + minimum ||
                 enemy.AnimationIndex != 0 || random.Calls != 5,
                 "$30 landing update must skip XY movement, restore animation 0 and draw a fresh wait.");
+            FailIf(enemy.TerrainShadowDrawn, "$30 landing must remove the airborne terrain shadow.");
             enemy.UpdateFrame(target);
             FailIf(enemy.Counter1 != 0x68 + minimum, "$30 did not resume its grounded wait after landing.");
             enemy.Free();

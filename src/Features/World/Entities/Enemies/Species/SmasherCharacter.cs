@@ -5,8 +5,11 @@ namespace oracleofages;
 
 // One native ENEMY slot per instance. The room adapter supplies allocation,
 // grabbed-state motion and common boss death side effects.
-internal sealed partial class SmasherCharacter : EnemyCharacter
+internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    // Both ball and parent initialize through ecom_setSpeedAndState8AndVisible.
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.Shared.Smasher;
     private OracleRoomData _room = null!;
     internal OracleRoomData Room => _room;

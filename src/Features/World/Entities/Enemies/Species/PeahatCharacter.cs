@@ -2,8 +2,10 @@ using Godot;
 
 namespace oracleofages;
 
-internal partial class PeahatCharacter : EnemyCharacter
+internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
+
     private readonly PeahatBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Peahat;
     private OracleRandom _random = null!;

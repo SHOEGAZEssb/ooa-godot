@@ -8,8 +8,10 @@ namespace oracleofages;
 /// 25 updates when approached, then charges with the original 32-step angle,
 /// SPEED_140 movement, random four-step aim offset, and eight-update steering.
 /// </summary>
-public partial class CrowCharacter : EnemyCharacter
+public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => Z;
+
     private readonly CrowBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Crow;
     private OracleRandom _random = null!;

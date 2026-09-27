@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-internal partial class RopeCharacter : EnemyCharacter
+internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly RopeBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Rope;
     private OracleRandom _random = null!;

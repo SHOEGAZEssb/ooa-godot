@@ -13,8 +13,12 @@ namespace oracleofages;
 /// falling back to the ground. Active drops wait for 240 alternating-frame
 /// countdown ticks.
 /// </summary>
-public partial class ItemDropEffect : TransitionOffsetNode2D
+public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    // partCode01 state3 switches from visiblec1 to visible80 when attached.
+    int? ITerrainShadowSource.TerrainShadowZHigh =>
+        _state == DropState.Attached ? null : _zFixed >> 8;
+
     private const int TilesetFlagSideScroll = 0x20;
     private const int InitialSpeedZ = -0x160;
     private const int DugUpSpeed = 0x19;

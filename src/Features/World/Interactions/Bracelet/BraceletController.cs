@@ -380,6 +380,8 @@ public sealed class BraceletController
             Name = $"LiftedTile_{_targetTile:x2}"
         };
         _object.Initialize(texture);
+        _object.BindTerrainShadow(room, () => _entities.FrameCounter,
+            position => _entities.WorldToScreen(position));
         _object.BindMovementMemory(_entities.RuntimeState);
         player.AddChild(_object);
         _object.SetHeldOffset(GetLiftOffset(player, 0));

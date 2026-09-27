@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-internal partial class FireKeeseCharacter : EnemyCharacter
+internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => Record.SubId == 0 ? ZFixed >> 8 : null;
+
     private readonly FireKeeseBehaviorProfile _behavior = EnemyBehaviorTables.Shared.FireKeese;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;

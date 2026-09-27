@@ -8,8 +8,13 @@ namespace oracleofages;
 /// vertical bounce, original screen clamp, Maple pull states, and Link reward
 /// callback.
 /// </summary>
-public partial class MapleDroppedItem : TransitionOffsetNode2D
+public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    // itemFromMaple.s state0 selects visiblec3. Maple's state4 pull/rise
+    // retains bit 6 through collection; this is separate from PART_ITEM_DROP.
+    int? ITerrainShadowSource.TerrainShadowZHigh =>
+        _state == MapleDroppedItemState.Initializing || Finished ? null : _zFixed >> 8;
+
     private static readonly int[] Speeds =
         [0x14, 0x1e, 0x28, 0x32, 0x3c, 0x46, 0x50, 0x5a];
     private static readonly int[] InitialZSpeeds =

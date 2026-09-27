@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-public partial class GelCharacter : EnemyCharacter
+public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly GelBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Gel;
     private OracleRandom _random = null!;

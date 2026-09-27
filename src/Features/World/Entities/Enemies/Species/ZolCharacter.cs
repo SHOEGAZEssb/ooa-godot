@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-public partial class ZolCharacter : EnemyCharacter
+public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     internal int NativeSpeed { get; private set; }
     private readonly ZolBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Zol;

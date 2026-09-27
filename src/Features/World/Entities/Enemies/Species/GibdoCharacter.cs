@@ -3,8 +3,10 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy
+internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly IReadOnlyList<EnemyBehaviorValue> _behavior = EnemyBehaviorTables.Shared.Gibdo;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;

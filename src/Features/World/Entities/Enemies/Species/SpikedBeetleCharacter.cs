@@ -8,8 +8,10 @@ namespace oracleofages;
 /// shovel or raised shield enters the source-defined airborne flipped mode,
 /// where ordinary sword and Ember Seed damage become effective.
 /// </summary>
-internal partial class SpikedBeetleCharacter : EnemyCharacter
+internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
+
     private readonly SpikedBeetleBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SpikedBeetle;
     private readonly ArmoredSwordAttackerKnockbackProfile

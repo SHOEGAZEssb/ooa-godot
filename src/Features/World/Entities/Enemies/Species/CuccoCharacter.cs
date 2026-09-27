@@ -10,8 +10,10 @@ namespace oracleofages;
 /// runs away indefinitely after an accepted hit. Sixteen hits enable the
 /// source PART_CUCCO_ATTACKER cadence.
 /// </summary>
-internal partial class CuccoCharacter : EnemyCharacter
+internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => Z;
+
     private readonly CuccoBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Cucco;
     private readonly GiantCuccoBehaviorProfile _giantBehavior =

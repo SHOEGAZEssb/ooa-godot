@@ -575,6 +575,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateStalfos);
         RunIsolatedValidation(ValidateZolsAndGels);
         RunIsolatedValidation(ValidateItemDrops);
+        RunIsolatedValidation(ValidateTerrainShadows);
+        RunIsolatedValidation(ValidateMapleDropShadows);
         RunIsolatedValidation(ValidateDiggingEnemies);
         RunIsolatedValidation(ValidateTimePortals);
         RunIsolatedValidation(ValidateTimeWarpLandingFidelity);

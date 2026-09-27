@@ -9,8 +9,10 @@ namespace oracleofages;
 /// close, consume the shared RNG once per near update for their 1-in-64 hop,
 /// and use the common weight-0 bracelet proxy while carried and thrown.
 /// </summary>
-internal partial class BabyCuccoCharacter : EnemyCharacter
+internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly BabyCuccoBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.BabyCucco;
     private OracleRandom _random = null!;

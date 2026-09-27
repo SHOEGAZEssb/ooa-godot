@@ -5,8 +5,10 @@ namespace oracleofages;
 
 /// <summary>ENEMY_TEKTITE $30: tektite.s states $08-$0b, including the
 /// separate crouch, ready and launch updates and signed 8.8 jump integration.</summary>
-internal partial class TektiteCharacter : EnemyCharacter
+internal partial class TektiteCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
+
     private readonly TektiteBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Tektite;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;

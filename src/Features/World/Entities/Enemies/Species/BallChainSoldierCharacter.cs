@@ -3,8 +3,10 @@ using System;
 
 namespace oracleofages;
 
-internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEnemy
+internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;

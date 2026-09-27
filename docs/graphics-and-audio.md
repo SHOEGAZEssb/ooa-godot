@@ -52,6 +52,13 @@ do not introduce an additional sorting rule.
 priority mapping. Actors use those constants for assignments and state changes;
 screen-space layers are named separately by `ScreenDrawPriority` or their owner.
 
+Automatic airborne terrain shadows use the imported common OAM cell at ground
+XY. Their sources expose native Z and the handler's terrain-effect enable gate;
+altitude alone does not enable a shadow. Presentation reads the global update
+counter and allocated object-page parity, including while an actor is frozen.
+These shadows paint below the object queues and retain the source side-scroll
+and camera gates. Dedicated boss-shadow parts remain separate native objects.
+
 Animation definitions and assembled frames are immutable shared data. Changing
 an actor animation selects cached definitions; it does not rebuild textures.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,

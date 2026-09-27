@@ -6,8 +6,10 @@ namespace oracleofages;
 /// <summary>
 /// Common ENEMY_STALFOS $31, including subid $02's dodge and bone attack.
 /// </summary>
-public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy
+public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly StalfosBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.Stalfos;
     private OracleRoomData _room = null!;

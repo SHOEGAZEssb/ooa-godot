@@ -7,8 +7,10 @@ namespace oracleofages;
 /// with either a cardinal SPEED_80 hop or a rare SPEED_c0 hop aimed toward
 /// Link. Any nonzero wLinkPlayingInstrument status kills it immediately.
 /// </summary>
-internal partial class PolsVoiceCharacter : EnemyCharacter
+internal partial class PolsVoiceCharacter : EnemyCharacter, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
+
     private readonly PolsVoiceBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.PolsVoice;
     private OracleRandom _random = null!;

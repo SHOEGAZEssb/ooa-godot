@@ -9,8 +9,12 @@ namespace oracleofages;
 /// hazard deletion, explosion collision, and nine ordered tile probes all
 /// advance on the original 60 Hz room-entity update.
 /// </summary>
-public partial class BombEffect : TransitionOffsetNode2D
+public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    // bombs.s: visiblec1 until InitializeExplosion selects visible80.
+    int? ITerrainShadowSource.TerrainShadowZHigh =>
+        _state is BombState.Exploding or BombState.Finished ? null : _zFixed >> 8;
+
     private BombRecord _record = null!;
     private OracleRoomData _room = null!;
     private BreakableTileDatabase _breakables = null!;

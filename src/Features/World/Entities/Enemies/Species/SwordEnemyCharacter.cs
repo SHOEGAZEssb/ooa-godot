@@ -2,8 +2,10 @@ using Godot;
 
 namespace oracleofages;
 
-internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy
+internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
+    int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
+
     private readonly SwordEnemyBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.SwordEnemy;
     private OracleRandom _random = null!;
