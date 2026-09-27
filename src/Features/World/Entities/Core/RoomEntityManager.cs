@@ -2452,7 +2452,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        NpcCharacterRoomEntityAdapter or LynnaShopItemRoomEntity or Room149BallRoomEntity or
+        NpcCharacterRoomEntityAdapter or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||

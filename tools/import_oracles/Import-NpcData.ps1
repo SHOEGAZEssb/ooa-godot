@@ -6742,6 +6742,50 @@ Copy-GeneratedFile 'gfx_compressible\ages\spr_impafainted.png' 'gfx\spr_impafain
 
 # Copy every sprite sheet referenced by the extracted NPC records. The source
 # keeps common and Ages graphics in separate directories, so search both.
+# INTERAC_DECORATION $80:$09/$0a: positioned fountain layers, not NPCs.
+$fountainRows = [Collections.Generic.List[string]]::new()
+$fountainRows.Add("# subid`tsprite`ttile-base`tpalette`tanimation`tsource")
+foreach ($subid in @(9, 10)) {
+    $graphic = $interactionGraphics["128:$subid"]
+    if ($null -eq $graphic -or $graphic.Gfx -ne 0x6f -or $graphic.Palette -ne 6) {
+        throw 'INTERAC_DECORATION $80:$09/$0a no longer uses gfx $6f and OBJ palette 6.'
+    }
+    $animation = Resolve-NpcAnimation 0x80 $graphic.DefaultAnimation
+    if ([string]::IsNullOrWhiteSpace($animation)) { throw 'Missing fountain animation in interaction80Animations.' }
+    $sprite = $gfxNames[$graphic.Gfx]
+    [void]$npcSpriteNames.Add($sprite)
+    $fountainRows.Add("$($subid.ToString('x2'))`t$sprite`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation`tdata/ages/interactionData.s:interaction80SubidData")
+}
+Write-GeneratedTable ((Join-Path $destination 'objects\fountain_visuals.tsv'), $fountainRows)
+$fountainPlacements = [Collections.Generic.List[string]]::new()
+$fountainPlacements.Add("# group`troom`tsubid`ty`tx`tsource")
+foreach ($node in Read-AssemblyNodes (Join-Path $Disassembly 'objects/ages/mainData.s')) {
+    if ($node.Name -ne 'obj_Interaction' -or $node.Operands.Count -ne 4 -or
+        $node.Operands[0] -ne '$80' -or $node.Operands[1] -notin @('$09', '$0a')) { continue }
+    if ($node.EnclosingGlobalLabel -notmatch '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData$') {
+        throw "$($node.Path):$($node.Line): fountain requires a room placement label."
+    }
+    $fountainPlacements.Add("$($Matches['group'])`t$($Matches['room'])`t$($node.Operands[1].Substring(1))`t$($node.Operands[2].Substring(1))`t$($node.Operands[3].Substring(1))`tobjects/ages/mainData.s:$($node.EnclosingGlobalLabel)")
+}
+if ($fountainPlacements.Count -ne 9) { throw 'Expected eight placed fountain layers in four Ages rooms.' }
+Write-GeneratedTable ((Join-Path $destination 'objects\fountain_placements.tsv'), $fountainPlacements)
+$fountainRooms = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/ages/interactions/decoration.s') '@symmetryCityRooms' '.db' |
+    ForEach-Object { $_.Operands } | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($fountainRooms -join ',') -ne '18,0,19,0,20,0,0' -or
+    $decorationSource -notmatch '(?s)@subid0a:.*?objectSetVisible80.*?PALH_7d.*?@isSymmetryCity:.*?wActiveGroup.*?getThisRoomFlags.*?and \$01.*?PALH_7c' -or
+    $paletteHeaderSource -notmatch '(?s)PALH_7c\s+m_PaletteHeaderSpr 6, 1, paletteData5948' -or
+    $paletteHeaderSource -notmatch '(?s)PALH_7d\s+m_PaletteHeaderSpr 6, 1, paletteData5940') {
+    throw 'Fountain palette selection or Symmetry City room table changed in decoration.s.'
+}
+$fountainPaletteRows = [Collections.Generic.List[string]]::new()
+$fountainPaletteRows.Add("# room`tsource")
+for ($index = 0; $index -lt $fountainRooms.Count - 1; $index += 2) {
+    $fountainPaletteRows.Add("$($fountainRooms[$index].ToString('x2'))`tobject_code/ages/interactions/decoration.s:@symmetryCityRooms")
+}
+Write-GeneratedTable ((Join-Path $destination 'objects\fountain_palette_rooms.tsv'), $fountainPaletteRows)
+Export-PaletteBlock 'paletteData5948' 4 'objects\fountain_ruined_palette.bin'
+Export-PaletteBlock 'paletteData5940' 4 'objects\fountain_normal_palette.bin'
+
 foreach ($spriteName in $npcSpriteNames) {
     $sourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
         ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$spriteName.png" } |

@@ -160,6 +160,8 @@ internal sealed class RoomEntityFactory(
     private TokayNativeDatabase? _tokayNativeData;
     private TokayNativeDatabase _tokayNative => _tokayNativeData ??= new();
     private TokaySeedlingPlotDatabase? _tokaySeedlingPlotData;
+    private FountainDatabase? _fountainData;
+    private FountainDatabase _fountains => _fountainData ??= new();
     private TokaySeedlingPlotDatabase _tokaySeedlingPlot => _tokaySeedlingPlotData ??= new();
     private TokayShopDatabase? _tokayShopData;
     private TokayShopDatabase _tokayShop => _tokayShopData ??= new();
@@ -1112,6 +1114,9 @@ internal sealed class RoomEntityFactory(
         foreach (var record in _collapsingFloors.InRoom(group, room.Id))
             yield return new CollapsingFloorRoomEntity(record, room, soundRequested,
                 roomTileChanged, animationTick, interactionSlotAvailable);
+
+        foreach (FountainPlacement fountain in _fountains.InRoom(group, room.Id))
+            yield return new FountainDecorationRoomEntity(fountain, _fountains, saveData);
 
         if (!spawnMaple)
         {
