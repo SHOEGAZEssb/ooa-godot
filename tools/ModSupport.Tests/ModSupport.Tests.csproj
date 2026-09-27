@@ -10,5 +10,10 @@
     <Compile Include="..\..\src\Infrastructure\Mods\ModManifest.cs" Link="ModManifest.cs" />
     <Compile Include="..\..\src\Infrastructure\Mods\ModCatalog.cs" Link="ModCatalog.cs" />
     <Compile Include="..\..\src\Infrastructure\Mods\ModAssetResolver.cs" Link="ModAssetResolver.cs" />
+    <Compile Include="..\..\src\Infrastructure\Mods\ModResolverFactory.cs" Link="ModResolverFactory.cs" />
+    <Content Include="..\..\examples\mods\priority-demo\**\*">
+      <Link>examples\mods\priority-demo\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

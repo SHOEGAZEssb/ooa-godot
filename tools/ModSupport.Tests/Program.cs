@@ -42,6 +42,52 @@ try
     Assert(!fallback.IsOverride && fallback.LoadPath == fallback.VanillaPath,
         "missing overrides did not fall back to the vanilla resource");
 
+    string exampleRoot = Path.Combine(
+        AppContext.BaseDirectory, "examples", "mods", "priority-demo");
+    ModAssetResolver exampleResolver = ModResolverFactory.Create(
+        true, exampleRoot, out ModCatalog exampleCatalog);
+    Assert(exampleCatalog.Diagnostics.Count == 0 &&
+        exampleCatalog.Mods.Select(mod => mod.Id).SequenceEqual(
+            ["sample-layout-low", "sample-layout-high"]),
+        "the checked-in synthetic example did not load as two valid mods");
+    ResolvedModAsset exampleWinner = exampleResolver.ResolveTable(
+        "res://assets/oracle/menu/inventory_item_slots.tsv");
+    Assert(exampleWinner.IsOverride &&
+        exampleWinner.ModId == "sample-layout-high" &&
+        File.ReadAllText(exampleWinner.LoadPath, Encoding.UTF8).Contains(
+            "0\t040\tsynthetic priority demo\texample://high", StringComparison.Ordinal),
+        "the highest-priority synthetic example mod did not win");
+
+    string exampleCopy = Path.Combine(temporaryRoot, "priority-demo");
+    CopyDirectory(exampleRoot, exampleCopy);
+    SetModEnabled(exampleCopy, "high-priority", enabled: false);
+    ModAssetResolver lowPriorityResolver = ModResolverFactory.Create(
+        true, exampleCopy, out _);
+    ResolvedModAsset lowPriorityWinner = lowPriorityResolver.ResolveTable(
+        "res://assets/oracle/menu/inventory_item_slots.tsv");
+    Assert(lowPriorityWinner.IsOverride &&
+        lowPriorityWinner.ModId == "sample-layout-low",
+        "disabling the high-priority mod did not reveal the enabled lower-priority mod");
+
+    SetModEnabled(exampleCopy, "low-priority", enabled: false);
+    ModAssetResolver disabledResolver = ModResolverFactory.Create(
+        true, exampleCopy, out ModCatalog disabledCatalog);
+    ResolvedModAsset disabledFallback = disabledResolver.ResolveTable(
+        "res://assets/oracle/menu/inventory_item_slots.tsv");
+    Assert(disabledCatalog.Mods.All(mod => !mod.Enabled) &&
+        !disabledFallback.IsOverride &&
+        disabledFallback.LoadPath == disabledFallback.VanillaPath,
+        "disabling every example mod did not restore the vanilla asset");
+
+    ModAssetResolver vanillaOnlyResolver = ModResolverFactory.Create(
+        false, exampleCopy, out ModCatalog vanillaOnlyCatalog);
+    ResolvedModAsset noModsFallback = vanillaOnlyResolver.ResolveTable(
+        "res://assets/oracle/menu/inventory_item_slots.tsv");
+    Assert(vanillaOnlyCatalog.Mods.Count == 0 &&
+        !noModsFallback.IsOverride &&
+        noModsFallback.LoadPath == noModsFallback.VanillaPath,
+        "the --no-mods runtime path did not bypass the discovered mods");
+
     ExpectFailure(
         () => resolver.ResolveTable("res://assets/oracle/../outside.tsv"),
         "invalid relative path");
@@ -69,6 +115,32 @@ finally
             $"Refusing to remove non-temporary test path: {resolved}");
     }
     Directory.Delete(resolved, recursive: true);
+}
+
+void CopyDirectory(string source, string destination)
+{
+    Directory.CreateDirectory(destination);
+    foreach (string file in Directory.EnumerateFiles(source))
+    {
+        File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+    }
+    foreach (string directory in Directory.EnumerateDirectories(source))
+    {
+        CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+    }
+}
+
+void SetModEnabled(string root, string directoryName, bool enabled)
+{
+    string manifest = Path.Combine(root, directoryName, "manifest.json");
+    string json = File.ReadAllText(manifest, Encoding.UTF8);
+    File.WriteAllText(
+        manifest,
+        json.Replace(
+            "\"enabled\": true",
+            $"\"enabled\": {enabled.ToString().ToLowerInvariant()}",
+            StringComparison.Ordinal),
+        new UTF8Encoding(false));
 }
 
 void CreateMod(

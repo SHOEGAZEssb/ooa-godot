@@ -1,0 +1,7 @@
+{
+  "id": "sample-layout-high",
+  "name": "Synthetic Layout Demo (High Priority)",
+  "version": "1.0.0",
+  "priority": 20,
+  "enabled": true
+}

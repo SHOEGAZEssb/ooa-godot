@@ -18,10 +18,10 @@ internal static class ModRuntime
             if (_initialized)
                 return;
 
-            ModCatalog catalog = options.ModsEnabled
-                ? ModCatalog.Discover(options.ModsDirectory)
-                : ModCatalog.Empty;
-            _resolver = new ModAssetResolver(catalog.Mods);
+            _resolver = ModResolverFactory.Create(
+                options.ModsEnabled,
+                options.ModsDirectory,
+                out ModCatalog catalog);
             _initialized = true;
 
             if (!options.ModsEnabled)
