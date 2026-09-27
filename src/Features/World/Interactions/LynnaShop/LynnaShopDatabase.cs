@@ -16,9 +16,10 @@ internal sealed class LynnaShopDatabase
     private readonly Dictionary<int, string> _texts = new();
     private readonly Dictionary<(int InteractionId, int Animation), string> _animations = new();
 
-    public int Group => Constant("group");
+    public int Group => Constant(Syrup ? "syrup-group" : "group");
+    public bool Syrup { get; }
     public bool Hidden { get; }
-    public int Room => Hidden ? 0x7e : Constant("room");
+    public int Room => Syrup ? Constant("syrup-room") : Hidden ? 0x7e : Constant("room");
     public int ShopkeeperSubId => Hidden ? 1 : 0;
     public int IdleAnimation => Hidden ? 1 : 3;
     public int TextboxPosition => Constant("textbox-position");
@@ -44,9 +45,11 @@ internal sealed class LynnaShopDatabase
     public int BombchuMissingMask => Constant("bombchu-missing-mask");
     public int SpecialObjectDimitri => Constant("specialobject-dimitri");
 
-    public LynnaShopDatabase(bool hidden = false)
+    public LynnaShopDatabase(bool hidden = false, bool syrup = false)
     {
+        if (hidden && syrup) throw new ArgumentException("A shop cannot be both hidden and Syrup's.");
         Hidden = hidden;
+        Syrup = syrup;
         LoadConstants();
         LoadItems();
         LoadTexts();
@@ -141,14 +144,14 @@ internal sealed class LynnaShopDatabase
             BombchuOwnedMask | BombchuMissingMask));
         if (!save.HasTreasure(TreasureId.Flute) && save.HasGlobalFlag(GlobalCanBuyFlute))
             bought2 |= (byte)FluteStockMask;
-        bought2 |= (byte)(save.HasTreasure(TreasureId.SwitchHookChain)
+        bought2 |= (byte)(save.HasTreasure(TreasureId.Bombchus)
             ? BombchuOwnedMask
             : BombchuMissingMask);
         if (save.WriteWramByte(BoughtItems2Address, bought2))
             save.CommitInventoryChange();
     }
 
-    private int Constant(string key) => _constants.TryGetValue(key, out int value)
+    internal int Constant(string key) => _constants.TryGetValue(key, out int value)
         ? value
         : throw new KeyNotFoundException(
             $"Lynna shop constant '{key}' was not imported.");
@@ -197,7 +200,7 @@ internal sealed class LynnaShopDatabase
                 row.RequiredString(14), row.HexWord(15),
                 row.HexByte(16), row.HexByte(17), row.Decimal(18));
             _items.Add(item.SubId, item);
-            if (item.Order >= 0 && (item.Order >= 3) == Hidden)
+            if (item.Order >= 0 && item.Order / 3 == (Syrup ? 2 : Hidden ? 1 : 0))
                 _placements.Add(item with { Order = item.Order % 3 });
         }
         _placements.Sort(static (a, b) => a.Order.CompareTo(b.Order));
@@ -242,7 +245,7 @@ internal sealed class LynnaShopDatabase
 
     private void Validate()
     {
-        if (Group != 2 || Room != (Hidden ? 0x7e : 0x5e) || TextboxPosition != 0 ||
+        if (Group != (Syrup ? 3 : 2) || Room != (Syrup ? 0xed : Hidden ? 0x7e : 0x5e) || TextboxPosition != 0 ||
             ItemCollisionRadius != 7 || LinkCollisionRadius != 6 ||
             GrabNegativePointOffset != 6 || GrabPositivePointOffset != 5 ||
             ShopkeeperRadiusY != 6 ||
@@ -252,7 +255,7 @@ internal sealed class LynnaShopDatabase
             BoughtItems2Address != 0xc643 || DimitriStateAddress != 0xc647 ||
             DimitriSavedMask != 0x20 || DimitriDisappearMask != 0x40 ||
             GlobalCanBuyFlute != 0x1d || SpecialObjectDimitri != 0x0c ||
-            _placements.Count != 3 || _items.Count != 13 ||
+            _placements.Count != 3 || _items.Count != 18 ||
             Item(0x01).Price != 10 || Item(0x0d).Price != 150 ||
             Item(0x13).ReplacementSubId != 0x03 ||
             !Text(0x0e02).Contains("\\opt()OK", StringComparison.Ordinal) ||

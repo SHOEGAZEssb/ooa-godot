@@ -789,6 +789,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMapScreen);
         RunIsolatedValidation(ValidateMapDisassemblyFidelity);
         RunIsolatedValidation(ValidateLynnaShopInteractions);
+        RunIsolatedValidation(ValidateSyrupShopInteractions);
+        RunIsolatedValidation(ValidateSyrupShopGraphics);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);

@@ -540,21 +540,21 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 56,
                 [NpcImplementationClassification.SpecializedNative] = 178,
-                [NpcImplementationClassification.EventOwned] = 100,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 123
+                [NpcImplementationClassification.EventOwned] = 102,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 122
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 457 ||
+            records.Count != 458 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "56 ordinary, 178 specialized, 100 event-owned, and 123 " +
+            "56 ordinary, 178 specialized, 102 event-owned, and 122 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -622,7 +622,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 457 generated NPC records have exactly one " +
+            "Validated all 458 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -796,6 +796,7 @@ public sealed partial class ValidationRoot
             "carpenter.s:room025Scripts",
             "forestFairy.s:forestFairy_discovered",
             "shopkeeper.s:lynnaShop:npc",
+            "syrup.s:interactionCode5f",
             "businessScrub.s:interactionCodece",
             "vasu.s+ringHelpBook.s:room2eeActors",
             "shootingGallery.s:shootingGalleryScript",
@@ -827,6 +828,7 @@ public sealed partial class ValidationRoot
             "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
             "shopkeeper.s:lynnaShop:player",
+            "syrup.s:shopItem",
             "tokayShopItem.s:interactionCode81"
         ];
         FailIf(

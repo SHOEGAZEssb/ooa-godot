@@ -129,9 +129,10 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
 
     public void ReturnToShelf(Player player)
     {
-        if (!Held || Removed)
+        if ((!Held && !Purchasing) || Removed)
             return;
         Held = false;
+        Purchasing = false;
         player.EndCarriedObjectPose();
         Position = _shelfPosition;
         ZIndex = NpcCharacter.FixedLowPriorityZIndex;

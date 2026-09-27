@@ -102,6 +102,7 @@ public sealed class RoomEventController
             () => new DekuForestPalaceEvent(_context),
             () => new BusinessScrubEvent(_context),
             () => new LynnaShopEvent(_context),
+            () => new SyrupShopEvent(_context),
             () => new VasuShopEvent(_context),
             () => new ShootingGalleryEvent(_context),
             () => new ComedianEvent(_context),
@@ -169,6 +170,7 @@ public sealed class RoomEventController
                 Get<FairiesWoodsEvent>().TryInteractNpc),
             Npc("shopkeeper.s:lynnaShop:npc",
                 Get<LynnaShopEvent>().TryInteractNpc),
+            Npc("syrup.s:interactionCode5f", Get<SyrupShopEvent>().TryInteractNpc),
             Npc("businessScrub.s:interactionCodece",
                 Get<BusinessScrubEvent>().TryInteractNpc),
             Npc("vasu.s+ringHelpBook.s:room2eeActors",
@@ -225,6 +227,8 @@ public sealed class RoomEventController
             NpcInteractionHandler.ForPlayer(
                 "shopkeeper.s:lynnaShop:player",
                 Get<LynnaShopEvent>().TryInteractPlayer),
+            NpcInteractionHandler.ForPlayer(
+                "syrup.s:shopItem", Get<SyrupShopEvent>().TryInteractPlayer),
             NpcInteractionHandler.ForPlayer(
                 "tokayShopItem.s:interactionCode81",
                 Get<TokayTradingEvent>().TryInteractPlayer)

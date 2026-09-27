@@ -954,6 +954,9 @@ foreach ($key in @('5:c3:66:06:00','5:c3:66:06:01','5:c3:66:05:02',
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
 
+[void]$eventOwnedNpcImplementationKeys.Add('3:ed:5f:80:00')
+[void]$eventOwnedNpcImplementationKeys.Add('3:ed:c9:80:00')
+
 function Resolve-NpcImplementation(
     [int]$group,
     [int]$room,
@@ -2780,8 +2783,8 @@ foreach ($line in $mainObjectLines) {
         if ($row) { $npcRows.Add($row) }
     }
 }
-if ($npcRows.Count -ne 377) {
-    throw "Expected 376 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 378) {
+    throw "Expected 377 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $room1adTokayRows = @($npcRows | Where-Object {
     $_ -match '^1\tad\t48\t15\t'
@@ -3727,9 +3730,51 @@ if ($mainObjectSource -notmatch '(?ms)^group2Map7eObjectData:\s+obj_Interaction 
     throw 'Hidden shop $2:$7e placement, replacement, theft, or chest-game source contract changed.'
 }
 
+$syrupSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\interactions\syrup.s')
+$syrupScriptsSource = Read-ImportText (Join-Path $Disassembly 'scripts\ages\scripts.s')
+$syrupCuccoSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\interactions\syrupCucco.s')
+$shopTextboxSource = Read-ImportText (Join-Path $Disassembly 'code\textbox.s')
+if ($mainObjectSource -notmatch '(?ms)^group3MapedObjectData:\s+obj_Interaction \$5f \$80 \$28 \$20\s+obj_Interaction \$c9 \$80 \$68 \$78\s+obj_End' -or
+    $syrupScriptsSource -notmatch '(?ms)^syrupScript_spawnShopItems:\s+spawninteraction INTERAC_SHOP_ITEM, \$0b, \$28, \$44\s+spawninteraction INTERAC_SHOP_ITEM, \$07, \$28, \$4c\s+spawninteraction INTERAC_SHOP_ITEM, \$08, \$28, \$74\s+scriptend' -or
+    $syrupSource -notmatch '(?ms)interactionSetAlwaysUpdateBit.*?collisionRadiusY\s+ld \(hl\),\$12\s+inc l\s+ld \(hl\),\$07' -or
+    $syrupSource -notmatch '(?ms)@checkQuantity:.*?cp \$99.*?@checkPotion:.*?TREASURE_POTION' -or
+    $syrupScriptsSource -notmatch '(?ms)^@tryToPurchase:.*?wShopHaveEnoughRupees, \$00, @enoughRupees.*?^@enoughRupees:.*?Interaction.var38.*?shopkeeperCantBuy' -or
+    $syrupCuccoSource -notmatch '(?ms)^@state1:\s+call @updateHopping\s+call @updateMovement.*?ld c,\$69.*?wLinkGrabState.*?DISABLE_ALL_BUT_INTERACTIONS' -or
+    $syrupCuccoSource -notmatch '(?ms)^@state2:.*?sub \$0c.*?^@state3:.*?cp \$78.*?^@updateHopping:\s+ld c,\$20.*?^@beginHop:\s+ld bc,-\$c0.*?^@updateMovement:.*?sub \$68\s+cp \$20.*?xor \$10' -or
+    $syrupCuccoSource -notmatch '(?ms)^@func_7710:.*?SPEED_80.*?^@initState2:.*?SPEED_200.*?ld \(hl\),\$18.*?^@initState3:.*?SPEED_200.*?ld \(hl\),\$08' -or
+    $syrupScriptsSource -notmatch '(?ms)^syrupCuccoScript_triedToSteal:\s+showtext TX_0d09\s+scriptend') {
+    throw 'Room 3:ed syrup.s/syrupCucco.s placement, initialization, purchase or patrol contract changed.'
+}
+foreach ($row in @(
+    @('0d','02','04'), @('0e','06','07'), @('11','0c','07'))) {
+    if ($shopTextboxSource -notmatch ('(?ms)@index' + $row[0] + ':\s+\.dw \$cbad\s+\.db <TX_0d' + $row[1] + ', <TX_0d08, <TX_0d' + $row[2] + ', <TX_0d03')) {
+        throw "Syrup textbox continuation $($row[0]) changed."
+    }
+}
+foreach ($row in @(
+    @('07','300','POTION','01','wBoughtShopItems2','10','09','18','006d'),
+    @('08','300','GASHA_SEED','01','wBoughtShopItems2','10','0a','10','004b'),
+    @('09','300','POTION','01','wBoughtShopItems1','00','ff','00','006d'),
+    @('0a','300','GASHA_SEED','01','wBoughtShopItems1','40','ff','00','004b'),
+    @('0b','100','BOMBCHUS','05','wBoughtShopItems2','20','ff','00','0032'))) {
+    $prefix = '/\* \$' + $row[0] + ' \*/\s+\.db\s+'
+    foreach ($body in @(
+        ('RUPEEVAL_' + $row[1] + '\b'),
+        ('TREASURE_' + $row[2] + '\s+\$' + $row[3] + '\b'),
+        ('<' + $row[4] + '\s+\$' + $row[5] + '\s+\$' + $row[6] + '\s+\$' + $row[7]),
+        ('<TX_' + $row[8] + '\b'))) {
+        if ($shopItemSource -notmatch ($prefix + $body)) { throw "Syrup shopItem $($row[0]) source row changed: $body" }
+    }
+}
+
 $lynnaShopDefinitions = @(
     # subid, price tile, price, treasure, parameter, prompt, item text,
     # replacement address, mask, replacement subid, x offset
+    @(0x07, 0x68, 300, 0x2f, 0x01, 0x0d01, 0x006d, 0xc643, 0x10, 0x09, 0x18),
+    @(0x08, 0x6d, 300, 0x34, 0x01, 0x0d05, 0x004b, 0xc643, 0x10, 0x0a, 0x10),
+    @(0x09, 0x6b, 300, 0x2f, 0x01, 0x0d01, 0x006d, 0xc642, 0x00, 0xff, 0),
+    @(0x0a, 0x6f, 300, 0x34, 0x01, 0x0d05, 0x004b, 0xc642, 0x40, 0xff, 0),
+    @(0x0b, 0x67, 100, 0x0d, 0x05, 0x0d0a, 0x0032, 0xc643, 0x20, 0xff, 0),
     @(0x00, 0x66, 300, 0x2c, 0x02, 0x0e09, 0x0058, 0xc642, 0x01, 0xff, 0),
     @(0x02, 0x6a, 300, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x02, 0x06, 0),
     @(0x05, 0x6e, 300, 0x00, 0x03, 0x0e25, 0x0054, 0xc642, 0x08, 0xff, 0),
@@ -3767,6 +3812,9 @@ foreach ($row in $hiddenShopSourceRows) {
     }
 }
 $lynnaShopPlacementBySubId = @{
+    0x0b = @(6, 0x28, 0x44)
+    0x07 = @(7, 0x28, 0x4c)
+    0x08 = @(8, 0x28, 0x74)
     # Orders 3..5 encode the second shop's three placements; the loader
     # normalizes these to their room-local $47 object order.
     0x00 = @(3, 0x28, 0x40)
@@ -3804,6 +3852,8 @@ foreach ($definition in $lynnaShopDefinitions) {
 }
 
 $lynnaShopTextIds = @(
+    0x0d00, 0x0d01, 0x0d02, 0x0d03, 0x0d04, 0x0d05, 0x0d06,
+    0x0d07, 0x0d08, 0x0d09, 0x0d0a, 0x0d0b, 0x0d0c, 0x006d, 0x0032,
     0x0e01, 0x0e09, 0x0e0b, 0x0e0d, 0x0e0e, 0x0e10, 0x0e11,
     0x0e12, 0x0e13, 0x0e14, 0x0e15, 0x0e16, 0x0e17, 0x0e18, 0x0e1a, 0x0e25,
     0x0058, 0x0059, 0x0054, 0x0017, 0x0049,
@@ -3822,12 +3872,24 @@ foreach ($textId in $lynnaShopTextIds) {
     # cmd8 $0f installs the source choice handler. DialogueBox already owns
     # the two imported \opt markers, so retaining it would render a raw token.
     $message = $message.Replace('\cmd8(0x0f)', '')
+    if ($textId -in @(0x0d01, 0x0d05, 0x0d0a)) {
+        # SyrupShopEvent implements textbox.s's $cbad-indexed continuation.
+        $message = $message -replace '\\cmd8\(0x(?:0d|0e|11)\)', ''
+    }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
     $lynnaShopTextRows.Add("$($textId.ToString('x4'))`t$encoded")
 }
 
 $lynnaShopAnimationRows = [Collections.Generic.List[string]]::new()
 $lynnaShopAnimationRows.Add("# interaction-id`tanimation`tencoded-animation")
+foreach ($id in @(0x5f, 0xc9)) {
+    $indices = if ($id -eq 0x5f) { @(0) } else { @(0, 1) }
+    foreach ($index in $indices) {
+        $animation = Resolve-NpcAnimation $id $index
+        if (-not $animation) { throw "Syrup animation `$$($id.ToString('x2')):`$$index missing." }
+        $lynnaShopAnimationRows.Add("$($id.ToString('x2'))`t$($index.ToString('x2'))`t$animation")
+    }
+}
 foreach ($animationIndex in 0..3) {
     $animation = Resolve-NpcAnimation 0x46 $animationIndex
     if ([string]::IsNullOrWhiteSpace($animation)) {
@@ -3839,6 +3901,18 @@ foreach ($animationIndex in 0..3) {
 
 $lynnaShopConstantRows = @(
     "# key`tvalue",
+    "syrup-group`t3",
+    "syrup-room`t237",
+    "syrup-radius-y`t18",
+    "syrup-radius-x`t7",
+    "syrup-cucco-left`t104",
+    "syrup-cucco-width`t32",
+    "syrup-cucco-home-x`t120",
+    "syrup-cucco-link-distance`t12",
+    "syrup-cucco-gravity`t32",
+    "syrup-cucco-hop-speed`t-192",
+    "syrup-cucco-patrol-speed`t128",
+    "syrup-cucco-chase-speed`t512",
     "group`t2",
     "room`t94",
     "textbox-position`t0",
@@ -4794,8 +4868,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 386) {
-    throw "Expected 376 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 387) {
+    throw "Expected 377 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -4805,8 +4879,8 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 56 -or
     $npcImplementationCounts['specialized-native'] -ne 106 -or
-    $npcImplementationCounts['event-owned'] -ne 100 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 123 -or
+    $npcImplementationCounts['event-owned'] -ne 102 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 122 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

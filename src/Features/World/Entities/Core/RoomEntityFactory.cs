@@ -1249,6 +1249,29 @@ internal sealed class RoomEntityFactory(
             foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
         }
+        else if (group == 3 && room.Id == 0xed)
+        {
+            var database = new LynnaShopDatabase(syrup: true);
+            foreach (NpcRecord record in roomNpcs)
+            {
+                RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
+                NpcCharacter actor = CreateNpcCharacter(record);
+                actor.SetDialogue(0, string.Empty, canFace: false);
+                actor.SetScriptButtonSensitive(true);
+                actor.SetBlocksLink(record.Id == 0x5f);
+                actor.SetCollisionRadii(record.Id == 0x5f ? database.Constant("syrup-radius-y") : 6,
+                    record.Id == 0x5f ? database.Constant("syrup-radius-x") : 6);
+                yield return new SyrupShopActorRoomEntity(actor);
+            }
+            // syrupScript_spawnShopItems allocates after the two placed actors.
+            foreach (StockRecord stock in database.ResolveStock(saveData))
+            {
+                var item = new LynnaShopItem { Name = $"SyrupStock_{stock.Order}_{stock.Item.SubId:x2}",
+                    ZIndex = NpcCharacter.FixedLowPriorityZIndex };
+                item.Initialize(stock, room);
+                yield return new LynnaShopItemRoomEntity(item);
+            }
+        }
         else if (group == _tokayShop.Group && room.Id == _tokayShop.Room)
         {
             foreach (IRoomEntity entity in CreateTokayShop(roomNpcs))
