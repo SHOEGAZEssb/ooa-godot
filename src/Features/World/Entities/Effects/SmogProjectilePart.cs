@@ -24,6 +24,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
     internal bool Finished { get; private set; }
     internal int AnimationIndex => _animation.AnimationIndex;
     internal int AnimationFrame => _animation.FrameIndex;
+    internal Texture2D CurrentTexture => _animation.CurrentTexture;
     internal Rect2 CollisionBounds => new(Position - (Vector2)_data.Radius, (Vector2)_data.Radius * 2);
     internal void PublishCollision(int flags) => ContactFlags |= flags;
     internal void ClearHealthAndCollision() => _collisionCleared = true;
@@ -37,7 +38,8 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
         Position = _position.PixelPosition;
         _animation = new(this, 4);
         _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png"),
-            data.Animations, data.TileBase, subid == 0 ? data.Palette : 5);
+            data.Animations, data.TileBase, subid == 0 ? data.Palette : 5,
+            sourceGrayscaleInverted: data.SourceGrayscaleInverted);
         _animation.SetAnimation(0);
         Visible = false;
     }

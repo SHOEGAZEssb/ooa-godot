@@ -8,6 +8,7 @@ internal sealed class SmogProjectileDatabase
     internal string Sprite { get; }
     internal int TileBase { get; }
     internal int Palette { get; }
+    internal bool SourceGrayscaleInverted { get; }
     internal Vector2I Radius { get; }
     internal int RawDamage { get; }
     internal int Health { get; }
@@ -25,10 +26,11 @@ internal sealed class SmogProjectileDatabase
         var table = GeneratedTable.Load("res://assets/oracle/effects/smog_projectile.tsv",
             new GeneratedTableSchema("PART_SMOG_PROJECTILE $4a", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "radius-y", "radius-x",
-                 "raw-damage", "health", "collision-mode", "animation", "source"], ["animation-index"], headerRequired: true));
+                 "raw-damage", "health", "collision-mode", "animation", "source", "source-grayscale-inverted"], ["animation-index"], headerRequired: true));
         if (table.Rows.Count != 4) throw new InvalidOperationException("PART$4a requires four animations.");
         var first = table.Rows[0];
         Sprite = first.RequiredString(1); TileBase = first.UnsignedDecimal(2); Palette = first.UnsignedDecimal(3);
+        SourceGrayscaleInverted = first.Decimal(11, 0, 1) != 0;
         Radius = new(first.UnsignedDecimal(5), first.UnsignedDecimal(4));
         RawDamage = first.HexByte(6); Health = first.UnsignedDecimal(7); InitialCollisionMode = first.HexByte(8);
         for (int i = 0; i < 4; i++)
@@ -36,7 +38,8 @@ internal sealed class SmogProjectileDatabase
             var row = table.Rows[i];
             if (row.UnsignedDecimal(0) != i || row.RequiredString(1) != Sprite || row.UnsignedDecimal(2) != TileBase ||
                 row.UnsignedDecimal(3) != Palette || row.UnsignedDecimal(4) != Radius.Y || row.UnsignedDecimal(5) != Radius.X ||
-                row.HexByte(6) != RawDamage || row.UnsignedDecimal(7) != Health || row.HexByte(8) != InitialCollisionMode)
+                row.HexByte(6) != RawDamage || row.UnsignedDecimal(7) != Health || row.HexByte(8) != InitialCollisionMode ||
+                (row.Decimal(11, 0, 1) != 0) != SourceGrayscaleInverted)
                 throw row.Invalid(0, "ordered PART$4a animation with identical initial attributes");
             Animations[i] = row.RequiredString(9);
             _ = OracleGraphicsCache.GetAnimationDefinition(Animations[i]);

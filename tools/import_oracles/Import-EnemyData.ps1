@@ -2720,8 +2720,9 @@ function Export-SmogProjectileData {
     $labels = $zoraPartTables['part4aAnimations']
     $pointers = $zoraPartPointers['part4aOamDataPointers']
     if ($labels.Count -ne 4 -or $pointers.Count -ne 10) { throw 'PART_SMOG_PROJECTILE requires four animations and ten OAM pointers.' }
+    $sourceGrayscaleInverted = [int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]])
     $rows = [Collections.Generic.List[string]]::new()
-    $rows.Add("# animation-index`tsprite`ttile-base`tpalette`tradius-y`tradius-x`traw-damage`thealth`tcollision-mode`tanimation`tsource")
+    $rows.Add("# animation-index`tsprite`ttile-base`tpalette`tradius-y`tradius-x`traw-damage`thealth`tcollision-mode`tanimation`tsource`tsource-grayscale-inverted")
     for ($index = 0; $index -lt 4; $index++) {
         $definition = $zoraPartFrames[$labels[$index]]
         $frames = [Collections.Generic.List[string]]::new()
@@ -2732,7 +2733,7 @@ function Export-SmogProjectileData {
         }
         $animation = $frames -join '|'
         if ($definition.LoopStart -gt 0) { $animation += "~$($definition.LoopStart)" }
-        $rows.Add("$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6] -band 7)`t$($bytes[2] -shr 4)`t$($bytes[2] -band 15)`t$($bytes[3].ToString('x2'))`t$($bytes[4])`t$($bytes[1].ToString('x2'))`t$animation`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:partData+0250")
+        $rows.Add("$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6] -band 7)`t$($bytes[2] -shr 4)`t$($bytes[2] -band 15)`t$($bytes[3].ToString('x2'))`t$($bytes[4])`t$($bytes[1].ToString('x2'))`t$animation`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:partData+0250`t$sourceGrayscaleInverted")
     }
     Copy-EnemySprite $gfxNames[$bytes[0]]
     Write-GeneratedTable((Join-Path $destination 'effects/smog_projectile.tsv'), $rows)
