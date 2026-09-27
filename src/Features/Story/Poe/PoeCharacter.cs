@@ -10,6 +10,25 @@ internal sealed partial class PoeCharacter : NpcCharacter
 {
     internal bool Disappearing { get; private set; }
     internal bool NoFace { get; private set; }
+    internal bool TransitionInitialized { get; private set; }
+
+    internal void PrepareTransition(PoeEventRecord record, OracleSaveData? saveData, Player? player)
+    {
+        if (TransitionInitialized)
+            return;
+        SetActive(PoeEvent.VariantVisible(Record, record, saveData));
+        if (Active)
+        {
+            // poe.s state 0 falls through to poeScript's initcollisions and
+            // checkabutton, then npcFaceLinkAndAnimate, before state 1 freezes.
+            InitializeCollisionRadii();
+            SetScriptButtonSensitive(true);
+            ResetNativeNpcFacingState();
+            if (player is not null)
+                UpdatePoe(player);
+        }
+        TransitionInitialized = true;
+    }
 
     internal void InitializePoe(NpcRecord record, PoeEventRecord poe)
     {
@@ -38,23 +57,4 @@ internal sealed partial class PoeCharacter : NpcCharacter
         else
             FaceLinkAndAnimateOneUpdate(player);
     }
-}
-
-internal sealed class PoeRoomEntity(PoeCharacter poe)
-    : RoomEntityAdapter<PoeCharacter>(poe, poe.SetTransitionDrawOffset),
-        IRoomBlocker, ITalkTarget
-{
-    public bool BlocksLink(Vector2 linkCenter) =>
-        !Entity.Disappearing && !Entity.NoFace &&
-        Entity.BlocksLinkCenter(linkCenter);
-
-    public NpcCharacter? FindTalkTarget(Player player) =>
-        !Entity.Disappearing && !Entity.NoFace &&
-        Entity.CanScriptTalkTo(
-            player,
-            NpcCharacter.CollisionRadius,
-            NpcCharacter.CollisionRadius,
-            NpcCharacter.AButtonPointOffset)
-            ? Entity
-            : null;
 }

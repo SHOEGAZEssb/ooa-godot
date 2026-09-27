@@ -9,6 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom07cPoe()
     {
+        ValidatePoeScrollPresentation();
         const int group = 0;
         const int room = 0x7c;
         const int tradeItemAddress = 0xc6c0;

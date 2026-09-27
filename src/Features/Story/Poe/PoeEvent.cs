@@ -40,6 +40,16 @@ internal sealed class PoeEvent :
     public bool Matches(int group, OracleRoomData room) =>
         IsOverworldRoom(group, room.Id) || IsTombRoom(group, room.Id);
 
+    public void ReleaseOutgoingActors(int group, OracleRoomData room)
+    {
+        // setObjectsEnabledTo2 retains the outgoing state-1 Poe while
+        // updateInteractions freezes it. Only clearObjectsWithEnabled2 at
+        // scroll completion deletes it. Release the room script before the
+        // destination event's CancelAll can hide the retained actor.
+        if (_context.Entities.ScreenTransitionActive)
+            ResetState();
+    }
+
     public void Start(OracleRoomData room)
     {
         _ = room;
@@ -59,7 +69,7 @@ internal sealed class PoeEvent :
 
         foreach (PoeCharacter candidate in candidates)
         {
-            bool selected = VariantVisible(candidate.Record);
+            bool selected = VariantVisible(candidate.Record, _record, _context.Rooms.SaveData);
             if (!selected)
             {
                 candidate.SetActive(false);
@@ -79,7 +89,8 @@ internal sealed class PoeEvent :
         _poe.SetActive(true);
         _poe.SetDisappearing(false);
         _poe.SetNoFace(false);
-        _poe.ResetNativeNpcFacingState();
+        if (!_poe.TransitionInitialized)
+            _poe.ResetNativeNpcFacingState();
         _precisePosition = _poe.Position;
         _runner.Start(_database.Commands);
 
@@ -88,7 +99,8 @@ internal sealed class PoeEvent :
         for (int update = 0; update < _record.InitialScriptUpdates; update++)
         {
             _runner.AdvanceFrame();
-            _poe.UpdatePoe(_context.Player);
+            if (!_poe.TransitionInitialized)
+                _poe.UpdatePoe(_context.Player);
         }
     }
 
@@ -291,15 +303,15 @@ internal sealed class PoeEvent :
         return _poe.Record.Var03;
     }
 
-    private bool VariantVisible(NpcRecord actor)
+    internal static bool VariantVisible(NpcRecord actor, PoeEventRecord _record, OracleSaveData? saveData)
     {
-        bool progress = _context.Rooms.SaveData.HasRoomFlag(
-            _record.Group, _record.Room, (byte)_record.ProgressFlag);
-        bool tomb = _context.Rooms.SaveData.HasRoomFlag(
-            _record.TombGroup, _record.TombRoom, (byte)_record.ProgressFlag);
-        bool item = _context.Rooms.SaveData.HasRoomFlag(
-            _record.Group, _record.Room, (byte)_record.ItemFlag);
-        if (IsOverworldRoom(actor.Group, actor.Room))
+        bool progress = saveData?.HasRoomFlag(
+            _record.Group, _record.Room, (byte)_record.ProgressFlag) == true;
+        bool tomb = saveData?.HasRoomFlag(
+            _record.TombGroup, _record.TombRoom, (byte)_record.ProgressFlag) == true;
+        bool item = saveData?.HasRoomFlag(
+            _record.Group, _record.Room, (byte)_record.ItemFlag) == true;
+        if (actor.Group == _record.Group && actor.Room == _record.Room)
         {
             return actor.Var03 == _record.FirstVariant
                 ? !progress && !tomb
@@ -307,7 +319,7 @@ internal sealed class PoeEvent :
                     ? !item && progress && tomb
                     : false;
         }
-        return IsTombRoom(actor.Group, actor.Room) &&
+        return actor.Group == _record.TombGroup && actor.Room == _record.TombRoom &&
             actor.Var03 == _record.TombVariant &&
             progress && !tomb;
     }

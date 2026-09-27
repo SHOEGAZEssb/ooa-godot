@@ -539,9 +539,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 56,
-                [NpcImplementationClassification.SpecializedNative] = 176,
+                [NpcImplementationClassification.SpecializedNative] = 178,
                 [NpcImplementationClassification.EventOwned] = 100,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 125
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 123
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -554,7 +554,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "56 ordinary, 176 specialized, 100 event-owned, and 125 " +
+            "56 ordinary, 178 specialized, 100 event-owned, and 123 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -809,6 +809,7 @@ public sealed partial class ValidationRoot
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "oldZora.s:oldZoraScript",
+            "mamamuYan.s:mamamuYanScript",
             "dumbellMan.s:dumbbellManScript",
             "tokkey.s:interactionCode9d",
             "cheval.s:interactionCode6a",
@@ -4173,9 +4174,9 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(2, _world.LoadRoom(2, 0xe7));
         FailIf(
-            manager.Entities<NpcCharacter>().Count != 0,
-            "Room 2:e7 instantiated the unsupported Mamamu interaction " +
-            "or dog as graphics-only NPCs.");
+            manager.EntityAdapters<MamamuRoomEntity>().Count() != 1 ||
+            manager.EntityAdapters<MamamuDogRoomEntity>().Count() != 1,
+            "Room 2:e7 did not instantiate Mamamu and her indoor dog through their script owners.");
 
         void SetTreasure(int treasure, bool value)
         {

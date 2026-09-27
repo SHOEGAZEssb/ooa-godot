@@ -52,9 +52,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 211 | Traced and covered by named NPC/event scenarios. |
+| **I** | 213 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 125 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 123 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **385** | **214 rooms and 297 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,9 +62,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 56 | 0 | 56 |
-| Specialized native interaction | 104 | 72 | 176 |
+| Specialized native interaction | 106 | 72 | 178 |
 | Event-owned actor | 100 | 0 | 100 |
-| Deliberately unsupported | 125 | 0 | 125 |
+| Deliberately unsupported | 123 | 0 | 123 |
 | **Total** | **385** | **72** | **457** |
 
 ## Bipin and Blossom family variants
@@ -200,7 +200,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
-| `2:e7` | [D] `$53:$00/v$00` mamamuYan<br>[D] `$54:$00/v$00` mamamuDog |
+| `2:e7` | [I] `$53:$00/v$00` mamamuYan<br>[I] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |

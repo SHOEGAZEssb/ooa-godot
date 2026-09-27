@@ -107,6 +107,7 @@ public sealed class RoomEventController
             () => new ComedianEvent(_context),
             () => new MaskSalesmanEvent(_context),
             () => new OldZoraEvent(_context),
+            () => new MamamuEvent(_context),
             () => new GoronCaveEvent(_context),
             () => new DumbbellManEvent(_context),
             () => new TokkeyEvent(_context),
@@ -202,6 +203,7 @@ public sealed class RoomEventController
             Npc("maskSalesman.s:maskSalesmanScript",
                 Get<MaskSalesmanEvent>().TryInteractNpc),
             Npc("oldZora.s:oldZoraScript", Get<OldZoraEvent>().TryInteractNpc),
+            Npc("mamamuYan.s:mamamuYanScript", Get<MamamuEvent>().TryInteractNpc),
             Npc("dumbellMan.s:dumbbellManScript",
                 Get<DumbbellManEvent>().TryInteractNpc),
             Npc("tokkey.s:interactionCode9d",
@@ -258,6 +260,7 @@ public sealed class RoomEventController
         Get<WildTokayGameEvent>().SetSecretMenuOpener(opener);
         Get<SymmetryEvent>().OpenSecretMenu = opener;
         Get<PlenEvent>().OpenSecretMenu = opener;
+        Get<MamamuEvent>().OpenSecretMenu = opener;
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>

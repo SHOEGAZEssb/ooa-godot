@@ -814,6 +814,8 @@ foreach ($key in @(
     '2:5e:46:00:00',
     '2:7e:46:01:00',
     '2:e6:5c:00:00',
+    '2:e7:53:00:00',
+    '2:e7:54:00:00',
     '2:f5:5a:00:00',
     '2:f3:3c:07:00',
     '0:aa:48:0f:00',
@@ -938,7 +940,7 @@ foreach ($key in @('1:03:bf:0c:00','3:6e:bf:06:00','3:6f:bf:07:00',
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
 if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
-    $specializedNpcImplementationKeys.Count -ne 92 -or
+    $specializedNpcImplementationKeys.Count -ne 94 -or
     $eventOwnedNpcImplementationKeys.Count -ne 47) {
     throw 'NPC implementation registry key counts changed.'
 }
@@ -1081,6 +1083,7 @@ function New-NpcDataRow(
         $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
     }
     if ($id -eq 0x94 -and $subid -lt 2) { $canFace = $true }
+    if ($id -eq 0x53) { $canFace = $true } # mamamuYan.s: npcFaceLinkAndAnimate
     if ($id -eq 0x66 -or $id -eq 0x8b) { $canFace = $true; $initialAnimation = 2 }
     $downOam = Resolve-NpcAnimation $id $initialAnimation
     if ($canFace) {
@@ -4801,9 +4804,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 56 -or
-    $npcImplementationCounts['specialized-native'] -ne 104 -or
+    $npcImplementationCounts['specialized-native'] -ne 106 -or
     $npcImplementationCounts['event-owned'] -ne 100 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 125 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 123 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

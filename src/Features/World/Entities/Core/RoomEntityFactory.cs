@@ -4184,7 +4184,7 @@ internal sealed class RoomEntityFactory(
                 ZIndex = NpcCharacter.BehindLinkZIndex
             };
             poe.InitializePoe(record, _poe.Record);
-            return new PoeRoomEntity(poe);
+            return new PoeRoomEntity(poe, _poe.Record, saveData);
         }
         if (record is
             {
@@ -4223,6 +4223,18 @@ internal sealed class RoomEntityFactory(
         }
 
         NpcCharacter npc = CreateNpcCharacter(record);
+        if (record.Id == InteractionId.MamamuYan && record.SubId == 0)
+        {
+            npc.SetAnimationRate(0);
+            npc.SetScriptButtonSensitive(false);
+            return new MamamuRoomEntity(npc);
+        }
+        if (record.Id == InteractionId.MamamuDog && record.SubId == 0)
+        {
+            if (saveData is not null)
+                npc.SetActive(new NpcVisibilityRuleDatabase().ShouldShow(record, saveData, runtimeState));
+            return new MamamuDogRoomEntity(npc, () => random.Next().Value, dialogueOpen);
+        }
         if (record is { Id: InteractionId.OldManWithRupees, SubId: 0x01 })
             return new OldManRupeesRoomEntity(npc);
         if (_stoneRabbit.Matches(record))

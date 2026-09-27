@@ -100,6 +100,10 @@ public static class InteractionId
     public const int ImpaNpc = 0x4f;
     // constants/ages/interactions.s: INTERAC_DUMBBELL_MAN
     public const int DumbbellMan = 0x51;
+    // constants/ages/interactions.s: INTERAC_MAMAMU_YAN
+    public const int MamamuYan = 0x53;
+    // constants/ages/interactions.s: INTERAC_MAMAMU_DOG
+    public const int MamamuDog = 0x54;
     // constants/ages/interactions.s: INTERAC_POSTMAN
     public const int Postman = 0x55;
     // constants/ages/interactions.s: INTERAC_PICKAXE_WORKER
