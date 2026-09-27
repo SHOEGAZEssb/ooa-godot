@@ -91,6 +91,10 @@ Gameplay changes require a focused regression and a passing full suite. See
 
 ## Contributing and documentation
 
+Community gameplay, validation, tooling, and documentation contributions are
+welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the active development
+branch, build/test requirements, and the separate Epoch launcher workflow.
+
 Start with [Project principles](docs/project-principles.md), then use the
 [documentation index](docs/README.md) to choose the guide for the subsystem you
 are changing. [AGENTS.md](AGENTS.md) contains the concise implementation rules
