@@ -167,7 +167,11 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     }
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Goron";
     public override void SetInputEnabled(bool enabled)
-    { base.SetInputEnabled(enabled); if(enabled) Gallery?.EnableInput(); }
+    {
+        if(enabled) { _owner.EnableActorInput(); Gallery?.EnableInput(); }
+        else base.SetInputEnabled(false);
+    }
+    internal void ReleaseSharedInput() => ReleaseInputControl();
     public override void SetMusic(int music) => Context.Sound.PlayMusicIfChanged(music);
     public override void InitializeActorCollisionRadii(string actor) => Actor.InitializeCollisionRadii();
     public override void SetActorCollisionRadii(string actor,int radiusY,int radiusX) => Actor.SetCollisionRadii(radiusY,radiusX);

@@ -89,6 +89,14 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     }
     public bool TryInteractNpc(NpcCharacter npc) =>
         _actors.Any(actor => actor.TryInteract(npc));
+    internal void EnableActorInput()
+    {
+        // scripting.s enableinput/enableallobjects clear shared wDisabledObjects.
+        // Target carts B@selectedYes retains its lock while A starts the retry;
+        // A must release the lock held by B as well as one it acquired itself.
+        // Owner-checked release keeps unrelated successor control intact.
+        foreach (var actor in _actors) actor.ReleaseSharedInput();
+    }
     public void ReleaseOutgoingActors(int group, OracleRoomData room)
     {
         // setObjectsEnabledTo2 retains initialized outgoing interactions for

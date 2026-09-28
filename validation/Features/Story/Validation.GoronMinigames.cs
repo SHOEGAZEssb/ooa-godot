@@ -117,15 +117,19 @@ public sealed partial class ValidationRoot
         // The source route crosses $5:d9 and returns before the right-hand script scores it.
         FailIf(!_dialogue.IsOpen||_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xd8,
             $"Target-cart ride did not return to its scoring attendant: {_rooms.ActiveGroup}:{_rooms.CurrentRoom.Id:x2}, Link {_player.Position}.");
-        AdvanceGoronDialogue(600,1);
+        for(int i=0;i<600&&!_dialogue.ChoiceActive;i++) AdvanceGoronDialogue(1);
         FailIf(_inventory.EquippedB!=b||_inventory.EquippedA!=a||_inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80)||
-            _inventory.HasTreasure(TreasureId.RockBrisket)||_roomEvents.Active,
+            _inventory.HasTreasure(TreasureId.RockBrisket)||!_dialogue.ChoiceActive,
             "Target-cart zero-hit result did not restore inventory, clear play state, and withhold Rock Brisket.");
-        right=cave.Actors.Single(h=>h.Actor.Record.Var03==1); TalkGoronFromFloor(right);
-        left=cave.Actors.Single(h=>h.Actor.Record.Var03==0);
-        ApproachGoronFromFloor(left); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        // scripts.s: B@selectedYes leaves input disabled and signals A; A's
+        // enableallobjects must release that lock when the next game starts.
+        FailIf(!_player.CutsceneControlled,"Target-cart retry prompt released input before a choice.");
+        _dialogue.SubmitChoiceForValidation(0);
         for(int i=0;i<1300&&!_saveData.HasRoomFlag(5,0xd8,0x80);i++) AdvanceGoronDialogue(1);
         StepGameplayUpdates(2,Vector2.Zero);
+        FailIf(_player.CutsceneControlled||cave.BlocksGameplay||_inventory.Rupees!=80||
+            _player.Position!=new Vector2(0x38,0x88),
+            "Target-cart immediate retry retained the scoring attendant's input lock at $5:d8 platform ($38,$88).");
         var scent=new SeedSatchelDatabase().Scent;
         var shooter=SeedShooterRecord.Load();
         var fired=new System.Collections.Generic.HashSet<int>();
@@ -140,7 +144,7 @@ public sealed partial class ValidationRoot
         ShootCrystals(); StepGameplayUpdates(8,Vector2.Zero);
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=5||_entities.RuntimeState.ReadWramByte(0xcfdd)!=0x1f,
             "Scent projectiles did not destroy the first five crystals and publish their re-entry mask.");
-        StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"]);
+        StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"],batched:true);
         for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
         { ShootCrystals(); StepGameplayUpdates(1,Vector2.Zero); }
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=12||fired.Count!=12,
