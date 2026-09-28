@@ -95,6 +95,11 @@ rules even when it is not a full-screen modal. Preserve original object update
 masks: some state-0 or explicitly enabled objects continue while ordinary
 actors stop.
 
+Closing ordinary text retains modal ownership for the source's separate closing
+text update (`standardTextStatef` to `$10`). Object passes still observe active
+text on that update; they resume on the next. Explicit cancellation through
+`Close()` remains immediate.
+
 ## Frontend ownership
 
 Before the original logos, a port-only loading screen presents

@@ -449,6 +449,12 @@ internal sealed class ImpaIntroEvent :
         {
             _context.Player.SetCutscenePushing(true);
         }
+        else if (_stonePostPushRunner.Active && _stoneSignal == 0x07)
+        {
+            // Link's special-object pass precedes Impa. Observe the signal on
+            // the following update; animation $02 does not write direction.
+            _context.Player.SetCutsceneIdleAnimation(2);
+        }
 
         // INTERAC_TRIFORCE_STONE calls objectPreventLinkFromPassing at the
         // start of substates 0 and 1. Once movement finishes, collision $0f
@@ -636,8 +642,6 @@ internal sealed class ImpaIntroEvent :
                 // linkCutscene6, and the earlier retained Impa slot observes
                 // cfd0=$06 before loading her response script.
                 AdvanceStoneMovement();
-                _stoneSignal = 0x06;
-                _precisePosition = Actor!.Position;
                 _stonePostPushRunner.Start(_database.StonePostPushCommands);
                 _stoneStage = StoneStage.PostPushScript;
                 break;
@@ -861,6 +865,9 @@ internal sealed class ImpaIntroEvent :
         _context.Player.Face(_pushedRight ? Vector2I.Right : Vector2I.Left);
         _context.Player.SetCutscenePushing(true);
         _stoneStage = StoneStage.PushStarted;
+        // The later stone slot publishes this on the trigger update. Impa's
+        // earlier slot observes it on the next pass before starting her script.
+        _stoneSignal = 0x06;
         _context.Sound.PlaySound(_stoneRecord.Sounds.Push);
     }
 
@@ -902,8 +909,9 @@ internal sealed class ImpaIntroEvent :
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
         int x = _pushedRight ? stone.RightX : stone.LeftX;
         byte flag = (byte)(_pushedRight ? stone.RightRoomFlag : stone.LeftRoomFlag);
-        StoneActor!.Position = new Vector2(x, stone.InitialY);
-        _stonePrecisePosition = StoneActor.Position;
+        // @substate1 overwrites xh only. The last SPEED_40 update left xl=$c0.
+        _stonePrecisePosition.X = x + (_stonePrecisePosition.X - Mathf.Floor(_stonePrecisePosition.X));
+        StoneActor!.Position = OracleObjectMath.ToPixelPosition(_stonePrecisePosition);
         _context.Rooms.SaveData.SetRoomFlag(stone.Group, stone.Room, flag);
         ApplyMovedStoneTile(x);
         StoneActor.SetBlocksLink(false);
@@ -1150,7 +1158,7 @@ internal sealed class ImpaIntroEvent :
         Vector2 direction = OracleObjectMath.StrictCardinalVector(angle);
         impa.SetFacingDirection(new Vector2I(
             Mathf.RoundToInt(direction.X), Mathf.RoundToInt(direction.Y)));
-        _precisePosition = impa.Position;
+        SetImpaCoordinateHigh(impa.Position);
     }
 
     void ICutsceneCommandHost.SetActorCollisionRadii(
@@ -1201,10 +1209,6 @@ internal sealed class ImpaIntroEvent :
             binding == "wTmpcfc0.genericCutscene.cfd0" && value == 0x07)
         {
             _stoneSignal = value;
-            // linkCutscene6 observes cfd0=$07 after Impa's interaction and
-            // selects Link's non-pushing animation $02 in this same update.
-            _context.Player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Down);
-            _context.Player.SetCutscenePushing(false);
             return;
         }
         throw new InvalidOperationException(
@@ -1316,7 +1320,8 @@ internal sealed class ImpaIntroEvent :
             _record.RightAnimation,
             _record.DownAnimation,
             _record.LeftAnimation);
-        Actor!.Position = _context.Player.Position;
+        // resetFollowingLinkPath copies yh/xh, preserving the follower's lows.
+        SetImpaCoordinateHigh(_context.Player.Position);
         Actor.SetBlocksLink(false);
         Actor.SetFacingDirection(_context.Player.FacingVector);
         Actor.SetAnimationRate(0);
@@ -1355,8 +1360,15 @@ internal sealed class ImpaIntroEvent :
         _linkPathIndex = (_linkPathIndex + 1) & 0x0f;
         LinkPathEntry old = _linkPath[_linkPathIndex];
         _linkPath[_linkPathIndex] = current;
-        Actor!.Position = old.Position;
+        SetImpaCoordinateHigh(old.Position);
         _followerDirection = old.Direction;
+    }
+
+    private void SetImpaCoordinateHigh(Vector2 position)
+    {
+        _precisePosition = OracleObjectMath.ToPixelPosition(position) +
+            (_precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition));
+        Actor!.Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
     private void EnsureImpaMusicOverride()

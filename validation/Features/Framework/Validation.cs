@@ -20,6 +20,11 @@ public sealed partial class ValidationRoot : GameRoot
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--tas-replay"))
+        {
+            BeginTasReplay();
+            return;
+        }
         if (OS.GetCmdlineUserArgs().Contains("--profile-startup"))
         {
             BeginStartupProfile();
@@ -45,6 +50,11 @@ public sealed partial class ValidationRoot : GameRoot
 
     public override void _Process(double delta)
     {
+        if (_tasReplay)
+        {
+            AdvanceTasReplay();
+            return;
+        }
         if (_startupProfile is not null)
         {
             AdvanceStartupProfile(delta);
@@ -197,6 +207,7 @@ public sealed partial class ValidationRoot : GameRoot
     {
         RunIsolatedValidation(ValidateGameplaySceneGraph);
         RunIsolatedValidation(ValidateApplicationFixedUpdateScheduler);
+        RunIsolatedValidation(ValidateTasSaveBoundary);
         RunIsolatedValidation(ValidateHotPaths);
         RunIsolatedValidation(ValidateControllerMovement);
         RunIsolatedValidation(ValidateGeneratedTableReader);

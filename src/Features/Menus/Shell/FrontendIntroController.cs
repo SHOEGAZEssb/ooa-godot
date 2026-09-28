@@ -165,10 +165,12 @@ internal sealed class FrontendIntroController
         switch (Stage)
         {
             case FrontendIntroStage.Boot:
-                // The clean US build skips the Japanese-only stage without
-                // falling through to the Capcom state in this update.
+                // bank3Cutscenes.s:intro_japaneseOnlyScreen has no US ret:
+                // after incrementing wIntroStage it falls into intro_capcomScreen.
+                // Executed clean-US TAS update 1 reaches stage $01/var $01.
                 Stage = FrontendIntroStage.Capcom;
                 State = 0;
+                RunCapcom();
                 break;
             case FrontendIntroStage.Capcom:
                 RunCapcom();

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ages streaming TAS trace v2",
+  "description": "manifest.json identifies a run; rom.jsonl and godot.jsonl contain snapshot records.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schemaVersion", "profile", "boundary", "movie", "romSha256", "reference", "source", "port", "coverage", "limits"],
+      "properties": {
+        "schemaVersion": {"const": 2},
+        "profile": {"const": "ages-shared-v1"},
+        "boundary": {"const": "mainLoop-before-pollInput-after-vblank-v1"},
+        "movie": {"type": "object", "required": ["sha256", "header", "syncSettings", "frames"]},
+        "romSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "reference": {"type": "object"},
+        "source": {"type": "object"},
+        "port": {"type": "object"},
+        "coverage": {"type": "object", "required": ["supported", "unavailable", "outOfScope"]},
+        "limits": {"type": "object"}
+      }
+    },
+    {
+      "type": "object",
+      "required": ["update", "input", "pressed", "state", "diagnostics"],
+      "properties": {
+        "update": {"type": "integer", "minimum": 0},
+        "input": {"type": "integer", "minimum": 0, "maximum": 255},
+        "pressed": {"type": "integer", "minimum": 0, "maximum": 255},
+        "state": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer"}},
+        "diagnostics": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  ]
+}

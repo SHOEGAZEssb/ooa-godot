@@ -31,7 +31,12 @@ public sealed partial class ValidationRoot
         void PressA() { held = edge = "attack"; Step(); held = null; }
         void Close()
         {
-            for (int i = 0; i < 180 && _dialogue.IsOpen; i++) { Step(30); PressA(); }
+            for (int i = 0; i < 180 && _dialogue.IsOpen; i++)
+            {
+                Step(30); PressA();
+                // standardTextStatef -> $10 closes on the following text pass.
+                Step();
+            }
             FailIf(_dialogue.IsOpen, "Patch dialogue did not close through A input.");
         }
         void Until(Func<bool> condition, int limit, string description)

@@ -382,6 +382,9 @@ public sealed partial class ValidationRoot
             _dialogue.HasNextMessage || _dialogue.ArrowVisible,
             "The final dialogue message displayed a continuation arrow.");
         _dialogue.AdvanceOrClose();
+        FailIf(!_dialogue.IsOpen || !_dialogue.BlocksPlayerInput,
+            "standardTextStatef cleared wTextIsActive before the following $10 update.");
+        StepGameplayUpdates(1, Vector2.Zero, ["attack"]);
         FailIf(
             _dialogue.IsOpen || !_dialogue.BlocksPlayerInput,
             "Closing the final textbox did not consume its button press.");

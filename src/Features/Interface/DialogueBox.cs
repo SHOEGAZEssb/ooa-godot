@@ -92,6 +92,7 @@ public partial class DialogueBox : Node2D
     private bool _heartPieceSetComplete;
     private bool _open;
     private bool _consumeClosingInput;
+    private bool _closing;
     private bool _scrollingText;
     private bool _choiceActive;
     private bool _passive;
@@ -295,6 +296,7 @@ public partial class DialogueBox : Node2D
         _visibleGlyphs = 0;
         _openedFrame = Input.TimingFrame;
         _open = true;
+        _closing = false;
         _consumeClosingInput = false;
         _scrollingText = false;
         _choiceActive = false;
@@ -412,6 +414,7 @@ public partial class DialogueBox : Node2D
 
     public void Close()
     {
+        _closing = false;
         _open = false;
         _scrollingText = false;
         _choiceActive = false;
@@ -441,6 +444,15 @@ public partial class DialogueBox : Node2D
 
         if (!_open)
             return;
+
+        // textbox.s: standardTextStatef saves the underlying tiles and moves
+        // to $10. Only the next text-thread update clears wTextIsActive, after
+        // that update's object passes have observed the still-active textbox.
+        if (_closing)
+        {
+            Close();
+            return;
+        }
 
         if (UpdateHeartPieceDisplay(delta))
         {
@@ -565,7 +577,7 @@ public partial class DialogueBox : Node2D
                 SubmitChoice();
                 return;
             }
-            Close();
+            _closing = true;
             // The original main loop cannot run Link's interaction code again
             // for the same wKeysJustPressed value. Hold the closing press until
             // both face buttons have been released to preserve that ordering.

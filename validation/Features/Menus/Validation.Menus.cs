@@ -659,8 +659,7 @@ public sealed partial class ValidationRoot
                 $"{expectedUpdates}. Reached {stage} state {state}.");
         }
 
-        ExpectTransition(FrontendIntroStage.Capcom, 0, 1, "US region skip");
-        ExpectTransition(FrontendIntroStage.Capcom, 1, 1, "Capcom initialization");
+        ExpectTransition(FrontendIntroStage.Capcom, 1, 1, "US region skip and Capcom fallthrough");
         ExpectTransition(FrontendIntroStage.Capcom, 2, 208, "Capcom hold");
         ExpectTransition(FrontendIntroStage.Horse, 0, 32, "Capcom fade-out");
         FailIf(
@@ -895,7 +894,7 @@ public sealed partial class ValidationRoot
         replay.AdvanceOneOriginalUpdate();
         replay.AdvanceOneOriginalUpdate();
         FailIf(
-            replay.Stage != FrontendIntroStage.Capcom || replay.State != 0,
+            replay.Stage != FrontendIntroStage.Capcom || replay.State != 1,
             "Idle title replay did not pass through restart and the clean-US stage skip.");
 
         var skipRandom = new OracleRandom();

@@ -424,6 +424,7 @@ public partial class Player : Node2D
     private CutsceneSpriteRenderer? _newGameFallRenderer;
     private CutsceneSpriteRenderer? _cutsceneSpriteRenderer;
     private IntroSpriteFrame? _cutsceneSpriteFrame;
+    private Facing? _cutsceneIdleFacing;
     private IntroSpriteFrame[]? _newGameFallFrames;
     private int _newGameFallFrame;
     private int _newGameFallFrameTicks;
@@ -1100,7 +1101,10 @@ public partial class Player : Node2D
         // are parsed, before the transition places Link. Preserve a frame
         // already selected by that new cutscene owner through WarpTo.
         if (!_cutsceneControlled)
+        {
             _cutsceneSpriteFrame = null;
+            _cutsceneIdleFacing = null;
+        }
         _carriedObjectPose = false;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
@@ -2762,6 +2766,17 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal void SetCutsceneIdleAnimation(int direction)
+    {
+        if (direction is < 0 or > 3)
+            throw new ArgumentOutOfRangeException(nameof(direction));
+        // specialObjectSetAnimation selects a pose without writing direction.
+        _cutsceneIdleFacing = (Facing)direction;
+        _walking = false;
+        _pushing = false;
+        QueueRedraw();
+    }
+
     internal void BeginCarriedObjectPose()
     {
         _carriedObjectPose = true;
@@ -3361,6 +3376,7 @@ public partial class Player : Node2D
             return;
         _cutsceneControlled = false;
         _forcedState08Phase = 0;
+        _cutsceneIdleFacing = null;
         _forcedState08LowPriority = false;
         SetAlternateTextboxPalettePriority(false);
         _cutsceneControlOwner = null;
@@ -3577,6 +3593,11 @@ public partial class Player : Node2D
         {
             _cutsceneSpriteRenderer.DrawRelativeFrame(
                 this, cutsceneFrame, z: 0);
+        }
+        else if (_cutsceneIdleFacing is Facing idleFacing)
+        {
+            DrawTextureRectRegion(_texture,
+                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)), GetFrame(idleFacing, 0));
         }
         else if (_harpPoseActive &&
             _harpRenderer is not null && _harpFrames is not null)

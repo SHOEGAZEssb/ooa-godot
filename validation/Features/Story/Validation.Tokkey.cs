@@ -39,16 +39,15 @@ public sealed partial class ValidationRoot
         }
         void PressA()
         {
-            Input.ActionPress("attack");
-            try { base._Process(1.0 / 60.0); }
-            finally { Input.ActionRelease("attack"); }
+            StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
         }
         void FinishDialogue()
         {
             for (int press = 0; press < 200 && _dialogue.IsOpen; press++)
             {
-                base._Process(30.0 / 60.0);
+                StepGameplayUpdates(30, Vector2.Zero, batched: true);
                 PressA();
+                StepGameplayUpdates(1, Vector2.Zero);
             }
             FailIf(_dialogue.IsOpen, "Tokkey dialogue did not finish through ordinary A-button input.");
         }
@@ -57,15 +56,13 @@ public sealed partial class ValidationRoot
             if (approach)
             {
                 _player.WarpTo(Actor().Position + new Vector2(0, 48));
-                Input.ActionPress("move_up");
-                try { base._Process(40.0 / 60.0); }
-                finally { Input.ActionRelease("move_up"); }
+                StepGameplayUpdates(40, Vector2.Up, ["move_up"], batched: true);
             }
-            base._Process(1.0 / 60.0);
+            StepGameplayUpdates(1, Vector2.Zero);
             FailIf(!Actor().CanTalkTo(_player),
                 $"Room 3:8f $9d:$00 cannot be talked to from reachable Link position {_player.Position} for TX_{text:x4}.");
             PressA();
-            base._Process(1.0 / 60.0);
+            StepGameplayUpdates(1, Vector2.Zero);
             ExpectText(text);
         }
         void Play(Vector2 position, bool batched = false)
@@ -89,18 +86,18 @@ public sealed partial class ValidationRoot
             // completion before the interaction pass, and batched host frames.
             if (batched)
             {
-                base._Process(259.0 / 60.0);
+                StepGameplayUpdates(259, Vector2.Zero, batched: true);
                 ExpectStillPlaying();
             }
             else
             {
                 for (int update = 0; update < 259; update++)
                 {
-                    base._Process(1.0 / 60.0);
+                    StepGameplayUpdates(1, Vector2.Zero);
                     ExpectStillPlaying();
                 }
             }
-            base._Process(1.0 / 60.0);
+            StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_player.IsUsingHarp || _player.HarpPoseActive || _harp.IsPlaying ||
                 _entities.PlayingInstrumentSource() != 1 || _harp.NoteSpawnCount != notes + 8,
                 "ITEM_HARP failed to finish naturally with eight notes and preserve $01 for Tokkey's completion-update collision check.");
@@ -156,7 +153,7 @@ public sealed partial class ValidationRoot
         FailIf(_dialogue.CurrentMessage.Contains("research time", StringComparison.Ordinal),
             "Repeat TX_2c01 incorrectly replayed Tokkey's introduction.");
         FinishDialogue();
-        base._Process(1.0 / 60.0);
+        StepGameplayUpdates(1, Vector2.Zero);
         Play(new Vector2(0x38, 0x38));
         ExpectText(0x2c05);
         FailIf(tokkey.State != 1 || _saveData.HasRoomFlag(3, 0x8f, 0x40),

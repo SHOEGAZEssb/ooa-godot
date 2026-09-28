@@ -453,6 +453,9 @@ public partial class GameRoot : Node2D
             _mainMenuScreen ?? throw new InvalidOperationException(
                 "The frontend lost its shared main-menu screen."),
             StartSelectedFile,
+            load: LoadFileSlot,
+            save: StoreFileSlot,
+            erase: EraseFileSlot,
             playSound: _sound.PlaySound,
             startAtFileSelect: true);
     }
@@ -1325,11 +1328,18 @@ public partial class GameRoot : Node2D
     private void SyncHudToRoom(int group, OracleRoomData room) =>
         SyncHudToInventory();
 
+    // File-menu and gameplay commits share the same persistence boundary.
+    // Alternative hosts can provide an isolated store without changing save
+    // decisions, restart locations, or the lifetime of the live save image.
+    protected virtual OracleSaveData? LoadFileSlot(int slot) => OracleSaveStore.LoadSlot(slot);
+    protected virtual SaveResult StoreFileSlot(int slot, OracleSaveData save) => OracleSaveStore.SaveSlot(slot, save);
+    protected virtual void EraseFileSlot(int slot) => OracleSaveStore.EraseSlot(slot);
+
     private SaveResult SaveActiveFile()
     {
         _saveWriteRequests++;
         if (_persistSaveData && _saveData is not null)
-            return OracleSaveStore.SaveSlot(_activeSaveSlot, _saveData);
+            return StoreFileSlot(_activeSaveSlot, _saveData);
         return SaveResult.Succeeded;
     }
 

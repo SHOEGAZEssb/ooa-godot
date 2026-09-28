@@ -21,6 +21,9 @@ or cache histories to production classes.
 
 ## Run validations
 
+For executed-ROM comparisons and the versioned shared trace contract, see
+[Continuous TAS fidelity replay](tas-replay.md).
+
 Build first, then run the complete suite with the standard 8 workers:
 
 ```powershell
@@ -172,6 +175,11 @@ transition dispatch, or sequencer order.
 Keep scenarios focused on individual gameplay systems and their immediate
 interactions. Do not automate whole-dungeon progression or long routes that
 chain unrelated combat, traversal, puzzles, and rewards.
+
+The separate [TAS replay tool](tas-replay.md) consumes externally recorded
+playthroughs for continuous differential comparison. It is an opt-in debugging
+tool, outside the registered regression suite; shared system capture replaces
+hand-authored progression fixtures.
 
 Use the actual gameplay update loop and real room geometry when a system needs
 integration coverage. Arrange the prerequisites directly, then exercise only

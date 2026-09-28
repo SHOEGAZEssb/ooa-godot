@@ -2015,7 +2015,7 @@ public sealed partial class ValidationRoot
             !_dialogue.IsOpen || _dialogue.CurrentMessage !=
             DialogueBox.PlainText(record.Texts.Thanks.Message) ||
             responseUpdates >= 400 || !sawRightFacingReunion ||
-            _player.FacingVector != Vector2I.Down || _player.IsPushing,
+            _player.FacingVector != Vector2I.Right || _player.IsPushing,
             "Impa's right-push 4+65+120 response, SPEED_100 move, " +
             "cfd0=$07 Link pose reset, or TX_0109 timing stalled.");
         Vector2 thanksPosition = follower.Position;

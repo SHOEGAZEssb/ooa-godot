@@ -31,6 +31,11 @@ WRAM-style image. Ordinary mutations and application exit do not write a file.
 Only traced save flows commit: Continue leaves the live changes uncommitted;
 Save and Continue or Save and Quit commit at their original boundary.
 
+The application routes file-menu operations and gameplay commits through one
+overridable slot-store boundary. The ordinary host uses `OracleSaveStore`; the
+TAS validation host provides isolated committed images while preserving the
+same save decisions and normal saved-spawn behavior.
+
 Restart and death behavior must distinguish:
 
 - live state before a save decision;
