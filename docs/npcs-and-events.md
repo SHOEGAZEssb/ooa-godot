@@ -137,6 +137,11 @@ Shared helpers must preserve each caller's native update slot,
 initialization update, counter boundary, and cancellation order. Command hosts
 remain default-deny; composing resources does not expose script operations.
 
+An original destination initializer that replaces the arrival palette fade
+may take ownership on the first object update after a stationary warp load.
+The transition owner completes Link's arrival before the event starts its fade;
+the two owners must not run consecutive arrival fades or overwrite each other.
+
 Ordinary destination events remain frozen during scrolling. Clear runners,
 release input, detach registrations, and remove transient actors on cancellation
 or room invalidation. Persistent completion is derived from authoritative save

@@ -780,6 +780,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePuzzlePuffTiming);
         RunIsolatedValidation(ValidateArmosWarriorFight);
         RunIsolatedValidation(ValidateKingMoblinFight);
+        RunIsolatedValidation(ValidateKingMoblinDefeatTiming);
         RunIsolatedValidation(ValidateKingMoblinBombsAndRecentering);
         RunIsolatedValidation(ValidateDefeatedMoblinSequence);
         RunIsolatedValidation(ValidateKingMoblinCancellation);

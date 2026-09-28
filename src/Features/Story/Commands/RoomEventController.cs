@@ -294,6 +294,7 @@ public sealed class RoomEventController
         if (_context.Transitions.IsTransitioning)
         {
             Get<GoronCaveEvent>().InitializeDuringTransition();
+            Get<DefeatedMoblinEvent>().UpdateDuringWarpArrival();
             if (Get<ImpaIntroEvent>().UpdatesDuringTransition)
                 Get<ImpaIntroEvent>().UpdateDuringTransition();
             return;

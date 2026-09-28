@@ -19,7 +19,7 @@ internal sealed class KingMoblinDatabase
             _tables.Add(row.RequiredString(0), Array.ConvertAll(row.SplitRequired(1, ','), v => Convert.ToByte(v, 16)));
         foreach (var (name, count) in new[] { ("speeds",6), ("pickup",6), ("raise",6), ("explosions",4),
             ("minions",8), ("escape-angles",2), ("fuses",4), ("flashes",6),
-            ("GLOBALFLAG_MOBLINS_KEEP_DESTROYED",1), ("GLOBALFLAG_16",1), ("ledge",5), ("collision",32) })
+            ("GLOBALFLAG_MOBLINS_KEEP_DESTROYED",1), ("GLOBALFLAG_16",1), ("ledge",5), ("collision",32), ("defeat-warp",5) })
             if (!_tables.TryGetValue(name, out var values) || values.Length != count)
                 throw new InvalidOperationException($"ENEMY_KING_MOBLIN $7f: missing source table {name}.");
         table = GeneratedTable.Load("res://assets/oracle/objects/king_moblin_actors.tsv",
@@ -39,7 +39,7 @@ internal sealed class KingMoblinDatabase
             new GeneratedTableSchema("King Moblin dialogue", GeneratedTableKeySemantics.Unique,
                 ["text-id","message-base64","source"],["text-id"],headerRequired:true));
         foreach(var row in table.Rows) _texts.Add(row.HexWord(0),row.Base64Utf8(1));
-        if(_tables.Count!=12 || _texts.Count!=2 || !_texts.ContainsKey(0x2f19) || !_texts.ContainsKey(0x2f1a))
+        if(_tables.Count!=13 || _texts.Count!=2 || !_texts.ContainsKey(0x2f19) || !_texts.ContainsKey(0x2f1a))
             throw new InvalidOperationException("ENEMY_KING_MOBLIN $7f: unexpected native table or dialogue keys.");
         var palette = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/king_moblin_palette.bin",1,6);
         Palettes = new Dictionary<int, Color[]> { [6] = [palette[6,0],palette[6,1],palette[6,2],palette[6,3]] };
@@ -47,6 +47,14 @@ internal sealed class KingMoblinDatabase
     internal byte[] Bytes(string key) => _tables[key];
     internal ImportedEnemyDefinition Actor(int id, int subid=0) => _actors[(id,subid)];
     internal string Text(int id) => _texts[id];
+    internal Warp DefeatWarp(int group,int room)
+    {
+        var row=Bytes("defeat-warp");
+        if(row[0]!=0x80 || row[2]!=0 || row[4]!=3)
+            throw new InvalidOperationException("kingMoblin.s:kingMoblin_state15@warpDest: unsupported hardcoded warp mode.");
+        return new Warp(group,room,-1,0,WarpSourceTransition.FadeOut,
+            row[0]&7,row[1],row[3],0,row[2],DirectFadeOut:true);
+    }
     internal void ApplyRoomLayout(int group,OracleRoomData room,long tick)
     {
         var row=Bytes("ledge");

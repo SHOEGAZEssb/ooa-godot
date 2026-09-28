@@ -2,9 +2,12 @@ using Godot;
 
 namespace oracleofages;
 
-internal sealed partial class KingMoblinBomb : EnemyCharacter
+internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSource
 {
     internal override bool InitializationPending => State == 0;
+    // visible bit6 enables the common terrain shadow. The explosion handlers
+    // and minion escape throw explicitly clear it ($82/$83 and $81).
+    int? ITerrainShadowSource.TerrainShadowZHigh => _terrainEffects ? ZFixed >> 8 : null;
 
     internal KingMoblinBoss Boss { get; private set; } = null!;
     internal KingMoblinMinion? Minion { get; private set; }
@@ -17,7 +20,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
     internal bool ReservedBraceletChildActive => !Small && !IsDead && State == 2 && _released && !_settled;
     private CarriedObjectMotion _motion;
     private int _angle, _speed, _flashLimit;
-    private bool _released, _damagedLink;
+    private bool _released, _damagedLink, _terrainEffects;
     private bool _settled;
     private Player? _holder;
     private bool Small => Minion is not null;
@@ -31,9 +34,10 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
             EnemyCharacterConfiguration.FromImported(boss.Data.Actor(minion is null?0x3f:0x47)),positionedOam:true);
         Name=minion is null?"KingMoblinBomb":"KingMoblinMinionBomb";
     }
-    internal void Throw(int angle,int? speedZ,int? speed=null)
+    internal void Throw(int angle,int? speedZ,int? speed=null,bool terrainEffects=true)
     {
         State=Small?2:3; _angle=angle;
+        _terrainEffects=terrainEffects;
         if(speedZ.HasValue) _motion.SpeedZ=speedZ.Value;
         if(speed.HasValue) _speed=speed.Value;
     }
@@ -46,11 +50,15 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
         {
             case 0:
                 State=1; _speed=0x55; Position+=new Vector2(0,8);
+                ZIndex=ObjectDrawPriority.BehindLinkZIndex; // kingMoblinBomb_state0: visiblec2.
+                _terrainEffects=true;
                 Fuse=Boss.Data.Bytes("fuses")[Boss.World.Random.Next().Value&3];
                 _flashLimit=Boss.Data.Bytes("flashes")[Boss.Health-1]; break;
             case 1: TickFuse(frame.Counter); break;
             case 2:
-                if(_settled) State=4;
+                // kingMoblinBomb_state2@atRest restores visiblec2 only after
+                // the reserved bracelet child finishes its throw and bounces.
+                if(_settled) { State=4; ZIndex=ObjectDrawPriority.BehindLinkZIndex; }
                 else if(_released && Position.Y<0x30 && (_motion.ZFixed>>8)==0)
                 { _motion.SpeedZ >>= 1; _motion.SpeedRaw=ObjectSpeed.Speed40; }
                 TickFuse(frame.Counter); break;
@@ -115,7 +123,12 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
     }
     private void UpdateSmall(RoomEntityFrame frame)
     {
-        if(State==0) {State=1; _speed=0x50; _motion.SpeedZ=-0x280;}
+        if(State==0)
+        {
+            State=1; _speed=0x50; _motion.SpeedZ=-0x280;
+            ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex; // PART $47 state0: visiblec1.
+            _terrainEffects=true;
+        }
         switch(State)
         {
             case 1: Position=Minion!.Position; _motion.ZFixed=Minion.ZFixed; break;
@@ -130,6 +143,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
     }
     private void Explode()
     {
+        _terrainEffects=false;
         if(Held) _holder?.EndCarriedObjectPose();
         _holder=null;
         // Both native handlers write oamFlags=$0a: bit 3 selects the
@@ -167,6 +181,8 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter
         Vector2 delta=Position-(player.Position+(Vector2)player.FacingVector*6);
         if(System.Math.Abs(delta.X)>=13 || System.Math.Abs(delta.Y)>=13) return false;
         State=2; _released=false; _settled=false; _holder=player; _motion=new(Position);
+        // kingMoblinBomb_state2@justGrabbed: visiblec1, retained on release.
+        ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex;
         player.BeginCarriedObjectPose(); return true;
     }
     private void Move() {var p=Position; OracleObjectMovement.Shared.ApplySpeed(ref p,_speed,_angle); Position=p;}

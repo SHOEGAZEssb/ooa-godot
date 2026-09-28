@@ -1615,6 +1615,18 @@ public sealed class RoomTransitionController
         return true;
     }
 
+    internal bool TryHandOffStationaryArrivalFade()
+    {
+        // Native destination interactions can replace fadeinFromWhiteToRoom
+        // with their own palette thread. Wait until the first object update
+        // after loading, with Link already placed and no entrance motion.
+        if (!_warpActive || _warpPhase != WarpPhase.FadeIn || _warpFrame == 0 ||
+            _destinationWalk || _destinationFall || _timeWarp)
+            return false;
+        FinishWarp();
+        return true;
+    }
+
     private void FinishWarp()
     {
         bool finishedTimeWarp = _timeWarp;

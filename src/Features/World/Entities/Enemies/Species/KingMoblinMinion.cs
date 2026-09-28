@@ -3,9 +3,10 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed partial class KingMoblinMinion : EnemyCharacter
+internal sealed partial class KingMoblinMinion : EnemyCharacter, ITerrainShadowSource
 {
     internal override bool InitializationPending => State == 0;
+    int? ITerrainShadowSource.TerrainShadowZHigh => State==0 ? null : ZFixed >> 8; // visiblec2.
 
     internal KingMoblinBoss Boss { get; private set; } = null!;
     internal KingMoblinBomb? Bomb { get; set; }
@@ -31,6 +32,7 @@ internal sealed partial class KingMoblinMinion : EnemyCharacter
                 Boss.World.Random.Next();
                 var data=Boss.Data.Bytes("minions"); int offset=SubId*4;
                 _counter=data[offset]; _direction=data[offset+1]; Position=new(data[offset+3],data[offset+2]);
+                ZIndex=ObjectDrawPriority.BehindLinkZIndex; // kingMoblinMinion_state0: visiblec2.
                 State=1; Visible=true; RestartAnimation(2); break;
             case 1: AdvanceAnimation(); break;
             case 2: State=3; _counter2=12; RestartAnimation(_direction); break;
@@ -52,13 +54,16 @@ internal sealed partial class KingMoblinMinion : EnemyCharacter
                 AdvanceAnimation(); break;
             case 7:
                 State=8; _counter=24;
-                Bomb!.Throw(Boss.Data.Bytes("escape-angles")[SubId],-0x100,0x37);
+                Bomb!.Throw(Boss.Data.Bytes("escape-angles")[SubId],-0x100,0x37,terrainEffects:false);
                 RestartAnimation(SubId*2+1); break;
             case 8:
                 if(--_counter==0)
                 {
                     State=9; _speedZ=-0x140;
                     if(Boss.World.InteractionSlot()) spawns.Add(new ExclamationMarkSpawn(Position+new Vector2(SubId==0?-12:12,-8)));
+                    // kingMoblinMinion_state8 falls through state9 after
+                    // creating the mark, integrating the first hop immediately.
+                    goto case 9;
                 }
                 break;
             case 9:

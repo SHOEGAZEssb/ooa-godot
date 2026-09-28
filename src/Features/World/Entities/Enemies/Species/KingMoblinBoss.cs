@@ -14,13 +14,13 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal int Speed { get; private set; } = 0x1e;
-    internal bool ControlsDisabled => State is 9 or 10 || State >= 0x12;
+    internal bool ControlsDisabled => State is 9 or 10 || _deathSequence;
     internal KingMoblinMinion?[] Minions { get; } = new KingMoblinMinion?[2];
     internal KingMoblinBomb? Bomb { get; set; }
     internal bool EscapeSignal { get; set; }
     private int _angle, _targetX, _z, _speedZ;
-    private bool _hit;
-    internal override bool CollisionEnabled => State < 0x12 && base.CollisionEnabled;
+    private bool _hit, _deathSequence;
+    internal override bool CollisionEnabled => !_deathSequence && base.CollisionEnabled;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + new Vector2(0,_z >> 8);
     internal void Initialize(KingMoblinEnvironment world, Vector2 position)
     {
@@ -43,6 +43,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
             World.Sound(SoundId.SndCtrlStopMusic); World.EnableLink();
             if(!World.EnemySlots(2)) return;
             spawns.Add(new KingMoblinMinionSpawn(this,0)); spawns.Add(new KingMoblinMinionSpawn(this,1));
+            ZIndex=ObjectDrawPriority.FixedLowPriorityZIndex; // kingMoblin_state0: visible83.
             State=8; Speed=0x1e; Visible=true; RestartAnimation(2); return;
         }
         if(_hit)
@@ -51,8 +52,18 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
             // enemyStandardUpdate gives JUST_HIT priority over NO_HEALTH.
             if(Health>0) Speed=Data.Bytes("speeds")[Health-1];
         }
-        else if(Health==0 && frame.Player.PatchCollisionsEnabled)
+        else if(Health==0)
         {
+            // enemyCode7f@dead returns before dispatch while Link's collision
+            // gate is closed. updateEnemies still services invincibility.
+            if(!frame.Player.PatchCollisionsEnabled)
+            {
+                AdvanceInvincibilityCounter();
+                return;
+            }
+            // The native collision-bit clear and disabled-object/menu writes
+            // survive state14's timeout back to state0b.
+            _deathSequence=true;
             State=0x12; Health=1; _angle=ObjectAngle.Up; Speed=0x78; InvincibilityCounter=0; RestartAnimation(6);
         }
         if(InvincibilityCounter!=0) { AdvanceInvincibilityCounter(); return; }
@@ -132,8 +143,9 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
                     World.Save?.SetRoomFlag(0,0x09,1);
                     World.Save?.SetGlobalFlag(Data.Bytes("GLOBALFLAG_MOBLINS_KEEP_DESTROYED")[0]);
                     World.Save?.SetGlobalFlag(Data.Bytes("GLOBALFLAG_16")[0]);
-                    World.Warp(new Warp(2,World.Room.Id,-1,0,0,0,0x09,0x45,0,WarpDestinationTransition.EnterScreen));
-                    Finish();
+                    World.Warp(Data.DefeatWarp(World.Room.Group,World.Room.Id));
+                    // setWarpDestVariables leaves the boss drawn while the
+                    // outgoing room fades; room reload retires its slot.
                 }
                 else if(((Counter-1)&31)==0 && World.InteractionSlot())
                 {

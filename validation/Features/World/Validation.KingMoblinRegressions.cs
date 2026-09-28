@@ -8,6 +8,96 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateKingMoblinDefeatTiming()
+    {
+        foreach(bool batch in new[]{false,true})
+        {
+            ReinitializeGameplayForValidation();
+            void Step(int count=1) => StepGameplayUpdates(count,Vector2.Zero,batched:batch);
+            LoadValidationRoom(2,0xaf); _player.WarpTo(new Vector2(24,88)); Step();
+            var boss=_entities.Entities<KingMoblinBoss>().Single();
+            // Arrange zero health with a closed source collision gate. The
+            // @dead return must prevent even state8's animation/intro dispatch.
+            _player.SetBraceletLiftCollisionsDisabled(true);
+            boss.Health=0; boss.InvincibilityCounter=3;
+            Vector2 start=boss.Position; int animationFrame=boss.AnimationFrame;
+            Step(4);
+            FailIf(boss.State!=8 || boss.Health!=0 || boss.Position!=start ||
+                boss.InvincibilityCounter!=0 || boss.AnimationFrame!=animationFrame,
+                "King Moblin @dead must wait for Link collisions without dispatching its attack state.");
+            _player.SetBraceletLiftCollisionsDisabled(false);
+            Step(6);
+            FailIf(boss.State!=0x12 || boss.Position.Y!=14 || !_entities.PlayerMovementDisabled,
+                "King Moblin death must move upward six SPEED_300 updates to Y=$0e.");
+            Step();
+            FailIf(boss.State!=0x13 || boss.Position.Y!=11 || _entities.ScreenShakeCounter!=59,
+                "King Moblin death must enter bounce/shake on update seven at Y=$0b.");
+            // Let actual minion attack states observe the shared shake, then
+            // inspect their escape hop's source fallthrough, marks and signal.
+            // This fixture starts before the fight: initialize each through
+            // the same state2 entry written by kingMoblin_stateA.
+            foreach(var minion in boss.Minions) minion!.StartFight();
+            var hopped=new HashSet<int>();
+            for(int i=0;i<650 && boss.State!=0x15;i++)
+            {
+                int[] states=boss.Minions.Select(m=>m!.State).ToArray();
+                Step();
+                for(int index=0;index<2;index++)
+                {
+                    var minion=boss.Minions[index]!;
+                    if(states[index]==7 && minion.State==8)
+                        FailIf(((ITerrainShadowSource)minion.Bomb!).TerrainShadowZHigh is not null,
+                            "Minion $56 state7 writes bomb visible=$81, disabling its terrain shadow for the escape throw.");
+                    if(states[index]==8 && minion.State==9)
+                    {
+                        hopped.Add(index);
+                        FailIf(minion.ZFixed!=-0x140,
+                            $"Minion $56:{index:x2} state8 must fall through and integrate its hop on the exclamation update.");
+                        FailIf(!_entities.Entities<NpcCharacter>().Any(n=>n.Record.Id==0x9f && n.ZIndex==12),
+                            "Minion escape exclamation $9f must use visible80 above the actors.");
+                    }
+                }
+            }
+            FailIf(boss.State!=0x15 || boss.Counter!=98 || hopped.Count!=2,
+                "King Moblin defeat must receive minion escape and begin the 98-update bomb chain.");
+            FailIf(!boss.Data.Bytes("defeat-warp").SequenceEqual(new byte[]{0x80,0x09,0x00,0x45,0x03}),
+                "kingMoblin_state15@warpDest must preserve all five source warp bytes.");
+            int[] x=[0x48,0x58,0x38,0x68];
+            for(int explosion=0;explosion<4;explosion++)
+            {
+                Step(explosion==0?1:32);
+                FailIf(boss.Counter!=97-explosion*32 ||
+                    !_entities.Entities<InteractionExplosionEffect>().Any(e=>e.Position==new Vector2(x[explosion],8)) ||
+                    _currentRoom.GetMetatile(new Vector2(x[explosion],8))!=0xa1 ||
+                    _saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),
+                    $"King Moblin chain explosion {explosion} must spawn at X=${x[explosion]:x2}, clear its tile, and defer completion.");
+            }
+            Step();
+            FailIf(!IsTransitioning || _currentRoom.Group!=2 || boss.IsDead ||
+                !_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),
+                "King Moblin final counter update must request a fade while retaining its outgoing sprite.");
+
+            // Exercise state14's source fallback with no minion escape signal.
+            // Clearing the collision bit and writing wDisabledObjects happen
+            // at @dead, not on every subsequent state dispatch.
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(2,0xaf); _player.WarpTo(new Vector2(24,88)); Step();
+            boss=_entities.Entities<KingMoblinBoss>().Single(); boss.Health=0;
+            for(int i=0;i<120 && boss.State!=0x14;i++) Step();
+            FailIf(boss.State!=0x14 || boss.Counter!=150,
+                "King Moblin bounce must enter state14 with 150 half-rate updates.");
+            Step(298);
+            FailIf(boss.State!=0x14 || boss.Counter!=1,
+                "King Moblin state14 decremented its 150-update counter outside even frames.");
+            Step(2);
+            FailIf(boss.State!=0x0b || !boss.ControlsDisabled || boss.CollisionEnabled ||
+                !_entities.PlayerMovementDisabled,
+                "King Moblin state14 timeout must retain the @dead collision clear and input/menu masks.");
+            LoadValidationRoom(2,0xae); Step();
+            FailIf(_entities.PlayerMovementDisabled,"Cancelling King Moblin's death fallback retained the room's input mask.");
+        }
+    }
+
     private void ValidateKingMoblinBombsAndRecentering()
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
@@ -37,10 +127,22 @@ public sealed partial class ValidationRoot
         var flightUpdates=new Dictionary<KingMoblinBomb,int>();
         int[] launches=new int[2];
         var blastFrames=new HashSet<int>();
+        bool bigShadow=false,smallShadow=false,minionShadow=false;
         void CheckBombs()
         {
+            minionShadow|=boss.Minions.Any(minion=>minion!.TerrainShadowDrawn);
             foreach(var bomb in _entities.Entities<KingMoblinBomb>())
             {
+                if(bomb.TerrainShadowDrawn)
+                {
+                    if(bomb.Minion is null) bigShadow=true; else smallShadow=true;
+                }
+                // parts/kingMoblinBomb.s state0 uses visiblec2; parts/bomb.s
+                // state0 uses visiblec1. Neither ballistic state changes it.
+                if(bomb.State is 1 or 3 or 4 && bomb.Minion is null ||
+                    bomb.Minion is not null && bomb.State is 1 or 2)
+                    FailIf(bomb.ZIndex!=(bomb.Minion is null?9:11),
+                        $"PART ${(bomb.Minion is null?0x3f:0x47):x2} state ${bomb.State:x2} lost its native spawn/flight priority: {bomb.ZIndex}.");
                 if(bomb.Minion is not null && bomb.State==2)
                 {
                     int age=flightUpdates.GetValueOrDefault(bomb);flightUpdates[bomb]=age+1;
@@ -51,6 +153,8 @@ public sealed partial class ValidationRoot
                         $"PART $47 minion {bomb.Minion.SubId} throw update {age}: Z=${bomb.ZFixed:x}, position={bomb.Position}; reserved bracelet motion must not touch this part.");
                 }
                 if(bomb.State!=(bomb.Minion is null?5:3))continue;
+                FailIf(((ITerrainShadowSource)bomb).TerrainShadowZHigh is not null || bomb.TerrainShadowDrawn,
+                    "PART $3f/$47 explosions must clear visible bit6 and suppress their airborne terrain shadow.");
                 int frame=bomb.AnimationFrame;
                 FailIf(frame>6 || OracleGraphicsCache.PixelHash(bomb.CurrentAnimationTexture.GetImage())!=hashes[Math.Min(frame,5)],
                     $"PART ${(bomb.Minion is null?0x3f:0x47):x2} explosion frame {frame} did not use source common-sprites OAM/palette.");
@@ -59,6 +163,8 @@ public sealed partial class ValidationRoot
                 if(bomb.Minion is null)blastFrames.Add(frame);
             }
         }
+        FailIf(boss.ZIndex!=8 || boss.Minions.Any(minion=>minion!.ZIndex!=9),
+            "King Moblin $7f/$56 must use visible83/c2 so PART $3f/$47 paints above its thrower.");
         foreach(int startX in new[]{0x30,0x70})
         {
             // Arrange the legitimate off-centre positions reached while
@@ -83,6 +189,8 @@ public sealed partial class ValidationRoot
         }
         FailIf(launches.Any(count=>count<2),$"Both minions must repeatedly throw: {string.Join(',',launches)} launches.");
         FailIf(!Enumerable.Range(0,7).All(blastFrames.Contains),"The big-bomb regression did not observe every explosion frame through deletion.");
+        FailIf(!bigShadow || !smallShadow || !minionShadow,
+            "PART $3f/$47 and jumping ENEMY $56 must draw native terrain shadows during the fight.");
         GD.Print("Validated $3f/$47 explosion pixels and draw priority, repeated minion ballistic throws, and King Moblin recentering from both sides through the application loop.");
     }
 }

@@ -38,6 +38,13 @@ $rows.Add("ledge`t02,af,$($ledge.Groups['position'].Value),$($count.ToString('x2
 $effects=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/objectCollisionTable.s') 'objectCollisionTable')
 if($effects.Count -ne 4000){throw 'King Moblin: incomplete collision effect table.'}
 $rows.Add("collision`t$(($effects[0xa00..0xa1f]|ForEach-Object{$_.ToString('x2')}) -join ',')`tdata/ages/objectCollisionTable.s:objectCollisionTable+0a00")
+$kingNative=Read-ImportText (Join-Path $Disassembly 'object_code/ages/enemies/kingMoblin.s')
+$warp=[regex]::Match($kingNative,'(?ms)^kingMoblin_state15:.*?^@warpDest:\s*m_HardcodedWarpA ROOM_AGES_(?<room>[0-9a-f]{3}),\s*\$(?<transition>[0-9a-f]{2}),\s*\$(?<position>[0-9a-f]{2}),\s*\$(?<request>[0-9a-f]{2})')
+if(!$warp.Success){throw 'kingMoblin.s:kingMoblin_state15@warpDest: missing hardcoded warp.'}
+$roomId=[Convert]::ToInt32($warp.Groups['room'].Value,16)
+# m_HardcodedWarpA stores group|$80, room, wWarpTransition, position,
+# wWarpTransition2. Its last operand is NOT the destination transition.
+$rows.Add("defeat-warp`t$((0x80 -bor ($roomId -shr 8)).ToString('x2')),$(($roomId -band 255).ToString('x2')),$($warp.Groups['transition'].Value),$($warp.Groups['position'].Value),$($warp.Groups['request'].Value)`tobject_code/ages/enemies/kingMoblin.s:kingMoblin_state15@warpDest")
 Write-GeneratedTable((Join-Path $destination 'objects/king_moblin_tables.tsv'), $rows)
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64")

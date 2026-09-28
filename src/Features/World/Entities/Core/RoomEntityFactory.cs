@@ -2131,6 +2131,7 @@ internal sealed class RoomEntityFactory(
     {
         var actor = new NpcCharacter();
         actor.Initialize(_moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
+        actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // INTERAC $9f state0: visible80.
         soundRequested(SoundId.SndClink);
         return new ExclamationMarkRoomEntity(actor,30);
     }

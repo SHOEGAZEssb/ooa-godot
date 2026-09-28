@@ -62,6 +62,14 @@ internal sealed class DefeatedMoblinEvent : RoomCutsceneCommandHost, IRoomEntryE
             _active=false;EventResources.UnlockInput();
         }
     }
+    internal void UpdateDuringWarpArrival()
+    {
+        // $72 state0 runs on the first destination object pass and replaces
+        // the ordinary arrival fade with fadeinFromWhiteWithDelay($02).
+        if (_active && _actors.All(actor=>!actor.Initialized) &&
+            Context.Transitions.TryHandOffStationaryArrivalFade())
+            UpdateFrame();
+    }
     private void Initialize(DefeatedMoblinScriptHost host)
     {
         var actor=host.Actor; int subid=actor.Record.SubId,index=actor.Record.Var03;

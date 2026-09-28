@@ -92,6 +92,8 @@ public sealed partial class ValidationRoot
         FailIf(boss.State!=12 || boss.Counter!=45 || boss.Bomb is not {State:1},"King Moblin first bomb pickup timing mismatch.");
         var bomb=boss.Bomb!;
         FailIf(bomb.Fuse is not (120 or 135 or 160 or 180),"PART $3f fuse must come from the four native random values.");
+        FailIf(bomb.ZIndex!=9 || boss.ZIndex!=8,
+            "PART $3f visiblec2 must paint above King Moblin visible83 at pickup.");
         Step(44); FailIf(boss.State!=12 || boss.Counter!=1,"King Moblin raised bomb early.");
         Step(); FailIf(boss.State!=13 || boss.Counter!=15 || bomb.Position!=new Vector2(0x42,0x10),"King Moblin overhead offset/timer mismatch.");
         Step(15); FailIf(boss.State!=14 || bomb.State!=3,"King Moblin failed to throw after 15 updates.");
@@ -106,6 +108,7 @@ public sealed partial class ValidationRoot
             else {_player.Face(Vector2I.Up); Step(fire:true);}
         }
         FailIf(!_player.IsCarryingObject || !bomb.Held,$"Bracelet could not reach PART $3f: Link={_player.Position}, bomb={bomb.Position}, state=${bomb.State:x2}.");
+        FailIf(bomb.ZIndex!=11,"PART $3f @justGrabbed must switch to visiblec1 above Link.");
         int fuse=bomb.Fuse;
         Step(24);
         FailIf(!bomb.Held || bomb.Fuse>=fuse,"PART $3f must keep its fuse while carried.");
@@ -137,8 +140,15 @@ public sealed partial class ValidationRoot
             _player.Face(Vector2I.Up);
             Step(movement:Vector2.Up,fire:true); Step();
             FailIf(bomb.Held || _player.IsCarryingObject,$"Equipped bracelet failed to throw PART $3f on hit {hit}, knockback={_player.KnockbackFrames}, Link={_player.Position}.");
+            FailIf(bomb.State==2 && bomb.ZIndex!=11,
+                "PART $3f @released must retain visiblec1 until the bracelet child comes to rest.");
             int previousHealth=boss.Health;
-            for(int i=0;i<250 && boss.Health==previousHealth;i++) Step();
+            for(int i=0;i<250 && boss.Health==previousHealth;i++)
+            {
+                Step();
+                FailIf(bomb.ZIndex!=(bomb.State==2?11:9),
+                    $"PART $3f state ${bomb.State:x2} must retain visiblec1 in flight and restore visiblec2/82 on rest/explosion.");
+            }
             FailIf(boss.Health!=previousHealth-1,
                 $"Returned bomb {hit} missed King Moblin: hp={boss.Health}, boss={boss.Position}/${boss.State:x2}, bomb={bomb.Position}/${bomb.State:x2}, flashes={bomb.Flashes}, Link={_player.Position}.");
             FailIf(boss.InvincibilityCounter!=30,"PART $3f must write $1e invincibility in its later part slot.");
@@ -155,13 +165,25 @@ public sealed partial class ValidationRoot
         Step(97); FailIf(_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed),"King Moblin keep flag was set before explosion counter98.");
         FailIf(_entities.Entities<KingMoblinMinion>().Count!=0,"Both King Moblin minions must finish escaping before the final warp.");
         Step();
-        // checkDisplayEraOrSeasonInfo consumes GLOBALFLAG_16 during destination loading.
-        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) || _saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce) || !_saveData.HasRoomFlag(0,0x09,1),
+        // m_HardcodedWarpA ends with wWarpTransition2=$03, a silent direct
+        // fade-out. Destination transition is $00, not $03 (enter screen).
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) || !_saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce) || !_saveData.HasRoomFlag(0,0x09,1) ||
+            _currentRoom.Group!=2 || _currentRoom.Id!=0xaf || !IsTransitioning || boss.IsDead,
             $"King Moblin defeat flags: keep={_saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed)}, $16={_saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce)}, room09={_saveData.HasRoomFlag(0,0x09,1)}, state={boss.State}, counter={boss.Counter}, room={_currentRoom.Group}:{_currentRoom.Id:x2}, batch={batch}.");
         for(int i=0;IsTransitioning && i<180;i++) Step();
         FailIf(_currentRoom.Id!=0x09 || _currentRoom.Group!=0,"King Moblin defeat did not warp to room0:09.");
         FailIf(!_roomEvents.Get<DefeatedMoblinEvent>().HasState,
             "King Moblin's actual defeat warp must arm INTERAC $72 in room 0:09.");
+        var aftermath=_roomEvents.Get<DefeatedMoblinEvent>();
+        FailIf(_player.Position!=new Vector2(0x58,0x48) || _player.FacingVector!=Vector2I.Down ||
+            _saveData.HasGlobalFlag(GlobalFlag.SuppressEraInfoOnce) || aftermath.Actors.Count!=3 ||
+            !aftermath.Actors.All(actor=>actor.Initialized) || !_player.CutsceneControlled,
+            "King Moblin's source warp must arrive facing down at $45 and initialize $72's three actors before its slow fade.");
+        Step(70);
+        FailIf(_dialogue.IsOpen,"Post-defeat TX_2f1b opened before its 70-update wait.");
+        Step();
+        FailIf(!_dialogue.IsOpen,"Post-defeat warp failed to hand off to TX_2f1b without an extra arrival fade.");
+        _dialogue.Close();
         // Returning directly through the debug loader recreates the source enemy stream;
         // normal access is removed by the destroyed keep's world layout.
         LoadValidationRoom(2,0xaf); Step();
