@@ -77,8 +77,7 @@ Development controls and launch options are in the
 
 ```powershell
 dotnet build
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1
 ```
 
 Gameplay changes require a focused regression and a passing full suite. See

@@ -153,8 +153,7 @@ the required parallel run; use serial runs only for additional debugging.
 For a focused validation during development:
 
 ```powershell
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 Before a handoff involving changes to actual game source files, run

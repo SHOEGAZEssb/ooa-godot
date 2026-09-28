@@ -39,6 +39,7 @@ internal sealed class GoronCaveDatabase
     }
 
     internal int Entry(string script) => _rows["entry:" + script].UnsignedDecimal(2);
+    internal string ExtraSprite(int id) => _rows[$"extra-sprite:{id:x2}"].RequiredString(2);
     internal string Reward(int id,int subid) => _rows[$"reward:{id:x2}:{subid:x2}"].RequiredString(2);
     internal NpcRecord Effect(int id, int sub) => _effects[(id, sub)];
     internal int[] Bytes(string key) => _tables[key];

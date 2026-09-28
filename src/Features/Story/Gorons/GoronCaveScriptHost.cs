@@ -70,6 +70,13 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             Wram.SetWramByte(0xcfd2,0); Context.Sound.PlaySound(SoundId.SndGoronDanceB);
             UpdateDanceJump(); return;
         }
+        if(Actor.Record.Id==InteractionId.Goron)
+        {
+            // goron_initGraphics loads headers $2a/$2b. Animation $06 uses
+            // tiles $20/$22 in the second graphics slot. Support dancers
+            // share the instructor's loaded graphics in the original VRAM.
+            Actor.AppendScriptGraphics(Data.ExtraSprite(InteractionId.Goron));
+        }
         if(Actor.Record.SubId==0&&Actor.Record.Id==InteractionId.Goron)
         {
             Dance=new(this);

@@ -60,9 +60,8 @@ After building, run all headless validations with the standard 8 workers,
 or one exact registered method:
 
 ```powershell
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
 & .\tools\validate_parallel.ps1
-& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 See [Validation](validation.md) for scenario isolation and handoff checks.

@@ -227,6 +227,13 @@ if(($partBytes -join ',') -ne '120,4,51,0,64,16,4,0'){throw 'PART $49 attributes
 $rows.Add("sprite`t49`t$($gfxNames[0x78])`t16")
 $rockSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/fallingRock.s')
 $native = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/goron.s')
+$goronGraphicsHeaders = Read-ImportText (Join-Path $Disassembly 'data/ages/objectGfxHeaders.s')
+if ($native -notmatch 'goron_initGraphics:\s+call interactionLoadExtraGraphics\s+jp interactionInitGraphics' -or
+    $interactionGraphics['102:0'].Gfx -ne 0x2a -or
+    $goronGraphicsHeaders -notmatch '/\* \$2a \*/ m_ObjectGfxHeader spr_goron\s+/\* \$2b \*/ m_ObjectGfxHeader spr_gorondance_tingle_write, 1') {
+    throw 'goron_initGraphics requires the $2a/$2b extra-graphics chain.'
+}
+$rows.Add("extra-sprite`t66`t$($gfxNames[0x2b])`t0")
 $galleryNative=Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/shootingGallery.s')
 foreach($variant in @('goron','biggoron')) {
     foreach($kind in @('Positions','Tiles')) {

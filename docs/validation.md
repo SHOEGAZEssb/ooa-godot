@@ -31,8 +31,7 @@ dotnet build
 Run one exact registered method while developing:
 
 ```powershell
-$godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe'
-& $godot --headless --path . --quit-after 10 -- --validate --validate-only=ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 An unknown name fails. A focused run is a development aid; run the complete
@@ -67,7 +66,7 @@ host virtualization and graphics overhead and are not phone benchmarks.
 For a serial run when debugging:
 
 ```powershell
-& $godot --headless --path . --quit-after 10 -- --validate
+& .\tools\validate_parallel.ps1 -Workers 1
 ```
 
 The launcher uses separate headless Godot processes; each keeps scene-tree,
@@ -77,6 +76,14 @@ the ordered scenario registrations round-robin with `--validate-shard=INDEX/COUN
 scenario list needs maintenance. Save regressions use unique temporary paths,
 and each worker has separate engine and console logs in the printed temporary
 directory. Build once before launching; do not rebuild or import during a run.
+Use this launcher for focused runs too: `-ValidateOnly` selects one scenario
+in one worker. Each run uses a writable, unique engine log instead of Godot's
+shared user-log rotation. On Windows, workers inherit an error mode that
+suppresses native crash dialogs; crashes still fail the run and retain logs.
+The calling PowerShell process's original error mode is restored on exit.
+Run `tools/Test-ValidationLauncher.ps1` after changing the launcher; its fixture
+checks process flags, crash failure, log isolation, and completion handling
+without requiring a game build.
 
 `-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
 (default 600 seconds). The launcher fails on a worker error, timeout, missing
