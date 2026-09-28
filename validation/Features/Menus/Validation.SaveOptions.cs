@@ -67,6 +67,7 @@ public sealed partial class ValidationRoot
                 "Opening Options leaked its A edge into a toggle or a save.");
             ulong disabled = _saveQuitScreen.BackgroundPixelHash;
             using Image beforeToggle = SaveOptionsBackground();
+            ValidateNativeOptionsS(beforeToggle, 100, 10);
             FailIf(beforeToggle.GetPixel(70, 60) != Colors.Black ||
                 beforeToggle.GetPixel(73, 60) == Colors.Black ||
                 beforeToggle.GetPixel(75, 70) != Colors.Black ||
@@ -235,6 +236,7 @@ public sealed partial class ValidationRoot
     private void ValidateNativeOptionsLettering()
     {
         using Image image = SaveOptionsBackground();
+        ValidateNativeOptionsS(image, 100, 124);
         // The first O in OPTIONS must preserve the native CONTINUE strokes.
         // Wood remains owned by the panel, avoiding seams between letter cells.
         for (int y = 3; y < 16; y++)
@@ -249,6 +251,22 @@ public sealed partial class ValidationRoot
             image.GetPixel(80, 124) != Colors.Black ||
             image.GetPixel(81, 124) != Colors.Black,
             "OPTIONS no longer preserves native O/I stroke positions and proportional spacing.");
+    }
+
+    private void ValidateNativeOptionsS(Image image, int left, int top)
+    {
+        // Independently transcribed from oracles-disasm's
+        // gfx_compressible/common/gfx_savescreen.png, x=106..111, y=20..30.
+        // Include every stroke and blank pixel so a shifted crop cannot pass.
+        string[] rows =
+        [
+            ".#####", "######", "##....", "##....", "#####.", ".#####",
+            "....##", "....##", "....##", "######", "#####."
+        ];
+        for (int y = 0; y < rows.Length; y++)
+        for (int x = 0; x < rows[y].Length; x++)
+            FailIf((image.GetPixel(left + x, top + y) == Colors.Black) != (rows[y][x] == '#'),
+                $"OPTIONS S differs from native save-screen strokes at ({x}, {y}).");
     }
 
     private Image SaveOptionsBackground() =>

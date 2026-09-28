@@ -105,7 +105,7 @@ internal static class SaveOptionsPresentation
         'N' or 'H' => ("gfx_savescreen", 34, 20, 6, false),
         'T' => ("gfx_savescreen", 42, 20, 6, false),
         'I' => ("gfx_savescreen", 50, 20, 2, false),
-        'S' => ("gfx_savescreen", 105, 20, 6, false),
+        'S' => ("gfx_savescreen", 106, 20, 6, false),
         'P' => ("gfx_copy", 25, 4, 6, false),
         'R' => ("gfx_copywhatwhere", 102, 2, 6, true),
         'M' => ("gfx_name", 21, 2, 7, true),

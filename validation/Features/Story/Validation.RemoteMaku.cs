@@ -6,6 +6,51 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateRemoteMakuConfettiCoordinates()
+    {
+        foreach (bool batched in new[] { false, true })
+        {
+            var cutscene = _roomEvents.Get<RemoteMakuFirstEssenceEvent>();
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, 1);
+            _saveData.SetRoomFlag(0, 0x8d, 0x40, false);
+            LoadValidationRoom(0, 0x8d);
+            int limit = 180;
+            while (cutscene.Confetti is not { LivePieces: > 0 } && --limit > 0)
+                StepGameplayUpdates(1, Vector2.Zero);
+            FailIf(limit == 0, "Remote Maku 0:8d did not spawn $62:$00.");
+            var effect = cutscene.Confetti!;
+            // Independently integrated from makuConfetti.s: second flower starts
+            // 50 updates later at ($60,$e8), acceleration $0018, speed bounds
+            // $0200/$0100 and constant Y offset $00c0. Check both directions
+            // across X=$80, then the first flower's Y=$80 and deletion at $88.
+            (int frame, int piece, Vector2 position)[] checkpoints =
+            [
+                (76, 1, new(127, 5)),
+                (77, 1, new(128, 6)),
+                (94, 1, new(141, 9)),
+                (110, 1, new(128, 30)),
+                (111, 1, new(127, 32)),
+                (190, 0, new(65, 127)),
+                (191, 0, new(67, 128)),
+                (198, 0, new(79, 135))
+            ];
+            int elapsed = 0;
+            foreach (var checkpoint in checkpoints)
+            {
+                StepGameplayUpdates(checkpoint.frame - elapsed, Vector2.Zero, batched: batched);
+                elapsed = checkpoint.frame;
+                Vector2 actual = effect.PiecePositions[checkpoint.piece];
+                FailIf(actual != checkpoint.position,
+                    $"$62:$00 update {elapsed}, piece {checkpoint.piece}: expected " +
+                    $"{checkpoint.position}, got {actual} (batched={batched}).");
+            }
+            FailIf(effect.LivePieces != 5, "$62:$00 deleted a flower before Y=$88.");
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+            FailIf(effect.LivePieces != 4, "$62:$00 did not delete its first flower at Y=$88.");
+            cutscene.Cancel();
+        }
+    }
+
     private void ValidateRemoteMakuConfettiDrawOrder()
     {
         foreach (bool past in new[] { false, true })

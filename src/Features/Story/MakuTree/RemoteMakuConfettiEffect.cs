@@ -267,13 +267,20 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         internal int SoundCounter { get; set; } = soundCounter;
         internal int SparkleCounter { get; set; } = sparkleCounter;
         internal int Direction { get; set; }
-        internal Vector2 Position => unsignedPosition
-            ? new Vector2(
-                (byte)(XFixed >> 8),
-                (byte)(YFixed >> 8))
-            : new Vector2(
-                unchecked((short)XFixed) >> 8,
-                unchecked((short)YFixed) >> 8);
+        internal Vector2 Position
+        {
+            get
+            {
+                int y = (byte)(YFixed >> 8);
+                // bank0.s::_getObjectPositionOnScreen uses byte coordinates,
+                // not signed positions: $80 is still on the right/bottom.
+                // Present flowers start at $e8 above the screen; makuConfetti.s
+                // reserves $d8..$ff for that negative-Y portion of their path.
+                if (!unsignedPosition && y >= 0xd8)
+                    y -= 0x100;
+                return new Vector2((byte)(XFixed >> 8), y);
+            }
+        }
     }
 
     private sealed record Sparkle(

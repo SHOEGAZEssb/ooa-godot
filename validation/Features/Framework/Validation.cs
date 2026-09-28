@@ -805,6 +805,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuSecondEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuConfettiDrawOrder);
+        RunIsolatedValidation(ValidateRemoteMakuConfettiCoordinates);
         RunIsolatedValidation(ValidateRemoteMakuHudPlacement);
         RunIsolatedValidation(ValidateRemoteMakuHarpCutscene);
         RunIsolatedValidation(ValidatePostD3RemoteMakuCutscene);
