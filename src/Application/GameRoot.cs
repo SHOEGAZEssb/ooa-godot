@@ -1140,6 +1140,7 @@ public partial class GameRoot : Node2D
                 !_interactions.GameplayMenuActive &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
+        _gameplayPause.SetRoomOverlayEnabled(_presentationSettings.RoomOverlayEnabled);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
@@ -1178,15 +1179,19 @@ public partial class GameRoot : Node2D
                 if (option == 0)
                     _debugCollision.SetEnabled(enabled);
                 else if (option == 1)
+                {
+                    _presentationSettings.RoomOverlayEnabled = enabled;
                     _gameplayPause.SetRoomOverlayEnabled(enabled);
+                }
                 else if (option == 2)
                 {
                     _presentationSettings.HudBottom = enabled;
-                    if (_persistSaveData && _presentationSettings.Save() is var error && error != Error.Ok)
-                        GD.PushWarning($"Could not save HUD preference: {error}.");
                 }
                 else
                     throw new ArgumentOutOfRangeException(nameof(option));
+                if (option is 1 or 2 && _persistSaveData &&
+                    _presentationSettings.Save() is var error && error != Error.Ok)
+                    GD.PushWarning($"Could not save presentation preference: {error}.");
             });
         _mapMenu.ConfigureSaveQuit(_inventoryMenu);
         _ringMenu = new RingMenuController(

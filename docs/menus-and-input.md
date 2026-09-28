@@ -135,8 +135,9 @@ health or other persistent fields.
 The save screen's experimental Options entry is a port extension. Noclip uses
 the F2 owner; room-overlay visibility edits the pause lease's restoration state.
 These options do not write save bytes. Game over retains its original actions.
-HUD placement defaults to the top and can be moved to the bottom. This port
-preference persists separately in `user://presentation.cfg`. Bottom placement
+Room-overlay visibility and HUD placement persist separately in
+`user://presentation.cfg` as soon as their options change. Missing preferences
+default to a visible room overlay and a top HUD. Bottom placement
 moves the gameplay field, its dialogue, reveal, fade and debug overlays up by
 16 pixels without changing world coordinates or source camera state. Imported
 full-screen menus retain their original layout. Temporarily hiding or fading

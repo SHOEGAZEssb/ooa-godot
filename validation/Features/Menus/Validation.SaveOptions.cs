@@ -32,7 +32,14 @@ public sealed partial class ValidationRoot
 
     private void ValidateSaveOptions()
     {
-        ValidateHudPreferencePersistence();
+        ValidatePresentationPreferencePersistence();
+        foreach (bool visible in new[] { false, true })
+        {
+            _presentationSettings.RoomOverlayEnabled = visible;
+            ReinitializeGameplayForValidation();
+            FailIf(_gameplayPause.RoomOverlayEnabled != visible || _roomDebug.Visible != visible,
+                "Gameplay initialization did not apply the room-overlay preference.");
+        }
         FailIf(_presentationSettings.HudBottom || _hud.Position.Y != 0,
             "HUD placement must default to the top in an isolated session.");
         LoadValidationRoom(4, 0x09);
@@ -92,7 +99,8 @@ public sealed partial class ValidationRoot
                 "F2 and Options must share one noclip value and refresh the displayed setting.");
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["move_down"]);
             StepGameplayUpdates(3, Vector2.Zero, pressed: ["attack"], batched: batched);
-            FailIf(_gameplayPause.RoomOverlayEnabled || _roomDebug.Visible || _saveQuitScreen.OptionsCursor != 1,
+            FailIf(_presentationSettings.RoomOverlayEnabled || _gameplayPause.RoomOverlayEnabled ||
+                _roomDebug.Visible || _saveQuitScreen.OptionsCursor != 1,
                 "Turning off the room overlay must edit the paused restoration state.");
             DumpSaveOptionsBackground("save-options-overlay-off");
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["move_down"]);
@@ -121,7 +129,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["attack"]);
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["move_down"]);
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["attack"]);
-            FailIf(!_gameplayPause.RoomOverlayEnabled || _roomDebug.Visible,
+            FailIf(!_presentationSettings.RoomOverlayEnabled || !_gameplayPause.RoomOverlayEnabled || _roomDebug.Visible,
                 "Reopening Options must allow enabling the hidden overlay without exposing it in the menu.");
             StepGameplayUpdates(1, Vector2.Zero, pressed: ["move_down"]);
             FailIf(!_presentationSettings.HudBottom,
@@ -177,7 +185,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
     }
 
-    private static void ValidateHudPreferencePersistence()
+    private static void ValidatePresentationPreferencePersistence()
     {
         string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
             $"ooa-presentation-{System.Guid.NewGuid():N}.cfg");
@@ -185,14 +193,27 @@ public sealed partial class ValidationRoot
         {
             var settings = new PresentationSettings();
             settings.Load(path);
-            FailIf(settings.HudBottom, "Missing preferences must default to a top HUD.");
+            FailIf(settings.HudBottom || !settings.RoomOverlayEnabled,
+                "Missing preferences must default to a top HUD and a visible room overlay.");
+            // Existing installations only have the HUD setting.
+            using (var legacy = new ConfigFile())
+            {
+                legacy.SetValue("display", "hud_bottom", true);
+                FailIf(legacy.Save(path) != Error.Ok, "Could not create legacy presentation preferences.");
+            }
+            settings.Load(path);
+            FailIf(!settings.HudBottom || !settings.RoomOverlayEnabled,
+                "Legacy HUD preferences must retain their HUD placement and default room visibility.");
             foreach (bool bottom in new[] { true, false })
+            foreach (bool visible in new[] { false, true })
             {
                 settings.HudBottom = bottom;
-                FailIf(settings.Save(path) != Error.Ok, "HUD preference could not be saved.");
+                settings.RoomOverlayEnabled = visible;
+                FailIf(settings.Save(path) != Error.Ok, "Presentation preferences could not be saved.");
                 var restored = new PresentationSettings();
                 restored.Load(path);
-                FailIf(restored.HudBottom != bottom, "HUD preference did not survive a settings reload.");
+                FailIf(restored.HudBottom != bottom || restored.RoomOverlayEnabled != visible,
+                    "HUD and room-overlay preferences did not survive a settings reload.");
             }
         }
         finally
