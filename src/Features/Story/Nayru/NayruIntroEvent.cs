@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -39,7 +40,7 @@ internal sealed class NayruIntroEvent :
     private int _nayruAudienceMask;
     private int _nayruSingingElapsed;
     private int _nayruSingingScrollCounter;
-    private int _nayruNotePhase;
+    private int _nayruNoteAnimationFrame = -1;
     private ChestTreasureEffect? _nayruSwordEffect;
     private int _nayruNoteSpawnCount;
     private int _nayruLightningSpawnCount;
@@ -47,18 +48,22 @@ internal sealed class NayruIntroEvent :
     private int _nayruRalphSwordAnimation = -1;
     private bool _nayruTrackLinkVeranFacing;
     private bool _nayruTrackRalphVeranFacing;
-    private GhostReactionPhase _ghostReaction;
     private bool _nayruUpdateVeranFacingTarget;
     private Vector2 _nayruVeranFacingTarget;
     private bool _nayruNayruHeldVeranFacing;
     private NayruPossessionState? _nayruPossessionState;
     private bool _nayruGhostRumbling;
+    private int _nayruGhostShakeBaseX;
+    private int _impaRecoveryElapsed = -1;
     private bool _nayruTrackAftermathRalphFacing;
     private int _nayruVignetteIndex = -1;
     private int _nayruVignetteElapsed;
     private int _nayruVignetteExclamationCount;
     private int _nayruVignetteOldManZ;
     private int _nayruVignetteOldManSpeedZ;
+    private NayruStoneChildVignette? _stoneChildVignette;
+    private int _aftermathPaletteElapsed = -1;
+    private bool _impaCollapsePending;
     private bool _nayruMusicInitialized;
     private int _counter;
     private int _nativeZFixed;
@@ -139,19 +144,19 @@ internal sealed class NayruIntroEvent :
         Cancel();
         _nayruRoom = room;
         _nayruAudienceMask = 0;
-        _nayruNotePhase = 0;
+        _nayruNoteAnimationFrame = -1;
         _nayruNoteSpawnCount = 0;
         _nayruLightningSpawnCount = 0;
         _nayruGhostRevealFlickerRemaining = 0;
         _nayruRalphSwordAnimation = -1;
         _nayruTrackLinkVeranFacing = false;
         _nayruTrackRalphVeranFacing = false;
-        _ghostReaction = GhostReactionPhase.None;
         _nayruUpdateVeranFacingTarget = false;
         _nayruVeranFacingTarget = Vector2.Zero;
         _nayruNayruHeldVeranFacing = false;
         _nayruPossessionState = null;
         _nayruGhostRumbling = false;
+        _impaRecoveryElapsed = -1;
         _ghostScript.Clear();
         _nayruTrackAftermathRalphFacing = false;
         _nayruVignetteIndex = -1;
@@ -212,6 +217,14 @@ internal sealed class NayruIntroEvent :
         };
         if (bit == 0)
             return false;
+        // bearSubid00Script_part1 jumps straight to @alreadyMovedDown on
+        // room flag $80; repeat conversations neither set cfde nor move him.
+        if (name == "Bear" && _rooms.SaveData.HasRoomFlag(
+            _nayruRecord.Group, _nayruRecord.Room, (byte)_nayruRecord.BearRoomFlag))
+        {
+            ShowNayruText(0x5703);
+            return true;
+        }
         if (_nayruAudienceTalkStates.Exists(state => state.Actor == name))
             return true;
         _nayruAudienceMask |= bit;
@@ -298,12 +311,23 @@ internal sealed class NayruIntroEvent :
 
     private void UpdateFollowingImpa()
     {
-        if (CrowdActive && _impaEvent.Following)
+        if (_nayruStage is >= NayruStage.Crowd and <= NayruStage.TriggerPostText &&
+            _impaEvent.Following)
             _impaEvent.UpdateFollower();
     }
 
     public void UpdateFrame()
     {
+        // nayruSingingCutsceneHandler skips updateAllObjects in states 2/3.
+        if (_nayruStage is NayruStage.SingingFadeIn or NayruStage.Singing or
+            NayruStage.SingingFadeOut)
+        {
+            if (_nayruStage == NayruStage.Singing)
+                UpdateNayruSingingFrame();
+            else
+                UpdateNayruSingingFade(_nayruStage == NayruStage.SingingFadeIn);
+            return;
+        }
         if (!_nayruMusicInitialized)
         {
             // INTERAC_NAYRU $36:$00 restores full volume when its state 0
@@ -323,9 +347,6 @@ internal sealed class NayruIntroEvent :
         {
             case NayruStage.Crowd:
                 if (!_context.DialogueOpen &&
-                    _rooms.SaveData.HasRoomFlag(
-                        _nayruRecord.Group, _nayruRecord.Room,
-                        (byte)_nayruRecord.BearRoomFlag) &&
                     _player.Position.X >= _nayruRecord.TriggerX &&
                     _player.Position.Y < _nayruRecord.TriggerY)
                     BeginNayruTrigger();
@@ -348,9 +369,11 @@ internal sealed class NayruIntroEvent :
                 }
                 break;
             case NayruStage.BearSettle:
-                if (--_counter == 0)
-                {
+                --_counter;
+                if (_counter == 30)
                     _nayruActors.SetAnimation("Bear", 0);
+                if (_counter == 0)
+                {
                     _rooms.SaveData.SetRoomFlag(
                         _nayruRecord.Group, _nayruRecord.Room,
                         (byte)_nayruRecord.BearRoomFlag);
@@ -494,13 +517,17 @@ internal sealed class NayruIntroEvent :
     private void BeginNayruTrigger()
     {
         _player.BeginCutsceneControl(owner: this);
-        _impaEvent.StopFollowing();
         _counter = _nayruRecord.BearDelayFrames;
         _nayruStage = NayruStage.TriggerDelay;
     }
 
     private void BeginNayruSingingScreen()
     {
+        foreach (NpcCharacter actor in _nayruActors.Values)
+            actor.SetAnimationRate(0);
+        foreach (TimedNayruEffect effect in _nayruEffects)
+            effect.Actor.SetAnimationRate(0);
+        _impa?.SetAnimationRate(0);
         // CUTSCENE_NAYRU_SINGING state 0 uses the menu-close effect before
         // replacing the gameplay tilemap.
         _context.Sound.PlaySound(SoundId.SndCloseMenu);
@@ -541,14 +568,14 @@ internal sealed class NayruIntroEvent :
     private void UpdateNayruSingingFrame()
     {
         _nayruSingingElapsed++;
-        if (_nayruSingingElapsed % _nayruRecord.SingingScrollPeriod == 0 &&
+        if (_entities.FrameCounter % _nayruRecord.SingingScrollPeriod == 0 &&
             _nayruSingingScrollCounter < _nayruRecord.SingingScrollSteps)
         {
             _nayruSingingScrollCounter++;
             _nayruSingingScreen!.SetScrollX(_nayruSingingScrollCounter);
         }
         int remaining = _nayruRecord.SingingFrames - _nayruSingingElapsed;
-        bool skip = remaining <= _nayruRecord.SingingSkipWindow &&
+        bool skip = remaining < _nayruRecord.SingingSkipWindow &&
             Input.IsActionJustPressed("attack");
         if (remaining > 0 && !skip)
             return;
@@ -639,6 +666,13 @@ internal sealed class NayruIntroEvent :
 
     private void SetupNayruPossessionScene()
     {
+        // Impa substate $0d clears the follower slot only on cfd0=$09.
+        _impaEvent.StopFollowing();
+        foreach (NpcCharacter actor in _nayruActors.Values)
+            actor.SetAnimationRate(1);
+        foreach (TimedNayruEffect effect in _nayruEffects)
+            effect.Actor.SetAnimationRate(1);
+        _impa?.SetAnimationRate(1);
         _player.WarpTo(new Vector2(0x78, 0x30), recordSafe: false);
         _player.Face(Vector2I.Right);
         _nayruActors["Nayru"].Position = new Vector2(0x78, 0x18);
@@ -781,17 +815,24 @@ internal sealed class NayruIntroEvent :
             return;
         }
 
-        if (_nayruNotePhase is 0 or 45)
+        // @createMusicNotes consumes animParameter once when the animation
+        // loads a frame. A textbox or other pause must not detach note timing
+        // from Nayru's actual animation.
+        int frame = nayru.CurrentAnimationFrame;
+        if (frame == _nayruNoteAnimationFrame)
+            return;
+        _nayruNoteAnimationFrame = frame;
+        int parameter = nayru.CurrentAnimationParameter;
+        if (parameter != 0)
         {
-            float xOffset = _nayruNotePhase == 0 ? -6.0f : 8.0f;
+            float xOffset = parameter == 1 ? -6.0f : 8.0f;
             SpawnNayruEffect(
                 "MusicNote", nayru.Position + new Vector2(xOffset, -4),
                 $"MusicNote{_nayruNoteSpawnCount}",
-                floatsLeft: _nayruNotePhase == 0);
+                floatsLeft: parameter == 1);
             _nayruNoteSpawnCount++;
             Observe("NoteSpawn", "Nayru", _nayruNoteSpawnCount);
         }
-        _nayruNotePhase = (_nayruNotePhase + 1) % 90;
     }
 
     private void UpdateNayruEffects()
@@ -829,12 +870,43 @@ internal sealed class NayruIntroEvent :
     private void UpdateNayruAmbientActors()
     {
         UpdateNayruVignette();
+        if (_impaCollapsePending && _nayruActors["Impa"].CurrentAnimationParameter == 0)
+        {
+            NpcCharacter impa = _nayruActors["Impa"];
+            impa.SetActive(false);
+            SpawnCollapsedImpa(impa.Position, "CollapsedImpa");
+            _impaCollapsePending = false;
+        }
+        if (_aftermathPaletteElapsed >= 0)
+        {
+            int elapsed = ++_aftermathPaletteElapsed;
+            _nayruRoom!.SetTemporaryBackgroundPalette(_nayruDatabase.DarkBackgroundPalettes,
+                1.0f - Mathf.Min(16, (elapsed + 1) / 2) / 16.0f);
+            if (elapsed == 32)
+                _aftermathPaletteElapsed = -1;
+        }
 
         // runVeranGhostSubid0 emits SND_RUMBLE2 on global 16-update
         // boundaries while cfd0 remains $12, from the pre-charge threat
         // through the slow backward movement.
-        if (_nayruGhostRumbling && (_entities.FrameCounter & 0x0f) == 0)
-            _context.Sound.PlaySound(SoundId.SndRumble2);
+        if (_nayruGhostRumbling)
+        {
+            if ((_entities.FrameCounter & 0x0f) == 0)
+                _context.Sound.PlaySound(SoundId.SndRumble2);
+            NpcCharacter rumblingGhost = _nayruActors["GhostVeran"];
+            float fraction = rumblingGhost.Position.X - Mathf.Floor(rumblingGhost.Position.X);
+            int x = (_nayruGhostShakeBaseX + (_entities.NextRandomValue() & 3) - 2) & 0xff;
+            rumblingGhost.Position = new Vector2(x + fraction, rumblingGhost.Position.Y);
+        }
+        if (_impaRecoveryElapsed >= 0)
+        {
+            _impaRecoveryElapsed++;
+            // impaSubid1: signal observation, 59 nonzero counter updates,
+            // zero update, then impaScript1's initial wait 120.
+            if (_impaRecoveryElapsed is >= 2 and <= 60 &&
+                _nayruActors.TryGetActive("AftermathImpaCollapsed", out NpcCharacter wakingImpa))
+                wakingImpa.Position = new Vector2(0x38 + (_entities.NextRandomValue() & 1) - 1, 0x68);
+        }
 
         if (_nayruGhostRevealFlickerRemaining > 0 &&
             _nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
@@ -950,14 +1022,16 @@ internal sealed class NayruIntroEvent :
             guy.SetAnimationRate(0.0f);
             girl.SetAnimationRate(0.0f);
         }
-        if (frame is >= 343 and <= 680)
+        // Villager and femaleVillager call interactionOscillateXRandomly in
+        // object order, starting on the update after observing cfd1=$02.
+        if (frame is >= 344 and <= 681)
         {
-            guy.Position = new Vector2(0x78 - (_entities.FrameCounter & 1), guy.Position.Y);
-            girl.Position = new Vector2(0x68 - (_entities.FrameCounter & 1), girl.Position.Y);
+            guy.Position = new Vector2(0x78 + (_entities.NextRandomValue() & 1) - 1, guy.Position.Y);
+            girl.Position = new Vector2(0x68 + (_entities.NextRandomValue() & 1) - 1, girl.Position.Y);
         }
-        else if (frame is >= 681 and <= 696)
+        else if (frame is >= 682 and <= 697)
         {
-            girl.Position = new Vector2(0x68 - (_entities.FrameCounter & 1), girl.Position.Y);
+            girl.Position = new Vector2(0x68 + (_entities.NextRandomValue() & 1) - 1, girl.Position.Y);
         }
 
         if (frame is 601 or 621 or 641 or 661)
@@ -1117,7 +1191,7 @@ internal sealed class NayruIntroEvent :
             if (!state.Stone)
                 continue;
 
-            int flickerFrame = stoneFrame + 60;
+            int flickerFrame = stoneFrame + (index == 9 ? 60 : 61);
             if (frame >= flickerFrame)
             {
                 state.Actor.Visible = (_entities.FrameCounter & 1) != 0;
@@ -1130,7 +1204,7 @@ internal sealed class NayruIntroEvent :
                 if (frame >= 600)
                     state.Actor.SetActive(false);
             }
-            else if (frame >= stoneFrame + 120)
+            else if (frame >= stoneFrame + (index == 9 ? 119 : 120))
             {
                 state.Actor.SetActive(false);
             }
@@ -1177,10 +1251,18 @@ internal sealed class NayruIntroEvent :
         if (frame == 1)
         {
             state.SpeedZ = -0x100;
-            SetVignetteMonkeyAnimation(state, 0);
+            // substate0 initializes speed/angle and returns without gravity.
+            return;
         }
-        int heightAnimation = state.ZFixed <= -0x400 ? 1 : 0;
-        SetVignetteMonkeyAnimation(state, heightAnimation);
+        int heightBand = (state.ZFixed >> 8) <= -4 ? 1 : 0;
+        if (heightBand != state.HeightBand)
+        {
+            // monkeyCheckChangeAnimation advances the current directional
+            // stream via animCounter=$01; it does not select animation 0/1.
+            state.HeightBand = heightBand;
+            state.Actor.SetAnimationCounter(1);
+            state.Actor.AdvanceAnimationUpdates(1);
+        }
         switch (state.MovementPhase)
         {
             case 0:
@@ -1234,123 +1316,7 @@ internal sealed class NayruIntroEvent :
             $"VignetteMonkey{state.Record.Index}", animation);
     }
 
-    private void UpdateNayruStoneChildVignette()
-    {
-        int frame = _nayruVignetteElapsed;
-        if (!_nayruActors.TryGetValue("VignetteBoy", out NpcCharacter? boy) ||
-            !_nayruActors.TryGetValue("VignetteLady", out NpcCharacter? lady))
-            return;
-
-        if (frame == 1)
-        {
-            _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
-            boy.SetAnimationRate(2.0f);
-            Observe("VignetteMovement", "VignetteBoy", 3);
-        }
-        if (frame <= 80)
-            boy.Position = new Vector2(0x78 - frame, 0x48);
-        else if (frame <= 88)
-        {
-            boy.Position = new Vector2(0x28, 0x48);
-            boy.SetAnimationRate(0.0f);
-        }
-        else if (frame <= 168)
-        {
-            if (frame == 89)
-            {
-                _nayruActors.SetAnimationIfChanged("VignetteBoy", 1);
-                boy.SetAnimationRate(2.0f);
-                Observe("VignetteMovement", "VignetteBoy", 1);
-            }
-            boy.Position = new Vector2(0x28 + frame - 88, 0x48);
-        }
-        else if (frame <= 176)
-        {
-            boy.Position = new Vector2(0x78, 0x48);
-            boy.SetAnimationRate(0.0f);
-        }
-        else if (frame <= 224)
-        {
-            if (frame == 177)
-            {
-                _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
-                boy.SetAnimationRate(2.0f);
-                Observe("VignetteMovement", "VignetteBoy", 3);
-            }
-            boy.Position = new Vector2(0x78 - (frame - 176), 0x48);
-        }
-        else if (frame <= 364)
-        {
-            boy.Position = new Vector2(0x48, 0x48);
-            boy.SetAnimationRate(0.0f);
-        }
-        else
-        {
-            boy.Position = new Vector2(
-                frame <= 428 ? 0x48 - (frame - 364) * 0.25f : 0x38,
-                0x48);
-            boy.SetAnimationRate(frame <= 458 ? 1.0f : 0.0f);
-        }
-        if (frame == 224)
-            SpawnNayruExclamation(boy.Position + new Vector2(0, -13), 60);
-        if (frame is >= 275 and <= 364 && (_entities.FrameCounter & 7) == 0)
-        {
-            bool stone = (_entities.FrameCounter & 8) != 0;
-            boy.SetScriptPaletteOverride(stone
-                ? _nayruDatabase.StoneSpritePalette
-                : _nayruDatabase.BoySpritePalette);
-            if (stone)
-                Observe("VignetteBoyPalette", "VignetteBoy");
-        }
-        if (frame == 365)
-        {
-            boy.SetScriptPaletteOverride(_nayruDatabase.StoneSpritePalette);
-            _nayruActors.SetAnimationIfChanged("VignetteBoy", 3);
-            Observe("VignetteMovement", "VignetteBoy", 3);
-        }
-
-        if (frame == 459)
-        {
-            _nayruActors.SetAnimationIfChanged("VignetteLady", 2);
-            lady.SetAnimationRate(3.0f);
-            Observe("VignetteMovement", "VignetteLady", 2);
-        }
-        if (frame is >= 459 and <= 472)
-            lady.Position = new Vector2(0x68, 0x28 + (frame - 458) * 2.5f);
-        else if (frame is >= 473 and <= 476)
-        {
-            lady.Position = new Vector2(0x68, 0x4b);
-            lady.SetAnimationRate(1.0f);
-        }
-        else if (frame is >= 477 and <= 489)
-        {
-            if (frame == 477)
-            {
-                _nayruActors.SetAnimationIfChanged("VignetteLady", 3);
-                lady.SetAnimationRate(3.0f);
-                Observe("VignetteMovement", "VignetteLady", 3);
-            }
-            lady.Position = new Vector2(0x68 - (frame - 476) * 2.5f, 0x4b);
-        }
-        else if (frame is >= 490 and <= 505)
-        {
-            lady.Position = new Vector2(71.5f, 0x4b);
-            lady.SetAnimationRate(1.0f);
-        }
-        else if (frame is >= 506 and <= 565)
-        {
-            lady.SetAnimationRate(0.0f);
-        }
-        else if (frame is >= 566 and <= 585)
-        {
-            lady.SetAnimationRate(3.0f);
-            Observe("VignetteLadyCadence", "VignetteLady");
-        }
-        else if (frame >= 586)
-        {
-            lady.SetAnimationRate(0.0f);
-        }
-    }
+    private void UpdateNayruStoneChildVignette() => _stoneChildVignette!.AdvanceFrame();
 
     private void SpawnNayruExclamation(Vector2 position, int duration)
     {
@@ -1406,11 +1372,16 @@ internal sealed class NayruIntroEvent :
     private void SpawnGhostVeran()
     {
         Vector2 position = _nayruActors["Impa"].Position;
-        _nayruActors["Impa"].SetActive(false);
-        SpawnCollapsedImpa(position, "CollapsedImpa");
+        // Impa $31:$00 enters substate $0f in her normal palette/animation
+        // $05. Its next animation-parameter check installs the collapsed GFX.
+        _nayruActors["Impa"].SetScriptPaletteOverride(null);
+        _nayruActors.SetAnimation("Impa", 5);
+        _impaCollapsePending = true;
+        _nayruActors.SetAnimation("Ralph", 2);
         _nayruActors.Spawn("GhostVeran", "GhostVeran", position).SetScriptAnimation(
             _nayruDatabase.Actor("GhostVeran").Animation(0));
-        _nayruGhostRevealFlickerRemaining = 90;
+        // @subid0Init loads the struct offset Interaction.var38 ($38).
+        _nayruGhostRevealFlickerRemaining = 0x38;
         _nayruVeranFacingTarget = OracleObjectMath.ToPixelPosition(position);
         _nayruUpdateVeranFacingTarget = true;
         _nayruNayruHeldVeranFacing =
@@ -1420,7 +1391,11 @@ internal sealed class NayruIntroEvent :
         _context.Sound.PlaySound(SoundId.SndBossDead);
     }
 
-    private void BeginGhostRumble() => _nayruGhostRumbling = true;
+    private void BeginGhostRumble()
+    {
+        _nayruGhostShakeBaseX = Mathf.FloorToInt(_nayruActors["GhostVeran"].Position.X);
+        _nayruGhostRumbling = true;
+    }
 
     private void BeginGhostCharge()
     {
@@ -1478,17 +1453,15 @@ internal sealed class NayruIntroEvent :
         state.Elapsed++;
         int elapsed = state.Elapsed;
 
-        // cfd16 is written after Nayru's 120-update wait. Her palette begins
-        // alternating immediately, then applyspeed $81 starts 30 updates later.
-        if (elapsed >= 120)
-            UpdateNayruPossessionPalette(state, nayru);
-
-        if (elapsed is >= 150 and < 279)
+        // checkmemoryeq $15 yields, then wait 120 starts. On its zero
+        // update (122), writememory $16 continues into wait 30. setangle,
+        // setspeed and applyspeed each then have their own yielding update.
+        if (elapsed is >= 154 and <= 282)
         {
-            if (state.NayruMoveStart < 0)
+            if (elapsed == 155)
                 state.NayruMoveStart = elapsed;
-            int movementFrame = elapsed - 150 + 1;
-            if ((_entities.FrameCounter & 7) == 0)
+            int movementFrame = elapsed - 154;
+            if (!state.PaletteComplete && (_entities.FrameCounter & 7) == 0)
             {
                 ReadOnlySpan<int> sway = [-1, -1, -1, 0, 1, 1, 1, 0];
                 state.SwayX += sway[(_entities.FrameCounter >> 3) & 7];
@@ -1500,44 +1473,53 @@ internal sealed class NayruIntroEvent :
                 if (state.MaximumSwayX - state.MinimumSwayX >= 3)
                     Observe("PossessionSway", "Nayru");
             }
-            int forwardPixels = movementFrame * 0x20 >> 8;
+            float forwardPixels = movementFrame * 0x20 / 256.0f;
             nayru.Position = new Vector2(
                 state.NayruStart.X + state.SwayX,
                 state.NayruStart.Y + forwardPixels);
         }
-        else if (elapsed == 279)
+        else if (elapsed == 284)
         {
             // The script clamps the accumulated SPEED_020 result with
-            // setcoords $28,$78 after its 129 applyspeed updates.
+            // setcoords $28,$78 after applyspeed's initialization, 128
+            // translations, and the separate counter-zero update.
             nayru.Position = new Vector2(0x78, 0x28);
         }
 
-        if (elapsed is >= 220 and < 349)
+        if (elapsed >= 122)
+            UpdateNayruPossessionPalette(state, nayru);
+
+        if (elapsed is >= 225 and <= 352)
         {
             if (state.RalphMoveStart < 0)
                 state.RalphMoveStart = elapsed;
-            int movementFrame = elapsed - 220 + 1;
-            int retreatPixels = movementFrame * 0x20 >> 8;
+            int movementFrame = elapsed - 224;
+            float retreatPixels = movementFrame * 0x20 / 256.0f;
             ralph.Position = state.RalphStart + Vector2.Down * retreatPixels;
         }
-        else if (elapsed == 349)
+        else if (elapsed == 353)
         {
             ralph.Position = state.RalphStart + Vector2.Down * 16.0f;
         }
 
-        if (elapsed == 489)
+        if (elapsed == 495)
         {
-            SetNayruPossessionPalette(nayru, possessed: true);
             _nayruActors.SetAnimation("Nayru", 5);
+        }
+        if (elapsed == 496)
+            SetNayruPossessionPalette(nayru, possessed: true);
+        if (elapsed == 497)
+        {
             _context.Sound.PlaySound(SoundId.SndSwordObtained);
         }
-        if (elapsed < 549)
+        if (elapsed == 558)
+            _nayruActors.SetAnimation("Nayru", 2);
+        if (elapsed < 559)
             return;
 
-        _nayruActors.SetAnimation("Nayru", 2);
         StartGhostVeranEmergence();
         bool movementSynchronized =
-            state.NayruMoveStart == 150 && state.RalphMoveStart == 220 &&
+            state.NayruMoveStart == 155 && state.RalphMoveStart == 225 &&
             nayru.Position == new Vector2(0x78, 0x28) &&
             ralph.Position == state.RalphStart + Vector2.Down * 16.0f &&
             _nayruActors.IsUsingAnimation("Nayru", 2) &&
@@ -1566,6 +1548,9 @@ internal sealed class NayruIntroEvent :
                 state.PaletteComplete = true;
                 state.PossessedPalette = true;
                 SetNayruPossessionPalette(nayru, possessed: true);
+                // Native substate 2 only runs the script; animation resumes
+                // when the later portal jump enters substate 4.
+                nayru.SetAnimationRate(0);
                 return;
             }
         }
@@ -1589,6 +1574,10 @@ internal sealed class NayruIntroEvent :
         if (!_nayruActors.TryGetValue("GhostVeran", out NpcCharacter? ghost))
             throw new InvalidOperationException("Nayru phase $17 has no Ghost Veran $3e:$00.");
         _entities.RuntimeState.SetWramByte(0xcfd0, 0x17);
+        // nayruScript00_part1 sets the persistent flag before scriptend,
+        // well before the later lightning controller repeats this write.
+        _rooms.SaveData.SetRoomFlag(_nayruRecord.Group, _nayruRecord.Room,
+            (byte)_nayruRecord.CompletionRoomFlag);
         _entities.RuntimeState.SetWramByte(0xcfd2, 0);
         _ghostScript.Start(ghost);
     }
@@ -1730,19 +1719,21 @@ internal sealed class NayruIntroEvent :
                 break;
             case 1:
                 foreach (VignetteMonkeyRecord record in
-                    _nayruDatabase.VignetteMonkeys)
+                    _nayruDatabase.VignetteMonkeys.OrderBy(record => record.Index == 0 ? -1 : 10 - record.Index))
                 {
                     NpcCharacter monkey = _nayruActors.Spawn(
                         "Monkey", $"VignetteMonkey{record.Index}",
                         new Vector2(record.X, record.Y));
                     monkey.SetScriptAnimation(
                         _nayruDatabase.Actor("Monkey").Animation(record.Animation));
-                    int random = (_entities.FrameCounter + record.Index * 7) & 0x0f;
+                    // The parent occupies the first slot, then creates var03
+                    // $09 through $01. Each initializer consumes two RNG values.
+                    int random = _entities.NextRandomValue() & 0x0f;
                     int startupDelay = random == 0 ? 0x100 : random;
                     monkey.AdjustInitialAnimationCounter(random - 7);
                     int[] jumpSpeeds = [-0x80, -0xa0, -0x70, -0x90];
                     int jumpSpeed = jumpSpeeds[
-                        ((_entities.FrameCounter >> 4) + record.Index * 5) & 3];
+                        _entities.NextRandomValue() & 3];
                     NayruVignetteMonkeyState state = new NayruVignetteMonkeyState(
                         monkey, record, startupDelay, jumpSpeed);
                     _nayruVignetteMonkeys.Add(state);
@@ -1758,7 +1749,9 @@ internal sealed class NayruIntroEvent :
                 boy.SetScriptPaletteOverride(_nayruDatabase.BoySpritePalette);
                 boy.SetAnimationRate(0.0f);
                 NpcCharacter lady = _nayruActors.Spawn("VignetteLady", "VignetteLady");
-                lady.SetScriptAnimation(_nayruDatabase.Actor("VignetteLady").Animation(2));
+                lady.SetScriptAnimation(_nayruDatabase.Actor("VignetteLady").Animation(0));
+                _stoneChildVignette = new NayruStoneChildVignette(
+                    _context, _nayruActors, _nayruDatabase, SpawnNayruExclamation);
                 break;
         }
     }
@@ -1768,6 +1761,9 @@ internal sealed class NayruIntroEvent :
         ClearNayruActors();
         LoadNayruCutsceneRoom(
             _nayruRecord.Group, _nayruRecord.Room, includeTimePortals: true);
+        // nayruSingingStateF installs PALH_99 again after loading room 0:39.
+        // Signal $1e later starts the transition back to paletteData4a30.
+        _nayruRoom!.SetTemporaryBackgroundPalette(_nayruDatabase.DarkBackgroundPalettes, 1.0f);
         _player.Visible = true;
         _nayruHud.Visible = true;
         NpcCharacter ralph = _nayruActors.Spawn("AftermathRalph", "AftermathRalph");
@@ -1786,6 +1782,7 @@ internal sealed class NayruIntroEvent :
     {
         _nayruTrackAftermathRalphFacing = false;
         _nayruActors.Hide("AftermathRalph");
+        _impaRecoveryElapsed = 0;
     }
 
     private void LoadNayruCutsceneRoom(int group, int room, bool includeTimePortals)
@@ -1804,17 +1801,19 @@ internal sealed class NayruIntroEvent :
 
     private void RestoreAftermathImpa()
     {
+        Vector2 position = _nayruActors["AftermathImpaCollapsed"].Position;
         _nayruActors.Hide("AftermathImpaCollapsed");
         NpcCharacter impa = _nayruActors.Spawn(
-            "AftermathImpa", "AftermathImpa", new Vector2(0x38, 0x68));
+            "AftermathImpa", "AftermathImpa", position);
         impa.SetScriptAnimation(_nayruDatabase.Actor("AftermathImpa").Animation(2));
+        _impaRecoveryElapsed = -1;
     }
 
     private void BeginNayruSwordGift()
     {
         RemoveNayruSwordEffect();
         TreasureObjectRecord sword =
-            _treasures.GetObject("TREASURE_OBJECT_SWORD_00");
+            InitialImpaGift;
         _nayruSwordEffect = new ChestTreasureEffect { Name = "NayruSwordGift", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         _nayruSwordEffect.Initialize(
             // Treasure grab mode $01 calls objectTakePositionWithOffset with
@@ -1826,14 +1825,17 @@ internal sealed class NayruIntroEvent :
 
     private void GrantNayruSword()
     {
-        _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        _inventory.GiveTreasure(InitialImpaGift);
         _player.BeginGetItemOneHandPose();
         // TREASURE_OBJECT_SWORD_00 uses grab mode $01; treasure state 3 plays
         // its collection behavior's SND_GETITEM as Link raises the item.
         _context.Sound.PlaySound(SoundId.SndGetItem);
         _nayruHud.Refresh();
-        Observe("SwordGift", "Player");
+        Observe(_rooms.SaveData.IsLinkedGame ? "ShieldGift" : "SwordGift", "Player");
     }
+
+    private TreasureObjectRecord InitialImpaGift => _treasures.GetObject(
+        _rooms.SaveData.IsLinkedGame ? "TREASURE_OBJECT_SHIELD_00" : "TREASURE_OBJECT_SWORD_00");
 
     private void FinishNayruIntro()
     {
@@ -1866,6 +1868,9 @@ internal sealed class NayruIntroEvent :
         _nayruVignetteMonkeys.Clear();
         _nayruVignetteIndex = -1;
         ClearNayruEffects(deactivateActors: true);
+        _stoneChildVignette = null;
+        _aftermathPaletteElapsed = -1;
+        _impaCollapsePending = false;
         _impa = null;
     }
 
@@ -1908,6 +1913,9 @@ internal sealed class NayruIntroEvent :
         _nayruVignetteMonkeys.Clear();
         _nayruVignetteIndex = -1;
         ClearNayruEffects(deactivateActors);
+        _stoneChildVignette = null;
+        _aftermathPaletteElapsed = -1;
+        _impaCollapsePending = false;
         RemoveNayruSwordEffect();
         _commandRunner.Clear();
         _ghostScript.Clear();
@@ -1916,6 +1924,7 @@ internal sealed class NayruIntroEvent :
         _nayruUpdateVeranFacingTarget = false;
         _nayruTrackAftermathRalphFacing = false;
         _nayruGhostRumbling = false;
+        _impaRecoveryElapsed = -1;
         _nayruMusicInitialized = false;
         _nayruRoom = null;
         _nayruStage = NayruStage.None;
@@ -1924,6 +1933,8 @@ internal sealed class NayruIntroEvent :
 
     private void ShowNayruText(int textId)
     {
+        if (_rooms.SaveData.IsLinkedGame)
+            textId = textId switch { 0x0112 => 0x0113, 0x0115 => 0x0116, 0x001c => 0x001f, _ => textId };
         TextRecord text = _nayruDatabase.Text(textId);
         int? textboxPosition = text.TextboxPosition >= 0 ? text.TextboxPosition : null;
         _context.ShowDialogue(text.Message, textboxPosition);
@@ -1992,19 +2003,6 @@ internal sealed class NayruIntroEvent :
             // that same fixed update while preserving the final facing.
             _player.AdvanceCutsceneMovement(Vector2.Zero, Vector2I.Zero);
         }
-        // Native handoffs belong to movement completion, not coordinate
-        // coincidences. Ralph reaches @faceVeranGhost before Link's later
-        // downward move completes linkCutscene3 substate $07.
-        if (_ghostReaction == GhostReactionPhase.RalphRetreat && actor.Value == "Ralph")
-        {
-            _nayruTrackRalphVeranFacing = true;
-            _ghostReaction = GhostReactionPhase.LinkRetreat;
-        }
-        else if (_ghostReaction == GhostReactionPhase.LinkRetreat && actor.Value == "Player")
-        {
-            _nayruTrackLinkVeranFacing = true;
-            _ghostReaction = GhostReactionPhase.None;
-        }
     }
 
     void ICutsceneCommandHost.DeleteActor(CutsceneActorId actor) =>
@@ -2035,15 +2033,11 @@ internal sealed class NayruIntroEvent :
             case "AlarmNayruAudience": AlarmNayruAudience(); break;
             case "SpawnGhostVeran": SpawnGhostVeran(); break;
             case "BeginNayruAudienceEscape": BeginNayruAudienceEscape(); break;
-            case "BeginVeranReaction":
-                _ghostReaction = GhostReactionPhase.RalphRetreat;
-                _context.Sound.PlaySound(SoundId.SndUnknown5);
-                _context.Sound.PlaySound(SoundId.SndUnknown5);
-                break;
             case "SpawnHumanVeran": SpawnHumanVeran(); break;
             case "HideHumanVeran": _nayruActors.Hide("HumanVeran"); break;
             case "BeginGhostRumble": BeginGhostRumble(); break;
             case "BeginGhostCharge": BeginGhostCharge(); break;
+            case "BeginNayruPortalWait": _nayruActors["Nayru"].SetAnimationRate(1); break;
             case "FinishGhostCharge": FinishGhostCharge(); break;
             case "HideGhostVeranAfterPossession": HideGhostVeranAfterPossession(); break;
             case "BeginNayruPossessionRecovery": BeginNayruPossessionRecovery(); break;
@@ -2057,6 +2051,7 @@ internal sealed class NayruIntroEvent :
             case "BeginNayruVignette1": BeginNayruVignette(1); break;
             case "BeginNayruVignette2": BeginNayruVignette(2); break;
             case "BeginNayruAftermath": BeginNayruAftermath(); break;
+            case "RestoreAftermathPalette": _aftermathPaletteElapsed = 0; break;
             case "FinishAftermathRalphDeparture": FinishAftermathRalphDeparture(); break;
             case "RestoreAftermathImpa": RestoreAftermathImpa(); break;
             case "BeginNayruSwordGift": BeginNayruSwordGift(); break;
@@ -2083,6 +2078,20 @@ internal sealed class NayruIntroEvent :
         {
             "Jump" => UpdateNayruJump(actor, commandUpdate),
             "GhostInitialRise" => UpdateGhostInitialRise(commandUpdate, frames, payload),
+            "ObjectMovement" => UpdateObjectMovement(actor, commandUpdate, frames, payload),
+            "ParallelObjectMovement" => UpdateParallelObjectMovement(commandUpdate, frames, payload),
+            "GhostFlight" => UpdateGhostFlight(actor, commandUpdate, frames, payload),
+            "VeranReaction" => UpdateVeranReaction(commandUpdate, frames),
+            "WaitForGhostAppearance" => _nayruGhostRevealFlickerRemaining == 0,
+            "WaitForPossessionRecovery" => _nayruPossessionState is null,
+            "WaitForImpaRecovery" => _impaRecoveryElapsed >= 182,
+            "WaitForVignetteCompletion" => _nayruVignetteIndex switch
+            {
+                0 => _nayruVignetteElapsed >= 937,
+                1 => _nayruVignetteElapsed >= 600,
+                2 => _stoneChildVignette?.Complete == true,
+                _ => throw new InvalidOperationException("Initial Nayru has no active vignette.")
+            },
             "PortalFlight" => UpdateNayruPortalFlight(actor, commandUpdate),
             "WaitForGhostDeparture" => !_ghostScript.Active,
             "RoomPalette" => UpdateNayruRoomPalette(commandUpdate, frames),
@@ -2091,6 +2100,88 @@ internal sealed class NayruIntroEvent :
             _ => throw new InvalidOperationException(
                 $"Unknown blocking Nayru cutscene handler '{handler}'.")
         };
+
+    private bool UpdateGhostFlight(CutsceneActorId? actor, int update, int frames, string payload)
+    {
+        // writeobjectbyte var38 yields before asm15 / wait 1. The copied
+        // lane's in-buffer scriptjump then yields between helper calls.
+        if ((update & 1) != 0)
+            UpdateObjectMovement(actor, update / 2, (frames - 1) / 2, payload);
+        return update + 1 >= frames;
+    }
+
+    private bool UpdateVeranReaction(int update, int frames)
+    {
+        // Link observes $11 before Ralph's script slot. Ralph then yields
+        // through checkmemoryeq, setspeed, playsound and movedown. Link's
+        // native counter $16 moves 21 times, waits 6, then counter $08 moves
+        // seven times. The ghost's concurrent wait 120/setspeed/setangle
+        // determines this block's end, independently of both retreats.
+        if (update == 0)
+            _player.Face(Vector2I.Left);
+        if (update is 0 or 2 or 26 or 36)
+            _context.Sound.PlaySound(SoundId.SndUnknown5);
+        if (update is >= 1 and <= 22)
+            UpdateObjectMovement(new CutsceneActorId("Player"), update - 1, 22, $"{ObjectSpeed.Speed180},24,-1,1,1,0");
+        if (update is >= 3 and <= 25)
+            UpdateObjectMovement(new CutsceneActorId("Ralph"), update - 3, 23, $"{ObjectSpeed.Speed180},16,-1,1,1,1");
+        if (update == 26)
+            _nayruTrackRalphVeranFacing = true;
+        if (update == 28)
+            _player.Face(Vector2I.Down);
+        if (update is >= 29 and <= 36)
+            UpdateObjectMovement(new CutsceneActorId("Player"), update - 29, 8, $"{ObjectSpeed.Speed180},16,-1,1,1,0");
+        if (update == 36)
+            _nayruTrackLinkVeranFacing = true;
+        return update + 1 >= frames;
+    }
+
+    private bool UpdateParallelObjectMovement(int update, int frames, string payload)
+    {
+        string[] motions = payload.Split('|');
+        if (motions.Length != 2)
+            throw new InvalidOperationException($"Invalid initial Nayru parallel movement '{payload}'.");
+        foreach (string motion in motions)
+        {
+            string[] fields = motion.Split(';');
+            if (fields.Length != 3 || !int.TryParse(fields[1], out int duration))
+                throw new InvalidOperationException($"Invalid initial Nayru parallel motion '{motion}'.");
+            if (update < duration)
+                UpdateObjectMovement(new CutsceneActorId(fields[0]), update, duration, fields[2]);
+        }
+        return update + 1 >= frames;
+    }
+
+    private bool UpdateObjectMovement(
+        CutsceneActorId? actorId, int update, int frames, string payload)
+    {
+        string actor = RequireNativeActor(actorId, "ObjectMovement");
+        string[] fields = payload.Split(',');
+        if (fields.Length != 6 || !int.TryParse(fields[0], out int speed) ||
+            !int.TryParse(fields[1], out int angle) || !int.TryParse(fields[2], out int animation) ||
+            !int.TryParse(fields[3], out int applications) || !int.TryParse(fields[4], out int skipFinal) ||
+            !int.TryParse(fields[5], out int initialDelay) || initialDelay is < 0 or > 4 ||
+            applications is < 1 or > 2 || skipFinal is < 0 or > 1)
+            throw new InvalidOperationException($"Invalid initial Nayru ObjectMovement '{payload}'.");
+        if (update == 0 && animation >= 0)
+            _nayruActors.SetAnimation(actor, animation);
+        if (update < initialDelay)
+            return false;
+        bool finished = update + 1 >= frames;
+        if (!finished || skipFinal == 0)
+        {
+            Vector2 before = ActorPosition(actor);
+            OracleObjectPosition position = OracleObjectPosition.FromPixels(before);
+            for (int index = 0; index < applications; index++)
+                position = OracleObjectMovement.Shared.ApplySpeed(position, speed, angle);
+            Vector2 delta = OracleObjectMovement.Shared.Delta(speed, angle) * applications;
+            SetActorPosition(actor, position.PrecisePosition, delta, delta);
+            Observe("ActorPosition", actor, position: ActorPosition(actor));
+        }
+        if (finished)
+            ((ICutsceneCommandHost)this).CompleteActorTranslation(new CutsceneActorId(actor));
+        return finished;
+    }
 
     private bool UpdateGhostInitialRise(int commandUpdate, int frames, string payload)
     {
@@ -2135,6 +2226,7 @@ internal sealed class NayruIntroEvent :
             _nativePhase = 0;
             _nayruActors.SetAnimation(actor, 5);
             _context.Sound.PlaySound(SoundId.SndSwordSpin);
+            return false;
         }
         if (_nativePhase == 0)
         {
@@ -2155,6 +2247,7 @@ internal sealed class NayruIntroEvent :
                 return false;
             _nativeSpeedZ = _nayruRecord.NayruFallSpeedZ;
             _nativePhase = 2;
+            return false;
         }
         if (!OracleObjectMath.UpdateSpeedZ(
                 ref _nativeZFixed, ref _nativeSpeedZ, _nayruRecord.NayruFallGravity))
@@ -2205,10 +2298,18 @@ internal sealed class NayruIntroEvent :
         NpcCharacter? actor = null;
         if (_nayruActors.TryGetValue(name, out actor))
             actor.Visible = (_entities.FrameCounter & 1) != 0;
+        if (name == "GhostVeran" && actor is not null &&
+            _nayruActors.TryGetActive("HumanVeran", out NpcCharacter human))
+            human.Visible = !actor.Visible;
         if (commandUpdate + 1 < frames)
             return false;
         if (actor is not null)
-            actor.Visible = actor.Active;
+        {
+            actor.Visible = actor.Active && (name != "GhostVeran" ||
+                !string.IsNullOrEmpty(completedHandler));
+            if (name == "GhostVeran" && _nayruActors.TryGetActive("HumanVeran", out NpcCharacter finalHuman))
+                finalHuman.Visible = !actor.Visible;
+        }
         if (!string.IsNullOrEmpty(completedHandler))
             ((ICutsceneCommandHost)this).RunNativeHandler(completedHandler);
         return true;
@@ -2220,7 +2321,6 @@ internal sealed class NayruIntroEvent :
 
     void ICutsceneCommandHost.ScriptEnded() => FinishNayruIntro();
 
-    private enum GhostReactionPhase { None, RalphRetreat, LinkRetreat }
 }
 
 internal enum NayruStage

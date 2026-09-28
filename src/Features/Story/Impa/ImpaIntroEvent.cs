@@ -46,6 +46,8 @@ internal sealed class ImpaIntroEvent :
     private bool _waitingNpcInitialized;
     private bool _followingLinkObjectActive;
     private Vector2I _followerScrollDirection;
+    private Vector2 _followerLastPosition;
+    private Vector2I _followerDirection;
 
     public ImpaIntroEvent(RoomEventContext context)
     {
@@ -295,6 +297,8 @@ internal sealed class ImpaIntroEvent :
         incoming.Position = Actor.Position + offset;
         incoming.SetBlocksLink(false);
         incoming.SetFacingDirection(Actor.FacingVector);
+        incoming.SetAnimationRate(0);
+        _followerLastPosition += offset;
         // objectSetReservedBit1 keeps one interaction slot alive across the
         // original reload. Our room lists require a destination-owned actor,
         // so retire the superseded outgoing rendering copy immediately.
@@ -666,6 +670,7 @@ internal sealed class ImpaIntroEvent :
         // trigger-frame priority while she moves to the stone and Link walks
         // toward her.
         Actor!.SetFixedDrawPriority(Actor.ZIndex);
+        Actor.SetAnimationRate(1);
         Actor!.SetBlocksLink(false);
         Actor.SetFacingDirection(RoomEventResources.DirectionToward(
             Actor.Position, new Vector2(stone.TargetX, stone.TargetY)));
@@ -931,11 +936,14 @@ internal sealed class ImpaIntroEvent :
     private void ApplyMovedStoneTile(int x)
     {
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
+        // triforceStone.s @setSolidTile and partCode5a write wRoomLayout and
+        // wRoomCollisions directly; neither updates the background graphics.
         _context.Rooms.CurrentRoom.SetPositionTileAndCollision(
             new Vector2(x, stone.MovedY),
             (byte)stone.FinalLayoutTile,
             (byte)stone.FinalCollision,
-            _context.AnimationTick());
+            _context.AnimationTick(),
+            preserveRenderedTile: true);
         _context.RoomView.QueueRedraw();
     }
 
@@ -1311,6 +1319,9 @@ internal sealed class ImpaIntroEvent :
         Actor!.Position = _context.Player.Position;
         Actor.SetBlocksLink(false);
         Actor.SetFacingDirection(_context.Player.FacingVector);
+        Actor.SetAnimationRate(0);
+        _followerDirection = _context.Player.FacingVector;
+        _followerLastPosition = Actor.Position;
         Actor.UpdateDrawPriority(_context.Player.Position);
         LinkPathEntry initial = new(
             _context.Player.FacingVector,
@@ -1326,6 +1337,14 @@ internal sealed class ImpaIntroEvent :
     private void UpdateFollowingActor(Vector2 linkPosition)
     {
         EnsureImpaMusicOverride();
+        // Impa's interaction compares var37/var38 before the later global
+        // checkUpdateFollowingLinkObject pass writes her next YX/direction.
+        // Stationary followers do not animate; a moved follower animates twice.
+        Actor!.SetFacingDirection(_followerDirection);
+        if (Actor.Position != _followerLastPosition)
+            Actor.AdvanceAnimationUpdates(2);
+        _followerLastPosition = Actor.Position;
+        Actor.UpdateDrawPriority(_context.Player.Position);
         LinkPathEntry current = new(
             _context.Player.FacingVector,
             OracleObjectMath.ToPixelPosition(linkPosition));
@@ -1337,8 +1356,7 @@ internal sealed class ImpaIntroEvent :
         LinkPathEntry old = _linkPath[_linkPathIndex];
         _linkPath[_linkPathIndex] = current;
         Actor!.Position = old.Position;
-        Actor.SetFacingDirection(old.Direction);
-        Actor.UpdateDrawPriority(_context.Player.Position);
+        _followerDirection = old.Direction;
     }
 
     private void EnsureImpaMusicOverride()

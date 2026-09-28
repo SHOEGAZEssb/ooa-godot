@@ -297,6 +297,13 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGraveyardGhostKidsCutscene);
         RunIsolatedValidation(ValidateBipinBlossomNaming);
         RunIsolatedValidation(ValidateImpaIntroEncounter);
+        RunIsolatedValidation(ValidateInitialNayruBearReplay);
+        RunIsolatedValidation(ValidateInitialNayruObjectArithmetic);
+        RunIsolatedValidation(ValidateInitialNayruLinkedGift);
+        RunIsolatedValidation(ValidateInitialNayruStoneChild);
+        RunIsolatedValidation(ValidateInitialNayruSingingBoundary);
+        RunIsolatedValidation(ValidateInitialNayruRecovery);
+        RunIsolatedValidation(ValidateInitialNayruPossessionCounters);
         RunIsolatedValidation(ValidateMakuTreeDisappearanceCutscene);
         RunIsolatedValidation(ValidateMakuSproutRescueCutscene);
         RunIsolatedValidation(ValidateRoom05bCompanionTutorial);

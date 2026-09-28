@@ -21,6 +21,8 @@ public sealed class NayruIntroEventDatabase
     public NayruIntroEventRecord Event { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
     internal IReadOnlyList<CutsceneCommand> GhostCommands { get; }
+    internal IReadOnlyList<CutsceneCommand> VignetteBoyCommands { get; }
+    internal IReadOnlyList<CutsceneCommand> VignetteLadyCommands { get; }
     public IReadOnlyList<SingingOamRecord> SingingOam { get; }
     public Color[,] SingingBackgroundPalettes { get; }
     public Color[,] SingingSpritePalettes { get; }
@@ -81,6 +83,10 @@ public sealed class NayruIntroEventDatabase
             "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
         GhostCommands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_ghost_commands.tsv");
+        VignetteBoyCommands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/nayru_vignetteboy_commands.tsv");
+        VignetteLadyCommands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/nayru_vignettelady_commands.tsv");
         if (Commands[^1] is not CutsceneEndCommand || GhostCommands[^1] is not CutsceneEndCommand)
         {
             throw new InvalidOperationException(
@@ -211,9 +217,9 @@ public sealed class NayruIntroEventDatabase
                 row.Decimal(1),
                 row.Base64Utf8(2)));
         }
-        if (_texts.Count != 30)
+        if (_texts.Count != 33)
             throw new InvalidOperationException(
-                $"Expected 30 initial Nayru cutscene texts, got {_texts.Count}.");
+                $"Expected 33 initial Nayru cutscene texts, got {_texts.Count}.");
 
         var oam = new List<SingingOamRecord>();
         GeneratedTable oamTable = GeneratedTable.Load(

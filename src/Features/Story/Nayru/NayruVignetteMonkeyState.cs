@@ -17,5 +17,6 @@ internal sealed class NayruVignetteMonkeyState(NpcCharacter actor, VignetteMonke
     public int HopCount { get; set; }
     public int Direction { get; set; } = 1;
     public int Animation { get; set; } = record.Animation;
+    public int HeightBand { get; set; }
     public bool Stone { get; set; }
 }

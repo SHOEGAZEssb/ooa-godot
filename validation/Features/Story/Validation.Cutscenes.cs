@@ -1365,13 +1365,16 @@ public sealed partial class ValidationRoot
         _player.WarpTo(followStart + Vector2.Right * 17);
         StepRoomEventFrames(1);
         FailIf(
-            impa.Position != followStart + Vector2.Right || impa.FacingVector != Vector2I.Right,
-            "checkUpdateFollowingLinkObject did not replay Link's first delayed position/direction.");
+            impa.Position != followStart + Vector2.Right || impa.FacingVector != Vector2I.Up,
+            "The post-interaction follower pass did not move Impa while retaining " +
+            "the animation selected by the preceding interaction update.");
 
         for (int update = 18; update <= 82; update++)
         {
             _player.WarpTo(followStart + Vector2.Right * update);
             StepRoomEventFrames(1);
+            FailIf(impa.FacingVector != Vector2I.Right,
+                "Impa's next interaction update did not select the delayed right-facing animation.");
         }
         FailIf(
             _player.Position.X != 0x9a ||
@@ -1423,8 +1426,11 @@ public sealed partial class ValidationRoot
         }
         FailIf(
             incomingImpa.Position != _player.Position + Vector2.Right * 16 ||
-            incomingImpa.FacingVector != Vector2I.Left,
-            "Impa's path was not primed at the left screen edge before scrolling.");
+            incomingImpa.FacingVector != Vector2I.Right,
+            "Impa's post-interaction path did not reach the left edge before its animation changes.");
+        StepRoomEventFrames(1);
+        FailIf(incomingImpa.FacingVector != Vector2I.Left,
+            "Impa did not turn left on the next interaction pass.");
 
         _transitions.BeginScroll(_player, Vector2I.Left, 0x6a);
         List<NpcCharacter> returningImpas = _npcNodes.Where(npc =>
@@ -1652,6 +1658,25 @@ public sealed partial class ValidationRoot
             "INTERAC_TRIFORCE_STONE $34:$00 with its non-inverted 24x16 sprite, PALH_98, " +
             "and fixed priority 3 below follower Impa's relative priority 1/2.");
         FinishActiveScrollingTransitionForValidation();
+
+        // Both triforceStone.s @setSolidTile and partCode5a only write WRAM.
+        // All background subtiles/attributes across $22-$24 must survive the
+        // push and either persistent placement, even where layout becomes $00.
+        byte[] StoneBackground() => Enumerable.Range(0, 12).SelectMany(index =>
+        {
+            int x = 4 + index % 6;
+            int y = 4 + index / 6;
+            return new[]
+            {
+                _currentRoom.GetBackgroundSubtileForValidation(x, y),
+                _currentRoom.GetBackgroundAttributeForValidation(x, y)
+            };
+        }).ToArray();
+        byte[] originalStoneBackground = StoneBackground();
+        void CheckStoneBackground(string phase) => FailIf(
+            !StoneBackground().SequenceEqual(originalStoneBackground),
+            $"Room 0:59 Triforce stone redrew background $22-$24 {phase}; " +
+            "the original only writes layout $00 and collision $0f.");
 
         int approachX = stone.ApproachX - 8;
         _player.WarpTo(
@@ -1938,6 +1963,7 @@ public sealed partial class ValidationRoot
         for (int update = 1; update < timing.StoneMoveFrames; update++)
         {
             StepRoomEventFrames(1);
+            CheckStoneBackground($"during push update {update}");
             FailIf(
                 Mathf.Abs(stoneActor.Position.X - _player.Position.X) <
                     stone.CollisionRadiusX + NpcCharacter.LinkCollisionRadius &&
@@ -1951,6 +1977,7 @@ public sealed partial class ValidationRoot
             impaEvent.StoneMoveCounter != 1,
             "The stone set room flag $80 before counter1 reached zero.");
         StepRoomEventFrames(1);
+        CheckStoneBackground("on push completion");
         FailIf(
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag40) ||
             !_saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80) ||
@@ -1958,7 +1985,7 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(0x37, stone.InitialY) ||
             _collision.Collides(_player.Position) ||
             _currentRoom.GetMetatile(new Vector2(stone.RightX, stone.MovedY)) !=
-                stone.FinalLayoutTile ||
+                0x00 ||
             !_currentRoom.IsSolid(new Vector2(stone.RightX, stone.MovedY)),
             "The right-pushed stone did not snap to X=$48, leave Link outside at X=$37, " +
             $"set room flag $80, and install collision $0f (flags=" +
@@ -2115,6 +2142,7 @@ public sealed partial class ValidationRoot
             "or complete the reunion path.");
 
         LoadValidationRoom(group, room);
+        CheckStoneBackground("on right-side re-entry");
         NpcCharacter? movedStone = impaEvent.StoneActor;
         FailIf(
             movedStone is null || movedStone.Position != new Vector2(stone.RightX, stone.MovedY) ||
@@ -2125,6 +2153,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag80, value: false);
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlag40);
         LoadValidationRoom(group, room);
+        CheckStoneBackground("on left-side re-entry");
         movedStone = impaEvent.StoneActor;
         FailIf(
             movedStone is null || movedStone.Position != new Vector2(stone.LeftX, stone.MovedY) ||
@@ -4020,7 +4049,8 @@ public sealed partial class ValidationRoot
         }
         CutsceneCommandTraceEntry[] nayruStarts = nayruTrace.Entries
             .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started &&
-                entry.Source.Label != "ghostVeranSubid1Script_part2")
+                entry.Source.Script is not ("ghostVeranSubid1Script_part2" or
+                    "boySubid01Script" or "oldLadySubid1Script"))
             .ToArray();
         int importedTranslateCount = nayruDatabase.Commands
             .Count(command => command is CutsceneTranslateCommand or
@@ -4032,24 +4062,22 @@ public sealed partial class ValidationRoot
         int ghostTrackingPhases = nayruTrace.OrValues("GhostTrackingPhase");
         sawVeranReactionMovement =
             nayruTrace.SawPosition(
-                "ActorPosition", "Player", new Vector2(0x57, 0x30)) &&
+                "ActorPosition", "Player", new Vector2(0x58, 0x30)) &&
             nayruTrace.SawPosition(
-                "ActorPosition", "Ralph", new Vector2(0x88, 0x51));
+                "ActorPosition", "Ralph", new Vector2(0x88, 79.5f));
         bool movementFacingShown =
             startedTranslateCount == importedTranslateCount &&
             nayruTrace.Saw("VignetteMovement", "VignetteGirl", 0) &&
-            nayruTrace.Saw("VignetteMovement", "VignetteBoy", 1) &&
-            nayruTrace.Saw("VignetteMovement", "VignetteBoy", 3) &&
-            nayruTrace.Saw("VignetteMovement", "VignetteLady", 2) &&
-            nayruTrace.Saw("VignetteMovement", "VignetteLady", 3);
+            nayruTrace.Entries.Count(entry => entry.Phase == CutsceneCommandTracePhase.Started &&
+                entry.Source.Script == "boySubid01Script" && entry.Source.Opcode == "move") == 3 &&
+            nayruTrace.Entries.Count(entry => entry.Phase == CutsceneCommandTracePhase.Started &&
+                entry.Source.Script == "oldLadySubid1Script" && entry.Source.Opcode == "move") == 2;
         bool vignetteDetailShown =
             nayruTrace.Saw("VignetteGirlJump") &&
             nayruTrace.Saw("VignetteMonkeyHop") &&
             nayruTrace.Saw("VignetteMonkeyPacing") &&
             nayruTrace.Saw("VignetteMonkeyStone") &&
             nayruTrace.Saw("VignetteMonkeyFlicker") &&
-            nayruTrace.Saw("VignetteBoyPalette") &&
-            nayruTrace.Saw("VignetteLadyCadence") &&
             nayruTrace.Count("VignetteExclamation") == 3;
         bool completeCommandTrace = nayruStarts.Length == nayruDatabase.Commands.Count &&
             nayruStarts.Select(entry => entry.Source.CommandIndex)
@@ -4082,7 +4110,7 @@ public sealed partial class ValidationRoot
             observedVignettes != 0x07 || nayruTrace.Count("LightningSpawn") != 6 ||
             !sawVisibleLightning || !nayruTrace.Saw("CollapsedImpaRendered") ||
             !nayruTrace.SawPosition(
-                "ActorPosition", "Nayru", new Vector2(0x78, 0x20)) ||
+                "ActorPosition", "Nayru", new Vector2(0x78, 0x1fc0 / 256.0f)) ||
             !nayruTrace.Saw("SwordGift") || !sawVisibleSwordGift ||
             !sawSwordPickupPose || _player.IsHoldingItemOneHand ||
             !sawHudDuringVignetteSequence || hudHiddenDuringVignetteSequence ||
