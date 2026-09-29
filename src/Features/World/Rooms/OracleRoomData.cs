@@ -370,10 +370,13 @@ public sealed class OracleRoomData
     public bool IsSolid(Vector2 localPoint) =>
         IsSolid(localPoint, SpecialCollisionMasks);
 
-    // link.s calculateAdjacentWallsBitset selects a table differing only at
-    // collision $1e when wLinkRaisedFloorOffset is nonzero.
+    // link.s @checkTileCollisionAt_allowRaisedFl clears collision $1e.
+    // Its rst_addAToHl also replaces A with the table address's low byte
+    // ($1e + index in clean US), so the subsequent cp $08 always selects Y.
+    // Preserve this native quirk even for normally vertical $11-$17 strips.
     internal bool IsSolidForRaisedFloorLink(Vector2 localPoint) =>
-        GetTerrainInfo(localPoint).Collision != 0x1e && IsSolid(localPoint);
+        GetTerrainInfo(localPoint).Collision != 0x1e &&
+        IsSolid(localPoint, SpecialCollisionMasks, horizontalSpecialStrips: true);
 
     /// <summary>
     /// Applies checkTileCollisionAt_disallowHoles when holesAreWalls is true.
@@ -388,7 +391,7 @@ public sealed class OracleRoomData
                 ? EnemySpecialCollisionMasks
                 : SpecialCollisionMasks);
 
-    private bool IsSolid(Vector2 localPoint, byte[] specialCollisionMasks)
+    private bool IsSolid(Vector2 localPoint, byte[] specialCollisionMasks, bool horizontalSpecialStrips = false)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
@@ -410,7 +413,7 @@ public sealed class OracleRoomData
             // describe eight two-pixel vertical strips; $18-$1f describe
             // horizontal strips. In particular, stairs ($18) are fully open.
             byte mask = specialCollisionMasks[collision - 0x10];
-            int axisPosition = collision < 0x18 ? inTileX : inTileY;
+            int axisPosition = !horizontalSpecialStrips && collision < 0x18 ? inTileX : inTileY;
             int strip = axisPosition >> 1;
             return (mask & (1 << strip)) != 0;
         }

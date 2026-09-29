@@ -56,6 +56,13 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_player.TopDownAirborne || Offset() != 0,
                 "Landing on lowered floor must clear the shared offset.");
+            // Clean-US $05:$5ef2 uses rst_addAToHl, then compares its
+            // clobbered A ($1e+index) with $08. Raised Link therefore checks
+            // Y strips even for $11, whose ordinary collision checks X.
+            _currentRoom.SetPositionTileAndCollision(new(40, 40), 0x28, 0x11, 0);
+            FailIf(_currentRoom.IsSolid(new(36, 32)) || !_currentRoom.IsSolidForRaisedFloorLink(new(36, 32)) ||
+                !_currentRoom.IsSolid(new(32, 36)) || _currentRoom.IsSolidForRaisedFloorLink(new(32, 36)),
+                "Raised-floor Link lost the native $11 strip-axis quirk.");
         }
         LoadValidationRoom(0, 0x60);
     }
