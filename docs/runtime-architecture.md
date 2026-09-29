@@ -80,7 +80,7 @@ or Godot bindings.
 
 | Owner | Responsibility |
 | --- | --- |
-| `GameRoot` | Composition, application-owned 60 Hz schedule, input snapshot, shell/gameplay handoff |
+| `GameRoot` | Composition, original-update scheduling, input snapshot, shell/gameplay handoff |
 | `RoomSession` | Active room identity, room data, layout state, dungeon neighbors |
 | `OracleWorldData` | Cached imported world assets and live gameplay palettes |
 | `RoomTransitionController` | Scrolls, warps, destination placement, fades, camera, time portals |
@@ -90,7 +90,7 @@ or Godot bindings.
 | World mechanic controllers | Collision, terrain, blocks, combat, and other shared mechanics |
 | `OracleSaveData` / `InventoryState` | WRAM-style state and typed treasure/item transactions |
 | Menu lifecycle controllers | Exclusive modal ownership, fades, and input suspension |
-| `OracleSoundEngine` | Persistent 60-update music and SFX sequencing |
+| `OracleSoundEngine` | Persistent music/SFX queue, original sound driver and APU |
 
 The owner performs a transition; callers request it through a narrow operation.
 Do not keep parallel copies of save flags, inventory bytes, room identity, RNG,
@@ -98,9 +98,14 @@ transition, or modal state in feature controllers.
 
 ## Fixed-update order
 
-`GameRoot._Process` gives elapsed host time and one buffered input sample to
-`ApplicationFixedUpdateScheduler`. Each original update completes in this
-observable order before the next begins:
+Cold-start sessions use `OracleApplicationTiming` to convert host time into
+original CPU work, LCD waits and sound timer interrupts. The frontend's blocking
+initializers consume imported work before another input poll can occur.
+`ApplicationFixedUpdateScheduler` retains the 60-update interface for direct
+gameplay launches and isolated component callers. Gameplay counter deltas remain
+`1/60`; elapsed loading time never becomes a larger gameplay delta.
+
+Each foreground update completes in this observable order before the next begins:
 
 1. Title/file selection or new-game presentation, when active.
 2. Active modal menus and their fades.
@@ -111,7 +116,9 @@ observable order before the next begins:
 6. Combat/terrain effects, room events, and ordinary interactions.
 7. Inactive edge-transition checks and the final camera sample.
 8. HUD counters, room animation, development displays, and dialogue.
-9. One persistent audio-sequencer tick.
+9. Finish pending source work and the LCD boundary. In clocked sessions, sound
+   sequencing follows the independent hardware timer throughout this work.
+   Direct fixed-update callers advance one sequencer tick per update.
 
 Changing this order is a gameplay change. Validate it explicitly. A long host
 frame may run several original updates, but update N must complete before update
@@ -121,7 +128,18 @@ N+1 starts.
 consumes it. Every reader in that update sees the same immutable held/pressed
 snapshot. Catch-up updates retain held state but do not receive the consumed
 edge. Timing and opening-frame suppression use original-update serials, not
-rendered-frame counters.
+rendered-frame counters. Clocked sessions derive pressed edges from consecutive
+original input polls. A press released entirely during a blocking load is not
+retained for the next menu update.
+
+Loading work is imported from the clean-US initializer instructions, graphics
+decoders and canonical file-verification paths. The runtime supplies the loaded
+slot images and retains the timer's divider/correction phase across sound
+restarts. LCD-off presentation lasts until the modeled LCD enable operation.
+Coverage currently includes cold startup, title initialization, entry to file
+select, and new-file options initialization. Other foreground loaders still
+need their source work represented; the clock is not an instruction-by-instruction
+foreground CPU emulator.
 
 ## Coordinates and presentation
 

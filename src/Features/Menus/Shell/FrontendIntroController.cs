@@ -54,6 +54,9 @@ internal sealed class FrontendIntroController
     internal byte FrameCounter { get; private set; }
     internal bool InputsEnabled { get; private set; }
     internal bool IsActive { get; private set; } = true;
+    // The palette thread runs before runIntro. Its last dirty palette update
+    // precedes the frame on which runIntro observes the completed fade.
+    internal bool PaletteWorkPending => _fadeDuration != 0 && _fadeUpdate < _fadeDuration - 1;
     internal int HorseScrollY { get; private set; }
     internal int HorseGroundScrollX { get; private set; }
     internal int HorseCloudScrollX { get; private set; }

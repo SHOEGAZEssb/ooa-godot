@@ -18,6 +18,8 @@ public sealed class MainMenuController
     private readonly Action<int> _erase;
     private readonly Action<int, OracleSaveData> _startGame;
     private readonly Action<int>? _playSound;
+    private readonly Action<FileMenuInitialization>? _initialize;
+    private FileMenuInitialization? _pendingInitialization;
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[OracleSaveStore.SlotCount];
     private int _sourceSlot = -1;
     private double _titleTicks;
@@ -35,9 +37,18 @@ public sealed class MainMenuController
         ["attack", "item", "map", "inventory", "move_right", "move_left", "move_up", "move_down"];
 
     public bool IsActive { get; private set; } = true;
-    internal Page CurrentPage => _screen.CurrentPage;
+    internal Page CurrentPage => _pendingInitialization switch
+    {
+        FileMenuInitialization.NewFileOptions => Page.NewFileOptions,
+        FileMenuInitialization.NameEntry => Page.NameEntry,
+        FileMenuInitialization.FileSelect => Page.FileSelect,
+        _ => _screen.CurrentPage
+    };
     internal int Cursor => _screen.Cursor;
     internal string? LastSaveError { get; private set; }
+    internal OracleSaveData? LoadedSlot(int slot) => _slots[slot];
+    internal string RawEnteredName => _screen.RawEnteredName;
+    internal bool PaletteWorkPending { get; private set; }
 
     public MainMenuController(
         MainMenuScreen screen,
@@ -46,7 +57,8 @@ public sealed class MainMenuController
         Func<int, OracleSaveData, SaveResult>? save = null,
         Action<int>? erase = null,
         Action<int>? playSound = null,
-        bool startAtFileSelect = false)
+        bool startAtFileSelect = false,
+        Action<FileMenuInitialization>? initialize = null)
     {
         _screen = screen;
         _startGame = startGame;
@@ -54,6 +66,7 @@ public sealed class MainMenuController
         _save = save ?? OracleSaveStore.SaveSlot;
         _erase = erase ?? OracleSaveStore.EraseSlot;
         _playSound = playSound;
+        _initialize = initialize;
         ReloadSlots();
         // FrontendIntroController transfers this shared screen at the end of
         // the title's 32-update fade, when its palette offset is fully white.
@@ -74,6 +87,7 @@ public sealed class MainMenuController
 
     public void Update(double delta)
     {
+        PaletteWorkPending = false;
         if (!IsActive)
             return;
 
@@ -94,6 +108,42 @@ public sealed class MainMenuController
             return;
         }
 
+        if (_screen.CurrentPage != Page.Title || _pendingInitialization is not null)
+        {
+            // b2_fileSelectScreen increments wTmpcbb6 before mode dispatch,
+            // including the modes' initialization updates.
+            _menuTicks += delta * 60.0;
+            _screen.SetActorFrame((((int)_menuTicks >> 4) & 1) != 0);
+        }
+
+        if (_pendingInitialization is { } initialization)
+        {
+            _pendingInitialization = null;
+            // bank2.s:fileSelectMode5 state 0 performs the complete screen
+            // load and then increments mode2. It never dispatches this poll's
+            // keys to state 1, even if A/Start was released and pressed again.
+            switch (initialization)
+            {
+                case FileMenuInitialization.NewFileOptions:
+                    _screen.ShowNewFileOptions(_screen.SelectedSlot);
+                    break;
+                case FileMenuInitialization.NameEntry:
+                    _repeatKeys = _repeatCounter = 0;
+                    _screen.ShowNameEntry(_screen.SelectedSlot);
+                    break;
+                case FileMenuInitialization.NameCommit:
+                    SaveEnteredName();
+                    break;
+                case FileMenuInitialization.FileSelect:
+                    ReloadSlots();
+                    _screen.ShowFileSelect();
+                    break;
+                default: throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.");
+            }
+            _initialize?.Invoke(initialization);
+            return;
+        }
+
         if (_screen.CurrentPage == Page.Title)
         {
             _titleTicks += delta * 60.0;
@@ -102,9 +152,6 @@ public sealed class MainMenuController
                 BeginTitleStart();
             return;
         }
-
-        _menuTicks += delta * 60.0;
-        _screen.SetActorFrame((((int)_menuTicks >> 4) & 1) != 0);
 
         if (_erasing)
         {
@@ -219,8 +266,7 @@ public sealed class MainMenuController
 
     internal void OpenFileSelect()
     {
-        ReloadSlots();
-        _screen.ShowFileSelect();
+        _pendingInitialization = FileMenuInitialization.FileSelect;
     }
 
     internal void BeginTitleStart()
@@ -232,6 +278,7 @@ public sealed class MainMenuController
 
     internal void Move(Vector2I direction)
     {
+        if (_pendingInitialization is not null) return;
         int cursor = _screen.Cursor;
         int choice = _screen.Choice;
         int nameCursor = _screen.NameCursor;
@@ -279,7 +326,7 @@ public sealed class MainMenuController
 
     internal void Accept()
     {
-        if (_erasing) return;
+        if (_erasing || _pendingInitialization is not null) return;
         if (_screen.SaveErrorVisible)
         {
             _screen.ClearSaveError();
@@ -295,8 +342,7 @@ public sealed class MainMenuController
             case Page.NewFileOptions:
                 if (_screen.Cursor == 0)
                 {
-                    _repeatKeys = _repeatCounter = 0;
-                    _screen.ShowNameEntry(_screen.SelectedSlot);
+                    _pendingInitialization = FileMenuInitialization.NameEntry;
                 }
                 else
                     _screen.ShowNotice(_screen.Cursor == 1
@@ -348,7 +394,7 @@ public sealed class MainMenuController
 
     internal void Back()
     {
-        if (_erasing) return;
+        if (_erasing || _pendingInitialization is not null) return;
         if (_screen.SaveErrorVisible)
         {
             _screen.ClearSaveError();
@@ -405,9 +451,12 @@ public sealed class MainMenuController
         _screen.SetSelectedSlot(slot);
         OracleSaveData? save = _slots[slot];
         if (save is null)
-            _screen.ShowNewFileOptions(slot);
+            _pendingInitialization = FileMenuInitialization.NewFileOptions;
         else
+        {
             _screen.ShowTextSpeed(slot, save.TextSpeed);
+            _initialize?.Invoke(FileMenuInitialization.SelectFile);
+        }
     }
 
     private void AcceptNameEntry()
@@ -427,6 +476,11 @@ public sealed class MainMenuController
     }
 
     private void CommitNameEntry()
+    {
+        _pendingInitialization = FileMenuInitialization.NameCommit;
+    }
+
+    private void SaveEnteredName()
     {
         if (_screen.EnteredName.Length == 0)
         {
@@ -451,6 +505,7 @@ public sealed class MainMenuController
         _pendingSlot = slot;
         _pendingSave = save;
         BeginFade(FadeDestination.Gameplay);
+        _initialize?.Invoke(FileMenuInitialization.StartFile);
     }
 
     private void AcceptCopySource()
@@ -505,15 +560,21 @@ public sealed class MainMenuController
     {
         _fadeDestination = destination;
         _fadeTicks = 0.0;
+        PaletteWorkPending = true;
         _screen.SetWhiteFade(0.0f);
     }
 
     private void UpdateFade(double delta)
     {
-        _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
-        _screen.SetWhiteFade((float)(_fadeTicks / WhiteFadeFrames));
         if (_fadeTicks < WhiteFadeFrames)
+        {
+            _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
+            PaletteWorkPending = _fadeTicks < WhiteFadeFrames;
+            _screen.SetWhiteFade((float)(_fadeTicks / WhiteFadeFrames));
+            // paletteFadeHandler01 stops on the $20 boundary without a
+            // palette write. The earlier file thread sees completion next update.
             return;
+        }
 
         FadeDestination destination = _fadeDestination;
         _fadeDestination = FadeDestination.None;
@@ -528,6 +589,16 @@ public sealed class MainMenuController
         IsActive = false;
         _startGame(_pendingSlot, _pendingSave!);
     }
+}
+
+public enum FileMenuInitialization
+{
+    NewFileOptions,
+    NameEntry,
+    NameCommit,
+    FileSelect,
+    SelectFile,
+    StartFile
 }
 
 internal enum FadeDestination

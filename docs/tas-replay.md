@@ -72,7 +72,8 @@ sampled. Both signatures are verified against the pinned clean ROM.
 Godot starts its ordinary frontend before its first application update; asset
 preparation consumes no simulated updates. Each reference input sample passes
 through `ApplicationInputBuffer` and `ApplicationFixedUpdateScheduler`. Capture
-occurs after `GameRoot.AdvanceApplicationUpdate`, including its audio tick.
+occurs after `GameRoot.AdvanceApplicationUpdate`, including completion of its
+pending loading work and all intervening sound timer interrupts.
 The reference waits for comparison before executing another update. Thus the
 first disagreement stops both streams without accumulating later noise.
 
@@ -83,9 +84,14 @@ ordinary live mutations do not commit. Player save files are never opened or
 overwritten. The reference uses its native cold-boot SRAM and never writes a
 battery-save file to disk.
 
-Original audio timer work can continue during operations that stall the main
-loop. The adapter does not advance Godot audio extra times to force agreement;
-that difference remains visible to the comparison.
+The production application clock advances audio during imported blocking loads.
+The adapter supplies no reference elapsed time or audio tick counts to that
+clock. CPU clocks and timer counts are diagnostic fields; shared-state values
+still compare exactly. Loading coverage currently includes cold startup, title
+initialization, file select, new-file options, name entry and commit, and the
+message-speed confirmation before starting a file. Game initialization and
+other menu/gameplay loaders can still expose missing foreground work in the
+comparison.
 
 ## Trace contract and coverage
 

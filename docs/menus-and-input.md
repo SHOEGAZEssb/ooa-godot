@@ -102,6 +102,14 @@ text on that update; they resume on the next. Explicit cancellation through
 
 ## Frontend ownership
 
+File-menu mode changes defer screen initialization to the next original update.
+Initialization replaces graphics and resets the cursor without accepting input.
+Name confirmation similarly commits the file on its next dispatch, then reloads
+file select on the following update. The application clock advances audio through
+the imported loading and save work while further input polling waits. File launch
+waits until the update after the 32-step palette fade finishes and resets the
+whole sound driver before starting the game's initial cue.
+
 Before the original logos, a port-only loading screen presents
 a black backdrop, Nayru's imported singing animation and alternating floating
 music notes, with only a small progress bar. These presentation actors are

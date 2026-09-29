@@ -217,9 +217,13 @@ public sealed partial class ValidationRoot
             menu.Update(1.0 / 60.0);
         FailIf(menu.CurrentPage != Page.Title, "The title white fade ended before its original 32 updates.");
         menu.Update(1.0 / 60.0);
+        FailIf(menu.CurrentPage != Page.Title || menu.PaletteWorkPending,
+            "Fade completion must stop palette writes before the file thread observes it.");
+        menu.Update(1.0 / 60.0);
         FailIf(
             menu.CurrentPage != Page.FileSelect,
-            "The title did not enter file select after its 32-update white fade.");
+            "The title did not enter file select on the update after its white fade.");
+        menu.Update(1.0 / 60.0);
         menu.Move(Vector2I.Up);
         FailIf(menu.Cursor != 3, "File-select Up did not wrap from file 1 to the bottom row.");
         menu.Move(Vector2I.Right);
@@ -234,6 +238,7 @@ public sealed partial class ValidationRoot
         menu.Back();
         FailIf(menu.CurrentPage != Page.EraseSelect, "Erase file selection incorrectly handled B.");
         menu.Accept();
+        menu.Update(1.0 / 60.0);
         FailIf(
             menu.CurrentPage != Page.FileSelect ||
             !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
@@ -245,8 +250,12 @@ public sealed partial class ValidationRoot
         FailIf(
             menu.CurrentPage != Page.NewFileOptions,
             "A blank slot did not open New Game/Secret/Game Link.");
+        FailIf(screen.CurrentPage != Page.FileSelect,
+            "setFileSelectMode($05) changed the displayed screen before state-0 initialization.");
+        menu.Update(1.0 / 60.0);
         menu.Accept();
         FailIf(menu.CurrentPage != Page.NameEntry, "New Game did not open file name entry.");
+        menu.Update(1.0 / 60.0);
         FailIf(
             !screen.TryGetSelectedNameCharacter(out char initialCharacter) ||
             initialCharacter != 'A',
@@ -269,14 +278,17 @@ public sealed partial class ValidationRoot
             screen.NameCursor != 0x56 || screen.NameLowerChoice != 2,
             "Name entry did not map the five character rows onto its original OK option.");
         menu.Accept();
+        FailIf(stored[0] is not null, "Name confirmation saved before fileSelectMode2 substate 2 ran.");
+        menu.Update(1.0 / 60.0);
         FailIf(
             stored[0]?.LinkName != "LINK" || menu.CurrentPage != Page.FileSelect,
             "Name entry did not initialize and save the selected standard file.");
+        menu.Update(1.0 / 60.0);
 
         screen.SetCursor(0);
         menu.Accept();
         FailIf(
-            menu.CurrentPage != Page.TextSpeed || screen.TextSpeed != 4 ||
+            menu.CurrentPage != Page.TextSpeed || screen.TextSpeed != 2 ||
             screen.Cursor != 0 || screen.SelectedSlot != 0,
             "An existing file did not open its message-speed confirmation.");
         menu.Move(Vector2I.Left);
@@ -285,8 +297,11 @@ public sealed partial class ValidationRoot
             menu.Update(1.0 / 60.0);
         FailIf(startedSave is not null, "File select started gameplay before its 32-update white fade.");
         menu.Update(1.0 / 60.0);
+        FailIf(startedSave is not null || menu.PaletteWorkPending,
+            "The file thread observed fade completion before the palette thread's stop update.");
+        menu.Update(1.0 / 60.0);
         FailIf(
-            startedSlot != 0 || startedSave != stored[0] || stored[0]!.TextSpeed != 3,
+            startedSlot != 0 || startedSave != stored[0] || stored[0]!.TextSpeed != 1,
             "Message-speed confirmation did not save and start the chosen file.");
 
         var copyScreen = new MainMenuScreen { Name = "MainMenuCopyValidation" };
@@ -300,6 +315,7 @@ public sealed partial class ValidationRoot
             },
             slot => stored[slot] = null);
         copyMenu.OpenFileSelect();
+        copyMenu.Update(1.0 / 60.0);
         copyScreen.SetCursor(3);
         copyMenu.Accept();
         copyScreen.SetCursor(0);
@@ -310,6 +326,7 @@ public sealed partial class ValidationRoot
         FailIf(
             stored[1]?.LinkName != "LINK" || ReferenceEquals(stored[0], stored[1]),
             "Copy did not clone the original $550-byte file into its destination.");
+        copyMenu.Update(1.0 / 60.0);
 
         copyScreen.SetCursor(3);
         copyScreen.SetChoice(1);
@@ -336,6 +353,7 @@ public sealed partial class ValidationRoot
             slot => stored[slot],
             (_, _) => SaveResult.Failed("validation failure"));
         failureMenu.OpenFileSelect();
+        failureMenu.Update(1.0 / 60.0);
         failureScreen.SetCursor(0);
         failureMenu.Accept();
         failureMenu.Accept();
@@ -363,24 +381,32 @@ public sealed partial class ValidationRoot
         FailIf(inputMenu.CurrentPage != Page.FileSelect || inputMenu.Cursor != 1,
             "fileSelectUpdateInput did not consume Down before A on a file row.");
         Tick(["attack"]);
+        Tick([]); // fileSelectMode5 state 0 consumes its own initialization update.
         Tick(["move_down", "move_up", "attack"]);
         FailIf(inputMenu.CurrentPage != Page.NewFileOptions || inputMenu.Cursor != 1,
             "fileSelectMode5 did not prioritize Down over Up and A.");
         Tick(["map"]);
         FailIf(inputMenu.CurrentPage != Page.FileSelect,
             "New-file options did not accept Select as Back.");
+        Tick([]);
         copyScreen.SetCursor(1);
         Tick(["attack"]);
+        Tick([]);
         Tick(["attack"]);
+        Tick([]); // fileSelectMode2 state 0 initializes without handling input.
         Tick(["inventory"]);
         FailIf(inputMenu.CurrentPage != Page.NameEntry || copyScreen.NameCursor != 0x5a,
             "Name Start did not select OK at $5a without submitting.");
         Tick(["inventory"]);
+        Tick([]);
         FailIf(inputMenu.CurrentPage != Page.FileSelect || stored[1] is not null,
             "A second Start on a blank name did not return without creating a file.");
+        Tick([]);
         copyScreen.SetCursor(1);
         Tick(["attack"]);
+        Tick([]);
         Tick(["attack"]);
+        Tick([]);
         Tick(["move_right", "attack"]);
         FailIf(copyScreen.NameCursor != 1 || copyScreen.EnteredName.Length != 0,
             "runTextInput did not prioritize Right over A.");
@@ -394,11 +420,13 @@ public sealed partial class ValidationRoot
         Tick(["attack"]);
         Tick(["inventory"]);
         Tick(["inventory"]);
+        Tick([]);
+        Tick([]);
         FailIf(stored[1]?.LinkName != "C" || inputMenu.Cursor != 0,
             "Name creation did not retain the selected glyph or reset file selection to $00.");
         Tick(["attack"]);
         Tick(["move_right", "move_left", "attack"]);
-        FailIf(inputMenu.CurrentPage != Page.TextSpeed || copyScreen.TextSpeed != 4,
+        FailIf(inputMenu.CurrentPage != Page.TextSpeed || copyScreen.TextSpeed != 2,
             "Text speed did not prioritize Right over Left and A.");
         Tick(["map", "move_right", "attack"]);
         FailIf(inputMenu.CurrentPage != Page.FileSelect, "Text speed did not prioritize Select as Back.");

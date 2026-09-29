@@ -11,6 +11,11 @@ public partial class GameRoot : Node2D
 {
     private readonly ApplicationFixedUpdateScheduler _applicationUpdates = new();
     private readonly ApplicationInputBuffer _applicationInput = new();
+    internal OracleApplicationTiming? _originalTiming;
+    private readonly List<Action> _timedSoundRequests = [];
+    private bool _collectTimedSound, _timedSoundRestart;
+    private string? _timedFrontendLoading;
+    private double _hostCpuBudget;
     private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
     private IEnumerator<bool>? _gameplayPreparation;
@@ -247,11 +252,9 @@ public partial class GameRoot : Node2D
         _mainMenuScreen = null;
         _mainMenu = null;
 
-        // The playable intro begins with no active room music. This also
-        // prevents MUS_FILE_SELECT from leaking into an interrupted pre-intro
-        // file, even though the original does not expose saving in this span.
-        if (!save.HasGlobalFlag(GlobalFlag.IntroDone))
-            _sound.PlaySound(SoundId.SndCtrlStopMusic);
+        // bank0.s:mainThreadStart restarts the whole driver, including SFX
+        // and queued requests, before the loaded game's initial music cue.
+        _sound.RestartSound();
 
         if (!save.HasGlobalFlag(GlobalFlag.PregameIntroDone))
         {
@@ -307,14 +310,39 @@ public partial class GameRoot : Node2D
 
     private void StartFrontendController(bool startAtTitle)
     {
+        if (_originalTiming is null)
+        {
+            _originalTiming = new OracleApplicationTiming(_sound, enabled =>
+            {
+                _frontendIntroScreen?.SetOriginalLcdEnabled(enabled);
+                _mainMenuScreen?.SetOriginalLcdEnabled(enabled);
+            });
+            _hostCpuBudget = _originalTiming.Clocks;
+        }
         _frontendIntro = new FrontendIntroController(
             _frontendIntroScreen!,
             _mainMenuScreen!,
             _random,
-            _sound.RestartSound,
-            _sound.PlaySound,
+            RestartFrontendSound,
+            PlayFrontendSound,
             OpenFileSelectFromFrontend,
             startAtTitle);
+    }
+
+    private void RestartFrontendSound()
+    {
+        if (_collectTimedSound)
+        {
+            _timedSoundRestart = true;
+            _timedSoundRequests.Add(_sound.RestartSound);
+        }
+        else _sound.RestartSound();
+    }
+
+    private void PlayFrontendSound(int sound)
+    {
+        if (_collectTimedSound) _timedSoundRequests.Add(() => _sound.PlaySound(sound));
+        else _sound.PlaySound(sound);
     }
 
     internal void BeginBootLoading(BootLoadingScreen screen)
@@ -456,8 +484,18 @@ public partial class GameRoot : Node2D
             load: LoadFileSlot,
             save: StoreFileSlot,
             erase: EraseFileSlot,
-            playSound: _sound.PlaySound,
-            startAtFileSelect: true);
+            playSound: PlayFrontendSound,
+            startAtFileSelect: true,
+            initialize: initialization => _timedFrontendLoading = initialization switch
+            {
+                FileMenuInitialization.NewFileOptions => "new-file-options",
+                FileMenuInitialization.NameEntry => "name-entry",
+                FileMenuInitialization.NameCommit => "name-commit",
+                FileMenuInitialization.FileSelect => "files-return",
+                FileMenuInitialization.SelectFile => "file-select",
+                FileMenuInitialization.StartFile => "file-start",
+                _ => throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.")
+            });
     }
 
     private void CompleteNewGameIntro(OracleSaveData save)
@@ -671,6 +709,7 @@ public partial class GameRoot : Node2D
 
     public override void _ExitTree()
     {
+        _originalTiming?.Dispose();
         _preparedGameplayScene?.Free();
         _preparedGameplayScene = null;
         _bootCancellation?.Cancel();
@@ -692,8 +731,9 @@ public partial class GameRoot : Node2D
         _applicationInput.CaptureHostFrame();
         // Debug speed changes the number of complete original updates, never
         // their 1/60 delta, input-edge consumption, or subsystem order.
-        _applicationUpdates.Advance(
-            delta * (_debugFastForward ? 4 : 1), AdvanceApplicationUpdate);
+        double elapsed = delta * (_debugFastForward ? 4 : 1);
+        if (_originalTiming is null) _applicationUpdates.Advance(elapsed, AdvanceApplicationUpdate);
+        else AdvanceTimedApplication(elapsed);
         AdvanceGameplayPreparation();
     }
 
@@ -713,14 +753,50 @@ public partial class GameRoot : Node2D
 
     private void AdvanceApplicationUpdate()
     {
-        Input.BeginOriginalUpdate(_applicationInput.ConsumeOriginalUpdate());
+        BeginApplicationUpdate();
+        _originalTiming?.CompleteUpdate();
+        if (_originalTiming is not null) _hostCpuBudget = Math.Max(_hostCpuBudget, _originalTiming.Clocks);
+    }
+
+    internal void AdvanceTimedApplication(double delta)
+    {
+        if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
+        OracleApplicationTiming timing = _originalTiming ?? throw new InvalidOperationException("Missing original clock.");
+        _hostCpuBudget += delta * OracleExecutionClock.CpuClocksPerSecond;
+        long deadline = (long)_hostCpuBudget & ~3L;
+        while (timing.Clocks < deadline)
+        {
+            if (!timing.Busy) BeginApplicationUpdate();
+            timing.AdvanceTo(deadline);
+        }
+    }
+
+    private void BeginApplicationUpdate()
+    {
+        FrontendIntroController? previousIntro = _frontendIntro;
+        FrontendIntroStage? previousStage = previousIntro?.Stage;
+        _timedSoundRequests.Clear();
+        _timedSoundRestart = false;
+        _timedFrontendLoading = null;
+        _collectTimedSound = _originalTiming is not null;
+        Input.BeginOriginalUpdate(_applicationInput.ConsumeOriginalUpdate(strictPolling: _collectTimedSound));
         try
         {
             AdvanceApplicationState();
-            _sound.AdvanceApplicationUpdate();
+            if (_originalTiming is null) _sound.AdvanceApplicationUpdate();
+            else
+            {
+                string? loading = previousStage == FrontendIntroStage.Boot && _frontendIntro?.Stage == FrontendIntroStage.Capcom
+                    ? "capcom" : _timedSoundRestart && _frontendIntro?.Stage == FrontendIntroStage.Title
+                    ? "title" : previousIntro is not null && _frontendIntro is null && _mainMenu is not null
+                    ? "files" : _timedFrontendLoading;
+                _originalTiming.BeginUpdate(loading, _timedSoundRequests.ToArray(), slot => _mainMenu?.LoadedSlot(slot),
+                    _frontendIntro?.PaletteWorkPending == true || _mainMenu?.PaletteWorkPending == true, _mainMenu?.RawEnteredName);
+            }
         }
         finally
         {
+            _collectTimedSound = false;
             Input.EndOriginalUpdate();
         }
     }
@@ -1423,6 +1499,12 @@ public partial class GameRoot : Node2D
         _mainMenu = null;
         _frontendIntro = null;
         _newGameIntro = null;
+        _originalTiming?.Dispose();
+        _originalTiming = null;
+        _hostCpuBudget = 0;
+        _timedSoundRequests.Clear();
+        _collectTimedSound = _timedSoundRestart = false;
+        _timedFrontendLoading = null;
         if (_frontendIntroScreen is not null &&
             GodotObject.IsInstanceValid(_frontendIntroScreen))
         {

@@ -32,6 +32,7 @@ internal sealed class ApplicationInputBuffer
         Array.ConvertAll(SampledActions, static action => new StringName(action));
 
     private readonly HashSet<string> _pressed = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _lastPolled = new(StringComparer.Ordinal);
     private readonly HashSet<string> _pendingJustPressed =
         new(StringComparer.Ordinal);
     private Vector2 _movement;
@@ -56,13 +57,21 @@ internal sealed class ApplicationInputBuffer
         _movement = Input.ReadMovement();
     }
 
-    internal ApplicationInputSnapshot ConsumeOriginalUpdate()
+    internal ApplicationInputSnapshot ConsumeOriginalUpdate(bool strictPolling = false)
     {
+        if (strictPolling)
+        {
+            _pendingJustPressed.Clear();
+            foreach (string action in _pressed)
+                if (!_lastPolled.Contains(action)) _pendingJustPressed.Add(action);
+        }
         var snapshot = new ApplicationInputSnapshot(
             _pressed,
             _pendingJustPressed,
             _movement);
         _pendingJustPressed.Clear();
+        _lastPolled.Clear();
+        _lastPolled.UnionWith(_pressed);
         return snapshot;
     }
 
@@ -83,6 +92,7 @@ internal sealed class ApplicationInputBuffer
     {
         _pressed.Clear();
         _pendingJustPressed.Clear();
+        _lastPolled.Clear();
         _movement = Vector2.Zero;
     }
 }

@@ -264,6 +264,8 @@ public sealed partial class ValidationRoot
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var standardInventory = new InventoryState(_treasures, save);
+        FailIf(save.TextSpeed != 0x02,
+            "initialFileVariables must initialize wTextSpeed to $02 (display speed 3).");
         FailIf(
             save.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             save.GetRoomFlags(0, 0x38) != 0 ||

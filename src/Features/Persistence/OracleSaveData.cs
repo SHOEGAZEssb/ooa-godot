@@ -100,7 +100,7 @@ public sealed class OracleSaveData
         Array.Fill(save._data, (byte)0xff, UnappraisedRingsOffset, 0x40);
         VerificationString.CopyTo(save._data, VerificationOffset);
         save.WriteWramByte(WramAddress.wc608, 0x01);
-        save.WriteWramByte(WramAddress.wTextSpeed, 0x04);
+        save.WriteWramByte(WramAddress.wTextSpeed, 0x02);
         // initialFileVariables: Ages begins at 0:8a, facing up at $38/$48.
         save.WriteWramByte(WramAddress.wDeathRespawnBuffer, 0x00);
         save.WriteWramByte(0xc62c, 0x8a);

@@ -192,6 +192,7 @@ internal partial class FrontendIntroScreen : Node2D
 
     public override void _Draw()
     {
+        if (!_originalLcdEnabled) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
         if (_controller is null)
             return;
         DrawRect(new Rect2(0, 0, 160, 144), Scene == FrontendIntroScene.Capcom
@@ -243,6 +244,9 @@ internal partial class FrontendIntroScreen : Node2D
         if (_controller.FlashWhite)
             DrawRect(new Rect2(0, 0, 160, 144), Colors.White);
     }
+
+    private bool _originalLcdEnabled = true;
+    internal void SetOriginalLcdEnabled(bool enabled) { _originalLcdEnabled = enabled; QueueRedraw(); }
 
     private void DrawHorseFar()
     {

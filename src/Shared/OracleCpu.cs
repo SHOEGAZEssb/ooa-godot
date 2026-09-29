@@ -1,0 +1,257 @@
+using System;
+
+namespace oracleofages;
+
+/// <summary>LR35902 instruction execution; memory and peripheral time belong to the caller.</summary>
+internal sealed class OracleCpu
+{
+    private readonly Func<int, int> _read;
+    private readonly Action<int, int> _write;
+    private readonly Action<int> _clock;
+    private readonly Func<int, string, Exception> _failure;
+    private int _a, _f, _b, _c, _d, _e, _h, _l, _sp, _pc;
+    private int _instructionAddress;
+    private long _cycles;
+    private const int Z = 0x80, N = 0x40, H = 0x20, C = 0x10;
+
+    internal OracleCpu(Func<int, int> read, Action<int, int> write, Action<int> clock,
+        Func<int, string, Exception> failure)
+    {
+        _read = read; _write = write; _clock = clock; _failure = failure;
+    }
+
+    internal long Cycles => _cycles;
+    internal int ProgramCounter => _pc;
+    internal int InstructionAddress => _instructionAddress;
+    internal int StackPointer => _sp;
+    internal int Accumulator => _a;
+    internal void SetBc(int value) => BC = value;
+
+    // External owners may implement an entire source subroutine (for example
+    // LCD waiting). Its work includes RET; do not charge a second return here.
+    internal void CompleteCall()
+    {
+        _pc = _read(_sp) | (_read((_sp + 1) & 0xffff) << 8);
+        _sp = (_sp + 2) & 0xffff;
+    }
+
+    internal void BeginCall(int entry, int argument = 0, int stack = 0xdff0)
+    {
+        _pc = entry; _a = argument; _sp = stack;
+        _write(_sp, 0); _write(_sp + 1, 0);
+    }
+
+    internal void RunCall(int entry, int argument = 0)
+    {
+        BeginCall(entry, argument);
+        for (int count = 0; count < 100000; count++)
+        {
+            if (_pc == 0 && _sp == 0xdff2) return;
+            Step();
+        }
+        throw Failure("exceeded 100000 instructions");
+    }
+
+    private Exception Failure(string detail) => _failure(_instructionAddress, detail);
+    private void Clock(int cycles) { _cycles += cycles; _clock(cycles); }
+    private int Read(int address) { Clock(4); return _read(address & 0xffff); }
+    private void Write(int address, int value) { Clock(4); _write(address & 0xffff, value & 255); }
+    private int BC { get => (_b << 8) | _c; set { _b = value >> 8; _c = value & 255; } }
+    private int DE { get => (_d << 8) | _e; set { _d = value >> 8; _e = value & 255; } }
+    private int HL { get => (_h << 8) | _l; set { _h = value >> 8; _l = value & 255; } }
+
+    private int Byte() { int value = Read(_pc); _pc = (_pc + 1) & 0xffff; return value; }
+    private int Word() { int low = Byte(); return low | (Byte() << 8); }
+    private int Pop() { int low = Read(_sp++); return low | (Read(_sp++) << 8); }
+    private void Push(int value) { Write(--_sp, value >> 8); Write(--_sp, value); }
+    private int Register(int index) => index switch
+    {
+        0 => _b, 1 => _c, 2 => _d, 3 => _e, 4 => _h, 5 => _l, 6 => Read(HL), _ => _a
+    };
+    private void Register(int index, int value)
+    {
+        value &= 255;
+        switch (index)
+        {
+            case 0: _b = value; break; case 1: _c = value; break;
+            case 2: _d = value; break; case 3: _e = value; break;
+            case 4: _h = value; break; case 5: _l = value; break;
+            case 6: Write(HL, value); break; default: _a = value; break;
+        }
+    }
+    private int Pair(int index) => index switch { 0 => BC, 1 => DE, 2 => HL, _ => _sp };
+    private void Pair(int index, int value)
+    {
+        value &= 0xffff;
+        switch (index) { case 0: BC = value; break; case 1: DE = value; break; case 2: HL = value; break; default: _sp = value; break; }
+    }
+    private bool Condition(int index) => index switch
+    {
+        0 => (_f & Z) == 0, 1 => (_f & Z) != 0, 2 => (_f & C) == 0, _ => (_f & C) != 0
+    };
+
+    private void Alu(int operation, int value)
+    {
+        int carry = (_f & C) != 0 ? 1 : 0;
+        int result;
+        switch (operation)
+        {
+            case 0: case 1:
+                if (operation == 0) carry = 0;
+                result = _a + value + carry;
+                _f = (((_a & 15) + (value & 15) + carry) > 15 ? H : 0) | (result > 255 ? C : 0);
+                break;
+            case 2: case 3: case 7:
+                if (operation != 3) carry = 0;
+                result = _a - value - carry;
+                _f = N | ((_a & 15) < (value & 15) + carry ? H : 0) | (result < 0 ? C : 0);
+                break;
+            case 4: result = _a & value; _f = H; break;
+            case 5: result = _a ^ value; _f = 0; break;
+            default: result = _a | value; _f = 0; break;
+        }
+        if ((result & 255) == 0) _f |= Z;
+        if (operation != 7) _a = result & 255;
+    }
+
+    internal void Step()
+    {
+        long before = _cycles;
+        _instructionAddress = _pc;
+        int op = Byte(), cycles;
+        if (op is >= 0x40 and <= 0x7f && op != 0x76)
+        {
+            Register((op >> 3) & 7, Register(op & 7));
+            cycles = (op & 7) == 6 || ((op >> 3) & 7) == 6 ? 8 : 4;
+        }
+        else if (op is >= 0x80 and <= 0xbf)
+        {
+            Alu((op >> 3) & 7, Register(op & 7));
+            cycles = (op & 7) == 6 ? 8 : 4;
+        }
+        else if ((op & 0xc7) == 0x04 || (op & 0xc7) == 0x05)
+        {
+            int index = (op >> 3) & 7, old = Register(index);
+            bool decrement = (op & 1) != 0;
+            int value = (old + (decrement ? -1 : 1)) & 255;
+            _f = (_f & C) | (value == 0 ? Z : 0) | (decrement ? N : 0) |
+                ((decrement ? (old & 15) == 0 : (old & 15) == 15) ? H : 0);
+            Register(index, value);
+            cycles = index == 6 ? 12 : 4;
+        }
+        else if ((op & 0xc7) == 0x06)
+        {
+            int index = (op >> 3) & 7;
+            Register(index, Byte());
+            cycles = index == 6 ? 12 : 8;
+        }
+        else if ((op & 0xcf) == 0x01) { Pair(op >> 4, Word()); cycles = 12; }
+        else if ((op & 0xcf) == 0x03) { Pair(op >> 4, Pair(op >> 4) + 1); cycles = 8; }
+        else if ((op & 0xcf) == 0x0b) { Pair(op >> 4, Pair(op >> 4) - 1); cycles = 8; }
+        else if ((op & 0xcf) == 0x09)
+        {
+            int value = Pair(op >> 4), sum = HL + value;
+            _f = (_f & Z) | (((HL & 0xfff) + (value & 0xfff)) > 0xfff ? H : 0) | (sum > 0xffff ? C : 0);
+            HL = sum & 0xffff;
+            cycles = 8;
+        }
+        else if ((op & 0xe7) == 0x20)
+        {
+            int offset = (sbyte)Byte();
+            bool taken = Condition((op >> 3) & 3);
+            if (taken) _pc = (_pc + offset) & 0xffff;
+            cycles = taken ? 12 : 8;
+        }
+        else if ((op & 0xe7) == 0xc0)
+        {
+            bool taken = Condition((op >> 3) & 3);
+            Clock(4);
+            if (taken) _pc = Pop();
+            cycles = taken ? 20 : 8;
+        }
+        else if ((op & 0xe7) == 0xc2 || (op & 0xe7) == 0xc4)
+        {
+            int target = Word();
+            bool taken = Condition((op >> 3) & 3), call = (op & 7) == 4;
+            if (taken) { if (call) { Clock(4); Push(_pc); } _pc = target; }
+            cycles = taken ? (call ? 24 : 16) : 12;
+        }
+        else if ((op & 0xcf) == 0xc1)
+        {
+            int value = Pop(), index = (op >> 4) & 3;
+            if (index == 3) { _a = value >> 8; _f = value & 0xf0; } else Pair(index, value);
+            cycles = 12;
+        }
+        else if ((op & 0xcf) == 0xc5)
+        {
+            int index = (op >> 4) & 3;
+            Clock(4); Push(index == 3 ? (_a << 8) | _f : Pair(index));
+            cycles = 16;
+        }
+        else if ((op & 0xc7) == 0xc6) { Alu((op >> 3) & 7, Byte()); cycles = 8; }
+        else switch (op)
+        {
+            case 0x00: cycles = 4; break;
+            case 0x02: Write(BC, _a); cycles = 8; break;
+            case 0x12: Write(DE, _a); cycles = 8; break;
+            case 0x0a: _a = Read(BC); cycles = 8; break;
+            case 0x1a: _a = Read(DE); cycles = 8; break;
+            case 0x22: Write(HL, _a); HL = (HL + 1) & 0xffff; cycles = 8; break;
+            case 0x32: Write(HL, _a); HL = (HL - 1) & 0xffff; cycles = 8; break;
+            case 0x2a: _a = Read(HL); HL = (HL + 1) & 0xffff; cycles = 8; break;
+            case 0x3a: _a = Read(HL); HL = (HL - 1) & 0xffff; cycles = 8; break;
+            case 0x18: int offset = (sbyte)Byte(); _pc = (_pc + offset) & 0xffff; cycles = 12; break;
+            case 0x07: _f = (_a & 0x80) != 0 ? C : 0; _a = ((_a << 1) | (_a >> 7)) & 255; cycles = 4; break;
+            case 0x0f: _f = (_a & 1) != 0 ? C : 0; _a = (_a >> 1) | ((_a & 1) << 7); cycles = 4; break;
+            case 0x17: int carry = (_f & C) != 0 ? 1 : 0; _f = (_a & 0x80) != 0 ? C : 0; _a = ((_a << 1) | carry) & 255; cycles = 4; break;
+            case 0x1f: carry = (_f & C) != 0 ? 0x80 : 0; _f = (_a & 1) != 0 ? C : 0; _a = (_a >> 1) | carry; cycles = 4; break;
+            case 0x2f: _a ^= 255; _f |= N | H; cycles = 4; break;
+            case 0x37: _f = (_f & Z) | C; cycles = 4; break;
+            case 0x3f: _f = (_f & Z) | ((_f & C) ^ C); cycles = 4; break;
+            case 0xc3: _pc = Word(); cycles = 16; break;
+            case 0xc9: _pc = Pop(); cycles = 16; break;
+            case 0xcd: int target = Word(); Clock(4); Push(_pc); _pc = target; cycles = 24; break;
+            case 0xc7: case 0xcf: case 0xd7: case 0xdf: case 0xe7: case 0xef: case 0xf7: case 0xff:
+                Clock(4); Push(_pc); _pc = op & 0x38; cycles = 16; break;
+            case 0xe0: Write(0xff00 | Byte(), _a); cycles = 12; break;
+            case 0xf0: _a = Read(0xff00 | Byte()); cycles = 12; break;
+            case 0xe2: Write(0xff00 | _c, _a); cycles = 8; break;
+            case 0xf2: _a = Read(0xff00 | _c); cycles = 8; break;
+            case 0xe9: _pc = HL; cycles = 4; break;
+            case 0xea: Write(Word(), _a); cycles = 16; break;
+            case 0xfa: _a = Read(Word()); cycles = 16; break;
+            case 0xcb: cycles = Extended(); break;
+            default: throw Failure($"unsupported instruction ${op:x2}");
+        }
+        int remaining = cycles - (int)(_cycles - before);
+        if (remaining < 0) throw Failure($"invalid cycle accounting for ${op:x2}");
+        Clock(remaining);
+    }
+
+    private int Extended()
+    {
+        int op = Byte(), index = op & 7, value = Register(index), group = op >> 6, bit = (op >> 3) & 7;
+        if (group == 1) _f = (_f & C) | H | ((value & (1 << bit)) == 0 ? Z : 0);
+        else if (group == 2) Register(index, value & ~(1 << bit));
+        else if (group == 3) Register(index, value | (1 << bit));
+        else
+        {
+            int carry = 0, oldCarry = (_f & C) != 0 ? 1 : 0;
+            switch (bit)
+            {
+                case 0: carry = value >> 7; value = (value << 1) | carry; break;
+                case 1: carry = value & 1; value = (value >> 1) | (carry << 7); break;
+                case 2: carry = value >> 7; value = (value << 1) | oldCarry; break;
+                case 3: carry = value & 1; value = (value >> 1) | (oldCarry << 7); break;
+                case 4: carry = value >> 7; value <<= 1; break;
+                case 5: carry = value & 1; value = (value >> 1) | (value & 0x80); break;
+                case 6: value = (value >> 4) | (value << 4); break;
+                case 7: carry = value & 1; value >>= 1; break;
+            }
+            value &= 255;
+            _f = (value == 0 ? Z : 0) | (carry != 0 ? C : 0);
+            Register(index, value);
+        }
+        return index == 6 ? (group == 1 ? 12 : 16) : 8;
+    }
+}

@@ -125,7 +125,8 @@ public sealed partial class ValidationRoot
             tutorial.State != 2 || !tutorial.TextShown || !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != DialogueBox.PlainText(record.Message),
             "Mounted Moosh did not show imported TX_2207 on the state-1 update.");
-        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        // initialFileVariables selects speed $02; textSpeedData waits four updates.
+        _dialogue.AdvanceCharacterClockForValidation(4.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndMoosh) != tutorialSoundRequests + 1,
             "TX_2207 did not execute its leading source `\\sfx(0xc5)` cue.");

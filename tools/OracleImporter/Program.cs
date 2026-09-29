@@ -60,6 +60,12 @@ internal static class Program
                     : utf8.GetString(Convert.FromBase64String(request[(separator + 1)..]));
                 switch (command)
                 {
+                    case "LOADING_WORK":
+                        WriteSuccess(OriginalLoadingWork.Compile(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "FRONTEND_WORK":
+                        WriteSuccess(OriginalFrontendWork.Compile(Convert.FromBase64String(payload)), utf8);
+                        break;
                     case "CUTSCENE_SCALAR":
                     {
                         int delimiter = payload.IndexOf('\0');

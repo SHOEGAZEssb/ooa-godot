@@ -52,7 +52,7 @@ public partial class MainMenuScreen : Node2D
     private bool _titleBlink = true;
     private bool _actorFrame;
     private string _notice = "";
-    private readonly char[] _enteredName = new string(' ', 5).ToCharArray();
+    private readonly char[] _enteredName = new char[5];
     private int _nameEntryPosition;
     private int _nameLowerChoice;
     private SecretEntryDatabase? _secretData;
@@ -60,7 +60,7 @@ public partial class MainMenuScreen : Node2D
     private bool _secretError;
     internal bool EnteringSecret => CurrentPage == Page.SecretEntry;
     internal byte[] EnteredSecret => Array.ConvertAll(_enteredName,
-        character => character == ' ' ? (byte)0xff :
+        character => character is ' ' or '\0' ? (byte)0xff :
             (byte)Array.IndexOf(_secretData!.Glyphs, (byte)character));
 
     public Page CurrentPage { get; private set; }
@@ -69,7 +69,8 @@ public partial class MainMenuScreen : Node2D
     public int SelectedSlot { get; private set; }
     public int TextSpeed { get; private set; }
     public int NameCursor { get; private set; }
-    public string EnteredName => new string(_enteredName).TrimEnd(' ');
+    internal string RawEnteredName => new(_enteredName);
+    public string EnteredName => RawEnteredName.Replace('\0', ' ').TrimEnd(' ');
     public bool SaveErrorVisible { get; private set; }
     internal int WhiteFadeOffset { get; private set; }
     internal bool TitleBlinkVisible => _titleBlink;
@@ -162,6 +163,7 @@ public partial class MainMenuScreen : Node2D
 
     public override void _Draw()
     {
+        if (!_originalLcdEnabled) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
         if (CurrentPage == Page.Title)
         {
             DrawTexture(_title, Vector2.Zero);
@@ -202,6 +204,9 @@ public partial class MainMenuScreen : Node2D
             DrawNotice();
     }
 
+    private bool _originalLcdEnabled = true;
+    internal void SetOriginalLcdEnabled(bool enabled) { _originalLcdEnabled = enabled; QueueRedraw(); }
+
     public void SetSlots(OracleSaveData?[] slots)
     {
         Array.Copy(slots, _slots, _slots.Length);
@@ -228,7 +233,7 @@ public partial class MainMenuScreen : Node2D
     {
         CurrentPage = Page.NameEntry;
         SelectedSlot = slot;
-        Array.Fill(_enteredName, ' ');
+        Array.Clear(_enteredName);
         int length = Math.Min(initialName.Length, _enteredName.Length);
         for (int index = 0; index < length; index++)
             _enteredName[index] = initialName[index];
@@ -525,7 +530,7 @@ public partial class MainMenuScreen : Node2D
 
     private void DrawNameEntry()
     {
-        DrawText(new string(_enteredName), EnteringSecret ? new Vector2(48, 0) : new Vector2(80, 8), _nameEntryFont);
+        DrawText(RawEnteredName.Replace('\0', ' '), EnteringSecret ? new Vector2(48, 0) : new Vector2(80, 8), _nameEntryFont);
         if (_secretError && EnteringSecret) return;
 
         if (NameCursor < 0x50)

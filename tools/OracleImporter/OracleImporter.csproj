@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/Features/Story/Commands/CutsceneFieldShape.cs" Link="CutsceneFieldShape.cs" />
+    <Compile Include="../../src/Shared/OracleCpu.cs" Link="OracleCpu.cs" />
   </ItemGroup>
 </Project>

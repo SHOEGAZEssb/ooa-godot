@@ -135,10 +135,14 @@ individual sheets; correct pixels alone cannot detect a mismatched layout.
 ## Audio determinism and lifecycle
 
 `OracleSoundEngine` is persistent across gameplay scenes. Requests enter the
-original 16-byte ring; each 60 Hz application boundary applies the pending
-music volume, drains requests in order, then advances the driver. Restarting
+original 16-byte ring; each sound timer interrupt applies the pending music
+volume, drains requests in order, then advances the driver. Cold-start sessions
+run that timer independently of input polls and blocking frontend loads. Direct
+component callers retain a single-tick update interface. Restarting
 sound clears the queue while retaining the source driver's volume, fade and
-disable state.
+disable state. The application clock retains DIV phase and the original
+seven-interrupt correction counter across restarts; that counter initially
+wraps from zero before entering its repeating correction period.
 
 The generated sound-bank image already contains the clean US driver as well
 as its tables and channel programs. A bounded interpreter executes its sound
@@ -159,8 +163,10 @@ use CGB-D/E behavior, including the intermediate volume before retriggering;
 post-update driver RAM alone cannot verify these audible transitions. Mixer
 edges are band-limited before conversion to 44100 Hz PCM so ultrasonic pulse
 harmonics cannot fold back into audible noise. The APU keeps
-clocking while the driver is disabled. PCM is generated during each original
-update, including intermediate updates in a batched host frame. Output is
+clocking while the driver is disabled. Clocked sessions advance the APU during
+foreground work, waits and the sound interrupt's instruction/wrapper work.
+Loading can span multiple host frames without generating its entire audio
+buffer ahead of presentation. Output is
 submitted after the complete host-frame batch, with a small reserve for the
 independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation

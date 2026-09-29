@@ -99,6 +99,8 @@ public sealed partial class ValidationRoot
             }
             GD.Print("TAS_SNAPSHOT " + JsonSerializer.Serialize(new { update, input = buttons, pressed,
                 state = CaptureTasSharedState(), diagnostics = new {
+                    cpuClocks = _originalTiming?.Clocks,
+                    timerTicks = _originalTiming?.TimerTicks,
                     frontend = TasRootField<FrontendIntroController>("_frontendIntro")?.Stage.ToString(),
                     menu = TasRootField<MainMenuController>("_mainMenu")?.CurrentPage.ToString(),
                     link = _scene is null || !GodotObject.IsInstanceValid(_scene) ? null : new { _player.IsDying, _player.CutsceneControlled,
