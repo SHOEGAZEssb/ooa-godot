@@ -2767,7 +2767,7 @@ internal sealed class RoomEntityFactory(
                 };
                 zora.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, random);
                 return new RiverZoraRoomEntity(zora, combatSource, soundRequested,
-                    () => new Vector2(0, OracleRoomData.StatusBarHeight) - worldToScreen(Vector2.Zero));
+                    () => -worldToScreen(Vector2.Zero));
 
             case EnemyHandlerKind.GopongaFlower:
                 var flower = new GopongaFlowerCharacter { Name = $"GopongaFlower_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };

@@ -10,7 +10,6 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
     private readonly RiverZoraBehaviorProfile _behavior = EnemyBehaviorTables.Shared.RiverZora;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
-    private bool _shot;
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int State { get; private set; }
     internal int Counter { get; private set; }
@@ -28,7 +27,9 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
 
     internal void PrepareForScreenTransition()
     {
-        if (State == 0) State = 9;
+        if (State != 0) return;
+        _random.Next(); // bank0.enemyStandardUpdate initializes Enemy.var3d.
+        State = 9;
     }
 
     internal void UpdateFrame(Vector2 cameraOrigin, ICollection<RoomEntitySpawn> spawns)
@@ -66,7 +67,6 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
                 if (--Counter == 0)
                 {
                     State = 0x0b;
-                    _shot = false;
                     RestartAnimation(1);
                     return;
                 }
@@ -78,14 +78,17 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
                     State = 8;
                     Counter = (_random.Next().Value & _behavior.HiddenCounterMask) +
                         _behavior.HiddenCounterBase;
-                    spawns.Add(new EnemySplashSpawn(Position, HazardType.Water));
+                    spawns.Add(new EnemySplashSpawn(Position.Floor(), HazardType.Water));
                     Visible = false;
                     return;
                 }
-                if (AnimationParameter != 0 && !_shot)
+                if (AnimationParameter != 0)
                 {
-                    _shot = true;
-                    spawns.Add(new ZoraFireSpawn(Position));
+                    // enemyCode08 clears animParameter before allocation,
+                    // including a failed PART allocation. Do not retry later.
+                    Animation.ConsumeParameter();
+                    // objectCopyPosition copies high bytes only.
+                    spawns.Add(new ZoraFireSpawn(Position.Floor()));
                 }
                 AdvanceAnimation();
                 return;

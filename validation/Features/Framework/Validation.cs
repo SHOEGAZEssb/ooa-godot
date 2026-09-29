@@ -222,6 +222,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOracleMovementRom, requiresRom: true);
         RunIsolatedValidation(ValidateOracleAnglesRom, requiresRom: true);
         RunIsolatedValidation(ValidateOracleVerticalMotionRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePlacementBufferRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomPlacementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateEnemyAiRom, requiresRom: true);
+        RunIsolatedValidation(ValidateEnemyAiGameplayRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
         RunIsolatedValidation(ValidateSharedRoomEventHosts);

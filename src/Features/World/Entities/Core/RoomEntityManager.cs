@@ -2257,6 +2257,9 @@ public sealed class RoomEntityManager : IDisposable
         {
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
+            // River Zora consumes animParameter before ecom_spawnProjectile;
+            // a full PART pool drops this request without retrying it.
+            if (spawn is ZoraFireSpawn && FindFreePartSlot() < 0) continue;
             if (spawn is SpikedBallSpawn ball && FindFreePartSlot() < 0)
             {
                 // ecom_spawnProjectile checks failure for the head. The

@@ -345,9 +345,11 @@ public sealed partial class ValidationRoot
         RoomEntityManager preloadManager = preloadFixture.Manager;
         preloadManager.LoadRoom(0, emptyRoom);
         preloadManager.BeginScreenTransition(0, emptyRoom, Vector2.Zero);
+        // Room $0:$00 has two River Zoras. Their state-zero preload consumes
+        // two common var3d draws after the second 256-call permutation.
         FailIf(
-            preloadRandom.Next() != new OracleRandomResult(0x59, 0xd0, 0x9b),
-            "A scrolling destination preload did not generate the next placement buffer.");
+            preloadRandom.Calls != 514 || preloadRandom.Next() != new OracleRandomResult(0x1f, 0x55, 0x5e),
+            "A scrolling destination preload lost placement-buffer or enemy-initialization RNG order.");
         preloadManager.Clear();
 
         var cutsceneRandom = new OracleRandom();

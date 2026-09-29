@@ -124,7 +124,9 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             configuration.SourceGrayscaleInverted,
             positionedOam,
             paletteVariants);
-        SetAnimation(initialAnimation);
+        // enemyLoadGraphicsAndProperties always loads the first animation
+        // frame. SetAnimation can skip index zero on a newly created player.
+        RestartAnimation(initialAnimation);
         QueueRedraw();
     }
 

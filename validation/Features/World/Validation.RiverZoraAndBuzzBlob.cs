@@ -24,8 +24,8 @@ public partial class ValidationRoot
         var zora = new RiverZoraCharacter();
         zora.Initialize(database.ImportedEnemy(EnemyId.RiverZora), room, new Vector2(40, 40), random);
         zora.UpdateFrame(Vector2.Zero, spawns);
-        FailIf(zora.State != 9 || zora.Visible || zora.CollisionEnabled || random.Calls != 0,
-            "River Zora $08 state 0 consumed RNG or enabled presentation/collision.");
+        FailIf(zora.State != 9 || zora.Visible || zora.CollisionEnabled || random.Calls != 1,
+            "River Zora $08 state 0 must consume its common initialization RNG without enabling presentation/collision.");
         int rejected = 0;
         for (int attempts = 0; zora.State == 9 && attempts < 512; attempts++)
         {
@@ -63,13 +63,15 @@ public partial class ValidationRoot
         blob.Initialize(database.ImportedEnemy(EnemyId.Buzzblob), room,
             _entities.Entities<BuzzBlobCharacter>().Single().Position, blobRandom);
         blob.UpdateFrame(null);
-        FailIf(blob.State != 8 || blobRandom.Calls != 0, "Buzz Blob $18 state 0 consumed RNG.");
+        FailIf(blob.State != 8 || blobRandom.Calls != 1, "Buzz Blob $18 state 0 must seed var3d with one RNG call.");
         blob.UpdateFrame(null);
-        FailIf(blob.State != 9 || blob.Angle != 4 || blob.Counter != 80 || blobRandom.Calls != 1,
+        // Seed $0d37 initializes var3d=$5e; the next multiply produces
+        // HL=$761a, hence H&$1c=$14 and $30+(L&$30)=$40.
+        FailIf(blob.State != 9 || blob.Angle != 0x14 || blob.Counter != 64 || blobRandom.Calls != 2,
             $"Buzz Blob $18 lost high/low RNG masks; angle=${blob.Angle:x2}, counter={blob.Counter}.");
         Vector2 previous = blob.Position;
         blob.UpdateFrame(null);
-        FailIf(blob.Counter != 79 || blob.Position == previous, "Buzz Blob $18 did not roam at SPEED_40.");
+        FailIf(blob.Counter != 63 || blob.Position == previous, "Buzz Blob $18 did not roam at SPEED_40.");
         Vector2 movement = blob.Position - previous;
         FailIf(Mathf.Abs(movement.X) != 45 / 256.0f || Mathf.Abs(movement.Y) != 45 / 256.0f,
             $"Buzz Blob $18 diagonal SPEED_40 must move $002d on each axis, got {movement}.");
@@ -113,7 +115,9 @@ public partial class ValidationRoot
         int text = blob.ChooseText();
         FailIf(text is < 0x2f1e or > 0x2f25 || string.IsNullOrWhiteSpace(database.CukemanText(text)) ||
             blobRandom.Calls != beforeText + 1, "Cukeman did not select one of TX_2f1e..TX_2f25 with one RNG call.");
-        blob.UpdateFrame(blob.Position + Vector2.Right * 40);
+        // var3d retains $5e through roaming and shock; steering refreshes
+        // only when its decrement reaches $50 on attraction update 14.
+        for (int i = 0; i < 14; i++) blob.UpdateFrame(blob.Position + Vector2.Right * 40);
         FailIf(blob.State != 4 || blob.Angle != 8, "Cukeman lost Scent Seed attraction.");
         blob.UpdateFrame(null);
         FailIf(blob.State != 8, "Buzz Blob $18 did not leave Scent state on the target's zero update.");

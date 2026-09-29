@@ -49,6 +49,9 @@ internal sealed partial class BuzzBlobCharacter : EnemyCharacter
     internal void PrepareForScreenTransition()
     {
         if (State != 0) return;
+        // enemyStandardUpdate seeds var3d before enemyCode18; scent steering
+        // subsequently decrements that same byte, rather than starting at zero.
+        _scent.Initialize(_random.Next().Value);
         State = 8;
         Visible = true;
     }

@@ -1034,8 +1034,11 @@ public sealed partial class ValidationRoot
                 .CurrentAnimationTexture.GetImage());
         FailIf(
             giantVisualHash != 0xc57b0cfc29363e48UL ||
-            childVisualHash != 0x70071fba065d4d57UL,
-            "Giant Ghini or its children did not compose the imported " +
+            // enemyCode3f state zero loads frame zero; its waiting state
+            // does not call enemyAnimate. Do not skip to the second frame.
+            _entities.Entities<GiantGhiniChild>().First().Animation.FrameIndex != 0 ||
+            childVisualHash != 0xc2b3f5a450ab7ce4UL,
+            $"Giant Ghini (${giantVisualHash:x16}) or its children (${childVisualHash:x16}) did not compose the imported " +
             "black-on-white sprite chain with white color-0 transparency.");
         FailIf(
             giant.ChildrenAlive != 3 ||
