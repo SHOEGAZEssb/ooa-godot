@@ -33,7 +33,7 @@ internal partial class ExecutionTimingValidationRoot : GameRoot
     {
         _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
-        _random = new OracleRandom();
+        _random = CreateRandom();
         typeof(GameRoot).GetMethod("StartFrontend", Private)!.Invoke(this, [false]);
     }
 

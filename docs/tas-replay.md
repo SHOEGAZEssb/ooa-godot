@@ -1,11 +1,11 @@
 # Continuous TAS fidelity replay
 
-The TAS runner feeds a recorded playthrough through the original emulator core
-and the actual Godot application loop. Shared system adapters capture state at
-every completed original update. A separate presentation stream compares visible
-file-menu properties at every movie-frame endpoint, including during loading.
-It stops at the first disagreement in either stream. Adding another encounter
-on the same recorded route needs no encounter fixture.
+The TAS runner feeds the same recorded physical buttons, frame by frame, through
+the original emulator core and the actual Godot application loop. Each engine
+decides independently when to poll input and finish an update. The runner stops
+at the first difference in update cadence, sampled buttons, gameplay state or
+covered file-menu presentation. Audio-state differences are retained as
+diagnostics. Adding another encounter on the recorded route needs no fixture.
 
 ## Setup and command
 
@@ -43,8 +43,15 @@ embedded SRAM/states, or unsupported settings fail explicitly.
 `-Rom`, `-Disassembly`, `-Godot`, and `-Output` override paths. `-SkipBuild` uses
 existing assemblies and records their hashes. `-MaxUpdates` and `-MaxFrames`
 bound a development run. `-TimeoutSeconds` defaults to 600. `-BatchSize 8`
-advances up to eight original updates within one Godot host frame, retaining
-the distinct input sample and comparison boundary for every update.
+processes up to eight movie frames within one Godot host frame, retaining each
+physical input and observation boundary. Asset preparation consumes host time
+without changing the simulated clock.
+
+`-Mode updates` retains the older update-aligned diagnostic: it gives Godot the
+buttons sampled by the ROM at each completed update and treats audio-state
+differences as failures. Its separate presentation instance receives movie
+buttons and native CPU observation times. This mode can isolate system behavior,
+but cannot establish that the movie plays independently in Godot.
 
 The default follows the entire movie until the first difference or deadline.
 Exit 0 means the compared prefix matches; 1 indicates drift and 2 an execution
@@ -52,6 +59,7 @@ or input error. Inspect `completeMovie` in the report: reaching a development
 limit does not establish a full-movie match. Complete movie consumption means
 all recorded input frames were executed and all reached comparison boundaries
 matched; it does not independently certify the ending or 100% completion.
+Movie-mode reports therefore retain `endingVerified: false`.
 
 ## Timing and ownership
 
@@ -71,13 +79,20 @@ snapshot follows the previous loop's threads, palette work, and VBlank. A hook
 at `$00:$0936` reads the held and newly pressed buttons that `pollInput` actually
 sampled. Both signatures are verified against the pinned clean ROM.
 
-Godot starts its ordinary frontend before its first application update; asset
-preparation consumes no simulated updates. Each reference input sample passes
-through `ApplicationInputBuffer` and `ApplicationFixedUpdateScheduler`. Capture
-occurs after `GameRoot.AdvanceApplicationUpdate`, including completion of its
-pending loading work and all intervening sound timer interrupts.
-The reference waits for comparison before executing another update. Thus the
-first disagreement stops both streams without accumulating later noise.
+Godot starts its ordinary frontend before its first application update. The
+movie adapter accepts only consecutive frame numbers and physical held buttons.
+It advances the production application clock by 140448 CPU clocks per movie
+frame, with the pinned core's cold-start origin of 65468. Native instruction
+overruns, sampled edges, update counts and game state never drive Godot.
+`ApplicationInputBuffer` polls the held buttons only when the application can
+start another update. A completed-update observer captures state before the next
+update can mutate it, including when a host frame contains several updates.
+
+At each movie endpoint the runner compares the ordered completed snapshots from
+both engines. Missing or extra updates and different sampled buttons fail before
+gameplay fields are compared. A frame spent entirely loading has no completed
+updates. The reference waits at the frame endpoint; both streams stop at the
+first failed comparison without resynchronizing.
 
 The validation host substitutes the persistent file-store boundary with three
 isolated in-memory slots. Actual file-menu, explicit-save, load, erase, and
@@ -88,8 +103,8 @@ battery-save file to disk.
 
 The production application clock advances audio during imported blocking loads.
 The adapter supplies no reference elapsed time or audio tick counts to that
-clock. CPU clocks and timer counts are diagnostic fields; shared-state values
-still compare exactly. Loading coverage currently includes cold startup, title
+clock. CPU clocks, timer counts and audio-state differences are diagnostic;
+gameplay values and update cadence compare exactly. Loading coverage includes cold startup, title
 initialization, file select, new-file options, name entry and commit, and the
 message-speed confirmation, unlinked pregame initialization, its suspended
 graphics-load continuation and textbox initialization, and the arrival restart
@@ -98,16 +113,28 @@ imported standard textbox initialization work. These plans currently cover
 ordinary palettes and an unshifted gameplay camera; callers without source
 IDs keep their existing timing coverage. Gameplay work before the textbox
 initializer and other menu/gameplay loaders can still expose missing
-foreground work in the comparison.
+foreground work in the comparison. Shared placement-buffer generation charges
+its imported RNG-dependent CPU work on every gameplay call, including room
+parsing and floor-color workers. Calls made during host resource preparation
+consume no simulated time. Room scrolling also charges imported room-layout
+decoding, collision-map and tile-buffer construction, and tileset decoding when
+the loaded layout changes. Room-buffer copies, outdoor seed-tree histories,
+sea-effect tile searches and fixed graphics-slot traversal also contribute
+source-derived work. Edge-warp checks retain the source table scan cost,
+including unsuccessful lookups and quadrant selection. Costs follow live
+histories and substituted room layouts. Room initialization includes its shared
+dispatch, room-state selection and ordered room-handler lookups. Gameplay also
+charges the shared object-update dispatcher and sprite-queue traversal, using
+the current scroll and textbox gates. Individual object handlers, sprite drawing,
+state-dependent graphics residency and remaining room setup still have
+incomplete CPU-work coverage.
 
 ## Trace contract and coverage
 
-The default command runs both comparisons. Presentation uses a second isolated
-Godot application driven by the movie's physical held buttons and elapsed CPU
-clock. The original update adapter continues to use sampled inputs and its own
-timing; its state checks receive no reference elapsed time. The presentation
-clock selects observation times, without completing pending loads or copying
-reference menu state into the port. Its actual clock is retained in diagnostics.
+The default command compares gameplay and presentation from one Godot instance
+driven by the physical movie. Presentation is observed at the same movie frame
+in both engines; their actual CPU clocks remain independent diagnostics. The
+adapter never finishes a pending load to obtain an observation.
 
 The native presentation adapter freezes BG tilemap/attributes, palettes and OAM
 at scanline zero, then publishes that metadata only when Gambatte emits a video
@@ -148,16 +175,20 @@ It uses the TAS host's isolated file store. Captures and audit reports belong
 under `local-audits/`; they are not part of the shared-state pass/fail profile.
 
 [`tas.schema.json`](../tools/fidelity/tas.schema.json) defines streaming format
-version 3. A run has `manifest.json`, `rom.jsonl`, `godot.jsonl`,
+version 4. A run has `manifest.json`, `rom.jsonl`, `godot.jsonl`,
 `rom-presentation.jsonl`, `godot-presentation.jsonl`, engine/compiler logs, and
-`comparison.json`. The manifest identifies both profiles, their boundaries,
+`comparison.json`. Movie mode also writes `rom-movie.jsonl`, `godot-movie.jsonl`
+and `audio-differences.jsonl`. The manifest identifies the replay mode, profiles, boundaries,
 presentation enum values, and movie/input/core/ROM hashes,
 sync settings, verified hooks and source addresses, disassembly and port
 revisions, working-file and assembly hashes, generated-data identity, limits,
 and the supported/unavailable/out-of-scope groups.
 
 Each update JSONL row contains `update`, `input`, `pressed`, exact integer `state`
-fields, and producer-specific `diagnostics`. Presentation rows instead identify
+fields, and producer-specific `diagnostics`. Movie rows identify `movieFrame`,
+physical `input` and the ordered `updates` completed in that frame; those update
+numbers reference the full snapshot streams. Audio-difference rows retain the
+frame, update, field and both values. Presentation rows instead identify
 `movieFrame`, physical `input`, and the observation's `cpuClocks`, with their
 own integer `state` and `diagnostics`. The first divergence records its `layer`,
 movie frame, fields and owners. No timing offsets or numerical
@@ -169,7 +200,8 @@ The shared profile compares:
 
 - Global RNG bytes.
 - Frontend stage and non-cinematic state.
-- Sound fade, disable, and volume fields, plus eight channel enable/wait fields.
+- Sound fade, disable, and volume fields, plus eight channel enable/wait fields
+  (diagnostic in movie mode; strict in update mode).
 - While the native Link slot is active, including pregame: room identity, Link's 8.8 position, direction, cutscene
   control and health; all sixteen enemy-slot occupancy bits in native page
   order; and the original live save payload `$c5ba-$caff`.

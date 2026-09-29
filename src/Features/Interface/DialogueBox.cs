@@ -85,6 +85,8 @@ public partial class DialogueBox : Node2D
     private int _characterDisplayTimer;
     private int _initialTextUpdates;
     private bool _prepareNextLine;
+    private bool _automaticTextScroll;
+    private bool _skipToLineEnd;
     private int _textSlowdownTimer;
     private int _textSoundCooldownCounter;
     private double _textScrollTickAccumulator;
@@ -149,6 +151,7 @@ public partial class DialogueBox : Node2D
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
     internal int TextboxFlagsForValidation => _textboxFlags;
+    internal bool RestrictsWorldSpritesToLink => (_textboxFlags & 0x04) != 0;
     internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
     internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
@@ -164,7 +167,7 @@ public partial class DialogueBox : Node2D
     private bool HasAnotherLine => _firstLineIndex + LinesPerPage < CurrentSegment.Lines.Count;
     private bool HasContinuation => HasAnotherLine || _segmentIndex + 1 < _segments.Count;
     private bool IsAwaitingNextMessage => _open && !_scrollingText &&
-        IsPageComplete && HasContinuation;
+        IsPageComplete && HasContinuation && (!_automaticTextScroll || !HasAnotherLine);
     private int CurrentWindowGlyphCount =>
         CurrentLine(0).Glyphs.Count + CurrentLine(1).Glyphs.Count;
 
@@ -330,6 +333,8 @@ public partial class DialogueBox : Node2D
         // row. Neither runs the character timer nor accepts A/B input.
         _initialTextUpdates = 2;
         _prepareNextLine = false;
+        _automaticTextScroll = false;
+        _skipToLineEnd = false;
         _textSlowdownTimer = slowdownRequested ? TextSlowdownFrames : 0;
         _textSoundCooldownCounter = 0;
         _textScrollTickAccumulator = 0.0;
@@ -432,6 +437,8 @@ public partial class DialogueBox : Node2D
         _closing = false;
         _open = false;
         _scrollingText = false;
+        _automaticTextScroll = false;
+        _skipToLineEnd = false;
         _choiceActive = false;
         _passive = false;
         _textboxFlags = 0;
@@ -476,6 +483,7 @@ public partial class DialogueBox : Node2D
                 (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
             if (skip || --_characterDisplayTimer <= 0)
             {
+                _skipToLineEnd |= skip;
                 _prepareNextLine = false;
                 _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
             }
@@ -503,7 +511,13 @@ public partial class DialogueBox : Node2D
             return;
         }
 
-        bool faceInputBlocked = false;
+        if (_automaticTextScroll && IsPageComplete && HasAnotherLine)
+        {
+            BeginTextScroll(automaticNextLine: false);
+            return;
+        }
+
+        bool pageWasComplete = IsPageComplete;
         if (IsPageComplete)
         {
             if (HasContinuation)
@@ -511,11 +525,11 @@ public partial class DialogueBox : Node2D
         }
         else
         {
-            faceInputBlocked = UpdateCharacterDisplay(delta);
+            UpdateCharacterDisplay(delta);
         }
 
         QueueRedraw();
-        if (_passive)
+        if (_passive || !pageWasComplete)
             return;
         if (Input.TimingFrame == _openedFrame ||
             (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
@@ -523,12 +537,9 @@ public partial class DialogueBox : Node2D
              !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))
             return;
 
-        if (faceInputBlocked &&
-            (Input.IsActionJustPressed("attack") ||
-             Input.IsActionJustPressed("item")))
-        {
+        if (HasContinuation && !Input.IsActionJustPressed("attack") &&
+            !Input.IsActionJustPressed("item"))
             return;
-        }
 
         if (_choiceActive && IsPageComplete && !HasContinuation)
         {
@@ -584,19 +595,14 @@ public partial class DialogueBox : Node2D
             return;
         }
 
-        if (HasContinuation)
+        if (HasContinuation && (!_automaticTextScroll || !HasAnotherLine))
             _playSound(SoundId.SndText2);
 
         if (HasAnotherLine)
         {
-            _scrollingText = true;
-            _arrowFrameCounter = 0.0;
-            _textScrollTickAccumulator = 0.0;
-            _textScrollState = 0;
-            // standardTextStateb runs on the button-press frame itself and
-            // shifts the first of the two 8px tile rows.
-            _textScrollOffset = 8.0f;
-            QueueRedraw();
+            bool firstNewLine = !_automaticTextScroll;
+            if (firstNewLine) _skipToLineEnd = false;
+            BeginTextScroll(automaticNextLine: firstNewLine);
         }
         else if (_segmentIndex + 1 < _segments.Count)
         {
@@ -605,6 +611,9 @@ public partial class DialogueBox : Node2D
             _firstLineIndex = 0;
             ResetHeartPieceDisplay();
             ResetCharacterDisplay(0);
+            _initialTextUpdates = 2;
+            _automaticTextScroll = false;
+            _skipToLineEnd = false;
             QueueRedraw();
         }
         else
@@ -620,6 +629,20 @@ public partial class DialogueBox : Node2D
             // both face buttons have been released to preserve that ordering.
             _consumeClosingInput = true;
         }
+    }
+
+    private void BeginTextScroll(bool automaticNextLine)
+    {
+        // State 5 jumps into state b's code, which increments the CURRENT
+        // state to 6 (not c). States 6-9/a draw the first new line; a then
+        // enters b-c-d-e/3/4 to draw the second without another button press.
+        _automaticTextScroll = automaticNextLine;
+        _scrollingText = true;
+        _arrowFrameCounter = 0.0;
+        _textScrollTickAccumulator = 0.0;
+        _textScrollState = 0;
+        _textScrollOffset = 8.0f;
+        QueueRedraw();
     }
 
     public override void _Draw()
@@ -893,11 +916,20 @@ public partial class DialogueBox : Node2D
                 if (_textSlowdownTimer > 0)
                     faceInputBlocked = true;
             }
-            if (--_characterDisplayTimer > 0)
+            bool skip = !_passive && !faceInputBlocked &&
+                (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
+            if (!skip && --_characterDisplayTimer > 0)
                 continue;
 
-            RevealNextGlyph();
+            _skipToLineEnd |= skip;
+            if (_skipToLineEnd) RevealCurrentLine();
+            else RevealNextGlyph();
             _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+            // func_5296 consumes the skip flag before accepting a later
+            // press at a stop command. It cannot also clear the textbox.
+            if (IsPageComplete && !HasAnotherLine && HasContinuation)
+                _skipToLineEnd = false;
+            if (_prepareNextLine) break;
         }
         if (IsPageComplete)
         {
@@ -1053,17 +1085,18 @@ public partial class DialogueBox : Node2D
             _textScrollTickAccumulator -= 1.0;
             switch (_textScrollState++)
             {
-                case 0: // state c: DMA after standardTextStateb's first shift
+                case 0: // state 6/c: DMA after standardTextStateb's first shift
                     break;
-                case 1: // state d: shift the second 8px tile row
+                case 1: // state 7/d: shift the second 8px tile row
                     _textScrollOffset = 16.0f;
                     break;
-                default: // state e: preserve the old bottom line at the top
+                default: // state 8/e: preserve the old bottom line at the top
                     _firstLineIndex++;
                     _scrollingText = false;
                     _textScrollOffset = 0.0f;
                     _textScrollState = 0;
                     ResetCharacterDisplay(CurrentLine(0).Glyphs.Count);
+                    _prepareNextLine = true;
                     break;
             }
         }

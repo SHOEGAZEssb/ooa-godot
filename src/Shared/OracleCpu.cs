@@ -26,6 +26,7 @@ internal sealed class OracleCpu
     internal int StackPointer => _sp;
     internal int Accumulator => _a;
     internal void SetBc(int value) => BC = value;
+    internal void SetDe(int value) => DE = value;
 
     // External owners may implement an entire source subroutine (for example
     // LCD waiting). Its work includes RET; do not charge a second return here.

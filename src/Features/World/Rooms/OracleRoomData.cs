@@ -24,6 +24,8 @@ public sealed class OracleRoomData
     internal bool IsCompanionRegion { get; init; }
     internal bool LoadsUniqueGraphicsAfterScroll { get; init; }
     internal int TilesetPaletteId { get; init; }
+    internal int TilesetLayoutId { get; init; }
+    internal int LayoutGroup { get; init; }
     private Image? _liveGraphics;
     private bool _freezeGraphicsOverrides;
     public int WidthInTiles { get; }

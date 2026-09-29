@@ -100,6 +100,12 @@ text update (`standardTextStatef` to `$10`). Object passes still observe active
 text on that update; they resume on the next. Explicit cancellation through
 `Close()` remains immediate.
 
+Standard dialogue preserves preparation updates after opening, clearing at a
+stop command, and scrolling. One A/B continuation advances two new lines; the
+second scroll is automatic. Revealing a line cannot also advance or close the
+message with the same press. Directional input can exit final text, but cannot
+advance continuation text.
+
 ## Frontend ownership
 
 File-menu mode changes defer screen initialization to the next original update.

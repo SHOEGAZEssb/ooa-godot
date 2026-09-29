@@ -63,6 +63,23 @@ internal static class Program
                     case "LOADING_WORK":
                         WriteSuccess(OriginalLoadingWork.Compile(Convert.FromBase64String(payload)), utf8);
                         break;
+                    case "RANDOM_BUFFER_WORK":
+                        WriteSuccess(OriginalLoadingWork.CompileRandomBuffer(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "SEA_SEARCH_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileSeaSearch(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "GAMEPLAY_DISPATCH_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileGameplayDispatch(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "ROOM_LOADING_WORK":
+                    {
+                        string[] parts = payload.Split('\0');
+                        if (parts.Length != 2) throw new InvalidDataException("ROOM_LOADING_WORK requires ROM and tileset layouts.");
+                        int[] layouts = parts[1].Split(',').Select(value => Convert.ToInt32(value, 16)).ToArray();
+                        WriteSuccess(OriginalRoomLoadingWork.Compile(Convert.FromBase64String(parts[0]), layouts), utf8);
+                        break;
+                    }
                     case "FRONTEND_WORK":
                         WriteSuccess(OriginalFrontendWork.Compile(Convert.FromBase64String(payload)), utf8);
                         break;

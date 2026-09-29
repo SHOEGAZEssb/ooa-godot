@@ -18,6 +18,8 @@ from tas_movie import read_movie
 from tas_profile import BOUNDARY, COVERAGE, PROFILE, capture_reference, differences, owner
 from tas_presentation import (PRESENTATION_PROFILE, PRESENTATION_BOUNDARY, SCREEN_NAMES, OVERLAY_NAMES,
                               PresentationMapper, presentation_differences)
+from tas_movie_profile import (PROFILE as MOVIE_PROFILE, BOUNDARY as MOVIE_BOUNDARY, COVERAGE as MOVIE_COVERAGE,
+                               CLOCK_ORIGIN, FRAME_CLOCKS, movie_differences)
 
 CLEAN_MD5 = "c4639cc61c049e5a085526bb6cac03bb"
 # code/bank0.s:_mainLoop -> call pollInput, then hIntroInputsEnabled.
@@ -138,7 +140,9 @@ def prepare(args, root, output):
     tree = {p: sha((root / p).read_bytes()) for p in sorted(set(files)) if (root / p).is_file()}
     assemblies = [root / ".godot/mono/temp/bin/Debug/oracle-of-ages.dll",
                   root / "validation/bin/Debug/net8.0/oracle-of-ages.validation.dll"]
-    manifest = {"schemaVersion": 3, "profile": PROFILE, "boundary": BOUNDARY,
+    manifest = {"schemaVersion": 4, "replayMode": args.mode,
+        "profile": MOVIE_PROFILE if args.mode == "movie" else PROFILE,
+        "boundary": MOVIE_BOUNDARY if args.mode == "movie" else BOUNDARY,
         "presentation": {"profile": PRESENTATION_PROFILE, "boundary": PRESENTATION_BOUNDARY,
                          "screens": SCREEN_NAMES, "overlays": OVERLAY_NAMES,
                          "captureSourceSha256": sha((root / "tools/fidelity/TasVideoCapture.cs").read_bytes()),
@@ -156,13 +160,17 @@ def prepare(args, root, output):
                  "assemblies": {p.name: sha(p.read_bytes()) for p in assemblies},
                  "godotVersion": command([args.godot, "--version"], root, 15),
                  "generatedTablesSha256": sha((root / "assets/oracle/generated_tables.manifest.tsv").read_bytes())},
-        "coverage": COVERAGE, "godotBatchSize": args.batch_size,
+        "coverage": MOVIE_COVERAGE if args.mode == "movie" else COVERAGE, "godotBatchSize": args.batch_size,
         "limits": {"movieFrames": args.max_frames or metadata["frames"], "updates": args.max_updates, "seconds": args.timeout}}
+    if args.mode == "movie":
+        manifest["movieTimeline"] = {"clockOrigin": CLOCK_ORIGIN, "clocksPerFrame": FRAME_CLOCKS,
+                                   "inputSource": "unaltered BK2 physical buttons",
+                                   "referenceTimingDrivesGodot": False}
     write(output / "manifest.json", manifest)
     return rom.resolve(), native, manifest
 
 
-def replay(args, root, output, rom, native, manifest):
+def replay_updates(args, root, output, rom, native, manifest):
     children = []
     report = {"status": "error", "matchedSnapshots": 0, "matchedPresentationFrames": 0,
               "coveredPresentationFrames": 0, "firstDivergence": None, "completeMovie": False}
@@ -264,6 +272,117 @@ def replay(args, root, output, rom, native, manifest):
     return report
 
 
+def replay_movie(args, root, output, rom, native, manifest):
+    children = []
+    report = {"status": "error", "mode": "movie", "matchedSnapshots": 0, "matchedMovieFrames": 0,
+              "matchedPresentationFrames": 0, "coveredPresentationFrames": 0,
+              "firstDivergence": None, "completeMovie": False, "endingVerified": False,
+              "audioDivergentFrames": 0, "firstAudioDivergence": None}
+    deadline = time.monotonic() + args.timeout
+    context = deque(maxlen=2)
+    pending = []
+    movie = (output / "movie-inputs.bin").read_bytes()
+    try:
+        godot = Child([args.godot, "--headless", "--path", root, "--log-file", output / "godot-engine.log",
+                       "--", "--validate", "--tas-replay", "--tas-movie", f"--tas-batch-size={args.batch_size}"], root, output / "godot.log")
+        children.append(godot)
+        if godot.receive(deadline) != "TAS_READY":
+            raise RuntimeError("Godot did not enter physical movie replay mode.")
+        reference = Child([native, rom, output / "movie-inputs.bin", manifest["limits"]["movieFrames"]], output, output / "reference.log")
+        children.append(reference)
+        mapper = PresentationMapper(root / "assets/oracle/menu")
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            streams = {name: stack.enter_context((output / (name + ".jsonl")).open("w", encoding="utf-8", buffering=1))
+                       for name in ("rom", "godot", "rom-movie", "godot-movie", "rom-presentation", "godot-presentation", "audio-differences")}
+            def emit(name, row):
+                streams[name].write(json.dumps(row, separators=(",", ":")) + "\n")
+            while True:
+                line = reference.receive(deadline)
+                if line.startswith("TAS_END "):
+                    end = json.loads(line[8:])
+                    if pending or end["snapshots"] != report["matchedSnapshots"] or end["movieFrames"] != report["matchedMovieFrames"]:
+                        raise ValueError("Movie ended without complete frame/update coverage.")
+                    report.update(status="match", completeMovie=end["complete"], movieFrames=end["movieFrames"])
+                    break
+                if line.startswith("TAS_REFERENCE "):
+                    raw = json.loads(line[14:])
+                    if raw["resetEpoch"]:
+                        raise ValueError("Hardware Power input reached: Godot power-cycle adaptation is unavailable.")
+                    snapshot = capture_reference(raw)
+                    if snapshot["update"] != report["matchedSnapshots"] + len(pending):
+                        raise ValueError("Nonconsecutive native update observations.")
+                    pending.append(snapshot)
+                    emit("rom", snapshot)
+                    reference.send("continue")
+                    continue
+                if not line.startswith("TAS_FRAME "):
+                    raise ValueError("Unexpected reference movie protocol response.")
+                raw = json.loads(line[10:])
+                frame = raw["movieFrame"]
+                if frame != report["matchedMovieFrames"]:
+                    raise ValueError("Nonconsecutive physical movie frames.")
+                buttons, power = movie[frame * 2:frame * 2 + 2]
+                if power or raw["resetEpoch"]:
+                    raise ValueError("Hardware Power input reached: Godot power-cycle adaptation is unavailable.")
+                if raw["input"] != buttons:
+                    raise ValueError("Native transport did not use the recorded movie buttons.")
+                # Only the movie index and original held buttons cross into
+                # Godot. No sampled edges, update counts, ROM clocks or state.
+                godot.send(json.dumps({"movieFrame": frame, "input": buttons}))
+                response = godot.receive(deadline)
+                if not response.startswith("TAS_MOVIE "):
+                    raise ValueError("Unexpected Godot movie response.")
+                port = json.loads(response[10:])
+                original = {"movieFrame": frame, "input": buttons, "updates": pending}
+                for snapshot in port["updates"]:
+                    emit("godot", snapshot)
+                emit("rom-movie", dict(original, updates=[r["update"] for r in pending], diagnostics={"cpuClocks": raw["cpuClocks"]}))
+                emit("godot-movie", {k: v for k, v in dict(port, updates=[r["update"] for r in port["updates"]]).items() if k != "state"})
+                diff, audio = movie_differences(original, port)
+                if audio:
+                    record = {"movieFrame": frame, "differences": audio}
+                    emit("audio-differences", record)
+                    report["audioDivergentFrames"] += 1
+                    if report["firstAudioDivergence"] is None:
+                        report["firstAudioDivergence"] = record
+                presentation = mapper.capture(raw)
+                displayed = {"movieFrame": frame, "input": buttons, "cpuClocks": port["diagnostics"]["actualCpuClocks"],
+                             "state": port["state"], "diagnostics": port["diagnostics"]}
+                emit("rom-presentation", presentation)
+                emit("godot-presentation", displayed)
+                visual = presentation_differences(presentation, displayed, compare_clock=False)
+                context.append({"movieFrame": frame, "input": buttons, "rom": pending, "godot": port["updates"],
+                                "godotTiming": port["diagnostics"]})
+                if diff or visual:
+                    failures = diff or visual
+                    source, runtime = owner(failures[0]["field"])
+                    if failures[0]["field"].startswith("timing."):
+                        source, runtime = "code/bank0.s:_mainLoop,pollInput", "GameRoot / OracleApplicationTiming"
+                    report.update(status="divergence", firstDivergence={"layer": "movie-gameplay" if diff else "presentation",
+                        "movieFrame": frame, "update": report["matchedSnapshots"], "input": buttons,
+                        "differences": failures, "source": source, "runtimeOwner": runtime}, context=list(context))
+                    break
+                report["matchedSnapshots"] += len(pending)
+                report["matchedMovieFrames"] += 1
+                report["matchedPresentationFrames"] += 1
+                report["coveredPresentationFrames"] += presentation["state"]["presentation.menu.visible"]
+                pending = []
+                if args.max_updates is not None and report["matchedSnapshots"] > args.max_updates:
+                    report.update(status="match", limit="max-updates")
+                    break
+                if frame % 1000 == 0:
+                    print(f"Matched physical movie frame {frame} ({report['matchedSnapshots']} update snapshots).", flush=True)
+                reference.send("continue")
+    except Exception as exc:
+        report.update(status="error", error=str(exc), context=list(context))
+    finally:
+        for child in reversed(children):
+            child.close()
+        write(output / "comparison.json", report)
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--movie", type=Path, required=True)
@@ -277,6 +396,8 @@ def main():
     parser.add_argument("--max-updates", type=int)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--mode", choices=("movie", "updates"), default="movie",
+                        help="Physical movie playback (default), or update-aligned diagnostic comparison.")
     args = parser.parse_args()
     if not 1 <= args.batch_size <= 1024:
         parser.error("Batch size must be 1..1024.")
@@ -289,6 +410,7 @@ def main():
         raise ValueError("Output directory is not empty; choose a fresh -Output.")
     print("Artifacts: " + str(output), flush=True)
     rom, native, manifest = prepare(args, root, output)
+    replay = replay_movie if args.mode == "movie" else replay_updates
     report = replay(args, root, output, rom, native, manifest)
     if report["status"] == "divergence":
         d = report["firstDivergence"]
@@ -304,6 +426,8 @@ def main():
         return 2
     print(f"MATCH {report['matchedSnapshots']} snapshots and {report['matchedPresentationFrames']} presentation observations "
           f"({report['coveredPresentationFrames']} visible file-menu frames); complete movie: {report['completeMovie']}.")
+    if args.mode == "movie":
+        print(f"Physical movie frames matched: {report['matchedMovieFrames']}; audio differences on {report['audioDivergentFrames']} frames (diagnostic). Ending not independently verified.")
     return 0
 
 

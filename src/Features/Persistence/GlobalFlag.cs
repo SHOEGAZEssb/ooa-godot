@@ -54,6 +54,8 @@ public static class GlobalFlag
     public const int ForestUnscrambled = 0x2b;
     // constants/common/globalFlags.s: GLOBALFLAG_SAVED_GORON_ELDER
     public const int SavedGoronElder = 0x2f;
+    // constants/common/globalFlags.s: GLOBALFLAG_WATER_POLLUTION_FIXED
+    public const int WaterPollutionFixed = 0x30;
     // constants/common/globalFlags.s: GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE
     public const int PreBlackTowerCutsceneDone = 0x33;
     // constants/common/globalFlags.s: GLOBALFLAG_PIRATES_GONE

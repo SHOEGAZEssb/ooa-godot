@@ -36,6 +36,7 @@ internal sealed class ApplicationInputBuffer
     private readonly HashSet<string> _pendingJustPressed =
         new(StringComparer.Ordinal);
     private Vector2 _movement;
+    internal event Action<ApplicationInputSnapshot>? Polled;
 
     internal void CaptureHostFrame()
     {
@@ -72,6 +73,7 @@ internal sealed class ApplicationInputBuffer
         _pendingJustPressed.Clear();
         _lastPolled.Clear();
         _lastPolled.UnionWith(_pressed);
+        Polled?.Invoke(snapshot);
         return snapshot;
     }
 

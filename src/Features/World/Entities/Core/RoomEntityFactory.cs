@@ -505,7 +505,7 @@ internal sealed class RoomEntityFactory(
             position, checked((byte)replacement), null, animationTick());
     }
 
-    internal void UpdateSeedTreeRefillState(
+    internal int UpdateSeedTreeRefillState(
         int activeGroup,
         int activeRoom) =>
         _seedTrees.UpdateRefillState(

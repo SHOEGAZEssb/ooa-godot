@@ -1,15 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Ages streaming TAS trace v3",
-  "description": "manifest.json identifies both profiles; rom.jsonl and godot.jsonl contain update snapshots; rom-presentation.jsonl and godot-presentation.jsonl contain movie-frame presentation observations.",
+  "title": "Ages streaming TAS trace v4",
+  "description": "The manifest identifies movie playback or update-aligned diagnostics. Update, movie-frame, presentation and optional audio-difference streams retain independent observations.",
   "oneOf": [
     {
       "type": "object",
-      "required": ["schemaVersion", "profile", "boundary", "presentation", "movie", "romSha256", "reference", "source", "port", "coverage", "limits"],
+      "required": ["schemaVersion", "replayMode", "profile", "boundary", "presentation", "movie", "romSha256", "reference", "source", "port", "coverage", "limits"],
       "properties": {
-        "schemaVersion": {"const": 3},
-        "profile": {"const": "ages-shared-v1"},
-        "boundary": {"const": "mainLoop-before-pollInput-after-vblank-v1"},
+        "schemaVersion": {"const": 4},
+        "replayMode": {"enum": ["movie", "updates"]},
+        "profile": {"enum": ["ages-movie-gameplay-v1", "ages-shared-v1"]},
+        "boundary": {"enum": ["movie-end-completed-main-loop-updates-v1", "mainLoop-before-pollInput-after-vblank-v1"]},
+        "movieTimeline": {
+          "type": "object",
+          "required": ["clockOrigin", "clocksPerFrame", "inputSource", "referenceTimingDrivesGodot"],
+          "properties": {
+            "clockOrigin": {"const": 65468},
+            "clocksPerFrame": {"const": 140448},
+            "inputSource": {"const": "unaltered BK2 physical buttons"},
+            "referenceTimingDrivesGodot": {"const": false}
+          }
+        },
         "presentation": {
           "type": "object",
           "required": ["profile", "boundary", "screens", "overlays", "captureSourceSha256", "mapperSourceSha256"],
@@ -29,7 +40,18 @@
         "port": {"type": "object"},
         "coverage": {"type": "object", "required": ["supported", "unavailable", "outOfScope"]},
         "limits": {"type": "object"}
-      }
+      },
+      "allOf": [{
+        "if": {"properties": {"replayMode": {"const": "movie"}}},
+        "then": {"required": ["movieTimeline"], "properties": {
+          "profile": {"const": "ages-movie-gameplay-v1"},
+          "boundary": {"const": "movie-end-completed-main-loop-updates-v1"}
+        }},
+        "else": {"properties": {
+          "profile": {"const": "ages-shared-v1"},
+          "boundary": {"const": "mainLoop-before-pollInput-after-vblank-v1"}
+        }}
+      }]
     },
     {
       "type": "object",
@@ -52,6 +74,35 @@
         "cpuClocks": {"type": "integer", "minimum": 0},
         "state": {"type": "object", "required": ["presentation.menu.visible"], "additionalProperties": {"type": "integer"}},
         "diagnostics": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["movieFrame", "input", "updates", "diagnostics"],
+      "properties": {
+        "movieFrame": {"type": "integer", "minimum": 0},
+        "input": {"type": "integer", "minimum": 0, "maximum": 255},
+        "updates": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "diagnostics": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["movieFrame", "differences"],
+      "properties": {
+        "movieFrame": {"type": "integer", "minimum": 0},
+        "differences": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "required": ["field", "rom", "godot", "update"],
+          "properties": {
+            "field": {"type": "string", "pattern": "^audio\\."},
+            "rom": {"type": ["integer", "null"]},
+            "godot": {"type": ["integer", "null"]},
+            "update": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        }}
       },
       "additionalProperties": false
     }

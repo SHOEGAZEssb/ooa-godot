@@ -89,8 +89,10 @@ class PresentationMapper:
         return result
 
 
-def presentation_differences(reference, candidate):
-    for key in ("movieFrame", "input", "cpuClocks"):
+def presentation_differences(reference, candidate, *, compare_clock=True):
+    # Physical movie playback observes the same transport frame independently;
+    # only the legacy presentation adapter receives a reference CPU endpoint.
+    for key in (("movieFrame", "input", "cpuClocks") if compare_clock else ("movieFrame", "input")):
         if type(candidate.get(key)) is not int or candidate[key] != reference[key]:
             raise ValueError(f"Misaligned presentation {key}: {reference.get(key)} / {candidate.get(key)}")
     a, b = reference["state"], candidate["state"]

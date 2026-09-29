@@ -9,10 +9,11 @@ param(
     [int]$MaxUpdates = -1,
     [int]$TimeoutSeconds = 600,
     [ValidateRange(1,1024)][int]$BatchSize = 1,
+    [ValidateSet('movie','updates')][string]$Mode = 'movie',
     [switch]$SkipBuild
 )
 $ErrorActionPreference = 'Stop'
-$replayArguments = @((Join-Path $PSScriptRoot 'fidelity/run_tas.py'), '--movie', $Movie, '--bizhawk', $BizHawk, '--timeout', "$TimeoutSeconds", '--batch-size', "$BatchSize")
+$replayArguments = @((Join-Path $PSScriptRoot 'fidelity/run_tas.py'), '--movie', $Movie, '--bizhawk', $BizHawk, '--timeout', "$TimeoutSeconds", '--batch-size', "$BatchSize", '--mode', $Mode)
 foreach ($pair in @(@('--rom', $Rom), @('--disassembly', $Disassembly), @('--godot', $Godot), @('--output', $Output))) {
     if ($pair[1]) { $replayArguments += $pair }
 }

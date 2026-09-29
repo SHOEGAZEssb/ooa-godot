@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
         typeof(GameRoot).GetField("_launchOptions", ProfileFields)!.SetValue(this, new LaunchOptions());
         _sound = GetNode<OracleSoundEngine>("SoundEngine");
         _sound.ApplicationUpdateOwned = true;
-        _random = new OracleRandom();
+        _random = CreateRandom();
         var screen = ResourceLoader.Load<PackedScene>("res://scenes/boot_loading.tscn").Instantiate<BootLoadingScreen>();
         AddChild(screen);
         var setup = Stopwatch.StartNew();

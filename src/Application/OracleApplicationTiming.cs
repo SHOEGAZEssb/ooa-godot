@@ -27,6 +27,7 @@ internal sealed class OracleApplicationTiming : IDisposable
     internal long TimerTicks => _clock.TimerTicks;
     internal bool Busy => _work is not null;
     internal long CompletedUpdates { get; private set; }
+    internal event Action? UpdateCompleted;
 
     internal OracleApplicationTiming(OracleSoundEngine sound, Action<bool> setLcd, Action<bool>? displayBlank = null)
     {
@@ -44,10 +45,10 @@ internal sealed class OracleApplicationTiming : IDisposable
     internal void StagePresentation(IEnumerable<Action> actions, bool loading) => _video.Stage(actions, loading);
 
     internal void BeginUpdate(string? loading, IReadOnlyList<Action> requests,
-        Func<int, OracleSaveData?> load, bool palettesDirty, string? enteredName = null)
+        Func<int, OracleSaveData?> load, bool palettesDirty, string? enteredName = null, long foregroundWork = 0)
     {
         if (Busy) throw new InvalidOperationException("Input was polled during original loading work.");
-        _work = ExecuteUpdate(loading, requests, load, palettesDirty, enteredName).GetEnumerator();
+        _work = ExecuteUpdate(loading, requests, load, palettesDirty, enteredName, foregroundWork).GetEnumerator();
     }
 
     internal void AdvanceTo(long deadline)
@@ -62,6 +63,7 @@ internal sealed class OracleApplicationTiming : IDisposable
                 {
                     _work.Dispose(); _work = null; CompletedUpdates++;
                     _video.CompleteLoading();
+                    UpdateCompleted?.Invoke();
                     return;
                 }
                 _operation = _work.Current;
@@ -98,8 +100,9 @@ internal sealed class OracleApplicationTiming : IDisposable
     internal void CompleteUpdate() => AdvanceTo(long.MaxValue - 4);
 
     private IEnumerable<TimingOperation> ExecuteUpdate(string? loading, IReadOnlyList<Action> requests,
-        Func<int, OracleSaveData?> load, bool palettesDirty, string? enteredName)
+        Func<int, OracleSaveData?> load, bool palettesDirty, string? enteredName, long foregroundWork)
     {
+        if (foregroundWork != 0) yield return Cpu(foregroundWork);
         int paletteWork;
         int vblankWork = 0;
         if (loading is not null)

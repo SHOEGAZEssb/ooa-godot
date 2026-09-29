@@ -166,6 +166,8 @@ public sealed class OracleWorldData
         {
             IsCompanionRegion = group == 0 && _presentRoomPacks[room] == 0x7f,
             TilesetPaletteId = _tilesetMetadata[metadataOffset + 2],
+            TilesetLayoutId = _tilesetMetadata[metadataOffset],
+            LayoutGroup = layoutGroup,
             LoadsUniqueGraphicsAfterScroll = (GetRoomTilesetByte(dataGroup, room) & 0x80) != 0
         };
         _rooms.Add(key, result);

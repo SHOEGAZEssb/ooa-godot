@@ -55,7 +55,11 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         for(int i=0;i<8&&!_dialogue.IsOpen;i++) StepGameplayUpdates(1,Vector2.Zero);
         FailIf(!_dialogue.IsOpen,"Goron did not open its dialogue through gameplay A-button routing.");
-        _dialogue.Close(); StepGameplayUpdates(35,Vector2.Zero);
+        // Some scripts open a follow-up textbox after the first one closes
+        // (the Big Bang attendant's missing-Goronade branch does this).
+        // Finish that exchange before trying to walk up for another talk;
+        // directional input cannot dismiss continuation text.
+        _dialogue.Close(); AdvanceGoronDialogue(35);
         }
     }
 

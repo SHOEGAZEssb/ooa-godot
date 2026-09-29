@@ -8,6 +8,7 @@ public sealed class RoomTransitionController
 {
     public event Action<Vector2I>? ScrollingTransitionFinished;
     internal event Action? WarpDestinationLoading;
+    internal event Action<int>? BlockingWork;
 
     public const float WarpFadeFrames = 32.0f;
     // fadeoutToWhite advances wPaletteThread_fadeOffset from $00 through $1f.
@@ -325,6 +326,10 @@ public sealed class RoomTransitionController
     private bool TrySelectScreenEdgeWarp(
         OracleRoomData room, Vector2I direction, Vector2 position, out Warp warp)
     {
+        if (BlockingWork is not null)
+            BlockingWork(OracleRoomLoadingWork.Shared.EdgeWarp(_rooms.ActiveGroup, room.Id,
+                direction == Vector2I.Down, (byte)Mathf.FloorToInt(_player.Position.X),
+                _player.CompanionRideActive || _player.MinecartRideActive || _player.RaftRideActive));
         _entities.RuntimeState.SetWramByte(WramAddress.wTmpcec0, 0xff);
         if (!_warps.TryGetEdgeWarp(_rooms.ActiveGroup, room.Id, direction,
                 position, new Vector2(room.Width, room.Height), out warp))
@@ -628,6 +633,8 @@ public sealed class RoomTransitionController
         Image sourceGraphics = source.CaptureLiveGraphics();
         Color[,] sourceColors = source.BackgroundPalettes.Capture();
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
+        if (BlockingWork is not null)
+            BlockingWork(OracleRoomLoadingWork.Shared.Scroll(source, target, _rooms.SaveData));
         IPlayerScreenTransitionRoomEntity? transitionOwner =
             _entities.PlayerScreenTransitionOwner;
         UpdateCamera();

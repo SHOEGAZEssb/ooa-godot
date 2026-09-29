@@ -10,6 +10,31 @@ $loadingRows = Invoke-AssemblySourceHost $assemblySourceHost 'LOADING_WORK' (
 Write-GeneratedTable(
     (Join-Path $destination 'timing\graphics_cpu.tsv'),
     $loadingRows.TrimEnd().Split("`n"))
+$randomRows = Invoke-AssemblySourceHost $assemblySourceHost 'RANDOM_BUFFER_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\random_buffer_cpu.tsv'),
+    $randomRows.TrimEnd().Split("`n"))
+$roomGroupSource = Read-ImportText (Join-Path $Disassembly 'data\ages\roomLayoutGroupTable.s')
+if ([regex]::Matches($roomGroupSource, '3BytePointer roomLayoutGroup[0-5]Table').Count -ne 6) {
+    throw 'data/ages/roomLayoutGroupTable.s must contain the six clean-US layout groups.'
+}
+$timingLayouts = ($tilesets | ForEach-Object { $_.Groups['layout'].Value } | Sort-Object -Unique) -join ','
+$roomRows = Invoke-AssemblySourceHost $assemblySourceHost 'ROOM_LOADING_WORK' (
+    [Convert]::ToBase64String($romBytes) + [char]0 + $timingLayouts)
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\room_cpu.tsv'),
+    $roomRows.TrimEnd().Split("`n"))
+$seaRows = Invoke-AssemblySourceHost $assemblySourceHost 'SEA_SEARCH_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\sea_search_cpu.tsv'),
+    $seaRows.TrimEnd().Split("`n"))
+$gameplayRows = Invoke-AssemblySourceHost $assemblySourceHost 'GAMEPLAY_DISPATCH_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\gameplay_dispatch_cpu.tsv'),
+    $gameplayRows.TrimEnd().Split("`n"))
 $frontendRows = Invoke-AssemblySourceHost $assemblySourceHost 'FRONTEND_WORK' (
     [Convert]::ToBase64String($romBytes))
 Write-GeneratedTable(

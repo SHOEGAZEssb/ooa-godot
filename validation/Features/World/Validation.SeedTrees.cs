@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateSeedTrees()
     {
         var database = new SeedTreeDatabase();
+        ValidateSeedTreeRefillWork(database);
         SeedTreePlacementRecord canonical =
             database.GetRoomRecords(0, 0x78).Single();
         FailIf(
@@ -55,6 +56,8 @@ public sealed partial class ValidationRoot
                 Rooms = rooms
             });
         RoomEntityManager noSatchelManager = noSatchelFixture.Manager;
+        var refillWork = new List<int>();
+        noSatchelManager.BlockingWork += refillWork.Add;
         var messages = new List<(int TextId, string Message, Vector2 Position)>();
         noSatchelManager.SeedTreeMessageRequested +=
             (textId, message, position) =>
@@ -62,6 +65,8 @@ public sealed partial class ValidationRoot
         noSatchelManager.LoadRoom(0, rooms.GetRoom(0, 0x00));
         Vector2 incomingOffset = Vector2.Left * room.Width;
         noSatchelManager.BeginScreenTransition(0, room, incomingOffset);
+        FailIf(!refillWork.SequenceEqual(new[] { 1280, 8576, 1676 }),
+            "Room parses must charge their scratch/history work; only outdoor scroll entry adds seed histories.");
 
         List<SeedOnTree> perched = noSatchelManager.Entities<SeedOnTree>();
         Vector2[] expectedPositions =
@@ -100,6 +105,13 @@ public sealed partial class ValidationRoot
             blockedSeed.State != SeedOnTreeState.Perched ||
             !database.IsRefilled(runtime, canonical.RefillIndex),
             "A no-satchel seed slash did not show TX_0035 while retaining the tree bit.");
+        FailIf(!refillWork.SequenceEqual(new[] { 1280, 8576, 1676, 916, 1252, 1224, 1476 }),
+            "Seed history work repeated during scroll motion or completion, or displaced ordinary slot traversal.");
+        refillWork.Clear();
+        noSatchelManager.LoadRoom(2, rooms.GetRoom(2, 0));
+        noSatchelManager.BeginScreenTransition(0, room, incomingOffset);
+        FailIf(!refillWork.SequenceEqual(new[] { 1320, 1280 }),
+            "The outgoing indoor tileset must bypass seed-tree refill work while retaining both room parses.");
         noSatchelManager.Clear();
         noSatchelManager.Dispose();
         RemoveChild(noSatchelRoot);
@@ -204,5 +216,37 @@ public sealed partial class ValidationRoot
             "TX_0035 no-satchel branch, " +
             "satchel knock-off/bounce, BCD-six Ember grant, sibling lifetime, " +
             "depletion, and eight-unique-room outdoor refill state.");
+    }
+
+    private void ValidateSeedTreeRefillWork(SeedTreeDatabase database)
+    {
+        // Native first north scroll: 1700 wrapper clocks, four empty
+        // histories at 464, twelve refilled at 396, and nine same-group
+        // comparisons at 24. A duplicate exits eight clocks earlier;
+        // advancing one history slot adds 52.
+        var state = new OracleRuntimeState();
+        FailIf(database.UpdateRefillState(state, 0, 0x7a) != 8524 ||
+            database.UpdateRefillState(state, 0, 0x7a) != 8492 ||
+            database.UpdateRefillState(state, 0, 0x7b) != 8732,
+            "Seed-tree history work lost its native empty/duplicate/next-slot branches.");
+
+        state.SetWramByte(WramAddress.wSeedTreeRefilledBitset, 0xff);
+        state.SetWramByte(WramAddress.wSeedTreeRefilledBitset + 1, 0xff);
+        for (int slot = 0; slot < 8; slot++)
+            state.SetSeedTreeRefillRoom(6, slot, (byte)(slot + 1));
+        // Tree visit: eight nonzero checks, set the bit, clear eight bytes.
+        // The following visit stops at the first empty slot but still clears.
+        FailIf(database.UpdateRefillState(state, 0, 0x78) != 8872 ||
+            database.UpdateRefillState(state, 0, 0x78) != 8304 ||
+            Enumerable.Range(0, 8).Any(slot => state.ReadSeedTreeRefillRoom(6, slot) != 0),
+            "Tree-room work must include refill and repeated history clearing.");
+
+        state = new OracleRuntimeState();
+        state.SetWramByte(WramAddress.wSeedTreeRefilledBitset, 0);
+        state.SetWramByte(WramAddress.wSeedTreeRefilledBitset + 1, 0);
+        FailIf(database.UpdateRefillState(state, 2, 0) != 9124 ||
+            database.UpdateRefillState(state, 2, 0) != 9124 ||
+            Enumerable.Range(0, 16).Any(index => state.ReadSeedTreeRefillRoom(index, 0) != 0),
+            "Room $00 must take the empty-slot branch before the duplicate comparison.");
     }
 }

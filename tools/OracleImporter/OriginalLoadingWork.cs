@@ -5,7 +5,7 @@ namespace OracleOfAges.Importer;
 
 /// <summary>
 /// Counts original CPU work, without interrupts, by executing only the clean-US
-/// graphics loader. This is an import operation, not a runtime ROM dependency.
+/// blocking loaders. This is an import operation, not a runtime ROM dependency.
 /// </summary>
 internal sealed class OriginalLoadingWork
 {
@@ -55,6 +55,66 @@ internal sealed class OriginalLoadingWork
             rows.Append($"{header:x2}\t{work._cpu.Cycles}\tcode/bank0.s:loadGfxHeader\n");
         }
         return rows.ToString();
+    }
+
+    internal static string CompileRandomBuffer(byte[] rom)
+    {
+        // bank0.generateRandomBuffer -> roomInitialization.functionCaller.
+        // The only data-dependent work is multiplyAByC's carry branch. Import
+        // its extra work for each byte, plus the complete zero-seed call.
+        if (!rom.AsSpan(0x3215, 4).SequenceEqual(new byte[] { 0x26, 0x04, 0x18, 0x06 }) ||
+            !rom.AsSpan(0x019d, 15).SequenceEqual(new byte[] {
+                0x1e, 0x08, 0x06, 0x00, 0x68, 0x60, 0x29, 0x87, 0x30, 0x01, 0x09, 0x1d, 0x20, 0xf8, 0xc9 }))
+            throw new InvalidDataException("code/bank0.s:generateRandomBuffer/multiplyAByC clean-US entries changed.");
+        var deltas = new long[256];
+        long multiplyBase = 0;
+        for (int value = 0; value < 256; value++)
+        {
+            var multiply = new OriginalLoadingWork(rom);
+            multiply._cpu.SetBc(0xff);
+            long cycles = multiply.RunRandomRoutine(0x019d, value);
+            if (value == 0) multiplyBase = cycles;
+            deltas[value] = cycles - multiplyBase;
+        }
+        long baseline = new OriginalLoadingWork(rom).RunRandomRoutine(0x3215);
+        // Exercise every low seed and differing high seeds. Verify that the
+        // table accounts for the entire call, including bank dispatch/return.
+        for (int seed = 0; seed < 256; seed++)
+        {
+            var work = new OriginalLoadingWork(rom);
+            int first = seed, second = (seed * 73 + 13) & 255;
+            work._memory[0xff94] = (byte)first;
+            work._memory[0xff95] = (byte)second;
+            long expected = baseline;
+            for (int call = 0; call < 256; call++)
+            {
+                second = (((second << 8 | first) * 3) >> 8) & 255;
+                first = (first + second) & 255;
+                if (call != 0) expected += deltas[first];
+            }
+            if (work.RunRandomRoutine(0x3215) != expected ||
+                work._memory[0xff94] != first || work._memory[0xff95] != second)
+                throw new InvalidDataException($"code/roomInitialization.s:generateRandomBuffer work changed for seed ${seed:x2}.");
+        }
+        var rows = new StringBuilder("# component\tcpu-cycles\tsource\n");
+        rows.Append($"base\t{baseline}\tcode/bank0.s:generateRandomBuffer\n");
+        for (int value = 0; value < 256; value++)
+            rows.Append($"{value:x2}\t{deltas[value]}\tcode/bank0.s:multiplyAByC\n");
+        return rows.ToString();
+    }
+
+    private long RunRandomRoutine(int entry, int value = 0)
+    {
+        _cpu.BeginCall(entry, value, stack: 0xc1f0);
+        for (int instructions = 0; _cpu.ProgramCounter != 0 || _cpu.StackPointer != 0xc1f2; instructions++)
+        {
+            if (instructions == 100_000)
+                throw new InvalidDataException("code/roomInitialization.s:generateRandomBuffer did not return.");
+            _cpu.Step();
+        }
+        if (_cpu.StackPointer != 0xc1f2)
+            throw new InvalidDataException("code/roomInitialization.s:generateRandomBuffer left an unbalanced stack.");
+        return _cpu.Cycles;
     }
 
     private int Read(int address)

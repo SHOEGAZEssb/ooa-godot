@@ -159,6 +159,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
     internal event Action<int, string, Vector2>? OwlStatueMessageRequested;
     public event Action<int>? SoundRequested;
+    internal event Action<int>? BlockingWork;
     internal event Action<int, byte>? NativeChannelVolumeWritten;
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
@@ -700,7 +701,10 @@ public sealed class RoomEntityManager : IDisposable
         // updateSeedTreeRefillData runs after getNextActiveRoom only when the
         // outgoing tileset is outdoors. Warp/direct loads bypass this path.
         if ((_roomForActiveEntities.TilesetFlags & (int)TilesetFlags.Outdoors) != 0)
-            _factory.UpdateSeedTreeRefillState(group, room.Id);
+        {
+            int refillWork = _factory.UpdateSeedTreeRefillState(group, room.Id);
+            BlockingWork?.Invoke(refillWork);
+        }
         ClearEntities(_outgoingEntities);
         _reservedEnemySlots.ExceptWith(_unownedOutgoingEnemySlots);
         _unownedOutgoingEnemySlots.Clear();
@@ -890,6 +894,8 @@ public sealed class RoomEntityManager : IDisposable
             // updateItems clears wScentSeedActive, updates every item slot,
             // and only then begins the enemy pass. Visit the live native slots
             // so reuse does not substitute scene insertion order for $d7-$db.
+            if (!textActive && !roomEntityFreezeActive && !timeWarpArrival && !PaletteFadeActiveSource())
+                BlockingWork?.Invoke(OracleGameplayDispatchWork.Shared.NormalItems);
             SwitchHook?.UpdateItem(player, textActive || roomEntityFreezeActive);
             Somaria?.UpdateItem(player, textActive || roomEntityFreezeActive);
             foreach (object owner in _dynamicItems.LiveOwners())
@@ -947,6 +953,10 @@ public sealed class RoomEntityManager : IDisposable
                 // bank0.updateEnemies samples the palette thread once before
                 // its slot walk, admitting only state0 while a fade is active.
                 bool enemyPassDisabled = phase == 0 && (enemiesDisabled || PaletteFadeActiveSource());
+                // Shared work of the normal source slot loop. Frozen headers,
+                // per-slot branch extras and object bodies are separate work.
+                if (!textActive && !RoomEntityFreezeActive() && !timeWarpArrival && !enemyPassDisabled)
+                    BlockingWork?.Invoke(OracleGameplayDispatchWork.Shared.NormalObjectPass(phase));
                 if (phase == 2)
                     ReservedKeyDoor?.Advance(1.0 / 60.0, player,
                         InitializedObjectsDisabledSource() || FloorToggle?.Frozen == true || _activeEntities.Any(entity => entity is IRoomEntityUpdateFreeze
@@ -1901,7 +1911,8 @@ public sealed class RoomEntityManager : IDisposable
         _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 0);
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
         // last-eight-room list before rebuilding w4RandomBuffer.
-        _recentEnemyDefeats.BeginRoom(room.Id);
+        int historyWork = _recentEnemyDefeats.BeginRoom(room.Id);
+        BlockingWork?.Invoke(OracleRoomLoadingWork.Shared.Get("object-parse", 0, 0) + historyWork);
         // parseObjectData clears wEnemyPlacement, then rebuilds w4RandomBuffer.
         // This consumes 256 values from the game-wide RNG on every room parse.
         _random.BeginRoomParse();

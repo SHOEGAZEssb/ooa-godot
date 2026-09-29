@@ -9,6 +9,7 @@ import zipfile
 from tas_movie import LOG_KEY, read_movie
 from tas_profile import capture_reference, differences
 from tas_presentation import PresentationMapper, presentation_differences
+from tas_movie_profile import movie_differences, CLOCK_ORIGIN, FRAME_CLOCKS
 
 
 class TasTests(unittest.TestCase):
@@ -102,6 +103,36 @@ class TasTests(unittest.TestCase):
         raw["wram"] = base64.b64encode(ram).decode()
         self.assertEqual(capture_reference(raw)["state"]["audio.channel0.wait"], 230)
 
+    def test_movie_catches_lag_and_input_poll_drift_without_resync(self):
+        snapshot = capture_reference(self.reference())
+        original = {"movieFrame": 44, "input": 0x10, "updates": [snapshot]}
+        self.assertEqual(movie_differences(original, copy.deepcopy(original)), ([], []))
+        lagged = dict(original, updates=[])
+        self.assertEqual(movie_differences(original, lagged)[0],
+            [{"field": "timing.completedUpdates", "rom": 1, "godot": 0}])
+        # Same physical button, different preceding input poll: Godot must
+        # derive its own edge and fail rather than accept the ROM's edge.
+        changed = copy.deepcopy(original)
+        changed["updates"][0]["pressed"] = 0x10
+        self.assertEqual(movie_differences(original, changed)[0],
+            [{"field": "timing.pressed", "rom": 0, "godot": 0x10}])
+        self.assertEqual(movie_differences(lagged, dict(lagged)), ([], []))
+        # The independently observed first two pinned-core movie endpoints.
+        self.assertEqual(CLOCK_ORIGIN + FRAME_CLOCKS, 205916)
+        self.assertEqual(CLOCK_ORIGIN + 2 * FRAME_CLOCKS, 346364)
+
+    def test_movie_retains_audio_diagnostics_and_strict_gameplay(self):
+        original = {"movieFrame": 44, "input": 0x10,
+                    "updates": [capture_reference(self.reference())]}
+        changed = copy.deepcopy(original)
+        changed["updates"][0]["state"]["audio.$c014"] += 1
+        failure, audio = movie_differences(original, changed)
+        self.assertEqual(failure, [])
+        self.assertEqual(audio, [{"field": "audio.$c014", "rom": 0, "godot": 1, "update": 1}])
+        changed["updates"][0]["state"]["link.x8_8"] += 1
+        self.assertEqual(movie_differences(original, changed)[0],
+            [{"field": "link.x8_8", "rom": 0x3769, "godot": 0x376a, "update": 1}])
+
 
 class PresentationTests(unittest.TestCase):
     @classmethod
@@ -164,6 +195,12 @@ class PresentationTests(unittest.TestCase):
             changed = copy.deepcopy(reference)
             changed[key] += 1
             with self.assertRaises(ValueError): presentation_differences(reference, changed)
+        changed = copy.deepcopy(reference)
+        changed["cpuClocks"] += 4
+        self.assertEqual(presentation_differences(reference, changed, compare_clock=False), [])
+        changed["state"]["presentation.menu.overlay"] = 0
+        self.assertEqual(presentation_differences(reference, changed, compare_clock=False)[0]["field"],
+                         "presentation.menu.overlay")
         raw = copy.deepcopy(self.raw[358])
         raw["video"]["tiles"] = "AA=="
         with self.assertRaises(ValueError): self.mapper.capture(raw)

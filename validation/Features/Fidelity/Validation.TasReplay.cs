@@ -11,6 +11,7 @@ public sealed partial class ValidationRoot
 {
     private bool _tasReplay;
     private bool _tasPresentationReplay;
+    private bool _tasMovieReplay;
     private int _tasUpdate;
     private int _tasBatchSize = 1;
     private readonly OracleSaveData?[] _tasSlots = new OracleSaveData?[3];
@@ -31,6 +32,7 @@ public sealed partial class ValidationRoot
         {
             _tasReplay = true;
             _tasPresentationReplay = OS.GetCmdlineUserArgs().Contains("--tas-presentation");
+            _tasMovieReplay = OS.GetCmdlineUserArgs().Contains("--tas-movie");
             string? batch = OS.GetCmdlineUserArgs().FirstOrDefault(x => x.StartsWith("--tas-batch-size=", StringComparison.Ordinal));
             if (batch is not null && (!int.TryParse(batch[17..], out _tasBatchSize) || _tasBatchSize is < 1 or > 1024))
                 throw new ArgumentException("TAS batch size must be 1..1024.");
@@ -38,10 +40,15 @@ public sealed partial class ValidationRoot
             TasSetRoot("_persistSaveData", true);
             _sound = GetNode<OracleSoundEngine>("SoundEngine");
             _sound.ApplicationUpdateOwned = true;
-            _random = new OracleRandom();
+            _random = CreateRandom();
             // Asset loading is host work. The first source _mainLoop boundary
             // precedes runIntro, so no original update is consumed here.
             TasRootCall("StartFrontend", false);
+            if (_tasMovieReplay)
+            {
+                TasRootField<ApplicationInputBuffer>("_applicationInput")!.Polled += CaptureTasMoviePoll;
+                _originalTiming!.UpdateCompleted += CaptureCompletedTasMovieUpdate;
+            }
             GD.Print("TAS_READY");
         }
         catch (Exception exception) { FailTasReplay(exception); }
@@ -83,6 +90,11 @@ public sealed partial class ValidationRoot
             string? line = Console.ReadLine();
             if (line is null || line == "stop") { _tasReplay = false; SetProcess(false); GetTree().Quit(0); return; }
             using var command = JsonDocument.Parse(line);
+            if (_tasMovieReplay)
+            {
+                AdvanceTasMovie(command.RootElement);
+                return;
+            }
             if (_tasPresentationReplay)
             {
                 AdvanceTasPresentation(command.RootElement);
