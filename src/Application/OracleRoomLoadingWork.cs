@@ -24,7 +24,8 @@ internal sealed class OracleRoomLoadingWork
                 "initialization" or "room-state" or "room-specific" or "vram-specific" or
                 "tile-specific" or "single-tiles" or "screen-data" or "tile-dispatch" or
                 "standard-tiles" or "pollution-gate" or "opened-chest" or
-                "object-freeze" or "object-parse" or "enemy-history"))
+                "object-freeze" or "object-parse" or "enemy-history" or
+                "next-room" or "room-advance" or "room-pack" or "pirate-load" or "portal-spawn"))
                 throw new InvalidOperationException($"Unsupported room loading operation {operation}.");
             int index = Convert.ToInt32(row.RequiredString(1), 16);
             int variant = row.Decimal(2, 0, 1023);
@@ -41,6 +42,9 @@ internal sealed class OracleRoomLoadingWork
             Get("layout-wrapper", 0, source.TilesetLayoutId != destination.TilesetLayoutId ? 1 : 0) +
             Get("vram-wrapper", 0, 0) + Get("scroll-clear", 0, 0) + Get("graphics-traversal", 0, 0) +
             Get("object-freeze", 0, 0) +
+            PirateLoad(destination, save) +
+            Get("portal-spawn", 0, save.TimePortalGroup != destination.Group ? 0 :
+                save.TimePortalRoom != destination.Id ? 1 : 2) +
             OracleSeaEffectSearchWork.Shared.Search(destination.ActiveCollisions, destination.Layout) +
             Get("initialization", 0, 0) +
             Get("room-specific", destination.Group * 256 + destination.Id, 0) +
@@ -69,6 +73,11 @@ internal sealed class OracleRoomLoadingWork
 
     internal int Tileset(int layout, int collisions, int flags, int room) =>
         Get("tileset", layout, collisions != 0 ? 0 : (flags & 0x80) == 0 ? 1 : room == 0x38 ? 3 : 2);
+
+    internal int PirateLoad(OracleRoomData room, OracleSaveData save) =>
+        Get("pirate-load", 0, (room.TilesetFlags & 1) | ((room.TilesetFlags & 0xc0) >> 5) |
+            (save.IsLinkedGame ? 8 : 0) | (save.HasGlobalFlag(GlobalFlag.PiratesGone) ? 16 : 0) |
+            (save.ReadWramByte(WramAddress.wPirateShipRoom) == room.Id ? 32 : 0));
 
     internal int ScreenData(int group, int room, OracleSaveData save)
     {

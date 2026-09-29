@@ -18,7 +18,7 @@ internal sealed class OracleGameplayDispatchWork
         foreach (GeneratedTableRow row in table.Rows)
         {
             string operation = row.RequiredString(0);
-            if (operation is not ("objects" or "sprites" or "enemies" or "parts" or "interactions" or "items" or "items-post"))
+            if (operation is not ("frame" or "objects" or "special" or "sprites" or "enemies" or "parts" or "interactions" or "items" or "items-post"))
                 throw new InvalidOperationException($"Unsupported gameplay dispatcher {operation}.");
             _clocks.Add((operation, row.Decimal(1, 0, 5)), row.Decimal(2, 1, 1_000_000));
             _ = row.RequiredString(3);
@@ -26,6 +26,8 @@ internal sealed class OracleGameplayDispatchWork
     }
 
     internal int Objects => _clocks[("objects", 0)];
+    internal int Frame => _clocks[("frame", 0)];
+    internal int SpecialObjects(bool mermaidSuit) => _clocks[("special", mermaidSuit ? 1 : 0)];
     internal int NormalItems => _clocks[("items", 0)];
     internal int PostItems => _clocks[("items-post", 0)];
     internal int NormalObjectPass(int phase) => _clocks[(phase switch {

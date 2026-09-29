@@ -69,7 +69,73 @@ internal sealed class OriginalRoomLoadingWork
         CompileSingleTileChanges(rom, rows);
         CompileTileSubstitutionDispatch(rom, rows);
         CompileObjectEntryWork(rom, rows);
+        CompileScrollSelection(rom, rows);
+        CompileRoomSpawnChecks(rom, rows);
         return rows.ToString();
+    }
+
+    private static void CompileScrollSelection(byte[] rom, StringBuilder rows)
+    {
+        Guard(rom, 0x5f45, [0xfa, 0x00, 0xcd, 0xe6, 0x04, 0xc8], "getNextActiveRoom");
+        Guard(rom, 0x5f13, [0xfa, 0x39, 0xcc, 0x3c, 0x20, 0x0d], "updateActiveRoom");
+        Guard(rom, 0x5edd, [0xfa, 0x2d, 0xcc, 0xfe, 0x02], "checkRoomPack");
+        for (int group = 0; group < 8; group++)
+        {
+            for (int room = 0; room < 256; room++)
+            {
+                var lookup = new OriginalRoomLoadingWork(rom);
+                lookup._memory[0xcd00] = 4;
+                lookup._memory[0xcc2d] = (byte)group;
+                lookup._memory[0xcc30] = (byte)room;
+                // Retain the ordered room search and standard dispatch.
+                // The forest/eye handlers and actual map advance are separate.
+                rows.Append($"next-room\t{group * 256 + room:x4}\t0\t{lookup.Run(0x5f45, 0x5f96, 0x5feb, 0x5f13)}\tcode/bank1.s:getNextActiveRoom\n");
+            }
+            for (int direction = 0; direction < 4; direction++)
+            {
+                var advance = new OriginalRoomLoadingWork(rom);
+                advance._memory[0xcc2d] = (byte)group;
+                advance._memory[0xcc30] = 0x88;
+                advance._memory[0xcc39] = 0xff; // wDungeonIndex: ordinary map arithmetic.
+                advance._memory[0xcd02] = (byte)direction;
+                rows.Append($"room-advance\t{group:x2}\t{direction}\t{advance.Run(0x5f13)}\tcode/bank1.s:updateActiveRoom\n");
+            }
+            for (int changed = 0; changed < 2; changed++)
+            {
+                var pack = new OriginalRoomLoadingWork(rom);
+                pack._memory[0xcc2d] = (byte)group;
+                pack._memory[0xcc45] = (byte)changed;
+                rows.Append($"room-pack\t{group:x2}\t{changed}\t{pack.Run(0x5edd)}\tcode/bank1.s:checkRoomPack\n");
+            }
+        }
+    }
+
+    private static void CompileRoomSpawnChecks(byte[] rom, StringBuilder rows)
+    {
+        Guard(rom, 0x7de1, [0x3e, 0x34, 0xcd, 0xf3, 0x31, 0xc0], "checkLoadPirateShip");
+        Guard(rom, 0x7e07, [0x21, 0x40, 0xd1], "pirate reserved-slot boundary");
+        for (int variant = 0; variant < 64; variant++)
+        {
+            var ship = new OriginalRoomLoadingWork(rom);
+            ship._memory[0xcc34] = (byte)((variant & 1) | ((variant & 2) << 5) | ((variant & 4) << 5));
+            ship._memory[0xcc01] = (byte)((variant >> 3) & 1);
+            ship._memory[0xc6d6] = (byte)(variant & 16); // GLOBALFLAG_PIRATES_GONE $34.
+            ship._memory[0xcc30] = (byte)((variant >> 5) & 1);
+            ship._memory[0xc6ec] = 1;
+            // Stop before the live reserved-slot check and spawning body.
+            rows.Append($"pirate-load\t00\t{variant}\t{ship.RunUntil(0x7de1, 0x7e07, [])}\tcode/ages/pirateShip.s:checkLoadPirateShip\n");
+        }
+        Guard(rom, 0x321d, [0x26, 0x06, 0x6f], "checkSpawnTimeportalInteraction");
+        Guard(rom, 0xb9be, [0xaf, 0xea, 0xdd, 0xcd], "timeportal spawn body");
+        for (int match = 0; match < 3; match++)
+        {
+            var portal = new OriginalRoomLoadingWork(rom);
+            portal._memory[0xcc30] = 1;
+            portal._memory[0xc63e] = (byte)(match == 0 ? 1 : 0);
+            portal._memory[0xc63f] = (byte)(match == 2 ? 1 : 0);
+            // Group miss, room miss, or matching portal before allocation.
+            rows.Append($"portal-spawn\t00\t{match}\t{portal.RunUntil(0x321d, 0x3aef, [])}\tcode/roomInitialization.s:checkSpawnTimeportalInteraction\n");
+        }
     }
 
     private static void CompileObjectEntryWork(byte[] rom, StringBuilder rows)
@@ -88,7 +154,12 @@ internal sealed class OriginalRoomLoadingWork
         Guard(rom, 0x495cc, [0x21, 0x15, 0x43, 0x1e, 0x15], "parseObjectData lookup boundary");
         var parse = new OriginalRoomLoadingWork(rom) { _bank = 0x12 };
         parse._memory[0xff97] = 0x12;
-        rows.Append($"object-parse\t00\t0\t{parse.RunUntil(0x55b7, 0x55cc, [0x3209, 0x3215])}\tcode/objectLoading.s:parseObjectData\n");
+        Guard(rom, 0x54315, [0xfa, 0x2d, 0xcc, 0x21], "getObjectDataAddress");
+        Guard(rom, 0x495d4, [0x1a, 0xfe, 0xfe], "parseGivenObjectData boundary");
+        // The lookup's double-index table stays within one page for all
+        // eight groups; room indexing uses ADD HL,DE with fixed timing.
+        // Include that lookup and its bank-switch wrapper before opcodes.
+        rows.Append($"object-parse\t00\t0\t{parse.RunUntil(0x55b7, 0x55d4, [0x3209, 0x3215])}\tcode/objectLoading.s:parseObjectData\n");
         Guard(rom, 0x3209, [0x26, 0x01, 0x18], "addRoomToEnemiesKilledList");
         for (int found = -1; found < 8; found++)
         {
@@ -401,6 +472,39 @@ internal sealed class OriginalRoomLoadingWork
         Guard(rom, 0x0d9a, [0x21, 0xb6, 0xc4, 0xcb, 0x46, 0xc0, 0x36, 0xff], "drawAllSprites");
         Guard(rom, 0x0e2f, [0x21, 0xc0, 0xc4, 0xf0, 0xa0], "drawAllSprites terrain-effects boundary");
         var rows = new StringBuilder("# operation\tvariant\tcpu-cycles\tsource\n");
+        Guard(rom, 0x0933, [0xcd, 0x6d, 0x02, 0xf0, 0xb9, 0x87, 0x28], "_mainLoop");
+        Guard(rom, 0x0952, [0x3d, 0x28], "_mainLoop second thread-state test");
+        Guard(rom, 0x097e, [0x21, 0x9d, 0xc4, 0x36, 0xff, 0x76], "_mainLoop VBlank wait");
+        var frame = new OriginalRoomLoadingWork(rom);
+        int threadTests = 0;
+        long frameClocks = frame.RunUntil(0x0933, 0x0983, [0x4016],
+            pc => { if (pc == 0x0952) threadTests++; });
+        if (threadTests != 4) throw new InvalidDataException("_mainLoop must visit four thread slots.");
+        // Every frame polls input, walks four thread slots, and copies the
+        // six display registers before HALT. Remove the second state test
+        // (not reached by state1) and intro gate's taken-JR extra. Thread
+        // continuations, reset handling, and palette refresh are separate.
+        frameClocks -= threadTests * 12 + 4;
+        Guard(rom, 0x098b, [0x2c, 0x35, 0x20, 0xc6], "_countdownToRunThread");
+        Guard(rom, 0x33a7, [0x21, 0x22, 0xc6, 0x34, 0x2a, 0xea, 0x00, 0xcc], "mainThread playtime counter");
+        Guard(rom, 0x33cd, [0x18, 0xd8], "mainThread resumed continuation");
+        Guard(rom, 0x08fe, [0x3e, 0x01, 0xe5, 0xd5, 0xc5], "resumeThreadNextFrame");
+        var resume = new OriginalRoomLoadingWork(rom);
+        resume._memory[0xc2e9] = 1;
+        resume._memory[0xc2ea] = 0xea;
+        resume._memory[0xc2eb] = 0xc1;
+        resume._cpu.SetHl(0xc2e8);
+        // A completed gameplay update resumes/yields the main thread once.
+        // Its taken first state-test JR adds four clocks beyond the common
+        // fetch above. Other threads' continuation work stays separate.
+        frameClocks += resume.Run(0x098b) + 4;
+        var main = new OriginalRoomLoadingWork(rom);
+        main._memory[0xff9e] = 0xe8;
+        // Include the playtime prefix and main-thread CALLs, excluding game
+        // logic, sprites, and HUD bodies. Counter-carry tails stay separate;
+        // remove the low-byte nonzero branch's four extra JR clocks.
+        frameClocks += main.RunUntil(0x33cd, 0x0955, [0x596a, 0x0d9a, 0x1a71]) - 4;
+        rows.Append($"frame\t0\t{frameClocks}\tcode/bank0.s:_mainLoop,mainThreadStart\n");
         var dispatch = new OriginalRoomLoadingWork(rom);
         dispatch._memory[0xcc2c] = 0xd0;
         // All called bodies are independent work. The optional mounted/grab
@@ -409,6 +513,25 @@ internal sealed class OriginalRoomLoadingWork
         long clocks = dispatch.Run(0x345b, 0x4000, 0x4872, 0x3616, 0x2ea5,
             0x5e58, 0x3b36, 0x410d, 0x54df, 0x2b25, 0x491a, 0x494d, 0x12ae, 0x6c32, 0x5906);
         rows.Append($"objects\t0\t{clocks}\tcode/bank0.s:updateAllObjects\n");
+        Guard(rom, 0x14000, [0x21, 0x57, 0xcc], "updateSpecialObjects");
+        Guard(rom, 0x1407d, [0x7e, 0xb7, 0xc8], "updateSpecialObject enabled gate");
+        var enabled = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+        enabled._wram[0x1000] = 1;
+        enabled._cpu.SetHl(0xd000);
+        long enabledPrefix = enabled.RunUntil(0x407d, 0x4080, []);
+        for (int suit = 0; suit < 2; suit++)
+        {
+            var special = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            special._memory[0xff97] = 5;
+            special._memory[0xc6a3] = (byte)(suit * 4); // TREASURE_MERMAID_SUIT $4a.
+            // Retain the full treasure lookup, including its obtained path.
+            // Four conditional JR gates contribute their common fetch;
+            // branch extras and optional writes remain separate work. An
+            // owned suit executes SET 6,(HL) instead of a taken JR.
+            clocks = special.Run(0x4000, 0x40b3, 0x407d, 0x4279) - 12 - (suit == 0 ? 4 : 16);
+            clocks += 2 * enabledPrefix;
+            rows.Append($"special\t{suit}\t{clocks}\tcode/specialObjects.s:updateSpecialObjects\n");
+        }
         foreach (var (operation, bank, entry, branch, slots) in new[] {
             ("enemies", 0, 0x2ea5, 0x2ecc, 16), ("parts", 0x11, 0x5e58, 0x5e79, 16),
             ("interactions", 0, 0x3b36, -1, 16), ("items", 7, 0x4872, 0x48a8, 10),
@@ -489,6 +612,9 @@ internal sealed class OriginalRoomLoadingWork
 
     private int Read(int address)
     {
+        // pollInput has no input-dependent branches. Preserve its P1 bus
+        // instructions with both unpressed button rows for timing import.
+        if (address == 0xff00) return (_memory[address] & 0x30) | 0xcf;
         if (address < 0x4000) return _rom[address];
         if (address < 0x8000) return _rom[_bank * 0x4000 + address - 0x4000];
         if (address is >= 0xd000 and < 0xe000) return _wram[_wramBank * 0x1000 + address - 0xd000];
@@ -501,7 +627,7 @@ internal sealed class OriginalRoomLoadingWork
         if (address is >= 0x2000 and < 0x4000) { _bank = value & 0x3f; return; }
         if (address is >= 0xd000 and < 0xe000) { _wram[_wramBank * 0x1000 + address - 0xd000] = (byte)value; return; }
         if (address == 0xff70) _wramBank = Math.Max(1, value & 7);
-        else if (address is not (>= 0xc000 and < 0xd000 or >= 0xff80 or 0xff4f))
+        else if (address is not (>= 0xc000 and < 0xd000 or >= 0xff80 or 0xff4f or 0xff00))
             throw new InvalidDataException($"Room loader wrote unsupported memory ${address:x4}.");
         _memory[address] = (byte)value;
     }

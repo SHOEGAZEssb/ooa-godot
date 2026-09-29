@@ -27,6 +27,7 @@ internal sealed class OracleCpu
     internal int Accumulator => _a;
     internal void SetBc(int value) => BC = value;
     internal void SetDe(int value) => DE = value;
+    internal void SetHl(int value) => HL = value;
 
     // External owners may implement an entire source subroutine (for example
     // LCD waiting). Its work includes RET; do not charge a second return here.
@@ -193,6 +194,10 @@ internal sealed class OracleCpu
         else switch (op)
         {
             case 0x00: cycles = 4; break;
+            case 0x08:
+                int stackAddress = Word();
+                Write(stackAddress, _sp & 255); Write((stackAddress + 1) & 0xffff, _sp >> 8);
+                cycles = 20; break;
             case 0x02: Write(BC, _a); cycles = 8; break;
             case 0x12: Write(DE, _a); cycles = 8; break;
             case 0x0a: _a = Read(BC); cycles = 8; break;
@@ -218,6 +223,7 @@ internal sealed class OracleCpu
             case 0xf0: _a = Read(0xff00 | Byte()); cycles = 12; break;
             case 0xe2: Write(0xff00 | _c, _a); cycles = 8; break;
             case 0xf2: _a = Read(0xff00 | _c); cycles = 8; break;
+            case 0xf9: _sp = HL; cycles = 8; break;
             case 0xe9: _pc = HL; cycles = 4; break;
             case 0xea: Write(Word(), _a); cycles = 16; break;
             case 0xfa: _a = Read(Word()); cycles = 16; break;

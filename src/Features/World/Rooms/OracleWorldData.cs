@@ -181,11 +181,13 @@ public sealed class OracleWorldData
 
     // bank1.checkRoomPack: only overworld groups participate. A change in
     // the low seven bits fades if either pack has bit 7 set.
+    internal int GetRoomPack(int group, int room) => group switch {
+        0 => _presentRoomPacks[room], 1 => _pastRoomPacks[room], _ => 0 };
+
     internal bool RequiresRoomPackFade(int group, int sourceRoom, int targetRoom)
     {
         if (group is not (0 or 1)) return false;
-        byte[] packs = group == 0 ? _presentRoomPacks : _pastRoomPacks;
-        int source = packs[sourceRoom], target = packs[targetRoom];
+        int source = GetRoomPack(group, sourceRoom), target = GetRoomPack(group, targetRoom);
         return (source & 0x7f) != (target & 0x7f) && ((source | target) & 0x80) != 0;
     }
 

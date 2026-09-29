@@ -16,18 +16,40 @@ public sealed partial class ValidationRoot
         // objectQueueDraw work beyond its 64 enabled checks (972), Link
         // drawing (1212), and the taken draw CALL's twelve extra clocks.
         OracleGameplayDispatchWork dispatch = OracleGameplayDispatchWork.Shared;
-        FailIf(dispatch.Objects != 948 || dispatch.Sprites(true, false, false) != 8920 ||
+        // Source instruction accounting: main-loop shared988, resumed main
+        // thread128+4 taken-JR clocks, main-thread shared counter/yield424.
+        FailIf(dispatch.Frame != 1544 || dispatch.Objects != 948 || dispatch.Sprites(true, false, false) != 8920 ||
             dispatch.Sprites(false, false, false) != 8704 ||
             dispatch.Sprites(true, true, false) != 8924 ||
             dispatch.Sprites(false, false, true) != 8328 ||
             dispatch.Sprites(true, false, true) != 8544 ||
             dispatch.Sprites(true, true, true) != 8548,
             "Shared object/sprite traversal differs from native work or its scroll/textbox gates.");
+        // Source context switches use LD SP,HL and LD (a16),SP. Check the
+        // restored return address and little-endian bus writes independently
+        // of the imported table: 12+8+20+16 clocks, writes at clocks36/40.
+        var cpuMemory = new byte[65536];
+        byte[] switchProgram = [0x21, 0xee, 0xc1, 0xf9, 0x08, 0x80, 0xc0, 0xc9];
+        switchProgram.CopyTo(cpuMemory, 0x100);
+        cpuMemory[0xc1ee] = 0x34; cpuMemory[0xc1ef] = 0x12;
+        long busClocks = 0;
+        var stackWrites = new List<long>();
+        var cpu = new OracleCpu(address => cpuMemory[address], (address, value) => {
+            cpuMemory[address] = (byte)value;
+            if (address is 0xc080 or 0xc081) stackWrites.Add(busClocks);
+        }, clocks => busClocks += clocks, (pc, detail) => new InvalidOperationException($"${pc:x4}: {detail}"));
+        cpu.BeginCall(0x100, stack: 0xc1f0);
+        for (int instruction = 0; instruction < 4; instruction++) cpu.Step();
+        FailIf(cpu.ProgramCounter != 0x1234 || cpu.StackPointer != 0xc1f0 || cpu.Cycles != 56 ||
+            cpuMemory[0xc080] != 0xee || cpuMemory[0xc081] != 0xc1 ||
+            stackWrites.Count != 2 || stackWrites[0] != 36 || stackWrites[1] != 40,
+            "Source thread stack switching lost its return address, byte order, or bus timing.");
         // Native empty loops: items956, enemies1316, parts1288,
         // interactions1476, items-post760. JR's extra four clocks for each
         // empty slot are outside the shared portion; conditional CALL's
         // untaken twelve-clock fetch is already common work.
-        FailIf(dispatch.NormalItems != 916 || dispatch.PostItems != 760 ||
+        FailIf(dispatch.SpecialObjects(false) != 1560 || dispatch.SpecialObjects(true) != 1672 ||
+            dispatch.NormalItems != 916 || dispatch.PostItems != 760 ||
             dispatch.NormalObjectPass(0) != 1252 || dispatch.NormalObjectPass(1) != 1224 ||
             dispatch.NormalObjectPass(2) != 1476,
             "Normal object slot-loop work differs from source instruction traces.");
@@ -62,8 +84,18 @@ public sealed partial class ValidationRoot
         OracleRoomData to = _rooms.GetRoom(0, 0x7a);
         OracleSaveData scrollSave = OracleSaveData.CreateStandardGame();
         FailIf(from.TilesetLayoutId != 0 || to.TilesetLayoutId != 0x14 || to.LayoutGroup != 0 ||
-            roomWork.Scroll(from, to, scrollSave) != 607416 || roomWork.Scroll(to, to, scrollSave) != 182100,
+            roomWork.Scroll(from, to, scrollSave) != 608168 || roomWork.Scroll(to, to, scrollSave) != 182852,
             "Scrolling must decode changed tileset layouts and reuse an unchanged layout.");
+        // Native first scroll: getNextActiveRoom1192 = ordered lookup/
+        // dispatch772 + ordinary map advance420; equal room packs116.
+        // Pirate load exits at the present-era gate420; portal group miss332.
+        FailIf(roomWork.Get("next-room", 0x8a, 0) != 772 ||
+            roomWork.Get("room-advance", 0, 0) != 420 ||
+            roomWork.Get("room-pack", 0, 0) != 116 ||
+            roomWork.PirateLoad(to, scrollSave) != 420 ||
+            roomWork.Get("portal-spawn", 0, 0) != 332 ||
+            roomWork.Get("portal-spawn", 0, 1) != 368,
+            "Scroll selection or room-spawn checks differ from the native first scroll.");
         // Native update1065: music selection440, tileset selection1816,
         // single-tile changes1324, room-specific tile lookup1332,
         // standard flags448, chest gate248 and pollution gate284.
@@ -77,10 +109,10 @@ public sealed partial class ValidationRoot
             "Screen selection or tile-substitution work differs from the native first scroll.");
         // Native freeze traverses all sixty slots with zero conversions:
         // 3904 clocks less sixty taken-JR extras (4 each) is shared3664.
-        // The parser clears32 bytes and calls history/RNG before lookup;
-        // excluding those separately charged bodies leaves912 clocks.
+        // The parser clears32 bytes and calls history/RNG before its
+        // 416-clock banked pointer lookup: 912+416 clocks excluding history/RNG.
         FailIf(roomWork.Get("object-freeze", 0, 0) != 3664 ||
-            roomWork.Get("object-parse", 0, 0) != 912,
+            roomWork.Get("object-parse", 0, 0) != 1328,
             "Room entry lost its shared object traversal or parser scratch clear.");
         var history = new RecentEnemyDefeats();
         FailIf(history.BeginRoom(0) != 368 || history.BeginRoom(0x7a) != 764,
@@ -274,7 +306,8 @@ public sealed partial class ValidationRoot
                     for (int update = 0; !_transitions.ScrollActive && update < 40; update += 2)
                         StepGameplayUpdates(2, Vector2.Up, batched: batched);
                     FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x7a ||
-                        charged.FindAll(clocks => clocks == 607416).Count != 1,
+                        charged.FindAll(clocks => clocks == 608168).Count != 1 ||
+                        charged.FindAll(clocks => clocks == 1308).Count != 1,
                         "North exit must charge its source room setup exactly once on each visit.");
                     int count = charged.Count;
                     // A committed source scroll cannot be cancelled by

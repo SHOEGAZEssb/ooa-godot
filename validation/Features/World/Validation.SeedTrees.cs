@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
         noSatchelManager.LoadRoom(0, rooms.GetRoom(0, 0x00));
         Vector2 incomingOffset = Vector2.Left * room.Width;
         noSatchelManager.BeginScreenTransition(0, room, incomingOffset);
-        FailIf(!refillWork.SequenceEqual(new[] { 1280, 8576, 1676 }),
+        FailIf(!refillWork.SequenceEqual(new[] { 1696, 8576, 2092 }),
             "Room parses must charge their scratch/history work; only outdoor scroll entry adds seed histories.");
 
         List<SeedOnTree> perched = noSatchelManager.Entities<SeedOnTree>();
@@ -105,12 +105,12 @@ public sealed partial class ValidationRoot
             blockedSeed.State != SeedOnTreeState.Perched ||
             !database.IsRefilled(runtime, canonical.RefillIndex),
             "A no-satchel seed slash did not show TX_0035 while retaining the tree bit.");
-        FailIf(!refillWork.SequenceEqual(new[] { 1280, 8576, 1676, 916, 1252, 1224, 1476 }),
+        FailIf(!refillWork.SequenceEqual(new[] { 1696, 8576, 2092, 916, 1252, 1224, 1476 }),
             "Seed history work repeated during scroll motion or completion, or displaced ordinary slot traversal.");
         refillWork.Clear();
         noSatchelManager.LoadRoom(2, rooms.GetRoom(2, 0));
         noSatchelManager.BeginScreenTransition(0, room, incomingOffset);
-        FailIf(!refillWork.SequenceEqual(new[] { 1320, 1280 }),
+        FailIf(!refillWork.SequenceEqual(new[] { 1736, 1696 }),
             "The outgoing indoor tileset must bypass seed-tree refill work while retaining both room parses.");
         noSatchelManager.Clear();
         noSatchelManager.Dispose();

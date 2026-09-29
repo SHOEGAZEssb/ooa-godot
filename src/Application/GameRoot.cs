@@ -17,6 +17,7 @@ public partial class GameRoot : Node2D
     private bool _collectTimedSound, _timedSoundRestart;
     private string? _timedFrontendLoading;
     private long _timedCpuWork;
+    private bool _timedGameplayPassFinished;
     private double _hostCpuBudget;
     private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
@@ -823,6 +824,7 @@ public partial class GameRoot : Node2D
         _timedSoundRestart = false;
         _timedFrontendLoading = null;
         _timedCpuWork = 0;
+        _timedGameplayPassFinished = false;
         _collectTimedSound = _originalTiming is not null;
         Input.BeginOriginalUpdate(_applicationInput.ConsumeOriginalUpdate(strictPolling: _collectTimedSound));
         try
@@ -835,6 +837,8 @@ public partial class GameRoot : Node2D
                     ? "capcom" : _timedSoundRestart && _frontendIntro?.Stage == FrontendIntroStage.Title
                     ? "title" : previousIntro is not null && _frontendIntro is null && _mainMenu is not null
                     ? "files" : _timedFrontendLoading;
+                if (_timedGameplayPassFinished)
+                    CollectBlockingWork(OracleGameplayDispatchWork.Shared.Frame);
                 _originalTiming.BeginUpdate(loading, _timedSoundRequests.ToArray(), slot => _mainMenu?.LoadedSlot(slot),
                     _frontendIntro?.PaletteWorkPending == true || _mainMenu?.PaletteWorkPending == true, _mainMenu?.RawEnteredName,
                     foregroundWork: _timedCpuWork);
@@ -1013,7 +1017,8 @@ public partial class GameRoot : Node2D
         // updateAllObjects begins with updateSpecialObjects (Link), followed by
         // item parents. Link's former physics/process split is therefore
         // replayed here before enemies, parts, and interactions.
-        CollectBlockingWork(OracleGameplayDispatchWork.Shared.Objects);
+        CollectBlockingWork(OracleGameplayDispatchWork.Shared.Objects +
+            OracleGameplayDispatchWork.Shared.SpecialObjects(_player.Inventory.HasTreasure(TreasureId.MermaidSuit)));
         bool scrollOwnedUpdate = _transitions.ScrollActive;
         bool roomTransitionOwnedUpdate = IsTransitioning;
         _harp.BeginObjectUpdate();
@@ -1107,6 +1112,10 @@ public partial class GameRoot : Node2D
         _debugWarps.Update();
         CollectBlockingWork(OracleGameplayDispatchWork.Shared.Sprites(
             _transitions.ScrollActive, _rooms.ActiveGroup >= 4, _dialogue.RestrictsWorldSpritesToLink));
+        // A completed gameplay pass performs the shared input/thread/display
+        // work even when it starts text. Textbox plans cover the new text
+        // thread; they do not include this main-thread resume/yield path.
+        _timedGameplayPassFinished = true;
     }
 
     internal void UpdatePostObjectPlayerState()
