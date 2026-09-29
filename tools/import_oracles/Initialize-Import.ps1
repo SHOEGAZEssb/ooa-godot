@@ -482,61 +482,6 @@ function Read-AssemblyDwTables(
     return $tables
 }
 
-# Remove outputs that moved to another owner or were replaced by a broader
-# generated table. Their obsolete paths must not survive a local re-import.
-foreach ($legacyGeneratedAsset in @(
-    'gfx\gfx_key.png',
-    'gfx\gfx_partial_hearts.png',
-    'gfx\spr_hyperslingshot_inventory.png',
-    'menu\new_game_intro.tsv',
-    'menu\new_game_intro_sprites.tsv',
-    'objects\maku_tree_cutscene.tsv',
-    'objects\ralph_portal_event.tsv',
-    'objects\linked_game_ghini.tsv',
-    'objects\tokay_island_constants.tsv',
-    'objects\tokay_island_texts.tsv',
-    'objects\tokay_island_animations.tsv',
-    'objects\interaction_script_references.tsv',
-    'objects\room_coverage.tsv',
-    'objects\script_coverage_dependencies.tsv',
-    'timing\active_tile_cpu.tsv',
-    'timing\changed_tile_cpu.tsv',
-    'timing\frontend_cpu.tsv',
-    'timing\gameplay_dispatch_cpu.tsv',
-    'timing\graphics_cpu.tsv',
-    'timing\idle_item_cpu.tsv',
-    'timing\link_state_cpu.tsv',
-    'timing\link_wall_cpu.tsv',
-    'timing\pegasus_cpu.tsv',
-    'timing\pirate_course_cpu.tsv',
-    'timing\random_buffer_cpu.tsv',
-    'timing\room_cpu.tsv',
-    'timing\sea_search_cpu.tsv',
-    'timing\textbox_cpu.tsv',
-    'timing\tile_interaction_cpu.tsv'
-)) {
-    $legacyGeneratedPath = Join-Path $destination $legacyGeneratedAsset
-    if (Test-Path -LiteralPath $legacyGeneratedPath) {
-        Remove-Item -LiteralPath $legacyGeneratedPath -Force
-    }
-}
-
-# Remove the eight flat files produced by the original four-room prototype.
-# All generated data now lives in purpose-specific subdirectories.
-foreach ($legacyName in @(
-    'gfx_tileset08.png', 'spr_link.png',
-    'tilesetMappings06.bin', 'tilesetCollisions06.bin',
-    'room0000.bin', 'room0001.bin', 'room0010.bin', 'room0011.bin'
-)) {
-    $legacyPath = Join-Path $destination $legacyName
-    if (Test-Path -LiteralPath $legacyPath) {
-        Remove-Item -LiteralPath $legacyPath -Force
-    }
-    if (Test-Path -LiteralPath "${legacyPath}.import") {
-        Remove-Item -LiteralPath "${legacyPath}.import" -Force
-    }
-}
-
 if (-not (Test-Path -LiteralPath $Rom)) {
     throw "ROM not found: $Rom"
 }

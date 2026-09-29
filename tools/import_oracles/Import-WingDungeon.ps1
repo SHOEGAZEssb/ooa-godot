@@ -392,13 +392,6 @@ for ($subid = 0; $subid -lt 15; $subid++) {
 Write-GeneratedTable(
     (Join-Path $destination 'objects\moving_side_scroll_platforms.tsv'),
     $platformRows)
-foreach ($obsoleteDungeonAsset in @(
-    'objects\wing_dungeon_constants.tsv',
-    'objects\wing_dungeon_side_platforms.tsv',
-    'objects\wing_dungeon_minecarts.tsv'
-)) {
-    [IO.File]::Delete((Join-Path $destination $obsoleteDungeonAsset))
-}
 
 $patternRows = [Collections.Generic.List[string]]::new()
 $patternRows.Add("# kind`tcolor`tpositions")

@@ -978,14 +978,6 @@ $spinnerRows.Add(
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_spinners.tsv'),
     $spinnerRows)
-foreach ($obsoleteDungeonAsset in @(
-    'objects\spirits_grave_enemies.tsv',
-    'objects\spirits_grave_head_thwomp_palette.bin',
-    'objects\spirits_grave_cube_palettes.bin',
-    'objects\spirits_grave_visuals.tsv'
-)) {
-    [IO.File]::Delete((Join-Path $destination $obsoleteDungeonAsset))
-}
 
 # Preserve the native object order. before-event bosses are emitted after the
 # ordinary main-room objects and are active only while ROOMFLAG_BIT_80 is clear.

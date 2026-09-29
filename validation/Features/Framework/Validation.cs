@@ -11,6 +11,8 @@ public sealed partial class ValidationRoot : GameRoot
 {
     private int _neutralInputFrames;
     private int _executedValidationCount;
+    private int _skippedValidationCount;
+    private bool _skipRomValidation;
     private string? _validationFilter;
     private int _validationOrdinal;
     private int _shardIndex;
@@ -71,6 +73,7 @@ public sealed partial class ValidationRoot : GameRoot
     {
         try
         {
+            _skipRomValidation = OS.GetCmdlineUserArgs().Contains("--skip-rom-validation");
             foreach (string argument in OS.GetCmdlineUserArgs())
             {
                 const string prefix = "--validate-shard=";
@@ -137,7 +140,7 @@ public sealed partial class ValidationRoot : GameRoot
         Input.IsActionJustPressed("move_down") || Input.IsActionJustPressed("move_left") ||
         Input.IsActionJustPressed("map") || Input.IsActionJustPressed("inventory");
 
-    private void RunIsolatedValidation(Action validation)
+    private void RunIsolatedValidation(Action validation, bool requiresRom = false)
     {
         // Partition the authoritative registration stream, preserving its order
         // within each process. Godot objects and static observers stay on that
@@ -151,6 +154,13 @@ public sealed partial class ValidationRoot : GameRoot
                 _validationFilter,
                 StringComparison.Ordinal))
         {
+            return;
+        }
+
+        if (requiresRom && _skipRomValidation)
+        {
+            _skippedValidationCount++;
+            GD.Print($"VALIDATION_SKIPPED name={validation.Method.Name} reason=rom-required");
             return;
         }
 
@@ -208,7 +218,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNuunWaterfall);
         RunIsolatedValidation(ValidateOracleObjectMath);
         RunIsolatedValidation(ValidateOracleRandom);
-        RunIsolatedValidation(ValidateOracleRandomRom);
+        RunIsolatedValidation(ValidateOracleRandomRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
         RunIsolatedValidation(ValidateSharedRoomEventHosts);
@@ -834,17 +844,16 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateWingDungeon);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 
-        if (_validationFilter is not null && _executedValidationCount == 0)
+        if (_validationFilter is not null &&
+            _executedValidationCount + _skippedValidationCount == 0)
         {
             throw new InvalidOperationException(
                 $"No validation method named '{_validationFilter}' was registered.");
         }
-        GD.Print(_validationFilter is null
-            ? (_shardCount == 1
-                ? "Validated all gameplay and world-data scenarios."
-                : $"Validated gameplay and world-data shard {_shardIndex + 1}/{_shardCount}.")
-            : $"Validated isolated scenario {_validationFilter}.");
+        GD.Print($"Validation finished: {_executedValidationCount} passed, " +
+            $"{_skippedValidationCount} skipped.");
         GD.Print($"VALIDATION_COMPLETE shard={_shardIndex + 1}/{_shardCount} " +
-            $"executed={_executedValidationCount} registered={_validationOrdinal}");
+            $"executed={_executedValidationCount} skipped={_skippedValidationCount} " +
+            $"registered={_validationOrdinal}");
     }
 }

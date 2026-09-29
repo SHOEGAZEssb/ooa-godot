@@ -45,6 +45,9 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 
 Use `rg` or `rg --files` for searches and `apply_patch` for edits.
 
+Perform one-off repository cleanup directly. Do not add cleanup scripts or
+legacy-file deletion blocks to checked-in scripts.
+
 ## Evidence and regression requirements
 
 - Keep validation focused on individual systems and their immediate

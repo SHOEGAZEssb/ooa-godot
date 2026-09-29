@@ -134,11 +134,12 @@ jobs:
         shell: pwsh
         run: dotnet build --configuration Debug --warnaserror
 
-      - name: Run complete headless validation suite
+      - name: Run headless validation with ROM-dependent tests skipped
         shell: pwsh
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'headless-validation.log'
-          & $env:GODOT_CONSOLE --headless --path . --quit-after 10 -- --validate 2>&1 |
+          & $env:GODOT_CONSOLE --headless --path . --quit-after 10 -- `
+              --validate --skip-rom-validation 2>&1 |
               Tee-Object -FilePath $log
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) {

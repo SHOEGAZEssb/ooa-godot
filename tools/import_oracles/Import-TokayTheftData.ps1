@@ -451,12 +451,6 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_movement.tsv'),
     $fairyMovementOutput)
 
-$retiredFairyVelocityPath =
-    Join-Path $destination 'cutscenes\fairies_woods_velocity.tsv'
-if (Test-Path -LiteralPath $retiredFairyVelocityPath) {
-    Remove-Item -LiteralPath $retiredFairyVelocityPath -Force
-}
-
 $fairyHiddenRows = @(
     "# room`tpacked-position`tfairy-index`tsource"
     "81`t25`t03`tfairyHidingMinigame.s:@table"

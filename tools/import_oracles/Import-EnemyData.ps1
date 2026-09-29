@@ -5026,14 +5026,6 @@ if ($enemyBehaviorRows.Count -ne 1939) {
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\enemy_behavior_tables.tsv'),
     $enemyBehaviorRows)
-[IO.File]::Delete(
-    (Join-Path $destination 'metadata\wing_dungeon_enemy_constants.tsv'))
-
-$legacyFairyVelocityPath =
-    Join-Path $destination 'effects\item_drop_fairy_velocities.tsv'
-if (Test-Path -LiteralPath $legacyFairyVelocityPath) {
-    Remove-Item -LiteralPath $legacyFairyVelocityPath -Force
-}
 
 # ENEMY_GREAT_FAIRY $38 is a shared fountain actor, despite its enemy dispatch.
 # Preserve source text and PART_GREAT_FAIRY_HEART $30 graphics independently

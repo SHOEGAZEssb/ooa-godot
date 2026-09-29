@@ -41,9 +41,15 @@ ROM-backed comparisons are registered in the normal suite. They require the
 supported clean US ROM at the repository's default
 `Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc` path. Use `-Rom PATH`
 to select another location; the launcher passes it as `--validation-rom=PATH`.
-Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs;
-they are never counted as skipped successes. Focused scenarios that do not
-execute the ROM do not require it.
+Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs.
+Focused scenarios that do not execute the ROM do not require it.
+
+CI passes `--skip-rom-validation` to skip ROM-dependent scenarios. For an
+equivalent local run, use `tools/validate_parallel.ps1 -SkipRomValidation`.
+Mark these scenarios with `requiresRom: true` in the ordered registration.
+Skipping preserves shard assignments and reports each excluded scenario plus
+separate passed/skipped totals; it never counts a skipped test as passed.
+Normal local runs continue to execute every registered scenario.
 
 Reference execution verifies the ROM's size and SHA-256 before running bounded
 original routines with declared memory access. Tests compare resulting state

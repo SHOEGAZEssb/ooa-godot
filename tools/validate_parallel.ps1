@@ -5,6 +5,7 @@ param(
     [ValidatePattern('^Validate[A-Za-z0-9_]+$')]
     [string]$ValidateOnly,
     [string]$Rom,
+    [switch]$SkipRomValidation,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -31,10 +32,13 @@ namespace OracleValidation {
 '@
 }
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$romArguments = @()
+$validationArguments = @()
 if ($Rom) {
     $romPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
-    $romArguments = @('"--validation-rom=' + $romPath + '"')
+    $validationArguments += '"--validation-rom=' + $romPath + '"'
+}
+if ($SkipRomValidation) {
+    $validationArguments += '--skip-rom-validation'
 }
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
@@ -54,7 +58,7 @@ try {
         $process = Start-Process -FilePath $Godot -WorkingDirectory $projectRoot `
             -ArgumentList (@('--headless', '--path', ('"' + $projectRoot + '"'),
                 '--log-file', ('"' + $engineLog + '"'), '--quit-after', '10',
-                '--', '--validate', $selection) + $romArguments) `
+                '--', '--validate', $selection) + $validationArguments) `
             -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         # Retain the native handle so Windows PowerShell can read ExitCode even
         # when the worker exits before we reach WaitForExit.
@@ -71,11 +75,12 @@ try {
 
     $failed = $false
     $executed = 0
+    $skipped = 0
     $registered = $null
     foreach ($worker in $processes) {
         $worker.Process.WaitForExit()
         $output = [string](Get-Content -LiteralPath $worker.Out -Raw)
-        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) registered=(\d+)\r?$"
+        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) skipped=(\d+) registered=(\d+)\r?$"
         if ($worker.Process.ExitCode -ne 0 -or $output -notmatch $pattern) {
             $failed = $true
             Write-Host "Worker $($worker.Index) failed (exit $($worker.Process.ExitCode))."
@@ -83,20 +88,36 @@ try {
             Get-Content -LiteralPath $worker.Err | Write-Host
             continue
         }
-        $executed += [int]$Matches[1]
-        $total = [int]$Matches[2]
+        $workerExecuted = [int]$Matches[1]
+        $workerSkipped = [int]$Matches[2]
+        $total = [int]$Matches[3]
+        $executed += $workerExecuted
+        $skipped += $workerSkipped
+        if ($workerSkipped -gt 0 -and -not $SkipRomValidation) {
+            $failed = $true
+            Write-Host "Worker $($worker.Index) skipped scenarios without -SkipRomValidation."
+        }
         if ($null -ne $registered -and $registered -ne $total) {
             throw 'Workers disagree on the registered validation count.'
         }
         $registered = $total
-        Write-Host "Worker $($worker.Index): $($Matches[1]) scenarios passed."
+        foreach ($line in ($output -split '\r?\n')) {
+            if ($line.StartsWith('VALIDATION_SKIPPED ')) { Write-Host $line }
+        }
+        Write-Host "Worker $($worker.Index): $workerExecuted scenarios passed, $workerSkipped skipped."
     }
     $expected = if ($ValidateOnly) { 1 } else { $registered }
-    if ($failed -or $executed -ne $expected) {
-        throw "Parallel validation incomplete: $executed/$registered scenarios passed. Logs: $logRoot"
+    if ($failed -or $executed + $skipped -ne $expected) {
+        throw "Parallel validation incomplete: $executed passed, $skipped skipped, $registered registered. Logs: $logRoot"
     }
     if ($ValidateOnly) {
-        Write-Host ("Validated {0} in {1:N1}s." -f $ValidateOnly, $timer.Elapsed.TotalSeconds)
+        if ($skipped -gt 0) {
+            Write-Host "Skipped $ValidateOnly (ROM required)."
+        } else {
+            Write-Host ("Validated {0} in {1:N1}s." -f $ValidateOnly, $timer.Elapsed.TotalSeconds)
+        }
+    } elseif ($skipped -gt 0) {
+        Write-Host ("Validation complete: {0} passed, {1} skipped, {2} registered in {3:N1}s with {4} workers." -f $executed, $skipped, $registered, $timer.Elapsed.TotalSeconds, $Workers)
     } else {
         Write-Host ("Validated all {0} scenarios in {1:N1}s with {2} workers." -f $executed, $timer.Elapsed.TotalSeconds, $Workers)
     }
