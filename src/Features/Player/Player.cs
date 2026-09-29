@@ -1822,18 +1822,8 @@ public partial class Player : Node2D
             _instrumentsDisabledCounter--;
     }
 
-    internal event Action<int>? BlockingWork;
-
-    private void AdvancePegasusCounter()
-    {
-        if (_world.Pegasus is not { } pegasus) return;
-        int clocks = pegasus.AdvanceCounter();
-        BlockingWork?.Invoke(clocks);
-    }
-
     private void AdvancePhysics(double delta)
     {
-        bool normalLinkAtEntry = _activeTransformation == 0;
         _enemyGrabUpdated = false;
         _swimmingSwordUpdatedInPhysics = false;
         // updateSpecialObjects clears wcc92 before this update's terrain
@@ -1983,7 +1973,7 @@ public partial class Player : Node2D
         _startedParentItemAnimations = 0;
         if (_world.SwitchHookExchangeActive)
         {
-            AdvancePegasusCounter();
+            _world.Pegasus?.AdvanceCounter();
             _world.UpdateSwitchHookParent(this);
             AdvanceSwitchHookAirState();
             if (!_topDownAirborne) _world.CheckTileWarp(this);
@@ -2017,7 +2007,7 @@ public partial class Player : Node2D
         // linkState01 decrements before item use and knockback. Text,
         // scrolling, forced states, and disabled Link do not reach this call.
         if (!_world.IsTransitioning && !_world.DialogueOpen)
-            AdvancePegasusCounter();
+            _world.Pegasus?.AdvanceCounter();
         _world.UpdateSwitchHookParent(this);
         _world.UpdateSomariaParent();
         if (!_world.IsTransitioning && !_world.DialogueOpen && !_world.ItemUsageDisabled && !_companionRideControlled)
@@ -2187,25 +2177,9 @@ public partial class Player : Node2D
             _world.TryInteract(this))
             return;
 
-        // The source checks front-tile interactions even without an A press.
-        // This covers ordinary unladen Link after unsuccessful object input;
-        // carrying/item-owned and forced-state paths retain separate timing.
-        if (normalLinkAtEntry && _activeTransformation == 0 && !_topDownAirborne && !_world.SideScrolling &&
-            !_minecartRideControlled && !_raftRideControlled && !IsUsingItem &&
-            !_world.BraceletParentActive && !_world.BombParentActive && !_world.RidingObject &&
-            !_world.ItemUsageDisabled && !_world.MovementDisabled && BlockingWork is not null)
-            BlockingWork(_world.GetTileInteractionWork(_precisePosition, FacingVector));
-
         UpdateRaisedFloorOffset();
         if (!_world.SideScrolling)
-        {
-            // Grounded normal Link samples the active tile before mutating
-            // its previous position/index. Airborne updates retain that tile.
-            // Transformed/forced-state timing remains outside this coverage.
-            if (normalLinkAtEntry && _activeTransformation == 0 && !_topDownAirborne && BlockingWork is not null)
-                BlockingWork(_world.GetActiveTileLookupWork(_precisePosition));
             _world.UpdateLinkOnChest(_precisePosition, _topDownAirborne);
-        }
         if (!_world.SideScrolling &&
             TryAdvanceTopDownSwimming(
                 input,
@@ -2234,16 +2208,6 @@ public partial class Player : Node2D
         // chooseParentItemSlot precedes the Bracelet parent's release check.
         // Keep that input-phase observation even if UpdateBracelet clears it.
         bool braceletParentAtInput = _world.BraceletParentActive;
-        // No-button checks still traverse the equipped-item predicates and
-        // parent slots. Other control paths and active parent bodies retain
-        // their own timing coverage; this charges the ordinary idle input path.
-        if (normalLinkAtEntry && _activeTransformation == 0 && !_topDownAirborne &&
-            !_world.SideScrolling && !_world.Underwater && !IsUsingItem &&
-            !_minecartRideControlled && !_raftRideControlled && !braceletParentAtInput &&
-            !_world.BombParentActive && !_world.RidingObject && !_world.ItemUsageDisabled &&
-            !_world.MovementDisabled && !_world.SwordDisabled && !primaryPressed && !secondaryPressed &&
-            _world.GetActiveTerrain(_precisePosition).Terrain.Type != TerrainType.Vines && BlockingWork is not null)
-            BlockingWork(OracleIdleItemWork.Shared.Get(_inventory.EquippedA, _inventory.EquippedB, _inventory.ActiveRing));
         if (_world.UpdateBomb(this, input, itemButtonJustPressed))
         {
             if (_raftRideControlled && input.LengthSquared() > 0.01f)
@@ -2514,23 +2478,7 @@ public partial class Player : Node2D
             return;
         }
 
-        // This normal grounded path has passed the text/forced-state/item
-        // gates. Link's source wall scan precedes movement even when idle.
-        // Instrument playback returns before that scan. Other Link states'
-        // probe work remains separate from this normal movement dispatch.
-        if (normalLinkAtEntry && _activeTransformation == 0 && !IsUsingHarp && BlockingWork is not null)
-            BlockingWork(_world.GetLinkWallProbeWork(_precisePosition));
-        bool ordinaryDispatch = normalLinkAtEntry && _activeTransformation == 0 &&
-            !IsUsingItem && !TopDownSwimming && !_world.Underwater &&
-            !_world.BraceletParentActive && !_world.BombParentActive && !_world.RidingObject &&
-            !_world.ItemUsageDisabled && !_world.MovementDisabled && !_world.SwordDisabled &&
-            _world.GetActiveTerrain(_precisePosition).Terrain.Type == TerrainType.Normal;
         _walking = AdvanceTopDownInputMovement(input, movementAllowed);
-        // Child routines above have their own work. This is linkState01's
-        // dispatch and branch instructions on its ordinary grounded path.
-        // A cliff changes state inside movement and bypasses that return path.
-        if (ordinaryDispatch && _ledgeJumpState == LedgeJumpState.None && BlockingWork is not null)
-            BlockingWork(OracleLinkStateWork.Shared.Normal(AngleForVector(input) < 0x80));
         if (_walking)
         {
             AdvanceLinkWalkAnimation();

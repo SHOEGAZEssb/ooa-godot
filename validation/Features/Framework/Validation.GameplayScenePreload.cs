@@ -32,12 +32,6 @@ public sealed partial class ValidationRoot
             int rng = _random.Calls;
             Invoke("StartSelectedFile", 0, save);
             var intro = Read<NewGameIntroController>("_newGameIntro")!;
-            var trace = CaptureTasSharedState();
-            FailIf(trace["room.active"] != 1 || trace["room.group"] != 0 || trace["room.id"] != 0x8a ||
-                trace["link.x8_8"] != 0x5000 || trace["link.y8_8"] != 0xd000 ||
-                trace["link.direction"] != 0 || trace["link.controlled"] != 1 || trace["link.health"] != 12 ||
-                trace["save.$c622"] != 1 || Enumerable.Range(0, 16).Any(slot => trace[$"enemy.${0xd080 + slot * 256:x4}.occupied"] != 0),
-                "The pregame TAS adapter lost the cleared object pool, Link cutscene coordinates, or live initialized file.");
             int frames = 0;
             while (frames < 360)
             {
@@ -69,9 +63,6 @@ public sealed partial class ValidationRoot
             FailIf(Read<NewGameIntroController>("_newGameIntro") is null ||
                 !SamePayloadExceptPlaytime(before, save) || _random.Calls != rng,
                 "Prepared gameplay entered before the original post-vanish $3c hold completed.");
-            trace = CaptureTasSharedState();
-            FailIf(trace["room.active"] != 0 || trace.ContainsKey("link.x8_8"),
-                "The pregame TAS adapter retained Link after state B cleared his object.");
             var timer = System.Diagnostics.Stopwatch.StartNew();
             base._Process(1.0 / 60.0);
             FailIf(intro.CurrentStage != Stage.RestartGame ||

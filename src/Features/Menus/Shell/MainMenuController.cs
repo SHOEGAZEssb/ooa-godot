@@ -18,12 +18,7 @@ public sealed class MainMenuController
     private readonly Action<int> _erase;
     private readonly Action<int, OracleSaveData> _startGame;
     private readonly Action<int>? _playSound;
-    private readonly Action<FileMenuInitialization>? _initialize;
-    private readonly Action<Action> _present;
     private FileMenuInitialization? _pendingInitialization;
-    private Page? _loadingPage;
-    private int _pageRevision;
-    private int _textSpeed;
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[OracleSaveStore.SlotCount];
     private int _sourceSlot = -1;
     private double _titleTicks;
@@ -46,13 +41,10 @@ public sealed class MainMenuController
         FileMenuInitialization.NewFileOptions => Page.NewFileOptions,
         FileMenuInitialization.NameEntry => Page.NameEntry,
         FileMenuInitialization.FileSelect => Page.FileSelect,
-        _ => _loadingPage ?? _screen.CurrentPage
+        _ => _screen.CurrentPage
     };
     internal int Cursor => _screen.Cursor;
     internal string? LastSaveError { get; private set; }
-    internal OracleSaveData? LoadedSlot(int slot) => _slots[slot];
-    internal string RawEnteredName => _screen.RawEnteredName;
-    internal bool PaletteWorkPending { get; private set; }
 
     public MainMenuController(
         MainMenuScreen screen,
@@ -61,9 +53,7 @@ public sealed class MainMenuController
         Func<int, OracleSaveData, SaveResult>? save = null,
         Action<int>? erase = null,
         Action<int>? playSound = null,
-        bool startAtFileSelect = false,
-        Action<FileMenuInitialization>? initialize = null,
-        Action<Action>? present = null)
+        bool startAtFileSelect = false)
     {
         _screen = screen;
         _startGame = startGame;
@@ -71,8 +61,6 @@ public sealed class MainMenuController
         _save = save ?? OracleSaveStore.SaveSlot;
         _erase = erase ?? OracleSaveStore.EraseSlot;
         _playSound = playSound;
-        _initialize = initialize;
-        _present = present ?? (action => action());
         ReloadSlots();
         // FrontendIntroController transfers this shared screen at the end of
         // the title's 32-update fade, when its palette offset is fully white.
@@ -80,38 +68,20 @@ public sealed class MainMenuController
         // boundary, so the new owner must clear the inherited title offset.
         if (startAtFileSelect)
         {
-            PresentPage(Page.FileSelect, () =>
-            {
-                _screen.SetWhiteFade(0.0f);
-                _screen.ShowFileSelect();
-            });
+            _screen.SetWhiteFade(0.0f);
+            _screen.ShowFileSelect();
             _playSound?.Invoke(SoundId.MusFileSelect);
         }
         else
         {
-            PresentPage(Page.Title, () =>
-            {
-                _screen.SetWhiteFade(0.0f);
-                _screen.ShowTitle();
-            });
+            _screen.SetWhiteFade(0.0f);
+            _screen.ShowTitle();
             _playSound?.Invoke(SoundId.MusTitlescreen);
         }
     }
 
-    private void PresentPage(Page page, Action show)
-    {
-        int revision = ++_pageRevision;
-        _loadingPage = page;
-        _present(() =>
-        {
-            show();
-            if (_pageRevision == revision) _loadingPage = null;
-        });
-    }
-
     public void Update(double delta)
     {
-        PaletteWorkPending = false;
         if (!IsActive)
             return;
 
@@ -149,22 +119,21 @@ public sealed class MainMenuController
             switch (initialization)
             {
                 case FileMenuInitialization.NewFileOptions:
-                    PresentPage(Page.NewFileOptions, () => _screen.ShowNewFileOptions(_screen.SelectedSlot));
+                    _screen.ShowNewFileOptions(_screen.SelectedSlot);
                     break;
                 case FileMenuInitialization.NameEntry:
                     _repeatKeys = _repeatCounter = 0;
-                    PresentPage(Page.NameEntry, () => _screen.ShowNameEntry(_screen.SelectedSlot));
+                    _screen.ShowNameEntry(_screen.SelectedSlot);
                     break;
                 case FileMenuInitialization.NameCommit:
                     SaveEnteredName();
                     break;
                 case FileMenuInitialization.FileSelect:
                     ReloadSlots();
-                    PresentPage(Page.FileSelect, _screen.ShowFileSelect);
+                    _screen.ShowFileSelect();
                     break;
                 default: throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.");
             }
-            _initialize?.Invoke(initialization);
             return;
         }
 
@@ -206,7 +175,7 @@ public sealed class MainMenuController
         DispatchInput(pressed, held);
         // fileSelectMode1 state 2 adds this sprite even on its Back path.
         if (inputPage == Page.TextSpeed) PresentTextSpeedCursor();
-        else _present(() => _screen.SetTextSpeedCursorVisible(false));
+        else _screen.SetTextSpeedCursorVisible(false);
     }
 
     private void DispatchInput(int pressed, int held)
@@ -310,7 +279,7 @@ public sealed class MainMenuController
         int cursor = _screen.Cursor;
         int choice = _screen.Choice;
         int nameCursor = _screen.NameCursor;
-        int textSpeed = _textSpeed;
+        int textSpeed = _screen.TextSpeed;
         switch (CurrentPage)
         {
             case Page.FileSelect:
@@ -337,7 +306,7 @@ public sealed class MainMenuController
                 break;
             case Page.TextSpeed:
                 if (direction.X != 0)
-                    _textSpeed = Math.Clamp(_textSpeed + direction.X, 0, 4);
+                    _screen.SetTextSpeed(Math.Clamp(_screen.TextSpeed + direction.X, 0, 4));
                 PresentTextSpeedCursor();
                 break;
             case Page.CopyConfirm:
@@ -347,7 +316,7 @@ public sealed class MainMenuController
                 break;
         }
         if (_screen.Cursor != cursor || _screen.Choice != choice ||
-            _screen.NameCursor != nameCursor || _textSpeed != textSpeed)
+            _screen.NameCursor != nameCursor || _screen.TextSpeed != textSpeed)
         {
             _playSound?.Invoke(SoundId.SndMenuMove);
         }
@@ -437,7 +406,7 @@ public sealed class MainMenuController
             case Page.TextSpeed:
                 // @textSpeedMenu_checkInput decrements only the substate;
                 // it does not reinitialize the selected file cursor.
-                PresentPage(Page.FileSelect, _screen.RestoreFileSelect);
+                _screen.RestoreFileSelect();
                 break;
             case Page.NameEntry:
                 _playSound?.Invoke(SoundId.SndClink);
@@ -482,10 +451,8 @@ public sealed class MainMenuController
             _pendingInitialization = FileMenuInitialization.NewFileOptions;
         else
         {
-            _textSpeed = save.TextSpeed;
-            int speed = _textSpeed;
-            PresentPage(Page.TextSpeed, () => _screen.ShowTextSpeed(slot, speed, cursorVisible: false));
-            _initialize?.Invoke(FileMenuInitialization.SelectFile);
+            int speed = save.TextSpeed;
+            _screen.ShowTextSpeed(slot, speed, cursorVisible: false);
         }
     }
 
@@ -507,12 +474,7 @@ public sealed class MainMenuController
 
     private void PresentTextSpeedCursor()
     {
-        int speed = _textSpeed;
-        _present(() =>
-        {
-            _screen.SetTextSpeed(speed);
-            _screen.SetTextSpeedCursorVisible(true);
-        });
+        _screen.SetTextSpeedCursorVisible(true);
     }
 
     private void CommitNameEntry()
@@ -539,13 +501,12 @@ public sealed class MainMenuController
     {
         int slot = _screen.SelectedSlot;
         OracleSaveData save = _slots[slot]!;
-        save.SetTextSpeed(_textSpeed);
+        save.SetTextSpeed(_screen.TextSpeed);
         if (!TrySave(slot, save))
             return;
         _pendingSlot = slot;
         _pendingSave = save;
         BeginFade(FadeDestination.Gameplay);
-        _initialize?.Invoke(FileMenuInitialization.StartFile);
     }
 
     private void AcceptCopySource()
@@ -600,10 +561,9 @@ public sealed class MainMenuController
     {
         _fadeDestination = destination;
         _fadeTicks = 0.0;
-        PaletteWorkPending = true;
         // THREAD_3 runs after the file thread: its first palette step is
         // already offset $01 on the update that requests fadeoutToWhite.
-        _present(() => _screen.SetWhiteFade(1.0f / WhiteFadeFrames));
+        _screen.SetWhiteFade(1.0f / WhiteFadeFrames);
     }
 
     private void UpdateFade(double delta)
@@ -611,9 +571,8 @@ public sealed class MainMenuController
         if (_fadeTicks < WhiteFadeFrames)
         {
             _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
-            PaletteWorkPending = _fadeTicks < WhiteFadeFrames - 1;
             float fade = (float)((_fadeTicks + 1) / WhiteFadeFrames);
-            _present(() => _screen.SetWhiteFade(fade));
+            _screen.SetWhiteFade(fade);
             // paletteFadeHandler01 stops on the $20 boundary without a
             // palette write. The earlier file thread sees completion next update.
             return;
@@ -633,14 +592,12 @@ public sealed class MainMenuController
     }
 }
 
-public enum FileMenuInitialization
+internal enum FileMenuInitialization
 {
     NewFileOptions,
     NameEntry,
     NameCommit,
-    FileSelect,
-    SelectFile,
-    StartFile
+    FileSelect
 }
 
 internal enum FadeDestination

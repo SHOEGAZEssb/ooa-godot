@@ -1301,7 +1301,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             !_dialogue.IsOpen || _dialogue.Position.Y != 24 ||
-            _dialogue.SourceTextId != 0x0102 || _dialogue.OpeningScreen.AutomaticPosition != 0 ||
+            _dialogue.SourceTextId != 0x0102 ||
             !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
             !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
             octoroks[0].Active || octoroks[1].Active || octoroks[2].Active ||

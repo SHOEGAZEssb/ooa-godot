@@ -8,7 +8,6 @@ public sealed class RoomTransitionController
 {
     public event Action<Vector2I>? ScrollingTransitionFinished;
     internal event Action? WarpDestinationLoading;
-    internal event Action<int>? BlockingWork;
 
     public const float WarpFadeFrames = 32.0f;
     // fadeoutToWhite advances wPaletteThread_fadeOffset from $00 through $1f.
@@ -326,10 +325,6 @@ public sealed class RoomTransitionController
     private bool TrySelectScreenEdgeWarp(
         OracleRoomData room, Vector2I direction, Vector2 position, out Warp warp)
     {
-        if (BlockingWork is not null)
-            BlockingWork(OracleRoomLoadingWork.Shared.EdgeWarp(_rooms.ActiveGroup, room.Id,
-                direction == Vector2I.Down, (byte)Mathf.FloorToInt(_player.Position.X),
-                _player.CompanionRideActive || _player.MinecartRideActive || _player.RaftRideActive));
         _entities.RuntimeState.SetWramByte(WramAddress.wTmpcec0, 0xff);
         if (!_warps.TryGetEdgeWarp(_rooms.ActiveGroup, room.Id, direction,
                 position, new Vector2(room.Width, room.Height), out warp))
@@ -592,19 +587,15 @@ public sealed class RoomTransitionController
         Vector2I direction,
         out int targetId)
     {
-        if (TryGetScrambledDestination(direction, out targetId))
+        if (_rooms.ActiveGroup == 0 &&
+            !_rooms.SaveData.HasGlobalFlag(
+                GlobalFlag.ForestUnscrambled) &&
+            _fairiesWoodsScrambler.TryResolve(
+                _rooms.CurrentRoom.Id, direction, out targetId))
         {
             return true;
         }
         return _rooms.TryGetNeighbor(direction, out targetId);
-    }
-
-    private bool TryGetScrambledDestination(Vector2I direction, out int targetId)
-    {
-        targetId = 0;
-        return _rooms.ActiveGroup == 0 &&
-            !_rooms.SaveData.HasGlobalFlag(GlobalFlag.ForestUnscrambled) &&
-            _fairiesWoodsScrambler.TryResolve(_rooms.CurrentRoom.Id, direction, out targetId);
     }
 
     internal bool TryGetScreenTransitionDestinationForValidation(
@@ -615,21 +606,6 @@ public sealed class RoomTransitionController
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
         OracleRoomData source = _rooms.CurrentRoom;
-        if (BlockingWork is not null)
-        {
-            OracleRoomLoadingWork work = OracleRoomLoadingWork.Shared;
-            int group = _rooms.ActiveGroup;
-            int selection = work.Get("next-room", group * 256 + source.Id, 0);
-            // Dungeon map lookup and special forest/eye handler bodies remain
-            // separate work. Ordinary maps advance with the source arithmetic.
-            if (_rooms.CurrentDungeonIndex < 0 && !TryGetScrambledDestination(direction, out _))
-                selection += work.Get("room-advance", group, direction.Y < 0 ? 0 :
-                    direction.X > 0 ? 1 : direction.Y > 0 ? 2 : 3);
-            int sourcePack = _rooms.World.GetRoomPack(group, source.Id) & 0x7f;
-            int targetPack = _rooms.World.GetRoomPack(group, targetId) & 0x7f;
-            selection += work.Get("room-pack", group, sourcePack == targetPack ? 0 : 1);
-            BlockingWork(selection);
-        }
         if (_rooms.World.RequiresRoomPackFade(_rooms.ActiveGroup, source.Id, targetId))
         {
             // cutscene01 -> checkRoomPack -> CUTSCENE_05 performs a full
@@ -652,8 +628,6 @@ public sealed class RoomTransitionController
         Image sourceGraphics = source.CaptureLiveGraphics();
         Color[,] sourceColors = source.BackgroundPalettes.Capture();
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
-        if (BlockingWork is not null)
-            BlockingWork(OracleRoomLoadingWork.Shared.Scroll(source, target, _rooms.SaveData));
         IPlayerScreenTransitionRoomEntity? transitionOwner =
             _entities.PlayerScreenTransitionOwner;
         UpdateCamera();

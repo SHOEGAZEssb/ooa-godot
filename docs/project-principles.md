@@ -18,6 +18,12 @@ Use evidence in this order:
 The implementation should make the first two sources easy to trace rather than
 replace them with undocumented clone-specific rules.
 
+Fidelity targets the original gameplay rules, update order, integer arithmetic,
+counters, state transitions, graphics and sound. The application advances fixed
+60 Hz updates. It does not reproduce foreground CPU instruction costs, hardware
+loading delays or synchronization with recorded emulator movies. Keep original
+behavior understandable and extensible without a parallel CPU-cost model.
+
 ## Fidelity rules
 
 - Trace handlers, callers, data tables, and object placement before coding.

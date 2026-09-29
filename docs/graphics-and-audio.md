@@ -109,17 +109,10 @@ snapshots do not request a redraw. Per-object
 overrides select cached textures without resetting animation clocks or mutating
 source images.
 
-Frontend presentation follows completed LCD frames, separately from CPU updates
-and LCD register writes. Disabling the LCD retains the outgoing frame through
-the settle interval; enabling it discards the first frame before revealing the
-destination. Install loading screens behind the resulting white interval.
-Loaders that keep the LCD enabled queue their display changes for the scanout
-after their VBlank uploads. Keep those uploaded changes separate from the next
-foreground update's pending graphics and OAM. Menu input can advance before
-its panel and cursor are displayed; presented values must be immutable copies
-of the corresponding update. Palette presentation uses the source RGB5 fade
-followed by the imported GBA brightness table, matching the supported TAS hardware profile.
-Logical menu state and audio can advance while the previous frame remains visible.
+Frontend controllers publish graphics, cursors and palette changes within
+their fixed updates. Screen swaps retain the source fade endpoints and
+initialization states. Palette presentation uses the source RGB5 fade followed
+by the imported GBA brightness table.
 
 Keep these concepts separate:
 
@@ -147,14 +140,9 @@ individual sheets; correct pixels alone cannot detect a mismatched layout.
 ## Audio determinism and lifecycle
 
 `OracleSoundEngine` is persistent across gameplay scenes. Requests enter the
-original 16-byte ring; each sound timer interrupt applies the pending music
-volume, drains requests in order, then advances the driver. Cold-start sessions
-run that timer independently of input polls and blocking frontend loads. Direct
-component callers retain a single-tick update interface. Restarting
-sound clears the queue while retaining the source driver's volume, fade and
-disable state. The application clock retains DIV phase and the original
-seven-interrupt correction counter across restarts; that counter initially
-wraps from zero before entering its repeating correction period.
+original 16-byte ring; each application update applies the pending music volume,
+drains requests in order, then advances the driver once. Restarting sound clears
+the queue while retaining the source driver's volume, fade and disable state.
 
 The generated sound-bank image already contains the clean US driver as well
 as its tables and channel programs. A bounded interpreter executes its sound
@@ -175,11 +163,9 @@ use CGB-D/E behavior, including the intermediate volume before retriggering;
 post-update driver RAM alone cannot verify these audible transitions. Mixer
 edges are band-limited before conversion to 44100 Hz PCM so ultrasonic pulse
 harmonics cannot fold back into audible noise. The APU keeps
-clocking while the driver is disabled. Clocked sessions advance the APU during
-foreground work, waits and the sound interrupt's instruction/wrapper work.
-Loading can span multiple host frames without generating its entire audio
-buffer ahead of presentation. Output is
-submitted after the complete host-frame batch, with a small reserve for the
+clocking while the driver is disabled. Its hardware clock serves audio synthesis
+and remains local to the sound system; it does not govern gameplay scheduling.
+Output is submitted after the complete host-frame batch, with a small reserve for the
 independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation
 may discard stale samples after a host stall, bridging the resulting sample

@@ -32,7 +32,6 @@ entry point.
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
 | Imported graphics, OAM, palettes, caching, sound, or audio RNG | [Graphics and audio](graphics-and-audio.md) |
 | A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
-| An executed-ROM comparison or shared trace artifact | [Continuous TAS fidelity replay](tas-replay.md) |
 | Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
 
 ## Documentation boundary

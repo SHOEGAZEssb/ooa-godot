@@ -498,7 +498,22 @@ foreach ($legacyGeneratedAsset in @(
     'objects\tokay_island_animations.tsv',
     'objects\interaction_script_references.tsv',
     'objects\room_coverage.tsv',
-    'objects\script_coverage_dependencies.tsv'
+    'objects\script_coverage_dependencies.tsv',
+    'timing\active_tile_cpu.tsv',
+    'timing\changed_tile_cpu.tsv',
+    'timing\frontend_cpu.tsv',
+    'timing\gameplay_dispatch_cpu.tsv',
+    'timing\graphics_cpu.tsv',
+    'timing\idle_item_cpu.tsv',
+    'timing\link_state_cpu.tsv',
+    'timing\link_wall_cpu.tsv',
+    'timing\pegasus_cpu.tsv',
+    'timing\pirate_course_cpu.tsv',
+    'timing\random_buffer_cpu.tsv',
+    'timing\room_cpu.tsv',
+    'timing\sea_search_cpu.tsv',
+    'timing\textbox_cpu.tsv',
+    'timing\tile_interaction_cpu.tsv'
 )) {
     $legacyGeneratedPath = Join-Path $destination $legacyGeneratedAsset
     if (Test-Path -LiteralPath $legacyGeneratedPath) {

@@ -16,7 +16,6 @@ internal sealed class OracleRandom
 
     internal int Calls { get; private set; }
     internal OracleRandomResult LastResult { get; private set; }
-    internal event Action<int>? BlockingWork;
 
     internal void BindPlacementMemory(OracleRuntimeState runtime) =>
         _placementMemory = runtime;
@@ -58,8 +57,6 @@ internal sealed class OracleRandom
 
     internal byte[] GeneratePermutation()
     {
-        OracleRandomBufferWork? work = BlockingWork is null ? null : OracleRandomBufferWork.Shared;
-        int clocks = work?.BaseClocks ?? 0;
         var permutation = new byte[256];
         for (int index = 0; index < permutation.Length; index++)
             permutation[index] = (byte)index;
@@ -67,16 +64,13 @@ internal sealed class OracleRandom
         Swap(permutation, 0xff, Next().Value);
         for (int current = 0xff; current > 0; current--)
         {
-            byte value = Next().Value;
-            int randomIndex = (value * current) >> 8;
-            clocks += work?.MultiplyExtra(value) ?? 0;
+            int randomIndex = (Next().Value * current) >> 8;
             Swap(permutation, current, randomIndex);
         }
         // generateRandomBuffer always replaces w4RandomBuffer, including
         // calls from floor-color workers. Only room parsing resets its cursor.
         permutation.CopyTo(_placementBuffer, 0);
         _placementBufferReady = true;
-        BlockingWork?.Invoke(clocks);
         return permutation;
     }
 

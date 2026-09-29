@@ -11,6 +11,5 @@
 /tools/OracleImporter/obj/
 /tools/OracleImporter.Tests/bin/
 /tools/OracleImporter.Tests/obj/
-/tools/fidelity/__pycache__/
 /.vs
 *.old

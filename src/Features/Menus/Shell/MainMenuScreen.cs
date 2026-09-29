@@ -145,7 +145,6 @@ public partial class MainMenuScreen : Node2D
 
     public override void _Draw()
     {
-        if (DisplayBlank) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
         if (CurrentPage == Page.Title)
         {
             DrawTexture(_title, Vector2.Zero);
@@ -188,10 +187,6 @@ public partial class MainMenuScreen : Node2D
             DrawTextSpeedCursor();
     }
 
-    internal bool OriginalLcdEnabled { get; private set; } = true;
-    internal void SetOriginalLcdEnabled(bool enabled) { OriginalLcdEnabled = enabled; QueueRedraw(); }
-    internal bool DisplayBlank { get; private set; }
-    internal void SetDisplayBlank(bool blank) { DisplayBlank = blank; QueueRedraw(); }
 
     public void SetSlots(OracleSaveData?[] slots)
     {

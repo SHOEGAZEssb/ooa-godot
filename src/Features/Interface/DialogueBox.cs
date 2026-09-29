@@ -10,10 +10,7 @@ public partial class DialogueBox : Node2D
     private Func<float> _gameplayCameraY = () => 0;
     private bool _gameplayPresentation;
     private int _presentationOffsetY;
-    internal int OpenSequence { get; private set; }
     internal int? SourceTextId { get; private set; }
-    internal DialogueScreenContext OpeningScreen { get; private set; }
-    internal int OpeningFlags { get; private set; }
 
     internal void SetGameplayPresentationOffset(int offsetY)
     {
@@ -151,7 +148,6 @@ public partial class DialogueBox : Node2D
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
     internal int TextboxFlagsForValidation => _textboxFlags;
-    internal bool RestrictsWorldSpritesToLink => (_textboxFlags & 0x04) != 0;
     internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
     internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
@@ -275,10 +271,7 @@ public partial class DialogueBox : Node2D
         int? sourceTextId = null)
     {
         ArgumentNullException.ThrowIfNull(message);
-        OpenSequence++;
         SourceTextId = sourceTextId;
-        OpeningScreen = screen;
-        OpeningFlags = textboxFlags;
         // checkInitialTextCommands recognizes $0c:$20-$23 only at the
         // beginning of the resolved text, after initTextbox's automatic side.
         Match initialPosition = Regex.Match(message, @"^\\pos\(([0-3])\)");

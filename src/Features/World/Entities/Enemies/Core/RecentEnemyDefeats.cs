@@ -24,21 +24,18 @@ internal sealed class RecentEnemyDefeats
         }
     }
 
-    internal int BeginRoom(int room)
+    internal void BeginRoom(int room)
     {
         if (room is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(room));
 
         _activeRoom = room;
-        int found = FindRoom(room);
-        int clocks = OracleRoomLoadingWork.Shared.Get("enemy-history", 0, found + 1);
-        if (found >= 0)
-            return clocks;
+        if (FindRoom(room) >= 0)
+            return;
 
         _rooms[_tail] = (byte)room;
         _killedEnemies[_tail] = 0;
         _tail = (_tail + 1) & (RoomCount - 1);
-        return clocks;
     }
 
     internal bool WasKilled(int enemyIndex)

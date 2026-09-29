@@ -18,7 +18,6 @@ internal sealed class FrontendIntroController
     private readonly Action _restartSound;
     private readonly Action<int> _playSound;
     private readonly Action _openFileSelect;
-    private readonly Action<Action> _present;
     private readonly List<FrontendBirdState> _birds = [];
     private FrontendSequenceValue[] _templeInput = [];
     private int _templeInputIndex;
@@ -55,9 +54,6 @@ internal sealed class FrontendIntroController
     internal byte FrameCounter { get; private set; }
     internal bool InputsEnabled { get; private set; }
     internal bool IsActive { get; private set; } = true;
-    // THREAD_3 runs after runIntro, including the update that begins a fade.
-    // Its last dirty palette precedes the stop and frontend handoff updates.
-    internal bool PaletteWorkPending => _fadeDuration != 0 && _fadeUpdate < _fadeDuration - 1;
     internal int HorseScrollY { get; private set; }
     internal int HorseGroundScrollX { get; private set; }
     internal int HorseCloudScrollX { get; private set; }
@@ -119,8 +115,7 @@ internal sealed class FrontendIntroController
         Action restartSound,
         Action<int> playSound,
         Action openFileSelect,
-        bool startAtTitle = false,
-        Action<Action>? present = null)
+        bool startAtTitle = false)
     {
         _screen = screen;
         _titleScreen = titleScreen;
@@ -128,7 +123,6 @@ internal sealed class FrontendIntroController
         _restartSound = restartSound;
         _playSound = playSound;
         _openFileSelect = openFileSelect;
-        _present = present ?? (action => action());
         RandomCallsAtConstruction = random.Calls;
         _screen.Attach(this);
         if (startAtTitle)
@@ -173,7 +167,6 @@ internal sealed class FrontendIntroController
             case FrontendIntroStage.Boot:
                 // bank3Cutscenes.s:intro_japaneseOnlyScreen has no US ret:
                 // after incrementing wIntroStage it falls into intro_capcomScreen.
-                // Executed clean-US TAS update 1 reaches stage $01/var $01.
                 Stage = FrontendIntroStage.Capcom;
                 State = 0;
                 RunCapcom();
@@ -210,7 +203,7 @@ internal sealed class FrontendIntroController
             case 0:
                 _restartSound();
                 ShowIntro();
-                _present(() => _screen.Scene = FrontendIntroScene.Capcom);
+                _screen.Scene = FrontendIntroScene.Capcom;
                 Counter = _data.Timing("capcom-hold");
                 BeginFade(toWhite: false);
                 State = 1;
@@ -965,7 +958,7 @@ internal sealed class FrontendIntroController
                 _restartSound();
                 ShowTitle();
                 Counter = _data.Timing("title-idle");
-                _present(() => _titleScreen.SetTitleBlink((Counter & 0x20) == 0));
+                _titleScreen.SetTitleBlink((Counter & 0x20) == 0);
                 _playSound(SoundId.MusTitlescreen);
                 State = 1;
                 break;
@@ -1054,30 +1047,21 @@ internal sealed class FrontendIntroController
 
     private void SetWhiteFade(float progress)
     {
-        _present(() =>
-        {
-            _screen.SetWhiteFade(progress);
-            _titleScreen.SetWhiteFade(progress);
-        });
+        _screen.SetWhiteFade(progress);
+        _titleScreen.SetWhiteFade(progress);
     }
 
     private void ShowIntro()
     {
-        _present(() =>
-        {
-            _screen.Visible = true;
-            _titleScreen.Visible = false;
-        });
+        _screen.Visible = true;
+        _titleScreen.Visible = false;
     }
 
     private void ShowTitle()
     {
-        _present(() =>
-        {
-            _screen.Visible = false;
-            _titleScreen.Visible = true;
-            _titleScreen.ShowTitle();
-        });
+        _screen.Visible = false;
+        _titleScreen.Visible = true;
+        _titleScreen.ShowTitle();
     }
 
     private void QueueRedraw()

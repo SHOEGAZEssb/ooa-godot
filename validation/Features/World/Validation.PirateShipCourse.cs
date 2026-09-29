@@ -9,16 +9,6 @@ public sealed partial class ValidationRoot
         var course = new PirateShipCourse();
         var save = OracleSaveData.CreateStandardGame();
         var runtime = new OracleRuntimeState();
-        OraclePirateCourseWork work = OraclePirateCourseWork.Shared;
-        // Native update1218: global dispatch384 + off-center52 + no-turn40
-        // + odd-update position132 + south room check172 =780, before the
-        // separately charged checkLoadPirateShip420.
-        FailIf(work.Get("dispatch") != 384 || work.Get("tile") != 52 ||
-            work.Angle(false, 0xb6, 0) != 40 || work.Get("position", variant: 2) != 132 ||
-            work.Get("room", 2) != 172 || work.Get("dispatch", variant: 1) != 284 ||
-            work.Get("position", variant: 0) != 80 || work.Get("position", variant: 1) != 104 ||
-            work.Get("position", variant: 3) != 348 || work.Get("room", 2, 1) != 220,
-            "Pirate source work lost dispatch, movement gates or room-crossing branches.");
         void Set(int room, int y, int x, int direction)
         {
             save.WriteWramByte(0xc6ec, (byte)room);
@@ -28,8 +18,9 @@ public sealed partial class ValidationRoot
         }
         Set(0xb6, 0x49, 0x48, 2);
         save.WriteWramByte(WramAddress.wPlaytimeCounter, 1);
-        FailIf(course.Update(save, runtime, false, false) != 780,
-            "Offscreen odd-frame pirate update must retain all five source work components.");
+        course.Update(save, runtime, false, false);
+        FailIf(save.ReadWramByte(0xc6ed) != 0x49,
+            "The offscreen pirate ship moved on an odd update.");
         save.WriteWramByte(WramAddress.wPlaytimeCounter, 0);
         // Source shipDirectionsPast $b6:$34 turns down, but its linked table
         // only turns at $b6:$47. Text pauses displacement, not the turn signal.

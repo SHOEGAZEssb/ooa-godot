@@ -40,8 +40,6 @@ internal sealed class OracleSoundDriver
     internal void Stop() => Call(0x4009);
     internal void SetVolume(int volume) => Call(0x4010, volume);
 
-    internal long CpuCycles => _cpu.Cycles;
-
     private void Call(int entry, int argument = 0)
     {
         _bank = OracleSoundData.BaseBank;

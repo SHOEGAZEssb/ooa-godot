@@ -98,12 +98,10 @@ transition, or modal state in feature controllers.
 
 ## Fixed-update order
 
-Cold-start sessions use `OracleApplicationTiming` to convert host time into
-original CPU work, LCD waits and sound timer interrupts. The frontend's blocking
-initializers consume imported work before another input poll can occur.
-`ApplicationFixedUpdateScheduler` retains the 60-update interface for direct
-gameplay launches and isolated component callers. Gameplay counter deltas remain
-`1/60`; elapsed loading time never becomes a larger gameplay delta.
+All sessions use `ApplicationFixedUpdateScheduler` to advance complete 60 Hz
+updates from host time. Gameplay counter deltas remain `1/60`; resource-loading
+time never becomes a larger gameplay delta. CPU instruction costs, LCD scanout
+scheduling and sound interrupt phases do not schedule application updates.
 
 Each foreground update completes in this observable order before the next begins:
 
@@ -116,9 +114,7 @@ Each foreground update completes in this observable order before the next begins
 6. Combat/terrain effects, room events, and ordinary interactions.
 7. Inactive edge-transition checks and the final camera sample.
 8. HUD counters, room animation, development displays, and dialogue.
-9. Finish pending source work and the LCD boundary. In clocked sessions, sound
-   sequencing follows the independent hardware timer throughout this work.
-   Direct fixed-update callers advance one sequencer tick per update.
+9. Apply queued sound requests and advance the sound sequencer once.
 
 Changing this order is a gameplay change. Validate it explicitly. A long host
 frame may run several original updates, but update N must complete before update
@@ -128,18 +124,12 @@ N+1 starts.
 consumes it. Every reader in that update sees the same immutable held/pressed
 snapshot. Catch-up updates retain held state but do not receive the consumed
 edge. Timing and opening-frame suppression use original-update serials, not
-rendered-frame counters. Clocked sessions derive pressed edges from consecutive
-original input polls. A press released entirely during a blocking load is not
-retained for the next menu update.
+rendered-frame counters.
 
-Loading work is imported from the clean-US initializer instructions, graphics
-decoders and canonical file-verification paths. The runtime supplies the loaded
-slot images and retains the timer's divider/correction phase across sound
-restarts. LCD-off presentation lasts until the modeled LCD enable operation.
-Coverage currently includes cold startup, title initialization, entry to file
-select, and new-file options initialization. Other foreground loaders still
-need their source work represented; the clock is not an instruction-by-instruction
-foreground CPU emulator.
+Frontend controllers publish their screen changes within the owning update.
+Preserve explicit source state transitions and input gates, including
+initialization updates that ignore buttons, without simulating the CPU work
+performed inside those updates.
 
 ## Coordinates and presentation
 

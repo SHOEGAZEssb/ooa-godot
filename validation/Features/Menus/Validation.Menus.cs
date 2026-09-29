@@ -217,7 +217,7 @@ public sealed partial class ValidationRoot
             menu.Update(1.0 / 60.0);
         FailIf(menu.CurrentPage != Page.Title, "The title white fade ended before its original 32 updates.");
         menu.Update(1.0 / 60.0);
-        FailIf(menu.CurrentPage != Page.Title || menu.PaletteWorkPending,
+        FailIf(menu.CurrentPage != Page.Title,
             "Fade completion must stop palette writes before the file thread observes it.");
         menu.Update(1.0 / 60.0);
         FailIf(
@@ -297,7 +297,7 @@ public sealed partial class ValidationRoot
             menu.Update(1.0 / 60.0);
         FailIf(startedSave is not null, "File select started gameplay before its 32-update white fade.");
         menu.Update(1.0 / 60.0);
-        FailIf(startedSave is not null || menu.PaletteWorkPending,
+        FailIf(startedSave is not null,
             "The file thread observed fade completion before the palette thread's stop update.");
         menu.Update(1.0 / 60.0);
         FailIf(

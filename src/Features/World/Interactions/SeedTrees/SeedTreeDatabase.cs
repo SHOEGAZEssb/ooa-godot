@@ -84,7 +84,7 @@ internal sealed class SeedTreeDatabase
     /// this to outdoor scrolling transitions; ordinary loads and warps do not
     /// advance these histories.
     /// </summary>
-    internal int UpdateRefillState(
+    internal void UpdateRefillState(
         OracleRuntimeState runtime,
         int activeGroup,
         int activeRoom)
@@ -92,15 +92,12 @@ internal sealed class SeedTreeDatabase
         if (activeGroup is < 0 or > 7 || activeRoom is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(activeGroup));
 
-        OracleRoomLoadingWork work = OracleRoomLoadingWork.Shared;
-        int clocks = work.Get("seed-wrapper", 0, 0);
         for (int index = 0; index < _refills.Length; index++)
         {
             SeedTreeRefillLocation location = _refills[index];
             if (location.Group == activeGroup && location.Room == activeRoom)
             {
                 bool full = true;
-                int emptySlot = 0;
                 for (int slot = 0;
                      slot < OracleRuntimeState.SeedTreeRefillRoomsPerLocation;
                      slot++)
@@ -108,53 +105,37 @@ internal sealed class SeedTreeDatabase
                     if (runtime.ReadSeedTreeRefillRoom(index, slot) == 0)
                     {
                         full = false;
-                        emptySlot = slot;
                         break;
                     }
                 }
                 if (full)
                     SetRefilled(runtime, index, true);
-                clocks += work.Get("seed-entry", index * 16 + (full ? 5 : 4), full ? 0 : emptySlot);
                 // The source clears the history on every tree-screen visit,
                 // including visits made before all eight rooms were recorded.
                 runtime.ClearSeedTreeRefillRooms(index);
                 continue;
             }
 
-            // The matching-group path also reads and compares the room byte.
-            if (location.Group == activeGroup) clocks += 24;
             if (IsRefilled(runtime, index))
-            {
-                clocks += work.Get("seed-entry", index * 16, 0);
                 continue;
-            }
 
-            int kind = 3, historySlot = 0;
             for (int slot = 0;
                  slot < OracleRuntimeState.SeedTreeRefillRoomsPerLocation;
                  slot++)
             {
                 byte remembered =
                     runtime.ReadSeedTreeRefillRoom(index, slot);
-                if (remembered != 0 && remembered == activeRoom)
-                {
-                    kind = 2;
-                    historySlot = slot;
+                if (remembered == activeRoom)
                     break;
-                }
                 if (remembered != 0)
                     continue;
                 // Only the room byte is stored. Room $00 therefore remains
                 // indistinguishable from an empty slot, matching WRAM.
                 runtime.SetSeedTreeRefillRoom(
                     index, slot, (byte)activeRoom);
-                kind = 1;
-                historySlot = slot;
                 break;
             }
-            clocks += work.Get("seed-entry", index * 16 + kind, historySlot);
         }
-        return clocks;
     }
 
     internal bool TryFindTreeCenter(

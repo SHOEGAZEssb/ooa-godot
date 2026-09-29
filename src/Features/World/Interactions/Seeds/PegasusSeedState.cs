@@ -37,20 +37,18 @@ public sealed class PegasusSeedState
 
     public void Clear() => RawCounter = 0;
 
-    public int AdvanceCounter()
+    public void AdvanceCounter()
     {
         int counter = RawCounter & 0x7fff;
         int decrement = RingEffects.PegasusSeedTimerDecrement(_inventory);
-        int clocks = OraclePegasusWork.Shared.Get(counter, decrement == 1);
         int mask = decrement == 1 ? 7 : 15, signal = 0;
         for (int i = 0; i < decrement; i++)
         {
             counter = Math.Max(0, counter - 1);
-            if (counter == 0) { RawCounter = 0; return clocks; }
+            if (counter == 0) { RawCounter = 0; return; }
             if ((counter & mask) == 0) signal = 0x8000;
         }
         RawCounter = counter | signal;
-        return clocks;
     }
 
     public void AnimateWalking()

@@ -54,23 +54,6 @@ public sealed partial class ValidationRoot
             "gameplay-scoped debug action as inactive.");
         _ = new DebugCollisionController();
 
-        var physical = new ApplicationInputBuffer();
-        var polls = new System.Collections.Generic.List<ApplicationInputSnapshot>();
-        physical.Polled += polls.Add;
-        physical.CaptureForValidation(["attack"], ["attack"], Vector2.Zero);
-        physical.CaptureForValidation([], [], Vector2.Zero);
-        FailIf(polls.Count != 0, "Host input capture must not publish a gameplay poll during a blocked load.");
-        ApplicationInputSnapshot released = physical.ConsumeOriginalUpdate(strictPolling: true);
-        physical.CaptureForValidation(["attack"], [], Vector2.Zero);
-        ApplicationInputSnapshot held = physical.ConsumeOriginalUpdate(strictPolling: true);
-        physical.ConsumeOriginalUpdate(strictPolling: true);
-        physical.Clear();
-        FailIf(released.IsJustPressed("attack") || !held.IsJustPressed("attack") ||
-            polls.Count != 3 || polls[0].IsPressed("attack") || polls[0].IsJustPressed("attack") ||
-            !polls[1].IsPressed("attack") || !polls[1].IsJustPressed("attack") ||
-            !polls[2].IsPressed("attack") || polls[2].IsJustPressed("attack"),
-            "Input observations must retain the actual consumed snapshots, including presses released during loading.");
-
         ValidateDebugFastForward();
 
         GD.Print(

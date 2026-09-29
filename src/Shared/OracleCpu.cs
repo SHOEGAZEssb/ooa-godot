@@ -20,27 +20,11 @@ internal sealed class OracleCpu
         _read = read; _write = write; _clock = clock; _failure = failure;
     }
 
-    internal long Cycles => _cycles;
-    internal int ProgramCounter => _pc;
     internal int InstructionAddress => _instructionAddress;
-    internal int StackPointer => _sp;
-    internal int Accumulator => _a;
-    internal bool CarrySet => (_f & C) != 0;
-    internal void SetBc(int value) => BC = value;
-    internal void SetDe(int value) => DE = value;
-    internal void SetHl(int value) => HL = value;
 
-    // External owners may implement an entire source subroutine (for example
-    // LCD waiting). Its work includes RET; do not charge a second return here.
-    internal void CompleteCall()
+    private void BeginCall(int entry, int argument)
     {
-        _pc = _read(_sp) | (_read((_sp + 1) & 0xffff) << 8);
-        _sp = (_sp + 2) & 0xffff;
-    }
-
-    internal void BeginCall(int entry, int argument = 0, int stack = 0xdff0)
-    {
-        _pc = entry; _a = argument; _sp = stack;
+        _pc = entry; _a = argument; _sp = 0xdff0;
         _write(_sp, 0); _write(_sp + 1, 0);
     }
 
@@ -117,7 +101,7 @@ internal sealed class OracleCpu
         if (operation != 7) _a = result & 255;
     }
 
-    internal void Step()
+    private void Step()
     {
         long before = _cycles;
         _instructionAddress = _pc;

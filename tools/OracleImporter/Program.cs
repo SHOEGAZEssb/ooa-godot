@@ -60,59 +60,6 @@ internal static class Program
                     : utf8.GetString(Convert.FromBase64String(request[(separator + 1)..]));
                 switch (command)
                 {
-                    case "LOADING_WORK":
-                        WriteSuccess(OriginalLoadingWork.Compile(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "RANDOM_BUFFER_WORK":
-                        WriteSuccess(OriginalLoadingWork.CompileRandomBuffer(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "SEA_SEARCH_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileSeaSearch(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "GAMEPLAY_DISPATCH_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileGameplayDispatch(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "LINK_WALL_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileLinkWallWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "ACTIVE_TILE_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileActiveTileWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "TILE_INTERACTION_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileTileInteractionWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "PEGASUS_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompilePegasusWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "IDLE_ITEM_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileIdleItemWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "LINK_STATE_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompileLinkStateWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "PIRATE_COURSE_WORK":
-                        WriteSuccess(OriginalRoomLoadingWork.CompilePirateCourseWork(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "ROOM_LOADING_WORK":
-                    {
-                        string[] parts = payload.Split('\0');
-                        if (parts.Length != 2) throw new InvalidDataException("ROOM_LOADING_WORK requires ROM and tileset layouts.");
-                        int[] layouts = parts[1].Split(',').Select(value => Convert.ToInt32(value, 16)).ToArray();
-                        WriteSuccess(OriginalRoomLoadingWork.Compile(Convert.FromBase64String(parts[0]), layouts), utf8);
-                        break;
-                    }
-                    case "FRONTEND_WORK":
-                        WriteSuccess(OriginalFrontendWork.Compile(Convert.FromBase64String(payload)), utf8);
-                        break;
-                    case "TEXTBOX_WORK":
-                    {
-                        string[] parts = payload.Split('\0');
-                        if (parts.Length != 2) throw new InvalidDataException("TEXTBOX_WORK requires ROM and text indices.");
-                        int[] ids = parts[1].Split(',').Select(value => int.Parse(value,
-                            System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-                        WriteSuccess(OriginalFrontendWork.CompileTextboxes(Convert.FromBase64String(parts[0]), ids), utf8);
-                        break;
-                    }
                     case "CUTSCENE_SCALAR":
                     {
                         int delimiter = payload.IndexOf('\0');

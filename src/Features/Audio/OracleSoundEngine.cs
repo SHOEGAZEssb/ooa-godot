@@ -148,53 +148,21 @@ public partial class OracleSoundEngine : Node
 
     internal void Tick()
     {
-        RunTimerInterrupt(correction: false);
+        if (_volumePending)
+        {
+            _driver.SetVolume(_requestedVolume);
+            _volumePending = false;
+        }
+        while (_requestHead != _requestTail)
+        {
+            _driver.Play(_requests[_requestHead]);
+            _requestHead = (_requestHead + 1) & 15;
+        }
+        _driver.Update();
         // Preserve every update's audio when a host frame batches gameplay.
         // Hardware clocks are independent of driver enable/mute state.
         long target = _clockOrigin + ++_updateCount * OracleApu.ClockRate / UpdatesPerSecond;
         if (_apu.Clocks < target) _apu.AdvanceClocks(checked((int)(target - _apu.Clocks)));
-    }
-
-    internal void AdvanceHardwareClocks(long cpuClocks)
-    {
-        if ((cpuClocks & 1) != 0) throw new ArgumentOutOfRangeException(nameof(cpuClocks));
-        while (cpuClocks > 0)
-        {
-            int step = (int)Math.Min(cpuClocks / 2, int.MaxValue);
-            _apu.AdvanceClocks(step);
-            cpuClocks -= (long)step * 2;
-        }
-    }
-
-    internal int RunTimerInterrupt(bool correction, bool clockHardware = false)
-    {
-        long before = _driver.CpuCycles;
-        // bank0.s:$0050 and timerInterrupt, including the CALL/return paths
-        // around the bank-$39 entry points. Interrupt entry adds 20 clocks
-        // in OracleExecutionClock. hFFB8 correction adds 36 clocks here.
-        int overhead = 424 + (correction ? 36 : 0);
-        bool queued = _requestHead != _requestTail;
-        if (clockHardware)
-            AdvanceHardwareClocks(20 + (correction ? 36 : 0) +
-                (_volumePending ? 276 : queued ? 352 : 304));
-        if (_volumePending)
-        {
-            overhead += 40;
-            _driver.SetVolume(_requestedVolume);
-            _volumePending = false;
-            if (clockHardware) AdvanceHardwareClocks(queued ? 116 : 68);
-        }
-        if (_requestHead != _requestTail) overhead += 12;
-        while (_requestHead != _requestTail)
-        {
-            overhead += 120;
-            _driver.Play(_requests[_requestHead]);
-            _requestHead = (_requestHead + 1) & 15;
-            if (clockHardware) AdvanceHardwareClocks(_requestHead != _requestTail ? 120 : 84);
-        }
-        _driver.Update();
-        if (clockHardware) AdvanceHardwareClocks(120);
-        return checked((int)(_driver.CpuCycles - before) + overhead);
     }
 
     private void QueueSample(Vector2 sample)

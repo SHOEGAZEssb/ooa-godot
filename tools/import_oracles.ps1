@@ -286,9 +286,6 @@ $stageContracts = @(
     New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1'
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
         -inputs @('globalFlagValues')
-    New-ImportStageContract 'loading-work' 'Import-LoadingWork.ps1' `
-        -inputs @('allTexts', 'tilesets', 'assemblySourceHost') `
-        -functionInputs @('Invoke-AssemblySourceHost')
     New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'manifest' 'Write-GeneratedTableManifest.ps1'
