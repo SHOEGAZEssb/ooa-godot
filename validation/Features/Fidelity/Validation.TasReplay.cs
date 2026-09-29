@@ -10,6 +10,7 @@ namespace oracleofages;
 public sealed partial class ValidationRoot
 {
     private bool _tasReplay;
+    private bool _tasPresentationReplay;
     private int _tasUpdate;
     private int _tasBatchSize = 1;
     private readonly OracleSaveData?[] _tasSlots = new OracleSaveData?[3];
@@ -29,6 +30,7 @@ public sealed partial class ValidationRoot
         try
         {
             _tasReplay = true;
+            _tasPresentationReplay = OS.GetCmdlineUserArgs().Contains("--tas-presentation");
             string? batch = OS.GetCmdlineUserArgs().FirstOrDefault(x => x.StartsWith("--tas-batch-size=", StringComparison.Ordinal));
             if (batch is not null && (!int.TryParse(batch[17..], out _tasBatchSize) || _tasBatchSize is < 1 or > 1024))
                 throw new ArgumentException("TAS batch size must be 1..1024.");
@@ -81,6 +83,11 @@ public sealed partial class ValidationRoot
             string? line = Console.ReadLine();
             if (line is null || line == "stop") { _tasReplay = false; SetProcess(false); GetTree().Quit(0); return; }
             using var command = JsonDocument.Parse(line);
+            if (_tasPresentationReplay)
+            {
+                AdvanceTasPresentation(command.RootElement);
+                return;
+            }
             int update = command.RootElement.GetProperty("update").GetInt32();
             int buttons = command.RootElement.GetProperty("input").GetInt32();
             int pressed = command.RootElement.GetProperty("pressed").GetInt32();

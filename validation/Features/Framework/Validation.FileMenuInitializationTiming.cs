@@ -26,6 +26,10 @@ public sealed partial class ValidationRoot
             {
                 root.InitializeAtFileSelect();
                 root.Step(1, "inventory");
+                var presented = CaptureTasPresentationState(root);
+                FailIf(presented["presentation.menu.visible"] != 1 || presented["presentation.menu.screen"] != 1 ||
+                    presented["presentation.menu.overlay"] != 0 || presented["presentation.cursor.acorn.0.y"] != 52,
+                    "TAS presentation followed the pending menu instead of the displayed source file-select page.");
                 FailIf(root._originalTiming!.Clocks != 45_887_364 || root._originalTiming.TimerTicks != 317 ||
                     root._sound.Channel(0).WaitFrames != 99 ||
                     root._mainMenu!.CurrentPage != Page.NewFileOptions || root._mainMenuScreen!.CurrentPage != Page.FileSelect,
@@ -44,6 +48,8 @@ public sealed partial class ValidationRoot
             split.AdvanceTimedApplication(loadTime / 4 - dispatchTime);
             FailIf(!split._mainMenuScreen.DisplayBlank,
                 "The completed LCD-off frame must be white during the new-file load.");
+            FailIf(CaptureTasPresentationState(split).Count != 1 || CaptureTasPresentationState(split)["presentation.menu.visible"] != 0,
+                "TAS presentation exposed menu contents while the displayed frame was blank.");
             FailIf(!split._originalTiming!.Busy || split._originalTiming.CompletedUpdates != 285 ||
                 split._sound.Channel(0).WaitFrames >= 99 || split._mainMenu!.CurrentPage != Page.NewFileOptions ||
                 split._mainMenu.Cursor != 0,
@@ -68,6 +74,10 @@ public sealed partial class ValidationRoot
                 root.Step(1);
                 FailIf(root._mainMenuScreen.DisplayBlank,
                     "New-file options remained white after the first fully rendered enabled frame.");
+                var shown = CaptureTasPresentationState(root);
+                FailIf(shown["presentation.menu.screen"] != 2 || shown["presentation.menu.blackLevelRgb5"] != 0 ||
+                    shown["presentation.cursor.acorn.0.x"] != 32 || shown["presentation.cursor.acorn.0.y"] != 56,
+                    "TAS presentation missed the source options screen/cursor after completed-frame publication.");
                 FailIf(root._mainMenu!.CurrentPage != Page.NewFileOptions || root._mainMenu.Cursor != 0,
                     "Input discarded during initialization leaked into state 1.");
             }

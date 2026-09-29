@@ -1,15 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Ages streaming TAS trace v2",
-  "description": "manifest.json identifies a run; rom.jsonl and godot.jsonl contain snapshot records.",
+  "title": "Ages streaming TAS trace v3",
+  "description": "manifest.json identifies both profiles; rom.jsonl and godot.jsonl contain update snapshots; rom-presentation.jsonl and godot-presentation.jsonl contain movie-frame presentation observations.",
   "oneOf": [
     {
       "type": "object",
-      "required": ["schemaVersion", "profile", "boundary", "movie", "romSha256", "reference", "source", "port", "coverage", "limits"],
+      "required": ["schemaVersion", "profile", "boundary", "presentation", "movie", "romSha256", "reference", "source", "port", "coverage", "limits"],
       "properties": {
-        "schemaVersion": {"const": 2},
+        "schemaVersion": {"const": 3},
         "profile": {"const": "ages-shared-v1"},
         "boundary": {"const": "mainLoop-before-pollInput-after-vblank-v1"},
+        "presentation": {
+          "type": "object",
+          "required": ["profile", "boundary", "screens", "overlays", "captureSourceSha256", "mapperSourceSha256"],
+          "properties": {
+            "profile": {"const": "ages-menu-presentation-v1"},
+            "boundary": {"const": "movie-transport-end-last-published-video-v1"},
+            "screens": {"type": "object"},
+            "overlays": {"type": "object"},
+            "captureSourceSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "mapperSourceSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }
+        },
         "movie": {"type": "object", "required": ["sha256", "header", "syncSettings", "frames"]},
         "romSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "reference": {"type": "object"},
@@ -27,6 +39,18 @@
         "input": {"type": "integer", "minimum": 0, "maximum": 255},
         "pressed": {"type": "integer", "minimum": 0, "maximum": 255},
         "state": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer"}},
+        "diagnostics": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["movieFrame", "input", "cpuClocks", "state", "diagnostics"],
+      "properties": {
+        "movieFrame": {"type": "integer", "minimum": 0},
+        "input": {"type": "integer", "minimum": 0, "maximum": 255},
+        "cpuClocks": {"type": "integer", "minimum": 0},
+        "state": {"type": "object", "required": ["presentation.menu.visible"], "additionalProperties": {"type": "integer"}},
         "diagnostics": {"type": "object"}
       },
       "additionalProperties": false

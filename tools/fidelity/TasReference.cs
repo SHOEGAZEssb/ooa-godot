@@ -37,6 +37,7 @@ internal static class TasReference
                 !gambatte_getmemoryarea(core, 5, ref hram, ref hlen) || hlen < 127)
                 throw new Exception("Unexpected pinned Gambatte memory domains.");
             int buttons = 0, sampled = 0, pressed = 0, frame = 0, update = 0, epoch = 0;
+            var video = new TasVideoCapture(core);
             var serializer = new JavaScriptSerializer();
             InputGetter getInput = delegate { return buttons; };
             Execute onExecute = delegate(uint address)
@@ -62,6 +63,7 @@ internal static class TasReference
             gambatte_setinputgetter(core, getInput);
             gambatte_setexeccallback(core, onExecute);
             uint overflow = 0;
+            long totalSamples = 0, clockOrigin = 0;
             short[] sound = new short[(35112 + 2064) * 2];
             for (frame = 0; frame < limit; frame++)
             {
@@ -75,10 +77,19 @@ internal static class TasReference
                 do
                 {
                     uint samples = 35112 - overflow;
-                    gambatte_runfor(core, sound, ref samples);
+                    int ready = gambatte_runfor(core, sound, ref samples);
+                    totalSamples += samples;
+                    if (clockOrigin == 0) clockOrigin = video.ReadClock() - totalSamples * 4;
+                    if (ready > 0) video.Publish();
                     overflow += samples;
                 } while (overflow < 35112);
                 overflow -= 35112;
+                Console.WriteLine("TAS_FRAME " + serializer.Serialize(new {
+                    movieFrame = frame, input = buttons, resetEpoch = epoch,
+                    cpuClocks = clockOrigin + totalSamples * 4, videoFrame = video.Serial,
+                    video = video.Displayed
+                }));
+                if (Console.ReadLine() != "continue") Environment.Exit(0);
             }
             Console.WriteLine("TAS_END " + serializer.Serialize(new { movieFrames = frame, snapshots = update, complete = frame == input.Length / 2 }));
             GC.KeepAlive(getInput);

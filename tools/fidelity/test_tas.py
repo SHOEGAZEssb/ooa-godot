@@ -8,6 +8,7 @@ import zipfile
 
 from tas_movie import LOG_KEY, read_movie
 from tas_profile import capture_reference, differences
+from tas_presentation import PresentationMapper, presentation_differences
 
 
 class TasTests(unittest.TestCase):
@@ -100,6 +101,72 @@ class TasTests(unittest.TestCase):
         ram[0x6d] = 1
         raw["wram"] = base64.b64encode(ram).decode()
         self.assertEqual(capture_reference(raw)["state"]["audio.channel0.wait"], 230)
+
+
+class PresentationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        folder = Path(__file__).resolve().parent
+        cls.mapper = PresentationMapper(folder.parents[1] / "assets/oracle/menu")
+        fixture = json.loads((folder / "fixtures/menu-presentation.json").read_text())
+        cls.raw = {row["movieFrame"]: row for row in fixture["frames"]}
+
+    def state(self, frame):
+        return self.mapper.capture(self.raw[frame])["state"]
+
+    def test_executed_rom_panel_and_cursor_have_distinct_display_boundaries(self):
+        # Independent native observations: the panel reaches the display one
+        # frame before its cursor. Live fileSelect.mode2 is already 2 earlier.
+        for frame, overlay, cursor in ((358, 0, 0), (359, 1, 0), (360, 1, 1)):
+            state = self.state(frame)
+            self.assertEqual(state["presentation.menu.screen"], 1)
+            self.assertEqual(state["presentation.menu.overlay"], overlay)
+            self.assertEqual(state["presentation.cursor.speed.visible"], cursor)
+        self.assertEqual(self.state(360)["presentation.cursor.speed.x"], 89)
+        self.assertEqual(self.state(360)["presentation.cursor.speed.y"], 128)
+        reference = self.mapper.capture(self.raw[358])
+        early = copy.deepcopy(reference)
+        early["state"]["presentation.menu.overlay"] = 1
+        self.assertEqual(presentation_differences(reference, early), [
+            {"field": "presentation.menu.overlay", "rom": 0, "godot": 1}])
+
+    def test_executed_rom_screen_fade_and_blanking_mapping(self):
+        self.assertEqual(self.state(326)["presentation.menu.screen"], 1)
+        options = self.state(332)
+        self.assertEqual(options["presentation.menu.screen"], 2)
+        self.assertEqual((options["presentation.cursor.acorn.0.x"], options["presentation.cursor.acorn.0.y"]), (32, 56))
+        self.assertEqual(self.state(339)["presentation.menu.screen"], 3)
+        self.assertEqual(self.state(380)["presentation.menu.blackLevelRgb5"], 26)
+        for frame in (331, 338, 390):
+            self.assertEqual(self.state(frame), {"presentation.menu.visible": 0})
+
+    def test_mapping_uses_displayed_memory_not_movie_indices_or_logical_mode(self):
+        raw = copy.deepcopy(self.raw[358])
+        raw.update(movieFrame=12345, input=0xff, logicalMenu="TextSpeed")
+        self.assertEqual(self.mapper.capture(raw)["state"], self.state(358))
+        # Name/health/death-counter uploads are outside the static page stencil.
+        video = raw["video"]
+        tiles = bytearray(base64.b64decode(video["tiles"]))
+        tiles[0x128] ^= 0xff
+        video["tiles"] = base64.b64encode(tiles).decode()
+        self.assertEqual(self.mapper.capture(raw)["state"], self.state(358))
+        # A tilemap already prepared behind a blank frame is not visible.
+        raw["video"]["blank"] = True
+        self.assertEqual(self.mapper.capture(raw)["state"], {"presentation.menu.visible": 0})
+
+    def test_missing_fields_clock_drift_and_malformed_video_fail(self):
+        reference = self.mapper.capture(self.raw[360])
+        for field in reference["state"]:
+            changed = copy.deepcopy(reference)
+            del changed["state"][field]
+            self.assertEqual(presentation_differences(reference, changed)[0]["field"], field)
+        for key in ("movieFrame", "input", "cpuClocks"):
+            changed = copy.deepcopy(reference)
+            changed[key] += 1
+            with self.assertRaises(ValueError): presentation_differences(reference, changed)
+        raw = copy.deepcopy(self.raw[358])
+        raw["video"]["tiles"] = "AA=="
+        with self.assertRaises(ValueError): self.mapper.capture(raw)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,10 @@ COVERAGE = {
                   "16 ordered native enemy-slot occupancy bits during gameplay", "live save payload $c5ba-$caff during gameplay",
                   "sound fade/enable/volume and eight channel enable/wait fields"],
     "unavailable": ["cinematic frontend substate mapping", "file-select/new-game internal states", "full Link native state/counter mapping", "enemy IDs/species states and child/part/item pools", "full RNG placement buffer mapping", "hardware Power input on the Godot side"],
-    "outOfScope": ["pixels/VRAM, OAM, APU samples and hardware clocks", "ROM boot before the first _mainLoop", "unvisited TAS branches"]
+    "outOfScope": ["pixel equality, full VRAM/OAM equality, APU samples and hardware clocks", "ROM boot before the first _mainLoop", "unvisited TAS branches"]
 }
+COVERAGE["supported"].append("frame-boundary file-menu visibility, screen/overlay, effective fade and acorn/text-speed cursor presentation")
+COVERAGE["unavailable"].extend(["presentation outside file menus", "name/secret-entry glyph and cursor presentation", "copy/erase confirmation overlays", "mid-scanout video mutations"])
 
 
 def capture_reference(raw):

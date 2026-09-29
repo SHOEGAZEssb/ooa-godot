@@ -2,8 +2,10 @@
 
 The TAS runner feeds a recorded playthrough through the original emulator core
 and the actual Godot application loop. Shared system adapters capture state at
-every completed original update. It stops at the first disagreement. Adding
-another encounter on the same recorded route needs no encounter fixture.
+every completed original update. A separate presentation stream compares visible
+file-menu properties at every movie-frame endpoint, including during loading.
+It stops at the first disagreement in either stream. Adding another encounter
+on the same recorded route needs no encounter fixture.
 
 ## Setup and command
 
@@ -95,6 +97,37 @@ loaders can still expose missing foreground work in the comparison.
 
 ## Trace contract and coverage
 
+The default command runs both comparisons. Presentation uses a second isolated
+Godot application driven by the movie's physical held buttons and elapsed CPU
+clock. The original update adapter continues to use sampled inputs and its own
+timing; its state checks receive no reference elapsed time. The presentation
+clock selects observation times, without completing pending loads or copying
+reference menu state into the port. Its actual clock is retained in diagnostics.
+
+The native presentation adapter freezes BG tilemap/attributes, palettes and OAM
+at scanline zero, then publishes that metadata only when Gambatte emits a video
+frame. LCD-off and discarded LCD-on frames publish blank content; transport
+frames without video output retain the last publication. This prevents pending
+VRAM uploads or logical menu changes from being mistaken for visible changes.
+No framebuffer is read and no pixel equality is required.
+
+Profile `ages-menu-presentation-v1` compares file-menu visibility, the displayed
+screen and message-speed overlay, the effective RGB5 fade level after GBA
+brightening, and ordered acorn/text-speed cursor visibility and coordinates.
+Page recognition uses static source tilemap/attribute regions, excluding dynamic
+names and save summaries. The Godot adapter reads the displayed screen, not its
+controller's pending page. A fully white menu exposes only visibility zero;
+hidden page/cursor contents are not compared. The same zero value covers screens
+outside this profile, whose status is retained in reference diagnostics.
+
+Title/cinematic/gameplay presentation, name/secret-entry glyphs and cursors,
+copy/erase confirmation overlays, and mid-scanout video mutations are not yet
+mapped. Raw video metadata remains available in diagnostics for investigation.
+Unsupported visible file-menu tilemaps fail explicitly instead of being guessed.
+`coveredPresentationFrames` counts visible file-menu observations separately
+from `matchedPresentationFrames`, which also includes blank/out-of-profile
+observations. These counts do not claim full visual coverage.
+
 Rendered startup audits use a separate validation mode, `--validate
 --capture-startup-video`, with a real renderer (not `--headless`) and a 160 by
 144 viewport. `--video-inputs=PATH` supplies the parsed movie's two-byte
@@ -109,14 +142,19 @@ It uses the TAS host's isolated file store. Captures and audit reports belong
 under `local-audits/`; they are not part of the shared-state pass/fail profile.
 
 [`tas.schema.json`](../tools/fidelity/tas.schema.json) defines streaming format
-version 2. A run has `manifest.json`, `rom.jsonl`, `godot.jsonl`, engine/compiler
-logs, and `comparison.json`. The manifest records movie/input/core/ROM hashes,
+version 3. A run has `manifest.json`, `rom.jsonl`, `godot.jsonl`,
+`rom-presentation.jsonl`, `godot-presentation.jsonl`, engine/compiler logs, and
+`comparison.json`. The manifest identifies both profiles, their boundaries,
+presentation enum values, and movie/input/core/ROM hashes,
 sync settings, verified hooks and source addresses, disassembly and port
 revisions, working-file and assembly hashes, generated-data identity, limits,
 and the supported/unavailable/out-of-scope groups.
 
-Each JSONL row contains `update`, `input`, `pressed`, exact integer `state`
-fields, and producer-specific `diagnostics`. No timing offsets or numerical
+Each update JSONL row contains `update`, `input`, `pressed`, exact integer `state`
+fields, and producer-specific `diagnostics`. Presentation rows instead identify
+`movieFrame`, physical `input`, and the observation's `cpuClocks`, with their
+own integer `state` and `diagnostics`. The first divergence records its `layer`,
+movie frame, fields and owners. No timing offsets or numerical
 tolerances are accepted. Phase-dependent fields are present only when meaningful;
 different phase/field sets are reported as disagreements. Raw diagnostics are
 retained as evidence but are not claimed as equivalent across engines.
@@ -138,7 +176,7 @@ their original `$d080` through `$df80` identities; matching never sorts actors
 by their current positions.
 
 Full Link state/counter mapping, enemy IDs/species states, item/part pools,
-placement buffers, file-select/new-game internal states, graphics, and audio
+placement buffers, file-select/new-game internal states, full graphics, and audio
 samples are not covered yet. Hardware Power input fails explicitly when reached;
 its Godot adaptation is unavailable. Add mappings by shared owning system and
 test them independently. Change the profile/version when existing field meanings
@@ -149,5 +187,7 @@ the declared fields along the visited route. Later mismatches can remain hidden
 behind the first failure. The tool reports that frontier without automatically
 resynchronizing either game or changing inputs.
 
-Run `python tools/fidelity/test_tas.py` for movie/parser and shared-mapping
-checks. Gameplay fixes still require the complete eight-worker validation suite.
+Run `python tools/fidelity/test_tas.py` for movie/parser, shared-mapping and
+presentation-mapping checks. Presentation checks use generated menu assets and
+small executed-ROM metadata fixtures, not per-encounter input scripts. Gameplay
+fixes still require the complete eight-worker validation suite.
