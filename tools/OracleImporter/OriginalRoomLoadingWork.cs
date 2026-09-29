@@ -466,6 +466,253 @@ internal sealed class OriginalRoomLoadingWork
         return rows.ToString();
     }
 
+    internal static string CompileLinkWallWork(byte[] rom)
+    {
+        Guard(rom, 0x15e62, [0x1e, 0x33, 0xaf, 0x12, 0xfa, 0x2c, 0xcc, 0x0f, 0xd8], "specialObjectUpdateAdjacentWallsBitset");
+        Guard(rom, 0x15e75, [0x47, 0x21, 0x8c, 0x5e], "adjacent-wall normalization");
+        Guard(rom, 0x15ea3, [0x3e, 0x01, 0xe0, 0x8b, 0x21, 0xd2, 0x5e], "calculateAdjacentWallsBitset");
+        Guard(rom, 0x14d1, [0x78, 0xe6, 0xf0, 0x6f, 0x79, 0xcb, 0x37], "checkTileCollisionAt_allowHoles");
+        Guard(rom, 0x15ef2, [0x78, 0xe6, 0xf0, 0x6f, 0x79, 0xcb, 0x37], "raised-floor collision probe");
+        var rows = new StringBuilder("# operation\tindex\tvariant\tcpu-cycles\tblocked\tsource\n");
+        for (int raised = 0; raised < 2; raised++)
+        for (int collision = 0; collision < 32; collision++)
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            var probe = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            probe._cpu.SetBc((y * 2 << 8) | x * 2);
+            probe._memory[0xce00] = (byte)collision;
+            long clocks = probe.Run(raised == 0 ? 0x14d1 : 0x5ef2);
+            rows.Append($"probe\t{collision:x2}\t{raised * 64 + y * 8 + x}\t{clocks}\t{(probe._cpu.CarrySet ? 1 : 0)}\tcode/bank0.s:checkTileCollisionAt_allowHoles;object_code/common/specialObjects/link.s\n");
+        }
+        for (int variant = 0; variant < 4; variant++)
+        {
+            var loop = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            loop._memory[0xcc34] = (byte)((variant & 2) * 0x10);
+            loop._memory[0xcc69] = (byte)((variant & 1) == 0 ? 0 : 0xfd);
+            int probes = 0;
+            long clocks = loop.RunUntil(0x5ea3, -1, [0x14d1, 0x5ef2],
+                pc => { if (pc is 0x14d1 or 0x5ef2) probes++; });
+            if (probes != 8) throw new InvalidDataException("calculateAdjacentWallsBitset must execute eight probes.");
+            rows.Append($"loop\t00\t{variant}\t{clocks}\t0\tobject_code/common/specialObjects/link.s:calculateAdjacentWallsBitset\n");
+        }
+        var prefix = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+        prefix._memory[0xcc2c] = 0xd0;
+        prefix._cpu.SetDe(0xd000);
+        long prefixClocks = prefix.RunUntil(0x5e62, 0x5ea3, []);
+        for (int walls = 0; walls < 256; walls++)
+        {
+            var suffix = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            suffix._cpu.SetDe(0xd000);
+            long clocks = suffix.RunUntil(0x5e75, -1, [], argument: walls);
+            rows.Append($"wrapper\t{walls:x2}\t0\t{prefixClocks + clocks}\t0\tobject_code/common/specialObjects/link.s:specialObjectUpdateAdjacentWallsBitset\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompileActiveTileWork(byte[] rom)
+    {
+        Guard(rom, 0x14406, [0x01, 0x00, 0x05, 0xcd, 0x35, 0x14], "linkGetActiveTileType");
+        var rows = new StringBuilder("# collisions\ttile\tchange\tcpu-cycles\tsource\n");
+        for (int collisions = 0; collisions < 6; collisions++)
+        for (int tile = 0; tile < 256; tile++)
+        for (int change = 0; change < 3; change++)
+        {
+            var work = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            work._cpu.SetDe(0xd000);
+            work._wram[0x100b] = 8;
+            work._wram[0x100d] = 8;
+            work._memory[0xcc33] = (byte)collisions;
+            work._memory[0xcf00] = (byte)tile;
+            work._memory[0xcc99] = (byte)(change == 1 ? 1 : 0);
+            work._memory[0xcc9a] = (byte)(change == 2 ? tile ^ 1 : tile);
+            rows.Append($"{collisions:x2}\t{tile:x2}\t{change}\t{work.Run(0x4406)}\tobject_code/common/specialObjects/commonCode.s:linkGetActiveTileType\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompileTileInteractionWork(byte[] rom)
+    {
+        Guard(rom, 0x1280, [0xf0, 0x97, 0xf5, 0x3e, 0x06], "interactWithTileBeforeLink bank wrapper");
+        Guard(rom, 0x18000, [0xfa, 0x5a, 0xcc, 0xb7, 0xc0, 0xcd, 0x73, 0x43], "interactWithTileBeforeLink");
+        Guard(rom, 0x18017, [0x47, 0xe6, 0x0f, 0xc7], "interactable tile handler dispatch");
+        var rows = new StringBuilder("# collisions\ttile\tcpu-cycles\tsource\n");
+        for (int collisions = 0; collisions < 6; collisions++)
+        for (int tile = 0; tile < 256; tile++)
+        {
+            long clocks = -1;
+            for (int direction = 0; direction < 4; direction++)
+            {
+                var work = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+                work._memory[0xff97] = 5;
+                work._memory[0xcc33] = (byte)collisions;
+                work._cpu.SetDe(0xd000);
+                work._wram[0x100b] = 0x48;
+                work._wram[0x100d] = 0x48;
+                work._wram[0x1006] = (byte)direction;
+                Array.Fill(work._memory, (byte)tile, 0xcf00, 256);
+                // A miss includes resetPushingAgainstTileCounter and the bank
+                // wrapper's return. A match stops before the tile handler:
+                // its effects and return path remain separate work.
+                long current = work.RunUntil(0x1280, 0x4017, []);
+                if (clocks >= 0 && current != clocks)
+                    throw new InvalidDataException("Front-tile lookup work depends on direction.");
+                clocks = current;
+            }
+            rows.Append($"{collisions:x2}\t{tile:x2}\t{clocks}\tcode/bank0.s:interactWithTileBeforeLink;code/interactableTiles.s\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompilePegasusWork(byte[] rom)
+    {
+        Guard(rom, 0x2bbd, [0x21, 0x6d, 0xcc, 0xcb, 0xbe, 0x2d, 0x06, 0x00,
+            0x0e, 0x07, 0x3e, 0x11, 0xcd, 0xb0, 0x23], "decPegasusSeedCounter");
+        var rows = new StringBuilder("# ring\tcounter\tcpu-cycles\tsource\n");
+        for (int ring = 0; ring < 2; ring++)
+        for (int counter = 0; counter < 512; counter++)
+        {
+            long clocks = -1;
+            foreach (int high in counter < 256 ? new[] { 0 } : new[] { 1, 0x3f, 0x7f })
+            foreach (int signal in new[] { 0, 0x80 })
+            {
+                var work = new OriginalRoomLoadingWork(rom);
+                work._memory[0xc6cb] = (byte)(ring == 0 ? 0xff : 0x11);
+                work._memory[0xcc6c] = (byte)counter;
+                work._memory[0xcc6d] = (byte)(high | signal);
+                long current = work.Run(0x2bbd);
+                if (clocks >= 0 && current != clocks)
+                    throw new InvalidDataException("Pegasus work needs more than the low byte and nonzero-high-byte cases.");
+                clocks = current;
+            }
+            rows.Append($"{ring}\t{counter}\t{clocks}\tcode/bank0.s:decPegasusSeedCounter\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompileLinkStateWork(byte[] rom)
+    {
+        Guard(rom, 0x154dd, [0x3e, 0x80, 0xea, 0x66, 0xcc, 0xfa, 0xab, 0xc4], "linkState01");
+        Guard(rom, 0x15604, [0xfa, 0x95, 0xcc, 0x47, 0x1e, 0x09], "linkState01 normal movement");
+        Guard(rom, 0x15624, [0xfa, 0x60, 0xcc, 0xb7, 0xc0, 0xc3, 0x64, 0x2b], "linkState01 direction tail");
+        var rows = new StringBuilder("# moving\tcpu-cycles\tsource\n");
+        for (int moving = 0; moving < 2; moving++)
+        {
+            var work = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+            work._memory[0xff97] = 5;
+            work._memory[0xcc2c] = 0xd0;
+            work._memory[0xcc2b] = (byte)(moving == 0 ? 0xff : 0);
+            work._memory[0xcc95] = 0x7f;
+            work._cpu.SetDe(0xd000);
+            // Ordinary grounded, unladen, non-slippery normal Link. Retain
+            // only this handler's instructions, including CALL/JP fetches.
+            // Every child body (including the banked transformation query)
+            // is separate work; the skipped query's ordinary result is B=0.
+            long clocks = work.Run(0x54dd, 0x4268, 0x54c0, 0x1859, 0x2bbd,
+                0x1b5d, 0x1280, 0x42b7, 0x1255, 0x2c18, 0x5e62, 0x5d5b,
+                0x5faf, 0x6034, 0x5af3, 0x1e3c, 0x516c, 0x008a, 0x5ce6,
+                0x5ad0, 0x2b64);
+            rows.Append($"{moving}\t{clocks}\tobject_code/common/specialObjects/link.s:linkState01\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompileIdleItemWork(byte[] rom)
+    {
+        Guard(rom, 0x2c18, [0x0e, 0x02, 0xf0, 0x97, 0xf5, 0x3e, 0x06], "checkUseItems wrapper");
+        Guard(rom, 0x18954, [0x26, 0xc6, 0x6b, 0x7e, 0xb7, 0x20, 0x11], "checkItemUsed");
+        var rows = new StringBuilder("# operation\tindex\tvariant\tcpu-cycles\tsource\n");
+        var body = new OriginalRoomLoadingWork(rom) { _bank = 5 };
+        body._memory[0xff97] = 5;
+        // Ordinary grounded path with no shop/grab/spinner/item-disable gate.
+        // Item checks are separate; active parent bodies and their taken-CALL
+        // overhead remain separate from this shared traversal.
+        rows.Append($"body\t00\t0\t{body.Run(0x2c18, 0x4954)}\tcode/parentItemUsage.s:checkUseItems\n");
+        for (int item = 0; item < 256; item++)
+        {
+            var work = new OriginalRoomLoadingWork(rom) { _bank = 6 };
+            work._cpu.SetDe(0x0189);
+            work._memory[0xc689] = (byte)item;
+            work._memory[0xc6cb] = 0xff;
+            rows.Append($"item\t{item:x2}\t0\t{work.Run(0x4954)}\tcode/parentItemUsage.s:checkItemUsed\n");
+        }
+        foreach (int ring in new[] { 0x0b, 0x3d })
+        for (int otherEquipped = 0; otherEquipped < 2; otherEquipped++)
+        {
+            var work = new OriginalRoomLoadingWork(rom) { _bank = 6 };
+            work._cpu.SetDe(0x0189);
+            work._memory[0xc688] = (byte)otherEquipped;
+            work._memory[0xc6cb] = (byte)ring;
+            rows.Append($"punch\t{ring:x2}\t{otherEquipped}\t{work.Run(0x4954)}\tcode/parentItemUsage.s:checkItemUsed\n");
+        }
+        return rows.ToString();
+    }
+
+    internal static string CompilePirateCourseWork(byte[] rom)
+    {
+        Guard(rom, 0x7dcc, [0x3e, 0x34, 0xcd, 0xf3, 0x31, 0xc0], "updatePirateShip");
+        Guard(rom, 0x7eaa, [0xfa, 0xe1, 0xcd, 0xb7, 0xc8], "updatePirateShipAngle");
+        Guard(rom, 0x7e40, [0xcd, 0x59, 0x18, 0xfa, 0x8d, 0xcc], "updatePirateShipPosition");
+        Guard(rom, 0x7e6b, [0xfa, 0xef, 0xc6, 0xe6, 0x03], "updatePirateShipRoom");
+        var rows = new StringBuilder("# operation\tindex\tvariant\tcpu-cycles\tsource\n");
+        void Add(string operation, int index, int variant, long clocks, string source) =>
+            rows.Append($"{operation}\t{index:x2}\t{variant}\t{clocks}\tcode/ages/pirateShip.s:{source}\n");
+        for (int gone = 0; gone < 2; gone++)
+        {
+            var work = new OriginalRoomLoadingWork(rom);
+            work._memory[0xc6d6] = (byte)(gone * 16);
+            Add("dispatch", 0, gone, work.Run(0x7dcc, 0x7de1, 0x7e1e, 0x7eaa, 0x7e40, 0x7e6b), "updatePirateShip");
+        }
+        for (int centered = 0; centered < 3; centered++)
+        {
+            var work = new OriginalRoomLoadingWork(rom);
+            work._memory[0xc6ed] = (byte)(centered > 0 ? 8 : 0);
+            work._memory[0xc6ee] = (byte)(centered > 1 ? 8 : 0);
+            Add("tile", 0, centered, work.Run(0x7e1e), "updatePirateShipChangedTile");
+        }
+        for (int linked = 0; linked < 2; linked++)
+        {
+            var tiles = new HashSet<int> { 0, 0xff };
+            int pointer = linked == 0 ? 0x7f02 : 0x7edd, count = 0;
+            for (; rom[pointer] != 0; pointer += 3)
+            {
+                if (++count > 12 || rom[pointer + 1] == 0xff)
+                    throw new InvalidDataException("Unexpected pirate course or reserved unmatched-tile value.");
+                tiles.Add(rom[pointer + 1]);
+            }
+            if (count != (linked == 0 ? 6 : 12)) throw new InvalidDataException("Incomplete source pirate course.");
+            // Nonzero tiles absent from the route all follow the same search.
+            // Retain every room, so repeated room rows keep their source order.
+            foreach (int tile in tiles.Order())
+            for (int room = 0; room < 256; room++)
+            {
+                var work = new OriginalRoomLoadingWork(rom);
+                work._memory[0xcc01] = (byte)linked;
+                work._memory[0xcde1] = (byte)tile;
+                work._memory[0xc6ec] = (byte)room;
+                Add("angle", room, linked * 256 + tile, work.Run(0x7eaa), "updatePirateShipAngle");
+            }
+        }
+        for (int gate = 0; gate < 4; gate++)
+        {
+            var work = new OriginalRoomLoadingWork(rom);
+            work._memory[0xcba0] = (byte)(gate == 0 ? 1 : 0);
+            work._memory[0xcc8d] = (byte)(gate == 1 ? 1 : 0);
+            work._memory[0xcc00] = (byte)(gate == 2 ? 1 : 0);
+            Add("position", 0, gate, work.Run(0x7e40), "updatePirateShipPosition");
+        }
+        for (int direction = 0; direction < 4; direction++)
+        for (int crossed = 0; crossed < 2; crossed++)
+        {
+            var work = new OriginalRoomLoadingWork(rom);
+            work._memory[0xc6ef] = (byte)direction;
+            work._memory[direction % 2 == 0 ? 0xc6ed : 0xc6ee] =
+                (byte)(crossed == 0 ? 0 : direction switch { 0 or 3 => 0xf8, 1 => 0x98, _ => 0x88 });
+            Add("room", direction, crossed, work.Run(0x7e6b), "updatePirateShipRoom");
+        }
+        return rows.ToString();
+    }
+
     internal static string CompileGameplayDispatch(byte[] rom)
     {
         Guard(rom, 0x345b, [0xf0, 0x97, 0xf5, 0x3e, 0x05, 0xe0, 0x97], "updateAllObjects");
@@ -559,16 +806,34 @@ internal sealed class OriginalRoomLoadingWork
             drawing._memory[0xcc2e] = (byte)(variant >= 4 ? 1 : 0);
             // queueDrawEverything's 58 slots, Link's 1/6 slots, and the 64
             // draw-queue entries are always walked. Exclude individual
-            // enqueue/draw handlers and stop before shadows and OAM clearing.
+            // enqueue/draw handlers, shadows and individual OAM clearing.
             // The conditional draw CALL contributes its shared fetch clocks;
             // taken-call overhead and the rendered object's work remain separate.
             int queued = 0;
-            clocks = drawing.RunUntil(0x0d9a, 0x0e2f, [0x10a8], pc => { if (pc == 0x10a8) queued++; });
+            clocks = drawing.RunUntil(0x0d9a, -1, [0x10a8], pc => {
+                if (pc == 0x10a8) queued++;
+                if (pc == 0x0e2f)
+                {
+                    // Cover the shared suffix without assuming how many
+                    // shadows/sprites the omitted handlers emitted. These
+                    // two taken JR gates each add four non-shared clocks.
+                    drawing._memory[0xffa0] = 0;
+                    drawing._memory[0xff9f] = 0xa0;
+                }
+            }) - 8;
             var enqueue = new OriginalRoomLoadingWork(rom);
             enqueue._wram[0x1000] = 1;
             enqueue._cpu.SetDe(0xd000);
-            Guard(rom, 0x10a8, [0x1a, 0xb7, 0xc8], "objectQueueDraw enabled gate");
-            clocks += queued * enqueue.RunUntil(0x10a8, 0x10ab, []);
+            Guard(rom, 0x10a8, [0x1a, 0xb7, 0xc8, 0x7b, 0xf6, 0x1a], "objectQueueDraw initial branches");
+            // Empty objects return in 32 clocks. Enabled objects take the
+            // shorter conditional RET, then LD A,E / OR visible reaches the
+            // same 32-clock boundary. Only enabled objects have more work.
+            long enqueuePrefix = enqueue.RunUntil(0x10a8, 0x10ae, []);
+            var empty = new OriginalRoomLoadingWork(rom);
+            empty._cpu.SetDe(0xd000);
+            if (empty.Run(0x10a8) != enqueuePrefix)
+                throw new InvalidDataException("objectQueueDraw's empty/enabled prefixes no longer share their source cost.");
+            clocks += queued * enqueuePrefix;
             rows.Append($"sprites\t{variant}\t{clocks}\tcode/bank0.s:drawAllSprites\n");
         }
         return rows.ToString();

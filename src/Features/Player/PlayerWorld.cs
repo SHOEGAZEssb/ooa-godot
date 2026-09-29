@@ -274,6 +274,9 @@ public sealed class PlayerWorld : IPlayerWorld
         _terrain.GetSideScrollTerrain(position);
     public int GetAdjacentWallsBitset(Vector2 position) =>
         _collision.AdjacentWallsBitset(position);
+    public int GetLinkWallProbeWork(Vector2 position) => _collision.LinkWallProbeWork(position);
+    public int GetActiveTileLookupWork(Vector2 position) => _collision.ActiveTileLookupWork(position);
+    public int GetTileInteractionWork(Vector2 position, Vector2I facing) => _collision.TileInteractionWork(position, facing);
     public bool SideScrollTileBlocksPoint(Vector2 point) =>
         _collision.TileBlocksPointForSidePlatform(point);
     public Vector2 GetTerrainPush(Vector2 position) =>

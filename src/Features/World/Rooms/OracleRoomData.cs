@@ -462,6 +462,17 @@ public sealed class OracleRoomData
 
     public byte GetCollision(byte metatile) => Collisions[metatile];
 
+    // The source $ce00 buffer has a sixteen-byte row stride, including the
+    // $ff border. Collision overrides can also target a large room's padding.
+    internal byte GetNativeCollisionAt(Vector2 point)
+    {
+        int x = Mathf.FloorToInt(point.X) >> 4, y = Mathf.FloorToInt(point.Y) >> 4;
+        if (x < 0 || x >= _layoutStride || y < 0 || y >= HeightInTiles) return 0xff;
+        int index = y * _layoutStride + x;
+        if (_positionCollisionOverrides.TryGetValue(index, out byte collision)) return collision;
+        return x >= WidthInTiles ? (byte)0xff : Collisions[Layout[index]];
+    }
+
     public byte GetOriginalMetatile(Vector2 localPoint)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);

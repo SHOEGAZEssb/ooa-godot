@@ -34,17 +34,21 @@ internal sealed class PirateShipCourse
             throw new InvalidOperationException("code/ages/pirateShip.s: incomplete generated course.");
     }
 
-    internal void Update(OracleSaveData save, OracleRuntimeState runtime, bool textActive, bool playingInstrument)
+    internal int Update(OracleSaveData save, OracleRuntimeState runtime, bool textActive, bool playingInstrument)
     {
-        if (save.HasGlobalFlag(GlobalFlag.PiratesGone)) return;
+        OraclePirateCourseWork work = OraclePirateCourseWork.Shared;
+        if (save.HasGlobalFlag(GlobalFlag.PiratesGone)) return work.Get("dispatch", variant: 1);
+        int clocks = work.Get("dispatch");
         byte y = save.ReadWramByte(WramAddress.wPirateShipY);
         byte x = save.ReadWramByte(WramAddress.wPirateShipX);
         byte room = save.ReadWramByte(WramAddress.wPirateShipRoom);
         byte direction = save.ReadWramByte(WramAddress.wPirateShipAngle);
+        clocks += work.Get("tile", variant: (y & 15) != 8 ? 0 : (x & 15) != 8 ? 1 : 2);
         // The tile signal is consumed before the text/instrument movement gate.
         if ((y & 15) == 8 && (x & 15) == 8)
             runtime.SetWramByte(WramAddress.wPirateShipChangedTile, (byte)((y & 0xf0) | (x >> 4)));
         byte tile = runtime.ReadWramByte(WramAddress.wPirateShipChangedTile);
+        clocks += work.Angle(save.IsLinkedGame, room, tile);
         if (tile != 0)
         {
             runtime.SetWramByte(WramAddress.wPirateShipChangedTile, 0);
@@ -58,13 +62,18 @@ internal sealed class PirateShipCourse
         }
         // mainThread copies the incremented low playtime byte to wFrameCounter
         // before cutscene01 calls this handler. No private ship clock exists.
-        if (!textActive && !playingInstrument && (save.ReadWramByte(WramAddress.wPlaytimeCounter) & 1) == 0)
+        int positionGate = textActive ? 0 : playingInstrument ? 1 :
+            (save.ReadWramByte(WramAddress.wPlaytimeCounter) & 1) != 0 ? 2 : 3;
+        clocks += work.Get("position", variant: positionGate);
+        if (positionGate == 3)
         {
             var speed = _speed[direction & 3];
             y = unchecked((byte)(y + speed.Y));
             x = unchecked((byte)(x + speed.X));
         }
         // updatePirateShipRoom runs even when movement is paused.
+        bool crossed = (direction & 3) switch { 0 => y == 0xf8, 1 => x == 0x98, 2 => y == 0x88, _ => x == 0xf8 };
+        clocks += work.Get("room", direction & 3, crossed ? 1 : 0);
         switch (direction & 3)
         {
             case 0 when y == 0xf8: y = 0x80; room = unchecked((byte)(room - 0x10)); break;
@@ -75,6 +84,7 @@ internal sealed class PirateShipCourse
         save.WriteWramByte(WramAddress.wPirateShipY, y);
         save.WriteWramByte(WramAddress.wPirateShipX, x);
         save.WriteWramByte(WramAddress.wPirateShipRoom, room);
+        return clocks;
     }
 
     private readonly record struct Turn(byte Room, byte Tile, byte Direction);

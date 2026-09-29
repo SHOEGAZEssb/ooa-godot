@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -17,6 +18,13 @@ public sealed partial class ValidationRoot
                 // The TAS crosses this clear north-facing corridor; reach the
                 // trigger by movement, preserving Link's ordinary state01.
                 _player.WarpTo(new Vector2(0x48, 8));
+                _runtimeState.SetWramByte(WramAddress.wActiveTilePos, 0x04);
+                _runtimeState.SetWramByte(WramAddress.wActiveTileIndex, _currentRoom.GetMetatile(new(72, 13)));
+                var terrainWork = new List<int>();
+                _player.BlockingWork += terrainWork.Add;
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+                FailIf(_player.Position != new Vector2(0x48, 8) || _dialogue.IsOpen,
+                    "Idle Link advanced into the help trigger.");
                 StepGameplayUpdates(1, Vector2.Up, ["move_up"], batched: batched);
                 FailIf(_dialogue.IsOpen || impa.DisablesLink,
                     "INTERAC $6b:$00 triggered at Y=$07 instead of below it.");
@@ -25,6 +33,15 @@ public sealed partial class ValidationRoot
                     _player.CutsceneControlled || !_player.NativeNormalStateForInteraction,
                     $"Impa help: attempt={attempt}, Y={_player.Position.Y}, text={_dialogue.IsOpen}, disabled={impa.DisablesLink}, menu={impa.MenusDisabled}, control={_player.CutsceneControlled}, waiting={impa.HelpWaitingAtEdge}.");
                 StepGameplayUpdates(2, Vector2.Right, ["inventory"], ["inventory"], batched: batched);
+                _player.BlockingWork -= terrainWork.Add;
+                // Source order: Pegasus counter, front tile, active tile,
+                // item input, then walls; the completed dispatch is charged
+                // last. Frozen Link bypasses this normal-state work.
+                int[] expectedWork = [248, 1052, 1464, 1156, 2736, 1460,
+                    248, 1052, 1464, 1156, 2736, 1524,
+                    248, 1052, 1464, 1156, 2744, 1524];
+                FailIf(!System.Linq.Enumerable.SequenceEqual(terrainWork, expectedWork),
+                    $"Impa approach lost source work order or ran while frozen: {string.Join(',', terrainWork)}.");
                 FailIf(_player.Position != new Vector2(0x48, 6) || _player.FacingVector != Vector2I.Up ||
                     _inventoryMenu.IsActive || impa.Counter != 30,
                     "Help text allowed Link/menu input or advanced its post-text counter.");

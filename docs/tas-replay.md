@@ -111,7 +111,8 @@ graphics-load continuation and textbox initialization, and the arrival restart
 and graphics load. Story dialogue can retain its source text ID to select
 imported standard textbox initialization work. These plans currently cover
 ordinary palettes and an unshifted gameplay camera; callers without source
-IDs keep their existing timing coverage. Gameplay work before the textbox
+IDs keep their existing timing coverage. Textbox work includes rebuilding the
+dirty palette buffers before the separate VBlank upload. Gameplay work before the textbox
 initializer and other menu/gameplay loaders can still expose missing
 foreground work in the comparison. Shared placement-buffer generation charges
 its imported RNG-dependent CPU work on every gameplay call, including room
@@ -128,6 +129,15 @@ charges the shared object-update dispatcher and sprite-queue traversal, using
 the current scroll and textbox gates. Individual object handlers, sprite drawing,
 state-dependent graphics residency and remaining room setup still have
 incomplete CPU-work coverage.
+
+Ordinary grounded Link updates charge the front-tile and active-tile lookups,
+unpressed item predicates and eight wall probes using live terrain, equipment,
+previous tile and raised-floor state. The ordinary normal-terrain dispatch
+charges its own instructions separately from those helpers. Pegasus counter
+work follows its live counter and ring. Dialogue and other gates that bypass
+these updates also bypass their work. The global
+pirate course charges its route search, movement gates and room crossings from
+the authoritative save and runtime state, including while it is offscreen.
 
 ## Trace contract and coverage
 

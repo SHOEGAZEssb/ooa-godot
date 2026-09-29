@@ -35,6 +35,41 @@ $gameplayRows = Invoke-AssemblySourceHost $assemblySourceHost 'GAMEPLAY_DISPATCH
 Write-GeneratedTable(
     (Join-Path $destination 'timing\gameplay_dispatch_cpu.tsv'),
     $gameplayRows.TrimEnd().Split("`n"))
+$wallRows = Invoke-AssemblySourceHost $assemblySourceHost 'LINK_WALL_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\link_wall_cpu.tsv'),
+    $wallRows.TrimEnd().Split("`n"))
+$activeTileRows = Invoke-AssemblySourceHost $assemblySourceHost 'ACTIVE_TILE_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\active_tile_cpu.tsv'),
+    $activeTileRows.TrimEnd().Split("`n"))
+$tileInteractionRows = Invoke-AssemblySourceHost $assemblySourceHost 'TILE_INTERACTION_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\tile_interaction_cpu.tsv'),
+    $tileInteractionRows.TrimEnd().Split("`n"))
+$pegasusRows = Invoke-AssemblySourceHost $assemblySourceHost 'PEGASUS_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\pegasus_cpu.tsv'),
+    $pegasusRows.TrimEnd().Split("`n"))
+$idleItemRows = Invoke-AssemblySourceHost $assemblySourceHost 'IDLE_ITEM_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\idle_item_cpu.tsv'),
+    $idleItemRows.TrimEnd().Split("`n"))
+$linkStateRows = Invoke-AssemblySourceHost $assemblySourceHost 'LINK_STATE_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\link_state_cpu.tsv'),
+    $linkStateRows.TrimEnd().Split("`n"))
+$pirateRows = Invoke-AssemblySourceHost $assemblySourceHost 'PIRATE_COURSE_WORK' (
+    [Convert]::ToBase64String($romBytes))
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\pirate_course_cpu.tsv'),
+    $pirateRows.TrimEnd().Split("`n"))
 $frontendRows = Invoke-AssemblySourceHost $assemblySourceHost 'FRONTEND_WORK' (
     [Convert]::ToBase64String($romBytes))
 Write-GeneratedTable(

@@ -72,6 +72,27 @@ internal static class Program
                     case "GAMEPLAY_DISPATCH_WORK":
                         WriteSuccess(OriginalRoomLoadingWork.CompileGameplayDispatch(Convert.FromBase64String(payload)), utf8);
                         break;
+                    case "LINK_WALL_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileLinkWallWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "ACTIVE_TILE_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileActiveTileWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "TILE_INTERACTION_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileTileInteractionWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "PEGASUS_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompilePegasusWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "IDLE_ITEM_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileIdleItemWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "LINK_STATE_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompileLinkStateWork(Convert.FromBase64String(payload)), utf8);
+                        break;
+                    case "PIRATE_COURSE_WORK":
+                        WriteSuccess(OriginalRoomLoadingWork.CompilePirateCourseWork(Convert.FromBase64String(payload)), utf8);
+                        break;
                     case "ROOM_LOADING_WORK":
                     {
                         string[] parts = payload.Split('\0');

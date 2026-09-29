@@ -116,6 +116,9 @@ public interface IPlayerWorld
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
     SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition);
     int GetAdjacentWallsBitset(Vector2 playerPosition);
+    int GetLinkWallProbeWork(Vector2 playerPosition) => 0;
+    int GetActiveTileLookupWork(Vector2 playerPosition) => 0;
+    int GetTileInteractionWork(Vector2 playerPosition, Vector2I facing) => 0;
     bool SideScrollTileBlocksPoint(Vector2 point) => false;
     Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);

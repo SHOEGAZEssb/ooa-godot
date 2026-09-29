@@ -13,17 +13,19 @@ public sealed partial class ValidationRoot
         // importer's stack in $dxxx would silently terminate these early.
         OracleLoadingWork work = OracleLoadingWork.Shared;
         // Native update 1065's draw prefix is 11116 clocks. Remove the
-        // objectQueueDraw work beyond its 64 enabled checks (972), Link
-        // drawing (1212), and the taken draw CALL's twelve extra clocks.
+        // objectQueueDraw work beyond its 64 initial 32-clock paths (204), Link
+        // drawing (1212), and the taken draw CALL's twelve extra clocks. The
+        // shared suffix adds shadow/OAM gates48+28, Y restoration52 and bank
+        // restoration/return56, excluding taken JR extras and loop bodies.
         OracleGameplayDispatchWork dispatch = OracleGameplayDispatchWork.Shared;
         // Source instruction accounting: main-loop shared988, resumed main
         // thread128+4 taken-JR clocks, main-thread shared counter/yield424.
-        FailIf(dispatch.Frame != 1544 || dispatch.Objects != 948 || dispatch.Sprites(true, false, false) != 8920 ||
-            dispatch.Sprites(false, false, false) != 8704 ||
-            dispatch.Sprites(true, true, false) != 8924 ||
-            dispatch.Sprites(false, false, true) != 8328 ||
-            dispatch.Sprites(true, false, true) != 8544 ||
-            dispatch.Sprites(true, true, true) != 8548,
+        FailIf(dispatch.Frame != 1544 || dispatch.Objects != 948 || dispatch.Sprites(true, false, false) != 9872 ||
+            dispatch.Sprites(false, false, false) != 9656 ||
+            dispatch.Sprites(true, true, false) != 9876 ||
+            dispatch.Sprites(false, false, true) != 9220 ||
+            dispatch.Sprites(true, false, true) != 9436 ||
+            dispatch.Sprites(true, true, true) != 9440,
             "Shared object/sprite traversal differs from native work or its scroll/textbox gates.");
         // Source context switches use LD SP,HL and LD (a16),SP. Check the
         // restored return address and little-endian bus writes independently
@@ -82,6 +84,51 @@ public sealed partial class ValidationRoot
             "Past cliff palette work lost its source gates.");
         OracleRoomData from = _rooms.GetRoom(0, 0x8a);
         OracleRoomData to = _rooms.GetRoom(0, 0x7a);
+        OracleLinkWallWork wallWork = OracleLinkWallWork.Shared;
+        // Native state01's own instructions total1524 while moving. Idle
+        // skips68 clocks of setup/speed CALL and takes a JR costing4 more.
+        FailIf(OracleLinkStateWork.Shared.Normal(true) != 1524 ||
+            OracleLinkStateWork.Shared.Normal(false) != 1460,
+            "Normal Link dispatch lost its idle/moving branch or counted child handlers twice.");
+        FailIf(OracleTileInteractionWork.Shared.Get(0, 0) != 1052,
+            "Front-tile miss must retain the native sample, ordered lookup, reset and bank return.");
+        OracleIdleItemWork itemWork = OracleIdleItemWork.Shared;
+        // Native no-item checkUseItems1156: dispatch972 and two92-clock
+        // predicates. An equipped sword's unpressed predicate takes216.
+        FailIf(itemWork.Get(0, 0, 0xff) != 1156 || itemWork.Get(5, 0, 0xff) != 1280 ||
+            itemWork.Get(0, 0, (int)RingId.Experts) != 1548 ||
+            itemWork.Get(0, 5, (int)RingId.Experts) != 1300 ||
+            itemWork.Get(0, 5, (int)RingId.Fist) != 1312,
+            "Unpressed item predicates lost equipped-item or empty-slot punching-ring branches.");
+        OraclePegasusWork pegasusWork = OraclePegasusWork.Shared;
+        FailIf(pegasusWork.Get(0, false) != 248 || pegasusWork.Get(0, true) != 244 ||
+            pegasusWork.Get(1, false) != 308 || pegasusWork.Get(2, false) != 468 ||
+            pegasusWork.Get(0x11, false) != 520 ||
+            pegasusWork.Get(0x8100, false) != pegasusWork.Get(0x100, false),
+            "Pegasus work lost zero, terminal, dust-signal or byte-borrow paths.");
+        OracleActiveTileWork tileWork = OracleActiveTileWork.Shared;
+        // Native update1218: unchanged overworld tile lookup is1464 clocks.
+        // The position-change branch adds36; same-position replacement adds52.
+        FailIf(tileWork.Get(0, 0, 4, 0, 4) != 1464 ||
+            tileWork.Get(0, 0, 4, 0, 5) != 1500 ||
+            tileWork.Get(0, 0, 4, 1, 4) != 1516 ||
+            tileWork.Get(4, 0, 4, 0, 4) != 1464,
+            "Active-tile lookup lost its prior-position/index branches or shared underwater list.");
+        // Native update1218 at (72,7): eight simple probes, four144 and
+        // four140 clocks, plus loop1328 and normalization wrapper280.
+        FailIf(wallWork.Calculate(to, new(72, 7), false) != 2744 ||
+            wallWork.Probe(0, Vector2.Zero, false).Clocks != 144 ||
+            wallWork.Probe(0, new(0, 8), false).Clocks != 140 ||
+            wallWork.Probe(3, Vector2.Zero, false).Blocked ||
+            !wallWork.Probe(3, new(0, 8), false).Blocked ||
+            !wallWork.Probe(0x1e, Vector2.Zero, false).Blocked ||
+            wallWork.Probe(0x1e, Vector2.Zero, true).Blocked ||
+            wallWork.Probe(0xff, Vector2.Zero, false).Blocked,
+            "Link wall-probe work lost quadrant tests, special masks or raised-floor collision $1e.");
+        FailIf(wallWork.Calculate(to, new(-1, -1), false) !=
+            wallWork.Calculate(to, new(255, 255), false) ||
+            to.GetNativeCollisionAt(new(160, 0)) != 0xff,
+            "Link wall-probe timing must wrap byte positions and retain the source $ce00 border.");
         OracleSaveData scrollSave = OracleSaveData.CreateStandardGame();
         FailIf(from.TilesetLayoutId != 0 || to.TilesetLayoutId != 0x14 || to.LayoutGroup != 0 ||
             roomWork.Scroll(from, to, scrollSave) != 608168 || roomWork.Scroll(to, to, scrollSave) != 182852,
@@ -204,11 +251,14 @@ public sealed partial class ValidationRoot
             "Repeated buffer generation must charge the source work for its current seed.");
         // Independent instruction trace at the first Impa textbox:
         // showText is 700 clocks; textThreadStart through its first yield is
-        // 106464, excluding timer/VBlank interrupts. Its queued DMA is 1884.
+        // 106464, excluding timer/VBlank interrupts. The following GBA palette
+        // refresh is2060; the separately queued VBlank DMA is1884.
         IReadOnlyList<LoadingStep> textbox = OracleTextboxLoadingWork.Shared.Plan(0x0102, 0);
-        FailIf(textbox.Count != 2 || textbox[0] != new LoadingStep("cpu", 107164) ||
+        FailIf(textbox.Count != 2 || textbox[0] != new LoadingStep("cpu", 109224) ||
             textbox[1] != new LoadingStep("vblank-work", 1884),
             "TX_0102 opening work differs from the clean-US instruction trace.");
+        FailIf(OracleTextboxLoadingWork.Shared.Plan(0x0100, 2)[0] != new LoadingStep("cpu", 109592),
+            "TX_0100 forced textbox side lost its palette refresh after the text thread yields.");
         FailIf(work.Graphics(0xa0) != 610584 || work.Graphics(0xba) != 440144 ||
             work.Graphics(0xa2) != 158412,
             "loadGfxHeader CPU work differs from executed clean-US $a0/$ba/$a2 decoder paths.");

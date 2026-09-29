@@ -60,8 +60,9 @@ public sealed class RoomCollision
         {
             Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
                 unchecked((byte)(Mathf.FloorToInt(position.Y) + 5)));
-            state.SetWramByte(WramAddress.wActiveTilePos, (byte)room.GetPackedPosition(feet));
-            state.SetWramByte(WramAddress.wActiveTileIndex, room.GetMetatile(feet));
+            byte positionByte = (byte)room.GetPackedPosition(feet), tile = room.GetMetatile(feet);
+            state.SetWramByte(WramAddress.wActiveTilePos, positionByte);
+            state.SetWramByte(WramAddress.wActiveTileIndex, tile);
         }
 
         // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
@@ -80,6 +81,26 @@ public sealed class RoomCollision
             room.SetPackedTileCollision(chest, null);
             state.SetWramByte(WramAddress.wLinkOnChest, 0);
         }
+    }
+
+    internal int ActiveTileLookupWork(Vector2 position)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRuntimeState state = _entities.RuntimeState;
+        Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
+            unchecked((byte)(Mathf.FloorToInt(position.Y) + 5)));
+        return OracleActiveTileWork.Shared.Get(room.ActiveCollisions, room.GetMetatile(feet),
+            (byte)room.GetPackedPosition(feet), state.ReadWramByte(WramAddress.wActiveTileIndex),
+            state.ReadWramByte(WramAddress.wActiveTilePos));
+    }
+
+    internal int TileInteractionWork(Vector2 position, Vector2I facing)
+    {
+        Vector2 offset = InteractableTilePushGeometry.FrontTileOffset(facing);
+        Vector2 point = new(unchecked((byte)(Mathf.FloorToInt(position.X) + (int)offset.X)),
+            unchecked((byte)(Mathf.FloorToInt(position.Y) + (int)offset.Y)));
+        OracleRoomData room = _rooms.CurrentRoom;
+        return OracleTileInteractionWork.Shared.Get(room.ActiveCollisions, room.GetMetatile(point));
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
@@ -169,6 +190,10 @@ public sealed class RoomCollision
 
     internal int AdjacentWallsBitset(Vector2 playerPosition) =>
         CalculateAdjacentWallsBitset(playerPosition);
+
+    internal int LinkWallProbeWork(Vector2 playerPosition) =>
+        OracleLinkWallWork.Shared.Calculate(_rooms.CurrentRoom, playerPosition,
+            _entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset) != 0);
 
     internal bool TileBlocksPointForSidePlatform(Vector2 point)
     {

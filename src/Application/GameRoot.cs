@@ -707,6 +707,7 @@ public partial class GameRoot : Node2D
             _transitions.DeactivateWarpAtPlayerPosition(_player);
         }
         _player.GameOverRequested += BeginGameOver;
+        _player.BlockingWork += CollectBlockingWork;
         if (useDebugSavestate)
         {
             _player.Face(debugSavestate!.PlayerFacing);
@@ -1010,8 +1011,12 @@ public partial class GameRoot : Node2D
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
-            (_pirateShipCourse ??= new PirateShipCourse()).Update(
-                _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
+        {
+            int shipLoad = _saveData.HasGlobalFlag(GlobalFlag.PiratesGone) ? 0 :
+                OracleRoomLoadingWork.Shared.PirateLoad(_rooms.CurrentRoom, _saveData);
+            CollectBlockingWork(shipLoad + (_pirateShipCourse ??= new PirateShipCourse()).Update(
+                _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0));
+        }
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateRaftBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (Link), followed by

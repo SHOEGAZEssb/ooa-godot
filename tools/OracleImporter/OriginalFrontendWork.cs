@@ -36,6 +36,7 @@ internal sealed class OriginalFrontendWork
     {
         var result = new StringBuilder("# text-id\tside\tcpu\tvblank\tstatus\tsource\n");
         int showText = FindUnique(rom, 0, [0x2e, 0x00, 0x1e, 0x00, 0xfa, 0xae, 0xcb, 0xb5]);
+        int refreshPalettes = FindUnique(rom, 0x3f, [0x3e, 0x02, 0xe0, 0x70, 0xf0, 0xa6, 0x57]);
         foreach (int id in ids)
         foreach (int side in new[] { 0, 2 })
         {
@@ -53,6 +54,13 @@ internal sealed class OriginalFrontendWork
             if (thread == 0) throw new InvalidDataException($"TX_{id:x4} did not start THREAD_2.");
             work._cpu.BeginCall(thread, stack: 0xc270);
             work.Execute(0x0900);
+            // After the text thread yields, _mainLoop refreshes its dirty
+            // palette buffers before HALT. This is separate from the later
+            // VBlank palette upload; use the masks written by initTextbox.
+            work._bank = 0x3f;
+            work._memory[0xff97] = 0x3f;
+            work._cpu.BeginCall(refreshPalettes, stack: 0xc220);
+            work.Execute(0);
             work.Finish();
             string status = work.Read(0xcba2) != (id & 0xff) || work._wram[0x70c0] != 1
                 ? "dynamic-extra-text" : "standard";
@@ -60,7 +68,7 @@ internal sealed class OriginalFrontendWork
                 throw new InvalidDataException($"Unexpected loading side effect in TX_{id:x4}.");
             result.Append($"{id:x4}\t{side}\t{work._steps.Where(step => step.Kind == "cpu").Sum(step => step.Value)}\t" +
                 $"{work._steps.Where(step => step.Kind == "vblank-work").Sum(step => step.Value)}\t{status}\t" +
-                "code/bank0.s:showText,textThreadStart;code/textbox.s:initTextbox,standardTextState0\n");
+                "code/bank0.s:showText,textThreadStart;code/textbox.s:initTextbox,standardTextState0;code/loadGraphics.s:refreshDirtyPalettes\n");
         }
         return result.ToString();
     }

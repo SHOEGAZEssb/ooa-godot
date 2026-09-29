@@ -25,6 +25,7 @@ internal sealed class OracleCpu
     internal int InstructionAddress => _instructionAddress;
     internal int StackPointer => _sp;
     internal int Accumulator => _a;
+    internal bool CarrySet => (_f & C) != 0;
     internal void SetBc(int value) => BC = value;
     internal void SetDe(int value) => DE = value;
     internal void SetHl(int value) => HL = value;
