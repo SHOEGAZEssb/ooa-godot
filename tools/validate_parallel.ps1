@@ -4,6 +4,7 @@ param(
     [string]$Godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe',
     [ValidatePattern('^Validate[A-Za-z0-9_]+$')]
     [string]$ValidateOnly,
+    [string]$Rom,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -30,6 +31,11 @@ namespace OracleValidation {
 '@
 }
 $projectRoot = Split-Path $PSScriptRoot -Parent
+$romArguments = @()
+if ($Rom) {
+    $romPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
+    $romArguments = @('"--validation-rom=' + $romPath + '"')
+}
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
 $processes = [Collections.Generic.List[object]]::new()
@@ -46,9 +52,9 @@ try {
         $engineLog = Join-Path $logRoot "$index.godot.log"
         $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$index/$Workers" }
         $process = Start-Process -FilePath $Godot -WorkingDirectory $projectRoot `
-            -ArgumentList @('--headless', '--path', ('"' + $projectRoot + '"'),
+            -ArgumentList (@('--headless', '--path', ('"' + $projectRoot + '"'),
                 '--log-file', ('"' + $engineLog + '"'), '--quit-after', '10',
-                '--', '--validate', $selection) `
+                '--', '--validate', $selection) + $romArguments) `
             -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         # Retain the native handle so Windows PowerShell can read ExitCode even
         # when the worker exits before we reach WaitForExit.

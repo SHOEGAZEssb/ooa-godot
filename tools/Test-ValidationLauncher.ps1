@@ -20,10 +20,14 @@ public static class ValidationLauncherFixture {
         using (File.Open(args[log + 1], FileMode.CreateNew)) { }
         string shard = "1/1";
         string selected = null;
+        string rom = null;
         foreach (string arg in args) {
             if (arg.StartsWith("--validate-shard=")) shard = arg.Substring(17);
             if (arg.StartsWith("--validate-only=")) selected = arg.Substring(16);
+            if (arg.StartsWith("--validation-rom=")) rom = arg.Substring(17);
         }
+        if (selected == "ValidateRomArgument" && (rom == null || !Path.IsPathRooted(rom) ||
+            Path.GetFileName(rom) != "reference ROM [US].gbc")) return 93;
         if (selected == "ValidateCrash") {
             Console.Error.WriteLine("fixture native failure");
             Environment.FailFast("fixture deliberate crash");
@@ -38,6 +42,8 @@ public static class ValidationLauncherFixture {
 '@
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher -Godot $fixture -ValidateOnly ValidateFixture -TimeoutSeconds 15
+    & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
+        -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
     $original = [OracleValidation.ErrorMode]::GetErrorMode()
     # An unrelated pre-existing flag must survive success and failure paths.
     $expected = $original -bor 0x8000
@@ -60,7 +66,7 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
-    Write-Host 'Validation launcher tests passed (8 workers, focused selection, unique logs, crash exit, missing marker, inherited/restored error mode).'
+    Write-Host 'Validation launcher tests passed (8 workers, focused selection, ROM path forwarding, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
     # Only this test's generated executable lives here; no recursive deletion.

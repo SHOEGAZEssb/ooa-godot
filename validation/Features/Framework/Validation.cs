@@ -208,6 +208,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNuunWaterfall);
         RunIsolatedValidation(ValidateOracleObjectMath);
         RunIsolatedValidation(ValidateOracleRandom);
+        RunIsolatedValidation(ValidateOracleRandomRom);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
         RunIsolatedValidation(ValidateSharedRoomEventHosts);

@@ -37,6 +37,20 @@ Run one exact registered method while developing:
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
+ROM-backed comparisons are registered in the normal suite. They require the
+supported clean US ROM at the repository's default
+`Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc` path. Use `-Rom PATH`
+to select another location; the launcher passes it as `--validation-rom=PATH`.
+Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs;
+they are never counted as skipped successes. Focused scenarios that do not
+execute the ROM do not require it.
+
+Reference execution verifies the ROM's size and SHA-256 before running bounded
+original routines with declared memory access. Tests compare resulting state
+with production implementations without synchronizing elapsed CPU time.
+ROM loading and comparison setup belong entirely to the validation assembly;
+production continues to read generated assets only.
+
 When changing source-backed runtime symbol definitions, also run
 `& .\tools\verify_runtime_symbols.ps1`. It checks annotated constants against
 the active vanilla Ages disassembly through the importer source repository,
