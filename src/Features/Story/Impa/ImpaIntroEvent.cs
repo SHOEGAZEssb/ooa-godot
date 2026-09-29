@@ -29,6 +29,9 @@ internal sealed class ImpaIntroEvent :
     private OracleRoomData? _followRoom;
     private ImpaIntroEventStage _stage;
     private HelpStage _helpStage;
+    private bool _helpLinkDisabled;
+    private IEnumerator<bool>? _initialization;
+    public bool ObjectUpdateSuspended => _initialization is not null;
     private StoneStage _stoneStage;
     private Vector2 _precisePosition;
     private Vector2 _stonePrecisePosition;
@@ -71,6 +74,8 @@ internal sealed class ImpaIntroEvent :
         _stonePrePushRunner.Active || _stonePostPushRunner.Active || StoneBlocksGameplay;
     internal bool Following => _stage == ImpaIntroEventStage.Following;
     internal bool HelpWaitingAtEdge => _helpStage == HelpStage.WaitingAtEdge;
+    public bool DisablesLink => _helpLinkDisabled;
+    public bool MenusDisabled => _helpStage is HelpStage.Script or HelpStage.SimulatedInput;
     internal bool UpdatesDuringTransition =>
         _followingLinkObjectActive &&
         _context.Transitions.ScrollActive &&
@@ -146,6 +151,7 @@ internal sealed class ImpaIntroEvent :
     public void StartHelp()
     {
         _helpRunner.Clear();
+        _helpLinkDisabled = false;
         if (_context.Rooms.SaveData.HasRoomFlag(
             _helpRecord.Group,
             _helpRecord.Room,
@@ -175,7 +181,38 @@ internal sealed class ImpaIntroEvent :
             return;
         }
 
-        Actor.SetSpritePalette(_database.PossessedPalette);
+        // initializeRoom parses placements after updateAllObjects. The
+        // interaction's state 0 runs in the following object pass, including
+        // while the destination room is scrolling onto the screen.
+        _followRoom = room;
+        _stage = ImpaIntroEventStage.InteractionInitialize;
+        _counter = 0;
+        Actor.SetScriptVisible(false);
+    }
+
+    internal void InitializeEncounterInteraction()
+    {
+        if (_stage != ImpaIntroEventStage.InteractionInitialize)
+            return;
+        if (_initialization is not null)
+            throw new InvalidOperationException("Impa's suspended object pass must resume before a new update.");
+        _initialization = InitializeEncounterObjects().GetEnumerator();
+        ResumeObjectUpdate();
+    }
+
+    public void ResumeObjectUpdate()
+    {
+        if (_initialization is null || _initialization.MoveNext()) return;
+        _initialization.Dispose();
+        _initialization = null;
+    }
+
+    private IEnumerable<bool> InitializeEncounterObjects()
+    {
+        if (_context.Entities.ObjectGraphics.Require(_database.ImpaGraphicsHeader))
+            yield return true;
+        Actor!.SetScriptVisible(true);
+        Actor!.SetSpritePalette(_database.PossessedPalette);
         Actor.SetDirectionalAnimations(
             _record.UpAnimation,
             _record.RightAnimation,
@@ -187,15 +224,23 @@ internal sealed class ImpaIntroEvent :
             NpcCharacter actor = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                 record.ToNpcRecord(_record.Group, _record.Room),
                 $"FakeOctorok_{record.Index}"));
-            actor.SetScriptAnimation(record.InitialAnimation);
+            actor.SetScriptVisible(false);
             _fakeOctoroks.Add(new FakeOctorokState(record, actor));
         }
 
-        _followRoom = room;
         _stage = ImpaIntroEventStage.LinkInitialize;
         _counter = 0;
         _context.Player.BeginCutsceneControl(owner: this);
         _encounterRunner.Start(_database.EncounterCommands);
+        // parseGivenObjectData appends all three slots before they receive
+        // their own state-0 calls. Only the first needs the shared $8f load.
+        foreach (FakeOctorokState state in _fakeOctoroks)
+        {
+            if (_context.Entities.ObjectGraphics.Require(_database.OctorokGraphicsHeader))
+                yield return true;
+            state.Actor.SetScriptAnimation(state.Record.InitialAnimation);
+            state.Actor.SetScriptVisible(true);
+        }
     }
 
     public void StartStoneRoom()
@@ -340,6 +385,8 @@ internal sealed class ImpaIntroEvent :
 
     public void Cancel()
     {
+        _initialization?.Dispose();
+        _initialization = null;
         foreach (FakeOctorokState state in _fakeOctoroks)
             state.Actor.SetActive(false);
         _fakeOctoroks.Clear();
@@ -356,6 +403,7 @@ internal sealed class ImpaIntroEvent :
         _stoneSignal = 0;
         _stage = ImpaIntroEventStage.None;
         _helpStage = HelpStage.None;
+        _helpLinkDisabled = false;
         _stoneStage = StoneStage.None;
         _stonePushCounter = 0;
         _stoneMoveCounter = 0;
@@ -366,21 +414,45 @@ internal sealed class ImpaIntroEvent :
 
     private void UpdateEncounterFrame()
     {
+        if (_stage == ImpaIntroEventStage.InteractionInitialize)
+        {
+            InitializeEncounterInteraction();
+            return;
+        }
         EnsureImpaMusicOverride();
-        // INTERAC_IMPA_IN_CUTSCENE runs before its parsed fake Octoroks and
-        // linkCutscene1. Keep that object ordering authoritative here.
+        // Link's special-object pass precedes these interaction slots.
         _encounterRunner.AdvanceFrame();
         UpdateFakeOctoroks();
+        if (_stage == ImpaIntroEventStage.Following)
+        {
+            bool directionalInput =
+                Input.IsActionPressed("move_up") || Input.IsActionPressed("move_right") ||
+                Input.IsActionPressed("move_down") || Input.IsActionPressed("move_left");
+            UpdateStoneFrame(directionalInput, Input.IsActionPressed("move_down"),
+                Input.IsActionPressed("move_right"));
+        }
+    }
+
+    public void UpdateSpecialObjectFrame()
+    {
+        // LINK_STATE_08 dispatches before the normal-Link scroll gate.
+        // Its counter continues while initialized room interactions freeze.
+        if (ObjectUpdateSuspended) return;
         switch (_stage)
         {
             case ImpaIntroEventStage.LinkInitialize:
-                // linkCutscene1 state 0 occupies its own object update.
                 _context.Player.Face(Vector2I.Up);
                 BeginWait(ImpaIntroEventStage.LinkInitialWait, _record.LinkWaitFrames);
-                break;
+                // linkCutscene1 state 0 falls through state 1/substate 0.
+                goto case ImpaIntroEventStage.LinkInitialWait;
             case ImpaIntroEventStage.LinkInitialWait:
                 if (CountDown())
+                {
                     _stage = ImpaIntroEventStage.LinkHorizontal;
+                    float x = _context.Player.Position.X;
+                    _context.Player.Face(x == _record.TargetX ? Vector2I.Up :
+                        x < _record.TargetX ? Vector2I.Right : Vector2I.Left);
+                }
                 break;
             case ImpaIntroEventStage.LinkHorizontal:
                 if (Mathf.IsEqualApprox(_context.Player.Position.X, _record.TargetX))
@@ -408,26 +480,13 @@ internal sealed class ImpaIntroEvent :
                 _counter--;
                 if (_counter == 0)
                 {
-                    // linkCutscene1 writes cfd0=$01 after Impa and the fake
-                    // Octoroks have already updated. They observe it on the
-                    // following original-engine update.
+                    // Later interaction slots observe cfd0=$01 in this pass.
                     _encounterSignal = 0x01;
                     _context.Sound.PlaySound(SoundId.SndClink);
                     _stage = ImpaIntroEventStage.WaitingForScript;
                 }
                 break;
             case ImpaIntroEventStage.WaitingForScript:
-                break;
-            case ImpaIntroEventStage.Following:
-                bool directionalInput =
-                    Input.IsActionPressed("move_up") ||
-                    Input.IsActionPressed("move_right") ||
-                    Input.IsActionPressed("move_down") ||
-                    Input.IsActionPressed("move_left");
-                UpdateStoneFrame(
-                    directionalInput,
-                    Input.IsActionPressed("move_down"),
-                    Input.IsActionPressed("move_right"));
                 break;
         }
     }
@@ -962,7 +1021,6 @@ internal sealed class ImpaIntroEvent :
             case HelpStage.WaitingAtEdge:
                 if (!upPressed || _context.Player.Position.Y >= _helpRecord.EdgeY)
                     return;
-                _context.Player.BeginCutsceneControl(owner: this);
                 _helpStage = HelpStage.Script;
                 _helpRunner.Start(_database.HelpCommands);
                 _helpRunner.AdvanceFrame();
@@ -1053,7 +1111,8 @@ internal sealed class ImpaIntroEvent :
             throw new InvalidOperationException(
                 $"The active Impa command stream cannot set menu enabled={enabled}.");
         }
-        _context.Player.BeginCutsceneControl(owner: this);
+        // The help phase owns wMenuDisabled until its simulated-input handoff;
+        // it does not replace Link's special-object ID or cancel his items.
     }
 
     void ICutsceneCommandHost.SetDisabledObjects(int value)
@@ -1063,8 +1122,7 @@ internal sealed class ImpaIntroEvent :
             throw new InvalidOperationException(
                 $"The active Impa command stream cannot set wDisabledObjects=${value:x2}.");
         }
-        if (value == 0x01)
-            _context.Player.BeginCutsceneControl(owner: this);
+        _helpLinkDisabled = value == 0x01;
     }
 
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value)
@@ -1090,7 +1148,7 @@ internal sealed class ImpaIntroEvent :
                 throw new InvalidOperationException(
                     $"interaction6b_subid00 requested unknown or divergent TX_{textId:x4}.");
             }
-            _context.ShowDialogue(message, _helpRecord.TextboxPosition);
+            _context.ShowDialogue(message, _helpRecord.TextboxPosition, sourceTextId: textId);
             return;
         }
 
@@ -1112,7 +1170,7 @@ internal sealed class ImpaIntroEvent :
                 throw new InvalidOperationException(
                     $"impaScript_moveAwayFromRock TX_{textId:x4} diverges from imported text.");
             }
-            _context.ShowDialogue(message);
+            _context.ShowDialogue(message, sourceTextId: textId);
             return;
         }
 
@@ -1124,7 +1182,7 @@ internal sealed class ImpaIntroEvent :
                 throw new InvalidOperationException(
                     $"impaScript_rockJustMoved requested unknown or divergent TX_{textId:x4}.");
             }
-            _context.ShowDialogue(message);
+            _context.ShowDialogue(message, sourceTextId: textId);
             return;
         }
 
@@ -1140,7 +1198,7 @@ internal sealed class ImpaIntroEvent :
             throw new InvalidOperationException(
                 $"impaScript0 TX_{textId:x4} diverges from imported text.");
         }
-        _context.ShowDialogue(message);
+        _context.ShowDialogue(message, sourceTextId: textId);
     }
 
     void ICutsceneCommandHost.SetActorAnimation(
@@ -1243,6 +1301,7 @@ internal sealed class ImpaIntroEvent :
     {
         if (_helpRunner.Active && handler == "installHelpSimulatedInput")
         {
+            _context.Player.BeginSimulatedInputControl(this);
             _counter = _helpRecord.InputUpFrames;
             _helpStage = HelpStage.SimulatedInput;
             return;
@@ -1470,6 +1529,7 @@ internal readonly record struct LinkPathEntry(Vector2I Direction, Vector2 Positi
 internal enum ImpaIntroEventStage
 {
     None,
+    InteractionInitialize,
     LinkInitialize,
     LinkInitialWait,
     LinkHorizontal,

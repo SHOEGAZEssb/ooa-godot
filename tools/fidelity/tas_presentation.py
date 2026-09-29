@@ -25,6 +25,11 @@ class PresentationMapper:
         if video is None or video["blank"]:
             diagnostics["coverage"] = "no-content-or-lcd-blank"
             return result
+        # Arrival retains the file-menu BG map behind the gameplay window:
+        # LCDC=$ef, SCY=$f0. Those tile identities no longer describe the
+        # visible screen. File menus use an unscrolled BG without a window.
+        if video["scx"] != 0 or video["scy"] != 0 or video["lcd"] & 0x20:
+            return result
         def decode(name, size):
             data = base64.b64decode(video[name], validate=True)
             if len(data) != size:
@@ -49,8 +54,6 @@ class PresentationMapper:
         elif matches("secret_entry_middle", 0xa0, 4): page = 5
         if not page:
             return result
-        if video["scx"] != 0 or video["scy"] != 0 or video["lcd"] & 0x20:
-            raise ValueError("File-menu presentation mapping requires the source's unscrolled BG without window.")
         palettes = {attributes[y*32+x] & 7 for y in range(18) for x in range(20)}
         components = []
         for palette in palettes:

@@ -764,6 +764,16 @@ $impaFakeGraphic = $interactionGraphics['50:0']
 if ($null -eq $impaFakeGraphic -or -not $gfxNames.ContainsKey($impaFakeGraphic.Gfx)) {
     throw 'Could not resolve INTERAC_FAKE_OCTOROK $32:$00 graphics.'
 }
+$impaGraphic = $interactionGraphics['49:0']
+if ($null -eq $impaGraphic -or
+    $impaSource -notmatch '(?s)@state0:.*?call interactionInitGraphics.*?call @initSubid' -or
+    $impaFakeSource -notmatch '(?s)@state0:.*?call interactionInitGraphics.*?Interaction.subid') {
+    throw 'Impa/fake Octorok initialization no longer loads interaction graphics before subid dispatch.'
+}
+Write-CutsceneGeneratedTable (
+    (Join-Path $destination 'cutscenes\impa_intro_graphics.tsv'),
+    @("# impa-header`toctorok-header",
+      ($impaGraphic.Gfx.ToString('x2') + "`t" + $impaFakeGraphic.Gfx.ToString('x2'))))
 $impaFakeSprite = $gfxNames[$impaFakeGraphic.Gfx]
 $impaInitialIndices = @(
     [Convert]::ToInt32($impaFakeAnimations.Groups['a'].Value, 16),

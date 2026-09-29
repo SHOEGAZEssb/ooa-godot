@@ -49,9 +49,9 @@ public partial class ValidationRoot
             typeof(SmogEncounterController).GetProperty("State",flags)!.SetValue(entity.Controller,8);
             // This ambiguous control owner deliberately diagnoses on a native
             // state query; a changed button must bypass both Link gates.
-            typeof(Player).GetField("_cutsceneControlled",flags)!.SetValue(_player,true);
+            _player.BeginCutsceneControl(interruptBracelet: false);
             Step(1);
-            typeof(Player).GetField("_cutsceneControlled",flags)!.SetValue(_player,false);
+            _player.EndCutsceneControl();
             FailIf(entity.Controller.State != 10 || _inventory.HealthQuarters != 12 || !reset || sounds != 1,
                 "Changed Smog button must apply the inventory-owned four-quarter penalty and begin cleanup once.");
             Step(2);

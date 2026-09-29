@@ -66,6 +66,15 @@ internal static class Program
                     case "FRONTEND_WORK":
                         WriteSuccess(OriginalFrontendWork.Compile(Convert.FromBase64String(payload)), utf8);
                         break;
+                    case "TEXTBOX_WORK":
+                    {
+                        string[] parts = payload.Split('\0');
+                        if (parts.Length != 2) throw new InvalidDataException("TEXTBOX_WORK requires ROM and text indices.");
+                        int[] ids = parts[1].Split(',').Select(value => int.Parse(value,
+                            System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                        WriteSuccess(OriginalFrontendWork.CompileTextboxes(Convert.FromBase64String(parts[0]), ids), utf8);
+                        break;
+                    }
                     case "CUTSCENE_SCALAR":
                     {
                         int delimiter = payload.IndexOf('\0');

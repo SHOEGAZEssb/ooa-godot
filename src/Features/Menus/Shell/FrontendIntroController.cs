@@ -55,8 +55,8 @@ internal sealed class FrontendIntroController
     internal byte FrameCounter { get; private set; }
     internal bool InputsEnabled { get; private set; }
     internal bool IsActive { get; private set; } = true;
-    // The palette thread runs before runIntro. Its last dirty palette update
-    // precedes the frame on which runIntro observes the completed fade.
+    // THREAD_3 runs after runIntro, including the update that begins a fade.
+    // Its last dirty palette precedes the stop and frontend handoff updates.
     internal bool PaletteWorkPending => _fadeDuration != 0 && _fadeUpdate < _fadeDuration - 1;
     internal int HorseScrollY { get; private set; }
     internal int HorseGroundScrollX { get; private set; }
@@ -1035,7 +1035,8 @@ internal sealed class FrontendIntroController
         // Delay counter starts at 1, then refills with the divisor. Fade-out
         // stops at offset $20; fade-in stops on underflow after offset $00.
         _fadeDuration = (_data.Timing("palette-fade") - (toWhite ? 1 : 0)) * divisor + 1;
-        SetWhiteFade(toWhite ? 0.0f : 1.0f);
+        // The palette thread runs later in this same main-loop update.
+        SetWhiteFade(toWhite ? 1.0f / 32.0f : 31.0f / 32.0f);
     }
 
     private bool AdvanceFade()
@@ -1043,7 +1044,7 @@ internal sealed class FrontendIntroController
         if (_fadeDuration == 0)
             return true;
         _fadeUpdate = Math.Min(_fadeDuration, _fadeUpdate + 1);
-        int step = (_fadeUpdate - 1) / _fadeDivisor + 1;
+        int step = _fadeUpdate / _fadeDivisor + 1;
         SetWhiteFade((_fadeToWhite ? step : Math.Max(0, 32 - step)) / 32.0f);
         if (_fadeUpdate != _fadeDuration)
             return false;

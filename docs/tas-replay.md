@@ -91,9 +91,14 @@ The adapter supplies no reference elapsed time or audio tick counts to that
 clock. CPU clocks and timer counts are diagnostic fields; shared-state values
 still compare exactly. Loading coverage currently includes cold startup, title
 initialization, file select, new-file options, name entry and commit, and the
-message-speed confirmation and unlinked pregame initialization before the first
-graphics-thread yield. Later game initialization and other menu/gameplay
-loaders can still expose missing foreground work in the comparison.
+message-speed confirmation, unlinked pregame initialization, its suspended
+graphics-load continuation and textbox initialization, and the arrival restart
+and graphics load. Story dialogue can retain its source text ID to select
+imported standard textbox initialization work. These plans currently cover
+ordinary palettes and an unshifted gameplay camera; callers without source
+IDs keep their existing timing coverage. Gameplay work before the textbox
+initializer and other menu/gameplay loaders can still expose missing
+foreground work in the comparison.
 
 ## Trace contract and coverage
 
@@ -114,7 +119,8 @@ No framebuffer is read and no pixel equality is required.
 Profile `ages-menu-presentation-v1` compares file-menu visibility, the displayed
 screen and message-speed overlay, the effective RGB5 fade level after GBA
 brightening, and ordered acorn/text-speed cursor visibility and coordinates.
-Page recognition uses static source tilemap/attribute regions, excluding dynamic
+Page recognition requires the file menus' unscrolled BG without a window, then
+uses static source tilemap/attribute regions, excluding dynamic
 names and save summaries. The Godot adapter reads the displayed screen, not its
 controller's pending page. A fully white menu exposes only visibility zero;
 hidden page/cursor contents are not compared. The same zero value covers screens
@@ -164,11 +170,15 @@ The shared profile compares:
 - Global RNG bytes.
 - Frontend stage and non-cinematic state.
 - Sound fade, disable, and volume fields, plus eight channel enable/wait fields.
-- During gameplay: room identity, Link's 8.8 position, direction, cutscene
+- While the native Link slot is active, including pregame: room identity, Link's 8.8 position, direction, cutscene
   control and health; all sixteen enemy-slot occupancy bits in native page
   order; and the original live save payload `$c5ba-$caff`.
 
 The live-save comparison excludes the committed checksum/signature bytes.
+Pregame state comes from its cutscene controller and live file, independently
+of the dormant gameplay scene's resource preparation. Its enemy pool is empty;
+clearing Link after vanishing ends the active-slot comparison until the arrival
+wave enables him. Room objects remain dormant until their later initialization.
 Inactive audio counters are excluded because their contents are not initialized
 or interpreted while the channel is disabled. Cinematic frontend substates use
 different representations and are explicitly unavailable. Enemy slots preserve

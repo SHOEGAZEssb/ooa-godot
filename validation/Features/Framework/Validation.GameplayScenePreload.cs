@@ -12,6 +12,15 @@ public sealed partial class ValidationRoot
         var root = typeof(GameRoot);
         void Invoke(string name, params object[] args) => root.GetMethod(name, flags)!.Invoke(this, args);
         T? Read<T>(string name) where T : class => (T?)root.GetField(name, flags)!.GetValue(this);
+        static bool SamePayloadExceptPlaytime(byte[] before, OracleSaveData save)
+        {
+            byte[] after = save.Serialize();
+            // Checksum changes with playtime; all other file payload remains
+            // unchanged by host-only resource preparation.
+            return Enumerable.Range(0x0a, before.Length - 0x0a)
+                .Where(offset => offset is < 0x72 or > 0x75)
+                .All(offset => before[offset] == after[offset]);
+        }
 
         foreach (bool batched in new[] { false, true })
         {
@@ -23,13 +32,20 @@ public sealed partial class ValidationRoot
             int rng = _random.Calls;
             Invoke("StartSelectedFile", 0, save);
             var intro = Read<NewGameIntroController>("_newGameIntro")!;
+            var trace = CaptureTasSharedState();
+            FailIf(trace["room.active"] != 1 || trace["room.group"] != 0 || trace["room.id"] != 0x8a ||
+                trace["link.x8_8"] != 0x5000 || trace["link.y8_8"] != 0xd000 ||
+                trace["link.direction"] != 0 || trace["link.controlled"] != 1 || trace["link.health"] != 12 ||
+                trace["save.$c622"] != 1 || Enumerable.Range(0, 16).Any(slot => trace[$"enemy.${0xd080 + slot * 256:x4}.occupied"] != 0),
+                "The pregame TAS adapter lost the cleared object pool, Link cutscene coordinates, or live initialized file.");
             int frames = 0;
             while (frames < 360)
             {
                 int updates = batched ? 4 : 1;
                 base._Process(updates / 60.0);
                 frames += updates;
-                FailIf(!before.SequenceEqual(save.Serialize()) || _random.Calls != rng,
+                int playtime = save.ReadWramByte(0xc622) | save.ReadWramByte(0xc623) << 8;
+                FailIf(playtime != frames || !SamePayloadExceptPlaytime(before, save) || _random.Calls != rng,
                     "Intro preparation changed save bytes or consumed object RNG before room entry.");
                 if (_scene is not null)
                     FailIf(_scene.Visible || _scene.InterfaceLayer.Visible || _roomCamera.Enabled ||
@@ -41,7 +57,7 @@ public sealed partial class ValidationRoot
             for (int host = 0; !GameplayPrepared && host < 256; host++)
                 AdvanceGameplayPreparation();
             FailIf(!GameplayPrepared || intro.CurrentStage != Stage.Dialogue ||
-                !before.SequenceEqual(save.Serialize()) || _random.Calls != rng ||
+                !SamePayloadExceptPlaytime(before, save) || _random.Calls != rng ||
                 _entities.EntityAdapters<IRoomEntity>().Any() ||
                 _sound.ActiveMusic != SoundId.MusEssenceRoom ||
                 !_runtimeState.CaptureState().Wram.SequenceEqual(new OracleRuntimeState().CaptureState().Wram),
@@ -51,28 +67,54 @@ public sealed partial class ValidationRoot
             for (int frame = 0; frame < intro.TotalVanishFrames + 59; frame++)
                 base._Process(1.0 / 60.0);
             FailIf(Read<NewGameIntroController>("_newGameIntro") is null ||
-                !before.SequenceEqual(save.Serialize()) || _random.Calls != rng,
+                !SamePayloadExceptPlaytime(before, save) || _random.Calls != rng,
                 "Prepared gameplay entered before the original post-vanish $3c hold completed.");
+            trace = CaptureTasSharedState();
+            FailIf(trace["room.active"] != 0 || trace.ContainsKey("link.x8_8"),
+                "The pregame TAS adapter retained Link after state B cleared his object.");
             var timer = System.Diagnostics.Stopwatch.StartNew();
+            base._Process(1.0 / 60.0);
+            FailIf(intro.CurrentStage != Stage.RestartGame ||
+                !save.HasGlobalFlag(GlobalFlag.LinkSummoned) ||
+                save.HasGlobalFlag(GlobalFlag.PregameIntroDone) || _random.Calls != rng,
+                "Pregame state $0c did not defer initializeGame to the next update.");
+            base._Process(1.0 / 60.0);
+            FailIf(intro.CurrentStage != Stage.LoadingArrival || _random.Calls != rng,
+                "initializeGame did not defer arrival graphics to game state $03.");
             base._Process(1.0 / 60.0);
             GD.Print($"Prepared intro handoff: {timer.Elapsed.TotalMilliseconds:F2} ms.");
             FailIf(Read<NewGameIntroController>("_newGameIntro") is not null || GameplayPrepared ||
-                !save.HasGlobalFlag(GlobalFlag.PregameIntroDone) ||
+                save.HasGlobalFlag(GlobalFlag.PregameIntroDone) ||
                 !save.HasGlobalFlag(GlobalFlag.LinkSummoned) ||
-                !save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited) ||
-                save.GashaMaturity != 5 ||
-                _random.Calls <= rng || _player.Visible ||
+                save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited) ||
+                save.GashaMaturity != 0 ||
+                _random.Calls != rng || _player.Visible ||
                 !_scene!.Visible || !_scene.InterfaceLayer.Visible || !_roomCamera.Enabled ||
                 _rooms.ActiveGroup != save.RespawnGroup || _currentRoom.Id != save.RespawnRoom ||
                 _newGameArrivalFadeFrames != 65,
-                "Prepared handoff lost room entry, RNG, visibility, or the source 65-update arrival fade.");
+                "Prepared handoff entered objects early or lost the source 65-update arrival fade.");
             var scene = _scene;
             int handoffRng = _random.Calls;
             for (int frame = 0; frame < 10; frame++)
                 base._Process(1.0 / 60.0);
             FailIf(_scene != scene || _random.Calls != handoffRng ||
-                _newGameArrivalPhase != 10 || _player.Visible || save.GashaMaturity != 5,
+                _newGameArrivalPhase != 10 || _player.Visible || save.GashaMaturity != 0,
                 "After handoff, gameplay was rebuilt or advanced objects during the arrival fade.");
+            StepGameplayUpdates(55 + intro.Record.SummonFrames, Vector2.Zero, batched: batched);
+            FailIf(_random.Calls != rng || save.HasGlobalFlag(GlobalFlag.PregameIntroDone) ||
+                save.GashaMaturity != 0 || _entities.EntityAdapters<IRoomEntity>().Any(),
+                "Arrival created room objects before the final wave update completed.");
+            Vector2 arrivalPosition = _player.Position;
+            StepGameplayUpdates(1, Vector2.Up, batched: batched);
+            FailIf(_random.Calls <= rng || !save.HasGlobalFlag(GlobalFlag.PregameIntroDone) ||
+                save.GashaMaturity != 0 || _player.Position != arrivalPosition ||
+                _player.FacingVector != Vector2I.Down ||
+                save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited),
+                "Arrival initialization moved Link, recorded a visit early, or added room-scroll maturity.");
+            StepGameplayUpdates(1, Vector2.Up, batched: batched);
+            FailIf(save.GashaMaturity != 0 || _player.Position != arrivalPosition + Vector2.Up ||
+                !save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited),
+                "cutscene00 did not resume Link and record the arrival visit after object updates.");
         }
         // Simulate an intro advanced without any preparation host frames.
         // Completion must drain the same iterator and enter exactly once.
@@ -84,10 +126,10 @@ public sealed partial class ValidationRoot
         var unfinishedIntro = Read<NewGameIntroController>("_newGameIntro")!;
         StepGameplayUpdates(360, Vector2.Zero, batched: true);
         Read<NewGameIntroScreen>("_newGameIntroScreen")!.Dialogue.Close();
-        StepGameplayUpdates(unfinishedIntro.TotalVanishFrames + 61, Vector2.Zero, batched: true);
+        StepGameplayUpdates(unfinishedIntro.TotalVanishFrames + 63, Vector2.Zero, batched: true);
         FailIf(Read<NewGameIntroController>("_newGameIntro") is not null ||
-            unfinished.GashaMaturity != 5 || !_scene!.Visible,
-            "An unfinished preparation did not drain and enter the arrival room exactly once.");
+            unfinished.GashaMaturity != 0 || !_scene!.Visible,
+            "An unfinished preparation did not drain without entering room objects early.");
         ReinitializeGameplayForValidation();
         Invoke("ReleaseGameplayScene", true);
         _scene = null!;
@@ -98,7 +140,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         AdvanceGameplayPreparation();
         FailIf(GameplayPrepared || Read<NewGameIntroController>("_newGameIntro") is not null ||
-            !cancelledBytes.SequenceEqual(cancelled.Serialize()),
+            !SamePayloadExceptPlaytime(cancelledBytes, cancelled) || cancelled.ReadWramByte(0xc622) != 1,
             "Cancelling partial preparation retained the intro or committed its save state.");
         GD.Print("Validated staged intro preparation and original handoff through individual and batched host updates.");
     }

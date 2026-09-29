@@ -244,6 +244,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGameplayScenePreload);
         RunIsolatedValidation(ValidateDeferredGameplayAssets);
         RunIsolatedValidation(ValidatePreparedIntroHandoff);
+        RunIsolatedValidation(ValidatePirateShipCourse);
+        RunIsolatedValidation(ValidateImpaHelpFreeze);
+        RunIsolatedValidation(ValidateImpaGraphicsContinuation);
         RunIsolatedValidation(ValidateBootLoading);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateSoundDriverControls);

@@ -11,6 +11,10 @@ State outside the original file image belongs to an explicit runtime owner such
 as `OracleRuntimeState`. Do not invent a save offset or persist transient state
 for convenience.
 
+The application advances the live four-byte playtime counter once per main-thread
+game dispatch, including cutscenes and gameplay menus. Foreground graphics-load
+continuations and host-only resource preparation do not start another dispatch.
+
 The three file slots are:
 
 ```text

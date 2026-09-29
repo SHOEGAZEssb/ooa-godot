@@ -119,7 +119,7 @@ public sealed class RoomSession
         return CurrentRoom;
     }
 
-    public void SetLoadedRoom(int group, OracleRoomData room)
+    public void SetLoadedRoom(int group, OracleRoomData room, bool updateMinimap = true)
     {
         BlockPushAngle = 0; // func_49c9 clears wDisabledObjects..$cce0, including $cca6.
         _changedTiles.Clear(); // Scroll-entry func_49c9 clears these indices before loading.
@@ -129,7 +129,7 @@ public sealed class RoomSession
         ActiveGroup = group;
         CurrentRoom = room;
         World.SetCurrentPaletteRoom(CurrentRoom);
-        MarkRoomVisited(group, room.Id);
+        MarkRoomVisited(group, room.Id, updateMinimap);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
     }
@@ -189,7 +189,9 @@ public sealed class RoomSession
     public bool HasVisited(int group, int room) =>
         _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
 
-    private void MarkRoomVisited(int group, int room)
+    internal void MarkCurrentRoomVisited() => MarkRoomVisited(ActiveGroup, CurrentRoom.Id);
+
+    private void MarkRoomVisited(int group, int room, bool updateMinimap = true)
     {
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
         // bank1.s:loadDungeonLayout_b01 and checkUpdateDungeonMinimap.
@@ -201,14 +203,23 @@ public sealed class RoomSession
         {
             _saveData.WriteWramByte(0xc662 + dungeon,
                 (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)));
-            if ((flags & 0x10) == 0 && (flags & 0x09) != 0)
-            {
-                _saveData.WriteWramByte(WramAddress.wMinimapDungeonMapPosition, (byte)(cell.Y * 8 + cell.X));
-                _saveData.WriteWramByte(WramAddress.wMinimapDungeonFloor, (byte)cell.Floor);
-            }
         }
-        if ((flags & 0x30) == 0 && (flags & 0x09) != 0)
-            _saveData.SetMinimapLocation(group, room);
+        if (updateMinimap) UpdateMinimapLocation();
+    }
+
+    internal void UpdateMinimapLocation()
+    {
+        // bank1.s:checkUpdateDungeonMinimap runs after cutscene00 observes
+        // scroll mode $01, independently of the destination visit bit.
+        byte flags = CurrentRoom.TilesetFlags;
+        if ((flags & 0x30) != 0 || (flags & 0x09) == 0) return;
+        int dungeon = CurrentDungeonIndex;
+        if (dungeon >= 0 && DungeonMaps.GetDungeon(dungeon).TryGetRoom(CurrentRoom.Id, out DungeonCell cell))
+        {
+            _saveData.WriteWramByte(WramAddress.wMinimapDungeonMapPosition, (byte)(cell.Y * 8 + cell.X));
+            _saveData.WriteWramByte(WramAddress.wMinimapDungeonFloor, (byte)cell.Floor);
+        }
+        _saveData.SetMinimapLocation(ActiveGroup, CurrentRoom.Id);
     }
 
     public bool TryGetNeighbor(Vector2I direction, out int room)

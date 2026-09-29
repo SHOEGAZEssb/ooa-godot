@@ -15,3 +15,9 @@ $frontendRows = Invoke-AssemblySourceHost $assemblySourceHost 'FRONTEND_WORK' (
 Write-GeneratedTable(
     (Join-Path $destination 'timing\frontend_cpu.tsv'),
     $frontendRows.TrimEnd().Split("`n"))
+$textboxIds = ($allTexts.Keys | Sort-Object { [int]$_ } | ForEach-Object { [string]$_ }) -join ','
+$textboxRows = Invoke-AssemblySourceHost $assemblySourceHost 'TEXTBOX_WORK' (
+    [Convert]::ToBase64String($romBytes) + [char]0 + $textboxIds)
+Write-GeneratedTable(
+    (Join-Path $destination 'timing\textbox_cpu.tsv'),
+    $textboxRows.TrimEnd().Split("`n"))

@@ -405,7 +405,9 @@ public partial class Player : Node2D
     private int _topDownDrownCounter;
     private bool _fallingInHole;
     private bool _fallInHoleRespawning;
-    private bool _cutsceneControlled;
+    private enum ScriptControl { None, Cutscene, SimulatedInput, ForcedState08 }
+    private ScriptControl _scriptControl;
+    private bool _cutsceneControlled => _scriptControl != ScriptControl.None;
     private int _forcedState08Phase;
     private bool _forcedState08LowPriority;
     private object? _cutsceneControlOwner;
@@ -1414,7 +1416,7 @@ public partial class Player : Node2D
     {
         if (GaleActive) EndGale();
         _forcedState08Phase = 0;
-        _cutsceneControlled = false;
+        _scriptControl = ScriptControl.None;
         _cutsceneControlOwner = null;
         _walking = false;
         ClearShieldParent();
@@ -1854,7 +1856,7 @@ public partial class Player : Node2D
             _floorDoorRespawnPhase = 2;
             return;
         }
-        if (_world.PlayerUpdatesFrozen && _floorDoorRespawnPhase != 3)
+        if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _floorDoorRespawnPhase != 3)
         {
             _pushing = false;
             QueueRedraw();
@@ -2651,7 +2653,7 @@ public partial class Player : Node2D
         _forcedState08LowPriority = false;
         if (interruptBracelet)
             InterruptCarriedItems(discard: true);
-        _cutsceneControlled = true;
+        _scriptControl = ScriptControl.Cutscene;
         _cutsceneControlOwner = owner;
         ClearShieldParent();
         _walking = false;
@@ -2662,11 +2664,19 @@ public partial class Player : Node2D
     }
 
     internal bool CutsceneControlled => _cutsceneControlled;
+    internal bool NativeCutsceneControlled => _scriptControl == ScriptControl.Cutscene;
+    internal void BeginSimulatedInputControl(object owner)
+    {
+        // wUseSimulatedInput changes the game-key source, retaining Link's
+        // normal state and item parents. It is not SPECIALOBJECT_LINK_CUTSCENE.
+        _scriptControl = ScriptControl.SimulatedInput;
+        _cutsceneControlOwner = owner;
+    }
     internal void RequestState08Control(object owner)
     {
         // setLinkForceStateToState08 only queues state08/wcc50=0. Link
         // adopts it on his next dispatch and runs substate0 one update later.
-        _cutsceneControlled = true;
+        _scriptControl = ScriptControl.ForcedState08;
         _cutsceneControlOwner = owner;
         _forcedState08Phase = 1;
         _forcedState08LowPriority = true; // Portal writes visible=$82 immediately.
@@ -3374,7 +3384,7 @@ public partial class Player : Node2D
     {
         if (owner is not null && !IsCutsceneControlOwner(owner))
             return;
-        _cutsceneControlled = false;
+        _scriptControl = ScriptControl.None;
         _forcedState08Phase = 0;
         _cutsceneIdleFacing = null;
         _forcedState08LowPriority = false;

@@ -283,10 +283,11 @@ $stageContracts = @(
         -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1'
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
         -inputs @('globalFlagValues')
     New-ImportStageContract 'loading-work' 'Import-LoadingWork.ps1' `
-        -inputs @('assemblySourceHost') `
+        -inputs @('allTexts', 'assemblySourceHost') `
         -functionInputs @('Invoke-AssemblySourceHost')
     New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `
         -functionInputs @('Expand-TransitionGraphics')

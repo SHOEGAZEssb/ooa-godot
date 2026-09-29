@@ -96,6 +96,9 @@ public partial class GameRoot : Node2D
     internal int _newGameArrivalFrames;
     internal int _newGameArrivalPhase;
     internal int _newGameArrivalLastFrame;
+    private bool _newGameArrivalRoomPending;
+    private bool _newGameArrivalRoomVisitPending;
+    private PirateShipCourse? _pirateShipCourse;
     private int _deferredIntroMusicGroup = -1;
     private int _deferredIntroMusicRoom = -1;
     private string _debugSavestateStatus = string.Empty;
@@ -249,6 +252,12 @@ public partial class GameRoot : Node2D
     private void StartSelectedFile(int slot, OracleSaveData save)
     {
         _activeSaveSlot = slot;
+        // initializeGame owns the live file before either the pregame cutscene
+        // or room construction. Resource preparation must not delay this.
+        _saveData = save;
+        byte initialHealth = save.ReadWramByte(WramAddress.wLinkHealth);
+        _saveData.ResetHealthIfDepleted();
+        _saveData.AdvancePlaytime();
         if (_mainMenuScreen is { } oldMenu) PresentFrontend(oldMenu.QueueFree);
         _mainMenuScreen = null;
         _mainMenu = null;
@@ -259,7 +268,7 @@ public partial class GameRoot : Node2D
 
         if (!save.HasGlobalFlag(GlobalFlag.PregameIntroDone))
         {
-            _timedFrontendLoading = save.ReadWramByte(WramAddress.wLinkHealth) switch
+            _timedFrontendLoading = initialHealth switch
             {
                 0 => "pregame-start-empty",
                 >= 0x80 => "pregame-start-negative",
@@ -286,9 +295,10 @@ public partial class GameRoot : Node2D
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
                 _sound,
-                PlayFrontendSound);
-            // Depleted interrupted files need the ordinary health-restoration
-            // path. A healthy file can prepare its dormant owners read-only.
+                PlayFrontendSound,
+                initializing: true);
+            // Health restoration has already run; dormant scene construction
+            // may now prepare the initialized live file without advancing it.
             if (save.ReadWramByte(WramAddress.wLinkHealth) is > 0 and < 0x80)
                 _gameplayPreparation = InitializeGameplaySteps(save,
                     initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene,
@@ -532,8 +542,6 @@ public partial class GameRoot : Node2D
     {
         NewGameIntroRecord record =
             _newGameIntro!.Record;
-        save.SetGlobalFlag(record.LinkSummonedFlag);
-        save.SetGlobalFlag(record.PregameIntroDoneFlag);
         _newGameIntroScreen?.QueueFree();
         _newGameIntroScreen = null;
         _newGameIntro = null;
@@ -550,7 +558,8 @@ public partial class GameRoot : Node2D
 
         // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
         // arrival room and initializes the divisor-2 white fade/wave.
-        _sound.PlaySound(SoundId.SndWarpStart);
+        PlayFrontendSound(SoundId.SndWarpStart);
+        _newGameArrivalRoomPending = true;
         _newGameArrivalTicks = 0.0;
         _newGameArrivalFadeFrames = NewGameIntroController.ArrivalFadeWaitFrames;
         _newGameArrivalFrames = record.SummonFrames;
@@ -616,7 +625,7 @@ public partial class GameRoot : Node2D
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,
             _saveData,
-            countAsRoomEntry: !useDebugSavestate && !prepare,
+            countAsRoomEntry: !useDebugSavestate && !prepare && initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene,
             toggleState: () => _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress),
             resources: _preparedRoomResources,
             world: _preparedWorld,
@@ -665,7 +674,8 @@ public partial class GameRoot : Node2D
             // Stop here until CUTSCENE_PREGAME_INTRO completes. No room
             // objects exist and no original game update has run in this graph.
             yield return true;
-            _rooms.EnterPreparedRoom();
+            if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
+                _rooms.EnterPreparedRoom();
         }
 
         Vector2 spawn = useDebugSavestate
@@ -675,7 +685,8 @@ public partial class GameRoot : Node2D
         EnemyPlacementContext placementContext = useSavedSpawn
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;
-        _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
+        if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
+            _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
         TryDisplayEraInfoAfterInitialRoomLoad(initialRoomLoadKind);
         debugSavestate?.RestoreLiveState(
             _saveData,
@@ -711,7 +722,8 @@ public partial class GameRoot : Node2D
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.ResetCamera();
-        ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
+        if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
+            ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
         _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
         if (prepare)
         {
@@ -847,9 +859,28 @@ public partial class GameRoot : Node2D
             _mainMenu.Update(delta);
             return;
         }
+        if (_newGameIntro is { GraphicsLoadPending: true })
+        {
+            _timedFrontendLoading = "pregame-graphics";
+            _newGameIntro.CompleteGraphicsLoad();
+            return;
+        }
+        // saveQuitMenu_state0 stops THREAD_1 during Game Over; ordinary
+        // gameplay menus leave the main thread running.
+        if (_newGameIntro is not null || (_transitions is not null &&
+            !_inventoryMenu.GameOver && !_roomEvents.ObjectUpdateSuspended))
+            _saveData.AdvancePlaytime();
         if (_newGameIntro is not null)
         {
+            Stage previous = _newGameIntro.CurrentStage;
+            if (previous == Stage.RestartGame) _timedFrontendLoading = "arrival-init";
+            else if (previous == Stage.LoadingArrival) _timedFrontendLoading = "arrival-load";
+            bool textWasOpen = _newGameIntroScreen!.Dialogue.IsOpen;
             _newGameIntro.Update(delta);
+            if (previous == Stage.PostVanish && _newGameIntro?.CurrentStage == Stage.RestartGame)
+                _saveData.SetGlobalFlag(_newGameIntro.Record.LinkSummonedFlag);
+            if (!textWasOpen && _newGameIntroScreen?.Dialogue.IsOpen == true)
+                _timedFrontendLoading = "pregame-text";
             _newGameIntroScreen?.Dialogue.AdvanceApplicationUpdate();
             return;
         }
@@ -857,25 +888,59 @@ public partial class GameRoot : Node2D
             return;
 
         DialogueBox dialogue = _dialogue;
+        int dialogueSequence = dialogue.OpenSequence;
         try
         {
-            AdvanceGameplayState(delta);
+            if (_roomEvents.ObjectUpdateSuspended)
+            {
+                GameplayObjectPass pass = _suspendedObjectPass ?? throw new InvalidOperationException(
+                    "A room interaction yielded outside the gameplay object pass.");
+                _roomEvents.ResumeObjectUpdate();
+                if (!_roomEvents.ObjectUpdateSuspended)
+                {
+                    _suspendedObjectPass = null;
+                    _interactions.Update(delta, _player);
+                    FinishGameplayObjectPass(delta, pass);
+                }
+            }
+            else
+            {
+                _suspendedObjectPass = null;
+                AdvanceGameplayState(delta);
+            }
         }
         finally
         {
             if (GodotObject.IsInstanceValid(dialogue))
             {
+                if (_originalTiming is not null && dialogue.OpenSequence != dialogueSequence &&
+                    dialogue.SourceTextId is { } textId)
+                {
+                    DialogueScreenContext screen = dialogue.OpeningScreen;
+                    if (dialogue.OpeningFlags != 0 || screen.CameraY != 0 || screen.ScreenOffsetY != 0)
+                        throw new InvalidOperationException($"TX_{textId:x4} needs a loading plan for its flags/camera context.");
+                    _timedFrontendLoading = $"textbox-{textId:x4}-{screen.AutomaticPosition}";
+                }
                 dialogue.AdvanceApplicationUpdate();
                 _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
             }
         }
     }
 
+    private GameplayObjectPass? _suspendedObjectPass;
+    private readonly record struct GameplayObjectPass(
+        bool ArrivalOwnsUpdate, bool FinishingArrival, bool ToggleOwnedUpdate,
+        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate);
+
     private void AdvanceGameplayState(double delta)
     {
         AdvanceDebugSavestateStatus(delta);
+        bool finishingArrival = _newGameArrivalRoomVisitPending;
+        bool initializingArrival = _newGameArrivalRoomPending &&
+            _newGameArrivalFadeFrames == 0 && _newGameArrivalFrames == 0;
         if (UpdateNewGameArrival(delta))
             return;
+        bool arrivalOwnsUpdate = initializingArrival || finishingArrival;
 
         _debugCollision.Update();
         if (_debugObjectSpawner.Update())
@@ -898,7 +963,7 @@ public partial class GameRoot : Node2D
         // already blocks opening a menu between selection and state0.
         bool toggleOwnedUpdate = _entities.FloorToggle?.Active == true;
         _entities.FloorToggle?.AdvanceBeforeObjects();
-        _inventoryMenu.Update(delta);
+        if (!arrivalOwnsUpdate) _inventoryMenu.Update(delta);
         if (_mainMenu is not null)
             return;
         if (_inventoryMenu.IsActive)
@@ -910,7 +975,7 @@ public partial class GameRoot : Node2D
             }
             return;
         }
-        _mapMenu.Update(delta);
+        if (!arrivalOwnsUpdate) _mapMenu.Update(delta);
         // updateMenus returns the post-update wOpenedMenuType. Completing
         // menuStateFadeIntoGame resumes cutscene01 on this same update.
         if (_mapMenu.IsActive)
@@ -925,6 +990,9 @@ public partial class GameRoot : Node2D
 
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
+        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
+            (_pirateShipCourse ??= new PirateShipCourse()).Update(
+                _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateRaftBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (Link), followed by
@@ -934,7 +1002,10 @@ public partial class GameRoot : Node2D
         bool roomTransitionOwnedUpdate = IsTransitioning;
         _harp.BeginObjectUpdate();
         _transitions.BeginObjectUpdate();
-        _player.AdvanceApplicationUpdate();
+        // warpTransitionB's final state initializes normal Link and returns;
+        // movement/input starts at the following cutscene00 object update.
+        if (!initializingArrival) _player.AdvanceApplicationUpdate();
+        _roomEvents.UpdateSpecialObjects();
         _entities.ClearSignalsAfterPlayer();
         _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
@@ -960,8 +1031,25 @@ public partial class GameRoot : Node2D
         else if (_entities.FloorToggle?.Frozen != true)
         {
             _roomEvents.UpdateFrame();
+            if (_roomEvents.ObjectUpdateSuspended)
+            {
+                _suspendedObjectPass = new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
+                    roomTransitionOwnedUpdate, scrollOwnedUpdate);
+                return;
+            }
             _interactions.Update(delta, _player);
         }
+        FinishGameplayObjectPass(delta, new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
+            roomTransitionOwnedUpdate, scrollOwnedUpdate));
+    }
+
+    private void FinishGameplayObjectPass(double delta, GameplayObjectPass pass)
+    {
+        bool arrivalOwnsUpdate = pass.ArrivalOwnsUpdate;
+        bool finishingArrival = pass.FinishingArrival;
+        bool toggleOwnedUpdate = pass.ToggleOwnedUpdate;
+        bool roomTransitionOwnedUpdate = pass.RoomTransitionOwnedUpdate;
+        bool scrollOwnedUpdate = pass.ScrollOwnedUpdate;
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
         _entities.UpdateHeldObjectPosition(_player);
@@ -973,7 +1061,7 @@ public partial class GameRoot : Node2D
         // cutscene01 selects a changed orb bit before getNextActiveRoom and
         // the enemy/part collision pass. cutscene02 only runs its handler
         // and updateAllObjects, including the update that releases its freeze.
-        if (!toggleOwnedUpdate && !roomTransitionOwnedUpdate &&
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !roomTransitionOwnedUpdate &&
             !IsTransitioning && !_roomEvents.Active)
             _entities.FloorToggle?.CheckAfterObjects();
         bool toggleOwnsPostObjects = toggleOwnedUpdate || _entities.FloorToggle?.Active == true;
@@ -982,15 +1070,22 @@ public partial class GameRoot : Node2D
         // entities and room events; ordinary updates resume next tick.
         if (scrollOwnedUpdate)
             _transitions.UpdateScroll(delta);
-        else if (!toggleOwnsPostObjects)
+        else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects)
             UpdatePostObjectPlayerState();
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
-        if (!IsTransitioning && !toggleOwnsPostObjects)
+        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects)
             _entities.ResolvePostObjectCollisions(_player);
         if (roomTransitionOwnedUpdate && !IsTransitioning)
             _entities.FloorToggle?.CompleteRoomInitialization();
+        if (finishingArrival)
+        {
+            // cutscene00 records the visit after updateAllObjects. The
+            // arrival path never calls cutscene01's addToGashaMaturity.
+            _newGameArrivalRoomVisitPending = false;
+            _rooms.MarkCurrentRoomVisited();
+        }
         UpdateRoomDebugLabel();
         _debugWarps.Update();
     }
@@ -1015,7 +1110,20 @@ public partial class GameRoot : Node2D
     internal bool UpdateNewGameArrival(double delta)
     {
         if (_newGameArrivalFadeFrames <= 0 && _newGameArrivalFrames <= 0)
+        {
+            if (_newGameArrivalRoomPending)
+            {
+                // linkSummonedCutscene state 2, substate 2 runs on the update
+                // after the final wave step. Only now does initializeRoom
+                // create the native room objects and consume placement RNG.
+                _newGameArrivalRoomPending = false;
+                _newGameArrivalRoomVisitPending = true;
+                _saveData.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+                _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom,
+                    EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(_player.Position)));
+            }
             return false;
+        }
 
         if (_newGameArrivalFadeFrames > 0)
         {
@@ -1070,7 +1178,7 @@ public partial class GameRoot : Node2D
         _player.Visible = true;
         _player.SetPhysicsProcess(true);
         _player.SetProcess(true);
-        return false;
+        return true;
     }
 
     private IEnumerable<bool> CreateControllersSteps()
@@ -1467,6 +1575,7 @@ public partial class GameRoot : Node2D
         OracleSaveData liveSave = _saveData;
         ReleaseGameplayScene();
         _sound.RestartSound();
+        liveSave.AdvancePlaytime();
         InitializeGameplay(liveSave, forceDeathRespawn: true);
     }
 
@@ -1507,6 +1616,7 @@ public partial class GameRoot : Node2D
     /// </summary>
     internal void ReinitializeGameplayForValidation()
     {
+        _suspendedObjectPass = null;
         _bootLoading?.End();
         _bootLoading = null;
         _bootTasks.Clear();
@@ -1583,6 +1693,8 @@ public partial class GameRoot : Node2D
         _newGameArrivalFrames = 0;
         _newGameArrivalPhase = 0;
         _newGameArrivalLastFrame = 0;
+        _newGameArrivalRoomPending = false;
+        _newGameArrivalRoomVisitPending = false;
         _deferredIntroMusicGroup = -1;
         _deferredIntroMusicRoom = -1;
         _debugSavestateStatus = string.Empty;

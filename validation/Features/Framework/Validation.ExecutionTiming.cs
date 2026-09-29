@@ -12,6 +12,13 @@ public sealed partial class ValidationRoot
         // intervals removed. $ba/$a2 decode into banked WRAM: keeping the
         // importer's stack in $dxxx would silently terminate these early.
         OracleLoadingWork work = OracleLoadingWork.Shared;
+        // Independent instruction trace at the first Impa textbox:
+        // showText is 700 clocks; textThreadStart through its first yield is
+        // 106464, excluding timer/VBlank interrupts. Its queued DMA is 1884.
+        IReadOnlyList<LoadingStep> textbox = OracleTextboxLoadingWork.Shared.Plan(0x0102, 0);
+        FailIf(textbox.Count != 2 || textbox[0] != new LoadingStep("cpu", 107164) ||
+            textbox[1] != new LoadingStep("vblank-work", 1884),
+            "TX_0102 opening work differs from the clean-US instruction trace.");
         FailIf(work.Graphics(0xa0) != 610584 || work.Graphics(0xba) != 440144 ||
             work.Graphics(0xa2) != 158412,
             "loadGfxHeader CPU work differs from executed clean-US $a0/$ba/$a2 decoder paths.");

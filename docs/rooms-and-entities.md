@@ -68,6 +68,17 @@ Every enemy character explicitly exposes its pending source initialization
 from its own live state. Palette and object-freeze gates use that eligibility;
 sprite visibility and species-specific dialogue interfaces are not substitutes.
 
+Room placement and an actor's first object update are separate boundaries.
+An interaction graphics load can suspend that object pass. Resume it before
+starting another main-thread iteration: earlier actors, playtime, and scroll
+handling must not advance again. The Impa encounter uses this continuation
+path and the native graphics-header residency bytes; other actor loaders have
+not yet been migrated. Godot's texture cache does not establish native residency.
+
+Room events that own a special Link object dispatch it before their interaction
+scripts. Its source eligibility can differ from normal Link and from NPCs,
+including during scrolling.
+
 Cross-object signals retain their publication and consumption phases. Link may
 read the preceding enemy or interaction pass before shared signals clear;
 later parts and interactions may observe writes in the current update. A pause

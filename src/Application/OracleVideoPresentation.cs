@@ -8,8 +8,8 @@ internal sealed class OracleVideoPresentation(Action<bool> blank)
 {
     private const long FrameClocks = OracleExecutionClock.LcdFrameClocks;
     private readonly List<Action> _pending = [];
+    private readonly List<Action> _uploaded = [];
     private bool _loading;
-    private bool _loadingLcdChanged;
     private bool _lcdEnabled;
     private bool _blankPending;
     private long _nextFrame = long.MaxValue;
@@ -18,14 +18,12 @@ internal sealed class OracleVideoPresentation(Action<bool> blank)
     {
         _pending.AddRange(actions);
         _loading |= loading;
-        if (loading) _loadingLcdChanged = false;
     }
 
     internal void SetLcd(bool enabled, long clock)
     {
         AdvanceTo(clock);
         if (_lcdEnabled == enabled) return;
-        if (_loading) _loadingLcdChanged = true;
         _lcdEnabled = enabled;
         // Pinned Gambatte memory.cpp: LCDC write and BLIT event. Disabling
         // schedules a four-line settle, then a blank complete frame. Enabling
@@ -37,17 +35,17 @@ internal sealed class OracleVideoPresentation(Action<bool> blank)
 
     internal void CompleteLoading()
     {
-        // LCD-enabled menu loads finish their queued tile uploads in VBlank.
-        // Their next input poll must see the destination controls immediately.
-        if (_loading && !_loadingLcdChanged) Publish();
+        // bank0.s:vblankInterrupt uploads queued graphics, palettes and OAM
+        // after the old frame completes. They belong to the next scanout.
+        _uploaded.AddRange(_pending);
+        _pending.Clear();
         _loading = false;
     }
 
-    private void Publish()
+    private static void Publish(List<Action> actions)
     {
-        foreach (Action action in _pending) action();
-        _pending.Clear();
-        _loading = false;
+        foreach (Action action in actions) action();
+        actions.Clear();
     }
 
     internal void AdvanceTo(long clock)
@@ -57,9 +55,12 @@ internal sealed class OracleVideoPresentation(Action<bool> blank)
             if (_lcdEnabled || _blankPending)
             {
                 blank(_blankPending);
-                if (!_loading || _blankPending)
+                Publish(_uploaded);
+                if (_loading && _blankPending)
                 {
-                    Publish();
+                    // LCD-off loaders may install controls behind the blank;
+                    // the application cannot poll again until loading ends.
+                    Publish(_pending);
                 }
             }
             _blankPending = !_lcdEnabled;

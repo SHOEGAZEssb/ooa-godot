@@ -4,6 +4,13 @@ internal interface IRoomEvent
 {
     bool HasState { get; }
     bool BlocksGameplay { get; }
+    // A native game-state/cutscene handler replaces cutscene01. Ordinary
+    // interaction scripts can lock Link without replacing that dispatch.
+    bool OwnsGameLogic => false;
+    bool DisablesLink => false;
+    bool ObjectUpdateSuspended => false;
+    void ResumeObjectUpdate() { }
+    void UpdateSpecialObjectFrame() { }
     bool FreezesNonInteractionObjects => false;
     bool MenusDisabled => false;
     bool ScreenTransitionsDisabled => false;

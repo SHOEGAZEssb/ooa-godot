@@ -111,12 +111,13 @@ internal sealed class RoomEventContext(
     public void ShowDialogue(
         string message,
         int? textboxPosition = null,
-        int textboxFlags = 0)
+        int textboxFlags = 0,
+        int? sourceTextId = null)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
         DialogueScreenContext screen = NativeDialogueScreen() ??
             DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
-        _dialogue.ShowMessage(message, screen, textboxPosition, textboxFlags);
+        _dialogue.ShowMessage(message, screen, textboxPosition, textboxFlags, sourceTextId);
     }
 
     public void ShowChoiceDialogue(

@@ -104,6 +104,9 @@ internal sealed class OracleApplicationTiming : IDisposable
         int vblankWork = 0;
         if (loading is not null)
         {
+            bool textbox = loading.StartsWith("textbox-", StringComparison.Ordinal);
+            if (textbox)
+                foreach (Action request in requests) request();
             // Main-loop/thread dispatch paths to the initializer. These are
             // original instruction costs, not movie-frame or timer counts.
             yield return Cpu(loading switch { "capcom" => 1512, "title" => 1408, "files" => 2552,
@@ -111,6 +114,10 @@ internal sealed class OracleApplicationTiming : IDisposable
                 // at $00:$1a1f. The initial thread-start clear is not repeated.
                 "new-file-options" or "name-entry" or "name-commit" or "files-return" or "file-select" or "file-start" => 612,
                 "pregame-start" or "pregame-start-empty" or "pregame-start-negative" => 596,
+                "pregame-graphics" => 0, // Resume the suspended graphics stack, without a game dispatch.
+                "pregame-text" => 0, // Plan includes the main handler and newly started text thread.
+                "arrival-init" or "arrival-load" => 0,
+                _ when textbox => 0,
                 _ => throw new InvalidOperationException($"Unsupported loading owner {loading}.") });
             var plan = loading switch
             {
@@ -118,6 +125,7 @@ internal sealed class OracleApplicationTiming : IDisposable
                 "files-return" => OracleLoadingWork.Shared.ReturnToFiles(load),
                 "name-commit" => OracleLoadingWork.Shared.CommitName(enteredName!),
                 "name-entry" => OracleLoadingWork.Shared.EnterName(load),
+                _ when textbox => TextboxPlan(loading),
                 _ => OracleLoadingWork.Shared.Plan(loading)
             };
             if (loading == "files") _filesVerified = true;
@@ -151,7 +159,9 @@ internal sealed class OracleApplicationTiming : IDisposable
             paletteWork = loading switch
             {
                 "files" or "files-return" or "name-entry" => 13 * 184 + 56,
-                "new-file-options" or "name-commit" or "file-select" => 0,
+                "new-file-options" or "name-commit" or "file-select" or "pregame-graphics" => 0,
+                "pregame-text" => 184 + 56, // PALH_0e: BG palette 1, skipping palette 0.
+                _ when textbox => 184 + 56,
                 _ => 16 * 184
             };
         }
@@ -212,6 +222,12 @@ internal sealed class OracleApplicationTiming : IDisposable
     }
 
     private static TimingOperation Cpu(long clocks) => new(clocks, false);
+    private static IReadOnlyList<LoadingStep> TextboxPlan(string loading)
+    {
+        string[] fields = loading.Split('-');
+        return OracleTextboxLoadingWork.Shared.Plan(
+            Convert.ToInt32(fields[1], 16), int.Parse(fields[2], System.Globalization.CultureInfo.InvariantCulture));
+    }
     public void Dispose() => _work?.Dispose();
     private readonly record struct TimingOperation(long Clocks, bool Wait);
 }

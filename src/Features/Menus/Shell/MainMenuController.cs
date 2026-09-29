@@ -22,6 +22,8 @@ public sealed class MainMenuController
     private readonly Action<Action> _present;
     private FileMenuInitialization? _pendingInitialization;
     private Page? _loadingPage;
+    private int _pageRevision;
+    private int _textSpeed;
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[OracleSaveStore.SlotCount];
     private int _sourceSlot = -1;
     private double _titleTicks;
@@ -98,11 +100,12 @@ public sealed class MainMenuController
 
     private void PresentPage(Page page, Action show)
     {
+        int revision = ++_pageRevision;
         _loadingPage = page;
         _present(() =>
         {
             show();
-            _loadingPage = null;
+            if (_pageRevision == revision) _loadingPage = null;
         });
     }
 
@@ -129,7 +132,7 @@ public sealed class MainMenuController
             return;
         }
 
-        if (_screen.CurrentPage != Page.Title || _pendingInitialization is not null)
+        if (CurrentPage != Page.Title || _pendingInitialization is not null)
         {
             // b2_fileSelectScreen increments wTmpcbb6 before mode dispatch,
             // including the modes' initialization updates.
@@ -165,7 +168,7 @@ public sealed class MainMenuController
             return;
         }
 
-        if (_screen.CurrentPage == Page.Title)
+        if (CurrentPage == Page.Title)
         {
             _titleTicks += delta * 60.0;
             _screen.SetTitleBlink((((int)_titleTicks >> 5) & 1) == 0);
@@ -199,14 +202,18 @@ public sealed class MainMenuController
             if (Input.IsActionJustPressed(ButtonActions[bit])) pressed |= 1 << bit;
             if (Input.IsActionPressed(ButtonActions[bit])) held |= 1 << bit;
         }
+        Page inputPage = CurrentPage;
         DispatchInput(pressed, held);
+        // fileSelectMode1 state 2 adds this sprite even on its Back path.
+        if (inputPage == Page.TextSpeed) PresentTextSpeedCursor();
+        else _present(() => _screen.SetTextSpeedCursorVisible(false));
     }
 
     private void DispatchInput(int pressed, int held)
     {
         // These are distinct bank2.s dispatchers, with different priorities.
         // Navigation consumes the update even at a clamped endpoint.
-        switch (_screen.CurrentPage)
+        switch (CurrentPage)
         {
             case Page.NameEntry:
                 UpdateNameInput(pressed, held);
@@ -233,17 +240,17 @@ public sealed class MainMenuController
                 else if ((pressed & 0x09) != 0) Accept();
                 return;
         }
-        if (_screen.CurrentPage is not (Page.CopyConfirm or Page.EraseConfirm))
+        if (CurrentPage is not (Page.CopyConfirm or Page.EraseConfirm))
         {
             bool moved = (pressed & 0xc0) != 0;
             if (moved) Move((pressed & 0x40) != 0 ? Vector2I.Up : Vector2I.Down);
             else if ((pressed & 0x09) != 0) { Accept(); return; }
             // fileSelectMode1 alone falls through to the bottom-row handler
             // after fileSelectUpdateInput, including a vertical move to Quit.
-            if (_screen.CurrentPage != Page.FileSelect || _screen.Cursor != 3) return;
+            if (CurrentPage != Page.FileSelect || _screen.Cursor != 3) return;
         }
-        if (_screen.CurrentPage is Page.CopyConfirm or Page.EraseConfirm ||
-            (_screen.CurrentPage == Page.FileSelect && _screen.Cursor == 3))
+        if (CurrentPage is Page.CopyConfirm or Page.EraseConfirm ||
+            (CurrentPage == Page.FileSelect && _screen.Cursor == 3))
         {
             if ((pressed & 0x20) != 0) { Move(Vector2I.Left); return; }
             if ((pressed & 0x10) != 0) { Move(Vector2I.Right); return; }
@@ -303,8 +310,8 @@ public sealed class MainMenuController
         int cursor = _screen.Cursor;
         int choice = _screen.Choice;
         int nameCursor = _screen.NameCursor;
-        int textSpeed = _screen.TextSpeed;
-        switch (_screen.CurrentPage)
+        int textSpeed = _textSpeed;
+        switch (CurrentPage)
         {
             case Page.FileSelect:
             case Page.CopySource:
@@ -313,12 +320,12 @@ public sealed class MainMenuController
                 if (direction.Y != 0)
                 {
                     int next = (_screen.Cursor + direction.Y + 4) & 3;
-                    if (_screen.CurrentPage == Page.CopyDestination && next == _sourceSlot)
+                    if (CurrentPage == Page.CopyDestination && next == _sourceSlot)
                         next = (next + direction.Y + 4) & 3;
                     _screen.SetCursor(next);
                 }
                 else if (_screen.Cursor == 3 && direction.X != 0 &&
-                    _screen.CurrentPage == Page.FileSelect)
+                    CurrentPage == Page.FileSelect)
                     _screen.SetChoice(direction.X < 0 ? 0 : 1);
                 break;
             case Page.NewFileOptions:
@@ -330,7 +337,8 @@ public sealed class MainMenuController
                 break;
             case Page.TextSpeed:
                 if (direction.X != 0)
-                    _screen.SetTextSpeed(Math.Clamp(_screen.TextSpeed + direction.X, 0, 4));
+                    _textSpeed = Math.Clamp(_textSpeed + direction.X, 0, 4);
+                PresentTextSpeedCursor();
                 break;
             case Page.CopyConfirm:
             case Page.EraseConfirm:
@@ -339,7 +347,7 @@ public sealed class MainMenuController
                 break;
         }
         if (_screen.Cursor != cursor || _screen.Choice != choice ||
-            _screen.NameCursor != nameCursor || _screen.TextSpeed != textSpeed)
+            _screen.NameCursor != nameCursor || _textSpeed != textSpeed)
         {
             _playSound?.Invoke(SoundId.SndMenuMove);
         }
@@ -353,9 +361,9 @@ public sealed class MainMenuController
             _screen.ClearSaveError();
             return;
         }
-        if (_screen.CurrentPage != Page.EraseConfirm)
+        if (CurrentPage != Page.EraseConfirm)
             _playSound?.Invoke(SoundId.SndSelectItem);
-        switch (_screen.CurrentPage)
+        switch (CurrentPage)
         {
             case Page.FileSelect:
                 AcceptFileSelect();
@@ -421,7 +429,7 @@ public sealed class MainMenuController
             _screen.ClearSaveError();
             return;
         }
-        switch (_screen.CurrentPage)
+        switch (CurrentPage)
         {
             case Page.NewFileOptions:
                 OpenFileSelect();
@@ -429,8 +437,7 @@ public sealed class MainMenuController
             case Page.TextSpeed:
                 // @textSpeedMenu_checkInput decrements only the substate;
                 // it does not reinitialize the selected file cursor.
-                _screen.ShowFileSelect();
-                _screen.SetCursor(_screen.SelectedSlot);
+                PresentPage(Page.FileSelect, _screen.RestoreFileSelect);
                 break;
             case Page.NameEntry:
                 _playSound?.Invoke(SoundId.SndClink);
@@ -475,7 +482,9 @@ public sealed class MainMenuController
             _pendingInitialization = FileMenuInitialization.NewFileOptions;
         else
         {
-            PresentPage(Page.TextSpeed, () => _screen.ShowTextSpeed(slot, save.TextSpeed));
+            _textSpeed = save.TextSpeed;
+            int speed = _textSpeed;
+            PresentPage(Page.TextSpeed, () => _screen.ShowTextSpeed(slot, speed, cursorVisible: false));
             _initialize?.Invoke(FileMenuInitialization.SelectFile);
         }
     }
@@ -494,6 +503,16 @@ public sealed class MainMenuController
             case 1: _screen.MoveNameEntryPosition(1); break;
             case 2: CommitNameEntry(); break;
         }
+    }
+
+    private void PresentTextSpeedCursor()
+    {
+        int speed = _textSpeed;
+        _present(() =>
+        {
+            _screen.SetTextSpeed(speed);
+            _screen.SetTextSpeedCursorVisible(true);
+        });
     }
 
     private void CommitNameEntry()
@@ -520,7 +539,7 @@ public sealed class MainMenuController
     {
         int slot = _screen.SelectedSlot;
         OracleSaveData save = _slots[slot]!;
-        save.SetTextSpeed(_screen.TextSpeed);
+        save.SetTextSpeed(_textSpeed);
         if (!TrySave(slot, save))
             return;
         _pendingSlot = slot;
@@ -582,7 +601,9 @@ public sealed class MainMenuController
         _fadeDestination = destination;
         _fadeTicks = 0.0;
         PaletteWorkPending = true;
-        _present(() => _screen.SetWhiteFade(0.0f));
+        // THREAD_3 runs after the file thread: its first palette step is
+        // already offset $01 on the update that requests fadeoutToWhite.
+        _present(() => _screen.SetWhiteFade(1.0f / WhiteFadeFrames));
     }
 
     private void UpdateFade(double delta)
@@ -590,8 +611,8 @@ public sealed class MainMenuController
         if (_fadeTicks < WhiteFadeFrames)
         {
             _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
-            PaletteWorkPending = _fadeTicks < WhiteFadeFrames;
-            float fade = (float)(_fadeTicks / WhiteFadeFrames);
+            PaletteWorkPending = _fadeTicks < WhiteFadeFrames - 1;
+            float fade = (float)((_fadeTicks + 1) / WhiteFadeFrames);
             _present(() => _screen.SetWhiteFade(fade));
             // paletteFadeHandler01 stops on the $20 boundary without a
             // palette write. The earlier file thread sees completion next update.

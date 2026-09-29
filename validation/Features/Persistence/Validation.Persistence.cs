@@ -43,12 +43,10 @@ public sealed partial class ValidationRoot
             "The collapsed-Link handoff did not restart sound, increment " +
             "the BCD death count, play MUS_GAMEOVER, and open the forced menu.");
 
-        for (int update = 0;
-            update < InventoryMenuController.FastFadeFrames;
-            update++)
-        {
-            _inventoryMenu.Update(1.0 / 60.0);
-        }
+        byte[] stoppedPlaytime = Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte).ToArray();
+        StepGameplayUpdates((int)InventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
+        FailIf(!stoppedPlaytime.SequenceEqual(Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte)),
+            "Game Over must leave playtime frozen while THREAD_1 is stopped.");
         _inventoryMenu.SelectSaveOption();
         for (int update = 0;
             update < InventoryMenuController.SaveSelectionDelayFrames;
@@ -266,6 +264,20 @@ public sealed partial class ValidationRoot
         var standardInventory = new InventoryState(_treasures, save);
         FailIf(save.TextSpeed != 0x02,
             "initialFileVariables must initialize wTextSpeed to $02 (display speed 3).");
+        FailIf(save.ReadWramByte(0xc611) != 1 || save.ReadWramByte(0xc6af) != 1 || save.HasTreasure(TreasureId.Shield),
+            "initializeFile/saveFile lost the Ages byte or standard-table fallthrough shield level without ownership.");
+        save.WriteWramByte(0xc622, 0xff);
+        save.WriteWramByte(0xc623, 0xff);
+        save.WriteWramByte(0xc624, 0xff);
+        save.WriteWramByte(0xc625, 0x7f);
+        save.AdvancePlaytime();
+        FailIf(save.ReadWramByte(0xc622) != 0 || save.ReadWramByte(0xc623) != 0 ||
+            save.ReadWramByte(0xc624) != 0 || save.ReadWramByte(0xc625) != 0x80,
+            "mainThread's playtime carry did not propagate through all four bytes.");
+        for (int address = 0xc622; address <= 0xc625; address++) save.WriteWramByte(address, 0xff);
+        save.AdvancePlaytime();
+        FailIf(Enumerable.Range(0xc622, 4).Any(address => save.ReadWramByte(address) != 0),
+            "The four-byte playtime counter failed to wrap at $ffffffff.");
         FailIf(
             save.HasGlobalFlag(GlobalFlag.MakuTreeDisappeared) ||
             save.GetRoomFlags(0, 0x38) != 0 ||

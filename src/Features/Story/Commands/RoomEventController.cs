@@ -240,6 +240,16 @@ public sealed class RoomEventController
     }
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
+    internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
+    internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
+    internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);
+    internal void ResumeObjectUpdate() =>
+        _eventsByPriority.Single(roomEvent => roomEvent.ObjectUpdateSuspended).ResumeObjectUpdate();
+    internal void UpdateSpecialObjects()
+    {
+        foreach (IRoomEvent roomEvent in _eventsByPriority)
+            if (roomEvent.HasState) roomEvent.UpdateSpecialObjectFrame();
+    }
     internal bool FreezesNonInteractionObjects =>
         _eventsByPriority.Any(roomEvent => roomEvent.FreezesNonInteractionObjects);
     private bool HasEventState => _eventsByPriority.Any(roomEvent => roomEvent.HasState);
@@ -293,6 +303,7 @@ public sealed class RoomEventController
     {
         if (_context.Transitions.IsTransitioning)
         {
+            Get<ImpaIntroEvent>().InitializeEncounterInteraction();
             Get<GoronCaveEvent>().InitializeDuringTransition();
             Get<DefeatedMoblinEvent>().UpdateDuringWarpArrival();
             if (Get<ImpaIntroEvent>().UpdatesDuringTransition)

@@ -113,9 +113,12 @@ Frontend presentation follows completed LCD frames, separately from CPU updates
 and LCD register writes. Disabling the LCD retains the outgoing frame through
 the settle interval; enabling it discards the first frame before revealing the
 destination. Install loading screens behind the resulting white interval.
-Loaders that keep the LCD enabled publish their menu controls after their
-VBlank work. Palette presentation uses the source RGB5 fade followed by the
-imported GBA brightness table, matching the supported TAS hardware profile.
+Loaders that keep the LCD enabled queue their display changes for the scanout
+after their VBlank uploads. Keep those uploaded changes separate from the next
+foreground update's pending graphics and OAM. Menu input can advance before
+its panel and cursor are displayed; presented values must be immutable copies
+of the corresponding update. Palette presentation uses the source RGB5 fade
+followed by the imported GBA brightness table, matching the supported TAS hardware profile.
 Logical menu state and audio can advance while the previous frame remains visible.
 
 Keep these concepts separate:

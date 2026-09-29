@@ -690,7 +690,7 @@ public sealed class RoomTransitionController
             (Vector2)direction * _scrollDistance;
         _entities.ReservedKeyDoor?.BeginScreenTransition();
         _entities.ReservedPushBlock?.BeginScreenTransition();
-        _rooms.SetLoadedRoom(_rooms.ActiveGroup, target);
+        _rooms.SetLoadedRoom(_rooms.ActiveGroup, target, updateMinimap: false);
         // screenTransitionState2 writes the edge-clamped high coordinate
         // before destination object initialization observes Link.
         if (transitionOwner is null)
@@ -805,6 +805,7 @@ public sealed class RoomTransitionController
         }
         ScrollingTransitionFinished?.Invoke(_scrollDirection);
         _entities.FinishScreenTransition();
+        _rooms.UpdateMinimapLocation();
         _scrollPlayerOwner = null;
         ResetCamera();
     }

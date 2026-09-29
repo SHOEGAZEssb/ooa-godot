@@ -34,6 +34,8 @@ public static class WramAddress
     public const int wChildStatus = 0xc60f;
     // include/wram.s: wAnimalCompanion
     public const int wAnimalCompanion = 0xc610;
+    // include/wram.s: wWhichGame
+    public const int wWhichGame = 0xc611;
     // include/wram.s: wFileIsLinkedGame
     public const int wFileIsLinkedGame = 0xc612;
     // include/wram.s: wFileIsHeroGame
@@ -190,6 +192,8 @@ public static class WramAddress
     public const int wPirateShipX = 0xc6ee;
     // include/wram.s: wPirateShipAngle
     public const int wPirateShipAngle = 0xc6ef;
+    // include/wram.s: wPirateShipChangedTile
+    public const int wPirateShipChangedTile = 0xcde1;
     // include/wram.s: wShortSecretIndex
     public const int wShortSecretIndex = 0xc6fb;
     // include/wram.s: wGroup0RoomFlags

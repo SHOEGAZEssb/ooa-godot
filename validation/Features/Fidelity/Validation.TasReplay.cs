@@ -110,6 +110,14 @@ public sealed partial class ValidationRoot
                     timerTicks = _originalTiming?.TimerTicks,
                     frontend = TasRootField<FrontendIntroController>("_frontendIntro")?.Stage.ToString(),
                     menu = TasRootField<MainMenuController>("_mainMenu")?.CurrentPage.ToString(),
+                    dialogue = _scene is null || !GodotObject.IsInstanceValid(_scene) ? null : new {
+                        _dialogue.IsOpen, _dialogue.SourceTextId, _dialogue.VisibleGlyphCount,
+                        _dialogue.IsScrollingText, _dialogue.TextScrollOffset,
+                        segment = TasRead<int>(_dialogue, "_segmentIndex"),
+                        line = TasRead<int>(_dialogue, "_firstLineIndex"),
+                        preparing = TasRead<bool>(_dialogue, "_prepareNextLine"),
+                        initializing = TasRead<int>(_dialogue, "_initialTextUpdates"),
+                        closing = TasRead<bool>(_dialogue, "_closing") },
                     link = _scene is null || !GodotObject.IsInstanceValid(_scene) ? null : new { _player.IsDying, _player.CutsceneControlled,
                         _player.IsAttacking, _player.IsFallingInHole }
                 } }));
@@ -144,8 +152,15 @@ public sealed partial class ValidationRoot
             state[$"audio.channel{channel}.enabled"] = enabled;
             if (enabled != 0) state[$"audio.channel{channel}.wait"] = _sound.Driver.ReadState(0xc075 + channel);
         }
+        if (TasRootField<NewGameIntroController>("_newGameIntro") is { } pregame)
+        {
+            CaptureTasPregameState(pregame, _saveData, state);
+            return state;
+        }
         bool gameplay = intro is null && TasRootField<MainMenuController>("_mainMenu") is null &&
             _scene is not null && GodotObject.IsInstanceValid(_scene) && _transitions is not null && !GameplayPrepared &&
+            _newGameArrivalFadeFrames == 0 && (_newGameArrivalFrames == 0 ||
+                _newGameArrivalLastFrame >= _newGameArrivalFrames / 2) &&
             TasRootField<NewGameIntroController>("_newGameIntro") is null;
         state["room.active"] = gameplay ? 1 : 0;
         if (!gameplay) return state;
@@ -156,7 +171,7 @@ public sealed partial class ValidationRoot
         state["link.y8_8"] = (int)(point.Y * 256) & 0xffff;
         state["link.direction"] = _player.FacingVector == Vector2I.Up ? 0 :
             _player.FacingVector == Vector2I.Right ? 1 : _player.FacingVector == Vector2I.Down ? 2 : 3;
-        state["link.controlled"] = _player.CutsceneControlled ? 1 : 0;
+        state["link.controlled"] = _player.NativeCutsceneControlled ? 1 : 0;
         state["link.health"] = _player.HealthQuarters;
         var slots = TasRead<HashSet<int>>(_entities, "_reservedEnemySlots");
         for (int slot = 0; slot < 16; slot++) state[$"enemy.${0xd080 + slot * 256:x4}.occupied"] = slots.Contains(slot) ? 1 : 0;
@@ -165,6 +180,27 @@ public sealed partial class ValidationRoot
         for (int address = 0xc5ba; address <= 0xcaff; address++)
             state[$"save.${address:x4}"] = _saveData.ReadWramByte(address);
         return state;
+    }
+
+    private static void CaptureTasPregameState(NewGameIntroController intro, OracleSaveData save,
+        Dictionary<string, int> state)
+    {
+        // pregameIntroCutsceneHandler state A clears the object bank and
+        // enables only Link (cutscene B) and sparkle interactions. State B
+        // clears Link after the vanish signal; state C retains the live file.
+        bool linkActive = intro.CurrentStage is not (Stage.PostVanish or Stage.RestartGame or Stage.LoadingArrival or Stage.Complete);
+        state["room.active"] = linkActive ? 1 : 0;
+        if (!linkActive) return;
+        state["room.group"] = save.RespawnGroup;
+        state["room.id"] = save.RespawnRoom;
+        state["link.x8_8"] = intro.Record.LinkX << 8;
+        state["link.y8_8"] = intro.Record.LinkY << 8;
+        state["link.direction"] = 0; // Cleared object field; this cutscene animates without turning.
+        state["link.controlled"] = 1;
+        state["link.health"] = save.ReadWramByte(WramAddress.wLinkHealth);
+        for (int slot = 0; slot < 16; slot++) state[$"enemy.${0xd080 + slot * 256:x4}.occupied"] = 0;
+        for (int address = 0xc5ba; address <= 0xcaff; address++)
+            state[$"save.${address:x4}"] = save.ReadWramByte(address);
     }
 
     private void FailTasReplay(Exception exception)

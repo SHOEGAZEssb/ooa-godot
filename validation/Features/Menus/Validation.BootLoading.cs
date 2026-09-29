@@ -109,15 +109,16 @@ public sealed partial class ValidationRoot
             "Removing the loading screen did not restore the original viewport.");
         typeof(GameRoot).GetMethod("OpenFileSelectFromFrontend", fields)!.Invoke(this, null);
         var selectedSave = OracleSaveData.CreateStandardGame();
-        byte[] selectedBytes = selectedSave.Serialize();
+        OracleSaveData expectedSelected = OracleSaveData.CreateStandardGame();
+        expectedSelected.WriteWramByte(0xc622, 1); // mainThread's initial dispatch
         typeof(GameRoot).GetMethod("StartSelectedFile", fields)!.Invoke(this, [0, selectedSave]);
         var activeIntro = (NewGameIntroController)typeof(GameRoot)
             .GetField("_newGameIntro", fields)!.GetValue(this)!;
         FailIf(!ReferenceEquals(preparedIntro, typeof(GameRoot)
                 .GetField("_newGameIntroScreen", fields)!.GetValue(this)) ||
-            !preparedIntro!.Visible || activeIntro.StageFrame != 0 ||
-            activeIntro.TotalVoiceWaitFrames != 360 || !selectedBytes.SequenceEqual(selectedSave.Serialize()),
-            "File selection rebuilt the intro, advanced its source timing, or changed the selected save.");
+            !preparedIntro!.Visible || activeIntro.StageFrame != 1 || !activeIntro.GraphicsLoadPending ||
+            activeIntro.TotalVoiceWaitFrames != 360 || !expectedSelected.Serialize().SequenceEqual(selectedSave.Serialize()),
+            "File selection rebuilt the intro or lost its first source decrement, graphics yield, or live playtime tick.");
         string assetPath = "res://assets/oracle/groups/roomPacksPresent.bin";
         byte[] first = OracleAssetCache.ReadBytes(assetPath);
         byte[] second = OracleAssetCache.ReadBytes(assetPath);

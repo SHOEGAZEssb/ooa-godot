@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
         }
         if (page == 1)
         {
-            bool speed = screen.CurrentPage == Page.TextSpeed;
+            bool speed = screen.TextSpeedCursorVisible;
             state["presentation.cursor.speed.visible"] = speed ? 1 : 0;
             if (speed)
             {

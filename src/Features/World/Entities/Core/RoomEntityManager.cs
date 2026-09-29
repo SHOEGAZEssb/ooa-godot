@@ -376,6 +376,8 @@ public sealed class RoomEntityManager : IDisposable
     }
     internal bool SwitchHookChainSlotAvailable => DynamicItemSlotAvailable;
     public OracleRuntimeState RuntimeState => _runtimeState;
+    private ObjectGraphicsLoadState? _objectGraphics;
+    internal ObjectGraphicsLoadState ObjectGraphics => _objectGraphics ??= new(_runtimeState);
     internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
         _familyState;
     internal int ActiveTriggers => _activeTriggers;

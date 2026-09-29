@@ -68,6 +68,7 @@ public partial class MainMenuScreen : Node2D
     public int Choice { get; private set; }
     public int SelectedSlot { get; private set; }
     public int TextSpeed { get; private set; }
+    internal bool TextSpeedCursorVisible { get; private set; }
     public int NameCursor { get; private set; }
     internal string RawEnteredName => new(_enteredName);
     public string EnteredName => RawEnteredName.Replace('\0', ' ').TrimEnd(' ');
@@ -183,6 +184,8 @@ public partial class MainMenuScreen : Node2D
         }
         if (SaveErrorVisible)
             DrawNotice();
+        if (TextSpeedCursorVisible && CurrentPage is Page.FileSelect or Page.TextSpeed)
+            DrawTextSpeedCursor();
     }
 
     internal bool OriginalLcdEnabled { get; private set; } = true;
@@ -208,7 +211,8 @@ public partial class MainMenuScreen : Node2D
         _fadeMaterial.SetShaderParameter("fade_offset", WhiteFadeOffset);
         QueueRedraw();
     }
-    public void ShowFileSelect() { CurrentPage = Page.FileSelect; Cursor = 0; Choice = 0; _eraseHealth = null; QueueRedraw(); }
+    public void ShowFileSelect() { Cursor = 0; Choice = 0; RestoreFileSelect(); }
+    internal void RestoreFileSelect() { CurrentPage = Page.FileSelect; _eraseHealth = null; QueueRedraw(); }
     public void ShowNewFileOptions(int slot) { CurrentPage = Page.NewFileOptions; SelectedSlot = slot; Cursor = 0; QueueRedraw(); }
     public void ShowNameEntry(int slot) => ShowNameEntry(slot, string.Empty);
 
@@ -256,7 +260,8 @@ public partial class MainMenuScreen : Node2D
         QueueRedraw();
         return alreadySelected;
     }
-    public void ShowTextSpeed(int slot, int speed) { CurrentPage = Page.TextSpeed; SelectedSlot = slot; Cursor = slot; TextSpeed = Math.Clamp(speed, 0, 4); QueueRedraw(); }
+    public void ShowTextSpeed(int slot, int speed, bool cursorVisible = true) { CurrentPage = Page.TextSpeed; SelectedSlot = slot; Cursor = slot; TextSpeed = Math.Clamp(speed, 0, 4); TextSpeedCursorVisible = cursorVisible; QueueRedraw(); }
+    internal void SetTextSpeedCursorVisible(bool visible) { TextSpeedCursorVisible = visible; QueueRedraw(); }
     public void ShowCopySource() { CurrentPage = Page.CopySource; Cursor = 3; Choice = 0; QueueRedraw(); }
     public void ShowCopyDestination(int source) { CurrentPage = Page.CopyDestination; _copySource = source; Cursor = source == 0 ? 1 : 0; Choice = 0; QueueRedraw(); }
     public void ShowCopyConfirm(int destination) { CurrentPage = Page.CopyConfirm; SelectedSlot = destination; Choice = 0; QueueRedraw(); }
@@ -566,6 +571,10 @@ public partial class MainMenuScreen : Node2D
             DrawFileSummary(selected);
         DrawSelectedFileActor();
         DrawAcorn(new Vector2(8, 52 + SelectedSlot * 24));
+    }
+
+    private void DrawTextSpeedCursor()
+    {
         // bank2.s uses OAM tile $2e, palette 1 at ($31,$90), with a
         // 16-pixel X offset for each wTextSpeed value. The tile is the final
         // 8x16 cell in spr_fileselect_decorations loaded for this menu.

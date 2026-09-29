@@ -168,6 +168,13 @@ class PresentationTests(unittest.TestCase):
         raw["video"]["tiles"] = "AA=="
         with self.assertRaises(ValueError): self.mapper.capture(raw)
 
+    def test_gameplay_window_does_not_expose_retained_menu_bg(self):
+        raw = copy.deepcopy(self.raw[358])
+        # Executed arrival scanout uses LCDC=$ef and SCY=$f0 while the menu
+        # tilemap is still intact. Recognition must use the display layout.
+        raw["video"].update(lcd=0xef, scy=0xf0)
+        self.assertEqual(self.mapper.capture(raw)["state"], {"presentation.menu.visible": 0})
+
 
 if __name__ == "__main__":
     unittest.main()

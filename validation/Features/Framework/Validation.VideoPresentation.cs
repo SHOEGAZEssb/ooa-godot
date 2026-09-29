@@ -49,6 +49,22 @@ public sealed partial class ValidationRoot
         video.AdvanceTo(1072776);
         FailIf(installed != 2 || observed[^1], "Short LCD restart did not publish the completed destination frame.");
 
+        // VBlank uploads affect the following scanout. The next foreground
+        // update may already be staging a cursor while the panel is pending.
+        int panel = 0, cursor = 0;
+        var uploads = new OracleVideoPresentation(_ => { });
+        uploads.SetLcd(true, 0);
+        uploads.Stage([() => panel++], loading: true);
+        uploads.AdvanceTo(271776);
+        uploads.CompleteLoading();
+        FailIf(panel != 0, "LCD-enabled loading published during its upload VBlank.");
+        uploads.Stage([() => cursor++], loading: false);
+        uploads.AdvanceTo(412224);
+        FailIf(panel != 1 || cursor != 0, "A staged cursor leaked into the preceding panel's completed frame.");
+        uploads.CompleteLoading();
+        uploads.AdvanceTo(552672);
+        FailIf(panel != 1 || cursor != 1, "The following completed frame lost or duplicated its OAM upload.");
+
         // Host batching cannot collapse the retained/blank/reveal sequence.
         foreach (int quantum in new[] { 4, 912, 140448, 1000000 })
         {

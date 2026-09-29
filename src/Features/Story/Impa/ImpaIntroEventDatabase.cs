@@ -16,6 +16,8 @@ public sealed class ImpaIntroEventDatabase
     public IReadOnlyList<FakeOctorokRecord> Octoroks { get; }
     public Color[] PossessedPalette { get; }
     public Color[] StonePalette { get; }
+    internal byte ImpaGraphicsHeader { get; }
+    internal byte OctorokGraphicsHeader { get; }
     internal IReadOnlyList<CutsceneCommand> EncounterCommands { get; }
     internal IReadOnlyList<CutsceneCommand> HelpCommands { get; }
     internal IReadOnlyList<CutsceneCommand> StonePrePushCommands { get; }
@@ -23,6 +25,12 @@ public sealed class ImpaIntroEventDatabase
 
     public ImpaIntroEventDatabase()
     {
+        GeneratedTableRow graphics = GeneratedTable.Load(
+            "res://assets/oracle/cutscenes/impa_intro_graphics.tsv",
+            new GeneratedTableSchema("Impa initialization graphics", GeneratedTableKeySemantics.Ordered,
+                ["impa-header", "octorok-header"], headerRequired: true)).SingleRow();
+        ImpaGraphicsHeader = (byte)graphics.HexByte(0);
+        OctorokGraphicsHeader = (byte)graphics.HexByte(1);
         GeneratedTableRow row = GeneratedTable.Load(
             "res://assets/oracle/cutscenes/impa_intro_event.tsv",
             new GeneratedTableSchema(

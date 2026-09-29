@@ -86,6 +86,7 @@ public sealed partial class ValidationRoot
         foreach (Vector2I direction in new[] { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left })
         {
             LoadValidationRoom(large ? 4 : 0, large ? 0x07 : 0x11);
+            int sourceMinimap = _saveData.MinimapRoom;
             int width = _currentRoom.Width;
             int height = _currentRoom.Height;
             Vector2 start = new(
@@ -94,6 +95,8 @@ public sealed partial class ValidationRoot
             _player.WarpTo(start);
             _player.Face(Vector2I.Down);
             _transitions.BeginScroll(_player, direction, large ? 0x03 : 0x12);
+            FailIf(_saveData.MinimapRoom != sourceMinimap,
+                "Starting a scroll published the destination minimap before cutscene00 completed.");
             int motion = direction.X == 0 ? 32 : 40;
             // 0:11 -> 0:12 changes unique header $09 -> $08 (three entries
             // before motion). The dungeon pair has UNIQUE_GFXH_NONE.
@@ -107,6 +110,8 @@ public sealed partial class ValidationRoot
                 UpdateScrollingTransition(1.0 / 60.0);
                 int moved = Math.Clamp(tick - setup, 0, motion);
                 bool finished = tick == setup + motion + cleanup;
+                FailIf(_saveData.MinimapRoom != (finished ? (large ? 0x03 : 0x12) : sourceMinimap),
+                    "The minimap marker did not retain the source room through scroll cleanup.");
                 Vector2 expected = start + step * moved;
                 if (finished) expected -= new Vector2(direction.X * width, direction.Y * height);
                 FailIf(_player.PrecisePosition != expected ||
@@ -132,6 +137,30 @@ public sealed partial class ValidationRoot
         UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
         FailIf(_player.InvincibilityFrames != invincibility,
             "finishScrollingTransition reset damage invincibility like a full warp.");
+
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(0, 0x8a);
+            _player.WarpTo(new Vector2(0x48, 8));
+            StepGameplayUpdates(3, Vector2.Up, batched: batched);
+            FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x7a || _saveData.MinimapRoom != 0x8a,
+                "Actual north exit failed to retain the source minimap while loading 0:$7a.");
+            int total = _transitions.ScrollTotalFrames;
+            StepGameplayUpdates(total - 1, Vector2.Up, batched: batched);
+            FailIf(!_transitions.ScrollActive || _saveData.MinimapRoom != 0x8a,
+                "Actual scroll published its minimap before the final cleanup update.");
+            StepGameplayUpdates(1, Vector2.Up, batched: batched);
+            FailIf(_transitions.ScrollActive || _saveData.MinimapRoom != 0x7a,
+                "Actual scroll completion failed to publish the destination minimap.");
+            StepGameplayUpdates(5, Vector2.Down, batched: batched);
+            FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x8a || _saveData.MinimapRoom != 0x7a,
+                "Repeated reverse exit lost the source minimap lifetime.");
+            LoadValidationRoom(0, 0x47);
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+            FailIf(_saveData.MinimapRoom != 0x47,
+                "Cancelling a scroll overwrote the new room's minimap with a stale destination.");
+        }
     }
 
     private void LoadValidationRoom(int group, int room)
@@ -881,9 +910,7 @@ public sealed partial class ValidationRoot
         int frames = 0;
         for (; frames < 80 && IsTransitioning; frames++)
         {
-            UpdateScrollingTransition(1.0 / 60.0);
-            _entities.Update(1.0 / 60.0, _player);
-            _roomEvents.Update(1.0 / 60.0);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
         FailIf(IsTransitioning, "Scrolling transition did not finish within 80 frames.");
         return frames;

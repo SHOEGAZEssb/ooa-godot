@@ -10,7 +10,15 @@ internal static class ValidationRoomEventStepping
         Clocks = new();
 
     internal static void Update(this RoomEventController events, double delta) =>
-        Clocks.GetOrCreateValue(events).Advance(delta, events.UpdateFrame);
+        Clocks.GetOrCreateValue(events).Advance(delta, () =>
+        {
+            if (events.ObjectUpdateSuspended) events.ResumeObjectUpdate();
+            else
+            {
+                events.UpdateSpecialObjects();
+                events.UpdateFrame();
+            }
+        });
 
     internal static void UpdateDuringTimeWarp(this RoomEventController events, double delta) =>
         Clocks.GetOrCreateValue(events).Advance(delta, events.UpdateDuringTimeWarpFrame);

@@ -22,6 +22,7 @@ public sealed class NewGameIntroController
 
     internal Stage CurrentStage { get; private set; } = Stage.WaitingForVoice;
     internal int StageFrame => _stageFrame;
+    internal bool GraphicsLoadPending { get; private set; }
     internal int TotalVoiceWaitFrames => _record.InitialWaitFrames + _record.VoiceWaitFrames;
     // Animation $05 reaches its $ff terminal parameter after the three timed
     // frames, then linkCutsceneB and the cutscene handler each observe that
@@ -33,7 +34,8 @@ public sealed class NewGameIntroController
         NewGameIntroScreen screen,
         Action complete,
         OracleSoundEngine sound,
-        Action<int>? playSound = null)
+        Action<int>? playSound = null,
+        bool initializing = false)
     {
         _screen = screen;
         _record = screen.Record;
@@ -45,8 +47,17 @@ public sealed class NewGameIntroController
         // descent presentation.
         _playSound(SoundId.MusEssenceRoom);
         BuildTimeline();
+        if (initializing)
+        {
+            // linkCutsceneB falls through state 0 into substate 0 once before
+            // the sparkle's loadObjectGfx suspends the main thread.
+            _timeline.AdvanceFrame();
+            GraphicsLoadPending = true;
+        }
         UpdateScreen();
     }
+
+    internal void CompleteGraphicsLoad() => GraphicsLoadPending = false;
 
     public void Update(double delta)
     {
@@ -63,6 +74,17 @@ public sealed class NewGameIntroController
 
     private void AdvanceOneFrame()
     {
+        if (CurrentStage == Stage.RestartGame)
+        {
+            CurrentStage = Stage.LoadingArrival;
+            return;
+        }
+        if (CurrentStage == Stage.LoadingArrival)
+        {
+            CurrentStage = Stage.Complete;
+            _complete();
+            return;
+        }
         _clock++;
         if (CurrentStage is Stage.WaitingForVoice or Stage.Dialogue)
             _motionClock++;
@@ -103,8 +125,7 @@ public sealed class NewGameIntroController
                 // State $0c stops the cue after the post-vanish $3c hold,
                 // before handing off to the silent playable arrival.
                 _playSound(SoundId.SndCtrlStopMusic);
-                CurrentStage = Stage.Complete;
-                _complete();
+                CurrentStage = Stage.RestartGame;
             });
     }
 
@@ -132,7 +153,7 @@ public sealed class NewGameIntroController
             visible = _stageFrame == 0 ||
                 (((_stageFrame > terminalFrame ? _clock - 1 : _clock) & 1) != 0);
         }
-        else if (CurrentStage is Stage.PostVanish or Stage.Complete)
+        else if (CurrentStage is Stage.PostVanish or Stage.RestartGame or Stage.LoadingArrival or Stage.Complete)
         {
             visible = false;
         }
@@ -147,5 +168,7 @@ internal enum Stage
     Dialogue,
     Vanishing,
     PostVanish,
+    RestartGame,
+    LoadingArrival,
     Complete
 }

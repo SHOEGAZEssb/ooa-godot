@@ -101,6 +101,10 @@ public sealed class OracleSaveData
         VerificationString.CopyTo(save._data, VerificationOffset);
         save.WriteWramByte(WramAddress.wc608, 0x01);
         save.WriteWramByte(WramAddress.wTextSpeed, 0x02);
+        // initializeFile falls through to saveFile, which marks Ages; the
+        // standard-game table also falls through to the hero-game defaults.
+        save.WriteWramByte(WramAddress.wWhichGame, 0x01);
+        save.WriteWramByte(WramAddress.wShieldLevel, 0x01);
         // initialFileVariables: Ages begins at 0:8a, facing up at $38/$48.
         save.WriteWramByte(WramAddress.wDeathRespawnBuffer, 0x00);
         save.WriteWramByte(0xc62c, 0x8a);
@@ -437,6 +441,18 @@ public sealed class OracleSaveData
         changed |= WriteWramByte(0xc61f, (byte)(next / 100));
         if (changed)
             PublishChange();
+    }
+
+    internal void AdvancePlaytime()
+    {
+        // bank0.s:mainThread increments the live four-byte little-endian
+        // counter before game dispatch, including cutscenes and menus.
+        for (int address = WramAddress.wPlaytimeCounter; address < WramAddress.wPlaytimeCounter + 4; address++)
+        {
+            byte next = unchecked((byte)(ReadWramByte(address) + 1));
+            WriteWramByte(address, next);
+            if (next != 0) break;
+        }
     }
 
     internal void ResetHealthIfDepleted()

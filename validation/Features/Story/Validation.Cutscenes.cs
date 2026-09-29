@@ -156,6 +156,12 @@ public sealed partial class ValidationRoot
             "Link's vanish did not enter the post-vanish timeline at frame zero.");
         for (int frame = 0; frame < record.PostVanishWaitFrames; frame++)
             intro.Update(1.0 / 60.0);
+        FailIf(completionRequests != 0 || intro.CurrentStage != Stage.RestartGame,
+            "Pregame state $0c loaded arrival graphics before initializeGame.");
+        intro.Update(1.0 / 60.0);
+        FailIf(completionRequests != 0 || intro.CurrentStage != Stage.LoadingArrival,
+            "initializeGame did not preserve the next game-state dispatch boundary.");
+        intro.Update(1.0 / 60.0);
         FailIf(
             completionRequests != 1 ||
             intro.CurrentStage != Stage.Complete ||
@@ -209,9 +215,11 @@ public sealed partial class ValidationRoot
         for (int frame = 124; frame < record.SummonFrames; frame++)
             UpdateNewGameArrival(1.0 / 60.0);
         FailIf(
-            UpdateNewGameArrival(1.0 / 60.0) || !_player.Visible ||
+            !UpdateNewGameArrival(1.0 / 60.0) || !_player.Visible ||
             !_player.IsProcessing() || !_player.IsPhysicsProcessing(),
             "The summon wave did not restore Link control on frame 128.");
+        FailIf(UpdateNewGameArrival(1.0 / 60.0),
+            "The completed summon wave retained the next gameplay update.");
 
         int previousGroup = _rooms.ActiveGroup;
         int previousRoom = _rooms.CurrentRoom.Id;
@@ -1170,7 +1178,7 @@ public sealed partial class ValidationRoot
         impaEvent.UpdateHelpFrame(upPressed: true);
         FailIf(
             !_dialogue.IsOpen || _dialogue.CurrentMessage != "HELLLLP!!!" ||
-            _dialogue.Position.Y != 96 || !_player.CutsceneControlled ||
+            _dialogue.Position.Y != 96 || _player.CutsceneControlled || !impaEvent.DisablesLink ||
             impaEvent.Counter != 30 ||
             _saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40),
             "Room 0:7a did not show fixed-bottom TX_0100 and install its 30-update counter.");
@@ -1183,6 +1191,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             impaEvent.Counter != 8 ||
+            impaEvent.DisablesLink || _player.NativeCutsceneControlled ||
             !_saveData.HasRoomFlag(0, 0x7a, OracleSaveData.RoomFlag40),
             "Room 0:7a did not set room flag $40 and install eight BTN_UP updates.");
         StepRoomEventFrames(1);
@@ -1191,8 +1200,9 @@ public sealed partial class ValidationRoot
             "The simulated Up input did not begin the 0:7a -> 0:6a scroll.");
         int impaScrollFrames = FinishActiveScrollingTransitionWithRoomEventsForValidation();
         FailIf(
-            impaScrollFrames != 39,
-            $"The 0:7a -> 0:6a vertical scroll took {impaScrollFrames} updates, expected 39 including the retained-$05 graphics check.");
+            impaScrollFrames != 41,
+            $"The 0:7a -> 0:6a vertical scroll took {impaScrollFrames} updates, expected 39 scroll updates plus two object graphics continuations.");
+        StepRoomEventFrames(1);
 
         NpcCharacter impa = impaEvent.Actor!;
         System.Collections.Generic.IReadOnlyList<NpcCharacter> octoroks =
@@ -1216,13 +1226,13 @@ public sealed partial class ValidationRoot
             linkStart != new Vector2(0x38, 0x76),
             $"0:7a -> 0:6a placed Link at {linkStart}, expected $76/$38.");
         FailIf(
-            !_player.CutsceneControlled || impaEvent.Counter != 120 ||
+            !_player.CutsceneControlled || impaEvent.Counter != 81 ||
             _sound.ActiveMusic != SoundId.MusFairyFountain ||
             _sound.MusicVolume != 3 ||
             _player.Position != linkStart || _player.FacingVector != Vector2I.Up,
-            "linkCutscene1 state 0 did not install its $78 counter, upward animation, " +
-            "and MUS_FAIRY_FOUNTAIN volume-3 override.");
-        StepRoomEventFrames(119);
+            "linkCutscene1 did not advance its $78 counter through 38 scroll updates and " +
+            "the first ordinary update with MUS_FAIRY_FOUNTAIN at volume 3.");
+        StepRoomEventFrames(80);
         FailIf(
             impaEvent.Counter != 1 || _player.Position != linkStart,
             "Link's initial 120-update wait ended early in room 0:6a.");
@@ -1253,7 +1263,6 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndClink) != 1,
             "Link did not finish exactly 46 pixels above his entry point and play SND_CLINK.");
 
-        StepRoomEventFrames(1);
         FailIf(
             impaEvent.Counter != 0 || impaEvent.EncounterCommandIndex != 1,
             "impaScript0 did not preserve checkmemoryeq's successful one-update yield.");
@@ -1292,6 +1301,7 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(1);
         FailIf(
             !_dialogue.IsOpen || _dialogue.Position.Y != 24 ||
+            _dialogue.SourceTextId != 0x0102 || _dialogue.OpeningScreen.AutomaticPosition != 0 ||
             !_dialogue.CurrentMessage.StartsWith("That was\nfrightening!") ||
             !_dialogue.CurrentMessage.EndsWith("with you nearby.") ||
             octoroks[0].Active || octoroks[1].Active || octoroks[2].Active ||
@@ -2448,6 +2458,12 @@ public sealed partial class ValidationRoot
     {
         for (int frame = 0; frame < frames; frame++)
         {
+            if (_roomEvents.ObjectUpdateSuspended)
+            {
+                _roomEvents.ResumeObjectUpdate();
+                _sound.Tick();
+                continue;
+            }
             _entities.Update(1.0 / 60.0, _player);
             _roomEvents.Update(1.0 / 60.0);
             _sound.Tick();

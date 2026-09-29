@@ -10,6 +10,10 @@ public partial class DialogueBox : Node2D
     private Func<float> _gameplayCameraY = () => 0;
     private bool _gameplayPresentation;
     private int _presentationOffsetY;
+    internal int OpenSequence { get; private set; }
+    internal int? SourceTextId { get; private set; }
+    internal DialogueScreenContext OpeningScreen { get; private set; }
+    internal int OpeningFlags { get; private set; }
 
     internal void SetGameplayPresentationOffset(int offsetY)
     {
@@ -79,6 +83,8 @@ public partial class DialogueBox : Node2D
     private double _arrowFrameCounter;
     private double _characterFrameAccumulator;
     private int _characterDisplayTimer;
+    private int _initialTextUpdates;
+    private bool _prepareNextLine;
     private int _textSlowdownTimer;
     private int _textSoundCooldownCounter;
     private double _textScrollTickAccumulator;
@@ -255,16 +261,21 @@ public partial class DialogueBox : Node2D
 
     internal void ShowMessage(
         string message, DialogueScreenContext screen,
-        int? textPosition = null, int textboxFlags = 0) =>
-        ShowMessageCore(message, screen, textPosition ?? 0, textboxFlags);
+        int? textPosition = null, int textboxFlags = 0, int? sourceTextId = null) =>
+        ShowMessageCore(message, screen, textPosition ?? 0, textboxFlags, sourceTextId);
 
     private void ShowMessageCore(
         string message,
         DialogueScreenContext screen,
         int textPosition,
-        int textboxFlags)
+        int textboxFlags,
+        int? sourceTextId = null)
     {
         ArgumentNullException.ThrowIfNull(message);
+        OpenSequence++;
+        SourceTextId = sourceTextId;
+        OpeningScreen = screen;
+        OpeningFlags = textboxFlags;
         // checkInitialTextCommands recognizes $0c:$20-$23 only at the
         // beginning of the resolved text, after initTextbox's automatic side.
         Match initialPosition = Regex.Match(message, @"^\\pos\(([0-3])\)");
@@ -315,6 +326,10 @@ public partial class DialogueBox : Node2D
         _arrowFrameCounter = 0.0;
         _characterFrameAccumulator = 0.0;
         _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        // Standard text states 0 and 1 upload the panel and prepare the first
+        // row. Neither runs the character timer nor accepts A/B input.
+        _initialTextUpdates = 2;
+        _prepareNextLine = false;
         _textSlowdownTimer = slowdownRequested ? TextSlowdownFrames : 0;
         _textSoundCooldownCounter = 0;
         _textScrollTickAccumulator = 0.0;
@@ -444,6 +459,28 @@ public partial class DialogueBox : Node2D
 
         if (!_open)
             return;
+
+        if (!_passive && _initialTextUpdates > 0)
+        {
+            _initialTextUpdates--;
+            return;
+        }
+
+        if (!_passive && _prepareNextLine)
+        {
+            // Standard state 3 consumes its own update preparing the lower
+            // row. A/B can expire the delay but cannot display that row yet.
+            if (_textSoundCooldownCounter > 0) _textSoundCooldownCounter--;
+            if (_textSlowdownTimer > 0) _textSlowdownTimer--;
+            bool skip = _textSlowdownTimer == 0 &&
+                (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
+            if (skip || --_characterDisplayTimer <= 0)
+            {
+                _prepareNextLine = false;
+                _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+            }
+            return;
+        }
 
         // textbox.s: standardTextStatef saves the underlying tiles and moves
         // to $10. Only the next text-thread update clears wTextIsActive, after
@@ -639,6 +676,8 @@ public partial class DialogueBox : Node2D
 
     internal void RevealCurrentPageForValidation()
     {
+        _initialTextUpdates = 0;
+        _prepareNextLine = false;
         _visibleGlyphs = CurrentWindowGlyphCount;
         _characterFrameAccumulator = 0.0;
         _arrowFrameCounter = 0.0;
@@ -885,6 +924,7 @@ public partial class DialogueBox : Node2D
 
     private void ResetCharacterDisplay(int alreadyVisible)
     {
+        _prepareNextLine = false;
         _visibleGlyphs = alreadyVisible;
         _characterFrameAccumulator = 0.0;
         _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
@@ -912,6 +952,8 @@ public partial class DialogueBox : Node2D
 
         TextGlyph glyph = line.Glyphs[column];
         _visibleGlyphs++;
+        if (_visibleGlyphs == firstLine.Glyphs.Count && CurrentLine(1).Glyphs.Count != 0)
+            _prepareNextLine = true;
         if (line.HeartPieceColumn == column + 1)
         {
             StartHeartPieceDisplay(

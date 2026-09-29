@@ -56,6 +56,8 @@ public static class GlobalFlag
     public const int SavedGoronElder = 0x2f;
     // constants/common/globalFlags.s: GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE
     public const int PreBlackTowerCutsceneDone = 0x33;
+    // constants/common/globalFlags.s: GLOBALFLAG_PIRATES_GONE
+    public const int PiratesGone = 0x34;
     // constants/common/globalFlags.s: GLOBALFLAG_GOT_RING_FROM_ZELDA
     public const int GotRingFromZelda = 0x38;
     // constants/common/globalFlags.s: GLOBALFLAG_FLAME_OF_DESPAIR_LIT
