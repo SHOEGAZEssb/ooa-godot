@@ -151,43 +151,43 @@ public sealed partial class ValidationRoot
         }
         _dialogue.MessageSpeed = 0;
         _dialogue.ShowMessage("AB", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(6.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(6.0 / 60.0);
         FailIf(_dialogue.VisibleGlyphCount != 0, "Message speed 0 displayed a character before update 7.");
-        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(
             _dialogue.VisibleGlyphCount != 1,
             "Message speed 0 did not display its first character on update 7.");
         _dialogue.MessageSpeed = 4;
         _dialogue.ShowMessage("AB", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(_dialogue.VisibleGlyphCount != 0, "Message speed 4 displayed a character before update 2.");
-        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(
             _dialogue.VisibleGlyphCount != 1,
             "Message speed 4 did not display its first character on update 2.");
 
         int textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         _dialogue.ShowMessage("ABC", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests,
             "SND_TEXT played before the first glyph appeared.");
-        _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "The first visible non-space glyph did not request SND_TEXT $66.");
-        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "SND_TEXT ignored its four-update cooldown.");
-        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 2,
             "SND_TEXT did not become available on the original fourth cooldown update.");
 
         textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         _dialogue.ShowMessage(" A", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(4.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(4.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1,
             "Textbox character audio did not suppress spaces or sound the following glyph.");
@@ -196,7 +196,7 @@ public sealed partial class ValidationRoot
         textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         int tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
         _dialogue.ShowMessage("\\sfx(0xb6)A", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _dialogue.CurrentMessage != "A" ||
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests + 1 ||
@@ -206,7 +206,7 @@ public sealed partial class ValidationRoot
         textRequests = _sound.PlayRequestsFor(SoundId.SndText);
         tokayRequests = _sound.PlayRequestsFor(tokayTextSound);
         _dialogue.ShowMessage("\\charsfx(0xb6)A", _player.Position.Y);
-        _dialogue.AdvanceCharacterClockForValidation(2.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(2.0 / 60.0);
         FailIf(
             _dialogue.CurrentMessage != "A" ||
             _sound.PlayRequestsFor(SoundId.SndText) != textRequests ||
@@ -315,14 +315,14 @@ public sealed partial class ValidationRoot
         for (int update = 1; update < 0x78; update++)
         {
             bool faceInputBlocked =
-                _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+                _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
             FailIf(
                 !faceInputBlocked ||
                 _dialogue.TextSlowdownTimerForValidation != 0x78 - update,
                 $"\\slow() did not block A/B on original update {update}.");
         }
         bool blockedAtZero =
-            _dialogue.AdvanceCharacterClockForValidation(1.0 / 60.0);
+            _dialogue.AdvanceNeutralCharacterClockForValidation(1.0 / 60.0);
         FailIf(
             blockedAtZero ||
             _dialogue.TextSlowdownTimerForValidation != 0 ||

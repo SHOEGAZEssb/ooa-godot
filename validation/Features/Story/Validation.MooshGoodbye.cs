@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
             "Room 0:6b did not show imported TX_2208 on the update after " +
             "Moosh's state-$0a initializer.");
         // initialFileVariables selects speed $02; textSpeedData waits four updates.
-        _dialogue.AdvanceCharacterClockForValidation(4.0 / 60.0);
+        _dialogue.AdvanceNeutralCharacterClockForValidation(4.0 / 60.0);
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndMoosh) != mooshSoundRequests + 1,
             "TX_2208 did not execute its leading source `\\sfx(0xc5)` cue.");

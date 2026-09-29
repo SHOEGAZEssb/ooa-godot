@@ -22,10 +22,12 @@ internal static class OracleObjectMath
     /// </summary>
     public static bool UpdateSpeedZ(ref int zFixed, ref int speedZ, int gravity)
     {
-        zFixed += speedZ;
+        // bank0.add16BitRefs wraps the position word before the caller tests
+        // bit 7 of its high byte; speedZ's gravity addition also wraps at 16 bits.
+        zFixed = unchecked((short)(zFixed + speedZ));
         if (zFixed < 0)
         {
-            speedZ += gravity;
+            speedZ = unchecked((short)(speedZ + gravity));
             return false;
         }
 

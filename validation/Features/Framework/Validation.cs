@@ -219,6 +219,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOracleObjectMath);
         RunIsolatedValidation(ValidateOracleRandom);
         RunIsolatedValidation(ValidateOracleRandomRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOracleMovementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOracleAnglesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOracleVerticalMotionRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
         RunIsolatedValidation(ValidateSharedRoomEventHosts);
@@ -275,6 +278,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateScreenTransitionGraphicsPayloads);
         RunIsolatedValidation(ValidateSymmetryTransitionFromRoom022);
         RunIsolatedValidation(ValidateSigns);
+        RunIsolatedValidation(ValidateDialogueClockInputIsolation);
         RunIsolatedValidation(ValidateNpcImplementationManifest);
         RunIsolatedValidation(ValidateNpcs);
         RunIsolatedValidation(ValidateDialogueScreenContext);
