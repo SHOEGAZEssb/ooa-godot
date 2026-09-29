@@ -37,7 +37,13 @@ public sealed partial class ValidationRoot
             // input pulse entirely inside the CPU load. The other host uses
             // neutral input and advances the same interval in one batch.
             split.Sample("attack", "item", "move_down");
-            split.AdvanceTimedApplication(loadTime / 4);
+            const double dispatchTime = 256.0 / OracleExecutionClock.CpuClocksPerSecond;
+            split.AdvanceTimedApplication(dispatchTime);
+            FailIf(split._mainMenuScreen!.CurrentPage != Page.FileSelect || !split._mainMenuScreen.OriginalLcdEnabled,
+                "New-file options flashed before disableLcd blanked the old file-select screen.");
+            split.AdvanceTimedApplication(loadTime / 4 - dispatchTime);
+            FailIf(!split._mainMenuScreen.DisplayBlank,
+                "The completed LCD-off frame must be white during the new-file load.");
             FailIf(!split._originalTiming!.Busy || split._originalTiming.CompletedUpdates != 285 ||
                 split._sound.Channel(0).WaitFrames >= 99 || split._mainMenu!.CurrentPage != Page.NewFileOptions ||
                 split._mainMenu.Cursor != 0,
@@ -54,10 +60,14 @@ public sealed partial class ValidationRoot
                 FailIf(root._originalTiming!.Busy || root._originalTiming.Clocks != 46_558_980 ||
                     root._originalTiming.CompletedUpdates != 286 || root._originalTiming.TimerTicks != 322,
                     "fileSelectMode5 must finish at the source LCD boundary after five elapsed sound interrupts.");
+                FailIf(root._mainMenuScreen!.CurrentPage != Page.NewFileOptions || !root._mainMenuScreen.OriginalLcdEnabled,
+                    "New-file options did not become visible at load completion.");
                 foreach (var (channel, wait) in new[] { (0, 94), (1, 10), (2, 3), (4, 4), (6, 3) })
                     FailIf(root._sound.Channel(channel).WaitFrames != wait,
                         $"File-menu load ended with channel {channel} wait other than source ${wait:x2}.");
                 root.Step(1);
+                FailIf(root._mainMenuScreen.DisplayBlank,
+                    "New-file options remained white after the first fully rendered enabled frame.");
                 FailIf(root._mainMenu!.CurrentPage != Page.NewFileOptions || root._mainMenu.Cursor != 0,
                     "Input discarded during initialization leaked into state 1.");
             }

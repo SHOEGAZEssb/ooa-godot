@@ -91,6 +91,7 @@ public partial class NewGameIntroScreen : Node2D
 
     public override void _Draw()
     {
+        if (DisplayBlank) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
         if (!ResourcesPrepared) return;
         DrawRect(new Rect2(0, 0, 160, 144), Colors.Black);
 
@@ -125,6 +126,9 @@ public partial class NewGameIntroScreen : Node2D
                     this, AnimationFrame(_orbDescend, _clock, 0), objectY, objectX);
         }
     }
+
+    internal bool DisplayBlank { get; private set; }
+    internal void SetDisplayBlank(bool blank) { DisplayBlank = blank; QueueRedraw(); }
 
     private static IntroSpriteFrame AnimationFrame(
         IntroSpriteFrame[] frames,

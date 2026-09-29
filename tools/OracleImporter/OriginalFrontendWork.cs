@@ -85,6 +85,24 @@ internal sealed class OriginalFrontendWork
         selected._steps.Clear();
         selected.Run(0x1a1f);
         selected.Emit(result, "file-start");
+        foreach (var (name, health) in new[] { ("pregame-start", 12), ("pregame-start-empty", 0), ("pregame-start-negative", 0x80) })
+        {
+            var game = new OriginalFrontendWork(rom);
+            game.SetFile(0, 12, [0x41]);
+            game.Run(0x1a17);
+            game._memory[0xc482] = 8;
+            game.Run(0x1a1f); // load the chosen save before initialization
+            game.Run(0x1a1f);
+            game._steps.Clear();
+            game._memory[0xff96] = 0xff; // hGameboyType: supported GBA CGB profile
+            game._memory[0xc4ab] = 0; // state 3 waits for the palette thread
+            game._memory[0xc6aa] = (byte)health;
+            int gameEntry = FindUnique(rom, 0, [0xcd, 0xb2, 0x0c, 0xcd, 0x4d, 0x18, 0x21, 0x22, 0xc6]);
+            game._cpu.BeginCall(gameEntry, stack: 0xc220);
+            game.Execute(0x0900); // first resumeThreadInAFrames, including gfx yields
+            game.Finish();
+            game.Emit(result, name);
+        }
         var cleared = new OriginalFrontendWork(rom);
         Array.Clear(cleared._memory, 0xa000, 0x2000);
         cleared.Run(0x1a17);
@@ -149,6 +167,11 @@ internal sealed class OriginalFrontendWork
     {
         _cpu.BeginCall(entry, stack: 0xc220);
         Execute(entry is 0x1a17 or 0x1a1f ? 0x1a29 : 0);
+        Finish();
+    }
+
+    private void Finish()
+    {
         Flush();
         if (_memory[0xffa5] != 0)
         {
@@ -190,8 +213,11 @@ internal sealed class OriginalFrontendWork
     private void Flush() { if (_work != 0) Event("cpu", _work); _work = 0; }
     private void Emit(StringBuilder result, string name)
     {
+        string source = name.StartsWith("pregame-start", StringComparison.Ordinal)
+            ? "code/bank0.s:mainThreadStart,bank1.s:initializeGame,ages/cutscenes/miscCutscenes.s:pregameIntroCutsceneHandler"
+            : "code/bank0.s,bank2.s,bank3Cutscenes.s";
         for (int i = 0; i < _steps.Count; i++)
-            result.Append($"{name}\t{i}\t{_steps[i].Kind}\t{_steps[i].Value}\tcode/bank0.s,bank2.s,bank3Cutscenes.s\n");
+            result.Append($"{name}\t{i}\t{_steps[i].Kind}\t{_steps[i].Value}\t{source}\n");
     }
 
     private int Read(int address)

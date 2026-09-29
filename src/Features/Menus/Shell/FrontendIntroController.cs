@@ -18,6 +18,7 @@ internal sealed class FrontendIntroController
     private readonly Action _restartSound;
     private readonly Action<int> _playSound;
     private readonly Action _openFileSelect;
+    private readonly Action<Action> _present;
     private readonly List<FrontendBirdState> _birds = [];
     private FrontendSequenceValue[] _templeInput = [];
     private int _templeInputIndex;
@@ -118,7 +119,8 @@ internal sealed class FrontendIntroController
         Action restartSound,
         Action<int> playSound,
         Action openFileSelect,
-        bool startAtTitle = false)
+        bool startAtTitle = false,
+        Action<Action>? present = null)
     {
         _screen = screen;
         _titleScreen = titleScreen;
@@ -126,6 +128,7 @@ internal sealed class FrontendIntroController
         _restartSound = restartSound;
         _playSound = playSound;
         _openFileSelect = openFileSelect;
+        _present = present ?? (action => action());
         RandomCallsAtConstruction = random.Calls;
         _screen.Attach(this);
         if (startAtTitle)
@@ -207,7 +210,7 @@ internal sealed class FrontendIntroController
             case 0:
                 _restartSound();
                 ShowIntro();
-                _screen.Scene = FrontendIntroScene.Capcom;
+                _present(() => _screen.Scene = FrontendIntroScene.Capcom);
                 Counter = _data.Timing("capcom-hold");
                 BeginFade(toWhite: false);
                 State = 1;
@@ -962,7 +965,7 @@ internal sealed class FrontendIntroController
                 _restartSound();
                 ShowTitle();
                 Counter = _data.Timing("title-idle");
-                _titleScreen.SetTitleBlink((Counter & 0x20) == 0);
+                _present(() => _titleScreen.SetTitleBlink((Counter & 0x20) == 0));
                 _playSound(SoundId.MusTitlescreen);
                 State = 1;
                 break;
@@ -1050,21 +1053,30 @@ internal sealed class FrontendIntroController
 
     private void SetWhiteFade(float progress)
     {
-        _screen.SetWhiteFade(progress);
-        _titleScreen.SetWhiteFade(progress);
+        _present(() =>
+        {
+            _screen.SetWhiteFade(progress);
+            _titleScreen.SetWhiteFade(progress);
+        });
     }
 
     private void ShowIntro()
     {
-        _screen.Visible = true;
-        _titleScreen.Visible = false;
+        _present(() =>
+        {
+            _screen.Visible = true;
+            _titleScreen.Visible = false;
+        });
     }
 
     private void ShowTitle()
     {
-        _screen.Visible = false;
-        _titleScreen.Visible = true;
-        _titleScreen.ShowTitle();
+        _present(() =>
+        {
+            _screen.Visible = false;
+            _titleScreen.Visible = true;
+            _titleScreen.ShowTitle();
+        });
     }
 
     private void QueueRedraw()

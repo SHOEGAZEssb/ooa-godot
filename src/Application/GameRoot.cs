@@ -13,6 +13,7 @@ public partial class GameRoot : Node2D
     private readonly ApplicationInputBuffer _applicationInput = new();
     internal OracleApplicationTiming? _originalTiming;
     private readonly List<Action> _timedSoundRequests = [];
+    private readonly List<Action> _timedFrontendPresentation = [];
     private bool _collectTimedSound, _timedSoundRestart;
     private string? _timedFrontendLoading;
     private double _hostCpuBudget;
@@ -248,27 +249,35 @@ public partial class GameRoot : Node2D
     private void StartSelectedFile(int slot, OracleSaveData save)
     {
         _activeSaveSlot = slot;
-        _mainMenuScreen?.QueueFree();
+        if (_mainMenuScreen is { } oldMenu) PresentFrontend(oldMenu.QueueFree);
         _mainMenuScreen = null;
         _mainMenu = null;
 
         // bank0.s:mainThreadStart restarts the whole driver, including SFX
         // and queued requests, before the loaded game's initial music cue.
-        _sound.RestartSound();
+        RestartFrontendSound();
 
         if (!save.HasGlobalFlag(GlobalFlag.PregameIntroDone))
         {
+            _timedFrontendLoading = save.ReadWramByte(WramAddress.wLinkHealth) switch
+            {
+                0 => "pregame-start-empty",
+                >= 0x80 => "pregame-start-negative",
+                _ => "pregame-start"
+            };
             _gameplaySceneResource.BeginPreload();
             if (_newGameIntroScreen is null)
             {
                 _newGameIntroScreen = new NewGameIntroScreen
                 {
                     Name = "NewGameIntro",
-                    ZIndex = ScreenDrawPriority.FrontendZIndex
+                    ZIndex = ScreenDrawPriority.FrontendZIndex,
+                    Visible = false
                 };
                 AddChild(_newGameIntroScreen);
             }
-            _newGameIntroScreen.Visible = true;
+            NewGameIntroScreen introScreen = _newGameIntroScreen;
+            PresentFrontend(() => introScreen.Visible = true);
             _newGameIntroScreen.Dialogue.ApplicationUpdateOwned = true;
             _newGameIntroScreen.Dialogue.MessageSpeed = save.TextSpeed;
             _newGameIntroScreen.Dialogue.SetLinkNameProvider(
@@ -276,7 +285,8 @@ public partial class GameRoot : Node2D
             _newGameIntro = new NewGameIntroController(
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
-                _sound);
+                _sound,
+                PlayFrontendSound);
             // Depleted interrupted files need the ordinary health-restoration
             // path. A healthy file can prepare its dormant owners read-only.
             if (save.ReadWramByte(WramAddress.wLinkHealth) is > 0 and < 0x80)
@@ -316,6 +326,11 @@ public partial class GameRoot : Node2D
             {
                 _frontendIntroScreen?.SetOriginalLcdEnabled(enabled);
                 _mainMenuScreen?.SetOriginalLcdEnabled(enabled);
+            }, blank =>
+            {
+                _frontendIntroScreen?.SetDisplayBlank(blank);
+                _mainMenuScreen?.SetDisplayBlank(blank);
+                _newGameIntroScreen?.SetDisplayBlank(blank);
             });
             _hostCpuBudget = _originalTiming.Clocks;
         }
@@ -326,7 +341,20 @@ public partial class GameRoot : Node2D
             RestartFrontendSound,
             PlayFrontendSound,
             OpenFileSelectFromFrontend,
-            startAtTitle);
+            startAtTitle,
+            present: PresentFrontend);
+    }
+
+    private void PresentFrontend(Action present)
+    {
+        if (_collectTimedSound) _timedFrontendPresentation.Add(present);
+        else present();
+    }
+
+    private void PublishFrontendPresentation()
+    {
+        foreach (Action present in _timedFrontendPresentation) present();
+        _timedFrontendPresentation.Clear();
     }
 
     private void RestartFrontendSound()
@@ -474,7 +502,8 @@ public partial class GameRoot : Node2D
 
     private void OpenFileSelectFromFrontend()
     {
-        _frontendIntroScreen?.QueueFree();
+        if (_frontendIntroScreen is { } oldScreen)
+            PresentFrontend(oldScreen.QueueFree);
         _frontendIntroScreen = null;
         _frontendIntro = null;
         _mainMenu = new MainMenuController(
@@ -495,7 +524,8 @@ public partial class GameRoot : Node2D
                 FileMenuInitialization.SelectFile => "file-select",
                 FileMenuInitialization.StartFile => "file-start",
                 _ => throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.")
-            });
+            },
+            present: PresentFrontend);
     }
 
     private void CompleteNewGameIntro(OracleSaveData save)
@@ -755,6 +785,7 @@ public partial class GameRoot : Node2D
     {
         BeginApplicationUpdate();
         _originalTiming?.CompleteUpdate();
+        if (_originalTiming is null) PublishFrontendPresentation();
         if (_originalTiming is not null) _hostCpuBudget = Math.Max(_hostCpuBudget, _originalTiming.Clocks);
     }
 
@@ -792,6 +823,8 @@ public partial class GameRoot : Node2D
                     ? "files" : _timedFrontendLoading;
                 _originalTiming.BeginUpdate(loading, _timedSoundRequests.ToArray(), slot => _mainMenu?.LoadedSlot(slot),
                     _frontendIntro?.PaletteWorkPending == true || _mainMenu?.PaletteWorkPending == true, _mainMenu?.RawEnteredName);
+                _originalTiming.StagePresentation(_timedFrontendPresentation.ToArray(), loading is not null);
+                _timedFrontendPresentation.Clear();
             }
         }
         finally
@@ -1504,6 +1537,7 @@ public partial class GameRoot : Node2D
         _hostCpuBudget = 0;
         _timedSoundRequests.Clear();
         _collectTimedSound = _timedSoundRestart = false;
+        _timedFrontendPresentation.Clear();
         _timedFrontendLoading = null;
         if (_frontendIntroScreen is not null &&
             GodotObject.IsInstanceValid(_frontendIntroScreen))

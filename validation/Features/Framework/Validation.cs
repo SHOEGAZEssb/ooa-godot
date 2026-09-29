@@ -20,6 +20,13 @@ public sealed partial class ValidationRoot : GameRoot
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--capture-startup-video"))
+        {
+            BeginTasReplay();
+            SetProcess(false);
+            if (_tasReplay) CaptureStartupVideo();
+            return;
+        }
         if (OS.GetCmdlineUserArgs().Contains("--tas-replay"))
         {
             BeginTasReplay();
@@ -244,6 +251,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSoundApuTiming);
         RunIsolatedValidation(ValidateSoundDriverCatalog);
         RunIsolatedValidation(ValidateOriginalExecutionTiming);
+        RunIsolatedValidation(ValidateFrontendVideoPresentation);
         RunIsolatedValidation(ValidateFileMenuInitializationTiming);
         RunIsolatedValidation(ValidateFileMenuAudioTiming);
         RunIsolatedValidation(ValidateSoundApplicationBatching);

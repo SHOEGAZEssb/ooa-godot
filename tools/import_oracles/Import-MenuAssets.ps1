@@ -1,6 +1,23 @@
 # Title and file-select screens use the same split VRAM layout as the original
 # GFXH_TITLESCREEN / GFXH_FILE_MENU_* headers. Preserve each source piece at
 # its header destination instead of baking a replacement menu image.
+$gbaSource = Read-ImportText (Join-Path $Disassembly 'code\loadGraphics.s')
+$gbaBlock = [regex]::Match($gbaSource, '(?ms)^gbaModePaletteData:\s*\r?\n(?<rows>(?:\s*\.db[^\r\n]*\r?\n)+)')
+if (-not $gbaBlock.Success) { throw 'code/loadGraphics.s:gbaModePaletteData missing.' }
+$gbaValues = [regex]::Matches($gbaBlock.Groups['rows'].Value, '\$(?<value>[0-9a-fA-F]{2})')
+if ($gbaValues.Count -ne 128) { throw 'gbaModePaletteData must contain all 128 encoded component bytes.' }
+$gbaComponents = [byte[]]::new(32)
+for ($component = 0; $component -lt 32; $component++) {
+    $value = [Convert]::ToInt32($gbaValues[$component].Groups['value'].Value, 16)
+    $green = [Convert]::ToInt32($gbaValues[32 + $component * 2].Groups['value'].Value, 16) -bor
+        ([Convert]::ToInt32($gbaValues[33 + $component * 2].Groups['value'].Value, 16) -shl 8)
+    $blue = [Convert]::ToInt32($gbaValues[96 + $component].Groups['value'].Value, 16)
+    if ($value -gt 31 -or $green -ne ($value -shl 5) -or $blue -ne ($value -shl 2)) {
+        throw "gbaModePaletteData component $component differs between the RGB encodings (R=$value G=$green B=$blue)."
+    }
+    $gbaComponents[$component] = $value
+}
+Write-GeneratedBytes((Join-Path $destination 'metadata\gba_palette_components.bin'), $gbaComponents)
 foreach ($piece in @('top', 'middle', 'bottom', 'error')) {
     Copy-GeneratedFile "gfx_compressible\common\map_secret_entry_$piece.bin" "menu\map_secret_entry_$piece.bin"
     Copy-GeneratedFile "gfx_compressible\common\flg_secret_entry_$piece.bin" "menu\flags_secret_entry_$piece.bin"

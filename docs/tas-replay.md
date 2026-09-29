@@ -89,11 +89,24 @@ The adapter supplies no reference elapsed time or audio tick counts to that
 clock. CPU clocks and timer counts are diagnostic fields; shared-state values
 still compare exactly. Loading coverage currently includes cold startup, title
 initialization, file select, new-file options, name entry and commit, and the
-message-speed confirmation before starting a file. Game initialization and
-other menu/gameplay loaders can still expose missing foreground work in the
-comparison.
+message-speed confirmation and unlinked pregame initialization before the first
+graphics-thread yield. Later game initialization and other menu/gameplay
+loaders can still expose missing foreground work in the comparison.
 
 ## Trace contract and coverage
+
+Rendered startup audits use a separate validation mode, `--validate
+--capture-startup-video`, with a real renderer (not `--headless`) and a 160 by
+144 viewport. `--video-inputs=PATH` supplies the parsed movie's two-byte
+held-buttons/power records. `--video-timeline=PATH` supplies a JSON array of
+consecutive zero-based `frame` records with native CPU endpoints in
+`fields["p_->cpu/cycleCounter_"]`. `--video-first=N`, `--video-last=N`, and
+`--video-output=PATH` select the inclusive capture range and output directory.
+The mode advances the production clock to each recorded observation time,
+then saves the actual rendered PNG and a `frames.jsonl` metadata row. It does
+not finish a pending load for a picture or resynchronize presentation states.
+It uses the TAS host's isolated file store. Captures and audit reports belong
+under `local-audits/`; they are not part of the shared-state pass/fail profile.
 
 [`tas.schema.json`](../tools/fidelity/tas.schema.json) defines streaming format
 version 2. A run has `manifest.json`, `rom.jsonl`, `godot.jsonl`, engine/compiler

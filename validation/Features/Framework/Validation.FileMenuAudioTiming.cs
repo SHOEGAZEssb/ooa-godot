@@ -39,6 +39,10 @@ public sealed partial class ValidationRoot
             FailIf(!split._originalTiming!.Busy || split._originalTiming.CompletedUpdates != 287 ||
                 split._sound.Channel(0).WaitFrames >= 93 || split._mainMenuScreen!.EnteredName.Length != 0,
                 "Name initialization accepted input or stopped sound timer service.");
+            // eraseFile/loadFile/font work runs with the LCD enabled. Native
+            // movie frames 332-336 retain new-file options, then 337-338 blank.
+            FailIf(split._mainMenuScreen.CurrentPage != Page.NewFileOptions || !split._mainMenuScreen.OriginalLcdEnabled,
+                "Name entry flashed over the old screen during its LCD-enabled save/font work.");
             split.Sample("map");
             split.AdvanceTimedApplication(loadTime / 4);
             split.Sample();
@@ -52,6 +56,8 @@ public sealed partial class ValidationRoot
                     root._sound.Channel(0).WaitFrames != 86 || root._mainMenuScreen!.EnteredName.Length != 0 ||
                     root._mainMenuScreen.NameCursor != 0,
                     "Name-entry work lost LCD-enabled short VBlanks, sound interrupts, or the input gate.");
+                FailIf(root._mainMenuScreen.CurrentPage != Page.NameEntry || !root._mainMenuScreen.OriginalLcdEnabled,
+                    "Name-entry graphics did not become visible after loading.");
             }
             FailIf(split._sound.Apu.Clocks != batch._sound.Apu.Clocks,
                 "Host-frame subdivision changed name-entry audio time.");
@@ -113,6 +119,12 @@ public sealed partial class ValidationRoot
             FailIf(split._mainMenu is not null || split._sound.Channel(2).Active ||
                 split._sound.Channel(6).Active || split._sound.Channel(0).WaitFrames != 8,
                 "mainThreadStart must reset SFX as well as music before the pregame cue.");
+            NewGameIntroScreen intro = split.GetNode<NewGameIntroScreen>("NewGameIntro");
+            FailIf(split._originalTiming.TimerTicks != 390 || !intro.DisplayBlank,
+                "Pregame initialization skipped loading interrupts or revealed its discarded LCD frame.");
+            split.Step(1);
+            FailIf(intro.DisplayBlank,
+                "Pregame initialization retained white after the next complete LCD frame.");
         }
         finally { split.Free(); batch.Free(); }
     }

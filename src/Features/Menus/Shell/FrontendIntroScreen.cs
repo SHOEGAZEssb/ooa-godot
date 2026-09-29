@@ -59,22 +59,7 @@ internal partial class FrontendIntroScreen : Node2D
 
     internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
-        _fadeMaterial = new ShaderMaterial
-        {
-            Shader = new Shader
-            {
-                Code = """
-                    shader_type canvas_item;
-                    uniform float fade_offset = 0.0;
-                    void fragment() {
-                        vec4 pixel = texture(TEXTURE, UV) * COLOR;
-                        pixel.rgb = sqrt(pixel.rgb);
-                        pixel.rgb = min(pixel.rgb + vec3(fade_offset / 31.0), vec3(1.0));
-                        COLOR = pixel;
-                    }
-                    """
-            }
-        };
+        _fadeMaterial = FrontendPaletteMaterial.Create();
         Material = _fadeMaterial;
 
         Color[,] capcomPalette = LoadPalette(
@@ -192,7 +177,7 @@ internal partial class FrontendIntroScreen : Node2D
 
     public override void _Draw()
     {
-        if (!_originalLcdEnabled) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
+        if (DisplayBlank) { DrawRect(new Rect2(0, 0, 160, 144), Colors.White); return; }
         if (_controller is null)
             return;
         DrawRect(new Rect2(0, 0, 160, 144), Scene == FrontendIntroScene.Capcom
@@ -245,8 +230,10 @@ internal partial class FrontendIntroScreen : Node2D
             DrawRect(new Rect2(0, 0, 160, 144), Colors.White);
     }
 
-    private bool _originalLcdEnabled = true;
-    internal void SetOriginalLcdEnabled(bool enabled) { _originalLcdEnabled = enabled; QueueRedraw(); }
+    internal bool OriginalLcdEnabled { get; private set; } = true;
+    internal void SetOriginalLcdEnabled(bool enabled) { OriginalLcdEnabled = enabled; QueueRedraw(); }
+    internal bool DisplayBlank { get; private set; }
+    internal void SetDisplayBlank(bool blank) { DisplayBlank = blank; QueueRedraw(); }
 
     private void DrawHorseFar()
     {

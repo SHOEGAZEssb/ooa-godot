@@ -19,7 +19,9 @@ public sealed class MainMenuController
     private readonly Action<int, OracleSaveData> _startGame;
     private readonly Action<int>? _playSound;
     private readonly Action<FileMenuInitialization>? _initialize;
+    private readonly Action<Action> _present;
     private FileMenuInitialization? _pendingInitialization;
+    private Page? _loadingPage;
     private readonly OracleSaveData?[] _slots = new OracleSaveData?[OracleSaveStore.SlotCount];
     private int _sourceSlot = -1;
     private double _titleTicks;
@@ -42,7 +44,7 @@ public sealed class MainMenuController
         FileMenuInitialization.NewFileOptions => Page.NewFileOptions,
         FileMenuInitialization.NameEntry => Page.NameEntry,
         FileMenuInitialization.FileSelect => Page.FileSelect,
-        _ => _screen.CurrentPage
+        _ => _loadingPage ?? _screen.CurrentPage
     };
     internal int Cursor => _screen.Cursor;
     internal string? LastSaveError { get; private set; }
@@ -58,7 +60,8 @@ public sealed class MainMenuController
         Action<int>? erase = null,
         Action<int>? playSound = null,
         bool startAtFileSelect = false,
-        Action<FileMenuInitialization>? initialize = null)
+        Action<FileMenuInitialization>? initialize = null,
+        Action<Action>? present = null)
     {
         _screen = screen;
         _startGame = startGame;
@@ -67,22 +70,40 @@ public sealed class MainMenuController
         _erase = erase ?? OracleSaveStore.EraseSlot;
         _playSound = playSound;
         _initialize = initialize;
+        _present = present ?? (action => action());
         ReloadSlots();
         // FrontendIntroController transfers this shared screen at the end of
         // the title's 32-update fade, when its palette offset is fully white.
         // fileSelectMode initialization loads the file-select palettes at that
         // boundary, so the new owner must clear the inherited title offset.
-        _screen.SetWhiteFade(0.0f);
         if (startAtFileSelect)
         {
-            _screen.ShowFileSelect();
+            PresentPage(Page.FileSelect, () =>
+            {
+                _screen.SetWhiteFade(0.0f);
+                _screen.ShowFileSelect();
+            });
             _playSound?.Invoke(SoundId.MusFileSelect);
         }
         else
         {
-            _screen.ShowTitle();
+            PresentPage(Page.Title, () =>
+            {
+                _screen.SetWhiteFade(0.0f);
+                _screen.ShowTitle();
+            });
             _playSound?.Invoke(SoundId.MusTitlescreen);
         }
+    }
+
+    private void PresentPage(Page page, Action show)
+    {
+        _loadingPage = page;
+        _present(() =>
+        {
+            show();
+            _loadingPage = null;
+        });
     }
 
     public void Update(double delta)
@@ -125,18 +146,18 @@ public sealed class MainMenuController
             switch (initialization)
             {
                 case FileMenuInitialization.NewFileOptions:
-                    _screen.ShowNewFileOptions(_screen.SelectedSlot);
+                    PresentPage(Page.NewFileOptions, () => _screen.ShowNewFileOptions(_screen.SelectedSlot));
                     break;
                 case FileMenuInitialization.NameEntry:
                     _repeatKeys = _repeatCounter = 0;
-                    _screen.ShowNameEntry(_screen.SelectedSlot);
+                    PresentPage(Page.NameEntry, () => _screen.ShowNameEntry(_screen.SelectedSlot));
                     break;
                 case FileMenuInitialization.NameCommit:
                     SaveEnteredName();
                     break;
                 case FileMenuInitialization.FileSelect:
                     ReloadSlots();
-                    _screen.ShowFileSelect();
+                    PresentPage(Page.FileSelect, _screen.ShowFileSelect);
                     break;
                 default: throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.");
             }
@@ -454,7 +475,7 @@ public sealed class MainMenuController
             _pendingInitialization = FileMenuInitialization.NewFileOptions;
         else
         {
-            _screen.ShowTextSpeed(slot, save.TextSpeed);
+            PresentPage(Page.TextSpeed, () => _screen.ShowTextSpeed(slot, save.TextSpeed));
             _initialize?.Invoke(FileMenuInitialization.SelectFile);
         }
     }
@@ -561,7 +582,7 @@ public sealed class MainMenuController
         _fadeDestination = destination;
         _fadeTicks = 0.0;
         PaletteWorkPending = true;
-        _screen.SetWhiteFade(0.0f);
+        _present(() => _screen.SetWhiteFade(0.0f));
     }
 
     private void UpdateFade(double delta)
@@ -570,7 +591,8 @@ public sealed class MainMenuController
         {
             _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
             PaletteWorkPending = _fadeTicks < WhiteFadeFrames;
-            _screen.SetWhiteFade((float)(_fadeTicks / WhiteFadeFrames));
+            float fade = (float)(_fadeTicks / WhiteFadeFrames);
+            _present(() => _screen.SetWhiteFade(fade));
             // paletteFadeHandler01 stops on the $20 boundary without a
             // palette write. The earlier file thread sees completion next update.
             return;
@@ -578,7 +600,6 @@ public sealed class MainMenuController
 
         FadeDestination destination = _fadeDestination;
         _fadeDestination = FadeDestination.None;
-        _screen.SetWhiteFade(0.0f);
         if (destination == FadeDestination.FileSelect)
         {
             _playSound?.Invoke(SoundId.MusFileSelect);

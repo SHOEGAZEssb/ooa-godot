@@ -100,7 +100,25 @@ public sealed partial class ValidationRoot
             {
                 root.Initialize();
                 root.Step(241);
-                root.Step(1, "inventory");
+                if (root == split)
+                {
+                    const double titleLoad = (37_499_532 - 36_017_044) / (double)OracleExecutionClock.CpuClocksPerSecond;
+                    const double beforeLcdOff = 256.0 / OracleExecutionClock.CpuClocksPerSecond;
+                    root.Sample("inventory");
+                    root.AdvanceTimedApplication(beforeLcdOff);
+                    FailIf(!root._originalTiming!.Busy || !root._frontendIntroScreen!.Visible ||
+                        root._mainMenuScreen!.Visible || !root._frontendIntroScreen.OriginalLcdEnabled,
+                        "Title loading exposed its destination before the original disableLcd call.");
+                    root.AdvanceTimedApplication(titleLoad / 2 - beforeLcdOff);
+                    FailIf(root._frontendIntroScreen.Visible || !root._mainMenuScreen.Visible ||
+                        root._mainMenuScreen.OriginalLcdEnabled,
+                        "Title graphics must be installed behind the source LCD-off white interval.");
+                    root._originalTiming.CompleteUpdate();
+                    FailIf(root._originalTiming.Busy || root._originalTiming.CompletedUpdates != 242 ||
+                        !root._mainMenuScreen.OriginalLcdEnabled,
+                        "Title presentation did not resume after its source graphics load.");
+                }
+                else root.Step(1, "inventory");
                 root.Step(9);
                 root.Step(1, "inventory");
                 root.Step(31);
@@ -112,10 +130,21 @@ public sealed partial class ValidationRoot
             // A press and release wholly inside the blocked load must never
             // become the next menu input. Timer sequencing must still run.
             split.Sample();
-            split.AdvanceTimedApplication(loadingTime / 4);
+            const double dispatchTime = 256.0 / OracleExecutionClock.CpuClocksPerSecond;
+            split.AdvanceTimedApplication(dispatchTime);
+            // Native frames 304-325 stay white across this handoff. The file
+            // controller exists before disableLcd, but its palettes must not
+            // clear the title's white fade and expose the destination early.
+            FailIf(split._mainMenu?.CurrentPage != Page.FileSelect ||
+                split._mainMenuScreen!.CurrentPage != Page.Title ||
+                split._mainMenuScreen.WhiteFadeOffset != 31 || !split._mainMenuScreen.OriginalLcdEnabled,
+                "File loading briefly exposed the unfaded file screen before LCD blanking.");
+            split.AdvanceTimedApplication(loadingTime / 4 - dispatchTime);
             FailIf(!split._originalTiming!.Busy || split._originalTiming.CompletedUpdates != 283 ||
                 split._sound.Driver.ReadState(0xc014) <= 32,
                 "Loading failed to block foreground updates while continuing audio.");
+            FailIf(split._mainMenuScreen.CurrentPage != Page.FileSelect || split._mainMenuScreen.OriginalLcdEnabled,
+                "File graphics must replace the title only behind the original LCD-off white interval.");
             split.Sample("attack");
             split.AdvanceTimedApplication(loadingTime / 4);
             split.Sample();
@@ -129,6 +158,9 @@ public sealed partial class ValidationRoot
                     "Completed source loading differs from clean-US fade $25 / channel-0 wait $64.");
                 FailIf(root._mainMenu?.CurrentPage != Page.FileSelect,
                     "A host input edge was consumed before loading completed.");
+                FailIf(root._mainMenuScreen!.CurrentPage != Page.FileSelect ||
+                    !root._mainMenuScreen.OriginalLcdEnabled || root._mainMenuScreen.WhiteFadeOffset != 0,
+                    "Single/batched loading ended with a stale display or retained white override.");
                 root.Step(1);
                 FailIf(root._mainMenu?.CurrentPage != Page.FileSelect,
                     "A press released during loading leaked into the next original input poll.");

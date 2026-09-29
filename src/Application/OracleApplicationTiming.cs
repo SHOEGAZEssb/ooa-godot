@@ -12,6 +12,7 @@ internal sealed class OracleApplicationTiming : IDisposable
     private readonly OracleSoundEngine _sound;
     private readonly Action<bool> _setLcd;
     private readonly OracleExecutionClock _clock;
+    private readonly OracleVideoPresentation _video;
     private IEnumerator<TimingOperation>? _work;
     private TimingOperation _operation;
     private long _remaining;
@@ -27,10 +28,11 @@ internal sealed class OracleApplicationTiming : IDisposable
     internal bool Busy => _work is not null;
     internal long CompletedUpdates { get; private set; }
 
-    internal OracleApplicationTiming(OracleSoundEngine sound, Action<bool> setLcd)
+    internal OracleApplicationTiming(OracleSoundEngine sound, Action<bool> setLcd, Action<bool>? displayBlank = null)
     {
         _sound = sound;
         _setLcd = setLcd;
+        _video = new OracleVideoPresentation(displayBlank ?? (_ => { }));
         // Clean-US cold start: enableTimer's TAC write, then the first
         // _mainLoop input boundary. DIV is free-running across restarts.
         _clock = new OracleExecutionClock(correction => sound.RunTimerInterrupt(correction, clockHardware: true),
@@ -38,6 +40,8 @@ internal sealed class OracleApplicationTiming : IDisposable
         _clock.EnableTimer();
         _clock.ConsumeCpuWork(1_171_344 - _clock.Clocks);
     }
+
+    internal void StagePresentation(IEnumerable<Action> actions, bool loading) => _video.Stage(actions, loading);
 
     internal void BeginUpdate(string? loading, IReadOnlyList<Action> requests,
         Func<int, OracleSaveData?> load, bool palettesDirty, string? enteredName = null)
@@ -51,11 +55,14 @@ internal sealed class OracleApplicationTiming : IDisposable
         deadline &= ~3L;
         while (_work is not null)
         {
+            _video.AdvanceTo(Clocks);
             if (!_hasOperation)
             {
                 if (!_work.MoveNext())
                 {
-                    _work.Dispose(); _work = null; CompletedUpdates++; return;
+                    _work.Dispose(); _work = null; CompletedUpdates++;
+                    _video.CompleteLoading();
+                    return;
                 }
                 _operation = _work.Current;
                 _remaining = _operation.Clocks;
@@ -64,6 +71,7 @@ internal sealed class OracleApplicationTiming : IDisposable
             if (_operation.Wait)
             {
                 _clock.WaitUntil(Math.Min(_remaining, deadline));
+                _video.AdvanceTo(Clocks);
                 if (Clocks < _remaining) return;
             }
             else
@@ -71,6 +79,7 @@ internal sealed class OracleApplicationTiming : IDisposable
                 if (Clocks >= deadline && _remaining != 0) return;
                 long cpuDeadline = _lcdEnabled && !_vblankMasked ? Math.Min(deadline, _nextVBlank) : deadline;
                 _clock.ConsumeUntil(ref _remaining, cpuDeadline);
+                _video.AdvanceTo(Clocks);
                 if (_lcdEnabled && !_vblankMasked && Clocks >= _nextVBlank)
                 {
                     // wVBlankChecker is not $ff while foreground work runs:
@@ -101,6 +110,7 @@ internal sealed class OracleApplicationTiming : IDisposable
                 // _mainLoop -> pollInput -> resume the existing file thread
                 // at $00:$1a1f. The initial thread-start clear is not repeated.
                 "new-file-options" or "name-entry" or "name-commit" or "files-return" or "file-select" or "file-start" => 612,
+                "pregame-start" or "pregame-start-empty" or "pregame-start-negative" => 596,
                 _ => throw new InvalidOperationException($"Unsupported loading owner {loading}.") });
             var plan = loading switch
             {
@@ -189,6 +199,7 @@ internal sealed class OracleApplicationTiming : IDisposable
 
     private void SetLcd(bool enabled)
     {
+        _video.SetLcd(enabled, Clocks - 4);
         if (enabled && !_lcdEnabled)
         {
             _vblankMasked = false;
