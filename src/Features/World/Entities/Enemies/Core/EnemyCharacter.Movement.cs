@@ -8,6 +8,10 @@ public abstract partial class EnemyCharacter
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
+    protected byte ReadMovementWramByte(int address) =>
+        (_movementMemory ?? throw new System.InvalidOperationException(
+            $"Native enemy read ${address:x4} requires the room's shared WRAM owner.")).ReadWramByte(address);
+
     // Executed getPositionOffsetForVelocity, distinct from pure geometry and
     // presentation lookups. Standalone character fixtures have no room WRAM.
     internal OracleObjectVelocity MovementVelocity(int speed, int angle) =>

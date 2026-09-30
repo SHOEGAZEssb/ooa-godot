@@ -45,6 +45,7 @@ internal sealed class LinkCollisionRom
 
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal void Bank(int bank, int address, byte value) => _wram[bank][address - 0xd000] = value;
+    internal byte BankByte(int bank, int address) => _wram[bank][address - 0xd000];
     internal int Word(int address) => _memory[address] | (_memory[address + 1] << 8);
     internal void Word(int address, int value)
     {
@@ -52,7 +53,8 @@ internal sealed class LinkCollisionRom
         _memory[address + 1] = unchecked((byte)(value >> 8));
     }
 
-    internal void Call(int entry, int speed = 0x28, int angle = 0, int bank = 5, int objectPage = 0xd0, int accumulator = 0)
+    internal void Call(int entry, int speed = 0x28, int angle = 0, int bank = 5, int objectPage = 0xd0, int accumulator = 0,
+        bool restoresBank = true)
     {
         _bank = bank;
         _memory[0xff97] = (byte)bank;
@@ -62,14 +64,14 @@ internal sealed class LinkCollisionRom
             0xcd, (byte)entry, (byte)(entry >> 8),
             0xf5, 0xc1, 0x78, 0xea, 0x00, 0xc2, 0x79, 0xea, 0x01, 0xc2, .. exitStack, 0xc9];
         _cpu.RunCall(0xc100);
-        if (_bank != bank || _memory[0xff97] != bank)
+        if (restoresBank && (_bank != bank || _memory[0xff97] != bank))
             throw new InvalidDataException("Link collision call failed to restore ROM bank ownership.");
     }
 
     private int Read(int address)
     {
         if (address < 0x4000) return _rom.Span[address];
-        if (address < 0x8000 && _bank is 1 or 2 or 3 or 5 or 6 or 7 or 8 or 0x0a or 0x16 or 0x3f)
+        if (address < 0x8000 && _bank is 1 or 2 or 3 or 5 or 6 or 7 or 8 or 0x0a or 0x0d or 0x0f or 0x11 or 0x16 or 0x3f)
             return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (address is >= 0xd000 and < 0xe000 && _memory[0xff70] > 1)

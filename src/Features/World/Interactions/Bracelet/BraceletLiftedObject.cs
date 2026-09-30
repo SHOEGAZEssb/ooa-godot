@@ -14,6 +14,7 @@ internal partial class BraceletLiftedObject : Node2D
     private Texture2D _texture = null!;
     private int _zFixed;
     private int _speedZ;
+    private readonly ItemTilePassage _tilePassage = new();
     private Func<bool> _shadowDrawn = static () => false;
     internal bool TerrainShadowDrawn => _shadowDrawn();
 
@@ -95,6 +96,9 @@ internal partial class BraceletLiftedObject : Node2D
 
     internal Vector2 GroundPosition =>
         new(GroundX / 256.0f, GroundY / 256.0f);
+
+    internal bool CanPassSolidTile(OracleRoomData room, Vector2 point) =>
+        _tilePassage.CanPass(room, point, CarriedObjectMotion.DirectionIndex(ThrowDirection) * 8);
 
     internal Rect2 CollisionBounds(int radiusX, int radiusY)
     {

@@ -404,6 +404,15 @@ public sealed class OracleRoomData
             layoutIndex, out byte collisionOverride)
             ? collisionOverride
             : Collisions[metatile];
+        return IsSolidCollisionByte(localPoint, collision, specialCollisionMasks, horizontalSpecialStrips);
+    }
+
+    internal bool IsSolidCollisionByte(Vector2 localPoint, byte collision, bool holesAreWalls) =>
+        IsSolidCollisionByte(localPoint, collision, holesAreWalls ? EnemySpecialCollisionMasks : SpecialCollisionMasks);
+
+    private static bool IsSolidCollisionByte(Vector2 localPoint, byte collision, byte[] specialCollisionMasks,
+        bool horizontalSpecialStrips = false)
+    {
         int inTileX = Mathf.PosMod(Mathf.FloorToInt(localPoint.X), MetatileSize);
         int inTileY = Mathf.PosMod(Mathf.FloorToInt(localPoint.Y), MetatileSize);
 

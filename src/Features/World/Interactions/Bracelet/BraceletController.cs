@@ -218,12 +218,15 @@ public sealed class BraceletController
             case BraceletState.Throwing:
                 AdvanceProjectile();
                 _counter++;
-                if (_counter >= _record.ThrowFrames)
+                // state4 checks the terminal parameter before animating:
+                // eight animation updates precede the parent deletion update.
+                if (_counter > _record.ThrowFrames)
                 {
                     player.ClearBraceletActionPose();
                     _state = _object is null
                         ? BraceletState.Idle
                         : BraceletState.Projectile;
+                    return false;
                 }
                 return true;
 
@@ -549,12 +552,13 @@ public sealed class BraceletController
             return;
         }
 
-        Vector2 front = ground + CarriedObjectMotion.ThrowCollisionOffset(
+        // Native tile collision reads YH/XH, ignoring the item's low bytes.
+        Vector2 front = OracleObjectMath.ToPixelPosition(ground) + CarriedObjectMotion.ThrowCollisionOffset(
             _object.ThrowDirection);
         if (_object.ThrowDirection != Vector2I.Zero &&
             (front.X < 0 || front.X >= room.Width ||
              front.Y < 0 || front.Y >= room.Height ||
-             room.IsSolid(front)))
+             room.IsSolid(front) && !_object.CanPassSolidTile(room, front)))
         {
             BreakObject(ground);
             return;
@@ -581,10 +585,15 @@ public sealed class BraceletController
 
     private void BreakObject(Vector2 position)
     {
+        // itemMakeInteractionForBreakableTile copies only YH/XH. Debris
+        // interactions start with zero fractional position bytes.
+        position = OracleObjectMath.ToPixelPosition(position);
         // objectReplaceWithAnimationIfOnHazard precedes the stored breakable
         // interaction on both lateral collision and ground contact.
-        HazardType hazard =
-            _rooms.CurrentRoom.GetTerrainInfo(position).Hazard;
+        // objectCheckIsOnHazard returns before the YH+$05 probe while
+        // zh is negative. An airborne wall impact creates ordinary debris.
+        HazardType hazard = _object!.ZFixed < 0 ? HazardType.None :
+            _rooms.CurrentRoom.GetTerrainInfo(position + new Vector2(0, 5)).Hazard;
         if (hazard != HazardType.None)
         {
             _entities.SpawnItemHazardEffect(

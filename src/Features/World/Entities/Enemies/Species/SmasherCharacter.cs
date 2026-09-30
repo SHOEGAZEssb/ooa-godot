@@ -243,7 +243,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowS
                 var writeAngle = setReservedItemAngle ?? throw new InvalidOperationException("$74 release requires reserved item C angle owner.");
                 bool Wall(Vector2 point) => point.X < 0 || point.Y < 0 || point.X >= _room.Width || point.Y >= _room.Height ||
                     _room.IsSolidForEnemyMovement(point, holesAreWalls: true);
-                int reflected = Angle == 0xff ? _data.BounceDroppedBall(Position, Wall) :
+                int reflected = Angle == 0xff ? _data.BounceDroppedBall(Position, DroppedBallWall) :
                     EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle, point => Wall(point));
                 if (reflected != Angle) { Angle = reflected; writeAngle(Angle); }
                 if ((_related?.InvincibilityCounter ?? _data.UnlinkedInvincibility) != 0 ||
@@ -267,6 +267,21 @@ internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowS
             case 3: State = 8; ZIndex = ObjectDrawPriority.BehindLinkZIndex; return;
             default: throw new NotSupportedException($"smasher_state_grabbed substate ${GrabSubstate:x2} is not represented.");
         }
+    }
+
+    private bool DroppedBallWall(Vector2 point)
+    {
+        // Angle $ff reads beyond ecom_sideviewAdjacentWallOffsetTable. Its
+        // byte-wrapped probes address the entire $ce00 collision page, not
+        // an all-solid rectangle outside the playable room. The unused rows
+        // include shared movement scratch; read that authoritative owner.
+        int x = (byte)(int)point.X >> 4, y = (byte)(int)point.Y >> 4;
+        if (x < _room.WidthInTiles && y < _room.HeightInTiles)
+            return _room.IsSolidForEnemyMovement(point, holesAreWalls: true);
+        if (y == 15 || y == _room.HeightInTiles ||
+            y < 11 && (x == 15 || _room.WidthInTiles == 10 && x == 10)) return true;
+        byte collision = ReadMovementWramByte(0xce00 + y * 16 + x);
+        return _room.IsSolidCollisionByte(point, collision, holesAreWalls: true);
     }
 
     private void UpdateParent(Vector2 target, Action beginMiniboss)
