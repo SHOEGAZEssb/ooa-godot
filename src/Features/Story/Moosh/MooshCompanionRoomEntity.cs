@@ -13,8 +13,9 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction,
     IPlayerForcedMovement, IPlayerRideableRoomEntity,
     IPlayerScreenTransitionRoomEntity, IRoomEntityLifetime,
-    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker
+    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker, IRoomInitializedCompanion
 {
+    public CompanionRoomInitialization? RoomInitialization { get; set; }
 
     private bool _forestWaiting;
     public bool ForestButtonPressed { get; private set; }
@@ -290,6 +291,18 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if (RoomInitialization is { Pending: true } initialization)
+        {
+            if (initialization.Advance(ref _precisePosition))
+            {
+                _finished = initialization.Rejected;
+                _angle = 2;
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                _animation.SetAnimation(_animation.AnimationIndex);
+                Visible = !_finished;
+            }
+            return;
+        }
         _attackPressed = Input.IsActionPressed("attack");
         _itemPressed = Input.IsActionPressed("item");
         // mooshState5/state8 read wGameKeysJustPressed. Do not reconstruct

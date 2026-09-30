@@ -147,8 +147,12 @@ internal sealed class RickyGlovesEventDatabase
         }
 
         int state = save.ReadWramByte(Record.RickyStateAddress);
-        return (state & (Record.CompleteMask | Record.LeftMask)) == 0;
+        return (state & (Record.CompleteMask | Record.LeftMask | 0x80)) == 0;
     }
+
+    internal bool ShouldSpawnPreset(int group, int room, OracleSaveData save) =>
+        group == Record.Group && room == Record.Room && save.HasGlobalFlag(Record.PrerequisiteGlobalFlag) &&
+        (save.ReadWramByte(Record.RickyStateAddress) & Record.LeftMask) == 0;
 
     internal NpcRecord CreateActorRecord() => new(
         Record.Group,

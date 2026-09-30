@@ -9,8 +9,9 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
     IPlayerRideableRoomEntity, IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime, IPlayerInteractable, IRoomBlocker, ICompanionBarrierTarget,
-    IBraceletInteractableRoomEntity, IBraceletChildRoomEntity, IForestCompanion
+    IBraceletInteractableRoomEntity, IBraceletChildRoomEntity, IForestCompanion, IRoomInitializedCompanion
 {
+    public CompanionRoomInitialization? RoomInitialization { get; set; }
     private readonly DimitriDatabase _data;
     private readonly OracleSaveData _save;
     private readonly OracleRuntimeState _runtime;
@@ -181,6 +182,18 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
+        if (RoomInitialization is { Pending: true } initialization)
+        {
+            if (initialization.Advance(ref _precisePosition))
+            {
+                if (initialization.Rejected) _phase = DimitriPhase.Finished;
+                _angle = 2; _water = 0;
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                SetAnimation(_phase == DimitriPhase.Harassed ? 0x22 : 0x1c);
+                Visible = !initialization.Rejected;
+            }
+            return;
+        }
         Player player = frame.Player;
         bool attack = Input.IsActionPressed("attack") && Input.IsActionJustPressed("attack");
         bool item = Input.IsActionPressed("item") && Input.IsActionJustPressed("item");

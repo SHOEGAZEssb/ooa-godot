@@ -54,6 +54,14 @@ Bracelet child owns throw physics and copies whole-pixel coordinates back after
 Link; his companion handler observes that copy on the following update. Carry
 poses and throws use the object's imported weight, including Dimitri's row.
 
+Remembered companions are admitted before room presets. Their state-zero
+initialization yields once for solid-object reservations, then checks the
+remembered position and the shared last-mount fallback. Rejected spawns retain
+the remembered bytes. These two initialization updates also run during fades
+and scrolling; initialized companions remain frozen. Preset spawns clear only
+the remembered ID and install their own last-mount point. Flute requests respect
+both the shared live slot and retained outgoing companions.
+
 `RoomEntityManager` owns creation, active/outgoing lifetimes, contacts, and
 native pools. Ordinary category order is items, enemies, parts, then
 interactions. Reserved controllers retain their original positions within

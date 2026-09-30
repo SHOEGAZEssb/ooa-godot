@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -38,6 +39,7 @@ internal sealed class RickyGlovesEvent :
 
     public bool Matches(int group, OracleRoomData room) =>
         !CompanionRuntimeState.AnyActive(Context.Entities.RuntimeState) &&
+        !Context.Entities.EntityAdapters<IRoomEntity>().Any(actor => actor is IRoomInitializedCompanion) &&
         _database.ShouldSpawn(group, room.Id, Context.Rooms.SaveData);
 
     public void Start(OracleRoomData room)
@@ -62,7 +64,7 @@ internal sealed class RickyGlovesEvent :
 
         // The source spawner clears only wRememberedCompanionId after
         // installing Ricky's fixed preset.
-        CompanionRuntimeState.ForgetRemembered(Context.Entities.RuntimeState);
+        CompanionRuntimeState.InstallPreset(Context.Entities.RuntimeState, new(_record.RickyX, _record.RickyY));
         _placedActor = Context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(
                 _database.CreateActorRecord(),

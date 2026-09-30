@@ -41,6 +41,16 @@ internal sealed class CompanionRom
     internal int SignedWord(int address) => unchecked((short)_rom.Word(address));
     internal void Word(int address, int value) => _rom.Word(address, value);
     internal void SetAnimation(int animation) => _rom.Call(0x2b0a, objectPage: 0xd1, accumulator: animation);
+    internal void InitializeRemembered(Vector2 link, Vector2 fallback, bool occupied)
+    {
+        WaitForMount(link);
+        this[0xd104] = this[0xd105] = this[0xd103] = 0;
+        this[0xd108] = this[0xd109] = 0;
+        this[0xc638] = (byte)fallback.Y; this[0xc639] = (byte)fallback.X;
+        this[0xc646] = this[0xc647] = this[0xc648] = 0x80;
+        int packed = (this[0xd10b] & 0xf0) | (this[0xd10d] >> 4);
+        if (occupied) _rom.Bank(2, 0xd980 + packed / 8, (byte)(1 << (packed & 7)));
+    }
     internal void SetTile(int x, int y, byte tile, byte collision)
     { this[0xcf00 + y * 16 + x] = tile; this[0xce00 + y * 16 + x] = collision; }
     internal Vector2 Position

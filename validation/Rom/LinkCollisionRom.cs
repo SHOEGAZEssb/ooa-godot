@@ -69,7 +69,7 @@ internal sealed class LinkCollisionRom
     private int Read(int address)
     {
         if (address < 0x4000) return _rom[address];
-        if (address < 0x8000 && _bank is 1 or 3 or 5 or 6 or 7 or 8 or 0x16 or 0x3f)
+        if (address < 0x8000 && _bank is 1 or 2 or 3 or 5 or 6 or 7 or 8 or 0x0a or 0x16 or 0x3f)
             return _rom[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (address is >= 0xd000 and < 0xe000 && _memory[0xff70] > 1)

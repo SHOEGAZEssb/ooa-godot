@@ -17,8 +17,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     IPlayerRideableRoomEntity,
     IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime,
-    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker
+    ICompanionBarrierTarget, IForestCompanion, IRoomBlocker, IRoomInitializedCompanion
 {
+    public CompanionRoomInitialization? RoomInitialization { get; set; }
 
     private bool _forestWaiting;
     public bool ForestButtonPressed { get; private set; }
@@ -306,6 +307,18 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if (RoomInitialization is { Pending: true } initialization)
+        {
+            if (initialization.Advance(ref _precisePosition))
+            {
+                _finished = initialization.Rejected;
+                _angle = 2;
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                _animation.SetAnimation(_animation.AnimationIndex);
+                Visible = !_finished;
+            }
+            return;
+        }
         _ = spawns;
         _attackPressed = Input.IsActionPressed("attack");
         _attackJustPressed = _attackEdge.Read(Input.IsActionJustPressed("attack"));

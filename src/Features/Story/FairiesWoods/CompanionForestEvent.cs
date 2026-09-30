@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -79,18 +80,22 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
         if (_role == 9 && Flag(0x42) || _role == 10)
         {
             Vector2 position = _role == 10 ? new(0x68, 0x48) : new(0x50, 0x58);
-            if (CompanionRuntimeState.AnyActive(_context.Entities.RuntimeState))
-                throw new InvalidOperationException($"companionSpawner.s:${(_role == 10 ? 5 : 4):x2} found an occupied companion slot in 0:{room.Id:x2}.");
-            _companion = _companionId switch
+            // Room restoration precedes INTERAC_COMPANION_SPAWNER. The
+            // spawner leaves an occupied slot intact; the script retains it.
+            _companion = _context.Entities.EntityAdapters<IRoomEntity>().OfType<IForestCompanion>()
+                .Concat(_context.Entities.OutgoingEntities<Node2D>().OfType<IForestCompanion>()).FirstOrDefault();
+            if (_companion is null && !CompanionRuntimeState.AnyActive(_context.Entities.RuntimeState))
             {
-                0x0b => _context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
-                0x0c => _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
-                0x0d => _context.Entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
-                _ => throw UnsupportedCommand($"spawn forest companion ${_companionId:x2}")
-            };
-            _companion.UseForestInteraction(_role == 10);
-            CompanionRuntimeState.ForgetRemembered(_context.Entities.RuntimeState);
-            CompanionRuntimeState.SetLastAnimalMountPosition(_context.Entities.RuntimeState, position);
+                _companion = _companionId switch
+                {
+                    0x0b => _context.Entities.Spawn<RickyCompanionRoomEntity>(new RickyCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
+                    0x0c => _context.Entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
+                    0x0d => _context.Entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(position, ObjectDirection.Down, 0, room.Id)),
+                    _ => throw UnsupportedCommand($"spawn forest companion ${_companionId:x2}")
+                };
+                _companion.UseForestInteraction(_role == 10);
+                CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, position);
+            }
         }
         if (_role == 10)
         {

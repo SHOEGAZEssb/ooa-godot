@@ -129,6 +129,14 @@ internal static class CompanionRuntimeState
     internal static void ForgetRemembered(OracleRuntimeState state) =>
         state.SetWramByte(RememberedId, 0);
 
+    // companionSpawner.s:@loadCompanionPreset overwrites only the remembered
+    // ID and last-mount coordinates; the remembered room/position survive.
+    internal static void InstallPreset(OracleRuntimeState state, Vector2 position)
+    {
+        ForgetRemembered(state);
+        SetLastAnimalMountPosition(state, position);
+    }
+
     internal static bool TryGetRemembered(
         OracleRuntimeState state,
         int id,

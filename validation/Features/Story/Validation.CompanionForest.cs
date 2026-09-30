@@ -270,6 +270,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateAwardedCompanionFlute(int companion, bool primaryButton = false)
     {
+        // The quest ends mounted. This isolated call fixture starts with an
+        // empty native slot, rather than retaining its owner across debug loads.
+        foreach (int id in new[] { 0x0b, 0x0c, 0x0d }) CompanionRuntimeState.Clear(_runtimeState, id);
+        CompanionRuntimeState.ForgetRemembered(_runtimeState);
         LoadValidationRoom(0, 0x2a);
         // This is an isolated flute/mount fixture. Live Octorok projectiles
         // now run in the native PART pass and can knock Link out of the

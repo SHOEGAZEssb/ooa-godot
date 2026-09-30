@@ -279,6 +279,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRickyTornadoAllocationRom, requiresRom: true);
         RunIsolatedValidation(ValidateCompanionUpdateGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidateCompanionDeparturesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionFluteSpawnRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionFluteGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionRememberedSpawnRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionPresetsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionPresetPrecedenceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionPersistenceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionRememberedEligibilityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionSpawnInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionSpawnScrollRom, requiresRom: true);
         RunIsolatedValidation(ValidateDimitriWaterDismountRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureRupeeValues);
         RunIsolatedValidation(ValidateCpuDecimalArithmetic);

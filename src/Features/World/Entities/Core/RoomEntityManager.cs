@@ -84,6 +84,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly byte[] _deletedEnemyCounter1 = new byte[16];
     private readonly HashSet<IRoomEntity> _updatedEntitiesThisFrame = new();
     private readonly HashSet<IRoomEntity> _specialObjectsUpdatedBeforePlayer = new();
+    private TimeWarpLandingDatabase? _companionSolidPositions;
 
     private void RegisterEnemySlot(IRoomEntity? entity, int slot)
     {
@@ -790,7 +791,8 @@ public sealed class RoomEntityManager : IDisposable
                 continue;
             // updateSpecialObjects dispatches w1Companion before w1Link.
             _specialObjectsUpdatedBeforePlayer.Add(entity);
-            if (!frozen) ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
+            if (!frozen || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true })
+                ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
         }
         // Clear after the companion, before Link/item parents/interactions can
         // publish the next update's wDisallowMountingCompanion signal.
@@ -1928,6 +1930,15 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _factory.CreateRoomEntities(
             group, room, placementContext))
             AddEntity(entity);
+        foreach (var entity in _activeEntities)
+        {
+            if (entity is not IRoomInitializedCompanion companion ||
+                entity is IPlayerRideableRoomEntity { LinkRiding: true } ||
+                entity is MooshCompanionRoomEntity { GoodbyeActive: true }) continue;
+            companion.RoomInitialization = new(room, _runtimeState,
+                position => TimeWarpPositionOccupied(_companionSolidPositions ??= new(), room.GetPackedPosition(position)));
+            entity.Node.Visible = false;
+        }
         RefreshNpcState(_activeEntities);
         RoomEntitiesLoaded?.Invoke(group, room);
     }
@@ -2542,6 +2553,9 @@ public sealed class RoomEntityManager : IDisposable
 
     private void PrepareIncomingEntityForScreenTransition(IRoomEntity entity, Player? player)
     {
+        // These special objects explicitly retain both state-$00 updates;
+        // UpdateAlwaysEntitiesDuringScreenTransition finishes their admission.
+        if (entity is IRoomInitializedCompanion { RoomInitialization.Pending: true }) return;
         if (entity is IScreenTransitionPreloadRoomEntity preloader)
         {
             ScreenTransitionPresentation presentation =
@@ -2874,6 +2888,12 @@ public sealed class RoomEntityManager : IDisposable
             // including scroll updates that dispatch enabled bit-$80 objects.
             AdvanceFrozenRoomFrame();
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
+            // companionRetIfInactive admits state $00 during scrolling;
+            // ordinary companion movement remains frozen after initialization.
+            foreach (var entity in _activeEntities.ToArray())
+                if (entity is IRoomInitializedCompanion { RoomInitialization.Pending: true } &&
+                    entity is IFixedRoomEntity companion)
+                    companion.UpdateFrame(frame, _pendingSpawns);
             ReservedKeyDoor?.UpdateDuringScreenTransition();
             ReservedPushBlock?.UpdateDuringScreenTransition(player);
             foreach (IRoomEntity entity in ScreenTransitionUpdateOrder())

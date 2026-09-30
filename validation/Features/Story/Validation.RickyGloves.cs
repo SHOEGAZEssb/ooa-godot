@@ -69,8 +69,8 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(record.Group, record.Room);
         FailIf(
             rickyEvent.HasState || rickyEvent.RickyActor is not null ||
-            _entities.Entities<RickyCompanionRoomEntity>().Any(),
-            "wRickyState bit `$20 did not suppress room 0:6a Ricky.");
+            _entities.Entities<RickyCompanionRoomEntity>().Count != 1,
+            "wRickyState bit `$20 must replace the glove quest with the waiting Ricky preset.");
 
         Configure(
             prerequisite: true,
@@ -150,7 +150,7 @@ public sealed partial class ValidationRoot
             _runtimeState,
             CompanionRuntimeState.RickyId,
             record.Group,
-            record.Room,
+            leftNeighbor,
             new Vector2(0x22, 0x33));
         LoadValidationRoom(record.Group, record.Room);
 
@@ -169,7 +169,7 @@ public sealed partial class ValidationRoot
             rickyEvent.ButtonSensitive || ricky.Active || ricky.Visible ||
             _entities.Entities<RickyCompanionRoomEntity>().Any() ||
             remembered.Id != 0 || remembered.Group != record.Group ||
-            remembered.Room != record.Room || remembered.Y != 0x33 ||
+            remembered.Room != leftNeighbor || remembered.Y != 0x33 ||
             remembered.X != 0x22 ||
             _entities.Entities<NpcCharacter>().Any(npc =>
                 npc.Record.Id == 0x31 && npc.Record.SubId == 0x00 &&
@@ -318,7 +318,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(record.Group, record.Room);
         FailIf(
             rickyEvent.HasState || rickyEvent.RickyActor is not null ||
-            _entities.Entities<RickyCompanionRoomEntity>().Any(),
+            _entities.Entities<RickyCompanionRoomEntity>().Count != 1,
             "Room 0:6a replayed Ricky's glove interaction after persistent " +
             "wRickyState bit `$20.");
 

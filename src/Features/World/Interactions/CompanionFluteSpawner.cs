@@ -10,12 +10,16 @@ internal sealed class CompanionFluteSpawner(RoomSession rooms, RoomEntityManager
 {
     internal void Call(Player player, int icon)
     {
-        var occupants = entities.EntityAdapters<IRoomEntity>().Where(actor => actor is IPlayerRideableRoomEntity).ToArray();
-        if (occupants.Any(actor => actor is DimitriCompanionRoomEntity or RickyCompanionRoomEntity or MooshCompanionRoomEntity)) return;
+        var occupants = entities.EntityAdapters<IRoomEntity>().Concat(entities.OutgoingEntities<Node2D>().OfType<IRoomEntity>())
+            .Where(actor => actor is IPlayerRideableRoomEntity && actor is not IRoomEntityLifetime { Finished: true }).ToArray();
+        bool liveSlot = CompanionRuntimeState.AnyActive(entities.RuntimeState);
+        int liveId = liveSlot ? CompanionRuntimeState.Read(entities.RuntimeState).Id : -1;
+        if (liveSlot && liveId < 0x0e && liveId != 0x0a ||
+            occupants.Any(actor => actor is DimitriCompanionRoomEntity or RickyCompanionRoomEntity or MooshCompanionRoomEntity)) return;
         if ((rooms.CurrentRoom.TilesetFlags & 0x81) != 1) return;
         if (icon == 0) { showText(data.Text(0x510f), player); return; }
         if (!data.Callable(rooms.CurrentRoom.Id)) { showText(data.Text(0x510c), player); return; }
-        if (occupants.Length != 0) return;
+        if (liveSlot || occupants.Length != 0) return;
 
         int column = (Mathf.FloorToInt(player.Position.X) >> 4) & 15;
         int row = Mathf.FloorToInt(player.Position.Y) & 0xf0;

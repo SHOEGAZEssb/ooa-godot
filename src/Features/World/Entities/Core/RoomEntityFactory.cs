@@ -590,7 +590,7 @@ internal sealed class RoomEntityFactory(
                 companionBarrierTarget = moosh;
             }
         }
-        else if (!companionSlotActive && !rickySpawnerActive &&
+        else if (!companionSlotActive &&
             CompanionRuntimeState.TryGetRemembered(
                 runtimeState,
                 CompanionRuntimeState.RickyId,
@@ -606,7 +606,7 @@ internal sealed class RoomEntityFactory(
             companionEntity = ricky;
             companionBarrierTarget = ricky;
         }
-        else if (!companionSlotActive && !rickySpawnerActive &&
+        else if (!companionSlotActive &&
             CompanionRuntimeState.TryGetRemembered(
                 runtimeState,
                 CompanionRuntimeState.MooshId,
@@ -622,6 +622,13 @@ internal sealed class RoomEntityFactory(
             companionEntity = moosh;
             companionBarrierTarget = moosh;
         }
+        else if (!companionSlotActive && CompanionRuntimeState.TryGetRemembered(
+            runtimeState, SpecialObjectId.Dimitri, activeGroup, room.Id, out Vector2 rememberedDimitri))
+        {
+            var dimitri = CreateDimitri(new(rememberedDimitri, ObjectDirection.Down, activeGroup, room.Id), room);
+            companionEntity = dimitri;
+            companionBarrierTarget = dimitri;
+        }
         else if (!companionSlotActive &&
             saveData is not null &&
             inventory is not null &&
@@ -630,8 +637,8 @@ internal sealed class RoomEntityFactory(
         {
             // INTERAC_COMPANION_SPAWNER $67:$01 writes only
             // wRememberedCompanionId after installing the fixed Moosh preset.
-            CompanionRuntimeState.ForgetRemembered(runtimeState);
             MooshGoodbyeEventRecord goodbye = _mooshGoodbye.Record;
+            CompanionRuntimeState.InstallPreset(runtimeState, new(goodbye.MooshX, goodbye.MooshY));
             MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
                 new Vector2(goodbye.MooshX, goodbye.MooshY),
                 goodbye.FlightAngle >> 3,
@@ -643,22 +650,28 @@ internal sealed class RoomEntityFactory(
         }
         if (companionEntity is null && !companionSlotActive && saveData is not null)
         {
-            bool remembered = CompanionRuntimeState.TryGetRemembered(runtimeState, SpecialObjectId.Dimitri, activeGroup, room.Id, out Vector2 position);
             // companionSpawner.s subid $03 / preset $03.
             bool preset = _dimitri.ShouldSpawnPreset(activeGroup, room.Id, saveData);
-            if (remembered || preset)
+            if (preset)
             {
                 // Room initialization restores a remembered companion before
                 // $67:$03; the spawner then sees the occupied slot and deletes.
-                if (preset && !remembered)
-                {
-                    position = _dimitri.PresetPosition;
-                    CompanionRuntimeState.ForgetRemembered(runtimeState);
-                }
+                Vector2 position = _dimitri.PresetPosition;
+                CompanionRuntimeState.InstallPreset(runtimeState, position);
                 var dimitri = CreateDimitri(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
                 companionEntity = dimitri;
                 companionBarrierTarget = dimitri;
             }
+        }
+        if (companionEntity is null && !companionSlotActive && !rickySpawnerActive && saveData is not null &&
+            _ricky.ShouldSpawnPreset(activeGroup, room.Id, saveData))
+        {
+            var record = _ricky.Record;
+            Vector2 position = new(record.RickyX, record.RickyY);
+            CompanionRuntimeState.InstallPreset(runtimeState, position);
+            var ricky = CreateRicky(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
+            companionEntity = ricky;
+            companionBarrierTarget = ricky;
         }
         if (companionEntity is not null)
             yield return companionEntity;
