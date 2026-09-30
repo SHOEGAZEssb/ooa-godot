@@ -32,7 +32,8 @@ public sealed class BombDatabase
                     "lift-mid-frames", "lift-high-frames", "throw-frames",
                     "edge-offsets", "bounce-speeds", "item-passable-tiles",
                     "break-probes",
-                    "fuse-animation", "explosion-animation", "source"
+                    "fuse-animation", "explosion-animation",
+                    "creation-lift-low-frames", "source"
                 ],
                 ["item"],
                 headerRequired: true));
@@ -69,7 +70,8 @@ public sealed class BombDatabase
             ParseBreakProbes(row.RequiredString(28), row),
             row.RequiredString(29),
             row.RequiredString(30),
-            row.RequiredString(31));
+            row.UnsignedDecimal(31),
+            row.RequiredString(32));
         Validate(Data);
     }
 
@@ -204,7 +206,8 @@ public sealed class BombDatabase
             record.Gravity != 0x1c || record.InitialSpeedZ != -0xf0 ||
             record.SpeedRaw != 0x3c || record.TossSpeedRaw != 0x64 ||
             record.ConveyorSpeedRaw != 0x14 ||
-            record.LiftLowFrames != 7 || record.LiftMidFrames != 4 ||
+            record.CreationLiftLowFrames != 4 || record.LiftLowFrames != 7 ||
+            record.LiftMidFrames != 4 ||
             record.LiftHighFrames != 2 || record.ThrowFrames != 8 ||
             record.EdgeOffsets.Length != 4 ||
             record.BounceSpeeds.Count != 25 ||
@@ -260,6 +263,7 @@ internal sealed record BombRecord(
     BombBreakProbe[] BreakProbes,
     string FuseAnimation,
     string ExplosionAnimation,
+    int CreationLiftLowFrames,
     string Source)
 {
     internal int ExplosionPalette => ExplosionOamFlags & 0x07;

@@ -36,6 +36,7 @@ public sealed partial class ValidationRoot
             record.SpeedRaw != 0x3c ||
             record.TossSpeedRaw != 0x64 ||
             record.ConveyorSpeedRaw != 0x14 ||
+            record.CreationLiftLowFrames != 4 ||
             record.LiftLowFrames != 7 ||
             record.LiftMidFrames != 4 ||
             record.LiftHighFrames != 2 ||
@@ -123,7 +124,7 @@ public sealed partial class ValidationRoot
             throw new InvalidOperationException(
                 "Bomb allocation validation lost its actor.");
         manager.Update(1.0 / 60.0, player);
-        for (int update = 1; update <= 13; update++)
+        for (int update = 1; update <= 10; update++)
         {
             bool movementLocked =
                 controller.Update(
@@ -132,7 +133,7 @@ public sealed partial class ValidationRoot
                     itemButtonJustPressed: false);
             manager.Update(1.0 / 60.0, player);
             FailIf(
-                update < 13 && !movementLocked,
+                update < 10 && !movementLocked,
                 $"ITEM_BOMB lift released movement before update {update}.");
         }
         FailIf(
@@ -140,7 +141,7 @@ public sealed partial class ValidationRoot
             !player.IsCarryingObject ||
             player.BraceletLiftCollisionsDisabled ||
             allocated.State != BombState.Held,
-            "ITEM_BOMB did not enter its carried state after 7/4/2 lift updates.");
+            "A created ITEM_BOMB did not enter its carried state after 4/4/2 lift updates.");
 
         player.Face(Vector2I.Right);
         FailIf(
@@ -158,7 +159,7 @@ public sealed partial class ValidationRoot
             "ITEM_BOMB did not preserve wLinkAngle=$ff as an in-place " +
             "weight-0 drop when no direction was held.");
         manager.Update(1.0 / 60.0, player);
-        for (int update = 1; update <= record.ThrowFrames; update++)
+        for (int update = 1; update <= record.ThrowFrames + 1; update++)
         {
             controller.Update(
                 player,
@@ -176,6 +177,8 @@ public sealed partial class ValidationRoot
             "The normal ITEM_BOMB object cap did not reject a distant second " +
             "allocation without consuming ammo.");
 
+        for (int update = 0; update < 40; update++) manager.Update(1.0 / 60.0, player);
+        FailIf(allocated.State != BombState.Grounded, "The re-pickup fixture must let the dropped bomb land first.");
         player.SetScriptedPosition(thrownPosition);
         FailIf(
             !controller.TryUse(player) ||
@@ -252,29 +255,29 @@ public sealed partial class ValidationRoot
             null);
         effect.SetHeldOffset(player, Vector2I.Zero);
         effect.UpdateFrame(player, effectSpawns);
-        for (int update = 0; update < 116; update++)
+        for (int update = 0; update < 115; update++)
             effect.UpdateFrame(player, effectSpawns);
         FailIf(
             effect.State != BombState.Exploding ||
-            effect.ElapsedFrames != 117 ||
+            effect.ElapsedFrames != 116 ||
             effect.AnimationFrame != 0 ||
-            effect.ExplosionRadius != 6 ||
+            effect.ExplosionRadius != 4 ||
             effect.Damage != 4 ||
             !effectSounds.SequenceEqual([SoundId.SndExplosion]),
-            "ITEM_BOMB did not initialize its radius-6 explosion on fuse update 116.");
+            "ITEM_BOMB did not initialize its explosion on update 116 while retaining its radius-4 collision until the first blast update.");
         int healthBeforeExplosion = player.HealthQuarters;
         effect.UpdateFrame(player, effectSpawns);
         FailIf(
             effectRoom.GetMetatile(explosionPoint) != 0x3a ||
             effect.BreakProbe != 7 ||
-            player.HealthQuarters != healthBeforeExplosion - 4 ||
+            player.HealthQuarters != healthBeforeExplosion - 2 ||
             !effectSpawns.Any(spawn => spawn is GrassDebrisSpawn),
             "ITEM_BOMB's first explosion update did not damage Link and apply " +
             "the center-first BREAKABLETILESOURCE_BOMB probe.");
         while (!effect.Finished && effect.ElapsedFrames < 200)
             effect.UpdateFrame(player, effectSpawns);
         FailIf(
-            !effect.Finished || effect.ElapsedFrames != 152,
+            !effect.Finished || effect.ElapsedFrames != 151,
             "ITEM_BOMB explosion did not delete on parameter $ff after 35 updates.");
         effect.Free();
 
@@ -370,8 +373,8 @@ public sealed partial class ValidationRoot
         FailIf(
             blastBomb.State != BombState.Exploding ||
             blastBomb.Damage != 6 ||
-            blastPlayer.HealthQuarters != blastHealth - 6,
-            "BLAST_RING did not raise live Bomb and own-Bomb damage from 4 to 6.");
+            blastPlayer.HealthQuarters != blastHealth - 3,
+            "BLAST_RING did not raise raw Bomb damage from 4 to 6 and own-Bomb quarter damage from 2 to 3.");
         blastBomb.Free();
         blastPlayer.Free();
 
@@ -514,7 +517,8 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated ITEM_BOMB imported OAM/physics/probes, packed-BCD " +
-            "allocation, live pickup and object cap, 7/4/2 lift, eight-update " +
+            "allocation, live pickup and object cap, 4/4/2 creation and " +
+            "7/4/2 pickup lift, eight-update throw animation plus terminal update, " +
             "angle-$ff in-place drop, directional throw, 116-update fuse, " +
             "room 4:61 fence crossing, center-first bombable tile break, " +
             "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");

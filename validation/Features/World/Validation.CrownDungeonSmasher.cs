@@ -245,13 +245,22 @@ public partial class ValidationRoot
             FailIf(!_player.IsCarryingObject || ball.State != 2 || ball.GrabSubstate != 1 ||
                 ball.Position != new Vector2(92,88) || ball.ZFixed >> 8 != 0 || !_player.BraceletLiftCollisionsDisabled,
                 $"$74 pickup must consume the previous object buffer, initialize weight$20 and copy the low lift offset after objects (ball={ball.Position}, z={ball.ZFixed}, state={ball.State}:{ball.GrabSubstate}).");
-            Step(7);
+            // state2 animates before reading the offset parameter. The
+            // $03 prelude falls through into animationData19f5e's $04 low
+            // segment, so the middle/high markers appear on updates 7/11.
+            Step(6);
             FailIf(ball.Position != new Vector2(92,88) || ball.ZFixed >> 8 != 0,
-                "$74 first seven lift updates must retain the low X-8/Z0 offset.");
+                "$74 first six lift updates must retain the low X-8/Z0 offset.");
             Step(1);
             FailIf(ball.Position != new Vector2(96,88) || ball.ZFixed >> 8 != -8,
-                "$74 update8 must copy the middle lift's X-4/Z-8 high bytes.");
-            Step(5);
+                "$74 update7 must copy the middle lift's X-4/Z-8 high bytes.");
+            Step(3);
+            FailIf(ball.Position != new Vector2(96,88) || ball.ZFixed >> 8 != -8,
+                "$74 update10 must retain the middle lift offset.");
+            Step(1);
+            FailIf(ball.Position != new Vector2(100,88) || ball.ZFixed >> 8 != -14 || !_player.BraceletLiftCollisionsDisabled,
+                "$74 update11 must copy the high lift offset while collisions remain disabled.");
+            Step(2);
             FailIf(!_player.IsCarryingObject || _player.BraceletLiftCollisionsDisabled || ball.Position != new Vector2(100,88) ||
                 ball.ZFixed >> 8 != -14, "$74 update13 must finish lifting and carry weight2 at Z-14 facing left.");
             Step(1, directionless ? Vector2.Zero : Vector2.Left, press:true);
@@ -282,7 +291,7 @@ public partial class ValidationRoot
                 "$74 cancelled pickup must return to ordinary ground dispatch without restoring Link's carry pose.");
             _entities.Clear(); parent.QueueFree();
         }
-        GD.Print("Validated isolated Smasher approach, pickup, 7/13-update lift, reserved throw/drop, occupancy, landing, repeat pickup and cancellation in single/batched gameplay updates.");
+        GD.Print("Validated isolated Smasher approach, pickup, 7/11/13-update lift boundaries, reserved throw/drop, occupancy, landing, repeat pickup and cancellation in single/batched gameplay updates.");
     }
 
     private void ValidateCrownDungeonSmasherLinkResponses()

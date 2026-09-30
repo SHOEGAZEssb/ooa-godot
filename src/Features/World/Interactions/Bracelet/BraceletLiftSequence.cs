@@ -18,13 +18,13 @@ internal static class BraceletLiftSequence
         counter++;
         int middleBoundary = lowFrames + middleFrames;
         int finishedBoundary = middleBoundary + highFrames;
-        if (counter <= lowFrames)
+        if (counter < lowFrames)
         {
             player.SetBraceletActionPose(BraceletActionPose.PullStrain);
             setLiftOffset(0);
             return false;
         }
-        if (counter <= middleBoundary)
+        if (counter < middleBoundary)
         {
             player.SetBraceletActionPose(BraceletActionPose.Pull);
             setLiftOffset(1);

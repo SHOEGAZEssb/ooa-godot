@@ -21,6 +21,7 @@ public sealed class BombController
     private BombParentState _state;
     private BombEffect? _bomb;
     private int _counter;
+    private int _liftLowFrames;
 
     internal BombParentState State => _state;
     internal BombEffect? Bomb => _bomb;
@@ -55,6 +56,7 @@ public sealed class BombController
 
         if (!_entities.TryPickupBomb(player, out BombEffect? bomb))
         {
+            _liftLowFrames = _record.CreationLiftLowFrames;
             if (!_entities.DynamicItemSlotAvailable || _inventory.Bombs == 0 ||
                 _entities.ActiveBombCount >=
                     RingEffects.BombObjectLimit(_inventory))
@@ -75,6 +77,7 @@ public sealed class BombController
         }
         else
         {
+            _liftLowFrames = _record.LiftLowFrames;
             bomb!.BeginHeld(player, OnHeldExplosion);
         }
 
@@ -108,6 +111,11 @@ public sealed class BombController
                 return _state == BombParentState.Lifting;
 
             case BombParentState.Holding:
+                if (_bomb is null || _bomb.State != BombState.Held)
+                {
+                    Interrupt(player, discard: false);
+                    return false;
+                }
                 UpdateHeldPosition(player);
                 if (!itemButtonJustPressed)
                     return false;
@@ -116,12 +124,15 @@ public sealed class BombController
 
             case BombParentState.Throwing:
                 _counter++;
-                if (_counter >= _record.ThrowFrames)
+                // state4 observes the terminal marker before animating, so
+                // the eight animation updates precede one deletion update.
+                if (_counter > _record.ThrowFrames)
                 {
                     player.ClearBraceletActionPose();
                     _counter = 0;
                     _state = BombParentState.Idle;
                     _bomb = null;
+                    return false;
                 }
                 return true;
 
@@ -176,7 +187,7 @@ public sealed class BombController
         if (!BraceletLiftSequence.Advance(
                 player,
                 ref _counter,
-                _record.LiftLowFrames,
+                _liftLowFrames,
                 _record.LiftMidFrames,
                 _record.LiftHighFrames,
                 stage => _bomb.SetHeldOffset(
@@ -237,9 +248,8 @@ public sealed class BombController
         player.SetBraceletLiftCollisionsDisabled(false);
         player.ClearBraceletActionPose();
         player.EndCarriedObjectPose();
-        _bomb = null;
-        _counter = 0;
-        _state = BombParentState.Idle;
+        // dropLinkHeldItem clears grabState in the child pass. The parent
+        // notices the lost ownership and clears itself on its next update.
     }
 
     private Vector2I GetLiftOffset(Player player, int frame) =>

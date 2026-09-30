@@ -11,6 +11,7 @@ namespace oracleofages;
 /// </summary>
 public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    private static readonly BraceletGrabGeometry GrabGeometry = new();
     // bombs.s: visiblec1 until InitializeExplosion selects visible80.
     int? ITerrainShadowSource.TerrainShadowZHigh =>
         _state is BombState.Exploding or BombState.Finished ? null : _zFixed >> 8;
@@ -52,6 +53,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     private bool _setupPending;
     private bool _linkHit;
     private bool _explosionCollisionEnabled;
+    private int _explosionRadius;
 
     public bool Finished => _state == BombState.Finished;
     internal BombState State => _state;
@@ -74,11 +76,10 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         _state is BombState.Grounded or BombState.MaplePulling;
     internal bool ExplosionCollisionEnabled =>
         _state == BombState.Exploding &&
-        _explosionCollisionEnabled &&
-        (_explosionFrames[_frameIndex].Parameter & 0xc0) == 0;
+        _explosionCollisionEnabled;
     internal int ExplosionRadius =>
         _state == BombState.Exploding
-            ? _explosionFrames[_frameIndex].Parameter & 0x1f
+            ? _explosionRadius
             : 0;
     internal int Damage => _damage;
     internal int CollisionZ => _zFixed >> 8;
@@ -170,9 +171,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (_state != BombState.Held || !ReferenceEquals(_heldBy, player))
             return;
-        _precisePosition =
-            player.Position + new Vector2(offset.X, 0);
-        _zFixed = offset.Y << 8;
+        CopyHeldPosition(player, offset);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
@@ -186,10 +185,8 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (_state != BombState.Held || !ReferenceEquals(_heldBy, player))
             return;
-        _precisePosition =
-            player.Position + new Vector2(heldOffset.X, 0) +
-            player.FacingVector;
-        _zFixed = heldOffset.Y << 8;
+        CopyHeldPosition(player, heldOffset);
+        _precisePosition += player.FacingVector;
         _speedZ = speedZ;
         _speedRaw = speedRaw;
         _sideScrollMerged = false;
@@ -208,9 +205,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         {
             return;
         }
-        _precisePosition =
-            player.Position + new Vector2(heldOffset.X, 0);
-        _zFixed = heldOffset.Y << 8;
+        CopyHeldPosition(player, heldOffset);
         if (IsSideScrolling())
             MergeZIntoSideScrollY();
         _heldBy = null;
@@ -222,10 +217,14 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (!CanBePickedUp)
             return false;
-        return Mathf.Abs(player.Position.X - Position.X) <
-                _record.RadiusX + 6 &&
-            Mathf.Abs(player.Position.Y - Position.Y) <
-                _record.RadiusY + 6;
+        // tryPickupBombs calls objectHCheckCollisionWithLink: use the shared
+        // facing projection and Link.zh-$03, not an unshifted XY overlap.
+        return GrabGeometry.Overlaps(
+            new Rect2(player.Position - new Vector2(6, 6), new Vector2(12, 12)),
+            player.EnemyContactZ, CarriedObjectMotion.DirectionIndex(player.FacingVector),
+            new Rect2(Position - new Vector2(_record.RadiusX, _record.RadiusY),
+                new Vector2(2 * _record.RadiusX, 2 * _record.RadiusY)),
+            _zFixed >> 8, pendingCollision: false);
     }
 
     internal void Discard() => Finish();
@@ -306,6 +305,9 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
             _setupPending = false;
             Visible = true;
             QueueRedraw();
+            // heldState0 initializes, then falls through to heldState1's
+            // Peace Ring/fuse update in this same child pass.
+            UpdateHeld();
             return;
         }
 
@@ -372,12 +374,6 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         if (IsSideScrolling())
             MergeZIntoSideScrollY();
 
-        if (!WithinThrowBoundary(_precisePosition))
-        {
-            Finish();
-            return;
-        }
-
         if (_throwDirection != Vector2I.Zero)
         {
             Vector2 edge = _precisePosition +
@@ -387,10 +383,9 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
                 !_record.CanPassSolidTile(_room, edge))
             {
                 _throwDirection = Vector2I.Zero;
-                _speedRaw = ObjectSpeed.Speed0;
                 // itemUpdateThrowingLaterally falls through to objectApplySpeed
                 // with angle $ff on this update; later $ff updates return early.
-                NativeObjectMovement.Velocity(_movementMemory, 0, 0xff);
+                NativeObjectMovement.Velocity(_movementMemory, _speedRaw, 0xff);
             }
             else if (!IsSideScrolling() || _throwDirection.X != 0)
             {
@@ -400,6 +395,14 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
                     _speedRaw,
                     DirectionAngle(_throwDirection));
             }
+        }
+
+        // bombs.s checks the room boundary after lateral movement, before
+        // gravity/hazards. A fast throw can leave the room on this update.
+        if (!WithinThrowBoundary(_precisePosition))
+        {
+            Finish();
+            return;
         }
 
         bool landed = IsSideScrolling()
@@ -539,7 +542,8 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 
     private bool TryEnterHazard(ICollection<RoomEntitySpawn> spawns)
     {
-        HazardType hazard = _room.GetTerrainInfo(Position).Hazard;
+        // objectCheckIsOverHazard probes the object's foot at YH+$05.
+        HazardType hazard = _room.GetTerrainInfo(Position + new Vector2(0, 5)).Hazard;
         if (hazard == HazardType.None)
             return false;
 
@@ -585,6 +589,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
             _record.BaseDamage,
             _inventory);
         _explosionCollisionEnabled = true;
+        _explosionRadius = _record.RadiusY;
         _linkHit = false;
         _playSound(_record.ExplosionSound);
         Visible = true;
@@ -605,12 +610,16 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
             _explosionCollisionEnabled = false;
 
         int radius = parameter & 0x1f;
+        _explosionRadius = radius;
         if (_explosionCollisionEnabled && !_linkHit &&
             ZOverlaps(_zFixed >> 8, 0, radius) &&
-            Mathf.Abs(player.Position.X - Position.X) < radius + 6 &&
-            Mathf.Abs(player.Position.Y - Position.Y) < radius + 6 &&
+            RoomEntityManager.ObjectCollisionXYOverlaps(
+                ExplosionBounds, new Rect2(player.Position - new Vector2(6, 6), new Vector2(12, 12))) &&
             player.ApplyEnemyContactDamage(
-                Position, _damage, RingDamageSource.OwnBomb))
+                // Item.damage is raw signed-byte damage; Link stores two
+                // raw points per quarter-heart and uses $10/$0c counters.
+                Position, _damage / 2, RingDamageSource.OwnBomb,
+                invincibilityFrames: 0x10, knockbackFrames: 0x0c))
         {
             _linkHit = true;
         }
@@ -704,6 +713,16 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
+    }
+
+    private void CopyHeldPosition(Player player, Vector2I offset)
+    {
+        // updateGrabbedObjectPosition overwrites only YH/XH/ZH. Re-picking
+        // a moving bomb retains all three low position bytes.
+        _precisePosition = new(
+            player.Position.X + offset.X + (_precisePosition.X - Mathf.Floor(_precisePosition.X)),
+            player.Position.Y + (_precisePosition.Y - Mathf.Floor(_precisePosition.Y)));
+        _zFixed = ((player.EnemyContactZ + offset.Y) << 8) | (_zFixed & 0xff);
     }
 
     private bool WithinRoomBoundary(Vector2 point) =>

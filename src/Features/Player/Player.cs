@@ -1479,7 +1479,8 @@ public partial class Player : Node2D
         // LINKDMG_00/_04 select SND_DAMAGE_LINK ($5f) when the collision is
         // accepted. Rejected contacts during Link's invincibility do not
         // enqueue another request.
-        _world.PlaySound(SoundId.SndDamageLink);
+        if (source != RingDamageSource.OwnBomb)
+            _world.PlaySound(SoundId.SndDamageLink);
         _enemyInvincibilityFrames = invincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, knockbackFrames);
