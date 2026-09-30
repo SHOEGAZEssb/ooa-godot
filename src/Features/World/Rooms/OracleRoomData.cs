@@ -437,11 +437,12 @@ public sealed class OracleRoomData
     public TerrainInfo GetTerrainInfo(Vector2 localPoint)
     {
         byte metatile = GetMetatile(localPoint);
-        if (metatile == 0xff)
-            return new TerrainInfo(metatile, 0xff, TerrainType.Normal, HazardType.None);
-
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
+        // $ff is also a real tile (including waterfall bottoms). Only an
+        // out-of-room coordinate represents the collision-buffer sentinel.
+        if (tileX < 0 || tileY < 0 || tileX >= WidthInTiles || tileY >= HeightInTiles)
+            return new TerrainInfo(metatile, 0xff, TerrainType.Normal, HazardType.None);
         int layoutIndex = tileY * _layoutStride + tileX;
         byte collision = _positionCollisionOverrides.TryGetValue(
             layoutIndex, out byte collisionOverride)

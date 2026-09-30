@@ -63,6 +63,7 @@ public sealed class RoomEntityManager : IDisposable
         EmberSeedRoomEntity { IsFlamePart:true } => -1,
         ISeedProjectileRoomEntity seed => seed.SeedItem,
         SwordBeamRoomEntity => 0x27,
+        RickyTornadoRoomEntity => 0x2a,
         SomariaBlockRoomEntity => 0x18,
         BoomerangRoomEntity => 0x06,
         _ when entity.Node is BombEffect => 0x03,
@@ -72,6 +73,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         BombEffect bomb => bomb.SetupPending,
         SwordBeamEffect beam => !beam.Initialized,
+        RickyTornadoRoomEntity tornado => !tornado.CollisionEnabled && !tornado.Finished,
         EmberSeedEffect seed => seed.State == EmberState.Initializing,
         SomariaBlock block => block.State == 0,
         BoomerangItem boomerang => boomerang.State == 0,
@@ -272,6 +274,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (!_screenTransitionActive && !TextActiveSource() && !RoomEntityFreezeActive())
         {
+            ResolvePlayerProjectileCollisions(companionsOnly: true);
             foreach (var source in _activeEntities.OfType<IReservedBraceletCollisionRoomEntity>().ToArray())
                 if (source.TryGetReservedBraceletCollision(out var collision))
                     ApplyThrownObjectHit(collision.Bounds, collision.Z, collision.Radius, collision.Damage);
@@ -327,6 +330,14 @@ public sealed class RoomEntityManager : IDisposable
                 blockTarget.ApplySomariaBlockCollision(somaria.Block, _pendingSpawns)) return true;
             if (entity is IPostObjectItemCollisionRoomEntity nativeItem)
             {
+                if (item is IPlayerProjectileRoomEntity { CollisionEnabled: true } companionAttack &&
+                    item is RickyPunchAttackRoomEntity or RickyTornadoRoomEntity or MooshStompAttackRoomEntity &&
+                    ObjectCollisionZOverlaps(entity is IObjectCollisionHeightRoomEntity companionHeight ? companionHeight.CollisionZ : 0, 0, 7) &&
+                    nativeItem.ApplyItemCollision(RoomEntityItemCollision.SwordBeam, companionAttack.CollisionBounds,
+                        companionAttack.CollisionBounds.GetCenter(), companionAttack.Damage, _pendingSpawns))
+                { companionAttack.OnEnemyCollision(_pendingSpawns); return true; }
+                if (item is DimitriMouthRoomEntity { CollisionEnabled: true } mouth && mouth.TrySwallow(entity))
+                { mouth.OnEnemyCollision(_pendingSpawns); return true; }
                 if (item is SwordBeamRoomEntity { CollisionEnabled: true } beam &&
                     nativeItem.ApplyItemCollision(RoomEntityItemCollision.SwordBeam, beam.CollisionBounds,
                         beam.CollisionBounds.GetCenter(), beam.Damage, _pendingSpawns))
@@ -594,6 +605,7 @@ public sealed class RoomEntityManager : IDisposable
             () => TextActiveSource(),
             OnMapleItemCollected,
             BeginHorizontalScreenShake,
+            updates => _screenShakeCounter = updates,
             position => WorldToScreen(position), _animationTick, rooms,
             MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot, FindFreeEnemySlot,
             RetainFailedPlacementCount,
@@ -763,21 +775,26 @@ public sealed class RoomEntityManager : IDisposable
         _screenTransitionFrameAccumulator = 0.0;
     }
 
-    internal void UpdateRaftBeforePlayer(Player player)
+    internal void UpdateSpecialObjectsBeforePlayer(Player player)
     {
         _specialObjectsUpdatedBeforePlayer.Clear();
-        if (_screenTransitionActive || TextActiveSource() || RoomEntityFreezeActive() ||
+        bool frozen = _screenTransitionActive || TextActiveSource() || InitializedObjectsDisabledSource() ||
+            PaletteFadeActiveSource() || RoomEntityFreezeActive() ||
             player.ElectricShockActive ||
-            HasPlayerRestriction(static restriction => restriction.DisablesCompanion))
-            return;
-        var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
-        foreach (RaftRoomEntity raft in _activeEntities.OfType<RaftRoomEntity>())
+            HasPlayerRestriction(static restriction => restriction.DisablesCompanion);
+        var frame = new RoomEntityFrame(player, (_enemyFrameCounter + 1) & 0xff, GameButtonJustPressedSource(), null);
+        foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
-            if (!raft.UsesSpecialObjectSlot)
+            if (entity is not (RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity) &&
+                entity is not RaftRoomEntity { UsesSpecialObjectSlot: true })
                 continue;
-            raft.UpdateFrame(frame, _pendingSpawns);
-            _specialObjectsUpdatedBeforePlayer.Add(raft);
+            // updateSpecialObjects dispatches w1Companion before w1Link.
+            _specialObjectsUpdatedBeforePlayer.Add(entity);
+            if (!frozen) ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
         }
+        // Clear after the companion, before Link/item parents/interactions can
+        // publish the next update's wDisallowMountingCompanion signal.
+        CompanionRuntimeState.SetMountingLock(_runtimeState, 0);
     }
 
     public void Update(double delta, Player player)
@@ -861,7 +878,9 @@ public sealed class RoomEntityManager : IDisposable
                     !(player.ElectricShockActive && entity is IPlayerRideableRoomEntity) &&
                     (!roomEntityFreezeActive ||
                      UpdatesDuringRoomEntityFreeze(entity)) &&
-                    !timeWarpArrival && entity is IPlayerForcedMovement forcedMovement)
+                    !timeWarpArrival && (!_specialObjectsUpdatedBeforePlayer.Contains(entity) ||
+                        entity is RaftRoomEntity or IPlayerRideableRoomEntity { LinkRiding: true }) &&
+                    entity is IPlayerForcedMovement forcedMovement)
                 {
                     forcedMovement.UpdatePlayerForcedMovement(player);
                 }
@@ -1029,9 +1048,6 @@ public sealed class RoomEntityManager : IDisposable
             }
             ProcessSpawns(frame);
             UpdateScreenShake();
-            // specialObjects.s clears this after the companion update;
-            // native interaction events publish the next update's lock.
-            CompanionRuntimeState.SetMountingLock(_runtimeState, 0);
             _specialObjectsUpdatedBeforePlayer.Clear();
             anyButtonJustPressed = false;
         }
@@ -1442,10 +1458,12 @@ public sealed class RoomEntityManager : IDisposable
         return result;
     }
 
-    private void ResolvePlayerProjectileCollisions()
+    private void ResolvePlayerProjectileCollisions(bool companionsOnly = false)
     {
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
+            bool companion = entity is RickyPunchAttackRoomEntity or RickyTornadoRoomEntity or MooshStompAttackRoomEntity or DimitriMouthRoomEntity;
+            if (companion != companionsOnly) continue;
             if (entity is not IPlayerProjectileRoomEntity
                 { CollisionEnabled: true } projectile)
             {
@@ -1454,6 +1472,7 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity target in _activeEntities.ToArray())
             {
                 if (target is IPostObjectItemCollisionRoomEntity) continue;
+                if (companion && target is IObjectCollisionHeightRoomEntity height && !ObjectCollisionZOverlaps(height.CollisionZ, 0, 7)) continue;
                 if (projectile is DimitriMouthRoomEntity mouth)
                 {
                     if (!mouth.TrySwallow(target)) continue;
@@ -1482,7 +1501,7 @@ public sealed class RoomEntityManager : IDisposable
                     continue;
                 }
                 projectile.OnEnemyCollision(_pendingSpawns);
-                break;
+                if (projectile is not (RickyPunchAttackRoomEntity or RickyTornadoRoomEntity or MooshStompAttackRoomEntity)) break;
             }
         }
     }
@@ -2285,6 +2304,10 @@ public sealed class RoomEntityManager : IDisposable
                 continue;
             }
             if(spawn is TargetCartDebrisSpawn && !InteractionSlotAvailable) continue;
+            if (spawn is RickyTornadoSpawn && !DynamicItemSlotAvailable) continue;
+            if (spawn is RickyPunchAttackSpawn or MooshStompAttackSpawn or DimitriMouthSpawn &&
+                _activeEntities.Any(entity => entity is RickyPunchAttackRoomEntity or MooshStompAttackRoomEntity or DimitriMouthRoomEntity &&
+                    entity is not IRoomEntityLifetime { Finished: true })) continue;
             // swordBeam.s @collision always deletes ITEM$27 after attempting
             // INTERAC_CLINK$81, including when objectCreateInteraction fails.
             if (spawn is SwordBeamClinkSpawn && !InteractionSlotAvailable) continue;

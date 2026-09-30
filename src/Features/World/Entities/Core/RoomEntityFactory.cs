@@ -46,6 +46,7 @@ internal sealed class RoomEntityFactory(
     Func<bool> dialogueOpen,
     Action<MapleItemRecord, Player> mapleItemCollected,
     Action<int> horizontalScreenShakeRequested,
+    Action<int> verticalScreenShakeRequested,
     Func<Vector2, Vector2> worldToScreen,
     Func<long> animationTick,
     RoomSession? rooms,
@@ -3694,7 +3695,7 @@ internal sealed class RoomEntityFactory(
             soundRequested,
             roomEntityDialogueRequested,
             dialogueOpen,
-            screenShakeRequested,
+            verticalScreenShakeRequested,
             destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination));
 
     private MooshHoverExclamationRoomEntity CreateMooshHoverExclamation(
@@ -3713,7 +3714,8 @@ internal sealed class RoomEntityFactory(
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         npc.Initialize(record);
-        soundRequested(visual.WaterExclamationSound);
+        // mooshState8Substate1 allocates INTERAC_EXCLAMATION_MARK directly;
+        // it does not call the sound-producing objectCreateExclamationMark.
         return new MooshHoverExclamationRoomEntity(
             npc, visual.WaterHoverFrames);
     }
@@ -3738,7 +3740,6 @@ internal sealed class RoomEntityFactory(
             _breakables,
             saveData,
             LinkedNeighbor,
-            applyThrownObjectHit,
             roomTileChanged,
             animationTick,
             soundRequested,

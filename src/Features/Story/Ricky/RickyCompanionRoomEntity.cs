@@ -146,6 +146,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private int _wallCrossingMask;
     private int _chargeCounter;
     private bool _mountStarted;
+    private int _adjacentWalls;
     private bool _attackPressed;
     private bool _attackJustPressed;
     private bool _itemJustPressed;
@@ -402,7 +403,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             LinkWithinMountDistance(player.PrecisePosition))
         {
             _phase = RickyCompanionPhase.Mounting;
-            _mountStarted = false;
+            player.BeginCompanionMount(player.PrecisePosition);
+            _mountStarted = true;
             return;
         }
 
@@ -440,6 +442,14 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         // parameter-driven idle hop.
         OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _record.JumpGravity);
+        // companionCheckMountingComplete cancels before nudging Link.
+        if (CompanionRuntimeState.MountingDisabled(_runtime) || player.CompanionMountInterrupted)
+        {
+            _phase = RickyCompanionPhase.Waiting;
+            _mountStarted = false;
+            _screenTransitionsDisabled = false;
+            return;
+        }
         if (!_mountStarted)
         {
             player.BeginCompanionMount(player.PrecisePosition);
@@ -508,7 +518,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _hopCounter--;
         SetDirectionAnimation(_behavior.IdleAnimation, animate: true);
-        int walls = CalculateAdjacentWallsBitset();
+        int walls = _adjacentWalls;
         if (TryStartHoleJump() ||
             TryStartJumpDownCliff(walls, periodic: false) ||
             TryStartJumpUpCliff(walls))
@@ -529,7 +539,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     {
         _direction = (_angle >> 3) & 0x03;
         StartLongJumpSetup(disableScreenTransitions: true);
-        int walls = CalculateAdjacentWallsBitset();
+        int walls = _adjacentWalls;
         if ((_angle & 0x04) == 0)
         {
             if (TryStartJumpDownCliff(walls, periodic: true))
@@ -541,7 +551,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             if (TryStartJumpUpCliff(walls))
                 return;
         }
-        if (TryStartHoleJump())
+        if (TryStartHoleJump(periodic: true))
             return;
 
         _phase = RickyCompanionPhase.Hopping;
@@ -639,7 +649,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         SetAnimation(_behavior.LongJumpAnimation + _direction);
     }
 
-    private bool TryStartHoleJump()
+    private bool TryStartHoleJump(bool periodic = false)
     {
         if ((_angle & 0x04) != 0)
             return false;
@@ -649,7 +659,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
         if (_phase == RickyCompanionPhase.Riding)
             StartLongJumpSetup(disableScreenTransitions: true);
-        _phase = RickyCompanionPhase.JumpingOverHole;
+        // The walking branch only prepares the arc. State $05:$02 is
+        // selected by the zero-hop-counter branch, after var39 expires.
+        if (periodic) _phase = RickyCompanionPhase.JumpingOverHole;
         _screenTransitionsDisabled = true;
         return true;
     }
@@ -862,7 +874,9 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         if (!_attackPressed)
         {
-            ReturnToRiding(_behavior.IdleAnimation);
+            // rickyStopUntilLandedOnGround selects state $05:$03. The next
+            // update performs landing probes before accepting new input.
+            StopUntilLanded(spawns);
             return;
         }
 
@@ -1205,7 +1219,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     }
 
     private void ApplyCompanionMovement(int speed, int walls) =>
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, walls);
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, _adjacentWalls = walls);
 
     private int CalculateAdjacentWallsBitset()
     {
@@ -1307,7 +1321,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _hazard = default;
         _screenTransitionsDisabled = false;
         _phase = _hazardMounted ? RickyCompanionPhase.Riding : RickyCompanionPhase.Waiting;
-        _angle = 0xff;
+        _direction = (_angle >> 3) & 3;
         _hopCounter = _behavior.HopDelay;
         if (_hazardMounted) player.ApplyCompanionHazardDamage(completedHazard);
         SetAnimation((_hazardMounted ? _behavior.CancelAnimation : 1) + _direction);

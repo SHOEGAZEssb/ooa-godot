@@ -234,18 +234,43 @@ function Resolve-MooshOamTiles(
     }) -join ';')
 }
 function Resolve-MooshSpecialAnimation([string]$label) {
-    $body = Get-AssemblyLabelBody $specialAnimationSource $label
+    $start = @($specialAnimationNodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $label })
+    if ($start.Count -ne 1) { throw "Could not resolve Moosh animation $label." }
+    $loop = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'm_AnimationLoop' -and
+        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $mooshOamStart
+    } | Select-Object -First 1)
+    # Bit 7 is the handler's terminal signal for falling/stomp sequences.
+    $terminal = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and $_.Operands.Count -eq 3 -and
+        ((Convert-AssemblyInteger $_.Operands[2]) -band 0x80) -ne 0 -and
+        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $mooshOamStart
+    } | Select-Object -First 1)
+    $end = if ($loop.Count -eq 1) { $loop[0].Offset } else { $mooshOamStart }
+    if ($terminal.Count -eq 1 -and $terminal[0].Offset -lt $end) { $end = $terminal[0].Offset + 1; $loop = @() }
+    if ($end -eq $mooshOamStart) { throw "Moosh animation $label has neither loop nor terminal signal." }
+    $frameNodes = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
+        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $end
+    })
+    $loopStart = 0
+    if ($loop.Count -eq 1) {
+        $target = @($specialAnimationNodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $loop[0].Operands[0] })
+        if ($target.Count -ne 1 -or $target[0].Offset -lt $start[0].Offset -or $target[0].Offset -gt $loop[0].Offset) {
+            throw "Moosh animation $label has an invalid loop target."
+        }
+        $loopStart = @($frameNodes | Where-Object { $_.Offset -lt $target[0].Offset }).Count
+    }
     $frames = [Collections.Generic.List[string]]::new()
     $vramTiles = [int[]]::new(0x100)
     for ($tile = 0; $tile -lt $vramTiles.Length; $tile++) {
         $vramTiles[$tile] = -1
     }
-    foreach ($frame in [regex]::Matches(
-        $body,
-        '(?m)^\s*\.db\s+\$(?<duration>[0-9a-f]{2})\s+\$(?<gfx>[0-9a-f]{2})\s+\$(?<parameter>[0-9a-f]{2})')) {
-        $duration = [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
-        $gfx = [Convert]::ToInt32($frame.Groups['gfx'].Value, 16)
-        $parameter = [Convert]::ToInt32($frame.Groups['parameter'].Value, 16)
+    foreach ($frame in $frameNodes) {
+        if ($frame.Operands.Count -ne 3) { throw "Moosh animation $label has a malformed frame at line $($frame.Line)." }
+        $duration = Convert-AssemblyInteger $frame.Operands[0]
+        $gfx = Convert-AssemblyInteger $frame.Operands[1]
+        $parameter = Convert-AssemblyInteger $frame.Operands[2]
         if (-not $mooshGfxOffsets.ContainsKey($gfx) -or
             $gfx -ge $mooshOamPointers.Count) {
             throw "$label references missing Moosh graphic/OAM index `$$($gfx.ToString('x2'))."
@@ -261,7 +286,9 @@ function Resolve-MooshSpecialAnimation([string]$label) {
         $frames.Add("$metadata@$oam")
     }
     if ($frames.Count -eq 0) { throw "Moosh animation $label has no frames." }
-    return $frames -join '|'
+    $encoded = $frames -join '|'
+    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
+    return $encoded
 }
 $mooshAnimations = @($mooshAnimationLabels | ForEach-Object {
     Resolve-MooshSpecialAnimation $_
@@ -372,8 +399,8 @@ for ($index = 0; $index -le 0x32; $index++) {
     $mooshLinkSourceOffsets.Add($sourceOffset.ToString('x4'))
 }
 $mooshVisualRows = @(
-    "# sprite`ttile-base`tpalette`tanimations-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`twater-hazard`twater-hover-frames`twater-exclamation-z-offset`twater-exclamation-sound`tsource",
-    "spr_moosh`t0`t1`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshAnimations -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`t$mooshWaterHazard`t$mooshWaterHoverFrames`t$mooshWaterExclamationZOffset`t50`tspecialObjectAnimationData.s:specialObject0d,specialObject09;moosh.s:mooshState8Substate1/mooshState8Substate5;exclamationMark.s:objectCreateExclamationMark_body"
+    "# sprite`ttile-base`tpalette`tanimations-base64`tlink-sprite`tlink-palette`tlink-frames-base64`tlink-source-offsets`twater-hazard`twater-hover-frames`twater-exclamation-z-offset`tsource",
+    "spr_moosh`t0`t1`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshAnimations -join "`n")))`tspr_link`t0`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($mooshLinkFrames -join "`n")))`t$($mooshLinkSourceOffsets -join ',')`t$mooshWaterHazard`t$mooshWaterHoverFrames`t$mooshWaterExclamationZOffset`tspecialObjectAnimationData.s:specialObject0d,specialObject09;moosh.s:mooshState8Substate1/mooshState8Substate5"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\moosh_companion_visual.tsv'),
@@ -637,30 +664,22 @@ function Resolve-CompanionSpecialAnimation(
     if ($startLabel.Count -ne 1) {
         throw "Could not resolve $companionName animation label $label."
     }
-    $nextAnimation = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'Label' -and
+    # Labels are alternate entry points, not stream terminators. In
+    # particular Ricky animation $04 falls through animationData1a60c.
+    $loopNodes = @($specialAnimationNodes | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'm_AnimationLoop' -and
         $_.Offset -gt $startLabel[0].Offset -and
-        $_.Name -match '^animationData[0-9a-f]+$'
+        $_.Offset -lt $oamStart
     } | Select-Object -First 1)
-    $endOffset = if ($nextAnimation.Count -eq 1) {
-        $nextAnimation[0].Offset
-    } else {
-        $oamStart
+    if ($loopNodes.Count -ne 1) {
+        throw "$companionName animation $label has no loop terminator before its OAM table."
     }
+    $endOffset = $loopNodes[0].Offset
     $frameNodes = @($specialAnimationNodes | Where-Object {
         $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
         $_.Offset -gt $startLabel[0].Offset -and
         $_.Offset -lt $endOffset -and $_.Operands.Count -ge 3
     })
-    $loopNodes = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'MacroInvocation' -and
-        $_.Name -eq 'm_AnimationLoop' -and
-        $_.Offset -gt $startLabel[0].Offset -and
-        $_.Offset -lt $endOffset
-    })
-    if ($loopNodes.Count -gt 1) {
-        throw "$companionName animation $label has multiple loop terminators."
-    }
     $loopStart = 0
     if ($loopNodes.Count -eq 1) {
         $target = $loopNodes[0].Operands[0]
@@ -1056,6 +1075,16 @@ $rickyTornadoDamageByte = [Convert]::ToInt32(
     $rickyTornadoAttributes.Groups['damage'].Value, 16)
 $rickyPunchDamage = 0x100 - $rickyPunchDamageByte
 $rickyTornadoDamage = 0x100 - $rickyTornadoDamageByte
+$companionWeaponRows = @("# item`tcollision-type`tdamage`tsource")
+foreach ($item in @('28', '2a', '2b')) {
+    $attributes = [regex]::Match($rickyItemAttributesSource,
+        ('(?m)^\s*\.db \$(?<type>[0-9a-f]{2}) \$[0-9a-f]{2} \$(?<damage>[0-9a-f]{2}) \$00 ; \$' + $item + ': .*$'))
+    if (-not $attributes.Success) { throw "Missing companion ITEM_$item attributes." }
+    $type = [Convert]::ToInt32($attributes.Groups['type'].Value, 16) -band 0x7f
+    $damage = 256 - [Convert]::ToInt32($attributes.Groups['damage'].Value, 16)
+    $companionWeaponRows += "$item`t$($type.ToString('x2'))`t$damage`titemAttributes.s:ITEM_$item"
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\companion_weapons.tsv'), $companionWeaponRows)
 $rickyTornadoRadius = [Convert]::ToInt32(
     $rickyTornadoAttributes.Groups['radius'].Value, 16)
 $rickyTornadoTile = [Convert]::ToInt32(

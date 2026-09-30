@@ -649,8 +649,8 @@ public sealed class BraceletController
     }
 
     private Vector2I GetLiftOffset(Player player, int frame) =>
-        _linkItems.BraceletLiftOffset(
-            frame,
+        BraceletWeightDatabase.Shared.LiftOffset(
+            player.BraceletObjectWeight, frame,
             CarriedObjectMotion.DirectionIndex(player.FacingVector));
 
     private static Vector2 PackedPositionCenter(int packedPosition) =>

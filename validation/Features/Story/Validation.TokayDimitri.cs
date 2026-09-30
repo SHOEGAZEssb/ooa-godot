@@ -258,8 +258,8 @@ public sealed partial class ValidationRoot
         Vector2 landPosition = dimitri.PrecisePosition;
         dimitri.SetScreenTransitionPosition(new Vector2(64, 16), Vector2.Zero, _player);
         StepRoomEventFrames(1);
-        FailIf(!dimitri.InWater || dimitri.AnimationIndex != 6,
-            "Dimitri did not select the down-facing swimming animation in room 0:aa's sea.");
+        FailIf(!dimitri.InWater || dimitri.AnimationIndex != 7,
+            "Dimitri did not select the retained-angle $ff left-facing swimming animation in room 0:aa's sea.");
         StepInput("item");
         FailIf(!dimitri.LinkRiding || dimitri.Phase != DimitriPhase.Riding,
             "Dimitri accepted a forbidden B dismount while swimming.");

@@ -9,7 +9,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     IRoomEntity, IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
     IPlayerRideableRoomEntity, IPlayerScreenTransitionRoomEntity,
     IRoomEntityLifetime, IPlayerInteractable, IRoomBlocker, ICompanionBarrierTarget,
-    IBraceletInteractableRoomEntity, IForestCompanion
+    IBraceletInteractableRoomEntity, IBraceletChildRoomEntity, IForestCompanion
 {
     private readonly DimitriDatabase _data;
     private readonly OracleSaveData _save;
@@ -42,12 +42,21 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private bool _hazardMounted;
     private DimitriPhase _phase;
     private readonly CompanionTerrainDatabase _native = new();
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
+    private readonly BraceletDatabaseRecord _bracelet = DimitriBracelet();
+    private static BraceletDatabaseRecord DimitriBracelet()
+    {
+        var weight = BraceletWeightDatabase.Shared.Weight(4);
+        return new BraceletDatabase().Data with { Gravity = weight.Gravity, InitialSpeedZ = weight.InitialSpeedZ,
+            SpeedRaw = weight.SpeedRaw, TossSpeedRaw = weight.TossSpeedRaw };
+    }
     private readonly BombRecord _throwing = new BombDatabase().Data;
     private readonly LedgeJumpDatabase _ledges = new();
     private CarriedObjectMotion _carried;
+    private CarriedObjectMotion _braceletChildMotion;
+    private bool _braceletChildStarting;
     private Vector2 _throwOrigin;
     private int _cliffWalls;
+    private int _adjacentWalls;
     private Player? _holder;
     private bool _forestInteraction;
     public bool ForestButtonPressed { get; private set; }
@@ -220,9 +229,19 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 if (_phase == DimitriPhase.Hazard) break;
                 UpdateWater();
                 if (!CompanionRuntimeState.MountingDisabled(_runtime) && player.CanMountCompanion && Distance(player.Position) < 9)
+                {
                     _phase = DimitriPhase.Mounting;
+                    player.BeginCompanionMount(player.PrecisePosition);
+                    _mountStarted = true;
+                }
                 break;
             case DimitriPhase.Mounting:
+                if (CompanionRuntimeState.MountingDisabled(_runtime) || player.CompanionMountInterrupted)
+                {
+                    _phase = DimitriPhase.Waiting;
+                    _mountStarted = false;
+                    break;
+                }
                 if (!_mountStarted)
                 {
                     player.BeginCompanionMount(player.PrecisePosition);
@@ -256,7 +275,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                     break;
                 }
                 // companionGotoDismountState rejects dismounts in water.
-                if (itemPressed && _water == 0) { BeginDismount(); break; }
+                if (itemPressed)
+                {
+                    if (_water == 0) BeginDismount();
+                    break; // The native tail call returns even when water rejects dismounting.
+                }
                 UpdateMovement(spawns);
                 if (_phase == DimitriPhase.Riding) CheckHazard();
                 break;
@@ -310,7 +333,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 CheckHazard();
                 if (_phase == DimitriPhase.Hazard) break;
                 UpdateWater();
-                _phase = DimitriPhase.AwaitingDistance;
+                _phase = DimitriPhase.Waiting;
                 _previousLink = player.PrecisePosition;
                 SetAnimation(0x1c);
                 break;
@@ -365,7 +388,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                     if (_hazardMounted) player.ApplyCompanionHazardDamage(_hazard.Type);
                     _phase = _hazardMounted ? DimitriPhase.Riding : DimitriPhase.Waiting;
                     _carried.ZFixed = 0; _carried.SpeedZ = 0;
-                    _angle = 0xff; SetAnimation(0);
+                    _direction = (_angle >> 3) & 3; SetAnimation(0);
                 }
                 break;
             case DimitriPhase.GoodbyeWaiting:
@@ -385,7 +408,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 BreakGroundTile(spawns);
                 _animation.Advance();
                 UpdateWater();
-                if (_precisePosition.X >= _room.Width) _phase = DimitriPhase.Finished;
+                // objectCheckWithinScreenBoundary includes the eight-pixel
+                // offscreen margin and compares wrapping coordinate bytes.
+                if (unchecked((byte)((int)_precisePosition.X + 7)) >= 0xaf ||
+                    unchecked((byte)((int)_precisePosition.Y + 7)) >= 0x8f)
+                    _phase = DimitriPhase.Finished;
                 break;
             case DimitriPhase.Finished:
                 break;
@@ -431,7 +458,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             _precisePosition.Y += 0.75f; // dimitriAddWaterfallResistance adds $00c0.
         if (water == _water) return;
         _water = water;
-        SetAnimation(LinkRiding || _phase is DimitriPhase.Leaving or DimitriPhase.FluteEntering or DimitriPhase.ReturningToLand ? 0 : 0x1c);
+        bool walking = LinkRiding || _phase is DimitriPhase.Leaving or DimitriPhase.FluteEntering or DimitriPhase.ReturningToLand;
+        // dimitriUpdateMovement@setWaterStatus calls the direction helper,
+        // even when the retained angle is $ff. State 1 only sets animation.
+        if (walking) _direction = (_angle >> 3) & 3;
+        SetAnimation(walking ? 0 : 0x1c);
     }
 
     private bool IsWater(Vector2 position)
@@ -461,7 +492,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private void ApplySpeed(int speed, bool collide = true)
     {
         Vector2 before = _precisePosition;
-        if (collide) SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, AdjacentWalls());
+        if (collide) SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, _adjacentWalls = AdjacentWalls());
         else OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, speed, _angle);
         // Source coordinates wrap as bytes. Keep the offscreen top/left flute
         // entrance on the negative side of world space until it crosses zero.
@@ -510,7 +541,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
 
     private bool TryStartCliffJump()
     {
-        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
+        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, _adjacentWalls) is not (3 or 0x0c or 0x30)) return false;
         byte tile = _room.GetMetatile(_precisePosition + _native.Probes("cliff")[_direction]);
         if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = DimitriPhase.CliffJump;
@@ -542,6 +573,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction, updateMountPoint: false);
         SetAnimation(0x18);
         _carried = new CarriedObjectMotion(_precisePosition);
+        player.BraceletObjectWeight = 4; // dimitriState2Substate0: wLinkGrabState2=$40.
         player.BeginCarriedObjectPose();
         _save.WriteWramByte(WramAddress.wCompanionTutorialTextShown, (byte)(_save.ReadWramByte(WramAddress.wCompanionTutorialTextShown) | 4));
         _carried.Hold(player);
@@ -585,8 +617,9 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
 
     private void ReleaseCarried(Player player, Vector2I direction)
     {
-        _carried.Release(player, direction, _bracelet);
-        _precisePosition = _carried.GroundPosition;
+        _braceletChildMotion = _carried;
+        _braceletChildMotion.Release(player, direction, _bracelet);
+        _braceletChildStarting = true;
         _throwOrigin = OracleObjectMath.ToPixelPosition(player.Position);
         _phase = DimitriPhase.Thrown;
         _holder = null;
@@ -597,19 +630,15 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     {
         CheckHazard();
         if (_phase == DimitriPhase.Hazard) return;
-        bool stopped = CompanionMovement.FacingWallMask(CompanionMovement.AngleForInput(_carried.Direction), AdjacentWalls()) != 0;
+        bool stopped = CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) != 0;
         // dimitriState2Substate2 deliberately tests group zero, not room size.
         float maxX = _group == 0 ? 155 : 239, maxY = _group == 0 ? 122 : 168;
         if (_precisePosition.Y < 8) { _precisePosition.Y = 16; stopped = true; }
         if (_precisePosition.Y >= maxY) { _precisePosition.Y = maxY; stopped = true; }
         if (_precisePosition.X < 4) { _precisePosition.X = 4; stopped = true; }
         if (_precisePosition.X >= maxX) { _precisePosition.X = maxX; stopped = true; }
-        _carried.GroundPosition = _precisePosition;
-        if (stopped) _carried.SpeedRaw = ObjectSpeed.Speed0;
-        _carried.AdvanceHorizontal(_throwing, static _ => false);
-        _precisePosition = _carried.GroundPosition;
-        bool landed = _carried.AdvanceVertical(_bracelet);
-        if (landed && IsWater(_precisePosition))
+        if (stopped && !_braceletChildStarting) _braceletChildMotion.SpeedRaw = ObjectSpeed.Speed0;
+        if (_carried.ZFixed >= 0 && IsWater(_precisePosition))
         {
             _angle = OracleObjectMovement.Shared.RelativeAngle(_precisePosition, _throwOrigin) & ObjectAngle.CardinalMask;
             _direction = _angle >> 3;
@@ -617,8 +646,37 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             SetAnimation(0);
             _phase = DimitriPhase.ReturningToLand;
         }
-        else if (landed && !_carried.Bounce(_throwing))
-            _phase = DimitriPhase.ThrownLanding;
+    }
+
+    bool IBraceletChildRoomEntity.ReservedBraceletChildActive => _phase == DimitriPhase.Thrown;
+
+    void IBraceletChildRoomEntity.UpdateBraceletChild(Player player)
+    {
+        // ITEM_BRACELET copies only the high XYZ bytes after Link and the item
+        // parents. The companion handler has already observed the previous copy.
+        if (_phase == DimitriPhase.Carried)
+        {
+            _carried.Hold(player);
+            _precisePosition = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
+        }
+        else if (_phase == DimitriPhase.Thrown)
+        {
+            _braceletChildStarting = false;
+            _angle = CompanionMovement.AngleForInput(_braceletChildMotion.Direction);
+            _braceletChildMotion.AdvanceHorizontal(_throwing, CollisionAt);
+            if (_braceletChildMotion.AdvanceVertical(_bracelet))
+            {
+                _sound(SoundId.SndBombLand);
+                if (!_braceletChildMotion.Bounce(_throwing))
+                {
+                    _phase = DimitriPhase.ThrownLanding;
+                    return; // Native release deletes the child without a final position copy.
+                }
+            }
+            _precisePosition = OracleObjectMath.ToPixelPosition(_braceletChildMotion.GroundPosition);
+            _carried.ZFixed = (_braceletChildMotion.ZFixed & ~0xff) | (_carried.ZFixed & 0xff);
+        }
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
     private void SetAnimation(int animationBase) => _animation.SetAnimation(animationBase + _direction + _water);
     private void SetStateBit(byte mask)

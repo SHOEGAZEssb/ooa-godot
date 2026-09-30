@@ -44,7 +44,9 @@ internal sealed class CompanionAttackTileBreaker(
         }
         result.ApplyCommonEffects(
             playSound, decideBreakableDrop, spawns);
-        if (BreakableTileEffectSpawn.Create(
+        // BREAKABLETILESOURCE_DIMITRI_EAT still rolls the drop, but skips
+        // makeInteractionForBreakableTile (including its break sound).
+        if (source != 0x12 && BreakableTileEffectSpawn.Create(
                 room, result.TileCenter, result.Record.Effect) is { } effect)
         {
             spawns.Add(effect);

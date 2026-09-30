@@ -44,6 +44,16 @@ paths. Re-entry and preload consume RNG only at their traced boundaries.
 
 ## Native slots and update phases
 
+Animal companions and the raft run in the shared special-object phase before
+Link. Mounting can therefore start Link's jump in that same update; dismounting
+resets Link and preserves his initialization update before airborne movement.
+The mount-prohibition signal is consumed and cleared after the companion pass,
+before Link, item parents, and interactions can publish it for the next update.
+Companion attacks resolve contacts after item updates. Dimitri's reserved
+Bracelet child owns throw physics and copies whole-pixel coordinates back after
+Link; his companion handler observes that copy on the following update. Carry
+poses and throws use the object's imported weight, including Dimitri's row.
+
 `RoomEntityManager` owns creation, active/outgoing lifetimes, contacts, and
 native pools. Ordinary category order is items, enemies, parts, then
 interactions. Reserved controllers retain their original positions within

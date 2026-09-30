@@ -74,7 +74,7 @@ internal sealed class MooshRescueEventDatabase
                     "link-sprite", "link-palette", "link-frames-base64",
                     "link-source-offsets", "water-hazard",
                     "water-hover-frames", "water-exclamation-z-offset",
-                    "water-exclamation-sound", "source"
+                    "source"
                 ],
                 headerRequired: true)).SingleRow();
         Visual = new MooshCompanionVisualRecord(
@@ -92,8 +92,7 @@ internal sealed class MooshRescueEventDatabase
             visual.UnsignedDecimal(8),
             visual.UnsignedDecimal(9),
             visual.Decimal(10, -128, 127),
-            visual.HexByte(11),
-            visual.RequiredString(12));
+            visual.RequiredString(11));
 
         Ghini0 = CutsceneCommandCatalog.Load(Root + "moosh_rescue_ghini0.tsv");
         Ghini1 = CutsceneCommandCatalog.Load(Root + "moosh_rescue_ghini1.tsv");
@@ -181,8 +180,7 @@ internal sealed class MooshRescueEventDatabase
                 LinkPalette: 0, LinkFrames.Length: 51,
                 LinkSourceOffsets.Length: 51,
                 WaterHazard: 1, WaterHoverFrames: 60,
-                WaterExclamationZOffset: -32,
-                WaterExclamationSound: SoundId.SndClink
+                WaterExclamationZOffset: -32
             } ||
             Visual.LinkSourceOffsets[0x1b] != 0x20c0 ||
             Visual.LinkSourceOffsets[0x1d] != 0x2100 ||
@@ -283,5 +281,4 @@ internal readonly record struct MooshCompanionVisualRecord(
     int WaterHazard,
     int WaterHoverFrames,
     int WaterExclamationZOffset,
-    int WaterExclamationSound,
     string Source);

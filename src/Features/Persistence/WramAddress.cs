@@ -213,6 +213,8 @@ public static class WramAddress
     // include/wram.s: wLinkRaisedFloorOffset
     public const int wLinkRaisedFloorOffset = 0xcc69;
 
+    // include/wram.s: wDisallowMountingCompanion
+    public const int wDisallowMountingCompanion = 0xcc98;
     // include/wram.s: wActiveTilePos
     public const int wActiveTilePos = 0xcc99;
     // include/wram.s: wActiveTileIndex

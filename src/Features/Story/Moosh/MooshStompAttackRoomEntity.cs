@@ -9,7 +9,7 @@ namespace oracleofages;
 /// below Link, alive for $14 original updates and probing its 3x3 tile grid.
 /// </summary>
 internal sealed partial class MooshStompAttackRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IPlayerProjectileRoomEntity
 {
     private static readonly Vector2[] BreakOffsets =
     [
@@ -24,7 +24,6 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
     private readonly BreakableTileDatabase _breakables;
     private readonly OracleSaveData? _saveData;
     private readonly Func<Vector2I, int?>? _linkedRoomNeighbor;
-    private readonly Action<Rect2, int, int, int> _applyHit;
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
@@ -34,6 +33,10 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
+    public bool CollisionEnabled => _initialized && !Finished;
+    public int Damage => CompanionWeaponDatabase.Shared.Weapon(0x28).Damage;
+    public Rect2 CollisionBounds => new(Position - new Vector2(24, 24), new Vector2(48, 48));
+    public void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns) { }
 
     internal MooshStompAttackRoomEntity(
         MooshStompAttackSpawn spawn,
@@ -41,7 +44,6 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         BreakableTileDatabase breakables,
         OracleSaveData? saveData,
         Func<Vector2I, int?>? linkedRoomNeighbor,
-        Action<Rect2, int, int, int> applyHit,
         Action roomTileChanged,
         Func<long> animationTick,
         Action<int> playSound,
@@ -52,7 +54,6 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
         _breakables = breakables;
         _saveData = saveData;
         _linkedRoomNeighbor = linkedRoomNeighbor;
-        _applyHit = applyHit;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         _playSound = playSound;
@@ -71,10 +72,6 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
 
         Position = OracleObjectMath.ToPixelPosition(frame.Player.Position + new Vector2(0, 16));
 
-        var hitbox = new Rect2(
-            Position - new Vector2(24, 24),
-            new Vector2(48, 48));
-        _applyHit(hitbox, 0, 7, 7);
         // ITEM_28 state 0 loads attributes and position, then returns without
         // tile probes or decrementing its newly initialized $14 counter.
         if (!_initialized) { _initialized = true; return; }

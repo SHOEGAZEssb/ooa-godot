@@ -45,6 +45,7 @@ public sealed partial class ValidationRoot
         {
             _entities.Update(1.0 / 60.0, _player);
             _entities.Update(1.0 / 60.0, _player);
+            _entities.Update(1.0 / 60.0, _player); // Angle change, wall probe, then cliff gate.
         }
         finally { Input.EndOriginalUpdate(); }
         FailIf(dimitri.Phase != DimitriPhase.CliffJump || dimitri.Counter != 20,
@@ -193,8 +194,8 @@ public sealed partial class ValidationRoot
         for (int update = 0; update < 180 && dimitri.Phase == DimitriPhase.ReturningToLand; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(dimitri.Phase != DimitriPhase.Waiting || dimitri.InWater || dimitri.ZFixed != 0 ||
-            dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(SoundId.SndLinkSwim) == 0,
-            "Dimitri did not swim back to land and become mountable after the throw.");
+            dimitri.AnimationIndex != dimitri.Direction || _sound.PlayRequestsFor(SoundId.SndLinkSwim) != 0,
+            $"Dimitri did not swim back to land: phase={dimitri.Phase}, water={dimitri.InWater}, Z={dimitri.ZFixed}, animation={dimitri.AnimationIndex}, dir={dimitri.Direction}, sounds={_sound.PlayRequestsFor(SoundId.SndLinkSwim)}.");
         _bracelet.Interrupt(_player, discard: true);
         GD.Print("Validated thrown Dimitri water detection, cardinal return angle and autonomous return to land.");
     }

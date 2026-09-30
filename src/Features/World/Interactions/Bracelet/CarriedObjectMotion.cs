@@ -104,8 +104,8 @@ internal struct CarriedObjectMotion
     {
         int frame = player.CarriedObjectAnimationFrame == 0 ? 2 : 3;
         return player.BraceletEntityOffset ??
-            LinkItemDatabase.Shared.BraceletLiftOffset(
-                frame, DirectionIndex(player.FacingVector));
+            BraceletWeightDatabase.Shared.LiftOffset(
+                player.BraceletObjectWeight, frame, DirectionIndex(player.FacingVector));
     }
 
     internal static Vector2 ThrowCollisionOffset(Vector2I direction) =>

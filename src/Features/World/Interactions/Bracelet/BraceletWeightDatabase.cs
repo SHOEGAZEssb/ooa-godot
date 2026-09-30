@@ -5,6 +5,7 @@ namespace oracleofages;
 
 internal sealed class BraceletWeightDatabase
 {
+    internal static BraceletWeightDatabase Shared { get; } = new();
     private readonly BraceletWeight[] _weights = new BraceletWeight[6];
     private readonly Vector2I[,,] _offsets = new Vector2I[5,4,4];
     internal BraceletWeightDatabase()

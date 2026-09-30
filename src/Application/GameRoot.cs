@@ -868,9 +868,9 @@ public partial class GameRoot : Node2D
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
         if (!IsTransitioning && !_harp.IsPlaying)
-            _entities.UpdateRaftBeforePlayer(_player);
-        // updateAllObjects begins with updateSpecialObjects (Link), followed by
-        // item parents. Link's former physics/process split is therefore
+            _entities.UpdateSpecialObjectsBeforePlayer(_player);
+        // updateAllObjects begins with updateSpecialObjects (companion, then
+        // Link), followed by item parents. Link's physics/process split is
         // replayed here before enemies, parts, and interactions.
         bool scrollOwnedUpdate = _transitions.ScrollActive;
         bool roomTransitionOwnedUpdate = IsTransitioning;

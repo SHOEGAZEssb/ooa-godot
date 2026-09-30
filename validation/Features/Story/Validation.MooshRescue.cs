@@ -635,6 +635,12 @@ public sealed partial class ValidationRoot
             "Moosh state $06/substate $00 did not copy position, set zh=$f8/" +
             "speedZ=-$01c0, save both local anchors, or defer SND_JUMP.");
 
+        // This fixture stepped only the companion above. Complete Link's
+        // same-pass state-0 initialization before its first airborne update.
+        _player._PhysicsProcess(1.0 / 60.0);
+        FailIf(_player.TopDownAirZ != -8 || _player.TopDownAirSpeedZ != -0x01c0 ||
+            _sound.PlayRequestsFor(record.JumpSound) != dismountJumpSounds,
+            "Dismount state-0 initialization must not integrate gravity or play SND_JUMP.");
         _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
             _player.PrecisePosition != dismountStart ||
@@ -1054,9 +1060,9 @@ public sealed partial class ValidationRoot
                     0,
                     (waterCompanion.ZFixed >> 8) - 32) ||
             _sound.PlayRequestsFor(SoundId.SndClink) !=
-                waterClinks + 1,
+                waterClinks,
             $"Moosh did not freeze above imported water and create the " +
-            $"Z-$20/$3c-update SND_CLINK exclamation (room=" +
+            $"silent Z-$20/$3c-update exclamation (room=" +
             $"{waterGroup:x1}:{waterRoom:x2}, start={waterStart}, " +
             $"water={waterCenter}, position={waterCompanion.Position}).");
         StepRoomEventFrames(59);

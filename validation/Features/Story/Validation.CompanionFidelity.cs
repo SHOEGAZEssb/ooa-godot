@@ -75,6 +75,7 @@ public sealed partial class ValidationRoot
         {
             _entities.Update(1.0 / 60, _player);
             _entities.Update(1.0 / 60, _player);
+            _entities.Update(1.0 / 60, _player); // Cliff gate reads the preceding movement's wall probes.
         }
         finally { Input.EndOriginalUpdate(); }
         FailIf(moosh.Phase != MooshCompanionPhase.CliffJump, "Moosh did not enter source state $07 at a downward cliff.");

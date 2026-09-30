@@ -126,6 +126,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private bool _stompContactDisabled;
     private bool _airborneInitialized;
     private bool _mountStarted;
+    private int _adjacentWalls;
     private bool _attackPressed;
     private bool _itemPressed;
     private bool _attackJustPressed;
@@ -391,11 +392,18 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _phase = MooshCompanionPhase.Mounting;
-        _mountStarted = false;
+        player.BeginCompanionMount(player.PrecisePosition);
+        _mountStarted = true;
     }
 
     private void UpdateMounting(Player player)
     {
+        if (CompanionRuntimeState.MountingDisabled(_runtime) || player.CompanionMountInterrupted)
+        {
+            _phase = MooshCompanionPhase.Waiting;
+            _mountStarted = false;
+            return;
+        }
         if (!_mountStarted)
         {
             player.BeginCompanionMount(player.PrecisePosition);
@@ -810,7 +818,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _precisePosition = respawn;
         _hazard = default;
         _phase = _hazardMounted ? MooshCompanionPhase.Riding : MooshCompanionPhase.Waiting;
-        _angle = 0xff;
+        _direction = (_angle >> 3) & 3;
         _chargeCounter = 0;
         _airborneInitialized = false;
         if (_hazardMounted) player.ApplyCompanionHazardDamage(completedHazard);
@@ -864,7 +872,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyMovement(ICollection<RoomEntitySpawn> spawns)
     {
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, _adjacentWalls = AdjacentWalls());
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
     }
 
@@ -886,7 +894,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private bool TryStartCliffJump()
     {
-        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, AdjacentWalls()) is not (3 or 0x0c or 0x30)) return false;
+        if ((_angle & 0xe7) != 0 || CompanionMovement.FacingWallMask(_angle, _adjacentWalls) is not (3 or 0x0c or 0x30)) return false;
         byte tile = _room.GetMetatile(_precisePosition + _terrain.Probes("cliff")[_direction]);
         if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = MooshCompanionPhase.CliffJump;

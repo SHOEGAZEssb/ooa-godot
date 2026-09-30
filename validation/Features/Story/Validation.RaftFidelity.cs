@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
 
         void Step()
         {
-            _entities.UpdateRaftBeforePlayer(_player);
+            _entities.UpdateSpecialObjectsBeforePlayer(_player);
             _player.AdvanceApplicationUpdate();
             _entities.Update(1.0 / 60.0, _player);
         }

@@ -719,6 +719,9 @@ public partial class Player : Node2D
         _activeTransformation == 0 && !IsDying && IsGroundedForFloorButton &&
         AcceptsRoomEntityContact && !IsCarryingObject && !_braceletLiftCollisionsDisabled &&
         _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 && !_world.RidingObject;
+    internal bool CompanionMountInterrupted => IsCarryingObject || _braceletLiftCollisionsDisabled ||
+        _deathAnimationActive || EnemyGrabActive || _fallingInHole || _drowning && _topDownDrownPhase >= 2 ||
+        _getItemStatePhase >= 2 || _floorDoorRespawnPhase >= 2 || _forcedState08Phase >= 2;
     internal bool CanAcceptShieldCollision =>
         IsUsingShield && AcceptsRoomEntityContact &&
         !_braceletLiftCollisionsDisabled && !IsDying &&
@@ -921,6 +924,7 @@ public partial class Player : Node2D
     internal Vector2 PrecisePosition => _precisePosition;
     internal int CarriedObjectAnimationFrame => GetWalkAnimationFrame();
     internal Vector2I? BraceletEntityOffset { get; private set; }
+    internal int BraceletObjectWeight { get; set; }
     internal int ShovelFrame => _shovelFrame;
     internal bool ShovelChildActive =>
         IsUsingShovel &&
@@ -1104,6 +1108,7 @@ public partial class Player : Node2D
             _cutsceneIdleFacing = null;
         }
         _carriedObjectPose = false;
+        BraceletObjectWeight = 0;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
         _forcedRoomEntryMovement = false;
@@ -2613,6 +2618,7 @@ public partial class Player : Node2D
         if (!_carriedObjectPose)
             return;
         _carriedObjectPose = false;
+        BraceletObjectWeight = 0;
         QueueRedraw();
     }
 
@@ -4510,8 +4516,12 @@ public partial class Player : Node2D
         if (_companionJumpAnimationDeferred)
         {
             _companionJumpAnimationDeferred = false;
-            _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
+            // The companion ran first and reset Link to state 0. This
+            // same-pass initialization does not integrate the dismount arc.
+            return false;
         }
+        if (_companionDismountJump)
+            _airborneLinkAnimationMode = AirborneLinkAnimationMode.Jump;
         if (_topDownJumpSoundPending)
         {
             _topDownJumpSoundPending = false;

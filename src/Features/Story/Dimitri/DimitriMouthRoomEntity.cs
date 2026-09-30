@@ -14,11 +14,12 @@ internal sealed partial class DimitriMouthRoomEntity : Node2D,
     public Node2D Node => this;
     public bool Finished => _counter == 0 || _owner.Phase != DimitriPhase.Eating;
     public bool CollisionEnabled => !Finished && !_enemyCollision;
-    public int Damage => 7;
+    public int Damage => CompanionWeaponDatabase.Shared.Weapon(0x2b).Damage;
     public Rect2 CollisionBounds => new(Position - new Vector2(8,8), new Vector2(16,16));
     internal DimitriMouthRoomEntity(DimitriMouthSpawn spawn, CompanionAttackTileBreaker tileBreaker)
     { _owner = spawn.Owner; _tileBreaker = tileBreaker; Visible = false; UpdatePosition(); }
-    private void UpdatePosition() => Position = _owner.PrecisePosition + Offsets[_owner.Direction];
+    // objectTakePositionWithOffset copies the coordinate high bytes only.
+    private void UpdatePosition() => Position = OracleObjectMath.ToPixelPosition(_owner.PrecisePosition) + Offsets[_owner.Direction];
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished) return;

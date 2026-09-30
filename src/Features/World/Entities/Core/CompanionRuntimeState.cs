@@ -35,8 +35,8 @@ internal static class CompanionRuntimeState
     private const int LastAnimalMountY = 0xc638;
     private const int LastAnimalMountX = 0xc639;
     // Ages wDisallowMountingCompanion. The interaction owns its countdown.
-    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(WramAddress.wDisableWarps) != 0;
-    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(WramAddress.wDisableWarps, checked((byte)frames));
+    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(WramAddress.wDisallowMountingCompanion) != 0;
+    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(WramAddress.wDisallowMountingCompanion, checked((byte)frames));
 
     internal static bool IsActive(OracleRuntimeState state, int id) =>
         state.ReadWramByte(Active) != 0 &&

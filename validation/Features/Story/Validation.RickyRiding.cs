@@ -287,6 +287,8 @@ public sealed partial class ValidationRoot
         FailIf(
             companion.Phase != RickyCompanionPhase.Riding,
             "Ricky did not return to riding after the grass-break punch.");
+        // Let the stationary state reset var39 before testing a walking frame.
+        StepRickyApplicationInput(pressed: [], justPressed: []);
         StepRickyApplicationInput(
             pressed: ["move_right"],
             justPressed: []);
@@ -328,6 +330,7 @@ public sealed partial class ValidationRoot
 
         int rickyJumpSounds = _sound.PlayRequestsFor(record.RickySound);
         StepRickyApplicationInput(pressed: ["move_up"], justPressed: []);
+        StepRickyApplicationInput(pressed: ["move_up"], justPressed: []); // Prior update's adjacent-wall cache.
         FailIf(
             companion.Phase != RickyCompanionPhase.JumpingUpCliff ||
             companion.AnimationIndex != behavior.LongJumpAnimation ||
@@ -402,6 +405,7 @@ public sealed partial class ValidationRoot
 
         int downJumpSounds = _sound.PlayRequestsFor(behavior.JumpSound);
         StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);
+        StepRickyApplicationInput(pressed: ["move_down"], justPressed: []);
         FailIf(
             companion.Phase != RickyCompanionPhase.JumpingDownCliff ||
             companion.AnimationIndex != behavior.LongJumpAnimation + 2 ||
@@ -459,7 +463,11 @@ public sealed partial class ValidationRoot
         _currentRoom.SetPositionTileAndCollision(
             holeTile, 0xf3, 0xff, (long)_animationTicks);
         int holeJumpSounds = _sound.PlayRequestsFor(record.RickySound);
-        StepRickyApplicationInput(pressed: ["move_right"], justPressed: []);
+        // Walking prepares the arc but only the expired var39 hop countdown
+        // selects substate $02, as exercised by ValidateRickyLongJumpsRom.
+        int holeApproachUpdates = companion.HopCounter + 1;
+        for (int update = 0; update < holeApproachUpdates; update++)
+            StepRickyApplicationInput(pressed: ["move_right"], justPressed: []);
         FailIf(
             companion.Phase != RickyCompanionPhase.JumpingOverHole ||
             companion.AnimationIndex != behavior.LongJumpAnimation + 1 ||
