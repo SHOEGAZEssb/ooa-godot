@@ -2031,17 +2031,25 @@ public partial class Player : Node2D
                 if (!_world.SideScrolling && !_companionRideControlled)
                     _world.UpdateLinkOnChest(_precisePosition, _topDownAirborne);
             }
-            // Damage suppresses Link's ordinary item-input path, but the
-            // released Bracelet item still receives its independent object
-            // update. Angle $ff clears lateral and Z speed; gravity starts on
-            // this update rather than after knockback expires.
-            _world.AdvanceBraceletProjectile();
-            // linkState01 runs checkUseItems before linkUpdateKnockback. A
-            // held shield parent therefore keeps wUsingShield active during
-            // recoil, while releasing its button clears it normally.
-            UpdateShieldState(
-                Input.IsActionPressed("attack"),
-                Input.IsActionPressed("item"));
+            // linkState01 runs checkUseItems before linkUpdateKnockback.
+            // A hit cancels items once when applied; recoil does not prohibit
+            // a fresh input edge or cancel the resulting parent every update.
+            if (!_world.IsTransitioning && !_world.DialogueOpen &&
+                !_companionRideControlled && !TopDownSwimming)
+            {
+                Vector2 itemInput = Input.GetVector(
+                    "move_left", "move_right", "move_up", "move_down");
+                if (_world.MovementDisabled) itemInput = Vector2.Zero;
+                _lastMovementInput = itemInput;
+                // Recoil still changes the final position before func_60e9.
+                ProcessItemInput(itemInput, checkTileWarps: false);
+            }
+            else
+            {
+                // When the parent pass is skipped, released Bracelet children
+                // still receive their independent gravity/object update.
+                _world.AdvanceBraceletProjectile();
+            }
             float frameDelta = (float)delta * 60.0f;
             if (_raftRideControlled)
             {
@@ -2091,13 +2099,7 @@ public partial class Player : Node2D
                     _enemyKnockbackFrames - frameDelta);
             }
             _walking = false;
-            if (!_swordCollisionKnockback || !IsAttacking)
-            {
-                _swordCollisionKnockback = false;
-                CancelSwordAttack();
-            }
-            CancelShovelAction();
-            if (_enemyKnockbackFrames == 0.0f)
+            if (!IsAttacking || _enemyKnockbackFrames == 0.0f)
                 _swordCollisionKnockback = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             if (_world.SideScrolling && !_world.CheckTileWarp(this))
@@ -2201,239 +2203,7 @@ public partial class Player : Node2D
             return;
         }
 
-        bool primaryItemInputSuppressed =
-            _world.SideScrolling &&
-            !_world.Underwater &&
-            (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
-                SideScrollTileType.Water) != 0 &&
-            !_inventory.HasTreasure(TreasureId.MermaidSuit);
-        bool primaryPressed =
-            Input.IsActionPressed("attack") &&
-            !primaryItemInputSuppressed;
-        bool secondaryPressed = Input.IsActionPressed("item");
-        bool itemButtonJustPressed =
-            (Input.IsActionJustPressed("attack") &&
-                !primaryItemInputSuppressed) ||
-            Input.IsActionJustPressed("item");
-        // chooseParentItemSlot precedes the Bracelet parent's release check.
-        // Keep that input-phase observation even if UpdateBracelet clears it.
-        bool braceletParentAtInput = _world.BraceletParentActive;
-        if (_world.UpdateBomb(this, input, itemButtonJustPressed))
-        {
-            if (_raftRideControlled && input.LengthSquared() > 0.01f)
-                UpdateFacing(input);
-            _walking = false;
-            _pushing = false;
-            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-            // Item-owned movement does not suppress func_60e9. Releasing
-            // a held item clears wLinkGrabState before its post-object check.
-            if (!_topDownAirborne) _world.CheckTileWarp(this);
-            QueueRedraw();
-            return;
-        }
-        if (!_raftRideControlled && _world.UpdateBracelet(
-                this,
-                input,
-                primaryPressed,
-                secondaryPressed,
-                itemButtonJustPressed))
-        {
-            _walking = false;
-            _pushing = false;
-            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-            if (!_topDownAirborne) _world.CheckTileWarp(this);
-            QueueRedraw();
-            return;
-        }
-        if (IsUsingSwitchHook)
-        {
-            AdvanceSwitchHookAirState();
-            _walking = false;
-            _pushing = false;
-            if (!_topDownAirborne) _world.CheckTileWarp(this);
-            QueueRedraw();
-            return;
-        }
-        if (_world.SeedShooterActive && _world.UpdateSeedShooter(
-                this, input, primaryPressed, secondaryPressed,
-                DirectionalInputJustPressed()))
-        {
-            if (_raftRideControlled && input.LengthSquared() > 0.01f)
-                UpdateFacing(input);
-            _walking = false;
-            _pushing = false;
-            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-            // Shooter immobilization only owns movement; func_60e9 still
-            // checks the final standing tile after the object passes.
-            if (!_topDownAirborne) _world.CheckTileWarp(this);
-            QueueRedraw();
-            return;
-        }
-
-        bool startPrimaryInstrument = false;
-        if (_activeTransformation == 0 &&
-            Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
-        {
-            if (!IsUsingItem || IsUsingSomaria)
-            {
-                if (!primaryItemInputSuppressed &&
-                    !_world.ItemUsageDisabled &&
-                    !_minecartRideControlled &&
-                    _inventory.EquippedA == TreasureId.Bombs &&
-                    _world.TryUseBomb(this))
-                    return;
-                if (!primaryItemInputSuppressed &&
-                    !_world.ItemUsageDisabled &&
-                    !_minecartRideControlled && !_raftRideControlled &&
-                    _inventory.EquippedA == TreasureId.Bracelet &&
-                    _world.TryUseBracelet(this, primaryButton: true))
-                    return;
-                if (!primaryItemInputSuppressed &&
-                    !_world.ItemUsageDisabled &&
-                    !_minecartRideControlled && !_raftRideControlled &&
-                    RingEffects.CanPunch(
-                    _inventory,
-                    _inventory.EquippedA == TreasureId.None &&
-                    _inventory.EquippedB == TreasureId.None))
-                {
-                    StartPunchAction(input);
-                    return;
-                }
-            }
-            if (primaryItemInputSuppressed)
-            {
-                // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
-                // swimming with Flippers, checkUseItems checks only B,
-                // including when A holds ITEM_SWORD. var2f bit 7 enables
-                // both buttons for the Mermaid Suit or underwater tilesets.
-            }
-            else if (_world.ItemUsageDisabled)
-            {
-                // wInShop routes A/B to checkShopInput instead of updating
-                // either equipped parent item. Interaction remains available.
-            }
-            else if (_inventory.EquippedA == TreasureId.Sword)
-                StartSwordAttack("attack", input);
-            else if (_inventory.EquippedA == TreasureId.CaneOfSomaria)
-                StartSomariaAction(input, braceletParentAtInput: braceletParentAtInput);
-            else if (_inventory.EquippedA == TreasureId.Boomerang)
-                StartBoomerangAction(input);
-            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedA == TreasureId.SwitchHook &&
-                _world.TryBeginSwitchHook(this, input))
-            {
-                _world.CheckTileWarp(this);
-                return;
-            }
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA == TreasureId.Shovel)
-                StartShovelAction(input);
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA == TreasureId.Feather)
-                TryStartFeatherJump("attack");
-            else if (!_raftRideControlled &&
-                _inventory.EquippedA == TreasureId.SeedSatchel)
-                StartSeedSatchelAction(input);
-            else if (_inventory.EquippedA == TreasureId.Shooter &&
-                _world.TryBeginSeedShooter(this, primaryButton: true, input))
-            {
-                if (!_topDownAirborne) _world.CheckTileWarp(this);
-                return;
-            }
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedA is TreasureId.Harp or TreasureId.Flute)
-                startPrimaryInstrument = true;
-        }
-        if (_activeTransformation == 0 &&
-            (primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") ||
-                _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang ||
-                _inventory.EquippedB is TreasureId.Boomerang or TreasureId.CaneOfSomaria) &&
-            Input.IsActionJustPressed("item") && !_world.SwordDisabled)
-        {
-            if (!_minecartRideControlled && !_raftRideControlled &&
-                !IsUsingItem &&
-                _world.TrySecondaryInteract(this))
-            {
-                return;
-            }
-            if (_world.ItemUsageDisabled)
-            {
-                // The secondary button can still lift or return shop stock.
-            }
-            else if ((!IsUsingItem || IsUsingSomaria) &&
-                !_minecartRideControlled &&
-                _inventory.EquippedB == TreasureId.Bombs)
-            {
-                if (_world.TryUseBomb(this))
-                    return;
-            }
-            else if (!IsUsingItem &&
-                !_minecartRideControlled && !_raftRideControlled &&
-                RingEffects.CanPunch(
-                _inventory,
-                _inventory.EquippedA == TreasureId.None &&
-                _inventory.EquippedB == TreasureId.None))
-            {
-                StartPunchAction(input);
-            }
-            else if ((!IsUsingItem || IsUsingSomaria) &&
-                !_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == TreasureId.Bracelet)
-            {
-                if (_world.TryUseBracelet(this, primaryButton: false))
-                    return;
-            }
-            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedB == TreasureId.SwitchHook &&
-                _world.TryBeginSwitchHook(this, input))
-            {
-                _world.CheckTileWarp(this);
-                return;
-            }
-            else if (_inventory.EquippedB == TreasureId.Sword)
-            {
-                StartSwordAttack("item", input);
-            }
-            else if (!_world.Underwater && _inventory.EquippedB == TreasureId.CaneOfSomaria)
-                StartSomariaAction(input, primaryItemInputSuppressed, braceletParentAtInput);
-            else if (_inventory.EquippedB == TreasureId.Boomerang)
-                StartBoomerangAction(input);
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == TreasureId.Shovel)
-            {
-                StartShovelAction(input);
-            }
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB == TreasureId.Feather)
-            {
-                TryStartFeatherJump("item");
-            }
-            else if (!_raftRideControlled &&
-                _inventory.EquippedB == TreasureId.SeedSatchel)
-            {
-                StartSeedSatchelAction(input);
-            }
-            else if (!_world.Underwater &&
-                _inventory.EquippedB == TreasureId.Shooter &&
-                _world.TryBeginSeedShooter(this, primaryButton: false, input))
-            {
-                if (!_topDownAirborne) _world.CheckTileWarp(this);
-                return;
-            }
-            else if (!_minecartRideControlled && !_raftRideControlled &&
-                _inventory.EquippedB is TreasureId.Harp or TreasureId.Flute)
-            {
-                StartHarpAction(_inventory.EquippedB == TreasureId.Flute);
-            }
-        }
-
-        // checkUseItems scans both buttons before updating ParentItem5.
-        // Instruments must observe a lower-slot parent allocated by B before
-        // checkNoOtherParentItemsInUse can enable their global input lock.
-        if (startPrimaryInstrument)
-            StartHarpAction(_inventory.EquippedA == TreasureId.Flute);
-
-        UpdateShieldState(
-            primaryPressed,
-            Input.IsActionPressed("item"));
+        if (ProcessItemInput(input)) return;
 
         if (_minecartRideControlled)
         {
@@ -6736,6 +6506,257 @@ public partial class Player : Node2D
         return new Rect2(
             center - new Vector2(arc.RadiusX, arc.RadiusY),
             new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
+    }
+
+    private bool ProcessItemInput(Vector2 input, bool checkTileWarps = true)
+    {
+        bool primaryItemInputSuppressed =
+            _world.SideScrolling &&
+            !_world.Underwater &&
+            (_world.GetSideScrollTerrain(_precisePosition).ActiveType &
+                SideScrollTileType.Water) != 0 &&
+            !_inventory.HasTreasure(TreasureId.MermaidSuit);
+        bool primaryPressed =
+            Input.IsActionPressed("attack") &&
+            !primaryItemInputSuppressed;
+        bool secondaryPressed = Input.IsActionPressed("item");
+        bool itemButtonJustPressed =
+            (Input.IsActionJustPressed("attack") &&
+                !primaryItemInputSuppressed) ||
+            Input.IsActionJustPressed("item");
+        // chooseParentItemSlot precedes the Bracelet parent's release check.
+        // Keep that input-phase observation even if UpdateBracelet clears it.
+        bool braceletParentAtInput = _world.BraceletParentActive;
+        if (_world.UpdateBomb(this, input, itemButtonJustPressed))
+        {
+            if (_raftRideControlled && input.LengthSquared() > 0.01f)
+                UpdateFacing(input);
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            // Item-owned movement does not suppress func_60e9. Releasing
+            // a held item clears wLinkGrabState before its post-object check.
+            if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+            QueueRedraw();
+            return true;
+        }
+        if (!_raftRideControlled && _world.UpdateBracelet(
+                this,
+                input,
+                primaryPressed,
+                secondaryPressed,
+                itemButtonJustPressed))
+        {
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+            QueueRedraw();
+            return true;
+        }
+        if (IsUsingSwitchHook)
+        {
+            AdvanceSwitchHookAirState();
+            _walking = false;
+            _pushing = false;
+            if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+            QueueRedraw();
+            return true;
+        }
+        if (_world.SeedShooterActive && _world.UpdateSeedShooter(
+                this, input, primaryPressed, secondaryPressed,
+                DirectionalInputJustPressed()))
+        {
+            if (_raftRideControlled && input.LengthSquared() > 0.01f)
+                UpdateFacing(input);
+            _walking = false;
+            _pushing = false;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            // Shooter immobilization only owns movement; func_60e9 still
+            // checks the final standing tile after the object passes.
+            if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+            QueueRedraw();
+            return true;
+        }
+
+        // checkUseItems allocates A, then B, before updating ParentItem2.
+        // A same/higher-priority B reservation replaces A even if B's own
+        // state0 will fail later. Do not run A's handler or spend its ammo.
+        ParentItemUsage primaryUsage = _inventory.EquippedA is >= 0 and < 0x20
+            ? _parentItemUsage.Item(_inventory.EquippedA) : default;
+        ParentItemUsage secondaryUsage = _inventory.EquippedB is >= 0 and < 0x20
+            ? _parentItemUsage.Item(_inventory.EquippedB) : default;
+        bool secondaryReplacesPrimary = !primaryItemInputSuppressed &&
+            (!_world.Underwater || _world.SideScrolling) &&
+            Input.IsActionJustPressed("attack") && Input.IsActionJustPressed("item") &&
+            primaryUsage.Selector == 3 && secondaryUsage.Selector == 3 &&
+            secondaryUsage.Enabled >= primaryUsage.Enabled;
+        bool startPrimaryInstrument = false;
+        if (_activeTransformation == 0 &&
+            !secondaryReplacesPrimary &&
+            Input.IsActionJustPressed("attack") && !_world.SwordDisabled)
+        {
+            if (!IsUsingItem || IsUsingSomaria)
+            {
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
+                    !_minecartRideControlled &&
+                    _inventory.EquippedA == TreasureId.Bombs &&
+                    _world.TryUseBomb(this))
+                    return true;
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
+                    !_minecartRideControlled && !_raftRideControlled &&
+                    _inventory.EquippedA == TreasureId.Bracelet &&
+                    _world.TryUseBracelet(this, primaryButton: true))
+                    return true;
+                if (!primaryItemInputSuppressed &&
+                    !_world.ItemUsageDisabled &&
+                    !_minecartRideControlled && !_raftRideControlled &&
+                    RingEffects.CanPunch(
+                    _inventory,
+                    _inventory.EquippedA == TreasureId.None &&
+                    _inventory.EquippedB == TreasureId.None))
+                {
+                    StartPunchAction(input);
+                    return true;
+                }
+            }
+            if (primaryItemInputSuppressed)
+            {
+                // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
+                // swimming with Flippers, checkUseItems checks only B,
+                // including when A holds ITEM_SWORD. var2f bit 7 enables
+                // both buttons for the Mermaid Suit or underwater tilesets.
+            }
+            else if (_world.ItemUsageDisabled)
+            {
+                // wInShop routes A/B to checkShopInput instead of updating
+                // either equipped parent item. Interaction remains available.
+            }
+            else if (_inventory.EquippedA == TreasureId.Sword)
+                StartSwordAttack("attack", input);
+            else if (_inventory.EquippedA == TreasureId.CaneOfSomaria)
+                StartSomariaAction(input, braceletParentAtInput: braceletParentAtInput);
+            else if (_inventory.EquippedA == TreasureId.Boomerang)
+                StartBoomerangAction(input);
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedA == TreasureId.SwitchHook &&
+                _world.TryBeginSwitchHook(this, input))
+            {
+                if (checkTileWarps) _world.CheckTileWarp(this);
+                return true;
+            }
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedA == TreasureId.Shovel)
+                StartShovelAction(input);
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedA == TreasureId.Feather)
+                TryStartFeatherJump("attack");
+            else if (!_raftRideControlled &&
+                _inventory.EquippedA == TreasureId.SeedSatchel)
+                StartSeedSatchelAction(input);
+            else if (_inventory.EquippedA == TreasureId.Shooter &&
+                _world.TryBeginSeedShooter(this, primaryButton: true, input))
+            {
+                if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+                return true;
+            }
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedA is TreasureId.Harp or TreasureId.Flute)
+                startPrimaryInstrument = true;
+        }
+        if (_activeTransformation == 0 &&
+            (secondaryReplacesPrimary || primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") ||
+                _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang ||
+                _inventory.EquippedB is TreasureId.Boomerang or TreasureId.CaneOfSomaria) &&
+            Input.IsActionJustPressed("item") && !_world.SwordDisabled)
+        {
+            if (!_minecartRideControlled && !_raftRideControlled &&
+                !IsUsingItem &&
+                _world.TrySecondaryInteract(this))
+            {
+                return true;
+            }
+            if (_world.ItemUsageDisabled)
+            {
+                // The secondary button can still lift or return shop stock.
+            }
+            else if ((!IsUsingItem || IsUsingSomaria) &&
+                !_minecartRideControlled &&
+                _inventory.EquippedB == TreasureId.Bombs)
+            {
+                if (_world.TryUseBomb(this))
+                    return true;
+            }
+            else if (!IsUsingItem &&
+                !_minecartRideControlled && !_raftRideControlled &&
+                RingEffects.CanPunch(
+                _inventory,
+                _inventory.EquippedA == TreasureId.None &&
+                _inventory.EquippedB == TreasureId.None))
+            {
+                StartPunchAction(input);
+            }
+            else if ((!IsUsingItem || IsUsingSomaria) &&
+                !_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedB == TreasureId.Bracelet)
+            {
+                if (_world.TryUseBracelet(this, primaryButton: false))
+                    return true;
+            }
+            else if ((!IsUsingItem || IsUsingSomaria) && _inventory.EquippedB == TreasureId.SwitchHook &&
+                _world.TryBeginSwitchHook(this, input))
+            {
+                if (checkTileWarps) _world.CheckTileWarp(this);
+                return true;
+            }
+            else if (_inventory.EquippedB == TreasureId.Sword)
+            {
+                StartSwordAttack("item", input);
+            }
+            else if (!_world.Underwater && _inventory.EquippedB == TreasureId.CaneOfSomaria)
+                StartSomariaAction(input, primaryItemInputSuppressed, braceletParentAtInput);
+            else if (_inventory.EquippedB == TreasureId.Boomerang)
+                StartBoomerangAction(input);
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedB == TreasureId.Shovel)
+            {
+                StartShovelAction(input);
+            }
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedB == TreasureId.Feather)
+            {
+                TryStartFeatherJump("item");
+            }
+            else if (!_raftRideControlled &&
+                _inventory.EquippedB == TreasureId.SeedSatchel)
+            {
+                StartSeedSatchelAction(input);
+            }
+            else if (!_world.Underwater &&
+                _inventory.EquippedB == TreasureId.Shooter &&
+                _world.TryBeginSeedShooter(this, primaryButton: false, input))
+            {
+                if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
+                return true;
+            }
+            else if (!_minecartRideControlled && !_raftRideControlled &&
+                _inventory.EquippedB is TreasureId.Harp or TreasureId.Flute)
+            {
+                StartHarpAction(_inventory.EquippedB == TreasureId.Flute);
+            }
+        }
+
+        // checkUseItems scans both buttons before updating ParentItem5.
+        // Instruments must observe a lower-slot parent allocated by B before
+        // checkNoOtherParentItemsInUse can enable their global input lock.
+        if (startPrimaryInstrument)
+            StartHarpAction(_inventory.EquippedA == TreasureId.Flute);
+
+        UpdateShieldState(
+            primaryPressed,
+            Input.IsActionPressed("item"));
+        return false;
     }
 
     private void StartSomariaAction(Vector2 input, bool primaryInputSuppressed = false, bool braceletParentAtInput = false)

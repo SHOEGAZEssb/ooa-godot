@@ -65,6 +65,11 @@ separate phases. Concurrent items retain their own locks and counters; ending
 one action must not release another's restriction. See
 [Rooms and entities](rooms-and-entities.md) for native update ordering.
 
+Allocate A before B, then update the resulting parents. A replacement must
+take effect before the displaced item can spend ammunition or spawn a child.
+Ordinary recoil still runs item input before knockback movement; it is not a
+modal input lock.
+
 - Project input actions bind keyboard, D-pad and left stick through the same
   application snapshot. Gamepad bindings accept any device index; the stick
   uses the movement actions' 0.25 deadzone independently for each direction.
