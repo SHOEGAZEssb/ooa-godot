@@ -1730,7 +1730,8 @@ public sealed class RoomEntityManager : IDisposable
     {
         int? subId = _itemDrops.DecideBreakableDrop(
             dropType, _random, _inventory, _saveData);
-        if (subId.HasValue)
+        // decideItemDropForBrokenTile consumes RNG before getFreePartSlot.
+        if (subId.HasValue && PartSlotAvailable)
         {
             int angle = shovelDirection == Vector2I.Up ? ObjectAngle.Up
                 : shovelDirection == Vector2I.Right ? ObjectAngle.Right
@@ -1746,7 +1747,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         int? subId = _itemDrops.DecideBreakableDrop(
             dropType, _random, _inventory, _saveData);
-        if (subId.HasValue)
+        if (subId.HasValue && PartSlotAvailable)
         {
             Spawn<ItemDropEffect>(new ItemDropSpawn(
                 subId.Value, position));

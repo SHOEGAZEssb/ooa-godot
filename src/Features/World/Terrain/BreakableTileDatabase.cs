@@ -6,6 +6,8 @@ namespace oracleofages;
 
 public sealed class BreakableTileDatabase
 {
+    // constants/common/tileIndices.s: TILEINDEX_SIGN
+    private const byte SignTile = 0xf2;
     public const int SourceBracelet = 0x00;
     public const int SourceSwordLevel1 = 0x01;
     public const int SourceSwordLevel2 = 0x02;
@@ -93,6 +95,15 @@ public sealed class BreakableTileDatabase
             return BreakableTileBreakStatus.Unchanged;
         }
 
+        // tryToBreakTile_body updates w3RoomLayoutBuffer before setTile.
+        // Later covered-tile restoration must observe this live replacement.
+        if (record.Replacement != 0)
+            room.SetUnderlyingMetatile(tileCenter, replacement);
+
+        if (tile == SignTile)
+            (saveData ?? throw new InvalidOperationException("Breaking TILEINDEX_SIGN $f2 requires live save state."))
+                .RecordSignDestroyed();
+
         record.ApplyPersistentEffects(
             saveData, group, room.Id, linkedRoomNeighbor);
         result = new BreakableTileBreak(
@@ -152,12 +163,12 @@ public readonly record struct BreakableTileRecord(int ActiveCollisions, int Tile
 
     public byte ReplacementFor(OracleRoomData room, Vector2 tilePoint)
     {
-        bool useOriginalLayout =
+        bool useUnderlyingLayout =
             Tile == 0xdb ||
             (Tile == 0x10 && room.ActiveCollisions is 1 or 2);
-        if (useOriginalLayout)
+        if (useUnderlyingLayout)
         {
-            byte original = room.GetOriginalMetatile(tilePoint);
+            byte original = room.GetUnderlyingMetatile(tilePoint);
             byte collision = room.GetCollision(original);
             if (collision == 0 || collision >= 0x10)
                 return original;

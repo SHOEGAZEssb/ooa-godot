@@ -271,6 +271,14 @@ public sealed class OracleSaveData
             PublishChange();
     }
 
+    // tryToBreakTile_body calls incHlRefWithCap for TILEINDEX_SIGN.
+    internal void RecordSignDestroyed()
+    {
+        if (WriteWramByte(WramAddress.wTotalSignsDestroyed,
+            (byte)Math.Min(0xff, ReadWramByte(WramAddress.wTotalSignsDestroyed) + 1)))
+            PublishChange();
+    }
+
     /// <summary>
     /// Mirrors addToGashaMaturity's little-endian add and $ffff saturation.
     /// </summary>

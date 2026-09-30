@@ -153,6 +153,8 @@ public sealed class CombatController
 
     internal void SpawnBreakEffect(Vector2 point, int effect)
     {
+        // tryToBreakTile_body retains terrain/drop effects on allocation failure.
+        if (!_entities.InteractionSlotAvailable) return;
         if (BreakableTileEffectSpawn.Create(
                 _rooms.CurrentRoom, point, effect) is { } spawn)
         {

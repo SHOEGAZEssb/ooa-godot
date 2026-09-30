@@ -50,6 +50,8 @@ public static class WramAddress
     public const int wTotalEnemiesKilled = 0xc620;
     // include/wram.s: wPlaytimeCounter
     public const int wPlaytimeCounter = 0xc622;
+    // include/wram.s: wTotalSignsDestroyed
+    public const int wTotalSignsDestroyed = 0xc626;
     // include/wram.s: wTotalRupeesCollected
     public const int wTotalRupeesCollected = 0xc627;
     // include/wram.s: wTextSpeed
