@@ -2617,6 +2617,19 @@ public sealed partial class ValidationRoot
         }
 
         InventoryState friendship = Wearing(RingId.Friendship);
+        // linkApplyDamage retains w1Link.health's half-quarter between hits.
+        // The first Blue Ring hit is accepted even with no displayed HP loss;
+        // a room warp and health refill must not erase its fractional damage.
+        (Player fractionalPlayer, _) = RingPlayer(RingId.Blue);
+        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1) ||
+            fractionalPlayer.HealthQuarters != 12 || fractionalPlayer.InvincibilityFrames != 0x22,
+            "A half-quarter hit must retain damage and still apply contact recoil.");
+        fractionalPlayer.WarpTo(new(80, 80));
+        fractionalPlayer.RefillHealth();
+        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1) ||
+            fractionalPlayer.HealthQuarters != 11,
+            "Two half-quarter hits must subtract one quarter across a warp/refill.");
+        fractionalPlayer.Free();
         FailIf(
             RingEffects.BaseSwordDamage(1) != 2 || RingEffects.BaseSwordDamage(2) != 3 ||
             RingEffects.BaseSwordDamage(3) != 5 ||
@@ -2633,28 +2646,28 @@ public sealed partial class ValidationRoot
             "Sword damage did not match commonCode2.s and sword.s ring arithmetic.");
 
         FailIf(
-            RingEffects.IncomingDamageQuarters(friendship, 4, RingDamageSource.Generic) != 4 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL1), 4, RingDamageSource.Generic) != 5 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL2), 4, RingDamageSource.Generic) != 6 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.PowerL3), 4, RingDamageSource.Generic) != 8 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL1), 4, RingDamageSource.Generic) != 4 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL2), 4, RingDamageSource.Generic) != 3 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.ArmorL3), 4, RingDamageSource.Generic) != 3 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.Blue), 4, RingDamageSource.Generic) != 2 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.Green), 4, RingDamageSource.Generic) != 3 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.Cursed), 4, RingDamageSource.Generic) != 8 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.Protection), 1, RingDamageSource.Generic) != 4,
+            RingEffects.IncomingDamageRaw(friendship, 4, RingDamageSource.Generic) != -8 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL1), 4, RingDamageSource.Generic) != -10 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL2), 4, RingDamageSource.Generic) != -12 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL3), 4, RingDamageSource.Generic) != -16 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL1), 4, RingDamageSource.Generic) != -7 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL2), 4, RingDamageSource.Generic) != -6 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL3), 4, RingDamageSource.Generic) != -5 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Blue), 4, RingDamageSource.Generic) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Green), 4, RingDamageSource.Generic) != -6 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Cursed), 4, RingDamageSource.Generic) != -16 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Protection), 1, RingDamageSource.Generic) != -8,
             "Incoming damage did not match linkUpdateDamageToApplyForRings.");
 
         FailIf(
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.GreenLuck), 4, RingDamageSource.BladeTrap) != 2 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.BlueLuck), 4, RingDamageSource.Beam) != 2 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.GoldLuck), 4, RingDamageSource.Hole) != 2 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.RedLuck), 4, RingDamageSource.Spike) != 2 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.RedHoly), 4, RingDamageSource.OctorokProjectile) != 0 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.BlueHoly), 4, RingDamageSource.ZoraFire) != 0 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.GreenHoly), 4, RingDamageSource.Electric) != 0 ||
-            RingEffects.IncomingDamageQuarters(Wearing(RingId.Bombproof), 4, RingDamageSource.OwnBomb) != 0,
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GreenLuck), 4, RingDamageSource.BladeTrap) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.BlueLuck), 4, RingDamageSource.Beam) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GoldLuck), 4, RingDamageSource.Hole) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.RedLuck), 4, RingDamageSource.Spike) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.RedHoly), 4, RingDamageSource.OctorokProjectile) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.BlueHoly), 4, RingDamageSource.ZoraFire) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GreenHoly), 4, RingDamageSource.Electric) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Bombproof), 4, RingDamageSource.OwnBomb) != 0,
             "Luck/Holy/Bombproof source-specific protection table regressed.");
 
         (int l1Distance, int l1Heal) = RingEffects.HeartRefill(Wearing(RingId.HeartL1));

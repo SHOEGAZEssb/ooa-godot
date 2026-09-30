@@ -16,6 +16,11 @@ internal sealed class LinkCollisionRom
     internal const int Swim = 0x5698;
     internal const int Respawn = 0x507b;
     internal const int ForceState = 0x54c0;
+    internal const int DamageRings = 0x4668; // bank $06 linkUpdateDamageToApplyForRings
+    internal const int ApplyDamage = 0x46bb; // bank $06 linkApplyDamage
+    internal const int Invincibility = 0x4279; // bank $05 updateLinkInvincibilityCounter
+    internal const int Vulnerable = 0x1d28; // bank $00 checkLinkVulnerable
+    internal const int Dying = 0x5033; // bank $05 linkState03
     private readonly byte[] _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;

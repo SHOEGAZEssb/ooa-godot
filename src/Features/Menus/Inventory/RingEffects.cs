@@ -44,36 +44,38 @@ internal static class RingEffects
         };
     }
 
-    internal static int IncomingDamageQuarters(
+    internal static int IncomingDamageRaw(
         InventoryState inventory, int quarters, RingDamageSource source)
     {
         if (quarters <= 0 || PreventsDamage(inventory, source))
             return 0;
 
-        int raw = -2 * quarters;
+        int raw = unchecked((sbyte)(-2 * quarters));
         if (HalvesSourceDamage(inventory, source))
             raw >>= 1;
         if (source is RingDamageSource.Hole or RingDamageSource.TerrainHazard)
         {
             if (Active(inventory, RingId.Protection))
                 raw = -8;
-            return Math.Max(1, (-raw + 1) / 2);
+            return raw;
         }
         raw = inventory.ActiveRing switch
         {
             (int)RingId.PowerL1 => raw - 2,
             (int)RingId.PowerL2 => raw - 4,
             (int)RingId.PowerL3 => raw - 8,
-            (int)RingId.ArmorL1 => Math.Min(-1, raw + 1),
-            (int)RingId.ArmorL2 => Math.Min(-1, raw + 2),
-            (int)RingId.ArmorL3 => Math.Min(-1, raw + 3),
+            (int)RingId.ArmorL1 => raw + 1,
+            (int)RingId.ArmorL2 => raw + 2,
+            (int)RingId.ArmorL3 => raw + 3,
             (int)RingId.Blue => raw >> 1,
-            (int)RingId.Green => -((-raw * 3) >> 2),
+            // The two ADDs and the final ADD wrap before the signed shifts.
+            (int)RingId.Green => -(unchecked((sbyte)(-raw * 3)) >> 2),
             (int)RingId.Cursed => raw * 2,
             (int)RingId.Protection => -8,
             _ => raw
         };
-        return Math.Max(1, (-raw + 1) / 2);
+        raw = unchecked((sbyte)raw);
+        return raw < 0 ? raw : -1;
     }
 
     internal static bool PreventsDamage(

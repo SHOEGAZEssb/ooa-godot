@@ -155,6 +155,13 @@ height, boundary, and side-effect contracts. Link owns forced-state requests,
 item cancellation, and recovery; request consumption, initialization, terminal
 animation, and return to ordinary movement may occupy separate updates.
 
+Link's damage owner retains the original fractional damage accumulator separately
+from inventory health. Ring modifiers operate on signed bytes before damage is
+converted to quarter-hearts. Healing, equipment changes, and room movement do
+not discard the fraction; potion use and fresh Link initialization reset it.
+An accepted hit may therefore apply recoil and invincibility without changing
+the displayed health on that update.
+
 ## Entity ownership
 
 Dynamic entities expose only capabilities needed by shared systems: updates,

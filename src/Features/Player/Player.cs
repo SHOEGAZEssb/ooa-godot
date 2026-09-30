@@ -346,6 +346,9 @@ public partial class Player : Node2D
     private bool _topDownDiving;
     private int _topDownDiveCounter;
     private float _enemyInvincibilityFrames;
+    // w1Link.health is a live fractional damage accumulator, initialized to $01.
+    // It survives healing, ring changes and room movement; it is not save health.
+    private int _damageAccumulator = 1;
     private float _enemyKnockbackFrames;
     private Vector2 _enemyKnockbackDirection;
     private int _pendingSwordKnockbackFrames;
@@ -563,7 +566,7 @@ public partial class Player : Node2D
     internal float InvincibilityFrames => _enemyInvincibilityFrames;
     internal float KnockbackFrames => _enemyKnockbackFrames;
     internal bool DamagePaletteActive =>
-        !_deathAnimationActive && _enemyInvincibilityFrames > 0.0f &&
+        _enemyInvincibilityFrames > 0.0f &&
         (_world.FrameCounter & 0x04) == 0;
     internal bool DeathAnimationActive => _deathAnimationActive;
     internal int DeathAnimationFrame => _deathAnimationFrame;
@@ -1505,8 +1508,22 @@ public partial class Player : Node2D
 
     internal bool ApplyDamage(int quarters, RingDamageSource source)
     {
-        int modified = RingEffects.IncomingDamageQuarters(_inventory, quarters, source);
-        return ApplyUnmodifiedDamage(modified);
+        int raw = RingEffects.IncomingDamageRaw(_inventory, quarters, source);
+        if (raw == 0 || _inventory.HealthQuarters == 0) return false;
+        _damageAccumulator = (_damageAccumulator + raw) & 0xff;
+        int damage = 0;
+        if ((_damageAccumulator & 0x80) != 0)
+        {
+            damage = (0x100 - _damageAccumulator + 1) / 2;
+            _damageAccumulator = (_damageAccumulator + damage * 2) & 0xff;
+        }
+        bool hadPotion = _inventory.HasTreasure(TreasureId.Potion);
+        ApplyUnmodifiedDamage(damage);
+        if (_inventory.HealthQuarters == 0) _damageAccumulator = 0;
+        else if (hadPotion && !_inventory.HasTreasure(TreasureId.Potion)) _damageAccumulator = 1;
+        // A half-quarter hit can leave displayed health unchanged and still
+        // trigger sound, invincibility and knockback in the collision caller.
+        return true;
     }
 
     private bool ApplyUnmodifiedDamage(int quarters)
@@ -2626,7 +2643,8 @@ public partial class Player : Node2D
     {
         _deathPending = false;
         _deathAnimationActive = true;
-        _enemyInvincibilityFrames = 0.0f;
+        // state03 substate0 keeps invincibility through spin initialization.
+        // resetLinkInvincibility belongs to substate1 on the next update.
         _walking = false;
         _pushing = false;
         InterruptCarriedItems(discard: true);
