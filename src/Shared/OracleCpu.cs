@@ -196,6 +196,15 @@ internal sealed class OracleCpu
             case 0x0f: _f = (_a & 1) != 0 ? C : 0; _a = (_a >> 1) | ((_a & 1) << 7); cycles = 4; break;
             case 0x17: int carry = (_f & C) != 0 ? 1 : 0; _f = (_a & 0x80) != 0 ? C : 0; _a = ((_a << 1) | carry) & 255; cycles = 4; break;
             case 0x1f: carry = (_f & C) != 0 ? 0x80 : 0; _f = (_a & 1) != 0 ? C : 0; _a = (_a >> 1) | carry; cycles = 4; break;
+            case 0x27:
+                // LR35902 DAA: https://rgbds.gbdev.io/docs/master/gbz80.7#DAA
+                bool subtract = (_f & N) != 0;
+                int adjustment = 0;
+                if ((_f & H) != 0 || !subtract && (_a & 15) > 9) adjustment |= 0x06;
+                if ((_f & C) != 0 || !subtract && _a > 0x99) { adjustment |= 0x60; _f |= C; }
+                _a = (_a + (subtract ? -adjustment : adjustment)) & 255;
+                _f = (_f & (N | C)) | (_a == 0 ? Z : 0);
+                cycles = 4; break;
             case 0x2f: _a ^= 255; _f |= N | H; cycles = 4; break;
             case 0x37: _f = (_f & Z) | C; cycles = 4; break;
             case 0x3f: _f = (_f & Z) | ((_f & C) ^ C); cycles = 4; break;

@@ -2850,7 +2850,7 @@ public sealed partial class ValidationRoot
             Enumerable.Range(0, 0x10).Any(
                 spot => gashaSave.ReadWramByte(0xc64f + spot) != 2) ||
             gashaSave.GashaMaturity != 3 ||
-            wealth.TotalRupeesCollected != 0 || !wealthSave.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected),
+            wealth.TotalRupeesCollected != 6363 || !wealthSave.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected),
             "Slayer/Rupee awards or Maple/Gasha enemy counters regressed.");
 
         GD.Print("Validated all 64 ring IDs, appraisal/list/box/equip persistence, " +

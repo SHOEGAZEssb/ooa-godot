@@ -3238,10 +3238,24 @@ Write-GeneratedBytes(
 # Chests are interactable $f1 metatiles whose room/position and treasure
 # records live in chestData.s. Preserve every record with the resolved
 # TREASURE_OBJECT_* b/c values that will be passed to giveTreasure.
-$rupeeValues = @(
-    0, 1, 2, 5, 10, 20, 40, 30, 60, 70,
-    25, 50, 100, 200, 400, 150, 300, 500, 900, 80
-)
+$rupeeValues = @()
+$rupeeValueRows = [Collections.Generic.List[string]]::new()
+$rupeeValueRows.Add("# index`tamount")
+# bank0.getRupeeValue clamps at $14. Preserve all 21 packed-BCD words,
+# including shop values and $0999, from the supported clean US ROM.
+for ($index = 0; $index -le 0x14; $index++) {
+    $low = [int]$romBytes[0x1791 + $index * 2]
+    $high = [int]$romBytes[0x1792 + $index * 2]
+    if (($low -band 15) -gt 9 -or ($low -shr 4) -gt 9 -or $high -gt 9) {
+        throw "getRupeeValue: invalid BCD word at index `$$($index.ToString('x2'))."
+    }
+    $amount = $high * 100 + ($low -shr 4) * 10 + ($low -band 15)
+    $rupeeValues += $amount
+    $rupeeValueRows.Add("$($index.ToString('x2'))`t$amount")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'metadata\rupee_values.tsv'),
+    $rupeeValueRows)
 $rupeeRewards = @{}
 $treasureObjectSource = Read-ImportText (Join-Path $Disassembly "data\ages\treasureObjectData.s")
 foreach ($match in [regex]::Matches(

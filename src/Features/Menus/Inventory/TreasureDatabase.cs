@@ -11,6 +11,7 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, BehaviourRecord> _behaviours = new();
     private readonly Dictionary<int, GashaMaturityRecord> _gashaMaturity = new();
     private readonly Dictionary<int, ExtraTreasureRecord> _extraItems = new();
+    private readonly int[] _rupeeValues = new int[0x15];
     private readonly Lookup<string, DisplayRecord> _displayRows =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
@@ -25,6 +26,7 @@ public sealed class TreasureDatabase
         LoadObjectVisuals();
         LoadBehaviours();
         LoadExtraItems();
+        LoadRupeeValues();
         LoadGashaMaturity();
         LoadDisplayRows();
         LoadInventoryTexts();
@@ -53,6 +55,23 @@ public sealed class TreasureDatabase
 
     internal bool TryGetExtraItem(int treasureId, out ExtraTreasureRecord extra) =>
         _extraItems.TryGetValue(treasureId, out extra);
+
+    internal int RupeeValue(int parameter) => _rupeeValues[Math.Clamp(parameter, 0, 0x14)];
+
+    private void LoadRupeeValues()
+    {
+        var table = GeneratedTable.Load("res://assets/oracle/metadata/rupee_values.tsv",
+            new GeneratedTableSchema("bank0.getRupeeValue", GeneratedTableKeySemantics.Unique,
+                ["index", "amount"], ["index"], headerRequired: true));
+        if (table.Rows.Count != _rupeeValues.Length)
+            throw new InvalidOperationException("getRupeeValue requires all 21 clean-US BCD values.");
+        for (int index = 0; index < _rupeeValues.Length; index++)
+        {
+            var row = table.Rows[index];
+            if (row.HexByte(0) != index) throw row.Invalid(0, "source-ordered rupee index");
+            _rupeeValues[index] = row.Decimal(1, 0, 999);
+        }
+    }
 
     private void LoadExtraItems()
     {

@@ -14,12 +14,6 @@ public sealed class InventoryState
     private const int RememberedCompanionIdAddress = 0xc631;
     private const int UnappraisedRingCapacity = 0x40;
 
-    private static readonly int[] RupeeValues =
-    {
-        0, 1, 2, 5, 10, 20, 40, 30, 60, 70,
-        25, 50, 100, 200, 400
-    };
-
     private readonly TreasureDatabase _treasures;
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
@@ -898,9 +892,10 @@ public sealed class InventoryState
         long total = (long)TotalRupeesCollected + amount;
         if (total >= 10000)
         {
-            // addDecimalToHlRef is a two-byte BCD addition. Its carry sets
-            // GLOBALFLAG_10000_RUPEES_COLLECTED while the counter itself wraps.
-            TotalRupeesCollected = (int)(total % 10000);
+            // Clean-US addDecimalToHlRef writes $63 to BOTH bytes on carry
+            // (not $99 as its source comment claims), leaving packed BCD $6363.
+            // The award flag then prevents further lifetime-counter changes.
+            TotalRupeesCollected = 6363;
             _saveData?.SetGlobalFlag(GlobalFlag.Flag10000RupeesCollected);
         }
         else
@@ -1141,7 +1136,7 @@ public sealed class InventoryState
                 AddCapped(variable, parameter, bcd: true);
                 return;
             case CollectionMode.AddRupees:
-                AddRupeesCore(RupeeValues[Math.Min(parameter, RupeeValues.Length - 1)]);
+                AddRupeesCore(_treasures.RupeeValue(parameter));
                 return;
             case CollectionMode.AddSeeds:
                 SetVariable(variable, Math.Min(
