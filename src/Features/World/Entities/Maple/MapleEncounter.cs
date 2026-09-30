@@ -20,7 +20,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private TreasureDatabase _treasures = null!;
     private Action<int, string, Player> _dialogueRequested = null!;
     private Func<bool> _dialogueOpen = null!;
-    private Action<MapleItemRecord, Player> _itemCollected = null!;
     private Action<int> _soundRequested = null!;
     private Action<int> _horizontalShakeRequested = null!;
     private Action<int, int> _roomMusicRequested = null!;
@@ -103,7 +102,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         TreasureDatabase treasures,
         Action<int, string, Player> dialogueRequested,
         Func<bool> dialogueOpen,
-        Action<MapleItemRecord, Player> itemCollected,
         Action<int> soundRequested,
         Action<int> horizontalShakeRequested,
         Action<int, int> roomMusicRequested)
@@ -118,7 +116,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _treasures = treasures;
         _dialogueRequested = dialogueRequested;
         _dialogueOpen = dialogueOpen;
-        _itemCollected = itemCollected;
         _soundRequested = soundRequested;
         _horizontalShakeRequested = horizontalShakeRequested;
         _roomMusicRequested = roomMusicRequested;

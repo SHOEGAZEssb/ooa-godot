@@ -466,7 +466,7 @@ public partial class MapScreen : Node2D
         byte[] map = ReadBytes("res://assets/oracle/map/map_dungeon.bin", 576);
         byte[] flags = ReadBytes("res://assets/oracle/map/flags_dungeon.bin", 576);
         DrawFloorList(map, flags, info);
-        DrawSmallKeyCount(map, flags, info.Index);
+        DrawSmallKeyCount(map, info.Index);
         // dungeonMap_generateScrollableTilemap: five blank rows, then each
         // floor from top to bottom separated by two rows. updateScroll copies
         // all 18 screen rows, including portions of neighboring floors.
@@ -561,7 +561,7 @@ public partial class MapScreen : Node2D
         return 0;
     }
 
-    private void DrawSmallKeyCount(byte[] map, byte[] flags, int dungeon)
+    private void DrawSmallKeyCount(byte[] map, int dungeon)
     {
         int keys = _inventory.GetDungeonSmallKeys(dungeon);
         if (keys <= 0)

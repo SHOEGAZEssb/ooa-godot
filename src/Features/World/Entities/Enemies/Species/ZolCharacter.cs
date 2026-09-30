@@ -302,9 +302,6 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         return UpdateEvent.None;
     }
 
-    public bool TakeSwordHit()
-        => TakeSwordHit(Position, 2);
-
     internal bool TakeSwitchHookHit(Vector2 linkPosition, int damage)
         => TakeSwordHit(linkPosition, damage);
 
@@ -317,9 +314,6 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         ApplySwordKnockback(sourcePosition, EnemyKnockbackStrength.Normal);
         return true;
     }
-
-    internal bool TakeSwordHit(int damage)
-        => TakeSwordHit(Position, damage);
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {

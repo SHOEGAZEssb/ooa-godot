@@ -183,9 +183,6 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
         _collisionEnabled = false;
     }
 
-    public bool TakeSwordHit()
-        => TakeSwordHit(2);
-
     internal bool TakeBoomerangHit(Vector2 origin, int damage)
     {
         if (!TakeDeferredNoKnockbackHit(origin, damage)) return false;

@@ -947,8 +947,7 @@ public sealed partial class ValidationRoot
             Vector2 transitionDestination =
                 player.PrecisePosition + new Vector2(160, 0);
             player.BeginScrollingTransition(
-                player.PrecisePosition,
-                Vector2I.Right);
+                player.PrecisePosition);
             player.SetScrollingTransitionPosition(
                 transitionDestination,
                 new Vector2(80, 0));
@@ -1441,8 +1440,7 @@ public sealed partial class ValidationRoot
             Vector2 transitionDestination =
                 flippersPlayer.PrecisePosition + new Vector2(160, 0);
             flippersPlayer.BeginScrollingTransition(
-                flippersPlayer.PrecisePosition,
-                Vector2I.Right);
+                flippersPlayer.PrecisePosition);
             flippersPlayer.SetScrollingTransitionPosition(
                 transitionDestination,
                 new Vector2(80, 0));
@@ -2073,7 +2071,7 @@ public sealed partial class ValidationRoot
         FailIf(
             world.Sounds.Count(sound => sound == SoundId.SndShield) != 1,
             "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
-        player.BeginScrollingTransition(player.Position, Vector2I.Right);
+        player.BeginScrollingTransition(player.Position);
         FailIf(
             player.IsUsingShield || player.ShieldGraphicsIndex != 0x68,
             "wScrollMode $08 did not lower the shield while retaining its parent item.");

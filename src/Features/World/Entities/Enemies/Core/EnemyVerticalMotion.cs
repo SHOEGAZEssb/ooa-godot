@@ -22,12 +22,6 @@ internal sealed class EnemyVerticalMotion(Node2D entity, int gravity)
         set => _speedZ = value;
     }
 
-    public void Reset()
-    {
-        ZFixed = 0;
-        SpeedZ = 0;
-    }
-
     public bool Update()
     {
         bool landed = OracleObjectMath.UpdateSpeedZ(

@@ -35,8 +35,6 @@ internal sealed partial class SeedReflectorChildRoomEntity(RotatableSeedThingRoo
         CollisionRadii = parent.CollisionRadii;
     }
     public bool IntersectsSeed(Rect2 hitbox) => false; // ground-level shooter seeds do not overlap Z=$f2.
-    public SeedHitResult ApplySeedHit(Rect2 hitbox,Vector2 sourcePosition,int seedItem,ICollection<RoomEntitySpawn> spawns) =>
-        ApplySeedHitAtHeight(hitbox,sourcePosition,0,seedItem,spawns);
     public SeedHitResult ApplySeedHitAtHeight(Rect2 hitbox,Vector2 sourcePosition,int sourceZ,int seedItem,ICollection<RoomEntitySpawn> spawns) =>
         RoomEntityManager.ObjectCollisionZOverlaps(z,sourceZ,7) &&
         RotatableSeedThingRoomEntity.SourceCollisionIntersects(hitbox,Position,CollisionRadii) ? SeedHitResult.Bounce : SeedHitResult.None;

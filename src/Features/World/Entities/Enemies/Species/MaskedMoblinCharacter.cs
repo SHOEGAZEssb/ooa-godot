@@ -94,9 +94,6 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
         }
     }
 
-    public bool TakeSwordHit(Vector2 _)
-        => TakeSwordHit(Vector2.Zero, 2);
-
     internal override bool TakeSwordHit(Vector2 _, int damage)
     {
         if (IsDead || !CollisionEnabled || InvincibilityCounter > 0)

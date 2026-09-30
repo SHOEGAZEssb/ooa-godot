@@ -41,7 +41,6 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
     internal int Counter => _runner.Counter;
     internal int MovementCounter => _movement;
     internal int LoadedTextId => _loadedText;
-    internal bool PendingButton => _pending;
 
     internal GoronCaveScriptHost(GoronCaveEvent owner, NpcCharacter actor)
     {

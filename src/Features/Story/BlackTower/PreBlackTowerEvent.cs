@@ -65,9 +65,6 @@ internal sealed class PreBlackTowerEvent :
     public bool BlocksGameplay => _stage is not PreBlackTowerEventStage.Inactive and not PreBlackTowerEventStage.WaitingForImpa;
     internal PreBlackTowerEventStage Stage => _stage;
     internal int SharedSignal => _sharedSignal;
-    internal int RalphSubstate => _ralphSubstate;
-    internal int ImpaSubstate => _impaSubstate;
-    internal int ImpaVar38 => _impaVar38;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room &&

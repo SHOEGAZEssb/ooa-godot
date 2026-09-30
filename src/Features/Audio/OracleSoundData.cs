@@ -121,8 +121,6 @@ public sealed class OracleSoundData
         return (bank - BaseBank) * BankSize + (pointer & 0x3fff);
     }
 
-    public int JumpOffset(int currentBank, int pointer) => PointerOffset(currentBank, pointer);
-
     public ushort FrequencyRegister(int note)
     {
         int index = note - 0x0c;

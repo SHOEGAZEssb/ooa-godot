@@ -15,7 +15,6 @@ internal sealed class GeneratedTableRow
 
     public string Path { get; }
     public int LineNumber { get; }
-    public int Count => _values.Length;
 
     internal GeneratedTableRow(
         string path,

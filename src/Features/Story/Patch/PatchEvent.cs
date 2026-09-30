@@ -35,12 +35,8 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     public bool ScreenTransitionsDisabled => InputControlHeld;
     internal bool FreezesObjects => State == 3;
     internal int State { get; private set; }
-    internal int CartState => _cartState;
-    internal int CartAngle => _cartAngle;
     internal int BeetlesRemaining => _managerCounter;
-    internal int ManagerState => _managerState;
     internal int ScriptIndex => _runner.Instruction;
-    internal int ScriptCounter => _runner.Counter;
     internal bool Fading => _fadeDirection != 0;
     private byte Read(int address) => Context.Entities.RuntimeState.ReadWramByte(address);
     private void Write(int address, int value) => Context.Entities.RuntimeState.SetWramByte(address, unchecked((byte)value));

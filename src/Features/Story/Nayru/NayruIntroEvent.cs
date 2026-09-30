@@ -108,7 +108,6 @@ internal sealed class NayruIntroEvent :
         _nayruStage is not (NayruStage.None or NayruStage.Crowd);
     public bool OwnsGameLogic => _nayruStage is NayruStage.SingingFadeIn or NayruStage.Singing or
         NayruStage.SingingFadeOut or NayruStage.Script;
-    internal bool CrowdActive => _nayruStage == NayruStage.Crowd;
     internal bool IntroCompleted => _rooms.SaveData.HasGlobalFlag(_nayruRecord.IntroFlag);
     internal int Counter => _counter;
     internal NayruGhostScriptHost GhostScript => _ghostScript;

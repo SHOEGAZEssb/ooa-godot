@@ -11,7 +11,6 @@ internal sealed class GoronDanceController(GoronCaveScriptHost host)
     private OracleRuntimeState Wram => Context.Entities.RuntimeState;
     private int _state=1, _substate, _counter, _z, _speedZ;
     private bool _failureScript;
-    internal bool ScriptRunning => _state is 1 or 4 || _state==3&&_substate==4&&_failureScript;
     internal int State => _state;
     internal int Substate => _substate;
     internal int Counter => _counter;

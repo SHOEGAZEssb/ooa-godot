@@ -11,7 +11,6 @@ internal sealed class SomariaParentAnimation
     internal bool Active { get; private set; } = true;
     internal int Mode { get; }
     internal int Parameter => _frames[_index].Parameter;
-    internal int Graphic => _frames[_index].Graphic;
     internal int Frame => _index;
     internal SomariaParentAnimation(SomariaSwingDatabase data,bool underwater,bool mounted,bool raft)
     {

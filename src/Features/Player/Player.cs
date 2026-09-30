@@ -245,7 +245,6 @@ public partial class Player : Node2D
     private Vector2 _enemyKnockbackDirection;
     private int _pendingSwordKnockbackFrames;
     private Vector2 _pendingSwordKnockbackDirection;
-    private bool _swordCollisionKnockback;
     private double _deathUpdateAccumulator;
     private bool _deathPending;
     private bool _deathAnimationActive;
@@ -966,7 +965,6 @@ public partial class Player : Node2D
         _enemyKnockbackFrames = 0.0f;
         _pendingSwordKnockbackFrames = 0;
         _pendingSwordKnockbackDirection = Vector2.Zero;
-        _swordCollisionKnockback = false;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
         _fallInHoleWarpPending = false;
@@ -1266,7 +1264,7 @@ public partial class Player : Node2D
         return z >> 8;
     }
 
-    public void BeginScrollingTransition(Vector2 position, Vector2I direction)
+    public void BeginScrollingTransition(Vector2 position)
     {
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -1362,7 +1360,7 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    public void SetRoomWarpWalkPosition(Vector2 position, double delta)
+    public void SetRoomWarpWalkPosition(Vector2 position)
     {
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -1439,7 +1437,6 @@ public partial class Player : Node2D
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(_inventory, 8);
         _enemyKnockbackDirection = OracleObjectMovement.Shared.Direction(
             OracleObjectMovement.Shared.RelativeAngle(sourcePosition, Position));
-        _swordCollisionKnockback = false;
         CancelSwordAttack();
         ClearShieldParent();
         if (!ElectricShockActive) _electricShockPending = true;
@@ -1483,7 +1480,6 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = invincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, knockbackFrames);
-        _swordCollisionKnockback = false;
         _enemyKnockbackDirection = EnemyContactPosition - sourcePosition;
         if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
         {
@@ -1542,7 +1538,6 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = -invincibilityFrames;
         _enemyKnockbackFrames = RingEffects.KnockbackFrames(
             _inventory, knockbackFrames);
-        _swordCollisionKnockback = false;
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             sourcePosition,
             Position);
@@ -1569,7 +1564,6 @@ public partial class Player : Node2D
                 sourcePosition, Position) & ObjectAngle.CardinalMask);
         _enemyKnockbackFrames = 0x18;
         _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
-        _swordCollisionKnockback = false;
         _walking = false;
         _pushing = false;
         InterruptCarriedItems(discard: false);
@@ -1613,10 +1607,7 @@ public partial class Player : Node2D
         // itemTransferKnockbackToLink preserves a longer live counter but
         // always replaces Link's knockback angle.
         if (frames >= _enemyKnockbackFrames)
-        {
             _enemyKnockbackFrames = frames;
-            _swordCollisionKnockback = IsAttacking;
-        }
         _enemyKnockbackDirection = direction;
     }
 
@@ -1996,8 +1987,6 @@ public partial class Player : Node2D
                     _enemyKnockbackFrames - frameDelta);
             }
             _walking = false;
-            if (!IsAttacking || _enemyKnockbackFrames == 0.0f)
-                _swordCollisionKnockback = false;
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             if (_world.SideScrolling && !_world.CheckTileWarp(this))
                 _world.CheckRoomExit(this);
@@ -2964,7 +2953,6 @@ public partial class Player : Node2D
         _enemyKnockbackDirection = Vector2.Zero;
         _pendingSwordKnockbackFrames = 0;
         _pendingSwordKnockbackDirection = Vector2.Zero;
-        _swordCollisionKnockback = false;
     }
 
     internal void CopyPortalPosition(Vector2 position)
@@ -4479,19 +4467,18 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    internal void BeginRaftRide(Vector2 position, int direction)
+    internal void BeginRaftRide(Vector2 position)
     {
         InterruptCarriedItems(discard: true);
         CancelShovelAction();
         ClearTopDownAirState();
         _raftRideControlled = true;
-        SetRaftRidePosition(position, direction, animationParameter: 0,
+        SetRaftRidePosition(position, animationParameter: 0,
             Vector2.Zero);
     }
 
     internal void SetRaftRidePosition(
         Vector2 position,
-        int direction,
         int animationParameter,
         Vector2 screenOffset)
     {
@@ -5020,7 +5007,6 @@ public partial class Player : Node2D
 
         _enemyInvincibilityFrames = 40.0f;
         _enemyKnockbackFrames += 10.0f;
-        _swordCollisionKnockback = false;
         int knockbackAngle = _sideScrollAngle < 0x80
             ? (_sideScrollAngle ^ ObjectAngle.HalfTurn)
             : 0xff;

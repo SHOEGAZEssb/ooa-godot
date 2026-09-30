@@ -29,7 +29,6 @@ public sealed class BraceletController
     private readonly Func<long> _animationTick;
     private readonly Func<Vector2, Vector2I, bool> _hasFullWall;
     private readonly BraceletDatabaseRecord _record;
-    private readonly LinkItemDatabase _linkItems;
 
     private BraceletState _state;
     private bool _primaryButton;
@@ -72,7 +71,6 @@ public sealed class BraceletController
         _animationTick = animationTick;
         _hasFullWall = hasFullWall;
         _record = new BraceletDatabase().Data;
-        _linkItems = LinkItemDatabase.Shared;
     }
 
     /// <summary>

@@ -12,7 +12,6 @@ internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     IUpdatesDuringRoomEntityFreeze
 {
-    private readonly DungeonMechanicDatabaseRecord _record;
     private readonly DungeonMechanicDatabase _data;
     private readonly OracleRoomData _room;
     private readonly GroundTreasureGrantRequest _request;
@@ -30,7 +29,6 @@ internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
     {
         if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x0e)
             throw new ArgumentOutOfRangeException(nameof(record));
-        _record = record;
         _data = data;
         _room = room;
         _request = request;

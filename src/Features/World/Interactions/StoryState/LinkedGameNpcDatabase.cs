@@ -19,8 +19,6 @@ public sealed class LinkedGameNpcDatabase
     private readonly byte[] _xorCipher;
     private readonly string[] _secretSymbols;
 
-    public IReadOnlyCollection<LinkedGameNpcDatabaseRecord> Records =>
-        _records.Values;
     internal IReadOnlyList<byte> XorCipher => _xorCipher;
     internal IReadOnlyList<string> SecretSymbols => _secretSymbols;
 

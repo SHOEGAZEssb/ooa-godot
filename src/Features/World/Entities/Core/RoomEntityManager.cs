@@ -386,7 +386,6 @@ public sealed class RoomEntityManager : IDisposable
         };
         return new(DynamicItemId(entity), ((Node2D)entity.Node).Position, z);
     }
-    internal bool SwitchHookChainSlotAvailable => DynamicItemSlotAvailable;
     // Dependency references shared with the manager-owned entity factory.
     internal ItemDropDatabase ItemDrops => _itemDrops;
     internal OracleRandom Random => _random;

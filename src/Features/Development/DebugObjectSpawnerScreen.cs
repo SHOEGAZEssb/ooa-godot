@@ -22,7 +22,6 @@ public partial class DebugObjectSpawnerScreen : Control
     private IReadOnlyList<DebugObjectEntry> Entries => IsDrop ? _catalog.Drops : _catalog.Enemies;
     private int Index => IsDrop ? _dropIndex : _enemyIndex;
     internal DebugObjectEntry Selection => Entries[Index];
-    internal string Status => _status.Text;
 
     public override void _Ready()
     {

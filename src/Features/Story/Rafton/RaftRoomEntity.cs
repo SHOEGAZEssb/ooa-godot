@@ -111,7 +111,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         {
             Visible = true;
             player.SetRaftRidePosition(
-                _precisePosition, _direction,
+                _precisePosition,
                 _mountedAnimation.CurrentParameter, Vector2.Zero);
         }
         else if (_forcedWalkCounter > 0)
@@ -142,7 +142,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                 _dismountAngle = 0;
                 _mountedAnimation.SetAnimation(0);
                 ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
-                frame.Player.BeginRaftRide(_precisePosition, _direction);
+                frame.Player.BeginRaftRide(_precisePosition);
                 SavePosition(frame.Player);
                 break;
             case RaftPhase.Riding:
@@ -328,7 +328,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
             _runtime, CompanionRuntimeState.RaftId, _roomId,
             _precisePosition, _direction);
         player.SetRaftRidePosition(
-            _precisePosition, _direction,
+            _precisePosition,
             _mountedAnimation.CurrentParameter, Vector2.Zero);
     }
 
@@ -460,7 +460,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         player.SetRaftRidePosition(
-            position, _direction,
+            position,
             _mountedAnimation.CurrentParameter, screenOffset);
     }
 

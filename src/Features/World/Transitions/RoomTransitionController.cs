@@ -723,7 +723,7 @@ public sealed class RoomTransitionController
         _scrollLinkStart = start;
         if (_scrollPlayerOwner is null)
         {
-            player.BeginScrollingTransition(start, direction);
+            player.BeginScrollingTransition(start);
         }
         else
         {
@@ -1063,7 +1063,6 @@ public sealed class RoomTransitionController
 
     private void AdvanceWarpUpdate()
     {
-        const double delta = 1.0 / 60.0;
         _warpFrame++;
         switch (_warpPhase)
         {
@@ -1085,7 +1084,7 @@ public sealed class RoomTransitionController
                 // update requests the load without a sixteenth displacement.
                 float leaveFrame = Mathf.Min(_warpFrame, WarpLeaveFrames - 1);
                 _player.SetRoomWarpWalkPosition(
-                    _warpWalkStart.Lerp(_warpWalkEnd, leaveFrame / (WarpLeaveFrames - 1)), delta);
+                    _warpWalkStart.Lerp(_warpWalkEnd, leaveFrame / (WarpLeaveFrames - 1)));
                 if (_warpFrame >= WarpLeaveFrames)
                 {
                     SetFade(_roomLoadColumnReveal ? 0.0f : 1.0f);
@@ -1099,7 +1098,7 @@ public sealed class RoomTransitionController
                 {
                     float enterFrame = Mathf.Min(_warpFrame, WarpEnterFrames);
                     _player.SetRoomWarpWalkPosition(
-                        _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames), delta);
+                        _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames));
                 }
                 // fadeinFromWhite starts at offset $20, displays $1f through
                 // $00, then consumes one final update to stop the thread.
@@ -1132,7 +1131,7 @@ public sealed class RoomTransitionController
                 {
                     float enterFrame = Mathf.Min(_warpFrame, WarpEnterFrames);
                     _player.SetRoomWarpWalkPosition(
-                        _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames), delta);
+                        _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames));
                 }
                 if (_warpFrame >= WarpEnterFrames)
                     FinishWarp();

@@ -27,7 +27,6 @@ internal sealed class TokayCookEvent :
 
     public bool MenusDisabled => BlocksGameplay;
     internal bool Jumping => _jumping;
-    internal bool AwayFromStart => _awayFromStart;
 
     public bool Matches(int group, OracleRoomData room) =>
         Context.Entities.Entities<TokayCharacter>().Any(actor =>

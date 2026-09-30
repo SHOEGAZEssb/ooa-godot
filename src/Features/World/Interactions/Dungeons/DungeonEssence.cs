@@ -75,7 +75,6 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
         OracleRoomData room,
         bool collected,
         Func<long> animationTick,
-        OracleRandom random,
         Action<DungeonEssence, Player> triggered,
         DungeonEssenceDefinition definition)
     {

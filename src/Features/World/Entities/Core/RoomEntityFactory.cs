@@ -1020,7 +1020,6 @@ internal sealed class RoomEntityFactory
                 _treasures,
                 owner.OnMapleDialogueRequested,
                 owner.IsTextActive,
-                owner.OnMapleItemCollected,
                 owner.OnSoundRequested,
                 owner.BeginHorizontalScreenShake,
                 owner.OnRoomMusicRequested);
@@ -1254,7 +1253,6 @@ internal sealed class RoomEntityFactory
                     _saveData?.HasRoomFlag(
                         record.Group, record.Room, OracleSaveData.RoomFlagItem) == true,
                     _animationTick,
-                    _random,
                     owner.OnDungeonEssenceTriggered,
                     new DungeonEssenceDefinition(
                         0,
@@ -1485,7 +1483,6 @@ internal sealed class RoomEntityFactory
                         record.Room,
                         OracleSaveData.RoomFlagItem) == true,
                     _animationTick,
-                    _random,
                     owner.OnDungeonEssenceTriggered,
                     new DungeonEssenceDefinition(
                         1,
@@ -1538,7 +1535,6 @@ internal sealed class RoomEntityFactory
                         record.Room,
                         OracleSaveData.RoomFlagItem) == true,
                     _animationTick,
-                    _random,
                     owner.OnDungeonEssenceTriggered,
                     new DungeonEssenceDefinition(
                         2,
@@ -1814,7 +1810,7 @@ internal sealed class RoomEntityFactory
             Resources.DungeonVisuals.Visual("essence-pedestal"), Resources.DungeonVisuals.Visual("essence-glow"),
             Resources.DungeonVisuals.Visual("energy-bead"), room,
             _saveData?.HasRoomFlag(record.Group,record.Room,OracleSaveData.RoomFlagItem)==true,
-            _animationTick,_random,owner.OnDungeonEssenceTriggered,definition);
+            _animationTick,owner.OnDungeonEssenceTriggered,definition);
     }
 
     private DungeonRewardRoomEntity CreateEnemySmallKeyReward(

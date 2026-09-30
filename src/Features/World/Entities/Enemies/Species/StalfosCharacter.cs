@@ -165,9 +165,6 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
         return false;
     }
 
-    public bool TakeSwordHit(Vector2 sourcePosition)
-        => TakeSwordHit(sourcePosition, 2);
-
     public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead && !DiedInHazard &&
         _state == StalfosState.SwitchHook && SwitchHookSubstate < 3;
     public Vector2 SwitchHookPosition => Position;

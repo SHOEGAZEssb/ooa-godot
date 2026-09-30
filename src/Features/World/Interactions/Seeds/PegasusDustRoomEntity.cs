@@ -18,7 +18,6 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
     internal int Substate { get; private set; }
     internal int OamFlags { get; private set; }
     internal int TileBase { get; private set; }
-    internal int Subid => _subid;
     internal ReadOnlySpan<byte> Clouds => _clouds;
     public bool Finished { get; private set; }
     public Node2D Node => this;

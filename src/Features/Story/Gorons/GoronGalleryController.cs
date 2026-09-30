@@ -14,7 +14,6 @@ internal sealed class GoronGalleryController(GoronCaveScriptHost host)
     private int _state=1;
     private bool _result, _equipped, _started;
     private string? _retry;
-    internal bool Playing => _state==2;
     internal bool MenusDisabled { get; private set; }
     internal int Score => _session?.Score??0;
     internal bool FinalRound => _session?.Round==10;

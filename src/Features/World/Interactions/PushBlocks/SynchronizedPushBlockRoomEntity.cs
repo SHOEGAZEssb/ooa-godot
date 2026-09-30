@@ -15,7 +15,6 @@ internal sealed class SynchronizedPushBlockRoomEntity(PushBlockController actor,
     public bool Finished => _initialized && !Entity.Active;
     public bool UpdatesDuringDialogue => !_initialized;
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
-    internal byte SourcePosition => sourcePosition;
 
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Advance(frame.Player);
     public void UpdateDuringScreenTransition(RoomEntityFrame frame)

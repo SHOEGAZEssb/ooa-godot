@@ -117,9 +117,6 @@ public sealed class TreasureDatabase
         };
     }
 
-    internal DisplayRecord GetHarpSongDisplay(int song) =>
-        GetDisplay("treasureDisplayData_harp", Math.Clamp(song, 0, 3));
-
     public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
     {
         if (treasureId == TreasureId.None)

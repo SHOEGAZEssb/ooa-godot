@@ -83,9 +83,6 @@ public partial class KeeseCharacter : EnemyCharacter
             UpdateNormalKeese(frameCounter);
     }
 
-    public bool TakeSwordHit()
-        => TakeSwordHit(1);
-
     internal bool TakeSwordHit(int damage)
     {
         if (IsDead || InvincibilityCounter > 0)

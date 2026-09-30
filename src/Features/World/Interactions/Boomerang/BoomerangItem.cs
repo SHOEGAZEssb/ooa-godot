@@ -28,9 +28,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
     internal bool Finished { get; private set; }
     internal bool CollisionEnabled => !Finished && State is >= 1 and <= 3;
     internal Vector2 PrecisePosition => _precisePosition;
-    internal int AnimationFrame => _animation.FrameIndex;
     internal Rect2 CollisionBounds => new(Position - (Vector2)_data.Radius, (Vector2)_data.Radius * 2);
-    internal Texture2D Texture => _animation.CurrentTexture;
 
     internal BoomerangItem(OracleRoomData room, Vector2 position, int angle, int zHigh, Func<int> damage,
         Action<int> sound, Action<Vector2, int> clink)

@@ -26,7 +26,6 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     internal bool IsSpawner => !IsChild && Record.SubId == 0;
     internal EyesoarActor? Parent { get; private set; }
     internal EyesoarActor? Body { get; private set; }
-    internal IReadOnlyList<EyesoarActor> Children => _children;
     internal int State { get; private set; }
     internal int Substate { get; private set; }
     internal int Counter { get; private set; }
