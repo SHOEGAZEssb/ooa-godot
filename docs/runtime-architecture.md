@@ -26,6 +26,11 @@ create room objects, advance gameplay, or consume object RNG. The original
 intro completion commits room entry and enables the scene. An unfinished
 preparation is drained at that boundary; it never shortens the intro.
 
+The entity factory is a manager-owned construction helper. It uses named
+operations on that owner for allocation, signals, and events. Actor callbacks
+read live input providers through the manager when invoked, so providers assigned
+or replaced after construction remain effective.
+
 The entity factory resolves its databases on first use or staged intro
 preparation and retains them for the session. Room-wide gates still evaluate
 their inputs in dispatch order. Link

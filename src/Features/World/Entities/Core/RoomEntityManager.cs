@@ -42,7 +42,7 @@ public sealed class RoomEntityManager : IDisposable
     internal DungeonKeyDoorController? ReservedKeyDoor { get; set; }
     internal bool DoorPaletteFadeActive => PaletteFadeActiveSource() ||
         _activeEntities.OfType<DarkRoomHandlerRoomEntity>().Any(handler => handler.State.FadeActive);
-    private bool TryCreateSynchronizedBlock(byte position,int angle)
+    internal bool TryCreateSynchronizedBlock(byte position,int angle)
     {
         if (FindFreeInteractionSlot() < 0) return false;
         var actor = (ReservedPushBlock ?? throw new InvalidOperationException("INTERAC $bd has no reserved $14 owner."))
@@ -86,7 +86,7 @@ public sealed class RoomEntityManager : IDisposable
     private readonly HashSet<IRoomEntity> _specialObjectsUpdatedBeforePlayer = new();
     private TimeWarpLandingDatabase? _companionSolidPositions;
 
-    private void RegisterEnemySlot(IRoomEntity? entity, int slot)
+    internal void RegisterEnemySlot(IRoomEntity? entity, int slot)
     {
         if (slot is < 0 or >= 16 || _reservedEnemySlots.Contains(slot))
             throw new InvalidOperationException($"getFreeEnemySlot: duplicate or invalid enemy slot ${slot:x2}.");
@@ -112,13 +112,13 @@ public sealed class RoomEntityManager : IDisposable
         return entity is IRoomEntityLifetime { Finished: true } ? null : entity;
     }
 
-    private int FindFreeEnemySlot() => Enumerable.Range(0,16)
+    internal int FindFreeEnemySlot() => Enumerable.Range(0,16)
         .FirstOrDefault(slot => !_reservedEnemySlots.Contains(slot), -1);
 
-    private bool MaplePresent() => _activeEntities.Any(
+    internal bool MaplePresent() => _activeEntities.Any(
         entity => entity is MapleEncounterRoomEntity { Finished: false });
 
-    private void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
+    internal void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
     {
         if (_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0)
             return;
@@ -387,6 +387,41 @@ public sealed class RoomEntityManager : IDisposable
         return new(DynamicItemId(entity), ((Node2D)entity.Node).Position, z);
     }
     internal bool SwitchHookChainSlotAvailable => DynamicItemSlotAvailable;
+    // Dependency references shared with the manager-owned entity factory.
+    internal ItemDropDatabase ItemDrops => _itemDrops;
+    internal OracleRandom Random => _random;
+    internal OracleSaveData? SaveData => _saveData;
+    internal InventoryState? Inventory => _inventory;
+    internal TreasureDatabase Treasures => _treasures;
+    internal Func<long> AnimationTick => _animationTick;
+    internal MovingPlatformRidingState PlatformRiding => _platformRiding;
+
+    // Read live providers at the point of use, never at actor construction.
+    internal int ReadPlayingInstrument() => PlayingInstrumentSource();
+    internal bool CanCollectGroundTreasure() => GroundTreasureCollectionAllowed();
+    internal bool IsTextActive() => TextActiveSource();
+    internal int ReadDisplayedHealth() => DisplayedHealthSource();
+    internal Vector2 ToScreen(Vector2 position) => WorldToScreen(position);
+    internal byte ActiveRoomDefeatBitset => _recentEnemyDefeats.ActiveRoomBitset;
+    internal bool ScreenIsShaking => _screenShakeCounter != 0 || _horizontalScreenShakeCounter != 0;
+    internal bool CanAllocateEnemies(int count) => _reservedEnemySlots.Count <= 16 - count;
+    internal bool IsOutgoingEntity(IRoomEntity entity) => _outgoingEntities.Contains(entity);
+    internal PushBlockController RequiredReservedPushBlock => ReservedPushBlock ??
+        throw new InvalidOperationException("INTERAC $bd requires reserved $14.");
+
+    internal void SetVerticalScreenShake(int updates) => _screenShakeCounter = updates;
+    internal void SetScreenShakeMagnitude(int magnitude) => _screenShakeMagnitude = magnitude;
+    internal void BeginBossEntrySignal() => _bossShutterSignal.BeginBossEntry();
+    internal void UpdateBossShutterSignal(bool opened)
+    {
+        if (opened) _bossShutterSignal.Opened();
+        else _bossShutterSignal.Closed();
+    }
+    internal void MergeSmogClouds(int phase) => TryMergeSmogClouds(phase);
+    internal void WriteNativeChannelVolume(int channel, byte value) =>
+        (NativeChannelVolumeWritten ?? throw new InvalidOperationException(
+            "Native channel-volume writes require the sound driver owner."))(channel, value);
+
     public OracleRuntimeState RuntimeState => _runtimeState;
     private ObjectGraphicsLoadState? _objectGraphics;
     internal ObjectGraphicsLoadState ObjectGraphics => _objectGraphics ??= new(_runtimeState);
@@ -578,56 +613,7 @@ public sealed class RoomEntityManager : IDisposable
         _random.BindPlacementMemory(_runtimeState);
         _animationTick = animationTick ?? (() => 0);
         _familyState = new BipinBlossomFamilyStateResolver(npcs);
-        _factory = new RoomEntityFactory(
-            _familyState, enemies, itemDrops, timePortals, random,
-            _saveData, _runtimeState, OnTimePortalEntered,
-            () => PlayingInstrumentSource(),
-            () => GroundTreasureCollectionAllowed(),
-            OnGroundTreasureCollected, OnDungeonEntranceTriggered,
-            OnRoomWarpRequested,
-            OnGashaInteractionRequested, OnGashaNutCaught, inventory,
-            _treasures,
-            OnItemDropEnteredHazard,
-            OnObjectFellInHole,
-            OnSoundRequested, ApplyThrownObjectHit, CountRoomEnemies,
-            () => _recentEnemyDefeats.ActiveRoomBitset,
-            TriggerIsActive, () => _activeTriggers, SetTrigger,
-            OnRoomTileChanged,
-            OnDungeonEssenceTriggered,
-            BossShuttersClosed,
-            BeginScreenShake,
-            DisableLinkCollisionsAndMenu,
-            EnableLinkCollisionsAndMenu,
-            OnRoomMusicRequested,
-            OnRoomEntityDialogueRequested,
-            OnMapleDialogueRequested,
-            OnSeedTreeMessageRequested,
-            OnOwlStatueMessageRequested,
-            () => TextActiveSource(),
-            OnMapleItemCollected,
-            BeginHorizontalScreenShake,
-            updates => _screenShakeCounter = updates,
-            position => WorldToScreen(position), _animationTick, rooms,
-            MaplePresent, SpawnDiggingEnemy, RegisterEnemySlot, FindFreeEnemySlot,
-            RetainFailedPlacementCount,
-            () => DisplayedHealthSource(), SetScreenShake,
-            () => _screenShakeCounter != 0 || _horizontalScreenShakeCounter != 0,
-            magnitude => _screenShakeMagnitude = magnitude,
-            () => FindFreePartSlot() >= 0, _platformRiding,
-            count => _reservedEnemySlots.Count <= 16 - count,
-            () => FindFreeInteractionSlot() >= 0,
-            KillMoldormRelatedParts, TryAllocateEnemy, () => _enemyFrameCounter,
-            RoomEntityFreezeActive, WriteSmogInteractionCounter, TryCreatePuzzlePuff, ReleaseSmogLinkAndMenu,
-            InitializeActiveSmogBossRoom, _bossShutterSignal.BeginBossEntry,
-            opened => { if (opened) _bossShutterSignal.Opened(); else _bossShutterSignal.Closed(); },
-            LockSmogLinkAndMenu, () => _bossShutterSignal.Value,
-            phase => { TryMergeSmogClouds(phase); }, ReleaseSmogSentinelCount,
-            () => ReservedPushBlock ?? throw new InvalidOperationException("INTERAC $bd requires reserved $14."),
-            TryCreateSynchronizedBlock,TryCreateRockDebris,TryCreateSeedReflectorChild,TryCreateLightableTorch,TryCreateStatueEyeball,TryCreateOwlSparkle,_outgoingEntities.Contains,
-            () => DoorPaletteFadeActive,
-            (channel, value) => (NativeChannelVolumeWritten ?? throw new InvalidOperationException(
-                "Native channel-volume writes require the sound driver owner."))(channel, value),
-            TryCreateTransformationPuff, InteractionAnimationParameter, TryCreateSparkFairy, TryCreateBoomerangClink);
+        _factory = new RoomEntityFactory(this, enemies, timePortals, rooms);
         if (_saveData is not null)
             _saveData.Changed += RefreshNpcState;
         _runtimeState.Changed += RefreshNpcState;
@@ -1960,14 +1946,14 @@ public sealed class RoomEntityManager : IDisposable
         return count;
     }
 
-    private void RetainFailedPlacementCount(int flags)
+    internal void RetainFailedPlacementCount(int flags)
     {
         // objectDataOp6's US failure branch only clears Enemy.enabled.
         // decEnemyCounterIfApplicable already cancelled uncounted objects.
         if ((flags & 0x02) == 0) _unreleasedEnemyCounts++;
     }
 
-    private bool BossShuttersClosed()
+    internal bool BossShuttersClosed()
     {
         foreach (IRoomEntity entity in _activeEntities)
         {
@@ -1985,23 +1971,23 @@ public sealed class RoomEntityManager : IDisposable
         _horizontalScreenShakeCounter = updates;
     }
 
-    private void BeginHorizontalScreenShake(int updates)
+    internal void BeginHorizontalScreenShake(int updates)
     {
         if (updates <= 0)
             throw new ArgumentOutOfRangeException(nameof(updates));
         _horizontalScreenShakeCounter = updates;
     }
 
-    private void DisableLinkCollisionsAndMenu() =>
+    internal void DisableLinkCollisionsAndMenu() =>
         _linkCollisionsAndMenuDisabled = true;
 
-    private void EnableLinkCollisionsAndMenu() =>
+    internal void EnableLinkCollisionsAndMenu() =>
         _linkCollisionsAndMenuDisabled = false;
 
     // INTERAC$33 owns wDisabledObjects=$01 plus wMenuDisabled. Do not route
     // this through the broad room freeze or wDisableLinkCollisionsAndMenu.
     internal void LockSmogLinkAndMenu() => _smogLinkAndMenuLocked = true;
-    private void ReleaseSmogLinkAndMenu() => _smogLinkAndMenuLocked = false;
+    internal void ReleaseSmogLinkAndMenu() => _smogLinkAndMenuLocked = false;
 
     internal void SetScreenShake(int y, int x, int magnitude)
     {
@@ -2047,14 +2033,14 @@ public sealed class RoomEntityManager : IDisposable
 
     internal int RoomEnemyCount => CountRoomEnemies();
 
-    private bool TriggerIsActive(int bit)
+    internal bool TriggerIsActive(int bit)
     {
         if (bit is < 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(bit));
         return (_activeTriggers & (1 << bit)) != 0;
     }
 
-    private void SetTrigger(int bit, bool active)
+    internal void SetTrigger(int bit, bool active)
     {
         if (bit is < 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(bit));
@@ -2064,11 +2050,11 @@ public sealed class RoomEntityManager : IDisposable
             : (byte)(_activeTriggers & ~mask);
     }
 
-    private void OnGashaInteractionRequested(
+    internal void OnGashaInteractionRequested(
         GashaSpotInteraction interaction,
         Player player) => GashaInteractionRequested?.Invoke(interaction, player);
 
-    private void OnGashaNutCaught(
+    internal void OnGashaNutCaught(
         GashaSpotInteraction interaction,
         Player player) => GashaNutCaught?.Invoke(interaction, player);
 
@@ -2447,7 +2433,7 @@ public sealed class RoomEntityManager : IDisposable
         // replacement starts state0 next update, without a death outcome.
     }
 
-    private void KillMoldormRelatedParts(MoldormCharacter head)
+    internal void KillMoldormRelatedParts(MoldormCharacter head)
     {
         // Clean US moldorm.s leaves L in $c0..$ff after its conveyor lookup.
         // ecom_killObjectH therefore writes PART health/collision at each tail's
@@ -2643,7 +2629,7 @@ public sealed class RoomEntityManager : IDisposable
             UpdatesDuringDialogue: true
         };
 
-    private bool RoomEntityFreezeActive()
+    internal bool RoomEntityFreezeActive()
     {
         if (FloorToggle?.Frozen == true) return true;
         if (NonInteractionObjectsDisabledSource()) return true;
@@ -2676,7 +2662,7 @@ public sealed class RoomEntityManager : IDisposable
         sentinels[0].ReleaseSentinelCount();
     }
 
-    private int InitializeActiveSmogBossRoom(bool scrolling)
+    internal int InitializeActiveSmogBossRoom(bool scrolling)
     {
         var owners = _activeEntities.OfType<SmogRoomEntity>().Where(entity => entity.OwnsBossRoomInitialization).ToArray();
         if (owners.Length != 1)
@@ -2684,7 +2670,7 @@ public sealed class RoomEntityManager : IDisposable
         return owners[0].InitializeBossRoom(scrolling);
     }
 
-    private void WriteSmogInteractionCounter(int slot, int value)
+    internal void WriteSmogInteractionCounter(int slot, int value)
     {
         if (slot is < 0 or >= 16) throw new InvalidOperationException("Smog $47 write requires its native ENEMY page.");
         var target = _interactionSlots.FirstOrDefault(pair => pair.Value == slot &&
@@ -2729,14 +2715,14 @@ public sealed class RoomEntityManager : IDisposable
         throw new NotSupportedException($"smog.s writes ${value:x2} to INTERACTION page${0xd0+slot:x2} counter2 ($47); active {target.GetType().Name} does not represent that alias.");
     }
 
-    private bool TryCreatePuzzlePuff(Vector2 position)
+    internal bool TryCreatePuzzlePuff(Vector2 position)
     {
         if (FindFreeInteractionSlot() < 0) return false;
         AddEntity(_factory.Create(new PuzzlePuffSpawn(position,SoundId.SndPoof),_roomForActiveEntities));
         return true;
     }
 
-    private int TryCreateTransformationPuff(Vector2 position)
+    internal int TryCreateTransformationPuff(Vector2 position)
     {
         if (!InteractionSlotAvailable) return -1;
         IRoomEntity puff = AddEntity(_factory.Create(new PuzzlePuffSpawn(
@@ -2744,7 +2730,7 @@ public sealed class RoomEntityManager : IDisposable
         return _interactionSlots[puff];
     }
 
-    private int InteractionAnimationParameter(int slot)
+    internal int InteractionAnimationParameter(int slot)
     {
         IRoomEntity? owner = _interactionSlots.FirstOrDefault(pair => pair.Value == slot).Key;
         if (owner is null or IRoomEntityLifetime { Finished: true }) return 0;
@@ -2763,7 +2749,7 @@ public sealed class RoomEntityManager : IDisposable
         };
     }
 
-    private void TryCreateSparkFairy(Vector2 position, int angle)
+    internal void TryCreateSparkFairy(Vector2 position, int angle)
     {
         // ecom_spawnProjectile checks PART capacity. spark_stateA deletes the
         // enemy regardless of success and never runs enemyDie/kill counters.
@@ -2784,14 +2770,14 @@ public sealed class RoomEntityManager : IDisposable
         AddEntity(_factory.Create(new EnemyClinkSpawn(position, InitializeOnUpdate: true, zHigh), _roomForActiveEntities));
     }
 
-    private bool TryCreateOwlSparkle(OwlStatueSparkleSpawn spawn)
+    internal bool TryCreateOwlSparkle(OwlStatueSparkleSpawn spawn)
     {
         if (FindFreeInteractionSlot() < 0) return false;
         AddEntity(_factory.Create(spawn, _roomForActiveEntities));
         return true;
     }
 
-    private bool TryCreateStatueEyeball(Vector2 position)
+    internal bool TryCreateStatueEyeball(Vector2 position)
     {
         if (FindFreeInteractionSlot() < 0) return false;
         AddEntity(_factory.Create(new StatueEyeballSpawn(position), _roomForActiveEntities));
@@ -2806,14 +2792,14 @@ public sealed class RoomEntityManager : IDisposable
         return true;
     }
 
-    private bool TryCreateSeedReflectorChild(RotatableSeedThingRoomEntity parent,Vector2 offset,int z)
+    internal bool TryCreateSeedReflectorChild(RotatableSeedThingRoomEntity parent,Vector2 offset,int z)
     {
         if (FindFreePartSlot() < 0) return false;
         AddEntity(new SeedReflectorChildRoomEntity(parent,offset,z));
         return true;
     }
 
-    private bool TryCreateLightableTorch(LightableTorchState state,int packedPosition)
+    internal bool TryCreateLightableTorch(LightableTorchState state,int packedPosition)
     {
         if (FindFreePartSlot() < 0) return false;
         AddEntity(_factory.Create(new LightableTorchSpawn(state,packedPosition),_roomForActiveEntities));
@@ -2987,8 +2973,8 @@ public sealed class RoomEntityManager : IDisposable
         node.QueueFree();
     }
 
-    private void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
-    private void OnGroundTreasureCollected(
+    internal void OnTimePortalEntered(TimePortal portal) => TimePortalEntered?.Invoke(portal);
+    internal void OnGroundTreasureCollected(
         GroundTreasurePickup treasure,
         Player player) =>
         ActivateGroundTreasure(treasure, player, immediate: false);
@@ -3080,52 +3066,52 @@ public sealed class RoomEntityManager : IDisposable
                 treasure, treasureObject, player);
         }
     }
-    private void OnDungeonEntranceTriggered(int textId, string message) =>
+    internal void OnDungeonEntranceTriggered(int textId, string message) =>
         DungeonEntranceTriggered?.Invoke(textId, message);
-    private void OnRoomWarpRequested(Warp warp) =>
+    internal void OnRoomWarpRequested(Warp warp) =>
         _pendingRoomWarp = warp;
-    private void OnItemDropEnteredHazard(
+    internal void OnItemDropEnteredHazard(
         Vector2 position,
         HazardType hazard) => ItemDropEnteredHazard?.Invoke(position, hazard);
-    private void OnObjectFellInHole(ObjectFellInHoleKind kind) =>
+    internal void OnObjectFellInHole(ObjectFellInHoleKind kind) =>
         ObjectFellInHole?.Invoke(kind);
 
-    private void OnDungeonEssenceTriggered(
+    internal void OnDungeonEssenceTriggered(
         DungeonEssence essence,
         Player player) => DungeonEssenceTriggered?.Invoke(essence, player);
 
-    private void OnRoomEntityDialogueRequested(
+    internal void OnRoomEntityDialogueRequested(
         int textId,
         string message,
         Vector2 position) =>
         RoomEntityDialogueRequested?.Invoke(textId, message, position);
 
-    private void OnMapleDialogueRequested(
+    internal void OnMapleDialogueRequested(
         int textId,
         string message,
         Player player) =>
         MapleDialogueRequested?.Invoke(textId, message, player);
 
-    private void OnMapleItemCollected(
+    internal void OnMapleItemCollected(
         MapleItemRecord item,
         Player player) =>
         MapleItemCollected?.Invoke(item, player);
 
-    private void OnSeedTreeMessageRequested(
+    internal void OnSeedTreeMessageRequested(
         int textId,
         string message,
         Vector2 position) =>
         SeedTreeMessageRequested?.Invoke(textId, message, position);
 
-    private void OnOwlStatueMessageRequested(
+    internal void OnOwlStatueMessageRequested(
         int textId,
         string message,
         Vector2 position) =>
         OwlStatueMessageRequested?.Invoke(textId, message, position);
 
-    private void OnRoomTileChanged() => RoomTileChanged?.Invoke();
-    private void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
-    private void OnRoomMusicRequested(int group, int room) =>
+    internal void OnRoomTileChanged() => RoomTileChanged?.Invoke();
+    internal void OnSoundRequested(int sound) => SoundRequested?.Invoke(sound);
+    internal void OnRoomMusicRequested(int group, int room) =>
         RoomMusicRequested?.Invoke(group, room);
 
     private void DispatchPendingRoomWarp()

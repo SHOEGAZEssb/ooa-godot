@@ -36,6 +36,34 @@ public sealed partial class ValidationRoot
                     "Clearing the mask must resume the first pending shutter command without restarting initialization.");
             }
 
+            // The factory binds the actor before these providers are replaced.
+            // updateInteractions admits state0 under text; interactionRunScript
+            // samples the current text byte on each later script dispatch.
+            LoadValidationRoom(4, 0x9d);
+            _player.WarpTo(new(120, 136));
+            var reboundDoor = _entities.Entities<DungeonDoorRoomEntity>().Single();
+            var originalTextSource = _entities.TextActiveSource;
+            try
+            {
+                _entities.TextActiveSource = static () => true;
+                Step(3);
+                FailIf((DoorState)state.GetValue(reboundDoor)! != DoorState.SetRadii,
+                    "A factory-created shutter must read a text provider assigned after construction and hold its first script command.");
+                _entities.TextActiveSource = static () => false;
+                Step();
+                FailIf((DoorState)state.GetValue(reboundDoor)! != DoorState.SetAngle,
+                    "Replacing the text provider must resume the existing shutter on the next gameplay update.");
+                _entities.TextActiveSource = static () => true;
+                Step(2);
+                FailIf((DoorState)state.GetValue(reboundDoor)! != DoorState.SetAngle,
+                    "A second provider replacement must pause the pending command without restarting the shutter.");
+                _entities.TextActiveSource = originalTextSource;
+                Step();
+                FailIf((DoorState)state.GetValue(reboundDoor)! != DoorState.InitialBranch,
+                    "Restoring the gameplay text owner must resume the same pending shutter command.");
+            }
+            finally { _entities.TextActiveSource = originalTextSource; }
+
             // Isolate wLinkDeathTrigger at the native object-dispatch boundary.
             // Do not advance the separate player death cutscene in this check.
             void Objects(int count)
