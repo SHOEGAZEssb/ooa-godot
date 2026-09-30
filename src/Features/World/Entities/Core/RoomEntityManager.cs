@@ -1650,7 +1650,7 @@ public sealed class RoomEntityManager : IDisposable
             error = $"Enemy ${id:x2}:${subId:x2}: all $10 enemy slots are occupied.";
             return false;
         }
-        IRoomEntity? entity = _factory.CreateStandaloneEnemy(
+        IRoomEntity? entity = _factory.EnemyFactory.CreateStandaloneEnemy(
             id, subId, _roomForActiveEntities, position, source, out error);
         if (entity is null)
             return false;
@@ -2422,7 +2422,7 @@ public sealed class RoomEntityManager : IDisposable
         if (!_enemySlots.TryGetValue(original, out int slot))
             throw new InvalidOperationException($"{replacement.Source.Source}: enemy replacement has no original slot.");
         int index = _activeEntities.IndexOf(original);
-        var next = _factory.CreateEnemyReplacement(replacement, _roomForActiveEntities);
+        var next = _factory.EnemyFactory.CreateEnemyReplacement(replacement, _roomForActiveEntities);
         _activeEntities.RemoveAt(index);
         FreeEntity(original);
         RegisterEnemySlot(next, slot);

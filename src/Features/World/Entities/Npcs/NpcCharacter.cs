@@ -140,6 +140,18 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         new Vector2(
             (_collisionRadiusX + LinkCollisionRadius) * 2.0f,
             (_collisionRadiusY + LinkCollisionRadius) * 2.0f));
+
+    internal static NpcCharacter CreateFromRecord(NpcRecord record)
+    {
+        var npc = new NpcCharacter
+        {
+            Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
+            ZIndex = ObjectDrawPriority.BehindLinkZIndex
+        };
+        npc.Initialize(record);
+        return npc;
+    }
+
     public void Initialize(NpcRecord record)
     {
         _baseRecord = record;

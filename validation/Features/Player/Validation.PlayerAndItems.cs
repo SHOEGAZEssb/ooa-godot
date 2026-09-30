@@ -4044,7 +4044,7 @@ public sealed partial class ValidationRoot
             damagePlayer.HealthQuarters != healthBefore - 1 ||
             !damagePlayer.DamagePaletteActive ||
             damagePlayer.LinkAtlasPixelHash == damagePlayer.DamageLinkAtlasPixelHash ||
-            Player.RecolorLinkPixel(
+            PlayerSpriteLibrary.RecolorLinkPixel(
                 Color.Color8(85, 85, 85),
                 damagePalette: true) !=
                 new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f) ||

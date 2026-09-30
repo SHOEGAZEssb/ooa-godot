@@ -771,9 +771,9 @@ public sealed partial class ValidationRoot
             woman.ZIndex != ObjectDrawPriority.BehindLinkZIndex,
             "Room 0:66's woman covered Link at the strict w1Link.yh+$0b boundary.");
 
-        Color linkBlack = Player.RecolorLinkPixel(new Color(0.25f, 0.25f, 0.25f));
-        Color linkGreen = Player.RecolorLinkPixel(new Color(0.75f, 0.75f, 0.75f));
-        Color linkSkin = Player.RecolorLinkPixel(Colors.White);
+        Color linkBlack = PlayerSpriteLibrary.RecolorLinkPixel(new Color(0.25f, 0.25f, 0.25f));
+        Color linkGreen = PlayerSpriteLibrary.RecolorLinkPixel(new Color(0.75f, 0.75f, 0.75f));
+        Color linkSkin = PlayerSpriteLibrary.RecolorLinkPixel(Colors.White);
         FailIf(
             !linkBlack.IsEqualApprox(Colors.Black) ||
             !linkGreen.IsEqualApprox(new Color(0x02 / 31.0f, 0x15 / 31.0f, 0x08 / 31.0f)) ||

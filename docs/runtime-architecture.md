@@ -31,12 +31,23 @@ operations on that owner for allocation, signals, and events. Actor callbacks
 read live input providers through the manager when invoked, so providers assigned
 or replaced after construction remain effective.
 
+Ordered room parsing selects placements and checks native capacity before handing
+the selected imported handler to the enemy factory. Enemy construction uses the
+same manager, RNG and session data as other room objects; it does not run a
+separate placement pass. The session resource catalog owns database caches and
+staged preparation, shared by both construction paths.
+
 The entity factory resolves its databases on first use or staged intro
 preparation and retains them for the session. Room-wide gates still evaluate
 their inputs in dispatch order. Link
 similarly constructs alternate-pose and item graphics on first presentation,
 retaining them for the player node's lifetime. Neither optimization advances
 gameplay or substitutes a different room-entry path.
+
+Link's sprite library owns atlas construction, recoloring and texture caching.
+The player selects poses from its live gameplay state and performs drawing.
+The library has only imported graphics inputs, with no world, inventory, save,
+RNG or update-loop access.
 
 The gameplay scene contains stable nodes whose lifecycle and draw order should
 remain visible in the editor:

@@ -144,28 +144,41 @@ public sealed partial class ValidationRoot
 
         byte[] save = _saveData.Serialize();
         int rngCalls = _random.Calls;
-        object factory = Field(_entities, "_factory")!;
-        FailIf(Field(factory, "_smogProjectileData") is not null ||
-            Field(_player, "_swordTextureCache") is not null ||
-            Field(_player, "_seedShooterTexturesCache") is not null,
+        var factory = (RoomEntityFactory)Field(_entities, "_factory")!;
+        PlayerSpriteLibrary sprites = _player.Sprites;
+        FailIf(Field(factory.Resources, "_smogProjectileData") is not null ||
+            Field(sprites, "_swordTextureCache") is not null ||
+            Field(sprites, "_seedShooterTexturesCache") is not null,
             "Gameplay initialization eagerly prepared unused boss/item assets.");
 
         // Same source-derived spr_sword/OAM pixels asserted by the item
         // regression, now exercised on first access after gameplay startup.
         FailIf(_player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL,
             "First-use sword atlas changed the original OAM pixels.");
-        object? sword = Field(_player, "_swordTextureCache");
+        object? sword = Field(sprites, "_swordTextureCache");
         FailIf(sword is null || _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL ||
-            !ReferenceEquals(sword, Field(_player, "_swordTextureCache")) ||
-            Field(_player, "_seedShooterTexturesCache") is not null,
+            !ReferenceEquals(sword, Field(sprites, "_swordTextureCache")) ||
+            Field(sprites, "_seedShooterTexturesCache") is not null,
             "Repeated sword presentation rebuilt its atlas or prepared unrelated item graphics.");
+
+        Texture2D walking = sprites.WalkTexture;
+        _player.Initialize(_playerWorld, _inventory, _player.PrecisePosition, _random);
+        FailIf(!ReferenceEquals(sprites, _player.Sprites) ||
+            !ReferenceEquals(sword, Field(sprites, "_swordTextureCache")) ||
+            ReferenceEquals(walking, sprites.WalkTexture) ||
+            _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL,
+            "Reinitializing Link must refresh walking graphics while retaining alternate atlases for that player node.");
+        using var otherPlayer = new Player();
+        FailIf(ReferenceEquals(sprites, otherPlayer.Sprites) ||
+            Field(otherPlayer.Sprites, "_swordTextureCache") is not null,
+            "A different player node must own a fresh, unprepared sprite library.");
         FailIf(!save.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngCalls,
             "Deferred player graphics changed save state or consumed gameplay RNG.");
 
         _entities.Spawn<SmogProjectilePart>(new SmogProjectileSpawn(new(40, 40), 1));
-        object? database = Field(factory, "_smogProjectileData");
+        object? database = Field(factory.Resources, "_smogProjectileData");
         _entities.Spawn<SmogProjectilePart>(new SmogProjectileSpawn(new(72, 40), 1));
-        FailIf(database is null || !ReferenceEquals(database, Field(factory, "_smogProjectileData")) ||
+        FailIf(database is null || !ReferenceEquals(database, Field(factory.Resources, "_smogProjectileData")) ||
             _entities.EntityAdapters<SmogProjectileRoomEntity>().Count() != 2,
             "PART $4a first/repeated dispatch did not resolve and retain its session database.");
         GD.Print("Validated deferred gameplay assets, first-use sword pixels, repeated dispatch and graphics state isolation.");
