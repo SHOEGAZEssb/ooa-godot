@@ -247,6 +247,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemSlotAllocationRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemButtonDispatchRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemUseGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateScrollTimingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateScrollHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureRupeeValues);
         RunIsolatedValidation(ValidateCpuDecimalArithmetic);
         RunIsolatedValidation(ValidateAnimationCounterBoundaries);
