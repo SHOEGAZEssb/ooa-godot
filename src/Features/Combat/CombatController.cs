@@ -46,7 +46,7 @@ public sealed class CombatController
                 player.QueueSwordCollisionKnockback(
                     response.SourcePosition,
                     response.Frames),
-            swordState: player.SwordState,
+            swordState: player.SwordCollisionState,
             swordLevel: player.Inventory.SwordLevel,
             itemZ: player.MeleeItemZ,
             expertPunch: player.IsUsingExpertPunch,

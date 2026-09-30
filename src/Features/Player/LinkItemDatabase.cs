@@ -138,7 +138,9 @@ internal sealed class LinkItemDatabase
         PhaseAt(frame, Constants.SwingPhaseStarts);
 
     internal int SpinPhase(int frame) =>
-        PhaseAt(frame, Constants.SpinPhaseStarts) & 7;
+        // The final imported row repeats phase 0; the native animation jumps
+        // back to its first row while swordParent's counter remains nonzero.
+        PhaseAt(frame % Constants.SpinPhaseStarts[^1], Constants.SpinPhaseStarts);
 
     internal bool IsBombableClinkTile(int collisionSet, byte tile) =>
         Array.IndexOf(

@@ -25,6 +25,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool BlockMovement { get; set; }
     public bool BlockHorizontalMovement { get; set; }
     public bool BlockVerticalMovement { get; set; }
+    public bool PushingAgainstWall { get; set; }
     public int SwordHitCalls { get; private set; }
     public bool AcceptSwordHits { get; set; }
     public int LastSwordDamage { get; private set; }
@@ -84,7 +85,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
             BlockHorizontalMovement ? 0.0f : movement.X,
             BlockVerticalMovement ? 0.0f : movement.Y);
     }
-    public bool IsPushingAgainstWall(Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => false;
+    public bool IsPushingAgainstWall(Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => PushingAgainstWall;
     public void UpdatePushableBlocks(Vector2 playerPosition, Vector2I facing, Vector2 movementInput)
     {
     }

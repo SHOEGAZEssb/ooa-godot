@@ -2676,7 +2676,7 @@ public sealed partial class ValidationRoot
             RingEffects.KnockbackFrames(Wearing(RingId.Steadfast), 40) != 20 ||
             RingEffects.SwordChargeStep(Wearing(RingId.Charge)) != 4 ||
             RingEffects.SwordSpinCounter(Wearing(RingId.Spin)) != 9 ||
-            RingEffects.SwordSpinFrames(Wearing(RingId.Spin), 20) != 36 ||
+            RingEffects.SwordSpinFrames(Wearing(RingId.Spin), 23, 20) != 43 ||
             l1Distance != 2 << 16 || l1Heal != 0x08 ||
             l2Distance != 3 << 16 || l2Heal != 0x10 ||
             !RingEffects.EnergyBeamOnCharge(Wearing(RingId.Energy)) ||

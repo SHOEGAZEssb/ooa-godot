@@ -21,12 +21,13 @@ internal static class RingEffects
     };
 
     internal static int SwordDamage(
-        InventoryState inventory, int swordLevel, byte whimsicalRoll)
+        InventoryState inventory, int swordLevel, byte whimsicalRoll,
+        bool initialSwing = true, int baseMultiplier = 1)
     {
-        int damage = BaseSwordDamage(swordLevel);
-        if (Active(inventory, RingId.Whimsical))
+        int damage = BaseSwordDamage(swordLevel) * baseMultiplier;
+        if (initialSwing && Active(inventory, RingId.Whimsical))
             return whimsicalRoll == 0 ? 12 : 1;
-        if (Active(inventory, RingId.DoubleEdged) &&
+        if (initialSwing && Active(inventory, RingId.DoubleEdged) &&
             inventory.HealthQuarters >= 5)
             return damage + 8;
         return inventory.ActiveRing switch
@@ -107,8 +108,10 @@ internal static class RingEffects
     internal static int SwordSpinCounter(InventoryState inventory) =>
         Active(inventory, RingId.Spin) ? 9 : 5;
 
-    internal static int SwordSpinFrames(InventoryState inventory, int ordinaryFrames) =>
-        ordinaryFrames * SwordSpinCounter(inventory) / 5;
+    internal static int SwordSpinFrames(InventoryState inventory, int ordinaryFrames, int cycleFrames) =>
+        // swordParent state 4 decrements on four animation markers per cycle.
+        // SPIN_RING adds four markers ($09 vs $05), one full animation cycle.
+        ordinaryFrames + (SwordSpinCounter(inventory) - 5) / 4 * cycleFrames;
 
     internal static (int DistanceFixed, int HealQuarters) HeartRefill(
         InventoryState inventory) => inventory.ActiveRing switch

@@ -252,6 +252,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemSlotAllocationRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemButtonDispatchRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemUseGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordTimingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordPokeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordCollisionRngRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordContactHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateScrollTimingRom, requiresRom: true);
         RunIsolatedValidation(ValidateScrollHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateBreakableSourceMasksRom, requiresRom: true);

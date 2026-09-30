@@ -3660,10 +3660,13 @@ public sealed partial class ValidationRoot
             _player.SwordStateFrame != 11,
             "LINK_ANIM_MODE_1f ended before update 12.");
         _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(_player.SwordState != SwordActionState.Poke || _player.SwordStateFrame != 12,
+            "Wall poke update12 must select native state $06 before returning to held.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
         FailIf(
             _player.SwordState != SwordActionState.Held ||
             _player.SwordArcIndex != 12,
-            "A wall poke did not reinitialize the held sword after update 12.");
+            "A wall poke did not reinitialize the held sword on update13.");
         _player.AdvanceSwordForValidation(1, buttonHeld: false);
         FailIf(_player.IsAttacking, "Releasing an uncharged held sword did not clear the parent item.");
 

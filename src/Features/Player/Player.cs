@@ -264,6 +264,7 @@ public partial class Player : Node2D
     private int _currentSwordDamage;
     private bool _swordPokeReturnsToHeld;
     private bool _doubleEdgedDamagePending;
+    private bool _swordPokeCollisionEnabled;
     private bool _pendingSwordEnemyContact;
     private int _heartRingDistanceFixed;
     private int _activeTransformation;
@@ -391,10 +392,12 @@ public partial class Player : Node2D
         IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook || IsUsingSomaria || IsUsingBoomerang;
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
+    internal SwordActionState SwordCollisionState =>
+        _swordState == SwordActionState.Poke && _swordPokeCollisionEnabled
+            ? _swordPokeReturnsToHeld ? SwordActionState.Swing : SwordActionState.Held
+            : _swordState;
     internal int SwordStateFrame => _swordStateFrame;
-    internal int SwordDamage => _swordState == SwordActionState.Spin
-        ? _currentSwordDamage * 2
-        : IsUsingPunch ? _punchDamage : _currentSwordDamage;
+    internal int SwordDamage => IsUsingPunch ? _punchDamage : _currentSwordDamage;
     internal EnemyKnockbackStrength SwordKnockbackStrength =>
         IsUsingPunch
             ? (_expertPunch
@@ -1715,7 +1718,11 @@ public partial class Player : Node2D
         if (IsPhysicsProcessing())
             AdvancePhysics(ApplicationFixedUpdateScheduler.UpdateDelta);
         if (IsProcessing())
-            AdvanceItems(ApplicationFixedUpdateScheduler.UpdateDelta);
+            // Input already ran the new parent's state 0 during physics.
+            // Its animation advances on the next parent pass; the child's
+            // initialization and post-object collision still run this update.
+            AdvanceItems(ApplicationFixedUpdateScheduler.UpdateDelta,
+                swordInitialized: Started(TreasureId.Sword, IsAttacking));
         if (_instrumentsDisabledCounter > 0)
             _instrumentsDisabledCounter--;
     }
@@ -2018,7 +2025,6 @@ public partial class Player : Node2D
         {
             ClearShieldParent();
             _walking = false;
-            CancelSwordAttack();
             CancelShovelAction();
             QueueRedraw();
             return;
@@ -3067,7 +3073,7 @@ public partial class Player : Node2D
             AdvanceItems(delta);
     }
 
-    private void AdvanceItems(double delta)
+    private void AdvanceItems(double delta, bool swordInitialized = false)
     {
         if (ElectricShockActive || GaleActive) return;
         if (_enemyInvincibilityFrames != 0.0f)
@@ -3144,7 +3150,12 @@ public partial class Player : Node2D
             return;
         }
 
-        if (IsAttacking && !_swimmingSwordUpdatedInPhysics)
+        // linkState01 returns before checkUseItems during text. Initialized
+        // sword parents retain their state; the unconditional child post pass
+        // still publishes the existing geometry for collision resolution.
+        bool swordParentFrozen = _world.DialogueOpen;
+        if (IsAttacking && (swordInitialized || swordParentFrozen)) ApplySwordCollision();
+        if (IsAttacking && !_swimmingSwordUpdatedInPhysics && !swordInitialized && !swordParentFrozen)
         {
             _swordFrameAccumulator += delta * 60.0;
             while (_swordFrameAccumulator + 0.000001 >= 1.0 && IsAttacking)
@@ -6379,7 +6390,7 @@ public partial class Player : Node2D
 
     public Rect2 GetSwordHitbox()
     {
-        if (!IsAttacking || _swordState == SwordActionState.Poke)
+        if (!IsAttacking || _swordState == SwordActionState.Poke && !_swordPokeCollisionEnabled)
             return new Rect2(Position, Vector2.Zero);
         return GetSwordHitbox(Position, GetSwordArcIndex());
     }
@@ -6737,6 +6748,7 @@ public partial class Player : Node2D
         _swordButtonAction = buttonAction;
         _swordPokeReturnsToHeld = false;
         _walking = false;
+        _swordPokeCollisionEnabled = false;
         int sound = _linkItems.SwordSlashSound(
             _random.Next().Value & 0x07);
         _world.PlaySound(sound);
@@ -6770,6 +6782,7 @@ public partial class Player : Node2D
         _swordPokeReturnsToHeld = false;
         _currentSwordDamage = 0;
         _doubleEdgedDamagePending = false;
+        _swordPokeCollisionEnabled = false;
         if (changed)
             QueueRedraw();
     }
@@ -7028,11 +7041,31 @@ public partial class Player : Node2D
 
     private void AdvanceSwordFrame(bool buttonHeld, Vector2 movementInput)
     {
+        // swordParent state 2 checks the button before wall/enemy signals.
+        // State 3 deliberately keeps the opposite order before spin release.
+        if (_swordState == SwordActionState.Held &&
+            (!buttonHeld || _minecartRideControlled || _raftRideControlled))
+        {
+            CancelSwordAttack();
+            return;
+        }
         bool previousContact = _pendingSwordEnemyContact;
         _pendingSwordEnemyContact = false;
         if (previousContact)
         {
-            ApplySwordContactRingDamage();
+            // ITEM_SWORD.var2a survives the child updates. A swung sword
+            // consumes its enemy contact in swordParent state 6 at the end
+            // of the swing, including the one-shot Double-Edged penalty.
+            if (_swordState == SwordActionState.Swing)
+                _pendingSwordEnemyContact = true;
+            else
+                ApplySwordContactRingDamage();
+            if (_swordState == SwordActionState.Poke && _swordPokeReturnsToHeld &&
+                _swordStateFrame >= _linkItems.Constants.SwordPokeFrames)
+            {
+                CancelSwordAttack();
+                return;
+            }
             if (_swordState is SwordActionState.Held or SwordActionState.Charged)
             {
                 TriggerSwordPoke(returnsToHeld: false);
@@ -7055,8 +7088,9 @@ public partial class Player : Node2D
                     // swordParent state 6 deletes the sword when Link's main
                     // object is the minecart or raft. The swing is usable,
                     // but cannot be held or charged during the ride.
-                    if (!buttonHeld || _minecartRideControlled || _raftRideControlled)
+                    if (_pendingSwordEnemyContact || !buttonHeld || _minecartRideControlled || _raftRideControlled)
                     {
+                        if (_pendingSwordEnemyContact) ApplySwordContactRingDamage();
                         CancelSwordAttack();
                         return;
                     }
@@ -7115,10 +7149,27 @@ public partial class Player : Node2D
             case SwordActionState.Poke:
                 _swordStateFrame++;
                 if (_swordStateFrame <
-                    _linkItems.Constants.SwordPokeFrames)
+                    // A wall poke's terminal animation update selects state
+                    // $06; the following parent update returns to held/deletes.
+                    _linkItems.Constants.SwordPokeFrames + (_swordPokeReturnsToHeld ? 1 : 0))
+                {
+                    if (_swordPokeReturnsToHeld && _swordStateFrame == _linkItems.Constants.SwordPokeFrames)
+                    {
+                        // Parent state $05 selects child state $06; the live
+                        // child pass reinitializes normal level collision and
+                        // base damage before parent state $06 runs next time.
+                        _swordPokeCollisionEnabled = true;
+                        _currentSwordDamage = RingEffects.SwordDamage(
+                            _inventory, _inventory.SwordLevel, 0xff, initialSwing: false);
+                    }
+                    if (_swordPokeCollisionEnabled) ApplySwordCollision();
                     break;
+                }
                 if (_swordPokeReturnsToHeld && buttonHeld && !_raftRideControlled)
+                {
                     EnterSwordHeldState();
+                    ApplySwordCollision();
+                }
                 else
                     CancelSwordAttack();
                 break;
@@ -7127,7 +7178,8 @@ public partial class Player : Node2D
                 int previousPhase = GetSpinArcPhase();
                 _swordStateFrame++;
                 if (_swordStateFrame >= RingEffects.SwordSpinFrames(
-                    _inventory, _linkItems.Constants.SwordSpinFrames))
+                    _inventory, _linkItems.Constants.SwordSpinFrames,
+                    _linkItems.Constants.SpinPhaseStarts[^1]))
                 {
                     _world.ApplySwordTileHit(this, 8, swordPoke: false);
                     CancelSwordAttack();
@@ -7149,6 +7201,11 @@ public partial class Player : Node2D
         _swordStateFrame = 0;
         _swordChargeCounter = _linkItems.Constants.SwordChargeCounter;
         _swordPokeReturnsToHeld = false;
+        // swordParent state 6 clears its Double-Edged modifier; child state 2
+        // restores the level's base damage from var31, including Whimsical.
+        _doubleEdgedDamagePending = false;
+        _currentSwordDamage = RingEffects.SwordDamage(
+            _inventory, _inventory.SwordLevel, 0xff, initialSwing: false);
     }
 
     private bool CheckSwordPoke(Vector2 movementInput)
@@ -7167,6 +7224,10 @@ public partial class Player : Node2D
         // to allocate ITEM_SWORD_BEAM. It does so even when the one-beam
         // object cap prevents allocation, and does not play the charge sound.
         TriggerSwordPoke(returnsToHeld: false);
+        // ENERGY_RING jumps below the normal poke's collisionType clear.
+        // The child stays in state 2 with ITEMCOLLISION_SWORD_HELD ($09).
+        _swordPokeCollisionEnabled = true;
+        ApplySwordCollision();
     }
 
     private void TriggerSwordPoke(bool returnsToHeld)
@@ -7174,6 +7235,7 @@ public partial class Player : Node2D
         _swordState = SwordActionState.Poke;
         _swordStateFrame = 0;
         _swordPokeReturnsToHeld = returnsToHeld;
+        _swordPokeCollisionEnabled = false;
         _walking = false;
     }
 
@@ -7194,6 +7256,9 @@ public partial class Player : Node2D
     {
         _swordState = SwordActionState.Spin;
         _swordStateFrame = 0;
+        // sword.s state 4 doubles var3a before the post pass applies rings.
+        _currentSwordDamage = RingEffects.SwordDamage(
+            _inventory, _inventory.SwordLevel, 0xff, initialSwing: false, baseMultiplier: 2);
         _walking = false;
         _world.PlaySound(SoundId.SndSwordSpin);
         _world.ApplySwordTileHit(this, (int)_facing * 2, swordPoke: false);
