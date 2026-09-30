@@ -20,6 +20,16 @@ truthful view of the runtime owner. Do not add validation-only state machines,
 public compatibility properties, permanent trace lists, sound request counts,
 or cache histories to production classes.
 
+Use `ApplicationValidationFixture` to supply host input and advance the real
+application loop, including frontend scenarios. It drives the host's input
+buffer and fixed-update scheduler through typed internal operations. Its
+optional observer runs after each complete update, outside the input snapshot
+scope, in both split and batched calls. Fresh standard saves, default test
+names, and room/transition convenience aliases belong in validation; the
+production host owns session teardown and initialization from a supplied save.
+Call available owner operations directly. Reserve reflection for source-state
+probes that have no meaningful runtime operation or observable result.
+
 ## Run validations
 
 Build with optimization, then run the complete suite with the standard 8

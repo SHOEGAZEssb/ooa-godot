@@ -126,10 +126,6 @@ public partial class ValidationRoot
             finally { _player.WarpTo(original,recordSafe:false); parent.Free(); }
         }
 
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(4,0xb6);
@@ -138,9 +134,9 @@ public partial class ValidationRoot
                 "$4:$b6 must preserve its uncounted scanner and three counted Arrow Moblins.");
             // room04b6.bin contains no $09 tiles: this original scanner creates
             // no children. Do not invent statues to justify its placement.
-            input.CaptureForValidation([],[],Vector2.Zero);
-            if (batch) scheduler.Advance(2.0/60.0,update);
-            else { scheduler.Advance(1.0/60.0,update); scheduler.Advance(1.0/60.0,update); }
+            Application.Capture([],[],Vector2.Zero);
+            if (batch) Application.Advance(2.0/60.0);
+            else { Application.Advance(1.0/60.0); Application.Advance(1.0/60.0); }
             FailIf(_entities.Entities<FireballShooterRoomEntity>().Count != 0 || _entities.RoomEnemyCount != 3,
                 "$4:$b6 source scanner must delete without children or changing the room enemy count.");
 

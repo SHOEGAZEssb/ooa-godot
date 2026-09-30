@@ -30,7 +30,7 @@ public partial class ValidationRoot
                 "LINKDMG_2c must defer grab initialization, preserve health/items, and write $f4.");
             Vector2 before = _player.Position;
             var frozen = new EnemyGrabValidationRestriction();
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [frozen]);
+            _entities.AddEntity(frozen);
             Step(movement: Vector2.Right, attack: true);
             FailIf(!_player.EnemyGrabActive || _player.EnemyGrabSubstate != 1 ||
                 _player.EnemyGrabPending || _player.IsAttacking || Warps() != 1 ||

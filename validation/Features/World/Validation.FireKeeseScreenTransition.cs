@@ -11,9 +11,6 @@ public sealed partial class ValidationRoot
     private void ValidateFireKeeseScreenTransition()
     {
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         var drawOffset = typeof(FireKeeseCharacter).GetProperty("AnimationDrawOffset", flags)!;
         var slots = (Dictionary<IRoomEntity,int>)typeof(RoomEntityManager).GetField("_enemySlots",flags)!.GetValue(_entities)!;
         var reserved = (HashSet<int>)typeof(RoomEntityManager).GetField("_reservedEnemySlots",flags)!.GetValue(_entities)!;
@@ -22,8 +19,8 @@ public sealed partial class ValidationRoot
             $"{bat.Position}/{DrawPosition(bat)}/{bat.ZFixed}/{bat.State}/{bat.Counter}/{bat.Angle}/{bat.Speed}/{bat.AnimationIndex}/{bat.AnimationFrame}/{bat.Visible}";
         void Step(int count = 1, Action? observe = null)
         {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, () => { update(); observe?.Invoke(); });
+            Application.Capture([], [], Vector2.Zero);
+            Application.Advance(count / 60.0, observe);
         }
 
         // enemyData.s: group4Map85/8d/8eEnemyObjectData contain respectively

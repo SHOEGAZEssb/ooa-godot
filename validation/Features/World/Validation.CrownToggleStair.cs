@@ -21,8 +21,7 @@ public sealed partial class ValidationRoot
             var orb = new DungeonOrbRoomEntity(placement, data,
                 new DungeonInteractionVisualDatabase().Visual("grotto-orb"), _currentRoom,
                 _runtimeState, () => (long)_animationTicks, _sound.PlaySound);
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [orb]);
+            _entities.AddEntity(orb);
             // Approach the actual $17 stair from its southern floor. With
             // standing Y+4, Y=$1a is outside the source's centering window;
             // Y=$19 is the first accepted position when walking north.

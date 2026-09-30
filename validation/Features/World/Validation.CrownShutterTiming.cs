@@ -9,7 +9,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownShutterTiming()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var data = new DungeonMechanicDatabase();
         var source = data.GetRoomRecords(4, 0x9d).Single(r => r.Id == 0x1e);
         foreach (bool batch in new[] { false, true })
@@ -23,7 +22,7 @@ public sealed partial class ValidationRoot
                 _currentRoom, data, () => enemies, _ => true, p => p - new Vector2(0, 64), () => 0,
                 sounds.Add, default, true);
             Vector2 position = door.Position;
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [door]);
+            _entities.AddEntity(door);
             // commonScripts + scripting.s: radii1, angle2, branch/call3.
             // Trigger: contact4, respawn+ret5, decide6, sound7, state2 at8.
             // Empty enemy: branch3, state2 at4. Enemy cleared at20:

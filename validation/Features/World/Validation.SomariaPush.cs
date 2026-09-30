@@ -39,8 +39,8 @@ public partial class ValidationRoot
                     "Somaria pushes must publish the source downward SPEED_080/SPEED_0c0 vector before the enemy pass.");
                 movementObservations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot",flags)!.Invoke(_entities,[observer,0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity",flags)!.Invoke(_entities,[observer]);
+            _entities.RegisterEnemySlot(observer,0);
+            _entities.AddEntity(observer);
             for(int cycle=0;cycle<2;cycle++)
             {
                 for(int i=0;i<50 && _pushBlocks.RemainingPushFrames==20;i++) Step(1,true);

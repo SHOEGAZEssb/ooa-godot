@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
                         $"PART$01 mode {mode}: scratch ${0xcec0 + i:x4} differs after movement.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             if (mode == 2)
             {

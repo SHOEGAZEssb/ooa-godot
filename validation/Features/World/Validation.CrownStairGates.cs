@@ -32,8 +32,8 @@ public sealed partial class ValidationRoot
                 else _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, (byte)gate);
             });
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Up);
             FailIf(!published || IsTransitioning || _currentRoom.Id != 0xa1 ||

@@ -20,12 +20,12 @@ public sealed partial class ValidationRoot
             CheckRoomExit(_player);
             FailIf(!IsTransitioning || _activeGroup != 5 || _currentRoom.Id != 0xf6,
                 "Room 5:F6 did not begin its bottom-exit walk.");
-            UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
             FailIf(_activeGroup != 1 || _currentRoom.Id != 0x13 || !IsTransitioning,
                 "Room 5:F6 did not load 1:13 after its exit walk.");
 
             AssertDestinationPalette();
-            UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
             FailIf(IsTransitioning, "Room 5:F6 -> 1:13 did not finish its arrival fade.");
             AssertDestinationPalette();
 

@@ -21,8 +21,7 @@ public sealed partial class ValidationRoot
         FailIf(data.GetRoomRecords(4, 0x79)[1] is not { Id: InteractionId.DungeonEvents, SubId: 0x0f, Order: 2 } ||
             data.GetRoomRecords(4, 0x7b)[0] is not { Id: InteractionId.DungeonEvents, SubId: 0x10, Order: 0, X: 0x68, Y: 0x58 },
             "Skull pattern events lost their native order or falling-key coordinates.");
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var setTrigger = (Action<int, bool>)typeof(RoomEntityManager).GetMethod("SetTrigger", flags)!.CreateDelegate(typeof(Action<int, bool>), _entities);
+        var setTrigger = (Action<int, bool>)_entities.SetTrigger;
         void Step(int count = 1, bool jump = false, Vector2 move = default) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         static Vector2 Point(int packed) => new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);

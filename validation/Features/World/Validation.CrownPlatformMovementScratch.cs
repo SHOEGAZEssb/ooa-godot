@@ -32,8 +32,7 @@ public sealed partial class ValidationRoot
                 observations++;
                 Stage();
             });
-            typeof(RoomEntityManager).GetMethod("AddEntity",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             Stage();
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             // Source script0a: SPEED_080, up to $38, down to $88, repeat.

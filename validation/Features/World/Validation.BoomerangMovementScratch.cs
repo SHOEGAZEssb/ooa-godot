@@ -8,7 +8,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBoomerangMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
@@ -32,8 +31,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$06 scratch ${0xcec0 + i:x4} differs after the item pass.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batch);
             var item = _entities.Entities<BoomerangItem>().Single();
             FailIf(item.State != 1 || item.PrecisePosition != _player.PrecisePosition,

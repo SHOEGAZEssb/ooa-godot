@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         {
             var (actor, rom) = PrepareMountedCompanionRom(id, 1);
             var restriction = new CompanionUpdateGate();
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_entities, [restriction]);
+            _entities.AddEntity(restriction);
             var palette = _entities.PaletteFadeActiveSource;
             var disabled = _entities.InitializedObjectsDisabledSource;
             try

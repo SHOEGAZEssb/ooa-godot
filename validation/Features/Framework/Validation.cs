@@ -211,6 +211,7 @@ public sealed partial class ValidationRoot : GameRoot
     {
         RunIsolatedValidation(ValidateGameplaySceneGraph);
         RunIsolatedValidation(ValidateApplicationFixedUpdateScheduler);
+        RunIsolatedValidation(ValidateApplicationValidationFixture);
         RunIsolatedValidation(ValidateHotPaths);
         RunIsolatedValidation(ValidateControllerMovement);
         RunIsolatedValidation(ValidateGeneratedTableReader);

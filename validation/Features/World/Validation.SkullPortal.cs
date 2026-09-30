@@ -10,9 +10,6 @@ public sealed partial class ValidationRoot
     private void ValidateSkullMinibossPortal()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var advance = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         bool batch = false;
         void Step(int count = 1, Vector2 movement = default, bool jump = false) =>
             StepGameplayUpdates(count, movement, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
@@ -101,8 +98,8 @@ public sealed partial class ValidationRoot
             Step(movement: Vector2.Right, jump: true);
             for (int i = 0; !_player.CutsceneControlled && i < 40; i++)
             {
-                input.CaptureForValidation(["attack"], [], Vector2.Right);
-                scheduler.Advance(1.0 / 60, advance);
+                Application.Capture(["attack"], [], Vector2.Right);
+                Application.Advance(1.0 / 60);
             }
             FailIf(!_player.CutsceneControlled || !_player.IsAttacking,
                 $"Walking into the portal with a sword parent must retain that parent on activation: controlled={_player.CutsceneControlled}, sword={_player.IsAttacking}, position={_player.Position}.");

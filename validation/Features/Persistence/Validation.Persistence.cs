@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
         GameSceneGraph dyingScene = _scene;
         RoomEntityManager dyingEntities = _entities;
 
-        BeginGameOverForValidation();
+        BeginGameOver();
         FailIf(
             _saveData.DeathCount != Math.Min(999, deathCount + 1) ||
             _sound.ActiveMusic != SoundId.MusGameOver ||

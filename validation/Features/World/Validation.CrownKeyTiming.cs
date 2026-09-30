@@ -19,8 +19,7 @@ public sealed partial class ValidationRoot
             var key = Spawn();
             var outgoing = key;
             var freeze = new CrownEntranceFreeze { FreezesRoomEntities = mode == "freeze" };
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [freeze]);
+            _entities.AddEntity(freeze);
             _sound.ClearPlayRequestAudit();
             try
             {

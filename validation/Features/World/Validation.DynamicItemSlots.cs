@@ -44,10 +44,6 @@ public partial class ValidationRoot
         FailIf(!visited.SequenceEqual(new[]{first,later}) || !pool.LiveOwners().SequenceEqual(new[]{earlier,later}),
             "updateItems must visit a newly allocated later slot now and an already visited replacement on the next pass.");
 
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         void Step(string? button=null) =>
             StepGameplayUpdates(1, Vector2.Zero, button is null?[]:[button], button is null?[]:[button], batched: true);
         var bombs=new BombEffect[5]; var record=new BombDatabase().Data;
@@ -97,11 +93,11 @@ public partial class ValidationRoot
             FailIf(bomb.ElapsedFrames!=1+observed || !beam.Initialized,
                 "The enemy pass must observe exactly one prior ITEM$03/$27 update, not a later interaction-phase update.");
         });
-        typeof(RoomEntityManager).GetMethod("RegisterEnemySlot",flags)!.Invoke(_entities,[observer,0]);
-        typeof(RoomEntityManager).GetMethod("AddEntity",flags)!.Invoke(_entities,[observer]);
+        _entities.RegisterEnemySlot(observer,0);
+        _entities.AddEntity(observer);
         Step();
-        input.CaptureForValidation([],[],Vector2.Zero);
-        scheduler.Advance(2.0/60.0,update);
+        Application.Capture([],[],Vector2.Zero);
+        Application.Advance(2.0/60.0);
         FailIf(observed!=3 || bomb.ElapsedFrames!=4,"Dynamic items must advance once per gameplay update, including batched host frames.");
         _entities.Clear();
         GD.Print("Validated shared $d7-$db allocation and live slot traversal, bomb/beam item-before-enemy updates, state0 text eligibility, batched updates, and Switch Hook chain retry/post retirement.");

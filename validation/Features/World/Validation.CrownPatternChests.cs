@@ -9,10 +9,6 @@ public partial class ValidationRoot
 {
     private void ValidateCrownPatternChests()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         var data = new DungeonChestPatternDatabase();
         static Vector2 Point(int packed) => new((packed & 15) * 16 + 8,(packed >> 4) * 16 + 8);
         foreach (var test in new[] {
@@ -56,8 +52,8 @@ public partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(Point(test.Positions[last]),(byte)test.Tiles[last],null,0);
             if (batch)
             {
-                input.CaptureForValidation([],[],Vector2.Zero);
-                scheduler.Advance(2.0 / 60.0,update);
+                Application.Capture([],[],Vector2.Zero);
+                Application.Advance(2.0 / 60.0);
             }
             else { Step(); Step(); }
             FailIf(!actor.Finished || _currentRoom.GetMetatile(Point(test.Chest)) != 0xf1 ||

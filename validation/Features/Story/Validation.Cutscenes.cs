@@ -497,17 +497,17 @@ public sealed partial class ValidationRoot
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
             _transitions.TimeWarpPhaseFrame != 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
-            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / WarpFadeFrames) ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / RoomTransitionController.WarpFadeFrames) ||
             _player.Visible,
             "The source tilemap was not kept black-covered while the palette handoff " +
             "started the first fadeoutToWhite step.");
-        UpdateRoomWarpTransition((WarpFadeFrames - 2.0f) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - 2.0f) / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
-            _transitions.TimeWarpPhaseFrame != WarpFadeFrames - 1 ||
+            _transitions.TimeWarpPhaseFrame != RoomTransitionController.WarpFadeFrames - 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
             !Mathf.IsEqualApprox(
-                _warpFade.Color.A, (WarpFadeFrames - 1.0f) / WarpFadeFrames) ||
+                _warpFade.Color.A, (RoomTransitionController.WarpFadeFrames - 1.0f) / RoomTransitionController.WarpFadeFrames) ||
             _activeGroup != 0,
             "The source tilemap became visible before the white overlay reached opacity.");
         UpdateRoomWarpTransition(1.0 / 60.0);
@@ -520,7 +520,7 @@ public sealed partial class ValidationRoot
             $"Time portal 0:39/`$22 landed at {_activeGroup:x1}:{_currentRoom.Id:x2}/" +
             $"`${_currentRoom.GetPackedPosition(_player.Position):x2} instead of 1:39/`$22.");
 
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpArrivalWait",
             "The destination did not fade in from white for 32 updates.");
@@ -2376,7 +2376,7 @@ public sealed partial class ValidationRoot
             $"tileset={_currentRoom.TilesetId:x2}, " +
             $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
 
-        for (int frame = 0; frame < WarpFadeFrames; frame++)
+        for (int frame = 0; frame < RoomTransitionController.WarpFadeFrames; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             IsTransitioning || _player.Position != new Vector2(0x58, 0x48),
@@ -2647,13 +2647,13 @@ public sealed partial class ValidationRoot
             !IsTransitioning || _transitions.ScrollActive ||
             _activeGroup != group || _currentRoom.Id != roomId,
             "Room 1:38's unlocked bottom edge did not start its $03 exit warp.");
-        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != group || _currentRoom.Id != 0x48,
             "Room 1:38's bottom exit did not load past room 1:48.");
         UpdateRoomWarpTransition(
             RoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         _entities.Update(1.0 / 60.0, _player);
         TimePortal? returnPortal = _entities.Entities<TimePortal>().SingleOrDefault();
         FailIf(

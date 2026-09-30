@@ -9,10 +9,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonPlatforms()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         void Step(int count = 1, Vector2 move = default, bool jump = false) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         void Wait(int count, bool batch)
@@ -167,8 +163,8 @@ public sealed partial class ValidationRoot
         {
             FailIf(_player.TopDownAirborne || !rider.LinkRiding || _player.IsUsingSwitchHook,
                 "4:74 Switch Hook fixture must stand on the naturally boarded platform with no active hook.");
-            input.CaptureForValidation(["item"], ["item"], Vector2.Right);
-            scheduler.Advance(1 / 60.0, update);
+            Application.Capture(["item"], ["item"], Vector2.Right);
+            Application.Advance(1 / 60.0);
             FailIf(!_player.IsUsingSwitchHook || _entities.SwitchHook!.Item is not { State: 1 },
                 "4:74 moving-platform support incorrectly blocked Switch Hook $0a input.");
             Vector2 linkBefore = _player.PrecisePosition;

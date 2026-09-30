@@ -11,6 +11,8 @@ public partial class GameRoot : Node2D
 {
     private readonly ApplicationFixedUpdateScheduler _applicationUpdates = new();
     private readonly ApplicationInputBuffer _applicationInput = new();
+    internal ApplicationFixedUpdateScheduler ApplicationUpdates => _applicationUpdates;
+    internal ApplicationInputBuffer ApplicationInput => _applicationInput;
     private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
     private IEnumerator<bool>? _gameplayPreparation;
@@ -29,13 +31,6 @@ public partial class GameRoot : Node2D
     private GameSceneGraph? _preparedGameplayScene;
     private OracleWorldData? _preparedWorld;
     private RoomSessionResources? _preparedRoomResources;
-
-    // Internal aliases and state form the narrow host surface used by the
-    // friend validation assembly. Production transition state remains owned
-    // by RoomTransitionController.
-    internal const float WarpFadeFrames = RoomTransitionController.WarpFadeFrames;
-    internal const float WarpLeaveFrames = RoomTransitionController.WarpLeaveFrames;
-    internal const float WarpEnterFrames = RoomTransitionController.WarpEnterFrames;
 
     internal RoomSession _rooms = null!;
     internal OracleSoundEngine _sound = null!;
@@ -119,24 +114,6 @@ public partial class GameRoot : Node2D
     public bool InventoryMenuOpen => _inventoryMenu?.IsActive ?? false;
     public bool RingMenuOpen => _ringMenu?.IsActive ?? false;
     public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
-
-    // Compatibility accessors used only by the friend validation assembly.
-    internal OracleWorldData _world => _rooms.World;
-    internal OracleRoomData _currentRoom
-    {
-        get => _rooms.CurrentRoom;
-        set => _rooms.SetLoadedRoom(_rooms.ActiveGroup, value);
-    }
-    internal int _activeGroup
-    {
-        get => _rooms.ActiveGroup;
-        set => _rooms.SetActiveGroup(value);
-    }
-    internal List<NpcCharacter> _npcNodes => _entities.Entities<NpcCharacter>();
-    internal bool _scrollTransitionActive => _transitions.ScrollActive;
-    internal Vector2I _scrollTransitionDirection => _transitions.ScrollDirection;
-    internal float _scrollTransitionDistance => _transitions.ScrollDistance;
-    internal int _scrollTransitionFrames => _transitions.ScrollFrames;
 
     public override void _Ready()
     {
@@ -294,7 +271,7 @@ public partial class GameRoot : Node2D
         InitializeGameplay(save);
     }
 
-    private void StartFrontend(bool startAtTitle)
+    internal void StartFrontend(bool startAtTitle)
     {
         _mainMenu = null;
         _frontendIntroScreen = new FrontendIntroScreen
@@ -721,7 +698,7 @@ public partial class GameRoot : Node2D
         } while (!GameplayPrepared && budget.Elapsed.TotalMilliseconds < 2);
     }
 
-    private void AdvanceApplicationUpdate()
+    internal void AdvanceApplicationUpdate()
     {
         Input.BeginOriginalUpdate(_applicationInput.ConsumeOriginalUpdate());
         try
@@ -1359,7 +1336,7 @@ public partial class GameRoot : Node2D
         UpdateRoomDebugLabel();
     }
 
-    internal void ClearDebugSavestateStatusForValidation()
+    internal void ClearDebugSavestateStatus()
     {
         _debugSavestateStatus = string.Empty;
         _debugSavestateStatusFrames = 0.0;
@@ -1434,15 +1411,13 @@ public partial class GameRoot : Node2D
         return SaveResult.Succeeded;
     }
 
-    private void BeginGameOver()
+    internal void BeginGameOver()
     {
         _sound.RestartSound();
         _saveData.IncrementDeathCount();
         _sound.PlaySound(SoundId.MusGameOver);
         _inventoryMenu.BeginGameOver();
     }
-
-    internal void BeginGameOverForValidation() => BeginGameOver();
 
     private void RestartGameplayAfterDeath()
     {
@@ -1483,12 +1458,10 @@ public partial class GameRoot : Node2D
     }
 
     /// <summary>
-    /// Recreates the complete non-persistent gameplay ownership graph from a
-    /// fresh standard-game save. The validation runner uses this between
-    /// independent cases so save/runtime WRAM, RNG, entities, controllers,
-    /// menus, input buffering, and application counters cannot leak forward.
+    /// Releases frontend and gameplay resources and starts an in-memory
+    /// session from the supplied save with fresh runtime state and RNG.
     /// </summary>
-    internal void ReinitializeGameplayForValidation()
+    internal void InitializeTransientSession(OracleSaveData save)
     {
         _suspendedObjectPass = null;
         _bootLoading?.End();
@@ -1510,7 +1483,7 @@ public partial class GameRoot : Node2D
         if (_persistSaveData)
         {
             throw new InvalidOperationException(
-                "Validation gameplay isolation is unavailable while persistent saves are enabled.");
+                "Transient-session initialization requires disabled save persistence.");
         }
 
         _mainMenu = null;
@@ -1543,9 +1516,8 @@ public partial class GameRoot : Node2D
                 ReleaseGameplayScene(immediate: true);
         }
 
-        // A synchronous validation may have queued a temporary root for the
-        // end of the rendered frame. Remove every remaining application child
-        // except the stable sound engine before constructing the next case.
+        // A previous session may have queued roots for the end of the host
+        // frame. Remove them before constructing the new ownership graph.
         foreach (Node child in GetChildren())
         {
             if (child != _sound && GodotObject.IsInstanceValid(child))
@@ -1575,12 +1547,7 @@ public partial class GameRoot : Node2D
         _sound.SetMusicVolume(3);
 
         _random = new OracleRandom();
-        OracleSaveData validationSave = OracleSaveData.CreateStandardGame();
-        // Retail gameplay is reached only after file naming. Keep isolated
-        // scenarios in that valid state while individual name tests may
-        // replace this value with another one-to-five-character name.
-        validationSave.SetLinkName("Link");
-        InitializeGameplay(validationSave);
+        InitializeGameplay(save);
     }
 
     private void ApplyRoomMusic(int group, OracleRoomData room)
@@ -1693,7 +1660,7 @@ public partial class GameRoot : Node2D
         // here when the requested dungeon room is side-scrolling.
         if (group is 4 or 5 &&
             (loaded.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0 &&
-            _world.HasRoom(group + 2, room))
+            _rooms.World.HasRoom(group + 2, room))
         {
             loaded = _rooms.Load(group + 2, room);
         }

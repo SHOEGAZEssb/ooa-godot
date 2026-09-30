@@ -38,8 +38,8 @@ public sealed partial class ValidationRoot
                 _entities.LockSmogLinkAndMenu();
             });
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(3, Vector2.Down, batched: batched);
             FailIf(!locked || (int)marker.GetValue(_transitions)! != -1 || IsTransitioning,
                 "wMenuDisabled rejects tile warps after a grounded departure has cleared the old marker.");

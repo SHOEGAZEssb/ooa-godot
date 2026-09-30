@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             var (actor, rom) = PrepareMountedCompanionRom(0x0c, direction);
             Vector2 p = new Vector2(72, 64) + OracleObjectMath.StrictCardinalVector(direction * 8) * 16;
             var target = new CompanionMouthProbe(type, mode, p, vulnerable);
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_entities, [target]);
+            _entities.AddEntity(target);
             rom[0xd080] = 1; rom[0xd0a4] = (byte)(0x80 | type); rom[0xd0a5] = (byte)mode;
             rom[0xd08b] = (byte)p.Y; rom[0xd08d] = (byte)p.X;
             rom[0xd0a6] = rom[0xd0a7] = 6; rom[0xd0a9] = 8;

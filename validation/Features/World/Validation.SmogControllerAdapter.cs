@@ -22,10 +22,10 @@ public partial class ValidationRoot
                 _ => spawned++, _ => puffs++, _ => 0, _ => 0x11,
                 (_,_) => true, _ => {}, () => sounds++, () => {});
             var entity = new SmogEncounterRoomEntity(new(),new(120,88),services);
-            typeof(RoomEntityManager).GetMethod("AddEntity",flags)!.Invoke(_entities,[entity]);
+            _entities.AddEntity(entity);
             int slot = _entities.InteractionSlot(entity.Node);
             FailIf(slot != 2,"INTERAC$33 must occupy the first available native dynamic interaction slot, $d2.");
-            typeof(RoomEntityManager).GetMethod("WriteSmogInteractionCounter",flags)!.Invoke(_entities,[slot,60]);
+            _entities.WriteSmogInteractionCounter(slot,60);
             FailIf(entity.Counter2Alias != 60 || entity.Controller.Counter != 0,
                 "Smog's $47 alias must reach the live interaction counter2 without changing controller counter1.");
             void Step(int count) =>

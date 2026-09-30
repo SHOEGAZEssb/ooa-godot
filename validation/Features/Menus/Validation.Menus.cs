@@ -1436,7 +1436,7 @@ public sealed partial class ValidationRoot
             "live WRAM, RNG, entity frame/recent-kill state, room, Link " +
             "transform, or animation clock.");
 
-        ClearDebugSavestateStatusForValidation();
+        ClearDebugSavestateStatus();
         GD.Print("Validated Shift+0-9 debug-state saves, plain 0-9 loads, " +
             "versioned/hash-checked atomic storage, missing/corrupt rejection, " +
             "and reconstruction of save image, live WRAM, RNG, entity phase, " +

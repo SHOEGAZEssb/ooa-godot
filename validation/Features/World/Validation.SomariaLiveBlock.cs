@@ -9,10 +9,6 @@ public partial class ValidationRoot
 {
     private void ValidateSomariaLiveBlock()
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach(bool batch in new[]{false,true})
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40));
@@ -55,8 +51,8 @@ public partial class ValidationRoot
         _currentRoom.SetPositionTileAndCollision(pickupPoint,0x0c,0,0);
         void InputStep(int count,Vector2 movement,string[] held,string[] pressed)
         {
-            input.CaptureForValidation(held,pressed,movement);
-            scheduler.Advance(count/60.0,update);
+            Application.Capture(held,pressed,movement);
+            Application.Advance(count/60.0);
         }
         for(int cycle=0;cycle<3;cycle++)
         {

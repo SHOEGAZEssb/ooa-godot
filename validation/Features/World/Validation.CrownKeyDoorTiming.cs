@@ -21,8 +21,7 @@ public sealed partial class ValidationRoot
             for (int i = 0; i < 10; i++)
                 _keyDoors.UpdatePushAttempt(_player.Position, Vector2I.Right, Vector2.Right);
             var freeze = new CrownEntranceFreeze();
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [freeze]);
+            _entities.AddEntity(freeze);
             var oldPalette = _entities.PaletteFadeActiveSource;
             var oldScreen = _entities.WorldToScreen;
             // Isolate timing with the viewport at this large room's lower-right

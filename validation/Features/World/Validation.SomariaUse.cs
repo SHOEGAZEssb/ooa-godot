@@ -9,10 +9,6 @@ public partial class ValidationRoot
 {
     private void ValidateSomariaUse()
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach(bool batch in new[]{false,true})
         foreach(string button in new[]{"attack","item"})
         {
@@ -41,14 +37,14 @@ public partial class ValidationRoot
             Step(5);
             FailIf(block.State!=3 || _currentRoom.GetMetatile(new(72,54))!=0xda,
                 "Normal Cane use must finish block phase-in at update23 after parent initialization.");
-            input.CaptureForValidation([],[],Vector2.Zero); scheduler.Advance(1.0/60.0,update);
+            Application.Capture([],[],Vector2.Zero); Application.Advance(1.0/60.0);
             Step(1,true); Step(14);
             FailIf(!block.Finished || _entities.EntityAdapters<SomariaBlockRoomEntity>().Count()!=1,
                 "A completed Cane use must permit another use and replace the previous block.");
             Step(9);
             var bombs=new BombDatabase().Data;
             for(int i=0;i<4;i++) _entities.Spawn<BombEffect>(new BombSpawn(_player,bombs,0,_=>{}));
-            input.CaptureForValidation([],[],Vector2.Zero); scheduler.Advance(1.0/60.0,update);
+            Application.Capture([],[],Vector2.Zero); Application.Advance(1.0/60.0);
             Step(1,true); Step(14);
             FailIf(_entities.EntityAdapters<SomariaBlockRoomEntity>().Any() || cane.Weapon?.State!=2,
                 "Full-pool Cane use must mark the old block before failed allocation, then let that block retire in its own slot.");
@@ -62,7 +58,7 @@ public partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.Sword,1);
         _inventory.EquipA(TreasureId.CaneOfSomaria); _inventory.EquipB(TreasureId.Sword);
         void Buttons(int count,string[] held,string[] pressed)
-        { input.CaptureForValidation(held,pressed,Vector2.Zero); scheduler.Advance(count/60.0,update); }
+        { Application.Capture(held,pressed,Vector2.Zero); Application.Advance(count/60.0); }
         Buttons(1,["attack"],["attack"]); Buttons(12,[],[]);
         Buttons(1,["attack"],["attack"]);
         FailIf(_entities.Somaria!.Parent!.Frame!=0 || _entities.EntityAdapters<SomariaBlockRoomEntity>().Any(),

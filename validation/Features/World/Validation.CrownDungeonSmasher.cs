@@ -513,10 +513,6 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherLiveAllocation()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         foreach (bool batch in new[] { false, true })
         foreach (int freedSlot in new[] { 0, 15 })
         {
@@ -561,9 +557,9 @@ public partial class ValidationRoot
             FailIf(_entities.TryAllocateEnemy(_ => throw new InvalidOperationException("Full pool must not call the factory.")) is not null,
                 "A full native enemy pool must fail allocation without constructing an actor.");
             slots[freedSlot].Finished = true;
-            input.CaptureForValidation([], [], Vector2.Zero);
-            if (batch) scheduler.Advance(2.0 / 60.0, update);
-            else { scheduler.Advance(1.0 / 60.0, update); scheduler.Advance(1.0 / 60.0, update); }
+            Application.Capture([], [], Vector2.Zero);
+            if (batch) Application.Advance(2.0 / 60.0);
+            else { Application.Advance(1.0 / 60.0); Application.Advance(1.0 / 60.0); }
             int[] expectedVisits = freedSlot == 0 ? [2,0,2] : [2,2,15];
             FailIf(!visits.SequenceEqual(expectedVisits) || child is null || child.State != 8 ||
                 child.NativeSubId != (freedSlot == 0 ? 0 : 1) ||

@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSeedMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         foreach (bool shooter in new[] { false, true })
         {
@@ -35,8 +34,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$20 shooter={shooter}: scratch ${0xcec0 + i:x4} differs after item movement.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             FailIf(seed.State != EmberState.Flying || seed.Position != new Vector2(120, 40),
                 "Seed initialization must preserve scratch and source position offsets.");

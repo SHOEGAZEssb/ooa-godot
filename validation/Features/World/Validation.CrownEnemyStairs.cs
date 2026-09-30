@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             var scan = new EnemyClearStairsRoomEntity(data.GetRoomRecords(4, 0xab).Single(),
                 _currentRoom, data, _saveData, () => 0, () => (long)_animationTicks,
                 _sound.PlaySound, puff);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [scan]);
+            _entities.AddEntity(scan);
             for (int i = 0; i < 13 - freePuffSlots; i++)
                 _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(24, 136), SoundId.MusNone));
             _entities.Update(1.0 / 60, _player);

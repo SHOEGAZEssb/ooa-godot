@@ -23,8 +23,7 @@ public sealed partial class ValidationRoot
             var orb = new DungeonOrbRoomEntity(placement, data,
                 new DungeonInteractionVisualDatabase().Visual("grotto-orb"), _currentRoom,
                 _runtimeState, () => (long)_animationTicks, _sound.PlaySound);
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [orb]);
+            _entities.AddEntity(orb);
             _player.WarpTo(new(8, 88));
             StepGameplayUpdates(1, Vector2.Zero);
             var toggle = _entities.FloorToggle!;

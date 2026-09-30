@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
                 var record = data.GetRoomRecords(5, 0xed).Single(r => r.Kind == DarkRoomDatabaseObjectKind.Handler);
                 var fade = new DarkRoomState(_currentRoom, data);
                 var handler = new DarkRoomHandlerRoomEntity(record, _currentRoom, data, fade);
-                typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [handler]);
+                _entities.AddEntity(handler);
                 state.SetValue(door, DoorState.ReadyToOpen);
                 // darkenRoom's $f0 to brightenRoom's $00, speed$01: 16 updates.
                 fade.BeginBrighten(0);

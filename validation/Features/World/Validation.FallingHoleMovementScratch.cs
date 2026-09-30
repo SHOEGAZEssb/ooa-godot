@@ -38,8 +38,7 @@ public sealed partial class ValidationRoot
                 observations++;
                 Stage();
             });
-            typeof(RoomEntityManager).GetMethod("AddEntity",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(32, Vector2.Zero, batched: batch);
             FailIf(effect.PrecisePosition != new Vector2(88.25f, 88) || effect.Finished ||
                 (effect.CurrentParameter & 0x80) == 0,

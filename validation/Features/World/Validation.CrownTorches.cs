@@ -10,8 +10,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownTorches()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var setTrigger = (Action<int,bool>)typeof(RoomEntityManager).GetMethod("SetTrigger",flags)!.CreateDelegate(typeof(Action<int,bool>),_entities);
+        var setTrigger = (Action<int, bool>)_entities.SetTrigger;
         int[] positions = [0x22,0x2a,0x82,0x8a]; // clean room04a6 layout, tile$08.
         foreach (bool batch in new[] { false,true })
         {

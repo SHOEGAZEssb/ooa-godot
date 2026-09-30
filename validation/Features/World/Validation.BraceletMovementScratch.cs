@@ -93,7 +93,6 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         foreach (bool dropped in new[] { false, true })
         {
@@ -126,8 +125,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$16 dropped={dropped}: scratch ${0xcec0 + i:x4} differs after the thrown item update.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, dropped ? Vector2.Zero : Vector2.Up, ["attack"], ["attack"], batch);
             var item = _bracelet.LiftedObject!;
             FailIf(item is not { Thrown: true }, "Bracelet input must release the lifted tile.");

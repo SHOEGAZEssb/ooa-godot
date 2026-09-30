@@ -9,8 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownRetractableChest()
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var set=(Action<int,bool>)typeof(RoomEntityManager).GetMethod("SetTrigger",flags)!.CreateDelegate(typeof(Action<int,bool>),_entities);
+        var set=(Action<int, bool>)_entities.SetTrigger;
         void Triggers(int value) { for(int bit=0;bit<8;bit++) set(bit,(value&(1<<bit))!=0); }
         foreach(bool batch in new[]{false,true})
         {

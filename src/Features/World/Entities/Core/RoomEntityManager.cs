@@ -687,7 +687,7 @@ public sealed class RoomEntityManager : IDisposable
                 scrollDirection, entryPackedPosition), player);
     }
 
-    private void BeginScreenTransition(
+    internal void BeginScreenTransition(
         int group,
         OracleRoomData room,
         Vector2 incomingOffset,
@@ -2095,7 +2095,7 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
-    private IRoomEntity AddEntity(IRoomEntity entity)
+    internal IRoomEntity AddEntity(IRoomEntity entity)
     {
         if (entity.Node is EnemyCharacter enemy)
         {

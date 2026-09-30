@@ -36,8 +36,8 @@ public sealed partial class ValidationRoot
                     _runtimeState.ReadWramByte(0xcec3) != (mode == "normal" ? 2 : 3),
                     "Native recoil must publish SPEED_200/300 at angle $08 before wall rejection and post-object warp scratch.");
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 15]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 15);
+            _entities.AddEntity(observer);
             if (mode == "full")
                 while (_entities.InteractionSlotAvailable)
                     _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));

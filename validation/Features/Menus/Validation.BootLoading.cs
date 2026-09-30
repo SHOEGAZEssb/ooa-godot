@@ -21,9 +21,7 @@ public sealed partial class ValidationRoot
         byte[] save = _saveData.Serialize();
         int rng = _random.Calls;
         OracleRoomData room = _currentRoom;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot)
-            .GetField("_applicationUpdates", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(this)!;
-        long updates = scheduler.UpdateCount;
+        long updates = Application.UpdateCount;
         Vector2I originalSize = GetWindow().ContentScaleSize;
         Window.ContentScaleAspectEnum originalAspect = GetWindow().ContentScaleAspect;
         BeginBootLoading(screen);
@@ -79,7 +77,7 @@ public sealed partial class ValidationRoot
             // scenario pumps artificial host frames much faster than real time.
             System.Threading.Thread.Sleep(1);
             FailIf(screen.Progress < progress || !save.SequenceEqual(_saveData.Serialize()) ||
-                _random.Calls != rng || _currentRoom != room || scheduler.UpdateCount != updates,
+                _random.Calls != rng || _currentRoom != room || Application.UpdateCount != updates,
                 "Boot resource loading regressed progress or advanced original game state.");
             progress = screen.Progress;
         }

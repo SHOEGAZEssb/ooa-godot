@@ -17,8 +17,7 @@ public sealed partial class ValidationRoot
             var runtime = _entities.RuntimeState;
             var detector = new WallSquishRoomEntity(_currentRoom, () => _rooms.BlockPushAngle,
                 () => runtime.ReadWramByte(WramAddress.wLinkRaisedFloorOffset), "raised-floor validation");
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [detector]);
+            _entities.AddEntity(detector);
             int Offset() => unchecked((sbyte)runtime.ReadWramByte(WramAddress.wLinkRaisedFloorOffset));
             Vector2 floor = new(120, 104);
             _player.WarpTo(new(120, 120));

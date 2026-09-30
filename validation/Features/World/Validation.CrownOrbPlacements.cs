@@ -32,8 +32,7 @@ public sealed partial class ValidationRoot
             var orb = new DungeonOrbRoomEntity(placement, new DungeonMechanicDatabase(),
                 new DungeonInteractionVisualDatabase().Visual("grotto-orb"), _currentRoom,
                 _runtimeState, () => (long)_animationTicks, _sound.PlaySound);
-            typeof(RoomEntityManager).GetMethod("AddEntity", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_entities, [orb]);
+            _entities.AddEntity(orb);
             _player.WarpTo(test.Origin);
             _player.ApplyInteractionInvincibility(240);
             FailIf(_collision.Collides(_player.Position), $"Crown4:{test.Room:x2} orb approach must start on real floor.");

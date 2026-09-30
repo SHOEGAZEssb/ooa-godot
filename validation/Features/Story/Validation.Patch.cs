@@ -15,18 +15,14 @@ public sealed partial class ValidationRoot
         // Drive the actual application scheduler with explicit original input
         // edges; Godot's host-frame justPressed bit persists throughout a
         // synchronous headless scenario, even after ActionRelease.
-        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         string? held = null, edge = null;
         bool individualUpdates = false;
         void Step(int count = 1)
         {
-            input.CaptureForValidation(held is null ? [] : [held], edge is null ? [] : [edge], held == "move_up" ? Vector2.Up : Vector2.Zero);
+            Application.Capture(held is null ? [] : [held], edge is null ? [] : [edge], held == "move_up" ? Vector2.Up : Vector2.Zero);
             edge = null;
-            if (individualUpdates) for (int i = 0; i < count; i++) scheduler.Advance(1 / 60.0, update);
-            else scheduler.Advance(count / 60.0, update);
+            if (individualUpdates) for (int i = 0; i < count; i++) Application.Advance(1 / 60.0);
+            else Application.Advance(count / 60.0);
         }
         void PressA() { held = edge = "attack"; Step(); held = null; }
         void Close()

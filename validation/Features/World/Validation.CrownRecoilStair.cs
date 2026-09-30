@@ -1,5 +1,4 @@
 using Godot;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -35,9 +34,8 @@ public sealed partial class ValidationRoot
                 if (_player.Position.Y <= 25)
                     observedRecoil |= _player.KnockbackFrames > 0;
             });
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
             FailIf(IsTransitioning || _player.Position.Y != 26,
@@ -89,14 +87,13 @@ public sealed partial class ValidationRoot
     private void ValidatePendingDeathWarp(bool batched, int entranceSounds)
     {
         int ordinaryUpdates = 0;
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         // Isolated dispatch probes stand in for already initialized handlers.
         // One native ENEMY and one ordinary interaction must both be skipped.
         var enemy = new ItemPhaseValidationEntity(() => ordinaryUpdates++);
         var interaction = new ItemPhaseValidationEntity(() => ordinaryUpdates++);
-        typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [enemy, 0]);
-        typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [enemy]);
-        typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [interaction]);
+        _entities.RegisterEnemySlot(enemy, 0);
+        _entities.AddEntity(enemy);
+        _entities.AddEntity(interaction);
         var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
         var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new(200, 104)));
         int dropZ = drop.ZFixed, dropSpeed = drop.SpeedZ, dropCounter = drop.Counter;

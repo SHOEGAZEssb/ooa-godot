@@ -1,13 +1,13 @@
 using Godot;
 using System;
-using System.Reflection;
 
 namespace oracleofages;
 
 /// <summary>Production frontend loop with isolated file slots and explicit host input.</summary>
 internal partial class FrontendValidationRoot : GameRoot
 {
-    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private ApplicationValidationFixture? _application;
+    private ApplicationValidationFixture Application => _application ??= new(this);
     private readonly byte[]?[] _slots = new byte[OracleSaveStore.SlotCount][];
     public override void _Ready() { }
     public override void _Process(double delta) { }
@@ -33,18 +33,11 @@ internal partial class FrontendValidationRoot : GameRoot
         _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
         _random = new OracleRandom();
-        typeof(GameRoot).GetMethod("StartFrontend", Private)!.Invoke(this, [false]);
+        StartFrontend(startAtTitle: false);
     }
 
-    internal void Step(int updates, bool batched, params string[] pressed)
-    {
-        var buffer = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", Private)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", Private)!.GetValue(this)!;
-        Action advance = typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", Private)!.CreateDelegate<Action>(this);
-        buffer.CaptureForValidation(pressed, pressed, Vector2.Zero);
-        if (batched) scheduler.Advance(updates / 60.0, advance);
-        else for (int update = 0; update < updates; update++) scheduler.Advance(1.0 / 60.0, advance);
-    }
+    internal void Step(int updates, bool batched, params string[] pressed) =>
+        Application.Step(updates, Vector2.Zero, pressed, pressed, batched);
 
     internal void AdvanceHost(double delta) => base._Process(delta);
 }

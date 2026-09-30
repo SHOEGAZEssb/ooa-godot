@@ -95,19 +95,15 @@ public partial class ValidationRoot
             FailIf(!Snapshot().SequenceEqual(floor) || liveQueue.Count != 0,
                 "Next drain must display the remaining floor write and empty the queue.");
         }
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(4,0xbf); _entities.Clear();
             _player.WarpTo(new(120,88));
             void GameplayStep(int count)
             {
-                input.CaptureForValidation([],[],Godot.Vector2.Zero);
-                if (batch) scheduler.Advance(count / 60.0,update);
-                else for (int i = 0; i < count; i++) scheduler.Advance(1.0 / 60.0,update);
+                Application.Capture([],[],Godot.Vector2.Zero);
+                if (batch) Application.Advance(count / 60.0);
+                else for (int i = 0; i < count; i++) Application.Advance(1.0 / 60.0);
             }
             for (int i = 0; i < 9; i++)
                 FailIf(!_rooms.TrySetTile(0x11,(byte)(i % 2 == 0 ? 0xa3 : 0x1d)),"Session queue must accept the tile write.");
@@ -134,11 +130,11 @@ public partial class ValidationRoot
             _player.WarpTo(new(120,136));
             _currentRoom.SetPositionTileAndCollision(new(24,24),0x0c,null,0);
             var cloud = _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(120,88),3));
-            input.CaptureForValidation([],[],Godot.Vector2.Zero);
-            scheduler.Advance(4 / 60.0,update);
+            Application.Capture([],[],Godot.Vector2.Zero);
+            Application.Advance(4 / 60.0);
             if (fullQueue)
                 for (int i = 0; i < 31; i++) _rooms.TrySetTile(0x22,0xa3);
-            scheduler.Advance(1 / 60.0,update);
+            Application.Advance(1 / 60.0);
             FailIf(cloud.SubId != 4 || _currentRoom.GetTerrainInfo(new(24,24)).Tile != (fullQueue ? 0x0c : 0xa3) ||
                 _rooms.PendingTileGraphics != (fullQueue ? 27 : 0),
                 "Large Smog initialization must use the session queue, ignore a full-queue failure, and allow the later four-entry graphics drain.");

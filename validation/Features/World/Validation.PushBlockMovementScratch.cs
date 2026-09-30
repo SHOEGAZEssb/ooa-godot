@@ -8,7 +8,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidatePushBlockMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
@@ -35,7 +34,7 @@ public sealed partial class ValidationRoot
                     "INTERAC$14 must publish the source upward SPEED_080 vector during the interaction pass.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(2, Vector2.Zero, batched: batch);
             FailIf(observations != 2, "Both moving push-block updates must run.");
             // Each synchronized child owns its movement dispatch and must

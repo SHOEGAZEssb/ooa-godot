@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
             // Its bottom-wall tile is away from Link and the source diamond.
             var door = new DungeonDoorRoomEntity(data.GetRoomRecords(4, 0x9d).Single(r => r.Id == 0x1e),
                 _currentRoom, data, () => 1, _ => trigger, p => p, () => 0, _ => { }, default, true);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [door]);
+            _entities.AddEntity(door);
             Step(20);
             Step(attack: true);
             var controller = _entities.SwitchHook!;

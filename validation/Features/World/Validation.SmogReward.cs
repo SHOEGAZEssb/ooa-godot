@@ -36,8 +36,7 @@ public partial class ValidationRoot
             CollisionLock();
             var reward = _entities.EntityAdapters<DungeonRewardRoomEntity>().Single();
             if (aliasedCounter)
-                typeof(RoomEntityManager).GetMethod("WriteSmogInteractionCounter",flags)!.Invoke(
-                    _entities,[_entities.InteractionSlot(reward.Node),60]);
+                _entities.WriteSmogInteractionCounter(_entities.InteractionSlot(reward.Node),60);
             Step();
             if (aliasedCounter)
             {

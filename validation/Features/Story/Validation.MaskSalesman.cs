@@ -348,12 +348,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x70, interior.Height),
             "Room 0:53/$52 did not begin the source transition-4 entry into 2:e6.");
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x70, interior.Height - WarpEnterFrames),
+            _player.Position != new Vector2(0x70, interior.Height - RoomTransitionController.WarpEnterFrames),
             "Room 2:e6 entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 2:e6 entry fade did not finish on update 32.");
 
         _player.WarpTo(new Vector2(0x70, interior.Height + 2));
@@ -362,12 +362,12 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != group || _currentRoom.Id != room,
             "Room 2:e6's right-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != exteriorGroup ||
             _currentRoom.Id != exteriorRoom || !IsTransitioning,
             "Room 2:e6 did not load exterior 0:53 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x20, 0x58) ||

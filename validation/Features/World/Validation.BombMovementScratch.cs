@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBombMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         foreach (bool blocked in new[] { false, true })
         {
@@ -46,8 +45,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$03 blocked={blocked} scratch ${0xcec0 + i:x4} differs in the item pass.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             bomb.Throw(_player, new(8, -8), Vector2I.Right, -240, ObjectSpeed.Speed180);
             expected = blocked ? [0, 0, 0, 0] : [0, 0, 0x80, 1];

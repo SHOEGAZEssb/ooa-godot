@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwordBeamScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         Vector2[] offsets = [new(-4, -11), new(12, 0), new(3, 10), new(-13, 0)];
         Vector2[] directions = [Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left];
         byte[][] velocities = [[0, 0xfd, 0, 0], [0, 0, 0, 3], [0, 3, 0, 0], [0, 0, 0, 0xfd]];
@@ -41,8 +40,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$27 direction {direction:x2} scratch ${0xcec0 + i:x4} differs before the enemy pass.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, batched: batch);
             FailIf(!beam.Initialized || beam.Position != start.Value, "Sword-beam setup must not move or publish velocity.");
             expected = velocities[direction];

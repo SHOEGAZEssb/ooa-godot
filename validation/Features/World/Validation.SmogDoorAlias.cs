@@ -22,10 +22,9 @@ public partial class ValidationRoot
             var door = new DungeonDoorRoomEntity(data.GetRoomRecords(4,0xbf).Single(r => r.SubId == subid),
                 _currentRoom, data, () => enemies, _ => false, p => p, () => 0, _ => { }, default, true,
                 textActive: () => text);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [door]);
+            _entities.AddEntity(door);
             void Step(int n = 1) => StepGameplayUpdates(n, Vector2.Zero, batched: batch);
-            void Write(int value) => typeof(RoomEntityManager).GetMethod("WriteSmogInteractionCounter",flags)!
-                .Invoke(_entities, [_entities.InteractionSlot(door.Node), value]);
+            void Write(int value) => _entities.WriteSmogInteractionCounter(_entities.InteractionSlot(door.Node), value);
             Write(60); Step();
             FailIf(door.Counter2Alias != 0 || (DoorState)state.GetValue(door)! != DoorState.SetAngle,
                 "Door state0 must clear inherited counter2 through interactionSetScript.");

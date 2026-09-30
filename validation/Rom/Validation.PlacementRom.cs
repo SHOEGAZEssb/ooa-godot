@@ -64,9 +64,6 @@ public sealed partial class ValidationRoot
         var room = _world.LoadRoom(0, 0x33);
         var history = (RecentEnemyDefeats)typeof(RoomEntityManager)
             .GetField("_recentEnemyDefeats", flags)!.GetValue(fixture.Manager)!;
-        var reserve = typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!;
-        var transition = typeof(RoomEntityManager).GetMethod("BeginScreenTransition", flags, null,
-            [typeof(int), typeof(OracleRoomData), typeof(Vector2), typeof(EnemyPlacementContext), typeof(Player)], null)!;
         byte[] tiles = new byte[80], collisions = new byte[80];
         for (int index = 0; index < 80; index++)
         {
@@ -143,7 +140,7 @@ public sealed partial class ValidationRoot
                     for (int offset = 0; offset < 0x40; offset++) rom[address + offset] = 0;
                     if ((occupied & (1 << slot)) == 0) continue;
                     rom[address] = 2; // outgoing allocation survives the parse
-                    reserve.Invoke(fixture.Manager, [null, slot]);
+                    fixture.Manager.RegisterEnemySlot(null, slot);
                 }
                 rom.ParseRoom();
                 if (occupied != 0)
@@ -170,7 +167,7 @@ public sealed partial class ValidationRoot
                 {
                     // Exercise the real destination-parse path, which retains
                     // outgoing slots. A direct LoadRoom would clear the pool.
-                    transition.Invoke(fixture.Manager, [0, room, Vector2.Zero, contexts[contextIndex], null]);
+                    fixture.Manager.BeginScreenTransition(0, room, Vector2.Zero, contexts[contextIndex], null);
                 }
                 string context = $"room $0:$33 seed=${seed:x4}, entry={contextIndex}, terrain={terrain}, killed=${killed:x2}, occupied=${occupied:x4}, repeat={repeat}";
                 OracleRandomState after = random.CaptureState();

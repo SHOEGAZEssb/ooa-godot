@@ -137,14 +137,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateColorGelScreenTransition()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput", flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates", flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate", flags)!.CreateDelegate(typeof(Action), this);
         void Step(int count = 1, Action? observe = null)
         {
-            input.CaptureForValidation([], [], Vector2.Zero);
-            scheduler.Advance(count / 60.0, () => { update(); observe?.Invoke(); });
+            Application.Capture([], [], Vector2.Zero);
+            Application.Advance(count / 60.0, observe);
         }
         string State(ColorChangingGelCharacter gel) =>
             $"{gel.Position}/{gel.State}/{gel.Counter}/{gel.ColorCounter}/{gel.Color}/{gel.CollisionMode}/{gel.ZHigh}/{gel.AnimationIndex}/{gel.AnimationFrame}/{gel.Visible}";

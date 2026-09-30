@@ -257,9 +257,9 @@ public sealed partial class ValidationRoot
             $"active={_activeGroup:x1}:{_currentRoom.Id:x2}, destination=" +
             $"${_transitions.ActiveWarpDestinationPosition:x2}).");
 
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         UpdateRoomWarpTransition(
-            (WarpFadeFrames - WarpEnterFrames) / 60.0);
+            (RoomTransitionController.WarpFadeFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning,
             "Room 1:cd/$11 stair transition did not finish its destination entry.");
 
@@ -331,7 +331,7 @@ public sealed partial class ValidationRoot
             "Diving inside room 5:cc/$12's imported interaction did not " +
             "start wWarpTransition2 `$03 with the source dive splash.");
 
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             !IsTransitioning || _activeGroup != 7 ||
             _currentRoom.Id != 0x05 ||
@@ -342,7 +342,7 @@ public sealed partial class ValidationRoot
             "Room 5:cc/$12 did not clear both source-room splashes while " +
             "loading side-view room 7:05/$03 after its source fade.");
 
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(IsTransitioning,
             "Room 5:cc/$12 did not finish destination transition `$01.");
         FailIf(_sound.PlayRequestsFor(SoundId.SndEnterCave) != 0,
@@ -394,11 +394,11 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height),
             "House entry did not begin at the bottom edge of the interior.");
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
-            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - WarpEnterFrames),
+            !IsTransitioning || !Mathf.IsEqualApprox(_player.Position.Y, _currentRoom.Height - RoomTransitionController.WarpEnterFrames),
             "Link did not perform the 28-frame interior entry walk.");
-        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "The 32-frame room fade did not finish after entering the house.");
         FailIf(
             _saveData.RespawnGroup != 2 || _saveData.RespawnRoom != 0xea ||
@@ -417,7 +417,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != 2 || _currentRoom.Id != 0xea,
             "The house exit did not begin with its scripted walk offscreen.");
-        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x47 || !IsTransitioning,
             "The exterior was not loaded after the 16-frame exit walk.");
@@ -444,7 +444,7 @@ public sealed partial class ValidationRoot
                 new Vector2(160, 18),
             "INTERAC_ERA_OR_SEASON_INFO state 0 did not begin just off the right edge.");
 
-        for (int update = 0; update < WarpFadeFrames; update++)
+        for (int update = 0; update < RoomTransitionController.WarpFadeFrames; update++)
         {
             UpdateRoomWarpTransition(1.0 / 60.0);
             _entities.Update(1.0 / 60.0, _player);
@@ -641,7 +641,7 @@ public sealed partial class ValidationRoot
             _warpFade.Color.A != 0.0f,
             "Room 0:38's south edge warp did not select the full-load column reveal.");
 
-        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != group ||
             _currentRoom.Id != destinationRoom ||
@@ -734,7 +734,7 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(0x50, -0x10),
             "The completed column load did not release destination transition $03.");
 
-        UpdateRoomWarpTransition((WarpEnterFrames - 1.0f) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpEnterFrames - 1.0f) / 60.0);
         FailIf(
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, 0x0b),
@@ -808,12 +808,12 @@ public sealed partial class ValidationRoot
         FailIf(
             WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 144)) > 0.01f,
             $"Link did not begin the 4:{destinationRoom:x2} cave entry at screen position (80,144).");
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         UpdateRoomCamera();
         FailIf(
             WorldToScreen(_player.Position).DistanceSquaredTo(new Vector2(80, 116)) > 0.01f,
             $"Link did not finish the 28-frame 4:{destinationRoom:x2} cave entry at screen position (80,116).");
-        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, $"The 4:{destinationRoom:x2} cave fade did not finish.");
 
         _player.WarpTo(new Vector2(_currentRoom.Width - 1, _currentRoom.Height / 2.0f));

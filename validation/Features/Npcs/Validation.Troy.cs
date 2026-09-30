@@ -146,12 +146,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, interior.Height),
             "Room 0:45's $df waterfall did not begin the source transition-4 entry into 3:fb.");
-        UpdateRoomWarpTransition(WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x50, interior.Height - WarpEnterFrames),
+            _player.Position != new Vector2(0x50, interior.Height - RoomTransitionController.WarpEnterFrames),
             "Room 3:fb entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((WarpFadeFrames - WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 3:fb entry fade did not finish on update 32.");
 
         NpcCharacter liveTroy = _entities.Entities<NpcCharacter>().Single(npc =>
@@ -195,11 +195,11 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != 3 || _currentRoom.Id != 0xfb,
             "Room 3:fb's left-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x45 || !IsTransitioning,
             "Room 3:fb did not load exterior 0:45 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x28, 0x58) ||

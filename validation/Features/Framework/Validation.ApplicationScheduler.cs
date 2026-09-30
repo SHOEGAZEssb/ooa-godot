@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             "update and pressed input on its first update only.");
 
         var input = new ApplicationInputBuffer();
-        input.CaptureForValidation(
+        input.CaptureSample(
             new[] { "attack" },
             new[] { "attack" },
             Vector2.Zero);
@@ -86,22 +86,17 @@ public sealed partial class ValidationRoot
 
     private void ValidateDebugFastForward()
     {
-        const System.Reflection.BindingFlags flags =
-            System.Reflection.BindingFlags.Instance |
-            System.Reflection.BindingFlags.NonPublic;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot)
-            .GetField("_applicationUpdates", flags)!.GetValue(this)!;
         using var key = new InputEventKey { PhysicalKeycode = Key.F5, Pressed = true };
-        long start = scheduler.UpdateCount;
+        long start = Application.UpdateCount;
         base._Process(1.0 / 120.0);
-        FailIf(scheduler.UpdateCount != start,
+        FailIf(Application.UpdateCount != start,
             "Debug fast forward must start disabled and retain partial host time.");
         _Input(key);
         try
         {
             base._Process(1.0 / 60.0);
-            FailIf(scheduler.UpdateCount != start + 4 ||
-                Math.Abs(scheduler.Remainder - 0.5) > 1e-9 ||
+            FailIf(Application.UpdateCount != start + 4 ||
+                Math.Abs(Application.Remainder - 0.5) > 1e-9 ||
                 !_roomDebug.Text.Contains("FF x4", StringComparison.Ordinal),
                 "F5 did not run four complete application updates, retain the " +
                 "partial update, and display its enabled indicator.");
@@ -112,7 +107,7 @@ public sealed partial class ValidationRoot
             key.Pressed = false;
             _Input(key);
             base._Process(2.0 / 60.0);
-            FailIf(scheduler.UpdateCount != start + 12,
+            FailIf(Application.UpdateCount != start + 12,
                 "F5 repeat/release changed fast forward, or a batched host " +
                 "frame did not run eight complete updates.");
         }
@@ -123,8 +118,8 @@ public sealed partial class ValidationRoot
             _Input(key);
         }
         base._Process(1.0 / 120.0);
-        FailIf(scheduler.UpdateCount != start + 13 ||
-            Math.Abs(scheduler.Remainder) > 1e-9 ||
+        FailIf(Application.UpdateCount != start + 13 ||
+            Math.Abs(Application.Remainder) > 1e-9 ||
             _roomDebug.Text.Contains("FF x4", StringComparison.Ordinal),
             "The second F5 press did not restore normal speed, preserve the " +
             "pending partial update, and clear the fast-forward indicator.");

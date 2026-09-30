@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateLinkMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
@@ -25,8 +24,8 @@ public sealed partial class ValidationRoot
             byte[] expected = [0, 1, 0, 0]; // SPEED_100 down, before post-object warp writes $ff.
             int observations = 0;
             var observer = new ItemPhaseValidationEntity(() => { Expect(expected); observations++; });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(2, Vector2.Down, batched: batch);
             FailIf(observations != 2 || _player.Position != new Vector2(120, 42),
                 "Normal walking must publish its velocity on each actual Link update.");
@@ -79,8 +78,8 @@ public sealed partial class ValidationRoot
                 _player.WarpTo(corner!.Value);
                 expected = [0, 0, 0x40, 1];
                 var recoilObserver = new ItemPhaseValidationEntity(() => Expect(expected));
-                typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [recoilObserver, 0]);
-                typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [recoilObserver]);
+                _entities.RegisterEnemySlot(recoilObserver, 0);
+                _entities.AddEntity(recoilObserver);
                 FailIf(!_player.ApplyEnemyContactDamage(
                     _player.EnemyContactPosition + new Vector2(0, 16), 0,
                     RingDamageSource.Generic, knockbackFrames: 1, allowZeroDamage: true),
@@ -94,8 +93,8 @@ public sealed partial class ValidationRoot
             expected = [0, 0, 0x40, 1];
             observations = 0;
             var deathObserver = new ItemPhaseValidationEntity(() => { Expect(expected); observations++; });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [deathObserver, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [deathObserver]);
+            _entities.RegisterEnemySlot(deathObserver, 0);
+            _entities.AddEntity(deathObserver);
             FailIf(!_player.ApplyEnemyContactDamage(
                 _player.EnemyContactPosition - new Vector2(16, 0), _player.MaxHealthQuarters,
                 RingDamageSource.Generic, knockbackFrames: 2) || !_player.IsDying,

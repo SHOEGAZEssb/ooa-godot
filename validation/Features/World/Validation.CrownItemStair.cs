@@ -43,9 +43,8 @@ public sealed partial class ValidationRoot
                 observed = true;
                 FailIf(!ItemActive(), "The item must run before the post-object stair check.");
             });
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             _runtimeState.SetWramByte(WramAddress.wWarpsDisabled, 0);
             int sounds = _sound.PlayRequestsFor(SoundId.SndEnterCave);
             StepGameplayUpdates(1, Vector2.Zero, [button], alreadyActive ? [] : [button]);

@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
                 damagingContacts += rom.Dispatches.Count(d => d.Type == 0 && d.Effect == 2);
             }
             var observer = new CollisionRomObserver(Observe);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             if (reverse)
                 ((List<IRoomEntity>)typeof(RoomEntityManager).GetField("_activeEntities", flags)!.GetValue(_entities)!).Reverse();
             void Compare()

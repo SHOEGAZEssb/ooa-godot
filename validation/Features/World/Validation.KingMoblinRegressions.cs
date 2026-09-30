@@ -100,14 +100,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateKingMoblinBombsAndRecentering()
     {
-        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
-        var input=(ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler=(ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update=(Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         void Step(Vector2 movement=default)
         {
             _inventory.RefillHealth();
-            input.CaptureForValidation([],[],movement);scheduler.Advance(1.0/60,update);
+            Application.Capture([],[],movement);Application.Advance(1.0/60);
         }
         LoadValidationRoom(2,0xaf);_player.WarpTo(new Vector2(24,88));Step();
         var boss=_entities.Entities<KingMoblinBoss>().Single();

@@ -66,7 +66,7 @@ internal sealed class ApplicationInputBuffer
         return snapshot;
     }
 
-    internal void CaptureForValidation(
+    internal void CaptureSample(
         IEnumerable<string> pressed,
         IEnumerable<string> justPressed,
         Vector2 movement)

@@ -9,8 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownPatternHint()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var setTrigger = (Action<int,bool>)typeof(RoomEntityManager).GetMethod("SetTrigger",flags)!.CreateDelegate(typeof(Action<int,bool>),_entities);
+        var setTrigger = (Action<int, bool>)_entities.SetTrigger;
         int[] positions = [0x5c,0x6a,0x3b,0x5a,0x4c,0x7b];
         int[] colors = [0xad,0xad,0xae,0xae,0xaf,0xaf];
         var data = new CrownDungeonDatabase().PatternHint;

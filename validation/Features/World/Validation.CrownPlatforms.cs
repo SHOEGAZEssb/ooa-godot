@@ -10,9 +10,6 @@ public partial class ValidationRoot
     private void ValidateCrownPlatforms()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var input = (ApplicationInputBuffer)typeof(GameRoot).GetField("_applicationInput",flags)!.GetValue(this)!;
-        var scheduler = (ApplicationFixedUpdateScheduler)typeof(GameRoot).GetField("_applicationUpdates",flags)!.GetValue(this)!;
-        var update = (Action)typeof(GameRoot).GetMethod("AdvanceApplicationUpdate",flags)!.CreateDelegate(typeof(Action),this);
         LoadValidationRoom(6,0x95);
         // getTileCollisionsAtPosition returns the whole raw byte, including
         // partially solid tiles and special collision $18 (open to Link).
@@ -125,18 +122,18 @@ public partial class ValidationRoot
             var scrollingPlatform = _entities.Entities<MovingSideScrollPlatformRoomEntity>().Single();
             FailIf(_player.PrecisePosition != new Vector2(136.5f,6.25f) || scrollingPlatform.UpdatesDuringDialogue,
                 "Crown scroll must retain low coordinate bytes and initialize destination $a1 before scrolling.");
-            input.CaptureForValidation([],[],Vector2.Zero);
-            if (batch) scheduler.Advance(4.0 / 60.0,update);
-            else for (int i = 0; i < 4; i++) scheduler.Advance(1.0 / 60.0,update);
+            Application.Capture([],[],Vector2.Zero);
+            if (batch) Application.Advance(4.0 / 60.0);
+            else for (int i = 0; i < 4; i++) Application.Advance(1.0 / 60.0);
             for (int i = 0; _transitions.ScrollActive && i < 200; i++)
             {
                 FailIf(scrollingPlatform.PrecisePosition != new Vector2(136,104),"Crown destination platform moved during scrolling.");
-                scheduler.Advance(1.0 / 60.0,update);
+                Application.Advance(1.0 / 60.0);
             }
             FailIf(_transitions.ScrollActive || _player.PrecisePosition != new Vector2(136.5f,166.25f) ||
                 scrollingPlatform.PrecisePosition != new Vector2(136,104),
                 "Crown upward scroll must apply 32 half-pixel steps and the source-height offset while keeping destination platforms frozen.");
-            scheduler.Advance(1.0 / 60.0,update);
+            Application.Advance(1.0 / 60.0);
             FailIf(scrollingPlatform.PrecisePosition != new Vector2(136,103.5f),
                 "Crown platform must resume immediately after the gameplay scroll completes.");
         }

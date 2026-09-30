@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                         $"Drop conveyor direction={direction}, gate={gate}, observation={observations}: scratch ${0xcec0 + i:x4} expected ${expected[i]:x2}, got ${_runtimeState.ReadWramByte(0xcec0 + i):x2}.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(2, Vector2.Zero, batched: batch);
             FailIf(observations != 2 || drop.PrecisePosition != start + (gate == 0 ? directions[direction] : Vector2.Zero),
                 "Drop conveyors must move at SPEED_080 only after height and forward-collision gates.");

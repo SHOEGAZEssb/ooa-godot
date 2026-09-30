@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
                 _player.WarpTo(new(120, 136));
                 var door = _entities.Entities<DungeonDoorRoomEntity>().Single();
                 var freeze = new CrownEntranceFreeze { FreezesRoomEntities = !text };
-                typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [freeze]);
+                _entities.AddEntity(freeze);
                 if (text) _dialogue.ShowMessage("Shutter initialization.", 120);
                 Step(3);
                 DoorState expected = text ? DoorState.SetRadii : DoorState.SetAngle;

@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwitchHookMovementScratch()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (bool batch in new[] { false, true })
         foreach (int level in new[] { 1, 2 })
         {
@@ -36,8 +35,8 @@ public sealed partial class ValidationRoot
                         $"ITEM$0a level {level}: scratch ${0xcec0 + i:x4} differs after item movement.");
                 observations++;
             });
-            typeof(RoomEntityManager).GetMethod("RegisterEnemySlot", flags)!.Invoke(_entities, [observer, 0]);
-            typeof(RoomEntityManager).GetMethod("AddEntity", flags)!.Invoke(_entities, [observer]);
+            _entities.RegisterEnemySlot(observer, 0);
+            _entities.AddEntity(observer);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batch);
             var hook = _entities.SwitchHook!.Item!;
             FailIf(hook.State != 1 || hook.Position != new Vector2(120, 81),

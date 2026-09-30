@@ -60,7 +60,7 @@ public partial class ValidationRoot
                 _player.WarpTo(new(120,136));
                 manager.LoadRoom(4,room);
                 var freeze=new CrownEntranceFreeze();
-                typeof(RoomEntityManager).GetMethod("AddEntity",flags)!.Invoke(manager,[freeze]);
+                manager.AddEntity(freeze);
                 manager.Update(1.0/60,_player);
                 var portals=manager.Entities<MinibossPortal>();
                 FailIf(portals.Count!=(defeated?1:0) || defeated && !portals[0].Visible,

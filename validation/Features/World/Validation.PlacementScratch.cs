@@ -76,8 +76,7 @@ public sealed partial class ValidationRoot
                 .Invoke(fixture.Manager, null)!;
             FailIf(freeSlot != 2,
                 "Failed random placement must release its slot for the following item producers.");
-            typeof(RoomEntityManager).GetMethod("RetainFailedPlacementCount", flags)!
-                .Invoke(fixture.Manager, [2]);
+            fixture.Manager.RetainFailedPlacementCount(2);
             FailIf(fixture.Manager.RoomEnemyCount != 3,
                 "Uncounted flags02 must not retain a count after failed placement.");
         }

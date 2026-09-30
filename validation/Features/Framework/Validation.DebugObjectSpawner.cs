@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
         int roomCount = _entities.RoomEnemyCount;
         int randomCalls = _random.Calls;
         var input = new ApplicationInputBuffer();
-        input.CaptureForValidation(["attack"], ["attack"], Vector2.Zero);
+        input.CaptureSample(["attack"], ["attack"], Vector2.Zero);
         var scheduler = new ApplicationFixedUpdateScheduler();
         scheduler.Advance(4.0 / 60.0, () =>
         {
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != roomCount || _random.Calls != randomCalls,
             "A batched A edge must spawn one $32:$00 at room coordinates without re-parsing RNG or counting for shutters.");
 
-        input.CaptureForValidation(["item", "attack"], ["item", "attack"], Vector2.Zero);
+        input.CaptureSample(["item", "attack"], ["item", "attack"], Vector2.Zero);
         Input.BeginOriginalUpdate(input.ConsumeOriginalUpdate());
         try { FailIf(!_debugObjectSpawner.Update(), "Closing must consume the original update."); }
         finally { Input.EndOriginalUpdate(); }
