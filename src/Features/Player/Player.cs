@@ -703,8 +703,6 @@ public partial class Player : Node2D
     {
         if (!AcceptsRoomEntityContact || !EnemyContactHeightOverlaps(enemyZ))
             return false;
-        if (!_companionRideControlled && !_raftRideControlled)
-            return bounds.Intersects(new Rect2(Position - Vector2.One * 6, Vector2.One * 12));
         return EnemyCollisionOverlaps(EnemyContactPosition, bounds);
     }
 
@@ -712,11 +710,8 @@ public partial class Player : Node2D
     {
         // bank0.s:checkObjectsCollidedFromVariables adds the radii and
         // compares unsigned bytes: the negative edge is included, positive excluded.
-        Vector2 center = bounds.GetCenter();
-        int radiusX = (int)(bounds.Size.X / 2) + 6;
-        int radiusY = (int)(bounds.Size.Y / 2) + 6;
-        return ((Mathf.FloorToInt(position.X) - Mathf.FloorToInt(center.X) + radiusX) & 0xff) < radiusX * 2 &&
-            ((Mathf.FloorToInt(position.Y) - Mathf.FloorToInt(center.Y) + radiusY) & 0xff) < radiusY * 2;
+        return RoomEntityManager.ObjectCollisionXYOverlaps(bounds,
+            new Rect2(position - Vector2.One * 6, Vector2.One * 12));
     }
     // commonCode.s:companionTryToMount requires ordinary, vulnerable Link,
     // with no swimming, grabbing or airborne state.
@@ -6005,18 +6000,8 @@ public partial class Player : Node2D
         if (!IsUsingShield || _inventory.ShieldLevel < minimumLevel)
             return false;
 
-        Rect2 shield = ShieldCollisionBounds;
-        Vector2 shieldCenter = shield.GetCenter();
-        Vector2 shieldRadius = shield.Size / 2.0f;
-        Vector2 targetCenter = OracleObjectMath.ToPixelPosition(targetBounds.GetCenter());
-        Vector2 targetRadius = targetBounds.Size / 2.0f;
-        if (Mathf.Abs(targetCenter.X - shieldCenter.X) >=
-                targetRadius.X + shieldRadius.X ||
-            Mathf.Abs(targetCenter.Y - shieldCenter.Y) >=
-                targetRadius.Y + shieldRadius.Y)
-        {
+        if (!RoomEntityManager.ObjectCollisionXYOverlaps(targetBounds, ShieldCollisionBounds))
             return false;
-        }
 
         // Projectile modes $06/$07 select COLLISIONEFFECT_$1f for shield
         // collision types $01-$03. LINKDMG_$20 contributes only SND_CLINK2;

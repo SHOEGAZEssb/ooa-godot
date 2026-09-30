@@ -169,7 +169,7 @@ public sealed partial class ValidationRoot
         int woodenShieldHealth = shieldPlayer.HealthQuarters;
         var woodenShieldProjectile = new HeadThwompProjectile(
             new HeadThwompProjectileSpawn(
-                shieldPlayer.ShieldCollisionBounds.GetCenter(),
+                shieldPlayer.ShieldCollisionBounds.GetCenter() + Vector2.Down,
                 HeadThwompProjectileKind.Circular,
                 Angle: ObjectAngle.Up,
                 Speed: 2),

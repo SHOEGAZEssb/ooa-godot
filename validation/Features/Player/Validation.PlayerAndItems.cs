@@ -2151,6 +2151,24 @@ public sealed partial class ValidationRoot
             world.Sounds.Count(sound => sound == SoundId.SndShield) != 3,
             "The Mirror Shield upgrade/B-button parent did not preserve the level-3 shared pose and activation.");
 
+        // bank0.checkObjectsCollidedFromVariables includes the negative
+        // (Link minus target) summed-radius edge and excludes the positive one.
+        // Keep these source-derived boundaries covered when CI skips the ROM.
+        player.WarpTo(new(80, 64));
+        FailIf(!player.OverlapsEnemyCollision(new(new(86, 62), new(4, 4))) ||
+            player.OverlapsEnemyCollision(new(new(70, 62), new(4, 4))),
+            "Link body contact lost the native asymmetric edge.");
+        player.WarpTo(new(0, 64));
+        FailIf(!player.OverlapsEnemyCollision(new(new(252, 62), new(4, 4))) ||
+            Player.EnemyCollisionOverlaps(new(0, 64), new(new(-122, 58), new(244, 12))),
+            "Link body contact lost byte wrapping in coordinates or summed radii.");
+        player.Face(Vector2I.Right);
+        player.UpdateShieldForValidation(attackHeld: false, itemHeld: true);
+        Vector2 edgeCenter = player.ShieldCollisionBounds.GetCenter();
+        FailIf(!player.TryBlockWithShield(new(edgeCenter + new Vector2(1, -2), new(4, 4))) ||
+            player.TryBlockWithShield(new(edgeCenter + new Vector2(-5, -2), new(4, 4))),
+            "Shield contact lost the native asymmetric edge.");
+
         rock.Free();
         arrow.Free();
         unblockedRock.Free();

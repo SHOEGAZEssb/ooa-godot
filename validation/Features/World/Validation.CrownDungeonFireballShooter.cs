@@ -196,7 +196,9 @@ public partial class ValidationRoot
             var player = new Player(); AddChild(player);
             player.Initialize(new ValidationRingPlayerWorld(),inventory,new Vector2(72,72),new OracleRandom());
             player.Face(Vector2I.Right); player.UpdateShieldForValidation(true,false);
-            Vector2 shieldEdge = new(player.ShieldCollisionBounds.End.X + 1, player.ShieldCollisionBounds.GetCenter().Y);
+            // The body's negative summed-radius boundary is inclusive; one
+            // pixel farther right still touches the shield's inclusive edge.
+            Vector2 shieldEdge = new(player.ShieldCollisionBounds.End.X + 2, player.ShieldCollisionBounds.GetCenter().Y);
             var fire = new ZoraFireProjectile(new(shieldEdge,partId),data,p => p + Vector2.Down*16);
             var frame = new RoomEntityFrame(player,0,false);
             fire.UpdateFrame(frame);
