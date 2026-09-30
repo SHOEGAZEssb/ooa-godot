@@ -239,6 +239,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCollisionMasksRom, requiresRom: true);
         RunIsolatedValidation(ValidateLinkContactGeometryRom, requiresRom: true);
         RunIsolatedValidation(ValidateCollisionOrderRom, requiresRom: true);
+        RunIsolatedValidation(ValidateObjectAnimationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAnimationGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAnimationCounterBoundaries);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);
         RunIsolatedValidation(ValidateSharedRoomEventHosts);

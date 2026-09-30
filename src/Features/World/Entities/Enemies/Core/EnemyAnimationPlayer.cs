@@ -295,7 +295,10 @@ internal sealed class EnemyAnimationPlayer
         // Routines such as rope_animate reduce animCounter by three, clamp it
         // at zero, then call enemyAnimate. Crossing a frame boundary discards
         // any excess decrement rather than carrying it into the next frame.
-        _frameCounter = Math.Max(0, _frameCounter - decrement);
+        // The ordinary DEC (HL) path instead wraps an input counter $00 to $ff.
+        _frameCounter = decrement == 1
+            ? (_frameCounter - 1) & 0xff
+            : Math.Max(0, _frameCounter - decrement);
         if (_frameCounter > 0)
             return;
         _frameIndex++;

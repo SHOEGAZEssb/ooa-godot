@@ -684,7 +684,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (animation.Count == 0)
             return;
         int duration = animation[_animationFrame].Duration;
-        _animationTicks = duration - remaining;
+        // interactionAnimate decrements a byte: $00 takes 256 calls to
+        // reach the next frame, rather than advancing on the next call.
+        _animationTicks = duration - (remaining == 0 ? 256 : remaining);
     }
 
     internal void SetSpritePalette(Color[] palette)
@@ -798,7 +800,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private void AdvanceAnimationTicks(double ticks)
     {
         List<NpcCharacterAnimationFrame> animation = CurrentAnimation;
-        if (animation.Count <= 1)
+        if (animation.Count == 0)
             return;
         _animationTicks += ticks;
         while (_animationTicks >= animation[_animationFrame].Duration)

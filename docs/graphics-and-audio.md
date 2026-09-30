@@ -67,6 +67,10 @@ palette results, and hashes from real generated data.
 Rebuilding scripted NPC textures for a palette or grayscale change preserves
 per-frame graphics offsets, the current frame, and its remaining update count.
 Selecting a new script animation explicitly resets that animation clock.
+Explicitly selecting the same animation also restarts it. Object animation
+counters retain byte semantics: a written zero takes 256 updates to advance,
+and single-frame loops still decrement and reload their counters. Frame
+parameter flags reload on frame entry, including a loop back to the same frame.
 
 Partial-load Link frames encode absolute source tile indices, which can exceed
 one byte. Renderers clear only the 8-by-16 pairing bit; they must not truncate
