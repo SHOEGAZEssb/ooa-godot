@@ -39,11 +39,14 @@ and their `ImportStageContract` declarations. `tools/import_oracles/` contains
 feature stages, while `tools/OracleImporter/` contains the typed assembly source
 model and shared parsing infrastructure.
 
-Each stage declares its variable and helper inputs and outputs. The entry point
-checks those declarations around execution, so a stage may not depend on a
-PowerShell variable or helper merely because an earlier script happened to
-create it. Put new data in the stage that owns the source domain; add a stage
-only when it has a distinct ownership boundary.
+Each stage declares its variable and helper inputs and outputs and runs in its
+own PowerShell module scope. The runner supplies only declared inputs and common
+helpers, rejects unbound variables, and publishes only declared outputs. Exported
+helpers retain their owner's private state and helper functions; shared input
+collections retain their identity and original mutation order. A stage cannot
+consume another stage's locals merely because it ran earlier. Put new data in the
+stage that owns the source domain; add a stage only when it has a distinct
+ownership boundary.
 
 The assembly source repository is the only component allowed to read `.s`
 files. It retains ordered nodes, aliases, source spans, and actionable parse

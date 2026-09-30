@@ -81,6 +81,19 @@ function Invoke-AssemblySourceHost(
     return $value
 }
 
+if (-not (Test-Path -LiteralPath $Rom)) {
+    throw "ROM not found: $Rom"
+}
+$romBytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Rom))
+if ($romBytes.Length -ne 1048576) {
+    throw "Expected the 1 MiB US Oracle of Ages ROM, got $($romBytes.Length) bytes."
+}
+$hash = (Get-FileHash -LiteralPath $Rom -Algorithm MD5).Hash
+$cleanUsHash = "C4639CC61C049E5A085526BB6CAC03BB"
+if ($hash -ne $cleanUsHash) {
+    throw "ROM hash $hash is not the supported clean US Oracle of Ages hash $cleanUsHash."
+}
+
 $assemblySourceHost = Start-AssemblySourceHost
 $assemblyTextCache = @{}
 $assemblyNodeCache = @{}
@@ -480,21 +493,6 @@ function Read-AssemblyDwTables(
         }
     }
     return $tables
-}
-
-if (-not (Test-Path -LiteralPath $Rom)) {
-    throw "ROM not found: $Rom"
-}
-
-$romBytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Rom))
-if ($romBytes.Length -ne 1048576) {
-    throw "Expected the 1 MiB US Oracle of Ages ROM, got $($romBytes.Length) bytes."
-}
-
-$hash = (Get-FileHash -LiteralPath $Rom -Algorithm MD5).Hash
-$cleanUsHash = "C4639CC61C049E5A085526BB6CAC03BB"
-if ($hash -ne $cleanUsHash) {
-    throw "ROM hash $hash is not the supported clean US Oracle of Ages hash $cleanUsHash."
 }
 
 function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestination) {

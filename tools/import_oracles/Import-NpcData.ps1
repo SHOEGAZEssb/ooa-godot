@@ -2168,7 +2168,7 @@ function Resolve-DungeonMechanicDungeonIndex([int]$group, [int]$room) {
             (Join-Path $Disassembly "rooms\ages\group${group}Tilesets.bin"))
     }
     $tileset = $script:mechanicTilesetsByGroup[$group][$room] -band 0x7f
-    return [int]$metadata[$tileset * $tilesetRecordSize + 5]
+    return [int]$tilesetMetadata[$tileset * $tilesetRecordSize + 5]
 }
 
 $dungeonMechanicRows = [Collections.Generic.List[string]]::new()

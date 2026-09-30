@@ -6,9 +6,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-# Windows PowerShell's legacy 4096-variable scope limit is below the complete
-# staged import's symbol count. PowerShell 7 has no such limit.
-if ($PSVersionTable.PSVersion.Major -lt 6) { $MaximumVariableCount = 32768 }
 $importRoot = $PSScriptRoot
 $importModuleRoot = Join-Path $importRoot 'import_oracles'
 
@@ -37,17 +34,6 @@ class ImportStageContract {
     }
 }
 
-class ImportStageResult {
-    [string]$Name
-    [Collections.Generic.Dictionary[string, object]]$Values
-
-    ImportStageResult([string]$name) {
-        $this.Name = $name
-        $this.Values = [Collections.Generic.Dictionary[string, object]]::new(
-            [StringComparer]::OrdinalIgnoreCase)
-    }
-}
-
 function New-ImportStageContract(
     [string]$name,
     [string]$script,
@@ -71,7 +57,7 @@ $stageContracts = @(
     New-ImportStageContract 'world' 'Import-WorldAssets.ps1' `
         -outputs @(
             'globalFlagValues', 'singleTileChangeRecords', 'tilesets',
-            'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize')
+            'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize', 'tilesetMetadata')
     New-ImportStageContract 'menus' 'Import-MenuAssets.ps1' `
         -inputs @('paletteDataSource') `
         -outputs @('textYaml') `
@@ -89,14 +75,15 @@ $stageContracts = @(
         -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts') `
         -outputs @(
             'enemyUnspawnableTileCount', 'soundIds', 'treasureIds',
-            'treasureObjectRecords', 'treasureObjectSource')
+            'treasureObjectRecords', 'treasureObjectSource') `
+        -functionOutputs @('Read-HexBytes')
     New-ImportStageContract 'npcs' 'Import-NpcData.ps1' `
         -inputs @(
             'allTextFallthroughIds', 'allTextPositions', 'allTexts',
             'globalFlagValues',
             'npcInteractionIds', 'objectGfxHeaderSource', 'paletteHeaderSource',
             'singleTileChangeRecords', 'soundIds', 'tilesetRecordSize',
-            'treasureIds', 'treasureObjectRecords') `
+            'tilesetMetadata', 'treasureIds', 'treasureObjectRecords') `
         -outputs @(
             'dungeonMechanicRows', 'dungeonSharedPlacementRows', 'gfxNames',
             'interactionAnimationSource', 'interactionGraphics',
@@ -303,187 +290,56 @@ $commonStageFunctionInputs = @(
     'Read-ImportLines', 'Read-ImportText', 'Select-CleanUsAssemblyLines',
     'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes',
     'Write-GeneratedTable')
-$automaticStageVariables = @(
-    'args', 'error', 'executioncontext', 'false', 'foreach', 'host', 'input',
-    'lastexitcode', 'matches', 'myinvocation', 'nestedpromptlevel', 'null',
-    'ofs', 'pid', 'profile', 'psboundparameters', 'pscmdlet', 'pshome',
-    'psitem', 'pwd', 'shellid', 'stacktrace', 'switch', 'this', 'true', '_')
-
-function Assert-ImportStageSourceContract(
-    [ImportStageContract]$contract,
-    [Collections.Generic.Dictionary[string, string]]$functionOwners
-) {
-    $path = Join-Path $importModuleRoot $contract.Script
-    $tokens = $null
-    $errors = $null
-    $ast = [Management.Automation.Language.Parser]::ParseFile(
-        $path,
-        [ref]$tokens,
-        [ref]$errors)
-    if ($errors.Count -ne 0) {
-        throw "$($contract.Script) has parser errors: $($errors -join '; ')"
-    }
-
-    $assigned = [Collections.Generic.HashSet[string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($assignment in $ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.AssignmentStatementAst]
-    }, $true)) {
-        foreach ($variable in $assignment.Left.FindAll({
-            param($node)
-            $node -is [Management.Automation.Language.VariableExpressionAst]
-        }, $true)) {
-            [void]$assigned.Add($variable.VariablePath.UserPath)
-        }
-    }
-    foreach ($loop in $ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.ForEachStatementAst]
-    }, $true)) {
-        [void]$assigned.Add($loop.Variable.VariablePath.UserPath)
-    }
-    foreach ($parameter in $ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.ParameterAst]
-    }, $true)) {
-        [void]$assigned.Add($parameter.Name.VariablePath.UserPath)
-    }
-
-    $declaredInputs = [Collections.Generic.HashSet[string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($name in @($commonStageInputs) + @($contract.Inputs)) {
-        [void]$declaredInputs.Add($name)
-    }
-    $undeclared = [Collections.Generic.HashSet[string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($variable in $ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.VariableExpressionAst]
-    }, $true)) {
-        $name = $variable.VariablePath.UserPath
-        if ($name.Contains(':') -or
-            $name -notmatch '^[a-z_][a-z0-9_]*$' -or
-            $automaticStageVariables -contains $name -or
-            $assigned.Contains($name) -or
-            $declaredInputs.Contains($name)) {
-            continue
-        }
-        [void]$undeclared.Add($name)
-    }
-    if ($undeclared.Count -ne 0) {
-        throw "Import stage '$($contract.Name)' has undeclared variable inputs: " +
-            (($undeclared | Sort-Object) -join ', ')
-    }
-
-    $declaredFunctionInputs = [Collections.Generic.HashSet[string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($name in @($commonStageFunctionInputs) + @($contract.FunctionInputs)) {
-        [void]$declaredFunctionInputs.Add($name)
-    }
-    $undeclaredFunctions = [Collections.Generic.HashSet[string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($command in $ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.CommandAst]
-    }, $true)) {
-        $name = $command.GetCommandName()
-        if ($null -eq $name -or -not $functionOwners.ContainsKey($name)) {
-            continue
-        }
-        if ($functionOwners[$name] -eq $contract.Script -or
-            $declaredFunctionInputs.Contains($name)) {
-            continue
-        }
-        [void]$undeclaredFunctions.Add($name)
-    }
-    if ($undeclaredFunctions.Count -ne 0) {
-        throw "Import stage '$($contract.Name)' has undeclared function inputs: " +
-            (($undeclaredFunctions | Sort-Object) -join ', ')
-    }
-
-    foreach ($output in $contract.Outputs) {
-        if (-not $assigned.Contains($output)) {
-            throw "Import stage '$($contract.Name)' declares variable output " +
-                "'$output' but never assigns it."
-        }
-    }
-    $definedFunctions = @($ast.FindAll({
-        param($node)
-        $node -is [Management.Automation.Language.FunctionDefinitionAst]
-    }, $true) | ForEach-Object Name)
-    foreach ($output in $contract.FunctionOutputs) {
-        if ($definedFunctions -notcontains $output) {
-            throw "Import stage '$($contract.Name)' declares function output " +
-                "'$output' but never defines it."
-        }
-    }
-}
+. (Join-Path $importModuleRoot 'Invoke-ImportStage.ps1')
 
 $importSucceeded = $false
 $assemblySourceStats = ''
-$importStageResults = [Collections.Generic.Dictionary[string, ImportStageResult]]::new(
-    [StringComparer]::OrdinalIgnoreCase)
+$assemblySourceHost = $null
+$importValues = @{
+    importRoot = $importRoot
+    Disassembly = $Disassembly
+    Rom = $Rom
+    OutputDirectory = $OutputDirectory
+    SkipBuild = $SkipBuild
+}
+$importFunctions = @{}
+$stageModules = [Collections.Generic.List[Management.Automation.PSModuleInfo]]::new()
+$initializeContract = New-ImportStageContract 'initialize' 'Initialize-Import.ps1' `
+    -inputs @('importRoot', 'Disassembly', 'Rom', 'OutputDirectory', 'SkipBuild') `
+    -outputs @('destination', 'romBytes', 'hash', 'assemblySourceHost') `
+    -functionOutputs (@($commonStageFunctionInputs) + @('Invoke-AssemblySourceHost'))
 try {
-    . (Join-Path $importModuleRoot 'Initialize-Import.ps1')
-
-    $functionOwners = [Collections.Generic.Dictionary[string, string]]::new(
-        [StringComparer]::OrdinalIgnoreCase)
-    foreach ($script in @('Initialize-Import.ps1') + @($stageContracts.Script)) {
-        $tokens = $null
-        $errors = $null
-        $ast = [Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $importModuleRoot $script),
-            [ref]$tokens,
-            [ref]$errors)
-        foreach ($function in $ast.FindAll({
-            param($node)
-            $node -is [Management.Automation.Language.FunctionDefinitionAst]
-        }, $true)) {
-            $functionOwners[$function.Name] = $script
+    foreach ($contract in @($initializeContract) + @($stageContracts)) {
+        $arguments = @{
+            Contract = $contract
+            StageRoot = $importModuleRoot
+            Values = $importValues
+            Functions = $importFunctions
+        }
+        if ($contract -ne $initializeContract) {
+            $arguments.CommonInputs = $commonStageInputs
+            $arguments.CommonFunctions = $commonStageFunctionInputs
+        }
+        $stage = Invoke-ImportStage @arguments
+        $stageModules.Add($stage)
+        foreach ($output in $stage.ExportedVariables.GetEnumerator()) {
+            $importValues[$output.Key] = $output.Value.Value
+        }
+        foreach ($output in $stage.ExportedFunctions.GetEnumerator()) {
+            $importFunctions[$output.Key] = $output.Value.ScriptBlock
+        }
+        if ($contract -eq $initializeContract) {
+            $assemblySourceHost = $importValues.assemblySourceHost
         }
     }
-
-    foreach ($contract in $stageContracts) {
-        Assert-ImportStageSourceContract $contract $functionOwners
-        foreach ($inputName in @($commonStageInputs) + @($contract.Inputs)) {
-            if ($null -eq (Get-Variable -Name $inputName -ErrorAction SilentlyContinue)) {
-                throw "Import stage '$($contract.Name)' input '$inputName' is unavailable."
-            }
-        }
-        foreach ($functionName in
-            @($commonStageFunctionInputs) + @($contract.FunctionInputs)) {
-            if ($null -eq (Get-Command $functionName -CommandType Function `
-                    -ErrorAction SilentlyContinue)) {
-                throw "Import stage '$($contract.Name)' function input " +
-                    "'$functionName' is unavailable."
-            }
-        }
-
-        . (Join-Path $importModuleRoot $contract.Script)
-
-        $result = [ImportStageResult]::new($contract.Name)
-        foreach ($outputName in $contract.Outputs) {
-            $outputVariable = Get-Variable -Name $outputName -ErrorAction Stop
-            $result.Values.Add($outputName, $outputVariable.Value)
-        }
-        foreach ($functionName in $contract.FunctionOutputs) {
-            if ($null -eq (Get-Command $functionName -CommandType Function `
-                    -ErrorAction SilentlyContinue)) {
-                throw "Import stage '$($contract.Name)' did not produce function " +
-                    "'$functionName'."
-            }
-        }
-        $importStageResults.Add($contract.Name, $result)
-    }
-    $assemblySourceStats = Invoke-AssemblySourceHost `
+    $assemblySourceStats = & $importFunctions['Invoke-AssemblySourceHost'] `
         $assemblySourceHost 'ASSERT'
     $importSucceeded = $true
 }
 finally {
     if ($null -ne $assemblySourceHost) {
         try {
-            [void](Invoke-AssemblySourceHost $assemblySourceHost 'QUIT')
+            [void](& $importFunctions['Invoke-AssemblySourceHost'] $assemblySourceHost 'QUIT')
             if (-not $assemblySourceHost.WaitForExit(5000)) {
                 $assemblySourceHost.Kill()
                 throw 'Importer source host did not exit after QUIT.'
@@ -498,9 +354,12 @@ finally {
             $assemblySourceHost.Dispose()
         }
     }
+    foreach ($stage in $stageModules) {
+        Remove-Module -ModuleInfo $stage -Force
+    }
 }
 
-Write-Host "Validated clean US ROM: $hash"
+Write-Host "Validated clean US ROM: $($importValues.hash)"
 & {
     $assemblySourceParts = $assemblySourceStats.Split("`t")
     Write-Host (
@@ -509,4 +368,4 @@ Write-Host "Validated clean US ROM: $hash"
     "$($assemblySourceParts[2]) indexed label-block / " +
         "$($assemblySourceParts[3]) structured-node queries.")
 }
-Write-Host "Imported $($tilesets.Count) tilesets, 1536 rooms, 42 signs, $($npcRows.Count - 1) NPCs, $($dungeonMechanicRows.Count - 1) dungeon mechanic placements, $($dungeonSharedPlacementRows.Count - 1) shared dungeon-entry placements, $keeseInstanceCount Keese, $($crowRows.Count - 1) fixed Crows, $octorokInstanceCount Octoroks, $stalfosInstanceCount ordinary Stalfos, $zolInstanceCount Zols, $gelInstanceCount direct Gels, $($orderedObjectRows.Count - 1) ordered placement records, $enemyUnspawnableTileCount enemy-unspawnable tile records, 133 chests, 529 tile/edge warps, 2 dive-interaction warps, 22 animation groups, and 223 sound IDs into $destination"
+Write-Host "Imported $($importValues.tilesets.Count) tilesets, 1536 rooms, 42 signs, $($importValues.npcRows.Count - 1) NPCs, $($importValues.dungeonMechanicRows.Count - 1) dungeon mechanic placements, $($importValues.dungeonSharedPlacementRows.Count - 1) shared dungeon-entry placements, $($importValues.keeseInstanceCount) Keese, $($importValues.crowRows.Count - 1) fixed Crows, $($importValues.octorokInstanceCount) Octoroks, $($importValues.stalfosInstanceCount) ordinary Stalfos, $($importValues.zolInstanceCount) Zols, $($importValues.gelInstanceCount) direct Gels, $($importValues.orderedObjectRows.Count - 1) ordered placement records, $($importValues.enemyUnspawnableTileCount) enemy-unspawnable tile records, 133 chests, 529 tile/edge warps, 2 dive-interaction warps, 22 animation groups, and 223 sound IDs into $($importValues.destination)"

@@ -568,7 +568,7 @@ foreach ($field in @('properties', 'flags', 'palette', 'layout', 'animation')) {
 Write-GeneratedTable((Join-Path $destination 'metadata\maku_tree_layout_override.tsv'), @(
     "# group`troom`tflag-group`tflag-room`tflag-mask`tlayout-group",
     "0`t$($makuOverride.Groups['room'].Value.Substring(1))`t1`t$($makuOverride.Groups['flagroom'].Value.Substring(1))`t$($makuOverride.Groups['mask'].Value)`t$($makuSaved.Groups['group'].Value)"))
-$metadata = [byte[]]::new(128 * $tilesetRecordSize)
+$tilesetMetadata = [byte[]]::new(128 * $tilesetRecordSize)
 $usedTilesets = [Collections.Generic.HashSet[int]]::new()
 
 foreach ($tileset in $tilesets) {
@@ -584,18 +584,18 @@ foreach ($tileset in $tilesets) {
     }
 
     $paletteHeader = $paletteHeaders[$paletteSymbol]
-    $metadata[$id * $tilesetRecordSize] = [byte]$layout
-    $metadata[$id * $tilesetRecordSize + 1] = [byte]$layoutGroup
-    $metadata[$id * $tilesetRecordSize + 2] = [byte]$paletteHeader.Id
-    $metadata[$id * $tilesetRecordSize + 3] = 1
-    $metadata[$id * $tilesetRecordSize + 4] = [byte]$animation
-    $metadata[$id * $tilesetRecordSize + 5] = if (($flags -band 0x08) -ne 0) {
+    $tilesetMetadata[$id * $tilesetRecordSize] = [byte]$layout
+    $tilesetMetadata[$id * $tilesetRecordSize + 1] = [byte]$layoutGroup
+    $tilesetMetadata[$id * $tilesetRecordSize + 2] = [byte]$paletteHeader.Id
+    $tilesetMetadata[$id * $tilesetRecordSize + 3] = 1
+    $tilesetMetadata[$id * $tilesetRecordSize + 4] = [byte]$animation
+    $tilesetMetadata[$id * $tilesetRecordSize + 5] = if (($flags -band 0x08) -ne 0) {
         [byte]($properties -band 0x0f)
     } else {
         [byte]0xff
     }
-    $metadata[$id * $tilesetRecordSize + 6] = [byte](($properties -shr 4) -band 0x07)
-    $metadata[$id * $tilesetRecordSize + 7] = [byte]$flags
+    $tilesetMetadata[$id * $tilesetRecordSize + 6] = [byte](($properties -shr 4) -band 0x07)
+    $tilesetMetadata[$id * $tilesetRecordSize + 7] = [byte]$flags
     [void]$usedTilesets.Add($id)
 
     $label = $paletteHeader.Label
@@ -622,7 +622,7 @@ foreach ($tileset in $tilesets) {
 }
 
 $metadataPath = Join-Path $destination "metadata\tilesets.bin"
-Write-GeneratedBytes($metadataPath, $metadata)
+Write-GeneratedBytes($metadataPath, $tilesetMetadata)
 
 # Join the two original collision-mode-indexed tables used by
 # interactWithTileBeforeLink and INTERAC_PUSHBLOCK. Each generated record is
