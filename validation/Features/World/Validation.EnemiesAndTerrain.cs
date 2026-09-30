@@ -7140,12 +7140,19 @@ public sealed partial class ValidationRoot
 
     private void AdvanceHolePullUntilFall(Vector2 expectedCenter)
     {
+        int fallSounds = _sound.PlayRequestsFor(SoundId.SndLinkFall);
         for (int i = 0; i < 120 && !_player.IsFallingInHole; i++)
             _player._PhysicsProcess(1.0 / 60.0);
 
         FailIf(!_player.IsFallingInHole, "Hole pull-in did not transition to the fall animation.");
+        FailIf(_sound.PlayRequestsFor(SoundId.SndLinkFall) != fallSounds,
+            "linkPullIntoHole played the fall sound before state02 initialization.");
+        // linkPullIntoHole only selects state02. Centering and SND_LINK_FALL
+        // belong to substate0 on the following update.
+        _player._PhysicsProcess(1.0 / 60.0);
         FailIf(
-            _player.Position.DistanceSquaredTo(expectedCenter) > 1.0f,
+            _player.PrecisePosition != expectedCenter ||
+            _sound.PlayRequestsFor(SoundId.SndLinkFall) != fallSounds + 1,
             "Hole pull-in did not center Link on the sampled hole tile.");
     }
 

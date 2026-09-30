@@ -109,8 +109,6 @@ public partial class Player : Node2D
     private const int ExpertPunchFrames = 14;
     private const float DrownAnimationDuration = 22.0f / 60.0f;
     private const float DrownInvisibleDuration = 2.0f / 60.0f;
-    private const float FallInHoleAnimationDuration = 36.0f / 60.0f;
-    private const float FallInHoleInvisibleDuration = 2.0f / 60.0f;
     private const int EnemyInvincibilityFrames = 0x22;
     private const int EnemyKnockbackFrames = 0x0f;
     private const int DeathCollapsedFrames = 0x4c;
@@ -261,8 +259,8 @@ public partial class Player : Node2D
     private double _punchFrameAccumulator;
     private float _drownTime;
     private float _drownInvisibleTime;
-    private float _fallInHoleTime;
-    private float _fallInHoleInvisibleTime;
+    private int _fallInHoleCounter;
+    private bool _fallInHoleInitializePending;
     private double _ledgeUpdateAccumulator;
     private double _sideScrollUpdateAccumulator;
     private double _topDownAirUpdateAccumulator;
@@ -1066,8 +1064,8 @@ public partial class Player : Node2D
         EndHarpPose();
         _drownTime = 0.0f;
         _drownInvisibleTime = 0.0f;
-        _fallInHoleTime = 0.0f;
-        _fallInHoleInvisibleTime = 0.0f;
+        _fallInHoleCounter = 0;
+        _fallInHoleInitializePending = false;
         if (!preserveLedgeJump)
             ClearLedgeHop();
         _enemyInvincibilityFrames = 0.0f;
@@ -1989,7 +1987,7 @@ public partial class Player : Node2D
 
         if (_fallingInHole)
         {
-            UpdateFallInHole((float)delta);
+            UpdateFallInHole();
             return;
         }
 
@@ -3642,7 +3640,7 @@ public partial class Player : Node2D
                 new Rect2(DrownSpriteOrigin, new Vector2(16, 16)),
                 new Rect2(frame * 16, (int)_facing * 16, 16, 16));
         }
-        else if (_fallingInHole && !_fallInHoleRespawning)
+        else if (_fallingInHole && !_fallInHoleInitializePending && !_fallInHoleRespawning)
         {
             int frame = GetFallInHoleFrame();
             DrawTextureRectRegion(
@@ -6338,10 +6336,11 @@ public partial class Player : Node2D
 
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
 
-        if (Mathf.Abs(_precisePosition.X - _holePullCenter.X) < 3.0f &&
-            Mathf.Abs(_precisePosition.Y - _holePullCenter.Y) < 3.0f)
+        // The ROM checks high-byte nibbles $07..$09 only on movement phases.
+        if (phase < 2 && ((int)Position.X & 0x0f) is >= 7 and <= 9 &&
+            ((int)Position.Y & 0x0f) is >= 7 and <= 9)
         {
-            StartFallInHole(_holePullCenter);
+            StartFallInHole();
             return true;
         }
 
@@ -6357,41 +6356,28 @@ public partial class Player : Node2D
         return false;
     }
 
-    private void StartFallInHole(Vector2 holeCenter)
+    private void StartFallInHole()
     {
         _pullingIntoHole = false;
         _holePullPackedPosition = -1;
         _fallingInHole = true;
-        // linkState02's hole initializer clears collisionType bit7. The
-        // shared respawn collision owner retains it through recovery.
-        _instantRespawnCollisionDisabled = true;
+        // linkPullIntoHole selects state02; its initializer runs next update.
+        _fallInHoleInitializePending = true;
         _fallInHoleRespawning = false;
         _fallInHoleWarpPending = false;
-        _fallInHoleTime = 0.0f;
-        _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
+        _fallInHoleCounter = 0;
         _walking = false;
         CancelSwordAttack();
         CancelShovelAction();
 
-        // LINK_STATE_RESPAWNING parameter $00 starts SND_LINK_FALL ($65) on
-        // the same update that it selects LINK_ANIM_MODE_FALLINHOLE.
-        _world.PlaySound(SoundId.SndLinkFall);
-
-        // The active hazard tile is selected by the same +5px sample used by
-        // objectGetRelativeTile($0500). Carry its center through explicitly so
-        // rounded-vs-precise coordinates cannot recenter Link on a neighboring
-        // solid tile at tile boundaries.
-        _precisePosition = holeCenter;
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-        Visible = true;
+        ClearNativeItemParents();
         QueueRedraw();
     }
 
     private static float MoveOnePixelToward(float value, float target)
     {
-        if (Mathf.Abs(value - target) <= 1.0f)
-            return target;
-        return value < target ? value + 1.0f : value - 1.0f;
+        // linkPullIntoHole increments even at equality and preserves the low byte.
+        return Mathf.Floor(value) <= target ? value + 1.0f : value - 1.0f;
     }
 
     private static int GetTerrainHazardDamageQuarters(HazardType hazard)
@@ -6479,7 +6465,7 @@ public partial class Player : Node2D
         ApplyDamage(
             GetTerrainHazardDamageQuarters(_drowningHazard),
             RingDamageSource.TerrainHazard);
-        WarpTo(_lastSafePosition);
+        WarpTo(_precisePosition, recordSafe: false);
         _enemyInvincibilityFrames = 0x3c;
         _instantRespawnRecoveryCounter = 0x10;
         _walking = false;
@@ -6522,7 +6508,7 @@ public partial class Player : Node2D
         else if (--_topDownDrownCounter == 0)
         {
             ApplyDamage(GetTerrainHazardDamageQuarters(_drowningHazard), RingDamageSource.TerrainHazard);
-            WarpTo(_lastSafePosition);
+            WarpTo(_precisePosition, recordSafe: false);
             _enemyInvincibilityFrames = 0x3c;
             _instantRespawnRecoveryCounter = 0x10;
             _instantRespawnCollisionDisabled = true;
@@ -6541,15 +6527,27 @@ public partial class Player : Node2D
         return _drownTime < 6.0f / 60.0f ? 0 : 1;
     }
 
-    private void UpdateFallInHole(float delta)
+    private void UpdateFallInHole()
     {
         if (_fallInHoleWarpPending)
             return;
 
+        if (_fallInHoleInitializePending)
+        {
+            _fallInHoleInitializePending = false;
+            _instantRespawnCollisionDisabled = true;
+            _precisePosition = _holePullCenter;
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+            _world.PlaySound(SoundId.SndLinkFall);
+            Visible = true;
+            QueueRedraw();
+            return;
+        }
+
         if (!_fallInHoleRespawning)
         {
-            _fallInHoleTime += delta;
-            if (_fallInHoleTime >= FallInHoleAnimationDuration)
+            // substate1 checks the previous animation marker before animating.
+            if (_fallInHoleCounter++ >= 36)
             {
                 ActiveTerrainInfo activeTerrain =
                     _world.GetActiveTerrain(Position);
@@ -6567,7 +6565,7 @@ public partial class Player : Node2D
                     return;
                 }
                 _fallInHoleRespawning = true;
-                _fallInHoleInvisibleTime = FallInHoleInvisibleDuration;
+                _fallInHoleCounter = 2;
                 MoveToLocalHazardRespawn();
                 Visible = false;
             }
@@ -6575,14 +6573,13 @@ public partial class Player : Node2D
             return;
         }
 
-        _fallInHoleInvisibleTime -= delta;
-        if (_fallInHoleInvisibleTime > 0.0f)
+        if (--_fallInHoleCounter != 0)
             return;
 
         ApplyDamage(
             GetTerrainHazardDamageQuarters(HazardType.Hole),
             RingDamageSource.Hole);
-        WarpTo(_lastSafePosition);
+        WarpTo(_precisePosition, recordSafe: false);
         _instantRespawnCollisionDisabled = true;
         _enemyInvincibilityFrames = 0x3c;
         _instantRespawnRecoveryCounter = 0x10;
@@ -6597,7 +6594,11 @@ public partial class Player : Node2D
         // specialObjectSetCoordinatesToRespawnYX moves Link before substate 2's
         // two-update invisible wait. The following wEnteredWarpPosition write
         // suppresses any warp tile under the saved local anchor.
-        _precisePosition = _lastSafePosition;
+        // The native helper replaces only yh/xh; yl/xl survive drowning.
+        // Ordinary hole initialization has already zeroed the low bytes.
+        _precisePosition = new Vector2(
+            Mathf.Floor(_lastSafePosition.X) + _precisePosition.X - Mathf.Floor(_precisePosition.X),
+            Mathf.Floor(_lastSafePosition.Y) + _precisePosition.Y - Mathf.Floor(_precisePosition.Y));
         _facing = _localRespawnFacing;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _world.DeactivateWarpAtPlayerPosition(this);
@@ -6605,10 +6606,9 @@ public partial class Player : Node2D
 
     private int GetFallInHoleFrame()
     {
-        float frames = _fallInHoleTime * 60.0f;
-        if (frames < 16.0f)
+        if (_fallInHoleCounter < 16)
             return 0;
-        if (frames < 26.0f)
+        if (_fallInHoleCounter < 26)
             return 1;
         return 2;
     }

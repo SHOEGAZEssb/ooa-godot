@@ -13,6 +13,9 @@ internal sealed class LinkCollisionRom
     internal const int ActiveTile = 0x4406;
     internal const int ApplyTile = 0x42b7;
     internal const int ScreenBoundary = 0x4105; // bank $01
+    internal const int Swim = 0x5698;
+    internal const int Respawn = 0x507b;
+    internal const int ForceState = 0x54c0;
     private readonly byte[] _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
@@ -23,6 +26,8 @@ internal sealed class LinkCollisionRom
     {
         _memory[0xcc2c] = 0xd0; // wLinkObjectIndex
         _memory[0xff97] = 5;
+        _memory[0xffb5] = 0xa0; // Empty audio request queue; no audio driver runs.
+        _memory[0xc6cb] = 0xff; // No equipped ring.
         _cpu = new OracleCpu(Read, Write, static _ => { },
             (pc, detail) => new InvalidDataException($"Link collision ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
@@ -50,7 +55,7 @@ internal sealed class LinkCollisionRom
     private int Read(int address)
     {
         if (address < 0x4000) return _rom[address];
-        if (address < 0x8000 && _bank is 1 or 3 or 5)
+        if (address < 0x8000 && _bank is 1 or 3 or 5 or 6 or 0x3f)
             return _rom[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (Allowed(address)) return _memory[address];
@@ -64,7 +69,8 @@ internal sealed class LinkCollisionRom
         throw new InvalidDataException($"Link collision ROM ${_bank:x2}:${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
     }
 
-    private static bool Allowed(int address) => address is 0xc200 or 0xc201 or
-        >= 0xcc00 and < 0xd000 or
-        >= 0xd000 and < 0xd040 or 0xd101 or >= 0xdfc0 and <= 0xdff1 or >= 0xff80 and < 0xffc0;
+    // Native animation, item cancellation, splash allocation, inventory and
+    // respawn routines use WRAM. Hardware/VRAM accesses remain undeclared.
+    private static bool Allowed(int address) => address is
+        >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
 }
