@@ -11,7 +11,7 @@ internal sealed class ObjectCollisionRom
     internal const int Overlap = 0x1d5a;
     internal const int LinkOverlap = 0x1c41;
     internal const int Scan = 0x41d1;
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private byte[] _caller = [];
@@ -26,7 +26,7 @@ internal sealed class ObjectCollisionRom
             (pc, detail) => new InvalidDataException($"Collision ROM ${_bank:x2}:${pc:x4}: {detail}."));
     }
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
-    internal byte Table(int address) => _rom[7 * 0x4000 + address - 0x4000];
+    internal byte Table(int address) => _rom.Span[7 * 0x4000 + address - 0x4000];
     internal void ClearObjects() => Array.Clear(_memory, 0xd000, 0x1000);
     internal bool Call(int entry, int obj = 0xd080, int other = 0xd600)
     {
@@ -45,10 +45,10 @@ internal sealed class ObjectCollisionRom
     }
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
+        if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _bank is 3 or 5 or 6 or 7 or 0x3f)
         {
-            int value = _rom[_bank * 0x4000 + address - 0x4000];
+            int value = _rom.Span[_bank * 0x4000 + address - 0x4000];
             if (_bank == 7 && _cpu.InstructionAddress == 0x4371 && address is >= 0x6d0a and < 0x7caa)
                 Dispatches.Add((_memory[0xffaf] * 256 + _memory[0xffae], _memory[0xff90], value));
             return value;

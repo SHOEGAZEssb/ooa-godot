@@ -38,8 +38,8 @@ Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.ex
 5. Implement the smallest general rule supported by the source. Do not add a
    room exception unless the original has one.
 6. Add or extend a focused headless regression.
-7. If actual game source files changed, build and run the full suite through
-   `tools/validate_parallel.ps1` with 8 workers. Documentation-only edits do not
+7. If actual game source files changed, build with optimization and run the full
+   suite through `tools/validate_parallel.ps1` with 8 workers. Documentation-only edits do not
    require a build or gameplay validation. Update only documentation whose
    durable contract or high-level coverage changed.
 
@@ -132,7 +132,7 @@ owner.
 ```powershell
 & .\tools\import_oracles.ps1
 & .\tools\verify_oracle_import.ps1
-dotnet build
+dotnet build -t:Rebuild -p:Optimize=true
 
 & .\tools\validate_parallel.ps1
 
@@ -143,6 +143,20 @@ git status --short
 Run the importer only when import code or generated inputs changed.
 `verify_oracle_import.ps1` is required for parser, stage-boundary, schema, or
 determinism changes. The build must have zero warnings and errors.
+Agents must always build production and validation assemblies with optimization:
+`dotnet build -t:Rebuild -p:Optimize=true`. This keeps the Debug output paths
+used by Godot while enabling compiler optimization. An incremental build can
+retain the previous optimization setting, so use the explicit rebuild command.
+Reuse the optimized assemblies for focused and full validation runs until
+source changes require another build. Do not switch to an unoptimized build
+unless the user explicitly requests it for debugging.
+
+For performance work, always report measured before/after validation times,
+worker counts, and passed/skipped scenario counts. Compare optimized builds
+under the same conditions, separate build time from validation time, and repeat
+the final measurement to expose run-to-run variation. Never reduce coverage
+to claim a speed improvement.
+
 The full gameplay validation suite is required only when actual game source
 files changed in the work being handed off. Documentation-only changes,
 including edits to `AGENTS.md`, require neither a build nor gameplay validation;

@@ -371,6 +371,18 @@ public sealed partial class ValidationRoot
 
     private static void ValidateCutsceneCommandSchema()
     {
+        const string harpPath = "res://assets/oracle/cutscenes/harp_of_ages_commands.tsv";
+        IReadOnlyList<CutsceneCommand> first = CutsceneCommandCatalog.Load(harpPath);
+        IReadOnlyList<CutsceneCommand> second = CutsceneCommandCatalog.Load(harpPath);
+        IReadOnlyList<CutsceneCommand> goron = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/goron_cave_commands.tsv");
+        FailIf(!ReferenceEquals(first, second) || ReferenceEquals(first, goron) ||
+            first is not IList<CutsceneCommand> { IsReadOnly: true } ||
+            goron is not IList<CutsceneCommand> { IsReadOnly: true } ||
+            goron.OfType<CutsceneMemoryJumpTableCommand>().Any(command =>
+                command.TargetCommands is not IList<int> { IsReadOnly: true }),
+            "Decoded command caches must be keyed by path and expose read-only streams and jump targets.");
+
         IReadOnlyList<CutsceneCommandSchemaEntry> entries =
             CutsceneCommandSchema.Entries;
         FailIf(

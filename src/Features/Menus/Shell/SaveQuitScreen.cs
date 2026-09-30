@@ -13,6 +13,11 @@ public partial class SaveQuitScreen : Node2D
 {
     private const int SaveErrorZIndex = 1;
     private const int MapStride = 32;
+    // These ten finished backgrounds depend only on packaged graphics, maps,
+    // and palettes. Publish the complete set after staged preparation; never
+    // share cursor, options, error, or other live menu state.
+    private static (Texture2D Standard, Texture2D GameOver, Texture2D[] Options)?
+        _sharedBackgrounds;
     private Texture2D _standardBackground = null!;
     private Texture2D _gameOverBackground = null!;
     private Texture2D _background = null!;
@@ -65,19 +70,30 @@ public partial class SaveQuitScreen : Node2D
         if (_resourcesPrepared) yield break;
         _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
         _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
-        _standardBackground = BuildBackground(gameOver: false);
-        yield return false;
-        _gameOverBackground = BuildBackground(gameOver: true);
-        yield return false;
-        using (Image original = _standardBackground.GetImage())
+        if (_sharedBackgrounds is { } shared)
         {
-            for (int i = 0; i < 8; i++)
+            _standardBackground = shared.Standard;
+            _gameOverBackground = shared.GameOver;
+            shared.Options.CopyTo(_optionsBackgrounds, 0);
+        }
+        else
+        {
+            _standardBackground = BuildBackground(gameOver: false);
+            yield return false;
+            _gameOverBackground = BuildBackground(gameOver: true);
+            yield return false;
+            using (Image original = _standardBackground.GetImage())
             {
-                _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
-                    original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
-                yield return false;
+                for (int i = 0; i < 8; i++)
+                {
+                    _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
+                        original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
+                    yield return false;
+                }
+                _standardBackground = SaveOptionsPresentation.BuildSave(original);
             }
-            _standardBackground = SaveOptionsPresentation.BuildSave(original);
+            _sharedBackgrounds = (_standardBackground, _gameOverBackground,
+                (Texture2D[])_optionsBackgrounds.Clone());
         }
         _background = _standardBackground;
         _saveError = new Label
@@ -228,7 +244,7 @@ public partial class SaveQuitScreen : Node2D
                 (LoadPng("res://assets/oracle/menu/gfx_gameover.png"),
                     0x80, 1, true));
         }
-        Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
+        using Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
         for (int row = 0; row < 18; row++)
         for (int column = 0; column < 20; column++)
         {

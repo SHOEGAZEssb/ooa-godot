@@ -9,7 +9,7 @@ namespace oracleofages;
 // Observe the prepared WRAM tilemaps and VBlank commands, not LCD bus timing.
 internal sealed class TileQueueRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[][] _wram = [new byte[0x1000], new byte[0x1000], new byte[0x1000], new byte[0x1000]];
     private readonly OracleCpu _cpu;
@@ -80,8 +80,8 @@ internal sealed class TileQueueRom
     }
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
-        if (address < 0x8000) return _rom[_bank * 0x4000 + address - 0x4000];
+        if (address < 0x4000) return _rom.Span[address];
+        if (address < 0x8000) return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (address is >= 0xd000 and < 0xe000) return _wram[Math.Max(1, (int)this[0xff70])][address - 0xd000];
         if (Allowed(address)) return this[address];

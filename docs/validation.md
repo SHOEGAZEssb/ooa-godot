@@ -22,12 +22,21 @@ or cache histories to production classes.
 
 ## Run validations
 
-Build first, then run the complete suite with the standard 8 workers:
+Build with optimization, then run the complete suite with the standard 8
+workers. Agents must use this build command for both focused and full validation:
 
 ```powershell
-dotnet build
+dotnet build -t:Rebuild -p:Optimize=true
 & .\tools\validate_parallel.ps1
 ```
+
+This preserves all scenarios and assertions and uses the same Debug output
+locations expected by Godot and the validation host. Build once, then reuse
+those assemblies until source changes require another build. Rebuild explicitly;
+an incremental build can retain the previous optimization setting. Agents may
+use an unoptimized build only when the user explicitly requests it for debugging.
+The launcher's elapsed time includes worker startup and shutdown, but excludes
+the preceding build.
 
 Run one exact registered method while developing:
 
@@ -57,6 +66,9 @@ original routines with declared memory access. Tests compare resulting state
 with production implementations without synchronizing elapsed CPU time.
 ROM loading and comparison setup belong entirely to the validation assembly;
 production continues to read generated assets only.
+Each worker loads and verifies the ROM once, then shares a read-only image.
+Registers and writable memory remain private to each execution fixture. Start
+a new run to validate a changed ROM file.
 
 When changing source-backed runtime symbol definitions, also run
 `& .\tools\verify_runtime_symbols.ps1`. It checks annotated constants against
@@ -112,6 +124,13 @@ completion marker, or incomplete scenario count, and stops remaining processes
 on exit. A successful parallel run covers the complete suite and satisfies the
 full-suite handoff check. The serial command remains available for debugging.
 
+Worker stdout logs include `VALIDATION_TIMING` records with invariant-culture
+milliseconds for each scenario. `setup_ms` measures the initial gameplay graph
+reset; `total_ms` includes that reset and the scenario body (including any
+additional resets inside it). These are diagnostic measurements, not timing
+assertions. Expensive independent ranges may be registered separately so
+workers can share the work while preserving every case and update.
+
 Importer/parser/schema changes also require:
 
 ```powershell
@@ -121,7 +140,7 @@ Importer/parser/schema changes also require:
 Handoff checks:
 
 ```powershell
-dotnet build
+dotnet build -t:Rebuild -p:Optimize=true
 & .\tools\validate_parallel.ps1
 git diff --check
 git status --short

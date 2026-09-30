@@ -8,7 +8,7 @@ namespace oracleofages;
 // Only the register-loading caller is synthetic; no routine or stream is replaced.
 internal sealed class ObjectAnimationRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private readonly int _animate, _set, _object, _streamBank, _oamBank;
@@ -63,10 +63,10 @@ internal sealed class ObjectAnimationRom
         if (_bank != 0x11 || _memory[0xff97] != 0x11)
             throw new InvalidDataException("Animation helper lost its return bank.");
     }
-    private int Rom(int bank, int address) => _rom[bank * 0x4000 + (address & 0x3fff)];
+    private int Rom(int bank, int address) => _rom.Span[bank * 0x4000 + (address & 0x3fff)];
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
+        if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _bank is 0x0d or 0x16) return Rom(_bank, address);
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (Allowed(address)) return _memory[address];

@@ -8,7 +8,7 @@ namespace oracleofages;
 // is replaced. UpdateParents separately executes the original parent pass.
 internal sealed class ItemUseRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private byte[] _caller = [];
@@ -23,7 +23,7 @@ internal sealed class ItemUseRom
     }
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal (int Usage, bool JustPressed) Usage(int item) =>
-        (_rom[0x195be + item * 2], _rom[0x195bf + item * 2] == 0x2a);
+        (_rom.Span[0x195be + item * 2], _rom.Span[0x195bf + item * 2] == 0x2a);
     internal void Reset(ReadOnlySpan<ParentItemSlotState> slots)
     {
         Array.Clear(_memory);
@@ -63,8 +63,8 @@ internal sealed class ItemUseRom
     {
         if (_observeAllocation && _bank == 6 && address == 0x4922 && _cpu.InstructionAddress == address)
             throw new AllocationComplete();
-        if (address < 0x4000) return _rom[address];
-        if (address < 0x8000) return _rom[_bank * 0x4000 + address - 0x4000];
+        if (address < 0x4000) return _rom.Span[address];
+        if (address < 0x8000) return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (Allowed(address)) return _memory[address];
         throw new InvalidDataException($"Item-use ROM ${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");

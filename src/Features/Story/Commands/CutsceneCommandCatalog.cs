@@ -1,7 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Globalization;
+using System.Threading;
 
 namespace oracleofages;
 
@@ -12,7 +14,16 @@ namespace oracleofages;
 /// </summary>
 internal static class CutsceneCommandCatalog
 {
-    public static IReadOnlyList<CutsceneCommand> Load(string path)
+    private static readonly ConcurrentDictionary<string, Lazy<IReadOnlyList<CutsceneCommand>>>
+        Cache = new(StringComparer.Ordinal);
+
+    // Commands and nested jump-target lists are immutable source data. Each
+    // runner retains its own instruction, counters, call stack and bindings.
+    public static IReadOnlyList<CutsceneCommand> Load(string path) =>
+        Cache.GetOrAdd(path, static key => new Lazy<IReadOnlyList<CutsceneCommand>>(
+            () => LoadUncached(key), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+
+    private static IReadOnlyList<CutsceneCommand> LoadUncached(string path)
     {
         GeneratedTable table = GeneratedTable.Load(
             path,

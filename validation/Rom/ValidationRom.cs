@@ -12,7 +12,13 @@ internal static class ValidationRom
     private const string CleanUsSha256 =
         "0b56b78a9e45452e98c33edd111234931f1e034dc097f6f23082eb8db6055474";
 
-    internal static byte[] LoadCleanUs()
+    private static readonly Lazy<ReadOnlyMemory<byte>> CleanUs = new(LoadVerified);
+
+    // Each worker verifies its input once. ROM bytes are immutable; every
+    // execution fixture still owns independent registers and writable memory.
+    internal static ReadOnlyMemory<byte> LoadCleanUs() => CleanUs.Value;
+
+    private static ReadOnlyMemory<byte> LoadVerified()
     {
         const string prefix = "--validation-rom=";
         string[] paths = OS.GetCmdlineUserArgs()

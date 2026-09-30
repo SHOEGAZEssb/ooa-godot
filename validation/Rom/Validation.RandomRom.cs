@@ -8,12 +8,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateOracleRandomRom()
     {
-        byte[] rom = ValidationRom.LoadCleanUs();
+        ReadOnlyMemory<byte> rom = ValidationRom.LoadCleanUs();
         const int entry = 0x0453;
         // code/bank0.s:getRandomNumber_noPreserveVars, clean US $00:$0453.
         byte[] signature = [0xf0, 0x94, 0x6f, 0x4f, 0xf0, 0x95, 0x67, 0x47,
             0x29, 0x09, 0x7c, 0xe0, 0x95, 0x81, 0xe0, 0x94, 0xc9];
-        FailIf(!rom.AsSpan(entry, signature.Length).SequenceEqual(signature),
+        FailIf(!rom.Span.Slice(entry, signature.Length).SequenceEqual(signature),
             "getRandomNumber_noPreserveVars changed at clean-US $00:$0453.");
 
         // A validation-owned caller records the routine's returned A/H/L at
@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
         byte[] memory = new byte[0x10000];
         int Read(int address)
         {
-            if (address >= entry && address < entry + signature.Length) return rom[address];
+            if (address >= entry && address < entry + signature.Length) return rom.Span[address];
             if (address >= caller && address < caller + capture.Length) return capture[address - caller];
             if (address is rng1 or rng2 or >= 0xdfee and <= 0xdff1) return memory[address];
             throw new InvalidDataException($"RNG reference read outside its contract at ${address:x4}.");

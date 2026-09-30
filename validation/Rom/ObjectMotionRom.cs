@@ -12,7 +12,7 @@ internal sealed class ObjectMotionRom
     internal const int UpdateSpeedZ = 0x1f45;
     internal const int Object = 0xd100;
     private const int Caller = 0xc100;
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private byte[] _caller = [];
@@ -73,10 +73,10 @@ internal sealed class ObjectMotionRom
             UpdateSpeedZ => address is >= 0x1f45 and < 0x1f67 or >= 0x23a7 and < 0x23b0,
             _ => false
         };
-        if (code) return _rom[address];
+        if (code) return _rom.Span[address];
         // bank3.objectSpeedTable: 24 rows of 40 signed words.
         if (_entry == ApplySpeed && _bank == 3 && address is >= 0x409b and < 0x481b)
-            return _rom[0xc000 + address - 0x4000];
+            return _rom.Span[0xc000 + address - 0x4000];
         if (address is >= Object and < Object + 0x100 or >= 0xdfe0 and <= 0xdff1 or 0xffae)
             return _memory[address];
         if (_entry == ApplySpeed && address is 0xff97 or >= 0xcec0 and <= 0xcec3)

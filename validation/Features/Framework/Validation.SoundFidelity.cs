@@ -464,7 +464,17 @@ public sealed partial class ValidationRoot
         GD.Print("Validated CGB raw note lengths, 64 Hz envelopes, DAC gates, wave latch/digital attenuation and stereo sampling.");
     }
 
-    private void ValidateSoundDriverCatalog()
+    // Separate contiguous ranges let process shards share the expensive catalog
+    // trace. Together they retain every sound and all 4096 original updates.
+    private void ValidateSoundDriverCatalog00To1f() => ValidateSoundDriverCatalogRange(0x00, 0x20);
+    private void ValidateSoundDriverCatalog20To3f() => ValidateSoundDriverCatalogRange(0x20, 0x40);
+    private void ValidateSoundDriverCatalog40To5f() => ValidateSoundDriverCatalogRange(0x40, 0x60);
+    private void ValidateSoundDriverCatalog60To7f() => ValidateSoundDriverCatalogRange(0x60, 0x80);
+    private void ValidateSoundDriverCatalog80To9f() => ValidateSoundDriverCatalogRange(0x80, 0xa0);
+    private void ValidateSoundDriverCataloga0Tobf() => ValidateSoundDriverCatalogRange(0xa0, 0xc0);
+    private void ValidateSoundDriverCatalogc0Tode() => ValidateSoundDriverCatalogRange(0xc0, 0xdf);
+
+    private void ValidateSoundDriverCatalogRange(int first, int end)
     {
         var data = new OracleSoundData();
         string[] expected = FileAccess.GetFileAsString(
@@ -473,7 +483,7 @@ public sealed partial class ValidationRoot
             .Where(line => !line.StartsWith('#')).ToArray();
         FailIf(expected.Length != 0xdf, "Independent clean-US sound-driver fixture must cover $00-$de.");
         byte[] snapshot = new byte[0x71 + 0x26];
-        for (int id = 0; id < 0xdf; id++)
+        for (int id = first; id < end; id++)
         {
             using var fixture = new SoundValidationFixture(data);
             var sound = fixture.Sound;
@@ -511,7 +521,7 @@ public sealed partial class ValidationRoot
                 throw new InvalidOperationException($"Clean-US sound ${id:x2} catalog playback failed.", error);
             }
         }
-        GD.Print("Matched independent clean-ROM WRAM/HRAM traces for all 223 sounds over 4096 driver updates each, plus stop controls.");
+        GD.Print($"Matched independent clean-ROM WRAM/HRAM traces for sounds ${first:x2}-${end - 1:x2} over 4096 driver updates each, plus stop controls.");
     }
 
     private void ValidateSoundApplicationBatching()

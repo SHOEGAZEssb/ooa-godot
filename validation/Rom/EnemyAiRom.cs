@@ -8,7 +8,7 @@ namespace oracleofages;
 // this fixture does not emulate VRAM uploads, interrupts or hardware timing.
 internal sealed class EnemyAiRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private int _bank = 0x0d;
@@ -18,8 +18,8 @@ internal sealed class EnemyAiRom
     {
         _memory[0xff97] = 0x0d;
         // bank3f.enemyData, loaded via enemyGetObjectGfxIndex $3f:$4337.
-        _memory[0xcc08] = _rom[0xfdd4b + 0x08 * 4];
-        _memory[0xcc0a] = _rom[0xfdd4b + 0x18 * 4];
+        _memory[0xcc08] = _rom.Span[0xfdd4b + 0x08 * 4];
+        _memory[0xcc0a] = _rom.Span[0xfdd4b + 0x18 * 4];
         // Small-room loadRoomCollisions.@blankDataAroundCollisions: bottom
         // and wrapped top rows, right and wrapped left columns are $ff.
         for (int x = 0; x < 16; x++)
@@ -41,9 +41,9 @@ internal sealed class EnemyAiRom
 
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
+        if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _bank is 3 or 0x0d or 0x11 or 0x3f)
-            return _rom[_bank * 0x4000 + address - 0x4000];
+            return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (MemoryAllowed(address)) return _memory[address];
         throw new InvalidDataException($"Enemy AI ROM ${_bank:x2}:${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");
     }

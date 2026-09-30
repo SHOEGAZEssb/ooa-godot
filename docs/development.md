@@ -33,10 +33,10 @@ For importer infrastructure, parser, schema, or deterministic-output changes:
 & .\tools\verify_oracle_import.ps1
 ```
 
-Build both production and validation assemblies:
+Build both production and validation assemblies with optimization:
 
 ```powershell
-dotnet build
+dotnet build -t:Rebuild -p:Optimize=true
 ```
 
 Run the normal game flow:
@@ -158,8 +158,8 @@ ground. Quest progress is retained.
 4. Extend the importer before runtime code when generated data is incomplete.
 5. Implement the behavior and focused regression together.
 6. Regenerate affected assets and review their diff.
-7. Run the appropriate import checks, `dotnet build`, the full headless suite,
-   `git diff --check`, and `git status --short`.
+7. Run the appropriate import checks, `dotnet build -t:Rebuild -p:Optimize=true`,
+   the full headless suite, `git diff --check`, and `git status --short`.
 8. Update a guide only if a durable rule changed; update
    [implementation status](implementation-status.md) only for a broad coverage
    change.

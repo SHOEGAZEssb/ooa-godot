@@ -7,7 +7,7 @@ namespace oracleofages;
 // collection modes, extra grants, inventory placement and sound requests.
 internal sealed class TreasureRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly OracleCpu _cpu;
     private byte[] _caller = [];
@@ -41,8 +41,8 @@ internal sealed class TreasureRom
     }
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
-        if (address < 0x8000 && _bank == 0x3f) return _rom[0xfc000 + address - 0x4000];
+        if (address < 0x4000) return _rom.Span[address];
+        if (address < 0x8000 && _bank == 0x3f) return _rom.Span[0xfc000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (Allowed(address)) return _memory[address];
         throw new InvalidDataException($"Treasure ROM ${_cpu.InstructionAddress:x4}: undeclared read ${address:x4}.");

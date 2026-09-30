@@ -165,6 +165,7 @@ public sealed partial class ValidationRoot : GameRoot
         }
 
         _executedValidationCount++;
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         ReinitializeGameplayForValidation();
         _sound.AttachPlayRequestAudit();
         _combatEffectAudit.Clear();
@@ -176,9 +177,12 @@ public sealed partial class ValidationRoot : GameRoot
         _entities.GameButtonJustPressedSource = static () => false;
         ResetValidationInput();
 
+        double setupMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         try
         {
             validation();
+            GD.Print(FormattableString.Invariant(
+                $"VALIDATION_TIMING name={validation.Method.Name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
         }
         catch (Exception exception)
         {
@@ -319,7 +323,14 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSoundDriverControls);
         RunIsolatedValidation(ValidateSoundDriverHandoffs);
         RunIsolatedValidation(ValidateSoundApuTiming);
-        RunIsolatedValidation(ValidateSoundDriverCatalog);
+        RunIsolatedValidation(ValidateSoundMixerBoundaries);
+        RunIsolatedValidation(ValidateSoundDriverCatalog00To1f);
+        RunIsolatedValidation(ValidateSoundDriverCatalog20To3f);
+        RunIsolatedValidation(ValidateSoundDriverCatalog40To5f);
+        RunIsolatedValidation(ValidateSoundDriverCatalog60To7f);
+        RunIsolatedValidation(ValidateSoundDriverCatalog80To9f);
+        RunIsolatedValidation(ValidateSoundDriverCataloga0Tobf);
+        RunIsolatedValidation(ValidateSoundDriverCatalogc0Tode);
         RunIsolatedValidation(ValidateSoundApplicationBatching);
         RunIsolatedValidation(ValidateSoundOutputTiming);
         RunIsolatedValidation(ValidateSoundShortEffects);
@@ -721,6 +732,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateInventoryFoundation);
         RunIsolatedValidation(ValidateInventoryMenu);
         RunIsolatedValidation(ValidateSaveOptions);
+        RunIsolatedValidation(ValidateSaveMenuBackgroundIsolation);
         RunIsolatedValidation(ValidateInventoryFidelity);
         RunIsolatedValidation(ValidateInventoryIconFidelity);
         RunIsolatedValidation(ValidateRingFunctionality);

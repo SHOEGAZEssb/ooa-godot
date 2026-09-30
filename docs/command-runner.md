@@ -29,6 +29,12 @@ opcode, and bad operand or actor. Do not emit scene paths or transient node
 names; actors use stable semantic IDs which the host binds to current runtime
 objects.
 
+Decoded command streams are cached by generated asset path after schema
+validation. Records and nested jump-target lists are read-only and shared;
+instruction positions, counters, call stacks, actor bindings, and other live
+execution state belong to each runner. Generated assets remain fixed for the
+process lifetime, as with the underlying generated-table cache.
+
 Cutscene family import stages share assembly reading, operand normalization,
 and table validation. Standard operations use the common normalizer with
 explicit symbol, animation, text-position, and native bindings. Unsupported

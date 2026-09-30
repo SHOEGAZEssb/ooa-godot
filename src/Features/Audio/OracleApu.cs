@@ -17,6 +17,7 @@ internal sealed class OracleApu
     private readonly OracleApuVoice[] _voices = [new(), new(), new(), new()];
     private readonly Action<Vector2>? _sampleSink;
     private readonly OracleAudioResampler? _resampler;
+    private bool _mixerDirty = true;
     private bool _powered = true;
     private int _divider = 8192;
     private int _frameStep;
@@ -58,6 +59,10 @@ internal sealed class OracleApu
 
     internal void Write(int address, int value)
     {
+        // Register writes, oscillator edges and frame-sequencer changes are
+        // the only writers of mixer inputs. CPU instruction boundaries alone
+        // cannot change the analog level or add a resampler impulse.
+        _mixerDirty = true;
         value &= 255;
         if (address >= 0xff30) { _registers[address - 0xff10] = (byte)value; return; }
         if (address == 0xff26)
@@ -169,7 +174,11 @@ internal sealed class OracleApu
             step = Math.Min(step, (ClockRate - _samplePhase + OracleSoundEngine.SampleRate - 1) / OracleSoundEngine.SampleRate);
             for (int i = 0; i < 4; i++)
                 if (_powered && _voices[i].Clocked) step = Math.Min(step, _voices[i].Timer);
-            if (_sampleSink is not null) UpdateMixer();
+            if (_sampleSink is not null && _mixerDirty)
+            {
+                UpdateMixer();
+                _mixerDirty = false;
+            }
             clocks -= step;
             Clocks += step;
             _divider -= step;
@@ -180,6 +189,7 @@ internal sealed class OracleApu
                 if (!_powered || !voice.Clocked) continue;
                 voice.Timer -= step;
                 if (voice.Timer != 0) continue;
+                _mixerDirty = true;
                 voice.Timer = Period(i);
                 if (i < 2)
                 {
@@ -201,6 +211,7 @@ internal sealed class OracleApu
             }
             if (_divider == 0)
             {
+                _mixerDirty = true;
                 _divider = 8192;
                 if (_powered) ClockFrameSequencer();
             }

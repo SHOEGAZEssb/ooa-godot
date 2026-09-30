@@ -22,7 +22,7 @@ internal sealed class LinkCollisionRom
     internal const int Invincibility = 0x4279; // bank $05 updateLinkInvincibilityCounter
     internal const int Vulnerable = 0x1d28; // bank $00 checkLinkVulnerable
     internal const int Dying = 0x5033; // bank $05 linkState03
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[][] _wram = new byte[8][];
     private readonly OracleCpu _cpu;
@@ -68,9 +68,9 @@ internal sealed class LinkCollisionRom
 
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
+        if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _bank is 1 or 2 or 3 or 5 or 6 or 7 or 8 or 0x0a or 0x16 or 0x3f)
-            return _rom[_bank * 0x4000 + address - 0x4000];
+            return _rom.Span[_bank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (address is >= 0xd000 and < 0xe000 && _memory[0xff70] > 1)
             return _wram[_memory[0xff70]][address - 0xd000];

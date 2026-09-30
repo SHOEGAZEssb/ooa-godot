@@ -7,7 +7,7 @@ namespace oracleofages;
 // Banks $02/$12/$15 own placement, object streams and room-pointer lookup.
 internal sealed class PlacementRom
 {
-    private readonly byte[] _rom = ValidationRom.LoadCleanUs();
+    private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[] _bank4 = new byte[0x1000];
     private readonly OracleCpu _cpu;
@@ -31,7 +31,7 @@ internal sealed class PlacementRom
     {
         // objects/ages/enemyData.s:group0Map33EnemyObjectData, clean US $12:$4355.
         byte[] expected = [0xf6, 0x40, 0x08, 0x00, 0xf6, 0x20, 0x18, 0x00, 0xfe];
-        if (!_rom.AsSpan(0x48355, expected.Length).SequenceEqual(expected))
+        if (!_rom.Span.Slice(0x48355, expected.Length).SequenceEqual(expected))
             throw new InvalidDataException("Clean-US room $0:$33 enemy stream at $12:$4355 changed.");
     }
 
@@ -52,9 +52,9 @@ internal sealed class PlacementRom
 
     private int Read(int address)
     {
-        if (address < 0x4000) return _rom[address];
+        if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _romBank is 2 or 0x12 or 0x15)
-            return _rom[_romBank * 0x4000 + address - 0x4000];
+            return _rom.Span[_romBank * 0x4000 + address - 0x4000];
         if (address >= 0xc100 && address < 0xc100 + _caller.Length) return _caller[address - 0xc100];
         if (IsBankedMemory(address))
             return _wramBank == 4 ? _bank4[address - 0xd000] : _memory[address];

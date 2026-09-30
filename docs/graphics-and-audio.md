@@ -64,6 +64,10 @@ an actor animation selects cached definitions; it does not rebuild textures.
 Pixel-sensitive validations should assert dimensions, offsets, cell order,
 palette results, and hashes from real generated data.
 
+Save-menu, game-over, and options backgrounds depend only on packaged graphics
+and palettes. Their finished textures are shared across gameplay scenes;
+cursors, selected options, error messages, and delays remain per-menu state.
+
 Rebuilding scripted NPC textures for a palette or grayscale change preserves
 per-frame graphics offsets, the current frame, and its remaining update count.
 Selecting a new script animation explicitly resets that animation clock.
@@ -169,6 +173,9 @@ edges are band-limited before conversion to 44100 Hz PCM so ultrasonic pulse
 harmonics cannot fold back into audible noise. The APU keeps
 clocking while the driver is disabled. Its hardware clock serves audio synthesis
 and remains local to the sound system; it does not govern gameplay scheduling.
+The analog mixer recalculates after register writes, oscillator edges, and
+frame-sequencer events. Unchanged inputs reuse the current level; oscillator
+clocks, sample phase, resampling, and filter updates still advance normally.
 Output is submitted after the complete host-frame batch, with a small reserve for the
 independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation
