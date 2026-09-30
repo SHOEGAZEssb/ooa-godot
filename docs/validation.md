@@ -9,10 +9,11 @@ Headless regressions live in the separate
 narrow `InternalsVisibleTo` surface.
 
 `ValidationRoot` is a partial class organized by use case under
-`validation/Features/`. Keep the runner and ordered registration in
-`Features/Framework/Validation.cs`; put a scenario in the matching feature
-file. Fixtures, test doubles, observers, audit history, and expected traces stay
-in the validation assembly.
+`validation/Features/`. ROM-backed scenarios and their dedicated execution
+fixtures and helpers live together in `validation/Rom/`. Keep the runner and
+ordered registration in `Features/Framework/Validation.cs`; put other scenarios
+in the matching feature file. Fixtures, test doubles, observers, audit history,
+and expected traces stay in the validation assembly.
 
 Production may expose a narrow internal operation or observer when it is a
 truthful view of the runtime owner. Do not add validation-only state machines,
