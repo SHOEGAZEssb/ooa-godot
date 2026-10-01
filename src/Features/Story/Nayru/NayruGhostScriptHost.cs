@@ -28,7 +28,7 @@ internal sealed class NayruGhostScriptHost : RoomCutsceneCommandHost
         _actor = actor;
         _position = OracleObjectPosition.FromPixels(actor.Position);
         actor.SetActive(true);
-        actor.Visible = true;
+        actor.SetScriptVisible(true);
         _runner.Start(_commands);
         // substate7 falls through substate8 in the same interaction slot.
         _runner.AdvanceFrame();

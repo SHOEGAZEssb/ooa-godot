@@ -461,6 +461,7 @@ internal sealed class PreBlackTowerEvent :
             subId,
             interactionName);
         _actors[name] = actor;
+        actor.ShowInitializedPresentation(); // $37/$72/$36/$73 state 0 explicitly sets visibility
         _precisePositions[name] = actor.Position;
         return actor;
     }
@@ -557,7 +558,7 @@ internal sealed class PreBlackTowerEvent :
         Actor(actor).SetScriptDrawOffset(new Vector2(0, zFixed >> 8));
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        Actor(actor).Visible = visible;
+        Actor(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {

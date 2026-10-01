@@ -13,7 +13,9 @@ internal sealed class ExclamationMarkRoomEntity(NpcCharacter actor,int frames)
     public bool UpdatesDuringDialogue => true;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
-        if(!_initialized) {_initialized=true; return;}
+        if(!_initialized) {_initialized=true;
+            Entity.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // $9f state 0: objectSetVisible80
+            return;}
         if(_counter!=255 && --_counter==0) {Finished=true; return;}
         Entity.AdvanceAnimationUpdates(1);
     }

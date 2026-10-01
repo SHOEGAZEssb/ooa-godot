@@ -215,7 +215,7 @@ internal sealed class PoeEvent :
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequirePoe(actor).Visible = visible;
+        RequirePoe(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteObjectByte(
         string actor,

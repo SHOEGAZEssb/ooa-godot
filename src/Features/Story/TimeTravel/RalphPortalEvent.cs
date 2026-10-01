@@ -59,6 +59,7 @@ internal sealed class RalphPortalEvent :
         }
 
         _waitingForScroll = true;
+        _ralph.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // @initSubid0d: objectSetVisiblec0
     }
 
     void IRoomEntryEvent.Start(OracleRoomData _) => Start();
@@ -135,7 +136,7 @@ internal sealed class RalphPortalEvent :
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible)
     {
         _flickering = true;
-        RequireRalph(actor).Visible = visible;
+        RequireRalph(actor).SetScriptVisible(visible);
     }
 
     void ICutsceneCommandHost.WriteObjectByte(

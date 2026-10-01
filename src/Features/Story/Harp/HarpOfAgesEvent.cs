@@ -244,7 +244,7 @@ internal sealed class HarpOfAgesEvent :
                 _harp = null;
         }
         _sparkle.Position = _harpPosition;
-        _sparkle.Visible = (_context.Entities.FrameCounter & 1) == 0;
+        _sparkle.SetScriptVisible((_context.Entities.FrameCounter & 1) == 0);
     }
 
     private void BeginPickupCutscene()
@@ -306,7 +306,7 @@ internal sealed class HarpOfAgesEvent :
         // The native wrapper calls interactionAnimate itself only after the
         // flicker and only when cfc0 bit 0 is clear.
         _nayru.SetAnimationRate(0.0f);
-        _nayru.Visible = true;
+        _nayru.SetScriptVisible(true);
         _stageCounter = record.NayruFlicker;
         _stage = HarpOfAgesEventStage.NayruFlicker;
     }
@@ -316,11 +316,11 @@ internal sealed class HarpOfAgesEvent :
         _stageCounter--;
         if (_stageCounter != 0)
         {
-            _nayru!.Visible = !_nayru.Visible;
+            _nayru!.SetScriptVisible(!_nayru.Visible);
             return;
         }
 
-        _nayru!.Visible = true;
+        _nayru!.SetScriptVisible(true);
         _nayruAnimationEnabled = true;
         _nayruDirection = 2;
         _context.Sound.PlaySound(_database.Record.NayruMusic);

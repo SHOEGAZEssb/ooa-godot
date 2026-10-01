@@ -453,6 +453,7 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         actor.SetScriptDrawOffset(Vector2.Zero);
         actor.SetScriptAnimation(Animation(actor, animation));
         actor.SetAnimationRate(0.0f);
+        actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // boy.s/boy2.s: objectSetVisiblec2
     }
 
     private static void SetAnimation(ChildLane lane, int animation) =>

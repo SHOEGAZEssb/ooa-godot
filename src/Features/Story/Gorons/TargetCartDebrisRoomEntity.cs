@@ -8,7 +8,9 @@ internal sealed class TargetCartDebrisRoomEntity(NpcCharacter actor,Vector2 posi
     public bool Finished=>!Entity.Active;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
-        if(!_initialized) { _initialized=true; Entity.SetAnimationRate(0); Entity.Position=position; return; }
+        if(!_initialized) { _initialized=true; Entity.SetAnimationRate(0); Entity.Position=position;
+            Entity.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // fallingRock_subid03: objectSetVisiblec1
+            return; }
         if(Entity.CurrentAnimationParameter==0xff) { Entity.SetActive(false); return; }
         Entity.AdvanceAnimationUpdates(1);
         Entity.Position=OracleObjectMovement.Shared.ApplySpeed(ref position,0x28,4+direction*8);

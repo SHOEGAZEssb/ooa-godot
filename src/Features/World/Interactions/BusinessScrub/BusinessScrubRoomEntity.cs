@@ -66,6 +66,9 @@ internal sealed class BusinessScrubRoomEntity
             ShowBehindParent = false
         };
         npc.AddChild(_bush);
+        // State zero has selected the hidden scrub frame and initialized its
+        // visible $ce:$80 bush child; both are now safe to present.
+        npc.ShowInitializedPresentation();
     }
 
     public void SetTransitionDrawOffset(Vector2 offset)

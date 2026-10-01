@@ -39,6 +39,7 @@ internal partial class BootLoadingScreen : Node2D
         _nayru.Initialize(actor.ToNpcRecord(0, 0x39));
         _nayru.AppendScriptGraphics(actor.ExtraSprite);
         _nayru.SetScriptAnimation(actor.Animation(4));
+        _nayru.SetScriptVisible(true);
         _noteEffect = database.Effect("MusicNote");
         for (int index = 0; index < _notes.Length; index++)
         {
@@ -46,7 +47,7 @@ internal partial class BootLoadingScreen : Node2D
             AddChild(note);
             note.Initialize(_noteEffect.ToNpcRecord(0, 0x39, 0, 0));
             note.SetScriptAnimation(_noteEffect.Animation);
-            note.Visible = false;
+            note.SetScriptVisible(false);
             _notes[index] = note;
             _noteRemaining[index] = 0;
         }
@@ -136,7 +137,7 @@ internal partial class BootLoadingScreen : Node2D
         for (int index = 0; index < _notes.Length; index++)
         {
             _notes[index].Position = center + (_notePositions[index] * SingerScale).Floor();
-            _notes[index].Visible = _noteRemaining[index] > 0;
+            _notes[index].SetScriptVisible(_noteRemaining[index] > 0);
         }
     }
 

@@ -187,6 +187,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                     _data.ExclamationRecord(_context.Rooms.CurrentRoom.Id, new Vector2(0x50, 0x48)),
                     "ForestCompanionExclamation", Talkable: false, Solid: false));
                 _exclamation.SetAnimationRate(0);
+                _exclamation.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // $9f: objectSetVisible80
                 _exclamationCounter = 30;
                 _context.Sound.PlaySound(SoundId.SndClink);
                 break;
@@ -206,6 +207,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                     _data.FluteRecord(_context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id,
                         _context.Player.Position + new Vector2(0, -14), _companionId), "CompanionFluteReward", Talkable: false, Solid: false));
                 _flute.SetAnimationRate(0);
+                _flute.SetScriptVisible(true);
                 _context.Player.BeginGetItemTwoHandPose();
                 _rewardVisible = true;
                 break;

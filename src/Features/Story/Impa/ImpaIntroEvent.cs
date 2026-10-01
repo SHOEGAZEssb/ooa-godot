@@ -1253,7 +1253,7 @@ internal sealed class ImpaIntroEvent :
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireImpaCommandActor(actor).Visible = visible;
+        RequireImpaCommandActor(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {

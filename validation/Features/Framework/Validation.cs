@@ -501,6 +501,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom5c3GoronBoundaries);
         RunIsolatedValidation(ValidateRoom5c3GoronEntry);
         RunIsolatedValidation(ValidateGoronDanceScrollEntry);
+        RunIsolatedValidation(ValidateGoronFileLoad);
+        RunIsolatedValidation(ValidateNpcInitializationVisibility);
         RunIsolatedValidation(ValidateGoronVillagers);
         RunIsolatedValidation(ValidateGoronTrades);
         RunIsolatedValidation(ValidateGoronDance);

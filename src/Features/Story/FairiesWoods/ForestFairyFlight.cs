@@ -72,6 +72,7 @@ internal sealed class ForestFairyFlight
         if (_stateZeroPending)
         {
             _stateZeroPending = false;
+            Actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // $49: objectSetVisiblec1
             return;
         }
 

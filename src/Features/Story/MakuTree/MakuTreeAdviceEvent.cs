@@ -37,11 +37,13 @@ internal sealed class MakuTreeAdviceEvent : InteractiveInfiniteScriptHost<NpcCha
         tree.AppendScriptGraphics(graphics.ExtraSprite);
         tree.SetScriptAnimation(graphics.Animation0);
         tree.SetAnimationRate(0);
+        tree.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex); // makuTree.s: objectSetVisible83
         _animation = 0;
         _flower = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
             _database.Flower, "MakuTreeFlower"));
         _flower.SetBlocksLink(false);
         _flower.SetAnimationRate(0);
+        _flower.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // makuFlower.s: objectSetVisible82
         StartInfiniteScript(tree, _database.Commands(_record.Mode));
     }
 

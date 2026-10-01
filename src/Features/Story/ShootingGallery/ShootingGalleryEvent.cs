@@ -257,7 +257,7 @@ internal sealed class ShootingGalleryEvent :
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireKeeper(actor).Visible = visible;
+        RequireKeeper(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteObjectByte(
         string actor,

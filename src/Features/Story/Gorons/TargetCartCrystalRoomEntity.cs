@@ -34,6 +34,7 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
         _behaviour=data.Bytes("crystal-behaviourTable")[configuration*16+subid];
         _counter=0x20; _angle=_behaviour==2?ObjectAngle.Left:ObjectAngle.Up; _state=1;
         Entity.SetAnimationRate(0); Entity.Position=_position;
+        Entity.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // ENEMY $63: objectSetVisible80
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {

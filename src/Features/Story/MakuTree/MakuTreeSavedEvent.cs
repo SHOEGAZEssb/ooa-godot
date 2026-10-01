@@ -41,6 +41,7 @@ internal sealed class MakuTreeSavedEvent :
         makuTree.AppendScriptGraphics(_record.ExtraSprite);
         makuTree.SetScriptAnimation(_record.Animation0);
         makuTree.SetAnimationRate(0.0f);
+        makuTree.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex); // makuTree.s: objectSetVisible83
         StartInfiniteScript(makuTree, _database.Commands);
     }
 

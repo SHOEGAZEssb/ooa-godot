@@ -49,6 +49,7 @@ internal sealed class RoomEventResources(RoomEventContext context, object owner)
         if (fresh)
         {
             fresh = false;
+            actor.SetScriptVisible(true);
             return;
         }
         if (counter <= 1)

@@ -101,6 +101,8 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         if (_initializing)
         {
             _initializing = false;
+            foreach (ThiefState thief in _thieves)
+                thief.Actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokay.s state 0: objectSetVisiblec2
             return;
         }
 
@@ -281,6 +283,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         accessory.SetScriptAnimation(visual.Animation);
         accessory.SetAnimationRate(0.0f);
         accessory.SetBlocksLink(false);
+        accessory.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // accessory.s state 0: objectSetVisible80
         return accessory;
     }
 

@@ -4156,6 +4156,12 @@ public sealed partial class ValidationRoot
         FailIf(
             graveyardBoys.Count != 3 || graveyardBoys.Any(npc => !npc.Active),
             "Room 0:7b did not begin with all three room-flag-gated children visible.");
+        FailIf(graveyardBoys.Any(npc => npc.Visible),
+            "Room 0:7b exposed event-owned children before native initialization.");
+        // This fixture owns only entities. Supply boy.s/boy2.s state zero's
+        // objectSetVisiblec2 before checking restoration of initialized actors.
+        foreach (NpcCharacter child in graveyardBoys)
+            child.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
         save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40);
         FailIf(
             graveyardBoys.Any(npc => npc.Active || npc.Visible),

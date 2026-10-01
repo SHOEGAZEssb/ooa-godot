@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Reflection;
 
 namespace oracleofages;
 
@@ -28,8 +29,18 @@ internal partial class FrontendValidationRoot : GameRoot
 
     protected override void EraseFileSlot(int slot) => _slots[slot] = null;
 
-    internal void Initialize()
+    internal byte[] FileSlotSnapshot(int slot) => (byte[])_slots[slot]!.Clone();
+
+    internal void Initialize(OracleSaveData? slotOneSave = null)
     {
+        if (slotOneSave is not null)
+        {
+            StoreFileSlot(0, slotOneSave);
+            // Use the retail checkpoint path with the isolated store above.
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(GameRoot).GetField("_launchOptions", fields)!.SetValue(this, new LaunchOptions());
+            typeof(GameRoot).GetField("_persistSaveData", fields)!.SetValue(this, true);
+        }
         _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
         _random = new OracleRandom();

@@ -89,6 +89,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _tingle.SetScriptButtonSensitive(false);
         _tingle.SetBlocksLink(false);
         _tingle.SetScriptDrawOffset(new Vector2(0, _record.InitialZ));
+        _tingle.ShowInitializedPresentation();
 
         string balloonAnimation = database.Animation("balloon", 0);
         NpcRecord balloonRecord = record with
@@ -113,6 +114,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloon.SetScriptAnimation(balloonAnimation);
         _balloon.SetBlocksLink(false);
         _balloon.SetScriptDrawOffset(new Vector2(0, _record.InitialZ));
+        _balloon.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // PART $44: objectSetVisible81
 
         AddChild(_tingle);
         AddChild(_balloon);

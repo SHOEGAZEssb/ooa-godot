@@ -72,7 +72,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     }
 
     public sealed override void SetActorVisible(string actor, bool visible) =>
-        RequireScriptActor(actor).Visible = visible;
+        RequireScriptActor(actor).SetScriptVisible(visible);
 
     protected void StartInfiniteScript(
         TActor actor,

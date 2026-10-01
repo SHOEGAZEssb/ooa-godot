@@ -76,6 +76,15 @@ The Ages `initcollisions` opcode initializes both radii to `$06` only when the
 actor's Y radius is zero; otherwise it preserves both existing radii. Entering
 a generic conversation script must therefore retain a custom interaction range.
 
+New NPC renderer slots start hidden, matching a cleared `Object.visible` bit 7.
+Loading graphics or animation and restoring an activation flag must not publish
+an unresolved actor. Ordinary imported initialization publishes its final pose
+after visibility, dialogue, and position rules finish. Native owners publish at
+their source show or draw-priority operation; deferred event actors remain
+hidden until that operation runs. Script show/hide commands use the shared NPC
+visibility owner. Scrolling preloads report this resolved presentation without
+advancing the actor's script or counters.
+
 If an interaction classified as specialized reaches the generic path, fail
 with group, room, interaction ID/subid, and source context. A placeholder actor
 must never silently stand in for an unsupported native behavior.

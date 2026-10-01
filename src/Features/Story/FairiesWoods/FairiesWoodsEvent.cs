@@ -368,6 +368,7 @@ internal sealed class FairiesWoodsEvent :
             actor.SetScriptAnimation(discovered.Animation);
             actor.SetScriptDrawOffset(new Vector2(0, -4));
             actor.SetCollisionRadii(4, 4);
+            actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // forestFairy_subid01State0: objectSetVisiblec1
             _discovered.Add(actor, index);
         }
     }

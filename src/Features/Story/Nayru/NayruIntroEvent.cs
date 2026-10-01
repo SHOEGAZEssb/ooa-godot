@@ -912,11 +912,11 @@ internal sealed class NayruIntroEvent :
         if (_nayruGhostRevealFlickerRemaining > 0 &&
             _nayruActors.TryGetActive("GhostVeran", out NpcCharacter ghost))
         {
-            ghost.Visible = (_entities.FrameCounter & 1) != 0;
+            ghost.SetScriptVisible((_entities.FrameCounter & 1) != 0);
             _nayruGhostRevealFlickerRemaining--;
             if (_nayruGhostRevealFlickerRemaining == 0)
             {
-                ghost.Visible = true;
+                ghost.SetScriptVisible(true);
                 // runVeranGhostSubid0 starts this cue when its initial $5a
                 // flicker counter expires and the ghost appears from Impa.
                 _context.Sound.PlaySound(SoundId.MusRoomOfRites);
@@ -1052,7 +1052,7 @@ internal sealed class NayruIntroEvent :
         {
             guy.SetActive(false);
             oldMan.SetActive(true);
-            oldMan.Visible = true;
+            oldMan.SetScriptVisible(true);
             oldMan.SetAnimationRate(0.0f);
         }
 
@@ -1195,13 +1195,13 @@ internal sealed class NayruIntroEvent :
             int flickerFrame = stoneFrame + (index == 9 ? 60 : 61);
             if (frame >= flickerFrame)
             {
-                state.Actor.Visible = (_entities.FrameCounter & 1) != 0;
+                state.Actor.SetScriptVisible((_entities.FrameCounter & 1) != 0);
                 Observe("VignetteMonkeyFlicker", state.Actor.Name.ToString());
             }
             if (index == 8)
             {
                 if (frame >= 570)
-                    state.Actor.Visible = false;
+                    state.Actor.SetScriptVisible(false);
                 if (frame >= 600)
                     state.Actor.SetActive(false);
             }
@@ -1595,7 +1595,7 @@ internal sealed class NayruIntroEvent :
     {
         if (!_nayruActors.TryGetValue("GhostVeran", out NpcCharacter? ghost))
             return;
-        ghost.Visible = false;
+        ghost.SetScriptVisible(false);
         if (ghost.Active && !ghost.Visible)
             Observe("GhostHiddenAfterPossession", "GhostVeran");
     }
@@ -1628,7 +1628,7 @@ internal sealed class NayruIntroEvent :
             _nayruRalphSwordAnimation = animation;
         }
         sword.SetActive(true);
-        sword.Visible = true;
+        sword.SetScriptVisible(true);
         if (sword.CurrentAnimationOpaquePixels > 0)
             Observe("RalphSwordVisible", "RalphSword", animation, sword.Position);
         if (_nayruActors.TryGetValue("Nayru", out NpcCharacter? nayru) &&
@@ -1983,7 +1983,7 @@ internal sealed class NayruIntroEvent :
         _nayruActors[actor].SetScriptDrawOffset(new Vector2(0, zFixed / 256.0f));
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        _nayruActors[actor].Visible = visible;
+        _nayruActors[actor].SetScriptVisible(visible);
 
     Vector2 ICutsceneCommandHost.GetActorPosition(CutsceneActorId actor) =>
         ActorPosition(actor.Value);
@@ -2298,18 +2298,18 @@ internal sealed class NayruIntroEvent :
         string name = RequireNativeActor(actorId, "Flicker");
         NpcCharacter? actor = null;
         if (_nayruActors.TryGetValue(name, out actor))
-            actor.Visible = (_entities.FrameCounter & 1) != 0;
+            actor.SetScriptVisible((_entities.FrameCounter & 1) != 0);
         if (name == "GhostVeran" && actor is not null &&
             _nayruActors.TryGetActive("HumanVeran", out NpcCharacter human))
-            human.Visible = !actor.Visible;
+            human.SetScriptVisible(!actor.Visible);
         if (commandUpdate + 1 < frames)
             return false;
         if (actor is not null)
         {
-            actor.Visible = actor.Active && (name != "GhostVeran" ||
-                !string.IsNullOrEmpty(completedHandler));
+            actor.SetScriptVisible(actor.Active && (name != "GhostVeran" ||
+                !string.IsNullOrEmpty(completedHandler)));
             if (name == "GhostVeran" && _nayruActors.TryGetActive("HumanVeran", out NpcCharacter finalHuman))
-                finalHuman.Visible = !actor.Visible;
+                finalHuman.SetScriptVisible(!actor.Visible);
         }
         if (!string.IsNullOrEmpty(completedHandler))
             ((ICutsceneCommandHost)this).RunNativeHandler(completedHandler);

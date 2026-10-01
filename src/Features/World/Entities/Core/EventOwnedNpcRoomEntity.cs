@@ -14,7 +14,9 @@ internal sealed class EventOwnedNpcRoomEntity(NpcCharacter npc)
 {
     public NpcCharacter Npc => Entity;
     public void Update(double delta, Player player) =>
-        Entity.UpdateNpc(delta, player.Position);
+        // The event's native handler admits state zero to drawing. Generic
+        // presentation must not expose a pose before that handler runs.
+        Entity.UpdateNpc(delta, player.Position, initializeVisibility: false);
     public bool BlocksLink(Vector2 linkCenter) =>
         Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) =>

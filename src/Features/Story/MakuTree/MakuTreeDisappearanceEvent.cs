@@ -79,6 +79,7 @@ internal sealed class MakuTreeDisappearanceEvent : RoomCutsceneCommandHost, IRoo
         // Freeze its generic animation path so this event can reproduce the
         // original interactionRunScript -> interactionAnimate ordering.
         _makuTree.SetAnimationRate(0.0f);
+        _makuTree.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex); // makuTree.s: objectSetVisible83
         _context.Player.BeginCutsceneControl(owner: this);
         _runner.Start(_database.Commands);
     }
@@ -266,7 +267,7 @@ internal sealed class MakuTreeDisappearanceEvent : RoomCutsceneCommandHost, IRoo
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireMakuTree(actor).Visible = visible;
+        RequireMakuTree(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {

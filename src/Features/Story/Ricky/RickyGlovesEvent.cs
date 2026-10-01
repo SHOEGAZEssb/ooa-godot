@@ -126,6 +126,7 @@ internal sealed class RickyGlovesEvent :
         _initialSpecialObjectUpdates =
             _record.InitialSpecialObjectUpdates;
         actor.SetActive(true);
+        actor.UpdateDrawPriority(Context.Player.Position);
         SetInitialActorButtonSensitive();
     }
 

@@ -30,6 +30,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     private bool _active = true;
     private bool _flagVisible = true;
     private bool _scriptVisible = true;
+    // Object.visible bit 7 starts clear in a newly allocated interaction slot.
+    // Graphics/animation setup alone does not admit it to objectQueueDraw.
+    private bool _nativeVisible;
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
     private int _graphicsSourceOffset;
@@ -159,8 +162,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _active = true;
         _flagVisible = true;
         _scriptVisible = true;
+        _nativeVisible = false;
         _scriptDrawOffset = Vector2.Zero;
-        Visible = true;
+        Visible = false;
         _sourceImage = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{record.SpriteName}.png");
         _graphicsSourceOffset = 0;
@@ -325,11 +329,12 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         SetFacing(GetFacingToward(target));
     }
 
-    public void UpdateNpc(double delta, Vector2 linkPosition)
+    public void UpdateNpc(double delta, Vector2 linkPosition, bool initializeVisibility = true)
     {
         if (!Active)
             return;
-        UpdateDrawPriority(linkPosition);
+        if (initializeVisibility) ShowInitializedPresentation();
+        SetDrawPriority(linkPosition, 0);
         AdvanceAnimation(delta);
         if (!Record.CanFace)
             return;
@@ -492,6 +497,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D
 
     internal void UpdateDrawPriority(Vector2 linkPosition, int zHigh = 0)
     {
+        // objectSetPriorityRelativeToLink[_withTerrainEffects] writes bit 7.
+        ShowInitializedPresentation();
+        SetDrawPriority(linkPosition, zHigh);
+    }
+
+    private void SetDrawPriority(Vector2 linkPosition, int zHigh)
+    {
         if (_fixedDrawPriority is int fixedDrawPriority)
         {
             ZIndex = fixedDrawPriority;
@@ -505,6 +517,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         _fixedDrawPriority = zIndex;
         ZIndex = zIndex;
+        ShowInitializedPresentation();
     }
 
     internal void ClearFixedDrawPriority() => _fixedDrawPriority = null;
@@ -521,9 +534,18 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     internal void SetScriptVisible(bool visible)
     {
         _scriptVisible = visible;
-        Visible = Active && _scriptVisible;
+        if (visible) _nativeVisible = true;
+        RefreshVisibility();
         QueueRedraw();
     }
+
+    internal void ShowInitializedPresentation()
+    {
+        _nativeVisible = true;
+        RefreshVisibility();
+    }
+
+    private void RefreshVisibility() => Visible = Active && _scriptVisible && _nativeVisible;
 
     internal void SetScriptAnimation(string encodedAnimation) =>
         SetScriptAnimation(encodedAnimation, frameSourceOffsets: null);
@@ -776,7 +798,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         bool wasActive = Active;
         _active = active;
-        Visible = Active && _scriptVisible;
+        RefreshVisibility();
         if (wasActive != Active) NativeActivationChanged?.Invoke(Active);
         QueueRedraw();
     }
@@ -787,13 +809,14 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         bool wasActive = Active;
         _flagVisible = visible;
-        Visible = Active && _scriptVisible;
+        RefreshVisibility();
         if (wasActive != Active) NativeActivationChanged?.Invoke(Active);
         QueueRedraw();
     }
 
     public override void _Draw()
     {
+        if (!_nativeVisible || !Active || !_scriptVisible) return;
         List<NpcCharacterAnimationFrame> animation = CurrentAnimation;
         if (animation.Count > 0)
         {

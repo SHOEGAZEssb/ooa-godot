@@ -53,6 +53,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         Cancel();
         _actor = Context.RequireNpc(Database.Group, room.Id, Database.Id, Database.SubId, "INTERAC_TOKKEY");
         _actor.SetAnimationRate(0);
+        _actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokkey.s state 0: objectSetVisible82
         _precisePosition = _actor.Position;
         Signal = 0; // parseObjectData clears the room's temporary interaction bytes.
         State = 1; // state 0 installs the script without running it.

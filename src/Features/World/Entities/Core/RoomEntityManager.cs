@@ -2090,6 +2090,11 @@ public sealed class RoomEntityManager : IDisposable
                 {
                     npc.SetStatePosition(position);
                 }
+                // Ordinary state-zero behavior is fully represented by these
+                // imported visibility, dialogue and position rules. Publish
+                // only after all of them have selected the source pose.
+                if (npc.Record.Implementation == NpcImplementationClassification.OrdinaryGeneric)
+                    npc.ShowInitializedPresentation();
             }
         }
     }

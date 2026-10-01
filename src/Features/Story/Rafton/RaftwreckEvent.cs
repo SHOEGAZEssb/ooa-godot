@@ -347,7 +347,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         NpcCharacter actor = SpawnEffect(
             _database.Lightning, row.Y, row.X, "Lightning", objectId: 0x27,
             fixedPriority: ObjectDrawPriority.InFrontOfLinkZIndex);
-        actor.Visible = false;
+        actor.SetScriptVisible(false);
         actor.SetScriptDrawOffset(new Vector2(0, unchecked((sbyte)0xc0)));
         _lightningParts.Add(new LightningState(
             actor, new Vector2(row.X, row.Y),
@@ -392,7 +392,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             if (part.State == 1)
             {
                 part.State = 2;
-                part.Actor.Visible = true;
+                part.Actor.SetScriptVisible(true);
                 _context.Sound.PlaySound(SoundId.SndLightning);
                 continue;
             }

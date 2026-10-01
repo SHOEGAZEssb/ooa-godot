@@ -145,7 +145,7 @@ internal sealed class EnterPastEvent :
         RequireVillager(actor).SetScriptDrawOffset(new Vector2(0, zFixed >> 8));
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireVillager(actor).Visible = visible;
+        RequireVillager(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.ScriptEnded()
     {

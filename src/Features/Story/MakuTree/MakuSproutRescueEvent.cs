@@ -81,6 +81,7 @@ internal sealed class MakuSproutRescueEvent :
         // room-event clock is frozen for the host transition; stage that same
         // imported visual without consuming the runner's command or wait.
         _sprout.SetScriptAnimation(_database.FearfulSproutAnimation);
+        _sprout.UpdateDrawPriority(_context.Player.Position); // makuSprout.s state 0 falls through interactionAnimateAsNpc
 
         // INTERAC_MAKU_SPROUT $88:$01 calls interactionRunScript from its
         // state-0 initializer. That update creates $6b:$04; because the new
@@ -342,7 +343,7 @@ internal sealed class MakuSproutRescueEvent :
         Actor(actor).SetScriptDrawOffset(new Vector2(0, zFixed >> 8));
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        Actor(actor).Visible = visible;
+        Actor(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteObjectByte(
         string actor, int address, int value)

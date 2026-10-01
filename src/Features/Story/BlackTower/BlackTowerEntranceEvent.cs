@@ -56,6 +56,7 @@ internal sealed class BlackTowerEntranceEvent :
             _record.Group, _record.Room, _record.GuardId, _record.GuardSubId,
             "INTERAC_HARDHAT_WORKER");
         _guardPrecisePosition = _guard.Position;
+        _guard.UpdateDrawPriority(_context.Player.Position); // hardhatWorker.s state 0 falls through interactionAnimateAsNpc
 
         OracleSaveData save = _context.Rooms.SaveData;
         if (save.HasRoomFlag(_record.Group, _record.Room, (byte)_record.CompleteFlag))
@@ -316,7 +317,7 @@ internal sealed class BlackTowerEntranceEvent :
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>
-        RequireGuard(actor).Visible = visible;
+        RequireGuard(actor).SetScriptVisible(visible);
 
     void ICutsceneCommandHost.WriteObjectByte(
         string actor, int address, int value)

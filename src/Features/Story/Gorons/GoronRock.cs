@@ -15,6 +15,7 @@ internal sealed class GoronRock(NpcCharacter actor, Vector2 position, int angle,
         if (!_initialized)
         {
             _initialized=true;
+            actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // fallingRock_initGraphicsAndIncState: objectSetVisiblec1
             if (!falling) return false;
             int index=(random()&15)*2;
             position=new(positions[index+1],positions[index]);

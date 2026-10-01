@@ -193,7 +193,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                     if (!Context.Player.PatchCollisionsEnabled || MenusDisabled || Context.Player.InvincibilityFrames != 0) return;
                     SetInputEnabled(false);
                     _fixed = SpawnVisual(Read(0xcfd0) + 6, Vector2.Zero);
-                    _fixed.Visible = false; _fixedCounter = -1;
+                    _fixed.SetScriptVisible(false); _fixedCounter = -1;
                     State = 3; StartScript("linkWonMinigameScript");
                     Context.Sound.PlaySound(Database.Constant("solve-sound")); RestoreMusic(); return;
                 }
@@ -319,7 +319,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         {
             if (Read(0xcfd3) == 0) return;
             _fixedCounter = Database.Constant("fixed-item-life");
-            _fixed.Position = _patch!.Position + new Vector2(-8, -14); _fixed.Visible = true;
+            _fixed.Position = _patch!.Position + new Vector2(-8, -14); _fixed.SetScriptVisible(true);
             if (Read(0xcfd0) != 0 && Read(0xcfd1) == 0)
             { _fixed.SetBasePalette(4); _fixed.SetScriptAnimation(Database.Animation(12)); }
             return;
