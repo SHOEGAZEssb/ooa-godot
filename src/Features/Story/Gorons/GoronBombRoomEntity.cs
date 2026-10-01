@@ -88,11 +88,12 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
     private void Explode()
     {
         _state=4;
-        string animation=_owner.Database.Animation(0x49,1);
-        Entity.Initialize(_owner.Database.BombRecord with {TileBase=0x0c,Palette=2,
-            UpAnimation=animation,RightAnimation=animation,DownAnimation=animation,LeftAnimation=animation});
-        Entity.SetAnimationRate(0); Entity.SetScriptAnimation(animation);
-        Entity.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);
+        // @func_77b1 writes flags $0a: bank 1 uses resident common-sprites,
+        // replacing the dynamic common-items bomb sheet before animation $01.
+        var record=_owner.Database.BombExplosionRecord;
+        Entity.Initialize(record);
+        Entity.SetAnimationRate(0); Entity.SetScriptAnimation(record.DownAnimation);
+        Entity.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex); // objectSetVisible83
         Entity.Position=_position; Entity.SetScriptDrawOffset(new(0,_z>>8));
         _owner.Context.Sound.PlaySound(SoundId.SndExplosion);
     }
@@ -111,5 +112,14 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
         if(delta.X>=-_radius-5&&delta.X<_radius+5&&delta.Y>=-_radius-5&&delta.Y<_radius+5)
             player.ApplyEnemyContactDamage(_position,0,RingDamageSource.Generic,0x22,0x0f,allowZeroDamage:true);
     }
-    internal void Finish() { Finished=true; Entity.SetActive(false); }
+    internal void Finish()
+    {
+        if(Finished) return;
+        Finished=true;
+        // partCode49 state4/state5 delete their slot immediately. Retire it
+        // here too, before the manager frees its actor; clearParts must only
+        // visit parts that are still live when the room layout is restored.
+        _owner.Parts.Remove(this);
+        Entity.SetActive(false);
+    }
 }

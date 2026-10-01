@@ -60,4 +60,5 @@ internal sealed class GoronCaveDatabase
         _rows["sprite:49"].RequiredString(2),0x10,4,0,false,
         Animation(0x49,0),Animation(0x49,0),Animation(0x49,0),Animation(0x49,0),"",
         NpcImplementationClassification.EventOwned);
+    internal NpcRecord BombExplosionRecord => Effect(0x49,1);
 }

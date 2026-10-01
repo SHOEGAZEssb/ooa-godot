@@ -18,8 +18,8 @@ internal sealed class GoronBigBangController(GoronCaveScriptHost host)
     }
     internal void Clear()
     {
-        foreach(var part in Parts) part.Finish();
-        Parts.Clear(); Playing=false;
+        while(Parts.Count!=0) Parts[0].Finish();
+        Playing=false;
     }
     internal void Layout(string name,bool bottom)
     {

@@ -221,10 +221,23 @@ for($i=0;$i -lt 2;$i++) {
         "$($frame.Duration),$($frame.Parameter)@$($oam -join ';')"
     })
     $rows.Add("animation`t49:$i`t$($frames -join '|')~$($definition.LoopStart)`t0")
+    if($i -eq 1) { $bombExplosionAnimation="$($frames -join '|')~$($definition.LoopStart)" }
 }
 $partBytes=@((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x49]).Operands|ForEach-Object{Convert-AssemblyInteger $_})
 if(($partBytes -join ',') -ne '120,4,51,0,64,16,4,0'){throw 'PART $49 attributes changed.'}
 $rows.Add("sprite`t49`t$($gfxNames[0x78])`t16")
+# PART $49's explosion writes oamFlagsBackup/oamFlags and oamTileIndexBase.
+# Bit 3 selects the resident bank-1 sheet, independent of object GFX $78.
+$bombExplosion=[regex]::Match($bombSource,
+    '(?ms)^@func_77b1:\s+ld h,d\s+ld l,\$c4\s+ld \(hl\),\$04\s+ld l,\$e4\s+set 7,\(hl\)\s+ld l,\$db\s+ld a,\$(?<flags>[0-9a-f]{2})\s+ldi \(hl\),a\s+ldi \(hl\),a\s+ld \(hl\),\$(?<tile>[0-9a-f]{2})\s+ld a,\$01\s+call partSetAnimation\s+ld a,SND_EXPLOSION\s+call playSound\s+jp objectSetVisible83')
+$bombFixedGraphics=[regex]::Match(
+    (Read-ImportText (Join-Path $Disassembly 'data/ages/gfxHeaders.s')),
+    '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+m_GfxHeader (?<sprite>spr_common_sprites), \$8001\s+m_GfxHeaderEnd')
+if(!$bombExplosion.Success -or !$bombFixedGraphics.Success -or
+    $bombExplosion.Groups['flags'].Value -ne '0a' -or $bombExplosion.Groups['tile'].Value -ne '0c') {
+    throw 'object_code/ages/parts/bigBangBombSpawner.s:@func_77b1 must select flags $0a, tile base $0c, animation $01 and visible83 from gfxHeaders.s:GFXH_COMMON_SPRITES bank 1.'
+}
+$bombExplosionPalette=([Convert]::ToInt32($bombExplosion.Groups['flags'].Value,16) -band 7).ToString('x2')
 $rockSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/fallingRock.s')
 $native = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/goron.s')
 $goronGraphicsHeaders = Read-ImportText (Join-Path $Disassembly 'data/ages/objectGfxHeaders.s')
@@ -315,6 +328,7 @@ $rows.Add("bytes`tdialogue-table`t$($textIds -join ',')`t0")
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/goron_cave_data.tsv'), $rows)
 $effects = [Collections.Generic.List[string]]::new()
 $effects.Add("# id`tsubid`tsprite`ttile-base`tpalette`tanimation")
+$effects.Add("49`t01`t$($bombFixedGraphics.Groups['sprite'].Value)`t$($bombExplosion.Groups['tile'].Value)`t$bombExplosionPalette`t$bombExplosionAnimation")
 foreach ($pair in @(@(0x56,0),@(0x9f,0),@(0x92,1),@(0x92,2),@(0x92,3))) {
     $id=$pair[0]; $subid=$pair[1]; $gfx=$interactionGraphics["${id}:$subid"]
     $sprite=$gfxNames[$gfx.Gfx]

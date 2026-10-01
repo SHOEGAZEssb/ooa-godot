@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace oracleofages;
@@ -43,7 +44,13 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(1,Vector2.Zero);
         FailIf(game.Parts.Count!=2||spawner.Wave!=1||game.Parts[1].State!=1,
             "Big Bang wave did not initialize its later PART slot in the same update.");
-        for(int i=0;i<1800&&game.Playing;i++) AdvanceGoronDialogue(1,1);
+        var firstBomb=game.Parts[1];
+        for(int i=0;i<1800&&game.Playing;i++)
+        {
+            AdvanceGoronDialogue(1,1);
+            if(firstBomb.Finished&&GodotObject.IsInstanceValid(firstBomb.Node)&&firstBomb.Node.IsQueuedForDeletion())
+                firstBomb.Node.Free();
+        }
         AdvanceGoronDialogue(400,1);
         FailIf(game.Playing||_inventory.HealthQuarters!=health||!_inventory.HasTreasure(TreasureId.OldMermaidKey)||cave.BlocksGameplay||
             _rooms.CurrentRoom.GetMetatile(new(0x18,0x18))!=0xef,
@@ -87,6 +94,166 @@ public sealed partial class ValidationRoot
         }
         FailIf(display is null||display.Active||display.Visible,
             "Room $3:$3e Big Bang did not display and remove its prize before play, including repeat entry.");
+    }
+    private void ValidateGoronBigBangPartLifetime()
+    {
+        var traces=new List<string>();
+        foreach(bool batched in new[]{false,true})
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetRoomFlag(3,0x3e,0x40,true);
+            _inventory.AddRupees(100);
+            LoadValidationRoom(3,0x3e); StepGameplayUpdates(4,Vector2.Zero);
+            var cave=_roomEvents.Get<GoronCaveEvent>();
+            var host=cave.Actors.Single();
+            ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+            AdvanceToBigBangCheckingPrize(host,1200);
+            var game=host.BigBang!;
+            FailIf(!game.Playing||_inventory.Rupees!=90,"Room $3:$3e lifetime regression did not start the paid game.");
+            var observed=new HashSet<GoronBombRoomEntity>(game.Parts);
+            var trace=new List<string>();
+            int disposed=0;
+            bool wasPlaying=true,clearedUnderWhite=false;
+            void AfterUpdate()
+            {
+                foreach(var part in _entities.EntityAdapters<GoronBombRoomEntity>()) observed.Add(part);
+                // Synchronous validations share one host frame. Reproduce the
+                // engine's end-of-frame destruction only after the manager has
+                // retired and queued the naturally completed PART $49 actor.
+                foreach(var part in observed)
+                    if(part.Finished&&GodotObject.IsInstanceValid(part.Node)&&part.Node.IsQueuedForDeletion())
+                    { part.Node.Free(); disposed++; }
+                if(wasPlaying&&!game.Playing)
+                {
+                    // scripts.s goron_bigBang_loadNormalRoomLayout calls
+                    // clearParts while white, after unhide/initLinkPosition.
+                    clearedUnderWhite=_warpFade.Color.A==1;
+                    FailIf(!clearedUnderWhite||!host.Actor.Visible||_player.Position!=new Vector2(0x50,0x48)||
+                        observed.Any(p=>!p.Finished)||game.Parts.Count!=0,
+                        "Room $3:$3e clearParts did not retire every live bomb under white at source Link position ($50,$48).");
+                }
+                wasPlaying=game.Playing;
+                trace.Add($"{game.Playing}:{game.Parts.Count}:{host.CommandIndex}:{host.Counter}:{_warpFade.Color.A}:{_player.CutsceneControlled}:{disposed}");
+                if(_dialogue.IsOpen)
+                { if(_dialogue.ChoiceActive) _dialogue.SubmitChoiceForValidation(1); else _dialogue.Close(); }
+            }
+            void Advance(int updates)=>StepGameplayUpdates(updates,Vector2.Zero,batched:batched,afterUpdate:AfterUpdate);
+            Advance(240);
+            FailIf(disposed==0||!game.Playing,"Room $3:$3e did not dispose a naturally expired bomb before the loss.");
+            GoronBombRoomEntity? grounded=null;
+            for(int i=0;i<400&&grounded is null;i++)
+            {
+                Advance(1);
+                grounded=_entities.EntityAdapters<GoronBombRoomEntity>().FirstOrDefault(p=>p.State==3&&!p.Finished);
+            }
+            FailIf(grounded is null,"Room $3:$3e did not produce a settled bomb after retiring its first wave.");
+            int health=_inventory.HealthQuarters;
+            _player.WarpTo(grounded!.Node.Position);
+            for(int i=0;i<30&&_player.InvincibilityFrames==0;i++) Advance(1);
+            FailIf(_player.InvincibilityFrames!=0x22||_inventory.HealthQuarters!=health||!game.Playing,
+                "Room $3:$3e PART $49 contact did not defer the no-health-loss result until the next update.");
+            Advance(1);
+            FailIf(!cave.BlocksGameplay||!game.Playing,"Room $3:$3e loss did not acquire input before its collapsed animation and fade.");
+            Advance(500);
+            FailIf(!clearedUnderWhite||game.Playing||cave.BlocksGameplay||_player.CutsceneControlled||cave.PaletteBusy||
+                _warpFade.Color.A!=0||_inventory.Rupees!=90||_inventory.HasTreasure(TreasureId.OldMermaidKey)||
+                _rooms.CurrentRoom.GetMetatile(new(0x18,0x18))!=0xef||
+                _rooms.CurrentRoom.GetMetatile(new(0x38,0x78))!=0xb5,
+                "Room $3:$3e loss retained white/input/bombs, changed the fee/prize, or failed to restore the normal floor and exit.");
+            Advance(8);
+            traces.Add(string.Join("\n",trace));
+            // The restored attendant must remain reachable through the room's
+            // floor geometry. Start again, retire more bombs, then cancel.
+            ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+            AdvanceToBigBangCheckingPrize(host,1200);
+            FailIf(!game.Playing||_inventory.Rupees!=80,"Room $3:$3e could not start another paid game after the loss fade.");
+            Advance(240);
+            var remaining=game.Parts.ToArray();
+            cave.Cancel();
+            FailIf(game.Playing||game.Parts.Count!=0||remaining.Any(p=>!p.Finished)||_player.CutsceneControlled||
+                cave.PaletteBusy||_warpFade.Color.A!=0||_rooms.CurrentRoom.GetMetatile(new(0x38,0x78))!=0xb5,
+                "Room $3:$3e cancellation failed after bomb actors had been disposed.");
+            wasPlaying=false;
+            Advance(8);
+        }
+        FailIf(traces[0]!=traces[1],"Room $3:$3e bomb retirement/loss/fade differs between individual and batched application updates.");
+    }
+    private void ValidateGoronBigBangExplosion()
+    {
+        // Independent partAnimation5ba9f and partOamData5334a/53353/
+        // 53856/53877/53898. PART $49 writes flags $0a (bank 1, palette 2)
+        // and tile base $0c, then publishes objectSetVisible83.
+        string spark="8,0,12,0;8,8,12,32";
+        string[] oam=[spark,"8,0,12,7;8,8,12,39",spark,
+            "2,250,12,0;2,2,12,32;2,6,12,0;2,14,12,32;10,250,12,0;10,2,12,32;10,6,12,0;10,14,12,32",
+            "0,248,0,0;0,0,2,0;0,8,2,32;0,16,0,32;16,248,0,64;16,0,2,64;16,8,2,96;16,16,0,96",
+            "0,248,14,0;0,0,14,32;0,8,14,0;0,16,14,32;16,248,14,0;16,0,14,32;16,8,14,0;16,16,14,32"];
+        int[] durations=[4,4,3,7,8,8],parameters=[2,6,6,10,15,0];
+        Vector2I[] sizes=[new(16,16),new(16,16),new(16,16),new(28,24),new(32,32),new(32,32)];
+        Vector2[] offsets=[new(-8,-8),new(-8,-8),new(-8,-8),new(-14,-14),new(-16,-16),new(-16,-16)];
+        var source=OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_common_sprites.png");
+        ulong HashPixels(string cells)
+        {
+            using var image=NpcCharacter.BuildPositionedOamTexture(source,cells,0x0c,2,null,true,0).Texture.GetImage();
+            ulong hash=14695981039346656037UL;
+            foreach(byte pixel in image.GetData()) { hash^=pixel; hash*=1099511628211UL; }
+            return hash;
+        }
+        ulong[] hashes=oam.Select(HashPixels).ToArray();
+        var traces=new List<string>();
+        foreach(bool batched in new[]{false,true})
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetRoomFlag(3,0x3e,0x40,true); _inventory.AddRupees(100);
+            LoadValidationRoom(3,0x3e); StepGameplayUpdates(4,Vector2.Zero);
+            var host=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
+            ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+            AdvanceToBigBangCheckingPrize(host,1200);
+            var observed=new HashSet<GoronBombRoomEntity>();
+            var ages=new Dictionary<GoronBombRoomEntity,int>();
+            var positions=new Dictionary<GoronBombRoomEntity,Vector2>();
+            var trace=new List<string>();
+            int completed=0;
+            void CheckExplosions()
+            {
+                foreach(var part in _entities.EntityAdapters<GoronBombRoomEntity>()) observed.Add(part);
+                foreach(var part in observed)
+                {
+                    if(part.State!=4) continue;
+                    int age=ages.GetValueOrDefault(part);
+                    if(part.Finished)
+                    {
+                        if(age==35) continue;
+                        FailIf(age!=34,"Room $3:$3e PART $49 explosion did not delete on update 34 at parameter $ff.");
+                        completed++; ages[part]=35;
+                        if(GodotObject.IsInstanceValid(part.Node)&&part.Node.IsQueuedForDeletion()) part.Node.Free();
+                        continue;
+                    }
+                    int frame=0,remaining=age;
+                    while(frame<durations.Length&&remaining>=durations[frame]) remaining-=durations[frame++];
+                    FailIf(frame>=durations.Length,"Room $3:$3e PART $49 explosion remained active after its 34 visible updates.");
+                    var actor=(NpcCharacter)part.Node;
+                    if(age==0) positions.Add(part,actor.Position);
+                    FailIf(!actor.Visible||!actor.IsVisibleInTree()||actor.ZIndex!=8||actor.Record.SpriteName!="spr_common_sprites"||
+                        actor.Record.TileBase!=0x0c||actor.Record.Palette!=2||actor.CurrentAnimationFrame!=frame||
+                        actor.CurrentAnimationParameter!=parameters[frame]||actor.CurrentAnimationTextureSize!=sizes[frame]||
+                        actor.CurrentAnimationOffset!=offsets[frame]||actor.CurrentAnimationPixelHash!=hashes[frame]||
+                        actor.Position!=positions[part]||actor.ScriptDrawOffset!=Vector2.Zero,
+                        $"Room $3:$3e PART $49 explosion update {age}, frame {frame}: visible={actor.Visible}/{actor.IsVisibleInTree()}, " +
+                        $"sprite={actor.Record.SpriteName}, tile=${actor.Record.TileBase:x2}, palette={actor.Record.Palette}, priority={actor.ZIndex}, " +
+                        $"animation={actor.CurrentAnimationFrame}/{actor.CurrentAnimationParameter}, size={actor.CurrentAnimationTextureSize}/{sizes[frame]}, " +
+                        $"offset={actor.CurrentAnimationOffset}/{offsets[frame]}, hash={actor.CurrentAnimationPixelHash:x16}/{hashes[frame]:x16}, " +
+                        $"position={actor.Position}/{positions[part]}, Z offset={actor.ScriptDrawOffset}; expected source OAM/palette/position and visible83.");
+                    trace.Add($"{age}:{frame}:{actor.CurrentAnimationPixelHash}:{actor.Position}");
+                    ages[part]=age+1;
+                }
+            }
+            for(int updates=0;updates<400&&completed<2;updates+=4)
+                StepGameplayUpdates(4,Vector2.Zero,batched:batched,afterUpdate:CheckExplosions);
+            FailIf(completed<2,"Room $3:$3e did not render two complete natural bomb explosions through deletion.");
+            traces.Add(string.Join("\n",trace));
+        }
+        FailIf(traces[0]!=traces[1],"Room $3:$3e explosion pixels/timing differ between individual and batched application updates.");
     }
     private void ValidateGoronTargetCarts()
     {
