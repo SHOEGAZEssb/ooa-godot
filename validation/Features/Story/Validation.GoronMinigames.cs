@@ -92,6 +92,9 @@ public sealed partial class ValidationRoot
     {
         _inventory.GiveTreasure(TreasureId.Shooter,0); _inventory.AddRupees(100);
         LoadValidationRoom(5,0xd8); StepGameplayUpdates(4,Vector2.Zero);
+        // Exercise the same debug-state entry boundary as the reported ride.
+        RestoreDebugSavestate(CaptureDebugSavestate());
+        StepGameplayUpdates(4,Vector2.Zero);
         var cave=_roomEvents.Get<GoronCaveEvent>();
         var left=cave.Actors.Single(a=>a.Actor.Record.Var03==0);
         var right=cave.Actors.Single(a=>a.Actor.Record.Var03==1);
@@ -108,6 +111,7 @@ public sealed partial class ValidationRoot
         FailIf(!_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Select(c=>c.Node.Position).SequenceEqual(sourcePositions),
             "Target-cart configuration zero differs from its independent source positions.");
         StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"]);
+        var arrivingCart=_entities.Entities<MinecartRoomEntity>().Single();
         // targetCartCrystal.s configuration0, subids $05-$0b. Check the
         // actual mounted scroll before gameplay can repair a zero-position spawn.
         Vector2[] secondRoomPositions=[new(0x38,0x58),new(0x98,0x28),new(0xd8,0x28),
@@ -116,6 +120,7 @@ public sealed partial class ValidationRoot
         for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
         {
             StepGameplayUpdates(1,Vector2.Zero);
+            ValidateOnlyArrivingTargetCart(arrivingCart);
             if(!IsTransitioning) continue;
             var crystals=_entities.EntityAdapters<TargetCartCrystalRoomEntity>().ToArray();
             if(_rooms.CurrentRoom.Id==0xd8)
@@ -166,8 +171,12 @@ public sealed partial class ValidationRoot
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=5||_entities.RuntimeState.ReadWramByte(0xcfdd)!=0x1f,
             "Scent projectiles did not destroy the first five crystals and publish their re-entry mask.");
         StepGameplayUpdates(20,Vector2.Up,["move_up"],["move_up"],batched:true);
+        arrivingCart=_entities.Entities<MinecartRoomEntity>().Single();
         for(int i=0;i<2600&&!_dialogue.IsOpen;i++)
-        { ShootCrystals(); StepGameplayUpdates(1,Vector2.Zero); }
+        {
+            ShootCrystals(); StepGameplayUpdates(1,Vector2.Zero);
+            ValidateOnlyArrivingTargetCart(arrivingCart);
+        }
         FailIf(_entities.RuntimeState.ReadWramByte(0xcfde)!=12||fired.Count!=12,
             $"Target-cart return lost a crystal hit or respawned a destroyed first-room target: hits {_entities.RuntimeState.ReadWramByte(0xcfde)}, fired {fired.Count}, room {_rooms.CurrentRoom.Id:x2}, remaining {string.Join(',',_entities.EntityAdapters<TargetCartCrystalRoomEntity>().Select(c=>c.SubId))}.");
         AdvanceGoronDialogue(650,1);
@@ -184,6 +193,18 @@ public sealed partial class ValidationRoot
             _inventory.EquippedA!=a||_inventory.EquippedB!=b,
             "Cancelling outside the target-cart course leaked its temporary inventory or active flag.");
         ValidateTargetCartCrystalPreload();
+    }
+    private void ValidateOnlyArrivingTargetCart(MinecartRoomEntity arrivingCart)
+    {
+        if(!arrivingCart.Riding) return;
+        // minecart.s creates the stationary INTERAC $16 only at
+        // @minecartStopped; BeginRide already removed its static record.
+        var carts=_entities.Entities<MinecartRoomEntity>()
+            .Concat(_entities.OutgoingEntities<MinecartRoomEntity>()).ToArray();
+        FailIf(carts.Length!=1||!ReferenceEquals(carts[0],arrivingCart),
+            $"Target-cart arrival spawned a duplicate before dismount at $5:{_rooms.CurrentRoom.Id:x2}: carts={carts.Length}, positions={string.Join(';',carts.Select(c=>c.Position))}.");
+        FailIf(MinecartRuntimeState.StationaryInRoom(_runtimeState,0xd8).Any(),
+            "$5:d8 retained a stationary cart in wStaticObjects while Link was riding.");
     }
     private void ValidateTargetCartPrizeDisplay(GoronCaveScriptHost host,bool batched)
     {

@@ -588,7 +588,7 @@ public partial class GameRoot : Node2D
         Vector2 spawn = useDebugSavestate
             ? debugSavestate!.PlayerPosition
             : new Vector2(_saveData.RespawnX, _saveData.RespawnY);
-        debugSavestate?.RestoreRoomParseState(_entities);
+        debugSavestate?.RestoreRoomParseState(_entities, _runtimeState);
         EnemyPlacementContext placementContext = useSavedSpawn
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;

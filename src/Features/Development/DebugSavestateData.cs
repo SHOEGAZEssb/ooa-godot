@@ -146,8 +146,17 @@ internal sealed class DebugSavestateData
         return save!;
     }
 
-    internal void RestoreRoomParseState(RoomEntityManager entities) =>
+    internal void RestoreRoomParseState(
+        RoomEntityManager entities,
+        OracleRuntimeState runtimeState)
+    {
+        // parseStaticObjects and companion reconstruction must observe the
+        // saved WRAM before creating entities. Restoring it only afterwards
+        // leaves saved carts invisible until the next room parse, and gives
+        // reconstructed carts the wrong wStaticObjects slot.
+        runtimeState.RestoreState(_runtimeState);
         entities.RestoreDebugStateBeforeRoomParse(_entityManagerState);
+    }
 
     internal void RestoreLiveState(
         OracleSaveData saveData,

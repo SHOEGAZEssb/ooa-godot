@@ -953,6 +953,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom083Interactions);
         RunIsolatedValidation(ValidateFountainFairies);
         RunIsolatedValidation(ValidateDebugSavestates);
+        RunIsolatedValidation(ValidateDebugSavestateMinecarts);
         RunIsolatedValidation(ValidateInventoryFlagIsolation);
         RunIsolatedValidation(ValidateMovingSideScrollPlatforms);
         RunIsolatedValidation(ValidateWingDungeon);
