@@ -263,6 +263,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateBraceletGrabLiftRom, requiresRom: true);
         RunIsolatedValidation(ValidateBraceletCarryThrowRom, requiresRom: true);
         RunIsolatedValidation(ValidateBraceletGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFeatherJumpPhysicsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFeatherAirMovementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFeatherGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFeatherSideViewRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFeatherIceMomentumRom, requiresRom: true);
         RunIsolatedValidation(ValidateScrollTimingRom, requiresRom: true);
         RunIsolatedValidation(ValidateScrollHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateBreakableSourceMasksRom, requiresRom: true);

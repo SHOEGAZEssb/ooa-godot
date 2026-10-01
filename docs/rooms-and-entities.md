@@ -15,6 +15,11 @@ must not rewrite logical positions. Geometry-only queries are read-only;
 executed native movement publishes scratch values through the runtime state
 owner. Preserve movement-result flags separately from displacement.
 
+Grounded top-down movement and jumping share one planar velocity state. Ice
+changes its convergence cadence, and a jump inherits the existing momentum;
+current input alone cannot reconstruct takeoff velocity. Landing returns that
+state to terrain handling in the original update order.
+
 Room caches distinguish source layout variants. Resolve destination variants
 through `RoomSession` before preload, and reapply live persistent substitutions
 when loading cached data. Keep logical layout, underlying terrain, collision,

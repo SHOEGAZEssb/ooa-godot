@@ -9,8 +9,8 @@ public sealed partial class ValidationRoot
     private void ValidateTopDownAirSteering()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var angleField = typeof(Player).GetField("_topDownAirAngle", flags)!;
-        var speedField = typeof(Player).GetField("_topDownAirSpeedRaw", flags)!;
+        var angleField = typeof(Player).GetField("_topDownMovementAngle", flags)!;
+        var speedField = typeof(Player).GetField("_topDownMovementSpeedRaw", flags)!;
         int Angle() => (int)angleField.GetValue(_player)!;
         int Speed() => (int)speedField.GetValue(_player)!;
         _inventory.GiveTreasure(TreasureId.Feather, 1);

@@ -218,9 +218,12 @@ public partial class Player : Node2D
     private bool _sideScrollClimbing;
     private int _topDownAirZFixed;
     private int _topDownAirSpeedZ;
-    private int _topDownAirAngle = 0xff;
-    private int _topDownAirSpeedRaw;
-    private int _topDownAirTargetSpeedRaw;
+    private int _topDownMovementAngle = 0xff;
+    private int _topDownMovementSpeedRaw;
+    private int _topDownMovementTargetSpeedRaw;
+    private int _topDownMovementTerrainMode;
+    private int _topDownMovementVelocityCounter;
+    private int _topDownMovementVelocityInterval;
     private int _topDownAirAnimationPhase;
     private int _topDownAirAnimationCounter;
     private bool _topDownAirborne;
@@ -4049,8 +4052,11 @@ public partial class Player : Node2D
         // linkUpdateInAir's @startedJump branch normalizes wActiveTileType,
         // snapshots wLinkAngle and the current normal/Pegasus speed. Rising movement retains it;
         // the descending branch calls linkUpdateVelocity before movement.
-        _topDownAirAngle = AngleForVector(_lastMovementInput);
-        _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = NormalMovementSpeed;
+        if (!UsesTopDownIcePhysics)
+        {
+            _topDownMovementAngle = AngleForVector(_lastMovementInput);
+            SetTopDownTerrainSpeed(0, NormalMovementSpeed, writeSpeedDirectly: true);
+        }
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter =
             parameters.AnimationPhaseDurations[0];
@@ -4070,6 +4076,7 @@ public partial class Player : Node2D
         bool movementAllowed,
         Vector2 movementStart)
     {
+        int landingAngle = _topDownMovementAngle;
         _topDownAirUpdateAccumulator += delta * 60.0;
         while (_topDownAirUpdateAccumulator + 0.000001 >= 1.0 &&
             _topDownAirborne)
@@ -4082,6 +4089,26 @@ public partial class Player : Node2D
 
         if (!_topDownAirborne)
         {
+            // linkUpdateInAir applies landing terrain before state01 resumes
+            // ground movement. Water enters its state1 handler immediately;
+            // its locked entry angle is the airborne object's last angle.
+            if (TryAdvanceTopDownSwimming(input, landingAngle, movementStart,
+                    attackJustPressed: false, diveJustPressed: false))
+                return;
+            ActiveTerrainInfo landingTerrain = _world.GetActiveTerrain(Position);
+            if (landingTerrain.Terrain.Hazard == HazardType.Hole && !_world.RidingObject)
+            {
+                StartPullIntoHole(landingTerrain);
+                UpdatePullIntoHole();
+                // initLinkState at the end of @landed supersedes a state02
+                // request made by this first terrain application. The next
+                // ordinary terrain update may enter the falling state again.
+                _fallingInHole = false;
+                _fallInHoleInitializePending = false;
+                _pullingIntoHole = true;
+                _holePullPackedPosition = landingTerrain.PackedPosition;
+                _holePullCounter = TopDownAirDatabase.Shared.Parameters.HoleStandingCounter;
+            }
             // A landing calls animateLinkStanding inside linkUpdateInAir, then
             // resumes the ordinary movement path in the same update. Held
             // movement therefore performs the first WALK decrement immediately.
@@ -4122,6 +4149,8 @@ public partial class Player : Node2D
     {
         TopDownAirParameters parameters =
             TopDownAirDatabase.Shared.Parameters;
+        // @inAir clears both var12 and var13, including on an ice launch.
+        _topDownMovementVelocityCounter = _topDownMovementVelocityInterval = 0;
         if (_topDownJumpSoundPending)
         {
             _topDownJumpSoundPending = false;
@@ -4135,8 +4164,9 @@ public partial class Player : Node2D
         {
             _topDownAirborne = false;
             _topDownAirSpeedZ = 0;
-            _topDownAirAngle = 0xff;
-            _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = 0;
+            // @landed clears var36, retaining the object's velocity until
+            // the following ordinary terrain/movement handler updates it.
+            _topDownMovementTerrainMode = 0;
             _topDownAirAnimationPhase = 0;
             _topDownAirAnimationCounter = 0;
             _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
@@ -4184,14 +4214,15 @@ public partial class Player : Node2D
         if (_topDownAirSpeedZ >= 0)
         {
             int velocityCounter = 0;
-            UpdateConvergingVelocity(ref _topDownAirAngle, ref _topDownAirSpeedRaw,
-                _topDownAirTargetSpeedRaw, ref velocityCounter, 0, AngleForVector(input), inAir: true);
+            UpdateConvergingVelocity(ref _topDownMovementAngle, ref _topDownMovementSpeedRaw,
+                _topDownMovementTargetSpeedRaw, ref velocityCounter, _topDownMovementVelocityInterval,
+                AngleForVector(input), inAir: true);
         }
-        if (_topDownAirAngle >= 0x80 || _topDownAirSpeedRaw == 0)
+        if (_topDownMovementAngle >= 0x80 || _topDownMovementSpeedRaw == 0)
             return;
         ApplyTopDownObjectSpeed(
-            _topDownAirSpeedRaw,
-            _topDownAirAngle,
+            _topDownMovementSpeedRaw,
+            _topDownMovementAngle,
             allowWallSlide: true,
             allowLedgeHop: false);
     }
@@ -4601,8 +4632,10 @@ public partial class Player : Node2D
         _topDownAirUpdateAccumulator = 0.0;
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = 0;
-        _topDownAirAngle = 0xff;
-        _topDownAirSpeedRaw = _topDownAirTargetSpeedRaw = 0;
+        _topDownMovementAngle = 0xff;
+        _topDownMovementSpeedRaw = _topDownMovementTargetSpeedRaw = 0;
+        _topDownMovementTerrainMode = 0;
+        _topDownMovementVelocityCounter = _topDownMovementVelocityInterval = 0;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = 0;
         _topDownAirborne = false;
@@ -5845,18 +5878,57 @@ public partial class Player : Node2D
         bool movementAllowed)
     {
         int angle = AngleForVector(input);
+        if (UsesTopDownIcePhysics)
+        {
+            SetTopDownTerrainSpeed(0x88, NormalMovementSpeed, writeSpeedDirectly: false);
+            UpdateConvergingVelocity(ref _topDownMovementAngle, ref _topDownMovementSpeedRaw,
+                _topDownMovementTargetSpeedRaw, ref _topDownMovementVelocityCounter,
+                _topDownMovementVelocityInterval, movementAllowed ? angle : 0xff, inAir: false);
+            if (_topDownMovementAngle < 0x80 && _topDownMovementSpeedRaw != 0)
+                ApplyTopDownObjectSpeed(_topDownMovementSpeedRaw, _topDownMovementAngle, allowWallSlide: true);
+            if (movementAllowed && angle < 0x80 && !IsUsingItem)
+                UpdateFacing(input);
+            return movementAllowed && angle < 0x80;
+        }
+        _topDownMovementAngle = angle;
         if (!movementAllowed || angle >= 0x80)
+        {
+            _topDownMovementSpeedRaw = 0;
             return false;
+        }
 
         // parentItemLoadAnimationAndIncState disables Link's turning for the
         // sword's full lifetime, even after state 6 re-enables movement.
         if (!IsUsingItem)
             UpdateFacing(input);
 
+        SetTopDownTerrainSpeed(0, GetTopDownMovementSpeed(), writeSpeedDirectly: true);
         ApplyTopDownObjectSpeed(
-            GetTopDownMovementSpeed(), angle,
+            _topDownMovementSpeedRaw, angle,
             allowWallSlide: true);
         return true;
+    }
+
+    private bool UsesTopDownIcePhysics => !_topDownAirborne &&
+        !RingEffects.IgnoresIce(_inventory) &&
+        _world.GetActiveTerrain(Position).Terrain.Type == TerrainType.Ice;
+
+    private void SetTopDownTerrainSpeed(int terrainMode, int targetSpeed, bool writeSpeedDirectly)
+    {
+        // updateLinkSpeed_withParam: the slippery row's zero initial speed
+        // preserves the preceding object's speed rather than stopping it.
+        if (_topDownMovementTerrainMode != terrainMode)
+        {
+            _topDownMovementTerrainMode = terrainMode;
+            if (terrainMode == 0)
+                _topDownMovementSpeedRaw = NormalTopDownSpeed;
+            _topDownMovementVelocityCounter = 0;
+            _topDownMovementVelocityInterval = terrainMode == 0x88
+                ? TopDownAirDatabase.Shared.Parameters.IceVelocityInterval : 0;
+        }
+        _topDownMovementTargetSpeedRaw = targetSpeed;
+        if (writeSpeedDirectly)
+            _topDownMovementSpeedRaw = targetSpeed;
     }
 
     private void ApplyTopDownObjectSpeed(
@@ -5896,9 +5968,13 @@ public partial class Player : Node2D
     {
         if (_world.RidingObject)
             return NormalMovementSpeed;
-        TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
-        if (_world.Pegasus is { Active: true } pegasus &&
-            _world.GetActiveTerrain(Position).Terrain.Hazard != HazardType.Hole)
+        TerrainInfo activeTerrain = _world.GetActiveTerrain(Position).Terrain;
+        TerrainType terrain = activeTerrain.Type;
+        // updateLinkSpeed_withParam retains its grass-column index on holes
+        // and warp holes, and skips the Pegasus modifier there.
+        if (activeTerrain.Hazard == HazardType.Hole)
+            return GrassTopDownSpeed;
+        if (_world.Pegasus is { Active: true } pegasus)
             return terrain switch
             {
                 TerrainType.Grass or TerrainType.Puddle => pegasus.GrassSpeed,

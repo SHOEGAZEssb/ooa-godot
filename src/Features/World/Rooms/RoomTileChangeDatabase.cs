@@ -47,7 +47,8 @@ public sealed class RoomTileChangeDatabase
         OracleRoomData room,
         OracleSaveData save,
         OracleWorldData world,
-        long animationTick)
+        long animationTick,
+        OracleRuntimeState? runtimeState = null)
     {
         var writes = new Dictionary<int, byte>();
         if (_rules.TryGetValues(
@@ -55,7 +56,7 @@ public sealed class RoomTileChangeDatabase
         {
             foreach (Rule rule in rules)
             {
-                if (!Matches(rule.Conditions, group, room.Id, save))
+                if (!Matches(rule.Conditions, group, room.Id, save, runtimeState))
                     continue;
                 foreach (Operation operation in rule.Operations)
                     ApplyOperation(operation, group, room, save, world, writes);
@@ -69,7 +70,8 @@ public sealed class RoomTileChangeDatabase
         Condition[] conditions,
         int group,
         int room,
-        OracleSaveData save)
+        OracleSaveData save,
+        OracleRuntimeState? runtimeState)
     {
         foreach (Condition condition in conditions)
         {
@@ -89,6 +91,10 @@ public sealed class RoomTileChangeDatabase
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,
                 ConditionKind.WramMaskNotEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) != condition.C,
+                ConditionKind.RuntimeMaskEquals =>
+                    ((runtimeState ?? throw new InvalidOperationException(
+                        $"Room {group:x1}:{room:x2} tile change requires live WRAM ${condition.A:x4}."))
+                        .ReadWramByte(condition.A) & condition.B) == condition.C,
                 _ => false
             };
             if (!matches)
@@ -271,6 +277,9 @@ public sealed class RoomTileChangeDatabase
                 "wram_mask_ne" when fields.Length == 4 =>
                     new Condition(
                         ConditionKind.WramMaskNotEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
+                "runtime_mask_eq" when fields.Length == 4 =>
+                    new Condition(
+                        ConditionKind.RuntimeMaskEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
                 _ => throw new InvalidOperationException(
                     $"Malformed room tile-change condition '{tokens[index]}'.")
             };
@@ -385,7 +394,8 @@ internal enum ConditionKind
     EssenceSet,
     TreasureSet,
     WramMaskEquals,
-    WramMaskNotEquals
+    WramMaskNotEquals,
+    RuntimeMaskEquals
 }
 
 internal readonly record struct Condition(ConditionKind Kind, int A, int B, int C);

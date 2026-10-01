@@ -93,6 +93,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateGoronTrades()
     {
+        ValidateGoronWallLayout();
         // Before accepting any trade, the guards must preserve the solid staircase.
         foreach(var room in new[]{0xfd,0xff})
         {
@@ -125,22 +126,49 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         LoadValidationRoom(2,0xf7); StepGameplayUpdates(4,Vector2.Zero);
         var digger=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
+        FailIf(_currentRoom.GetMetatile(new Vector2(0x48,0x18))!=0xa7 ||
+            _currentRoom.GetMetatile(new Vector2(0x68,0x18))!=0xa7,
+            "Digging Goron 2:f7 exposed either chest before receiving bombs and seeds.");
         _inventory.GiveTreasure(TreasureId.SeedSatchel,1); _inventory.GiveTreasure(TreasureId.EmberSeeds,0x30); _inventory.GiveTreasure(TreasureId.Bombs,0x30);
         _inventory.ApplyFairyBombCapacityUpgrade(0x30);
         ApproachGoronFromFloor(digger); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(180);
         FailIf(!_saveData.HasRoomFlag(2,0xf7,0x40)||_inventory.Bombs!=0x10||_inventory.EmberSeeds!=0,
             $"Wall Goron did not take exactly 20 bombs and Ember seeds: {_inventory.Bombs:x2}/{_inventory.EmberSeeds:x2}.");
+        TalkGoronFromFloor(digger);
+        FailIf(_currentRoom.GetMetatile(new Vector2(0x48,0x18))!=0xa7,
+            "Paying or repeating the Goron's dialogue revealed the wall in the same visit.");
+        LoadValidationRoom(2,0xf7); StepGameplayUpdates(5,Vector2.Zero);
+        FailIf(_saveData.HasRoomFlag(2,0xf7,0x80)||_currentRoom.GetMetatile(new Vector2(0x68,0x18))!=0xa7,
+            "Paid Goron 2:f7 revealed its chests on re-entry before refill progress.");
         _entities.RuntimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,1);
         LoadValidationRoom(2,0xf7); StepGameplayUpdates(5,Vector2.Zero);
         digger=_roomEvents.Get<GoronCaveEvent>().Actors.Single();
         FailIf(!_saveData.HasRoomFlag(2,0xf7,0x80)||digger.Actor.Position!=new Vector2(0x58,0x38),
             "Seed-tree refill did not complete the wall Goron's room flag and position.");
+        FailIf(_currentRoom.GetMetatile(new Vector2(0x48,0x18))!=0xf1 ||
+            _currentRoom.GetMetatile(new Vector2(0x68,0x18))!=0xf1,
+            "Completed Goron 2:f7 did not reveal both source chests at $14/$16.");
         ApproachGoronFromFloor(digger); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         AdvanceGoronDialogue(160);
         FailIf(digger.Actor.Position!=new Vector2(0x68,0x28)||_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0)!=1,
             $"Choosing the left chest did not move the Goron up then right by 16 pixels each: {digger.Actor.Position}, signal {_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0):x2}.");
         TalkGoronFromFloor(digger);
+        // Approach the left chest from real floor after the Goron moves aside.
+        Vector2 chestApproach=new(0x48,0x28);
+        FailIf(_currentRoom.IsSolid(chestApproach),
+            "Goron 2:f7 left chest's southern approach must be real floor.");
+        _player.WarpTo(chestApproach);
+        StepGameplayUpdates(12,Vector2.Up,["move_up"],["move_up"]);
+        StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        AdvanceGoronDialogue(120);
+        FailIf(!_saveData.HasRoomFlag(2,0xf7,0x20),
+            $"Revealed Goron 2:f7 chest could not be opened from its southern floor approach: Link {_player.Position}, facing {_player.FacingVector}, dialogue {_dialogue.IsOpen}.");
+        _entities.RuntimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,0);
+        LoadValidationRoom(2,0xf7); StepGameplayUpdates(5,Vector2.Zero);
+        FailIf(_currentRoom.GetMetatile(new Vector2(0x48,0x18))!=0xf0 ||
+            _currentRoom.GetMetatile(new Vector2(0x68,0x18))!=0xf0,
+            "Collecting one Goron 2:f7 chest did not reopen both chests on re-entry.");
         _inventory.GiveTreasure(TreasureId.Essence,4);
         LoadValidationRoom(5,0xde); StepGameplayUpdates(4,Vector2.Zero);
         var elder=_roomEvents.Get<GoronCaveEvent>().Actors.Single(a=>a.Actor.Record.Id==0x8b);
@@ -149,5 +177,64 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(5,0xde); StepGameplayUpdates(4,Vector2.Zero);
         FailIf(_roomEvents.Get<GoronCaveEvent>().Actors.Any(a=>a.Actor.Record.Id==0x8b&&a.Actor.Active),
             "Wandering Goron Elder ignored finished-game deletion.");
+    }
+
+    private void ValidateGoronWallLayout()
+    {
+        // Independent literals from roomSpecificTileChanges.s:
+        // tileReplacement_group2Mapf7, including its ITEM-first branch and
+        // @wallInsertion. ROOMFLAG $80 alone does not suppress the wall.
+        byte[] wall = [0xb9,0xa7,0xa7,0xa7,0xb8,
+            0xb1,0xa7,0xa7,0xa7,0xb3, 0xb1,0xa7,0xa7,0xa7,0xb3,
+            0xb6,0xb0,0xb0,0xb0,0xb7];
+        foreach(int flags in new[]{0,0x40,0x80,0xc0,0x20,0x60,0xa0,0xe0})
+        foreach(int refill in new[]{0,1,2,3})
+        {
+            foreach(byte mask in new byte[]{0x20,0x40,0x80})
+                _saveData.SetRoomFlag(2,0xf7,mask,(flags&mask)!=0);
+            _runtimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,(byte)refill);
+            // Room preparation must resolve the layout before the Goron's
+            // first eligible update; it must not write his completion flag.
+            OracleRoomData room=_rooms.GetRoom(2,0xf7);
+            bool insert=(flags&0x20)==0&&(flags&0xc0)!=0xc0&&
+                ((flags&0x40)==0||(refill&1)==0);
+            for(int y=0;y<8;y++)
+            for(int x=0;x<10;x++)
+            {
+                int position=(y<<4)|x;
+                Vector2 point=new(x*16+8,y*16+8);
+                byte expected=insert&&y<4&&x is >=3 and <=7 ? wall[y*5+x-3] :
+                    (flags&0x20)!=0&&position is 0x14 or 0x16 ? (byte)0xf0 :
+                    room.GetOriginalMetatile(point);
+                FailIf(room.GetMetatile(point)!=expected,
+                    $"Goron 2:f7 flags ${flags:x2}/refill ${refill:x2}, tile ${position:x2}: expected ${expected:x2}, got ${room.GetMetatile(point):x2}.");
+            }
+            FailIf((_saveData.GetRoomFlags(2,0xf7)&0xe0)!=flags ||
+                _runtimeState.ReadWramByte(WramAddress.wSeedTreeRefilledBitset)!=refill,
+                "Preparing Goron 2:f7 mutated progress flags or the shared refill bit.");
+        }
+        foreach(bool batch in new[]{false,true})
+        foreach(bool paid in new[]{false,true})
+        {
+            ReinitializeGameplayForValidation();
+            if(paid) _saveData.SetRoomFlag(2,0xf7,0x40);
+            _runtimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,1);
+            LoadValidationRoom(2,0xf7);
+            FailIf(_currentRoom.GetMetatile(new Vector2(0x48,0x18))!=(paid?0xf1:0xa7),
+                "Goron 2:f7 prepared the wrong wall before the first interaction update.");
+            if(batch) StepGameplayUpdates(5,Vector2.Zero);
+            else for(int i=0;i<5;i++) StepGameplayUpdates(1,Vector2.Zero);
+            FailIf(_saveData.HasRoomFlag(2,0xf7,0x80)!=paid ||
+                (_runtimeState.ReadWramByte(WramAddress.wSeedTreeRefilledBitset)&1)!=(paid?1:0),
+                "Goron 2:f7 changed completion/refill initialization between split and batched gameplay updates.");
+            // Cancel by leaving, then revisit with the refill bit cleared.
+            LoadValidationRoom(2,0xf6);
+            _runtimeState.SetWramByte(WramAddress.wSeedTreeRefilledBitset,0);
+            LoadValidationRoom(2,0xf7);
+            StepGameplayUpdates(5,Vector2.Zero);
+            FailIf(_currentRoom.GetMetatile(new Vector2(0x68,0x18))!=(paid?0xf1:0xa7),
+                "Goron 2:f7 lost its completed wall layout after cancellation and revisit.");
+        }
+        ReinitializeGameplayForValidation();
     }
 }

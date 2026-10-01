@@ -10,6 +10,7 @@ internal sealed class LinkCollisionRom
 {
     internal const int Probe = 0x5e62;
     internal const int Move = 0x5d9f;
+    internal const int StandardSpeed = 0x5ce6; // updateLinkSpeed_standard
     internal const int Knockback = 0x5d5b;
     internal const int ActiveTile = 0x4406;
     internal const int ApplyTile = 0x42b7;

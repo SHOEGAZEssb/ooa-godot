@@ -398,10 +398,84 @@ Add-RoomTileChangeRule 'tileReplacement_group0Mape1' 'essence_set:0' 'set:26:dd'
 Add-RoomTileChangeRule 'tileReplacement_group0Mape1' 'essence_set:1' 'set:53:dd'
 Add-RoomTileChangeRule 'tileReplacement_group0Mape2' 'essence_set:2' 'set:54:dd'
 
-# Every flag/essence-backed routine must be imported above or explicitly
-# deferred here. Room 2:f7 also reads transient wSeedTreeRefilledBitset, which
-# has no owning gameplay system in the port yet.
-$deferredFlagTileChangeLabels = @('tileReplacement_group2Mapf7')
+# The Goron's wall is inserted before interaction $66:$07 initializes. Item
+# collection takes precedence over both progress flags and the session-local
+# seed-tree refill bit. Preserve the source's five-column, four-row insertion.
+$goronWallLabel = 'tileReplacement_group2Mapf7'
+$goronWallNodes = @(Read-AssemblyLabelNodes `
+    (Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s') $goronWallLabel |
+    Where-Object { $_.Kind -notin 'Blank', 'Comment' })
+$goronWallExpected = @'
+call getThisRoomFlags
+bit ROOMFLAG_BIT_ITEM,(hl)
+jr z,++
+ld a,TILEINDEX_CHEST_OPENED
+ld c,$14
+call setTile
+ld a,TILEINDEX_CHEST_OPENED
+ld c,$16
+jp setTile
+++
+ld a,(hl)
+and $c0
+cp $c0
+ret z
+bit 6,(hl)
+jr z,+
+ld a,(wSeedTreeRefilledBitset)
+bit 0,a
+ret nz
++
+ld hl,@wallInsertion
+ld bc,wRoomLayout + $03
+ld a,$04
+---
+ldh (<hFF8D),a
+ld a,$05
+--
+ldh (<hFF8C),a
+ldi a,(hl)
+ld (bc),a
+inc bc
+ldh a,(<hFF8C)
+dec a
+jr nz,--
+ld a,$0b
+call addAToBc
+ldh a,(<hFF8D)
+dec a
+jr nz,---
+ret
+@wallInsertion:
+'@ -split '\r?\n'
+if ($goronWallNodes.Count -ne $goronWallExpected.Count + 4) {
+    throw "roomSpecificTileChanges.s:$goronWallLabel instruction/data count changed."
+}
+for ($index = 0; $index -lt $goronWallExpected.Count; $index++) {
+    if (($goronWallNodes[$index].Code -replace '\s', '').TrimEnd(':') -cne
+        ($goronWallExpected[$index] -replace '\s', '').TrimEnd(':')) {
+        throw "roomSpecificTileChanges.s:${goronWallLabel}:$($goronWallNodes[$index].Line) " +
+            "expected '$($goronWallExpected[$index])', found '$($goronWallNodes[$index].Code)'."
+    }
+}
+$goronWallTiles = [Collections.Generic.List[string]]::new()
+foreach ($node in $goronWallNodes[$goronWallExpected.Count..($goronWallNodes.Count - 1)]) {
+    if ($node.Kind -ne 'Data' -or $node.Name -ine '.db' -or $node.Operands.Count -ne 5) {
+        throw "roomSpecificTileChanges.s:$goronWallLabel expected four five-byte wall rows."
+    }
+    foreach ($operand in $node.Operands) {
+        $goronWallTiles.Add(([byte](Convert-AssemblyInteger $operand)).ToString('x2'))
+    }
+}
+$goronWallOperation = 'draw:03:04:05:' + ($goronWallTiles -join ',')
+Add-RoomTileChangeRule $goronWallLabel 'current_room_set:20' 'set:14:f0,16:f0'
+Add-RoomTileChangeRule $goronWallLabel 'current_room_clear:20,current_room_clear:40' `
+    $goronWallOperation
+Add-RoomTileChangeRule $goronWallLabel `
+    'current_room_clear:20,current_room_set:40,current_room_clear:80,runtime_mask_eq:cc4d:01:00' `
+    $goronWallOperation
+
+# Every flag/essence-backed routine must be imported above.
 $flagTileChangeBlocks = [regex]::Matches(
     $roomTileChangeSource,
     '(?ms)^(?<label>tileReplacement_[A-Za-z0-9]+):(?<body>.*?)(?=^tileReplacement_|\z)')
@@ -413,13 +487,12 @@ foreach ($block in $flagTileChangeBlocks) {
     }
     $flagTileChangeCount++
     $label = $block.Groups['label'].Value
-    if (-not $supportedTileChangeLabels.Contains($label) -and
-        $deferredFlagTileChangeLabels -notcontains $label) {
-        throw "Flag-backed room tile-change routine $label was neither imported nor deferred."
+    if (-not $supportedTileChangeLabels.Contains($label)) {
+        throw "Flag-backed room tile-change routine $label was not imported."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 44) {
-    throw "Expected 34 flag-backed and 44 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 45) {
+    throw "Expected 34 flag-backed and 45 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'

@@ -19,6 +19,7 @@ internal sealed class TopDownAirDatabase
         MaximumFallSpeed: Constant("maximum-fall-speed"),
         JumpSpeedZ: Constant("jump-speed-z"),
         HoleStandingCounter: Constant("hole-standing-counter"),
+        IceVelocityInterval: Constant("ice-velocity-interval"),
         JumpSound: Constant("jump-sound"),
         LandSound: Constant("land-sound"),
         AnimationPhaseDurations:
@@ -46,12 +47,13 @@ internal sealed class TopDownAirDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         TopDownAirParameters parameters = Parameters;
-        if (_constants.Count != 14 ||
+        if (_constants.Count != 15 ||
             parameters.Gravity != 0x20 ||
             parameters.ReducedGravity != 0x0a ||
             parameters.MaximumFallSpeed != 0x0300 ||
             parameters.JumpSpeedZ != -0x01e0 ||
             parameters.HoleStandingCounter != 4 ||
+            parameters.IceVelocityInterval != 6 ||
             parameters.JumpSound != SoundId.SndJump ||
             parameters.LandSound != SoundId.SndLand ||
             parameters.CompanionJumpSpeedRaw != 0x14 ||
@@ -79,6 +81,7 @@ internal readonly record struct TopDownAirParameters(
     int MaximumFallSpeed,
     int JumpSpeedZ,
     int HoleStandingCounter,
+    int IceVelocityInterval,
     int JumpSound,
     int LandSound,
     int[] AnimationPhaseDurations,

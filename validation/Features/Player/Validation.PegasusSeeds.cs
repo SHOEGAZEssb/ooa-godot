@@ -75,10 +75,10 @@ public sealed partial class ValidationRoot
             Step(960 / decrement - 5);
             _inventory.EquipA(TreasureId.Feather);
             Step(movement: Vector2.Right, attack: true);
-            FailIf(!_player.TopDownAirborne || (int)typeof(Player).GetField("_topDownAirSpeedRaw", flags)!.GetValue(_player)! != 0x3c,
+            FailIf(!_player.TopDownAirborne || (int)typeof(Player).GetField("_topDownMovementSpeedRaw", flags)!.GetValue(_player)! != 0x3c,
                 "A live Pegasus Feather jump must snapshot SPEED_180 at takeoff.");
             Step(14, Vector2.Right);
-            FailIf(pegasus.Active || (int)typeof(Player).GetField("_topDownAirSpeedRaw", flags)!.GetValue(_player)! != 0x3c,
+            FailIf(pegasus.Active || (int)typeof(Player).GetField("_topDownMovementSpeedRaw", flags)!.GetValue(_player)! != 0x3c,
                 "Expired Pegasus must retain the takeoff target during descending steering.");
             Step(20);
             FailIf(_player.TopDownAirborne || _player.IsFallingInHole || _player.IsDying,

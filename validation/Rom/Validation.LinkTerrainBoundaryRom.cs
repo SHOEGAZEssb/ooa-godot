@@ -55,7 +55,10 @@ public sealed partial class ValidationRoot
                 if (rom[0xcc5d] == 0)
                 {
                     rom.Call(LinkCollisionRom.Probe);
-                    rom.Call(LinkCollisionRom.Move, 0x28, angle);
+                    // Select speed natively: holes use the grass column and
+                    // suppress Pegasus, rather than an assumed SPEED_100.
+                    rom.Call(LinkCollisionRom.StandardSpeed);
+                    rom.Call(LinkCollisionRom.Move, rom[0xd010], angle);
                 }
                 Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                 FailIf(_player.PrecisePosition != expected,
@@ -73,7 +76,10 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(3, Vector2.Down, batched: batched, afterUpdate: CompareEntry);
                 angle = 0;
-                StepGameplayUpdates(8, Vector2.Up, batched: batched, afterUpdate: CompareEntry);
+                // Hole movement uses SPEED_0c0 while the pull adds one
+                // vertical pixel every four updates. Ten updates escape
+                // this approach, including the first floor terrain update.
+                StepGameplayUpdates(10, Vector2.Up, batched: batched, afterUpdate: CompareEntry);
                 FailIf(rom[0xcc9c] != 0, "Hole escape fixture did not return to ordinary floor.");
                 angle = 16;
                 StepGameplayUpdates(5, Vector2.Down, batched: batched, afterUpdate: CompareEntry);

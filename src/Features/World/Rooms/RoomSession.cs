@@ -169,7 +169,7 @@ public sealed class RoomSession
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
         _toggleTiles.Apply(group, World.GetDungeonIndex(group, room), _toggleState(), loaded, _animationTick());
-        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick());
+        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick(), _runtimeState);
         _gashaSpots.ApplyRoomState(
             group, loaded, _saveData, _animationTick());
         return loaded;

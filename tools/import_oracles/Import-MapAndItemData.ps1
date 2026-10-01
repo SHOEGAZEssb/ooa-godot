@@ -2643,6 +2643,7 @@ $topDownAirRows = @(
     "maximum-fall-speed`t$topDownMaximumSpeed`tlink.s:linkUpdateInAir",
     "jump-speed-z`t$topDownJumpSpeed`tfeatherParent.s:parentItemCode_feather",
     "hole-standing-counter`t$([Convert]::ToInt32($Matches['holeCounter'], 16))`tlink.s:linkUpdateInAir",
+    "ice-velocity-interval`t$sideIceInterval`tlink.s:updateLinkSpeed_withParam@speedTable",
     "jump-sound`t$(Resolve-SideScrollSound 'SND_JUMP')`tlink.s:linkUpdateInAir",
     "land-sound`t$(Resolve-SideScrollSound 'SND_LAND')`tlink.s:linkUpdateInAir",
     "animation-phase-0`t$([Convert]::ToInt32($sideJumpAnimationMatch.Groups['d0'].Value, 16))`tspecialObjectAnimationData.s:animationData19f78",
@@ -2653,7 +2654,7 @@ $topDownAirRows = @(
     "companion-dismount-z`t$companionDismountZ`tcommonCode.s:companionDismount",
     "companion-dismount-angle`t$companionDismountAngle`tcommonCode.s:companionDismount"
 )
-if ($topDownAirRows.Count -ne 15 -or
+if ($topDownAirRows.Count -ne 16 -or
     $topDownJumpSpeed -ne -0x1e0 -or
     $topDownGravity -ne 0x20 -or
     $topDownReducedGravity -ne 0x0a -or
