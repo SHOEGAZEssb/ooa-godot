@@ -1003,6 +1003,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
+    if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) { return 'specialized-native' }
     return 'deliberately-unsupported'
 }
 
@@ -1030,6 +1031,10 @@ function New-NpcDataRow(
     [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
+    if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) {
+        $textIdOverride = 0
+        $canFaceOverride = 0
+    }
     if ($id -eq 0xe3) {
         if ($subid -ge 10) { throw "Unsupported knowItAllBird subid `$$($subid.ToString('x2'))." }
         $textIdOverride = 0x3200 + $subid
@@ -2755,6 +2760,24 @@ if ($treasureObjectVisualRows.Count -ne 85 -or
     $smallKeyVisual.DefaultAnimation -ne 0) {
     throw "Expected 84 vanilla INTERAC_TREASURE visuals including the small-key graphic `$42."
 }
+# miscellaneous1.s: the two Goron bomb statues initialize graphics once,
+# replace only the logical layout byte with $00, make the tile solid ($0f),
+# then push Link and update priority without advancing animation.
+$goronBombStatueSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\miscellaneous1.s')
+if ($goronBombStatueSource -notmatch
+    '(?ms)^interaction6b_subid13:\s+interaction6b_subid14:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call interaction6b_initGraphicsAndIncState\s+;[^\r\n]*\s+call objectGetShortPosition\s+ld c,a\s+ld b,>wRoomLayout\s+ld a,\$00\s+ld \(bc\),a\s+ld b,>wRoomCollisions\s+ld a,\$0f\s+ld \(bc\),a\s+@state1:\s+jp interactionPushLinkAwayAndUpdateDrawPriority') {
+    throw 'miscellaneous1.s:$6b:$13/$14 Goron bomb statue native contract changed.'
+}
+foreach ($subid in @(0x13, 0x14)) {
+    $graphic = $interactionGraphics["107`:$subid"]
+    if ($null -eq $graphic -or $graphic.Gfx -ne 0x4c -or
+        $graphic.TileBase -ne 0x1c -or $graphic.Palette -ne 4 -or
+        $graphic.DefaultAnimation -ne $subid - 0x0b -or
+        [string]::IsNullOrWhiteSpace((Resolve-NpcAnimation 0x6b $graphic.DefaultAnimation))) {
+        throw "Could not resolve Goron bomb statue `$6b:`$$($subid.ToString('x2')) graphics."
+    }
+}
 $npcRoomAliases = [Collections.Generic.List[object]]::new()
 $npcRoomBlockStarted = $false
 foreach ($line in $mainObjectLines) {
@@ -2766,8 +2789,9 @@ foreach ($line in $mainObjectLines) {
     if ($line -match '^\s*obj_') { $npcRoomBlockStarted = $true }
     if ($npcRoomAliases.Count -eq 0 -or $line -notmatch 'obj_Interaction\s+\$(?<id>[0-9a-f]{2})\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})(?:\s+\$(?<var03>[0-9a-f]{2}))?') { continue }
     $id = [Convert]::ToInt32($Matches['id'], 16)
-    if (-not $npcInteractionIds.Contains($id)) { continue }
     $subid = [Convert]::ToInt32($Matches['subid'], 16)
+    if (-not $npcInteractionIds.Contains($id) -and
+        -not ($id -eq 0x6b -and $subid -in @(0x13, 0x14))) { continue }
     # INTERAC_SHOOTING_GALLERY subids 0-2 are the human, goron, and elder
     # attendants; subid 3 is the invisible minigame controller.
     if ($id -eq 0x30 -and $subid -eq 0x03) { continue }
@@ -2783,8 +2807,8 @@ foreach ($line in $mainObjectLines) {
         if ($row) { $npcRows.Add($row) }
     }
 }
-if ($npcRows.Count -ne 378) {
-    throw "Expected 377 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 380) {
+    throw "Expected 379 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $room1adTokayRows = @($npcRows | Where-Object {
     $_ -match '^1\tad\t48\t15\t'
@@ -4868,8 +4892,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 387) {
-    throw "Expected 377 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 389) {
+    throw "Expected 379 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -4878,7 +4902,7 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 56 -or
-    $npcImplementationCounts['specialized-native'] -ne 106 -or
+    $npcImplementationCounts['specialized-native'] -ne 108 -or
     $npcImplementationCounts['event-owned'] -ne 102 -or
     $npcImplementationCounts['deliberately-unsupported'] -ne 122 -or
     $npcImplementationCounts.Count -ne 4) {

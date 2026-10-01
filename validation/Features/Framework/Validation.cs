@@ -510,6 +510,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNpcInitializationVisibility);
         RunIsolatedValidation(ValidateGoronVillagers);
         RunIsolatedValidation(ValidateGoronTrades);
+        RunIsolatedValidation(ValidateGoronBombStatues);
         RunIsolatedValidation(ValidateGoronDance);
         RunIsolatedValidation(ValidateGoronGallery);
         RunIsolatedValidation(ValidateGoronBigBang);

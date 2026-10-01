@@ -52,20 +52,20 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 215 | Traced and covered by named NPC/event scenarios. |
+| **I** | 217 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 122 | Original native/script ownership is not implemented, so no actor is instantiated. |
-| **Total** | **386** | **214 rooms and 298 unique ID/subid keys.** |
+| **Total** | **388** | **215 rooms and 300 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 56 | 0 | 56 |
-| Specialized native interaction | 106 | 72 | 178 |
+| Specialized native interaction | 108 | 72 | 180 |
 | Event-owned actor | 102 | 0 | 102 |
 | Deliberately unsupported | 122 | 0 | 122 |
-| **Total** | **386** | **72** | **458** |
+| **Total** | **388** | **72** | **460** |
 
 ## Bipin and Blossom family variants
 
@@ -218,6 +218,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:2e` | [I] `$66:$0e/v$04` goron |
 | `3:3e` | [I] `$66:$0b/v$00` goron |
 | `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
+| `3:4e` | [I] `$6b:$13/v$00` miscellaneous1<br>[I] `$6b:$14/v$00` miscellaneous1 |
 | `3:5e` | [D] `$4e:$03/v$00` subrosian |
 | `3:5f` | [I] `$66:$0e/v$06` goron |
 | `3:6e` | [I] `$bf:$06/v$00` symmetryNpc |

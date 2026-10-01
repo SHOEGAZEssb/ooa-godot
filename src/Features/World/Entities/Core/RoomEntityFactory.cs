@@ -2812,6 +2812,10 @@ internal sealed class RoomEntityFactory
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
 
+        if (record is { Id: InteractionId.Miscellaneous1, SubId: 0x13 or 0x14 })
+            return new GoronBombStatueRoomEntity(
+                NpcCharacter.CreateFromRecord(record), room, _animationTick);
+
         if (record.Id == InteractionId.KnowItAllBird)
         {
             var bird = new KnowItAllBirdCharacter { Name = $"Npc_e3_{record.SubId:x2}" };

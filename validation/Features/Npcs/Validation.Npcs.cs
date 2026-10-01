@@ -542,7 +542,7 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 56,
-                [NpcImplementationClassification.SpecializedNative] = 178,
+                [NpcImplementationClassification.SpecializedNative] = 180,
                 [NpcImplementationClassification.EventOwned] = 102,
                 [NpcImplementationClassification.DeliberatelyUnsupported] = 122
             };
@@ -551,13 +551,13 @@ public sealed partial class ValidationRoot
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 458 ||
+            records.Count != 460 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "56 ordinary, 178 specialized, 102 event-owned, and 122 " +
+            "56 ordinary, 180 specialized, 102 event-owned, and 122 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -625,7 +625,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 458 generated NPC records have exactly one " +
+            "Validated all 460 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
