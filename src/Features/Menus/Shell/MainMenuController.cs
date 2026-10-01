@@ -124,7 +124,8 @@ public sealed class MainMenuController
                     _screen.ShowNewFileOptions(_screen.SelectedSlot);
                     break;
                 case FileMenuInitialization.NameEntry:
-                    _repeatKeys = _repeatCounter = 0;
+                    // bank2.s:label_02_038 clears menu state, leaving bank0.s's
+                    // shared autofire keys/counter intact across file names.
                     _screen.ShowNameEntry(_screen.SelectedSlot);
                     break;
                 case FileMenuInitialization.NameCommit:

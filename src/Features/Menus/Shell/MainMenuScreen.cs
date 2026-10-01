@@ -70,6 +70,7 @@ public partial class MainMenuScreen : Node2D
     public int TextSpeed { get; private set; }
     internal bool TextSpeedCursorVisible { get; private set; }
     public int NameCursor { get; private set; }
+    internal int NameEntryPosition => _nameEntryPosition;
     internal string RawEnteredName => new(_enteredName);
     public string EnteredName => RawEnteredName.Replace('\0', ' ').TrimEnd(' ');
     public bool SaveErrorVisible { get; private set; }
