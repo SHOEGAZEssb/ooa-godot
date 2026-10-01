@@ -478,6 +478,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTokayBusinessScrubs);
         RunIsolatedValidation(ValidateTokayPresentationAndSocket);
         RunIsolatedValidation(ValidateTokaySecret);
+        RunIsolatedValidation(ValidateRoom35eSubrosian);
         RunIsolatedValidation(ValidateRoom3f8Npcs);
         RunIsolatedValidation(ValidatePlenSecret);
         RunIsolatedValidation(ValidateTokayDimitriScrollEntry);

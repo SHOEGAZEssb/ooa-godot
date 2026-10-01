@@ -190,6 +190,19 @@ foreach ($linkedSecretNpc in @(
     $npcTextBySubid["$([int]0x3d):$subid"] = $textId
 }
 
+# subrosian_subid03 sets var3f=$02 before installing the shared secret script.
+# Entry $02 in linkedNpc_checkShouldSpawn is @always: linked files only,
+# without an essence prerequisite.
+$subrosianSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\subrosian.s')
+if ($subrosianSource -notmatch '(?ms)^subrosian_subid03:.*?call checkInteractionState.*?jr nz,subrosian_subid04@state1.*?call subrosian_initGraphicsAndIncState\s+ld a,\$02\s+jr subrosian_subid04@initSecretTellingNpc' -or
+    $subrosianSource -notmatch '(?ms)^@initSecretTellingNpc:\s+ld e,Interaction\.var3f\s+ld \(de\),a\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+@state1:\s+call interactionRunScript\s+jp c,interactionDeleteAndUnmarkSolidPosition\s+jp npcFaceLinkAndAnimate' -or
+    $subrosianSource -notmatch '(?ms)^subrosian_initGraphicsAndIncState:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+jp interactionIncState' -or
+    $linkedNpcScriptHelperSource -notmatch '(?ms)^linkedNpc_checkShouldSpawn:\s+call checkIsLinkedGame\s+jr nz,\+\+\s+jp writeFlagsTocddb.*?rst_jumpTable\s+\.dw @checkd4\s+\.dw @checkd1\s+\.dw @always') {
+    throw 'Room 3:5e INTERAC_SUBROSIAN $4e:$03 linked-secret initialization or spawn gate changed.'
+}
+$npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
+
 # Parse the interaction graphics table, including pointer-backed subid data.
 $interactionDataPath = Join-Path $Disassembly "data\ages\interactionData.s"
 $interactionGraphics = @{}
@@ -1002,6 +1015,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0xcc -and $subid -eq 0) { return 'event-owned' }
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
+    if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
     if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) { return 'specialized-native' }
     return 'deliberately-unsupported'
@@ -4901,10 +4915,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 56 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 57 -or
     $npcImplementationCounts['specialized-native'] -ne 108 -or
     $npcImplementationCounts['event-owned'] -ne 102 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 122 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 121 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5241,6 +5255,11 @@ foreach ($linkedNpc in @(
         Group = 0x02; Room = 0xf6; Id = 0x66; SubId = 0x0f
         SecretIndex = 0x08; BeganFlag = 'GLOBALFLAG_BEGAN_BIGGORON_SECRET'
         Source = 'goron.s:goronSubid0f;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x03; Room = 0x5e; Id = 0x4e; SubId = 0x03
+        SecretIndex = 0x02; BeganFlag = 'GLOBALFLAG_BEGAN_SUBROSIAN_SECRET'
+        Source = 'subrosian.s:subrosian_subid03;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     },
     @{
         Group = 0x03; Room = 0xf8; Id = 0x3d; SubId = 0x05
@@ -6148,6 +6167,7 @@ Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '
 # Room 0:5d's Ghini is secret index `$01: linked files only, after D1.
 Add-NpcLinkedVisibility 0xcb 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0x66 0x0f -1 0 $true 'goron.s:goronSubid0f;scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcLinkedVisibility 0x4e 0x03 -1 0 $true 'subrosian.s:subrosian_subid03;scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
 # Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
@@ -6332,8 +6352,8 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 353) {
-    throw "Expected 352 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 354) {
+    throw "Expected 353 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

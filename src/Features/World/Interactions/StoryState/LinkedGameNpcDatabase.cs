@@ -97,7 +97,16 @@ public sealed class LinkedGameNpcDatabase
             }
         }
 
-        if (_records.Count != 4 ||
+        if (_records.Count != 5 ||
+            Get(3, 0x5e, InteractionId.Subrosian, 0x03) is not
+                {
+                    SecretIndex: 0x02,
+                    ShortSecretIndex: 0x22,
+                    BeganFlag: 0x52,
+                    OfferTextId: 0x4d0a,
+                    FinalTextId: 0x4d0e,
+                    HasExtraText: true
+                } ||
             Get(3, 0xf8, InteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
                 BeganFlag: 0x59, OfferTextId: 0x4d2d, FinalTextId: 0x4d31, HasExtraText: true } ||
             Get(0, 0x5d, InteractionId.LinkedGameGhini, 0x00) is not
