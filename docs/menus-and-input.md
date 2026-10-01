@@ -108,8 +108,8 @@ text on that update; they resume on the next. Explicit cancellation through
 Standard dialogue preserves preparation updates after opening, clearing at a
 stop command, and scrolling. One A/B continuation advances two new lines; the
 second scroll is automatic. Revealing a line cannot also advance or close the
-message with the same press. Directional input can exit final text, but cannot
-advance continuation text.
+message with the same press. Any button can exit final standard text;
+continuation text requires A/B and option prompts retain their own controls.
 
 ## Frontend ownership
 
@@ -137,6 +137,9 @@ sprite cells are also prepared and retained here; selecting a new file reveals
 that screen and binds its name and text speed without rebuilding it. The original
 360-update lead-in before the quest dialogue is unchanged. File-specific gameplay
 preparation remains at file launch.
+Pregame motion and flicker use the live playtime counter's byte phase after
+the source initialization pass clears the frame counter. Sprite animation
+retains its own counters; neither clock resets when the quest text opens.
 
 Startup reads packaged data and tokenizes TSVs on a cancellable worker. It then
 warms source graphics incrementally on the main thread; scene-tree changes and

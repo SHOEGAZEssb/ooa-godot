@@ -19,10 +19,20 @@ public partial class NewGameIntroScreen : Node2D
     private IntroSpriteFrame[] _orbDescend = null!;
     private IntroSpriteFrame[] _orbVanish = null!;
     private int _clock;
-    private int _motionClock;
+    private int _linkZ;
+    private int _spinClock;
+    private int _orbClock;
     private int _stageFrame;
     private bool _vanishing;
     private bool _linkVisible = true;
+    internal bool LinkVisible => _linkVisible;
+    internal int LinkZ => _linkZ;
+    internal IntroSpriteFrame LinkFrame => _vanishing
+        ? AnimationFrame(_linkVanish, _stageFrame, -1)
+        : AnimationFrame(_linkSpin, _spinClock, 0);
+    internal IntroSpriteFrame OrbFrame => _vanishing
+        ? AnimationFrame(_orbVanish, _stageFrame, 2)
+        : AnimationFrame(_orbDescend, _orbClock, 0);
     internal bool OrbVisible => _vanishing
         ? _stageFrame < _record.VanishDurations[0] + _record.VanishDurations[1] +
             _record.VanishDurations[2] + 1 && (_stageFrame == 0 || (_clock & 1) == 0)
@@ -76,13 +86,17 @@ public partial class NewGameIntroScreen : Node2D
 
     internal void SetAnimation(
         int clock,
-        int motionClock,
+        int linkZ,
+        int spinClock,
+        int orbClock,
         int stageFrame,
         bool vanishing,
         bool linkVisible)
     {
         _clock = clock;
-        _motionClock = motionClock;
+        _linkZ = linkZ;
+        _spinClock = spinClock;
+        _orbClock = orbClock;
         _stageFrame = stageFrame;
         _vanishing = vanishing;
         _linkVisible = linkVisible;
@@ -94,20 +108,13 @@ public partial class NewGameIntroScreen : Node2D
         if (!ResourcesPrepared) return;
         DrawRect(new Rect2(0, 0, 160, 144), Colors.Black);
 
-        int z = LinkZForValidation(
-            _motionClock,
-            _record.InitialWaitFrames + _record.VoiceWaitFrames,
-            _record.DescendOscillation,
-            _record.HoverOscillation);
+        int z = LinkZ;
         int objectY = (_record.LinkY + 0x10 + z) & 0xff;
         int objectX = _record.LinkX & 0xff;
 
         if (_linkVisible)
         {
-            IntroSpriteFrame frame = _vanishing
-                ? AnimationFrame(_linkVanish, _stageFrame, -1)
-                : AnimationFrame(_linkSpin, _clock, 0);
-            _renderer.DrawScreenFrame(this, frame, objectY, objectX);
+            _renderer.DrawScreenFrame(this, LinkFrame, objectY, objectX);
         }
 
         // Priority $80 puts both INTERAC_SPARKLE subids over Link's priority
@@ -119,10 +126,10 @@ public partial class NewGameIntroScreen : Node2D
         {
             if (_vanishing)
                 _renderer.DrawScreenFrame(
-                    this, AnimationFrame(_orbVanish, _stageFrame, 2), objectY, objectX);
+                    this, OrbFrame, objectY, objectX);
             else if (_linkVisible)
                 _renderer.DrawScreenFrame(
-                    this, AnimationFrame(_orbDescend, _clock, 0), objectY, objectX);
+                    this, OrbFrame, objectY, objectX);
         }
     }
 

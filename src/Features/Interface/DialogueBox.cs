@@ -524,8 +524,12 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
         if (_passive || !pageWasComplete)
             return;
+        // Standard text's final @checkShouldExit accepts any pressed key.
+        // Continuations and option prompts retain their narrower controls.
+        bool finalMenuPress = !HasContinuation && !_choiceActive &&
+            (Input.IsActionJustPressed("inventory") || Input.IsActionJustPressed("map"));
         if (Input.TimingFrame == _openedFrame ||
-            (!Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
+            (!finalMenuPress && !Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
              !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&
              !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))
             return;

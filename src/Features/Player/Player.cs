@@ -1084,7 +1084,10 @@ public partial class Player : Node2D
             ref _newGameFallSpeedZ,
             NewGameSlowFallGravity))
         {
+            // Ages warpTransitionB@warpVar1 animates Link standing and
+            // requests SND_SPLASH as soon as the slow fall reaches zero.
             EndNewGameSlowFall();
+            _world.PlaySound(SoundId.SndSplash);
             return true;
         }
 

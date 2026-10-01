@@ -258,7 +258,8 @@ public partial class GameRoot : Node2D
                 _newGameIntroScreen,
                 () => CompleteNewGameIntro(save),
                 _sound,
-                initializing: true);
+                initializing: true,
+                frameCounter: () => save.ReadWramByte(WramAddress.wPlaytimeCounter));
             // Health restoration has already run; dormant scene construction
             // may now prepare the initialized live file without advancing it.
             if (save.ReadWramByte(WramAddress.wLinkHealth) is > 0 and < 0x80)

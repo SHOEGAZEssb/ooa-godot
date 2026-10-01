@@ -13,11 +13,14 @@ public sealed class NewGameIntroController
     private readonly NewGameIntroRecord _record;
     private readonly Action _complete;
     private readonly OracleSoundEngine _sound;
+    private readonly Func<int>? _frameCounter;
     private readonly RoomEventTimeline _timeline = new();
     private double _tickAccumulator;
     private int _stageFrame;
     private int _clock;
-    private int _motionClock;
+    private int _linkZ;
+    private int _spinClock;
+    private int _orbClock;
 
     internal Stage CurrentStage { get; private set; } = Stage.WaitingForVoice;
     internal int StageFrame => _stageFrame;
@@ -33,12 +36,14 @@ public sealed class NewGameIntroController
         NewGameIntroScreen screen,
         Action complete,
         OracleSoundEngine sound,
-        bool initializing = false)
+        bool initializing = false,
+        Func<int>? frameCounter = null)
     {
         _screen = screen;
         _record = screen.Record;
         _complete = complete;
         _sound = sound;
+        _frameCounter = frameCounter;
         _screen.Dialogue.SetSoundPlayer(_sound.PlaySound);
         // Pregame state $0a starts this cue as it creates Link's blue-orb
         // descent presentation.
@@ -49,6 +54,11 @@ public sealed class NewGameIntroController
             // linkCutsceneB falls through state 0 into substate 0 once before
             // the sparkle's loadObjectGfx suspends the main thread.
             _timeline.AdvanceFrame();
+            // initializeGame clears wFrameCounter before linkCutsceneB's
+            // state-0 fallthrough. Its first oscillator/animation call runs
+            // at $00 even when the saved playtime has a different phase.
+            AdvanceMotion();
+            _spinClock = 1;
             GraphicsLoadPending = true;
         }
         UpdateScreen();
@@ -82,13 +92,27 @@ public sealed class NewGameIntroController
             _complete();
             return;
         }
-        _clock++;
+        _clock = _frameCounter?.Invoke() ?? _clock + 1;
         if (CurrentStage is Stage.WaitingForVoice or Stage.Dialogue)
-            _motionClock++;
+        {
+            AdvanceMotion();
+            _spinClock++;
+            _orbClock++;
+        }
         _timeline.AdvanceFrame();
         if (CurrentStage == Stage.Complete)
             return;
         UpdateScreen();
+    }
+
+    private void AdvanceMotion()
+    {
+        // linkCutscene_oscillateZ uses wFrameCounter's byte phase, selecting
+        // the descent table until text opens and the hover table afterward.
+        if ((_clock & 7) != 0) return;
+        int[] deltas = CurrentStage == Stage.WaitingForVoice
+            ? _record.DescendOscillation : _record.HoverOscillation;
+        _linkZ = (_linkZ + deltas[(_clock & 0x38) >> 3]) & 0xff;
     }
 
     private void BuildTimeline()
@@ -155,7 +179,7 @@ public sealed class NewGameIntroController
             visible = false;
         }
         _screen.SetAnimation(
-            _clock, _motionClock, _stageFrame, vanishing, visible);
+            _clock, _linkZ, _spinClock, _orbClock, _stageFrame, vanishing, visible);
     }
 }
 

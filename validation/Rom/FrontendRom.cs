@@ -21,6 +21,7 @@ internal sealed class FrontendRom
     internal List<int> Sounds { get; } = [];
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal int Word(int address) => this[address] | this[address + 1] << 8;
+    internal byte BankByte(int bank, int address) => _wram[bank][address - 0xd000];
     internal byte NameByte(int offset) => _wram[4][0x7a0 + offset];
     internal byte DisplayHearts(int slot) => _wram[4][0x780 + slot * 8 + 2];
     internal byte SavedByte(int slot, int address, bool backup = false) =>
@@ -67,7 +68,7 @@ internal sealed class FrontendRom
         AdvancePalette();
     }
 
-    private void AdvancePalette()
+    internal void AdvancePalette()
     {
         if (this[0xc4ad] > 1)
             throw new InvalidDataException($"Frontend palette thread has unsupported update rate ${this[0xc4ad]:x2} at $c4ad.");
@@ -76,7 +77,7 @@ internal sealed class FrontendRom
         this[0xff70] = 0;
     }
 
-    private void Call(int entry, int bank)
+    internal void Call(int entry, int bank)
     {
         _bank = bank;
         this[0xff97] = (byte)bank;
