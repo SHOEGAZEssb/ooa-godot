@@ -188,6 +188,64 @@ foreach ($spec in @(@(0,'@rectToDraw',0x0c,4,6), @(1,'@tiles0',0x6c,1,6), @(2,'@
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/crown_dungeon_frames.tsv'), $crownFrameRows)
 
+# Both Mermaid's Cave entrances use the same $90:$12 controller. Resolve its
+# explicit jump into the shared key-door tail, retaining Ages' yielding jump.
+if ($crownNativeSource -notmatch '(?ms)^miscPuzzles_subid12:\s+call checkInteractionState\s+jp nz,interactionRunScript\s+call getThisRoomFlags\s+and ROOMFLAG_80\s+jp nz,interactionDelete\s+ld hl,mainScripts\.miscPuzzles_mermaidsCaveDungeonOpeningScript\s+jr miscPuzzles_setScriptAndIncState') {
+    throw 'miscPuzzles.s:$90:$12 Mermaid''s Cave initialization contract changed.'
+}
+$mermaidOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('checkcfc0bit','setmusic','wait','playsound','settilehere','scriptjump','resetmusic','enableinput','scriptend')) {
+    [void]$mermaidOpcodes.Add($opcode)
+}
+$mermaidCommands = @(
+    Read-AssemblyCutsceneCommands $graveyardScriptPath 'miscPuzzles_mermaidsCaveDungeonOpeningScript' $mermaidOpcodes
+    Read-AssemblyCutsceneCommands $graveyardScriptPath 'miscPuzzles_justOpenedKeyDoor' $mermaidOpcodes
+)
+$mermaidExpected = @(
+    @('checkcfc0bit','0'), @('setmusic','SNDCTRL_STOPMUSIC'), @('wait','60'),
+    @('playsound','SND_DOORCLOSE'), @('settilehere','TILEINDEX_INDOOR_DOOR'),
+    @('scriptjump','miscPuzzles_justOpenedKeyDoor'), @('wait','45'), @('resetmusic',''),
+    @('playsound','SND_SOLVEPUZZLE'), @('enableinput',''), @('scriptend',''))
+$mermaidSpecs = @(
+    @('nativeyield','','KeyholeSignal'), @('setmusic','f0',''), @('wait','60',''), @('playsound','70',''),
+    @('native','','OpenDoor'), @('scriptjumpyield','6',''), @('wait','45',''),
+    @('setmusic','ff',''), @('playsound','4d',''), @('enableinput','',''), @('scriptend','',''))
+if ($mermaidCommands.Count -ne $mermaidExpected.Count) { throw 'Mermaid cave opening command count changed.' }
+$mermaidRows = [Collections.Generic.List[string]]::new()
+$mermaidRows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($i = 0; $i -lt $mermaidCommands.Count; $i++) {
+    $command = $mermaidCommands[$i]
+    if ($command.Opcode -ne $mermaidExpected[$i][0] -or ([string]$command.Operands).Trim() -ne $mermaidExpected[$i][1]) {
+        throw "miscPuzzles_mermaidsCaveDungeonOpeningScript command $i changed."
+    }
+    # nextToOverworldKeyhole supplies the signal through the room-event
+    # trigger, but scriptCmd_checkCFC0Bit still yields on its successful read.
+    $spec = $mermaidSpecs[$i]
+    $mermaidRows.Add((New-CutsceneCommandRow 'miscPuzzles_mermaidsCaveDungeonOpeningScript' $i $command.Label $command.Line $spec[0] '' $spec[1] '' $spec[2]))
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/mermaids_cave_commands.tsv'), $mermaidRows)
+$mermaidEntranceRows = [Collections.Generic.List[string]]::new()
+$mermaidEntranceRows.Add("# group`troom`tid`tsubid`tx`ty`topen-tile`tsource")
+$mermaidDoorConstant = @(Read-AssemblyConstants (Join-Path $Disassembly 'constants/common/tileIndices.s') '' 'TILEINDEX_INDOOR_DOOR')
+if ($mermaidDoorConstant.Count -ne 1) { throw 'Could not resolve unique TILEINDEX_INDOOR_DOOR.' }
+$mermaidDoorTile = Convert-AssemblyInteger $mermaidDoorConstant[0].OperandText
+if ($mermaidDoorTile -ne 0xaf -or
+    [regex]::Matches($graveyardObjectSource, '(?m)^\s*obj_Interaction \$90 \$12\b').Count -ne 2) {
+    throw 'Mermaid cave $90:$12 placement count or TILEINDEX_INDOOR_DOOR $af changed.'
+}
+foreach ($spec in @(@(1,0x0e), @(3,0x0f))) {
+    $label = 'group' + $spec[0] + 'Map' + $spec[1].ToString('x2') + 'ObjectData'
+    $placement = @(Read-AssemblyLabelNodes (Join-Path $Disassembly 'objects/ages/mainData.s') $label | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'obj_Interaction' -and $_.Operands[0] -eq '$90'
+    })
+    if ($placement.Count -ne 1 -or $placement[0].OperandText -notmatch '^\$90\s+\$12\s+\$18\s+\$68$') {
+        throw "objects/ages/mainData.s:${label}: expected `$90:`$12 at (`$18,`$68)."
+    }
+    $values = @($placement[0].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    $mermaidEntranceRows.Add("$($spec[0])`t$($spec[1].ToString('x2'))`t$($values[0].ToString('x2'))`t$($values[1].ToString('x2'))`t$($values[3].ToString('x2'))`t$($values[2].ToString('x2'))`t$($mermaidDoorTile.ToString('x2'))`tobjects/ages/mainData.s:${label};miscPuzzles.s:miscPuzzles_subid12")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/mermaids_cave_entrances.tsv'), $mermaidEntranceRows)
+
 # Present room 0:83's $dc:$02 watches the unique $c3 Bracelet rock. Once
 # Link reaches grab state $83, it runs the native Wing Dungeon collapse,
 # including the 6x6 BG maps and the persistent 3x3 layout/collision rewrite.

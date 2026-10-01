@@ -36,7 +36,9 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool NativeTextActive => _entities.TextActiveSource();
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
-    public bool PlayerUpdatesFrozen => _entities.PlayerUpdatesFrozen;
+    // Room scripts' $81 mask also freezes Link and item parents. Keep their
+    // state intact while interactions (including the key sprite) keep running.
+    public bool PlayerUpdatesFrozen => _entities.PlayerUpdatesFrozen || _roomEvents.FreezesNonInteractionObjects;
     public bool LinkDisabled => _roomEvents.DisablesLink;
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;

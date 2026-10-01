@@ -931,6 +931,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSpiritsGraveEntranceInteractions);
         RunIsolatedValidation(ValidateOverworldKeyholeAndGraveyardGate);
         RunIsolatedValidation(ValidateCrownDungeonEntrance);
+        RunIsolatedValidation(ValidateMermaidsCaveEntrances);
         RunIsolatedValidation(ValidateDarkRoomInteractions);
         RunIsolatedValidation(ValidateDungeonKeyDoors);
         RunIsolatedValidation(ValidateSpiritsGrave);
