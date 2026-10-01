@@ -214,6 +214,8 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
             visual.Palette,visual.DefaultAnimation,false,visual.Animation,visual.Animation,
             visual.Animation,visual.Animation,"",NpcImplementationClassification.EventOwned);
         _bombFlower=SpawnEffect(record,new Vector2(0x38,0x60));
+        // treasure.s state0: BOMB_FLOWER_01 uses spawn-mode $00/visiblec2.
+        _bombFlower.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
     }
     internal void DeleteBombFlower() { _bombFlower?.SetActive(false); _bombFlower=null; }
     internal void DisplayPrize(string name,Vector2 position,int z)
@@ -225,6 +227,9 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
             visual.Sprite,visual.TileBase,visual.Palette,visual.DefaultAnimation,false,
             visual.Animation,visual.Animation,visual.Animation,visual.Animation,"",NpcImplementationClassification.EventOwned);
         _bombFlower=SpawnEffect(record,position); _bombFlower.SetScriptDrawOffset(new(0,z));
+        // treasure.s state0 publishes spawn-mode $00 with objectSetVisiblec2.
+        // Graphics setup alone leaves a newly allocated renderer slot hidden.
+        _bombFlower.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
     }
     internal void CreateExplosion(int index)
     {

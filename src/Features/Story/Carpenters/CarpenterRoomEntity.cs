@@ -54,6 +54,9 @@ internal sealed class CarpenterRoomEntity : NpcCharacterRoomEntityAdapter, IRoom
             npc.SetBlocksLink(false);
         }
         npc.SetScriptAnimation(database.Script(ScriptSubid).Animation);
+        // carpenter.s @initialize sets visiblec2. The $01 blocker does not
+        // run interactionAnimateAsNpc, so no later draw-priority write reveals it.
+        if (subid == 1) npc.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
     }
 
     public bool BlocksLink(Vector2 center) => Entity.BlocksLinkCenter(center);

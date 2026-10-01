@@ -38,6 +38,10 @@ public sealed partial class ValidationRoot
         }
 
         Enter();
+        // carpenter.s @initialize writes visiblec2. Subid $01 only polls
+        // the bridge signal afterward, so ordinary NPC updates cannot reveal it.
+        FailIf(!Actor(1).Visible||!Actor(1).IsVisibleInTree()||Actor(1).ZIndex!=9||Actor(1).CurrentAnimationOpaquePixels==0,
+            "Room $0:$25 carpenter bridge blocker $9a:$01 did not publish its initialized visiblec2 sprite.");
         FailIf(!_entities.EntityAdapters<CarpenterRoomEntity>().Select(n => n.Npc.Record.SubId).SequenceEqual(new[] { 0, 1, 2, 3, 4 }) ||
             !Actor(0).Active || !Actor(1).Active || Actor(2).Active || Actor(3).Active || Actor(4).Active ||
             Actor(0).Record.Palette != 3 || Actor(1).Record.Palette != 0 ||
@@ -46,8 +50,12 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.GetMetatile(new Vector2(0x58, 0x58)) != 0 ||
             _rooms.CurrentRoom.GetTerrainInfo(new Vector2(0x58, 0x58)).Collision != 0x0f,
             "Room $0:$25 did not retain source-ordered carpenter slots, palettes, animations, found-bit suppression, and blocker WRAM tile.");
+        StepGameplayUpdates(8,Vector2.Zero,batched:true);
+        FailIf(!Actor(1).Visible||Actor(1).ZIndex!=9,
+            "Room $0:$25 carpenter blocker $9a:$01 did not retain visiblec2 through batched gameplay updates.");
         Talk(0x2301);
         StepRoomEventFrames(16);
+        FailIf(!Actor(1).Visible,"Room $0:$25 carpenter blocker $9a:$01 disappeared during TX_2301.");
         FailIf(quest.SearchState != 0, "Head carpenter's script advanced during dialogue.");
         FailIf(_saveData.HasGlobalFlag(data.Constant("talked-flag")), "Head carpenter wrote TALKED_TO_HEAD_CARPENTER before TX_2301 closed.");
         _dialogue.Close();
@@ -90,6 +98,8 @@ public sealed partial class ValidationRoot
         {
             _runtimeState.SetWramByte(data.Constant("found-address"), (byte)mask);
             Enter();
+            FailIf(!Actor(1).Visible||Actor(1).ZIndex!=9,
+                $"Room $0:$25 carpenter blocker $9a:$01 was hidden on re-entry with found mask ${mask:x2}.");
             for (int subid = 2; subid <= 4; subid++)
                 FailIf(Actor(subid).Active != ((mask & (1 << subid)) != 0),
                     $"Room $0:$25 returned carpenter ${subid:x2} mismatched found mask ${mask:x2}.");
@@ -190,6 +200,7 @@ public sealed partial class ValidationRoot
         FailIf(quest.HasState || _player.CutsceneControlled || _saveData.HasGlobalFlag(data.Constant("bridge-flag")),
             "Leaving the carpenter cutscene leaked control or persisted an incomplete bridge.");
         _transitions.BeginScroll(_player, Vector2I.Right, 0x25);
+        FailIf(!Actor(1).Visible,"Room $0:$25 carpenter blocker $9a:$01 remained hidden during scroll preload.");
         NpcCharacter incoming = Actor(0);
         Vector2 incomingPosition = incoming.Position;
         int incomingFrame = incoming.CurrentAnimationFrame;

@@ -208,6 +208,31 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         string batched=RunGoronCave(true);
         FailIf(first!=batched,"Room 5:c3 state/RNG/counters differ between single and batched host updates.");
+        ValidateGoronBombFlowerCancellation();
+    }
+
+    private void ValidateGoronBombFlowerCancellation()
+    {
+        foreach(bool batched in new[]{false,true})
+        {
+            ReinitializeGameplayForValidation();
+            _inventory.GiveTreasure(TreasureId.BombFlower,0);
+            LoadValidationRoom(5,0xc3); StepGameplayUpdates(4,Vector2.Zero);
+            // Reach the automatic $66:$06/v$01 gate through the lower floor.
+            _player.WarpTo(new Vector2(0x78,0x98));
+            FailIf(_rooms.CurrentRoom.GetTerrainInfo(_player.Position).Collision!=0,
+                "Room $5:c3 Bomb Flower cancellation approach must start on floor.");
+            StepGameplayUpdates(40,Vector2.Left,["move_left"],["move_left"],batched);
+            for(int i=0;i<1200&&!_entities.Entities<NpcCharacter>().Any(n=>n.Active&&n.Record.Id==0x60);i++)
+                AdvanceGoronDialogue(1);
+            var flower=_entities.Entities<NpcCharacter>().SingleOrDefault(n=>n.Active&&n.Record.Id==0x60);
+            FailIf(flower is null||!flower.Visible,"Room $5:c3 cancellation never reached its visible Bomb Flower.");
+            _roomEvents.Get<GoronCaveEvent>().Cancel();
+            StepGameplayUpdates(2,Vector2.Zero,batched:batched);
+            FailIf(flower!.Active||flower.Visible||_player.CutsceneControlled||
+                _saveData.HasGlobalFlag(GlobalFlag.SavedGoronElder),
+                "Room $5:c3 cancellation retained its Bomb Flower or input lock, or committed elder rescue.");
+        }
     }
 
     private string RunGoronCave(bool batched)
@@ -292,6 +317,22 @@ public sealed partial class ValidationRoot
         _dialogue.SubmitChoiceForValidation(0); Step(31);
         FailIf(!_dialogue.IsOpen,"Goron acceptance lost TX_2480.");
         _dialogue.Close();
+        // scripts.s $66:$06 B creates TREASURE_BOMB_FLOWER/$01 at
+        // (yh,xh)=($60,$38), holds it for 50 updates, then deletes it.
+        for(int i=0;i<400&&!_entities.Entities<NpcCharacter>().Any(n=>n.Active&&n.Record.Id==0x60);i++) Step(1);
+        var flower=_entities.Entities<NpcCharacter>().SingleOrDefault(n=>n.Active&&n.Record.Id==0x60);
+        FailIf(flower is null,"Room $5:c3 never created its INTERAC_TREASURE $60 Bomb Flower display.");
+        var flowerVisual=cave.Context.Treasures.GetObjectVisual(0x56); // treasureObjectData49/$01
+        FailIf(!flower!.Visible||!flower.IsVisibleInTree()||flower.CurrentAnimationOpaquePixels==0||
+            flower.Position!=new Vector2(0x38,0x60)||flower.ZIndex!=9||flower.ScriptDrawOffset!=Vector2.Zero||
+            flower.Record.SpriteName!=flowerVisual.Sprite||flower.Record.DownAnimation!=flowerVisual.Animation||right.Counter!=50,
+            "Room $5:c3 Bomb Flower display lost source graphic $56, visiblec2, position ($38,$60), or wait 50.");
+        Step(49);
+        FailIf(!flower.Active||!flower.Visible||right.Counter!=1,
+            "Room $5:c3 Bomb Flower display disappeared before the source wait 50 expired.");
+        Step(1);
+        FailIf(flower.Active||flower.Visible,
+            "Room $5:c3 goron_deleteTreasure did not remove the Bomb Flower on wait 50's zero update.");
         for(int i=0;i<1500&&!_dialogue.IsOpen;i++) Step(1);
         FailIf(!_dialogue.IsOpen,
             $"Room 5:c3 rescue did not reach elder dialogue; worker command {right.CommandIndex}.");

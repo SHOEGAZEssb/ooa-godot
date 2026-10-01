@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.Goronade,0);
         _inventory.AddRupees(100);
         ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
-        for(int i=0;i<1600&&host.BigBang?.Playing!=true;i++) AdvanceGoronDialogue(1);
+        AdvanceToBigBangCheckingPrize(host,1600);
         FailIf(host.BigBang?.Playing!=true||_inventory.HasTreasure(TreasureId.Goronade)||!_saveData.HasRoomFlag(3,0x3e,0x40)||_inventory.Rupees!=100,
             "Big Bang first game did not consume Goronade, save its trade, and waive the fee.");
         var game=host.BigBang!;
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
         AdvanceGoronDialogue(100,1);
         FailIf(_inventory.Rupees!=100||cave.BlocksGameplay,"Declining a repeat Big Bang game charged money or locked input.");
         ApproachGoronFromFloor(host); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
-        for(int i=0;i<1200&&!game.Playing;i++) AdvanceGoronDialogue(1);
+        AdvanceToBigBangCheckingPrize(host,1200);
         FailIf(!game.Playing||_inventory.Rupees!=90,"Repeat Big Bang game did not charge 10 rupees.");
         // Follow a settled bomb through the real part/collision/script phases.
         GoronBombRoomEntity? grounded=null;
@@ -70,6 +70,24 @@ public sealed partial class ValidationRoot
         FailIf(game.Playing||cave.BlocksGameplay||_inventory.Rupees!=90,
             "Big Bang loss did not clear its bombs and release Link without another fee.");
     }
+    private void AdvanceToBigBangCheckingPrize(GoronCaveScriptHost host,int limit)
+    {
+        NpcCharacter? display=null;
+        for(int i=0;i<limit&&host.BigBang?.Playing!=true;i++)
+        {
+            AdvanceGoronDialogue(1);
+            var prize=_entities.Entities<NpcCharacter>().SingleOrDefault(n=>n.Active&&n.Record.Id==0x60);
+            if(prize is null) continue;
+            display=prize;
+            // scriptHelper.s goron_bigBang_spawnPrize: Y=$38, X=$50,
+            // Z=$f0. Every displayed treasure retains visiblec2 priority.
+            FailIf(!prize.Visible||!prize.IsVisibleInTree()||prize.CurrentAnimationOpaquePixels==0||
+                prize.Position!=new Vector2(0x50,0x38)||prize.ScriptDrawOffset!=new Vector2(0,-16)||prize.ZIndex!=9,
+                "Room $3:$3e Big Bang display prize was hidden or lost its source position/Z/visiblec2 priority.");
+        }
+        FailIf(display is null||display.Active||display.Visible,
+            "Room $3:$3e Big Bang did not display and remove its prize before play, including repeat entry.");
+    }
     private void ValidateGoronTargetCarts()
     {
         _inventory.GiveTreasure(TreasureId.Shooter,0); _inventory.AddRupees(100);
@@ -80,6 +98,7 @@ public sealed partial class ValidationRoot
         TalkGoronFromFloor(right);
         int b=_inventory.EquippedB,a=_inventory.EquippedA,seeds=_inventory.ScentSeeds;
         ApproachGoronFromFloor(left); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        ValidateTargetCartPrizeDisplay(left,batched:false);
         for(int i=0;i<1300&&!_saveData.HasRoomFlag(5,0xd8,0x80);i++) AdvanceGoronDialogue(1);
         AdvanceGoronDialogue(2);
         FailIf(!_saveData.HasRoomFlag(5,0xd8,0x80)||_inventory.Rupees!=90||_inventory.ScentSeeds!=0x99||
@@ -117,6 +136,7 @@ public sealed partial class ValidationRoot
         // The source route crosses $5:d9 and returns before the right-hand script scores it.
         FailIf(!_dialogue.IsOpen||_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xd8,
             $"Target-cart ride did not return to its scoring attendant: {_rooms.ActiveGroup}:{_rooms.CurrentRoom.Id:x2}, Link {_player.Position}.");
+        left=cave.Actors.Single(h=>h.Actor.Record.Var03==0);
         for(int i=0;i<600&&!_dialogue.ChoiceActive;i++) AdvanceGoronDialogue(1);
         FailIf(_inventory.EquippedB!=b||_inventory.EquippedA!=a||_inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80)||
             _inventory.HasTreasure(TreasureId.RockBrisket)||!_dialogue.ChoiceActive,
@@ -125,6 +145,7 @@ public sealed partial class ValidationRoot
         // enableallobjects must release that lock when the next game starts.
         FailIf(!_player.CutsceneControlled,"Target-cart retry prompt released input before a choice.");
         _dialogue.SubmitChoiceForValidation(0);
+        ValidateTargetCartPrizeDisplay(left,batched:true);
         for(int i=0;i<1300&&!_saveData.HasRoomFlag(5,0xd8,0x80);i++) AdvanceGoronDialogue(1);
         StepGameplayUpdates(2,Vector2.Zero);
         FailIf(_player.CutsceneControlled||cave.BlocksGameplay||_inventory.Rupees!=80||
@@ -163,6 +184,48 @@ public sealed partial class ValidationRoot
             _inventory.EquippedA!=a||_inventory.EquippedB!=b,
             "Cancelling outside the target-cart course leaked its temporary inventory or active flag.");
         ValidateTargetCartCrystalPreload();
+    }
+    private void ValidateTargetCartPrizeDisplay(GoronCaveScriptHost host,bool batched)
+    {
+        // scripts.s $66:$09 A: TX_24ac, wait 30, spawnPrize, wait 90,
+        // fadeout, then goron_deleteTreasure. The first game and immediate
+        // retry must both publish ROCK_BRISKET_01 at (yh,xh)=($78,$78).
+        NpcCharacter[] Prizes()=>_entities.Entities<NpcCharacter>().Where(n=>
+            n.Active&&n.Record.Id==InteractionId.Treasure).ToArray();
+        for(int i=0;i<400&&!(_dialogue.IsOpen&&_dialogue.CurrentMessage.Contains("time is...this!",System.StringComparison.Ordinal));i++)
+            AdvanceGoronDialogue(1);
+        FailIf(!_dialogue.IsOpen||!_dialogue.CurrentMessage.Contains("time is...this!",System.StringComparison.Ordinal)||Prizes().Length!=0,
+            "$5:d8 target carts did not reach TX_24ac before displaying its prize.");
+        _dialogue.Close(); StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(host.Counter!=30,"$5:d8 TX_24ac did not initialize its source wait 30.");
+        StepGameplayUpdates(29,Vector2.Zero,batched:batched);
+        FailIf(host.Counter!=1||Prizes().Length!=0,"$5:d8 displayed the target-cart prize before wait 30 expired.");
+        StepGameplayUpdates(1,Vector2.Zero);
+        var prizes=Prizes();
+        FailIf(prizes.Length!=1,"$5:d8 did not spawn exactly one INTERAC_TREASURE $60 display prize.");
+        var prize=prizes.Single();
+        // treasureObjectData5e: ROCK_BRISKET_01 selects graphic $4e.
+        var visual=host.Context.Treasures.GetObjectVisual(0x4e);
+        FailIf(prize.Record.SpriteName!=visual.Sprite||prize.Record.TileBase!=visual.TileBase||
+            prize.Record.Palette!=visual.Palette||prize.Record.DownAnimation!=visual.Animation,
+            "$5:d8 ROCK_BRISKET_01 display did not select the source graphic $4e.");
+        void CheckDisplay()
+        {
+            FailIf(!prize.Active||!prize.Visible||!prize.IsVisibleInTree()||
+                prize.Position!=new Vector2(0x78,0x78)||prize.ScriptDrawOffset!=Vector2.Zero||
+                prize.ZIndex!=9||prize.CurrentAnimationOpaquePixels==0||
+                _entities.RuntimeState.ReadWramByte(0xcfd6)!=0||_inventory.HasTreasure(TreasureId.RockBrisket),
+                $"$5:d8 ROCK_BRISKET_01 display must be visible at ($78,$78), visiblec2, without awarding it; batched={batched}, visible={prize.Visible}, position={prize.Position}, priority={prize.ZIndex}.");
+        }
+        CheckDisplay();
+        FailIf(host.Counter!=90,"$5:d8 target-cart prize did not initialize its source wait 90.");
+        StepGameplayUpdates(89,Vector2.Zero,batched:batched); CheckDisplay();
+        FailIf(host.Counter!=1,"$5:d8 target-cart prize wait 90 ended early.");
+        StepGameplayUpdates(1,Vector2.Zero); CheckDisplay();
+        FailIf(!_roomEvents.Get<GoronCaveEvent>().PaletteBusy,"$5:d8 prize wait 90 did not start fadeout on its zero update.");
+        for(int i=0;i<100&&prize.Active;i++) StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(prize.Active||prize.Visible||Prizes().Length!=0||_inventory.HasTreasure(TreasureId.RockBrisket),
+            "$5:d8 goron_deleteTreasure did not remove its display prize before configuring the ride.");
     }
     private void ValidateTargetCartCrystalPreload()
     {
