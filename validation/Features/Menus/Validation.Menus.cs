@@ -213,7 +213,7 @@ public sealed partial class ValidationRoot
             "or original message-speed cursor coordinates regressed.");
 
         menu.BeginTitleStart();
-        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 1; frame++)
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 2; frame++)
             menu.Update(1.0 / 60.0);
         FailIf(menu.CurrentPage != Page.Title, "The title white fade ended before its original 32 updates.");
         menu.Update(1.0 / 60.0);
@@ -229,6 +229,9 @@ public sealed partial class ValidationRoot
         menu.Move(Vector2I.Right);
         FailIf(screen.Choice != 1, "File-select Copy/Erase horizontal selection did not toggle.");
         menu.Accept();
+        FailIf(screen.CurrentPage != Page.FileSelect,
+            "setFileSelectMode($04) changed graphics before its initialization update.");
+        menu.Update(1.0 / 60.0);
         FailIf(
             menu.CurrentPage != Page.EraseSelect ||
             !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
@@ -293,7 +296,7 @@ public sealed partial class ValidationRoot
             "An existing file did not open its message-speed confirmation.");
         menu.Move(Vector2I.Left);
         menu.Accept();
-        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 1; frame++)
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 2; frame++)
             menu.Update(1.0 / 60.0);
         FailIf(startedSave is not null, "File select started gameplay before its 32-update white fade.");
         menu.Update(1.0 / 60.0);
@@ -318,6 +321,7 @@ public sealed partial class ValidationRoot
         copyMenu.Update(1.0 / 60.0);
         copyScreen.SetCursor(3);
         copyMenu.Accept();
+        copyMenu.Update(1.0 / 60.0);
         copyScreen.SetCursor(0);
         copyMenu.Accept();
         copyMenu.Accept();
@@ -331,6 +335,7 @@ public sealed partial class ValidationRoot
         copyScreen.SetCursor(3);
         copyScreen.SetChoice(1);
         copyMenu.Accept();
+        copyMenu.Update(1.0 / 60.0);
         copyScreen.SetCursor(1);
         copyMenu.Accept();
         copyMenu.Move(Vector2I.Right);
@@ -437,6 +442,7 @@ public sealed partial class ValidationRoot
         Tick(["move_left"]);
         Tick(["attack"]);
         FailIf(inputMenu.Cursor != 3, "Copy did not initialize on Quit.");
+        Tick([]);
         copyScreen.SetCursor(2);
         Tick(["attack"]);
         FailIf(inputSounds[^1] != SoundId.SndError ||
@@ -784,7 +790,7 @@ public sealed partial class ValidationRoot
             "animation $00 or the direct-loaded background animation group `$10` " +
             "from their first source update.");
         int stationaryTempleUpdates =
-            introData.Timing("temple-fade-input-block") +
+            introData.Timing("temple-fade-input-block") - 1 +
             introData.Sequence("temple-input")[0].A;
         for (int update = 0; update < stationaryTempleUpdates; update++)
         {
@@ -800,11 +806,11 @@ public sealed partial class ValidationRoot
             2,
             597 - stationaryTempleUpdates,
             "remaining simulated input");
-        FailIf(intro.TempleLinkY != 0x3f || intro.TriforceMotionClock != 3,
+        FailIf(intro.TempleLinkY != 0x3f || intro.TriforceMotionClock != 4,
             "Link did not stop at Y $3f while Triforce interactions began during the final input records.");
         // Center: 60+180+60+80 with its two fallthroughs; Link observes the
         // signal next tick, waits 120+180+60, then the handler observes Link.
-        ExpectTransition(FrontendIntroStage.Temple, 3, 738, "Triforce and Link signal handoffs");
+        ExpectTransition(FrontendIntroStage.Temple, 3, 737, "Triforce and Link signal handoffs");
         FailIf(
             intro.TempleLinkAnimation != 4 || intro.TempleLinkZ == 0,
             "Temple Link did not switch to source animation $04 for the rise.");
@@ -843,8 +849,8 @@ public sealed partial class ValidationRoot
             !intro.Birds.Select(bird => bird.Subid)
                 .SequenceEqual(Enumerable.Range(0, 8).Reverse()),
             "Pre-title birds did not retain their source slot/update order 7..0.");
-        ExpectTransition(FrontendIntroStage.PreTitle, 3, 16, "title reveal on the reset intro clock");
-        ExpectTransition(FrontendIntroStage.Title, 1, 14, "pre-title flash/title init");
+        ExpectTransition(FrontendIntroStage.PreTitle, 3, 17, "title reveal on the intro clock");
+        ExpectTransition(FrontendIntroStage.Title, 1, 13, "pre-title flash/title init");
         FailIf(titleScreen.TitleBlinkVisible,
             "PRESS START was visible at initialization despite counter $0960 bit $20.");
 

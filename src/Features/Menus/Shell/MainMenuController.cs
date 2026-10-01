@@ -41,6 +41,8 @@ public sealed class MainMenuController
         FileMenuInitialization.NewFileOptions => Page.NewFileOptions,
         FileMenuInitialization.NameEntry => Page.NameEntry,
         FileMenuInitialization.FileSelect => Page.FileSelect,
+        FileMenuInitialization.CopySource => Page.CopySource,
+        FileMenuInitialization.EraseSelect => Page.EraseSelect,
         _ => _screen.CurrentPage
     };
     internal int Cursor => _screen.Cursor;
@@ -131,6 +133,12 @@ public sealed class MainMenuController
                 case FileMenuInitialization.FileSelect:
                     ReloadSlots();
                     _screen.ShowFileSelect();
+                    break;
+                case FileMenuInitialization.CopySource:
+                    _screen.ShowCopySource();
+                    break;
+                case FileMenuInitialization.EraseSelect:
+                    _screen.ShowEraseSelect();
                     break;
                 default: throw new InvalidOperationException($"Unsupported file-menu initialization {initialization}.");
             }
@@ -438,9 +446,9 @@ public sealed class MainMenuController
         if (_screen.Cursor == 3)
         {
             if (_screen.Choice == 0)
-                _screen.ShowCopySource();
+                _pendingInitialization = FileMenuInitialization.CopySource;
             else
-                _screen.ShowEraseSelect();
+                _pendingInitialization = FileMenuInitialization.EraseSelect;
             return;
         }
 
@@ -568,9 +576,9 @@ public sealed class MainMenuController
 
     private void UpdateFade(double delta)
     {
-        if (_fadeTicks < WhiteFadeFrames)
+        if (_fadeTicks < WhiteFadeFrames - 1)
         {
-            _fadeTicks = Math.Min(WhiteFadeFrames, _fadeTicks + delta * 60.0);
+            _fadeTicks = Math.Min(WhiteFadeFrames - 1, _fadeTicks + delta * 60.0);
             float fade = (float)((_fadeTicks + 1) / WhiteFadeFrames);
             _screen.SetWhiteFade(fade);
             // paletteFadeHandler01 stops on the $20 boundary without a
@@ -597,7 +605,9 @@ internal enum FileMenuInitialization
     NewFileOptions,
     NameEntry,
     NameCommit,
-    FileSelect
+    FileSelect,
+    CopySource,
+    EraseSelect
 }
 
 internal enum FadeDestination

@@ -329,8 +329,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateExplicitSavePersistence);
         RunIsolatedValidation(ValidateMenuPresentationData);
         RunIsolatedValidation(ValidateFrontendIntro);
+        RunIsolatedValidation(ValidateFrontendIntroRom, requiresRom: true);
         RunIsolatedValidation(ValidateFrontendFixedUpdates);
         RunIsolatedValidation(ValidateMainMenu);
+        RunIsolatedValidation(ValidateMainMenuRom, requiresRom: true);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateGameplayScenePreload);
         RunIsolatedValidation(ValidateDeferredGameplayAssets);

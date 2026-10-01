@@ -30,12 +30,26 @@ internal partial class FrontendValidationRoot : GameRoot
     protected override void EraseFileSlot(int slot) => _slots[slot] = null;
 
     internal byte[] FileSlotSnapshot(int slot) => (byte[])_slots[slot]!.Clone();
+    internal bool FileSlotExists(int slot) => _slots[slot] is not null;
 
-    internal void Initialize(OracleSaveData? slotOneSave = null)
+    internal void CompleteScenePreload()
+    {
+        // File-start scenarios stop before destination preparation. Drain the
+        // owner's pending resource request before freeing this isolated root.
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var resource = (GameplaySceneResource)typeof(GameRoot)
+            .GetField("_gameplaySceneResource", fields)!.GetValue(this)!;
+        _ = resource.Load();
+    }
+
+    internal void Initialize(OracleSaveData? slotOneSave = null, bool persistSaveData = false)
     {
         if (slotOneSave is not null)
         {
             StoreFileSlot(0, slotOneSave);
+        }
+        if (slotOneSave is not null || persistSaveData)
+        {
             // Use the retail checkpoint path with the isolated store above.
             const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
             typeof(GameRoot).GetField("_launchOptions", fields)!.SetValue(this, new LaunchOptions());

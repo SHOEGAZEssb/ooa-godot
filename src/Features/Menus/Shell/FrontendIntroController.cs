@@ -517,7 +517,9 @@ internal sealed class FrontendIntroController
                 _templeInputIndex = 0;
                 _templeInputRemaining = 0;
                 _templeInputDone = false;
-                Counter = _data.Timing("temple-fade-input-block");
+                // The initialization update already runs updateSpecialObjects
+                // under the active fade. The imported block includes it.
+                Counter = _data.Timing("temple-fade-input-block") - 1;
                 BeginFade(toWhite: false);
                 State = 1;
                 break;
@@ -650,8 +652,8 @@ internal sealed class FrontendIntroController
         if (_templeInputRemaining == 0)
         {
             _templeInputIndex++;
-            if (_templeInputIndex == _templeInput.Length)
-                _templeInputDone = true;
+            // getSimulatedInput reads the terminator on the next update;
+            // the earlier cinematic handler observes that signal afterwards.
         }
     }
 
@@ -761,11 +763,11 @@ internal sealed class FrontendIntroController
         _flashCounter++;
         FlashWhite = _flashCounter switch
         {
-            < 2 => true,
-            < 4 => false,
-            < 6 => true,
-            < 12 => false,
-            < 14 => true,
+            <= 2 => true,
+            <= 4 => false,
+            <= 6 => true,
+            <= 12 => false,
+            <= 14 => true,
             _ => false
         };
         if (_flashCounter < _data.Timing("temple-flash"))
@@ -849,7 +851,9 @@ internal sealed class FrontendIntroController
                 UpdateBirds();
                 _flashCounter++;
                 FlashWhite = _flashCounter is 1 or 2 or 5 or 6 or 9 or 10;
-                if (_flashCounter < 14)
+                // flashScreen_body advances past the final $0c threshold
+                // before reading its $ff terminator on update $0d.
+                if (_flashCounter < 13)
                     break;
                 FlashWhite = false;
                 EnterTitle();

@@ -22,21 +22,23 @@ internal sealed class OracleCpu
 
     internal int InstructionAddress => _instructionAddress;
 
-    private void BeginCall(int entry, int argument)
+    private void BeginCall(int entry, int argument, int stackAddress)
     {
-        _pc = entry; _a = argument; _sp = 0xdff0;
+        _pc = entry; _a = argument; _sp = stackAddress;
         _write(_sp, 0); _write(_sp + 1, 0);
     }
 
-    internal void RunCall(int entry, int argument = 0)
+    internal void RunCall(int entry, int argument = 0, int instructionLimit = 100000, int stackAddress = 0xdff0)
     {
-        BeginCall(entry, argument);
-        for (int count = 0; count < 100000; count++)
+        if (instructionLimit <= 0) throw new ArgumentOutOfRangeException(nameof(instructionLimit));
+        if (stackAddress is < 0 or > 0xfffd) throw new ArgumentOutOfRangeException(nameof(stackAddress));
+        BeginCall(entry, argument, stackAddress);
+        for (int count = 0; count < instructionLimit; count++)
         {
-            if (_pc == 0 && _sp == 0xdff2) return;
+            if (_pc == 0 && _sp == stackAddress + 2) return;
             Step();
         }
-        throw Failure("exceeded 100000 instructions");
+        throw Failure($"exceeded {instructionLimit} instructions");
     }
 
     private Exception Failure(string detail) => _failure(_instructionAddress, detail);

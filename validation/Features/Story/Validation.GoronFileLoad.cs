@@ -52,7 +52,8 @@ public sealed partial class ValidationRoot
                 FailIf(root._mainMenu?.CurrentPage != Page.TextSpeed,
                     "Selecting slot 1 did not reach the saved-file text-speed screen.");
                 root.Step(1, batched, "inventory");
-                root.Step(MainMenuController.WhiteFadeFrames, batched);
+                // The accepting update already advances palette offset $01.
+                root.Step(MainMenuController.WhiteFadeFrames - 1, batched);
                 FailIf(root._mainMenu is null || root._entities is not null,
                     "Room objects appeared before the file menu's fade completed.");
                 root.Step(1, batched);
