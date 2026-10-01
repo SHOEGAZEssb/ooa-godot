@@ -154,7 +154,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             OracleObjectMovement.Shared.PositionFromPixels(position);
         _soundRequested = soundRequested ?? (static _ => { });
         _collectionSound = collectionSound;
-        _speedZ = InitialSpeedZ;
+        _speedZ = 0;
         _state = DropState.Initializing;
         Visible = false;
         _texture = BuildTexture(visual);
@@ -232,6 +232,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
                     return;
                 }
             }
+            // partCode01 state0 writes speedZ only when this PART is first
+            // dispatched, after objectReplaceWithID has cleared its bytes.
+            _speedZ = InitialSpeedZ;
             Visible = true; // itemDrop_initGfx -> objectSetVisiblec1
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
             if (IsSideScrolling())

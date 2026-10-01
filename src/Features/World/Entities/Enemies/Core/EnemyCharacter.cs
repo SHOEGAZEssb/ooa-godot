@@ -23,6 +23,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private int _collisionRadiusX;
     private int _collisionRadiusY;
     private int _globalFrameCounter;
+    private bool _statusPaletteSuppressed;
     private OracleRoomData? _knockbackRoom;
     private EnemyKnockbackMotion _knockbackMotion;
     private Func<Vector2>? _knockbackPosition;
@@ -67,7 +68,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             ? _animation.DamageTexture
             : _animation.CurrentTexture;
     protected bool DrawsDamagePalette =>
-        InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0;
+        !_statusPaletteSuppressed && InvincibilityCounter > 0 && (_globalFrameCounter & 4) == 0;
     internal virtual bool CollisionEnabled =>
         !GaleCollisionDisabled && !IsDead && !_pendingKnockbackDeath && !_hazardActive && Visible;
     public virtual Rect2 CollisionBounds => new(
@@ -95,6 +96,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         KnockbackCounter = 0;
         KnockbackAngle = 0;
         _globalFrameCounter = 0;
+        _statusPaletteSuppressed = false;
         _knockbackRoom = null;
         _knockbackMotion = EnemyKnockbackMotion.None;
         _knockbackPosition = null;
@@ -575,6 +577,15 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _globalFrameCounter = frameCounter & 0xff;
         if (InvincibilityCounter > 0)
             QueueRedraw();
+    }
+
+    internal void SetStatusPaletteSuppressed(bool suppressed)
+    {
+        // bank0._updateEnemiesIfStateIsZero restores oamFlagsBackup even
+        // when it skips an initialized enemy; its hit counter stays frozen.
+        if (_statusPaletteSuppressed == suppressed) return;
+        _statusPaletteSuppressed = suppressed;
+        QueueRedraw();
     }
 
     public override void _Draw()

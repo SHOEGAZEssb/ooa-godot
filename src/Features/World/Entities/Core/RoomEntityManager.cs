@@ -804,6 +804,8 @@ public sealed class RoomEntityManager : IDisposable
             .Where(entity => EntityPhase(entity) == phase)
             .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
         {
+            if (phase == 0 && entity.Node is EnemyCharacter statusEnemy)
+                statusEnemy.SetStatusPaletteSuppressed(enemiesDisabled);
             if (_updatedEntitiesThisFrame.Contains(entity) ||
                 entity is IRoomEntityLifetime { Finished: true } ||
                 entity is ISeedProjectileRoomEntity ||
@@ -962,6 +964,8 @@ public sealed class RoomEntityManager : IDisposable
                     push.Advance(1.0 / 60.0,player);
                 foreach (IRoomEntity entity in EntitiesForUpdatePhase(phase))
                 {
+                    if (phase == 0 && entity.Node is EnemyCharacter statusEnemy)
+                        statusEnemy.SetStatusPaletteSuppressed(enemyPassDisabled || textActive || roomEntityFreezeActive);
                     if (enemyPassDisabled && !UpdatesDuringDialogue(entity))
                         continue;
                     if (_updatedEntitiesThisFrame.Contains(entity) ||
@@ -2878,6 +2882,9 @@ public sealed class RoomEntityManager : IDisposable
             // including scroll updates that dispatch enabled bit-$80 objects.
             AdvanceFrozenRoomFrame();
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
+            foreach (IRoomEntity entity in _outgoingEntities.Concat(_activeEntities))
+                if (entity.Node is EnemyCharacter statusEnemy)
+                    statusEnemy.SetStatusPaletteSuppressed(true);
             // companionRetIfInactive admits state $00 during scrolling;
             // ordinary companion movement remains frozen after initialization.
             foreach (var entity in _activeEntities.ToArray())

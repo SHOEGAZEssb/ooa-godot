@@ -33,7 +33,9 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
         int enemyId = -1)
     {
         EnemyDeathPuffEffectDefinition definition = _definition ??= LoadDefinition();
-        Position = position;
+        // enemyCreateDeathPuff uses objectCopyPosition: only YH/XH/ZH
+        // reach the cleared PART slot, never the enemy's fractional bytes.
+        Position = OracleObjectMath.ToPixelPosition(position);
         HighKnockback = highKnockback;
         EnemyId = enemyId;
         _palettes = definition.Palettes;

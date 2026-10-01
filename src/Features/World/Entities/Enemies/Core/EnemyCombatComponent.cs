@@ -153,6 +153,7 @@ internal sealed class EnemyCombatDescriptor
                 (deathPuffAllowed?.Invoke() ?? true)
                     ? new EnemyDeathPuffSpawn(
                         deathPuffPosition?.Invoke() ?? enemy.Position,
+                        HighKnockback: (enemy.KnockbackCounter & 0x80) != 0,
                         EnemyId: source.Id,
                         DropsItem: dropsItem)
                     : null,

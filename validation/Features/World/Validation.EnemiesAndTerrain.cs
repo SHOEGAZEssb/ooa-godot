@@ -3097,7 +3097,9 @@ public sealed partial class ValidationRoot
             "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
 
         _player.WarpTo(normalKeese.Position + Vector2.Down * 16.0f);
-        Vector2 expectedPuffPosition = normalKeese.Position +
+        // keese.s -> enemyDie -> objectCopyPosition copies YH/XH/ZH
+        // into the cleared PART slot, discarding fractional coordinates.
+        Vector2 expectedPuffPosition = normalKeese.Position.Floor() +
             Vector2.Right * 2.0f * 0x08 +
             Vector2.Down * normalKeese.SpriteHeight;
         int countBeforeSword = _entities.Entities<KeeseCharacter>().Count;
