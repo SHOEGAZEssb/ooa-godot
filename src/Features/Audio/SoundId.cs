@@ -184,6 +184,8 @@ public static class SoundId
     public const int SndBaseball = 0x99;
     // constants/common/music.s: SND_PICKUP
     public const int SndPickup = 0x9c;
+    // constants/common/music.s: SND_FLUTE_MOOSH
+    public const int SndFluteMoosh = 0x9f;
     // constants/common/music.s: SND_CHICKEN
     public const int SndChicken = 0xa0;
     // constants/common/music.s: SND_COMPASS

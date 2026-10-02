@@ -15,6 +15,15 @@ if ($harpParentSource -notmatch '(?ms)^parentItemCode_harp:.*?ld a,\$ff ~ DISABL
 if (-not $allTexts.ContainsKey(0x5110)) {
     throw 'ITEM_HARP no-effect text TX_5110 was not decoded.'
 }
+# @state0 adds $03 for Harp before indexing the shared Flute/Harp table.
+# Consequently an unlearned song ($00) uses the last Flute cue, not entry $00.
+$harpSfxBody = [regex]::Match($harpParentSource, '(?ms)^@sfxList:(?<body>.*?)^@getSelectedSongAddr:')
+$harpSfxNames = @([regex]::Matches($harpSfxBody.Groups['body'].Value, '(?m)^\s*\.db (?<name>SND_[A-Z_]+)\s*$') |
+    ForEach-Object { $_.Groups['name'].Value })
+if (($harpSfxNames -join ',') -ne 'SND_FILLED_HEART_CONTAINER,SND_FLUTE_RICKY,SND_FLUTE_DIMITRI,SND_FLUTE_MOOSH,SND_TUNE_OF_ECHOES,SND_TUNE_OF_CURRENTS,SND_TUNE_OF_AGES' -or
+    $harpParentSource -notmatch '(?s)ld b,\$00\s+call @getSelectedSongAddr\s+jr z,\+\s+ld b,\$03') {
+    throw 'harpFluteParent.s:@sfxList or Harp song offset $03 changed.'
+}
 $harpAnimationMatch = [regex]::Match(
     $harpAnimationSource,
     '(?ms)^animationData19faa:\s*(?<body>.*?)^animationData19fdd:')
@@ -46,11 +55,19 @@ for ($index = 0; $index -lt $expectedHarpAnimation.Count; $index++) {
 $harpAnimationParameters = @($harpAnimationRows | ForEach-Object {
     $_.Groups['parameter'].Value
 }) -join ','
+# The NZ Harp branch retains mask $80 even when its selected song is zero;
+# only an empty Flute switches to $40. State $00 also animates on creation.
+$harpSongFrames = 0
+foreach ($frame in $harpAnimationRows) {
+    if (([Convert]::ToInt32($frame.Groups['parameter'].Value, 16) -band 0x80) -ne 0) { break }
+    $harpSongFrames += [Convert]::ToInt32($frame.Groups['duration'].Value, 16)
+}
+if ($harpSongFrames -ne 260) { throw 'ITEM_HARP terminal $80 parameter boundary changed.' }
 if ($treasureIds['TREASURE_HARP'] -ne 0x11 -or
     $treasureIds['TREASURE_TUNE_OF_ECHOES'] -ne 0x25 -or
     $treasureIds['TREASURE_TUNE_OF_CURRENTS'] -ne 0x26 -or
     $treasureIds['TREASURE_TUNE_OF_AGES'] -ne 0x27 -or
-    $soundIds['SND_FILLED_HEART_CONTAINER'] -ne 0x8b -or
+    $soundIds[$harpSfxNames[3]] -ne 0x9f -or
     $soundIds['SND_TUNE_OF_ECHOES'] -ne 0xad -or
     $soundIds['SND_TUNE_OF_CURRENTS'] -ne 0xae -or
     $soundIds['SND_TUNE_OF_AGES'] -ne 0xaf) {
@@ -58,7 +75,7 @@ if ($treasureIds['TREASURE_HARP'] -ne 0x11 -or
 }
 $harpItemRows = @(
     "# item`tharp-treasure`techoes-treasure`tcurrents-treasure`tages-treasure`tsong-frames`tempty-song-frames`tnote-interval`tprohibited-tileset-mask`tpast-mask`tportal-room-flag`tempty-sound`techoes-sound`tcurrents-sound`tages-sound`tanimation-parameters`tno-effect-text",
-    "11`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_ECHOES'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_CURRENTS'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_AGES'].ToString('x2'))`t260`t261`t32`t7e`t80`t08`t$($soundIds['SND_FILLED_HEART_CONTAINER'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_ECHOES'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_CURRENTS'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_AGES'].ToString('x2'))`t$harpAnimationParameters`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5110])))"
+    "11`t$($treasureIds['TREASURE_HARP'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_ECHOES'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_CURRENTS'].ToString('x2'))`t$($treasureIds['TREASURE_TUNE_OF_AGES'].ToString('x2'))`t$harpSongFrames`t$harpSongFrames`t32`t7e`t80`t08`t$($soundIds[$harpSfxNames[3]].ToString('x2'))`t$($soundIds['SND_TUNE_OF_ECHOES'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_CURRENTS'].ToString('x2'))`t$($soundIds['SND_TUNE_OF_AGES'].ToString('x2'))`t$harpAnimationParameters`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[0x5110])))"
 )
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'objects\harpItem.tsv'),

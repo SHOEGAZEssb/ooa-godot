@@ -204,17 +204,30 @@ public sealed class HarpController
                 _notes.RemoveAt(index);
                 continue;
             }
-            note.Actor.Position += note.Velocity;
-            if (note.Sway && (_entities.FrameCounter & 7) == 0)
+            // INTERAC_FLOATING_IMAGE state $00 initializes graphics/counter
+            // and returns; state $01 deletes at zero before applying speed.
+            if (!note.Initialized)
             {
-                note.Actor.Position += Vector2.Right *
-                    NoteSwaySteps[(_entities.FrameCounter >> 3) & 7];
+                note.Initialized = true;
+                continue;
             }
             note.Remaining--;
-            if (note.Remaining > 0)
+            if (note.Remaining == 0)
+            {
+                note.Actor.SetActive(false);
+                _notes.RemoveAt(index);
                 continue;
-            note.Actor.SetActive(false);
-            _notes.RemoveAt(index);
+            }
+            Vector2 next = note.Actor.Position + note.Velocity;
+            note.Actor.Position = new Vector2(
+                ((int)(next.X * 256) & 0xffff) / 256.0f,
+                ((int)(next.Y * 256) & 0xffff) / 256.0f);
+            if (note.Sway && (_entities.FrameCounter & 7) == 0)
+            {
+                int x = ((int)(note.Actor.Position.X * 256) +
+                    NoteSwaySteps[(_entities.FrameCounter >> 3) & 7] * 256) & 0xffff;
+                note.Actor.Position = new Vector2(x / 256.0f, note.Actor.Position.Y);
+            }
         }
     }
 
@@ -228,6 +241,7 @@ internal sealed class PlayableHarpMusicNoteState(
 {
     internal NpcCharacter Actor { get; } = actor;
     internal int Remaining { get; set; } = remaining;
+    internal bool Initialized { get; set; }
     internal Vector2 Velocity { get; } = velocity;
     internal bool Sway { get; } = sway;
 }

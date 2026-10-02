@@ -549,6 +549,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGaleSeeds);
         RunIsolatedValidation(ValidateGaleSeedTutorial);
         RunIsolatedValidation(ValidateHarp);
+        RunIsolatedValidation(ValidateHarpPlaybackRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHarpEffectsRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeedTrees);
         RunIsolatedValidation(ValidateRoom180OwlStatue);
         RunIsolatedValidation(ValidateGashaSpots);

@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
                 CurrentsTreasure: TreasureId.TuneOfCurrents,
                 AgesTreasure: TreasureId.TuneOfAges,
                 SongFrames: 260,
-                EmptySongFrames: 261,
+                EmptySongFrames: 260,
                 NoteInterval: 32,
                 ProhibitedTilesetMask: 0x7e,
                 PastMask: 0x80,
