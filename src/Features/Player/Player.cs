@@ -345,7 +345,7 @@ public partial class Player : Node2D
     private int _harpFrameTicks;
     private bool _harpPoseActive;
     // respawnLink request, consumed state02, then the shared instant respawn.
-    private int _floorDoorRespawnPhase;
+    private int _forcedRespawnPhase;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -619,7 +619,7 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames == 0 && _enemyKnockbackFrames == 0 && !_world.RidingObject;
     internal bool CompanionMountInterrupted => IsCarryingObject || _braceletLiftCollisionsDisabled ||
         _deathAnimationActive || EnemyGrabActive || _fallingInHole || _drowning && _topDownDrownPhase >= 2 ||
-        _getItemStatePhase >= 2 || _floorDoorRespawnPhase >= 2 || _forcedState08Phase >= 2;
+        _getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _forcedState08Phase >= 2;
     internal bool CanAcceptShieldCollision =>
         IsUsingShield && AcceptsRoomEntityContact &&
         !_braceletLiftCollisionsDisabled && !IsDying &&
@@ -716,11 +716,11 @@ public partial class Player : Node2D
     internal bool CompanionRideActive => _companionRideControlled;
     internal bool RaftRideActive => _raftRideControlled;
     internal Vector2 ActiveLinkObjectPosition => _minecartRideControlled ? _minecartMainObjectPosition : EnemyContactPosition;
-    internal bool RaftRespawning => _drowning || _fallingInHole || _floorDoorRespawnPhase != 0;
+    internal bool RaftRespawning => _drowning || _fallingInHole || _forcedRespawnPhase != 0;
     // func_410d permits the mounted presentation once state02 reaches
     // substate3, although the companion handler still sees state02.
     internal bool RaftRespawnPreventsSynchronization => RaftRespawning &&
-        !(_floorDoorRespawnPhase == 3 && _instantRespawnRecoveryCounter != 0);
+        !(_forcedRespawnPhase == 3 && _instantRespawnRecoveryCounter != 0);
     internal IntroSpriteFrame? CutsceneSpriteFrame => _cutsceneSpriteFrame;
     internal bool RaftMovementImmobilized => _world.MovementDisabled || _braceletActionPose.HasValue ||
         IsUsingBoomerang || IsUsingItem && !SwordAllowsMovement;
@@ -773,9 +773,9 @@ public partial class Player : Node2D
     internal LinkTerrainEffectFrame? CurrentTerrainEffect =>
         GetCurrentTerrainEffect();
     internal bool IsFloorDoorRespawning =>
-        _floorDoorRespawnPhase != 0;
+        _forcedRespawnPhase != 0;
     internal int FloorDoorRespawnCounter =>
-        _floorDoorRespawnPhase == 3 ? _sideScrollInstantRespawnCounter : 0;
+        _forcedRespawnPhase == 3 ? _sideScrollInstantRespawnCounter : 0;
     internal Vector2 LocalRespawnPosition => _lastSafePosition;
     internal Vector2I LocalRespawnFacingVector =>
         FacingVectorFor(_localRespawnFacing);
@@ -982,7 +982,7 @@ public partial class Player : Node2D
         _drownRespawning = false;
         _fallingInHole = false;
         _fallInHoleRespawning = false;
-        _floorDoorRespawnPhase = 0;
+        _forcedRespawnPhase = 0;
         _sideScrollInstantRespawnCounter = 0;
         _instantRespawnRecoveryCounter = 0;
         _instantRespawnCollisionDisabled = false;
@@ -1738,6 +1738,9 @@ public partial class Player : Node2D
     private void AdvancePhysics(double delta)
     {
         _enemyGrabUpdated = false;
+        // updateSpecialObjects clears wLinkClimbingVine before Link,
+        // including updates where text or object masks freeze state01.
+        _sideScrollClimbing = false;
         _swimmingSwordUpdatedInPhysics = false;
         // updateSpecialObjects clears wcc92 before this update's terrain
         // handler can publish a conveyor/current displacement.
@@ -1757,19 +1760,19 @@ public partial class Player : Node2D
         if (AdvanceGetItemState()) return;
         // State02 has no text/$81 gate. A request is consumed by state01
         // before those gates, but after its palette/scroll/death checks.
-        if (_floorDoorRespawnPhase == 2)
+        if (_forcedRespawnPhase == 2)
         {
-            _floorDoorRespawnPhase = 3;
+            _forcedRespawnPhase = 3;
             BeginSideScrollInstantRespawn();
             return;
         }
-        if (_floorDoorRespawnPhase == 1 && !_world.IsTransitioning && !IsDying &&
+        if (_forcedRespawnPhase == 1 && !_world.IsTransitioning && !IsDying &&
             (_raftRideControlled || NativeNormalStateForInteraction))
         {
-            _floorDoorRespawnPhase = 2;
+            _forcedRespawnPhase = 2;
             return;
         }
-        if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _floorDoorRespawnPhase != 3)
+        if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _forcedRespawnPhase != 3)
         {
             _pushing = false;
             QueueRedraw();
@@ -1780,7 +1783,7 @@ public partial class Player : Node2D
             AdvanceGale();
             return;
         }
-        if (ElectricShockActive && _floorDoorRespawnPhase != 3)
+        if (ElectricShockActive && _forcedRespawnPhase != 3)
         {
             if (_electricShockPending)
             {
@@ -1831,7 +1834,7 @@ public partial class Player : Node2D
             if (--_instantRespawnRecoveryCounter == 0)
             {
                 _instantRespawnCollisionDisabled = false;
-                _floorDoorRespawnPhase = 0;
+                _forcedRespawnPhase = 0;
             }
             _walking = false;
             QueueRedraw();
@@ -3044,12 +3047,13 @@ public partial class Player : Node2D
             (packed >> 4) * OracleRoomData.MetatileSize + 8);
     }
 
-    internal void BeginFloorDoorRespawn()
+    internal void RequestForcedRespawn()
     {
-        // doorController only writes wLinkForceState and parameter2.
+        // doorController and bank0.respawnLink only write wLinkForceState
+        // and parameter2; both feed the same state02 owner.
         // Position, visibility and item cancellation belong to state02.
-        if (_floorDoorRespawnPhase == 0)
-            _floorDoorRespawnPhase = 1;
+        if (_forcedRespawnPhase == 0)
+            _forcedRespawnPhase = 1;
     }
 
     internal void SetCutscenePushing(bool pushing)
@@ -3110,7 +3114,7 @@ public partial class Player : Node2D
         if (_world.IsTransitioning)
             return;
 
-        if (_getItemStatePhase >= 2 || _floorDoorRespawnPhase == 2 || _squishAnimation is not null ||
+        if (_getItemStatePhase >= 2 || _forcedRespawnPhase == 2 || _squishAnimation is not null ||
             _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0)
         {
             // Link's forced state owns the parent pass, while ITEM_BRACELET
@@ -3883,12 +3887,11 @@ public partial class Player : Node2D
 
         _sideScrollYFixed =
             Mathf.FloorToInt(_precisePosition.Y * 256.0f);
-        walls = _world.GetAdjacentWallsBitset(_precisePosition);
-        SideScrollTerrainState currentTerrain =
-            _world.GetSideScrollTerrain(_precisePosition);
+        // linkState01_sidescroll uses the pre-movement wall/tile probes
+        // for wLinkClimbingVine, including the update crossing a tile edge.
         _sideScrollClimbing =
             (walls & parameters.GroundWallMask) == 0 &&
-            (currentTerrain.ActiveType & SideScrollTileType.Ladder) != 0;
+            (terrain.ActiveType & SideScrollTileType.Ladder) != 0;
     }
 
     private void AdvanceSideScrollAirborne(
@@ -3942,7 +3945,10 @@ public partial class Player : Node2D
                 terrain.BelowType == SideScrollTileType.None)
             {
                 _world.PlaySound(SoundId.SndDamageLink);
-                BeginSideScrollInstantRespawn();
+                // bank0.respawnLink writes forceState=$02/parameter=$02.
+                // The next state01 consumes it; state02 initializes on the
+                // following update, before the invisible counter starts.
+                RequestForcedRespawn();
                 return;
             }
 
@@ -5118,10 +5124,10 @@ public partial class Player : Node2D
                 _topDownSwimmingData.Parameters;
             _sideScrollSpeedRaw = swimSpeed;
             _sideScrollTargetSpeedRaw = swimSpeed;
-            _sideScrollVelocityCounter =
+            _sideScrollVelocityInterval =
                 sharedSwimmingParameters.VelocityInterval;
-            // linkSetSwimmingSpeed leaves var13/var36 intact (including an
-            // ice/mermaid velocity interval) and clears the Flippers burst.
+            // linkSetSwimmingSpeed writes var13=$03 after two LDI stores
+            // starting at speed ($10); var12 and var36 remain intact.
             _sideScrollSwimBurstState = 0;
             if (!_inventory.HasTreasure(TreasureId.Flippers))
             {
@@ -5226,6 +5232,11 @@ public partial class Player : Node2D
             _world.PlaySound(swimmingParameters.SwimSound);
         }
 
+        // The transition update retains the outgoing state's C register:
+        // state1 adds +5 when installing state2's $0c counter.
+        int speedStep = _sideScrollSwimBurstState == 1
+            ? swimmingParameters.BurstSpeedStep
+            : -swimmingParameters.BurstSpeedStep;
         _sideScrollSwimBurstCounter =
             (_sideScrollSwimBurstCounter - 1) & 0xff;
         if (_sideScrollSwimBurstCounter == 0)
@@ -5241,8 +5252,7 @@ public partial class Player : Node2D
                 _sideScrollSwimBurstState = 0;
                 _sideScrollSpeedRaw = baseSpeed;
                 _sideScrollTargetSpeedRaw = baseSpeed;
-                _sideScrollVelocityCounter =
-                    swimmingParameters.VelocityInterval;
+                _sideScrollVelocityInterval = swimmingParameters.VelocityInterval;
                 UpdateSideScrollVelocity(
                     inputAngle < 0x80
                         ? inputAngle
@@ -5254,11 +5264,8 @@ public partial class Player : Node2D
 
         if ((_sideScrollSwimBurstCounter & 0x03) == 0)
         {
-            int amount = _sideScrollSwimBurstState == 1
-                ? swimmingParameters.BurstSpeedStep
-                : -swimmingParameters.BurstSpeedStep;
             _sideScrollTargetSpeedRaw =
-                Math.Max(0, _sideScrollTargetSpeedRaw + amount);
+                Math.Max(0, _sideScrollTargetSpeedRaw + speedStep);
         }
 
         UpdateSideScrollVelocity(
@@ -5553,7 +5560,13 @@ public partial class Player : Node2D
         _enemyKnockbackFrames = 0.0f;
         _facing = _localRespawnFacing;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        bool retainAir = _world.SideScrolling && _sideScrollAirborne;
+        int retainedSpeedZ = _sideScrollSpeedZ;
         ClearSideScrollState(_precisePosition);
+        // linkState02 @respawn leaves wLinkInAir/speedZ intact until the
+        // invisible counter's zero update clears the shared air byte.
+        _sideScrollAirborne = retainAir;
+        if (retainAir) _sideScrollSpeedZ = retainedSpeedZ;
         _sideScrollInstantRespawnCounter = 2;
         _instantRespawnRecoveryCounter = 0;
         _instantRespawnCollisionDisabled = collisionsDisabled;

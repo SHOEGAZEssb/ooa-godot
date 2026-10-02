@@ -212,7 +212,7 @@ public sealed partial class ValidationRoot
             CompanionRuntimeState.ReadLastAnimalMountPosition(_entities.RuntimeState) != new Vector2(8, 85),
             "SPECIALOBJECT_RAFT $13 scroll finisher lost the active room/local checkpoint or rewrote remembered state.");
 
-        _player.BeginFloorDoorRespawn();
+        _player.RequestForcedRespawn();
         Step();
         FailIf(raft.Visible || raft.PrecisePosition != new Vector2(8.5f, 85.25f),
             "SPECIALOBJECT_RAFT $13 @respawning failed to hide at the local high-byte coordinates.");

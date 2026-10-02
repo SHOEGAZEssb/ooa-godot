@@ -235,19 +235,21 @@ public sealed partial class ValidationRoot
             Vector2 beforeTurn = swimmer.PrecisePosition;
             swimmer.AdvanceSideScrollUpdateForValidation(Vector2.Left);
             FailIf(swimmer.FacingVector != Vector2I.Left || swimmer.SideScrollAngle != 8 ||
-                swimmer.SideScrollSpeedRaw != 0x0f || swimmer.PrecisePosition.X <= beforeTurn.X,
+                swimmer.SideScrollSpeedRaw != 0x14 || swimmer.PrecisePosition.X <= beforeTurn.X,
                 "Swim facing did not reverse before func_5933's still-rightward braking velocity.");
-            // With speed $0f, eight turns reach the leftward target; state 1
-            // immediately decrements $0d to $0c and adds five to speedTmp.
+            // linkSetSwimmingSpeed writes var13=$03, preserving var12=0.
+            // The first reversed input increments var12 to1 without braking.
+            // Eight burst calls then hit counter3 three times: $14->$0f->$0a
+            // ->$05, retaining angle$08. The ordinary call leaves counter1.
             swimmer.AdvanceSideScrollUpdateForValidation(Vector2.Left, attackJustPressed: true);
-            FailIf(swimmer.SideScrollAngle != 0x18 || swimmer.SideScrollSpeedRaw != 0x19 ||
+            FailIf(swimmer.SideScrollAngle != 0x08 || swimmer.SideScrollSpeedRaw != 0x05 ||
                 swimmer.SideScrollSwimBurstCounter != 0x0c,
                 "A+Left did not turn the burst using this update's facing before its eight func_5933 calls.");
             Vector2 lockedPosition = swimmer.PrecisePosition;
             int animationCounter = swimmer.SideScrollSwimAnimationCounter;
             world.MovementDisabled = true;
             swimmer.AdvanceSideScrollUpdateForValidation(Vector2.Right, attackJustPressed: true);
-            FailIf(swimmer.PrecisePosition != lockedPosition || swimmer.SideScrollAngle != 0x18 ||
+            FailIf(swimmer.PrecisePosition != lockedPosition || swimmer.SideScrollAngle != 0x08 ||
                 swimmer.SideScrollSwimBurstCounter != 0x0c ||
                 swimmer.SideScrollSwimAnimationCounter != animationCounter - 1,
                 "wLinkImmobilized failed to freeze swim velocity/burst while still animating.");

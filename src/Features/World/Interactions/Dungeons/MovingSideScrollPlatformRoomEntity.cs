@@ -19,8 +19,10 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
     private bool _initialized;
     private bool _linkRiding;
     private OracleRuntimeState? _movementMemory;
+    private MovingPlatformRidingState? _riding;
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
+    internal void BindRidingState(MovingPlatformRidingState riding) => _riding = riding;
 
     public Node2D Node => this;
     bool IPlayerRideableRoomEntity.LinkRiding => _linkRiding;
@@ -214,5 +216,6 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
             Position,
             _initialized ? _record.RadiusY : 0,
             _initialized ? _record.RadiusX : 0);
+        _riding?.PublishSideScroll(this, _linkRiding);
     }
 }

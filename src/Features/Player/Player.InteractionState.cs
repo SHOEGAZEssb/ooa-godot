@@ -14,7 +14,7 @@ public partial class Player
             // its pre-scroll and waiting phases; landing restores state01.
             // BossEntryMovement arms separately and sets this flag only when
             // consuming the request. State0b restores state01 on counter zero.
-            if (_getItemStatePhase >= 2 || _floorDoorRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
+            if (_getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
                 _deathAnimationActive || EnemyGrabActive || _squishAnimation is not null ||
                 GaleActive && !_galePending || _forcedState08Phase >= 2 ||
                 _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
@@ -50,7 +50,7 @@ public partial class Player
             if (!NativeNormalStateForInteraction) return;
             // These owners publish wLinkForceState before Link consumes it.
             if (_enemyGrabRequested || _galePending || _forcedState08Phase == 1 || _sideScrollSquishPending ||
-                _topDownDrownPhase == 1 || _floorDoorRespawnPhase == 1 || _getItemStatePhase == 1)
+                _topDownDrownPhase == 1 || _forcedRespawnPhase == 1 || _getItemStatePhase == 1)
                 return;
             // interactiondc_subid17 does not read wLinkDeathTrigger. A lethal
             // hit after Link's update may therefore leave this request pending.

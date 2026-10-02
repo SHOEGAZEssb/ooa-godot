@@ -16,6 +16,8 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
     private int _angle;
     private int _counter = 7;
     private bool _linkRiding;
+    private MovingPlatformRidingState? _riding;
+    internal void BindRidingState(MovingPlatformRidingState riding) => _riding = riding;
 
     public Node2D Node => this;
     bool IPlayerRideableRoomEntity.LinkRiding => _linkRiding;
@@ -46,6 +48,7 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
     {
         bool wasLinkRiding = _linkRiding;
         UpdateRiding(frame.Player);
+        _riding?.PublishSideScroll(this, _linkRiding);
         if (_linkRiding && !wasLinkRiding)
         {
             frame.Player.SynchronizeMovingPlatformSubpixels(

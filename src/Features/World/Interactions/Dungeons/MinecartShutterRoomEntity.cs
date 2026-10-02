@@ -133,7 +133,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
                 if (_room.GetPackedPosition(frame.Player.Position) ==
                     PackedPosition)
                 {
-                    frame.Player.BeginFloorDoorRespawn();
+                    frame.Player.RequestForcedRespawn();
                 }
                 _room.SetPositionTileAndCollision(
                     Position, checked((byte)_closedTile), null,

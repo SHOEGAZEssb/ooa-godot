@@ -111,6 +111,11 @@ before Link moves. The next publication follows object updates and uses Link's
 retained wall probes; moving Link or changing a tile later cannot retroactively
 establish that contact for the same update.
 
+Moving platforms publish support through a shared rider owner. Link consumes
+the preceding interaction pass's claim before the special-object tail clears
+it, including while dialogue freezes the actors. A platform's retained local
+boarding state does not itself preserve that shared support signal.
+
 Item parents, physical children, reserved-item movement, post-object handlers,
 and post-object collisions have separate lifetimes. Native melee and projectile
 contacts resolve after movement, in native item/target order; their signals

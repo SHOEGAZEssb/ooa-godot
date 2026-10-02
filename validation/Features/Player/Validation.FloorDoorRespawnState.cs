@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
                 // State01 consumes force-state before $81, and state02 has
                 // no $81 gate. Repeat while the real controller owns that mask.
                 if (repeat == 1) _entities.LockSmogLinkAndMenu();
-                _player.BeginFloorDoorRespawn();
+                _player.RequestForcedRespawn();
                 FailIf(_player.Position != before || !_player.Visible || !_player.NativeNormalStateForInteraction,
                     "respawnLink only publishes a force-state request; Link must remain normal on the request update.");
                 Step();
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
                 _player.Heal(2);
             }
             _entities.Clear();
-            _player.BeginFloorDoorRespawn();
+            _player.RequestForcedRespawn();
             _player.WarpTo(new(136, 136));
             Step();
             FailIf(_player.IsFloorDoorRespawning || !_player.Visible || !_player.NativeNormalStateForInteraction,
@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
                 FailIf(shield ? !_player.IsUsingShield : !_player.IsAttacking,
                     "The respawn item fixture must create its parent through normal button input.");
                 int swordFrame = _player.SwordStateFrame;
-                _player.BeginFloorDoorRespawn();
+                _player.RequestForcedRespawn();
                 FailIf(shield ? !_player.IsUsingShield : !_player.IsAttacking,
                     "A respawn request must retain existing item parents.");
                 // Release the button: checkUseItems is skipped on consumption,

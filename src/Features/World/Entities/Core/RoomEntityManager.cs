@@ -442,7 +442,8 @@ public sealed class RoomEntityManager : IDisposable
             if (_platformRiding.HasRiderOrInstrument) return true;
             foreach (IRoomEntity entity in _activeEntities)
             {
-                if (entity is IPlayerRideableRoomEntity { LinkRiding: true })
+                if (entity is IPlayerRideableRoomEntity { LinkRiding: true } &&
+                    entity is not (MovingSideScrollPlatformRoomEntity or CircularSideScrollPlatformRoomEntity))
                     return true;
             }
             return false;
@@ -855,8 +856,7 @@ public sealed class RoomEntityManager : IDisposable
             roomEntityFreezeActive = RoomEntityFreezeActive();
             // updateSpecialObjects copies the instrument byte after Link has
             // consumed the previous update's rider. Interactions claim anew.
-            if (!textActive && !roomEntityFreezeActive && !timeWarpArrival)
-                _platformRiding.BeginUpdate(PlayingInstrumentSource());
+            _platformRiding.BeginUpdate(PlayingInstrumentSource());
             _enemyFrameAccumulator -= 1.0;
             _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
             var frame = new RoomEntityFrame(
@@ -1852,6 +1852,7 @@ public sealed class RoomEntityManager : IDisposable
 
     public void Clear()
     {
+        _platformRiding.BeginUpdate(0);
         ReservedKeyDoor?.Cancel();
         ReservedPushBlock?.Cancel();
         _grabbableObjects.Clear();
@@ -2129,7 +2130,12 @@ public sealed class RoomEntityManager : IDisposable
         if (entity.Node is FallingDownHoleEffect fallingHole)
             fallingHole.BindMovementMemory(_runtimeState);
         if (entity.Node is MovingSideScrollPlatformRoomEntity sidePlatform)
+        {
             sidePlatform.BindMovementMemory(_runtimeState);
+            sidePlatform.BindRidingState(_platformRiding);
+        }
+        if (entity.Node is CircularSideScrollPlatformRoomEntity circularPlatform)
+            circularPlatform.BindRidingState(_platformRiding);
         int dynamicId=DynamicItemId(entity);
         if(dynamicId>=0 && _dynamicItems.TryAllocate(entity,dynamicId,
             ()=>_activeEntities.Contains(entity) && entity is not IRoomEntityLifetime {Finished:true} && DynamicItemId(entity)>=0)<0)

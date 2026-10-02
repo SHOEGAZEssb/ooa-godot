@@ -229,7 +229,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 if (_counter != 0)
                     return;
                 if (_room.GetPackedPosition(frame.Player.Position) == PackedPosition)
-                    frame.Player.BeginFloorDoorRespawn();
+                    frame.Player.RequestForcedRespawn();
                 _shutterSignal?.Invoke(false);
                 _room.SetPositionTileAndCollision(
                     Position, (byte)_data.ClosedTile(_record.SubId), null,
