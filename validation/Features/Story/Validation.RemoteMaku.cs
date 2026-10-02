@@ -349,8 +349,10 @@ public sealed partial class ValidationRoot
                 !_hud.Visible ||
                 !_hud.StatusBarHidden ||
                 _dialogue.TextboxFlagsForValidation != 0x04 ||
+                // PALH_0f's palette-0 shade $1f/$1a/$11 is imported as
+                // 8-bit RGB; col(0) uses it rather than PALH_0d's BG1.
                 _dialogue.ResolvedTextColorForValidation(0) !=
-                    DialogueBox.DefaultTextColorForValidation ||
+                    Color.Color8(255, 214, 140) ||
                 _dialogue.ResolvedTextColorForValidation(2) !=
                     DialogueBox.RedTextColorForValidation ||
                 _dialogue.ResolvedTextColorForValidation(3) !=
@@ -367,7 +369,12 @@ public sealed partial class ValidationRoot
                     record.ConfettiPieces,
                 "Remote Maku standard TX_05b0, map text $b0, black palette, " +
                 "PALH_0d dialogue colors, or complete present confetti " +
-                "effect diverged.");
+                $"effect diverged: colors={_dialogue.ResolvedTextColorForValidation(0)}, " +
+                $"{_dialogue.ResolvedTextColorForValidation(2)}, {_dialogue.ResolvedTextColorForValidation(3)}, " +
+                $"{_dialogue.ResolvedTextColorForValidation(4)}; glyph colors=" +
+                $"{_dialogue.GlyphColorForValidation(0, 1, 0)}, {_dialogue.GlyphColorForValidation(0, 1, 9)}, " +
+                $"{_dialogue.GlyphColorForValidation(0, 2, 8)}, {_dialogue.GlyphColorForValidation(0, 4, 0)}, " +
+                $"{_dialogue.GlyphColorForValidation(0, 4, 13)}.");
             FinishAfterDialogue(initialState: 3, record.StandardMapText);
 
             CutsceneCommandTraceEntry[] starts = trace.Entries

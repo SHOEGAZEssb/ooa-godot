@@ -106,10 +106,26 @@ text on that update; they resume on the next. Explicit cancellation through
 `Close()` remains immediate.
 
 Standard dialogue preserves preparation updates after opening, clearing at a
-stop command, and scrolling. One A/B continuation advances two new lines; the
+stop command, and scrolling. A stop continuation retains the old text on the
+press update and clears it on the following preparation update. One A/B
+continuation advances two new lines; the
 second scroll is automatic. Revealing a line cannot also advance or close the
 message with the same press. Any button can exit final standard text;
 continuation text requires A/B and option prompts retain their own controls.
+
+Option markers reserve printable space columns. After printing finishes, option
+initialization and the text-speed-dependent cursor delay precede input. B selects
+the last option; A confirms, with B taking priority in a chord. Horizontal moves
+wrap in source option order; vertical moves select the nearest position on the
+other row. Confirmation publishes the selection while text remains active through
+the option exit and ordinary closing updates. Consumers take the result once
+text releases ownership.
+
+Text color commands select both glyph shades and palette attributes. Alternate
+palette flags determine the initial attribute; an explicit color reset still
+selects palette 0. NOCOLORS suppresses color commands. A/B line skipping bypasses
+the skipped glyphs' individual sound effects and requests the ending character
+cue subject to the shared text-sound cooldown.
 
 ## Frontend ownership
 

@@ -240,6 +240,9 @@ public sealed partial class ValidationRoot
             _dialogue.ShowChoiceMessage(
                 "\\opt()Yes \\opt()No", _player.Position.Y);
             _dialogue.RevealCurrentPageForValidation();
+            // Enter option state 0, initialize its speed-$04 cursor delay,
+            // then count all $10 updates before accepting B/A input.
+            for (int update = 0; update < 18; update++) _dialogue.AdvanceApplicationUpdate();
         }
         finally
         {
@@ -278,6 +281,15 @@ public sealed partial class ValidationRoot
         {
             Input.EndOriginalUpdate();
         }
+        // Confirmation publishes the result but retains text through option
+        // state 3, standard state $0f and its separate $10 closing update.
+        Input.BeginOriginalUpdate(new ApplicationInputSnapshot(
+            pressed: [], justPressed: [], movement: Vector2.Zero));
+        try
+        {
+            for (int update = 0; update < 3; update++) _dialogue.AdvanceApplicationUpdate();
+        }
+        finally { Input.EndOriginalUpdate(); }
         FailIf(
             _dialogue.IsOpen ||
             !_dialogue.TryTakeChoiceResult(out int bChoice) ||

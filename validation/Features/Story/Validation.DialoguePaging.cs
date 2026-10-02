@@ -19,7 +19,9 @@ public sealed partial class ValidationRoot
                 // Source states 0,1,2,3,4,5 -> 6,7,8,9,a,b,c,d,e,3,4.
                 // Clean-US TX_0102 executes the same two-line continuation
                 // at updates $0671-$067c. A single press starts both lines.
-                int[] glyphs = [0, 0, 1, 1, 3, 3, 3, 3, 2, 2, 5, 5, 5, 5, 3, 3, 7, 0, 0, 0, 2, 2, 2];
+                // The stop press returns to state 0 while retaining the old
+                // mapping; state 0 clears it on the following update.
+                int[] glyphs = [0, 0, 1, 1, 3, 3, 3, 3, 2, 2, 5, 5, 5, 5, 3, 3, 7, 7, 0, 0, 2, 2, 2];
                 int[] scroll = [0, 0, 0, 0, 0, 8, 8, 16, 0, 0, 0, 8, 8, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0];
                 int update = 0;
                 void Step(int count, string? button = null)

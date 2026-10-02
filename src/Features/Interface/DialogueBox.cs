@@ -82,6 +82,7 @@ public partial class DialogueBox : Node2D
     private int _characterDisplayTimer;
     private int _initialTextUpdates;
     private bool _prepareNextLine;
+    private bool _pendingSegmentAdvance;
     private bool _automaticTextScroll;
     private bool _skipToLineEnd;
     private int _textSlowdownTimer;
@@ -100,6 +101,9 @@ public partial class DialogueBox : Node2D
     private bool _closing;
     private bool _scrollingText;
     private bool _choiceActive;
+    private int _choicePhase = -1;
+    private int _choiceDelay;
+    private int _choiceClosingUpdates;
     private bool _passive;
     private int _textboxFlags;
     private int _visiblePanelHeight = PanelHeight;
@@ -147,6 +151,8 @@ public partial class DialogueBox : Node2D
     internal float TextScrollOffset => _textScrollOffset;
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
+    internal bool ChoiceCursorVisible => _choiceActive &&
+        (_choicePhase == 2 || _choiceClosingUpdates >= 2);
     internal int TextboxFlagsForValidation => _textboxFlags;
     internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
@@ -294,7 +300,7 @@ public partial class DialogueBox : Node2D
             _ => _linkName(),
             RegexOptions.IgnoreCase);
         _segments.Clear();
-        _segments.AddRange(ParseMessage(message, out bool slowdownRequested));
+        _segments.AddRange(ParseMessage(message, textboxFlags, out bool slowdownRequested));
         if (ContainsTradeItemGlyph())
             _tradeItemTexture = BuildTradeItemTexture();
         _currentMessage = PlainText(message);
@@ -307,6 +313,8 @@ public partial class DialogueBox : Node2D
         _consumeClosingInput = false;
         _scrollingText = false;
         _choiceActive = false;
+        _choicePhase = -1;
+        _choiceDelay = _choiceClosingUpdates = 0;
         _passive = false;
         _textboxFlags = textboxFlags;
         _backgroundPaletteState?.LoadTextboxPalette(textboxFlags);
@@ -326,6 +334,7 @@ public partial class DialogueBox : Node2D
         // row. Neither runs the character timer nor accepts A/B input.
         _initialTextUpdates = 2;
         _prepareNextLine = false;
+        _pendingSegmentAdvance = false;
         _automaticTextScroll = false;
         _skipToLineEnd = false;
         _textSlowdownTimer = slowdownRequested ? TextSlowdownFrames : 0;
@@ -411,7 +420,7 @@ public partial class DialogueBox : Node2D
     internal bool TryTakeChoiceResult(out int choice)
     {
         choice = _choiceResult ?? 0;
-        if (!_choiceResult.HasValue)
+        if (_open || !_choiceResult.HasValue)
             return false;
         _choiceResult = null;
         return true;
@@ -423,6 +432,9 @@ public partial class DialogueBox : Node2D
             throw new InvalidOperationException("No dialogue choice is active.");
         _selectedChoice = choice;
         SubmitChoice();
+        // This existing helper arranges a completed prompt for script/menu
+        // tests. Input-driven comparisons exercise all native close updates.
+        Close();
     }
 
     public void Close()
@@ -433,6 +445,9 @@ public partial class DialogueBox : Node2D
         _automaticTextScroll = false;
         _skipToLineEnd = false;
         _choiceActive = false;
+        _pendingSegmentAdvance = false;
+        _choicePhase = -1;
+        _choiceDelay = _choiceClosingUpdates = 0;
         _passive = false;
         _textboxFlags = 0;
         _alternatePalettePriorityChanged(false);
@@ -460,8 +475,24 @@ public partial class DialogueBox : Node2D
         if (!_open)
             return;
 
+        if (_choiceClosingUpdates > 0)
+        {
+            // Option state 3 returns to standard state $0f; that state
+            // restores the tiles, then $10 releases text after object updates.
+            if (--_choiceClosingUpdates == 0) Close();
+            return;
+        }
+
+        if (_choicePhase >= 0)
+        {
+            AdvanceChoice();
+            return;
+        }
+
         if (!_passive && _initialTextUpdates > 0)
         {
+            if (_pendingSegmentAdvance)
+                AdvancePendingTextSegment();
             _initialTextUpdates--;
             return;
         }
@@ -522,6 +553,12 @@ public partial class DialogueBox : Node2D
         }
 
         QueueRedraw();
+        if (_choiceActive && IsPageComplete && !HasContinuation)
+        {
+            // func_5296 enters option state 0 on the final printing update.
+            _choicePhase = 0;
+            return;
+        }
         if (_passive || !pageWasComplete)
             return;
         // Standard text's final @checkShouldExit accepts any pressed key.
@@ -537,36 +574,6 @@ public partial class DialogueBox : Node2D
         if (HasContinuation && !Input.IsActionJustPressed("attack") &&
             !Input.IsActionJustPressed("item"))
             return;
-
-        if (_choiceActive && IsPageComplete && !HasContinuation)
-        {
-            int choiceCount = CurrentLine(0).OptionColumns.Count +
-                CurrentLine(1).OptionColumns.Count;
-            // textOptionCode@state02 checks A/B before directions, and
-            // textOptionCode_checkBButton moves to the final option without
-            // accepting it. A confirms the selected option on a later update.
-            if (Input.IsActionJustPressed("item"))
-            {
-                MoveChoiceToLast();
-                return;
-            }
-            if (Input.IsActionJustPressed("attack"))
-            {
-                SubmitChoice();
-                return;
-            }
-            if (choiceCount > 0 &&
-                (Input.IsActionJustPressed("move_left") ||
-                 Input.IsActionJustPressed("move_right") ||
-                 Input.IsActionJustPressed("move_up") ||
-                 Input.IsActionJustPressed("move_down")))
-            {
-                int choiceDelta = Input.IsActionJustPressed("move_left") ||
-                    Input.IsActionJustPressed("move_up") ? -1 : 1;
-                MoveChoice(choiceDelta);
-                return;
-            }
-        }
 
         AdvanceOrClose();
     }
@@ -604,10 +611,7 @@ public partial class DialogueBox : Node2D
         else if (_segmentIndex + 1 < _segments.Count)
         {
             // \stop clears the old text before the following segment starts.
-            _segmentIndex++;
-            _firstLineIndex = 0;
-            ResetHeartPieceDisplay();
-            ResetCharacterDisplay(0);
+            _pendingSegmentAdvance = true;
             _initialTextUpdates = 2;
             _automaticTextScroll = false;
             _skipToLineEnd = false;
@@ -677,7 +681,7 @@ public partial class DialogueBox : Node2D
         if (ArrowVisible)
             DrawTextureRect(_continueMarkerTexture, ContinueMarkerRect, false, RedTextColor);
 
-        if (_choiceActive && IsPageComplete && !HasContinuation)
+        if (ChoiceCursorVisible)
             DrawChoiceCursor();
 
         DrawHeartPieceDisplay();
@@ -696,6 +700,7 @@ public partial class DialogueBox : Node2D
 
     internal void RevealCurrentPageForValidation()
     {
+        if (_pendingSegmentAdvance) AdvancePendingTextSegment();
         _initialTextUpdates = 0;
         _prepareNextLine = false;
         _visibleGlyphs = CurrentWindowGlyphCount;
@@ -836,8 +841,51 @@ public partial class DialogueBox : Node2D
     {
         _playSound(SoundId.SndSelectItem);
         _choiceResult = _selectedChoice;
-        Close();
+        _choicePhase = 3;
+        _choiceClosingUpdates = 3;
         _consumeClosingInput = true;
+    }
+
+    private void AdvanceChoice()
+    {
+        if (_choicePhase == 0)
+        {
+            // textbox.s:textOptionCode@cursorDelay, indexed by wTextSpeed.
+            _choiceDelay = 0x20 - _messageSpeed * 4;
+            _choicePhase = 1;
+            return;
+        }
+        if (_choicePhase == 1)
+        {
+            if (--_choiceDelay == 0) _choicePhase = 2;
+            return;
+        }
+        // A/B precede directions, and B selects the last option without
+        // accepting it. Direction chords use getHighestSetBit priority.
+        if (Input.IsActionJustPressed("item")) MoveChoiceToLast();
+        else if (Input.IsActionJustPressed("attack")) SubmitChoice();
+        else if (Input.IsActionJustPressed("move_down") || Input.IsActionJustPressed("move_up"))
+            MoveChoiceVertically();
+        else if (Input.IsActionJustPressed("move_left")) MoveChoice(-1);
+        else if (Input.IsActionJustPressed("move_right")) MoveChoice(1);
+    }
+
+    private void MoveChoiceVertically()
+    {
+        var positions = new List<int>();
+        for (int line = 0; line < LinesPerPage; line++)
+            foreach (int column in CurrentLine(line).OptionColumns)
+                positions.Add(line * 0x20 + column * 2 + 1);
+        if (_selectedChoice >= positions.Count) return;
+        _playSound(SoundId.SndMenuMove);
+        int current = positions[_selectedChoice], closest = 0xff, selected = _selectedChoice;
+        for (int index = 0; index < positions.Count; index++)
+        {
+            int distance = Math.Abs(Math.Abs(positions[index] - current) - 0x20);
+            if (distance < closest) { closest = distance; selected = index; }
+        }
+        if (closest < 0x10) _selectedChoice = selected;
+        QueueRedraw();
     }
 
     private void MoveChoice(int delta)
@@ -884,7 +932,7 @@ public partial class DialogueBox : Node2D
                 // textbox-map row $20/$60: the lower half of the text line.
                 DrawTexture(
                     _choiceCursorTexture,
-                    new Vector2(16 + Math.Max(0, column - 1) * 8,
+                    new Vector2(16 + column * 8,
                         lineIndex * LineSpacing + 8),
                     ColorFor(0));
                 return;
@@ -940,11 +988,20 @@ public partial class DialogueBox : Node2D
     private void RevealCurrentLine()
     {
         int topLineLength = CurrentLine(0).Glyphs.Count;
+        TextLine line = CurrentLine(_visibleGlyphs < topLineLength ? 0 : 1);
         int targetGlyphs = _visibleGlyphs < topLineLength
             ? topLineLength
             : CurrentWindowGlyphCount;
         while (_visibleGlyphs < targetGlyphs)
-            RevealNextGlyph();
+            RevealNextGlyph(skipped: true);
+        // displayNextTextCharacter recurses past skipped glyphs before
+        // reading their sound buffers. @endLine requests only the current
+        // character cue, subject to the same four-update cooldown.
+        if (line.Glyphs.Count > 0 && _textSoundCooldownCounter == 0)
+        {
+            _textSoundCooldownCounter = TextSoundCooldownFrames;
+            _playSound(line.Glyphs[^1].CharacterSound);
+        }
         _characterFrameAccumulator = 0.0;
         _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
         if (IsPageComplete)
@@ -960,7 +1017,18 @@ public partial class DialogueBox : Node2D
         _arrowFrameCounter = 0.0;
     }
 
-    private void RevealNextGlyph()
+    private void AdvancePendingTextSegment()
+    {
+        // func_5296 returns to state 0 on the continuation press; its
+        // following preparation update replaces the old textbox mapping.
+        _pendingSegmentAdvance = false;
+        _segmentIndex++;
+        _firstLineIndex = 0;
+        ResetHeartPieceDisplay();
+        ResetCharacterDisplay(0);
+    }
+
+    private void RevealNextGlyph(bool skipped = false)
     {
         TextLine firstLine = CurrentLine(0);
         TextLine line;
@@ -991,7 +1059,7 @@ public partial class DialogueBox : Node2D
 
         // displayNextTextCharacter branches to @endLine before reading the
         // sound buffers for column $0f.
-        if (column + 1 == CharactersPerLine)
+        if (skipped || column + 1 == CharactersPerLine)
             return;
 
         if (glyph.Code != ' ' && glyph.CharacterSound != 0 &&
@@ -1197,7 +1265,6 @@ public partial class DialogueBox : Node2D
             2 => _backgroundPaletteColor(1, 0),
             3 => _backgroundPaletteColor(1, 1),
             4 => _backgroundPaletteColor(1, 2),
-            _ when UsesAlternatePalette1 => _backgroundPaletteColor(1, 2),
             _ => _backgroundPaletteColor(0, 2)
         };
     }
@@ -1241,6 +1308,7 @@ public partial class DialogueBox : Node2D
 
     private static List<TextSegment> ParseMessage(
         string message,
+        int textboxFlags,
         out bool slowdownRequested)
     {
         var segments = new List<TextSegment>();
@@ -1248,7 +1316,10 @@ public partial class DialogueBox : Node2D
         var glyphs = new List<TextGlyph>();
         var optionColumns = new List<int>();
         int heartPieceColumn = -1;
-        int colorIndex = 0;
+        bool noColors = (textboxFlags & 1) != 0;
+        // initTextboxStuff starts with attribute $81 only for ALTPALETTE1
+        // without NOCOLORS/ALTPALETTE2. Later \col(0) still selects $80.
+        int colorIndex = !noColors && (textboxFlags & 0x14) == 4 ? 4 : 0;
         int characterSound = SoundId.SndText;
         int pendingSoundEffect = 0;
         bool skipNextNewline = false;
@@ -1332,7 +1403,7 @@ public partial class DialogueBox : Node2D
             switch (name)
             {
                 case "col":
-                    if (TryParseCommandNumber(argument, out int requestedColor) &&
+                    if (!noColors && TryParseCommandNumber(argument, out int requestedColor) &&
                         requestedColor < 0x80)
                     {
                         colorIndex = requestedColor;
@@ -1382,6 +1453,9 @@ public partial class DialogueBox : Node2D
                     break;
                 case "opt":
                     optionColumns.Add(glyphs.Count);
+                    // textControlCodeC_2 reserves a real space glyph for
+                    // the cursor, including its printing delay and column.
+                    AddGlyph(0x20);
                     break;
                 case "sfx":
                     if (TryParseCommandNumber(argument, out int requestedSoundEffect))

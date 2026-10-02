@@ -144,7 +144,7 @@ public sealed partial class ValidationRoot
             !room.ResolveBackgroundPaletteColor(1, 0).IsEqualApprox(
                 alternatePalette1Shade0) ||
             !_dialogue.ResolvedTextColorForValidation(0).IsEqualApprox(
-                alternatePalette1Shade2) ||
+                common0Shade2) ||
             !_dialogue.ResolvedTextColorForValidation(2).IsEqualApprox(
                 alternatePalette1Shade0) ||
             !_dialogue.ResolvedTextColorForValidation(4).IsEqualApprox(

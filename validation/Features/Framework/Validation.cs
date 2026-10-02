@@ -336,6 +336,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateNameEntryKeyboardRom, requiresRom: true);
         RunIsolatedValidation(ValidateNameEntryEditingRom, requiresRom: true);
         RunIsolatedValidation(ValidateNameEntryAutofireRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDialoguePagingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDialogueFormattingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDialogueChoicesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateNpcConversationRom, requiresRom: true);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateNewGameIntroRom, requiresRom: true);
         RunIsolatedValidation(ValidateNewGameIntroInputRom, requiresRom: true);
