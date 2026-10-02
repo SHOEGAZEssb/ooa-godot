@@ -26,6 +26,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool BlockHorizontalMovement { get; set; }
     public bool BlockVerticalMovement { get; set; }
     public bool PushingAgainstWall { get; set; }
+    public int TilePushingDirection { get; set; } = 0xff;
     public int SwordHitCalls { get; private set; }
     public bool AcceptSwordHits { get; set; }
     public int LastSwordDamage { get; private set; }

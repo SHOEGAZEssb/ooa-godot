@@ -210,6 +210,8 @@ public static class WramAddress
     public const int wActiveCollisions = 0xcc33;
     // include/wram.s: wSeedTreeRefilledBitset
     public const int wSeedTreeRefilledBitset = 0xcc4d;
+    // include/wram.s: wLinkPushingDirection
+    public const int wLinkPushingDirection = 0xcc65;
     // include/wram.s: wLinkRaisedFloorOffset
     public const int wLinkRaisedFloorOffset = 0xcc69;
 

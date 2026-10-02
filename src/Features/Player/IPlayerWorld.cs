@@ -113,6 +113,7 @@ public interface IPlayerWorld
         Vector2 playerPosition,
         Vector2I facing,
         Vector2 movementInput);
+    int TilePushingDirection { get; set; }
     ActiveTerrainInfo GetActiveTerrain(Vector2 playerPosition);
     SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition);
     int GetAdjacentWallsBitset(Vector2 playerPosition);

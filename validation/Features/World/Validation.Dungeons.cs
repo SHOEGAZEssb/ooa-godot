@@ -2236,7 +2236,10 @@ public sealed partial class ValidationRoot
             "Could not prepare 4:08/$4b as bracelet-required tile $10.");
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _playerWorld.TilePushingDirection = 0; // Declared preceding graphics-pass contact.
             _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        }
         FailIf(
             _pushBlocks.Active || _currentRoom.GetMetatile(blockCenter) != 0x10,
             "Bracelet-required tile $10 moved before TREASURE_BRACELET was obtained.");
@@ -2317,6 +2320,7 @@ public sealed partial class ValidationRoot
         using Image expectedMovingPotImage = expectedMovingPot.GetImage();
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
         {
+            _playerWorld.TilePushingDirection = 2; // Declared preceding graphics-pass contact.
             _playerWorld.UpdatePushableBlocks(
                 linkAboveMovingPot, Vector2I.Down, Vector2.Down);
         }
@@ -2690,7 +2694,10 @@ public sealed partial class ValidationRoot
         }
 
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
+        {
+            _playerWorld.TilePushingDirection = 0; // Declared preceding graphics-pass contact.
             _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
+        }
         _pushBlocks.Advance(1.0 / 60.0);
         FailIf(
             !_pushBlocks.Active ||

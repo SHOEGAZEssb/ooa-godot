@@ -264,12 +264,24 @@ public sealed class PlayerWorld : IPlayerWorld
         Vector2 resolvedInput = _collisionsDisabled()
             ? Vector2.Zero
             : movementInput;
+        // interactWithTileBeforeLink consumes the preceding graphics pass's
+        // wLinkPushingDirection, before this update's wall probes/movement.
+        // Current wLinkAngle rejects diagonals/neutral, but need not match
+        // the retained push direction until the new graphics publication.
+        Vector2 tileInput = TilePushingDirection is >= 0 and < 4 &&
+            InteractableTilePushGeometry.TryGetCardinalInput(resolvedInput, out _)
+                ? OracleObjectMath.StrictCardinalVector(TilePushingDirection * 8) : Vector2.Zero;
         _pushBlocks.UpdatePushAttempt(
-            position, facing, resolvedInput,
+            position, facing, tileInput,
             _inventory.BraceletLevel);
         _entities.UpdatePushableEntities(position, facing, resolvedInput);
-        _keyDoors.UpdatePushAttempt(position, facing, resolvedInput);
-        _keyholes.UpdatePushAttempt(position, facing, resolvedInput);
+        _keyDoors.UpdatePushAttempt(position, facing, tileInput);
+        _keyholes.UpdatePushAttempt(position, facing, tileInput);
+    }
+    public int TilePushingDirection
+    {
+        get => _entities.RuntimeState.ReadWramByte(WramAddress.wLinkPushingDirection);
+        set => _entities.RuntimeState.SetWramByte(WramAddress.wLinkPushingDirection, (byte)value);
     }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public SideScrollTerrainState GetSideScrollTerrain(Vector2 position) =>

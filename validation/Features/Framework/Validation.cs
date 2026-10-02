@@ -619,6 +619,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSomariaLiveBlock);
         RunIsolatedValidation(ValidateSomariaPush);
         RunIsolatedValidation(ValidateSomariaUse);
+        RunIsolatedValidation(ValidateSomariaSwingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSomariaBlockRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSomariaPushRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSomariaCarryThrowRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSomariaCarryCancellationRom, requiresRom: true);
         RunIsolatedValidation(ValidateSomariaCollisionData);
         RunIsolatedValidation(ValidateSomariaSpikedBall);
         RunIsolatedValidation(ValidateSomariaEnemyDamage);

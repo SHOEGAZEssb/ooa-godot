@@ -22,6 +22,7 @@ internal sealed class FrontendRom
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
     internal int Word(int address) => this[address] | this[address + 1] << 8;
     internal byte BankByte(int bank, int address) => _wram[bank][address - 0xd000];
+    internal void SetBankByte(int bank, int address, byte value) => _wram[bank][address - 0xd000] = value;
     internal byte NameByte(int offset) => _wram[4][0x7a0 + offset];
     internal byte DisplayHearts(int slot) => _wram[4][0x780 + slot * 8 + 2];
     internal byte SavedByte(int slot, int address, bool backup = false) =>

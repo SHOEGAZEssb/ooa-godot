@@ -74,8 +74,9 @@ public sealed partial class ValidationRoot
             {
                 Arrange();
                 ReachFinalPush();
-                // Breaking contact resets the 20-to-zero counter.
-                StepGameplayUpdates(1, Vector2.Down);
+                // Neutral wLinkAngle rejects the preceding pushing signal
+                // before the final doubled decrement can open the keyhole.
+                StepGameplayUpdates(1, Vector2.Zero);
                 FailIf(_keyholes.RemainingPushFrames != 20 || entrance.BlocksGameplay,
                     $"{source} retained partial push progress after breaking contact.");
                 ReachFinalPush();

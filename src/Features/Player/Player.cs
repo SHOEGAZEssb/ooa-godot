@@ -294,6 +294,7 @@ public partial class Player : Node2D
     private bool _screenTransitionTerrainMotion;
     private bool _walking;
     private bool _pushing;
+    private int _tilePushWalls;
     private bool _pullingIntoHole;
     private bool _drowning;
     private bool _drownRespawning;
@@ -2102,7 +2103,16 @@ public partial class Player : Node2D
             return;
         }
 
+        // linkState01 interacts with the front tile using the preceding
+        // loadLinkAndCompanionAnimationFrame publication, before item parents
+        // and movement. Held objects bypass interactWithTileBeforeLink.
+        if (!_companionRideControlled && !_minecartRideControlled && !_raftRideControlled &&
+            !_topDownAirborne && !IsCarryingObject && !_braceletLiftCollisionsDisabled &&
+            _braceletActionPose is not (BraceletActionPose.Pull or BraceletActionPose.PullStrain))
+            _world.UpdatePushableBlocks(_precisePosition, FacingVector, input);
+
         if (ProcessItemInput(input)) return;
+        _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
 
         if (_minecartRideControlled)
         {
@@ -2135,10 +2145,6 @@ public partial class Player : Node2D
             UpdateSideScrollMovement(delta, input, movementAllowed);
             AdvanceRocsCapeParent();
             UpdatePushingState(input);
-            _world.UpdatePushableBlocks(
-                _precisePosition,
-                FacingVector,
-                _walking ? input : Vector2.Zero);
             UpdateHeartRingCounter(_precisePosition - movementStart);
 
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -2168,14 +2174,6 @@ public partial class Player : Node2D
         }
 
         UpdatePushingState(input);
-
-        // interactWithTileBeforeLink observes wLinkPushingDirection after
-        // collision has stopped Link at the tile. Run the push check against
-        // the resolved position, not the pre-movement approach position.
-        _world.UpdatePushableBlocks(
-            _precisePosition,
-            FacingVector,
-            _walking ? input : Vector2.Zero);
 
         Vector2 terrainPush = _world.GetTerrainPush(Position) * (float)delta;
         if (terrainPush != Vector2.Zero)
@@ -5656,6 +5654,20 @@ public partial class Player : Node2D
         _lastMovementInput = movementInput;
         _pushing = movementInput.LengthSquared() > 0.01f && !IsUsingItem &&
             _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
+    }
+
+    internal void PublishTilePushingDirection()
+    {
+        // loadLinkAndCompanionAnimationFrame_body resets the signal, then
+        // checkLinkPushingAgainstWall uses Link's retained pre-movement wall
+        // probes and the current facing/keys. Later object movement cannot
+        // create a wall contact retroactively in this graphics pass.
+        int direction = CarriedObjectMotion.DirectionIndex(FacingVector);
+        int walls = direction switch { 0 => 0xc0, 1 => 0x03, 2 => 0x30, _ => 0x0c };
+        bool pushing = !_world.NativeTextActive && !IsUsingItem && !IsCarryingObject &&
+            !_braceletLiftCollisionsDisabled && !_world.RidingObject &&
+            _lastMovementInput.Dot((Vector2)FacingVector) > 0 && (_tilePushWalls & walls) == walls;
+        _world.TilePushingDirection = pushing ? direction : 0xff;
     }
 
     internal bool IsAttemptingObjectPush(Vector2I direction)

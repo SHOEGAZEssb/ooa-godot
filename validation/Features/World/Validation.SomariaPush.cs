@@ -50,6 +50,8 @@ public partial class ValidationRoot
                 // push must consume the full source20 updates.
                 Step(1);
                 FailIf(_pushBlocks.RemainingPushFrames!=20,"Releasing a Somaria push must reset its counter.");
+                Step(1,true);
+                FailIf(_pushBlocks.RemainingPushFrames!=20,"New input must publish pushing before the following tile-interaction update consumes it.");
                 Step(19,true);
                 FailIf(_pushBlocks.RemainingPushFrames!=1 || block.State!=3 || _pushBlocks.Active,
                     "Somaria must remain still through push update19 without allocating the ordinary push interaction.");

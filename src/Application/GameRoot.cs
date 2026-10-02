@@ -905,6 +905,7 @@ public partial class GameRoot : Node2D
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
         _entities.UpdateHeldObjectPosition(_player);
+        _player.PublishTilePushingDirection();
         // updateAllObjects drains up to four queued tile graphics after the
         // object passes, before screen-transition handling and animation.
         // Preserve the current scroll gate on its final frozen update.

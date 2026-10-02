@@ -106,6 +106,10 @@ Cross-object signals retain their publication and consumption phases. Link may
 read the preceding enemy or interaction pass before shared signals clear;
 later parts and interactions may observe writes in the current update. A pause
 must preserve signals alongside the state it freezes.
+Tile push handlers consume the preceding graphics pass's pushing direction
+before Link moves. The next publication follows object updates and uses Link's
+retained wall probes; moving Link or changing a tile later cannot retroactively
+establish that contact for the same update.
 
 Item parents, physical children, reserved-item movement, post-object handlers,
 and post-object collisions have separate lifetimes. Native melee and projectile
