@@ -132,7 +132,7 @@ jobs:
 
       - name: Build with zero warnings
         shell: pwsh
-        run: dotnet build --configuration Debug --warnaserror
+        run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
 
       - name: Run headless validation with ROM-dependent tests skipped
         shell: pwsh

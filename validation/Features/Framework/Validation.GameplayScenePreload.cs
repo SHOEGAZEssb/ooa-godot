@@ -168,10 +168,15 @@ public sealed partial class ValidationRoot
             ReferenceEquals(walking, sprites.WalkTexture) ||
             _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL,
             "Reinitializing Link must refresh walking graphics while retaining alternate atlases for that player node.");
-        using var otherPlayer = new Player();
-        FailIf(ReferenceEquals(sprites, otherPlayer.Sprites) ||
-            Field(otherPlayer.Sprites, "_swordTextureCache") is not null,
-            "A different player node must own a fresh, unprepared sprite library.");
+        var otherPlayer = new Player();
+        try
+        {
+            FailIf(ReferenceEquals(sprites, otherPlayer.Sprites) ||
+                Field(otherPlayer.Sprites, "_swordTextureCache") is not null,
+                "A different player node must own a fresh, unprepared sprite library.");
+        }
+        // This off-tree node has no scene owner to free its native instance.
+        finally { otherPlayer.Free(); }
         FailIf(!save.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngCalls,
             "Deferred player graphics changed save state or consumed gameplay RNG.");
 

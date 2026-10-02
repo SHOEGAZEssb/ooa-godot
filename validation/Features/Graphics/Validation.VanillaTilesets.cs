@@ -19,7 +19,10 @@ public sealed partial class ValidationRoot
             (0x5f, "7240fb3ecf2e7f6b827ea7201ad5bb78fe38e69547f0807547f33d7bac9d0473")
         })
         {
-            using Image atlas = Image.LoadFromFile($"res://assets/oracle/gfx/gfx_tileset{id:x2}.png");
+            using Image atlas = new();
+            FailIf(atlas.LoadPngFromBuffer(Godot.FileAccess.GetFileAsBytes(
+                $"res://assets/oracle/gfx/gfx_tileset{id:x2}.png")) != Error.Ok,
+                $"Vanilla tileset ${id:x2} PNG could not be decoded.");
             FailIf(atlas.GetWidth() != 128 || atlas.GetHeight() != 128,
                 $"Vanilla tileset ${id:x2} atlas dimensions changed.");
             byte[] pixels = new byte[128 * 128];
