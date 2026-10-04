@@ -100,7 +100,7 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
             _collisionPending = true;
             return;
         }
-        if (player.OverlapsEnemyCollision(CollisionBounds) &&
+        if (player.OverlapsEnemyCollision(CollisionBounds, _zFixed >> 8) &&
             player.ApplyEnemyContactDamage(Position, _record.DamageQuarters, RingDamageSource.Generic))
             _deletePending = true; // part var2a=$80 deletes on its next dispatch; no bounce.
     }

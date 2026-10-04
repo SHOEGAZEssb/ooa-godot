@@ -46,8 +46,8 @@ public sealed partial class ValidationRoot
                 database.EnemyHandlers.ResolveHandler(source).CombatSource(source, killableEnemyIndex: 1), _ => { });
             int health = _player.HealthQuarters;
             adapter.HandleLinkContact(_player);
-            FailIf(_player.HealthQuarters >= health,
-                $"Companion ${id:x2}, direction ${direction:x2}: enemy below companion missed (health={health}->{_player.HealthQuarters}, invincibility={_player.InvincibilityFrames}, knockback={_player.KnockbackFrames}, contact={_player.AcceptsRoomEntityContact}, z={_player.CompanionRideZFixed}, dying={_player.IsDying}, point={_player.EnemyContactPosition}, enemy={enemy.Position}).");
+            FailIf(_player.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xfe,
+                $"Companion ${id:x2}, direction ${direction:x2}: enemy below companion missed (health={health}->{_player.HealthQuarters}, raw=${_player.PendingContactDamageRaw & 0xff:x2}, invincibility={_player.InvincibilityFrames}, knockback={_player.KnockbackFrames}, contact={_player.AcceptsRoomEntityContact}, z={_player.CompanionRideZFixed}, dying={_player.IsDying}, point={_player.EnemyContactPosition}, enemy={enemy.Position}).");
             _player.ResetEnemyInvincibility();
 
             // Exercise exact Z boundaries without depending on a particular
@@ -74,8 +74,11 @@ public sealed partial class ValidationRoot
                 texture, texture, Vector2.Zero, Vector2.Zero);
             rock.Position = point;
             rock.UpdateFrame(_player);
-            FailIf(!rock.Finished || _player.HealthQuarters >= health,
+            ((ILinkContactEntity)rock).HandleLinkContact(_player);
+            FailIf(rock.Finished || _player.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xfc,
                 $"Companion ${id:x2}: projectile failed to hit at relative Z +$06.");
+            rock.UpdateFrame(_player);
+            FailIf(!rock.Finished, $"Companion ${id:x2}: contacted projectile did not delete on its following dispatch.");
             enemy.QueueFree();
 
             _player.BeginCompanionDismount(point, direction);

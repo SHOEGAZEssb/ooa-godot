@@ -43,6 +43,7 @@ public sealed class PlayerWorld : IPlayerWorld
     // Room scripts' $81 mask also freezes Link and item parents. Keep their
     // state intact while interactions (including the key sprite) keep running.
     public bool PlayerUpdatesFrozen => _entities.PlayerUpdatesFrozen || _roomEvents.FreezesNonInteractionObjects;
+    public bool NativePaletteChanging => _entities.DoorPaletteFadeActive;
     public bool LinkDisabled => _roomEvents.DisablesLink;
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;

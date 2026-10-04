@@ -253,7 +253,7 @@ public sealed partial class ValidationRoot
                         rock.Position + new Vector2(offset, 0), new OracleRandom());
                     int health = player.HealthQuarters;
                     rock.HandleLinkContact(player);
-                    FailIf(player.HealthQuarters != health, "Hidden PART $45 damaged Link.");
+                    FailIf(player.HealthQuarters != health || player.PendingContactDamageRaw != 0, "Hidden PART $45 damaged Link.");
                 }
                 finally { player.Free(); }
             }
@@ -269,10 +269,10 @@ public sealed partial class ValidationRoot
                         rock.Position + new Vector2(offset, 0), new OracleRandom());
                     int health = player.HealthQuarters;
                     rock.HandleLinkContact(player);
-                    int damage = offset is -10 or 9 ? 4 : 0;
-                    FailIf(player.HealthQuarters != health - damage, "PART $45 contact lost radius $04, damage $04 or asymmetric byte boundary.");
+                    int raw = offset is -10 or 9 ? 0xf8 : 0;
+                    FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != raw, "PART $45 contact lost radius $04, raw damage $f8 or asymmetric byte boundary.");
                     rock.HandleLinkContact(player);
-                    FailIf(player.HealthQuarters != health - damage, "PART $45 ignored Link invincibility.");
+                    FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != raw, "PART $45 ignored Link invincibility.");
                 }
                 finally { player.Free(); }
             }
@@ -286,7 +286,7 @@ public sealed partial class ValidationRoot
                     new InventoryState(_treasures, OracleSaveData.CreateStandardGame()), rock.Position, new OracleRandom());
                 int health = highPlayer.HealthQuarters;
                 rock.HandleLinkContact(highPlayer);
-                FailIf(rock.Z >= -7 || highPlayer.HealthQuarters != health,
+                FailIf(rock.Z >= -7 || highPlayer.HealthQuarters != health || highPlayer.PendingContactDamageRaw != 0,
                     "PART $45 airborne rock ignored the source Z collision window.");
             }
             finally { highPlayer.Free(); }

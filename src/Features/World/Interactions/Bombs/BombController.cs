@@ -117,7 +117,7 @@ public sealed class BombController
                     return false;
                 }
                 UpdateHeldPosition(player);
-                if (!itemButtonJustPressed)
+                if (!itemButtonJustPressed && !player.NativeContactSignal)
                     return false;
                 Throw(player, movementInput);
                 return true;

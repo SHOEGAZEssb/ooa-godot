@@ -205,8 +205,8 @@ public sealed partial class ValidationRoot
                 contactPlayer.Initialize(new ValidationRingPlayerWorld(), contactInventory, target, new OracleRandom());
                 int health = contactPlayer.HealthQuarters;
                 rock.HandleLinkContact(contactPlayer);
-                FailIf(contactPlayer.HealthQuarters != health - 2,
-                    "$11:$01 doubled raw damage $fc must remove two quarter-hearts on contact.");
+                FailIf(contactPlayer.HealthQuarters != health || (contactPlayer.PendingContactDamageRaw & 0xff) != 0xfc,
+                    "$11:$01 must publish doubled raw damage $fc for the next Link update.");
             }
             finally { contactPlayer.Free(); }
             for (int i = 0; i < 20; i++) Tick();

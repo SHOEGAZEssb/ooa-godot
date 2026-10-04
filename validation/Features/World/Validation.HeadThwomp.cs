@@ -141,7 +141,7 @@ public sealed partial class ValidationRoot
         contactProjectile.UpdateFrame(contactPlayer);
         FailIf(
             !contactProjectile.Finished ||
-            contactPlayer.HealthQuarters != contactHealth - 4 ||
+            contactPlayer.HealthQuarters != contactHealth || (contactPlayer.PendingContactDamageRaw & 0xff) != 0xf8 ||
             contactWorld.Sounds.Count(sound =>
                 sound == SoundId.SndDamageLink) != 1,
             "PART_HEAD_THWOMP_CIRCULAR_PROJECTILE did not apply partData " +
@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
         woodenShieldProjectile.UpdateFrame(shieldPlayer);
         FailIf(
             !woodenShieldProjectile.Finished ||
-            shieldPlayer.HealthQuarters != woodenShieldHealth - 4 ||
+            shieldPlayer.HealthQuarters != woodenShieldHealth || (shieldPlayer.PendingContactDamageRaw & 0xff) != 0xf8 ||
             shieldWorld.Sounds.Count(sound =>
                 sound == SoundId.SndClink2) != 0,
             "PART $3c incorrectly allowed ITEMCOLLISION_L1_SHIELD to use " +

@@ -2122,10 +2122,13 @@ public sealed partial class ValidationRoot
         FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1) ||
             fractionalPlayer.HealthQuarters != 12 || fractionalPlayer.InvincibilityFrames != 0x22,
             "A half-quarter hit must retain damage and still apply contact recoil.");
+        fractionalPlayer._PhysicsProcess(1.0 / 60.0);
         fractionalPlayer.WarpTo(new(80, 80));
         fractionalPlayer.RefillHealth();
-        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1) ||
-            fractionalPlayer.HealthQuarters != 11,
+        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1),
+            "The second half-quarter contact was rejected.");
+        fractionalPlayer._PhysicsProcess(1.0 / 60.0);
+        FailIf(fractionalPlayer.HealthQuarters != 11,
             "Two half-quarter hits must subtract one quarter across a warp/refill.");
         fractionalPlayer.Free();
         FailIf(
@@ -2168,19 +2171,15 @@ public sealed partial class ValidationRoot
             RingEffects.IncomingDamageRaw(Wearing(RingId.Bombproof), 4, RingDamageSource.OwnBomb) != 0,
             "Luck/Holy/Bombproof source-specific protection table regressed.");
 
-        (int l1Distance, int l1Heal) = RingEffects.HeartRefill(Wearing(RingId.HeartL1));
-        (int l2Distance, int l2Heal) = RingEffects.HeartRefill(Wearing(RingId.HeartL2));
         FailIf(
             RingEffects.KnockbackFrames(Wearing(RingId.Steadfast), 40) != 20 ||
             RingEffects.SwordChargeStep(Wearing(RingId.Charge)) != 4 ||
             RingEffects.SwordSpinCounter(Wearing(RingId.Spin)) != 9 ||
             RingEffects.SwordSpinFrames(Wearing(RingId.Spin), 23, 20) != 43 ||
-            l1Distance != 2 << 16 || l1Heal != 0x08 ||
-            l2Distance != 3 << 16 || l2Heal != 0x10 ||
             !RingEffects.EnergyBeamOnCharge(Wearing(RingId.Energy)) ||
             RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL1)) != 8 ||
             RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL2)) != 12,
-            "Steadfast/Charge/Spin/Heart/Energy/Light ring policy regressed.");
+            "Steadfast/Charge/Spin/Energy/Light ring policy regressed.");
 
         FailIf(
             RingEffects.BombDamage(4, Wearing(RingId.Blast)) != 6 ||

@@ -48,12 +48,8 @@ internal static class RingEffects
     internal static int IncomingDamageRaw(
         InventoryState inventory, int quarters, RingDamageSource source)
     {
-        if (quarters <= 0 || PreventsDamage(inventory, source))
-            return 0;
-
-        int raw = unchecked((sbyte)(-2 * quarters));
-        if (HalvesSourceDamage(inventory, source))
-            raw >>= 1;
+        int raw = ContactDamageRaw(inventory, quarters, source);
+        if (raw == 0) return 0;
         // bombs.s calls linkApplyDamage directly, bypassing the ordinary
         // incoming ring modifiers; Protection is handled by linkApplyDamage.
         if (source is RingDamageSource.Hole or RingDamageSource.TerrainHazard or RingDamageSource.OwnBomb)
@@ -62,6 +58,21 @@ internal static class RingEffects
                 raw = -8;
             return raw;
         }
+        return ModifyIncomingDamageRaw(inventory, raw);
+    }
+
+    // collisionEffect3c reads source protections when publishing damage;
+    // updateLinkDamageTaken reads ordinary modifiers on the later Link pass.
+    internal static int ContactDamageRaw(
+        InventoryState inventory, int quarters, RingDamageSource source)
+    {
+        if (quarters <= 0 || PreventsDamage(inventory, source)) return 0;
+        int raw = unchecked((sbyte)(-2 * quarters));
+        return HalvesSourceDamage(inventory, source) ? raw >> 1 : raw;
+    }
+
+    internal static int ModifyIncomingDamageRaw(InventoryState inventory, int raw)
+    {
         raw = inventory.ActiveRing switch
         {
             (int)RingId.PowerL1 => raw - 2,
@@ -118,8 +129,10 @@ internal static class RingEffects
     internal static (int DistanceFixed, int HealQuarters) HeartRefill(
         InventoryState inventory) => inventory.ActiveRing switch
     {
-        (int)RingId.HeartL1 => (2 << 16, 0x08),
-        (int)RingId.HeartL2 => (3 << 16, 0x10),
+        // updateHeartRingCounter shifts C twice while selecting the accepted
+        // movement axes, leaving $02/$04 quarters for TREASURE_HEART_REFILL.
+        (int)RingId.HeartL1 => (2 << 16, 0x02),
+        (int)RingId.HeartL2 => (3 << 16, 0x04),
         _ => (0, 0)
     };
 

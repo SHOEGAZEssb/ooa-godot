@@ -111,7 +111,7 @@ internal sealed class EyesoarRoomEntity : CombatEnemyRoomEntityAdapter<EyesoarAc
                 _ => throw new NotSupportedException($"ENEMY_EYESOAR shield effect ${effect:x2} is unsupported.") };
             player.ApplyShieldCollisionRecoil(Entity.Position, invincibility, recoil); Entity.MarkContact(player.Inventory.ShieldLevel); return;
         }
-        if (player.AcceptsRoomEntityContact && Player.EnemyCollisionOverlaps(player.EnemyContactPosition, Entity.CollisionBounds))
+        if (player.OverlapsEnemyCollision(Entity.CollisionBounds))
         { player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters); Entity.MarkContact(0); }
     }
 }

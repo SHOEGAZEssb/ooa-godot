@@ -56,7 +56,7 @@ internal partial class KeeseFirePart : TransitionOffsetNode2D
             }
             return;
         }
-        if (player.OverlapsEnemyCollision(CollisionBounds))
+        if (player.OverlapsEnemyCollision(CollisionBounds, ZHigh))
             player.ApplyEnemyContactDamage(Position, _record.Damage, RingDamageSource.Generic, _record.LinkInvincibility, _record.LinkKnockback);
     }
     public override void _Draw()

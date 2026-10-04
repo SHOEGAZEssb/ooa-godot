@@ -73,23 +73,7 @@ public sealed partial class ValidationRoot
                         FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                             random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
                     }
-                    var dust = _entities.Entities<PegasusDustRoomEntity>();
-                    bool nativeDust = rom[0xdf00] != 0 && rom[0xdf01] == 0x1a;
-                    FailIf((dust.Count == 1) != nativeDust, context + ": reserved dust allocation/deletion differs.");
-                    if (nativeDust)
-                    {
-                        if (airborne)
-                        {
-                            int z = (int)typeof(PegasusDustRoomEntity).GetField("_z",
-                                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(dust[0])!;
-                            FailIf((byte)z != rom[0xdf0f], context + ": dust startup copied height differs.");
-                        }
-                        FailIf(dust[0].Substate != rom[0xdf05] || dust[0].Position != new Vector2(rom[0xdf0d], rom[0xdf0b]) ||
-                            dust[0].Visible != ((rom[0xdf1a] & 0x80) != 0) || dust[0].TileBase != rom[0xdf1d] ||
-                            dust[0].OamFlags != rom[0xdf1c] ||
-                            !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
-                            context + $": dust differs: runtime={dust[0].Substate}/{dust[0].Position}/{dust[0].Visible}/tile=${dust[0].TileBase:x2}/flags=${dust[0].OamFlags:x2}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/{(rom[0xdf1a] & 0x80) != 0}/tile=${rom[0xdf1d]:x2}/flags=${rom[0xdf1c]:x2}.");
-                    }
+                    ComparePegasusDustRom(rom, airborne, context);
                     FailIf(!sounds.Requests.Where(id => id == 0xa3).SequenceEqual(rom.Sounds.Where(id => id == 0xa3)),
                         context + ": running sound order differs.");
                 });
@@ -129,5 +113,27 @@ public sealed partial class ValidationRoot
             Step(8);
         }
         GD.Print($"Validated clean-US Pegasus A/B, Feather air handoffs={airborne}, empty/one/BCD-borrow/cap counts, active rejection, Pegasus Ring, exact expiry, repeat activation, reserved dust/cloud animation, dialogue and movement/sounds through split/batched application updates.");
+    }
+
+    private void ComparePegasusDustRom(SomariaRom rom, bool compareHeight, string context)
+    {
+        var dust = _entities.Entities<PegasusDustRoomEntity>()
+            .Concat(_entities.OutgoingEntities<PegasusDustRoomEntity>()).ToList();
+        bool nativeDust = rom[0xdf00] != 0 && rom[0xdf01] == 0x1a;
+        FailIf((dust.Count == 1) != nativeDust, context + ": reserved dust allocation/deletion differs.");
+        if (nativeDust)
+        {
+            if (compareHeight)
+            {
+                int z = (int)typeof(PegasusDustRoomEntity).GetField("_z",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(dust[0])!;
+                FailIf((byte)z != rom[0xdf0f], context + ": dust startup copied height differs.");
+            }
+            FailIf(dust[0].Substate != rom[0xdf05] || dust[0].Position != new Vector2(rom[0xdf0d], rom[0xdf0b]) ||
+                dust[0].Visible != ((rom[0xdf1a] & 0x80) != 0) || dust[0].TileBase != rom[0xdf1d] ||
+                dust[0].OamFlags != rom[0xdf1c] ||
+                !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
+                context + $": dust differs: runtime={dust[0].Substate}/{dust[0].Position}/{dust[0].Visible}/tile=${dust[0].TileBase:x2}/flags=${dust[0].OamFlags:x2}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/{(rom[0xdf1a] & 0x80) != 0}/tile=${rom[0xdf1d]:x2}/flags=${rom[0xdf1c]:x2}.");
+        }
     }
 }

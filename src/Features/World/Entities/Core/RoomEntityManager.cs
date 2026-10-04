@@ -28,7 +28,7 @@ public sealed class RoomEntityManager : IDisposable
     }
     internal void UpdateHeldObjectPosition(Player player)
     {
-        foreach (var entity in _activeEntities.OfType<INativeBraceletRoomEntity>())
+        foreach (var entity in _activeEntities.OfType<IHeldObjectPositionRoomEntity>())
             entity.UpdateHeldPosition(player);
     }
     internal void RequestPegasusDust(PegasusSeedState pegasus, bool signal)
@@ -290,7 +290,7 @@ public sealed class RoomEntityManager : IDisposable
                 if (_deferredSwitchHookContacts.Contains(entity) &&
                     !_linkCollisionsAndMenuDisabled && entity is ILinkContactEntity contact)
                 {
-                    if (player.AcceptsRoomEntityContact)
+                    if (LinkContactDispatchEnabled(player, entity))
                     {
                         contact.HandleLinkContact(player);
                         if (contact is IPostObjectLinkContactRoomEntity effects)
@@ -1063,7 +1063,7 @@ public sealed class RoomEntityManager : IDisposable
             if (!timeWarpArrival && !textActive &&
                 !RoomEntityFreezeActive() &&
                 !_linkCollisionsAndMenuDisabled &&
-                (player.AcceptsRoomEntityContact ||
+                (LinkContactDispatchEnabled(player, entity) ||
                     entity is TimePortalRoomEntity && player.AcceptsTimePortalContact) &&
                 entity is ILinkContactEntity contactEntity)
             {
@@ -1075,6 +1075,17 @@ public sealed class RoomEntityManager : IDisposable
         }
         RemoveFinishedEntities();
         DispatchPendingRoomWarp();
+    }
+
+    private bool LinkContactDispatchEnabled(Player player, IRoomEntity entity)
+    {
+        // collisionEffects.s checks native Enemy/Part Z before shield/body
+        // contact. Ordinary Feather air is eligible; interaction callers
+        // retain their separate ground-contact dispatch boundary.
+        if (_enemySlots.ContainsKey(entity) || _partSlots.ContainsKey(entity))
+            return player.PatchCollisionsEnabled && player.EnemyContactHeightOverlaps(
+                entity is IObjectCollisionHeightRoomEntity height ? height.CollisionZ : 0);
+        return player.AcceptsRoomEntityContact;
     }
 
     internal void UpdateDuringHarp(double delta, Player player)

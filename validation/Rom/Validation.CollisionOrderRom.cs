@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                 observed++;
                 rom.ClearObjects();
                 beforeHealth = _player.HealthQuarters;
-                rom[0xd024] = (byte)(_player.NativeInteractionCollisionsEnabled ? 0x80 : 0);
+                rom[0xd024] = (byte)(_player.PatchCollisionsEnabled ? 0x80 : 0);
                 rom[0xd02b] = unchecked((byte)(int)_player.InvincibilityFrames);
                 rom[0xd02d] = (byte)_player.KnockbackFrames;
                 rom[0xd00b] = (byte)_player.Position.Y; rom[0xd00d] = (byte)_player.Position.X;
@@ -60,6 +60,7 @@ public sealed partial class ValidationRoot
                     rom[address + 0x0d] = (byte)shot.Position.X;
                     rom[address + 0x26] = (byte)data.Radius.Y;
                     rom[address + 0x27] = (byte)data.Radius.X;
+                    rom[address + 0x3e] = 0x80; // PART$4a var3e, published into Link.var2a by effect02.
                 }
                 if (sword)
                 {
@@ -88,11 +89,12 @@ public sealed partial class ValidationRoot
                     FailIf(shot.ContactFlags != rom[address + 0x2a] || shot.InvincibilityCounter != unchecked((sbyte)rom[address + 0x2b]),
                         $"ROM collision slot=${address:x4}, subid={subid}, update={observed}, reversed={reverse}, batch={batched}: ROM flags/inv=${rom[address + 0x2a]:x2}/${rom[address + 0x2b]:x2}, runtime=${shot.ContactFlags:x2}/{shot.InvincibilityCounter}.");
                 }
-                // Compare accepted damage, not the separate next-Link health commit.
-                int quarters = rom[0xd025] == 0 ? 0 : (256 - rom[0xd025]) / 2;
-                FailIf(_player.HealthQuarters != beforeHealth - quarters ||
+                // The post-object pass publishes damage without changing HP.
+                FailIf(_player.HealthQuarters != beforeHealth ||
+                    (_player.PendingContactDamageRaw & 0xff) != rom[0xd025] ||
+                    _player.NativeContactSignal != (rom[0xd02a] != 0) ||
                     _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) || _player.KnockbackFrames != rom[0xd02d],
-                    $"ROM post-object contact priority differs: subid={subid}, update={observed}, sword={sword}.");
+                    $"ROM post-object contact priority differs: subid={subid}, update={observed}, sword={sword}: HP {_player.HealthQuarters}/{beforeHealth}, pending ${_player.PendingContactDamageRaw & 0xff:x2}/${rom[0xd025]:x2}, signal {_player.NativeContactSignal}/${rom[0xd02a]:x2}, inv {_player.InvincibilityFrames}/{unchecked((sbyte)rom[0xd02b])}, recoil {_player.KnockbackFrames}/{rom[0xd02d]}.");
             }
             StepGameplayUpdates(3, Vector2.Zero, batched: batched, afterUpdate: Compare);
             sword = false; // Cancellation must release the no-op scan suppression.

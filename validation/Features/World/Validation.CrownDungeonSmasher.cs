@@ -323,13 +323,13 @@ public partial class ValidationRoot
             adapter.HandleLinkContact(player);
             int expectedInvincibility = shield == 0 ? 34 : shield == 1 ? 0 : -8;
             int expectedKnockback = shield == 0 ? 15 : shield == 1 ? 0 : 11;
-            FailIf(player.HealthQuarters != health-(shield == 0 ? 2 : 0) ||
+            FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (shield == 0 ? 0xfc : 0) ||
                 player.InvincibilityFrames != expectedInvincibility || player.KnockbackFrames != expectedKnockback ||
                 parent.PendingCollision != (shield != 1) || sounds != (shield >= 2 ? 1 : 0) ||
                 parent.Health != 5 || parent.InvincibilityCounter != enemyInvincibility || parent.KnockbackCounter != 0,
                 $"$74 Link response for shield level{shield} lost effect02/05 damage, signed invincibility, recoil, sound or enemy JUST_HIT.");
             adapter.HandleLinkContact(player);
-            FailIf(player.HealthQuarters != health-(shield == 0 ? 2 : 0) || sounds != (shield >= 2 ? 1 : 0),
+            FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (shield == 0 ? 0xfc : 0) || sounds != (shield >= 2 ? 1 : 0),
                 "$74 repeated collision in the same update must not apply twice.");
             player.Free(); parent.Free(); ball.Free();
         }

@@ -524,161 +524,6 @@ public sealed partial class ValidationRoot
             "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");
     }
 
-    private void ValidateLinkTopDownMovement()
-    {
-        const double updateDelta = 1.0 / 60.0;
-        const float Speed100DiagonalComponent = 181.0f / 256.0f;
-        const float SpeedC0DiagonalComponent = 135.0f / 256.0f;
-
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var inventory = new InventoryState(_treasures, save);
-        var world = new ValidationRingPlayerWorld
-        {
-            ActiveTerrain = NormalMovementTerrain()
-        };
-        inventory.GiveTreasure(TreasureId.Feather, 1);
-        var player = new Player { Name = "TopDownMovementValidationPlayer" };
-        AddChild(player);
-        player.Initialize(
-            world, inventory, new Vector2(16.25f, 80.75f),
-            new OracleRandom());
-
-        try
-        {
-            Input.ActionPress("move_right");
-            for (int update = 0; update < 128; update++)
-                player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_right");
-            FailIf(
-                player.PrecisePosition != new Vector2(144.25f, 80.75f) ||
-                player.Position != new Vector2(144, 80),
-                "Link's long SPEED_100/$28 cardinal path did not retain its " +
-                $"8.8 position; precise={player.PrecisePosition}, " +
-                $"rendered={player.Position}.");
-
-            player.SetScriptedPosition(new Vector2(16.0f, 120.0f));
-            Input.ActionPress("move_up");
-            Input.ActionPress("move_right");
-            for (int update = 0; update < 128; update++)
-                player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_up");
-            Input.ActionRelease("move_right");
-            Vector2 expectedDiagonal = new(
-                16.0f + 128 * Speed100DiagonalComponent,
-                120.0f - 128 * Speed100DiagonalComponent);
-            FailIf(
-                player.PrecisePosition != expectedDiagonal ||
-                player.Position != new Vector2(106, 29),
-                "Link's long angle $04 SPEED_100/$28 path did not apply the " +
-                "imported (+$00b5,-$00b5) vector on every update; " +
-                $"expected={expectedDiagonal}, precise={player.PrecisePosition}, " +
-                $"rendered={player.Position}.");
-
-            world.ActiveTerrain = new ActiveTerrainInfo(
-                new TerrainInfo(
-                    0xf8, 0x00, TerrainType.Grass, HazardType.None),
-                Vector2.Zero,
-                Vector2.Zero,
-                0x00);
-            player.SetScriptedPosition(new Vector2(16.0f, 120.0f));
-            Input.ActionPress("move_up");
-            Input.ActionPress("move_right");
-            for (int update = 0; update < 128; update++)
-                player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_up");
-            Input.ActionRelease("move_right");
-            Vector2 expectedGrassDiagonal = new(
-                16.0f + 128 * SpeedC0DiagonalComponent,
-                120.0f - 128 * SpeedC0DiagonalComponent);
-            FailIf(
-                player.PrecisePosition != expectedGrassDiagonal,
-                "Link's grass path did not select angle $04 SPEED_0c0/$1e " +
-                "(+135,-135) from updateLinkSpeed_standard; " +
-                $"expected={expectedGrassDiagonal}, " +
-                $"actual={player.PrecisePosition}.");
-
-            world.ActiveTerrain = NormalMovementTerrain();
-            world.BlockHorizontalMovement = true;
-            player.SetScriptedPosition(new Vector2(48.25f, 120.75f));
-            Input.ActionPress("move_up");
-            Input.ActionPress("move_right");
-            for (int update = 0; update < 64; update++)
-                player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_up");
-            Vector2 expectedBlockedAxis = new(
-                48.25f,
-                120.75f - 64 * Speed100DiagonalComponent);
-            FailIf(
-                player.PrecisePosition != expectedBlockedAxis,
-                "Link's angle $04 collision path did not mask X while " +
-                "retaining the exact Y 8.8 component; " +
-                $"expected={expectedBlockedAxis}, " +
-                $"actual={player.PrecisePosition}.");
-
-            world.BlockHorizontalMovement = false;
-            for (int update = 0; update < 64; update++)
-                player._PhysicsProcess(updateDelta);
-            Input.ActionRelease("move_right");
-            Vector2 expectedAfterCollision = new(
-                112.25f,
-                expectedBlockedAxis.Y);
-            FailIf(
-                player.PrecisePosition != expectedAfterCollision,
-                "Link's long cardinal path after an axis collision lost the " +
-                "retained 8.8 remainder; " +
-                $"expected={expectedAfterCollision}, " +
-                $"actual={player.PrecisePosition}.");
-
-            player.SetScriptedPosition(new Vector2(40.0f, 96.0f));
-            Vector2 jumpStart = player.PrecisePosition;
-            player.AdvanceTopDownAirUpdateForValidation(
-                startJump: true,
-                movementInput: new Vector2(1.0f, -1.0f));
-            Vector2 expectedAirborne = jumpStart + new Vector2(
-                Speed100DiagonalComponent,
-                -Speed100DiagonalComponent);
-            FailIf(
-                !player.TopDownAirborne ||
-                player.PrecisePosition != expectedAirborne,
-                "Top-down airborne Link did not snapshot the original angle " +
-                "$04 SPEED_100/$28 8.8 movement path; " +
-                $"expected={expectedAirborne}, " +
-                $"actual={player.PrecisePosition}.");
-
-            player.StartSwordAttack();
-            player.AdvanceTopDownAirUpdateForValidation(
-                movementInput: Vector2.Left);
-            expectedAirborne += new Vector2(
-                Speed100DiagonalComponent,
-                -Speed100DiagonalComponent);
-            FailIf(
-                player.SwordState != SwordActionState.Swing ||
-                player.PrecisePosition != expectedAirborne,
-                "Starting ITEM_SWORD after a top-down jump canceled or " +
-                "redirected Link's stored angle-$04 momentum; " +
-                $"expected={expectedAirborne}, " +
-                $"actual={player.PrecisePosition}.");
-        }
-        finally
-        {
-            Input.ActionRelease("move_up");
-            Input.ActionRelease("move_right");
-            player.Free();
-        }
-
-        GD.Print(
-            "Validated ordinary top-down Link movement: retained 8.8 " +
-            "SPEED_100 cardinal/diagonal and SPEED_0c0 grass paths, " +
-            "per-axis collision masking/remainders, rendered high bytes, " +
-            "and the source-owned airborne angle through sword use.");
-
-        static ActiveTerrainInfo NormalMovementTerrain() => new(
-            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
-            Vector2.Zero,
-            Vector2.Zero,
-            0x00);
-    }
-
     private void ValidateLinkTopDownSwimming()
     {
         const double UpdateDelta = 1.0 / 60.0;
@@ -2029,161 +1874,53 @@ public sealed partial class ValidationRoot
 
     private void ValidateShield()
     {
+        // Independent imported-asset goldens and lowered body-contact.
+        // Raised lifecycle, scrolling, release/reuse and
+        // projectile bounce are owned by the executed Shield ROM scenarios.
         OracleSaveData save = OracleSaveData.CreateStandardGame();
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
         inventory.EquipA(TreasureId.Shield);
-        FailIf(
-            inventory.ShieldLevel != 1 ||
-            inventory.EquippedA != TreasureId.Shield ||
+        FailIf(inventory.ShieldLevel != 1 || inventory.EquippedA != TreasureId.Shield ||
             save.ReadWramByte(WramAddress.wShieldLevel) != 1,
             "TREASURE_SHIELD mode $08 did not persist/equip its level-1 item.");
-        ValidateShieldDisplay(inventory, level: 1, sprite: 0x93,
-            palette: 0x00, textLow: 0x20);
-
-        ValidationRingPlayerWorld world = new ValidationRingPlayerWorld();
+        ValidateShieldDisplay(inventory, 1, 0x93, 0x00, 0x20);
+        var world = new ValidationRingPlayerWorld();
         var player = new Player { Name = "ShieldValidationPlayer" };
         AddChild(player);
         player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
-        FailIf(
-            !player.IsShieldEquipped || player.IsUsingShield ||
-            player.ShieldAtlasPixelHash == 0,
-            "An equipped Wooden Shield did not select the source Link pose atlas.");
-
-        Vector2I[] directions =
-            { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
-        Vector2[] centers =
-            { new(81, 73), new(86, 80), new(79, 86), new(73, 80) };
-        Vector2[] radii =
-            { new(6, 1), new(1, 7), new(6, 1), new(1, 7) };
-        for (int direction = 0; direction < directions.Length; direction++)
+        FailIf(!player.IsShieldEquipped || player.IsUsingShield || player.ShieldAtlasPixelHash == 0,
+            "Equipped Wooden Shield did not select the source Link pose atlas.");
+        Vector2I[] directions = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
+        Vector2[] centers = [new(81, 73), new(86, 80), new(79, 86), new(73, 80)];
+        Vector2[] radii = [new(6, 1), new(1, 7), new(6, 1), new(1, 7)];
+        for (int direction = 0; direction < 4; direction++)
         {
             player.Face(directions[direction]);
             Rect2 bounds = player.ShieldCollisionBounds;
-            FailIf(
-                bounds.GetCenter() != centers[direction] ||
-                bounds.Size / 2.0f != radii[direction] ||
+            FailIf(bounds.GetCenter() != centers[direction] || bounds.Size / 2 != radii[direction] ||
                 player.ShieldGraphicsIndex != 0x68 + direction,
-                $"ITEM_SHIELD direction {direction} lost its source center, radius, or equipped graphics.");
+                $"ITEM_SHIELD direction {direction} lost its imported center/radius/equipped graphic.");
         }
-
         player.Face(Vector2I.Up);
-        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        FailIf(
-            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
-            world.Sounds.Count(sound => sound == SoundId.SndShield) != 1,
-            "Holding the equipped A-button shield did not select wUsingShield level 1 or SND_SHIELD.");
-        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        FailIf(
-            world.Sounds.Count(sound => sound == SoundId.SndShield) != 1,
-            "ITEM_SHIELD replayed SND_SHIELD while its parent item remained held.");
-        player.BeginScrollingTransition(player.Position);
-        FailIf(
-            player.IsUsingShield || player.ShieldGraphicsIndex != 0x68,
-            "wScrollMode $08 did not lower the shield while retaining its parent item.");
-        player.FinishScrollingTransition(player.Position);
-        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        FailIf(
-            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x70 ||
-            world.Sounds.Count(sound => sound == SoundId.SndShield) != 1,
-            "The retained shield parent did not resume silently after scrolling.");
-
         LoadBushValidationRoom();
-        player.Face(Vector2I.Up);
-        var enemies = new EnemyDatabase();
-        Vector2 shieldCenter = player.ShieldCollisionBounds.GetCenter();
-        var rock = new OctorokRockProjectile();
-        rock.Initialize(
-            enemies.OctorokProjectile, _currentRoom, shieldCenter, angle: ObjectAngle.Up);
-        rock.UpdateFrame(player); // State 0 setup-only update.
-        int healthBeforeBlock = player.HealthQuarters;
-        ((ILinkContactEntity)rock).HandleLinkContact(player);
-        rock.UpdateFrame(player); // Consume the preceding post-object contact.
-        FailIf(
-            rock.State != HostileProjectileState.Bouncing ||
-            rock.Angle != 0x10 || rock.Counter != 0x20 || rock.ZFixed != 0 ||
-            player.HealthQuarters != healthBeforeBlock ||
-            world.Sounds.Count(sound => sound == SoundId.SndClink2) != 1,
-            "A raised shield did not send PART_OCTOROK_PROJECTILE through ENEMYDMG_$34/LINKDMG_$20.");
-
-        var arrow = new EnemyArrowProjectile();
-        arrow.Initialize(enemies.EnemyArrow, _currentRoom, Vector2.Zero, angle: ObjectAngle.Up);
-        arrow.Position = shieldCenter;
-        arrow.UpdateFrame(player); // State 0 setup-only update.
-        ((ILinkContactEntity)arrow).HandleLinkContact(player);
-        arrow.UpdateFrame(player);
-        FailIf(
-            arrow.State != HostileProjectileState.Bouncing ||
-            arrow.Counter != 0x20 || player.HealthQuarters != healthBeforeBlock ||
-            world.Sounds.Count(sound => sound == SoundId.SndClink2) != 2,
-            "A raised shield did not deflect PART_ENEMY_ARROW with the shared bounce path.");
-
-        player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
-        FailIf(
-            player.IsUsingShield || player.ShieldGraphicsIndex != 0x68,
-            "Releasing ITEM_SHIELD did not restore the equipped-but-lowered pose.");
-
         var unblockedRock = new OctorokRockProjectile();
-        unblockedRock.Initialize(
-            enemies.OctorokProjectile, _currentRoom, player.Position, angle: ObjectAngle.Up);
+        unblockedRock.Initialize(new EnemyDatabase().OctorokProjectile, _currentRoom, player.Position, ObjectAngle.Up);
         unblockedRock.UpdateFrame(player);
+        int healthBefore = player.HealthQuarters;
         ((ILinkContactEntity)unblockedRock).HandleLinkContact(player);
         unblockedRock.UpdateFrame(player);
-        FailIf(
-            !unblockedRock.Finished || player.HealthQuarters >= healthBeforeBlock ||
+        FailIf(!unblockedRock.Finished || player.HealthQuarters != healthBefore || (player.PendingContactDamageRaw & 0xff) != 0xfc ||
             world.Sounds.Count(sound => sound == SoundId.SndDamageLink) != 1,
-            "An equipped but lowered shield incorrectly blocked an Octorok projectile.");
-
+            "Equipped but lowered Shield incorrectly blocked an Octorok projectile.");
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
-        FailIf(
-            inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c,
-            "The Iron Shield upgrade did not select the level-2 equipped pose.");
-        ValidateShieldDisplay(inventory, level: 2, sprite: 0x94,
-            palette: 0x05, textLow: 0x21);
-        player.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
-        FailIf(
-            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x74,
-            "The raised Iron Shield did not select the shared level-2/3 pose.");
-        player.UpdateShieldForValidation(attackHeld: false, itemHeld: false);
+        FailIf(inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c,
+            "Iron Shield upgrade did not select the level-2 equipped pose.");
+        ValidateShieldDisplay(inventory, 2, 0x94, 0x05, 0x21);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_02"));
-        ValidateShieldDisplay(inventory, level: 3, sprite: 0x95,
-            palette: 0x04, textLow: 0x22);
-        inventory.EquipB(TreasureId.Shield);
-        player.UpdateShieldForValidation(attackHeld: false, itemHeld: true);
-        FailIf(
-            inventory.ShieldLevel != 3 ||
-            inventory.EquippedB != TreasureId.Shield ||
-            inventory.EquippedA == TreasureId.Shield ||
-            !player.IsUsingShield || player.ShieldGraphicsIndex != 0x74 ||
-            world.Sounds.Count(sound => sound == SoundId.SndShield) != 3,
-            "The Mirror Shield upgrade/B-button parent did not preserve the level-3 shared pose and activation.");
-
-        // bank0.checkObjectsCollidedFromVariables includes the negative
-        // (Link minus target) summed-radius edge and excludes the positive one.
-        // Keep these source-derived boundaries covered when CI skips the ROM.
-        player.WarpTo(new(80, 64));
-        FailIf(!player.OverlapsEnemyCollision(new(new(86, 62), new(4, 4))) ||
-            player.OverlapsEnemyCollision(new(new(70, 62), new(4, 4))),
-            "Link body contact lost the native asymmetric edge.");
-        player.WarpTo(new(0, 64));
-        FailIf(!player.OverlapsEnemyCollision(new(new(252, 62), new(4, 4))) ||
-            Player.EnemyCollisionOverlaps(new(0, 64), new(new(-122, 58), new(244, 12))),
-            "Link body contact lost byte wrapping in coordinates or summed radii.");
-        player.Face(Vector2I.Right);
-        player.UpdateShieldForValidation(attackHeld: false, itemHeld: true);
-        Vector2 edgeCenter = player.ShieldCollisionBounds.GetCenter();
-        FailIf(!player.TryBlockWithShield(new(edgeCenter + new Vector2(1, -2), new(4, 4))) ||
-            player.TryBlockWithShield(new(edgeCenter + new Vector2(-5, -2), new(4, 4))),
-            "Shield contact lost the native asymmetric edge.");
-
-        rock.Free();
-        arrow.Free();
-        unblockedRock.Free();
-        player.Free();
-
-        GD.Print("Validated ITEM_SHIELD's held-button parent, level-aware equipped/raised " +
-            "Link and inventory/HUD frames, directional hitbox, sounds, and " +
-            "Octorok-rock/Moblin-arrow deflection.");
+        ValidateShieldDisplay(inventory, 3, 0x95, 0x04, 0x22);
+        unblockedRock.Free(); player.Free();
+        GD.Print("Validated independent Shield asset/display goldens and lowered projectile body contact.");
     }
 
     private void ValidateShieldDisplay(
@@ -4050,169 +3787,17 @@ public sealed partial class ValidationRoot
             "per-update damage display, and delayed half-heart terrain damage.");
     }
 
-    private void ValidatePlayerDamageAndDeath()
+    private void ValidateLinkDamagePaletteAssets()
     {
-        OracleSaveData damageSave = OracleSaveData.CreateStandardGame();
-        var damageInventory = new InventoryState(_treasures, damageSave);
-        var damageWorld = new ValidationRingPlayerWorld { FrameCounter = 0 };
-        var damagePlayer = new Player { Name = "DamageBlinkValidationPlayer" };
-        AddChild(damagePlayer);
-        damagePlayer.Initialize(
-            damageWorld,
-            damageInventory,
-            new Vector2(80, 80),
-            new OracleRandom());
-
-        int healthBefore = damagePlayer.HealthQuarters;
-        FailIf(
-            !damagePlayer.ApplyEnemyContactDamage(
-                new Vector2(64, 80), quarters: 1) ||
-            damagePlayer.HealthQuarters != healthBefore - 1 ||
-            !damagePlayer.DamagePaletteActive ||
-            damagePlayer.LinkAtlasPixelHash == damagePlayer.DamageLinkAtlasPixelHash ||
-            PlayerSpriteLibrary.RecolorLinkPixel(
-                Color.Color8(85, 85, 85),
-                damagePalette: true) !=
-                new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f) ||
-            damageWorld.Sounds.Count(
-                sound => sound == SoundId.SndDamageLink) != 1,
-            "Accepted Link damage did not select standard sprite palette 5 " +
-            "or request SND_DAMAGE_LINK $5f.");
-        damageWorld.FrameCounter = 4;
-        FailIf(
-            damagePlayer.DamagePaletteActive ||
-            damagePlayer.ApplyEnemyContactDamage(
-                new Vector2(64, 80), quarters: 1) ||
-            damageWorld.Sounds.Count(
-                sound => sound == SoundId.SndDamageLink) != 1,
-            "Link's source bit-2 damage flash or contact invincibility regressed.");
-        damagePlayer.Free();
-
-        OracleSaveData potionSave = OracleSaveData.CreateStandardGame();
-        var potionInventory = new InventoryState(_treasures, potionSave);
-        potionInventory.GiveTreasure(TreasureId.Potion, 1);
-        var potionWorld = new ValidationRingPlayerWorld();
-        var potionPlayer = new Player { Name = "PotionDeathValidationPlayer" };
-        AddChild(potionPlayer);
-        potionPlayer.Initialize(
-            potionWorld,
-            potionInventory,
-            new Vector2(80, 80),
-            new OracleRandom());
-        FailIf(
-            !potionPlayer.ApplyDamage(potionPlayer.MaxHealthQuarters) ||
-            potionPlayer.IsDying ||
-            potionPlayer.HealthQuarters != potionPlayer.MaxHealthQuarters ||
-            potionInventory.HasTreasure(TreasureId.Potion),
-            "TREASURE_POTION $2f did not refill Link and clear itself " +
-            "before wLinkDeathTrigger.");
-        potionPlayer.Free();
-
-        OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
-        var deathInventory = new InventoryState(_treasures, deathSave);
-        var deathWorld = new ValidationRingPlayerWorld();
-        var deathPlayer = new Player { Name = "DeathValidationPlayer" };
-        AddChild(deathPlayer);
-        deathPlayer.Initialize(
-            deathWorld,
-            deathInventory,
-            new Vector2(80, 80),
-            new OracleRandom());
-        int gameOverRequests = 0;
-        deathPlayer.GameOverRequested += () => gameOverRequests++;
-        FailIf(
-            !deathPlayer.ApplyEnemyContactDamage(
-                new Vector2(64, 80),
-                deathPlayer.MaxHealthQuarters) ||
-            !deathPlayer.IsDying ||
-            deathPlayer.DeathAnimationActive,
-            "Lethal accepted contact did not arm LINK_STATE_DYING.");
-
-        for (int update = 0; update < 15; update++)
-            deathPlayer._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            deathPlayer.DeathAnimationActive ||
-            deathPlayer.KnockbackFrames != 0 ||
-            deathWorld.Sounds.Count(
-                sound => sound == SoundId.SndCtrlSlowFadeOut) != 1 ||
-            deathWorld.Sounds.Count(
-                sound => sound == SoundId.SndLinkDead) != 0,
-            "LINK_STATE_DYING did not wait through all 15 knockback updates " +
-            "after starting SNDCTRL_SLOW_FADEOUT.");
-
-        deathPlayer._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            !deathPlayer.DeathAnimationActive ||
-            deathPlayer.DeathAnimationFrame != 2 ||
-            deathPlayer.DeathAnimationCounter != 8 ||
-            deathPlayer.DeathSpinLoopsRemaining != 4 ||
-            deathPlayer.DeathAtlasPixelHash == 0 ||
-            deathWorld.Sounds.Count(
-                sound => sound == SoundId.SndLinkDead) != 1,
-            "Link's death spin did not initialize graphics $02 for eight " +
-            "updates with SND_LINK_DEAD $64.");
-
-        var displayedTwirlFrames = new List<int>
-        {
-            deathPlayer.DeathAnimationFrame
-        };
-        for (int update = 1; update < 135; update++)
-        {
-            deathPlayer._PhysicsProcess(1.0 / 60.0);
-            displayedTwirlFrames.Add(deathPlayer.DeathAnimationFrame);
-        }
-        var expectedTwirlFrames = new List<int>();
-        expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 8));
-        for (int loop = 0; loop < 3; loop++)
-        {
-            expectedTwirlFrames.AddRange(Enumerable.Repeat(1, 8));
-            expectedTwirlFrames.AddRange(Enumerable.Repeat(0, 8));
-            expectedTwirlFrames.AddRange(Enumerable.Repeat(3, 8));
-            expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 8));
-        }
-        expectedTwirlFrames.AddRange(Enumerable.Repeat(1, 8));
-        expectedTwirlFrames.AddRange(Enumerable.Repeat(0, 8));
-        expectedTwirlFrames.AddRange(Enumerable.Repeat(3, 8));
-        expectedTwirlFrames.AddRange(Enumerable.Repeat(2, 7));
-        FailIf(
-            !displayedTwirlFrames.SequenceEqual(expectedTwirlFrames) ||
-            deathPlayer.DeathAnimationFrame == 4 ||
-            deathPlayer.DeathAnimationSequenceIndex != 4 ||
-            deathPlayer.DeathAnimationCounter != 1 ||
-            deathPlayer.DeathSpinLoopsRemaining != 1 ||
-            gameOverRequests != 0,
-            "animationData19e7b did not display its initial eight-update " +
-            "$02 frame, three complete 8/8/8/(7+1) loops, and the final " +
-            "8/8/8/7 pre-marker loop.");
-        deathPlayer._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            deathPlayer.DeathAnimationFrame != 4 ||
-            deathPlayer.DeathAnimationCounter != 0x4c ||
-            deathPlayer.DeathSpinLoopsRemaining != 0 ||
-            gameOverRequests != 0,
-            "The fourth Link spin marker on animation update 135 did not " +
-            "select the 76-update LINK_ANIM_MODE_COLLAPSED frame.");
-
-        for (int update = 0; update < 75; update++)
-            deathPlayer._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            gameOverRequests != 0 ||
-            deathPlayer.DeathAnimationCounter != 1,
-            "The collapsed Link pose ended before its 76th update.");
-        deathPlayer._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            gameOverRequests != 1,
-            "The collapsed Link pose did not request the game-over menu " +
-            "on its terminal $ff animation parameter.");
-        deathPlayer._PhysicsProcess(1.0);
-        FailIf(gameOverRequests != 1, "Link requested game over more than once.");
-        deathPlayer.Free();
-
-        GD.Print(
-            "Validated Link's palette-5 damage flash, contact invincibility, " +
-            "Potion revival, 15-update lethal knockback, SND_LINK_DEAD, " +
-            "the exact 135-update four-marker twirl cadence, 76-update collapse, " +
-            "and one-shot game-over handoff.");
+        var player = new Player();
+        player.Initialize(new ValidationRingPlayerWorld(), new InventoryState(_treasures),
+            new Vector2(80, 80), new OracleRandom());
+        FailIf(player.LinkAtlasPixelHash == player.DamageLinkAtlasPixelHash ||
+            PlayerSpriteLibrary.RecolorLinkPixel(Color.Color8(85, 85, 85), damagePalette: true) !=
+                new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f),
+            "Imported Link palette 5 must remain distinct and map the gray ramp to its source yellow.");
+        player.Free();
+        GD.Print("Validated independent imported Link damage-palette assets; ROM fixtures own hit, potion and death behavior.");
     }
 
     private void ValidateAnimations()

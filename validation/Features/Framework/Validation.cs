@@ -302,6 +302,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSwordPokeRom, requiresRom: true);
         RunIsolatedValidation(ValidateSwordCollisionRngRom, requiresRom: true);
         RunIsolatedValidation(ValidateSwordGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwordAirRom, requiresRom: true);
         RunIsolatedValidation(ValidateSwordContactHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateBombFuseExplosionRom, requiresRom: true);
         RunIsolatedValidation(ValidateBombPickupThrowRom, requiresRom: true);
@@ -327,6 +328,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCompanionTerrainRom, requiresRom: true);
         RunIsolatedValidation(ValidateCompanionMovementGameplayRom, requiresRom: true);
         RunIsolatedValidation(ValidateCompanionMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCompanionEquippedItemsRom, requiresRom: true);
         RunIsolatedValidation(ValidateRickyAbilitiesRom, requiresRom: true);
         RunIsolatedValidation(ValidateMooshAbilitiesRom, requiresRom: true);
         RunIsolatedValidation(ValidateDimitriAbilitiesRom, requiresRom: true);
@@ -411,6 +413,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateContinueInitializationRom, requiresRom: true);
         RunIsolatedValidation(ValidateShopCheckpointInitializationRom, requiresRom: true);
         RunIsolatedValidation(ValidateShieldLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldInterruptionsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBraceletLeverRom, requiresRom: true);
         RunIsolatedValidation(ValidateShieldAirborneRom, requiresRom: true);
         RunIsolatedValidation(ValidateShieldWaterRom, requiresRom: true);
         RunIsolatedValidation(ValidateShieldUnderwaterRom, requiresRom: true);
@@ -491,6 +495,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateUnderwaterWhirlpoolRom, requiresRom: true);
         RunIsolatedValidation(ValidatePegasusLifecycleRom, requiresRom: true);
         RunIsolatedValidation(ValidatePegasusAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePegasusItemInterruptionsRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePegasusShieldScrollRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHeartRingLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHeartRingWallSlideRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHeartRingSideViewRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkAirRecoilRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkAirProjectileContactRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkContactDamageHandoffRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCarriedContactDamageRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeedSatchelLifecycleRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeedSatchelAirborneRom, requiresRom: true);
         RunIsolatedValidation(ValidateSeedSatchelCapacityRom, requiresRom: true);
@@ -677,7 +690,6 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMountedCompanionHurtbox);
         RunIsolatedValidation(ValidateMooshCliffFidelity);
         RunIsolatedValidation(ValidateCompanionAttackFidelity);
-        RunIsolatedValidation(ValidateCompanionInputEdges);
         RunIsolatedValidation(ValidateRoom098RickyGlovesPickup);
         RunIsolatedValidation(ValidateRoom06bMooshGoodbye);
         RunIsolatedValidation(ValidateRoom06cMooshRescue);
@@ -960,7 +972,6 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCaveWarps);
         RunIsolatedValidation(ValidateMakuTreeSouthExitReveal);
         RunIsolatedValidation(ValidateTerrain);
-        RunIsolatedValidation(ValidateLinkTopDownMovement);
         RunIsolatedValidation(ValidateLinkMovementScratch);
         RunIsolatedValidation(ValidateSwordBeamScratch);
         RunIsolatedValidation(ValidateBombMovementScratch);
@@ -971,7 +982,6 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateBoomerangMovementScratch);
         RunIsolatedValidation(ValidateSwitchHookMovementScratch);
         RunIsolatedValidation(ValidateBraceletMovementScratch);
-        RunIsolatedValidation(ValidateThrownPotDamage);
         RunIsolatedValidation(ValidatePushBlockMovementScratch);
         RunIsolatedValidation(ValidateFallingHoleMovementScratch);
         RunIsolatedValidation(ValidateLinkTopDownSwimming);
@@ -986,7 +996,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSideScrollSwimmingKinematics);
         RunIsolatedValidation(ValidateLinkTerrainEffects);
         RunIsolatedValidation(ValidateHealth);
-        RunIsolatedValidation(ValidatePlayerDamageAndDeath);
+        RunIsolatedValidation(ValidateLinkDamagePaletteAssets);
         RunIsolatedValidation(ValidateChests);
         RunIsolatedValidation(ValidateInventoryFoundation);
         RunIsolatedValidation(ValidateSaveOptions);

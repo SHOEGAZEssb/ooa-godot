@@ -97,10 +97,10 @@ public sealed partial class ValidationRoot
             _entities.AddEntity(deathObserver);
             FailIf(!_player.ApplyEnemyContactDamage(
                 _player.EnemyContactPosition - new Vector2(16, 0), _player.MaxHealthQuarters,
-                RingDamageSource.Generic, knockbackFrames: 2) || !_player.IsDying,
-                "Lethal contact must enter native death initialization with recoil.");
+                RingDamageSource.Generic, knockbackFrames: 2) || _player.IsDying || _player.PendingContactDamageRaw == 0,
+                "Lethal contact must publish damage and recoil before the next Link dispatch.");
             StepGameplayUpdates(2, Vector2.Zero, batched: batch);
-            FailIf(observations != 2 || _player.Position != new Vector2(122, 40) ||
+            FailIf(!_player.IsDying || observations != 2 || _player.Position != new Vector2(122, 40) ||
                 _player.KnockbackFrames != 0 || _player.DeathAnimationActive,
                 "Dying Link must publish SPEED_140 through the counter-zero update before spinning.");
             expected = [0xff, 0, 0x40, 1];

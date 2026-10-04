@@ -19,6 +19,16 @@ Grounded top-down movement and jumping share one planar velocity state. Ice
 changes its convergence cadence, and a jump inherits the existing momentum;
 current input alone cannot reconstruct takeoff velocity. Landing returns that
 state to terrain handling in the original update order.
+Heart Ring distance belongs to accepted input movement, before any ladder-top
+clamp. Gravity, surface swimming, terrain displacement, recoil, and released ice
+or underwater coasting have their own movement paths. Grounded recoil still
+moves on its zero-counter update, then resumes ordinary movement in that same
+update without repeating item parents. Text and scrolling retain recoil's
+counter and position until normal dispatch resumes.
+Airborne recoil runs before gravity and retained jump momentum, so both planar
+steps can occur in one update. Its counter decrements faster in air; a borrow
+cancels recoil without another step. Landing retains unfinished recoil and
+resumes ground input only after it clears.
 Cliff eligibility compares current cardinal input with the retained object angle
 before velocity convergence. Landing retains the cliff's planar speed for the
 next terrain update, including underwater and ice movement.
@@ -159,16 +169,27 @@ it, including while dialogue freezes the actors. A platform's retained local
 boarding state does not itself preserve that shared support signal.
 
 Item parents, physical children, reserved-item movement, post-object handlers,
-and post-object collisions have separate lifetimes. Existing sword parents
-advance before Link reads movement restrictions; airborne allocation gates
-still permit those parents to update. The animation selected at item
-initialization retains its timing and arc parameters across vehicle handoffs.
+and post-object collisions have separate lifetimes. Existing parents advance
+in source slot order before Link reads movement restrictions; airborne
+allocation gates still permit those parents to update. Allocation samples grab
+and air state before parent updates: a later release or landing cannot make
+that update eligible retroactively. Physical-child initialization consumes RNG
+and plays its cues after Link's movement and standing animation. The animation
+selected at item initialization retains its timing and arc parameters across
+vehicle handoffs. Scroll updates skip Link's item handling, preserving the
+raised Shield byte until the next eligible parent update. Reserved Pegasus
+dust keeps item state zero, so its startup and cloud animation continue while
+scrolling freezes Link's Pegasus counter.
 Native melee and projectile
 contacts resolve after movement, in native item/target order; their signals
 are consumed by later eligible handlers. The first accepted overlap can end a
 scan even when its effect is a no-op. Cancellation and room replacement retire
 pending requests through their owner. Legacy collision paths remain distinct
 until explicitly migrated.
+
+The final carried-position attachment uses Link's completed position, after
+object handlers. It also runs for held bombs whose parent was frozen earlier;
+parent animation offsets and child position fractions retain their own lifetimes.
 
 ## Room lifetime and transitions
 
@@ -235,10 +256,27 @@ animation, and return to ordinary movement may occupy separate updates.
 
 Link's damage owner retains the original fractional damage accumulator separately
 from inventory health. Ring modifiers operate on signed bytes before damage is
-converted to quarter-hearts. Healing, equipment changes, and room movement do
-not discard the fraction; potion use and fresh Link initialization reset it.
+converted to quarter-hearts. Healing, equipment changes, and coordinate-only
+room movement do not discard the fraction; potion use and fresh Link
+initialization reset it.
 An accepted hit may therefore apply recoil and invincibility without changing
 the displayed health on that update.
+
+Enemy and part contact publishes a pending raw damage byte after Link's update.
+The next eligible Link handler consumes it using the ring equipped at that time;
+source-specific contact protection is sampled when the contact occurs. Palette
+and ordinary scrolling gates can defer consumption, while text and object masks
+can freeze later movement or item handling after damage was consumed. The contact
+signal clears after every Link dispatch independently of pending damage. Item
+parents that read that signal must run before it clears; health loss alone does
+not cancel every parent. Full Link replacement and explicit collision resets
+clear both publications, while coordinate-only scrolling preserves them.
+
+Ordinary Feather jumps retain native enemy/part contact eligibility. Collision
+masks and signed height overlap decide contact, including near-ground jump
+updates; interaction callers keep their separate ground-contact requirements.
+Use the live contact object's height for flying enemies and parts instead of
+substituting ground height after an earlier height check.
 
 ## Entity ownership
 

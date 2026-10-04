@@ -3082,17 +3082,17 @@ public sealed partial class ValidationRoot
         int damageSoundRequests = _sound.PlayRequestsFor(SoundId.SndDamageLink);
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            _player.HealthQuarters != healthBeforeContact - 2 ||
+            _player.HealthQuarters != healthBeforeContact || (_player.PendingContactDamageRaw & 0xff) != 0xfc ||
             !Mathf.IsEqualApprox(_player.InvincibilityFrames, 0x22) ||
             !Mathf.IsEqualApprox(_player.KnockbackFrames, 0x0f) ||
             _sound.LastPlayRequestForValidation() !=
                 SoundId.SndDamageLink ||
             _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
-            "Keese contact did not apply half-heart damage, 34 invincibility updates, " +
+            "Keese contact did not publish raw damage $fc, 34 invincibility updates, " +
             "15 knockback updates, and SND_DAMAGE_LINK $5f.");
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
-            _player.HealthQuarters != healthBeforeContact - 2 ||
+            _player.HealthQuarters != healthBeforeContact - 2 || _player.PendingContactDamageRaw != 0 ||
             _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
             "Keese contact bypassed Link's invincibility counter or replayed SND_DAMAGE_LINK $5f.");
 

@@ -17,18 +17,19 @@ public sealed partial class ValidationRoot
             while (_inventory.TryUseDungeonSmallKey(5)) { }
             for (int i = 0; i < 2; i++)
                 _inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03"));
-            var oldPalette = _entities.PaletteFadeActiveSource;
-            _entities.PaletteFadeActiveSource = () => true;
+            var freeze = new CrownEntranceFreeze();
+            _entities.AddEntity(freeze);
             void Step(int count, Vector2 movement) => StepGameplayUpdates(count, movement, batched: batch);
             _sound.ClearPlayRequestAudit();
             try
             {
-                // Hold just the palette signal: it gates door state2, not Link's
-                // tile dispatcher. This isolates nextToKeyDoor's reserved0 test.
+                // Freeze initialized interaction handlers while Link remains
+                // eligible, as DISABLE_INTERACTIONS $02 does. Palette would
+                // also freeze Link and cannot establish reserved0 contention.
                 for (int i = 0; !_keyDoors.Opening && i < 30; i++) Step(1, Vector2.Right);
                 FailIf(!_keyDoors.Opening || _inventory.GetDungeonSmallKeys(5) != 1 ||
                     _keyDoors.RemainingPushFrames != 20 || _currentRoom.GetMetatile(new(232, 136)) != 0x71,
-                    "First key debit must allocate the reserved opener while palette fade holds the closed tile.");
+                    "First key debit must allocate the reserved opener while the interaction mask holds the closed tile.");
                 Step(9, Vector2.Right);
                 FailIf(_inventory.GetDungeonSmallKeys(5) != 1 || _keyDoors.RemainingPushFrames != 2,
                     "A busy reserved opener must not bypass the next ten-update push countdown.");
@@ -42,7 +43,7 @@ public sealed partial class ValidationRoot
                 FailIf(!_dialogue.IsOpen || !_keyDoors.Opening || _inventory.GetDungeonSmallKeys(5) != 0,
                     "A later push without a key must reach the missing-key message even while reserved0 is busy.");
                 _dialogue.Close();
-                _entities.PaletteFadeActiveSource = oldPalette;
+                freeze.FreezesRoomEntities = false;
                 Step(7, Vector2.Zero);
                 FailIf(_keyDoors.Opening || _currentRoom.IsSolid(new(232, 136)) ||
                     !_saveData.HasRoomFlag(4, 0xb3, 2),
@@ -51,7 +52,7 @@ public sealed partial class ValidationRoot
             finally
             {
                 _dialogue.Close();
-                _entities.PaletteFadeActiveSource = oldPalette;
+                freeze.FreezesRoomEntities = false;
                 LoadValidationRoom(0, 0x60);
             }
         }

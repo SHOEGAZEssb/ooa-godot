@@ -94,12 +94,12 @@ public partial class ValidationRoot
                 player.ClearInteractionKnockback(clearInvincibility:true);
                 adapter.HandleLinkContact(player);
                 int damage = kind == 4 ? (ring ? 0 : 4) : 2;
-                FailIf(player.HealthQuarters != health-damage || player.ElectricShockActive != (kind == 4) ||
+                FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (damage == 4 ? 0xf8 : damage == 2 ? 0xfc : 0) || player.ElectricShockActive != (kind == 4) ||
                     actor.ContactFlags != (kind == 4 ? 0xa0 : 0x80) || actor.CollisionEnabled != (kind != 4) ||
                     player.InvincibilityFrames != (kind == 4 ? 12 : 34),
-                    "Smog contact ignores enemy invincibility: cloud damage2, large shock4 (Green Holy Ring prevents only its damage), with native pending flags.");
+                    $"Smog contact kind={kind} ring={ring}: HP {player.HealthQuarters}/{health}, raw=${player.PendingContactDamageRaw & 0xff:x2}, shock={player.ElectricShockActive}, flags=${actor.ContactFlags:x2}, collision={actor.CollisionEnabled}, inv={player.InvincibilityFrames}.");
                 adapter.HandleLinkContact(player);
-                FailIf(player.HealthQuarters != health-damage, "Pending Smog contact must not apply twice.");
+                FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (damage == 4 ? 0xf8 : damage == 2 ? 0xfc : 0), "Pending Smog contact must not apply twice.");
             }
             finally { actor.Free(); player.Free(); }
         }

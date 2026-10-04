@@ -154,9 +154,10 @@ public sealed partial class ValidationRoot
             int health = _inventory.HealthQuarters;
             Step(press: useHook);
             if (useHook) FailIf(target.State != 3, "Overlapping hook failed to catch Gibdo in the late collision pass.");
-            return health - _inventory.HealthQuarters;
+            FailIf(_inventory.HealthQuarters != health, "Post-object Gibdo contact must defer health to the next Link update.");
+            return _player.PendingContactDamageRaw & 0xff;
         }
-        FailIf(ContactPriority(false) != 4 || ContactPriority(true) != 0,
+        FailIf(ContactPriority(false) != 0xf8 || ContactPriority(true) != 0,
             "An accepted weapon collision must skip this enemy's Link contact in the same update.");
 
         gibdo = Prepare();

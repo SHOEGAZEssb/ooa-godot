@@ -22,6 +22,12 @@ internal sealed class SideViewRom
     internal int RandomCalls => _rom.RandomCalls;
     internal int InitialRandomCalls { get; }
 
+    internal void ApplyLinkDamage(byte rawDamage)
+    {
+        this[0xd025] = rawDamage;
+        CallLink(0x46bb, 6); // linkApplyDamage, after the declared contact caller.
+    }
+
     internal SideViewRom(OracleSaveData save, OracleRandomState random,
         OracleRoomData room, Vector2 position, int frameCounter)
     {

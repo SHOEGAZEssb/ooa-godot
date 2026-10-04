@@ -51,5 +51,41 @@ public sealed partial class ValidationRoot
             player.Free();
         }
         GD.Print($"Validated {cases} ROM shared damage/ring arithmetic and repeated-hit cases.");
+        foreach (int boundary in new[] { 0, 1, 2, 3 })
+        {
+            var player = new Player();
+            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+            player.Initialize(new ValidationRingPlayerWorld(), inventory, new(80, 64), new OracleRandom());
+            try
+            {
+                int health = player.HealthQuarters;
+                FailIf(!player.ApplyEnemyContactDamage(new(88, 64), 2), "Reset fixture did not publish a contact.");
+                var rom = new LinkCollisionRom();
+                rom[0xd025] = 0xfc; rom[0xd02a] = 0x80;
+                switch (boundary)
+                {
+                    case 0:
+                        player.ResetPortalDamageState();
+                        rom.Call(0x2ba9, bank: 0); // resetLinkInvincibility.
+                        break;
+                    case 1:
+                        player.ResetDeathAnimationForRoomLoad();
+                        rom.Call(0x35ba, bank: 0); // clearLinkObject; loadingRoom clears WRAM bank1.
+                        break;
+                    case 2:
+                        player.WarpTo(new(88, 64));
+                        rom.Call(0x35ba, bank: 0); // Full replacement, not coordinate-only scrolling.
+                        break;
+                    case 3:
+                        player.BeginScrollingTransition(new(88, 64));
+                        player.FinishScrollingTransition(new(96, 64));
+                        break; // Native transition adjusts coordinate bytes; it does not clear Link.
+                }
+                FailIf((player.PendingContactDamageRaw & 0xff) != rom[0xd025] ||
+                    player.NativeContactSignal != (rom[0xd02a] != 0) || player.HealthQuarters != health,
+                    $"Contact reset boundary {boundary} differs from native pending damage/signal lifetime.");
+            }
+            finally { player.Free(); }
+        }
     }
 }

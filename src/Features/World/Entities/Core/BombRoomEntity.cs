@@ -6,7 +6,7 @@ namespace oracleofages;
 internal sealed class BombRoomEntity(BombEffect bomb)
     : RoomEntityAdapter<BombEffect>(
         bomb, bomb.SetTransitionDrawOffset),
-        IFixedRoomEntity, IBombExplosionRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IBombExplosionRoomEntity, IRoomEntityLifetime, IHeldObjectPositionRoomEntity
 {
     internal BombEffect Bomb => Entity;
     public bool Finished => Entity.Finished;
@@ -15,6 +15,8 @@ internal sealed class BombRoomEntity(BombEffect bomb)
     public int CollisionZ => Entity.CollisionZ;
     public int CollisionZRadius => Entity.ExplosionRadius;
     public int Damage => Entity.Damage;
+
+    public void UpdateHeldPosition(Player player) => Entity.UpdateHeldPosition(player);
 
     public void UpdateFrame(
         RoomEntityFrame frame,

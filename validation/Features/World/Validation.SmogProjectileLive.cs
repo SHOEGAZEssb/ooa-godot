@@ -85,11 +85,11 @@ public partial class ValidationRoot
                         "PART$4a must remain harmless while its invincibility counter is nonzero.");
                     continue;
                 }
-                FailIf(_player.HealthQuarters != health - 1 || shot.ContactFlags != 0x80 || shot.State != 1 ||
+                FailIf(_player.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xfe || shot.ContactFlags != 0x80 || shot.State != 1 ||
                     _player.InvincibilityFrames != 34,
-                    "PART$4a effect02 must damage Link by one quarter-heart and defer small destruction until the next native update.");
+                    "PART$4a effect02 must publish raw damage $fe and defer health and small destruction until the next native update.");
                 Step();
-                FailIf(shot.State != (subid == 0 ? 2 : 1) || shot.PendingCollision,
+                FailIf(_player.HealthQuarters != health - 1 || _player.PendingContactDamageRaw != 0 || shot.State != (subid == 0 ? 2 : 1) || shot.PendingCollision,
                     "Small projectile consumes Link contact next update; large projectile ignores it and clears the pending bit.");
             }
         }

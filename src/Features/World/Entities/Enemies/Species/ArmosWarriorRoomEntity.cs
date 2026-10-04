@@ -146,7 +146,7 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
             Entity.MarkContact(); // ENEMYDMG_1c writes var2a, preserving invincibility.
             return;
         }
-        if (player.AcceptsRoomEntityContact && Player.EnemyCollisionOverlaps(player.EnemyContactPosition, Entity.CollisionBounds))
+        if (player.OverlapsEnemyCollision(Entity.CollisionBounds))
         {
             player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters);
             Entity.MarkContact();

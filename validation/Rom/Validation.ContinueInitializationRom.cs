@@ -48,8 +48,17 @@ public sealed partial class ValidationRoot
             int health = _inventory.HealthQuarters;
             FailIf(invincibility[0xd02b] != 0 || _player.InvincibilityFrames != 0 ||
                 !_player.ApplyEnemyContactDamage(_player.Position + new Vector2(8, 0), 1) ||
-                _inventory.HealthQuarters != health - 1,
+                _inventory.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xfe,
                 "Continue did not become vulnerable on original object update 120.");
+            invincibility[0xc6aa] = (byte)health;
+            invincibility[0xc6ab] = (byte)_inventory.MaxHealthQuarters;
+            invincibility[0xc6cb] = (byte)_inventory.ActiveRing;
+            invincibility[0xd029] = 1; invincibility[0xd025] = 0xfe;
+            invincibility.Call(LinkCollisionRom.DamageRings, bank: 6);
+            invincibility.Call(LinkCollisionRom.ApplyDamage, bank: 6);
+            application.Step(1, Vector2.Zero, batched: batched);
+            FailIf(_inventory.HealthQuarters != invincibility[0xc6aa] || _player.PendingContactDamageRaw != 0,
+                "Continue's accepted contact did not commit original pending damage on the next Link update.");
             FailIf(_saveWriteRequests != 0, "Continue initialization/protection wrote a save.");
         }
         GD.Print("Validated clean-US Continue initializeGame remembered-companion bytes, $88 non-flashing protection, separate first object dispatch, all 120 counter updates and resumed damage in split/batched application updates.");

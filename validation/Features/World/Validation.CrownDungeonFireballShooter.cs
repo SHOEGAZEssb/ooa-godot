@@ -219,7 +219,7 @@ public partial class ValidationRoot
             int health = player.HealthQuarters;
             fire.UpdateFrame(frame); fire.HandleLinkContact(player);
             bool protectedByRing = partId == 0x19 && ring == RingId.BlueHoly;
-            FailIf(player.HealthQuarters != health - (protectedByRing ? 0 : 2) || fire.Finished,
+            FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (protectedByRing ? 0 : 0xfc) || fire.Finished,
                 $"PART ${partId:x2} ring ${((int)ring):x2} lost its native collision mode or delayed deletion.");
             fire.UpdateFrame(frame);
             FailIf(!fire.Finished, $"PART ${partId:x2} must delete after contact status, including ring protection.");

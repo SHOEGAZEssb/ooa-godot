@@ -29,6 +29,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     private Func<int, int?> _decideBreakableDrop = null!;
     private Func<Vector2I, int?>? _linkedRoomNeighbor;
     private Player? _heldBy;
+    private Vector2I _heldOffset;
     private Action<BombEffect>? _heldExplosion;
     private AnimationFrameDefinition[] _fuseFrames = null!;
     private AnimationFrameDefinition[] _explosionFrames = null!;
@@ -171,10 +172,13 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (_state != BombState.Held || !ReferenceEquals(_heldBy, player))
             return;
+        _heldOffset = offset;
         CopyHeldPosition(player, offset);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
+
+    internal void UpdateHeldPosition(Player player) => SetHeldOffset(player, _heldOffset);
 
     internal void Throw(
         Player player,

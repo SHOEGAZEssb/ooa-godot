@@ -118,13 +118,13 @@ public sealed partial class ValidationRoot
         _player.WarpTo(contactPoint);
         int health = _inventory.HealthQuarters;
         Step();
-        FailIf(_inventory.HealthQuarters != health - 4 || !contactBat.Lit || _entities.Entities<KeeseFirePart>().Count != 0,
+        FailIf(_inventory.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xf8 || !contactBat.Lit || _entities.Entities<KeeseFirePart>().Count != 0,
             "Fire Keese contact must apply four-quarter damage and leave fire shedding pending until its next enemy dispatch.");
         Vector2 copiedPosition = OracleObjectMath.ToPixelPosition(contactBat.Position);
         int copiedZ = contactBat.ZFixed >> 8;
         Step();
         var fire = _entities.Entities<KeeseFirePart>().Single();
-        FailIf(contactBat.Lit || fire.Counter != 180 || fire.Position != copiedPosition || fire.ZHigh != copiedZ || !fire.Visible,
+        FailIf(_inventory.HealthQuarters != health - 4 || _player.PendingContactDamageRaw != 0 || contactBat.Lit || fire.Counter != 180 || fire.Position != copiedPosition || fire.ZHigh != copiedZ || !fire.Visible,
             "Fire Keese must copy only high XYZ to a newly allocated part and run part state0 in the same update.");
         _player.WarpTo(contactPoint);
         Step(179);
@@ -141,7 +141,7 @@ public sealed partial class ValidationRoot
         contactPlayer.Initialize(contactWorld, contactInventory, contactPoint, new OracleRandom());
         health = contactInventory.HealthQuarters;
         hazard.HandleLinkContact(contactPlayer);
-        FailIf(contactInventory.HealthQuarters != health - 2 || contactPlayer.InvincibilityFrames != 25 || contactPlayer.KnockbackFrames != 7,
+        FailIf(contactInventory.HealthQuarters != health || (contactPlayer.PendingContactDamageRaw & 0xff) != 0xfc || contactPlayer.InvincibilityFrames != 25 || contactPlayer.KnockbackFrames != 7,
             "PART_FIRE contact must use LINKDMG_00's25 invincibility/7 knockback updates and two-quarter damage.");
         hazard.Free();
         contactInventory.GiveTreasure(TreasureId.Shield, 3);

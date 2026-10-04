@@ -46,7 +46,7 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
             base.HandleLinkContact(player);
             return;
         }
-        if (Entity.StunCounter == 0 && player.OverlapsEnemyCollision(Entity.CollisionBounds) &&
+        if (Entity.StunCounter == 0 && player.OverlapsEnemyCollision(Entity.CollisionBounds, CollisionZ) &&
             player.ApplyEnemyContactDamage(Entity.Position, Entity.DamageQuarters))
             Entity.NotifyLinkCollision();
     }

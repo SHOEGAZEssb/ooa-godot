@@ -18,6 +18,10 @@ internal sealed class SomariaRom
     internal int[] Blocks => Enumerable.Range(0xd7, 5).Select(page => page << 8)
         .Where(slot => this[slot] != 0 && this[slot + 1] == 0x18).ToArray();
     internal int Word(int address) => _rom.Word(address);
+    internal void Word(int address, int value)
+    {
+        this[address] = (byte)value; this[address + 1] = (byte)(value >> 8);
+    }
     internal byte Underlying(int packed) => _rom.BankByte(3, 0xdf00 + packed);
     internal MenuRom CreateMenuView() => new(_rom);
     internal void AdvanceDeathPrelude() => _rom.UpdateDeathPrelude();
@@ -53,6 +57,7 @@ internal sealed class SomariaRom
         for (int address = 0xc5b0; address < 0xcb00; address++) this[address] = save.ReadWramByte(address);
         this[0xff94] = random.Rng1; this[0xff95] = random.Rng2;
         this[0xcc2b] = 0xff;
+        this[0xcc2c] = 0xd0;
         this[0xcc2d] = (byte)room.Group; this[0xcc30] = (byte)room.Id; this[0xcc2e] = 1;
         this[0xcc33] = (byte)room.ActiveCollisions; this[0xcc34] = room.TilesetFlags;
         this[0xcc86] = (byte)room.Height; this[0xcc87] = (byte)room.Width;
@@ -75,11 +80,18 @@ internal sealed class SomariaRom
         if (this[0xcba0] == 0 && (this[0xcc8a] & 0x81) == 0)
             _rom.Call(0x48b3, 6); // checkUseItems, including parent pass.
         _rom.Call(0x4872, 7); // updateItems: initialized children obey native freeze gates.
+        _rom.Call(0x3616, 0); // bank0.setEnemyTargetToLinkPosition, before later object phases.
         _rom.Call(0x3b36, 0); // updateInteractions, including block-deletion puffs.
         _rom.Call(0x491a, 7); // updateItemsPost: runs even while parents/items are frozen.
     }
 
     internal void ClearPhysicalItems() => _rom.Call(0x19ad, 0);
+    internal void AdvanceTileGraphics()
+    {
+        // updateAllObjects tail, after the previous VBlank consumed commands.
+        this[0xffa5] = 0;
+        _rom.Call(0x6c32, 4); // tilesets.updateChangedTileQueue, at most four entries.
+    }
     internal void ClearItemParents() => _rom.Call(0x4878, 6); // clearAllParentItems_body.
     internal void DeleteDynamicItem(int slot)
     {
@@ -140,6 +152,7 @@ internal sealed class SomariaRom
         // state3 republishes later in this update, including after a push.
         for (int address = 0xcc74; address < 0xcc84; address++) this[address] = 0;
         _rom.Call(0x4872, 7);
+        _rom.Call(0x3616, 0); // updateAllObjects publishes the post-Link target before interactions.
         if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.
         _rom.Call(0x3b36, 0);
         if ((this[0xcc5a] & 0x80) != 0) _rom.Call(0x54df, 6);

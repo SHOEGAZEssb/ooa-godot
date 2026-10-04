@@ -2696,7 +2696,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(swoop.Position, recordSafe: false);
             Step();
             int z = swoop.ZFixed >> 8;
-            if (_player.HealthQuarters == swoopContactHealth)
+            if (_player.PendingContactDamageRaw == 0)
             {
                 FailIf(
                     z >= -7 &&
@@ -2707,9 +2707,10 @@ public sealed partial class ValidationRoot
             }
             firstContactZ = z;
         }
+        FailIf(_player.HealthQuarters != swoopContactHealth || (_player.PendingContactDamageRaw & 0xff) != 0xfc,
+            "Swoop $71 must publish raw damage $fc before the next Link update.");
         FailIf(
             firstContactZ < -7 ||
-            _player.HealthQuarters != swoopContactHealth - 2 ||
             _sound.PlayRequestsFor(SoundId.SndDamageLink) !=
                 swoopDamageSounds + 1 ||
             !swoop.OverlapsLinkAtCollisionHeight(
@@ -2721,6 +2722,10 @@ public sealed partial class ValidationRoot
             "Swoop $71 did not apply one half-heart hit inside the signed " +
             "$07 Z window and strict combined 16-pixel X/Y boundary " +
             $"(first contact zh={firstContactZ}).");
+        StepGameplayUpdates(1, Vector2.Zero);
+        FailIf(_player.HealthQuarters != swoopContactHealth - 2 || _player.PendingContactDamageRaw != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndDamageLink) != swoopDamageSounds + 1,
+            $"Swoop $71 contact must commit its half-heart damage on the next Link update without repeating contact: HP {_player.HealthQuarters}/{swoopContactHealth - 2}, raw=${_player.PendingContactDamageRaw & 0xff:x2}, cues={_sound.PlayRequestsFor(SoundId.SndDamageLink)}/{swoopDamageSounds + 1}.");
 
         // The $af object-GFX header chains $b0. Animation 2 remains frozen on
         // OAM frame $06 during descent; the first grounded animate call moves

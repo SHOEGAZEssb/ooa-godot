@@ -580,7 +580,12 @@ internal sealed class RoomEntityFactory
                         record, room, Resources.DungeonInteractions, _random, _runtimeState, owner.OnRoomTileChanged, _animationTick),
                     DungeonObjectKind.LeverLavaFiller => new LeverLavaFillerRoomEntity(
                         room, Resources.LeverLava.Script(record.SubId), new LeverState(_runtimeState, WramAddress.wLever1PullDistance),
-                        _random, owner.OnSoundRequested, owner.OnRoomTileChanged, _animationTick),
+                        _random, owner.OnSoundRequested, (position, tile) =>
+                        {
+                            if (rooms is null || !ReferenceEquals(rooms.CurrentRoom, room))
+                                throw new InvalidOperationException($"INTERAC $d8 lost its active room at {record.Source}.");
+                            if (rooms.TrySetTile(position, tile)) owner.OnRoomTileChanged();
+                        }),
                     DungeonObjectKind.FloorPatternTrigger => new DungeonPatternTriggerRoomEntity(
                         room, Resources.DungeonInteractions.Constant("red-toggle-floor"), Resources.SkullDungeon.Pattern(record.SubId), owner.SetTrigger),
                     DungeonObjectKind.FloorPatternKey => new DungeonPatternKeyRoomEntity(

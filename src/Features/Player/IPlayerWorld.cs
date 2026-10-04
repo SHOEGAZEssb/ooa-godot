@@ -19,6 +19,7 @@ public interface IPlayerWorld
     bool ItemUsageDisabled { get; }
     bool MovementDisabled { get; }
     bool PlayerUpdatesFrozen => false;
+    bool NativePaletteChanging => false;
     bool LinkDisabled => false;
     bool RingTransformationsAllowed { get; }
     bool RidingObject { get; }

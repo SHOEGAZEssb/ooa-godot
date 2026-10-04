@@ -192,7 +192,7 @@ public partial class ValidationRoot
             beam = new BeamosBeamPart(new(player.Position, ObjectAngle.Right, 0), data, room);
             beam.UpdateFrame(0);
             beam.HandleLinkContact(player);
-            FailIf(player.HealthQuarters != health - (ring ? 1 : 2) || beam.Finished,
+            FailIf(player.HealthQuarters != health || (player.PendingContactDamageRaw & 0xff) != (ring ? 0xfe : 0xfc) || beam.Finished,
                 "$29 effect $3c must damage Link, halve damage for Blue Luck Ring and preserve the segment.");
             beam.Free();
             player.Free();

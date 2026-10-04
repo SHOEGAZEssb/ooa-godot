@@ -97,7 +97,7 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
             _pendingCollision = true;
             return;
         }
-        if (!player.AcceptsRoomEntityContact || player.InvincibilityFrames != 0 ||
+        if (!player.PatchCollisionsEnabled || player.InvincibilityFrames != 0 ||
             !player.OverlapsEnemyCollision(CollisionBounds)) return;
         if (RingEffects.PreventsDamage(player.Inventory, _damageSource))
             _healthCleared = true; // collisionEffect3c destroys $19 for Blue Holy Ring.

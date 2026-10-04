@@ -77,6 +77,7 @@ public sealed class BraceletController
     /// Creates the held-input Bracelet parent for the equipped button. A press
     /// is consumed even when Link is not yet touching a wall; state 0 keeps
     /// looking until that same button is released.
+    /// Returns whether the initialized parent immobilizes Link this update.
     /// </summary>
     public bool TryUse(Player player, bool primaryButton)
     {
@@ -96,8 +97,12 @@ public sealed class BraceletController
                 _leverParentReady = false;
                 _leverAnimationPhase = 0;
                 _leverAnimationCounter = _record.LeverInitialFrames;
-                player.SetBraceletLiftCollisionsDisabled(true);
+                // linkState01@notInAir restores collisionType bit 7 after
+                // checkUseItems, including the lever's $c2/$83 grab states.
+                // The lever has no lifted child requiring collision suppression.
+                player.SetBraceletLiftCollisionsDisabled(false);
                 _state = BraceletState.PullingInteraction;
+                _playSound(_record.PickupSound);
                 return true;
             }
             if (!wasCarrying && player.IsCarryingObject)
@@ -110,8 +115,9 @@ public sealed class BraceletController
         _primaryButton = primaryButton;
         _state = BraceletState.SeekingWall;
         _counter = 0;
-        TryBeginWallGrab(player);
-        return true;
+        // State0 with no grab only writes wBraceletGrabbingNothing. Link
+        // still reaches movement/standing animation on this allocation update.
+        return TryBeginWallGrab(player);
     }
 
     /// <summary>
@@ -207,7 +213,7 @@ public sealed class BraceletController
 
             case BraceletState.Holding:
                 UpdateHeldPosition(player);
-                if (itemButtonJustPressed)
+                if (itemButtonJustPressed || player.NativeContactSignal)
                 {
                     Throw(player, movementInput);
                     AdvanceProjectile();

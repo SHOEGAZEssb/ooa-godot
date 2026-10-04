@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,15 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonLevers()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, Vector2 move = default, bool held = false, bool press = false) =>
             StepGameplayUpdates(count, move, held ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        void Wait(int count, bool batch, Vector2 move = default, bool held = false)
-        {
-            if (batch) Step(count, move, held);
-            else for (int i = 0; i < count; i++) Step(move: move, held: held);
-        }
-        byte[] Underlying() => (byte[])((byte[])typeof(OracleRoomData).GetField("_underlyingLayout", flags)!.GetValue(_currentRoom)!).Clone();
         // Independent transcription of leverLavaFiller.s group boundaries.
         // Subid $00 deliberately writes $88 twice; do not deduplicate it.
         var cases = new[] {
@@ -49,191 +41,60 @@ public sealed partial class ValidationRoot
             FailIf(profile.Behavior != new LeverBehavior(0x40, 0x0a, 5, 1, c.Sign > 0 ? 12 : -13, 16, 0x71, 0x6c) ||
                 !profile.Animation.Contains(c.Sign > 0 ? "8,0,0,0" : "8,0,0,64", StringComparison.Ordinal),
                 "INTERAC_LEVER lost its upward/downward animation, source offsets, speed, length, or sounds.");
-            var initialRandom = CaptureOracleRandomForValidation();
-            (string Layout, int Calls, Vector2 Link) Run(bool batch)
+            // Native lever/lava lifecycle is covered by ValidateBraceletLeverRom.
+            // Retain independent import goldens, wall gating and room cancellation.
+            LoadValidationRoom(4, c.Room);
+            _player.WarpTo(new Vector2(c.X, c.Y + 32 * c.Sign));
+            _inventory.RefillHealth();
+            for (int i = 0; i < 16 && _entities.Entities<EnemyCharacter>().Any(enemy => enemy is not SparkCharacter && enemy.Health > 0); i++)
             {
-                RestoreOracleRandomForValidation(initialRandom);
-                LoadValidationRoom(4, c.Room);
-                _player.WarpTo(new Vector2(c.X, c.Y + 32 * c.Sign));
-                _inventory.RefillHealth();
-                // Isolate the mechanism after ordinary combat/death dispatch.
-                // Spark remains active: its native wall movement consumes no RNG.
-                for (int i = 0; i < 16 && _entities.Entities<EnemyCharacter>().Any(enemy => enemy is not SparkCharacter && enemy.Health > 0); i++)
-                {
-                    _entities.ApplySwordHit(new Rect2(Vector2.Zero, new Vector2(_currentRoom.Width, _currentRoom.Height)), _player.Position, damage: 0x7f);
-                    Step(40);
-                }
-                FailIf(_entities.Entities<EnemyCharacter>().Any(enemy => enemy is not SparkCharacter && enemy.Health > 0),
-                    $"4:{c.Room:x2} could not establish the cleared ordinary-enemy lever fixture.");
-                Step();
-                var lever = _entities.Entities<LeverRoomEntity>().Single();
-                var connection = _entities.Entities<LeverConnectionRoomEntity>().Single();
-                var lava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();
-                FailIf(lever.Position != new Vector2(c.X, c.Y) || lever.PullDistance != 0 || lava.State != 1 ||
-                    _entities.RuntimeState.ReadWramByte(WramAddress.wLever2PullDistance) != 0,
-                    "Room initialization retained a stale shared lever signal or lava phase.");
-                byte[] sourceLayout = (byte[])_currentRoom.Layout.Clone();
-                byte[] sourceUnderlying = Underlying();
-                Vector2 pullDirection = Vector2.Down * c.Sign;
-                void Grab(bool releaseDuringInitialization = false)
-                {
-                    Step(80, -pullDirection);
-                    FailIf(_currentRoom.IsSolid(_player.Position), "Lever approach put Link inside native solid room geometry.");
-                    Step(held: true, press: true);
-                    FailIf(!lever.Grabbed || _bracelet.State != BraceletState.PullingInteraction ||
-                        _player.Position != new Vector2(c.X, lever.Position.Y + (c.Sign > 0 ? 12 : -13)),
-                        $"4:{c.Room:x2} actual bracelet input could not grab from its collision-limited approach; Link={_player.Position}, lever={lever.Position}, bracelet={_bracelet.State}.");
-                    Step(held: !releaseDuringInitialization);
-                    FailIf(!lever.Grabbed || lever.PullDistance != 0,
-                        "Bracelet state 2 checked the item button or moved the lever before loading state 5's LIFT_2 animation.");
-                    FailIf(!_player.BraceletLiftCollisionsDisabled ||
-                        _player.ApplyEnemyContactDamage(_player.Position + Vector2.Left * 16, 1),
-                        "Bracelet's lever branch re-enabled Link collisions before the held parent was released.");
-                }
-                Grab(releaseDuringInitialization: true);
-                if (c.Sign > 0)
-                {
-                    Vector2 wall = new(c.X, 0x28);
-                    byte tile = _currentRoom.GetMetatile(wall);
-                    _currentRoom.SetPositionTileAndCollision(wall, tile, 0x0f, 0);
-                    Wait(8, batch, pullDirection, held: true);
-                    FailIf(lever.PullDistance != 0 || _player.Position.Y != 0x1c,
-                        "Lever bypassed updateLinkPositionGivenVelocity's adjacent-wall collision gate.");
-                    _currentRoom.SetPositionTileAndCollision(wall, tile, null, 0);
-                    Step(held: true);
-                }
-                Wait(8, batch, pullDirection, held: true);
-                int partial = lever.PullDistance;
-                Wait(8, batch, held: true);
-                FailIf(partial != 2 || lever.PullDistance != partial || lava.State != 1,
-                    "Partial/pause pull changed the lava signal or failed to retain the lever position.");
-                Step();
-                FailIf(lever.PullDistance != partial || lever.Grabbed || _player.BraceletLiftCollisionsDisabled,
-                    "Release must restore Link collisions and change lever state before retraction starts.");
-                Wait(8, batch);
-                FailIf(lever.PullDistance != 0 || lever.Position.Y != c.Y || lava.State != 1,
-                    "A partial pull did not retract without starting the lava script.");
-                for (int cycle = 0; cycle < 2; cycle++)
-                {
-                    Grab();
-                    int moveSounds = _sound.PlayRequestsFor(SoundId.SndMoveBlock);
-                    int fullSounds = _sound.PlayRequestsFor(SoundId.SndOpenChest);
-                    int solveSounds = _sound.PlayRequestsFor(SoundId.SndSolvePuzzle);
-                    // Six 20-update rests occur before reaching 256/253
-                    // quarter-pixel movement updates (down/up respectively).
-                    int pullUpdates = c.Sign > 0 ? 376 : 373;
-                    Wait(40, batch, pullDirection, held: true);
-                    FailIf(lever.PullDistance != 10, "LIFT_2 first pull phase did not advance exactly ten pixels.");
-                    Wait(20, batch, pullDirection, held: true);
-                    FailIf(lever.PullDistance != 10, "Lever moved during LIFT_2's 20-update rest while direction stayed held.");
-                    Wait(pullUpdates - 61, batch, pullDirection, held: true);
-                    FailIf(lever.PullDistance != 0x3f || lava.State != 1,
-                        $"4:{c.Room:x2} full-extension flag arrived before update {pullUpdates}; distance={lever.PullDistance:x2}.");
-                    Step(move: pullDirection, held: true);
-                    FailIf(lever.PullDistance != 0xc0 || lever.Position.Y != c.Y + c.Sign * 64 || connection.Phase != 4 ||
-                        connection.Position != new Vector2(c.X, c.Y + c.Sign * 32) || lava.State != 2 || lava.Counter != 30,
-                        "Lever full flag/connection and the following $d8 dispatch did not share the exact completion update.");
-                    FailIf(_sound.PlayRequestsFor(SoundId.SndMoveBlock) != moveSounds + 7 ||
-                        _sound.PlayRequestsFor(SoundId.SndOpenChest) != fullSounds + 1 ||
-                        _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != solveSounds + 1,
-                        "Pull/rest animation did not reset the move-sound latch, or full extension lost its ordered open/solve sounds.");
-                    var textSource = _entities.TextActiveSource;
-                    try
-                    {
-                        _entities.TextActiveSource = () => true;
-                        Wait(5, batch, held: true);
-                        FailIf(lava.Counter != 30 || lava.State != 2 || lever.PullDistance != 0xc0,
-                            "Initialized lever/lava advanced during text-active interaction freeze.");
-                    }
-                    finally { _entities.TextActiveSource = textSource; }
-                    for (int i = 0; i < c.SourceCount; i++)
-                        FailIf(_currentRoom.Layout[c.Source + i] != sourceLayout[c.Source + i] + 6 ||
-                            Underlying()[c.Source + i] != sourceUnderlying[c.Source + i],
-                            "Lava-source visual toggle changed the wrong tiles or the underlying buffer.");
-                    byte[] expected = (byte[])_currentRoom.Layout.Clone();
-                    byte[] expectedUnderlying = Underlying();
-                    for (int g = 0; g < groups.Length; g++)
-                    {
-                        Wait((g == 0 ? 30 : c.Interval) - 1, batch, held: true);
-                        FailIf(!_currentRoom.Layout.SequenceEqual(expected), "Lava drying group ran before its exact counter boundary.");
-                        Step(held: true);
-                        foreach (int p in groups[g]) { expected[p] = 1; expectedUnderlying[p] = 1; }
-                        FailIf(!_currentRoom.Layout.SequenceEqual(expected) || !Underlying().SequenceEqual(expectedUnderlying),
-                            $"4:{c.Room:x2} drying group {g} did not preserve its source positions and both buffers.");
-                    }
-                    Wait(c.Interval - 1, batch, held: true);
-                    FailIf(lava.State != 2, "Lava skipped the final empty-group delay.");
-                    Step(held: true);
-                    FailIf(lava.State != 3 || lava.Counter != c.Interval, "Empty drying group did not enter the retraction wait with counter2 retained.");
-                    Wait(8, batch, held: true);
-                    FailIf(lava.State != 3, "Dried floor refilled while Link still held the full lever.");
-                    Step();
-                    FailIf(lever.PullDistance != 0xc0, "Release retracted the lever on the state-change update.");
-                    Step(3);
-                    FailIf(lever.PullDistance != (c.Sign > 0 ? 0x3f : 0xc0),
-                        "Upward retraction lost the full-distance flag before fractional Y crossed its first pixel.");
-                    FailIf(_sound.PlayRequestsFor(SoundId.SndOpenChest) != fullSounds + (c.Sign > 0 ? 1 : 4),
-                        "Upward retraction did not replay updatePullOffset's full-extension sound on its first three fractional updates.");
-                    int retractUpdates = c.Sign > 0 ? 253 : 256;
-                    Wait(retractUpdates - 4, batch);
-                    FailIf(lever.PullDistance == 0 || lava.State != 3, "Lava refilled before the lever returned to its native zero byte.");
-                    Step();
-                    FailIf(lever.PullDistance != 0 || lava.State != 4 || lava.Counter != c.Interval,
-                        "The first zero pull-byte dispatch did not start lava refill with the retained interval.");
-                    for (int i = 0; i < c.SourceCount; i++) expected[c.Source + i] = sourceLayout[c.Source + i];
-                    // Independently execute bank0 getRandomNumber arithmetic,
-                    // including the repeated $88 write, without using the imported script.
-                    var before = _random.CaptureState();
-                    int rng1 = before.Rng1, rng2 = before.Rng2, calls = before.Calls;
-                    for (int g = 0; g < groups.Length; g++)
-                    {
-                        Wait(c.Interval - 1, batch);
-                        FailIf(!_currentRoom.Layout.SequenceEqual(expected), "Lava refill group ran before its source counter boundary.");
-                        foreach (int p in groups[g])
-                        {
-                            rng2 = ((((rng2 << 8) | rng1) * 3) & 0xffff) >> 8;
-                            rng1 = (rng1 + rng2) & 0xff;
-                            expected[p] = expectedUnderlying[p] = (byte)(0x61 + (rng1 & 3));
-                            calls++;
-                        }
-                        Step();
-                        FailIf(!_currentRoom.Layout.SequenceEqual(expected) || !Underlying().SequenceEqual(expectedUnderlying) ||
-                            _random.Calls != calls,
-                            $"4:{c.Room:x2} refill group {g} lost ordered RNG consumption or tile buffers; calls={_random.Calls}/{calls}.");
-                    }
-                    Wait(c.Interval, batch);
-                    FailIf(lava.State != 1, "Final empty lava group did not return the mechanism to its repeatable waiting state.");
-                }
-                var result = (Convert.ToHexString(_currentRoom.Layout), _random.Calls, _player.Position);
-                Grab();
-                Wait(c.Sign > 0 ? 376 : 373, batch, pullDirection, held: true);
-                Wait(30, batch, held: true);
-                FailIf(lava.State != 2 || lava.Cursor != groups[0].Length + 1,
-                    "Could not establish an active lava-script cancellation after its first drying group.");
-                LoadValidationRoom(4, 0x91);
-                Step();
-                FailIf(_entities.Entities<LeverRoomEntity>().Count != 0 || _entities.Entities<LeverLavaFillerRoomEntity>().Count != 0 ||
-                    _entities.RuntimeState.ReadWramByte(WramAddress.wLever1PullDistance) != 0,
-                    "Leaving a lever room retained its controllers or shared pull byte.");
-                LoadValidationRoom(4, c.Room);
-                var reenteredLava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();
-                var textSourceOnEntry = _entities.TextActiveSource;
-                try
-                {
-                    _entities.TextActiveSource = () => true;
-                    Step();
-                    FailIf(reenteredLava.State != 1 || reenteredLava.Cursor != 0 ||
-                        _entities.Entities<LeverRoomEntity>().Single().PullDistance != 0 ||
-                        !_currentRoom.Layout.SequenceEqual(sourceLayout),
-                        "Lava state zero did not initialize under text, or re-entry retained cancelled tiles, script position, or pull signal.");
-                }
-                finally { _entities.TextActiveSource = textSourceOnEntry; }
-                return result;
+                _entities.ApplySwordHit(new Rect2(Vector2.Zero, new Vector2(_currentRoom.Width, _currentRoom.Height)), _player.Position, damage: 0x7f);
+                Step(40);
             }
-            var single = Run(false);
-            var batched = Run(true);
-            FailIf(single != batched, $"4:{c.Room:x2} individual and batched application updates diverged across two lever/lava cycles.");
+            FailIf(_entities.Entities<EnemyCharacter>().Any(enemy => enemy is not SparkCharacter && enemy.Health > 0),
+                $"Room $4:${c.Room:x2} could not establish the cleared lever fixture.");
+            Step();
+            var lever = _entities.Entities<LeverRoomEntity>().Single();
+            var lava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();
+            byte[] sourceLayout = (byte[])_currentRoom.Layout.Clone();
+            Vector2 pullDirection = Vector2.Down * c.Sign;
+            Step(24, -pullDirection);
+            Step(held: true, press: true); Step(held: true);
+            FailIf(!lever.Grabbed, $"Room $4:${c.Room:x2} could not grab the lever through its collision approach.");
+            if (c.Sign > 0)
+            {
+                Vector2 wall = new(c.X, 0x28);
+                byte tile = _currentRoom.GetMetatile(wall);
+                _currentRoom.SetPositionTileAndCollision(wall, tile, 0x0f, 0);
+                Step(8, pullDirection, held: true);
+                FailIf(lever.PullDistance != 0 || _player.Position.Y != 0x1c,
+                    "Lever bypassed updateLinkPositionGivenVelocity's adjacent-wall collision gate.");
+                _currentRoom.SetPositionTileAndCollision(wall, tile, null, 0);
+            }
+            Step();
+            Step(24, -pullDirection);
+            Step(held: true, press: true); Step(held: true);
+            int remaining = 400;
+            while ((lever.PullDistance & 0x80) == 0 && remaining-- > 0) Step(move: pullDirection, held: true);
+            FailIf(lava.State != 2, "Full lever failed to hand off to the lava script.");
+            Step(30, held: true);
+            FailIf(lava.Cursor != groups[0].Length + 1, "Could not establish cancellation after the first drying group.");
+            LoadValidationRoom(4, 0x91); Step();
+            FailIf(_entities.Entities<LeverRoomEntity>().Count != 0 || _entities.Entities<LeverLavaFillerRoomEntity>().Count != 0 ||
+                _runtimeState.ReadWramByte(WramAddress.wLever1PullDistance) != 0,
+                "Leaving a lever room retained controllers or its shared pull byte.");
+            LoadValidationRoom(4, c.Room);
+            var reenteredLava = _entities.Entities<LeverLavaFillerRoomEntity>().Single();
+            var textSource = _entities.TextActiveSource;
+            try
+            {
+                _entities.TextActiveSource = () => true; Step();
+                FailIf(reenteredLava.State != 1 || reenteredLava.Cursor != 0 ||
+                    _entities.Entities<LeverRoomEntity>().Single().PullDistance != 0 || !_currentRoom.Layout.SequenceEqual(sourceLayout),
+                    "State-zero lava initialization under text retained cancelled tiles, cursor or pull signal.");
+            }
+            finally { _entities.TextActiveSource = textSource; }
         }
-        GD.Print("Validated Skull levers/lava: source profiles and all ordered groups, actual collision approaches and bracelet input, partial/pause/repeat pulls, upward fractional timing, connection phases, drying/refill counters, both tile buffers, and shared ordered RNG under individual/batched application updates.");
+        GD.Print("Validated lever/lava independent import goldens, adjacent-wall pull gate and room cancellation/re-entry initialization.");
     }
 }

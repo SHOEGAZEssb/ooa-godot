@@ -7,7 +7,7 @@ namespace oracleofages;
 
 /// <summary>ITEM_DUST in reserved item F; two alternating clouds share one OAM object.</summary>
 internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly PegasusSeedState _pegasus;
     private readonly Image _source = EnemyVisualSource.LoadComposite(["spr_common_sprites"]);
@@ -26,6 +26,11 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
     { _pegasus = pegasus; Name = "PegasusDust_ItemF"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; }
     internal void Signal() => _subid = (_subid + 1) & 255;
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
+
+    // ITEM_DUST keeps Item.state=$00: updateItems admits it even when scroll,
+    // text, object or palette gates suppress initialized physical items.
+    void IAlwaysUpdateDuringScreenTransitionRoomEntity.UpdateDuringScreenTransition(RoomEntityFrame frame)
+        => UpdateFrame(frame, Array.Empty<RoomEntitySpawn>());
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

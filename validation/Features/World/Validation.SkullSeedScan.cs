@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
             }
             if (seed.HasPendingNativeCollision) Step();
             FailIf(seed.HasPendingNativeCollision || seed.State != EmberState.Dissipating || seed.AnimationFrame != 1 ||
-                _inventory.HealthQuarters != health - 2 || !body.JustHit || shield.JustHit,
+                _inventory.HealthQuarters != health || (_player.PendingContactDamageRaw & 0xff) != 0xfc || !body.JustHit || shield.JustHit,
                 "On the next update the item must consume its hit, and the body's ordinary Link collision must resume without a stale scan-suppression flag.");
             Step(8);
             FailIf(seed.Finished, "Pending Pegasus effect must survive eight subsequent item updates.");

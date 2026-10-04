@@ -6,7 +6,7 @@ namespace oracleofages;
 
 /// <summary>INTERAC_LEVER $61, shared upward/downward bracelet lever.</summary>
 internal sealed partial class LeverRoomEntity : NpcCharacter,
-    IRoomEntity, IFixedRoomEntity, IRoomBlocker,
+    IRoomEntity, IFixedRoomEntity,
     IBraceletPullInteractableRoomEntity
 {
     private readonly LeverState _state;
@@ -144,11 +144,14 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         if ((_state.PullDistance & 0x7f) != 0)
             Retract();
 
-        PreventPlayerPassing(frame.Player);
+        // lever.s uses objectPushLinkAwayOnCollision, with byte half-open
+        // overlap and SPEED_100 velocity, rather than a solid room blocker.
+        Player player = frame.Player;
+        if (Player.EnemyCollisionOverlaps(player.EnemyContactPosition, ObjectCollisionBounds))
+            player.AdvanceInteractionVelocity(0x28,
+                OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition));
         UpdateDrawPriority(frame.Player.Position);
     }
-
-    public bool BlocksLink(Vector2 linkCenter) => BlocksLinkCenter(linkCenter);
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);

@@ -13,8 +13,7 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
     private readonly LeverState _lever;
     private readonly OracleRandom _random;
     private readonly Action<int> _playSound;
-    private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
+    private readonly Action<byte, byte> _setTile;
     private int _cursor;
 
     public Node2D Node => this;
@@ -25,15 +24,14 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
     internal int Cursor => _cursor;
 
     internal LeverLavaFillerRoomEntity(OracleRoomData room, LeverLavaScript script, LeverState lever,
-        OracleRandom random, Action<int> playSound, Action roomTileChanged, Func<long> animationTick)
+        OracleRandom random, Action<int> playSound, Action<byte, byte> setTile)
     {
         _room = room;
         _script = script;
         _lever = lever;
         _random = random;
         _playSound = playSound;
-        _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
+        _setTile = setTile;
         Name = "LeverLavaFiller";
     }
 
@@ -108,9 +106,9 @@ internal sealed partial class LeverLavaFillerRoomEntity : Node2D, IRoomEntity, I
 
     private void SetTile(int packed, byte tile)
     {
-        _room.SetPositionTileAndCollision(new Vector2((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8),
-            tile, null, _animationTick());
-        _roomTileChanged();
+        // setTile may reject a full graphics queue. The script and preceding
+        // underlying-buffer write still advance in the original order.
+        _setTile(checked((byte)packed), tile);
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }

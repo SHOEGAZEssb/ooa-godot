@@ -18,6 +18,7 @@ internal sealed class HostileProjectileLifecycle
     private Vector2 _collisionRadii;
     private int _speedZ;
     private bool _shieldContactPending;
+    private bool _bodyContactPending;
     private bool _collisionEnabled = true;
     private OracleRuntimeState? _movementMemory;
 
@@ -60,6 +61,13 @@ internal sealed class HostileProjectileLifecycle
             return;
         ElapsedFrames++;
 
+        // PART $18/$1a consume var2a=$80 on their next eligible dispatch.
+        if (_bodyContactPending)
+        {
+            Finish();
+            return;
+        }
+
         // ENEMYDMG_$34 publishes var2a in the post-object scan. The
         // following eligible PART handler consumes it, even after release.
         if (_shieldContactPending)
@@ -80,15 +88,6 @@ internal sealed class HostileProjectileLifecycle
             case HostileProjectileState.Bouncing:
                 UpdateBounce();
                 return;
-        }
-
-        // Body damage retains its legacy dispatch until the damage publication
-        // and Link's following consumption are migrated together.
-        if (player.OverlapsEnemyCollision(CollisionBounds, ZFixed >> 8))
-        {
-            player.ApplyEnemyContactDamage(_entity.Position, _profile.DamageQuarters, _profile.DamageSource);
-            Finish();
-            return;
         }
 
         if (!WithinVisibleBoundary(player.Position))
@@ -133,7 +132,7 @@ internal sealed class HostileProjectileLifecycle
 
     internal void HandleLinkContact(Player player)
     {
-        if (Finished || !_collisionEnabled || _shieldContactPending ||
+        if (Finished || !_collisionEnabled || _shieldContactPending || _bodyContactPending ||
             !player.NativeObjectVulnerable ||
             !RoomEntityManager.ObjectCollisionZOverlaps(player.EnemyContactZ, ZFixed >> 8, 7))
             return;
@@ -142,6 +141,10 @@ internal sealed class HostileProjectileLifecycle
             _shieldContactPending = true;
             return;
         }
+        if (player.OverlapsEnemyCollision(CollisionBounds, ZFixed >> 8) &&
+            (RingEffects.PreventsDamage(player.Inventory, _profile.DamageSource) ||
+             player.ApplyEnemyContactDamage(_entity.Position, _profile.DamageQuarters, _profile.DamageSource)))
+            _bodyContactPending = true;
     }
 
     public bool DeflectWithSword()
